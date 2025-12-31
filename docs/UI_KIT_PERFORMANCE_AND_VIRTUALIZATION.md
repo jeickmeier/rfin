@@ -18,13 +18,13 @@ Large data tables use TanStack Virtual for efficient rendering:
 // components/tables/VirtualDataTable.tsx
 import { useVirtualizer } from '@tanstack/react-virtual';
 
-export function VirtualDataTable<T>({ 
-  data, 
+export function VirtualDataTable<T>({
+  data,
   columns,
   rowHeight = 35,
 }: VirtualDataTableProps<T>) {
   const parentRef = useRef<HTMLDivElement>(null);
-  
+
   const virtualizer = useVirtualizer({
     count: data.length,
     getScrollElement: () => parentRef.current,
@@ -119,7 +119,7 @@ ECharts and 3D charting are expensive. Lazy-load them:
 import { lazy } from 'react';
 
 // Only load ECharts when needed
-export const VolSurface3D = lazy(() => 
+export const VolSurface3D = lazy(() =>
   import('./VolSurface3D').then(m => ({ default: m.VolSurface3D }))
 );
 ```
@@ -137,6 +137,3 @@ This allows:
 
 - Smaller default bundle for most users.
 - Opt-in heavy features for power users.
-
-
-

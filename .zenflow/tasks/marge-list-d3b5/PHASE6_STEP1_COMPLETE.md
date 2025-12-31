@@ -151,5 +151,5 @@ cargo doc --no-deps --lib                        # ✅ Documentation builds succ
 
 ---
 
-**Status**: ✅ **COMPLETE AND VERIFIED**  
+**Status**: ✅ **COMPLETE AND VERIFIED**
 **Ready for**: Step 6.2 (Implement trait for all envelope types)

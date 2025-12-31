@@ -5,139 +5,139 @@ import type { InstrumentConventions } from "./InstrumentConventions";
 /**
  * Interest rate instrument quotes for yield curve calibration.
  */
-export type RatesQuote = { "deposit": { 
+export type RatesQuote = { "deposit": {
 /**
  * Maturity date
  */
-maturity: string, 
+maturity: string,
 /**
  * Quoted rate (decimal)
  */
-rate: number, 
+rate: number,
 /**
  * Day count convention
  */
-day_count: string, 
+day_count: string,
 /**
  * Per-instrument conventions (settlement, calendar, etc.)
  */
-conventions: InstrumentConventions, } } | { "f_r_a": { 
+conventions: InstrumentConventions, } } | { "f_r_a": {
 /**
  * Start date
  */
-start: string, 
+start: string,
 /**
  * End date
  */
-end: string, 
+end: string,
 /**
  * Quoted rate (decimal)
  */
-rate: number, 
+rate: number,
 /**
  * Day count convention
  */
-day_count: string, 
+day_count: string,
 /**
  * Per-instrument conventions (settlement, reset lag, etc.)
  */
-conventions: InstrumentConventions, } } | { "future": { 
+conventions: InstrumentConventions, } } | { "future": {
 /**
  * Expiry date
  */
-expiry: string, 
+expiry: string,
 /**
  * Underlying rate period start date
  */
-period_start: string, 
+period_start: string,
 /**
  * Underlying rate period end date
  */
-period_end: string, 
+period_end: string,
 /**
  * Optional fixing date override (defaults to period_start if null)
  */
-fixing_date: string | null, 
+fixing_date: string | null,
 /**
  * Contract price (e.g., 99.25 for 0.75% implied rate)
  */
-price: number, 
+price: number,
 /**
  * Contract specifications
  */
-specs: FutureSpecs, 
+specs: FutureSpecs,
 /**
  * Per-instrument conventions (reset lag, etc.)
  */
-conventions: InstrumentConventions, } } | { "swap": { 
+conventions: InstrumentConventions, } } | { "swap": {
 /**
  * Swap maturity
  */
-maturity: string, 
+maturity: string,
 /**
  * Par rate (decimal)
  */
-rate: number, 
+rate: number,
 /**
  * Fixed leg frequency
  */
-fixed_freq: string, 
+fixed_freq: string,
 /**
  * Float leg frequency
  */
-float_freq: string, 
+float_freq: string,
 /**
  * Fixed leg day count
  */
-fixed_dc: string, 
+fixed_dc: string,
 /**
  * Float leg day count
  */
-float_dc: string, 
+float_dc: string,
 /**
  * Float leg index (e.g., "3M-LIBOR")
  */
-index: string, 
+index: string,
 /**
  * Per-instrument conventions (settlement, payment delay, reset lag, calendar)
  */
-conventions: InstrumentConventions, } } | { "basis_swap": { 
+conventions: InstrumentConventions, } } | { "basis_swap": {
 /**
  * Swap maturity
  */
-maturity: string, 
+maturity: string,
 /**
  * Primary leg index (e.g., "3M-LIBOR", "3M-SOFR")
  */
-primary_index: string, 
+primary_index: string,
 /**
  * Reference leg index (e.g., "6M-LIBOR", "1M-SOFR")
  */
-reference_index: string, 
+reference_index: string,
 /**
  * Basis spread in basis points (primary pays reference + spread)
  */
-spread_bp: number, 
+spread_bp: number,
 /**
  * Primary leg frequency
  */
-primary_freq: string, 
+primary_freq: string,
 /**
  * Reference leg frequency
  */
-reference_freq: string, 
+reference_freq: string,
 /**
  * Primary leg day count
  */
-primary_dc: string, 
+primary_dc: string,
 /**
  * Reference leg day count
  */
-reference_dc: string, 
+reference_dc: string,
 /**
  * Currency for both legs
  */
-currency: string, 
+currency: string,
 /**
  * Per-instrument conventions (settlement, reset lag, calendar)
  */

@@ -5,10 +5,10 @@ use crate::valuations::common::PyInstrumentType;
 use crate::valuations::instruments::cds::normalize_cds_side;
 use finstack_core::types::InstrumentId;
 use finstack_valuations::instruments::credit_derivatives::cds::{CDSConvention, PayReceive};
+use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndex;
 use finstack_valuations::instruments::credit_derivatives::cds_index::{
     CDSIndexConstructionParams, CDSIndexParams,
 };
-use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndex;
 use finstack_valuations::instruments::CreditParams;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;

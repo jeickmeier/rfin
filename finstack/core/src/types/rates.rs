@@ -309,7 +309,7 @@ impl Bps {
         self.0 as f64 / 10_000.0
     }
 
-    /// Convert to percentage representation  
+    /// Convert to percentage representation
     pub fn as_percent(self) -> f64 {
         self.0 as f64 / 100.0
     }
@@ -476,7 +476,7 @@ impl Percentage {
         self.0 > 0.0
     }
 
-    /// Check if negative  
+    /// Check if negative
     pub fn is_negative(self) -> bool {
         self.0 < 0.0
     }

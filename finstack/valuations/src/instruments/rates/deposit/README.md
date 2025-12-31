@@ -1,16 +1,19 @@
 # Deposit
 
 ## Features
+
 - Single-period deposit with explicit start/end, ACT/360-style accrual, and optional quoted simple rate.
 - Deterministic cashflow schedule (principal out, principal + interest back) using the shared cashflow helpers.
 - Discount curve driven valuation with serde-stable shape for JSON pipelines.
 
 ## Methodology & References
+
 - Simple interest accrual on chosen day-count; PV computed via discount curve day-count to align with par-rate conventions.
 - No optionality or convexity; mirrors standard money-market deposit pricing.
 - Integration with DV01 metrics through `HasDiscountCurve` support.
 
 ## Usage Example
+
 ```rust
 use finstack_valuations::instruments::rates::deposit::Deposit;
 use finstack_core::dates::Date;
@@ -22,20 +25,24 @@ let pv = dep.value(&market_context, as_of)?;
 ```
 
 ## Limitations / Known Issues
+
 - Assumes single deterministic rate; no compounding beyond simple accrual.
 - Does not model credit/funding adjustments; relies solely on the provided discount curve.
 - No support for callable or extendable deposits.
 
 ## Pricing Methodology
+
 - Builds two cashflows: principal out at start, principal plus simple interest at end using instrument day-count.
 - Discounts cashflows using the curve’s own day-count to align with par-rate conventions; quote rate optional.
 - Deterministic, single-period valuation with no optionality.
 
 ## Metrics
+
 - PV and par/forward deposit rate solved from discount curve.
 - DV01 on discount curve via generic bump calculators.
 - Accrued interest as-of valuation date when within deposit period.
 
 ## Future Enhancements
+
 - Add support for compounding/linear vs ACT/360 accrual toggles and holiday-adjusted start/end shifts.
 - Include callable/extendable deposit variants if needed.

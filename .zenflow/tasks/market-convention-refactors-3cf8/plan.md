@@ -109,7 +109,7 @@ cargo clippy -- -D warnings
 2. **BREAKING**: Modify `compute()` to default to strict mode:
    ```rust
    // Primary method defaults to strict:
-   pub fn compute(&self, ids: &[MetricId], ctx: &mut MetricContext) 
+   pub fn compute(&self, ids: &[MetricId], ctx: &mut MetricContext)
        -> Result<HashMap<MetricId, f64>> {
        self.compute_with_mode(ids, ctx, StrictMode::Strict)
    }
@@ -259,7 +259,7 @@ cargo test metrics::core::ids --lib
    ```rust
    // BEFORE:
    residuals[i] = pv / 1.0;
-   
+
    // AFTER:
    residuals[i] = pv / self.residual_notional;
    ```
@@ -428,7 +428,7 @@ cargo test instruments::common::fx_dates --lib -- --nocapture
    ```rust
    // BEFORE:
    spread: Option<f64>,
-   
+
    // AFTER:
    #[serde(alias = "spread")] // Backwards compat
    spread_decimal: Option<f64>,
@@ -439,7 +439,7 @@ cargo test instruments::common::fx_dates --lib -- --nocapture
    if let Some(s) = spread {
        swap.float.spread_bp = *s * 10000.0;  // Wrong conversion
    }
-   
+
    // AFTER:
    if let Some(spread_decimal) = spread_decimal {
        swap.float.spread_bp = *spread_decimal * 10000.0;  // Correct: decimal → bp
@@ -744,7 +744,7 @@ cargo clippy --all-features -- -D warnings
    fn get_measure(&self, id: MetricId) -> Option<f64> {
        self.measures.get(id.as_str()).copied()
    }
-   
+
    // Update field mappings:
    dv01: self.get_measure(MetricId::Dv01),
    convexity: self.get_measure(MetricId::Convexity),

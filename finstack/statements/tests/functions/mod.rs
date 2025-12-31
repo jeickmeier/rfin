@@ -8,4 +8,3 @@
 mod custom_functions_tests;
 mod min_max_tests;
 mod nan_handling_tests;
-

@@ -3,7 +3,7 @@
 //! Test organization:
 //! - `construction`: Instrument construction, builders, and validation
 //! - `pricing_single_curve`: Single-curve pricing mode tests
-//! - `pricing_constituents`: Constituents pricing mode tests  
+//! - `pricing_constituents`: Constituents pricing mode tests
 //! - `pricing_parity`: Cross-mode consistency validation
 //! - `metrics_basic`: Basic metrics (NPV, leg PVs, par spread)
 //! - `metrics_risk`: Risk metrics (DV01, CS01, Risky PV01)

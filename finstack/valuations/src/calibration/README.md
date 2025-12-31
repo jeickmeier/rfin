@@ -5,6 +5,7 @@ The `calibration` module provides a high-performance, plan-driven framework for 
 ## Functionality
 
 This module supports:
+
 - **Interest Rate Curves**: Discount and forward curves using OIS, swaps, futures, and fra.
 - **Credit Curves**: Survival and hazard rate curves from CDS and credit indices.
 - **Inflation Curves**: Inflation-indexed curves.
@@ -14,6 +15,7 @@ This module supports:
 ## Structure
 
 The module is organized into several key areas:
+
 - `api/`: Defines the structured calibration schema and execution engine.
 - `solver/`: Contains core numerical solvers (Sequential Bootstrap, Levenberg-Marquardt).
 - `targets/`: Core logic for instrument-specific calibration targets (Bootstrappers).
@@ -37,7 +39,7 @@ fn run_calibration(plan: CalibrationPlan) -> finstack_core::Result<()> {
         plan,
         initial_market: None,
     };
-    
+
     let result = engine::execute(&envelope)?;
     println!("Calibrated {} structures", result.calibrated_structures.len());
     Ok(())
@@ -47,11 +49,13 @@ fn run_calibration(plan: CalibrationPlan) -> finstack_core::Result<()> {
 ## Adding New Features
 
 ### Adding a New Calibration Target
+
 1. Implement the `BootstrapTarget` trait in `solver/` (if using bootstrapping).
 2. Create a new target/bootstrapper in `targets/`.
 3. Register the new target in the `api` engine and `targets/handlers.rs`.
 
 ### Adding a New Instrument Type
+
 1. Define the instrument's quote type in `market/quotes/`.
 2. Update the `targets/` logic to support building and pricing the new instrument.
 

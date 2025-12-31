@@ -18,7 +18,7 @@ use wasm_bindgen::prelude::*;
 ///     const trace = result.explanation;
 ///     console.log(trace.traceType);  // "calibration"
 ///     console.log(trace.entries.length);  // Number of trace entries
-///     
+///
 ///     // Convert to JSON for inspection
 ///     const json = trace.toJson();
 ///     console.log(JSON.stringify(json, null, 2));

@@ -19,6 +19,7 @@ Core primitives and utilities for the Finstack financial computation library.
 ![Coverage Badge](https://img.shields.io/badge/coverage-85.46%25-yellow)
 
 **Current Metrics** (as of 2025-12-21):
+
 - **Line Coverage**: 84.47% (2,711 lines missed out of 17,460 total)
 - **Region Coverage**: 85.43%
 - **Function Coverage**: 85.96%
@@ -40,6 +41,7 @@ Core primitives and utilities for the Finstack financial computation library.
 ### Recent Improvements
 
 5 modules improved to 90%+ coverage:
+
 - `math/summation.rs`: 77% → **100%** (+23%)
 - `money/rounding.rs`: 87% → **99%** (+12%)
 - `market_data/diff.rs`: 62% → **94%** (+32%)
@@ -52,16 +54,16 @@ The following modules have the highest impact on overall coverage:
 
 1. **market_data/context.rs** - 51.52% (1,019 lines, 494 missed)
    - **Impact**: Improving to 90% would add ~2.25% to overall coverage
-   
+
 2. **forward_curve.rs** - 58.92% (353 lines, 145 missed)
    - **Impact**: +0.63% if improved to 90%
-   
+
 3. **vol_surface.rs** - 65.48% (365 lines, 126 missed)
    - **Impact**: +0.72% if improved to 90%
-   
+
 4. **discount_curve.rs** - 75.75% (800 lines, 194 missed)
    - **Impact**: +1.11% if improved to 90%
-   
+
 5. **dates/periods.rs** - 76.66% (1,277 lines, 298 missed)
    - **Impact**: +1.71% if improved to 90%
 

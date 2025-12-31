@@ -18,11 +18,11 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::types::CreditRating;
 use finstack_valuations::cashflow::CashflowProvider;
-use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::fixed_income::structured_credit::{
     DealType, Pool, PoolAsset, Seniority, StructuredCredit, Tranche, TrancheCoupon,
     TrancheStructure,
 };
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use std::hint::black_box;
 use time::Month;

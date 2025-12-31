@@ -17,33 +17,39 @@ This library will empower developers and AI agents to build high-performance fin
 ## 2. Product Requirements (PRD)
 
 ### 2.1 Product Vision
+
 To create a "Lego set" for financial engineering that is:
-1.  **Mathematically Correct:** Enforces the same precision, rounding, and currency safety as the core Rust engine.
-2.  **AI-Native:** Designed from the ground up to be controlled by LLMs via structured JSON, allowing agents to "render" answers (e.g., *"Here is the risk heatmap you asked for"*).
-3.  **High Performance:** Capable of rendering large cashflow trees and volatility surfaces without main-thread blocking.
-4.  **Accessible:** Full keyboard navigation, screen reader support, and high-contrast modes for professional trading environments.
+
+1. **Mathematically Correct:** Enforces the same precision, rounding, and currency safety as the core Rust engine.
+2. **AI-Native:** Designed from the ground up to be controlled by LLMs via structured JSON, allowing agents to "render" answers (e.g., *"Here is the risk heatmap you asked for"*).
+3. **High Performance:** Capable of rendering large cashflow trees and volatility surfaces without main-thread blocking.
+4. **Accessible:** Full keyboard navigation, screen reader support, and high-contrast modes for professional trading environments.
 
 ### 2.2 Target Audience
-1.  **Financial App Developers:** Building internal tools for trading desks, risk management, or FP&A.
-2.  **Quants/Analysts:** Using "Notebook-like" interfaces to interactively explore models.
-3.  **AI Agents:** LLMs that need a standard output format to visualize complex financial data instead of just text.
+
+1. **Financial App Developers:** Building internal tools for trading desks, risk management, or FP&A.
+2. **Quants/Analysts:** Using "Notebook-like" interfaces to interactively explore models.
+3. **AI Agents:** LLMs that need a standard output format to visualize complex financial data instead of just text.
 
 ### 2.3 Core Capabilities
 
 #### A. The Financial Primitives (Foundation)
-*   **Strict Inputs:** Specialized form controls for Currency (ISO-4217), Tenors (1M, 10Y), Dates (Business Day adjustment), and Rates (Bps vs %).
-*   **Precision Display:** `AmountDisplay` components that respect the global `finstack` `RoundingContext`.
+
+* **Strict Inputs:** Specialized form controls for Currency (ISO-4217), Tenors (1M, 10Y), Dates (Business Day adjustment), and Rates (Bps vs %).
+* **Precision Display:** `AmountDisplay` components that respect the global `finstack` `RoundingContext`.
 
 #### B. The Visualization Layer (Components)
-*   **Market Data:** Interactive Yield Curves (Zero/Forward), Volatility Surfaces (3D/Heatmap).
-*   **Valuations:** Cashflow Waterfalls, Risk/Greeks Heatmaps, PnL Attribution Waterfalls.
-*   **Statements:** "Corkscrew" financial models, Balance Sheet projections, Forecast Editors.
-*   **Portfolio:** Position grids, Book hierarchy trees.
+
+* **Market Data:** Interactive Yield Curves (Zero/Forward), Volatility Surfaces (3D/Heatmap).
+* **Valuations:** Cashflow Waterfalls, Risk/Greeks Heatmaps, PnL Attribution Waterfalls.
+* **Statements:** "Corkscrew" financial models, Balance Sheet projections, Forecast Editors.
+* **Portfolio:** Position grids, Book hierarchy trees.
 
 #### C. The GenUI Bridge (Orchestration)
-*   **Dynamic Renderer:** A system that accepts a JSON "View Definition" and renders the corresponding interactive component tree.
-*   **State Serialization:** Ability to snapshot the entire UI context (Market + Portfolio + User Edits) into JSON for LLM analysis.
-*   **Scenario Orchestrator:** High-level control plane that composes and applies scenarios (via the `scenarios` crate) across Market, Valuations, and Statements, with deterministic reports for each run.
+
+* **Dynamic Renderer:** A system that accepts a JSON "View Definition" and renders the corresponding interactive component tree.
+* **State Serialization:** Ability to snapshot the entire UI context (Market + Portfolio + User Edits) into JSON for LLM analysis.
+* **Scenario Orchestrator:** High-level control plane that composes and applies scenarios (via the `scenarios` crate) across Market, Valuations, and Statements, with deterministic reports for each run.
 
 ---
 
@@ -52,25 +58,28 @@ To create a "Lego set" for financial engineering that is:
 ### 3.1 Technology Stack
 
 #### Frontend
-*   **Framework:** React 19 (leveraging Hooks, Suspense, and `useDeferredValue`).
-*   **Language:** TypeScript (Strict Mode).
-*   **Build System:** Vite (Library Mode).
-*   **Styling:** Tailwind CSS + `clsx` + `tailwind-merge` + Shadcn/UI (Base primitives).
-*   **State Management:** **Zustand** (Chosen for its ability to work outside components and ease of JSON hydration/snapshotting).
-*   **Data Grids:** **TanStack Table** + **TanStack Virtual** (Headless, high-performance, critical for financial statements).
-*   **Charts (Complex):** **Apache ECharts** (WebGL support for Vol Surfaces and dense scatters).
-*   **Charts (Simple):** **Recharts** (SVG-based for standard time-series).
-*   **Forms:** **React Hook Form** + **Zod Resolver** (Schema-driven validation).
+
+* **Framework:** React 19 (leveraging Hooks, Suspense, and `useDeferredValue`).
+* **Language:** TypeScript (Strict Mode).
+* **Build System:** Vite (Library Mode).
+* **Styling:** Tailwind CSS + `clsx` + `tailwind-merge` + Shadcn/UI (Base primitives).
+* **State Management:** **Zustand** (Chosen for its ability to work outside components and ease of JSON hydration/snapshotting).
+* **Data Grids:** **TanStack Table** + **TanStack Virtual** (Headless, high-performance, critical for financial statements).
+* **Charts (Complex):** **Apache ECharts** (WebGL support for Vol Surfaces and dense scatters).
+* **Charts (Simple):** **Recharts** (SVG-based for standard time-series).
+* **Forms:** **React Hook Form** + **Zod Resolver** (Schema-driven validation).
 
 #### WASM Integration
-*   **Worker Communication:** **Comlink** (Type-safe Web Worker RPC).
-*   **Schema Validation:** **Zod** (Runtime validation + OpenAI function schema generation).
-*   **Schema Generation:** **`zod-to-json-schema`** (Generate OpenAI function schemas from Zod).
-*   **WASM Bridge:** `finstack-wasm` (Direct dependency).
+
+* **Worker Communication:** **Comlink** (Type-safe Web Worker RPC).
+* **Schema Validation:** **Zod** (Runtime validation + OpenAI function schema generation).
+* **Schema Generation:** **`zod-to-json-schema`** (Generate OpenAI function schemas from Zod).
+* **WASM Bridge:** `finstack-wasm` (Direct dependency).
 
 #### Rust-Side (Schema Generation)
-*   **TypeScript Generation:** **`ts-rs`** or **`specta`** (Auto-generate TypeScript types from Rust structs).
-*   **Panic Handling:** Custom panic hook for graceful JS exception conversion.
+
+* **TypeScript Generation:** **`ts-rs`** or **`specta`** (Auto-generate TypeScript types from Rust structs).
+* **Panic Handling:** Custom panic hook for graceful JS exception conversion.
 
 ### 3.2 Architecture: Schema-First Design
 
@@ -93,8 +102,8 @@ The system has four type layers that must stay synchronized:
 | UI-facing types (dashboards, layouts, etc.) | **Zod-first** | Zod → JSON Schema for LLMs |
 
 This hybrid approach ensures:
-- Engine types match Rust's serde representation exactly
-- UI types are optimized for LLM consumption and validation
+* Engine types match Rust's serde representation exactly
+* UI types are optimized for LLM consumption and validation
 
 #### 3.2.2 Schema Versioning
 
@@ -173,8 +182,8 @@ export type RootState = z.infer<typeof RootStateSchema>;
 ```
 
 **Why separation matters:**
-- **Serializing everything** for LLMs or history is heavy. Typically you want snapshots of `EngineState + DashboardDefinition`, not every transient UI bit.
-- It's easier to version protocol-like `EngineState` than "was the 3rd accordion panel open".
+* **Serializing everything** for LLMs or history is heavy. Typically you want snapshots of `EngineState + DashboardDefinition`, not every transient UI bit.
+* It's easier to version protocol-like `EngineState` than "was the 3rd accordion panel open".
 
 **Critical:** The Zustand store must be **100% JSON-serializable** (no class instances, Maps, etc.). For WASM objects, store the **wire form** (`toJSON()` output) and re-hydrate at the boundary.
 
@@ -189,7 +198,7 @@ import { z } from 'zod';
 // Binding sources correspond to engine state domains
 const BindingSourceSchema = z.enum([
   'market',
-  'portfolio', 
+  'portfolio',
   'statements',
   'scenarios',
 ]);
@@ -228,19 +237,19 @@ export const DashboardDefinitionSchema = z.object({
   schemaVersion: z.literal('1'),
   id: z.string().uuid(),
   name: z.string(),
-  
+
   // Layout template (not arbitrary component soup)
   layout: LayoutTemplateSchema,
-  
+
   // Components within the layout
   components: z.array(ComponentInstanceSchema),
-  
+
   // Structured data bindings
   bindings: DataBindingsSchema,
-  
+
   // LLM context
   userIntent: z.string().optional(),
-  
+
   // Metadata
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
@@ -610,7 +619,7 @@ export function FinstackProvider({ children }: { children: ReactNode }) {
     }
 
     let mounted = true;
-    
+
     // Use singleton to prevent double initialization
     ensureWasmInit()
       .then(() => {
@@ -644,9 +653,9 @@ export function useFinstack() {
 #### 3.4.3 Valuation Hook
 
 **Key considerations:**
-- `options.instrument` object identity may change often → use stable ID for deps
-- Avoid recompute storms with proper memoization
-- Implement automatic caching for identical inputs
+* `options.instrument` object identity may change often → use stable ID for deps
+* Avoid recompute storms with proper memoization
+* Implement automatic caching for identical inputs
 
 ```typescript
 // hooks/useValuation.ts
@@ -685,7 +694,7 @@ function getCacheKey(instrumentId: string, marketHash: string): string {
 export function useValuation(options: UseValuationOptions): ValuationResult {
   const { isReady, marketHash } = useFinstack();
   const engine = useFinstackEngine();
-  
+
   const [result, setResult] = useState<ValuationResult>({
     pv: null,
     pvCurrency: null,
@@ -712,13 +721,13 @@ export function useValuation(options: UseValuationOptions): ValuationResult {
       setResult({ ...cached, refetch: compute });
       return;
     }
-    
+
     setResult(prev => ({ ...prev, isLoading: true, error: null }));
-    
+
     try {
       // Engine uses Handle Pattern - market already loaded
       const workerResult = await engine.priceInstrument(instrumentJson);
-      
+
       const newResult: ValuationResult = {
         pv: workerResult.pv,  // Already a string from Rust
         pvCurrency: workerResult.pvCurrency,
@@ -735,7 +744,7 @@ export function useValuation(options: UseValuationOptions): ValuationResult {
         computationCache.delete(firstKey);
       }
       computationCache.set(cacheKey, newResult);
-      
+
       setResult(newResult);
     } catch (err) {
       setResult(prev => ({
@@ -801,7 +810,7 @@ export function useStatement(options: UseStatementOptions): StatementResult {
     try {
       const evaluator = new JsEvaluator();
       const evalResults = evaluator.evaluate(options.model);
-      
+
       setResult({
         results: evalResults,
         meta: evalResults.meta,
@@ -865,240 +874,244 @@ export function useWasmWorker<T>(
 ### 3.5 Detailed Domain Designs
 
 #### A. Domain: Valuations (`finstack-wasm/valuations`)
+
 Focus: Visualizing the output of `pricer.rs`, `metrics/`, and `attribution/` across all instruments, with full access to calibration, cashflows, margin, covenants, and result envelopes.
 
-1.  **`RiskHeatmap`**
-    *   **Purpose:** Display Greeks (Delta, Gamma, Vega) across a portfolio.
-    *   **Tech:** TanStack Table with dynamic cell coloring.
-    *   **Features:** Grouping by Currency/Sector; Drill-down to individual trades.
-    *   **Accessibility:** Color-blind safe palette, keyboard navigation.
+1. **`RiskHeatmap`**
+    * **Purpose:** Display Greeks (Delta, Gamma, Vega) across a portfolio.
+    * **Tech:** TanStack Table with dynamic cell coloring.
+    * **Features:** Grouping by Currency/Sector; Drill-down to individual trades.
+    * **Accessibility:** Color-blind safe palette, keyboard navigation.
 
-2.  **`CashflowWaterfall`**
-    *   **Purpose:** Inspect intermediate cashflows of a trade (e.g., Swaps).
-    *   **Tech:** TanStack Table + TanStack Virtual (Virtualization required for 30Y swaps with 120+ rows).
-    *   **Columns:** Period | Fix/Float | Rate | Notional | Discount Factor | PV.
+2. **`CashflowWaterfall`**
+    * **Purpose:** Inspect intermediate cashflows of a trade (e.g., Swaps).
+    * **Tech:** TanStack Table + TanStack Virtual (Virtualization required for 30Y swaps with 120+ rows).
+    * **Columns:** Period | Fix/Float | Rate | Notional | Discount Factor | PV.
 
-3.  **`PnLAttributionBridge`**
-    *   **Purpose:** Explain PnL changes (e.g., "Why did we lose money?").
-    *   **Tech:** ECharts Waterfall.
-    *   **Data:** Visualizes the `AttributionResult` struct from `attribution.rs`.
+3. **`PnLAttributionBridge`**
+    * **Purpose:** Explain PnL changes (e.g., "Why did we lose money?").
+    * **Tech:** ECharts Waterfall.
+    * **Data:** Visualizes the `AttributionResult` struct from `attribution.rs`.
 
-4.  **Instrument Panels (1:1 with `valuations::instruments`)**
-    *   **Purpose:** Provide instrument-specific pricing and inspection surfaces that mirror each WASM instrument binding (e.g., `Bond`, `InterestRateSwap`, `FxOption`, `ConvertibleBond`, `VarianceSwap`).
-    *   **Components:** For every exported instrument in `finstack-wasm/src/valuations/instruments` there will be:
-        *   **Inputs section:** A typed form component (e.g., `BondPanel`, `InterestRateSwapPanel`, `FxOptionPanel`) that wraps form controls for instrument attributes and calls `useValuation` under the hood.
-        *   **Cashflows section (discountable instruments only):** A reusable `CashflowWaterfall` (or related cashflow table component) embedded inside the instrument UI to show projected cashflows and discount factors.
-        *   **Market data section:** Read-only viewers for the relevant curves/surfaces used in pricing (e.g., `CurveChart`, `VolSurfaceViewer`, quote tickers) so users and LLMs can see exactly which market data is driving the valuation.
-        *   **Outputs section:** A metrics table showing PV and risk measures (DV01/CS01, bucketed risk, Greeks, etc.) in a consistent, schema-backed layout.
-        *   **Viewer variant:** A read-only viewer (e.g., `BondViewer`, `SwaptionViewer`) for displaying key terms, cashflows and metrics without editing.
-    *   **Invariants:** Adding a new instrument to `valuations::instruments` requires adding/auto-generating the corresponding panel + viewer components and their Zod schemas, so LLMs can reliably target them via the GenUI bridge.
+4. **Instrument Panels (1:1 with `valuations::instruments`)**
+    * **Purpose:** Provide instrument-specific pricing and inspection surfaces that mirror each WASM instrument binding (e.g., `Bond`, `InterestRateSwap`, `FxOption`, `ConvertibleBond`, `VarianceSwap`).
+    * **Components:** For every exported instrument in `finstack-wasm/src/valuations/instruments` there will be:
+        * **Inputs section:** A typed form component (e.g., `BondPanel`, `InterestRateSwapPanel`, `FxOptionPanel`) that wraps form controls for instrument attributes and calls `useValuation` under the hood.
+        * **Cashflows section (discountable instruments only):** A reusable `CashflowWaterfall` (or related cashflow table component) embedded inside the instrument UI to show projected cashflows and discount factors.
+        * **Market data section:** Read-only viewers for the relevant curves/surfaces used in pricing (e.g., `CurveChart`, `VolSurfaceViewer`, quote tickers) so users and LLMs can see exactly which market data is driving the valuation.
+        * **Outputs section:** A metrics table showing PV and risk measures (DV01/CS01, bucketed risk, Greeks, etc.) in a consistent, schema-backed layout.
+        * **Viewer variant:** A read-only viewer (e.g., `BondViewer`, `SwaptionViewer`) for displaying key terms, cashflows and metrics without editing.
+    * **Invariants:** Adding a new instrument to `valuations::instruments` requires adding/auto-generating the corresponding panel + viewer components and their Zod schemas, so LLMs can reliably target them via the GenUI bridge.
 
-5.  **Calibration Views (1:1 with `valuations::calibration`)**
-    *   **Purpose:** Provide dedicated UIs for curve and surface calibration that match each WASM calibrator.
-    *   **Components:**
-        *   `DiscountCurveCalibration` - Quote grid, config editor, curve visualization
-        *   `ForwardCurveCalibration` - Deposits/FRAs/Swaps quote entry, tenor selection
-        *   `HazardCurveCalibration` - CDS quote entry, recovery rate config
-        *   `InflationCurveCalibration` - ZC inflation swap quotes, seasonality
-        *   `VolSurfaceCalibration` - Strike/expiry grid, SABR/SVI params
-        *   `BaseCorrelationCalibration` - Detachment points, tranche quotes
-        *   `SabrCalibration` - α, β, ρ, ν parameter fitting
-        *   `HullWhiteCalibration` - a, σ parameter calibration from swaptions
-    *   **Behavior:** Each view owns quote entry grids (typed to `RatesQuote`, `CreditQuote`, `VolQuote`, `InflationQuote`), configuration editors (`CalibrationConfig`, `SolverKind`), and visualization of calibration reports (error diagnostics, convergence plots), with state fully serializable for LLM control.
+5. **Calibration Views (1:1 with `valuations::calibration`)**
+    * **Purpose:** Provide dedicated UIs for curve and surface calibration that match each WASM calibrator.
+    * **Components:**
+        * `DiscountCurveCalibration` - Quote grid, config editor, curve visualization
+        * `ForwardCurveCalibration` - Deposits/FRAs/Swaps quote entry, tenor selection
+        * `HazardCurveCalibration` - CDS quote entry, recovery rate config
+        * `InflationCurveCalibration` - ZC inflation swap quotes, seasonality
+        * `VolSurfaceCalibration` - Strike/expiry grid, SABR/SVI params
+        * `BaseCorrelationCalibration` - Detachment points, tranche quotes
+        * `SabrCalibration` - α, β, ρ, ν parameter fitting
+        * `HullWhiteCalibration` - a, σ parameter calibration from swaptions
+    * **Behavior:** Each view owns quote entry grids (typed to `RatesQuote`, `CreditQuote`, `VolQuote`, `InflationQuote`), configuration editors (`CalibrationConfig`, `SolverKind`), and visualization of calibration reports (error diagnostics, convergence plots), with state fully serializable for LLM control.
 
-6.  **Metrics & Risk Registry**
-    *   **Components:** `InstrumentRiskTable`, `BucketedRiskGrid`, and `MetricsRegistryBrowser` mapped to `metrics/` and the global metrics registry.
-    *   **Features:** Per-instrument and per-bucket risk tables (DV01/CS01/Delta/Gamma/Vega/Theta), bucketed risk grids (by tenor/strike), and a browser for discovering which metrics are available for each instrument type.
+6. **Metrics & Risk Registry**
+    * **Components:** `InstrumentRiskTable`, `BucketedRiskGrid`, and `MetricsRegistryBrowser` mapped to `metrics/` and the global metrics registry.
+    * **Features:** Per-instrument and per-bucket risk tables (DV01/CS01/Delta/Gamma/Vega/Theta), bucketed risk grids (by tenor/strike), and a browser for discovering which metrics are available for each instrument type.
 
-7.  **Margin Analytics**
-    *   **Components:** `InstrumentMarginPanel`, `SimmBreakdownView` backed by the valuations `margin` module (IM/VM calculators, CSA specs).
-    *   **Features:** Per-instrument and CSA-level margin details (IM, VM, total), SIMM risk-class breakdowns, and links into the portfolio-level margin views for aggregated context.
+7. **Margin Analytics**
+    * **Components:** `InstrumentMarginPanel`, `SimmBreakdownView` backed by the valuations `margin` module (IM/VM calculators, CSA specs).
+    * **Features:** Per-instrument and CSA-level margin details (IM, VM, total), SIMM risk-class breakdowns, and links into the portfolio-level margin views for aggregated context.
 
-8.  **Covenant Engine Surfaces**
-    *   **Components:** `InstrumentCovenantPanel`, `CovenantTimelineView` wired to the valuations `covenants` engine.
-    *   **Features:** Configure and visualize covenants attached to instruments (e.g., coverage ratios, leverage tests), see pass/fail status over time, and expose covenant breach timelines that can be reused by portfolio and statements domains.
+8. **Covenant Engine Surfaces**
+    * **Components:** `InstrumentCovenantPanel`, `CovenantTimelineView` wired to the valuations `covenants` engine.
+    * **Features:** Configure and visualize covenants attached to instruments (e.g., coverage ratios, leverage tests), see pass/fail status over time, and expose covenant breach timelines that can be reused by portfolio and statements domains.
 
-9.  **Attribution Module**
-    *   **Components:** `PnLAttributionBridge`, `FactorBreakdownPanel`, `BucketedAttributionGrid`.
-    *   **Features:** Waterfall visualization of PnL attribution factors (rates, credit, vol, FX, carry, residual), drill-down to factor-level detail (e.g., rates bucket by tenor), percentage breakdown display.
+9. **Attribution Module**
+    * **Components:** `PnLAttributionBridge`, `FactorBreakdownPanel`, `BucketedAttributionGrid`.
+    * **Features:** Waterfall visualization of PnL attribution factors (rates, credit, vol, FX, carry, residual), drill-down to factor-level detail (e.g., rates bucket by tenor), percentage breakdown display.
 
 10. **Valuation Runs & Result Envelopes**
-    *   **Components:** `ValuationRunViewer` for inspecting `results/` envelopes (PV, risk vectors, metadata, FX policy, numeric mode).
-    *   **Features:** Show raw and FX-collapsed results, period aggregation details, and provide export hooks for downstream consumers (DataFrame/CSV) in a way that stays aligned with the valuations `results` module.
+    * **Components:** `ValuationRunViewer` for inspecting `results/` envelopes (PV, risk vectors, metadata, FX policy, numeric mode).
+    * **Features:** Show raw and FX-collapsed results, period aggregation details, and provide export hooks for downstream consumers (DataFrame/CSV) in a way that stays aligned with the valuations `results` module.
 
 #### B. Domain: Portfolio (`finstack-wasm/portfolio`)
+
 Focus: Entity-based position tracking, cross-currency aggregation, portfolio metrics, P&L attribution, margin, optimization, and scenario integration on top of valuations.
 
-1.  **Entity & Position Management**
-    *   **Components:** `TradeEntryForm`, `EntityTreeView`, and `PositionGrid` backed by `Portfolio`, `Entity`, `Position`, and `PositionUnit`.
-    *   **Features:** Entity-centric views (including dummy entity for standalone instruments), unit-aware quantity handling, tag editing (rating, sector, strategy), and per-position drill-down to the underlying instrument panels in the Valuations domain.
+1. **Entity & Position Management**
+    * **Components:** `TradeEntryForm`, `EntityTreeView`, and `PositionGrid` backed by `Portfolio`, `Entity`, `Position`, and `PositionUnit`.
+    * **Features:** Entity-centric views (including dummy entity for standalone instruments), unit-aware quantity handling, tag editing (rating, sector, strategy), and per-position drill-down to the underlying instrument panels in the Valuations domain.
 
-2.  **Valuation & Metrics Dashboards**
-    *   **Components:** `PortfolioSummaryPanel` and `PortfolioMetricsPanel` mapped to `value_portfolio`, `PortfolioValuation`, and `PortfolioMetrics`.
-    *   **Features:** Totals by portfolio and entity, cross-currency aggregation to base currency with explicit FX policies, and display of aggregated DV01/CS01/Greeks alongside non-summable metrics at position level.
+2. **Valuation & Metrics Dashboards**
+    * **Components:** `PortfolioSummaryPanel` and `PortfolioMetricsPanel` mapped to `value_portfolio`, `PortfolioValuation`, and `PortfolioMetrics`.
+    * **Features:** Totals by portfolio and entity, cross-currency aggregation to base currency with explicit FX policies, and display of aggregated DV01/CS01/Greeks alongside non-summable metrics at position level.
 
-3.  **Attribute-Based Grouping & Pivots**
-    *   **Components:** `TagPivotGrid` using grouping and aggregation helpers from `grouping.rs`.
-    *   **Features:** Interactive rollups by arbitrary tags (e.g., asset_class, rating, desk, strategy), with pivot-like controls and exportable grouped views.
+3. **Attribute-Based Grouping & Pivots**
+    * **Components:** `TagPivotGrid` using grouping and aggregation helpers from `grouping.rs`.
+    * **Features:** Interactive rollups by arbitrary tags (e.g., asset_class, rating, desk, strategy), with pivot-like controls and exportable grouped views.
 
-4.  **Scenario & What-If at Portfolio Level**
-    *   **Components:** `PortfolioScenarioImpactView` under `domains/portfolio/scenarios`, layered on top of the Scenarios domain and portfolio `apply_and_revalue` helpers.
-    *   **Features:** Before/after portfolio value and metric deltas by scenario, entity, and tag, reusing `ScenarioExecutionPanel` runs but focused on portfolio-level impacts.
+4. **Scenario & What-If at Portfolio Level**
+    * **Components:** `PortfolioScenarioImpactView` under `domains/portfolio/scenarios`, layered on top of the Scenarios domain and portfolio `apply_and_revalue` helpers.
+    * **Features:** Before/after portfolio value and metric deltas by scenario, entity, and tag, reusing `ScenarioExecutionPanel` runs but focused on portfolio-level impacts.
 
-5.  **P&L Attribution**
-    *   **Components:** `PortfolioAttributionView` mapped to `PortfolioAttribution` and `attribute_portfolio_pnl`.
-    *   **Features:** Factor breakdown (rates, credit, inflation, vol, FX, carry, residual) with percentages of total, plus drill-down to per-position attribution and optional detailed factor views (e.g., rates curve buckets).
+5. **P&L Attribution**
+    * **Components:** `PortfolioAttributionView` mapped to `PortfolioAttribution` and `attribute_portfolio_pnl`.
+    * **Features:** Factor breakdown (rates, credit, inflation, vol, FX, carry, residual) with percentages of total, plus drill-down to per-position attribution and optional detailed factor views (e.g., rates curve buckets).
 
-6.  **Margin Aggregation**
-    *   **Components:** `MarginSummaryPanel`, `NettingSetView`, `SensitivityBreakdown` mirroring `margin::PortfolioMarginResult` and `NettingSetMargin`.
-    *   **Features:** IM/VM/Total margin by netting set, cleared vs bilateral splits, SIMM risk-class breakdowns, and optional views of aggregated sensitivities; designed to sit alongside `PortfolioSummaryPanel` for funding/risk oversight.
+6. **Margin Aggregation**
+    * **Components:** `MarginSummaryPanel`, `NettingSetView`, `SensitivityBreakdown` mirroring `margin::PortfolioMarginResult` and `NettingSetMargin`.
+    * **Features:** IM/VM/Total margin by netting set, cleared vs bilateral splits, SIMM risk-class breakdowns, and optional views of aggregated sensitivities; designed to sit alongside `PortfolioSummaryPanel` for funding/risk oversight.
 
-7.  **Optimization Surface**
-    *   **Components:**
-        *   `PortfolioOptimizerView` - Main optimization interface
-        *   `ConstraintEditor` - Define constraints (position limits, sector caps, etc.)
-        *   `ConstraintViolationsPanel` - Show which constraints bind
-        *   `EfficientFrontierChart` - Risk/return scatter plot (Recharts)
-        *   `TradeProposalGrid` - Proposed buy/sell actions
-        *   `OptimizationResultView` - Pre/post comparison
-    *   **Backed by:** `PortfolioOptimizationProblem`, `PortfolioOptimizer`, `PortfolioOptimizationResult`, and `TradeSpec`.
-    *   **Features:** Express objectives and constraints over portfolio metrics (e.g., max yield with CCC limit), visualize proposed trades (buy/sell, size, direction), and compare pre/post-optimization portfolios.
+7. **Optimization Surface**
+    * **Components:**
+        * `PortfolioOptimizerView` - Main optimization interface
+        * `ConstraintEditor` - Define constraints (position limits, sector caps, etc.)
+        * `ConstraintViolationsPanel` - Show which constraints bind
+        * `EfficientFrontierChart` - Risk/return scatter plot (Recharts)
+        * `TradeProposalGrid` - Proposed buy/sell actions
+        * `OptimizationResultView` - Pre/post comparison
+    * **Backed by:** `PortfolioOptimizationProblem`, `PortfolioOptimizer`, `PortfolioOptimizationResult`, and `TradeSpec`.
+    * **Features:** Express objectives and constraints over portfolio metrics (e.g., max yield with CCC limit), visualize proposed trades (buy/sell, size, direction), and compare pre/post-optimization portfolios.
 
-8.  **Cashflow Aggregation**
-    *   **Components:** `PortfolioCashflowAggregate` displaying aggregated cashflows across all positions.
-    *   **Features:** Timeline view of all portfolio cashflows, grouped by date/type, with currency aggregation.
+8. **Cashflow Aggregation**
+    * **Components:** `PortfolioCashflowAggregate` displaying aggregated cashflows across all positions.
+    * **Features:** Timeline view of all portfolio cashflows, grouped by date/type, with currency aggregation.
 
-9.  **Data Exports**
-    *   **Components:** `DataFramePreview` with export actions backed by `positions_to_dataframe` and `entities_to_dataframe`.
-    *   **Features:** Preview before export, one-click DataFrame/CSV/Parquet exports of position- and entity-level results for external analysis, preserving stable schema from the portfolio crate.
+9. **Data Exports**
+    * **Components:** `DataFramePreview` with export actions backed by `positions_to_dataframe` and `entities_to_dataframe`.
+    * **Features:** Preview before export, one-click DataFrame/CSV/Parquet exports of position- and entity-level results for external analysis, preserving stable schema from the portfolio crate.
 
 #### C. Domain: Statements (`finstack-wasm/statements`)
+
 Focus: Visualizing the `evaluator.rs` DAG, `registry.rs` assumptions, capital structure integration, templates, adjustments, and all analysis tooling under `analysis/`.
 
-1.  **`StatementViewer`**
-    *   **Purpose:** Interactive Financial Statement (Income Statement, Balance Sheet, Cashflow).
-    *   **Tech:** TanStack Table (Matrix View) backed by the evaluator `Results`.
-    *   **Interaction:** "Corkscrew tracing" powered by the `CorkscrewExtension` – clicking a cell highlights its precedent cells and roll-forward partners (e.g., *Ending Cash* highlights *Opening Cash* + *Net Income*).
-    *   **Accessibility:** Keyboard navigation between cells, ARIA labels for values.
+1. **`StatementViewer`**
+    * **Purpose:** Interactive Financial Statement (Income Statement, Balance Sheet, Cashflow).
+    * **Tech:** TanStack Table (Matrix View) backed by the evaluator `Results`.
+    * **Interaction:** "Corkscrew tracing" powered by the `CorkscrewExtension` – clicking a cell highlights its precedent cells and roll-forward partners (e.g., *Ending Cash* highlights *Opening Cash* + *Net Income*).
+    * **Accessibility:** Keyboard navigation between cells, ARIA labels for values.
 
-2.  **`ForecastEditor`**
-    *   **Purpose:** Node-level editor for deterministic/statistical/seasonal/time-series forecasts (`ForecastMethod`) and explicit values.
-    *   **Logic:** Edits the `StatementModel` JSON (value vs forecast vs formula), triggers WASM re-calc, and refreshes `StatementViewer` plus any open analysis views.
+2. **`ForecastEditor`**
+    * **Purpose:** Node-level editor for deterministic/statistical/seasonal/time-series forecasts (`ForecastMethod`) and explicit values.
+    * **Logic:** Edits the `StatementModel` JSON (value vs forecast vs formula), triggers WASM re-calc, and refreshes `StatementViewer` plus any open analysis views.
 
-3.  **`FormulaBar`**
-    *   **Purpose:** Excel-like formula editing experience.
-    *   **Features:** Syntax highlighting, autocomplete for node references, error indicators.
+3. **`FormulaBar`**
+    * **Purpose:** Excel-like formula editing experience.
+    * **Features:** Syntax highlighting, autocomplete for node references, error indicators.
 
-4.  **Templates & Roll-Forwards**
-    *   **Components:** `RollForwardBuilder`, `VintageAnalysisView`, `VintageWaterfallView` mirror `templates::TemplatesExtension` and `VintageExtension`.
-    *   **Behavior:** Wizard-like builders that add connected nodes (inventory roll-forwards, vintage waterfalls) to a model, with inline validation hooks to `CorkscrewExtension`.
+4. **Templates & Roll-Forwards**
+    * **Components:** `RollForwardBuilder`, `VintageAnalysisView`, `VintageWaterfallView` mirror `templates::TemplatesExtension` and `VintageExtension`.
+    * **Behavior:** Wizard-like builders that add connected nodes (inventory roll-forwards, vintage waterfalls) to a model, with inline validation hooks to `CorkscrewExtension`.
 
-5.  **Capital Structure Panel**
-    *   **Components:**
-        *   `CapitalStructurePanel` - Main overview with debt schedule
-        *   `DebtScheduleGrid` - TanStack Table for debt instruments
-        *   `WaterfallViewer` - Payment priority waterfall
-        *   `BondInstrumentForm`, `LoanInstrumentForm`, `SwapInstrumentForm` - Instrument editors
-    *   **Features:** Debt schedule viewer, cashflow breakdown (interest/principal/fees), and read-only views of capital-structure-driven metrics used inside statements (the `cs.*` DSL namespace).
+5. **Capital Structure Panel**
+    * **Components:**
+        * `CapitalStructurePanel` - Main overview with debt schedule
+        * `DebtScheduleGrid` - TanStack Table for debt instruments
+        * `WaterfallViewer` - Payment priority waterfall
+        * `BondInstrumentForm`, `LoanInstrumentForm`, `SwapInstrumentForm` - Instrument editors
+    * **Features:** Debt schedule viewer, cashflow breakdown (interest/principal/fees), and read-only views of capital-structure-driven metrics used inside statements (the `cs.*` DSL namespace).
 
-6.  **Scenario Management & Comparison**
-    *   **Components:** `ScenarioSetManager` and `ScenarioComparisonView`, mirroring `analysis::ScenarioSet`, `ScenarioResults`, and `ScenarioDiff`.
-    *   **Features:** CRUD for named scenarios with parent/override chains, evaluation controls, and wide comparison tables/variance bridges across scenarios (including baseline vs downside/stress).
+6. **Scenario Management & Comparison**
+    * **Components:** `ScenarioSetManager` and `ScenarioComparisonView`, mirroring `analysis::ScenarioSet`, `ScenarioResults`, and `ScenarioDiff`.
+    * **Features:** CRUD for named scenarios with parent/override chains, evaluation controls, and wide comparison tables/variance bridges across scenarios (including baseline vs downside/stress).
 
-7.  **Sensitivity, Goal Seek & Monte Carlo**
-    *   **Components:**
-        *   `SensitivityAnalyzer` - Parameter selection and sweep config
-        *   `TornadoChart` - Sensitivity tornado visualization
-        *   `GoalSeekPanel` - Target metric, driver selection, solve button
-        *   `MonteCarloConfigEditor` - Distribution config per parameter
-        *   `MonteCarloResultsView` - Histograms, fan charts, percentile tables
-    *   **Backed by:** `SensitivityAnalyzer`, `goal_seek`, `MonteCarloConfig`, `MonteCarloResults`, `PercentileSeries`.
-    *   **Features:** Parameter grids & tornado charts, "solve-for-X" panels (targeting a metric by varying drivers), and distribution views for Monte Carlo runs.
+7. **Sensitivity, Goal Seek & Monte Carlo**
+    * **Components:**
+        * `SensitivityAnalyzer` - Parameter selection and sweep config
+        * `TornadoChart` - Sensitivity tornado visualization
+        * `GoalSeekPanel` - Target metric, driver selection, solve button
+        * `MonteCarloConfigEditor` - Distribution config per parameter
+        * `MonteCarloResultsView` - Histograms, fan charts, percentile tables
+    * **Backed by:** `SensitivityAnalyzer`, `goal_seek`, `MonteCarloConfig`, `MonteCarloResults`, `PercentileSeries`.
+    * **Features:** Parameter grids & tornado charts, "solve-for-X" panels (targeting a metric by varying drivers), and distribution views for Monte Carlo runs.
 
-8.  **Forecast Backtesting & Variance Analysis**
-    *   **Components:**
-        *   `BacktestDashboard` - Forecast vs actual comparison
-        *   `BacktestAccuracyView` - `ForecastMetrics` visualization (MAE, MAPE, etc.)
-        *   `VarianceBridgeView` - Two-scenario variance analysis
-        *   `VarianceBridgeChart` - Renders `BridgeStep[]` as waterfall
-    *   **Backed by:** `backtest_forecast`, `ForecastMetrics`, `VarianceAnalyzer`, `VarianceReport`, `BridgeChart`.
-    *   **Features:** Forecast vs actual accuracy dashboards, variance/two-scenario bridge charts, and drill-down into period/metric-level deltas.
+8. **Forecast Backtesting & Variance Analysis**
+    * **Components:**
+        * `BacktestDashboard` - Forecast vs actual comparison
+        * `BacktestAccuracyView` - `ForecastMetrics` visualization (MAE, MAPE, etc.)
+        * `VarianceBridgeView` - Two-scenario variance analysis
+        * `VarianceBridgeChart` - Renders `BridgeStep[]` as waterfall
+    * **Backed by:** `backtest_forecast`, `ForecastMetrics`, `VarianceAnalyzer`, `VarianceReport`, `BridgeChart`.
+    * **Features:** Forecast vs actual accuracy dashboards, variance/two-scenario bridge charts, and drill-down into period/metric-level deltas.
 
-9.  **Covenants & Credit Scorecards**
-    *   **Components:** `CovenantMonitor` and `CreditScorecardViewer`.
-    *   **Features:** Visualization of covenant tests and breaches (from `analysis::covenants`), credit scorecard outputs from `CreditScorecardExtension`.
+9. **Covenants & Credit Scorecards**
+    * **Components:** `CovenantMonitor` and `CreditScorecardViewer`.
+    * **Features:** Visualization of covenant tests and breaches (from `analysis::covenants`), credit scorecard outputs from `CreditScorecardExtension`.
 
 10. **EBITDA Adjustments**
-    *   **Components:** `EbitdaAdjustmentsPanel` backed by `adjustments` module.
-    *   **Features:** Normalized EBITDA calculations, adjustments bridge waterfall, add-back/deduction categorization.
+    * **Components:** `EbitdaAdjustmentsPanel` backed by `adjustments` module.
+    * **Features:** Normalized EBITDA calculations, adjustments bridge waterfall, add-back/deduction categorization.
 
 11. **Formula Explain & Dependency Tracing**
-    *   **Components:**
-        *   `DependencyTreeViewer` - Tree/table view of dependencies
-        *   `DependencyGraphViewer` - Interactive DAG (using vis-network or reactflow)
-        *   `FormulaExplainPanel` - Step-by-step formula breakdown
-    *   **Wired to:** `DependencyTracer`, `DependencyTree`, `FormulaExplainer`, `Explanation`, `ExplanationStep`.
-    *   **Features:** Interactive dependency graphs with per-period values, and step-by-step formula breakdowns usable for debugging and LLM explanations.
+    * **Components:**
+        * `DependencyTreeViewer` - Tree/table view of dependencies
+        * `DependencyGraphViewer` - Interactive DAG (using vis-network or reactflow)
+        * `FormulaExplainPanel` - Step-by-step formula breakdown
+    * **Wired to:** `DependencyTracer`, `DependencyTree`, `FormulaExplainer`, `Explanation`, `ExplanationStep`.
+    * **Features:** Interactive dependency graphs with per-period values, and step-by-step formula breakdowns usable for debugging and LLM explanations.
 
 12. **Metric Registry & Results Export**
-    *   **Components:** `RegistryBrowser` and export actions on `StatementViewer` / `ScenarioComparisonView`.
-    *   **Features:** Browse/search metric namespaces (from the `registry` module, `fin.*` and custom), inspect definitions and dependencies, and export Polars-backed tables (DataFrame/CSV) from `results::export` and `ScenarioResults::to_comparison_df()`.
+    * **Components:** `RegistryBrowser` and export actions on `StatementViewer` / `ScenarioComparisonView`.
+    * **Features:** Browse/search metric namespaces (from the `registry` module, `fin.*` and custom), inspect definitions and dependencies, and export Polars-backed tables (DataFrame/CSV) from `results::export` and `ScenarioResults::to_comparison_df()`.
 
 13. **Extensions Console**
-    *   **Components:** `ExtensionsConsole` surface that lists registered extensions from `extensions::ExtensionRegistry` (including `CorkscrewExtension` and `CreditScorecardExtension`).
-    *   **Features:** Run extensions on current models/results, inspect status/metadata, and show diagnostics panels alongside `StatementViewer`.
+    * **Components:** `ExtensionsConsole` surface that lists registered extensions from `extensions::ExtensionRegistry` (including `CorkscrewExtension` and `CreditScorecardExtension`).
+    * **Features:** Run extensions on current models/results, inspect status/metadata, and show diagnostics panels alongside `StatementViewer`.
 
 #### D. Domain: Market (`finstack-wasm/core`)
 
-1.  **`CurveEditor`**
-    *   **Purpose:** visualize and shock yield curves.
-    *   **Tech:** Recharts (Line) + Drag-and-Drop handles.
-    *   **Interaction:** Dragging a point updates the `MarketContext` and triggers a global re-price.
+1. **`CurveEditor`**
+    * **Purpose:** visualize and shock yield curves.
+    * **Tech:** Recharts (Line) + Drag-and-Drop handles.
+    * **Interaction:** Dragging a point updates the `MarketContext` and triggers a global re-price.
 
-2.  **`VolSurfaceViewer`**
-    *   **Purpose:** Display volatility surface as 2D heatmap.
-    *   **Tech:** ECharts heatmap.
+2. **`VolSurfaceViewer`**
+    * **Purpose:** Display volatility surface as 2D heatmap.
+    * **Tech:** ECharts heatmap.
 
-3.  **`VolSurface3D`**
-    *   **Purpose:** Interactive 3D volatility surface.
-    *   **Tech:** ECharts WebGL surface with Canvas 2D fallback.
-    *   **Fallback:** Detect WebGL support; fall back to 2D heatmap on unsupported devices.
+3. **`VolSurface3D`**
+    * **Purpose:** Interactive 3D volatility surface.
+    * **Tech:** ECharts WebGL surface with Canvas 2D fallback.
+    * **Fallback:** Detect WebGL support; fall back to 2D heatmap on unsupported devices.
 
-4.  **`FxMatrixViewer`**
-    *   **Purpose:** Display FX rate matrix.
-    *   **Tech:** TanStack Table with editable cells.
+4. **`FxMatrixViewer`**
+    * **Purpose:** Display FX rate matrix.
+    * **Tech:** TanStack Table with editable cells.
 
-5.  **`InflationIndexViewer`**
-    *   **Purpose:** Display CPI index series.
-    *   **Tech:** Recharts time series.
+5. **`InflationIndexViewer`**
+    * **Purpose:** Display CPI index series.
+    * **Tech:** Recharts time series.
 
 #### E. Domain: Scenarios (`finstack-wasm/scenarios`)
+
 Focus: Providing a cross-domain scenario engine UI that mirrors `ScenarioSpec`, `OperationSpec`, `ScenarioEngine`, and `ExecutionContext` from the `finstack-scenarios` crate.
 
-1.  **`ScenarioBuilder`**
-    *   **Purpose:** JSON-backed editor for individual `ScenarioSpec` objects and their ordered list of `OperationSpec` variants (FX, curves, vols, statements, instruments, time roll-forward).
-    *   **Features:** Operation-type pickers, parameter forms (e.g., curve IDs, bp/pct shocks, tenors), and live validation against the active `MarketContext`/statement model.
+1. **`ScenarioBuilder`**
+    * **Purpose:** JSON-backed editor for individual `ScenarioSpec` objects and their ordered list of `OperationSpec` variants (FX, curves, vols, statements, instruments, time roll-forward).
+    * **Features:** Operation-type pickers, parameter forms (e.g., curve IDs, bp/pct shocks, tenors), and live validation against the active `MarketContext`/statement model.
 
-2.  **`ScenarioLibrary`**
-    *   **Purpose:** Manage a library of named scenarios with priorities, ready for composition via `ScenarioEngine::compose`.
-    *   **Features:** Tagging and grouping (e.g., "Q1 Stress", "Horizon 1M"), priority sliders, and JSON import/export that matches the serde-stable wire format.
+2. **`ScenarioLibrary`**
+    * **Purpose:** Manage a library of named scenarios with priorities, ready for composition via `ScenarioEngine::compose`.
+    * **Features:** Tagging and grouping (e.g., "Q1 Stress", "Horizon 1M"), priority sliders, and JSON import/export that matches the serde-stable wire format.
 
-3.  **`ScenarioExecutionPanel`**
-    *   **Purpose:** Apply a single scenario or composed scenario set to the current `ExecutionContext` (Market + Statements + Valuations) and surface the resulting `ApplicationReport`.
-    *   **Features:** Phase-by-phase execution view (time roll → market → rate bindings → statements → re-eval), operation counts, and a structured warnings/error console aligned with `ApplicationReport::warnings`.
+3. **`ScenarioExecutionPanel`**
+    * **Purpose:** Apply a single scenario or composed scenario set to the current `ExecutionContext` (Market + Statements + Valuations) and surface the resulting `ApplicationReport`.
+    * **Features:** Phase-by-phase execution view (time roll → market → rate bindings → statements → re-eval), operation counts, and a structured warnings/error console aligned with `ApplicationReport::warnings`.
 
-4.  **`HorizonScenarioGrid`**
-    *   **Purpose:** Specialized viewer for horizon scenarios (e.g., 1W/1M/3M `TimeRollForward` plus shocks) across key metrics.
-    *   **Features:** Matrix layout with columns for horizons and rows for selected metrics (PV, DV01, statement KPIs); integrates with `ScenarioExecutionPanel` to re-use underlying `ScenarioEngine` runs.
+4. **`HorizonScenarioGrid`**
+    * **Purpose:** Specialized viewer for horizon scenarios (e.g., 1W/1M/3M `TimeRollForward` plus shocks) across key metrics.
+    * **Features:** Matrix layout with columns for horizons and rows for selected metrics (PV, DV01, statement KPIs); integrates with `ScenarioExecutionPanel` to re-use underlying `ScenarioEngine` runs.
 
-5.  **Operation Editors**
-    *   **Components:** Specialized editors for each operation type:
-        *   `CurveShockEditor` - Parallel/node shifts, curve selection
-        *   `EquityShockEditor` - Ticker selection, percentage shocks
-        *   `VolShockEditor` - Surface selection, parallel/bucket shocks
-        *   `FxShockEditor` - Currency pair selection, rate shocks
-        *   `StatementShockEditor` - Node selection, forecast adjustments
-        *   `TimeRollEditor` - Period selection, carry calculation options
+5. **Operation Editors**
+    * **Components:** Specialized editors for each operation type:
+        * `CurveShockEditor` - Parallel/node shifts, curve selection
+        * `EquityShockEditor` - Ticker selection, percentage shocks
+        * `VolShockEditor` - Surface selection, parallel/bucket shocks
+        * `FxShockEditor` - Currency pair selection, rate shocks
+        * `StatementShockEditor` - Node selection, forecast adjustments
+        * `TimeRollEditor` - Period selection, carry calculation options
 
 ### 3.6 Performance Architecture
 
@@ -1111,10 +1124,10 @@ Heavy computations are offloaded to Web Workers using Comlink for type-safe comm
 ```typescript
 // workers/valuationWorker.ts
 import { expose } from 'comlink';
-import init, { 
-  Bond, 
-  MarketContext, 
-  FinstackConfig 
+import init, {
+  Bond,
+  MarketContext,
+  FinstackConfig
 } from 'finstack-wasm';
 
 let initialized = false;
@@ -1133,10 +1146,10 @@ const api = {
     configJson: string
   ): Promise<ValuationResult[]> {
     await this.initialize();
-    
+
     const market = MarketContext.fromJSON(marketJson);
     const config = FinstackConfig.fromJSON(configJson);
-    
+
     return instrumentsJson.map(json => {
       const instrument = deserializeInstrument(json);
       return {
@@ -1182,13 +1195,13 @@ Large data tables use TanStack Virtual for efficient rendering:
 // components/tables/VirtualDataTable.tsx
 import { useVirtualizer } from '@tanstack/react-virtual';
 
-export function VirtualDataTable<T>({ 
-  data, 
+export function VirtualDataTable<T>({
+  data,
   columns,
   rowHeight = 35,
 }: VirtualDataTableProps<T>) {
   const parentRef = useRef<HTMLDivElement>(null);
-  
+
   const virtualizer = useVirtualizer({
     count: data.length,
     getScrollElement: () => parentRef.current,
@@ -1198,12 +1211,12 @@ export function VirtualDataTable<T>({
 
   // Only render visible rows
   const virtualRows = virtualizer.getVirtualItems();
-  
+
   return (
     <div ref={parentRef} className="h-[600px] overflow-auto">
       <div style={{ height: virtualizer.getTotalSize() }}>
         {virtualRows.map(virtualRow => (
-          <TableRow 
+          <TableRow
             key={virtualRow.key}
             data={data[virtualRow.index]}
             style={{
@@ -1245,7 +1258,7 @@ export function SurfaceViewer({ data, config }: SurfaceViewerProps) {
   if (hasWebGL) {
     return <Surface3DWebGL data={data} config={config} />;
   }
-  
+
   // Fallback to 2D heatmap
   return <SurfaceHeatmap2D data={data} config={config} />;
 }
@@ -1266,19 +1279,19 @@ Guidelines for when to use workers vs main thread:
 
 ### 3.7 Development Guidelines
 
-1.  **WASM Separation:** UI components never import `finstack-wasm` directly. They use `hooks/` which manage Suspense, Error Boundaries, and async loading.
-2.  **Strict Typing:** Props must use `finstack` types (e.g., `Currency` enum), not strings.
-3.  **Metric Integrity:** Never format numbers manually. Use the `RoundingContext` from the WASM engine and `AmountDisplay` components.
-4.  **Error Handling:** Wrap all "Organisms" in Error Boundaries to gracefully handle WASM panics (e.g., "Curve missing for GBP").
-5.  **State Serialization:** All component state must be JSON-serializable for LLM snapshots.
+1. **WASM Separation:** UI components never import `finstack-wasm` directly. They use `hooks/` which manage Suspense, Error Boundaries, and async loading.
+2. **Strict Typing:** Props must use `finstack` types (e.g., `Currency` enum), not strings.
+3. **Metric Integrity:** Never format numbers manually. Use the `RoundingContext` from the WASM engine and `AmountDisplay` components.
+4. **Error Handling:** Wrap all "Organisms" in Error Boundaries to gracefully handle WASM panics (e.g., "Curve missing for GBP").
+5. **State Serialization:** All component state must be JSON-serializable for LLM snapshots.
 
 #### Accessibility Requirements
 
-*   **Keyboard Navigation:** All interactive elements must be keyboard accessible.
-*   **ARIA Labels:** Financial data tables must have proper ARIA labels for screen readers.
-*   **Focus Management:** Modal dialogs and drawers must trap focus appropriately.
-*   **High Contrast:** Support high-contrast mode for trading floor environments.
-*   **Announcements:** Real-time value changes should be announced to screen readers.
+* **Keyboard Navigation:** All interactive elements must be keyboard accessible.
+* **ARIA Labels:** Financial data tables must have proper ARIA labels for screen readers.
+* **Focus Management:** Modal dialogs and drawers must trap focus appropriately.
+* **High Contrast:** Support high-contrast mode for trading floor environments.
+* **Announcements:** Real-time value changes should be announced to screen readers.
 
 ```typescript
 // utils/accessibility.ts
@@ -1295,7 +1308,7 @@ export function announceToScreenReader(message: string) {
 // Usage in components
 function PriceDisplay({ value, currency }: PriceDisplayProps) {
   const prevValue = usePrevious(value);
-  
+
   useEffect(() => {
     if (prevValue !== undefined && value !== prevValue) {
       const change = value > prevValue ? 'increased' : 'decreased';
@@ -1304,16 +1317,16 @@ function PriceDisplay({ value, currency }: PriceDisplayProps) {
       );
     }
   }, [value, prevValue, currency]);
-  
+
   return <AmountDisplay value={value} currency={currency} />;
 }
 ```
 
 #### Internationalization
 
-*   **Number Formatting:** Use `Intl.NumberFormat` with `RoundingContext` settings.
-*   **Currency Display:** ISO-4217 codes with localized symbols.
-*   **Date Formatting:** Business calendar + locale-aware display.
+* **Number Formatting:** Use `Intl.NumberFormat` with `RoundingContext` settings.
+* **Currency Display:** ISO-4217 codes with localized symbols.
+* **Date Formatting:** Business calendar + locale-aware display.
 
 ```typescript
 // utils/formatting.ts
@@ -1357,12 +1370,12 @@ Support both light and dark themes with CSS variables:
   --color-positive: #16a34a;
   --color-negative: #dc2626;
   --color-neutral: #6b7280;
-  
+
   /* Risk heatmap colors */
   --heatmap-low: #10b981;
   --heatmap-mid: #f59e0b;
   --heatmap-high: #ef4444;
-  
+
   /* Chart colors */
   --chart-1: hsl(221, 83%, 53%);
   --chart-2: hsl(142, 76%, 36%);
@@ -1405,7 +1418,7 @@ describe('AmountDisplay', () => {
   it('applies positive/negative styling', () => {
     const { rerender } = render(<AmountDisplay value={100} currency="USD" />);
     expect(screen.getByText('$100.00')).toHaveClass('text-positive');
-    
+
     rerender(<AmountDisplay value={-100} currency="USD" />);
     expect(screen.getByText('-$100.00')).toHaveClass('text-negative');
   });
@@ -1429,14 +1442,14 @@ test.describe('Discount Curve Calibration', () => {
     // Enter quotes
     await page.fill('[data-testid="quote-rate-0"]', '0.05');
     await page.fill('[data-testid="quote-tenor-0"]', '1Y');
-    
+
     // Run calibration
     await page.click('[data-testid="calibrate-button"]');
-    
+
     // Verify success
     await expect(page.locator('[data-testid="calibration-status"]'))
       .toHaveText('Success');
-    
+
     // Verify curve is displayed
     await expect(page.locator('[data-testid="curve-chart"]'))
       .toBeVisible();
@@ -1517,9 +1530,9 @@ describe('Bond Pricing Parity', () => {
       const bond = Bond.fromJSON(testCase.instrument);
       const market = MarketContext.fromJSON(testCase.market);
       const config = new FinstackConfig();
-      
+
       const pv = bond.price(market, config);
-      
+
       // Match to 6 decimal places (Decimal precision)
       expect(pv.amount).toBeCloseTo(testCase.expected.pv, 6);
     });
@@ -1600,7 +1613,7 @@ export type FinstackEngineAPI = typeof engine;
 // hooks/useCurveEditor.ts
 export function useCurveEditor(curveId: string) {
   const engine = useFinstackEngine();
-  
+
   // Debounced shock application during drag
   const applyShock = useDeferredValue(
     useCallback(async (shockBps: number) => {
@@ -1672,7 +1685,7 @@ function BadSumFooter({ values }: { values: number[] }) {
 
 // GOOD: Ask WASM to compute aggregates
 function GoodSumFooter({ columnId }: { columnId: string }) {
-  const { data } = useQuery(['column-sum', columnId], () => 
+  const { data } = useQuery(['column-sum', columnId], () =>
     engine.computeColumnSum(columnId) // Returns string
   );
   return <AmountDisplay value={data} currency="USD" />;
@@ -1704,7 +1717,7 @@ const engine = {
   async priceInstrument(json: string): Promise<ValuationResult>,
   async computeMetrics(instrumentId: string, metrics: string[]): Promise<Record<string, string>>,
 
-  // Statements domain  
+  // Statements domain
   async loadModel(id: string, json: string): Promise<void>,
   async evaluateModel(id: string): Promise<EvaluationResult>,
   async runMonteCarlo(modelId: string, config: MonteCarloConfig): Promise<MonteCarloResult>,
@@ -1763,7 +1776,7 @@ export function WasmErrorBoundary({ children, fallback }: Props) {
   return (
     <ErrorBoundary
       fallbackRender={({ error, resetErrorBoundary }) => (
-        <WasmErrorFallback 
+        <WasmErrorFallback
           error={error as WasmError}
           onRetry={resetErrorBoundary}
         />
@@ -1780,7 +1793,7 @@ export function WasmErrorBoundary({ children, fallback }: Props) {
 
 function WasmErrorFallback({ error, onRetry }: FallbackProps) {
   const isRecoverable = error.recoverable !== false;
-  
+
   return (
     <Alert variant="destructive">
       <AlertTitle>Calculation Error</AlertTitle>
@@ -1818,7 +1831,7 @@ interface DraftState {
   pendingChanges: Map<string, any>;
   isDirty: boolean;
   validationErrors: ValidationError[];
-  
+
   // Actions
   addChange: (key: string, value: any) => void;
   validate: () => Promise<ValidationError[]>;
@@ -1878,10 +1891,10 @@ export function useDeferredCalculation<T>(
 ) {
   const [isPending, startTransition] = useTransition();
   const [result, setResult] = useState<T | null>(null);
-  
+
   // Defer non-urgent updates
   const deferredDeps = useDeferredValue(deps);
-  
+
   useEffect(() => {
     startTransition(async () => {
       const value = await calculate();
@@ -1944,7 +1957,7 @@ export const ComponentRegistry: Record<string, RegisteredComponent> = {
 // Generate LLM documentation from registry
 export function generateComponentDocs(): string {
   return Object.entries(ComponentRegistry)
-    .map(([type, def]) => 
+    .map(([type, def]) =>
       `- **${type}**: ${def.description}\n  Example: ${JSON.stringify(def.exampleProps)}`
     )
     .join('\n');
@@ -1966,10 +1979,10 @@ interface DynamicRendererProps {
 export function DynamicRenderer({ dashboard, onError }: DynamicRendererProps) {
   const renderComponent = (instance: ComponentInstance) => {
     const registered = ComponentRegistry[instance.type];
-    
+
     if (!registered) {
       return (
-        <ErrorCard 
+        <ErrorCard
           title="Unknown Component"
           message={`Component type "${instance.type}" is not registered`}
         />
@@ -2034,33 +2047,33 @@ export const DashboardActionSchema = z.discriminatedUnion('action', [
       index: z.number().optional(),
     }),
   }),
-  
+
   // Remove a component
   z.object({
     action: z.literal('remove_component'),
     componentId: z.string().uuid(),
   }),
-  
+
   // Update component props (partial)
   z.object({
     action: z.literal('update_component'),
     componentId: z.string().uuid(),
     propsPatch: z.record(z.unknown()),  // Partial update
   }),
-  
+
   // Change component mode
   z.object({
     action: z.literal('set_component_mode'),
     componentId: z.string().uuid(),
     mode: z.enum(['viewer', 'editor', 'llm-assisted']),
   }),
-  
+
   // Change layout
   z.object({
     action: z.literal('set_layout'),
     layout: LayoutTemplateSchema,
   }),
-  
+
   // Batch multiple actions
   z.object({
     action: z.literal('batch'),
@@ -2106,10 +2119,10 @@ export function applyDashboardAction(
 ```
 
 **Benefits of mutations over full redefines:**
-- Smaller payloads
-- Natural undo/redo (each action is a history entry)
-- Easier to reason about diffs
-- LLMs make fewer mistakes with simple operations
+* Smaller payloads
+* Natural undo/redo (each action is a history entry)
+* Easier to reason about diffs
+* LLMs make fewer mistakes with simple operations
 
 #### 3.10.4 LLM-Safe Modes
 
@@ -2232,11 +2245,13 @@ export async function generateLLMContext(): Promise<LLMContext> {
 ```
 
 **Instead of sending:**
+
 ```json
 { "positions": [ { "id": 1, "pv": 100 }, /* ...10,000 items */ ] }
 ```
 
 **Send:**
+
 ```json
 {
   "portfolio": {
@@ -2316,7 +2331,7 @@ function RiskHeatmap({ metric, grouping, filters }: RiskHeatmapProps) {
   const { data } = useQuery(['risk-heatmap', metric, grouping, filters], () =>
     engine.computeRiskHeatmap(metric, grouping, filters)
   );
-  
+
   return <HeatmapGrid data={data} />;
 }
 
@@ -2579,7 +2594,7 @@ export function SchemaForm<T extends z.ZodObject<any>>({
 // Auto-detect field type and render appropriate input
 function FormField({ form, name, schema }: FormFieldProps) {
   const typeName = schema._def.typeName;
-  
+
   switch (typeName) {
     case 'ZodString':
       if (name.includes('date')) {
@@ -2589,17 +2604,17 @@ function FormField({ form, name, schema }: FormFieldProps) {
         return <CurrencySelect {...form.register(name)} />;
       }
       return <Input {...form.register(name)} />;
-      
+
     case 'ZodNumber':
       if (name.includes('rate')) {
         return <RateInput {...form.register(name)} />;
       }
       return <Input type="number" {...form.register(name)} />;
-      
+
     case 'ZodEnum':
       const options = schema._def.values;
       return <Select options={options} {...form.register(name)} />;
-      
+
     default:
       return <Input {...form.register(name)} />;
   }
@@ -2610,7 +2625,7 @@ function FormField({ form, name, schema }: FormFieldProps) {
 
 ```typescript
 // Auto-generated form for simple instruments
-<SchemaForm 
+<SchemaForm
   schema={DepositSpecSchema}
   onSubmit={handleCreateDeposit}
 />
@@ -2690,16 +2705,16 @@ export const BondDescriptor: InstrumentDescriptor = {
     { name: 'couponRate', label: 'Coupon Rate', kind: 'rate', required: true },
     { name: 'issueDate', label: 'Issue Date', kind: 'date', required: true },
     { name: 'maturityDate', label: 'Maturity Date', kind: 'date', required: true },
-    { 
-      name: 'frequency', 
-      label: 'Payment Frequency', 
+    {
+      name: 'frequency',
+      label: 'Payment Frequency',
       kind: 'enum',
       enumValues: ['Annual', 'SemiAnnual', 'Quarterly', 'Monthly'],
       defaultValue: 'SemiAnnual',
     },
-    { 
-      name: 'dayCount', 
-      label: 'Day Count', 
+    {
+      name: 'dayCount',
+      label: 'Day Count',
       kind: 'enum',
       enumValues: ['Act360', 'Act365F', 'Thirty360'],
       defaultValue: 'Thirty360',
@@ -2720,9 +2735,9 @@ export const BarrierOptionDescriptor: InstrumentDescriptor = {
     { name: 'notional', label: 'Notional', kind: 'money', required: true },
     { name: 'strike', label: 'Strike', kind: 'rate', required: true },
     { name: 'barrier', label: 'Barrier Level', kind: 'rate', required: true },
-    { 
-      name: 'barrierType', 
-      label: 'Barrier Type', 
+    {
+      name: 'barrierType',
+      label: 'Barrier Type',
       kind: 'enum',
       enumValues: ['UpAndIn', 'UpAndOut', 'DownAndIn', 'DownAndOut'],
     },
@@ -2757,7 +2772,7 @@ export function GenericInstrumentPanel({
   onSubmit,
 }: GenericInstrumentPanelProps) {
   const [instrumentData, setInstrumentData] = useState(initialValues);
-  
+
   // Convert descriptor to Zod schema dynamically
   const schema = useMemo(
     () => descriptorToZodSchema(descriptor),
@@ -2777,7 +2792,7 @@ export function GenericInstrumentPanel({
         <CardTitle>{descriptor.type}</CardTitle>
         <CardDescription>{descriptor.description}</CardDescription>
       </CardHeader>
-      
+
       <CardContent className="space-y-6">
         {/* Input Form */}
         <section>
@@ -2836,10 +2851,10 @@ export function GenericInstrumentPanel({
 // Helper: Convert descriptor to Zod schema
 function descriptorToZodSchema(descriptor: InstrumentDescriptor): z.ZodObject<any> {
   const shape: Record<string, z.ZodTypeAny> = {};
-  
+
   for (const field of descriptor.fields) {
     let fieldSchema: z.ZodTypeAny;
-    
+
     switch (field.kind) {
       case 'money':
         fieldSchema = MoneySpecSchema;
@@ -2864,10 +2879,10 @@ function descriptorToZodSchema(descriptor: InstrumentDescriptor): z.ZodObject<an
       default:
         fieldSchema = z.unknown();
     }
-    
+
     shape[field.name] = field.required ? fieldSchema : fieldSchema.optional();
   }
-  
+
   return z.object(shape);
 }
 ```
@@ -2881,9 +2896,9 @@ function descriptorToZodSchema(descriptor: InstrumentDescriptor): z.ZodObject<an
 | Complex (Swaption, Convertible, Autocallable) | Custom panel with specialized UI |
 
 **Custom panels are needed when:**
-- Complex interdependent fields (e.g., swaption exercise schedule)
-- Specialized visualizations (e.g., autocallable payoff diagram)
-- Multi-step workflows (e.g., structured credit waterfall builder)
+* Complex interdependent fields (e.g., swaption exercise schedule)
+* Specialized visualizations (e.g., autocallable payoff diagram)
+* Multi-step workflows (e.g., structured credit waterfall builder)
 
 The generic system handles the "long tail" of instruments (Barrier, Cliquet, Quanto, Asian, Lookback, etc.) without hand-coding 30+ forms.
 
@@ -2952,17 +2967,17 @@ Make thresholds config-driven, not hardcoded:
 export interface ComputeThresholds {
   // Portfolio
   portfolioPositionsForWorker: number;
-  
+
   // Monte Carlo
   monteCarloPathsForWorker: number;
-  
+
   // Statements
   statementNodesForWorker: number;
   statementPeriodsForWorker: number;
-  
+
   // Tables
   virtualScrollRowThreshold: number;
-  
+
   // Risk
   riskHeatmapCellsForCanvas: number;
 }
@@ -2989,7 +3004,7 @@ export function loadThresholds(): ComputeThresholds {
 // Usage in hooks
 export function useComputeStrategy(computationType: string, size: number) {
   const thresholds = useMemo(loadThresholds, []);
-  
+
   const useWorker = useMemo(() => {
     switch (computationType) {
       case 'portfolio':
@@ -3015,7 +3030,7 @@ ECharts and 3D charting are expensive. Lazy-load them:
 import { lazy } from 'react';
 
 // Only load ECharts when needed
-export const VolSurface3D = lazy(() => 
+export const VolSurface3D = lazy(() =>
   import('./VolSurface3D').then(m => ({ default: m.VolSurface3D }))
 );
 
@@ -3067,156 +3082,170 @@ packages/
 ## 4. Implementation Roadmap
 
 > **Key Principles:**
+>
 > 1. **GenUI first** - The LLM integration dictates data structures across all domains
 > 2. **Vertical slices** - Ship narrow but complete features before expanding breadth
 > 3. **Prove patterns early** - Validate Handle Pattern, String Transport, and Schema Generation before building 30+ panels
 
 ### Phase 1: Core Infrastructure (Weeks 1-2)
-*   Initialize `packages/finstack-ui` with Vite/React/TS.
-*   Setup Tailwind + Shadcn.
-*   **Implement Unified Finstack Engine Worker** with Handle-based architecture.
-*   Implement Rust panic hooks for graceful error recovery.
-*   Create `FinstackProvider` context with WASM initialization (singleton pattern).
-*   Implement core hooks: `useFinstack`, `useFinstackEngine`.
-*   Build primitives with **String Transport** (no JS math):
-    *   `AmountDisplay` (string-based, no float conversion)
-    *   `AmountInput`, `CurrencySelect`, `TenorInput`, `DatePicker`
-*   Configure Vitest + React Testing Library.
-*   Setup worker pool singleton.
+
+* Initialize `packages/finstack-ui` with Vite/React/TS.
+* Setup Tailwind + Shadcn.
+* **Implement Unified Finstack Engine Worker** with Handle-based architecture.
+* Implement Rust panic hooks for graceful error recovery.
+* Create `FinstackProvider` context with WASM initialization (singleton pattern).
+* Implement core hooks: `useFinstack`, `useFinstackEngine`.
+* Build primitives with **String Transport** (no JS math):
+  * `AmountDisplay` (string-based, no float conversion)
+  * `AmountInput`, `CurrencySelect`, `TenorInput`, `DatePicker`
+* Configure Vitest + React Testing Library.
+* Setup worker pool singleton.
 
 ### Phase 2: Schema Pipeline & GenUI Foundation (Weeks 3-4)
-*   **Setup `ts-rs` or `specta`** in Rust crates for auto-generated TypeScript types.
-*   Build Zod schema derivation from generated types with **schema versioning**.
-*   Define `DashboardDefinitionSchema v1` with layout templates.
-*   Implement `ComponentRegistry` with typed components.
-*   Build `DynamicRenderer` that reads hard-coded JSON dashboards.
-*   Create mutation action reducers (add/remove/update components).
-*   Build `toLLMContext()` semantic summary generation in Rust.
-*   Implement `schemaGenerator.ts` for OpenAI function schemas.
-*   **Test:** Validate end-to-end "JSON → UI" rendering with 3 sample dashboards.
+
+* **Setup `ts-rs` or `specta`** in Rust crates for auto-generated TypeScript types.
+* Build Zod schema derivation from generated types with **schema versioning**.
+* Define `DashboardDefinitionSchema v1` with layout templates.
+* Implement `ComponentRegistry` with typed components.
+* Build `DynamicRenderer` that reads hard-coded JSON dashboards.
+* Create mutation action reducers (add/remove/update components).
+* Build `toLLMContext()` semantic summary generation in Rust.
+* Implement `schemaGenerator.ts` for OpenAI function schemas.
+* **Test:** Validate end-to-end "JSON → UI" rendering with 3 sample dashboards.
 
 ### Phase 3: Vertical Slice #1 - Basic Rates (Weeks 5-7)
+
 **Goal:** Prove all patterns with a narrow but complete feature set.
 
-*   **Instruments (2 only):**
-    *   `Bond` - via `GenericInstrumentPanel` + descriptor
-    *   `InterestRateSwap` - custom panel (complexity test)
-*   **Calibration (2 only):**
-    *   `DiscountCurveCalibration`
-    *   `ForwardCurveCalibration`
-*   **Charts:**
-    *   `CurveChart` (Recharts)
-    *   `VirtualDataTable` (TanStack)
-    *   `CashflowWaterfall` (virtualized)
-*   **GenUI integration:**
-    *   Register `CurveChart`, `BondPanel`, `SwapPanel` in `ComponentRegistry`
-    *   Test LLM dashboard creation with these components
-*   **Validation:**
-    *   Schema parity tests (Rust ↔ TS ↔ Zod)
-    *   Numeric parity golden tests
-    *   LLM dashboard snapshot tests
+* **Instruments (2 only):**
+  * `Bond` - via `GenericInstrumentPanel` + descriptor
+  * `InterestRateSwap` - custom panel (complexity test)
+* **Calibration (2 only):**
+  * `DiscountCurveCalibration`
+  * `ForwardCurveCalibration`
+* **Charts:**
+  * `CurveChart` (Recharts)
+  * `VirtualDataTable` (TanStack)
+  * `CashflowWaterfall` (virtualized)
+* **GenUI integration:**
+  * Register `CurveChart`, `BondPanel`, `SwapPanel` in `ComponentRegistry`
+  * Test LLM dashboard creation with these components
+* **Validation:**
+  * Schema parity tests (Rust ↔ TS ↔ Zod)
+  * Numeric parity golden tests
+  * LLM dashboard snapshot tests
 
 ### Phase 4: Vertical Slice #2 - Portfolio (Weeks 8-10)
-*   **Portfolio core:**
-    *   `PositionGrid` with virtual scrolling
-    *   `EntityTreeView` for entity hierarchy
-    *   `PortfolioSummaryPanel` with aggregated metrics
-*   **Risk:**
-    *   `InstrumentRiskTable` (DV01/CS01/Greeks)
-    *   Basic `RiskHeatmap` (table-based, not canvas yet)
-*   **GenUI integration:**
-    *   Register portfolio components
-    *   Mutation actions for position selection/filtering
-    *   Data binding DSL for portfolio paths
-*   **LLM safety:**
-    *   Implement `mode` prop on portfolio editors
-    *   Test `llm-assisted` mode with confirmation dialogs
+
+* **Portfolio core:**
+  * `PositionGrid` with virtual scrolling
+  * `EntityTreeView` for entity hierarchy
+  * `PortfolioSummaryPanel` with aggregated metrics
+* **Risk:**
+  * `InstrumentRiskTable` (DV01/CS01/Greeks)
+  * Basic `RiskHeatmap` (table-based, not canvas yet)
+* **GenUI integration:**
+  * Register portfolio components
+  * Mutation actions for position selection/filtering
+  * Data binding DSL for portfolio paths
+* **LLM safety:**
+  * Implement `mode` prop on portfolio editors
+  * Test `llm-assisted` mode with confirmation dialogs
 
 ### Phase 5: Vertical Slice #3 - Statements (Weeks 11-13)
-*   **Statements core:**
-    *   `StatementViewer` (Matrix rendering)
-    *   `ForecastEditor` with method selection
-    *   `FormulaBar` with autocomplete
-*   **Corkscrew tracing:**
-    *   Build **Canvas Overlay** (virtualization-compatible)
-    *   Dependency graph from Rust DAG
-*   **Analysis (2 only):**
-    *   `GoalSeekPanel`
-    *   `SensitivityAnalyzer` + `TornadoChart`
-*   **GenUI integration:**
-    *   Register statement components
-    *   Data binding DSL for statement paths (node.period)
+
+* **Statements core:**
+  * `StatementViewer` (Matrix rendering)
+  * `ForecastEditor` with method selection
+  * `FormulaBar` with autocomplete
+* **Corkscrew tracing:**
+  * Build **Canvas Overlay** (virtualization-compatible)
+  * Dependency graph from Rust DAG
+* **Analysis (2 only):**
+  * `GoalSeekPanel`
+  * `SensitivityAnalyzer` + `TornadoChart`
+* **GenUI integration:**
+  * Register statement components
+  * Data binding DSL for statement paths (node.period)
 
 ### Phase 6: Editors & Draft Mode (Weeks 14-15)
-*   Implement Draft Mode state management with `useDraftStore`.
-*   Build `EditableGrid` for quote entry with validation.
-*   Build `TradeEntryForm` for position entry.
-*   Implement `ConstraintEditor` for optimization.
-*   Add undo/redo middleware for editor state.
-*   Implement `useDeferredValue` for responsive editing.
+
+* Implement Draft Mode state management with `useDraftStore`.
+* Build `EditableGrid` for quote entry with validation.
+* Build `TradeEntryForm` for position entry.
+* Implement `ConstraintEditor` for optimization.
+* Add undo/redo middleware for editor state.
+* Implement `useDeferredValue` for responsive editing.
 
 ### Phase 7: Breadth Expansion - All Instruments (Weeks 16-18)
-*   **Generic Instrument Form system:**
-    *   Generate `InstrumentDescriptor` for all instruments from Rust metadata
-    *   Build remaining instrument panels via `GenericInstrumentPanel`
-*   **Calibration breadth:**
-    *   `HazardCurveCalibration`, `InflationCurveCalibration`
-    *   `VolSurfaceCalibration` (2D heatmap)
-    *   Lazy-load `VolSurface3D` (WebGL)
-*   **Custom panels (complex instruments only):**
-    *   `SwaptionPanel`, `ConvertibleBondPanel`, `AutocallablePanel`
+
+* **Generic Instrument Form system:**
+  * Generate `InstrumentDescriptor` for all instruments from Rust metadata
+  * Build remaining instrument panels via `GenericInstrumentPanel`
+* **Calibration breadth:**
+  * `HazardCurveCalibration`, `InflationCurveCalibration`
+  * `VolSurfaceCalibration` (2D heatmap)
+  * Lazy-load `VolSurface3D` (WebGL)
+* **Custom panels (complex instruments only):**
+  * `SwaptionPanel`, `ConvertibleBondPanel`, `AutocallablePanel`
 
 ### Phase 8: Breadth Expansion - Analysis & Scenarios (Weeks 19-21)
-*   **Statements analysis:**
-    *   `MonteCarloConfigEditor` + `MonteCarloResultsView`
-    *   `VarianceBridgeView` + `VarianceBridgeChart`
-    *   `DependencyTreeViewer`, `FormulaExplainPanel`
-    *   `CapitalStructurePanel`
-*   **Portfolio analysis:**
-    *   `PortfolioAttributionView` with factor breakdown
-    *   `PortfolioOptimizerView`, `EfficientFrontierChart`, `TradeProposalGrid`
-    *   Canvas-based `RiskHeatmap` for large grids
-*   **Scenarios domain:**
-    *   `ScenarioBuilder` with operation editors
-    *   `ScenarioLibrary` with tagging
-    *   `ScenarioExecutionPanel` with phase view
-    *   `HorizonScenarioGrid`
+
+* **Statements analysis:**
+  * `MonteCarloConfigEditor` + `MonteCarloResultsView`
+  * `VarianceBridgeView` + `VarianceBridgeChart`
+  * `DependencyTreeViewer`, `FormulaExplainPanel`
+  * `CapitalStructurePanel`
+* **Portfolio analysis:**
+  * `PortfolioAttributionView` with factor breakdown
+  * `PortfolioOptimizerView`, `EfficientFrontierChart`, `TradeProposalGrid`
+  * Canvas-based `RiskHeatmap` for large grids
+* **Scenarios domain:**
+  * `ScenarioBuilder` with operation editors
+  * `ScenarioLibrary` with tagging
+  * `ScenarioExecutionPanel` with phase view
+  * `HorizonScenarioGrid`
 
 ### Phase 9: Testing & Documentation (Weeks 22-23)
-*   **Unit tests:** >80% coverage
-*   **Schema parity tests:** For each Rust type, assert JSON validates against Zod and vice versa
-*   **LLM dashboard snapshots:** Library of canonical LLM outputs under test
-*   **Performance budgets:** CI checks for rendering time and bundle size
-*   **Integration tests:** Playwright for critical flows
-*   **Storybook:** All components with examples
-*   **API documentation**
+
+* **Unit tests:** >80% coverage
+* **Schema parity tests:** For each Rust type, assert JSON validates against Zod and vice versa
+* **LLM dashboard snapshots:** Library of canonical LLM outputs under test
+* **Performance budgets:** CI checks for rendering time and bundle size
+* **Integration tests:** Playwright for critical flows
+* **Storybook:** All components with examples
+* **API documentation**
 
 ### Phase 10: Accessibility & Final Polish (Weeks 24-25)
-*   Accessibility audit with axe-core.
-*   Keyboard navigation testing.
-*   Screen reader testing (NVDA, VoiceOver).
-*   High contrast theme validation.
-*   Performance profiling and optimization.
-*   Bundle size optimization (target: <500KB core, lazy-load pro features).
-*   Memory leak testing for long-running sessions.
+
+* Accessibility audit with axe-core.
+* Keyboard navigation testing.
+* Screen reader testing (NVDA, VoiceOver).
+* High contrast theme validation.
+* Performance profiling and optimization.
+* Bundle size optimization (target: <500KB core, lazy-load pro features).
+* Memory leak testing for long-running sessions.
 
 ---
 
 ## 5. Success Criteria
 
 ### Functional
+
 1. **Numeric Parity:** All displayed values match Rust engine output exactly (string transport, no JS float math).
 2. **Schema Sync:** 100% of Rust types have auto-generated TypeScript counterparts via `ts-rs`/`specta`.
 3. **Error Recovery:** WASM panics are caught and surfaced via Error Boundaries without crashing the tab.
 4. **Schema Versioning:** All LLM-facing schemas include `schemaVersion` field with migration support.
 
 ### Performance
+
 5. **60fps Rendering:** Smooth scrolling on 10,000-row virtualized tables.
 6. **Handle Pattern:** Market context serialization occurs ≤1 time per session (delta updates thereafter).
 7. **Interactive Editing:** Curve drag operations complete in <16ms (single frame budget).
 8. **Lazy Loading:** ECharts/3D components load on-demand, not in initial bundle.
 
 ### LLM Integration
+
 9. **Zero Hallucination:** LLM never generates numeric values; all data comes from WASM engine.
 10. **Context Efficiency:** LLM context payloads < 4KB (semantic summaries, not raw data).
 11. **Schema Validation:** LLM-generated JSON validates against dynamic Zod schemas with < 5% rejection rate.
@@ -3224,6 +3253,7 @@ packages/
 13. **Safe Modes:** All sensitive components support `viewer | editor | llm-assisted` modes.
 
 ### Quality
+
 14. **Accessibility:** WCAG 2.1 AA compliance.
 15. **Bundle Size:** < 300KB core gzipped, < 500KB with pro features (excluding WASM).
 16. **Test Coverage:** > 80% line coverage, all golden tests passing.
@@ -3235,134 +3265,145 @@ packages/
 ## 6. Architecture Decision Records (ADRs)
 
 ### ADR-001: Unified Worker over Domain-Specific Workers
+
 **Decision:** Use a single `finstackEngine` worker instead of separate `valuationWorker`, `statementWorker`, etc.
 
-**Rationale:** 
-- Market Context (5-10MB) would be duplicated across workers
-- Shared state enables cross-domain operations (e.g., scenarios affecting both market and statements)
-- Single initialization point simplifies error handling
+**Rationale:**
+* Market Context (5-10MB) would be duplicated across workers
+* Shared state enables cross-domain operations (e.g., scenarios affecting both market and statements)
+* Single initialization point simplifies error handling
 
 **Trade-offs:**
-- Single point of failure (mitigated by panic hooks)
-- Cannot parallelize across domains (acceptable given computation profiles)
+* Single point of failure (mitigated by panic hooks)
+* Cannot parallelize across domains (acceptable given computation profiles)
 
 ### ADR-002: String Transport for Monetary Values
+
 **Decision:** All monetary values cross the WASM bridge as strings, never as JavaScript numbers.
 
 **Rationale:**
-- JavaScript floats lose precision (0.1 + 0.2 ≠ 0.3)
-- Rust uses `rust_decimal` with arbitrary precision
-- Golden test parity requires exact decimal representation
+* JavaScript floats lose precision (0.1 + 0.2 ≠ 0.3)
+* Rust uses `rust_decimal` with arbitrary precision
+* Golden test parity requires exact decimal representation
 
 **Trade-offs:**
-- Slightly higher serialization overhead
-- Cannot use JS number formatting directly (mitigated by `AmountDisplay` component)
+* Slightly higher serialization overhead
+* Cannot use JS number formatting directly (mitigated by `AmountDisplay` component)
 
 ### ADR-003: Canvas Overlay for Dependency Visualization
+
 **Decision:** Use a transparent `<canvas>` overlay for corkscrew arrows instead of SVG lines between DOM elements.
 
 **Rationale:**
-- TanStack Virtual removes off-screen DOM nodes
-- Cannot draw lines between non-existent elements
-- Canvas allows math-based coordinate calculation independent of DOM
+* TanStack Virtual removes off-screen DOM nodes
+* Cannot draw lines between non-existent elements
+* Canvas allows math-based coordinate calculation independent of DOM
 
 **Trade-offs:**
-- Requires manual coordinate math
-- Canvas redraws on every scroll (mitigated by requestAnimationFrame)
+* Requires manual coordinate math
+* Canvas redraws on every scroll (mitigated by requestAnimationFrame)
 
 ### ADR-004: Schema Generation Pipeline
+
 **Decision:** Auto-generate TypeScript types from Rust using `ts-rs` or `specta`, then derive Zod schemas.
 
 **Rationale:**
-- Manual sync between Rust and TypeScript is error-prone
-- LLM integration requires accurate schemas
-- Single source of truth (Rust) reduces drift
+* Manual sync between Rust and TypeScript is error-prone
+* LLM integration requires accurate schemas
+* Single source of truth (Rust) reduces drift
 
 **Trade-offs:**
-- Build-time dependency on schema generation
-- Generated code must not be manually edited
+* Build-time dependency on schema generation
+* Generated code must not be manually edited
 
 ### ADR-005: Schema Versioning for LLM Persistence
+
 **Decision:** All LLM-facing schemas include a `schemaVersion` field with migration functions between versions.
 
 **Rationale:**
-- LLM-generated dashboards may be persisted and reloaded months later
-- Schema evolution is inevitable
-- Without versioning, old JSON becomes invalid after updates
+* LLM-generated dashboards may be persisted and reloaded months later
+* Schema evolution is inevitable
+* Without versioning, old JSON becomes invalid after updates
 
 **Trade-offs:**
-- Migration code must be maintained
-- Complexity increases with each version
+* Migration code must be maintained
+* Complexity increases with each version
 
 ### ADR-006: Engine/UI State Separation
+
 **Decision:** Hard-separate `EngineState` (protocol-like, versioned) from `UIState` (transient, unversioned) in the Zustand store.
 
 **Rationale:**
-- Serializing everything for LLMs or history is heavy
-- Only `EngineState + DashboardDefinition` typically needed for snapshots
-- Easier to version protocol-like engine state than transient UI bits
+* Serializing everything for LLMs or history is heavy
+* Only `EngineState + DashboardDefinition` typically needed for snapshots
+* Easier to version protocol-like engine state than transient UI bits
 
 **Trade-offs:**
-- Two state trees to manage
-- Must ensure UI state doesn't accidentally depend on stale engine state
+* Two state trees to manage
+* Must ensure UI state doesn't accidentally depend on stale engine state
 
 ### ADR-007: Layout Templates over Component Soup
+
 **Decision:** LLMs choose from predefined layout templates (TwoColumn, Grid, TabSet, Report) rather than positioning arbitrary component arrays.
 
 **Rationale:**
-- Unconstrained LLM output produces noisy, inconsistent layouts
-- Templates ensure professional-looking dashboards
-- Smaller schema surface area for LLMs
+* Unconstrained LLM output produces noisy, inconsistent layouts
+* Templates ensure professional-looking dashboards
+* Smaller schema surface area for LLMs
 
 **Trade-offs:**
-- Less flexibility for advanced users
-- May need to add new templates over time
+* Less flexibility for advanced users
+* May need to add new templates over time
 
 ### ADR-008: Mutation Actions for LLM Interactions
+
 **Decision:** LLMs send granular mutation actions (add_component, update_component, etc.) rather than full dashboard definitions.
 
 **Rationale:**
-- Smaller payloads
-- Natural undo/redo (each action = history entry)
-- Easier to reason about diffs
-- LLMs make fewer mistakes with simple operations
+* Smaller payloads
+* Natural undo/redo (each action = history entry)
+* Easier to reason about diffs
+* LLMs make fewer mistakes with simple operations
 
 **Trade-offs:**
-- More action types to implement and document
-- Must handle action validation and rollback
+* More action types to implement and document
+* Must handle action validation and rollback
 
 ### ADR-009: Generic Instrument Form System
+
 **Decision:** Use descriptor-based `GenericInstrumentPanel` for most instruments; hand-craft custom panels only for complex cases.
 
 **Rationale:**
-- 30+ instrument panels is a maintenance nightmare
-- Most instruments have similar structure: inputs → valuation → cashflows → metrics
-- Complex instruments (Swaption, Convertible) genuinely need custom UI
+* 30+ instrument panels is a maintenance nightmare
+* Most instruments have similar structure: inputs → valuation → cashflows → metrics
+* Complex instruments (Swaption, Convertible) genuinely need custom UI
 
 **Trade-offs:**
-- Descriptors must stay in sync with Rust types
-- Generic panels may feel less polished than custom ones
+* Descriptors must stay in sync with Rust types
+* Generic panels may feel less polished than custom ones
 
 ### ADR-010: Singleton Worker Pool
+
 **Decision:** Use a single shared worker pool rather than spawning workers per component.
 
 **Rationale:**
-- Multiple components mounting workers = resource exhaustion
-- Worker spawn/teardown overhead for short tasks
-- Shared market context avoids memory duplication
+* Multiple components mounting workers = resource exhaustion
+* Worker spawn/teardown overhead for short tasks
+* Shared market context avoids memory duplication
 
 **Trade-offs:**
-- No parallelism across domains (acceptable given computation profiles)
-- Pool management complexity
+* No parallelism across domains (acceptable given computation profiles)
+* Pool management complexity
 
 ### ADR-011: LLM-Safe Component Modes
+
 **Decision:** Components that modify state expose a `mode` prop: `viewer | editor | llm-assisted`. In `llm-assisted` mode, mutations require user confirmation.
 
 **Rationale:**
-- LLMs can suggest trades, scenarios, optimizations - powerful and dangerous
-- Guard rails at component level, not just API level
-- Clear UX distinction between human actions and AI suggestions
+* LLMs can suggest trades, scenarios, optimizations - powerful and dangerous
+* Guard rails at component level, not just API level
+* Clear UX distinction between human actions and AI suggestions
 
 **Trade-offs:**
-- Extra UI for confirmation dialogs
-- Mode prop propagation through component trees
+* Extra UI for confirmation dialogs
+* Mode prop propagation through component trees

@@ -146,7 +146,7 @@ open target/criterion/metrics_bond_9_standard_metrics/report/index.html
        .base_date(base_date)
        .knots([(0.0, 1.0), (1.0, 0.98), ...])
        .build()
-   
+
    // Wrong:
    DiscountCurve::new(id, currency, base_date, dates, dfs, interp)
    ```
@@ -155,7 +155,7 @@ open target/criterion/metrics_bond_9_standard_metrics/report/index.html
    ```rust
    // Correct:
    Bond::fixed("BOND-5Y", notional, coupon_rate, issue, maturity, "USD-OIS")
-   
+
    // Wrong:
    Bond::fixed_semiannual(...)
    ```
@@ -164,7 +164,7 @@ open target/criterion/metrics_bond_9_standard_metrics/report/index.html
    ```rust
    // Correct:
    add_joint_business_days(date, n, bdc, Some("nyse"), Some("target2"))
-   
+
    // Wrong:
    add_joint_business_days(date, n, bdc, &nyse_cal, &target2_cal)
    ```
@@ -216,10 +216,10 @@ Consider adding benchmark checks to CI:
 
 ## Acceptance Criteria Status
 
-✅ **Benchmarks created**: All three benchmark files implemented  
-✅ **Compilation**: All benchmarks compile without errors  
-⏳ **Performance validation**: Requires full benchmark runs (not done in this step)  
-⏳ **Documentation**: Benchmark code is documented; README updates pending  
+✅ **Benchmarks created**: All three benchmark files implemented
+✅ **Compilation**: All benchmarks compile without errors
+⏳ **Performance validation**: Requires full benchmark runs (not done in this step)
+⏳ **Documentation**: Benchmark code is documented; README updates pending
 
 ## Files Modified/Created
 
@@ -237,6 +237,6 @@ Consider adding benchmark checks to CI:
 
 ✅ **Step 4.4 (Performance Benchmarks) is complete** with all benchmark infrastructure in place and compiling successfully. The benchmarks are ready for full performance validation runs, which should be executed on stable hardware with proper market data setup. The next step (4.5) can proceed with final release preparation.
 
-**Total Implementation Time**: ~2 hours  
-**Lines of Code Added**: ~600 lines across 3 files  
+**Total Implementation Time**: ~2 hours
+**Lines of Code Added**: ~600 lines across 3 files
 **Compilation Status**: ✅ Success (zero errors)

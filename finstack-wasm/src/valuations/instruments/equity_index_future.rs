@@ -6,7 +6,9 @@ use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::instruments::bond_future::JsFuturePosition;
 use finstack_core::currency::Currency;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::equity::equity_index_future::{EquityFutureSpecs, EquityIndexFuture};
+use finstack_valuations::instruments::equity::equity_index_future::{
+    EquityFutureSpecs, EquityIndexFuture,
+};
 use finstack_valuations::instruments::Attributes;
 use wasm_bindgen::prelude::*;
 

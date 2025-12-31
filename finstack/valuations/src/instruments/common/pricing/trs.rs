@@ -63,10 +63,10 @@ pub struct TotalReturnLegParams<'a> {
 ///     ) -> finstack_core::Result<f64> {
 ///         let start_price = context.get_equity_spot(self.ticker, t_start)?;
 ///         let end_price = context.get_equity_spot(self.ticker, t_end)?;
-///         
+///
 ///         // Return as decimal (e.g., 0.05 for 5% return)
 ///         let ret = (end_price - start_price) / initial_level;
-///         
+///
 ///         // Validate return is reasonable
 ///         if !ret.is_finite() {
 ///             return Err(Error::Validation("Non-finite return".into()));

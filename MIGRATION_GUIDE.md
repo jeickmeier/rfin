@@ -2,8 +2,8 @@
 
 > **Comprehensive guide for migrating to finstack 0.8.0 with market convention compliance fixes**
 
-**Version**: 0.8.0  
-**Release Date**: December 2024  
+**Version**: 0.8.0
+**Release Date**: December 2024
 **Breaking Changes**: Yes (see details below)
 
 ---
@@ -33,6 +33,7 @@ Version 0.8.0 introduces critical fixes for market convention compliance and saf
 ### Why These Changes?
 
 **Critical Issues Fixed**:
+
 - 🔴 **Silent metric failures**: Errors were suppressed, returning `0.0` for failed/unknown metrics
 - 🔴 **Incorrect FX settlement**: Used calendar days instead of joint business days
 - 🔴 **Calibration scaling bug**: Residuals not normalized correctly
@@ -166,18 +167,21 @@ The following APIs were removed in **0.4.1**. Use the replacements listed below:
 **Timeline**: 2-4 hours
 
 **Steps**:
+
 1. Update to 0.8.0
 2. Fix compiler errors (strict mode, FX calendar errors)
 3. Add error handling for new error variants
 4. Update tests to expect correct FX spot dates
 5. Run full test suite
 
-**Pros**: 
+**Pros**:
+
 - ✅ Immediate safety improvements
 - ✅ No technical debt
 - ✅ Clean codebase
 
 **Cons**:
+
 - ❌ Requires immediate code changes
 - ❌ May need test updates
 
@@ -190,6 +194,7 @@ The following APIs were removed in **0.4.1**. Use the replacements listed below:
 **Steps**:
 
 **Week 1 (Version 0.8.0)**:
+
 1. Update to 0.8.0
 2. Add error handling around `compute()` and migrate callers to strict results
 3. Add calendar fallback handling where needed
@@ -201,11 +206,13 @@ The following APIs were removed in **0.4.1**. Use the replacements listed below:
 7. Update FX settlement logic and verify correctness
 
 **Pros**:
+
 - ✅ Non-disruptive deployment
 - ✅ Time to test each change
 - ✅ Rollback friendly
 
 **Cons**:
+
 - ❌ Temporary technical debt
 - ❌ Must schedule follow-up work
 
@@ -216,17 +223,20 @@ The following APIs were removed in **0.4.1**. Use the replacements listed below:
 **Timeline**: 4-8 hours
 
 **Steps**:
+
 1. **Phase 1 (Critical)**: Immediate strict mode for risk-critical paths
 2. **Phase 1 (Non-critical)**: Best effort for reporting/analytics
 3. **Phase 2**: Update FX settlement (verify behavior change is correct)
 4. **Phase 3**: Update removed constructors to `try_*` variants
 
 **Pros**:
+
 - ✅ Balances safety and pragmatism
 - ✅ Focuses on high-risk areas first
 - ✅ Gradual for lower-risk code
 
 **Cons**:
+
 - ❌ Requires judgment calls on criticality
 - ❌ Mixed patterns in codebase temporarily
 
@@ -350,7 +360,7 @@ where
     D: Deserializer<'de>,
 {
     let strings = Vec::<String>::deserialize(deserializer)?;
-    
+
     strings
         .iter()
         .map(|s| {
@@ -362,8 +372,8 @@ where
 }
 
 // Config with typo now fails to load with clear error:
-// Error: Invalid metric ID 'duraton_mod': UnknownMetric { 
-//     metric_id: "duraton_mod", 
+// Error: Invalid metric ID 'duraton_mod': UnknownMetric {
+//     metric_id: "duraton_mod",
 //     available: ["dv01", "cs01", "duration_mod", "duration_mac", ...]
 // }
 ```
@@ -388,7 +398,7 @@ let spot_date = roll_spot_date(
     Some("target2"),
 )?;
 
-// Result: 2025-01-02 (WRONG: both markets closed on Jan 1, 
+// Result: 2025-01-02 (WRONG: both markets closed on Jan 1,
 //                       should skip to first joint business day)
 ```
 
@@ -440,7 +450,7 @@ use finstack_core::Error;
 let cal = match resolve_calendar(Some("target3")) {
     Ok(c) => c,
     Err(Error::InputError(e)) if e.contains("Calendar not found") => {
-        // Error: CalendarNotFound { 
+        // Error: CalendarNotFound {
         //     calendar_id: "target3",
         //     hint: "Available calendars: nyse, target2, gblo, jpto, ..."
         // }
@@ -559,31 +569,31 @@ match error {
         }
         // Suggestion: validate metric names at config load time
     }
-    
+
     // NEW: Metric not applicable to instrument
     Error::MetricNotApplicable { metric_id, instrument_type } => {
         eprintln!("Metric '{}' N/A for {}", metric_id, instrument_type);
         // Suggestion: filter metrics by instrument type before compute
     }
-    
+
     // NEW: Metric calculation failed
     Error::MetricCalculationFailed { metric_id, cause } => {
         eprintln!("Failed to compute '{}': {}", metric_id, cause);
         // Suggestion: check that market data is complete
     }
-    
+
     // NEW: Circular dependency
     Error::CircularDependency { path } => {
         eprintln!("Circular dependency: {:?}", path);
         // Suggestion: review custom metric calculator dependencies
     }
-    
+
     // UPDATED: Calendar errors (Phase 2)
     Error::InputError(e) if e.contains("Calendar not found") => {
         eprintln!("Calendar resolution failed: {}", e);
         // Suggestion: check calendar ID spelling, use None for weekends-only
     }
-    
+
     // ... existing error variants
     _ => { /* handle other errors */ }
 }
@@ -596,13 +606,14 @@ match error {
 ### Phase 1: Metrics Testing
 
 **Unit Tests**:
+
 ```rust
 #[test]
 fn test_strict_mode_unknown_metric() {
     let registry = standard_registry();
     let invalid = vec![MetricId::custom("unknown_metric")];
     let mut ctx = MetricContext::new(/*...*/, MetricContext::default_config());
-    
+
     // Should error in strict mode
     let result = registry.compute(&invalid, &mut ctx);
     assert!(matches!(
@@ -614,27 +625,28 @@ fn test_strict_mode_unknown_metric() {
 ```
 
 **Integration Tests**:
+
 ```rust
 #[test]
 fn test_end_to_end_metrics_workflow() {
     // Setup: calibrate curve, create instrument, build market
     let market = build_test_market();
     let instrument = Bond::fixed_semiannual(/*...*/);
-    
+
     // Compute metrics in strict mode
     let registry = standard_registry();
     let metrics = vec![MetricId::Dv01, MetricId::Convexity, MetricId::DurationMod];
-    
+
     let pv = instrument.npv(&market, as_of)?;
     let mut ctx = MetricContext::new(&instrument, &market, as_of, pv, MetricContext::default_config());
-    
+
     let results = registry.compute(&metrics, &mut ctx)?;
-    
+
     // Verify all requested metrics are present
     assert!(results.contains_key(&MetricId::Dv01));
     assert!(results.contains_key(&MetricId::Convexity));
     assert!(results.contains_key(&MetricId::DurationMod));
-    
+
     // Verify values are reasonable
     assert!(results[&MetricId::Dv01] > 0.0);
 }
@@ -643,11 +655,12 @@ fn test_end_to_end_metrics_workflow() {
 ### Phase 2: FX Settlement Testing
 
 **Golden Tests** (compare against known vendor dates):
+
 ```rust
 #[test]
 fn test_fx_spot_date_christmas_2024() {
     let trade_date = Date::from_ymd(2024, 12, 23)?;  // Monday before Christmas
-    
+
     // USD/EUR T+2 spot around Christmas
     let spot_date = roll_spot_date(
         trade_date,
@@ -656,7 +669,7 @@ fn test_fx_spot_date_christmas_2024() {
         Some("nyse"),
         Some("target2"),
     )?;
-    
+
     // Expected: Dec 27 (Fri) - both markets open
     // (Dec 24-26 = Christmas holidays)
     assert_eq!(spot_date, Date::from_ymd(2024, 12, 27)?);
@@ -665,7 +678,7 @@ fn test_fx_spot_date_christmas_2024() {
 #[test]
 fn test_fx_spot_date_new_year_2025() {
     let trade_date = Date::from_ymd(2024, 12, 30)?;  // Monday before New Year
-    
+
     let spot_date = roll_spot_date(
         trade_date,
         2,
@@ -673,7 +686,7 @@ fn test_fx_spot_date_new_year_2025() {
         Some("nyse"),
         Some("target2"),
     )?;
-    
+
     // Expected: Jan 2 (Thu) - first joint business day
     // (Jan 1 = New Year's Day, both markets closed)
     assert_eq!(spot_date, Date::from_ymd(2025, 1, 2)?);
@@ -681,11 +694,12 @@ fn test_fx_spot_date_new_year_2025() {
 ```
 
 **Regression Tests** (ensure behavior change is correct):
+
 ```rust
 #[test]
 fn test_fx_spot_date_changed_from_v0_7() {
     let trade_date = Date::from_ymd(2024, 12, 30)?;
-    
+
     let new_spot = roll_spot_date(
         trade_date,
         2,
@@ -693,12 +707,12 @@ fn test_fx_spot_date_changed_from_v0_7() {
         Some("nyse"),
         Some("target2"),
     )?;
-    
+
     // Document the change:
     // v0.7.x: 2025-01-01 (wrong - holiday)
     // v0.8.0: 2025-01-02 (correct - first joint business day)
     assert_eq!(new_spot, Date::from_ymd(2025, 1, 2)?);
-    
+
     // Add a comment explaining why the change is correct:
     // "New Year's Day (Jan 1) is a holiday on both NYSE and TARGET2.
     //  T+2 from Dec 30 should skip Jan 1 and settle on Jan 2."
@@ -717,9 +731,9 @@ fn test_constructor_error_handling() {
         date!(2025 - 06 - 20),  // maturity
         Money::new(1_000_000.0, Currency::USD),
     );
-    
+
     assert!(result.is_err());
-    
+
     // Should provide useful error message
     match result {
         Err(e) => {
@@ -740,6 +754,7 @@ fn test_constructor_error_handling() {
 #### Q: Do I need to migrate immediately?
 
 **A**: It depends on your risk tolerance:
+
 - **Phase 1 (Metrics)**: Strongly recommended for all production systems. Silent failures in risk calculations are unacceptable.
 - **Phase 2 (FX)**: Required if you price FX instruments or use multi-currency portfolios. The behavior change fixes incorrect settlement dates.
 - **Phase 3 (Constructors)**: Required if you used panicking constructors (now removed).
@@ -747,6 +762,7 @@ fn test_constructor_error_handling() {
 #### Q: Will this break my existing code?
 
 **A**: Yes, Phase 1 and Phase 2 include breaking changes:
+
 - **Phase 1**: `compute()` may return errors where it previously returned `0.0`
 - **Phase 2**: FX spot dates may be different near holidays (correct behavior)
 - **Phase 3**: Compile errors if removed constructors are still in use
@@ -755,7 +771,8 @@ Use the gradual migration strategy if you need time to adapt.
 
 #### Q: How do I roll back if I encounter issues?
 
-**A**: 
+**A**:
+
 - **Recommended**: Add error handling to `compute()` and use `Instrument::price_with_metrics()` for strict pricing + metrics
 - **Emergency**: Pin to version 0.7.x in Cargo.toml temporarily
 - **Best practice**: Run migrations in a feature branch with comprehensive testing before merging
@@ -765,6 +782,7 @@ Use the gradual migration strategy if you need time to adapt.
 #### Q: Why did you make strict mode the default?
 
 **A**: Silent failures in financial calculations are a critical safety issue. The previous behavior (returning `0.0` for failures) could lead to:
+
 - Undetected bugs (typos in metric names)
 - Wrong risk reports (missing DV01 reported as zero exposure)
 - Compliance violations (incomplete risk disclosures)
@@ -788,6 +806,7 @@ for metric in MetricId::ALL_STANDARD {
 ```
 
 Or check the error message when strict parsing fails:
+
 ```rust
 match MetricId::parse_strict("unknown") {
     Err(Error::UnknownMetric { available, .. }) => {
@@ -810,17 +829,21 @@ let custom = MetricId::from_str("my_proprietary_metric").unwrap();
 ```
 
 Key difference:
+
 - **`parse_strict()`**: Rejects unknown metrics → use for user inputs (config, CLI)
 - **`from_str()` / `custom()`**: Accepts anything → use for programmatic construction
 
 #### Q: My tests are failing with "MetricNotApplicable". What do I do?
 
 **A**: You're requesting a metric that doesn't apply to your instrument. For example:
+
 - `ImpliedVol` on a bond (bonds don't have implied vol)
 - `EffectiveSpread` on an option
 
 **Solutions**:
+
 1. **Filter metrics by instrument type**:
+
    ```rust
    let applicable_metrics = metrics
        .iter()
@@ -829,6 +852,7 @@ Key difference:
    ```
 
 2. **Handle the error and retry**:
+
    ```rust
    match registry.compute(&all_metrics, &mut ctx) {
        Err(Error::MetricNotApplicable { metric_id, .. }) => {
@@ -850,6 +874,7 @@ Key difference:
 **A**: The old implementation used **calendar days** instead of **joint business days**. This produced incorrect settlement dates when either the base or quote currency had a holiday.
 
 **Example**:
+
 - **Old (wrong)**: Dec 30 trade → add 2 calendar days → Jan 1 (New Year's, closed) → adjust to Jan 2
 - **New (correct)**: Dec 30 trade → add 2 joint business days → skip Jan 1 (both markets closed) → Jan 2
 
@@ -858,11 +883,13 @@ The new behavior matches ISDA conventions and vendor calendars (Bloomberg, Reute
 #### Q: How do I verify my FX spot dates are correct?
 
 **A**: Compare against:
+
 1. **Vendor calendars**: Bloomberg CALD, Reuters calendar
 2. **ISDA FX Settlement Calendar**: Official holiday schedules
 3. **Golden test files**: See `finstack/valuations/tests/golden/fx_spot_dates.json`
 
 **Example verification**:
+
 ```bash
 # Run golden tests
 cargo test --test integration_tests fx_settlement
@@ -874,6 +901,7 @@ cargo test --test integration_tests test_usd_eur_spot_christmas_2024 -- --nocapt
 #### Q: Will this affect my existing trades?
 
 **A**: It depends:
+
 - **Trades already settled**: No impact (historical)
 - **Trades priced but not settled**: Spot date may be different (verify correctness)
 - **Future trades**: Will use correct joint business day logic
@@ -883,6 +911,7 @@ cargo test --test integration_tests test_usd_eur_spot_christmas_2024 -- --nocapt
 #### Q: What if I need the old behavior temporarily?
 
 **A**: The old behavior was incorrect and should not be used. If you must, you can:
+
 1. Pin to version 0.7.x temporarily
 2. Or implement a custom `add_calendar_days()` helper (not recommended)
 
@@ -893,6 +922,7 @@ Better: Update your tests and verify the new behavior is correct against vendor 
 #### Q: Why remove `new()` constructors?
 
 **A**: Panicking constructors are unsafe for library APIs because:
+
 1. **Panics can't be caught**: No way to handle errors gracefully in calling code
 2. **Lost error context**: Stack unwinding loses detailed validation failure information
 3. **FFI safety**: Panics across FFI boundaries (Python, WASM) are undefined behavior
@@ -901,6 +931,7 @@ Better: Update your tests and verify the new behavior is correct against vendor 
 #### Q: Do I need to update test code?
 
 **A**: Yes. Use `try_new()` with `expect()`:
+
 ```rust
 #[test]
 fn test_pricing() {
@@ -917,6 +948,7 @@ fn test_pricing() {
 **A**: Recommended 3-phase approach:
 
 **Phase 1**: Add error handling on critical paths and switch those call sites to strict compute:
+
 ```rust
 mod risk_reporting {
     fn compute_dv01(...) -> Result<f64> {
@@ -927,6 +959,7 @@ mod risk_reporting {
 ```
 
 **Phase 2**: Migrate non-critical paths module by module:
+
 ```rust
 mod analytics {
     fn compute_metrics(...) -> Result<HashMap<MetricId, f64>> {
@@ -969,6 +1002,7 @@ mod analytics {
 ### Reporting Problems
 
 When reporting issues, please include:
+
 1. **Version**: Output of `cargo tree | grep finstack`
 2. **Error message**: Full error text with stack trace
 3. **Minimal example**: Smallest code that reproduces the issue
@@ -977,6 +1011,7 @@ When reporting issues, please include:
 ### Contributing
 
 If you find issues with the migration guide or have suggestions:
+
 1. Open an issue with tag `documentation`
 2. Submit a PR with improvements
 3. Share your migration experience in discussions
@@ -998,6 +1033,6 @@ If you find issues with the migration guide or have suggestions:
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: December 20, 2024  
+**Document Version**: 1.0
+**Last Updated**: December 20, 2024
 **Author**: Finstack Core Team

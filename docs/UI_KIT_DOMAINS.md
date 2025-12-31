@@ -253,6 +253,3 @@ Focus: Providing a cross-domain scenario engine UI that mirrors `ScenarioSpec`, 
         * `FxShockEditor` - Currency pair selection, rate shocks
         * `StatementShockEditor` - Node selection, forecast adjustments
         * `TimeRollEditor` - Period selection, carry calculation options
-
-
-

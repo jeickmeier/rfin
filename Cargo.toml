@@ -16,7 +16,7 @@ resolver = "2"
 # Exclude Python and WASM bindings from default builds and coverage
 default-members = [
     "finstack/core",
-    "finstack/statements", 
+    "finstack/statements",
     "finstack/valuations",
     "finstack/portfolio",
     "finstack/io",

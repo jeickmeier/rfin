@@ -60,7 +60,10 @@ impl JsFrequency {
         if months == 0 {
             return Err(js_error("Months must be positive"));
         }
-        Ok(Self::from_inner(Tenor::new(months as u32, TenorUnit::Months)))
+        Ok(Self::from_inner(Tenor::new(
+            months as u32,
+            TenorUnit::Months,
+        )))
     }
 
     #[wasm_bindgen(js_name = fromDays)]

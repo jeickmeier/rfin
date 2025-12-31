@@ -4,7 +4,8 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::structured_credit::{
-    DealType, Pool, PoolAsset, Seniority, StructuredCredit, Tranche, TrancheCoupon, TrancheStructure,
+    DealType, Pool, PoolAsset, Seniority, StructuredCredit, Tranche, TrancheCoupon,
+    TrancheStructure,
 };
 use time::Month;
 
@@ -52,11 +53,12 @@ fn benchmark_pool_flows(c: &mut Criterion) {
             // However, run_simulation does a lot more.
             // Ideally we would expose the internal function for benchmarking or benchmark the public API.
             // Let's benchmark the public API `run_simulation` as it reflects end-to-end performance.
-            let _ = finstack_valuations::instruments::fixed_income::structured_credit::run_simulation(
-                &instrument,
-                &context,
-                as_of,
-            );
+            let _ =
+                finstack_valuations::instruments::fixed_income::structured_credit::run_simulation(
+                    &instrument,
+                    &context,
+                    as_of,
+                );
         })
     });
 

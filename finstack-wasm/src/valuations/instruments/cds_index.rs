@@ -4,11 +4,13 @@ use crate::core::money::JsMoney;
 use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_valuations::instruments::credit_derivatives::cds::{CDSConvention, PayReceive as CdsPayReceive};
+use finstack_valuations::instruments::credit_derivatives::cds::{
+    CDSConvention, PayReceive as CdsPayReceive,
+};
+use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndex;
 use finstack_valuations::instruments::credit_derivatives::cds_index::{
     CDSIndexConstructionParams, CDSIndexParams,
 };
-use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndex;
 use finstack_valuations::instruments::CreditParams;
 use finstack_valuations::pricer::InstrumentType;
 use rust_decimal::prelude::ToPrimitive;

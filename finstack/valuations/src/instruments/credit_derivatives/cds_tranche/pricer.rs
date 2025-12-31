@@ -29,7 +29,7 @@
 //! ### Premium Leg PV
 //! `PV_prem = Σ c * Δt_i * DF(t_i) * [N_outstanding(t_{i-1}) - 0.5 * N_incremental_loss(t_i)]`
 //!
-//! ### Protection Leg PV  
+//! ### Protection Leg PV
 //! `PV_prot = Σ DF(t_i) * N_tr * [EL_fraction(t_i) - EL_fraction(t_{i-1})]`
 //!
 //! ## Adaptive Integration Thresholds
@@ -195,7 +195,7 @@ pub struct CDSTranchePricerConfig {
     pub use_issuer_curves: bool,
     /// Minimum correlation value for numerical stability
     pub min_correlation: f64,
-    /// Maximum correlation value for numerical stability  
+    /// Maximum correlation value for numerical stability
     pub max_correlation: f64,
 
     // ========================================================================

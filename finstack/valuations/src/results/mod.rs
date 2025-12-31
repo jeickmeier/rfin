@@ -62,6 +62,6 @@
 pub(crate) mod dataframe;
 mod valuation_result;
 
-pub use finstack_core::config::ResultsMeta;
 pub use dataframe::{results_to_rows, ValuationRow};
+pub use finstack_core::config::ResultsMeta;
 pub use valuation_result::ValuationResult;

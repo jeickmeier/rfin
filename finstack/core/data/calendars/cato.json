@@ -17,5 +17,3 @@
     { "type": "nth_weekday", "name": "Thanksgiving", "n": 2, "weekday": "monday", "month": "october" }
   ]
 }
-
-

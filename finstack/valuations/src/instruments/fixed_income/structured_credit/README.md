@@ -222,11 +222,13 @@ let mdr = cdr_to_mdr(0.02);       // 2% annual CDR → monthly MDR
 ## Configuration
 
 ### Constants (`types/constants.rs`)
+
 - Fee defaults (CLO_SENIOR_MGMT_FEE_BPS, etc.)
 - PSA/SDA model parameters
 - Concentration limits
 
 ### Structures (`types/setup.rs`)
+
 - `DealConfig` - Complete deal configuration
 - `DealDates` - Key dates
 - `DealFees` - Fee structure by deal type
@@ -291,6 +293,7 @@ let waterfall = WaterfallBuilder::new(Currency::USD)
 ## Primary Documentation
 
 The most comprehensive documentation is in `mod.rs`, which includes:
+
 - Detailed waterfall mechanics
 - Pricing methodology
 - Behavioral model explanations

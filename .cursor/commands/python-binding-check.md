@@ -1,1 +1,1 @@
-Python bindings shouldn't have logic or calculations, they should just bind rust code for use in python. Type conversions and directly calling the correct rust code is ok, for loops recreating business logic is definitely wrong. 
+Python bindings shouldn't have logic or calculations, they should just bind rust code for use in python. Type conversions and directly calling the correct rust code is ok, for loops recreating business logic is definitely wrong.

@@ -6,7 +6,9 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::credit_derivatives::cds::{CDSConvention, CreditDefaultSwap, PayReceive};
+use finstack_valuations::instruments::credit_derivatives::cds::{
+    CDSConvention, CreditDefaultSwap, PayReceive,
+};
 use rust_decimal::Decimal;
 use time::Month;
 
@@ -97,7 +99,9 @@ fn test_convention_custom_defaults() {
 #[test]
 fn test_builder_pattern() {
     use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwapBuilder;
-    use finstack_valuations::instruments::credit_derivatives::cds::{PremiumLegSpec, ProtectionLegSpec};
+    use finstack_valuations::instruments::credit_derivatives::cds::{
+        PremiumLegSpec, ProtectionLegSpec,
+    };
     use finstack_valuations::instruments::Attributes;
     use finstack_valuations::instruments::PricingOverrides;
 

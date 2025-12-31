@@ -222,7 +222,7 @@ pub enum DayCount {
     ///
     /// Standard for:
     /// - USD money market deposits
-    /// - EUR money market instruments  
+    /// - EUR money market instruments
     /// - Short-term rate derivatives (SOFR, €STR)
     /// - FX swaps and forwards
     ///

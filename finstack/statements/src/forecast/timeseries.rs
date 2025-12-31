@@ -9,7 +9,7 @@ use indexmap::IndexMap;
 ///
 /// Supports multiple methods:
 /// - Linear trend detection
-/// - Exponential smoothing  
+/// - Exponential smoothing
 /// - Moving average
 ///
 /// # Parameters

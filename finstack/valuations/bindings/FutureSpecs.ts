@@ -3,31 +3,31 @@
 /**
  * Specifications for interest rate futures contracts.
  */
-export type FutureSpecs = { 
+export type FutureSpecs = {
 /**
  * Contract multiplier
  */
-multiplier: number, 
+multiplier: number,
 /**
  * Face value
  */
-face_value: number, 
+face_value: number,
 /**
  * Number of delivery months
  */
-delivery_months: number, 
+delivery_months: number,
 /**
  * Day count convention
  */
-day_count: string, 
+day_count: string,
 /**
  * Convexity adjustment (for long-dated futures)
  */
-convexity_adjustment: number | null, 
+convexity_adjustment: number | null,
 /**
  * Tick size (minimum price increment, e.g., 0.0025 for STIR)
  */
-tick_size: number, 
+tick_size: number,
 /**
  * Tick value (dollar value per tick, e.g., 6.25 for CME 3M SOFR)
  */

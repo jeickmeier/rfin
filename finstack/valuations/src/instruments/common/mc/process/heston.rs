@@ -100,7 +100,7 @@
 //! // Typical calibrated parameters for equity index
 //! let params = HestonParams::new(
 //!     0.05,   // r = 5% risk-free rate
-//!     0.02,   // q = 2% dividend yield  
+//!     0.02,   // q = 2% dividend yield
 //!     2.0,    // κ = mean reversion speed
 //!     0.04,   // θ = long-term variance (20% long-term vol)
 //!     0.3,    // σᵥ = vol of vol

@@ -268,8 +268,6 @@ If you need additional performance metrics or alternative IRR/XIRR flavors:
   - Include formulas and references to textbooks or standards (GIPS, Excel, etc.).
   - Provide doctested examples.
 
-
-
 ---
 
 ## When to Use This Module vs. `valuations`
@@ -282,5 +280,3 @@ If you need additional performance metrics or alternative IRR/XIRR flavors:
   - You need instrument‑specific schedules, amortization logic, or embedded options.
 
 Keeping this boundary clean ensures the `core` crate remains small, deterministic, and reusable across bindings (Python, WASM) and higher‑level analytics crates.
-
-

@@ -5,6 +5,7 @@ Comprehensive bond instrument implementation supporting fixed-rate, floating-rat
 ## Overview
 
 The bond module provides a complete implementation of bond instruments with:
+
 - **Multiple bond types**: Fixed-rate, floating-rate (FRNs), zero-coupon, amortizing, callable/putable
 - **Multiple pricing engines**: Discount curve, hazard-rate (credit), and tree-based (OAS) pricing
 - **Comprehensive metrics**: Price, yield, duration, convexity, spreads, and risk measures
@@ -50,6 +51,7 @@ bond/
 ### Bond Types
 
 #### Fixed-Rate Bonds
+
 Standard bonds with fixed coupon payments at regular intervals.
 
 ```rust
@@ -70,6 +72,7 @@ let bond = Bond::fixed(
 ```
 
 #### Floating-Rate Notes (FRNs)
+
 Bonds with floating coupon rates tied to an index (e.g., SOFR, LIBOR).
 
 ```rust
@@ -85,6 +88,7 @@ let frn = Bond::floating(
 ```
 
 #### Zero-Coupon Bonds
+
 Bonds that pay no coupons, only principal at maturity.
 
 ```rust
@@ -99,6 +103,7 @@ let zero = Bond::builder()
 ```
 
 #### Amortizing Bonds
+
 Bonds with principal repayment schedules.
 
 ```rust
@@ -125,6 +130,7 @@ let amortizing = Bond::builder()
 ```
 
 #### Callable/Putable Bonds
+
 Bonds with embedded options allowing early redemption.
 
 ```rust
@@ -182,6 +188,7 @@ let gilt = Bond::with_convention(
 ### Pricing Engines
 
 #### Discount Engine (Standard Pricing)
+
 Standard present value calculation using discount curves.
 
 ```rust
@@ -195,6 +202,7 @@ let pv = BondEngine::price(&bond, &market, as_of)?;
 ```
 
 #### Hazard Engine (Credit-Adjusted Pricing)
+
 Credit-adjusted pricing using hazard curves with fractional recovery of par.
 
 ```rust
@@ -208,6 +216,7 @@ let pv = HazardBondEngine::price(&bond, &market, as_of)?;
 ```
 
 #### Tree Engine (OAS Pricing)
+
 Tree-based pricing for callable/putable bonds and option-adjusted spread calculation.
 
 ```rust
@@ -222,15 +231,18 @@ let oas = tree_pricer.calculate_oas(&callable_bond, &market, as_of, quoted_price
 The bond module provides comprehensive risk and valuation metrics:
 
 #### Price Metrics
+
 - **Clean Price**: Quoted price excluding accrued interest
 - **Dirty Price**: Clean price plus accrued interest
 - **Accrued Interest**: Interest accrued since last coupon
 
 #### Yield Metrics
+
 - **Yield to Maturity (YTM)**: Internal rate of return
 - **Yield to Worst (YTW)**: Minimum yield across call/put/maturity paths
 
 #### Risk Metrics
+
 - **Macaulay Duration**: Weighted average time to cashflows
 - **Modified Duration**: Interest rate sensitivity measure
 - **Convexity**: Curvature of price/yield relationship
@@ -238,6 +250,7 @@ The bond module provides comprehensive risk and valuation metrics:
 - **CS01**: Credit spread sensitivity
 
 #### Spread Metrics
+
 - **Z-Spread**: Zero-volatility spread over discount curve
 - **OAS**: Option-adjusted spread (for callable/putable bonds)
 - **I-Spread**: Interpolated spread (YTM - par swap rate)
@@ -389,14 +402,14 @@ pub struct MyMetricCalculator;
 impl MetricCalculator for MyMetricCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let bond: &Bond = context.instrument_as()?;
-        
+
         // Access cached data from context
         let cashflows = context.cashflows.as_ref()
             .ok_or_else(|| finstack_core::Error::from("Cashflows not available"))?;
-        
+
         // Compute metric
         let metric_value = /* your calculation */;
-        
+
         Ok(metric_value)
     }
 }
@@ -553,6 +566,7 @@ impl Bond {
 ## Cashflow Convention
 
 All bond cashflows follow a **holder-view** convention:
+
 - **Positive amounts** represent contractual inflows to a long holder (coupons, amortization, redemption)
 - **Initial draw / funding legs** are handled outside the schedule (e.g., via trade price) and are **not** included in the projected cashflow schedule
 
@@ -561,6 +575,7 @@ This convention is enforced by the `CashflowProvider::build_dated_flows` impleme
 ## Accrual and Ex-Coupon Conventions
 
 Accrued interest is driven directly off the true coupon schedule and outstanding notional (for amortizing structures), with explicit support for:
+
 - **Linear vs. compounded accrual** (`AccrualMethod`)
 - **Ex-coupon windows** where accrual drops to zero
 - **Custom-cashflow bonds** that provide their own schedule and day-count
@@ -570,7 +585,7 @@ Accrued interest is driven directly off the true coupon schedule and outstanding
 Different bond markets follow distinct conventions:
 
 - **US Treasuries**: 30/360, Semi-annual, T+1 settlement
-- **UK Gilts**: ACT/ACT, Semi-annual, T+1 settlement  
+- **UK Gilts**: ACT/ACT, Semi-annual, T+1 settlement
 - **Eurozone**: 30E/360 or ACT/ACT, Annual, T+2 settlement
 - **Japan**: ACT/365F, Semi-annual, T+3 settlement
 
@@ -592,15 +607,18 @@ Use `Bond::with_convention()` for standard regional conventions.
 - Inflation linkage and convertibility live in dedicated modules; keep parity if combining features across modules.
 
 ## Pricing Methodology
+
 - Generates holder-view cashflows per `CashflowSpec` (fixed, float, amortizing, callable/putable) using schedule builders and day-count rules.
 - Discounting/pricing via dedicated engines: discount curve PV, hazard-adjusted FRP, and tree-based OAS for embedded options.
 - Quote conversions (price/yield/spread) solved with ytm/ycs solvers; accrual and ex-coupon handled explicitly.
 
 ## Metrics
+
 - Price/yield/spread ladder (clean/dirty price, YTM/YTW), duration (Macaulay/Modified), convexity.
 - Spread metrics (Z, OAS, I-spread), DV01/CS01 (parallel and bucketed), accrued interest, carry/roll.
 - Option-adjusted measures when tree/OAS engine is used; cashflow PV breakdown by leg.
 
 ## Future Enhancements
+
 - Add full callable/putable amortizing parity with more tree/PDE models and stochastic rates.
 - Expand risk to include curve-shift scenarios (non-parallel) and callable bond Greeks.

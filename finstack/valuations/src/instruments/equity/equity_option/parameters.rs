@@ -41,7 +41,7 @@ impl EquityOptionParams {
         Self::new(strike, expiry, OptionType::Call, contract_size)
     }
 
-    /// Create European put option parameters  
+    /// Create European put option parameters
     pub fn european_put(strike: Money, expiry: Date, contract_size: f64) -> Self {
         Self::new(strike, expiry, OptionType::Put, contract_size)
     }

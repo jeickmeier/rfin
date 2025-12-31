@@ -136,7 +136,7 @@ pub fn is_summable(metric_id: &str) -> bool {
 ///
 /// This function:
 /// 1. Collects all metrics from position valuations (in parallel if enabled)
-/// 2. Aggregates summable metrics by entity and portfolio total  
+/// 2. Aggregates summable metrics by entity and portfolio total
 /// 3. Stores non-summable metrics by position only
 ///
 /// # Arguments

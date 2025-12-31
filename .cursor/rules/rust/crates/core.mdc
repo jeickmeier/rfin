@@ -197,4 +197,3 @@ All term structures implement the `TermStructure` base trait and use configurabl
   - Follows the coding standards and patterns documented here.
 
 This file governs only the `core/` crate. See separate rules for Python/WASM bindings and higher‑level pricing/evaluation crates.
-

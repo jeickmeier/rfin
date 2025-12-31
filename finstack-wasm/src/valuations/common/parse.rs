@@ -10,7 +10,7 @@ use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::math::stats::RealizedVarMethod;
 use finstack_valuations::instruments::credit_derivatives::cds::PayReceive as CdsPayReceive;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::TrancheSide;
-use finstack_valuations::instruments::OptionType;
+use finstack_valuations::instruments::equity::variance_swap::PayReceive as VarSwapPayReceive;
 use finstack_valuations::instruments::fixed_income::inflation_linked_bond::{
     DeflationProtection, IndexationMethod,
 };
@@ -18,7 +18,7 @@ use finstack_valuations::instruments::rates::inflation_swap::PayReceiveInflation
 use finstack_valuations::instruments::rates::ir_future::Position;
 use finstack_valuations::instruments::rates::repo::RepoType;
 use finstack_valuations::instruments::rates::swaption::{SwaptionExercise, SwaptionSettlement};
-use finstack_valuations::instruments::equity::variance_swap::PayReceive as VarSwapPayReceive;
+use finstack_valuations::instruments::OptionType;
 use wasm_bindgen::JsValue;
 
 /// Trait for parsing JavaScript string labels into strongly-typed Rust enums.

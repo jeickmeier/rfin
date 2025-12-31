@@ -6,7 +6,7 @@
 
 **Decision:** Use a single `finstackEngine` worker instead of separate `valuationWorker`, `statementWorker`, etc.
 
-**Rationale:** 
+**Rationale:**
 
 - Market Context (5–10MB) would be duplicated across workers.
 - Shared state enables cross-domain operations (e.g., scenarios affecting both market and statements).
@@ -187,6 +187,3 @@
 
 - Extra UI for confirmation dialogs.
 - Mode prop propagation through component trees.
-
-
-

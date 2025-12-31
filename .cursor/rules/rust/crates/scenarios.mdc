@@ -253,4 +253,3 @@ Default features: `["serde"]`
   - Updates examples if new operation types are added.
 
 This file governs only the `scenarios/` crate. See separate rules for `core/`, `statements/`, `valuations/`, and Python/WASM bindings.
-

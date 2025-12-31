@@ -1,4 +1,3 @@
 ---
 trigger: model_decision
 ---
-

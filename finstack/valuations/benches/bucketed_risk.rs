@@ -17,10 +17,10 @@ use finstack_core::market_data::term_structures::{
 };
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use std::hint::black_box;
 use time::Month;

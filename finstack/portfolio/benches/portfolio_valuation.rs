@@ -33,39 +33,37 @@ use finstack_portfolio::types::Entity;
 use finstack_portfolio::{value_portfolio, PortfolioBuilder, Position, PositionUnit};
 use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
 use finstack_valuations::cashflow::builder::ScheduleParams;
-use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::credit_derivatives::cds::{
     CDSConvention, CreditDefaultSwap, PayReceive, PremiumLegSpec, ProtectionLegSpec,
 };
-use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionParams;
 use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOption;
+use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionParams;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTrancheParams;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::{CdsTranche, TrancheSide};
-use finstack_valuations::instruments::CreditParams;
-use finstack_valuations::instruments::{
-    ExerciseStyle, OptionType, SettlementType,
-};
-use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::equity::equity_option::EquityOption;
+use finstack_valuations::instruments::equity::variance_swap::{RealizedVarMethod, VarianceSwap};
+use finstack_valuations::instruments::equity::Equity;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::fixed_income::convertible::{
     AntiDilutionPolicy, ConversionPolicy, ConversionSpec, ConvertibleBond, DividendAdjustment,
 };
-use finstack_valuations::instruments::rates::deposit::Deposit;
-use finstack_valuations::instruments::equity::Equity;
-use finstack_valuations::instruments::equity::equity_option::EquityOption;
-use finstack_valuations::instruments::fx::fx_option::FxOption;
-use finstack_valuations::instruments::fx::fx_spot::FxSpot;
-use finstack_valuations::instruments::fixed_income::inflation_linked_bond::InflationLinkedBondParams;
 use finstack_valuations::instruments::fixed_income::inflation_linked_bond::InflationLinkedBond;
-use finstack_valuations::instruments::rates::inflation_swap::{InflationSwap, PayReceiveInflation};
-use finstack_valuations::instruments::rates::irs::InterestRateSwap;
-use finstack_valuations::instruments::rates::repo::{CollateralSpec, CollateralType, Repo};
+use finstack_valuations::instruments::fixed_income::inflation_linked_bond::InflationLinkedBondParams;
 use finstack_valuations::instruments::fixed_income::structured_credit::{
     DealType, Pool, PoolAsset, Seniority, StructuredCredit, Tranche, TrancheCoupon,
     TrancheStructure,
 };
-use finstack_valuations::instruments::rates::swaption::SwaptionParams;
+use finstack_valuations::instruments::fx::fx_option::FxOption;
+use finstack_valuations::instruments::fx::fx_spot::FxSpot;
+use finstack_valuations::instruments::rates::deposit::Deposit;
+use finstack_valuations::instruments::rates::inflation_swap::{InflationSwap, PayReceiveInflation};
+use finstack_valuations::instruments::rates::irs::InterestRateSwap;
+use finstack_valuations::instruments::rates::repo::{CollateralSpec, CollateralType, Repo};
 use finstack_valuations::instruments::rates::swaption::Swaption;
-use finstack_valuations::instruments::equity::variance_swap::{RealizedVarMethod, VarianceSwap};
+use finstack_valuations::instruments::rates::swaption::SwaptionParams;
+use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::CreditParams;
+use finstack_valuations::instruments::{ExerciseStyle, OptionType, SettlementType};
 use rust_decimal_macros::dec;
 use std::hint::black_box;
 use std::sync::Arc;

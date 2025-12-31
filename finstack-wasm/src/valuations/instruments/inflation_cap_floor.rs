@@ -9,7 +9,9 @@ use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
-use finstack_valuations::instruments::rates::inflation_cap_floor::{InflationCapFloor, InflationCapFloorType};
+use finstack_valuations::instruments::rates::inflation_cap_floor::{
+    InflationCapFloor, InflationCapFloorType,
+};
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
@@ -118,8 +120,7 @@ impl JsInflationCapFloor {
         let freq = parse_optional_with_default(frequency, Tenor::annual())?;
         let dc = parse_optional_with_default(day_count, DayCount::Act365F)?;
         let stub = parse_optional_with_default(stub_kind, StubKind::None)?;
-        let bdc_value =
-            parse_optional_with_default(bdc, BusinessDayConvention::ModifiedFollowing)?;
+        let bdc_value = parse_optional_with_default(bdc, BusinessDayConvention::ModifiedFollowing)?;
 
         let mut builder = InflationCapFloor::builder()
             .id(instrument_id_from_str(instrument_id))

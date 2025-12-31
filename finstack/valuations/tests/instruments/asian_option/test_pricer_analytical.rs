@@ -289,5 +289,3 @@ fn geometric_closed_form_put_matches_helper() -> finstack_core::Result<()> {
     assert!((pv - expected).abs() < 1e-10);
     Ok(())
 }
-
-

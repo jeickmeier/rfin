@@ -10,7 +10,7 @@
 //! ## Yield and Return
 //!
 //! - **YTM** (Yield-to-Maturity): IRR to final maturity
-//! - **YTC** (Yield-to-Call): IRR to first call date  
+//! - **YTC** (Yield-to-Call): IRR to first call date
 //! - **YTW** (Yield-to-Worst): Minimum yield across all call dates and maturity
 //! - **YT2Y/3Y/4Y**: IRR to fixed 2/3/4-year horizons
 //! - **All-In Rate**: Effective borrower cost including fees

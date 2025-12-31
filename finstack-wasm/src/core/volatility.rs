@@ -67,4 +67,3 @@ pub fn convert_atm_volatility_js(
     )
     .map_err(|e| js_error(e.to_string()))
 }
-

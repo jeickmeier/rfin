@@ -463,7 +463,8 @@ impl fmt::Display for PyRevolvingCredit {
     name = "EnhancedMonteCarloResult"
 )]
 pub struct PyEnhancedMonteCarloResult {
-    inner: finstack_valuations::instruments::fixed_income::revolving_credit::EnhancedMonteCarloResult,
+    inner:
+        finstack_valuations::instruments::fixed_income::revolving_credit::EnhancedMonteCarloResult,
 }
 
 impl PyEnhancedMonteCarloResult {

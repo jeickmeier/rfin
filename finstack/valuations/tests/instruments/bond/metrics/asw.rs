@@ -9,11 +9,11 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::date_generation::build_dates;
 use finstack_valuations::instruments::fixed_income::bond::AssetSwapConfig;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
+use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
 use finstack_valuations::instruments::fixed_income::bond::{
     AssetSwapMarketCalculator, AssetSwapParCalculator,
 };
-use finstack_valuations::instruments::fixed_income::bond::Bond;
-use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::metrics::{standard_registry, MetricCalculator, MetricContext, MetricId};
 use std::sync::Arc;
@@ -257,15 +257,16 @@ fn test_asw_par_with_forward_day_count_override_changes_result() {
     )
     .expect("par asw default");
 
-    let par_act365f = finstack_valuations::instruments::fixed_income::bond::asw_par_with_forward_config(
-        &bond,
-        &market,
-        as_of,
-        "USD-SOFR-3M",
-        0.0,
-        Some(DayCount::Act365F),
-    )
-    .expect("par asw override");
+    let par_act365f =
+        finstack_valuations::instruments::fixed_income::bond::asw_par_with_forward_config(
+            &bond,
+            &market,
+            as_of,
+            "USD-SOFR-3M",
+            0.0,
+            Some(DayCount::Act365F),
+        )
+        .expect("par asw override");
 
     assert!(
         par_default.is_finite() && par_act365f.is_finite(),
@@ -324,27 +325,29 @@ fn test_asw_market_with_forward_moves_with_dirty_price() {
     )
     .expect("par asw");
 
-    let ann_asw_par_px = finstack_valuations::instruments::fixed_income::bond::asw_market_with_forward_config(
-        &bond,
-        &market,
-        as_of,
-        "USD-SOFR-3M",
-        0.0,
-        Some(bond.notional.amount()),
-        None,
-    )
-    .expect("asw mkt at par");
+    let ann_asw_par_px =
+        finstack_valuations::instruments::fixed_income::bond::asw_market_with_forward_config(
+            &bond,
+            &market,
+            as_of,
+            "USD-SOFR-3M",
+            0.0,
+            Some(bond.notional.amount()),
+            None,
+        )
+        .expect("asw mkt at par");
 
-    let rich_asw = finstack_valuations::instruments::fixed_income::bond::asw_market_with_forward_config(
-        &bond,
-        &market,
-        as_of,
-        "USD-SOFR-3M",
-        0.0,
-        Some(1.01 * bond.notional.amount()),
-        None,
-    )
-    .expect("asw rich");
+    let rich_asw =
+        finstack_valuations::instruments::fixed_income::bond::asw_market_with_forward_config(
+            &bond,
+            &market,
+            as_of,
+            "USD-SOFR-3M",
+            0.0,
+            Some(1.01 * bond.notional.amount()),
+            None,
+        )
+        .expect("asw rich");
 
     assert!(
         (ann_asw_par_px - par_asw).abs() < 1e-10,

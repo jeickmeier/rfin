@@ -6,6 +6,7 @@ Finstack Statements produces results consistent with industry-standard tools.
 ## Purpose
 
 Golden tests ensure:
+
 - **Parity** with established financial software (Excel, pandas, QuantLib)
 - **Regression protection** when refactoring internal implementations
 - **Documented tolerances** appropriate for each data source
@@ -23,6 +24,7 @@ Golden tests ensure:
 **Tolerance:** 1e-8 (Excel's double precision limit)
 
 **Files:**
+
 - `excel/npv_scenarios.csv` - Net Present Value calculations
 - `excel/irr_scenarios.csv` - Internal Rate of Return calculations
 - `excel/pmt_scenarios.csv` - Payment calculations
@@ -37,6 +39,7 @@ Golden tests ensure:
 **Tolerance:** 1e-10 (pandas default float64 precision)
 
 **Files:**
+
 - `pandas/rolling_stats.csv` - Rolling window statistics
 - `pandas/ewm_variance.csv` - Exponentially weighted moving variance
 - `pandas/seasonal_decomposition.csv` - Seasonal decomposition results
@@ -51,6 +54,7 @@ Golden tests ensure:
 **Tolerance:** 1 basis point for yields, 1e-6 for prices
 
 **Files:**
+
 - `quantlib/bond_pricing.csv` - Bond price and yield calculations
 
 **Note:** QuantLib tests planned for future implementation
@@ -65,6 +69,7 @@ test_001,100000,0.05,...,expected_value
 ```
 
 Each file includes:
+
 - `test_id`: Unique identifier for the test case
 - Input parameters required to reproduce the calculation
 - Expected output value(s)
@@ -91,4 +96,3 @@ Each file includes:
 - Dates use ISO 8601 format (YYYY-MM-DD)
 - Decimal separator is period (.) not comma
 - No locale-specific formatting in test data
-

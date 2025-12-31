@@ -24,17 +24,20 @@ A high-performance financial computation library written in Rust with bindings f
 ### Quick Start
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/rustfin/rfin.git
 cd rfin
 ```
 
 2. Build the core library:
+
 ```bash
 cargo build
 ```
 
 3. Run tests:
+
 ```bash
 cargo test
 ```
@@ -44,21 +47,25 @@ cargo test
 Finstack provides optimized build profiles for different use cases:
 
 - **`dev`** (default) - Fast compilation, full debug info
+
   ```bash
   cargo build
   ```
 
 - **`release`** - Optimized for **size** (WASM deployments)
+
   ```bash
   cargo build --release
   ```
 
 - **`release-perf`** - Optimized for **speed** (CPU-intensive workloads)
+
   ```bash
   cargo build --profile release-perf
   ```
 
 - **`bench`** - Optimized for benchmarking with profiling support
+
   ```bash
   cargo bench
   ```
@@ -138,11 +145,13 @@ wasm-pack build --target nodejs
 
 1. Build the WASM package (see above)
 2. Serve the example with a local web server:
+
 ```bash
 python -m http.server 8000
 # Or use any other static file server
 ```
-3. Open http://localhost:8000/examples/wasm/primitives_wasm_example.html
+
+3. Open <http://localhost:8000/examples/wasm/primitives_wasm_example.html>
 
 ## Features
 
@@ -213,6 +222,7 @@ finstack = { version = "0.3", default-features = false, features = ["serde"] }
   - TypeScript definitions
 
 ## CI/CD
+
 ## Determinism and Parallelism Policy
 
 - Default numeric mode is f64. Results are reproducible on a consistent architecture/toolchain and within documented numerical tolerances.

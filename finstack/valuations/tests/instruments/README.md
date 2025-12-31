@@ -122,10 +122,10 @@ fn test_example() {
     // Arrange: Set up test data
     let bond = Bond::fixed(...);
     let market = MarketContext::new()...;
-    
+
     // Act: Execute the operation
     let pv = bond.value(&market, as_of)?;
-    
+
     // Assert: Verify results
     assert!(pv.amount() > 0.0);
 }
@@ -215,6 +215,7 @@ assert!(price >= intrinsic - tol);
 ### Equity DV01
 
 Equity instruments include DV01 metrics despite not having direct interest rate cashflows. This is because:
+
 - Position values are discounted
 - Forward pricing uses risk-free rates
 - Portfolio-level aggregation mixes equities with fixed income
@@ -232,6 +233,7 @@ fn test_mc_pricing() {
 ```
 
 Run MC tests with:
+
 ```bash
 cargo test --lib --features mc
 ```
@@ -245,4 +247,3 @@ When adding new instrument tests:
 3. Provide comprehensive coverage (construction, cashflows, pricing, metrics, validation)
 4. Update this README with instrument status
 5. Run `make lint` and `make test-rust` before committing
-

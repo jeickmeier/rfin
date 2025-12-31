@@ -46,12 +46,12 @@ CODE METRICS
 
 Before:
   - 6 extraction functions: ~110 lines of implementation
-  
+
 After:
   - 6 trait implementations: ~98 lines
   - 6 wrapper functions: ~6 lines
   - 9 tests: ~190 lines
-  
+
 Impact:
   - Eliminated 104 lines of duplication
   - Added comprehensive test coverage

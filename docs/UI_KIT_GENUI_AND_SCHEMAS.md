@@ -82,7 +82,7 @@ export type FinstackEngineAPI = typeof engine;
 // hooks/useCurveEditor.ts
 export function useCurveEditor(curveId: string) {
   const engine = useFinstackEngine();
-  
+
   // Debounced shock application during drag
   const applyShock = useDeferredValue(
     useCallback(async (shockBps: number) => {
@@ -172,7 +172,7 @@ const engine = {
   async priceInstrument(json: string): Promise<ValuationResult>,
   async computeMetrics(instrumentId: string, metrics: string[]): Promise<Record<string, string>>,
 
-  // Statements domain  
+  // Statements domain
   async loadModel(id: string, json: string): Promise<void>,
   async evaluateModel(id: string): Promise<EvaluationResult>,
   async runMonteCarlo(modelId: string, config: MonteCarloConfig): Promise<MonteCarloResult>,
@@ -351,6 +351,3 @@ Descriptors drive:
 - Auto-generated instrument entry forms.
 - Generic panels for the long tail of instruments.
 - Consistent sectioning (inputs, cashflows, metrics, market data).
-
-
-

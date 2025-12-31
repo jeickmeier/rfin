@@ -107,18 +107,18 @@ impl CsvCurveReader {
         let mut rdr = ReaderBuilder::new()
             .has_headers(true)
             .from_path(path)?;
-        
+
         let mut dates = Vec::new();
         let mut discount_factors = Vec::new();
-        
+
         // Finstack-specific: Parse and validate financial data
         for result in rdr.records() {
             let record = result?;
-            
+
             // Custom parsing for finstack types
             let date = self.parse_date(&record[0])?;
             let df = self.parse_discount_factor(&record[1])?;
-            
+
             // Domain validation: dates must be ordered
             if let Some(&last_date) = dates.last() {
                 if date <= last_date {
@@ -127,18 +127,18 @@ impl CsvCurveReader {
                     ));
                 }
             }
-            
+
             // Domain validation: discount factors must be positive and non-increasing
             if df <= 0.0 || (discount_factors.last().is_some_and(|&x| df > x)) {
                 return Err(Error::InvalidInput(
                     "Discount factors must be positive and non-increasing".into()
                 ));
             }
-            
+
             dates.push(date);
             discount_factors.push(df);
         }
-        
+
         // Build finstack domain type
         Ok(DiscountCurveState {
             curve_id: self.infer_curve_id(path)?,
@@ -171,7 +171,7 @@ impl StatementReader {
     pub fn from_json(path: &Path) -> Result<ModelGraph> {
         let file = std::fs::File::open(path)?;
         let reader = std::io::BufReader::new(file);
-        
+
         // Use standard serde_json, no custom logic needed
         let graph: ModelGraph = serde_json::from_reader(reader)
             .map_err(|e| Error::ParseError {
@@ -179,29 +179,29 @@ impl StatementReader {
                 line: e.line(),
                 message: e.to_string(),
             })?;
-        
+
         // Finstack-specific: Validate graph structure
         graph.validate()?;
-        
+
         Ok(graph)
     }
-    
+
     /// Parse markdown tables using standard comrak parser
     pub fn from_markdown(path: &Path) -> Result<ModelGraph> {
         let content = std::fs::read_to_string(path)?;
-        
+
         // Use standard comrak for markdown parsing
         let arena = Arena::new();
         let options = ComrakOptions::default();
         let root = parse_document(&arena, &content, &options);
-        
+
         // Finstack-specific: Extract tables and convert to ModelGraph
         let tables = self.extract_tables(root)?;
         let graph = self.tables_to_graph(tables)?;
-        
+
         // Domain validation
         graph.validate()?;
-        
+
         Ok(graph)
     }
 }
@@ -235,7 +235,7 @@ impl FredProvider {
             .timeout(std::time::Duration::from_secs(30))
             .build()
             .unwrap();
-        
+
         Self { client, api_key }
     }
 }
@@ -248,10 +248,10 @@ impl DataProvider for FredProvider {
             "https://api.stlouisfed.org/fred/series/observations?series_id={}&api_key={}&file_type=json",
             series_id, self.api_key
         );
-        
+
         let response = self.client.get(&url).send().await?;
         let json: serde_json::Value = response.json().await?;
-        
+
         // Finstack-specific: Convert FRED JSON to finstack domain types
         self.parse_fred_response(json, series_id)
     }
@@ -302,11 +302,11 @@ impl SchemaRegistry {
     pub fn validate<T: Serialize>(&self, value: &T, expected_version: &str) -> Result<()> {
         // Validate value matches expected schema version
     }
-    
+
     pub fn migrate<T>(&self, from_version: &str, to_version: &str, data: &mut T) -> Result<()> {
         // Migrate data from old version to new version
     }
-    
+
     pub fn current_version<T>(&self) -> &str {
         // Return current schema version for type T
     }
@@ -525,7 +525,7 @@ The `io` crate follows a **layered architecture** to maintain clean separation:
 └─────────────────────────────────────────────────────────┘
 ```
 
-**Key Principles**: 
+**Key Principles**:
 1. Never reimplement what standard crates already provide.
 2. Domain validation lives in domain type crates (core, statements, valuations, portfolio).
 3. Focus `io` crate effort on:

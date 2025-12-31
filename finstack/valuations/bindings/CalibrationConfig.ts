@@ -24,43 +24,43 @@ import type { ValidationMode } from "./ValidationMode";
  * let conservative = CalibrationConfig::conservative();
  * ```
  */
-export type CalibrationConfig = { 
+export type CalibrationConfig = {
 /**
  * Solver configuration including numerical method (e.g., Brent) and parameters (tolerance, iterations).
  */
-solver: SolverConfig, 
+solver: SolverConfig,
 /**
  * Use parallel processing when available (e.g., for independent curves).
  */
-use_parallel: boolean, 
+use_parallel: boolean,
 /**
  * Enable verbose logging of the calibration process.
  */
-verbose: boolean, 
+verbose: boolean,
 /**
  * Runtime validation mode (warnings vs errors).
  */
-validation_mode: ValidationMode, 
+validation_mode: ValidationMode,
 /**
  * Validation configuration with thresholds and quality checks.
  */
-validation: Record<string, unknown>, 
+validation: Record<string, unknown>,
 /**
  * Policy for selecting rate bounds (explicit vs currency-derived).
  */
-rate_bounds_policy: RateBoundsPolicy, 
+rate_bounds_policy: RateBoundsPolicy,
 /**
  * Rate bounds for forward/zero rate calibration (when policy is `Explicit`).
  */
-rate_bounds: RateBounds, 
+rate_bounds: RateBounds,
 /**
  * High-level calibration method (bootstrap vs global solve).
  */
-calibration_method: CalibrationMethod, 
+calibration_method: CalibrationMethod,
 /**
  * Discount-curve specific solver configuration.
  */
-discount_curve: DiscountCurveSolveConfig, 
+discount_curve: DiscountCurveSolveConfig,
 /**
  * Hazard-curve specific solver configuration.
  */

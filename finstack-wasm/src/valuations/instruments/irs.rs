@@ -49,9 +49,7 @@ impl JsInterestRateSwap {
     ) -> Result<JsInterestRateSwap, JsValue> {
         use finstack_core::dates::BusinessDayConvention;
         use finstack_core::dates::StubKind;
-        use finstack_valuations::instruments::{
-            FixedLegSpec, FloatLegSpec, PayReceive,
-        };
+        use finstack_valuations::instruments::{FixedLegSpec, FloatLegSpec, PayReceive};
 
         let side_parsed: PayReceive = side.parse().map_err(js_error)?;
         let bdc = business_day_convention

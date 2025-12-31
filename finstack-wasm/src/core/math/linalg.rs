@@ -1,7 +1,8 @@
 //! Linear algebra utilities for WASM bindings.
 
 use finstack_core::math::linalg::{
-    apply_correlation, build_correlation_matrix, cholesky_decomposition, validate_correlation_matrix,
+    apply_correlation, build_correlation_matrix, cholesky_decomposition,
+    validate_correlation_matrix,
 };
 use wasm_bindgen::prelude::*;
 

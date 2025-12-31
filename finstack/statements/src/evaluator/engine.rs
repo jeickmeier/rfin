@@ -498,9 +498,7 @@ impl Evaluator {
         Option<
             IndexMap<
                 String,
-                std::sync::Arc<
-                    dyn finstack_valuations::cashflow::CashflowProvider + Send + Sync,
-                >,
+                std::sync::Arc<dyn finstack_valuations::cashflow::CashflowProvider + Send + Sync>,
             >,
         >,
     > {
@@ -551,9 +549,7 @@ impl Evaluator {
         as_of: finstack_core::dates::Date,
         instruments: &IndexMap<
             String,
-            std::sync::Arc<
-                dyn finstack_valuations::cashflow::CashflowProvider + Send + Sync,
-            >,
+            std::sync::Arc<dyn finstack_valuations::cashflow::CashflowProvider + Send + Sync>,
         >,
         cs_state: &mut crate::capital_structure::CapitalStructureState,
         cs_formula_nodes: &HashSet<String>,

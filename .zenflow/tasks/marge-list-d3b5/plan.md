@@ -10,7 +10,7 @@ This plan breaks down the "Marge List" code consolidation into incremental, test
 
 ## Phase 1: Market Data Curve Restoration [HIGH PRIORITY]
 
-**Impact**: 327 lines → ~80 lines (75% reduction)  
+**Impact**: 327 lines → ~80 lines (75% reduction)
 **Estimated Time**: 3-4 days
 
 ### [x] Step: Technical Specification
@@ -176,7 +176,7 @@ cargo doc --no-deps  # ✅ Documentation builds successfully
 
 ## Phase 2: Monte Carlo Payoff Consolidation [MEDIUM PRIORITY]
 
-**Impact**: ~150 lines → ~50 lines per pair (66% reduction)  
+**Impact**: ~150 lines → ~50 lines per pair (66% reduction)
 **Estimated Time**: 2-3 days
 
 ### [x] Step 2.1: Merge CapPayoff and FloorPayoff
@@ -261,7 +261,7 @@ make test-rust                            # ✅ All 5779 tests passed
 
 ## Phase 3: Parameter Reduction via Context Structs [MEDIUM PRIORITY]
 
-**Impact**: 15-parameter functions → 2-parameter functions  
+**Impact**: 15-parameter functions → 2-parameter functions
 **Estimated Time**: 3-4 days
 
 ### [x] Step 3.1: Create AllocationContext and AllocationOutput
@@ -342,7 +342,7 @@ cargo clippy --lib --package finstack-valuations -- -D warnings      # ✅ No wa
 
 ### [x] Step 3.4: Create AttributionInput context struct
 <!-- chat-id: ebf18bee-534b-4304-96be-8a0e70868739 -->
-**Files**: 
+**Files**:
 - `finstack/valuations/src/attribution/parallel.rs`
 - `finstack/valuations/src/attribution/waterfall.rs`
 - `finstack/valuations/src/attribution/metrics_based.rs`
@@ -373,7 +373,7 @@ cargo clippy --lib -- -D warnings         # ✅ Zero warnings
 
 ## Phase 4: Trait-Based Market Data Extraction [LOWER PRIORITY]
 
-**Impact**: 6 functions → 1 generic + 6 trait impls  
+**Impact**: 6 functions → 1 generic + 6 trait impls
 **Estimated Time**: 2 days
 
 ### [x] Step 4.1: Define MarketExtractable trait
@@ -466,7 +466,7 @@ cargo doc --no-deps --lib                   # ✅ Builds successfully
 
 ## Phase 5: Waterfall Execution Unification [LOWER PRIORITY]
 
-**Impact**: 200+ duplicate lines → single implementation  
+**Impact**: 200+ duplicate lines → single implementation
 **Estimated Time**: 2-3 days
 
 ### [x] Step 5.1: Implement execute_waterfall_core() (if not done in Phase 3.3)
@@ -527,7 +527,7 @@ cargo bench --bench waterfall
 
 ## Phase 6: JSON Envelope Boilerplate [LOWER PRIORITY]
 
-**Impact**: Eliminate ~30 lines per envelope type (8+ types)  
+**Impact**: Eliminate ~30 lines per envelope type (8+ types)
 **Estimated Time**: 1-2 days
 
 ### [x] Step 6.1: Define JsonEnvelope trait
@@ -566,7 +566,7 @@ cargo doc --no-deps --lib                        # ✅ Documentation builds
 
 ### [x] Step 6.2: Implement trait for all envelope types
 <!-- chat-id: 247a7186-80e7-448f-a9c5-4f6bd5c6e215 -->
-**Files**: 
+**Files**:
 - `finstack/valuations/src/attribution/spec.rs`
 - `finstack/valuations/src/attribution/types.rs`
 - `finstack/valuations/tests/attribution/serialization_roundtrip.rs`
@@ -693,4 +693,3 @@ If issues arise in production:
 - Waterfall distributions fail conservation checks
 - Performance regression >10%
 - Production crashes or errors
-

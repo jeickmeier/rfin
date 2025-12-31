@@ -62,7 +62,7 @@ fn compute_forward_rate(&self, short_rate: f64, _idx: usize) -> f64 {
 - Both methods are identical pass-through stubs
 - The `_idx` parameter is unused in both implementations
 - Methods are private and only called internally within the same struct
-- Call sites: 
+- Call sites:
   - `CapPayoff::on_event` at line 119
   - `FloorPayoff::on_event` at line 208
 - Comments suggest this is a simplification pending full Hull-White implementation
@@ -94,7 +94,7 @@ fn compute_forward_rate(&self, short_rate: f64, _idx: usize) -> f64 {
    ```rust
    // Before
    let market_frozen = freeze_all_market(market_t0, market_t1);
-   
+
    // After
    let market_frozen = market_t0.clone();
    ```
@@ -112,7 +112,7 @@ fn compute_forward_rate(&self, short_rate: f64, _idx: usize) -> f64 {
    ```rust
    // Before
    let forward_rate = self.compute_forward_rate(short_rate, self.next_fixing_idx);
-   
+
    // After
    let forward_rate = short_rate; // Simple approximation: forward rate ≈ short rate
    ```
@@ -121,7 +121,7 @@ fn compute_forward_rate(&self, short_rate: f64, _idx: usize) -> f64 {
    ```rust
    // Before
    let forward_rate = self.compute_forward_rate(short_rate, self.next_fixing_idx);
-   
+
    // After
    let forward_rate = short_rate; // Simple approximation: forward rate ≈ short rate
    ```
@@ -144,10 +144,10 @@ fn compute_forward_rate(&self, short_rate: f64, _idx: usize) -> f64 {
 ### Files to Modify:
 1. `finstack/valuations/src/attribution/factors.rs`
    - Remove: `freeze_all_market` function and test (~17 lines)
-   
+
 2. `finstack/valuations/src/attribution/parallel.rs`
    - Modify: Replace function call with direct `.clone()` (1 line)
-   
+
 3. `finstack/valuations/src/instruments/common/models/monte_carlo/payoff/rates.rs`
    - Remove: Two `compute_forward_rate` methods (~12 lines total)
    - Modify: Two call sites to inline the logic (2 lines)

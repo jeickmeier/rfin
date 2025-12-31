@@ -28,11 +28,13 @@ cargo bench --package finstack-statements -- --baseline my_baseline
 ### 1. Model Building (`model_building`)
 
 Tests performance of constructing financial models:
+
 - **simple_value_model**: Basic model with value nodes only
 - **computed_nodes_model**: Model with computed formulas
 - **large_model_50_nodes**: Scaling test with 50 nodes
 
 **Use Cases:**
+
 - Track overhead of the builder API
 - Ensure model construction scales linearly
 - Validate type-state transitions don't add runtime cost
@@ -40,6 +42,7 @@ Tests performance of constructing financial models:
 ### 2. Model Evaluation (`model_evaluation`)
 
 Measures evaluation performance across different model complexities:
+
 - **evaluate_value_only**: Simple value-only model (baseline)
 - **evaluate_with_calculations**: Model with computed nodes
 - **evaluate_with_timeseries**: Time-series functions (lag, rolling, etc.)
@@ -47,6 +50,7 @@ Measures evaluation performance across different model complexities:
 - **evaluate_24_periods**: Monthly model over 2 years
 
 **Use Cases:**
+
 - Track DAG construction and topological sort overhead
 - Measure impact of time-series operators
 - Validate linear scaling with nodes and periods
@@ -54,6 +58,7 @@ Measures evaluation performance across different model complexities:
 ### 3. DSL Operations (`dsl_operations`)
 
 Tests parser and compiler performance:
+
 - **parse_simple_formula**: Basic arithmetic (`revenue * 0.6`)
 - **parse_complex_formula**: Nested expressions with operators
 - **parse_timeseries_formula**: Functions like `rolling_mean`, `lag`
@@ -61,6 +66,7 @@ Tests parser and compiler performance:
 - **compile_complex_ast**: Complex AST compilation
 
 **Use Cases:**
+
 - Track parser overhead (should be < 1 μs for simple formulas)
 - Ensure compilation is fast enough for interactive UIs
 - Monitor impact of adding new DSL features
@@ -68,12 +74,14 @@ Tests parser and compiler performance:
 ### 4. Forecast Methods (`forecast_methods`)
 
 Benchmarks different forecast algorithms:
+
 - **forecast_forward_fill**: Simple forward fill
 - **forecast_growth_rate**: Compound growth
 - **forecast_seasonal**: Seasonal patterns with growth
 - **forecast_lognormal**: Stochastic distribution (deterministic seed)
 
 **Use Cases:**
+
 - Compare performance of forecast methods
 - Track overhead of statistical methods vs simple methods
 - Validate determinism doesn't add significant cost
@@ -81,10 +89,12 @@ Benchmarks different forecast algorithms:
 ### 5. Extensions (`extensions`)
 
 Measures extension execution performance:
+
 - **extension_corkscrew**: Balance sheet roll-forward validation
 - **extension_scorecard**: Credit rating assignment by ranges
 
 **Use Cases:**
+
 - Track overhead of extension framework
 - Ensure extensions scale with model size
 - Validate extension composition doesn't compound overhead
@@ -92,11 +102,13 @@ Measures extension execution performance:
 ### 6. Registry Operations (`registry_operations`)
 
 Tests dynamic metric registry performance:
+
 - **load_empty_registry**: Registry initialization
 - **add_10_metrics**: Adding custom metrics
 - **resolve_metric**: Looking up metric by name
 
 **Use Cases:**
+
 - Track registry lookup overhead
 - Ensure metric addition scales linearly
 - Monitor namespace resolution performance
@@ -104,11 +116,13 @@ Tests dynamic metric registry performance:
 ### 7. Results Export (`results_export`) *[requires `polars_export` feature]*
 
 Benchmarks DataFrame conversion:
+
 - **export_to_long_dataframe**: Long format (period × node rows)
 - **export_to_wide_dataframe**: Wide format (periods as columns)
 - **export_large_to_***: Same operations on 24-period, 20-node model
 
 **Use Cases:**
+
 - Track Polars integration overhead
 - Compare long vs wide export performance
 - Validate efficient memory usage for large models
@@ -116,10 +130,12 @@ Benchmarks DataFrame conversion:
 ### 8. Serialization (`serialization`)
 
 Tests JSON serialization performance:
+
 - **serialize_model_to_json**: Model → JSON string
 - **deserialize_model_from_json**: JSON string → Model
 
 **Use Cases:**
+
 - Track serde overhead for persistence
 - Validate reasonable performance for saving/loading models
 - Monitor impact of adding new fields to specs
@@ -127,10 +143,12 @@ Tests JSON serialization performance:
 ### 9. End-to-End (`end_to_end`)
 
 Full workflow benchmarks combining multiple operations:
+
 - **simple_pl_model**: Basic P&L with actuals + forecast
 - **complex_financial_model**: Complete financial model with seasonal forecasts, time-series calculations, and derived metrics
 
 **Use Cases:**
+
 - Measure real-world workflow performance
 - Track aggregate overhead across all subsystems
 - Regression testing for common use cases
@@ -175,20 +193,26 @@ Full workflow benchmarks combining multiple operations:
 ## Performance Characteristics
 
 ### Linear Scaling
+
 All major operations should scale linearly:
+
 - **Nodes**: 10 → 50 nodes ≈ 5x latency increase
 - **Periods**: 4 → 24 periods ≈ 6x latency increase
 - **Registry**: 1 → 100 metrics ≈ 100x for addition (one-time)
 
 ### Forecast Method Comparison
+
 Relative performance (forward fill = 1.0x baseline):
+
 - Forward fill: 1.0x (baseline)
 - Growth rate: ~1.2-1.5x (simple math)
 - Seasonal: ~2-3x (pattern matching)
 - Log-normal: ~3-4x (RNG + distribution)
 
 ### Extension Overhead
+
 Extensions should add minimal overhead (<50% of base evaluation):
+
 - Corkscrew: ~20-40% overhead (simple validation)
 - Scorecard: ~30-50% overhead (range lookups)
 
@@ -197,26 +221,31 @@ Extensions should add minimal overhead (<50% of base evaluation):
 Based on typical use cases:
 
 ### Interactive UI (< 100ms p99)
+
 - **Model building**: < 5ms for 100 nodes ✅
 - **Model evaluation**: < 50ms for 100 nodes × 48 periods ✅
 - **DSL parsing**: < 10μs for typical formulas ✅
 
 ### Batch Processing (10k+ models/second)
+
 - **Simple P&L**: < 100μs p50 ✅
 - **Complex model**: < 1ms p50 ✅
 
 ### Real-Time Updates (< 16ms for 60fps)
+
 - **Re-evaluation**: < 5ms for typical model ✅
 - **Incremental updates**: Not yet implemented ⚠️
 
 ## Viewing Results
 
 After running benchmarks, results are available in:
+
 - **Terminal**: Summary statistics
 - **HTML Report**: `target/criterion/*/report/index.html`
 - **CSV Data**: `target/criterion/*/base/raw.csv`
 
 Open HTML report:
+
 ```bash
 open target/criterion/model_building/report/index.html
 ```
@@ -226,11 +255,13 @@ open target/criterion/model_building/report/index.html
 To track performance over time:
 
 1. **Establish baseline:**
+
    ```bash
    cargo bench --package finstack-statements -- --save-baseline initial
    ```
 
 2. **Compare after changes:**
+
    ```bash
    cargo bench --package finstack-statements -- --baseline initial
    ```
@@ -243,6 +274,7 @@ To track performance over time:
 ## Performance Regression Guidelines
 
 Flag for investigation if:
+
 - **> 20% slowdown** on any benchmark
 - **> 10% slowdown** on end-to-end benchmarks
 - **Non-linear scaling** appears (e.g., quadratic growth)
@@ -260,9 +292,9 @@ Flag for investigation if:
 ## Future Benchmarks
 
 Planned additions:
+
 - **Incremental evaluation**: Re-evaluating models with partial changes
 - **Parallel evaluation**: Multi-threaded model evaluation
 - **Capital structure**: Full integration benchmarks
 - **Memory usage**: Heap allocation profiling
 - **Cache effectiveness**: Hit rates for memoized operations
-

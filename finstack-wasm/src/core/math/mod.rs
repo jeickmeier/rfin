@@ -10,10 +10,11 @@ pub mod summation;
 
 // Distributions
 pub use distributions::{
-    binomial_distribution_js as binomialDistribution, binomial_probability_js as binomialProbability,
-    chi_squared_cdf_js as chiSquaredCdf, chi_squared_pdf_js as chiSquaredPdf,
-    chi_squared_quantile_js as chiSquaredQuantile, exponential_cdf_js as exponentialCdf,
-    exponential_pdf_js as exponentialPdf, exponential_quantile_js as exponentialQuantile,
+    binomial_distribution_js as binomialDistribution,
+    binomial_probability_js as binomialProbability, chi_squared_cdf_js as chiSquaredCdf,
+    chi_squared_pdf_js as chiSquaredPdf, chi_squared_quantile_js as chiSquaredQuantile,
+    exponential_cdf_js as exponentialCdf, exponential_pdf_js as exponentialPdf,
+    exponential_quantile_js as exponentialQuantile,
     log_binomial_coefficient_js as logBinomialCoefficient, log_factorial_js as logFactorial,
     lognormal_cdf_js as lognormalCdf, lognormal_pdf_js as lognormalPdf,
     lognormal_quantile_js as lognormalQuantile,

@@ -80,7 +80,7 @@ impl TypeName {
     pub fn property(&self) -> String {
         self.inner.property().to_string()
     }
-    
+
     /// Use js_name for JavaScript naming conventions
     #[wasm_bindgen(getter, js_name = "numericCode")]
     pub fn numeric_code(&self) -> u32 {
@@ -98,13 +98,13 @@ impl TypeName {
     pub fn calculate(&self, value: f64) -> f64 {
         self.inner.calculate(value)
     }
-    
+
     /// Methods with JS-friendly names
     #[wasm_bindgen(js_name = "toString")]
     pub fn to_string_js(&self) -> String {
         format!("{}", self.inner)
     }
-    
+
     /// Equality checks (JavaScript doesn't have operator overloading)
     #[wasm_bindgen]
     pub fn equals(&self, other: &TypeName) -> bool {
@@ -126,7 +126,7 @@ fn convert_error(err: Error) -> JsValue {
         }
         Error::CurrencyMismatch { expected, actual } => {
             JsValue::from_str(&format!(
-                "Currency mismatch: expected {}, got {}", 
+                "Currency mismatch: expected {}, got {}",
                 expected, actual
             ))
         }
@@ -188,7 +188,7 @@ impl DayCount {
     pub fn act360() -> DayCount {
         DayCount { inner: CoreDayCount::Act360 }
     }
-    
+
     #[wasm_bindgen(js_name = "Act365F")]
     pub fn act365f() -> DayCount {
         DayCount { inner: CoreDayCount::Act365F }
@@ -226,7 +226,7 @@ impl FixedRateLeg {
                 kind: format!("{:?}", cf.kind),
             })
             .collect();
-        
+
         to_value(&flows).map_err(|e| JsValue::from_str(&e.to_string()))
     }
 }
@@ -279,7 +279,7 @@ impl Currency {
     pub fn code(&self) -> String {
         format!("{}", self.inner)
     }
-    
+
     // Avoid: Returning references (not supported by wasm-bindgen)
     // pub fn code(&self) -> &str { ... }
 }
@@ -292,7 +292,7 @@ use js_sys::Array;
 #[wasm_bindgen]
 pub fn generate_dates(start: &Date, end: &Date, freq: Frequency) -> Array {
     let dates = generate_schedule_internal(start, end, freq);
-    
+
     let array = Array::new();
     for date in dates {
         array.push(&JsValue::from(Date::from_inner(date)));
@@ -323,7 +323,7 @@ fn test_money_arithmetic() {
     let usd = Currency::new("USD".to_string()).unwrap();
     let m1 = Money::new(100.0, usd.clone());
     let m2 = Money::new(50.0, usd);
-    
+
     let result = m1.add(&m2).unwrap();
     assert_eq!(result.amount(), 150.0);
 }
@@ -368,7 +368,7 @@ impl Calculator {
             // Use defaults
             Default::default()
         };
-        
+
         Ok(self.inner.calculate(value, params))
     }
 }
@@ -379,9 +379,9 @@ impl Calculator {
 ### Type Documentation
 ```rust
 /// Currency representation based on ISO 4217 standards.
-/// 
+///
 /// A Currency represents a specific currency using the ISO 4217 standard.
-/// 
+///
 /// @example
 /// ```javascript
 /// const usd = new Currency("USD");
@@ -397,9 +397,9 @@ pub struct Currency {
 ### Method Documentation
 ```rust
 /// Add two money values.
-/// 
+///
 /// Both money values must have the same currency.
-/// 
+///
 /// @param {Money} other - The money value to add
 /// @returns {Money} The sum of the two money values
 /// @throws {Error} If the currencies don't match
@@ -566,7 +566,7 @@ impl TypeName {
     pub fn property(&self) -> String {
         self.inner.property().to_string()
     }
-    
+
     /// Use js_name for JavaScript naming conventions
     #[wasm_bindgen(getter, js_name = "numericCode")]
     pub fn numeric_code(&self) -> u32 {
@@ -584,13 +584,13 @@ impl TypeName {
     pub fn calculate(&self, value: f64) -> f64 {
         self.inner.calculate(value)
     }
-    
+
     /// Methods with JS-friendly names
     #[wasm_bindgen(js_name = "toString")]
     pub fn to_string_js(&self) -> String {
         format!("{}", self.inner)
     }
-    
+
     /// Equality checks (JavaScript doesn't have operator overloading)
     #[wasm_bindgen]
     pub fn equals(&self, other: &TypeName) -> bool {
@@ -612,7 +612,7 @@ fn convert_error(err: Error) -> JsValue {
         }
         Error::CurrencyMismatch { expected, actual } => {
             JsValue::from_str(&format!(
-                "Currency mismatch: expected {}, got {}", 
+                "Currency mismatch: expected {}, got {}",
                 expected, actual
             ))
         }
@@ -674,7 +674,7 @@ impl DayCount {
     pub fn act360() -> DayCount {
         DayCount { inner: CoreDayCount::Act360 }
     }
-    
+
     #[wasm_bindgen(js_name = "Act365F")]
     pub fn act365f() -> DayCount {
         DayCount { inner: CoreDayCount::Act365F }
@@ -712,7 +712,7 @@ impl FixedRateLeg {
                 kind: format!("{:?}", cf.kind),
             })
             .collect();
-        
+
         to_value(&flows).map_err(|e| JsValue::from_str(&e.to_string()))
     }
 }
@@ -765,7 +765,7 @@ impl Currency {
     pub fn code(&self) -> String {
         format!("{}", self.inner)
     }
-    
+
     // Avoid: Returning references (not supported by wasm-bindgen)
     // pub fn code(&self) -> &str { ... }
 }
@@ -778,7 +778,7 @@ use js_sys::Array;
 #[wasm_bindgen]
 pub fn generate_dates(start: &Date, end: &Date, freq: Frequency) -> Array {
     let dates = generate_schedule_internal(start, end, freq);
-    
+
     let array = Array::new();
     for date in dates {
         array.push(&JsValue::from(Date::from_inner(date)));
@@ -809,7 +809,7 @@ fn test_money_arithmetic() {
     let usd = Currency::new("USD".to_string()).unwrap();
     let m1 = Money::new(100.0, usd.clone());
     let m2 = Money::new(50.0, usd);
-    
+
     let result = m1.add(&m2).unwrap();
     assert_eq!(result.amount(), 150.0);
 }
@@ -854,7 +854,7 @@ impl Calculator {
             // Use defaults
             Default::default()
         };
-        
+
         Ok(self.inner.calculate(value, params))
     }
 }
@@ -865,9 +865,9 @@ impl Calculator {
 ### Type Documentation
 ```rust
 /// Currency representation based on ISO 4217 standards.
-/// 
+///
 /// A Currency represents a specific currency using the ISO 4217 standard.
-/// 
+///
 /// @example
 /// ```javascript
 /// const usd = new Currency("USD");
@@ -883,9 +883,9 @@ pub struct Currency {
 ### Method Documentation
 ```rust
 /// Add two money values.
-/// 
+///
 /// Both money values must have the same currency.
-/// 
+///
 /// @param {Money} other - The money value to add
 /// @returns {Money} The sum of the two money values
 /// @throws {Error} If the currencies don't match

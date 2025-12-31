@@ -23,8 +23,8 @@ use finstack_valuations::instruments::common::models::monte_carlo::payoff::barri
 };
 use finstack_valuations::instruments::common::models::monte_carlo::payoff::vanilla::EuropeanCall;
 use finstack_valuations::instruments::common::models::monte_carlo::prelude::{
-    AmericanPut, EuropeanPricer, EuropeanPricerConfig, LsmcConfig, LsmcPricer,
-    PathDependentPricer, PathDependentPricerConfig, PolynomialBasis,
+    AmericanPut, EuropeanPricer, EuropeanPricerConfig, LsmcConfig, LsmcPricer, PathDependentPricer,
+    PathDependentPricerConfig, PolynomialBasis,
 };
 use finstack_valuations::instruments::OptionType;
 use std::hint::black_box;

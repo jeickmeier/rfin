@@ -6,10 +6,10 @@ use crate::core::money::JsMoney;
 use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_valuations::instruments::rates::ir_future::Position;
 use finstack_valuations::instruments::equity::vol_index_future::{
     VolIndexContractSpecs, VolatilityIndexFuture,
 };
+use finstack_valuations::instruments::rates::ir_future::Position;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 

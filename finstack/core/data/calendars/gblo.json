@@ -13,5 +13,3 @@
     { "type": "nth_weekday", "name": "Summer Bank Holiday", "n": -1, "weekday": "monday", "month": "august" }
   ]
 }
-
-

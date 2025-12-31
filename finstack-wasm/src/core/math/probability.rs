@@ -1,6 +1,8 @@
 //! Joint probability utilities for WASM bindings.
 
-use finstack_core::math::probability::{correlation_bounds, joint_probabilities, CorrelatedBernoulli};
+use finstack_core::math::probability::{
+    correlation_bounds, joint_probabilities, CorrelatedBernoulli,
+};
 use wasm_bindgen::prelude::*;
 
 /// Compute joint probabilities for two correlated Bernoulli random variables.

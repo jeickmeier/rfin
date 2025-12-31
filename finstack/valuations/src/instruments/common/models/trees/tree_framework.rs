@@ -612,7 +612,7 @@ pub struct EvolutionParams {
     pub drift: f64,
     /// Up factor
     pub up_factor: f64,
-    /// Down factor  
+    /// Down factor
     pub down_factor: f64,
     /// Middle factor (for trinomial)
     pub middle_factor: Option<f64>,

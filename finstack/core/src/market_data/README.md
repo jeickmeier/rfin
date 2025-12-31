@@ -72,13 +72,13 @@ The module is designed to be **deterministic**, **type-safe**, and **serde-stabl
 
 - **`bumps.rs`**
 - Scenario bump specification types:
-    - `BumpMode` (additive vs multiplicative).
-    - `BumpUnits` (basis points, percent, fraction, factor).
-    - `BumpType` (`Parallel`, `TriangularKeyRate` with explicit bucket neighbors).
-    - `BumpSpec`: unified bump description (mode, units, value, type) with helpers like:
-      - `BumpSpec::parallel_bp`, `BumpSpec::triangular_key_rate_bp`.
-      - Domain-specific helpers (`inflation_shift_pct`, `correlation_shift_pct`, `multiplier`).
-    - `MarketBump`: heterogeneous bump enum for curves, FX, volatility buckets, and base correlation buckets.
+  - `BumpMode` (additive vs multiplicative).
+  - `BumpUnits` (basis points, percent, fraction, factor).
+  - `BumpType` (`Parallel`, `TriangularKeyRate` with explicit bucket neighbors).
+  - `BumpSpec`: unified bump description (mode, units, value, type) with helpers like:
+    - `BumpSpec::parallel_bp`, `BumpSpec::triangular_key_rate_bp`.
+    - Domain-specific helpers (`inflation_shift_pct`, `correlation_shift_pct`, `multiplier`).
+  - `MarketBump`: heterogeneous bump enum for curves, FX, volatility buckets, and base correlation buckets.
   - Integrates with curve/surface/scalar types via internal `Bumpable` traits.
 
 - **`diff.rs`**
@@ -421,5 +421,3 @@ The `market_data` module is **core infrastructure** and must remain deterministi
   - Renaming existing serialized fields or variants in `MarketContextState`.
 
 By following these patterns, new market data types remain **composable**, **deterministic**, and **compatible** across Rust, Python, and WASM bindings.
-
-

@@ -49,7 +49,7 @@
 //! Different bond markets follow distinct conventions:
 //!
 //! - **US Treasuries**: 30/360, Semi-annual, T+1 settlement
-//! - **UK Gilts**: ACT/ACT, Semi-annual, T+1 settlement  
+//! - **UK Gilts**: ACT/ACT, Semi-annual, T+1 settlement
 //! - **Eurozone**: 30E/360 or ACT/ACT, Annual, T+2 settlement
 //! - **Japan**: ACT/365F, Semi-annual, T+3 settlement
 //!
@@ -85,17 +85,17 @@ mod types;
 
 // Re-export cashflow accrual types for convenience
 pub use crate::cashflow::accrual::AccrualMethod;
-#[doc(hidden)]
-pub use metrics::{
-    register_bond_metrics, AssetSwapMarketCalculator, AssetSwapParCalculator,
-    DiscountMarginCalculator, ZSpreadCalculator,
-};
+pub use cashflow_spec::CashflowSpec;
 #[doc(hidden)]
 pub use metrics::price_yield_spread::asw::{
     asw_market_with_forward, asw_market_with_forward_config, asw_par_with_forward,
     asw_par_with_forward_config, AssetSwapConfig,
 };
-pub use cashflow_spec::CashflowSpec;
+#[doc(hidden)]
+pub use metrics::{
+    register_bond_metrics, AssetSwapMarketCalculator, AssetSwapParCalculator,
+    DiscountMarginCalculator, ZSpreadCalculator,
+};
 pub use types::AmortizationSpec;
 pub use types::Bond;
 pub use types::CallPut;

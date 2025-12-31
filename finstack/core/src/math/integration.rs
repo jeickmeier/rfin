@@ -440,7 +440,7 @@ impl GaussHermiteQuadrature {
 ///
 /// * `f` - Function to integrate
 /// * `a` - Lower bound
-/// * `b` - Upper bound  
+/// * `b` - Upper bound
 /// * `n` - Number of intervals (must be even and > 0)
 ///
 /// # Returns

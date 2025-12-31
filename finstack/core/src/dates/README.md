@@ -492,5 +492,3 @@ The `dates` module is **core infrastructure** shared by curves, cashflows, state
   - You are building full instrument pricing, scenario generation, or portfolio aggregation.
 
 Keeping this separation clean ensures the `core` crate remains **small, deterministic, and reusable** across Rust, Python, and WASM bindings.
-
-

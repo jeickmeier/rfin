@@ -61,7 +61,7 @@
 //! fn black_scholes_call(s: f64, k: f64, r: f64, vol: f64, t: f64) -> f64 {
 //!     let d1 = ((s / k).ln() + (r + 0.5 * vol * vol) * t) / (vol * t.sqrt());
 //!     let d2 = d1 - vol * t.sqrt();
-//!     
+//!
 //!     s * norm_cdf(d1) - k * (-r * t).exp() * norm_cdf(d2)
 //! }
 //!

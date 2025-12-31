@@ -46,10 +46,10 @@ test.describe('Discount Curve Calibration', () => {
     // Enter quotes
     await page.fill('[data-testid="quote-rate-0"]', '0.05');
     await page.fill('[data-testid="quote-tenor-0"]', '1Y');
-    
+
     // Run calibration
     await page.click('[data-testid="calibrate-button"]');
-    
+
     // Verify success
     await expect(page.locator('[data-testid="calibration-status"]'))
       .toHaveText('Success');
@@ -101,9 +101,9 @@ describe('Bond Pricing Parity', () => {
       const bond = Bond.fromJSON(testCase.instrument);
       const market = MarketContext.fromJSON(testCase.market);
       const config = new FinstackConfig();
-      
+
       const pv = bond.price(market, config);
-      
+
       // Match to 6 decimal places (Decimal precision)
       expect(pv.amount).toBeCloseTo(testCase.expected.pv, 6);
     });
@@ -115,6 +115,3 @@ Objectives:
 
 - Ensure numeric parity between UI-layer bindings and core Rust engine.
 - Prevent silent drift in pricing/metric calculations.
-
-
-

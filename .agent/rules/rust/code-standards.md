@@ -23,11 +23,11 @@ description: Information about the coding standards of the rust finstack library
 ### Documentation
 ```rust
 //! Module-level documentation explaining purpose and usage.
-//! 
+//!
 //! Include examples for common use cases.
 
 /// Item-level documentation with examples
-/// 
+///
 /// # Examples
 /// ```
 /// use rfin_core::Currency;
@@ -105,13 +105,13 @@ pub struct CurveBuilder {
 
 impl CurveBuilder {
     pub fn new(id: &'static str) -> Self { /* ... */ }
-    
+
     // Fluent setters returning Self
     pub fn base_date(mut self, date: Date) -> Self {
         self.base = date;
         self
     }
-    
+
     // Terminal method consumes self
     pub fn build(self) -> Result<Curve> { /* ... */ }
 }
@@ -169,7 +169,7 @@ use rayon::prelude::*;
 pub fn parallel_npv(&self) -> Money {
     #[cfg(feature = "parallel")]
     { /* parallel implementation */ }
-    
+
     #[cfg(not(feature = "parallel"))]
     { /* sequential fallback */ }
 }
@@ -182,7 +182,7 @@ pub fn parallel_npv(&self) -> Money {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     // Helper functions for test data
     fn sample_curve() -> DiscountCurve {
         DiscountCurve::builder("TEST")
@@ -190,15 +190,15 @@ mod tests {
             .build()
             .unwrap()
     }
-    
+
     #[test]
     fn descriptive_test_name() {
         // Arrange
         let curve = sample_curve();
-        
+
         // Act
         let result = curve.df(0.5);
-        
+
         // Assert with tolerance for floats
         assert!((result - 0.99).abs() < 1e-12);
     }
@@ -223,7 +223,7 @@ pub trait InterpFn: Send + Sync + Debug {
 pub trait Discount: TermStructure {
     fn base_date(&self) -> Date;
     fn df(&self, t: F) -> F;
-    
+
     // Provide default implementations
     #[inline]
     fn zero(&self, t: F) -> F {
@@ -250,15 +250,15 @@ pub trait Discount: TermStructure {
 ### Module Documentation
 ```rust
 //! Short description of module purpose.
-//! 
+//!
 //! Longer explanation with context and use cases.
-//! 
+//!
 //! # Examples
 //! ```
 //! use rfin_core::dates::{Date, DayCount};
 //! let yf = DayCount::Act360.year_fraction(start, end)?;
 //! ```
-//! 
+//!
 //! # Sub-modules
 //! * [`submod`] - Description
 ```
@@ -311,7 +311,7 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 fn bench_interpolation(c: &mut Criterion) {
     let interp = setup_interpolator();
-    
+
     c.bench_function("monotone_convex_df", |b| {
         b.iter(|| {
             for &x in &test_points {
@@ -369,7 +369,7 @@ fn bench_interpolation(c: &mut Criterion) {
 // Operations must check currency compatibility
 impl Add for Money {
     type Output = Result<Self, Error>;
-    
+
     fn add(self, rhs: Self) -> Self::Output {
         ensure_same_currency(&self, &rhs)?;
         Ok(Money::new(self.amount + rhs.amount, self.currency))
@@ -400,11 +400,11 @@ impl Add for Money {
 ### Documentation
 ```rust
 //! Module-level documentation explaining purpose and usage.
-//! 
+//!
 //! Include examples for common use cases.
 
 /// Item-level documentation with examples
-/// 
+///
 /// # Examples
 /// ```
 /// use rfin_core::Currency;
@@ -448,13 +448,13 @@ pub struct CurveBuilder {
 
 impl CurveBuilder {
     pub fn new(id: &'static str) -> Self { /* ... */ }
-    
+
     // Fluent setters returning Self
     pub fn base_date(mut self, date: Date) -> Self {
         self.base = date;
         self
     }
-    
+
     // Terminal method consumes self
     pub fn build(self) -> Result<Curve> { /* ... */ }
 }
@@ -512,7 +512,7 @@ use rayon::prelude::*;
 pub fn parallel_npv(&self) -> Money {
     #[cfg(feature = "parallel")]
     { /* parallel implementation */ }
-    
+
     #[cfg(not(feature = "parallel"))]
     { /* sequential fallback */ }
 }
@@ -525,7 +525,7 @@ pub fn parallel_npv(&self) -> Money {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     // Helper functions for test data
     fn sample_curve() -> DiscountCurve {
         DiscountCurve::builder("TEST")
@@ -533,15 +533,15 @@ mod tests {
             .build()
             .unwrap()
     }
-    
+
     #[test]
     fn descriptive_test_name() {
         // Arrange
         let curve = sample_curve();
-        
+
         // Act
         let result = curve.df(0.5);
-        
+
         // Assert with tolerance for floats
         assert!((result - 0.99).abs() < 1e-12);
     }
@@ -566,7 +566,7 @@ pub trait InterpFn: Send + Sync + Debug {
 pub trait Discount: TermStructure {
     fn base_date(&self) -> Date;
     fn df(&self, t: F) -> F;
-    
+
     // Provide default implementations
     #[inline]
     fn zero(&self, t: F) -> F {
@@ -593,15 +593,15 @@ pub trait Discount: TermStructure {
 ### Module Documentation
 ```rust
 //! Short description of module purpose.
-//! 
+//!
 //! Longer explanation with context and use cases.
-//! 
+//!
 //! # Examples
 //! ```
 //! use rfin_core::dates::{Date, DayCount};
 //! let yf = DayCount::Act360.year_fraction(start, end)?;
 //! ```
-//! 
+//!
 //! # Sub-modules
 //! * [`submod`] - Description
 ```
@@ -654,7 +654,7 @@ use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 fn bench_interpolation(c: &mut Criterion) {
     let interp = setup_interpolator();
-    
+
     c.bench_function("monotone_convex_df", |b| {
         b.iter(|| {
             for &x in &test_points {
@@ -712,7 +712,7 @@ fn bench_interpolation(c: &mut Criterion) {
 // Operations must check currency compatibility
 impl Add for Money {
     type Output = Result<Self, Error>;
-    
+
     fn add(self, rhs: Self) -> Self::Output {
         ensure_same_currency(&self, &rhs)?;
         Ok(Money::new(self.amount + rhs.amount, self.currency))

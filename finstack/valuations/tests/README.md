@@ -180,6 +180,7 @@ assert_parity!(calculated, reference, ParityConfig::default(), "Bond PV");
 ### Golden Test Framework
 
 The `integration/golden/` directory provides:
+
 - JSON loaders for option pricing vectors
 - Market compliance fixtures
 - Tolerance-based assertion helpers
@@ -229,6 +230,7 @@ assert!(price >= intrinsic - tol);
 ### Adding an Instrument Test
 
 1. Create a new directory under `instruments/`:
+
    ```
    instruments/new_instrument/
    ├── mod.rs
@@ -240,6 +242,7 @@ assert!(price >= intrinsic - tol);
    ```
 
 2. Add the module to `instruments.rs`:
+
    ```rust
    #[path = "instruments/new_instrument/mod.rs"]
    mod new_instrument;
@@ -252,18 +255,19 @@ assert!(price >= intrinsic - tol);
 ### Adding a Calibration Test
 
 1. Create a test file in `models/calibration/`:
+
    ```rust
    // models/calibration/new_calibration_test.rs
    use crate::common::fixtures::*;
-   
+
    #[test]
    fn test_new_calibration_scenario() {
        // Arrange
        let quotes = build_test_quotes();
-       
+
        // Act
        let curve = calibrate(&quotes)?;
-       
+
        // Assert
        assert_reprices_inputs(&curve, &quotes, tolerance);
    }
@@ -274,6 +278,7 @@ assert!(price >= intrinsic - tol);
 ### Adding a Golden Test
 
 1. Add test case to appropriate JSON file in `integration/golden/data/`:
+
    ```json
    {
      "name": "unique_test_id",
@@ -298,6 +303,7 @@ assert!(price >= intrinsic - tol);
    - `risk/attribution/` for P&L decomposition
 
 2. Use shared utilities from `risk/common/`:
+
    ```rust
    use crate::common::{assertions::*, builders::*, tolerances::*};
    ```
@@ -317,10 +323,10 @@ fn test_bond_pricing_at_par() {
         .coupon_rate(0.05)
         .build();
     let market = flat_discount_curve(0.05, as_of, "USD-OIS");
-    
+
     // Act: Execute the operation
     let pv = bond.present_value(&market, as_of)?;
-    
+
     // Assert: Verify results
     assert!((pv.amount() - 100.0).abs() < tolerances::CURVE_PRICING);
 }
@@ -347,6 +353,7 @@ fn test_mc_option_pricing_convergence() {
 ```
 
 Run MC tests with:
+
 ```bash
 cargo test --test instruments --features mc
 ```

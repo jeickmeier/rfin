@@ -82,7 +82,7 @@ pub fn pathwise_delta_put(
 ///
 /// * `terminal_spots` - Terminal spot prices
 /// * `initial_spot` - Initial spot price
-/// * `strike` - Strike price  
+/// * `strike` - Strike price
 /// * `time_to_maturity` - Time to maturity T
 /// * `volatility` - Current volatility σ
 /// * `discount_factor` - Discount factor e^(-rT)

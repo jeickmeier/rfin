@@ -151,7 +151,7 @@ cd finstack-wasm/examples
 npm run dev
 ```
 
-Then navigate to http://localhost:5173/example/statements-modeling
+Then navigate to <http://localhost:5173/example/statements-modeling>
 
 ## See Also
 

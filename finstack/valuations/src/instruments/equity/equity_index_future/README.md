@@ -39,6 +39,7 @@ F = S_0 \times e^{(r - q) \times T}
 $$
 
 where:
+
 - $S_0$ = Current spot index level
 - $r$ = Risk-free rate (from discount curve)
 - $q$ = Continuous dividend yield
@@ -135,9 +136,11 @@ println!("NPV: {}", npv);
 ## Market Data Requirements
 
 ### For Mark-to-Market Pricing
+
 - Discount curve (for DV01 calculations)
 
 ### For Fair Value Pricing
+
 - Discount curve (for risk-free rate and DV01)
 - Spot index level (via `index_price_id`)
 - Optional: Dividend yield (via `dividend_yield_id`)
@@ -160,4 +163,3 @@ The following metrics are available:
 - CME Group. "E-mini S&P 500 Futures Contract Specifications."
 - Eurex. "EURO STOXX 50 Index Futures."
 - ICE. "FTSE 100 Index Future."
-

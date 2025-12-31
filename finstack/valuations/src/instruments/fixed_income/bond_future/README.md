@@ -148,6 +148,7 @@ let deliverable = DeliverableBond {
 ```
 
 **Key Points**:
+
 - Conversion factors are published by the exchange (CBOT, Eurex, ICE)
 - Factors normalize bonds to a standard coupon and maturity
 - Factors are typically 4 decimal places (e.g., 0.8234)
@@ -172,6 +173,7 @@ println!("Calculated conversion factor: {:.4}", cf);
 ```
 
 The calculation uses:
+
 - **Standard coupon**: 6% for UST/Bund, 4% for Gilt
 - **Standard maturity**: Varies by contract (2Y, 5Y, 10Y)
 - **Discounting**: Semi-annual compounding at standard coupon rate
@@ -211,6 +213,7 @@ let short_future = BondFuture::ust_10y(
 ```
 
 **NPV Sign Convention**:
+
 - **Long position**: Positive NPV when futures price > model price (profit)
 - **Short position**: Negative NPV when futures price > model price (loss)
 
@@ -283,11 +286,13 @@ let bund_future = BondFutureBuilder::new()
 The conversion factor normalizes a bond's value to the standard notional bond defined by the futures contract.
 
 **Formula**:
+
 ```
 CF = PV(bond cashflows discounted at standard coupon) / Par Value
 ```
 
 **Implementation**:
+
 ```
 For each cashflow at time t (in years):
     DF(t) = 1 / (1 + r/2)^(2*t)  // Semi-annual compounding
@@ -301,6 +306,7 @@ CF = PV / Notional
 **Example Calculation**:
 
 For a bond with 3.75% coupon, 9.5 years to maturity, discounted at 6% (standard coupon):
+
 - PV ≈ $82,340 per $100,000 face value
 - CF = 82,340 / 100,000 = **0.8234**
 
@@ -309,15 +315,18 @@ For a bond with 3.75% coupon, 9.5 years to maturity, discounted at 6% (standard 
 The theoretical fair value of the futures contract based on the CTD bond's market price.
 
 **Formula**:
+
 ```
 Model_Price = Clean_Price_Percent / Conversion_Factor
 ```
 
 Where:
+
 - `Clean_Price_Percent`: CTD bond's clean price as % of par (e.g., 98.5 for $98.50/$100)
 - `Conversion_Factor`: The CTD bond's conversion factor
 
 **Example**:
+
 ```
 CTD clean price: 98.50%
 Conversion factor: 0.8234
@@ -329,11 +338,13 @@ Model price = 98.50 / 0.8234 = 119.65
 The mark-to-market value of the futures position.
 
 **Formula**:
+
 ```
 NPV = (Quoted_Price - Model_Price) × Contract_Size × Num_Contracts × DF × Sign
 ```
 
 Where:
+
 - `Quoted_Price`: Market-quoted futures price
 - `Model_Price`: Theoretical price from CTD bond
 - `Contract_Size`: Face value per contract ($100,000 for UST 10Y)
@@ -342,6 +353,7 @@ Where:
 - `Sign`: +1 for Long, -1 for Short
 
 **Example**:
+
 ```
 Quoted price: 125.50
 Model price: 124.75
@@ -360,11 +372,13 @@ NPV = (125.50 - 124.75) × 100,000 × 10 × 1.0 × 1
 The settlement amount when the futures contract is delivered.
 
 **Formula**:
+
 ```
 Invoice_Price = (Futures_Price × Conversion_Factor) + Accrued_Interest
 ```
 
 **Example**:
+
 ```
 Futures price: 125.50
 Conversion factor: 0.8234
@@ -378,6 +392,7 @@ For $100,000 contract: $105,840
 ```
 
 **Implementation**:
+
 ```rust
 let invoice = future.invoice_price(&ctd_bond, &market, settlement_date)?;
 ```
@@ -393,6 +408,7 @@ let invoice = future.invoice_price(&ctd_bond, &market, settlement_date)?;
 The main bond future instrument type.
 
 **Fields**:
+
 - `id`: Unique instrument identifier (e.g., "TYH5" for March 2025)
 - `notional`: Total notional amount (e.g., $1M for 10 contracts)
 - `expiry_date`: Last trading day
@@ -407,6 +423,7 @@ The main bond future instrument type.
 - `attributes`: Optional metadata
 
 **Builder Pattern**:
+
 ```rust
 use finstack_valuations::instruments::fixed_income::bond_future::BondFutureBuilder;
 
@@ -426,9 +443,10 @@ let future = BondFutureBuilder::new()
 ```
 
 **Convenience Constructors**:
+
 ```rust
 // UST 10Y
-let future = BondFuture::ust_10y(id, notional, expiry, delivery_start, delivery_end, 
+let future = BondFuture::ust_10y(id, notional, expiry, delivery_start, delivery_end,
                                   quoted_price, position, basket, ctd_id, curve_id)?;
 
 // UST 5Y
@@ -573,12 +591,14 @@ println!("Contract DV01: ${:.2}", dv01);
 ```
 
 **Interpretation**:
+
 - DV01 is the sensitivity to a 1bp shift in the **discount curve**
 - Automatically accounts for conversion factor scaling:
   - CTD bond DV01 is scaled by `1 / Conversion_Factor`
   - Future DV01 = CTD bond DV01 / CF × Num_Contracts
 
 **Example**:
+
 ```
 CTD bond DV01: $850 per $100k face
 Conversion factor: 0.8234
@@ -605,9 +625,11 @@ let bucketed = result.metric("bucketed_dv01").unwrap();
 ```
 
 **Standard Buckets**:
+
 - 3M, 6M, 1Y, 2Y, 3Y, 5Y, 7Y, 10Y, 15Y, 20Y, 30Y
 
 **Use Cases**:
+
 - Hedge ratio calculation for multi-tenor portfolios
 - Identifying concentration risk
 - Curve strategy analysis
@@ -628,6 +650,7 @@ let theta = result.metric("theta").unwrap();
 ```
 
 **Notes**:
+
 - Theta for bond futures is typically small (no option premium decay)
 - Reflects carry/roll-down of the CTD bond
 
@@ -886,17 +909,20 @@ fn create_market_context() -> MarketContext {
 ### Exchange Documentation
 
 #### U.S. Treasury Futures (CBOT/CME)
+
 - **Contract Specifications**: [CME Group - U.S. Treasury Futures](https://www.cmegroup.com/markets/interest-rates/us-treasury.html)
 - **Conversion Factors**: Published monthly at [CME Group - Conversion Factors](https://www.cmegroup.com/trading/interest-rates/us-treasury-conversion-factors.html)
 - **Invoice Price Calculation**: [CME Group Invoice Price Guide](https://www.cmegroup.com/education/courses/introduction-to-treasuries/invoice-price-calculation.html)
 - **CTD Analysis**: [CME Group - Understanding CTD](https://www.cmegroup.com/education/courses/introduction-to-treasuries/understanding-the-cheapest-to-deliver.html)
 
 #### German Bund Futures (Eurex)
+
 - **Contract Specifications**: [Eurex - Euro-Bund Future](https://www.eurex.com/ex-en/markets/int/fix/bund)
 - **Conversion Factors**: [Eurex - Price Factors](https://www.eurex.com/ex-en/markets/int/fix/bund/price-factors)
 - **Deliverable Basket**: Updated quarterly
 
 #### UK Gilt Futures (ICE Futures Europe)
+
 - **Contract Specifications**: [ICE - Long Gilt Futures](https://www.theice.com/products/4447212/Long-Gilt-Future)
 - **Conversion Factors**: Published by ICE, updated monthly
 - **Deliverable Range**: 8.75 to 13 years remaining maturity
@@ -1100,6 +1126,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 ## Support
 
 For questions or issues, please refer to:
+
 - **Finstack Documentation**: Main project README
 - **Issue Tracker**: GitHub issues
 - **Code Examples**: `finstack/valuations/tests/bond_future_integration.rs`

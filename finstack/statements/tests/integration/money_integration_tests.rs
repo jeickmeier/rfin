@@ -3,7 +3,7 @@
 //! This test suite validates:
 //! - Money values preserve currency through evaluation
 //! - Cross-currency operations produce appropriate errors
-//! - Scalar operations work correctly  
+//! - Scalar operations work correctly
 //! - Monetary vs scalar tracking is accurate
 //! - Results provide both Money and f64 accessors
 

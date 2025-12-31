@@ -22,47 +22,47 @@ import type { ResidualWeightingScheme } from "./ResidualWeightingScheme";
  * };
  * ```
  */
-export type DiscountCurveSolveConfig = { 
+export type DiscountCurveSolveConfig = {
 /**
  * Number of points in the initial geometric scan grid.
  */
-scan_grid_points: number, 
+scan_grid_points: number,
 /**
  * Minimum required success points in scan before attempting polish.
  */
-min_scan_grid_points: number, 
+min_scan_grid_points: number,
 /**
  * Initial step size for geometric scan grid.
  */
-scan_grid_step: number, 
+scan_grid_step: number,
 /**
  * Absolute minimum allowed discount factor (prevents singularity).
  */
-df_hard_min: number, 
+df_hard_min: number,
 /**
  * Absolute maximum allowed discount factor (prevents divergence).
  */
-df_hard_max: number, 
+df_hard_max: number,
 /**
  * Minimum time threshold for considering a knot at spot (t=0).
  */
-min_t_spot: number, 
+min_t_spot: number,
 /**
  * Whether to use a sequential bootstrap to seed a global solve.
  */
-bootstrap_seed_global_solve: boolean, 
+bootstrap_seed_global_solve: boolean,
 /**
  * Override final-curve monotonicity enforcement (None = policy-driven).
  */
-allow_non_monotonic_final: boolean | null, 
+allow_non_monotonic_final: boolean | null,
 /**
  * Weighting scheme for global solve residuals.
  */
-weighting_scheme: ResidualWeightingScheme, 
+weighting_scheme: ResidualWeightingScheme,
 /**
  * Step size (h) for finite-difference Jacobian calculation.
  */
-jacobian_step_size: number, 
+jacobian_step_size: number,
 /**
  * Tolerance for determining calibration success (applied to residuals).
  */

@@ -234,8 +234,8 @@ pub use exotics::{
 
 // === Common Functionality ===
 pub use common::traits::{
-    Attributes, CurveDependencies, CurveIdVec, EquityDependencies, EquityInstrumentDeps, Instrument,
-    InstrumentCurves, PricingOptions,
+    Attributes, CurveDependencies, CurveIdVec, EquityDependencies, EquityInstrumentDeps,
+    Instrument, InstrumentCurves, PricingOptions,
 };
 
 // === Parameter Types ===

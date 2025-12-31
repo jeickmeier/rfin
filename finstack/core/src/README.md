@@ -187,5 +187,3 @@ The high‑level process is:
   under `book/src/`.
 - **Tests and examples**: see `finstack/core/tests/` and `finstack/examples/core/` for concrete
   end‑to‑end usage patterns.
-
-

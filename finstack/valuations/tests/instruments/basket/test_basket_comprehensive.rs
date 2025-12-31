@@ -14,11 +14,11 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
 use finstack_core::money::Money;
+use finstack_valuations::instruments::exotics::basket::BasketCalculator;
 use finstack_valuations::instruments::exotics::basket::{
     register_basket_metrics, AssetExposureCalculator, ConstituentCountCalculator,
     ExpenseRatioCalculator,
 };
-use finstack_valuations::instruments::exotics::basket::BasketCalculator;
 use finstack_valuations::instruments::exotics::basket::{
     AssetType, Basket, BasketConstituent, BasketPricingConfig, ConstituentReference,
 };

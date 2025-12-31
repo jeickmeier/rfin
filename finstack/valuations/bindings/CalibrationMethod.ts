@@ -20,7 +20,7 @@
  * let method = CalibrationMethod::GlobalSolve { use_analytical_jacobian: true };
  * ```
  */
-export type CalibrationMethod = "Bootstrap" | { "GlobalSolve": { 
+export type CalibrationMethod = "Bootstrap" | { "GlobalSolve": {
 /**
  * Use analytical Jacobian if available (otherwise finite-difference).
  */

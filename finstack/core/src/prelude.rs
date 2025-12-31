@@ -7,7 +7,7 @@
 //!
 //! ```rust
 //! use finstack_core::prelude::*;
-//! 
+//!
 //! let usd = Currency::USD;
 //! let amount = Money::new(100.0, usd);
 //! let date = create_date(2025, time::Month::January, 15)?;
@@ -15,7 +15,10 @@
 //! ```
 
 pub use crate::currency::Currency;
-pub use crate::money::{fx::{FxConversionPolicy, FxMatrix, FxProvider}, Money};
+pub use crate::money::{
+    fx::{FxConversionPolicy, FxMatrix, FxProvider},
+    Money,
+};
 
 pub use crate::dates::{
     adjust, create_date, BusinessDayConvention, Calendar, Date, DayCount, ScheduleBuilder, Tenor,

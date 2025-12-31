@@ -3,8 +3,9 @@
 ## 4. Implementation Roadmap
 
 > **Key Principles:**
-> 1. **GenUI first** - The LLM integration dictates data structures across all domains  
-> 2. **Vertical slices** - Ship narrow but complete features before expanding breadth  
+>
+> 1. **GenUI first** - The LLM integration dictates data structures across all domains
+> 2. **Vertical slices** - Ship narrow but complete features before expanding breadth
 > 3. **Prove patterns early** - Validate Handle Pattern, String Transport, and Schema Generation before building 30+ panels
 
 ### Phase 1: Core Infrastructure (Weeks 1–2)
@@ -145,6 +146,3 @@
 - Performance profiling and optimization.
 - Bundle size optimization (target: <500KB core, lazy-load pro features).
 - Memory leak testing for long-running sessions.
-
-
-

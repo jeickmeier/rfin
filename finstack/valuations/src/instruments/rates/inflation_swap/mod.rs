@@ -39,7 +39,7 @@
 //! # Market Conventions
 //!
 //! - **USD**: CPI-U, 3-month lag, ACT/ACT
-//! - **EUR**: HICP ex-tobacco, 3-month lag, ACT/ACT  
+//! - **EUR**: HICP ex-tobacco, 3-month lag, ACT/ACT
 //! - **GBP**: RPI or CPI, 3-month lag, ACT/ACT
 //!
 //! # Calibration Role

@@ -481,7 +481,7 @@ impl PyCashFlowSchedule {
     /// All cashflow amounts are computed in Rust for deterministic, fast processing.
     /// Outstanding balances track drawn amounts using standard conventions:
     /// - Amortization reduces outstanding
-    /// - PIK increases outstanding  
+    /// - PIK increases outstanding
     /// - Notional flows: draws (negative) increase outstanding, repays (positive) decrease
     /// - The outstanding balance shown is AFTER applying the cashflow and will be used for
     ///   interest/fee calculations in the NEXT period (step function approach)
@@ -733,7 +733,7 @@ impl PyCashFlowSchedule {
 /// Examples:
 ///     >>> # Fee on drawn balance
 ///     >>> fee_base = FeeBase.drawn()
-///     
+///
 ///     >>> # Fee on undrawn (unused) facility
 ///     >>> from finstack.core import Money
 ///     >>> fee_base = FeeBase.undrawn(Money("USD", 10_000_000))
@@ -808,7 +808,7 @@ impl PyFeeBase {
 ///     ...     datetime.date(2025, 6, 15),
 ///     ...     Money("USD", 50_000)
 ///     ... )
-///     
+///
 ///     >>> # Periodic commitment fee on undrawn balance
 ///     >>> from finstack.valuations.cashflow.builder import FeeBase, ScheduleParams
 ///     >>> fee = FeeSpec.periodic_bps(

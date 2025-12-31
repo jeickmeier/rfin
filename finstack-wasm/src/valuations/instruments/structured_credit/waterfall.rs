@@ -10,11 +10,11 @@ use crate::core::market_data::context::JsMarketContext;
 use crate::core::money::JsMoney;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::fixed_income::structured_credit::{
-    execute_waterfall, execute_waterfall_with_explanation, WaterfallContext,
-};
 use finstack_valuations::instruments::fixed_income::structured_credit::waterfall::{
     CoverageTestRules, CoverageTrigger as WaterfallCoverageTrigger,
+};
+use finstack_valuations::instruments::fixed_income::structured_credit::{
+    execute_waterfall, execute_waterfall_with_explanation, WaterfallContext,
 };
 use finstack_valuations::instruments::fixed_income::structured_credit::{
     AllocationMode as RustAllocationMode, PaymentCalculation, PaymentType as RustPaymentType,

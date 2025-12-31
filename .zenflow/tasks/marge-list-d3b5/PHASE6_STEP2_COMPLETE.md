@@ -95,7 +95,7 @@ impl JsonEnvelope for AttributionResultEnvelope {
 }
 ```
 
-**Code Reduction**: 10 lines removed (42% reduction)  
+**Code Reduction**: 10 lines removed (42% reduction)
 **New Feature**: `from_reader()` method now available via trait (previously missing)
 
 ### 3. PnlAttribution (types.rs)
@@ -227,8 +227,8 @@ With Phase 6, Step 2 complete, the next step would be:
 
 ---
 
-**Status**: ✅ **COMPLETE**  
-**Date**: 2025-12-20  
-**Time**: ~30 minutes  
-**Tests**: 112 total (80 lib + 32 integration), all passing  
+**Status**: ✅ **COMPLETE**
+**Date**: 2025-12-20
+**Time**: ~30 minutes
+**Tests**: 112 total (80 lib + 32 integration), all passing
 **Warnings**: 0

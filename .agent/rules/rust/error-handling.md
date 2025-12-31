@@ -96,7 +96,7 @@ fn run_example() -> Result<()> {
         .context("Initial operation failed")?;
 
     // ... more code
-    
+
     Ok(())
 }
 ```

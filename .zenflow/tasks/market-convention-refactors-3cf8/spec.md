@@ -80,7 +80,7 @@ finstack/valuations/
    - Default to `Strict` for all production paths
 
 2. **Add strict parsing** (`ids.rs`):
-   - Add `MetricId::parse_strict(s: &str) -> Result<MetricId>` 
+   - Add `MetricId::parse_strict(s: &str) -> Result<MetricId>`
    - Returns `Err(Error::UnknownMetric)` for unknown metric names
    - Keep `from_str()` permissive for backwards compatibility
    - Update all public APIs to use `parse_strict()` for user inputs
@@ -94,25 +94,25 @@ finstack/valuations/
 ```rust
 pub enum Error {
     // ... existing variants
-    
+
     /// Unknown metric requested
-    UnknownMetric { 
+    UnknownMetric {
         metric_id: String,
         available: Vec<String>,
     },
-    
+
     /// Metric not applicable to instrument type
     MetricNotApplicable {
         metric_id: String,
         instrument_type: String,
     },
-    
+
     /// Metric calculation failed
     MetricCalculationFailed {
         metric_id: String,
         cause: Box<Error>,
     },
-    
+
     /// Circular dependency in metrics
     CircularDependency {
         path: Vec<String>,
@@ -176,32 +176,32 @@ pub fn add_joint_business_days(
 ) -> Result<Date> {
     let base_cal = resolve_calendar(base_cal_id)?; // Now returns Result
     let quote_cal = resolve_calendar(quote_cal_id)?;
-    
+
     let mut date = start;
     let mut count = 0u32;
-    
+
     // Iterate until we've found n_days that are business days on BOTH calendars
     const MAX_ITERS: u32 = n_days * 5; // Safety limit
     let mut iters = 0;
-    
+
     while count < n_days && iters < MAX_ITERS {
         date = date + time::Duration::days(1);
-        
+
         // Check if business day on both calendars
-        if base_cal.as_ref().is_business_day(date) 
+        if base_cal.as_ref().is_business_day(date)
            && quote_cal.as_ref().is_business_day(date) {
             count += 1;
         }
-        
+
         iters += 1;
     }
-    
+
     if iters >= MAX_ITERS {
-        return Err(Error::Date { 
+        return Err(Error::Date {
             message: format!("Failed to find {} joint business days from {}", n_days, start)
         });
     }
-    
+
     Ok(date)
 }
 ```
@@ -233,14 +233,14 @@ fn resolve_calendar(cal_id: Option<&str>) -> Result<CalendarWrapper> {
         if let Some(resolved) = CalendarRegistry::global().resolve_str(id) {
             return Ok(CalendarWrapper::Borrowed(resolved));
         }
-        
+
         // Error instead of silent fallback
-        return Err(Error::CalendarNotFound { 
+        return Err(Error::CalendarNotFound {
             calendar_id: id.to_string(),
             hint: "Use CalendarRegistry::available_calendars() to see valid IDs",
         });
     }
-    
+
     // Only use weekends_only if explicitly None (not as fallback)
     Ok(CalendarWrapper::Owned(weekends_only()))
 }
@@ -286,15 +286,15 @@ pub enum RateQuote {
         index: IndexId,
         pillar: Pillar,
         rate: f64, // Still decimal
-        
+
         // BEFORE:
         // spread: Option<f64>, // Ambiguous!
-        
+
         // AFTER (choose ONE approach):
-        
+
         // Option A: Store as bp (recommended)
         spread_bp: Option<f64>,
-        
+
         // Option B: Store as decimal with clear name
         spread_decimal: Option<f64>,
     },
@@ -354,13 +354,13 @@ spread_bp: Option<f64>,
 impl CdsOption {
     // OPTION A: Remove entirely (recommended)
     // Delete `pub fn new()` method
-    
+
     // OPTION B: Keep only for tests
     #[cfg(test)]
     pub fn new(...) -> Self {
         Self::try_new(...).expect("Invalid CdsOption parameters")
     }
-    
+
     // Keep this as the only public constructor
     pub fn try_new(...) -> Result<Self> {
         // Validation logic
@@ -432,12 +432,12 @@ fn test_to_row_metric_mapping() {
     let mut measures = IndexMap::new();
     measures.insert(MetricId::DurationMod.as_str().to_string(), 5.25);
     measures.insert(MetricId::Dv01.as_str().to_string(), 1250.0);
-    
+
     let result = ValuationResult::stamped_with_meta(...)
         .with_measures(measures);
-    
+
     let row = result.to_row();
-    
+
     assert_eq!(row.duration, Some(5.25));
     assert_eq!(row.dv01, Some(1250.0));
 }
@@ -667,7 +667,7 @@ let opt = CdsOption::try_new(...)
 
 1. **Metrics strict mode default**
    - **Risk**: Breaks existing code that relies on silent 0.0 fallback
-   - **Mitigation**: 
+   - **Mitigation**:
      - Provide explicit `BestEffort` mode for gradual migration
      - Document migration path clearly
      - Add deprecation warnings in 0.x release before making strict default
@@ -694,7 +694,7 @@ let opt = CdsOption::try_new(...)
 
 2. **Constructor removals**
    - **Risk**: Compile errors in user code
-   - **Mitigation**: 
+   - **Mitigation**:
      - Deprecate in 0.x, remove in 1.0
      - Provide clear compiler errors with migration hints
 
@@ -843,7 +843,7 @@ If critical issues arise in production:
 - **Audit Report**: Task description (JSON findings)
 - **ISDA Conventions**: FX spot settlement (T+2 business days, joint calendar)
 - **Rust API Guidelines**: Error handling best practices
-- **Project Rules**: 
+- **Project Rules**:
   - `.cursor/rules/rust/crates/core.mdc`
   - `.cursor/rules/rust/crates/valuations.mdc`
   - `.cursor/rules/project-rules.mdc`

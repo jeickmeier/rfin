@@ -30,7 +30,7 @@ npm install
 npm run dev
 ```
 
-This will start a local development server (usually at http://localhost:3000) with hot module replacement.
+This will start a local development server (usually at <http://localhost:3000>) with hot module replacement.
 
 ## Available Scripts
 

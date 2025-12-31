@@ -228,12 +228,7 @@ pub fn forecast_covenant(
         ps.push(pid);
     }
     let cfg = config.map(|c| c.inner).unwrap_or_default();
-    finstack_valuations::covenants::forecast_covenant_generic(
-        &spec.inner,
-        &adapter,
-        &ps,
-        cfg,
-    )
-    .map(|inner| JsCovenantForecast { inner })
-    .map_err(|e| JsValue::from_str(&e.to_string()))
+    finstack_valuations::covenants::forecast_covenant_generic(&spec.inner, &adapter, &ps, cfg)
+        .map(|inner| JsCovenantForecast { inner })
+        .map_err(|e| JsValue::from_str(&e.to_string()))
 }

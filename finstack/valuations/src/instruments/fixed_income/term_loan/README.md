@@ -67,11 +67,13 @@ term_loan/
 ### 1. Interest Rate Structures
 
 #### Fixed Rate
+
 ```rust
 RateSpec::Fixed { rate_bp: 600 }  // 6.00% fixed
 ```
 
 #### Floating Rate with Floor/Cap
+
 ```rust
 RateSpec::Floating(FloatingRateSpec {
     index_id: CurveId::new("USD-SOFR-3M"),
@@ -90,11 +92,13 @@ RateSpec::Floating(FloatingRateSpec {
 ### 2. Amortization Schedules
 
 #### Bullet Loan (No Amortization)
+
 ```rust
 amortization: AmortizationSpec::None
 ```
 
 #### Linear Amortization
+
 ```rust
 amortization: AmortizationSpec::Linear {
     start: create_date(2026, Month::January, 1)?,
@@ -103,6 +107,7 @@ amortization: AmortizationSpec::Linear {
 ```
 
 #### Percent Per Period
+
 ```rust
 amortization: AmortizationSpec::PercentPerPeriod {
     bp: 250,  // 2.5% of original notional per payment period
@@ -110,6 +115,7 @@ amortization: AmortizationSpec::PercentPerPeriod {
 ```
 
 #### Custom Schedule
+
 ```rust
 amortization: AmortizationSpec::Custom(vec![
     (create_date(2026, Month::June, 30)?, Money::new(1_000_000.0, Currency::USD)),
@@ -120,6 +126,7 @@ amortization: AmortizationSpec::Custom(vec![
 ### 3. Delayed-Draw Term Loans (DDTL)
 
 Supports:
+
 - **Commitment periods** with availability windows
 - **Draw schedules** (scheduled or actual)
 - **Commitment step-downs** (reducing availability over time)
@@ -158,6 +165,7 @@ ddtl: Some(DdtlSpec {
 ### 4. Payment-in-Kind (PIK)
 
 Supports:
+
 - **Full PIK**: All interest capitalized
 - **Split PIK**: Partial cash, partial capitalization
 - **Dynamic toggles**: Covenant or date-driven PIK activation
@@ -195,7 +203,7 @@ covenants: Some(CovenantSpec {
             delta_bp: 200,  // +200 bps penalty
         },
     ],
-    
+
     // Cash sweeps (mandatory prepayments)
     cash_sweeps: vec![
         CashSweepEvent {
@@ -203,7 +211,7 @@ covenants: Some(CovenantSpec {
             amount: Money::new(5_000_000.0, Currency::USD),
         },
     ],
-    
+
     // PIK toggles
     pik_toggles: vec![
         PikToggle {
@@ -211,7 +219,7 @@ covenants: Some(CovenantSpec {
             enable_pik: true,
         },
     ],
-    
+
     // Draw stop dates (covenant breach)
     draw_stop_dates: vec![
         create_date(2026, Month::March, 31)?,
@@ -488,7 +496,7 @@ impl MetricCalculator<TermLoan> for YourMetricCalculator {
         as_of: Date,
     ) -> finstack_core::Result<MetricValue> {
         // Your implementation here
-        
+
         // Return scalar or vector metric
         Ok(MetricValue::Scalar(your_result))
     }
@@ -502,7 +510,7 @@ pub use your_metric::YourMetricCalculator;
 
 pub fn register_term_loan_metrics(registry: &mut MetricRegistry) {
     // ... existing registrations ...
-    
+
     registry.register_metric(
         MetricId::custom("your_metric"),
         Arc::new(YourMetricCalculator),
@@ -523,7 +531,7 @@ pub enum AmortizationSpec {
     Linear { start: Date, end: Date },
     PercentPerPeriod { bp: i32 },
     Custom(Vec<(Date, Money)>),
-    
+
     // Your new type:
     YourNewType {
         param1: Date,
@@ -537,7 +545,7 @@ pub enum AmortizationSpec {
 ```rust
 match &loan.amortization {
     // ... existing variants ...
-    
+
     AmortizationSpec::YourNewType { param1, param2 } => {
         // Calculate amortization payment
         let pay = calculate_your_amortization_logic(
@@ -546,7 +554,7 @@ match &loan.amortization {
             param2,
             d,
         );
-        
+
         if pay.amount() > 0.0 {
             flows.push(CashFlow {
                 date: d,
@@ -556,7 +564,7 @@ match &loan.amortization {
                 accrual_factor: 0.0,
                 rate: None,
             });
-            
+
             principal_events.push(PrincipalEvent {
                 date: d,
                 delta: Money::new(-pay.amount(), pay.currency()),
@@ -578,7 +586,7 @@ pub struct CovenantSpec {
     pub pik_toggles: Vec<PikToggle>,
     pub cash_sweeps: Vec<CashSweepEvent>,
     pub draw_stop_dates: Vec<Date>,
-    
+
     // Your new covenant event:
     pub your_events: Vec<YourEvent>,
 }
@@ -641,6 +649,7 @@ The `Notional.initial` is set to **0**, and outstanding principal is computed dy
 ### PIK Treatment in Pricing
 
 PIK interest is **capitalized** into outstanding principal and **excluded from PV calculation**. Only cash flows are discounted:
+
 - Coupons (Fixed, FloatReset, Stub)
 - Amortization
 - Redemptions (Notional)
@@ -658,6 +667,7 @@ PIK capitalization affects the outstanding principal path and is reflected in th
 ### Serde Stability
 
 All specification types (`TermLoanSpec`, `DdtlSpec`, `CovenantSpec`, etc.) use:
+
 - `#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]` for strict deserialization
 - Stable field names for long-lived pipelines and golden tests
 
@@ -727,11 +737,13 @@ Planned features (currently experimental or not implemented):
 ---
 
 ## Pricing Methodology
+
 - Deterministic cashflow engine builds funding, coupon, amortization, fees, OID, PIK, and call events using schedule/covenant specs.
 - Discounting via loan discount curve on holder-view cashflows; floating coupons projected off reference curves with floors/caps and reset lags.
 - Metrics like YTM/YTC/YTW solved via IRR on filtered cashflows; discount margin/all-in rate solved iteratively against spreads.
 
 ## Metrics
+
 - Core metrics: PV, YTM/YTC/YTW/Yn-year, discount margin, all-in rate, DV01/bucketed DV01, CS01/bucketed CS01, theta.
 - Accounting outputs: OID EIR amortization (`oid_eir_amortization`) and carrying value (`oid_eir_carrying_value`) series.
 - Loan-specific outputs: outstanding balance path, amortization/call cashflow breakdowns, covenant-triggered event reporting.

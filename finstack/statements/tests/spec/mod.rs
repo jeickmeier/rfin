@@ -10,4 +10,3 @@ mod model_spec_tests;
 mod registry_tests;
 mod results_export_tests;
 mod serialization_tests;
-

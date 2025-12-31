@@ -1,4 +1,4 @@
-.PHONY: help setup-python build build-prod test-rust test-rust-slow test-rust-doc test-python doc clean fmt lint stubs list coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test install-nextest book-build book-serve book-clean book-watch install-mdbook bench-perf bench-baseline bench-flamegraph bench-compare install-bloat size-wasm size-py size-core size-all check-schemas
+.PHONY: help setup-python build build-prod test-rust test-rust-slow test-rust-doc test-python doc clean fmt lint stubs list coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test install-nextest book-build book-serve book-clean book-watch install-mdbook bench-perf bench-baseline bench-flamegraph bench-compare install-bloat size-wasm size-py size-core size-all check-schemas pre-commit-install pre-commit-run pre-commit-update
 
 help:
 	@echo "Builds:"
@@ -52,6 +52,11 @@ help:
 	@echo ""
 	@echo "Schema Validation:"
 	@echo "  check-schemas  				- Verify JSON schemas match Rust types"
+	@echo ""
+	@echo "Pre-commit:"
+	@echo "  pre-commit-install 			- Install pre-commit hooks"
+	@echo "  pre-commit-run    			- Run pre-commit on all files"
+	@echo "  pre-commit-update 			- Update pre-commit hooks to latest versions"
 	@echo ""
 	@echo "Other:"
 	@echo "  clean          				- Clean build artifacts"
@@ -395,3 +400,27 @@ check-schemas: install-nextest
 	@echo "  - calibration (7 step kinds)"
 	@echo "  - cashflow/amortization (5 variants)"
 	@echo "  - margin (IM methodologies, call types, tenors)"
+
+# Pre-commit targets
+pre-commit-install:
+	@echo "Installing pre-commit hooks..."
+	@if [ ! -d ".venv" ]; then \
+		echo "Creating virtual environment..."; \
+		uv venv; \
+	fi
+	@. .venv/bin/activate && \
+		pip show pre-commit >/dev/null 2>&1 || uv pip install pre-commit && \
+		pre-commit install && \
+		pre-commit install --hook-type pre-push
+	@echo ""
+	@echo "✅ Pre-commit hooks installed!"
+	@echo "   - pre-commit: runs on every commit"
+	@echo "   - pre-push: runs cargo check before push"
+
+pre-commit-run:
+	@echo "Running pre-commit on all files..."
+	@. .venv/bin/activate && pre-commit run --all-files
+
+pre-commit-update:
+	@echo "Updating pre-commit hooks to latest versions..."
+	@. .venv/bin/activate && pre-commit autoupdate

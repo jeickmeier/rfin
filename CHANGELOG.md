@@ -253,6 +253,6 @@ This project is dual-licensed under MIT OR Apache-2.0.
 
 ---
 
-**Changelog Format**: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)  
-**Versioning**: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)  
+**Changelog Format**: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
+**Versioning**: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 **Last Updated**: 2024-12-20

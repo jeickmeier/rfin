@@ -3,71 +3,71 @@
 /**
  * Credit instrument quotes for hazard curve and correlation calibration.
  */
-export type CreditQuote = { "c_d_s": { 
+export type CreditQuote = { "c_d_s": {
 /**
  * Reference entity
  */
-entity: string, 
+entity: string,
 /**
  * CDS maturity
  */
-maturity: string, 
+maturity: string,
 /**
  * Par spread in basis points
  */
-spread_bp: number, 
+spread_bp: number,
 /**
  * Recovery rate assumption
  */
-recovery_rate: number, 
+recovery_rate: number,
 /**
  * Currency
  */
-currency: string, } } | { "c_d_s_upfront": { 
+currency: string, } } | { "c_d_s_upfront": {
 /**
  * Reference entity
  */
-entity: string, 
+entity: string,
 /**
  * CDS maturity
  */
-maturity: string, 
+maturity: string,
 /**
  * Upfront payment (% of notional, positive = protection buyer pays)
  */
-upfront_pct: number, 
+upfront_pct: number,
 /**
  * Running spread in basis points
  */
-running_spread_bp: number, 
+running_spread_bp: number,
 /**
  * Recovery rate assumption
  */
-recovery_rate: number, 
+recovery_rate: number,
 /**
  * Currency
  */
-currency: string, } } | { "c_d_s_tranche": { 
+currency: string, } } | { "c_d_s_tranche": {
 /**
  * Index name (e.g., "CDX.NA.IG.42")
  */
-index: string, 
+index: string,
 /**
  * Attachment point (%)
  */
-attachment: number, 
+attachment: number,
 /**
  * Detachment point (%)
  */
-detachment: number, 
+detachment: number,
 /**
  * Maturity date
  */
-maturity: string, 
+maturity: string,
 /**
  * Upfront payment (% of notional)
  */
-upfront_pct: number, 
+upfront_pct: number,
 /**
  * Running spread (bps)
  */

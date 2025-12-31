@@ -86,9 +86,9 @@ for (const category of SCHEMA_CATEGORIES) {
 // Generate index file
 const indexContent = `/**
  * Auto-generated TypeScript types from Finstack JSON schemas.
- * 
+ *
  * DO NOT EDIT MANUALLY - run \`npm run generate:types\` to regenerate.
- * 
+ *
  * These types are derived from the Rust structs in finstack/valuations
  * via their JSON schema definitions.
  */

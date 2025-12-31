@@ -151,7 +151,7 @@ import { z } from 'zod';
 // Binding sources correspond to engine state domains
 const BindingSourceSchema = z.enum([
   'market',
-  'portfolio', 
+  'portfolio',
   'statements',
   'scenarios',
 ]);
@@ -192,19 +192,19 @@ export const DashboardDefinitionSchema = z.object({
   schemaVersion: z.literal('1'),
   id: z.string().uuid(),
   name: z.string(),
-  
+
   // Layout template (not arbitrary component soup)
   layout: LayoutTemplateSchema,
-  
+
   // Components within the layout
   components: z.array(ComponentInstanceSchema),
-  
+
   // Structured data bindings
   bindings: DataBindingsSchema,
-  
+
   // LLM context
   userIntent: z.string().optional(),
-  
+
   // Metadata
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
@@ -310,6 +310,3 @@ packages/finstack-ui/
 │   ├── schemas/                # Zod Definitions (The "LLM Interface")
 │   └── utils/
 ```
-
-
-

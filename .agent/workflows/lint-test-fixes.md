@@ -6,8 +6,8 @@ Run
 
 make lint
 
-and 
+and
 
 make test
 
-Fix all errors and warnings. 
+Fix all errors and warnings.

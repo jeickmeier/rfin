@@ -62,6 +62,7 @@ node_modules/
 .pytest_cache/
 .coverage
 htmlcov/
+**/coverage/
 
 # mypy
 .mypy_cache/

@@ -94,8 +94,8 @@ fn test_accrued_frn_uses_forward_rate() {
     use finstack_core::dates::Tenor;
     use finstack_core::types::CurveId;
     use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
-    use finstack_valuations::instruments::Attributes;
     use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
+    use finstack_valuations::instruments::Attributes;
     let bond = Bond::builder()
         .id("FRN1".into())
         .notional(Money::new(100.0, Currency::USD))

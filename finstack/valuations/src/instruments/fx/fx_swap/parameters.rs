@@ -9,7 +9,7 @@ use finstack_core::{dates::Date, money::Money};
 pub struct FxSwapParams {
     /// Near leg date
     pub near_date: Date,
-    /// Far leg date  
+    /// Far leg date
     pub far_date: Date,
     /// Base notional amount
     pub base_notional: Money,

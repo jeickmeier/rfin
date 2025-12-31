@@ -39,14 +39,14 @@
 //!     if data.len() < 2 {
 //!         return Err(InputError::TooFewPoints.into());
 //!     }
-//!     
+//!
 //!     // Check monotonicity
 //!     for window in data.windows(2) {
 //!         if window[1].0 <= window[0].0 {
 //!             return Err(InputError::NonMonotonicKnots.into());
 //!         }
 //!     }
-//!     
+//!
 //!     Ok(())
 //! }
 //!

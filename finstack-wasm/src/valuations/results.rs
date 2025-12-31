@@ -135,7 +135,7 @@ impl JsValuationResult {
     /// if (result.explanation) {
     ///     const trace = result.explanation;
     ///     console.log('Cashflows traced:', trace.entryCount);
-    ///     
+    ///
     ///     // Get full details
     ///     const details = trace.toJson();
     ///     for (const entry of details.entries) {

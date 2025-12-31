@@ -150,8 +150,8 @@ pub fn value_portfolio(
 ///
 /// This function:
 /// 1. Iterates through all positions (in parallel if enabled)
-/// 2. Prices each instrument with metrics  
-/// 3. Converts values to base currency using FX rates  
+/// 2. Prices each instrument with metrics
+/// 3. Converts values to base currency using FX rates
 /// 4. Aggregates by entity
 ///
 /// # Arguments

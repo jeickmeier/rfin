@@ -46,7 +46,7 @@ npm run dev
 
 This will:
 
-- Start a Vite development server at http://localhost:3000
+- Start a Vite development server at <http://localhost:3000>
 - Enable hot module replacement
 - Open your browser automatically
 

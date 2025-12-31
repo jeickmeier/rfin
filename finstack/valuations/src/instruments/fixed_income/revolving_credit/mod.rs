@@ -92,12 +92,12 @@ pub const MIN_CIR_SPREAD: f64 = 1e-8;
 pub const MAX_RECOVERY_RATE: f64 = 1.0 - 1e-6;
 
 // Re-export main types
-#[doc(hidden)]
-pub use pricer::{PathResult, RevolvingCreditPricer};
+pub use cashflow_engine::{PathAwareCashflowSchedule, ThreeFactorPathData};
 #[cfg(feature = "mc")]
 #[doc(hidden)]
 pub use pricer::EnhancedMonteCarloResult;
-pub use cashflow_engine::{PathAwareCashflowSchedule, ThreeFactorPathData};
+#[doc(hidden)]
+pub use pricer::{PathResult, RevolvingCreditPricer};
 pub use types::{
     BaseRateSpec, CreditSpreadProcessSpec, DrawRepayEvent, DrawRepaySpec, InterestRateProcessSpec,
     McConfig, RevolvingCredit, RevolvingCreditFees, StochasticUtilizationSpec, UtilizationProcess,

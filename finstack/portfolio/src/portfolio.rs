@@ -133,7 +133,7 @@ impl Portfolio {
     ///
     /// Checks that:
     /// - All position IDs are unique
-    /// - All positions reference valid entities  
+    /// - All positions reference valid entities
     /// - Dummy entity exists if needed
     ///
     /// # Errors

@@ -2,7 +2,7 @@
 
 ## Step 4.3: Update Python & WASM Bindings
 
-**Status**: ✅ Complete  
+**Status**: ✅ Complete
 **Date**: 2025-12-20
 
 ---
@@ -113,9 +113,9 @@ const quote2 = JsRatesQuote.swapWithSpread(
 ### Deprecation Warnings (Expected)
 Both bindings show 2 deprecation warnings from `CdsOption` constructors (Phase 3.1 work):
 ```
-warning: use of deprecated associated function `CdsOptionParams::new`: 
+warning: use of deprecated associated function `CdsOptionParams::new`:
          Use `try_new()` instead...
-warning: use of deprecated associated function `CdsOption::new`: 
+warning: use of deprecated associated function `CdsOption::new`:
          Use `try_new()` instead...
 ```
 
@@ -234,7 +234,7 @@ Users can migrate at their own pace:
 ## Acceptance Criteria
 
 - ✅ Python bindings compile without errors
-- ✅ WASM bindings compile without errors  
+- ✅ WASM bindings compile without errors
 - ✅ Clippy passes with zero warnings (except expected deprecations)
 - ✅ API parity maintained between Python and WASM
 - ✅ Backwards compatibility preserved

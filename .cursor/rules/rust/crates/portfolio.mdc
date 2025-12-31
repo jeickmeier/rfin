@@ -251,4 +251,3 @@ The following features are planned for future releases:
   - Documents any new features in docstrings with examples.
 
 This file governs only the `portfolio/` crate. See separate rules for `core/`, `valuations/`, `scenarios/`, `statements/`, and Python/WASM bindings.
-

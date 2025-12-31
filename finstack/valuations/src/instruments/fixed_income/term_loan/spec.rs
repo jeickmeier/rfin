@@ -101,7 +101,7 @@ use super::types::RateSpec;
 /// # Variants
 ///
 /// - `WithheldPct`: Discount as percentage withheld from funded amount
-/// - `WithheldAmount`: Fixed amount withheld from funded proceeds  
+/// - `WithheldAmount`: Fixed amount withheld from funded proceeds
 /// - `SeparatePct`: Percentage tracked separately, not withheld
 /// - `SeparateAmount`: Fixed amount tracked separately
 ///

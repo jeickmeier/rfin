@@ -3,4 +3,3 @@
 pub const BASE_YEAR: i32 = 1970;
 /// Inclusive end year for generated holiday bitsets
 pub const END_YEAR: i32 = 2150;
-

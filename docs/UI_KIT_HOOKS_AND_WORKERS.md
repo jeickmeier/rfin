@@ -144,10 +144,10 @@ Heavy computations are offloaded to Web Workers using Comlink for type-safe comm
 ```typescript
 // workers/valuationWorker.ts
 import { expose } from 'comlink';
-import init, { 
-  Bond, 
-  MarketContext, 
-  FinstackConfig 
+import init, {
+  Bond,
+  MarketContext,
+  FinstackConfig
 } from 'finstack-wasm';
 
 let initialized = false;
@@ -166,10 +166,10 @@ const api = {
     configJson: string
   ): Promise<ValuationResult[]> {
     await this.initialize();
-    
+
     const market = MarketContext.fromJSON(marketJson);
     const config = FinstackConfig.fromJSON(configJson);
-    
+
     return instrumentsJson.map(json => {
       const instrument = deserializeInstrument(json);
       return {
@@ -212,6 +212,3 @@ These thresholds are:
 - Centralized.
 - Overrideable via environment/runtime config.
 - Used by hooks like `useComputeStrategy` to pick execution strategy.
-
-
-

@@ -10,7 +10,9 @@ use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::DayCount;
-use finstack_valuations::instruments::equity::real_estate::{RealEstateAsset, RealEstateValuationMethod};
+use finstack_valuations::instruments::equity::real_estate::{
+    RealEstateAsset, RealEstateValuationMethod,
+};
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 
@@ -112,10 +114,19 @@ impl JsRealEstateAsset {
                     "NOI schedule entries must be [year, month, day, amount]".to_string(),
                 ));
             }
-            let year = arr.get(0).as_f64().ok_or_else(|| js_error("Invalid year"))? as i32;
-            let month = arr.get(1).as_f64().ok_or_else(|| js_error("Invalid month"))? as u8;
+            let year = arr
+                .get(0)
+                .as_f64()
+                .ok_or_else(|| js_error("Invalid year"))? as i32;
+            let month = arr
+                .get(1)
+                .as_f64()
+                .ok_or_else(|| js_error("Invalid month"))? as u8;
             let day = arr.get(2).as_f64().ok_or_else(|| js_error("Invalid day"))? as u8;
-            let amount = arr.get(3).as_f64().ok_or_else(|| js_error("Invalid amount"))?;
+            let amount = arr
+                .get(3)
+                .as_f64()
+                .ok_or_else(|| js_error("Invalid amount"))?;
 
             let date = finstack_core::dates::Date::from_calendar_date(
                 year,
@@ -231,7 +242,10 @@ impl JsRealEstateAsset {
 
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
-        format!("RealEstateAsset(id='{}', currency={})", self.inner.id, self.inner.currency)
+        format!(
+            "RealEstateAsset(id='{}', currency={})",
+            self.inner.id, self.inner.currency
+        )
     }
 
     #[wasm_bindgen(js_name = clone)]

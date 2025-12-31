@@ -45,6 +45,7 @@ Re-exported from `finstack_core::config`, this structure stamps results with:
 ### 1. **Standardized Output Structure**
 
 All pricing operations return `ValuationResult`, ensuring consistency across:
+
 - Fixed income instruments (bonds, swaps, FRNs)
 - Derivatives (options, futures, forwards)
 - Structured products (ABS, MBS, CDOs, CLOs)
@@ -53,6 +54,7 @@ All pricing operations return `ValuationResult`, ensuring consistency across:
 ### 2. **Currency Safety**
 
 Present value is always returned as a `Money` type, which:
+
 - Encodes currency along with the amount
 - Prevents accidental cross-currency arithmetic
 - Enables explicit FX conversions with policy stamping
@@ -60,6 +62,7 @@ Present value is always returned as a `Money` type, which:
 ### 3. **Flexible Metrics**
 
 Risk measures are stored as key-value pairs in `measures`:
+
 - Fixed income: DV01, convexity, duration, yield-to-maturity
 - Options: Delta, Gamma, Vega, Theta, Rho
 - Credit: CS01, spread duration, credit DV01
@@ -68,6 +71,7 @@ Risk measures are stored as key-value pairs in `measures`:
 ### 4. **Metadata Stamping**
 
 Every result is stamped with:
+
 - **Numeric mode**: Decimal (deterministic) vs f64 (performance)
 - **Rounding policy**: Scale, mode (half-up, half-even, etc.)
 - **FX policy**: Conversion strategy for cross-currency calculations
@@ -75,6 +79,7 @@ Every result is stamped with:
 - **Parallel flag**: Whether calculation used parallel execution
 
 This enables:
+
 - Reproducible calculations (Decimal mode)
 - Auditability (policy transparency)
 - Performance comparison (timing)
@@ -83,6 +88,7 @@ This enables:
 ### 5. **Covenant Integration**
 
 For structured products with covenants (loans, ABS, MBS):
+
 - Covenant compliance results are attached to the result
 - Helper methods check if all covenants passed
 - Failed covenants can be extracted for reporting
@@ -90,6 +96,7 @@ For structured products with covenants (loans, ABS, MBS):
 ### 6. **Explainability**
 
 Optional computation traces provide:
+
 - Step-by-step calculation logs
 - Intermediate values and data flow
 - Debugging information for complex instruments
@@ -98,6 +105,7 @@ Optional computation traces provide:
 ### 7. **DataFrame Export**
 
 Convert results to flat rows for analytics:
+
 - `to_row()`: Single result to flat row
 - `to_rows()`: Batch-compatible interface
 - `results_to_rows()`: Batch converter
@@ -259,13 +267,13 @@ fn value_single_position(
         .price_with_metrics(market, as_of, metrics)?;
 
     let value_native = valuation_result.value;
-    
+
     // Scale by quantity
     let scaled_value = value_native * position.quantity;
-    
+
     // Convert to base currency with FX
     let value_base = convert_to_base_currency(scaled_value, market.fx)?;
-    
+
     Ok(PositionValue {
         position_id: position.id.clone(),
         value_native,
@@ -332,12 +340,12 @@ pub fn calculate_dv01(
 ) -> Result<ValuationResult> {
     let base_result = instrument.value(market, as_of)?;
     let shifted_result = instrument.value(&shifted_market, as_of)?;
-    
+
     let dv01 = (shifted_result.amount() - base_result.amount()) / 0.0001;
-    
+
     let mut measures = IndexMap::new();
     measures.insert("dv01".to_string(), dv01);
-    
+
     Ok(ValuationResult::stamped(&instrument.id(), as_of, base_result)
         .with_measures(measures))
 }
@@ -386,6 +394,7 @@ df.write_parquet("valuations.parquet")?;
 - **Explanation**: Optional trace in `explanation` (debugging)
 
 This separation enables:
+
 - Clean interfaces (value always available, metrics optional)
 - Extensibility (add new metrics without changing structure)
 - Performance (skip unused features)
@@ -402,6 +411,7 @@ ValuationResult::stamped(id, as_of, pv)
 ```
 
 This provides:
+
 - Flexibility (add only what you need)
 - Clarity (explicit intent)
 - Type safety (compile-time checking)
@@ -409,11 +419,13 @@ This provides:
 ### 3. **Metadata Stamping**
 
 Every result carries metadata about:
+
 - **How** it was calculated (numeric mode, rounding)
 - **When** it was calculated (timestamp, duration)
 - **What policies** were applied (FX conversion strategy)
 
 This enables:
+
 - Reproducibility (re-run with same policies)
 - Auditability (trace calculation provenance)
 - Regression testing (detect calculation drift)
@@ -421,12 +433,14 @@ This enables:
 ### 4. **Consistency Across Instruments**
 
 All instruments return the same result structure:
+
 - Vanilla instruments (bonds, loans): PV + basic metrics
 - Derivatives (options): PV + Greeks
 - Structured products (ABS, MBS): PV + metrics + covenants
 - Alternative assets: PV + custom metrics
 
 This ensures:
+
 - Uniform portfolio aggregation
 - Consistent reporting interfaces
 - Easy instrument addition
@@ -457,7 +471,7 @@ measures.insert("new_metric".to_string(), new_metric_value);
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ValuationRow {
     // ... existing fields ...
-    
+
     /// Your new metric (if computed)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub new_metric: Option<f64>,
@@ -491,7 +505,7 @@ To add a new top-level field to `ValuationResult`:
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ValuationResult {
     // ... existing fields ...
-    
+
     /// Your new field with documentation
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub new_field: Option<YourType>,
@@ -537,7 +551,7 @@ impl ValuationResult {
 fn test_new_field() {
     let result = ValuationResult::stamped("TEST", as_of, pv)
         .with_new_field(your_data);
-    
+
     assert!(result.new_field.is_some());
 }
 ```
@@ -639,10 +653,10 @@ Test result construction and accessors:
 fn test_result_with_measures() {
     let mut measures = IndexMap::new();
     measures.insert("dv01".to_string(), 1000.0);
-    
+
     let result = ValuationResult::stamped("TEST", as_of, pv)
         .with_measures(measures);
-    
+
     assert_eq!(result.measures.get("dv01"), Some(&1000.0));
 }
 ```
@@ -656,7 +670,7 @@ Serialize results for regression testing:
 fn test_result_serialization() {
     let result = create_test_result();
     let json = serde_json::to_string(&result).unwrap();
-    
+
     // Compare against golden file
     assert_eq!(json, include_str!("golden/result.json"));
 }
@@ -670,7 +684,7 @@ Test invariants:
 #[test]
 fn test_covenant_consistency() {
     let result = create_result_with_covenants();
-    
+
     if result.all_covenants_passed() {
         assert!(result.failed_covenants().is_empty());
     }

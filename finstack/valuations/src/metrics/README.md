@@ -45,7 +45,7 @@ All metrics implement the `MetricCalculator` trait:
 pub trait MetricCalculator: Send + Sync {
     /// Computes the metric value based on the provided context
     fn calculate(&self, context: &mut MetricContext) -> Result<f64>;
-    
+
     /// Lists metric IDs this calculator depends on
     fn dependencies(&self) -> &[MetricId] {
         &[]
@@ -56,6 +56,7 @@ pub trait MetricCalculator: Send + Sync {
 ### 2. Strongly-Typed Metric IDs
 
 All metrics are identified by the `MetricId` type, which provides:
+
 - Compile-time validation
 - Autocomplete support
 - Safe refactoring when metric names change
@@ -81,11 +82,11 @@ impl MetricCalculator for MacaulayDuration {
         // Can access previously computed YTM
         let ytm = context.computed.get(&MetricId::Ytm)
             .ok_or(Error::Missing)?;
-        
+
         // Use YTM to compute duration
         // ...
     }
-    
+
     fn dependencies(&self) -> &[MetricId] {
         &[MetricId::Ytm]  // YTM will be computed first
     }
@@ -138,7 +139,7 @@ Add your metric identifier to `core/ids.rs`:
 ```rust
 impl MetricId {
     // ... existing metrics
-    
+
     /// Your new metric description
     pub const MyNewMetric: Self = Self(Cow::Borrowed("my_new_metric"));
 }
@@ -167,18 +168,18 @@ impl MetricCalculator for MyNewMetricCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         // 1. Downcast instrument if needed
         let bond: &Bond = context.instrument_as()?;
-        
+
         // 2. Access dependencies
         let ytm = context.computed.get(&MetricId::Ytm)
             .copied()
             .unwrap_or(0.0);
-        
+
         // 3. Perform calculation
         let result = ytm * bond.face_value().amount();
-        
+
         Ok(result)
     }
-    
+
     fn dependencies(&self) -> &[MetricId] {
         &[MetricId::Ytm]  // Declare dependencies
     }
@@ -192,7 +193,7 @@ Add registration in the appropriate instrument's `metrics.rs` module:
 ```rust
 pub fn register_bond_metrics(registry: &mut MetricRegistry) {
     // ... existing registrations
-    
+
     registry.register_metric(
         MetricId::MyNewMetric,
         Arc::new(MyNewMetricCalculator),
@@ -221,14 +222,14 @@ mod tests {
     use super::*;
     use crate::metrics::{MetricRegistry, MetricContext};
     use std::sync::Arc;
-    
+
     #[test]
     fn test_my_new_metric() {
         // Setup
         let bond = create_test_bond();
         let market = create_test_market();
         let as_of = create_date(2024, Month::January, 1).unwrap();
-        
+
         // Create context
         let base_value = bond.value(&market, as_of).unwrap();
         let mut context = MetricContext::new(
@@ -238,11 +239,11 @@ mod tests {
             base_value,
             MetricContext::default_config(),
         );
-        
+
         // Calculate metric
         let calculator = MyNewMetricCalculator;
         let result = calculator.calculate(&mut context).unwrap();
-        
+
         // Assert
         assert!((result - expected).abs() < 1e-6);
     }
@@ -256,8 +257,8 @@ Add comprehensive documentation to `METRICS.md`:
 ```markdown
 ## MyNewMetric
 
-**Category**: Bond Metrics  
-**Unit**: Dollars  
+**Category**: Bond Metrics
+**Unit**: Dollars
 **Sign Convention**: Positive = gains value when X increases
 
 ### Definition
@@ -267,7 +268,9 @@ Add comprehensive documentation to `METRICS.md`:
 ### Formula
 
 ```
+
 MyNewMetric = YTM × Face Value
+
 ```
 
 ### Example
@@ -293,17 +296,17 @@ pub struct GenericDv01Calculator<I> {
     _phantom: PhantomData<I>,
 }
 
-impl<I: Instrument + HasDiscountCurve + 'static> MetricCalculator 
-    for GenericDv01Calculator<I> 
+impl<I: Instrument + HasDiscountCurve + 'static> MetricCalculator
+    for GenericDv01Calculator<I>
 {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let instrument: &I = context.instrument_as()?;
         let curve_id = instrument.discount_curve_id();
-        
+
         // Bump and reprice
         let bumped_market = bump_curve(&context.curves, curve_id, 0.0001)?;
         let bumped_pv = instrument.value(&bumped_market, context.as_of)?;
-        
+
         let dv01 = (bumped_pv.amount() - context.base_value.amount()) / 10_000.0;
         Ok(dv01)
     }
@@ -320,10 +323,10 @@ impl MetricCalculator for BucketedDv01Calculator {
         let buckets = standard_ir_dv01_buckets();  // [0.25, 0.5, 1.0, ...]
         let mut series = Vec::new();
         let mut total = 0.0;
-        
+
         for bucket_time in buckets {
             let label = format_bucket_label(bucket_time);
-            
+
             // Bump at key rate
             let bumped_market = bump_key_rate(
                 &context.curves,
@@ -331,17 +334,17 @@ impl MetricCalculator for BucketedDv01Calculator {
                 bucket_time,
                 0.0001
             )?;
-            
+
             let bumped_pv = instrument.value(&bumped_market, context.as_of)?;
             let bucket_dv01 = (bumped_pv.amount() - context.base_value.amount()) / 10_000.0;
-            
+
             series.push((label, bucket_dv01));
             total += bucket_dv01;
         }
-        
+
         // Store bucketed series
         context.store_bucketed_series(MetricId::BucketedDv01, series);
-        
+
         Ok(total)
     }
 }
@@ -360,7 +363,7 @@ impl ConfigurableThetaCalculator {
     pub fn new(period: String) -> Self {
         Self { period }
     }
-    
+
     pub fn daily() -> Self {
         Self::new("1D".to_string())
     }
@@ -370,11 +373,11 @@ impl MetricCalculator for ConfigurableThetaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let days = parse_period_days(&self.period)?;
         let forward_date = context.as_of + Duration::days(days);
-        
+
         // Price at forward date
         let forward_pv = context.instrument.value(&context.curves, forward_date)?;
         let theta = forward_pv.amount() - context.base_value.amount();
-        
+
         Ok(theta)
     }
 }
@@ -428,7 +431,7 @@ fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         .ok_or_else(|| Error::Validation(
             "MyMetric requires YTM to be computed first".to_string()
         ))?;
-    
+
     // ...
 }
 ```
@@ -456,12 +459,12 @@ fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
     if let Some(&cached) = context.computed.get(&MetricId::MyMetric) {
         return Ok(cached);
     }
-    
+
     // Compute expensive calculation once
     let cashflows = context.cashflows.get_or_insert_with(|| {
         generate_cashflows(&context.instrument, context.as_of)
     });
-    
+
     // Use cached cashflows
     // ...
 }
@@ -470,6 +473,7 @@ fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
 ### 5. Documentation
 
 Follow the documentation standards:
+
 - Document all public types, traits, and functions
 - Include working examples in doc comments
 - Add mathematical formulas for complex metrics
@@ -486,9 +490,9 @@ Test individual calculators in isolation:
 fn test_theta_calculator() {
     let calculator = ThetaCalculator::daily();
     let mut context = create_test_context();
-    
+
     let theta = calculator.calculate(&mut context).unwrap();
-    
+
     assert!((theta - expected_theta).abs() < TOLERANCE);
 }
 ```
@@ -504,7 +508,7 @@ fn test_bond_metrics_integration() {
     let bond = create_test_bond();
     let market = create_test_market();
     let as_of = test_date();
-    
+
     let base_value = bond.value(&market, as_of).unwrap();
     let mut context = MetricContext::new(
         Arc::new(bond),
@@ -513,10 +517,10 @@ fn test_bond_metrics_integration() {
         base_value,
         MetricContext::default_config(),
     );
-    
+
     let metrics = vec![MetricId::Ytm, MetricId::DurationMod, MetricId::Convexity];
     let results = registry.compute(&metrics, &mut context).unwrap();
-    
+
     assert!(results.contains_key(&MetricId::Ytm));
     assert!(results.contains_key(&MetricId::DurationMod));
 }
@@ -534,7 +538,7 @@ proptest! {
     fn test_dv01_sign_convention(coupon_rate in 0.01..0.10) {
         let bond = create_bond_with_coupon(coupon_rate);
         let dv01 = compute_dv01(&bond);
-        
+
         // DV01 should be negative for bonds (lose value when rates rise)
         prop_assert!(dv01 < 0.0);
     }
@@ -560,4 +564,3 @@ When adding new metrics:
 6. Add examples showing realistic usage
 
 For questions or discussions, refer to the main project documentation or consult the development team.
-

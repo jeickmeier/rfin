@@ -7,7 +7,9 @@ use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::DayCount;
-use finstack_valuations::instruments::rates::repo::{CollateralSpec, CollateralType, Repo, RepoType};
+use finstack_valuations::instruments::rates::repo::{
+    CollateralSpec, CollateralType, Repo, RepoType,
+};
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 

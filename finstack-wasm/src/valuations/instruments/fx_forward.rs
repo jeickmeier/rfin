@@ -133,7 +133,11 @@ impl JsFxForward {
 
     /// Calculate the market forward rate via covered interest rate parity.
     #[wasm_bindgen(js_name = marketForwardRate)]
-    pub fn market_forward_rate(&self, market: &JsMarketContext, as_of: &FsDate) -> Result<f64, JsValue> {
+    pub fn market_forward_rate(
+        &self,
+        market: &JsMarketContext,
+        as_of: &FsDate,
+    ) -> Result<f64, JsValue> {
         self.inner
             .market_forward_rate(market.inner(), as_of.inner())
             .map_err(|e| JsValue::from_str(&e.to_string()))

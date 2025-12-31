@@ -46,7 +46,7 @@ impl PyMonteCarloPathGenerator {
     /// Args:
     ///     initial_spot: Initial spot price
     ///     r: Risk-free rate (annual)
-    ///     q: Dividend/foreign rate (annual)  
+    ///     q: Dividend/foreign rate (annual)
     ///     sigma: Volatility (annual)
     ///     time_to_maturity: Time horizon in years
     ///     num_steps: Number of time steps

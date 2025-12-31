@@ -12,7 +12,9 @@ use finstack_core::dates::Date as CoreDate;
 use finstack_valuations::cashflow::builder::specs::{
     CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
 };
-use finstack_valuations::instruments::fixed_income::bond::{Bond, CallPut, CallPutSchedule, CashflowSpec};
+use finstack_valuations::instruments::fixed_income::bond::{
+    Bond, CallPut, CallPutSchedule, CashflowSpec,
+};
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::pricer::InstrumentType;
 use js_sys::{Array, Reflect};

@@ -123,6 +123,7 @@ pub enum CFKind {
 ### 3. **Schedule Building**
 
 Builder pattern supports:
+
 - Fixed and floating coupons with caps, floors, and gearing
 - Multiple amortization styles (none, linear, step, percent-per-period, custom)
 - Tiered fee structures with utilization-based pricing
@@ -133,6 +134,7 @@ Builder pattern supports:
 ### 4. **Period Aggregation**
 
 Efficient cashflow-to-period mapping:
+
 - O(n + m) complexity for sorted flows
 - Currency-preserving grouping
 - Present value aggregation with discount curves and explicit `DayCountCtx`
@@ -141,6 +143,7 @@ Efficient cashflow-to-period mapping:
 ### 5. **Behavioral Models**
 
 Serializable specifications for:
+
 - **Prepayment**: CPR (Constant Prepayment Rate), PSA (Public Securities Association) with helper constructors
 - **Default**: CDR (Constant Default Rate), SDA (Standard Default Assumption) with business-day-aware recovery dates
 - **Recovery**: Constant recovery rates with timing conventions
@@ -148,6 +151,7 @@ Serializable specifications for:
 ### 6. **Accrued Interest Engine**
 
 Generic schedule-driven accrual supporting:
+
 - **Linear**: Simple interest interpolation (`Accrued = Coupon × elapsed / period`)
 - **Compounded**: ICMA-style with Taylor expansion for small fractions
 - **Ex-Coupon**: Calendar-aware ex-coupon date handling
@@ -173,6 +177,7 @@ let bad = usd1.checked_add(eur)?; // CurrencyMismatch error
 ### CFKind Ordering
 
 Cashflows are sorted by date, then by `CFKind` rank:
+
 1. Fixed / Floating / Stub / FloatReset
 2. Fee
 3. Amortization
@@ -727,7 +732,7 @@ for (date, balance) in schedule.outstanding_by_date()? {
     let day_flows: Vec<_> = schedule.flows.iter()
         .filter(|cf| cf.date == date)
         .collect();
-    
+
     println!("\n{}", date);
     for cf in day_flows {
         println!("  {:?}: {}", cf.kind, cf.amount);
@@ -917,7 +922,7 @@ assert_eq!(accrued_ex, 0.0);  // In ex-coupon window
 ```rust
 pub enum AmortizationSpec {
     // ... existing variants ...
-    
+
     /// Custom: Accelerating amortization schedule
     Accelerating {
         acceleration_rate: f64,
@@ -934,11 +939,11 @@ pub(crate) fn emit_accelerating_amort(
 ) -> finstack_core::Result<()> {
     let dates = &builder.schedule_params.payment_dates;
     let mut outstanding = builder.notional.initial.amount();
-    
+
     for (i, &date) in dates.iter().enumerate() {
         let factor = 1.0 + (i as f64 * acceleration_rate);
         let payment = (outstanding * factor) / (dates.len() - i) as f64;
-        
+
         builder.flows.push(CashFlow {
             date,
             reset_date: None,
@@ -947,10 +952,10 @@ pub(crate) fn emit_accelerating_amort(
             accrual_factor: 0.0,
             rate: None,
         });
-        
+
         outstanding -= payment;
     }
-    
+
     Ok(())
 }
 ```
@@ -962,7 +967,7 @@ fn compile_amortization(&mut self) -> finstack_core::Result<()> {
     if let Some(spec) = &self.amortization {
         match spec {
             // ... existing cases ...
-            
+
             AmortizationSpec::Accelerating { acceleration_rate } => {
                 emission::emit_accelerating_amort(self, *acceleration_rate)?;
             }
@@ -980,7 +985,7 @@ fn test_accelerating_amortization() {
     let init = Money::new(1_000_000.0, Currency::USD);
     let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
-    
+
     let schedule = CashFlowSchedule::builder()
         .principal(init, issue, maturity)
         .amortization(AmortizationSpec::Accelerating {
@@ -988,18 +993,18 @@ fn test_accelerating_amortization() {
         })
         .build_with_curves(None)
         .unwrap();
-    
+
     let amorts: Vec<_> = schedule
         .flows
         .iter()
         .filter(|cf| cf.kind == CFKind::Amortization)
         .collect();
-    
+
     // Verify increasing payments
     for i in 1..amorts.len() {
         assert!(amorts[i].amount.amount() > amorts[i-1].amount.amount());
     }
-    
+
     // Verify full amortization
     let total: f64 = amorts.iter().map(|cf| cf.amount.amount()).sum();
     assert!((total - 1_000_000.0).abs() < 1.0);
@@ -1013,7 +1018,7 @@ fn test_accelerating_amortization() {
 ```rust
 pub enum FeeBase {
     // ... existing variants ...
-    
+
     /// Fee based on outstanding principal
     OutstandingBps,
 }
@@ -1030,10 +1035,10 @@ pub(crate) fn emit_outstanding_fee(
     let mut fees = Vec::new();
     let schedule = builder.build_with_curves(None)?;
     let outstanding_path = schedule.outstanding_path_per_flow()?;
-    
+
     for &date in dates {
         if let Some(&(_, outstanding)) = outstanding_path.iter()
-            .find(|(d, _)| *d == date) 
+            .find(|(d, _)| *d == date)
         {
             let fee_amount = outstanding.amount() * bps / 10_000.0;
             fees.push(CashFlow {
@@ -1046,7 +1051,7 @@ pub(crate) fn emit_outstanding_fee(
             });
         }
     }
-    
+
     fees
 }
 ```
@@ -1056,6 +1061,7 @@ pub(crate) fn emit_outstanding_fee(
 ### Adding a New Coupon Type
 
 Follow similar pattern:
+
 1. Define spec type in `builder/specs/coupon.rs`
 2. Implement emission in `builder/emission/coupons.rs`
 3. Wire into `builder/compiler.rs`
@@ -1192,15 +1198,15 @@ fn test_fixed_coupon_schedule() {
     let init = Money::new(100_000.0, Currency::USD);
     let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
-    
+
     let spec = FixedCouponSpec { /* ... */ };
-    
+
     let schedule = CashFlowSchedule::builder()
         .principal(init, issue, maturity)
         .fixed_cf(spec)
         .build_with_curves(None)
         .unwrap();
-    
+
     // Assertions
     assert_eq!(schedule.flows.len(), 3); // 2 coupons + 1 redemption
     assert_eq!(schedule.notional.initial, init);
@@ -1225,14 +1231,14 @@ proptest! {
             })
             .build_with_curves(None)
             .unwrap();
-        
+
         let total_amort: f64 = schedule
             .flows
             .iter()
             .filter(|cf| cf.kind == CFKind::Amortization)
             .map(|cf| cf.amount.amount())
             .sum();
-        
+
         prop_assert!((total_amort - notional).abs() < 1.0);
     }
 }
@@ -1247,7 +1253,7 @@ fn test_periodized_pv_matches_npv() {
     let disc = /* build discount curve */;
     let periods = /* define periods */;
     use finstack_core::dates::DayCountCtx;
-    
+
     // Periodized PV with explicit context
     let pv_map = schedule
         .pv_by_period_with_ctx(&periods, &disc, base, DayCount::Act365F, DayCountCtx::default())
@@ -1256,7 +1262,7 @@ fn test_periodized_pv_matches_npv() {
         .flat_map(|m| m.values())
         .map(|pv| pv.amount())
         .sum();
-    
+
     // Direct NPV
     let flows: Vec<(Date, Money)> = schedule.flows.iter()
         .map(|cf| (cf.date, cf.amount))
@@ -1264,7 +1270,7 @@ fn test_periodized_pv_matches_npv() {
     let npv = finstack_core::cashflow::discounting::npv_static(
         &disc, base, DayCount::Act365F, &flows
     ).unwrap();
-    
+
     // Should match within tolerance
     assert!((period_sum - npv.amount()).abs() < 1e-6);
 }
@@ -1276,10 +1282,10 @@ fn test_periodized_pv_matches_npv() {
 #[test]
 fn test_accrual_methods() {
     use finstack_valuations::cashflow::{accrued_interest_amount, AccrualConfig, AccrualMethod};
-    
+
     let schedule = /* build schedule with known coupon */;
     let mid_period = /* date halfway through coupon period */;
-    
+
     let linear_cfg = AccrualConfig {
         method: AccrualMethod::Linear,
         ex_coupon: None,
@@ -1290,10 +1296,10 @@ fn test_accrual_methods() {
         ex_coupon: None,
         include_pik: true,
     };
-    
+
     let linear_accrued = accrued_interest_amount(&schedule, mid_period, &linear_cfg).unwrap();
     let compounded_accrued = accrued_interest_amount(&schedule, mid_period, &compounded_cfg).unwrap();
-    
+
     // Compounded accrual is slightly less than linear at mid-period
     assert!(compounded_accrued <= linear_accrued);
 }

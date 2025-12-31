@@ -15,4 +15,3 @@ impl MetricCalculator for ThetaCalculator {
         &[]
     }
 }
-

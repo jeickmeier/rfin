@@ -63,14 +63,17 @@ This provides proper risk offset recognition - offsetting positions reduce overa
 ### Margin Calculations
 
 **Initial Margin (IM)**:
+
 - Calculated using ISDA SIMM from aggregated sensitivities
 - Includes breakdown by risk class (IR, Credit, Equity, etc.)
 
 **Variation Margin (VM)**:
+
 - Sum of mark-to-market values across positions in the netting set
 - Positive = we owe collateral, Negative = we receive collateral
 
 **Total Margin**:
+
 - IM + max(0, VM) - only positive VM increases total requirement
 
 ## Usage Examples
@@ -110,7 +113,7 @@ for (netting_set_id, ns_margin) in result.iter() {
         ns_margin.variation_margin,
         ns_margin.position_count,
     );
-    
+
     // Access SIMM breakdown by risk class
     for (risk_class, amount) in &ns_margin.im_breakdown {
         println!("  {}: {}", risk_class, amount);
@@ -187,7 +190,7 @@ for (ns_id, ns_margin) in result.iter() {
         for ((currency, tenor), delta) in &sensitivities.ir_delta {
             println!("  IR Delta {}/{}: {}", currency, tenor, delta);
         }
-        
+
         // Access credit sensitivities
         for ((name, tenor), delta) in &sensitivities.credit_delta {
             println!("  Credit Delta {}/{}: {}", name, tenor, delta);
@@ -316,4 +319,3 @@ cargo test -p finstack-portfolio
 - [BCBS-IOSCO Margin Requirements](https://www.bis.org/) - Non-centrally cleared derivatives
 - [EMIR Margin Rules](https://www.esma.europa.eu/) - EU margin requirements
 - Finstack valuations margin module: `/finstack/valuations/src/margin/README.md`
-

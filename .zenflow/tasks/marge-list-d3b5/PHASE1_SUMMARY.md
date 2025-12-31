@@ -29,7 +29,7 @@ Successfully unified four nearly-identical restore functions into a single, comp
 1. **`CurveRestoreFlags`** - Bitflags enum for curve family selection
    - `DISCOUNT`, `FORWARD`, `HAZARD`, `INFLATION`, `CORRELATION` constants
    - `RATES` (discount + forward) and `CREDIT` (hazard) convenience combinations
-   
+
 2. **`MarketSnapshot`** - Unified container for all curve types
    - `extract(market, flags)` - Selective curve extraction
    - `restore_market(current, snapshot, flags)` - Unified restoration
@@ -84,7 +84,7 @@ Successfully unified four nearly-identical restore functions into a single, comp
 Phase 2-6 of the consolidation plan:
 - **Phase 2**: Monte Carlo payoff consolidation (Cap/Floor, Lookback)
 - **Phase 3**: Parameter reduction via context structs
-- **Phase 4**: Trait-based market data extraction  
+- **Phase 4**: Trait-based market data extraction
 - **Phase 5**: Waterfall execution unification
 - **Phase 6**: JSON envelope boilerplate reduction
 

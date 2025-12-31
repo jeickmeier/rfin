@@ -145,5 +145,3 @@ required-features = ["scenarios"]
 name = "portfolio_example"
 path = "examples/portfolio/portfolio_example.rs"
 required-features = ["portfolio", "scenarios"]
-
-

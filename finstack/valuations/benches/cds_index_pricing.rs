@@ -17,9 +17,11 @@ use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::credit_derivatives::cds::{CDSConvention, PayReceive};
 use finstack_valuations::instruments::credit_derivatives::cds_index::{
+    CDSIndex, CDSIndexConstituent, IndexPricing,
+};
+use finstack_valuations::instruments::credit_derivatives::cds_index::{
     CDSIndexConstructionParams, CDSIndexParams,
 };
-use finstack_valuations::instruments::credit_derivatives::cds_index::{CDSIndex, CDSIndexConstituent, IndexPricing};
 use finstack_valuations::instruments::CreditParams;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;

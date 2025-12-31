@@ -82,7 +82,7 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     let module = PyModule::new(py, "rates")?;
     module.setattr("__doc__", "Rates pricers and result envelopes (thin wrappers over core).")?;
     module.add_class::<PySwapPricer>()?;
-    let exports = ["SwapPricer"]; 
+    let exports = ["SwapPricer"];
     module.setattr("__all__", pyo3::types::PyList::new(py, &exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
@@ -180,7 +180,7 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     let module = PyModule::new(py, "rates")?;
     module.setattr("__doc__", "Rates pricers and result envelopes (thin wrappers over core).")?;
     module.add_class::<PySwapPricer>()?;
-    let exports = ["SwapPricer"]; 
+    let exports = ["SwapPricer"];
     module.setattr("__all__", pyo3::types::PyList::new(py, &exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())

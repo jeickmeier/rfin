@@ -45,7 +45,6 @@ cargo run --example <example_name> --features all
   - Phase 3: Model evaluation, DAG construction, precedence resolution
   - Features: `statements`
 
-
 - **[statements_phase5_example.rs](./statements/statements_phase5_example.rs)**
   - Phase 5: Dynamic registry, built-in financial metrics
   - Features: `statements`
@@ -86,7 +85,6 @@ cargo run --example <example_name> --features all
   - Post-2008 multi-curve framework with basis swaps
   - Features: `valuations`
 
-
 - **[tranche_valuation_example.rs](./valuations/tranche_valuation_example.rs)**
   - Structured credit tranche valuation
   - Features: `valuations`
@@ -98,7 +96,6 @@ cargo run --example <example_name> --features all
 - **[scenarios_lite_example.rs](./scenarios/scenarios_lite_example.rs)**
   - Basic scenario analysis with market data modifications
   - Features: `scenarios`
-
 
 ### Portfolio Examples (`examples/portfolio/`)
 
@@ -112,26 +109,31 @@ cargo run --example <example_name> --features all
 ## Quick Start Guide
 
 ### 1. Basic Core Example
+
 ```bash
 cargo run --example market_context_v2_demo --features core
 ```
 
 ### 2. Financial Statements Modeling
+
 ```bash
 cargo run --example statements_phase1_example --features statements
 ```
 
 ### 3. Bond Pricing
+
 ```bash
 cargo run --example bond_custom_cashflows_example --features valuations
 ```
 
 ### 4. Portfolio Analysis
+
 ```bash
 cargo run --example portfolio_example --features portfolio
 ```
 
 ### 5. Scenario Analysis
+
 ```bash
 cargo run --example scenarios_lite_example --features scenarios
 ```
@@ -150,19 +152,25 @@ Most examples require specific feature flags to run. The main feature groups are
 ## Example Categories
 
 ### Beginner Examples
+
 Start with these for basic understanding:
+
 - `market_context_v2_demo`
 - `statements_phase1_example`
 - `bond_custom_cashflows_example`
 
 ### Intermediate Examples
+
 For more complex use cases:
+
 - `statements_phase3_example`
 - `enhanced_builders_example`
 - `scenarios_lite_example`
 
 ### Advanced Examples
+
 For comprehensive, production-like scenarios:
+
 - `lbo_model_complete`
 - `portfolio_example`
 - `scenarios_lite_example`

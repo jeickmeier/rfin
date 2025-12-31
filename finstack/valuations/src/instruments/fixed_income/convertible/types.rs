@@ -203,7 +203,7 @@ impl ConvertibleBond {
         Ok(pricer::calculate_parity(self, spot))
     }
 
-    /// Calculate conversion premium of this convertible bond  
+    /// Calculate conversion premium of this convertible bond
     pub fn conversion_premium(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,

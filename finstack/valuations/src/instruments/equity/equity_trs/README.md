@@ -1,18 +1,21 @@
 # Equity Total Return Swap (TRS)
 
 ## Features
+
 - Synthetic equity index or single-stock exposure via total return swap
 - Supports receive/pay total return via `TrsSide`
 - Dividend yield forward model for accurate pricing
 - ETF replication convenience constructor
 
 ## Methodology & References
+
 - PV = PV(total-return leg) − PV(financing leg)
 - Forward price model: F_t = S_0 × e^{(r-q)t}
 - Total return = Price return + Dividend return
 - Deterministic curves and spot prices; no stochastic equity modeling
 
 ## Usage Example
+
 ```rust
 use finstack_valuations::instruments::equity::equity_trs::EquityTotalReturnSwap;
 
@@ -79,6 +82,7 @@ let total_return_pv = trs.pv_total_return_leg(&market_context, as_of_date)?;
 ```
 
 ## ETF Replication (Shorthand)
+
 ```rust
 use finstack_valuations::instruments::equity::equity_trs::EquityTotalReturnSwap;
 
@@ -102,6 +106,7 @@ Equity TRS implement full margin support following **ISDA CSA** standards with S
 | Equity | Equity delta (100% of notional) |
 
 ## Metrics
+
 - **Delta**: Sensitivity to underlying equity level (notional / spot)
 - **Dividend01**: Sensitivity to dividend yield (1bp bump)
 - **DV01**: Sensitivity to financing rate
@@ -110,6 +115,7 @@ Equity TRS implement full margin support following **ISDA CSA** standards with S
 - **FinancingAnnuity**: PV01 of financing leg
 
 ## Limitations / Known Issues
+
 - Total-return path is deterministic from supplied prices/yields
 - No simulation of underlying equity volatility
 - Does not model early termination or bespoke fee structures
@@ -140,6 +146,7 @@ Currently, the underlying is modeled as a single index (e.g., "SPX" or "SPY"). I
    - Basis tracking: Index vs. synthetic basket value
 
 4. **Risk Decomposition**
+
    ```rust
    // Future API sketch
    let basket = EquityBasket::load_from_csv("spy_constituents.csv")?;
@@ -147,9 +154,8 @@ Currently, the underlying is modeled as a single index (e.g., "SPX" or "SPY"). I
        .underlying_basket(basket)
        // ...
        .build()?;
-   
+
    // Constituent-level metrics
    let delta_by_stock = trs.delta_by_constituent(&ctx)?;
    let sector_deltas = trs.delta_by_sector(&ctx)?;
    ```
-

@@ -1,5 +1,5 @@
 ---
-description: Information about the error handling framework for the finstack workspace. 
+description: Information about the error handling framework for the finstack workspace.
 alwaysApply: false
 ---
 # Rust Error Handling Framework
@@ -95,7 +95,7 @@ fn run_example() -> Result<()> {
         .context("Initial operation failed")?;
 
     // ... more code
-    
+
     Ok(())
 }
 ```

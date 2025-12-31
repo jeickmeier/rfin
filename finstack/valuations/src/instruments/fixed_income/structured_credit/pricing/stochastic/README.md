@@ -115,13 +115,13 @@ CorrelationStructure::abs_auto_standard() // ~10% for consumer auto
 
 ```rust
 // Scenario tree (fast, discrete)
-PricingMode::ScenarioTree { 
+PricingMode::ScenarioTree {
     periods: 40,    // Quarterly for 10 years
     branches: 3,    // Up/mid/down
 }
 
 // Monte Carlo (accurate, slower)
-PricingMode::MonteCarlo { 
+PricingMode::MonteCarlo {
     paths: 10_000,  // Number of simulations
 }
 ```
@@ -148,4 +148,3 @@ The `StochasticPricingResult` provides:
 - [`StructuredCredit`](../types/mod.rs) for the main instrument type
 - [`instrument_trait`](../instrument_trait.rs) for deterministic cashflow generation
 - [`metrics`](../metrics/mod.rs) for standard (non-stochastic) risk metrics
-

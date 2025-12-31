@@ -59,4 +59,3 @@ When defining custom metrics:
 
 - Main registry documentation: `finstack/statements/src/registry/`
 - DSL function reference: `finstack/statements/src/dsl/`
-

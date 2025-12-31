@@ -46,7 +46,7 @@ npm run examples:install
 npm run examples:dev
 ```
 
-The dev server will start at http://localhost:3000
+The dev server will start at <http://localhost:3000>
 
 ## API Changes
 

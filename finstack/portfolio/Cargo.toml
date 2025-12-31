@@ -35,4 +35,3 @@ parallel = ["dep:rayon"]
 [[bench]]
 name = "portfolio_valuation"
 harness = false
-

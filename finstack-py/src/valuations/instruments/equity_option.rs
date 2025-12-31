@@ -164,8 +164,8 @@ impl PyEquityOption {
         contract_size: Option<f64>,
     ) -> PyResult<Self> {
         use crate::errors::PyContext;
-        use finstack_valuations::instruments::EquityUnderlyingParams;
         use finstack_valuations::instruments::equity::equity_option::EquityOptionParams;
+        use finstack_valuations::instruments::EquityUnderlyingParams;
 
         let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
         let expiry_date = py_to_date(&expiry).context("expiry")?;

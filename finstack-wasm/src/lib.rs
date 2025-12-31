@@ -52,26 +52,58 @@ pub use core::market_data::{
 };
 pub use core::math::{
     // Integration
-    adaptiveSimpson, gaussLegendreIntegrate, gaussLegendreIntegrateAdaptive,
-    gaussLegendreIntegrateComposite, simpsonRule, trapezoidalRule, GaussHermiteQuadrature,
-    // Distributions
-    binomialDistribution, binomialProbability, chiSquaredCdf, chiSquaredPdf, chiSquaredQuantile,
-    exponentialCdf, exponentialPdf, exponentialQuantile, logBinomialCoefficient, logFactorial,
-    lognormalCdf, lognormalPdf, lognormalQuantile,
+    adaptiveSimpson,
     // Linear Algebra
-    applyCorrelation, buildCorrelationMatrix, choleskyDecomposition, validateCorrelationMatrix,
-    // Probability
-    correlationBounds, jointProbabilities, CorrelatedBernoulliDist,
+    applyCorrelation,
+    // Distributions
+    binomialDistribution,
+    binomialProbability,
     // Random
-    boxMullerTransform, Rng,
-    // Solvers
-    BrentSolver, NewtonSolver,
-    // Special Functions
-    erf, normCdf, normInvCdf, normPdf, studentTCdf, studentTInvCdf,
+    boxMullerTransform,
+    buildCorrelationMatrix,
+    chiSquaredCdf,
+    chiSquaredPdf,
+    chiSquaredQuantile,
+    choleskyDecomposition,
     // Statistics
-    correlation, covariance, mean, variance,
+    correlation,
+    // Probability
+    correlationBounds,
+    covariance,
+    // Special Functions
+    erf,
+    exponentialCdf,
+    exponentialPdf,
+    exponentialQuantile,
+    gaussLegendreIntegrate,
+    gaussLegendreIntegrateAdaptive,
+    gaussLegendreIntegrateComposite,
+    jointProbabilities,
     // Summation
-    kahanSum, neumaierSum, SumAccumulator,
+    kahanSum,
+    logBinomialCoefficient,
+    logFactorial,
+    lognormalCdf,
+    lognormalPdf,
+    lognormalQuantile,
+    mean,
+    neumaierSum,
+    normCdf,
+    normInvCdf,
+    normPdf,
+    simpsonRule,
+    studentTCdf,
+    studentTInvCdf,
+    trapezoidalRule,
+    validateCorrelationMatrix,
+    variance,
+    // Solvers
+    BrentSolver,
+    CorrelatedBernoulliDist,
+    GaussHermiteQuadrature,
+    NewtonSolver,
+    Rng,
+    SumAccumulator,
 };
 pub use core::money::JsMoney as Money;
 pub use core::types::{
@@ -86,14 +118,13 @@ pub use core::volatility::{
 pub use valuations::calibration::{
     JsCalibrationConfig as CalibrationConfig, JsCalibrationMethod as CalibrationMethod,
     JsCalibrationReport as CalibrationReport, JsCdsTrancheQuote as CdsTrancheQuote,
-    JsCreditQuote as CreditQuote, JsInflationQuote as InflationQuote,
-    JsMarketQuote as MarketQuote, JsRateBounds as RateBounds,
-    JsRateBoundsPolicy as RateBoundsPolicy, JsRatesQuote as RatesQuote,
+    JsCreditQuote as CreditQuote, JsInflationQuote as InflationQuote, JsMarketQuote as MarketQuote,
+    JsRateBounds as RateBounds, JsRateBoundsPolicy as RateBoundsPolicy, JsRatesQuote as RatesQuote,
     JsResidualWeightingScheme as ResidualWeightingScheme,
-    JsSABRCalibrationDerivatives as SABRCalibrationDerivatives,
-    JsSABRMarketData as SABRMarketData, JsSABRModelParams as SABRModelParams,
-    JsSolverKind as SolverKind, JsValidationConfig as ValidationConfig,
-    JsValidationMode as ValidationMode, JsVolQuote as VolQuote,
+    JsSABRCalibrationDerivatives as SABRCalibrationDerivatives, JsSABRMarketData as SABRMarketData,
+    JsSABRModelParams as SABRModelParams, JsSolverKind as SolverKind,
+    JsValidationConfig as ValidationConfig, JsValidationMode as ValidationMode,
+    JsVolQuote as VolQuote,
 };
 // Validation functions
 pub use valuations::calibration::{

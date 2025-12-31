@@ -24,9 +24,9 @@ use std::sync::Arc;
 /// Apply a scenario to a portfolio.
 ///
 /// This function:
-/// 1. Clones the portfolio (scenarios create modified copies)  
-/// 2. Extracts instruments into a mutable vector for the scenario engine  
-/// 3. Applies the scenario using the engine  
+/// 1. Clones the portfolio (scenarios create modified copies)
+/// 2. Extracts instruments into a mutable vector for the scenario engine
+/// 3. Applies the scenario using the engine
 /// 4. Returns the modified portfolio and market data
 ///
 /// The original portfolio and market are left untouched.

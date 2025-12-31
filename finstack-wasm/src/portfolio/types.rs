@@ -441,7 +441,7 @@ impl JsPosition {
 /// # Arguments
 ///
 /// * `position_id` - Unique identifier for the position
-/// * `entity_id` - Entity that owns this position  
+/// * `entity_id` - Entity that owns this position
 /// * `deposit` - The deposit instrument
 /// * `quantity` - Signed quantity (positive=long, negative=short)
 /// * `unit` - Position unit type

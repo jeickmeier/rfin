@@ -22,22 +22,22 @@ import type { ResidualWeightingScheme } from "./ResidualWeightingScheme";
  * };
  * ```
  */
-export type HazardCurveSolveConfig = { 
+export type HazardCurveSolveConfig = {
 /**
  * Minimum allowed hazard rate (must be non-negative for survival monotonicity).
  */
-hazard_hard_min: number, 
+hazard_hard_min: number,
 /**
  * Maximum allowed hazard rate.
  *
  * The default of 10.0 corresponds to roughly 99.995% 1Y default probability.
  * For distressed/distressed sovereign scenarios, increase to 50.0 or 100.0.
  */
-hazard_hard_max: number, 
+hazard_hard_max: number,
 /**
  * Weighting scheme for global solve residuals.
  */
-weighting_scheme: ResidualWeightingScheme, 
+weighting_scheme: ResidualWeightingScheme,
 /**
  * Tolerance for determining calibration success (applied to residuals).
  */

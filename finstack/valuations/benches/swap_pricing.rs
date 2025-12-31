@@ -24,9 +24,11 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
-use finstack_valuations::instruments::{FixedLegSpec, FloatLegSpec};
+use finstack_valuations::instruments::rates::irs::{
+    FloatingLegCompounding, InterestRateSwap, PayReceive,
+};
 use finstack_valuations::instruments::Instrument;
-use finstack_valuations::instruments::rates::irs::{FloatingLegCompounding, InterestRateSwap, PayReceive};
+use finstack_valuations::instruments::{FixedLegSpec, FloatLegSpec};
 use finstack_valuations::metrics::MetricId;
 use rust_decimal_macros::dec;
 use std::hint::black_box;

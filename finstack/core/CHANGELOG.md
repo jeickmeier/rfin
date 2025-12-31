@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 #### Core Types & Currency
+
 - ISO-4217 currency support with 180+ currencies generated from official data
 - `Money` type with currency-safe arithmetic (explicit FX conversions required)
 - `Rate`, `Bps`, `Percentage` newtype wrappers for type-safe rate handling
@@ -17,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Phantom-typed `Id<T>` wrappers (`CurveId`, `InstrumentId`, etc.)
 
 #### Date & Calendar System
+
 - 19 pre-configured holiday calendars (NYSE, TARGET2, ASX, JPX, HKEX, etc.)
 - Generated at build-time from JSON rule definitions
 - Day count conventions: Act/360, Act/365F, Act/Act (ISDA/ISMA), 30/360, Bus/252
@@ -26,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tenor parsing and arithmetic
 
 #### Market Data Infrastructure
+
 - `DiscountCurve`: Risk-free discount factor term structure
 - `ForwardCurve`: Forward rate term structure
 - `HazardCurve`: Credit hazard/survival term structure
@@ -39,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `MarketContext`: Unified market data container with Arc-based storage
 
 #### Math & Numerical Methods
+
 - Interpolation: Linear, LogLinear, CubicHermite, MonotoneConvex, FlatForward
 - Root finders: Newton-Raphson, Brent's method with derivative support
 - Multi-dimensional solver: Levenberg-Marquardt
@@ -52,6 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Random number generation: Box-Muller transform, deterministic test RNG
 
 #### Expression Engine
+
 - AST-based expression representation
 - DAG optimization with shared sub-expression detection
 - Scalar evaluation with caching
@@ -61,11 +66,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - EWM (exponentially weighted) functions
 
 #### Cashflow Primitives
+
 - `CashFlow` type with date, amount, currency, and kind
 - NPV calculation with discount curves
 - XIRR/IRR computation via Newton-Raphson
 
 #### FX System
+
 - `FxProvider` trait for custom FX sources
 - `FxMatrix` with LRU caching and triangulation
 - `SimpleFxProvider` for testing
@@ -73,6 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Audit trail via `FxPolicyMeta`
 
 #### Configuration & Errors
+
 - `FinstackConfig` for rounding/tolerance settings
 - `ToleranceConfig` for numerical precision control
 - Comprehensive `Error` enum with actionable messages
@@ -80,15 +88,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `InputError` for validation failures
 
 #### Explainability
+
 - `ExplainOpts` for computation tracing
 - `ExplainEntry` for structured attribution output
 
 ### Changed
+
 - Uses `time` crate (not `chrono`) for all date operations
 - All public types feature-gated serde support
 - Strict serde field naming with `deny_unknown_fields`
 
 ### Safety & Quality
+
 - `#![forbid(unsafe_code)]` enforced at crate level
 - `#![deny(clippy::unwrap_used)]` prevents panics in public code
 - `#![warn(missing_docs)]` enforces documentation

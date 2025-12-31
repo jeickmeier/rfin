@@ -10,4 +10,3 @@ mod money_integration_tests;
 mod patterns_tests;
 mod term_loan_integration_tests;
 mod waterfall_tests;
-

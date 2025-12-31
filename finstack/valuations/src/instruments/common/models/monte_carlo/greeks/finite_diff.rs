@@ -17,7 +17,7 @@ use finstack_core::Result;
 ///
 /// # Arguments
 ///
-/// * `engine` - MC engine  
+/// * `engine` - MC engine
 /// * `rng` - Random number generator
 /// * `process` - Stochastic process
 /// * `disc` - Discretization scheme

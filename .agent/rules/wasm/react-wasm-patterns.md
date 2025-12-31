@@ -23,7 +23,7 @@ let wasmInitialized = false;
 
 const App: React.FC = () => {
   const [wasmReady, setWasmReady] = useState(wasmInitialized);
-  
+
   useEffect(() => {
     // Guard against React hot module replacement
     if (wasmInitialized) {
@@ -38,7 +38,7 @@ const App: React.FC = () => {
       })
       .catch((err) => setError(err.message));
   }, []);
-  
+
   if (!wasmReady) return <div>Loading WASM...</div>;
   return <YourApp />;
 };
@@ -94,14 +94,14 @@ const [metrics, setMetrics] = useState<BondMetrics | null>(null);
 
 useEffect(() => {
   const result = registry.priceBondWithMetrics(bond, 'discounting', market, metricKeys);
-  
+
   // Extract ALL primitives before storing in state
   const primitives = {
     presentValue: result.presentValue.amount,  // Extract number
     cleanPrice: result.metric('clean_price') ?? 0,  // Extract number
     accrued: result.metric('accrued') ?? 0,  // Extract number
   };
-  
+
   setMetrics(primitives);  // Only primitives in state!
 }, []);
 ```
@@ -149,10 +149,10 @@ useEffect(() => {
       // Your WASM calls here
       const bond = Bond.fixedSemiannual(...);
       const result = registry.priceBond(bond, 'discounting', market);
-      
+
       // Extract primitives
       const pv = result.presentValue.amount;
-      
+
       if (!cancelled) {
         setState({ pv });
       }
@@ -162,7 +162,7 @@ useEffect(() => {
       }
     }
   })();
-  
+
   return () => {
     cancelled = true;
   };
@@ -216,26 +216,26 @@ export const MyValuationExample: React.FC = () => {
         const notional = Money.fromCode(1_000_000, 'USD');
         const issue = new FsDate(2024, 1, 15);
         const maturity = new FsDate(2029, 1, 15);
-        
+
         // 2. Create market data
         const discountCurve = new DiscountCurve(...);
         const market = new MarketContext();
         market.insertDiscount(discountCurve);
-        
+
         // 3. Create instruments
         const bond = Bond.fixedSemiannual('id', notional, 0.05, issue, maturity, 'USD-OIS');
-        
+
         // 4. Price through Rust
         const registry = createStandardRegistry();
         const result = registry.priceBondWithMetrics(bond, 'discounting', market, metricKeys);
-        
+
         // 5. Extract primitives IMMEDIATELY
         const primitives = {
           presentValue: result.presentValue.amount,
           cleanPrice: result.metric('clean_price') ?? 0,
           // ... all primitives
         };
-        
+
         // 6. Store only primitives
         if (!cancelled) {
           setMetrics(primitives);
@@ -246,7 +246,7 @@ export const MyValuationExample: React.FC = () => {
         }
       }
     })();
-    
+
     return () => {
       cancelled = true;
     };
@@ -254,7 +254,7 @@ export const MyValuationExample: React.FC = () => {
 
   if (error) return <p className="error">{error}</p>;
   if (!metrics) return <p>Loading...</p>;
-  
+
   return <div>{/* Render primitives */}</div>;
 };
 ```
@@ -262,15 +262,15 @@ export const MyValuationExample: React.FC = () => {
 ## Common Errors and Solutions
 
 ### Error: "memory access out of bounds"
-**Cause**: WASM init() called multiple times or WASM objects stored in React state and garbage collected.  
+**Cause**: WASM init() called multiple times or WASM objects stored in React state and garbage collected.
 **Fix**: Use global init guard and extract primitives immediately.
 
-### Error: "null pointer passed to rust"  
-**Cause**: WASM object was garbage collected before use.  
+### Error: "null pointer passed to rust"
+**Cause**: WASM object was garbage collected before use.
 **Fix**: Extract primitives immediately, don't store WASM objects.
 
 ### Error: "Invalid input data"
-**Cause**: Wrong parameters to Rust functions (e.g., date ranges, curve tenors).  
+**Cause**: Wrong parameters to Rust functions (e.g., date ranges, curve tenors).
 **Fix**: Check Rust validation rules (dates must be ordered, curves need minimum points, etc.).
 
 ## API-Specific Patterns
@@ -292,7 +292,7 @@ const dateStr = date.toString();
 const months = frequency.months;  // NOT frequency.months()
 ```
 
-### Curve Handling  
+### Curve Handling
 ```typescript
 // Methods, not properties
 const dayCount = curve.dayCount();  // Method call
@@ -318,5 +318,3 @@ const depositResult = registry.priceDepositWithMetrics(deposit, model, market, m
 - Working examples: `DatesAndMarketData.tsx`, `CashflowBasics.tsx`, `DepositsValuation.tsx`, `BondsValuation.tsx`
 - WASM Memory FAQ: `finstack-wasm/examples/README.md`
 - Rust Pricing Registry: `finstack/valuations/src/pricer/`
-
-

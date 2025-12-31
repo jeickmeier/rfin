@@ -5,6 +5,7 @@
 The covenants module provides a deterministic, extensible framework for evaluating financial and non-financial covenants, managing grace/cure periods, applying consequences for breaches, and forecasting covenant compliance with headroom analytics.
 
 **Key capabilities:**
+
 - Evaluate financial covenants (leverage, coverage, custom metrics) against thresholds
 - Support non-financial covenants (affirmative/negative) with custom evaluators
 - Track breach history with cure period management
@@ -14,6 +15,7 @@ The covenants module provides a deterministic, extensible framework for evaluati
 - Integrate with metric systems and time-series models
 
 **Design principles:**
+
 - Determinism: Same inputs → same outputs, stable breach detection
 - Extensibility: Custom covenant types, metrics, evaluators, and consequences
 - Separation of concerns: Evaluation logic decoupled from instrument mutation
@@ -37,6 +39,7 @@ covenants/
 ### Core Components
 
 #### 1. **CovenantEngine** (`engine.rs`)
+
 Central orchestrator for covenant evaluation and consequence application.
 
 - **CovenantSpec**: Links a `Covenant` to either a `MetricId` or custom evaluator
@@ -46,6 +49,7 @@ Central orchestrator for covenant evaluation and consequence application.
 - **InstrumentMutator**: Trait for instruments that can be mutated by consequences
 
 #### 2. **Forward Projection** (`forward.rs`)
+
 Generic covenant forecasting with headroom analytics, optional MC simulation.
 
 - **ModelTimeSeries** trait: Adapter for any time-series model (e.g., statements)
@@ -53,12 +57,14 @@ Generic covenant forecasting with headroom analytics, optional MC simulation.
 - **CovenantForecastConfig**: Deterministic or stochastic (MC) configuration
 
 #### 3. **Threshold Schedules** (`schedule.rs`)
+
 Piecewise-constant threshold lookup for time-varying covenant limits.
 
 - **ThresholdSchedule**: Sorted `(Date, f64)` schedule
 - **threshold_for_date**: Resolves threshold for a given test date
 
 #### 4. **Reporting** (`mod_types.rs`)
+
 Covenant evaluation results.
 
 - **CovenantReport**: Pass/fail status, actual value, threshold, details
@@ -70,6 +76,7 @@ Covenant evaluation results.
 ### Covenant Types
 
 #### Financial Covenants
+
 Built-in support for common credit covenants:
 
 - **MaxDebtToEBITDA**: Total debt / EBITDA <= threshold
@@ -81,6 +88,7 @@ Built-in support for common credit covenants:
 - **Custom**: User-defined metric with minimum or maximum test
 
 #### Non-Financial Covenants
+
 - **Negative**: Restrictions (e.g., "No additional debt without consent")
 - **Affirmative**: Requirements (e.g., "Provide quarterly reporting")
 
@@ -317,7 +325,7 @@ impl ModelTimeSeries for MyModelAdapter<'_> {
     fn get_scalar(&self, node_id: &str, period: &PeriodId) -> Option<f64> {
         self.model.get_value(node_id, period)
     }
-    
+
     fn period_end_date(&self, period: &PeriodId) -> Date {
         self.model.period_end(period)
     }
@@ -346,7 +354,7 @@ let forecast = forecast_covenant_generic(&spec, &adapter, &periods, config)?;
 
 println!("Covenant: {}", forecast.covenant_id);
 println!("First breach: {:?}", forecast.first_breach_date);
-println!("Min headroom: {:.2}% on {}", 
+println!("Min headroom: {:.2}% on {}",
     forecast.min_headroom_value * 100.0,
     forecast.min_headroom_date,
 );
@@ -428,7 +436,7 @@ let threshold = threshold_for_date(&schedule, test_date); // Some(5.5)
 #[derive(Clone, Debug)]
 pub enum CovenantType {
     // ... existing variants ...
-    
+
     /// New covenant: Tangible net worth must exceed threshold
     MinTangibleNetWorth { threshold: f64 },
 }
@@ -478,16 +486,16 @@ fn evaluate_tangible_net_worth_covenant() {
         CovenantType::MinTangibleNetWorth { threshold: 50_000_000.0 },
         Tenor::quarterly(),
     );
-    
+
     let mut engine = CovenantEngine::new();
     engine.add_spec(CovenantSpec::with_metric(
         covenant,
         MetricId::custom("tangible_net_worth"),
     ));
-    
+
     let mut ctx = metric_context(&instrument, test_date);
     ctx.computed.insert(MetricId::custom("tangible_net_worth"), 55_000_000.0);
-    
+
     let reports = engine.evaluate(&mut ctx, test_date).unwrap();
     let tnw_report = reports.get("Tangible Net Worth ≥ $50000000").unwrap();
     assert!(tnw_report.passed);
@@ -504,7 +512,7 @@ fn evaluate_tangible_net_worth_covenant() {
 #[derive(Clone, Debug)]
 pub enum CovenantConsequence {
     // ... existing variants ...
-    
+
     /// Require quarterly appraisals
     RequireAppraisals { frequency: Tenor },
 }
@@ -515,7 +523,7 @@ pub enum CovenantConsequence {
 ```rust
 pub trait InstrumentMutator {
     // ... existing methods ...
-    
+
     fn set_appraisal_requirement(&mut self, frequency: Tenor) -> Result<()>;
 }
 ```
@@ -538,7 +546,7 @@ CovenantConsequence::RequireAppraisals { frequency } => {
 ```rust
 impl InstrumentMutator for MyInstrument {
     // ... existing methods ...
-    
+
     fn set_appraisal_requirement(&mut self, frequency: Frequency) -> Result<()> {
         self.appraisal_frequency = Some(frequency);
         Ok(())
@@ -589,7 +597,7 @@ impl ModelTimeSeries for MyFinancialModel {
         // Lookup node value for period
         self.nodes.get(node_id)?.get_value(period)
     }
-    
+
     fn period_end_date(&self, period: &PeriodId) -> Date {
         // Map period to end date
         self.calendar.period_end(period)
@@ -642,24 +650,25 @@ All covenant types, evaluators, consequences, and forward projections should be 
 #[test]
 fn my_new_covenant_test() {
     let mut engine = CovenantEngine::new();
-    
+
     // Setup covenant
     let covenant = Covenant::new(/* ... */);
     engine.add_spec(CovenantSpec::with_metric(covenant, metric_id));
-    
+
     // Setup context
     let mut ctx = metric_context(&instrument, test_date);
     ctx.computed.insert(metric_id, value);
-    
+
     // Evaluate
     let reports = engine.evaluate(&mut ctx, test_date).unwrap();
-    
+
     // Assert
     assert!(reports.get("description").unwrap().passed);
 }
 ```
 
 For forward projection tests:
+
 - Use `MockTs` adapter (see `forward.rs` tests)
 - Test deterministic headroom calculation
 - Test MC breach probabilities (with `#[cfg(feature = "mc")]`)
@@ -695,15 +704,19 @@ For forward projection tests:
 ## Design Patterns
 
 ### Trait-Based Mutation
+
 `InstrumentMutator` decouples covenant logic from instrument implementations. Instruments opt-in to support consequences.
 
 ### Arc-Wrapped Closures
+
 Custom evaluators and metric calculators use `Arc<dyn Fn + Send + Sync>` for thread-safe sharing without Clone bounds on closures.
 
 ### Adapter Pattern
+
 `ModelTimeSeries` trait enables covenant forecasting without tight coupling to statement/model implementations.
 
 ### Builder Pattern
+
 `Covenant::new().with_cure_period().with_consequence()` provides fluent configuration.
 
 ---

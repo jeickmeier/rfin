@@ -30,8 +30,8 @@ fn as_marginable(instrument: &Arc<dyn Instrument>) -> Option<&dyn Marginable> {
     // Try each known marginable type
     if let Some(irs) = instrument
         .as_any()
-        .downcast_ref::<finstack_valuations::instruments::rates::irs::InterestRateSwap>()
-    {
+        .downcast_ref::<finstack_valuations::instruments::rates::irs::InterestRateSwap>(
+    ) {
         return Some(irs as &dyn Marginable);
     }
 

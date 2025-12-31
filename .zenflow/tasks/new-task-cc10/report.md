@@ -25,7 +25,7 @@ Successfully removed dead/redundant code from the finstack-valuations crate as p
 
 **Lines Removed:** 13 lines total
 
-**TODO Comments Added:** 
+**TODO Comments Added:**
 - Added comments indicating where Hull-White implementation would go if needed in the future
 - Clarified that current implementation uses market forward rates directly
 
@@ -132,8 +132,8 @@ All commands completed successfully with zero failures.
 
 All three phases of the dead code removal were completed successfully:
 
-✅ **Phase 1:** Removed `freeze_all_market` function and test  
-✅ **Phase 2:** Inlined `compute_forward_rate` stub methods  
+✅ **Phase 1:** Removed `freeze_all_market` function and test
+✅ **Phase 2:** Inlined `compute_forward_rate` stub methods
 ✅ **Phase 3:** Audited remaining unused parameters (no changes needed)
 
 The codebase is now cleaner with 42 fewer lines of dead code, and all functionality remains intact as verified by the comprehensive test suite. The changes improve code maintainability without introducing any behavioral changes or test failures.

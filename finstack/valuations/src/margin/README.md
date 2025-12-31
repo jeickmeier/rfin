@@ -356,7 +356,7 @@ impl Marginable for MyInstrument {
         self.margin_spec.as_ref().map(|s| {
             match &s.clearing_status {
                 ClearingStatus::Cleared { ccp } => NettingSetId::cleared(ccp),
-                ClearingStatus::Bilateral => 
+                ClearingStatus::Bilateral =>
                     NettingSetId::bilateral(&s.csa.id, &s.csa.id),
             }
         })
@@ -368,11 +368,11 @@ impl Marginable for MyInstrument {
         as_of: Date,
     ) -> Result<SimmSensitivities> {
         let mut sens = SimmSensitivities::new(self.currency);
-        
+
         // Calculate and add sensitivities
         let dv01 = self.calculate_dv01(market, as_of)?;
         sens.add_ir_delta(self.currency, "5Y", dv01);
-        
+
         Ok(sens)
     }
 
@@ -496,6 +496,7 @@ impl ImCalculator for MyMethodologyCalculator {
 ```
 
 2. Add to `calculators/im/mod.rs`:
+
 ```rust
 mod my_methodology;
 pub use my_methodology::MyMethodologyCalculator;

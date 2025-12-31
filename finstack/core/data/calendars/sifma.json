@@ -17,5 +17,3 @@
     { "type": "fixed", "name": "Veterans Day", "month": "november", "day": 11, "observed": "fri_if_sat_mon_if_sun" }
   ]
 }
-
-

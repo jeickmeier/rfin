@@ -451,8 +451,7 @@ impl PyFxOption {
         builder = builder.vol_surface_id(vol_surface_id.into());
         builder = builder
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
-        builder =
-            builder.attributes(finstack_valuations::instruments::Attributes::new());
+        builder = builder.attributes(finstack_valuations::instruments::Attributes::new());
         Ok(Self::new(builder.build().map_err(core_to_py)?))
     }
 

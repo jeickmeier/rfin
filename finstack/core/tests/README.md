@@ -100,6 +100,7 @@ tests/
 ### Module Root Files
 
 Each test domain has a root `.rs` file (e.g., `cashflow.rs`) that:
+
 1. Documents what the test suite covers
 2. Lists the test organization
 3. Includes submodules using `#[path = "..."]` attributes
@@ -233,6 +234,7 @@ make test-rust
 ### Test Documentation
 
 Each test file should have a module docstring explaining:
+
 - What functionality is being tested
 - Any specific conventions used (e.g., compounding type)
 - References to standards or specifications
@@ -240,6 +242,7 @@ Each test file should have a module docstring explaining:
 ### Test Naming
 
 Use descriptive names that indicate:
+
 - The function/feature being tested
 - The scenario or condition
 - The expected outcome

@@ -88,16 +88,19 @@ PV_swap = PV_float_leg - PV_fixed_leg (for ReceiveFixed)
 ```
 
 **Fixed Leg:**
+
 ```text
 PV_fixed = N × K × Σ τᵢ × DF(Tᵢ)
 ```
 
 **Floating Leg (Term Rate):**
+
 ```text
 PV_float = N × Σ τᵢ × [Fwd(t_i) + Spread] × DF(Tᵢ)
 ```
 
 **Floating Leg (OIS):**
+
 ```text
 PV_float = N × [DF(T_start) - DF(T_end)] + spread_annuity
 ```
@@ -115,7 +118,7 @@ Two methods available:
 - **ForwardBased** (default): `Par = Float_PV / (Notional × Annuity)`
   - Works for seasoned and unseasoned swaps
   - Requires forward curve
-  
+
 - **DiscountRatio**: `Par = [DF(start) - DF(end)] / Annuity`
   - Closed-form solution
   - Only valid for unseasoned swaps (as_of ≤ start_date)
@@ -505,11 +508,11 @@ impl MetricCalculator for MyMetricCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let irs: &InterestRateSwap = context.instrument_as()?;
         let as_of = context.as_of;
-        
+
         // Your calculation logic here
         Ok(0.0)
     }
-    
+
     // Optional: declare dependencies on other metrics
     fn dependencies(&self) -> &[MetricId] {
         &[MetricId::Annuity]
@@ -603,7 +606,7 @@ impl InterestRateSwap {
             reset_lag_days: 2,
             sched: IRSScheduleConfig::eur_isda_standard(),
         };
-        
+
         Self::create_swap_with_config(id, notional, fixed_rate, start, end, side, config)
     }
 }
@@ -689,15 +692,15 @@ When adding new features, add corresponding tests:
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_my_new_feature() {
         // Arrange
         let swap = InterestRateSwap::example().unwrap();
-        
+
         // Act
         let result = my_new_function(&swap);
-        
+
         // Assert
         assert!(result.is_ok());
     }
@@ -931,16 +934,19 @@ When contributing to the IRS module:
 Part of the Finstack library. See root LICENSE file for details.
 
 ## Pricing Methodology
+
 - Builds fixed and floating leg schedules using shared date-generation (stubs, BDC, calendars), projecting floats from forward curves and discounting on chosen curve.
 - Supports OIS compounding, stub handling, and seasonal/lockout features via compounding config; par rate solved via root find on annuity.
 - Optional hazard/credit weighting for survival-adjusted PVs; deterministic curves otherwise.
 
 ## Metrics
+
 - PV, par/par-forward swap rate, DV01 (parallel and key-rate), annuity, and bucketed cashflow PVs by leg.
 - CS01 when hazard curve supplied; carry/roll and accrual metrics for coupon periods.
 - Sensitivities to stub/compounding settings via schedule recomputation; theta via roll-forward PV.
 
 ## Future Enhancements
+
 - Add multi-curve CSA basis adjustments and funding valuation adjustments (FVA/CVA/DVA) hooks.
 - Support Bermudan/cancellable swap optionality directly in-module or via swaption interop.
 - Provide stochastic-rate (HW/LMM) pricing pathways for long-dated exotic compounding.

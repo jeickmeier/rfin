@@ -1,16 +1,19 @@
 # Basis Swap
 
 ## Features
+
 - Floating-versus-floating swap exchanging two indices with independent frequencies, day-counts, and spreads (`BasisSwapLeg`).
 - Schedule generation with stub handling and optional calendar selection for both legs.
 - Deterministic discounting via `GenericInstrumentPricer::discounting()` with forward curves per leg.
 
 ## Methodology & References
+
 - Pricing follows standard multi-curve swap valuation: projected floating cashflows on each curve, discounted with the chosen discount curve.
 - Built on shared cashflow builder utilities; aligns with ISDA day-count/BDC conventions for interbank basis swaps.
 - No convexity or CSA-specific adjustments beyond deterministic forwards/discount factors.
 
 ## Usage Example
+
 ```rust
 use finstack_core::{currency::Currency, dates::*, money::Money, types::CurveId};
 use finstack_valuations::instruments::rates::basis_swap::{BasisSwap, BasisSwapLeg};
@@ -40,21 +43,25 @@ let pv = swap.value(&market_context, Date::from_calendar_date(2024, Month::Janua
 ```
 
 ## Limitations / Known Issues
+
 - No convexity or funding-value adjustment; deterministic forwards/discount factors only.
 - Assumes a single discount curve for both legs; CSA-specific multi-curve discounting must be modeled externally.
 - Does not include optional early termination or compounding conventions beyond the provided leg specs.
 
 ## Pricing Methodology
+
 - Projects floating legs off their respective forward curves, applying spreads and reset/payment lags per leg schedule.
 - Discounts projected coupons on a chosen discount curve; stubs handled via shared schedule builder.
 - No convexity or CSA-specific adjustments baked in; parity with standard multi-curve deterministic valuation.
 
 ## Metrics
+
 - PV plus par basis spread, DV01 (parallel and key-rate) using generic DV01 calculators over the discount curve.
 - Forward basis (spread to par) available by solving for zero-NPV spread.
 - Cashflow PV breakdown by leg for attribution.
 
 ## Future Enhancements
+
 - Add funding/CSA basis adjustments and convexity corrections for long-dated tenors.
 - Support stochastic basis modeling and curve-consistent bootstrapping aids.
 - Include spread-attribution and carry/roll analytics in the metrics set.

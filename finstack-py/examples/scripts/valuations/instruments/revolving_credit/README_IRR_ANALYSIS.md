@@ -7,6 +7,7 @@ The `revolving_credit_irr_analysis.py` script analyzes the Internal Rate of Retu
 ## Features
 
 ### 1. Single Scenario Analysis (10% Utilization Vol, 30% Credit Spread Vol)
+
 - Calculates IRR distribution from 1000 Monte Carlo paths
 - Overlays deterministic IRR as a vertical line for comparison
 - Visualizes utilization rate and credit spread paths over time
@@ -14,6 +15,7 @@ The `revolving_credit_irr_analysis.py` script analyzes the Internal Rate of Retu
 - Displays path volatility evolution over the facility lifetime
 
 ### 2. Extreme Paths Analysis (NEW)
+
 - Identifies top 5 and bottom 5 performing paths by IRR
 - Creates detailed cashflow bar charts for each extreme path
 - Color-codes cashflows by type (Fees, Interest, Principal, Other)
@@ -22,6 +24,7 @@ The `revolving_credit_irr_analysis.py` script analyzes the Internal Rate of Retu
 - Provides insights into what drives performance differences
 
 ### 3. Volatility Grid Comparison
+
 - Tests 9 scenarios: 3 utilization volatilities (10%, 20%, 30%) × 3 credit spread volatilities (20%, 30%, 40%)
 - Overlays IRR distributions for all scenarios on a single chart
 - Creates box plots for statistical comparison
@@ -57,6 +60,7 @@ The script now exports detailed cashflow schedules for the top and bottom 5 IRR 
    - Useful for comparing key metrics between best and worst performers
 
 ### Charts Generated
+
 1. **irr_single_scenario.png**: Comprehensive single scenario analysis with 4 subplots:
    - IRR distribution histogram with KDE overlay
    - Utilization rate paths (sample paths + statistics)
@@ -89,6 +93,7 @@ The script now exports detailed cashflow schedules for the top and bottom 5 IRR 
 ## Usage
 
 ### Main Analysis Script
+
 ```bash
 # Run with default parameters
 uv run python finstack-py/examples/scripts/valuations/instruments/revolving_credit/revolving_credit_irr_analysis.py
@@ -103,6 +108,7 @@ uv run python finstack-py/examples/scripts/valuations/instruments/revolving_cred
 ```
 
 ### CSV Analysis Script
+
 ```bash
 # Analyze the exported CSV files
 uv run python finstack-py/examples/scripts/valuations/instruments/revolving_credit/analyze_cashflow_csvs.py finstack-py/examples/scripts/valuations/instruments/revolving_credit/
@@ -122,7 +128,7 @@ uv run python finstack-py/examples/scripts/valuations/instruments/revolving_cred
 
 Key parameters can be adjusted in the script:
 
-- **Facility parameters**: 
+- **Facility parameters**:
   - Commitment: $100MM
   - Initial utilization: 50%
   - Maturity: 2 years
@@ -142,18 +148,21 @@ Key parameters can be adjusted in the script:
 ## Technical Notes
 
 ### IRR Calculation
+
 - Uses `xirr` from finstack for precise date-based IRR calculation
 - Cashflows are from the lender's perspective (initial outflow, periodic inflows)
 - Filters out near-zero cashflows to avoid numerical issues
 - As_of date is set before commitment date to include initial draw in Rust cashflows
 
 ### Cashflow Categorization
+
 - All cashflow types come directly from Rust via CFKind enum
 - No manual categorization based on amounts in Python
 - Ensures consistency with Rust valuation engine
 - Categories: Notional, Fees, Fixed Interest, Floating Interest
 
 ### Credit Spread Modeling
+
 - Uses CIR (Cox-Ingersoll-Ross) model for credit spreads
 - Market-realistic parameters may violate Feller condition - this is expected
 - QE discretization handles boundary conditions gracefully
@@ -164,6 +173,7 @@ Key parameters can be adjusted in the script:
   - Zero spread = minimal/no credit risk at that time point
 
 ### Dependencies
+
 - finstack-py (with revolving credit support)
 - matplotlib (for visualization)
 - scipy (for kernel density estimation)
@@ -173,12 +183,14 @@ Key parameters can be adjusted in the script:
 ## Interpreting Results
 
 ### IRR Distribution Characteristics
+
 - **Mean IRR**: Expected return across all simulated paths
 - **Standard Deviation**: Measure of IRR uncertainty/risk
 - **5th/95th Percentiles**: 90% confidence interval for returns
 - **Skewness**: Asymmetry in the distribution (often negative due to default risk)
 
 ### Extreme Paths Insights
+
 - **Top Performers**: Paths with highest IRRs often show:
   - Consistent high utilization (more interest income)
   - Lower realized credit spreads (lower default risk)
@@ -189,6 +201,7 @@ Key parameters can be adjusted in the script:
   - Unfavorable cashflow timing
 
 ### Volatility Impact
+
 - **Utilization Volatility**: Primarily affects IRR dispersion (uncertainty)
 - **Credit Spread Volatility**: Affects both mean and dispersion through default risk
 - **Correlation Effects**: Future versions may include util-credit correlation
@@ -196,6 +209,7 @@ Key parameters can be adjusted in the script:
 ## Cumulative Cashflow Analysis
 
 The cumulative panels in the extreme paths chart provide valuable insights:
+
 - **Break-even timing**: Shows when cumulative cashflows turn positive
 - **Investment recovery**: Visualizes the path to full principal recovery
 - **Category contribution**: Shows how each cashflow type contributes to returns
@@ -244,13 +258,16 @@ The script automatically exports comprehensive cashflow data for further analysi
    - Use these to analyze how stochastic paths affect cashflows
 
 ### Summary Statistics
+
 - Aggregated metrics comparing top and bottom performers
 - Shows correlation between path characteristics and IRR
 - Includes average/min/max utilization and credit spreads
 - Total fees, interest, and notional for each path
 
 ### Analysis Capabilities
+
 The `analyze_cashflow_csvs.py` script provides:
+
 - Statistical comparison of performer groups
 - Visual correlation analysis
 - Break-even timing calculation
@@ -258,6 +275,7 @@ The `analyze_cashflow_csvs.py` script provides:
 - Export of comprehensive analysis charts
 
 ## Future Enhancements
+
 - Add interest rate stochasticity (currently deterministic)
 - Include correlation between utilization and credit spreads
 - Support for different draw/repay patterns

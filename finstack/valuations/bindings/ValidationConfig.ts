@@ -7,71 +7,71 @@
  * (forward rates, hazard rates, inflation growth) and toggles
  * for specific arbitrage and monotonicity checks.
  */
-export type ValidationConfig = { 
+export type ValidationConfig = {
 /**
  * Enable forward rate positivity check
  */
-check_forward_positivity: boolean, 
+check_forward_positivity: boolean,
 /**
  * Minimum allowed forward rate (can be slightly negative)
  */
-min_forward_rate: number, 
+min_forward_rate: number,
 /**
  * Maximum allowed forward rate
  */
-max_forward_rate: number, 
+max_forward_rate: number,
 /**
  * Enable monotonicity checks
  */
-check_monotonicity: boolean, 
+check_monotonicity: boolean,
 /**
  * Enable arbitrage checks
  */
-check_arbitrage: boolean, 
+check_arbitrage: boolean,
 /**
  * Numerical tolerance for comparisons
  */
-tolerance: number, 
+tolerance: number,
 /**
  * Maximum allowed hazard rate (default 0.5 = 50%)
  */
-max_hazard_rate: number, 
+max_hazard_rate: number,
 /**
  * Minimum allowed annual CPI growth (default -0.10 = -10%)
  */
-min_cpi_growth: number, 
+min_cpi_growth: number,
 /**
  * Maximum allowed annual CPI growth (default 0.50 = 50%)
  */
-max_cpi_growth: number, 
+max_cpi_growth: number,
 /**
  * Minimum allowed forward inflation (default -0.20 = -20%)
  */
-min_fwd_inflation: number, 
+min_fwd_inflation: number,
 /**
  * Maximum allowed forward inflation (default 0.50 = 50%)
  */
-max_fwd_inflation: number, 
+max_fwd_inflation: number,
 /**
  * Maximum allowed volatility (default 5.0 = 500%)
  */
-max_volatility: number, 
+max_volatility: number,
 /**
  * Allow negative rate environments (DF > 1.0 at short end)
  */
-allow_negative_rates: boolean, 
+allow_negative_rates: boolean,
 /**
  * When true, arbitrage violations (calendar/butterfly) produce warnings instead of errors.
  * Default is false - arbitrage violations fail validation.
  * Set to true only for exploratory analysis or when arbitrage-free fitting is not required.
  */
-lenient_arbitrage: boolean, 
+lenient_arbitrage: boolean,
 /**
  * Butterfly spread convexity tolerance ratio (upper bound).
  * Actual variance must be <= interpolated * this ratio to pass.
  * Default 1.25 (25% tolerance); use values closer to 1.0 for stricter checking.
  */
-butterfly_upper_ratio: number, 
+butterfly_upper_ratio: number,
 /**
  * Butterfly spread convexity tolerance ratio (lower bound).
  * Actual variance must be >= interpolated * this ratio to pass.

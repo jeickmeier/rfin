@@ -98,7 +98,9 @@ pub use fra::JsForwardRateAgreement as ForwardRateAgreement;
 pub use fx::{JsFxOption as FxOption, JsFxSpot as FxSpot, JsFxSwap as FxSwap};
 pub use fx_barrier_option::JsFxBarrierOption as FxBarrierOption;
 pub use fx_forward::JsFxForward as FxForward;
-pub use fx_variance_swap::{JsFxVarianceSwap as FxVarianceSwap, JsVarianceSwapSide as VarianceSwapSide};
+pub use fx_variance_swap::{
+    JsFxVarianceSwap as FxVarianceSwap, JsVarianceSwapSide as VarianceSwapSide,
+};
 pub use inflation_cap_floor::{
     JsInflationCapFloor as InflationCapFloor, JsInflationCapFloorType as InflationCapFloorType,
 };
@@ -187,7 +189,10 @@ pub(crate) fn extract_instrument(value: &JsValue) -> Result<Box<dyn Instrument>,
     try_extract!(fx::JsFxOption, "FxOption");
     try_extract!(fx::JsFxSwap, "FxSwap");
     try_extract!(equity::JsEquity, "Equity");
-    try_extract!(equity_index_future::JsEquityIndexFuture, "EquityIndexFuture");
+    try_extract!(
+        equity_index_future::JsEquityIndexFuture,
+        "EquityIndexFuture"
+    );
     try_extract!(equity_option::JsEquityOption, "EquityOption");
     try_extract!(convertible::JsConvertibleBond, "ConvertibleBond");
     try_extract!(swaption::JsSwaption, "Swaption");
@@ -235,10 +240,7 @@ pub(crate) fn extract_instrument(value: &JsValue) -> Result<Box<dyn Instrument>,
         "VolatilityIndexOption"
     );
     try_extract!(xccy_swap::JsXccySwap, "XccySwap");
-    try_extract!(
-        yoy_inflation_swap::JsYoYInflationSwap,
-        "YoYInflationSwap"
-    );
+    try_extract!(yoy_inflation_swap::JsYoYInflationSwap, "YoYInflationSwap");
     try_extract!(
         inflation_cap_floor::JsInflationCapFloor,
         "InflationCapFloor"

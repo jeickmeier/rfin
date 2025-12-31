@@ -18,8 +18,8 @@ After thorough investigation, **no genuinely unused parameters requiring removal
 
 ### 1. calibration/solver/global.rs:543
 
-**File**: `finstack/valuations/src/calibration/solver/global.rs`  
-**Function**: `residual_key(&self, quote: &Self::Quote, _idx: usize)`  
+**File**: `finstack/valuations/src/calibration/solver/global.rs`
+**Function**: `residual_key(&self, quote: &Self::Quote, _idx: usize)`
 **Status**: ✅ **CORRECT AS-IS**
 
 ```rust
@@ -44,8 +44,8 @@ fn residual_key(&self, _quote: &Self::Quote, idx: usize) -> String {
 
 ### 2. instruments/structured_credit/pricing/stochastic/tree/tree.rs:128
 
-**File**: `finstack/valuations/src/instruments/structured_credit/pricing/stochastic/tree/tree.rs`  
-**Function**: `merge_nodes(&mut self, target_idx: usize, incoming: ScenarioNode)`  
+**File**: `finstack/valuations/src/instruments/structured_credit/pricing/stochastic/tree/tree.rs`
+**Function**: `merge_nodes(&mut self, target_idx: usize, incoming: ScenarioNode)`
 **Status**: ✅ **PARAMETER IS USED**
 
 ```rust
@@ -59,8 +59,8 @@ fn merge_nodes(&mut self, target_idx: usize, incoming: ScenarioNode) {
 
 ### 3. instruments/swaption/pricing/tree_valuator.rs:156
 
-**File**: `finstack/valuations/src/instruments/swaption/pricing/tree_valuator.rs`  
-**Function**: `exercise_value(&self, step: usize, node_idx: usize)`  
+**File**: `finstack/valuations/src/instruments/swaption/pricing/tree_valuator.rs`
+**Function**: `exercise_value(&self, step: usize, node_idx: usize)`
 **Status**: ✅ **BOTH PARAMETERS ARE USED**
 
 ```rust
@@ -75,8 +75,8 @@ fn exercise_value(&self, step: usize, node_idx: usize) -> f64 {
 
 ### 4. instruments/common/models/trees/hull_white_tree.rs
 
-**File**: `finstack/valuations/src/instruments/common/models/trees/hull_white_tree.rs`  
-**Functions**: Multiple tree node accessor methods  
+**File**: `finstack/valuations/src/instruments/common/models/trees/hull_white_tree.rs`
+**Functions**: Multiple tree node accessor methods
 **Status**: ✅ **ALL PARAMETERS ARE USED**
 
 All methods in this file (`rate_at_node`, `probabilities`, `state_price`, etc.) use their parameters to index into tree structures. No unused parameters found.
@@ -107,7 +107,7 @@ Parameters required by trait interface but not needed in specific implementation
 - `calibration/solver/traits.rs` - Multiple trait methods with default implementations
 - Various metric calculators implementing common traits
 
-#### Category 2: Future Extension Points  
+#### Category 2: Future Extension Points
 Parameters reserved for future functionality (marked with TODOs):
 - Previously removed `compute_forward_rate` stubs (completed in Phase 2)
 

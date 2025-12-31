@@ -78,7 +78,7 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     let module = PyModule::new(py, "new_feature")?;
     module.setattr("__doc__", "New feature from finstack_core::market_data")?;
     module.add_class::<PyNewType>()?;
-    let exports = ["NewType"]; 
+    let exports = ["NewType"];
     module.setattr("__all__", pyo3::types::PyList::new(py, &exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
@@ -182,7 +182,7 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     let module = PyModule::new(py, "new_feature")?;
     module.setattr("__doc__", "New feature from finstack_core::market_data")?;
     module.add_class::<PyNewType>()?;
-    let exports = ["NewType"]; 
+    let exports = ["NewType"];
     module.setattr("__all__", pyo3::types::PyList::new(py, &exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())

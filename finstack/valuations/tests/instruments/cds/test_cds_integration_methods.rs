@@ -7,10 +7,10 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
+use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use finstack_valuations::instruments::credit_derivatives::cds::{
     CDSPricer, CDSPricerConfig, IntegrationMethod,
 };
-use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use time::macros::date;
 
 fn build_curves(as_of: Date) -> (DiscountCurve, HazardCurve) {

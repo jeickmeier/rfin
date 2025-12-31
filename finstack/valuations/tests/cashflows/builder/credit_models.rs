@@ -24,8 +24,8 @@ fn psa_smm_golden_values() {
     // PSA (Public Securities Association) Prepayment Model Golden Values
     // 100% PSA ramps to 6% CPR over 30 months, then stays flat
     // SMM = 1 - (1 - CPR)^(1/12)
-    use finstack_valuations::cashflow::builder::{cpr_to_smm, smm_to_cpr};
     use finstack_valuations::cashflow::builder::PrepaymentModelSpec;
+    use finstack_valuations::cashflow::builder::{cpr_to_smm, smm_to_cpr};
 
     let model = PrepaymentModelSpec::psa_100();
 

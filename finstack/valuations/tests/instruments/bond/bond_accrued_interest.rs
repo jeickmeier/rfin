@@ -41,8 +41,7 @@ fn test_accrued_interest_linear_default() {
     let as_of = make_date(2025, 4, 1);
 
     let schedule = bond.get_full_schedule(&MarketContext::new()).unwrap();
-    let accrued =
-        accrued_interest_amount(&schedule, as_of, &bond.accrual_config()).unwrap();
+    let accrued = accrued_interest_amount(&schedule, as_of, &bond.accrual_config()).unwrap();
 
     // Expected: 3% coupon * (90/180) = 1.5% of notional = $1.50
     let expected = 1.50;
@@ -88,15 +87,13 @@ fn test_accrued_interest_compounded_vs_linear() {
         .get_full_schedule(&MarketContext::new())
         .unwrap();
     let accrued_linear =
-        accrued_interest_amount(&sched_linear, as_of, &bond_linear.accrual_config())
-            .unwrap();
+        accrued_interest_amount(&sched_linear, as_of, &bond_linear.accrual_config()).unwrap();
 
     let sched_comp = bond_compounded
         .get_full_schedule(&MarketContext::new())
         .unwrap();
     let accrued_compounded =
-        accrued_interest_amount(&sched_comp, as_of, &bond_compounded.accrual_config())
-            .unwrap();
+        accrued_interest_amount(&sched_comp, as_of, &bond_compounded.accrual_config()).unwrap();
 
     // Linear: 3% × (90/180) = 1.50%
     let expected_linear = 1.50;
@@ -146,8 +143,7 @@ fn test_accrued_interest_compounded_zero_coupon() {
 
     let as_of = make_date(2025, 4, 1);
     let schedule = bond.get_full_schedule(&MarketContext::new()).unwrap();
-    let accrued =
-        accrued_interest_amount(&schedule, as_of, &bond.accrual_config()).unwrap();
+    let accrued = accrued_interest_amount(&schedule, as_of, &bond.accrual_config()).unwrap();
 
     assert!(
         accrued.abs() < 1e-10,
@@ -174,8 +170,7 @@ fn test_accrued_interest_ex_coupon_period() {
     let as_of = coupon_date - time::Duration::days(5);
 
     let schedule = bond.get_full_schedule(&MarketContext::new()).unwrap();
-    let accrued =
-        accrued_interest_amount(&schedule, as_of, &bond.accrual_config()).unwrap();
+    let accrued = accrued_interest_amount(&schedule, as_of, &bond.accrual_config()).unwrap();
 
     assert_eq!(accrued, 0.0, "Should be zero during ex-coupon period");
 }
@@ -266,8 +261,7 @@ fn test_accrued_interest_amortizing_schedule_driven() {
     let as_of = make_date(2027, 7, 1);
 
     let schedule = bond.get_full_schedule(&curves).unwrap();
-    let accrued =
-        accrued_interest_amount(&schedule, as_of, &bond.accrual_config()).unwrap();
+    let accrued = accrued_interest_amount(&schedule, as_of, &bond.accrual_config()).unwrap();
 
     // Derive expected accrued from the schedule itself: coupon_total × (elapsed/period)
     let schedule = bond

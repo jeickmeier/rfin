@@ -8,9 +8,9 @@ use finstack_scenarios::{
     ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec, TimeRollMode,
 };
 use finstack_statements::FinancialModelSpec;
-use finstack_valuations::instruments::{Attributes, Instrument};
 use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
 use finstack_valuations::instruments::Bond;
+use finstack_valuations::instruments::{Attributes, Instrument};
 use time::Month;
 
 // Used for direct adapter testing in test_time_roll_with_bond_carry

@@ -2,7 +2,7 @@
 //!
 //! These tests validate our bond metric calculations against:
 //! - Industry textbook examples
-//! - Market-standard calculators  
+//! - Market-standard calculators
 //! - Bloomberg-style calculations
 //!
 //! References:

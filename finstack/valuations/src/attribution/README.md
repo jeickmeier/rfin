@@ -70,11 +70,13 @@ attribution/
 **Algorithm**: Each factor is isolated independently by restoring T₀ values for that factor while keeping all others at T₁. Cross-effects and non-linearities are captured in the residual.
 
 **Advantages**:
+
 - Isolates pure factor impacts
 - Suitable for factor-level risk analysis
 - Parallelizable (each factor independent)
 
 **Disadvantages**:
+
 - Residual can be non-trivial (5-15% for large moves)
 - Factors may not sum to total P&L due to cross-effects
 
@@ -87,11 +89,13 @@ attribution/
 **Algorithm**: Factors are applied sequentially in a specified order. Each factor's P&L is computed after applying all previous factors at T₁. Residual is minimal by construction.
 
 **Advantages**:
+
 - Guarantees sum of factors ≈ total P&L (residual < 0.01%)
 - Suitable for risk reporting and attribution reconciliation
 - Order-dependent (different orders yield different attributions)
 
 **Disadvantages**:
+
 - First factors in order absorb more P&L (order matters)
 - Less suitable for factor isolation
 - Not parallelizable (sequential by design)
@@ -99,6 +103,7 @@ attribution/
 **When to Use**: Risk reporting, P&L reconciliation, regulatory reporting where sum must equal total.
 
 **Default Order**:
+
 1. Carry
 2. RatesCurves
 3. CreditCurves
@@ -116,6 +121,7 @@ attribution/
 **Algorithm**: Uses pre-computed risk metrics (Theta, DV01, CS01, Vega, etc.) to approximate P&L contributions via linear approximation. Supports second-order metrics (Convexity, Gamma, Volga) for improved accuracy.
 
 **Formula (Enhanced)**:
+
 - **Carry**: Theta × Δt
 - **RatesCurves**: DV01 × Δr + ½ × Convexity × (Δr)²
 - **CreditCurves**: CS01 × Δs + ½ × CS-Gamma × (Δs)²
@@ -124,12 +130,14 @@ attribution/
 - **MarketScalars**: Delta × Δspot + ½ × Gamma × (Δspot)²
 
 **Advantages**:
+
 - Fast (no additional repricings required)
 - Works with already-computed `ValuationResult` metrics
 - Second-order metrics reduce residual from ~18% to <5%
 - Graceful degradation (works with or without second-order metrics)
 
 **Disadvantages**:
+
 - Still approximate (third-order+ effects ignored)
 - Less accurate than parallel/waterfall for extreme market moves
 - Requires metrics to be pre-computed
@@ -175,6 +183,7 @@ pub struct AttributionSpec {
 ```
 
 **Benefits**:
+
 - Stable wire formats for long-lived pipelines
 - Schema versioning for backward compatibility
 - Strict deserialization (deny unknown fields)
@@ -222,10 +231,12 @@ pub fn residual_within_meta_tolerance(&self) -> bool;
 ```
 
 **Tolerances**:
+
 - `tolerance_pct`: Percentage tolerance (e.g., 0.1 for 0.1%)
 - `tolerance_abs`: Absolute tolerance (e.g., 100.0 for $100)
 
 **Typical Residuals** (market-standard targets):
+
 - **Waterfall**: < 0.1% (minimal by construction)
 - **Parallel (single factor)**: < 1%
 - **Parallel (multiple factors)**: < 5% for normal moves, < 10% for large moves
@@ -252,20 +263,21 @@ let attribution = attribute_pnl_parallel(
 )?;
 
 println!("Total P&L: {}", attribution.total_pnl);
-println!("Carry: {} ({:.1}%)", 
+println!("Carry: {} ({:.1}%)",
     attribution.carry,
     100.0 * attribution.carry.amount() / attribution.total_pnl.amount()
 );
 println!("Rates: {}", attribution.rates_curves_pnl);
 println!("Credit: {}", attribution.credit_curves_pnl);
 println!("FX: {}", attribution.fx_pnl);
-println!("Residual: {} ({:.2}%)", 
+println!("Residual: {} ({:.2}%)",
     attribution.residual,
     attribution.meta.residual_pct
 );
 ```
 
 **Output**:
+
 ```
 Total P&L: 125430.00 USD
 Carry: 45000.00 USD (35.8%)
@@ -373,7 +385,7 @@ std::fs::write("attribution_spec.json", json)?;
 
 // Execute attribution from spec
 let result = envelope.execute()?;
-println!("Attribution completed: {} repricings", 
+println!("Attribution completed: {} repricings",
     result.attribution.meta.num_repricings
 );
 ```
@@ -396,12 +408,12 @@ let attribution = attribute_pnl_parallel(
 if let Some(rates_detail) = &attribution.rates_detail {
     println!("Discount Total: {}", rates_detail.discount_total);
     println!("Forward Total: {}", rates_detail.forward_total);
-    
+
     println!("\nPer-Curve Breakdown:");
     for (curve_id, pnl) in &rates_detail.by_curve {
         println!("  {}: {}", curve_id, pnl);
     }
-    
+
     println!("\nPer-Tenor Breakdown:");
     for ((curve_id, tenor), pnl) in &rates_detail.by_tenor {
         println!("  {} {}: {}", curve_id, tenor, pnl);
@@ -410,6 +422,7 @@ if let Some(rates_detail) = &attribution.rates_detail {
 ```
 
 **Output**:
+
 ```
 Discount Total: 50000.00 USD
 Forward Total: 15000.00 USD
@@ -444,6 +457,7 @@ println!("{}", attribution.explain());
 ```
 
 **Output**:
+
 ```
 Total P&L: 125430.00 USD
   ├─ Carry: 45000.00 USD (35.8%)
@@ -508,10 +522,10 @@ pub struct PnlAttribution {
     pub carry: Money,
     // ... existing fields ...
     pub correlation_skew_pnl: Money,  // NEW
-    
+
     // Optional detailed breakdown
     pub correlation_skew_detail: Option<CorrelationSkewAttribution>,  // NEW
-    
+
     pub meta: AttributionMeta,
 }
 ```
@@ -538,7 +552,7 @@ pub fn new(
     method: AttributionMethod,
 ) -> Self {
     let zero = Money::new(0.0, total_pnl.currency());
-    
+
     Self {
         total_pnl,
         carry: zero,
@@ -556,12 +570,12 @@ Update `compute_residual()` to include new factor:
 pub fn compute_residual(&mut self) -> Result<()> {
     // Validate currencies first
     self.validate_currencies()?;
-    
+
     let mut attributed_sum = self.carry;
     attributed_sum = attributed_sum.checked_add(self.rates_curves_pnl)?;
     // ... existing adds ...
     attributed_sum = attributed_sum.checked_add(self.correlation_skew_pnl)?;  // NEW
-    
+
     self.residual = self.total_pnl.checked_sub(attributed_sum)?;
     // ...
 }
@@ -572,19 +586,19 @@ Update `validate_currencies()` to check new field:
 ```rust
 pub fn validate_currencies(&self) -> Result<()> {
     let expected = self.total_pnl.currency();
-    
+
     let factors = [
         ("carry", self.carry.currency()),
         // ... existing factors ...
         ("correlation_skew", self.correlation_skew_pnl.currency()),  // NEW
     ];
-    
+
     for (name, ccy) in &factors {
         if *ccy != expected {
             return Err(Error::CurrencyMismatch { expected, actual: *ccy });
         }
     }
-    
+
     Ok(())
 }
 ```
@@ -653,7 +667,7 @@ fn apply_factor_to_t1(
     // ... parameters ...
 ) -> Result<(MarketContext, Money)> {
     // ... existing code ...
-    
+
     let new_market = match factor {
         // ... existing cases ...
         AttributionFactor::CorrelationSkew => {
@@ -661,7 +675,7 @@ fn apply_factor_to_t1(
             restore_correlation_skew(current_market, &skew_t1)
         }
     };
-    
+
     // ... rest of function ...
 }
 ```
@@ -724,14 +738,14 @@ Edit `dataframe.rs`:
 ```rust
 pub fn to_csv(&self) -> String {
     let mut lines = Vec::new();
-    
+
     // Update header
     lines.push(
         "instrument_id,currency,total,carry,rates_curves,credit_curves,\
          inflation_curves,correlations,correlation_skew,fx,vol,model_params,\
          market_scalars,residual,residual_pct".to_string(),
     );
-    
+
     // Update data row
     lines.push(format!(
         "{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
@@ -751,7 +765,7 @@ pub fn to_csv(&self) -> String {
         self.residual.amount(),
         self.meta.residual_pct,
     ));
-    
+
     lines.join("\n")
 }
 ```
@@ -763,7 +777,7 @@ pub fn correlation_skew_detail_to_csv(&self) -> Option<String> {
     self.correlation_skew_detail.as_ref().map(|detail| {
         let mut lines = Vec::new();
         lines.push("instrument_id,curve_id,strike,pnl,currency".to_string());
-        
+
         for ((curve_id, strike), pnl) in &detail.by_strike {
             lines.push(format!(
                 "{},{},{},{},{}",
@@ -774,7 +788,7 @@ pub fn correlation_skew_detail_to_csv(&self) -> Option<String> {
                 pnl.currency()
             ));
         }
-        
+
         lines.join("\n")
     })
 }
@@ -787,9 +801,9 @@ Edit `types.rs`:
 ```rust
 pub fn explain(&self) -> String {
     let mut lines = Vec::new();
-    
+
     // ... existing code ...
-    
+
     // Correlation skew
     if !rc.is_effectively_zero_money(
         self.correlation_skew_pnl.amount(),
@@ -805,7 +819,7 @@ pub fn explain(&self) -> String {
             }
         }
     }
-    
+
     // ... rest of code ...
 }
 ```
@@ -868,7 +882,7 @@ pub enum ModelParamsSnapshot {
 ```rust
 pub fn extract_model_params(instrument: &Arc<dyn Instrument>) -> ModelParamsSnapshot {
     // ... existing downcasts ...
-    
+
     // Try downcasting to ExoticOption
     if let Some(exotic) = instrument.as_any().downcast_ref::<ExoticOption>() {
         return ModelParamsSnapshot::ExoticOption {
@@ -877,7 +891,7 @@ pub fn extract_model_params(instrument: &Arc<dyn Instrument>) -> ModelParamsSnap
             rebate: exotic.rebate,
         };
     }
-    
+
     // ... rest of code ...
 }
 ```
@@ -891,7 +905,7 @@ pub fn with_model_params(
 ) -> Result<Arc<dyn Instrument>> {
     match params {
         // ... existing cases ...
-        
+
         ModelParamsSnapshot::ExoticOption {
             barrier_type,
             barrier_level,
@@ -909,7 +923,7 @@ pub fn with_model_params(
                 ))
             }
         }
-        
+
         // ... rest of code ...
     }
 }
@@ -947,9 +961,9 @@ fn test_extract_exotic_option_params() {
         Some(5.0),
     );
     let instrument = Arc::new(exotic) as Arc<dyn Instrument>;
-    
+
     let params = extract_model_params(&instrument);
-    
+
     match params {
         ModelParamsSnapshot::ExoticOption { barrier_level, .. } => {
             assert_eq!(barrier_level, 100.0);
@@ -1041,6 +1055,7 @@ metrics_collector.record_gauge(
 - **Time**: ~5-10ms (fast)
 
 **Optimization Tips**:
+
 1. Use metrics-based for daily portfolio-level attribution
 2. Use parallel/waterfall for deep-dives and month-end reporting
 3. Pre-compute metrics at T₀ and T₁ during valuation runs
@@ -1070,6 +1085,7 @@ match attribute_pnl_parallel(&instrument, &market_t0, &market_t1, as_of_t0, as_o
 ```
 
 **Common Error Cases**:
+
 - Missing discount/forward curves at T₀ or T₁
 - Missing FX rates for cross-currency instruments
 - Currency mismatches in P&L computation
@@ -1116,4 +1132,3 @@ When adding new features:
 7. Preserve schema versioning for JSON specs
 
 For questions or feature requests, please open an issue or contact the Finstack team.
-

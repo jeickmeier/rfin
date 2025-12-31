@@ -8,7 +8,7 @@
 //!
 //! where:
 //! - κ = mean reversion speed
-//! - θ(t) = time-dependent mean reversion level  
+//! - θ(t) = time-dependent mean reversion level
 //! - σ = instantaneous volatility
 //! - W_t = Brownian motion
 //!

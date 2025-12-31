@@ -133,13 +133,14 @@ pub use types::{
     Pool,
     PoolAsset,
     PoolStats,
-    RepLine,
     Recipient,
     RecipientType,
     ReinvestmentCriteria,
     // Reinvestment
     ReinvestmentManager,
     ReinvestmentPeriod,
+    RepLine,
+    RoundingConvention,
     Seniority,
     StochasticDefaultSpec,
     StochasticPrepaySpec,
@@ -158,7 +159,6 @@ pub use types::{
     Waterfall,
     WaterfallBuilder,
     WaterfallDistribution,
-    RoundingConvention,
     WaterfallTier,
     WaterfallWorkspace,
 };
@@ -182,14 +182,14 @@ pub use utils::{
 // PRICING FUNCTIONS
 // ============================================================================
 
+#[doc(hidden)]
+pub use pricing::stochastic::PricingMode;
+#[doc(hidden)]
+pub use pricing::waterfall::execute_waterfall_with_explanation;
 pub use pricing::{
     execute_waterfall, execute_waterfall_with_workspace, generate_cashflows,
     generate_tranche_cashflows, run_simulation,
 };
-#[doc(hidden)]
-pub use pricing::waterfall::execute_waterfall_with_explanation;
-#[doc(hidden)]
-pub use pricing::stochastic::PricingMode;
 
 pub use pricing::coverage_tests::{CoverageTest, TestContext, TestResult};
 pub use pricing::diversion::{DiversionCondition, DiversionEngine, DiversionRule};

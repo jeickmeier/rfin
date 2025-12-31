@@ -1,7 +1,7 @@
 # Finstack 0.8.0 Release Notes
 
-**Release Date**: December 20, 2024  
-**Type**: Major Feature Release (Breaking Changes)  
+**Release Date**: December 20, 2024
+**Type**: Major Feature Release (Breaking Changes)
 **Status**: Ready for Production
 
 ---
@@ -26,16 +26,19 @@ Finstack 0.8.0 delivers **critical safety fixes** and **market convention compli
 ## ⚠️ Who Should Upgrade?
 
 ### Must Upgrade (Critical)
+
 - Applications using **metrics computation** (DV01, CS01, Greeks, etc.)
 - Systems pricing **FX instruments** or managing **multi-currency portfolios**
 - Production risk systems relying on **accurate risk measures**
 
 ### Should Upgrade (Recommended)
+
 - All finstack users for improved safety and correctness
 - Anyone using `CdsOption` or other instruments with removed panicking constructors
 - Teams prioritizing deterministic, auditable financial calculations
 
 ### Can Defer Upgrade
+
 - Proof-of-concept projects not yet in production
 - Systems that don't use metrics or FX instruments
 - Applications planning major refactoring in Q1 2025
@@ -51,11 +54,13 @@ Finstack 0.8.0 delivers **critical safety fixes** and **market convention compli
 **Why**: Silent failures led to incorrect risk reports. A typo in a metric name would create a "custom" metric that always returned `0.0`, indistinguishable from zero exposure.
 
 **Impact**: Code that previously succeeded may now return errors if:
+
 - Metric names are misspelled or unknown
 - Required market data is missing (e.g., curves for DV01)
 - Metrics don't apply to the instrument type
 
 **Migration**:
+
 ```rust
 // BEFORE (0.7.x): Silent failures
 let result = bond.price_with_metrics(&market, as_of, &metrics)?;
@@ -81,11 +86,13 @@ let result = bond.price_with_metrics(&market, as_of, &metrics)?;
 **Why**: Market-standard FX settlement is T+N **business days** where a day is considered a business day only if **both** base and quote currency calendars are open. Previous implementation violated ISDA standards.
 
 **Impact**: Spot dates will differ near holidays:
+
 - Example: USD/EUR trade on Dec 29, 2023 (Friday)
   - **Old (wrong)**: Spot = Jan 1, 2024 (adjusted to Jan 2 for New Year)
   - **New (correct)**: Spot = Jan 3, 2024 (Dec 30-31 weekend, Jan 1-2 holidays)
 
 **Migration**:
+
 ```rust
 // BEFORE (0.7.x): Calendar days + adjustment (incorrect)
 let spot = trade_date + Duration::days(spot_lag);
@@ -96,7 +103,8 @@ let spot = add_joint_business_days(trade_date, spot_lag, base_cal, quote_cal)?;
 // Day is business day only if BOTH calendars are open
 ```
 
-**Recommendation**: 
+**Recommendation**:
+
 1. Update test expectations with correct spot dates
 2. Compare against ISDA/Bloomberg calendars for validation
 3. Review FX position settlement schedules
@@ -114,6 +122,7 @@ let spot = add_joint_business_days(trade_date, spot_lag, base_cal, quote_cal)?;
 **Impact**: Code that used invalid calendar IDs will now error instead of using weekends-only fallback.
 
 **Migration**:
+
 ```rust
 // BEFORE (0.7.x): Silent fallback
 let cal = resolve_calendar(Some("UNKNOWN"))?;
@@ -139,11 +148,13 @@ let cal = resolve_calendar(None)?;  // weekends_only (no error)
 
 **Why**: Previous field name was ambiguous (decimal vs basis points), risking silent scaling errors.
 
-**Impact**: 
+**Impact**:
+
 - **Code**: Update field names in struct construction
 - **JSON**: Old `"spread"` field still works via serde alias (backwards compatible)
 
 **Migration**:
+
 ```rust
 // BEFORE (0.7.x): Ambiguous units
 RateQuote::Swap {
@@ -177,11 +188,13 @@ RateQuote::Swap {
 **Purpose**: Validate metric names from user inputs (config files, CLI arguments, APIs).
 
 **Benefits**:
+
 - Rejects unknown metric names with clear error messages
 - Lists all available standard metrics in error
 - Prevents typos from creating "custom" metrics
 
 **Usage**:
+
 ```rust
 use finstack_valuations::metrics::MetricId;
 
@@ -202,6 +215,7 @@ let metric: MetricId = "custom_metric".parse()?;  // Ok(MetricId::Custom)
 **Status**: Removed. The legacy best-effort API is no longer available.
 
 **Replacement**:
+
 - `MetricRegistry::compute()` with explicit error handling
 - `Instrument::price_with_metrics()` for combined pricing and metrics
 
@@ -214,11 +228,13 @@ let metric: MetricId = "custom_metric".parse()?;  // Ok(MetricId::Custom)
 **Purpose**: ISDA-compliant FX settlement date calculation.
 
 **Benefits**:
+
 - Correct T+N business day counting for FX
 - Day is business day only if **both** calendars are open
 - Supports any calendar combination (NYSE, TARGET2, GBLO, JPX, etc.)
 
 **Usage**:
+
 ```rust
 use finstack_valuations::instruments::common::fx_dates::add_joint_business_days;
 
@@ -238,17 +254,20 @@ let spot_date = add_joint_business_days(trade_date, 2, &base_cal, &quote_cal)?;
 ### 4. Enhanced Error Types
 
 **New Variants** (in `finstack-core::Error`):
+
 - `UnknownMetric { metric_id, available }` - Unknown metric with list of valid options
 - `MetricNotApplicable { metric_id, instrument_type }` - Metric doesn't apply
 - `MetricCalculationFailed { metric_id, cause }` - Computation failed with context
 - `CircularDependency { path }` - Metric dependency cycle with full path
 
 **Benefits**:
+
 - Actionable error messages with context
 - Clear distinction between error types
 - Debugging aid (e.g., circular dependency path)
 
 **Example**:
+
 ```rust
 // Error: UnknownMetric
 Err(Error::UnknownMetric {
@@ -272,7 +291,8 @@ Err(Error::CircularDependency {
 
 **Fix**: Now divides by `residual_notional` consistently with single-quote residuals.
 
-**Impact**: 
+**Impact**:
+
 - Solver tolerances now have consistent meaning regardless of notional size
 - Same curve with notional=1 and notional=1M now converge identically (within 1e-12)
 
@@ -289,6 +309,7 @@ Err(Error::CircularDependency {
 **Impact**: Circular metric dependencies now detected and reported clearly.
 
 **Example Error**:
+
 ```
 Error: CircularDependency {
     path: ["total_return", "price_change", "total_pnl", "total_return"]
@@ -322,16 +343,19 @@ Error: CircularDependency {
 ### Test Coverage
 
 **Integration Tests Added** (19 total):
+
 - `metrics_strict_mode.rs` - 7 tests covering strict mode, error handling, end-to-end workflows
 - `fx_settlement.rs` - 12 tests covering joint business day logic, calendar errors, edge cases
 
 **Unit Tests Added** (50+):
+
 - Metrics core: 19 tests (error paths, strict mode, dependency resolution)
 - FX dates: 11 tests (joint calendar logic, error handling, calendar resolution)
 - Results export: 11 tests (metric key mappings, DataFrame exports)
 - Calibration: 3 tests (residual normalization invariance)
 
 **Golden Reference Files**:
+
 - `tests/golden/fx_spot_dates.json` - FX spot dates validated against ISDA, ECB, NYSE, Bank of England, JPX calendars
 - Comprehensive test cases with business day breakdowns
 - Legacy behavior documentation for comparison
@@ -394,6 +418,7 @@ Error: CircularDependency {
 | FX settlement (10K dates) | Baseline | +5.2% | Expected (correct logic) |
 
 **Notes**:
+
 - Metrics strict mode overhead: <1% (within measurement noise)
 - Calibration: <0.1% difference after residual normalization fix (pure correctness fix)
 - FX settlement: ~5% slower but now correct (joint business day iteration vs calendar day math)
@@ -407,6 +432,7 @@ Error: CircularDependency {
 ### Temporary `#[allow]` Attributes
 
 **Issue**: Existing codebase has 199 violations of new safety lints (`expect_used`, `panic`):
+
 - 164 uses of `expect()` on `Result` values
 - 32 uses of `expect()` on `Option` values
 - 2 uses of `panic!()` macro
@@ -416,6 +442,7 @@ Error: CircularDependency {
 **Impact**: No impact on users. New code submissions are checked against lints (prevents new violations).
 
 **Remediation Plan**:
+
 - **0.9.0** (Q1 2025): Reduce violations by 50% (constructors, pricing internals)
 - **1.0.0** (Q2 2025): Remove all `#[allow]` attributes, full safety compliance
 
@@ -426,6 +453,7 @@ Error: CircularDependency {
 ### Panicking Constructors
 
 **Removed**:
+
 - `CdsOption::new()` → Use `CdsOption::try_new()`
 - `CdsOptionParams::new()` → Use `CdsOptionParams::try_new()`
 - `CdsOptionParams::call()` → Use `CdsOptionParams::try_call()`
@@ -434,6 +462,7 @@ Error: CircularDependency {
 **Why**: Panicking constructors are unsafe for library APIs and FFI boundaries. Error handling should be explicit.
 
 **Migration**:
+
 ```rust
 // BEFORE (0.7.x)
 let option = CdsOption::new(/* params */);  // Panics on invalid input
@@ -449,6 +478,7 @@ let option = CdsOption::try_new(/* params */)?;  // Returns Result
 ### Quick Upgrade (2-4 hours)
 
 1. **Update Dependencies** (`Cargo.toml`):
+
    ```toml
    finstack-core = "0.8"
    finstack-valuations = "0.8"
@@ -457,6 +487,7 @@ let option = CdsOption::try_new(/* params */)?;  // Returns Result
    ```
 
 2. **Run Tests** (identify breaking changes):
+
    ```bash
    cargo test
    # Note: Failures indicate areas needing updates
@@ -480,14 +511,17 @@ let option = CdsOption::try_new(/* params */)?;  // Returns Result
 ### Gradual Migration (For Large Codebases)
 
 **Phase 1** (Required, 1-2 hours):
+
 - Update metrics to strict mode
 - Add error handling for new error variants
 
 **Phase 2** (Recommended, 1-2 hours):
+
 - Fix FX settlement if using multi-currency instruments
 - Update calendar error handling
 
 **Phase 3** (Required if affected):
+
 - Update removed constructors to `try_*` variants
 
 ---
@@ -495,19 +529,22 @@ let option = CdsOption::try_new(/* params */)?;  // Returns Result
 ## 🎓 Learning Resources
 
 ### Documentation
+
 - **Migration Guide**: `MIGRATION_GUIDE.md` - Comprehensive upgrade instructions
 - **Changelog**: `CHANGELOG.md` (root) and `finstack/valuations/CHANGELOG.md`
 - **API Docs**: Run `cargo doc --open` for full documentation
 
 ### Examples
+
 - **Golden Tests**: `finstack/valuations/tests/golden/fx_spot_dates.json`
 - **Integration Tests**: `finstack/valuations/tests/integration/`
 - **Before/After Code**: See migration guide and test files
 
 ### Support
+
 - **Issue Tracker**: [GitHub Issues](https://github.com/yourusername/finstack/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/finstack/discussions)
-- **Email**: support@finstack.dev
+- **Email**: <support@finstack.dev>
 
 ---
 
@@ -525,11 +562,13 @@ let option = CdsOption::try_new(/* params */)?;  // Returns Result
 ## 🙏 Acknowledgments
 
 This release addresses critical findings from:
+
 - Internal code review and safety audit
 - User feedback on silent metric failures
 - Market convention compliance review vs ISDA standards
 
 Special thanks to:
+
 - All contributors who reported issues and provided feedback
 - Early adopters who tested pre-release versions
 - QA team for comprehensive test coverage
@@ -565,13 +604,13 @@ Special thanks to:
 
 ---
 
-**Questions?** Open an issue or discussion on GitHub: https://github.com/yourusername/finstack
+**Questions?** Open an issue or discussion on GitHub: <https://github.com/yourusername/finstack>
 
 **Ready to upgrade?** Start with `MIGRATION_GUIDE.md` for step-by-step instructions.
 
 ---
 
-**Release**: Finstack 0.8.0  
-**Date**: December 20, 2024  
-**Status**: ✅ Ready for Production  
+**Release**: Finstack 0.8.0
+**Date**: December 20, 2024
+**Status**: ✅ Ready for Production
 **License**: MIT OR Apache-2.0

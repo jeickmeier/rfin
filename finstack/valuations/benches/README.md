@@ -35,6 +35,7 @@ cargo bench --package finstack-valuations --bench bond_pricing -- --baseline my_
 ## Benchmark Suite
 
 ### bond_pricing.rs - Bond Instruments (22 scenarios)
+
 - **bond_pv**: Present value calculation (2Y, 5Y, 10Y, 30Y)
 - **bond_ytm_solve**: YTM solver with Newton-Raphson + Brent (2Y, 5Y, 10Y, 30Y)
 - **bond_duration**: Modified duration and convexity (2Y, 5Y, 10Y, 30Y)
@@ -44,32 +45,38 @@ cargo bench --package finstack-valuations --bench bond_pricing -- --baseline my_
 - **bond_spread_metrics**: Z-spread, I-spread, ASW par/market, and discount margin cases
 
 ### swap_pricing.rs - Interest Rate Swaps (12 scenarios)
+
 - **swap_pv**: Present value (2Y, 5Y, 10Y, 30Y)
 - **swap_dv01**: DV01 calculation (2Y, 5Y, 10Y, 30Y)
 - **swap_par_rate**: Par rate and annuity (2Y, 5Y, 10Y, 30Y)
 
 ### option_pricing.rs - Equity Options (11 scenarios)
+
 - **option_pv**: Black-Scholes PV (3M, 6M, 12M, 24M)
 - **option_greeks**: Full Greeks set (delta, gamma, vega, theta, rho) (3M, 6M, 12M)
 
 ### cds_pricing.rs - Credit Default Swaps (12 scenarios)
+
 - **cds_pv**: NPV with ISDA integration (1Y, 3Y, 5Y, 10Y)
 - **cds_cs01**: Credit spread 01 (1Y, 3Y, 5Y, 10Y)
 - **cds_par_spread**: Par spread calculation (1Y, 3Y, 5Y, 10Y)
 
 ### cashflow_generation.rs - Cashflow Building (22 scenarios)
+
 - **bond_cashflow_generation**: Bond schedule generation (2Y, 5Y, 10Y, 30Y)
 - **swap_cashflow_generation**: Swap schedule generation (2Y, 5Y, 10Y, 30Y)
 - **schedule_builder_fixed**: Fixed coupon schedule building (2Y, 5Y, 10Y, 30Y)
 - **kahan_summation**: Precision-preserving aggregation (10, 20, 50, 100, 200, 500 flows)
 
 ### cds_option_pricing.rs - CDS Options (19 scenarios)
+
 - **cds_option_npv**: Black76 on spreads NPV (call/put, 3M-1Y expiry, 5Y-10Y CDS)
 - **cds_option_greeks**: Individual Greeks (delta, gamma, vega, theta)
 - **cds_option_all_greeks**: Sequential Greeks calculation
 - **cds_option_implied_vol**: Implied volatility solver (Newton-Raphson + Brent)
 
 ### cds_tranche_pricing.rs - CDS Tranches (35+ scenarios)
+
 - **cds_tranche_npv**: Gaussian Copula pricing (equity, junior mezz, senior mezz, senior)
 - **cds_tranche_cs01**: Credit spread sensitivity
 - **cds_tranche_correlation_delta**: Correlation sensitivity
@@ -79,6 +86,7 @@ cargo bench --package finstack-valuations --bench bond_pricing -- --baseline my_
 - **cds_tranche_heterogeneous**: Heterogeneous portfolios (10, 25, 50, 125 issuers)
 
 ### swaption_pricing.rs - Swaptions (20+ scenarios)
+
 - **swaption_pv**: Black76 present value (3Mx5Y, 6Mx5Y, 12Mx5Y, 12Mx10Y)
 - **swaption_sabr**: SABR-implied volatility pricing (3Mx5Y, 6Mx5Y, 12Mx5Y, 12Mx10Y)
 - **swaption_greeks**: Greeks calculation (delta, gamma, vega, theta) (3Mx5Y, 6Mx5Y, 12Mx10Y)
@@ -86,6 +94,7 @@ cargo bench --package finstack-valuations --bench bond_pricing -- --baseline my_
 - **swaption_annuity**: Swap annuity factor calculation (3Mx5Y, 6Mx5Y, 12Mx5Y, 12Mx10Y)
 
 ### cds_index_pricing.rs - CDS Indices (23+ scenarios)
+
 - **cds_index_pv_single**: NPV with single curve (1Y, 3Y, 5Y, 10Y)
 - **cds_index_pv_constituents**: NPV with constituents (10, 25, 50, 125 names)
 - **cds_index_par_spread**: Par spread calculation (1Y, 3Y, 5Y, 10Y)
@@ -94,6 +103,7 @@ cargo bench --package finstack-valuations --bench bond_pricing -- --baseline my_
 - **cds_index_metrics**: All metrics suite (3Y, 5Y, 10Y)
 
 ### structured_credit_pricing.rs - Structured Credit (50+ scenarios)
+
 - **structured_credit_npv**: NPV by deal type (ABS, CLO, CMBS, RMBS)
 - **structured_credit_cashflows**: Cashflow generation with waterfall (10, 25, 50, 100 assets)
 - **structured_credit_wal**: Weighted average life (CLO, RMBS)
@@ -106,6 +116,7 @@ cargo bench --package finstack-valuations --bench bond_pricing -- --baseline my_
 - **structured_credit_scaling**: Scaling with pool size (10-500 assets)
 
 ### convertible_pricing.rs - Convertible Bonds (40+ scenarios)
+
 - **convertible_npv_binomial**: Binomial tree pricing (25, 50, 100, 200 steps)
 - **convertible_npv_trinomial**: Trinomial tree pricing (25, 50, 100, 200 steps)
 - **convertible_npv_moneyness**: NPV by moneyness (OTM, ATM, ITM)
@@ -118,6 +129,7 @@ cargo bench --package finstack-valuations --bench bond_pricing -- --baseline my_
 - **convertible_convergence**: Tree convergence (10-500 steps)
 
 ### bucketed_risk.rs - Bucketed Risk Metrics (15+ scenarios)
+
 - **bond_bucketed_dv01**: Bond bucketed DV01 (11 buckets) vs parallel DV01
 - **swap_bucketed_dv01**: Swap bucketed DV01 by tenor (5Y, 10Y, 30Y)
 - **bond_bucketed_dv01_by_tenor**: Bond bucketed DV01 scaling with maturity (2Y-30Y)
@@ -126,6 +138,7 @@ cargo bench --package finstack-valuations --bench bond_pricing -- --baseline my_
 - **combined_metrics**: Parallel vs bucketed vs both (bond/CDS)
 
 ### calibration.rs - Market Data Calibration (45+ scenarios)
+
 - **discount_curve_small**: Discount curve bootstrap (8 instruments)
 - **discount_curve_medium**: Discount curve bootstrap (16 instruments)
 - **discount_curve_large**: Discount curve bootstrap (22 instruments)
@@ -243,11 +256,13 @@ cargo bench --package finstack-valuations --bench bond_pricing -- --baseline my_
 ## Viewing Results
 
 After running benchmarks, results are available in:
+
 - **Terminal:** Summary statistics
 - **HTML Report:** `target/criterion/*/report/index.html`
 - **CSV Data:** `target/criterion/*/base/raw.csv`
 
 Open HTML report:
+
 ```bash
 open target/criterion/bond_pv/report/index.html
 ```
@@ -257,11 +272,13 @@ open target/criterion/bond_pv/report/index.html
 To track performance over time:
 
 1. **Establish baseline:**
+
    ```bash
    cargo bench --package finstack-valuations -- --save-baseline initial
    ```
 
 2. **Compare after changes:**
+
    ```bash
    cargo bench --package finstack-valuations -- --baseline initial
    ```
@@ -304,12 +321,14 @@ cargo bench --package finstack-valuations --features dhat-heap --bench bond_pric
 ```
 
 The dhat profiler will generate `dhat-heap.json` containing:
+
 - Total allocation counts and bytes
 - Peak memory usage (RSS)
 - Top allocation sites by count and size
 - Call stacks for each allocation
 
 View the report:
+
 ```bash
 # Use dhat viewer (install: cargo install dhat-viewer)
 dhat-viewer dhat-heap.json
@@ -334,6 +353,7 @@ cargo flamegraph --bench bond_pricing --package finstack-valuations
 ### Before/After Comparison Workflow
 
 1. **Establish pre-optimization baseline:**
+
    ```bash
    cargo bench --package finstack-valuations -- --save-baseline pre-opt
    ```
@@ -341,6 +361,7 @@ cargo flamegraph --bench bond_pricing --package finstack-valuations
 2. **Make performance changes**
 
 3. **Compare against baseline:**
+
    ```bash
    cargo bench --package finstack-valuations -- --baseline pre-opt
    ```
@@ -369,4 +390,3 @@ cargo bench --package finstack-valuations --bench bucketed_risk
 - Criterion automatically determines sample size for statistical significance
 - Use `--quick` for faster iteration during development
 - For production builds, consider PGO (Profile-Guided Optimization) with release-perf profile
-

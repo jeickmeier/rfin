@@ -7,7 +7,7 @@
 //! Exposed metrics:
 //! - price per share
 //! - shares
-//! - dividend yield  
+//! - dividend yield
 //! - forward price
 
 mod delta;

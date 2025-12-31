@@ -41,7 +41,7 @@ impl FxOptionParams {
         Self::new(strike, expiry, OptionType::Call, notional)
     }
 
-    /// Create European put option parameters  
+    /// Create European put option parameters
     pub fn european_put(strike: f64, expiry: Date, notional: Money) -> Self {
         Self::new(strike, expiry, OptionType::Put, notional)
     }

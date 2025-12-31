@@ -139,5 +139,3 @@ Note: The crate is large (637 .rs files). Follow existing patterns within the re
 - **Determinism**: All paths (serial/parallel, analytical/MC with fixed seeds) produce identical results.
 
 This guide applies to the `valuations/` crate only. See `core/` rules for foundational types and policies, and bindings rules for Python/WASM parity.
-
-

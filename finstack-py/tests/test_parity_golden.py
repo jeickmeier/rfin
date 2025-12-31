@@ -9,11 +9,12 @@ from datetime import date
 import json
 from pathlib import Path
 
+import pytest
+
 from finstack.core.currency import Currency
 from finstack.core.dates import DayCount, DayCountContext, build_periods
 from finstack.core.market_data import DiscountCurve, FxMatrix
 from finstack.core.money import Money
-import pytest
 
 # Load golden values
 GOLDEN_VALUES_PATH = Path(__file__).parent.parent.parent / "tests" / "golden_values.json"

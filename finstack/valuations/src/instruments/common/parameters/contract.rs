@@ -46,7 +46,7 @@ impl Default for ContractSpec {
 pub struct ScheduleSpec {
     /// Start date for the schedule
     pub start: Date,
-    /// End date for the schedule  
+    /// End date for the schedule
     pub end: Date,
     /// Payment frequency
     pub frequency: Tenor,

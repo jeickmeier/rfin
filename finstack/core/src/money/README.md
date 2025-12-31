@@ -50,9 +50,9 @@ All public APIs are documented with examples in the Rustdoc comments; this READM
 ### Key APIs
 
 - **Construction**
-  - `Money::new(amount: f64, currency: Currency)`  
+  - `Money::new(amount: f64, currency: Currency)`
     Uses ISO‑4217 minor units and **bankers rounding** by default.
-  - `Money::new(amount: f64, (currency: Currency, cfg: &FinstackConfig))`  
+  - `Money::new(amount: f64, (currency: Currency, cfg: &FinstackConfig))`
     Uses ingest‑scale and rounding mode from `cfg`.
   - `From<(f64, Currency)>`, `From<(i64, Currency)>`, `From<(u64, Currency)>` for convenient tuple construction.
   - `money!(amount, USD)` macro shorthand.
@@ -375,16 +375,3 @@ When extending this module, keep in mind the core invariants from the `core` rul
   - Keep public APIs stable and easily mirrored in Python/WASM bindings (avoid complex generics or non‑serde‑friendly shapes for surface types).
 
 By following these patterns, new features in `core::money` will remain **deterministic, currency‑safe, and binding‑friendly** while fitting cleanly into the rest of the Finstack core.
-
-
-
-
-
-
-
-
-
-
-
-
-

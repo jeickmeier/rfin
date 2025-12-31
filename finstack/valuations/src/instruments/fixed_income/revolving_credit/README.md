@@ -3,6 +3,7 @@
 This module implements a complete, production‑grade revolving credit facility (RCF) with deterministic and stochastic utilization modeling, fixed or floating base rates, tiered fees, and optional credit‑risk survival weighting. A single unified implementation drives both pricing modes and cashflow generation to ensure parity, determinism, and maintainability.
 
 ### Key capabilities
+
 - Deterministic draws/repays and full cashflow schedule generation
 - Stochastic utilization via a 3‑factor Monte Carlo (utilization, interest rate, credit spread) with correlation
 - Fixed or floating base rates (forward curve projection, margin, optional floors)
@@ -51,6 +52,7 @@ let facility = RevolvingCredit::builder()
 ```
 
 Inputs of note:
+
 - Base rate: `Fixed { rate }` or `Floating { index_id, margin_bp, reset_freq, floor_bp }`
 - Fees: `upfront_fee`, `commitment_fee_tiers`, `usage_fee_tiers`, `facility_fee_bp`
 - Draw/repay regime: `DrawRepaySpec::Deterministic(Vec<DrawRepayEvent>)` or `DrawRepaySpec::Stochastic(...)`
@@ -85,6 +87,7 @@ All paths produce a `CashFlowSchedule` which downstream metrics and exporters co
 ## Cashflows and sign conventions
 
 From the lender’s perspective:
+
 - Principal draws: negative cashflows (capital deployment)
 - Principal repayments: positive cashflows
 - Interest and all fees: positive cashflows at period end
@@ -98,7 +101,9 @@ Flow ordering at the same date is deterministic: interest/reset → fees → amo
 ## Mathematics
 
 ### Interest and fees
+
 For a sub‑period \([t_i, t_{i+1}]\) with accrual factor \(dt\):
+
 - Interest (fixed): \(I = B_\text{drawn} \cdot r \cdot dt\)
 - Interest (floating): \(I = B_\text{drawn} \cdot \max(\text{index}, \text{floor}) + \text{margin}\) applied over \(dt\)
 - Commitment fee: \(F_c = (C - B_\text{drawn}) \cdot \text{commitment\_bps} \cdot 10^{-4} \cdot dt\)
@@ -108,6 +113,7 @@ For a sub‑period \([t_i, t_{i+1}]\) with accrual factor \(dt\):
 Tiered fees choose the highest tier where \( \text{utilization} \ge \text{threshold} \).
 
 ### Credit survival weighting
+
 PV uses discount factors and survival probabilities:
 \[ \mathrm{PV} = \sum_i \left( \mathrm{CF}_i \cdot \mathrm{DF}(t_i) \cdot \mathrm{SP}(t_i) \right) + \mathrm{PV}_\text{upfront} \]
 
@@ -115,6 +121,7 @@ PV uses discount factors and survival probabilities:
 - Dynamic survival from credit spread path: hazard is mapped via \( \lambda_t \approx \frac{s_t}{1 - R} \) and integrated cumulatively to get \(\mathrm{SP}(t) = e^{-\int_0^t \lambda_u du}\) with linear interpolation between simulated grid points.
 
 ### Monte Carlo processes (stochastic mode)
+
 - Utilization: mean‑reverting OU on a real line, output clamped to \([0,1]\)
 - Short rate:
   - Deterministic: read from forward curve by period (rate locking per step)
@@ -183,10 +190,12 @@ Payment schedules (and floating reset schedules) are built from `commitment_date
 ## Metrics
 
 Standard risk metrics are available via the valuations registry:
+
 - DV01 and CS01: unified spread sensitivity using symmetric bumping
 - Theta and Bucketed DV01: via common metric helpers
 
 Facility‑specific metrics:
+
 - `utilization_rate`
 - `available_capacity`
 - `weighted_average_cost` (approximate)
@@ -242,6 +251,7 @@ Python bindings expose the same shapes and behaviors. Example scripts illustrati
 ## Extensibility
 
 The design allows for:
+
 - Additional utilization processes (e.g., jump‑diffusion, regime‑switching)
 - Alternative credit or rate models
 - More fee types and covenant modeling
@@ -249,18 +259,20 @@ The design allows for:
 
 All extensions should preserve the unified engine paradigm to maintain parity and keep PV/metrics consistent across modes.
 
-
 ## Pricing Methodology
+
 - Deterministic engine: generates draws/repays, fees, and interest using schedules and rate specs; discounts cashflows via curve.
 - Stochastic engine (requires `mc`): simulates utilization, rates, and credit spread factors with correlation; maps to cashflows via unified engine.
 - Hazard/survival weighting optionally applied for credit risk; supports fee tiers and PIK/cash splits where configured.
 
 ## Metrics
+
 - PV, facility-level DV01/CS01/Theta/Bucketed DV01 via generic calculators using cashflow outputs.
 - Utilization metrics (peak/average), fee attribution, and carry/roll analyses.
 - Scenario metrics from stochastic paths: distribution of utilization, loss-adjusted PV, and covenant breach statistics when modeled.
 
 ## Future Enhancements
+
 - Add GAAP/IFRS effective interest treatment and CECL/expected-loss hooks.
 - Enrich stochastic engine with jump/regime processes and multi-currency support with FX hedging.
 - Provide prebuilt stress packs (utilization/rate/credit) and visualization for drawdown/liquidity analytics.

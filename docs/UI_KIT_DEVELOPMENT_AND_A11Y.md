@@ -70,7 +70,7 @@ Support both light and dark themes with CSS variables:
   --color-positive: #16a34a;
   --color-negative: #dc2626;
   --color-neutral: #6b7280;
-  
+
   /* Risk heatmap colors */
   --heatmap-low: #10b981;
   --heatmap-mid: #f59e0b;
@@ -85,6 +85,3 @@ Support both light and dark themes with CSS variables:
 ```
 
 Use design tokens consistently across charts, tables, and text to provide a cohesive visual language.
-
-
-

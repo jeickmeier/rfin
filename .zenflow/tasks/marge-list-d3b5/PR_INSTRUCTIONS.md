@@ -106,7 +106,7 @@ Reviewers should verify:
 
 Once all reviews are approved and CI passes:
 
-1. **Choose merge strategy**: 
+1. **Choose merge strategy**:
    - **Squash and merge** (recommended): Creates a single commit with all changes
    - **Merge commit**: Preserves all 21 individual commits
    - **Rebase and merge**: Replays commits on top of main
@@ -114,7 +114,7 @@ Once all reviews are approved and CI passes:
 2. **Update commit message** (if squashing):
    ```
    Marge List: Code Consolidation Refactoring (#XXX)
-   
+
    Reduces code duplication by 500+ lines through unified abstractions:
    - Phase 1: Market data curve restoration (327→80 lines)
    - Phase 2: Monte Carlo payoff consolidation
@@ -122,7 +122,7 @@ Once all reviews are approved and CI passes:
    - Phase 4: Trait-based market data extraction
    - Phase 5: Waterfall execution unification
    - Phase 6: JSON envelope boilerplate removal
-   
+
    All changes maintain 100% backward compatibility with zero behavioral changes.
    Tests: 6155/6155 passing | Warnings: 0 | Performance: 0% regression
    ```

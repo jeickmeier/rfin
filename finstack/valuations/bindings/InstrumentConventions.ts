@@ -17,19 +17,19 @@
  * };
  * ```
  */
-export type InstrumentConventions = { 
+export type InstrumentConventions = {
 /**
  * Settlement lag in business days from trade date (e.g., 0 for T+0, 2 for T+2)
  */
-settlement_days: number | null, 
+settlement_days: number | null,
 /**
  * Payment delay in business days after period end
  */
-payment_delay_days: number | null, 
+payment_delay_days: number | null,
 /**
  * Reset lag in business days for floating rate fixings
  */
-reset_lag: number | null, 
+reset_lag: number | null,
 /**
  * Calendar identifier for schedule generation and business day adjustments
  */

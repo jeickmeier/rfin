@@ -3,6 +3,7 @@
 ## Summary
 
 Deliver the first full vertical slice for **Basic Rates**, covering a narrow but complete feature set:
+
 - Bond and Interest Rate Swap instrument panels.
 - Discount and Forward curve calibration views.
 - Curve charting and cashflow visualization.

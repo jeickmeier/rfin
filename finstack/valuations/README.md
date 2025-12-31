@@ -7,6 +7,7 @@ Production-ready financial instrument pricing, risk analytics, and cashflow gene
 The `finstack-valuations` crate provides a comprehensive valuation engine for fixed income, derivatives, credit, and structured products. Built on Decimal-based numerics and explicit currency handling, it ensures reproducible, audit-quality pricing and risk metrics suitable for production risk systems, regulatory reporting, and portfolio analytics.
 
 **Core Capabilities:**
+
 - **40+ Instrument Types**: Fixed income, rates/credit/equity/FX derivatives, exotic options, structured credit
 - **Analytical & Numerical Pricing**: Black-Scholes, SABR, tree methods, Monte Carlo (with LSM for early exercise)
 - **Comprehensive Risk Metrics**: Greeks, DV01/CS01, yields, spreads, convexity, theta, bucketed sensitivities
@@ -27,12 +28,14 @@ The `finstack-valuations` crate provides a comprehensive valuation engine for fi
 - ⏱️ **Estimated Migration Time**: 2-4 hours for most applications
 
 **Key Changes**:
+
 - 🔴 **Metrics now use strict mode by default** - Errors instead of `0.0` for unknown/failed metrics
 - 🔴 **FX settlement dates corrected** - Now uses joint business day logic (ISDA-compliant)
 - 🟠 **Calendar errors no longer silent** - Unknown calendar IDs return errors
 - 🟡 **Panicking constructors removed** - Use `try_new()` instead of `new()` methods
 
 **Quick Start Migration**:
+
 1. Add error handling for `compute()` calls and prefer `Instrument::price_with_metrics()` for strict pricing + metrics
 2. Update FX-related tests if using multi-currency instruments
 3. Replace removed `new()` constructors with `try_new()` variants
@@ -114,22 +117,26 @@ finstack-valuations/
 Over 40 instrument types with consistent pricing and risk interfaces:
 
 **Fixed Income**
+
 - Bonds (fixed, floating, callable, putable, amortizing, convertible)
 - Inflation-linked bonds (TIPS)
 - Term loans, revolving credit
 
 **Interest Rate Derivatives**
+
 - Interest rate swaps (vanilla, basis, inflation)
 - Swaptions (European, Bermudan)
 - Caps, floors, FRAs
 - Interest rate futures
 
 **Credit Derivatives**
+
 - Credit default swaps (single-name, indices, tranches)
 - CDS options
 - Structured credit (ABS, RMBS, CMBS, CLO)
 
 **Equity & FX Derivatives**
+
 - Vanilla options (equity and FX)
 - Exotic options (Asian, barrier, lookback, autocallable, quanto, cliquet)
 - Total return swaps
@@ -142,6 +149,7 @@ Over 40 instrument types with consistent pricing and risk interfaces:
 ### 2. Pricing Models
 
 **Analytical Models**
+
 - Black-Scholes-Merton (equity/FX options)
 - Black (1976) for caps, floors, swaptions
 - Garman-Kohlhagen (FX options)
@@ -150,11 +158,13 @@ Over 40 instrument types with consistent pricing and risk interfaces:
 - Asian approximations (Turnbull-Wakeman, geometric averaging)
 
 **Tree Methods**
+
 - Binomial trees (Cox-Ross-Rubinstein, Jarrow-Rudd, Tian, LR)
 - Trinomial trees (short rate models, convertibles)
 - Hull-White interest rate trees
 
 **Monte Carlo** (requires `mc` feature)
+
 - Processes: GBM, Heston, CIR, Ornstein-Uhlenbeck, jump diffusion, Schwartz-Smith
 - Discretization: Euler, Milstein, exact (GBM/HW1F), QE (Heston/CIR)
 - Longstaff-Schwartz (LSM) for American/Bermudan exercise
@@ -165,6 +175,7 @@ Over 40 instrument types with consistent pricing and risk interfaces:
 ### 3. Risk Metrics
 
 **Fixed Income**
+
 - YTM (yield to maturity)
 - Duration (Macaulay, modified)
 - Convexity
@@ -173,11 +184,13 @@ Over 40 instrument types with consistent pricing and risk interfaces:
 - Z-spread, I-spread, OAS (option-adjusted spread)
 
 **Options**
+
 - Delta, Gamma, Vega, Theta, Rho
 - Volga, Vanna
 - Charm, Vomma
 
 **Swaps**
+
 - Par rate
 - DV01 (parallel and bucketed)
 - Annuity
@@ -207,23 +220,27 @@ Composable builder pattern for complex schedules:
 Bootstrap and optimize curves from market quotes:
 
 **Quote Types**
+
 - Deposit rates (money market)
 - OIS, LIBOR, SOFR swaps
 - CDS spreads (single-name and indices)
 - Option implied volatilities (caps, swaptions, equity)
 
 **Calibration Methods**
+
 - Linear bootstrapping (exact fit to quotes)
 - Cubic spline bootstrapping (smooth interpolation)
 - Levenberg-Marquardt optimization (minimize squared errors)
 
 **Curve Types**
+
 - Discount curves (zero-coupon rates)
 - Forward curves (floating rate projection)
 - Hazard curves (credit default intensity)
 - Volatility surfaces (strike/expiry grid)
 
 **Outputs**
+
 - Calibrated curves with JSON serialization
 - Detailed calibration reports (quote errors, solver diagnostics)
 - Jacobian matrices for sensitivity analysis
@@ -237,11 +254,13 @@ Bootstrap and optimize curves from market quotes:
 Decompose daily mark-to-market changes into constituent factors:
 
 **Three Methodologies**
+
 - **Parallel**: Independent factor isolation (5-15% residual for large moves)
 - **Waterfall**: Sequential application (residual < 0.01%, guaranteed sum)
 - **Metrics-Based**: Fast linear approximation via pre-computed metrics (2-10% residual with second-order terms)
 
 **Attribution Factors**
+
 1. Carry (time decay, theta)
 2. Rates curves (discount and forward curve shifts)
 3. Credit curves (hazard curve shifts)
@@ -253,6 +272,7 @@ Decompose daily mark-to-market changes into constituent factors:
 9. Market scalars (spot prices, dividends, indices)
 
 **Detailed Breakdowns**
+
 - Per-curve and per-tenor P&L
 - Per-currency-pair FX attribution
 - Per-surface volatility attribution
@@ -267,16 +287,19 @@ Decompose daily mark-to-market changes into constituent factors:
 Evaluate financial and non-financial covenants with cure periods and consequences:
 
 **Covenant Types**
+
 - Financial: leverage, coverage, liquidity, asset coverage
 - Non-financial: affirmative and negative covenants
 - Custom: user-defined metrics and evaluators
 
 **Consequence Framework**
+
 - Rate increases, cash sweeps, distribution blocks
 - Collateral requirements, maturity acceleration
 - Multi-level escalation support
 
 **Forward Projection**
+
 - Deterministic projection via time-series models
 - Stochastic (MC) with breach probability estimation
 - Headroom analytics (warning periods, minimum cushion)
@@ -290,6 +313,7 @@ Evaluate financial and non-financial covenants with cure periods and consequence
 Standardized result envelopes with metadata stamping:
 
 **ValuationResult Structure**
+
 - Present value (currency-safe `Money` type)
 - Risk metrics (key-value pairs, extensible)
 - Metadata (rounding policy, numeric mode, FX policy, timing)
@@ -297,6 +321,7 @@ Standardized result envelopes with metadata stamping:
 - Optional explanation (computation traces)
 
 **DataFrame Exports**
+
 - Flat row representation for analytics
 - Polars/CSV/Parquet interoperability
 - Promoted common metrics (DV01, convexity, duration, YTM)
@@ -463,6 +488,7 @@ All pricing and risk calculations are deterministic by default:
 5. **Stable Ordering**: Cashflows, periods, and aggregation use deterministic sorting
 
 **Metadata Stamping**: Every result includes:
+
 - Numeric mode (Decimal vs f64)
 - Rounding context and precision
 - FX policy for cross-currency calculations
@@ -480,6 +506,7 @@ All pricing and risk calculations are deterministic by default:
 - **Fast Paths**: Optimized NPV-only calculations for portfolio aggregation
 
 **Benchmarks** (M1 MacBook Pro, release build):
+
 - Bond pricing (NPV only): ~10-50 μs
 - Bond pricing + 5 metrics: ~100-200 μs
 - Swap pricing (10Y): ~50-100 μs
@@ -510,6 +537,7 @@ finstack-valuations = { version = "0.1", features = ["mc", "serde", "parallel"] 
 ```
 
 **Available Features**:
+
 - `mc`: Enable Monte Carlo pricing (~200KB binary increase)
 - `serde`: Enable JSON serialization/deserialization
 - `parallel`: Enable Rayon parallelism (deterministic results maintained)
@@ -549,12 +577,14 @@ print(f"DV01: ${result.measures['dv01']:.2f}")
 ```
 
 **Features**:
+
 - Wheels for Linux, macOS, Windows (x86_64, aarch64)
 - Pydantic v2 models mirror Rust serde shapes
 - Heavy compute releases the GIL for parallelism
 - DataFrame-friendly outputs (Polars/pandas interop)
 
 **Installation**:
+
 ```bash
 pip install finstack
 ```
@@ -585,12 +615,14 @@ console.log(`YTM: ${(result.measures.ytm * 100).toFixed(2)}%`);
 ```
 
 **Features**:
+
 - JSON IO parity with Rust serde
 - Feature flags for tree-shaking and small bundles
 - Same determinism guarantees as native Rust
 - SIMD support where available
 
 **Installation**:
+
 ```bash
 npm install finstack-wasm
 ```

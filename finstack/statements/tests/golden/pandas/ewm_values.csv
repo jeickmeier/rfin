@@ -2,5 +2,3 @@ test_id,alpha,adjust,value_1,value_2,value_3,value_4,expected_ewm_mean,expected_
 ewm_001,0.3,0,0.10,0.05,0.15,0.08,0.09715,0.0010044,Non-bias corrected (pandas adjust=False)
 ewm_002,0.5,0,100.0,110.0,105.0,115.0,108.4375,43.359375,Higher alpha gives more weight to recent
 ewm_003,0.1,0,1.0,2.0,3.0,4.0,1.639,0.5314,Low alpha smooth series
-
-

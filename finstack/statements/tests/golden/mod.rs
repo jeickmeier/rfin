@@ -7,4 +7,3 @@
 
 mod golden_tests;
 mod golden_parity;
-

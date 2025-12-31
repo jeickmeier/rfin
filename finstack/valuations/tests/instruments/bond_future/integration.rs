@@ -12,7 +12,9 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::fixed_income::bond_future::BondFuturePricer;
-use finstack_valuations::instruments::fixed_income::bond_future::{BondFuture, DeliverableBond, Position};
+use finstack_valuations::instruments::fixed_income::bond_future::{
+    BondFuture, DeliverableBond, Position,
+};
 use finstack_valuations::pricer::{create_standard_registry, InstrumentType, ModelKey};
 use time::macros::date;
 

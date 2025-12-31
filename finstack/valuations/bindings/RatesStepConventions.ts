@@ -6,7 +6,7 @@
  * This is a Bloomberg/FinCad-style design: curve construction uses a small set of
  * *step-level* conventions (e.g., curve time-axis day count).
  */
-export type RatesStepConventions = { 
+export type RatesStepConventions = {
 /**
  * Day count used to map dates to year fractions for curve knot times.
  */

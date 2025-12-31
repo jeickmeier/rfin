@@ -7,7 +7,7 @@
 //!
 //! ```rust
 //! use finstack_valuations::prelude::*;
-//! 
+//!
 //! let registry = create_standard_registry();
 //! let bond = Bond::fixed_rate(
 //!     "BOND-001",
@@ -22,19 +22,15 @@
 
 pub use crate::instruments::{Attributes, Instrument};
 
-pub use crate::pricer::{
-    create_standard_registry, InstrumentType, ModelKey, PricerRegistry,
-};
+pub use crate::pricer::{create_standard_registry, InstrumentType, ModelKey, PricerRegistry};
 
-pub use crate::metrics::{
-    standard_registry, MetricContext, MetricId, MetricRegistry,
-};
+pub use crate::metrics::{standard_registry, MetricContext, MetricId, MetricRegistry};
 
 pub use crate::results::{ResultsMeta, ValuationResult};
 
 pub use crate::instruments::{
-    Bond, CreditDefaultSwap, Deposit, EquityOption, FxForward, FxOption, FxSwap,
-    InterestRateSwap, Repo, Swaption,
+    Bond, CreditDefaultSwap, Deposit, EquityOption, FxForward, FxOption, FxSwap, InterestRateSwap,
+    Repo, Swaption,
 };
 
 pub use finstack_core::prelude::*;

@@ -162,7 +162,7 @@ pub enum EnumName {
     ///
     /// More details about behavior and constraints.
     VariantA(TypeA),
-    
+
     /// Description of this variant and when to use it.
     ///
     /// More details about behavior and constraints.
@@ -419,7 +419,7 @@ Traits require documentation similar to structs, plus:
 pub trait TraitName {
     /// Description of required method
     fn method(&self) -> ReturnType;
-    
+
     /// Description of provided method with default implementation
     fn provided_method(&self) -> bool {
         true
@@ -604,7 +604,7 @@ pub enum MarketDataError {
         /// The ID of the missing curve
         curve_id: String,
     },
-    
+
     /// Interpolation failed due to invalid input.
     ///
     /// This can occur when querying outside the valid range with
@@ -853,7 +853,7 @@ For implementations of industry standards, reference authoritative sources:
 /// Implements the official NYSE trading holiday schedule including:
 /// - New Year's Day
 /// - Martin Luther King Jr. Day
-/// - Presidents' Day  
+/// - Presidents' Day
 /// - Good Friday
 /// - Memorial Day
 /// - Juneteenth National Independence Day (since 2021)

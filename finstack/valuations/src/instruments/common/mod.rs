@@ -44,6 +44,9 @@ pub(crate) mod period_pv;
 pub use dependencies::{FxPair, InstrumentDependencies};
 #[doc(hidden)]
 pub use discountable::Discountable;
+/// Re-export resolve_calendar for backward compatibility with tests.
+#[doc(hidden)]
+pub use finstack_core::dates::fx::resolve_calendar;
 #[doc(hidden)]
 pub use fx_dates::{
     add_joint_business_days, add_joint_business_days_with_calendars, adjust_joint_calendar,
@@ -51,9 +54,6 @@ pub use fx_dates::{
 };
 #[doc(hidden)]
 pub use helpers::validate_currency_consistency;
-/// Re-export resolve_calendar for backward compatibility with tests.
-#[doc(hidden)]
-pub use finstack_core::dates::fx::resolve_calendar;
 #[doc(hidden)]
 pub use models::{
     d1, d1_d2, d1_d2_black76, d2, norm_cdf, norm_pdf, short_rate_keys, single_factor_equity_state,

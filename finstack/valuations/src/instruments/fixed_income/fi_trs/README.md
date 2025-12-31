@@ -1,18 +1,21 @@
 # Fixed Income Index Total Return Swap (TRS)
 
 ## Features
+
 - Synthetic fixed income index exposure via total return swap
 - Supports receive/pay total return via `TrsSide`
 - Yield/carry forward model for accurate pricing
 - ETF replication convenience constructor
 
 ## Methodology & References
+
 - PV = PV(total-return leg) − PV(financing leg)
 - Forward price model: F_t = S_0 × e^{(r-y)t}
 - Total return = Price return + Income return (carry)
 - Deterministic curves and index prices; no stochastic credit modeling
 
 ## Usage Example
+
 ```rust
 use finstack_valuations::instruments::fixed_income::fi_trs::FIIndexTotalReturnSwap;
 
@@ -82,6 +85,7 @@ let total_return_pv = trs.pv_total_return_leg(&market_context, as_of_date)?;
 ```
 
 ## ETF Replication (Shorthand)
+
 ```rust
 use finstack_valuations::instruments::fixed_income::fi_trs::FIIndexTotalReturnSwap;
 
@@ -106,6 +110,7 @@ Fixed income index TRS implement full margin support following **ISDA CSA** stan
 | Interest Rate | IR delta (based on index duration) |
 
 ## Metrics
+
 - **DurationDelta**: Sensitivity to index level (duration-weighted, 1bp yield change)
 - **DV01**: Sensitivity to financing rate
 - **BucketedDV01**: Key-rate DV01 on financing leg
@@ -113,6 +118,7 @@ Fixed income index TRS implement full margin support following **ISDA CSA** stan
 - **FinancingAnnuity**: PV01 of financing leg
 
 ## Limitations / Known Issues
+
 - Total-return path is deterministic from supplied prices/yields
 - Index duration is estimated; actual index duration from market data would improve SIMM accuracy
 - Does not model early termination or bespoke fee structures
@@ -122,7 +128,7 @@ Fixed income index TRS implement full margin support following **ISDA CSA** stan
 Currently, the underlying is modeled as a single index (e.g., "LUACTRUU" or "LQD"). In reality, fixed income indices represent baskets of constituent bonds:
 
 - **LQD**: ~2,500 investment-grade corporate bonds
-- **HYG**: ~1,200 high-yield corporate bonds  
+- **HYG**: ~1,200 high-yield corporate bonds
 - **AGG**: ~12,000+ bonds (Treasuries, MBS, corporates, agencies)
 - **TLT**: ~40 long-dated Treasury bonds
 
@@ -145,6 +151,7 @@ Currently, the underlying is modeled as a single index (e.g., "LUACTRUU" or "LQD
    - Tracking difference: Index NAV vs. synthetic basket value
 
 4. **Credit Risk Decomposition**
+
    ```rust
    // Future API sketch
    let basket = BondBasket::load_from_csv("lqd_constituents.csv")?;
@@ -152,7 +159,7 @@ Currently, the underlying is modeled as a single index (e.g., "LUACTRUU" or "LQD
        .underlying_basket(basket)
        // ...
        .build()?;
-   
+
    // Constituent-level metrics
    let dv01_by_bond = trs.dv01_by_constituent(&ctx)?;
    let dv01_by_rating = trs.dv01_by_rating_bucket(&ctx)?;
@@ -166,4 +173,3 @@ Currently, the underlying is modeled as a single index (e.g., "LUACTRUU" or "LQD
    - Yield-to-worst, yield-to-maturity
    - Average credit rating
    - Spread duration by rating tier
-

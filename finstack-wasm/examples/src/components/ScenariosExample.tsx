@@ -820,7 +820,7 @@ const operations = [
     100.0
   ).toJSON(),
   JsOperationSpec.equityPricePct(["SPY"], -25.0).toJSON(),
-  
+
   // Statement shocks
   JsOperationSpec.stmtForecastPercent("Revenue", -10.0).toJSON(),
   JsOperationSpec.stmtForecastPercent("COGS", 5.0).toJSON()

@@ -72,6 +72,7 @@ println!("Total value: {}", valuation.total_base_ccy);
 ### Entity Model
 
 Portfolios use an entity-based structure:
+
 - **Entity**: Represents a company, fund, or legal entity that owns positions
 - **Dummy Entity**: Special entity (`DUMMY_ENTITY_ID`) for standalone instruments (derivatives, FX, etc.)
 - **Position**: Links an entity to an instrument with quantity and tags
@@ -110,6 +111,7 @@ Positions support multiple unit types with unit-aware scaling:
 ### Metrics Aggregation
 
 Metrics are classified as:
+
 - **Summable**: DV01, CS01, Delta, Gamma, Vega, Theta, etc. (aggregate across positions)
 - **Non-summable**: YTM, Duration, Spread, etc. (store by position only)
 
@@ -132,7 +134,7 @@ let scenario = ScenarioSpec {
     ..Default::default()
 };
 
-let (stressed_valuation, report) = 
+let (stressed_valuation, report) =
     apply_and_revalue(&portfolio, &scenario, &market, &config)?;
 ```
 
@@ -192,8 +194,9 @@ Portfolio aggregation uses **compensated summation** (Neumaier algorithm) to mai
 - **Regulatory reporting** where aggregate PV must match position-level sums within tight tolerances
 
 The implementation automatically uses Neumaier summation for:
+
 - Portfolio total value aggregation
-- Entity-level value aggregation  
+- Entity-level value aggregation
 - Metrics aggregation (DV01, CS01, etc.)
 
 Non-finite values (NaN, Inf) in metrics are automatically filtered out with warnings logged.
@@ -221,6 +224,7 @@ let portfolio = Portfolio::from_spec(spec)?;
 ## Future Enhancements
 
 The following features are planned for future releases:
+
 - **Full metrics computation**: Integrate with `price_with_metrics` for complete risk measures
 - **Statement aggregation**: Attach financial models to entities and aggregate statements
 - **Book hierarchy**: Optional nested book/folder structure for organization
@@ -229,6 +233,7 @@ The following features are planned for future releases:
 ## Examples
 
 See `examples/rust/portfolio_example.rs` for a comprehensive example demonstrating:
+
 - Entity-based and standalone positions
 - Cross-currency aggregation
 - Attribute-based grouping
@@ -236,6 +241,7 @@ See `examples/rust/portfolio_example.rs` for a comprehensive example demonstrati
 - DataFrame exports
 
 Run with:
+
 ```bash
 cargo run --example portfolio_example
 ```
@@ -243,6 +249,7 @@ cargo run --example portfolio_example
 ## Testing
 
 Run tests with:
+
 ```bash
 cargo test --package finstack-portfolio
 ```
@@ -259,4 +266,3 @@ All tests include market data setup and demonstrate real valuation workflows.
 ## License
 
 Licensed under Apache-2.0, consistent with the Finstack ecosystem.
-

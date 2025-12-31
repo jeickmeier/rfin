@@ -43,7 +43,7 @@ pub use enums::TrancheSeniority as Seniority;
 pub use pool::AssetPool as Pool;
 pub use pool::{
     calculate_pool_stats, AssetPool, ConcentrationCheckResult, ConcentrationViolation, PoolAsset,
-    PoolStats, RepLine, ReinvestmentCriteria, ReinvestmentPeriod,
+    PoolStats, ReinvestmentCriteria, ReinvestmentPeriod, RepLine,
 };
 pub use pool_state::PoolState;
 

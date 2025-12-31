@@ -39,7 +39,7 @@ The design should make it easy to add these later without breaking existing APIs
   - `MetricId` – `Cow<'static, str>`-backed identifier for all instrument-level metrics.
   - Standard metrics include:
     - `MetricId::DurationMac` ("duration_mac") – Macaulay duration
-    - `MetricId::DurationMod` ("duration_mod") – Modified duration  
+    - `MetricId::DurationMod` ("duration_mod") – Modified duration
     - `MetricId::Ytm` ("ytm") – Yield to maturity
     - `MetricId::Dv01` ("dv01") – Dollar value of 01
     - `MetricId::WAL` ("wal") – Weighted average life
@@ -69,23 +69,23 @@ The design should make it easy to add these later without breaking existing APIs
         PortfolioOptimizationResult,
         PortfolioOptimizer,
         DefaultLpOptimizer,
-        
+
         // Trade universe types
         TradeUniverse,
         CandidatePosition,
         PositionFilter,
         WeightingScheme,
-        
+
         // Metric and expression types
         MetricExpr,
         PerPositionMetric,
         MissingMetricPolicy,
-        
+
         // Objective and constraint types
         Objective,
         Constraint,
         Inequality,
-        
+
         // Output types
         TradeSpec,
         TradeDirection,
@@ -155,30 +155,30 @@ use finstack_valuations::instruments::common::traits::Instrument;
 use std::sync::Arc;
 
 /// A candidate instrument that could be added to the portfolio.
-/// 
+///
 /// This represents an instrument not currently held but available for trading.
 /// The optimizer can allocate weight to candidates (up to max_weight).
 #[derive(Clone, Debug)]
 pub struct CandidatePosition {
     /// Unique identifier for this candidate (becomes position_id if traded).
     pub id: crate::types::PositionId,
-    
+
     /// Entity that would own this position.
     pub entity_id: crate::types::EntityId,
-    
+
     /// The instrument that could be traded.
     pub instrument: Arc<dyn Instrument>,
-    
+
     /// Unit type for quantity interpretation.
     pub unit: crate::position::PositionUnit,
-    
+
     /// Tags for the candidate (used in constraints like TagExposureLimit).
     pub tags: indexmap::IndexMap<String, String>,
-    
+
     /// Maximum weight this candidate can receive (default: 1.0 = no limit).
     /// Useful for limiting exposure to any single new position.
     pub max_weight: f64,
-    
+
     /// Minimum weight if included (for minimum position size constraints).
     /// Set to 0.0 to allow the optimizer to skip this candidate entirely.
     pub min_weight: f64,
@@ -202,19 +202,19 @@ impl CandidatePosition {
             min_weight: 0.0,
         }
     }
-    
+
     /// Add a tag to the candidate.
     pub fn with_tag(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.tags.insert(key.into(), value.into());
         self
     }
-    
+
     /// Set maximum weight for this candidate.
     pub fn with_max_weight(mut self, max: f64) -> Self {
         self.max_weight = max;
         self
     }
-    
+
     /// Set minimum weight (if included) for this candidate.
     pub fn with_min_weight(mut self, min: f64) -> Self {
         self.min_weight = min;
@@ -223,19 +223,19 @@ impl CandidatePosition {
 }
 
 /// Defines which instruments the optimizer can trade.
-/// 
+///
 /// The trade universe consists of:
 /// 1. **Tradeable positions**: Existing portfolio positions that can be adjusted
 /// 2. **Held positions**: Existing positions locked at current weight (excluded from optimization)
 /// 3. **Candidate positions**: New instruments that could be added to the portfolio
-/// 
+///
 /// # Examples
-/// 
+///
 /// ## Default: Trade entire portfolio
 /// ```rust,ignore
 /// let universe = TradeUniverse::default(); // All existing positions tradeable
 /// ```
-/// 
+///
 /// ## Add hedging candidates
 /// ```rust,ignore
 /// let universe = TradeUniverse::default()
@@ -246,13 +246,13 @@ impl CandidatePosition {
 ///         PositionUnit::Notional(Some(Currency::USD)),
 ///     ).with_tag("type", "hedge").with_max_weight(0.10));
 /// ```
-/// 
+///
 /// ## Restrict trading to subset of portfolio
 /// ```rust,ignore
 /// let universe = TradeUniverse::default()
-///     .with_held_positions(PositionFilter::ByTag { 
-///         key: "locked".into(), 
-///         value: "true".into() 
+///     .with_held_positions(PositionFilter::ByTag {
+///         key: "locked".into(),
+///         value: "true".into()
 ///     });
 /// ```
 #[derive(Clone, Debug, Default)]
@@ -261,16 +261,16 @@ pub struct TradeUniverse {
     /// Positions matching this filter have their weights optimized.
     /// Default: All positions are tradeable.
     pub tradeable_filter: PositionFilter,
-    
+
     /// Filter for existing positions that are held constant.
     /// Positions matching this filter keep their current weight.
     /// Takes precedence over tradeable_filter if both match.
     pub held_filter: Option<PositionFilter>,
-    
+
     /// Candidate instruments not currently in the portfolio.
     /// These start with weight 0 and can be added by the optimizer.
     pub candidates: Vec<CandidatePosition>,
-    
+
     /// Whether candidates can receive negative weights (short selling).
     /// Default: false (long-only for new positions).
     pub allow_short_candidates: bool,
@@ -281,7 +281,7 @@ impl TradeUniverse {
     pub fn all_positions() -> Self {
         Self::default()
     }
-    
+
     /// Create a universe with only specific positions tradeable.
     pub fn filtered(filter: PositionFilter) -> Self {
         Self {
@@ -289,31 +289,31 @@ impl TradeUniverse {
             ..Default::default()
         }
     }
-    
+
     /// Add a candidate position to the universe.
     pub fn with_candidate(mut self, candidate: CandidatePosition) -> Self {
         self.candidates.push(candidate);
         self
     }
-    
+
     /// Add multiple candidate positions.
     pub fn with_candidates(mut self, candidates: impl IntoIterator<Item = CandidatePosition>) -> Self {
         self.candidates.extend(candidates);
         self
     }
-    
+
     /// Set positions to hold constant (not trade).
     pub fn with_held_positions(mut self, filter: PositionFilter) -> Self {
         self.held_filter = Some(filter);
         self
     }
-    
+
     /// Allow short selling of candidate positions.
     pub fn allow_shorting_candidates(mut self) -> Self {
         self.allow_short_candidates = true;
         self
     }
-    
+
     /// Check if a position is tradeable.
     pub fn is_tradeable(&self, position: &crate::position::Position) -> bool {
         // Check held filter first (takes precedence)
@@ -352,14 +352,14 @@ fn matches_filter(position: &crate::position::Position, filter: &PositionFilter)
    ```rust
    let universe = TradeUniverse::all_positions()
        .with_candidate(CandidatePosition::new(
-           "SP500_PUT", 
+           "SP500_PUT",
            DUMMY_ENTITY_ID,
            Arc::new(sp500_put_option),
            PositionUnit::Notional(Some(Currency::USD)),
        ).with_tag("type", "hedge").with_max_weight(0.05))
        .with_candidate(CandidatePosition::new(
            "IG_CDS_INDEX",
-           DUMMY_ENTITY_ID,  
+           DUMMY_ENTITY_ID,
            Arc::new(cdx_ig),
            PositionUnit::Notional(Some(Currency::USD)),
        ).with_tag("type", "hedge").with_max_weight(0.10));
@@ -418,7 +418,7 @@ use finstack_valuations::metrics::MetricId;
 pub enum PerPositionMetric {
     /// Directly from ValuationResult::measures using a standard MetricId.
     /// Preferred for compile-time checked metrics.
-    /// 
+    ///
     /// Examples:
     /// - `Metric(MetricId::DurationMod)` for modified duration
     /// - `Metric(MetricId::Ytm)` for yield to maturity
@@ -647,23 +647,23 @@ use finstack_core::config::ResultsMeta;
 pub struct PortfolioOptimizationProblem {
     /// The existing portfolio to optimize.
     pub portfolio: crate::Portfolio,
-    
+
     /// How weights are defined (value-weighted, notional, etc.).
     pub weighting: WeightingScheme,
-    
+
     /// The trade universe: which positions can be traded and candidate instruments.
     /// Default: all existing portfolio positions are tradeable, no candidates.
     pub trade_universe: TradeUniverse,
-    
+
     /// Optimization objective (maximize/minimize a metric expression).
     pub objective: Objective,
-    
+
     /// Constraints on the optimized portfolio.
     pub constraints: Vec<Constraint>,
-    
+
     /// Policy for handling positions missing required metrics.
     pub missing_metric_policy: MissingMetricPolicy,
-    
+
     /// Optional label/metadata for auditability.
     pub label: Option<String>,
     pub meta: indexmap::IndexMap<String, serde_json::Value>,
@@ -686,19 +686,19 @@ impl PortfolioOptimizationProblem {
             meta: indexmap::IndexMap::new(),
         }
     }
-    
+
     /// Set the trade universe.
     pub fn with_trade_universe(mut self, universe: TradeUniverse) -> Self {
         self.trade_universe = universe;
         self
     }
-    
+
     /// Add a constraint.
     pub fn with_constraint(mut self, constraint: Constraint) -> Self {
         self.constraints.push(constraint);
         self
     }
-    
+
     /// Add multiple constraints.
     pub fn with_constraints(mut self, constraints: impl IntoIterator<Item = Constraint>) -> Self {
         self.constraints.extend(constraints);
@@ -711,19 +711,19 @@ impl PortfolioOptimizationProblem {
 pub enum OptimizationStatus {
     /// Found optimal solution.
     Optimal,
-    
+
     /// Found feasible solution but solver stopped early.
     FeasibleButSuboptimal,
-    
+
     /// No feasible solution exists.
     Infeasible {
         /// Constraints that appear to conflict (if determinable).
         conflicting_constraints: Vec<String>,
     },
-    
+
     /// Objective is unbounded.
     Unbounded,
-    
+
     /// Solver error.
     Error { message: String },
 }
@@ -843,7 +843,7 @@ impl PortfolioOptimizationResult {
             .filter_map(|(pos_id, &target_weight)| {
                 let current_weight = self.current_weights.get(pos_id).copied().unwrap_or(0.0);
                 let delta = target_weight - current_weight;
-                
+
                 // Skip positions with negligible change
                 if delta.abs() < 1e-9 {
                     return None;
@@ -852,10 +852,10 @@ impl PortfolioOptimizationResult {
                 // Check if this is an existing position or a candidate
                 let existing_position = self.problem.portfolio.get_position(pos_id.as_str());
                 let is_candidate = existing_position.is_none();
-                
+
                 let current_qty = existing_position.map(|p| p.quantity).unwrap_or(0.0);
                 let target_qty = self.implied_quantities.get(pos_id).copied().unwrap_or(0.0);
-                
+
                 // Determine trade type
                 let trade_type = if is_candidate && target_weight > 1e-9 {
                     TradeType::NewPosition
@@ -864,7 +864,7 @@ impl PortfolioOptimizationResult {
                 } else {
                     TradeType::Existing
                 };
-                
+
                 // Get instrument_id (from existing position or candidate)
                 let instrument_id = existing_position
                     .map(|p| p.instrument_id.clone())
@@ -890,14 +890,14 @@ impl PortfolioOptimizationResult {
                 })
             })
             .collect();
-        
+
         // Sort by absolute delta (largest trades first)
         trades.sort_by(|a, b| b.delta_quantity.abs().partial_cmp(&a.delta_quantity.abs())
             .unwrap_or(std::cmp::Ordering::Equal));
-        
+
         trades
     }
-    
+
     /// Get only trades for new positions (from candidates).
     pub fn new_position_trades(&self) -> Vec<&TradeSpec> {
         self.to_trade_list().iter()
@@ -1048,7 +1048,7 @@ Currently, `value_portfolio_with_options` uses a fixed metric set from `standard
   /// Collect all MetricIds required by the problem's PerPositionMetrics.
   fn required_metrics(problem: &PortfolioOptimizationProblem) -> Vec<MetricId> {
       let mut metrics = Vec::new();
-      
+
       // Helper to extract from PerPositionMetric
       let mut add_metric = |ppm: &PerPositionMetric| {
           if let PerPositionMetric::Metric(id) = ppm {
@@ -1057,27 +1057,27 @@ Currently, `value_portfolio_with_options` uses a fixed metric set from `standard
               }
           }
       };
-      
+
       // Extract from objective
       match &problem.objective {
           Objective::Maximize(expr) | Objective::Minimize(expr) => {
-              if let MetricExpr::WeightedSum { metric } 
+              if let MetricExpr::WeightedSum { metric }
                    | MetricExpr::ValueWeightedAverage { metric } = expr {
                   add_metric(metric);
               }
           }
       }
-      
+
       // Extract from constraints
       for constraint in &problem.constraints {
           if let Constraint::MetricBound { metric, .. } = constraint {
-              if let MetricExpr::WeightedSum { metric: ppm } 
+              if let MetricExpr::WeightedSum { metric: ppm }
                    | MetricExpr::ValueWeightedAverage { metric: ppm } = metric {
                   add_metric(ppm);
               }
           }
       }
-      
+
       metrics
   }
   ```
@@ -1260,7 +1260,7 @@ fn build_lp_model(
             .zip(&c.coefficients)
             .map(|(&v, &coef)| coef * v)
             .sum();
-        
+
         match c.relation {
             LpRelation::Le => problem = problem.with(constraint!(lhs <= c.rhs)),
             LpRelation::Ge => problem = problem.with(constraint!(lhs >= c.rhs)),
@@ -1391,17 +1391,17 @@ let result = optimizer.optimize(&problem, &market, &config)?;
 
 println!("Optimization status: {:?}", result.status);
 println!("Optimal objective (portfolio yield): {:.4}", result.objective_value);
-println!("Optimal CCC weight: {:.2}%", 
+println!("Optimal CCC weight: {:.2}%",
     result.metric_values.get("ccc_weight").unwrap_or(&0.0) * 100.0);
-println!("Optimal duration: {:.2} years", 
+println!("Optimal duration: {:.2} years",
     result.metric_values.get("portfolio_duration_mod").unwrap_or(&0.0));
 println!("Total turnover: {:.2}%", result.turnover() * 100.0);
 
 // Generate trade list
 let trades = result.to_trade_list();
 for trade in &trades[..5.min(trades.len())] {
-    println!("{}: {:?} {:.0} units ({:+.2}% weight)", 
-        trade.instrument_id, trade.direction, 
+    println!("{}: {:?} {:.0} units ({:+.2}% weight)",
+        trade.instrument_id, trade.direction,
         trade.delta_quantity, (trade.target_weight - trade.current_weight) * 100.0);
 }
 
@@ -1431,7 +1431,7 @@ let hedge_candidates = vec![
     .with_tag("type", "hedge")
     .with_tag("asset_class", "credit")
     .with_max_weight(0.10),  // Max 10% in this hedge
-    
+
     CandidatePosition::new(
         "HEDGE_RATE_FUTURE",
         DUMMY_ENTITY_ID,
@@ -1655,15 +1655,15 @@ No trait objects, `Arc<dyn ...>`, or non-serializable handles appear in specs.
 #[serde(rename_all = "camelCase")]
 pub struct OptimizationProblemSpec {
     pub weighting: WeightingSchemeSpec,
-    
+
     /// Trade universe: which positions to trade and candidates to consider.
     /// Default: all existing positions tradeable, no candidates.
     #[serde(default)]
     pub trade_universe: TradeUniverseSpec,
-    
+
     pub objective: ObjectiveSpec,
     pub constraints: Vec<ConstraintSpec>,
-    
+
     #[serde(default)]
     pub missing_metric_policy: MissingMetricPolicySpec,
 
@@ -1735,15 +1735,15 @@ pub struct TradeUniverseSpec {
     /// Filter for tradeable existing positions. Default: all.
     #[serde(default = "default_all_filter")]
     pub tradeable_filter: PositionFilterSpec,
-    
+
     /// Filter for positions to hold constant. Default: none.
     #[serde(default)]
     pub held_filter: Option<PositionFilterSpec>,
-    
+
     /// Candidate instruments to consider adding.
     #[serde(default)]
     pub candidates: Vec<CandidatePositionSpec>,
-    
+
     /// Allow shorting candidates. Default: false.
     #[serde(default)]
     pub allow_short_candidates: bool,

@@ -55,6 +55,7 @@ println!("Applied {} operations", report.operations_applied);
 ## Supported Operations
 
 ### Market Data
+
 - `MarketFxPct`: FX rate percent shift
 - `EquityPricePct`: Equity price percent shock
 - `CurveParallelBp`: Parallel basis point shift (discount/forecast/hazard/inflation curves)
@@ -65,17 +66,20 @@ println!("Applied {} operations", report.operations_applied);
 - `VolSurfaceBucketPct`: Bucket-specific volatility shifts (filters by tenor and strike)
 
 ### Statements
+
 - `StmtForecastPercent`: Forecast percent change
 - `StmtForecastAssign`: Forecast value assignment
 - `RateBinding` (via context): Bind statement nodes to curves with tenor/compounding/day-count
 
 ### Instrument-Based
+
 - `InstrumentPricePctByAttr`: Price shock by attribute match (case-insensitive AND on metadata)
 - `InstrumentSpreadBpByAttr`: Spread shock by attribute match (case-insensitive AND on metadata)
 - `InstrumentPricePctByType`: Price shock by instrument type (Bond, CDS, Swap, etc.)
 - `InstrumentSpreadBpByType`: Spread shock by instrument type
 
 ### Time Operations
+
 - `TimeRollForward`: Roll forward horizon by period with carry/theta calculation
   - Modes: `business_days` (default), `calendar_days`, `approximate`
 
@@ -94,6 +98,7 @@ ScenarioEngine
 ## Implementation Status
 
 ### Fully Implemented
+
 - ✅ **Tenor-Based Curve Shocks**: Exact pillar matching and interpolated key-rate bumps
 - ✅ **Bucket Filtering**: Vol surfaces filter by tenor/strike; base-corr by detachment
 - ✅ **Instrument Type Shocks**: Type-safe shocks using InstrumentType enum
@@ -102,6 +107,7 @@ ScenarioEngine
 - ✅ **Statement Shocks**: Percent and assign operations on node values
 
 ### Phase A Limitations
+
 - **Attribute Selectors**: Not implemented (no instrument registry query)
 
 ## Examples
@@ -117,6 +123,7 @@ cargo run -p finstack-scenarios --example scenarios_comprehensive_example
 ```
 
 Both examples now demonstrate:
+
 - Market data shocks (curves, equity, vol, FX)
 - Statement adjustments
 - **Horizon scenarios**: 1W, 1M, 3M time roll-forward with theta/carry calculations

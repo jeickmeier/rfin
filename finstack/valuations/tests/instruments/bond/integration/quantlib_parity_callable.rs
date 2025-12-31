@@ -848,14 +848,15 @@ fn quantlib_parity_tree_pricing_convergence() {
 
     // Price using tree-based method (add empty call schedule to trigger tree)
     let mut bond_with_tree = bond.clone();
-    let mut empty_schedule = finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
+    let mut empty_schedule =
+        finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
     // Add a far out-of-the-money call to trigger tree pricing without affecting value
-    empty_schedule
-        .calls
-        .push(finstack_valuations::instruments::fixed_income::bond::CallPut {
+    empty_schedule.calls.push(
+        finstack_valuations::instruments::fixed_income::bond::CallPut {
             date: date!(2024 - 12 - 31),
             price_pct_of_par: 150.0, // Far OTM
-        });
+        },
+    );
     bond_with_tree.call_put = Some(empty_schedule);
 
     let tree_pv = bond_with_tree.value(&market, as_of).unwrap();
@@ -895,13 +896,14 @@ fn quantlib_parity_oas_calculation() {
     .unwrap();
 
     // Add call schedule
-    let mut call_schedule = finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
-    call_schedule
-        .calls
-        .push(finstack_valuations::instruments::fixed_income::bond::CallPut {
+    let mut call_schedule =
+        finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
+    call_schedule.calls.push(
+        finstack_valuations::instruments::fixed_income::bond::CallPut {
             date: date!(2025 - 01 - 01),
             price_pct_of_par: 102.0,
-        });
+        },
+    );
     callable_bond.call_put = Some(call_schedule);
     callable_bond.pricing_overrides = finstack_valuations::instruments::PricingOverrides::default()
         .with_clean_price(market_price);
@@ -946,13 +948,14 @@ fn quantlib_parity_oas_price_sensitivity() {
     )
     .unwrap();
 
-    let mut call_schedule = finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
-    call_schedule
-        .calls
-        .push(finstack_valuations::instruments::fixed_income::bond::CallPut {
+    let mut call_schedule =
+        finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
+    call_schedule.calls.push(
+        finstack_valuations::instruments::fixed_income::bond::CallPut {
             date: date!(2025 - 01 - 01),
             price_pct_of_par: 102.0,
-        });
+        },
+    );
     callable_bond.call_put = Some(call_schedule);
 
     let market = create_market(as_of, 0.05);
@@ -1015,13 +1018,14 @@ fn quantlib_parity_effective_duration() {
     )
     .unwrap();
 
-    let mut call_schedule = finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
-    call_schedule
-        .calls
-        .push(finstack_valuations::instruments::fixed_income::bond::CallPut {
+    let mut call_schedule =
+        finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
+    call_schedule.calls.push(
+        finstack_valuations::instruments::fixed_income::bond::CallPut {
             date: date!(2025 - 01 - 01),
             price_pct_of_par: 102.0,
-        });
+        },
+    );
     callable_bond.call_put = Some(call_schedule);
 
     // Base market and shifted markets
@@ -1083,13 +1087,14 @@ fn quantlib_parity_negative_convexity() {
     )
     .unwrap();
 
-    let mut call_schedule = finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
-    call_schedule
-        .calls
-        .push(finstack_valuations::instruments::fixed_income::bond::CallPut {
+    let mut call_schedule =
+        finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
+    call_schedule.calls.push(
+        finstack_valuations::instruments::fixed_income::bond::CallPut {
             date: date!(2025 - 01 - 01),
             price_pct_of_par: 102.0,
-        });
+        },
+    );
     callable_bond.call_put = Some(call_schedule);
 
     // Use low base rate to make call likely (high coupon vs low market rate)
@@ -1174,13 +1179,14 @@ fn quantlib_parity_tree_step_convergence() {
     )
     .unwrap();
 
-    let mut call_schedule = finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
-    call_schedule
-        .calls
-        .push(finstack_valuations::instruments::fixed_income::bond::CallPut {
+    let mut call_schedule =
+        finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
+    call_schedule.calls.push(
+        finstack_valuations::instruments::fixed_income::bond::CallPut {
             date: date!(2023 - 01 - 01),
             price_pct_of_par: 102.0,
-        });
+        },
+    );
     callable_bond.call_put = Some(call_schedule);
 
     let market = create_market(as_of, 0.05);

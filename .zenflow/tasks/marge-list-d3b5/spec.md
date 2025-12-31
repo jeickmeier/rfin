@@ -78,7 +78,7 @@ bitflags! {
         const HAZARD      = 0b0000_0100;
         const INFLATION   = 0b0000_1000;
         const CORRELATION = 0b0001_0000;
-        
+
         const RATES  = Self::DISCOUNT.bits() | Self::FORWARD.bits();
         const CREDIT = Self::HAZARD.bits();
     }
@@ -369,15 +369,15 @@ pub trait JsonEnvelope: Sized + Serialize + DeserializeOwned {
     fn from_json(json: &str) -> Result<Self> {
         serde_json::from_str(json).map_err(Self::parse_error)
     }
-    
+
     fn from_reader<R: std::io::Read>(reader: R) -> Result<Self> {
         serde_json::from_reader(reader).map_err(Self::parse_error)
     }
-    
+
     fn to_json(&self) -> Result<String> {
         serde_json::to_string_pretty(self).map_err(Self::serialize_error)
     }
-    
+
     fn parse_error(e: serde_json::Error) -> finstack_core::Error;
     fn serialize_error(e: serde_json::Error) -> finstack_core::Error;
 }
@@ -387,7 +387,7 @@ impl JsonEnvelope for AttributionEnvelope {
     fn parse_error(e: serde_json::Error) -> finstack_core::Error {
         finstack_core::Error::Serde(format!("Failed to parse AttributionEnvelope: {}", e))
     }
-    
+
     fn serialize_error(e: serde_json::Error) -> finstack_core::Error {
         finstack_core::Error::Serde(format!("Failed to serialize AttributionEnvelope: {}", e))
     }
@@ -414,7 +414,7 @@ impl JsonEnvelope for AttributionEnvelope {
    - `finstack/valuations/src/instruments/common/models/monte_carlo/payoff/rates.rs`
      - Merge CapPayoff + FloorPayoff → RatesPayoff
      - Add RatesPayoffType enum
-   
+
    - `finstack/valuations/src/instruments/common/models/monte_carlo/payoff/lookback.rs`
      - Merge LookbackCall + LookbackPut → Lookback
      - Add LookbackDirection enum
@@ -495,10 +495,10 @@ mod tests {
     fn test_restore_rates_equivalence() {
         let market = create_test_market();
         let snapshot = extract_rates_curves(&market);
-        
+
         // Old implementation
         let restored_old = restore_rates_curves(&market, &snapshot);
-        
+
         // New implementation
         let unified = MarketSnapshot {
             discount_curves: snapshot.discount_curves.clone(),
@@ -506,7 +506,7 @@ mod tests {
             ..Default::default()
         };
         let restored_new = restore_market(&market, &unified, CurveRestoreFlags::RATES);
-        
+
         // Assert equivalence
         assert_market_contexts_equal(&restored_old, &restored_new);
     }
@@ -562,7 +562,7 @@ cargo doc --no-deps --document-private-items
 ### High-Risk Areas
 
 #### 1. Market Data Restoration (Phase 1)
-**Risk**: Attribution P&L calculations depend on precise curve restoration  
+**Risk**: Attribution P&L calculations depend on precise curve restoration
 **Mitigation**:
 - Extensive unit tests for each curve type combination
 - Integration tests with real market data
@@ -570,7 +570,7 @@ cargo doc --no-deps --document-private-items
 - Gradual rollout: Keep old functions as non-deprecated fallbacks initially
 
 #### 2. Monte Carlo Payoffs (Phase 2)
-**Risk**: Pricing errors could propagate to production valuations  
+**Risk**: Pricing errors could propagate to production valuations
 **Mitigation**:
 - Property-based tests (quickcheck) for payoff symmetries
 - Compare against analytical formulas where available
@@ -578,7 +578,7 @@ cargo doc --no-deps --document-private-items
 - Extra scrutiny in code review from quant team
 
 #### 3. Waterfall Allocation (Phase 3)
-**Risk**: Cash distribution errors in structured credit products  
+**Risk**: Cash distribution errors in structured credit products
 **Mitigation**:
 - Test with actual deal structures from production
 - Verify sum of distributions equals available amount (conservation)
@@ -588,14 +588,14 @@ cargo doc --no-deps --document-private-items
 ### Medium-Risk Areas
 
 #### 4. Parameter Context Structs (Phase 3)
-**Risk**: Accidentally changing semantics during restructuring  
+**Risk**: Accidentally changing semantics during restructuring
 **Mitigation**:
 - Keep internal implementation identical initially
 - Use compiler to ensure all fields are preserved
 - Add #[non_exhaustive] to allow future extensions without breaking changes
 
 #### 5. Trait Abstractions (Phase 4, 6)
-**Risk**: Over-engineering or future extensibility issues  
+**Risk**: Over-engineering or future extensibility issues
 **Mitigation**:
 - Keep traits simple and focused
 - Document intended use cases and extension points

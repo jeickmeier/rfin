@@ -78,6 +78,3 @@ To create a "Lego set" for financial engineering that is:
 16. **Test Coverage:** > 80% line coverage, all golden tests passing.
 17. **Schema Parity Tests:** Every Rust ↔ TS ↔ Zod type validated in CI.
 18. **LLM Dashboard Snapshots:** Canonical dashboard outputs maintained as regression tests.
-
-
-

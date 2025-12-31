@@ -136,7 +136,7 @@ todos:
 - **7.3 Benchmarks**
 - Add benchmark suites (Rust benches or criterion-based) for:
 - Curve node shocks (discount/forward/hazard/inflation) over large grids.
-- Vol surface shocks (parallel and bucket). 
+- Vol surface shocks (parallel and bucket).
 - Full engine runs over portfolios with 100, 1,000, and 10,000 instruments and varying scenario sizes.
 
 ### 8. Engine & Orchestration Tests

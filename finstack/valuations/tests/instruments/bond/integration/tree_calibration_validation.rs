@@ -9,8 +9,8 @@ use finstack_core::currency::Currency;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::common::models::{ShortRateTree, ShortRateTreeConfig};
+use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::Instrument;
 use time::macros::date;
 
@@ -97,13 +97,14 @@ fn test_callable_bond_tree_pricing_reasonable() {
     )
     .unwrap();
 
-    let mut call_schedule = finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
-    call_schedule
-        .calls
-        .push(finstack_valuations::instruments::fixed_income::bond::CallPut {
+    let mut call_schedule =
+        finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
+    call_schedule.calls.push(
+        finstack_valuations::instruments::fixed_income::bond::CallPut {
             date: date!(2025 - 01 - 01),
             price_pct_of_par: 102.0,
-        });
+        },
+    );
     callable_bond.call_put = Some(call_schedule);
 
     let curve = create_flat_curve(as_of, 0.04, "USD-OIS");
@@ -162,13 +163,14 @@ fn test_tree_convergence_with_steps() {
     )
     .unwrap();
 
-    let mut call_schedule = finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
-    call_schedule
-        .calls
-        .push(finstack_valuations::instruments::fixed_income::bond::CallPut {
+    let mut call_schedule =
+        finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
+    call_schedule.calls.push(
+        finstack_valuations::instruments::fixed_income::bond::CallPut {
             date: date!(2023 - 01 - 01),
             price_pct_of_par: 102.0,
-        });
+        },
+    );
     callable_bond.call_put = Some(call_schedule);
 
     let curve = create_flat_curve(as_of, 0.05, "USD-OIS");
@@ -218,13 +220,14 @@ fn test_putable_bond_tree_pricing_reasonable() {
     )
     .unwrap();
 
-    let mut put_schedule = finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
-    put_schedule
-        .puts
-        .push(finstack_valuations::instruments::fixed_income::bond::CallPut {
+    let mut put_schedule =
+        finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
+    put_schedule.puts.push(
+        finstack_valuations::instruments::fixed_income::bond::CallPut {
             date: date!(2025 - 01 - 01),
             price_pct_of_par: 98.0,
-        });
+        },
+    );
     putable_bond.call_put = Some(put_schedule);
 
     let curve = create_flat_curve(as_of, 0.07, "USD-OIS");

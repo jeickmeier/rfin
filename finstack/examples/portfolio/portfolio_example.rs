@@ -25,10 +25,6 @@ use finstack_core::money::fx::SimpleFxProvider;
 use finstack_core::money::Money;
 use finstack_portfolio::{self, *};
 use finstack_scenarios::spec::{CurveKind, OperationSpec, ScenarioSpec};
-use finstack_valuations::instruments::fixed_income::bond::Bond;
-use finstack_valuations::instruments::rates::cap_floor::{
-    InterestRateOption, InterestRateOptionParams,
-};
 use finstack_valuations::instruments::credit_derivatives::cds::*;
 use finstack_valuations::instruments::credit_derivatives::cds_index::{
     CDSIndex, CDSIndexConstructionParams, CDSIndexParams,
@@ -37,28 +33,30 @@ use finstack_valuations::instruments::credit_derivatives::cds_option::{
     CdsOption, CdsOptionParams,
 };
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::{
-    CdsTranche, CDSTrancheParams, TrancheSide,
+    CDSTrancheParams, CdsTranche, TrancheSide,
 };
-use finstack_valuations::instruments::*;
-use finstack_valuations::instruments::rates::deposit::Deposit;
+use finstack_valuations::instruments::equity::equity_option::{EquityOption, EquityOptionParams};
 use finstack_valuations::instruments::equity::Equity;
-use finstack_valuations::instruments::equity::equity_option::{
-    EquityOption, EquityOptionParams,
-};
-use finstack_valuations::instruments::fx::fx_option::{FxOption, FxOptionParams};
-use finstack_valuations::instruments::fx::fx_spot::FxSpot;
-use finstack_valuations::instruments::fx::fx_swap::FxSwap;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::fixed_income::inflation_linked_bond::{
     InflationLinkedBond, InflationLinkedBondParams,
 };
-use finstack_valuations::instruments::rates::inflation_swap::{InflationSwap, PayReceiveInflation};
-#[allow(unused_imports)]
-use finstack_valuations::instruments::rates::irs::*;
 use finstack_valuations::instruments::fixed_income::structured_credit::StructuredCredit;
 use finstack_valuations::instruments::fixed_income::structured_credit::{
     DealType, Pool, Seniority, TrancheBuilder, TrancheCoupon, TrancheStructure,
 };
+use finstack_valuations::instruments::fx::fx_option::{FxOption, FxOptionParams};
+use finstack_valuations::instruments::fx::fx_spot::FxSpot;
+use finstack_valuations::instruments::fx::fx_swap::FxSwap;
+use finstack_valuations::instruments::rates::cap_floor::{
+    InterestRateOption, InterestRateOptionParams,
+};
+use finstack_valuations::instruments::rates::deposit::Deposit;
+use finstack_valuations::instruments::rates::inflation_swap::{InflationSwap, PayReceiveInflation};
+#[allow(unused_imports)]
+use finstack_valuations::instruments::rates::irs::*;
 use finstack_valuations::instruments::rates::swaption::{Swaption, SwaptionParams};
+use finstack_valuations::instruments::*;
 use rust_decimal_macros::dec;
 use std::sync::Arc;
 use time::macros::date;
@@ -1058,13 +1056,12 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         Money::new(10_000_000.0, Currency::EUR), // €10M
     );
 
-    let fx_underlying_params =
-        finstack_valuations::instruments::FxUnderlyingParams::new(
-            Currency::EUR,
-            Currency::USD,
-            "USD",
-            "EUR",
-        );
+    let fx_underlying_params = finstack_valuations::instruments::FxUnderlyingParams::new(
+        Currency::EUR,
+        Currency::USD,
+        "USD",
+        "EUR",
+    );
 
     let eur_usd_call = FxOption::new(
         "EUR_USD_CALL_105",

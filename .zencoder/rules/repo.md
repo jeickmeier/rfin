@@ -45,10 +45,10 @@ Finstack is a deterministic financial computation engine written in Rust with fi
 
 #### Language & Runtime
 
-**Language**: Rust  
-**Version**: 1.90+ (MSRV)  
-**Edition**: 2021  
-**Build System**: Cargo (workspace resolver v2)  
+**Language**: Rust
+**Version**: 1.90+ (MSRV)
+**Edition**: 2021
+**Build System**: Cargo (workspace resolver v2)
 **Profiles**:
 - `dev`: Fast compilation, full debug info
 - `test`: Reduced debug, incremental
@@ -103,9 +103,9 @@ cargo build --all-features
 
 #### Testing
 
-**Framework**: cargo nextest (parallel test runner), criterion (benchmarks)  
-**Test Location**: `finstack/*/tests/` and `**/src/lib.rs` (#[test] modules)  
-**Naming Convention**: `*_tests.rs` (integration tests), `test_` functions  
+**Framework**: cargo nextest (parallel test runner), criterion (benchmarks)
+**Test Location**: `finstack/*/tests/` and `**/src/lib.rs` (#[test] modules)
+**Naming Convention**: `*_tests.rs` (integration tests), `test_` functions
 **Configuration**: Workspace-level lints deny panics, unwrap, expect; enforce numerical safety
 
 **Run Commands**:
@@ -148,9 +148,9 @@ make lint-rust-fix
 
 #### Language & Runtime
 
-**Language**: Python  
-**Version**: 3.12+  
-**Build System**: Maturin (PyO3 bridge)  
+**Language**: Python
+**Version**: 3.12+
+**Build System**: Maturin (PyO3 bridge)
 **Package Manager**: uv (fast Python package management)
 
 #### Dependencies
@@ -188,10 +188,10 @@ make python-dev
 
 #### Testing
 
-**Framework**: pytest with Pydantic v2 model validation  
-**Test Location**: `finstack-py/tests/`  
-**Naming Convention**: `test_*.py`, `*_test.py`  
-**Configuration**: pytest.ini options in pyproject.toml  
+**Framework**: pytest with Pydantic v2 model validation
+**Test Location**: `finstack-py/tests/`
+**Naming Convention**: `test_*.py`, `*_test.py`
+**Configuration**: pytest.ini options in pyproject.toml
 **Markers**: `perf`, `security`, `integration`, `slow`
 
 **Run Command**:
@@ -208,10 +208,10 @@ make test-python
 
 #### Language & Runtime
 
-**Language**: TypeScript/JavaScript (bindings), Rust (core)  
-**Version**: wasm-pack (latest)  
-**Build System**: wasm-pack (web/nodejs targets)  
-**Package Manager**: npm  
+**Language**: TypeScript/JavaScript (bindings), Rust (core)
+**Version**: wasm-pack (latest)
+**Build System**: wasm-pack (web/nodejs targets)
+**Package Manager**: npm
 **Node.js**: 18+
 
 #### Dependencies
@@ -244,8 +244,8 @@ make wasm-examples-dev
 
 #### Testing
 
-**Framework**: wasm-pack test (headless Chrome via wasm-bindgen-test)  
-**Configuration**: Tests in Rust crate with `#[wasm_bindgen_test]`  
+**Framework**: wasm-pack test (headless Chrome via wasm-bindgen-test)
+**Configuration**: Tests in Rust crate with `#[wasm_bindgen_test]`
 **Run Command**:
 
 ```bash
@@ -260,10 +260,10 @@ make test-wasm
 
 #### Language & Runtime
 
-**Language**: TypeScript/React  
-**Version**: React 19.0.0+, Node.js 18+  
-**Build System**: Vite  
-**Package Manager**: npm  
+**Language**: TypeScript/React
+**Version**: React 19.0.0+, Node.js 18+
+**Build System**: Vite
+**Package Manager**: npm
 **Type**: Private monorepo package (`"private": true`)
 
 #### Dependencies
@@ -299,8 +299,8 @@ vite build --emptyOutDir
 
 #### Testing
 
-**Framework**: Vitest  
-**Test Location**: Tests colocated with source (TBD)  
+**Framework**: Vitest
+**Test Location**: Tests colocated with source (TBD)
 **Run Commands**:
 
 ```bash

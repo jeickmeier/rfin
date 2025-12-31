@@ -74,7 +74,7 @@ The Polars `Series` API is intentionally **not** exposed here; callers work with
     - `plan: Option<ExecutionPlan>`
     - `cache: Option<CacheManager>`
     - internal `ScratchArena { tmp: Vec<f64>, window: Vec<f64> }` for allocations.
-  - Evaluation entrypoint:  
+  - Evaluation entrypoint:
     `fn eval<C: ExpressionContext>(&self, ctx: &C, cols: &[&[f64]], opts: EvalOpts) -> EvaluationResult`.
   - Core responsibilities:
     - Decide execution plan (external `EvalOpts.plan` → internal `self.plan` → auto‑build).
@@ -342,5 +342,3 @@ If you need to tune caching behaviour beyond the defaults:
 
 Use `core::expr` when you need **fast, deterministic, scalar expressions over `f64` slices** with
 good caching and DAG planning, typically as a building block inside larger engines.
-
-

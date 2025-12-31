@@ -88,6 +88,7 @@ instruments/
 ## Instrument Categories
 
 ### Fixed Income
+
 - **Bond**: Fixed/floating rate bonds, callable/putable, amortizing
 - **ConvertibleBond**: Bonds with equity conversion features
 - **InflationLinkedBond**: Inflation-indexed bonds (TIPS-style)
@@ -95,6 +96,7 @@ instruments/
 - **RevolvingCredit**: Revolving credit facilities with draw/repay dynamics
 
 ### Interest Rate Derivatives
+
 - **InterestRateSwap**: Fixed vs floating rate swaps
 - **BasisSwap**: Floating vs floating (different tenors/indices)
 - **InflationSwap**: Fixed vs inflation index returns
@@ -106,6 +108,7 @@ instruments/
 - **Repo**: Repurchase agreements with collateral
 
 ### Credit Derivatives
+
 - **CreditDefaultSwap**: Single-name CDS (protection buyer/seller)
 - **CDSIndex**: CDS on credit indices (CDX, iTraxx)
 - **CdsTranche**: Tranched index positions
@@ -113,6 +116,7 @@ instruments/
 - **StructuredCredit**: ABS/RMBS/CMBS/CLO with behavioral models
 
 ### Equity Derivatives
+
 - **Equity**: Spot equity positions
 - **EquityOption**: Vanilla calls/puts (European/American)
 - **AsianOption**: Path-dependent averaging options
@@ -121,6 +125,7 @@ instruments/
 - **VarianceSwap**: Variance/volatility swaps
 
 ### FX Derivatives
+
 - **FxSpot**: FX spot trades
 - **FxSwap**: FX swaps with near/far legs
 - **FxOption**: Vanilla FX options
@@ -128,11 +133,13 @@ instruments/
 - **QuantoOption**: Cross-currency quanto options
 
 ### Exotic Options
+
 - **Autocallable**: Autocallable structured notes
 - **CliquetOption**: Cliquet/ratchet options
 - **RangeAccrual**: Range accrual notes
 
 ### Other
+
 - **EquityTotalReturnSwap**: Total return swaps on equities
 - **FIIndexTotalReturnSwap**: Total return swaps on fixed income indices
 - **Basket**: Multi-underlying basket instruments
@@ -149,11 +156,11 @@ pub trait Instrument: Send + Sync {
     // Identity
     fn id(&self) -> &str;
     fn key(&self) -> InstrumentType;
-    
+
     // Metadata
     fn attributes(&self) -> &Attributes;
     fn attributes_mut(&mut self) -> &mut Attributes;
-    
+
     // Pricing
     fn value(&self, market: &MarketContext, as_of: Date) -> Result<Money>;
     fn price_with_metrics(
@@ -162,14 +169,14 @@ pub trait Instrument: Send + Sync {
         as_of: Date,
         metrics: &[MetricId],
     ) -> Result<ValuationResult>;
-    
+
     // Market data introspection (for attribution)
     fn required_discount_curves(&self) -> Vec<CurveId>;
     fn required_hazard_curves(&self) -> Vec<CurveId>;
     fn fx_exposure(&self) -> Option<(Currency, Currency)>;
     fn vol_surface_id(&self) -> Option<CurveId>;
     fn dividend_schedule_id(&self) -> Option<CurveId>;
-    
+
     // Trait object support
     fn as_any(&self) -> &dyn Any;
     fn clone_box(&self) -> Box<dyn Instrument>;
@@ -292,6 +299,7 @@ let bond = Bond::fixed(/* ... */)
 ```
 
 Common overrides:
+
 - `quoted_clean_price`: Bond prices
 - `implied_volatility`: Option vols (overrides surface)
 - `quoted_spread_bp`: CDS spreads
@@ -317,21 +325,25 @@ Common leg and schedule types in `common/parameters`:
 Located in `common/models/`:
 
 #### Closed-Form Models
+
 - Black-Scholes for vanilla options
 - Heston semi-analytic for stochastic vol
 - Asian, Barrier, Lookback formulas
 - Quanto adjustments
 
 #### Volatility Models
+
 - Black (log-normal)
 - SABR (stochastic alpha-beta-rho) with calibration
 
 #### Tree Models
+
 - Binomial (CRR, JR, Tian, LR)
 - Trinomial for short rates
 - Multi-factor trees for rates + equity
 
 #### Monte Carlo (`common/mc/`)
+
 - **Processes**: GBM, Heston, CIR, OU, Jump Diffusion, Schwartz-Smith
 - **Discretization**: Euler, Milstein, Exact (GBM/HW1F), QE (Heston/CIR)
 - **Payoffs**: Vanilla, Asian, Barrier, Lookback, Autocallable, etc.
@@ -343,6 +355,7 @@ Located in `common/models/`:
 Instrument-specific metrics in each `instrument/metrics/` directory. Common metrics:
 
 **Fixed Income**:
+
 - YTM (yield to maturity)
 - Duration (Macaulay, Modified)
 - Convexity
@@ -351,11 +364,13 @@ Instrument-specific metrics in each `instrument/metrics/` directory. Common metr
 - Z-spread, I-spread, OAS
 
 **Options**:
+
 - Delta, Gamma, Vega, Theta, Rho
 - Volga, Vanna
 - Charm, Vomma
 
 **Swaps**:
+
 - Par rate
 - DV01 (parallel and bucketed)
 - Annuity
@@ -499,7 +514,7 @@ pub struct MyInstrument {
     pub discount_curve_id: CurveId,
     pub pricing_overrides: PricingOverrides,
     pub attributes: Attributes,
-    
+
     // Instrument-specific fields
     pub some_parameter: f64,
 }
@@ -522,7 +537,7 @@ impl MyInstrument {
             some_parameter: 0.0,
         }
     }
-    
+
     /// Builder pattern (optional but recommended).
     pub fn builder() -> MyInstrumentBuilder {
         MyInstrumentBuilder::default()
@@ -543,33 +558,33 @@ impl Instrument for MyInstrument {
     fn id(&self) -> &str {
         self.id.as_str()
     }
-    
+
     fn key(&self) -> InstrumentType {
         InstrumentType::MyInstrument
     }
-    
+
     fn attributes(&self) -> &Attributes {
         &self.attributes
     }
-    
+
     fn attributes_mut(&mut self) -> &mut Attributes {
         &mut self.attributes
     }
-    
+
     fn as_any(&self) -> &dyn Any {
         self
     }
-    
+
     fn clone_box(&self) -> Box<dyn Instrument> {
         Box::new(self.clone())
     }
-    
+
     fn value(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
         // Implement fast NPV calculation
         let pricer = MyInstrumentPricer;
         pricer.price(self, market, as_of)
     }
-    
+
     fn price_with_metrics(
         &self,
         market: &MarketContext,
@@ -580,7 +595,7 @@ impl Instrument for MyInstrument {
         let pricer = MyInstrumentPricer;
         pricer.price_with_metrics(self, market, as_of, metrics)
     }
-    
+
     fn required_discount_curves(&self) -> Vec<CurveId> {
         vec![self.discount_curve_id.clone()]
     }
@@ -610,13 +625,13 @@ impl Pricer<MyInstrument> for MyInstrumentPricer {
     ) -> Result<Money> {
         // Get market data
         let curve = market.get_discount_curve(&instrument.discount_curve_id)?;
-        
+
         // Calculate discount factor
         let df = curve.discount_factor(as_of, instrument.maturity)?;
-        
+
         // Simple present value calculation
         let pv = instrument.notional * df;
-        
+
         Ok(pv)
     }
 }
@@ -745,7 +760,7 @@ mod tests {
     use finstack_core::currency::Currency;
     use finstack_core::money::Money;
     use time::macros::date;
-    
+
     #[test]
     fn test_my_instrument_creation() {
         let instrument = MyInstrument::new(
@@ -754,17 +769,17 @@ mod tests {
             date!(2030-01-01),
             "USD-OIS",
         );
-        
+
         assert_eq!(instrument.id(), "MY-001");
     }
-    
+
     #[test]
     fn test_json_roundtrip() {
         let instrument = MyInstrument::new(/* ... */);
         let json = InstrumentJson::MyInstrument(instrument.clone());
         let serialized = serde_json::to_string(&json).unwrap();
         let deserialized: InstrumentJson = serde_json::from_str(&serialized).unwrap();
-        
+
         // Verify deserialization
     }
 }

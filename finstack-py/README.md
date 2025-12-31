@@ -25,6 +25,7 @@ This compiles the Rust crate and exposes the `finstack` module to your active Py
 ### Features
 
 The package includes several optional features:
+
 - **`scenarios`** (default): Enables scenario analysis capabilities
 - **`polars_export`**: Enables Polars DataFrame exports for statements
 
@@ -358,11 +359,13 @@ print(f"Market context updated: {len(context.market.discount_curves)} curves")
 Type stubs (`.pyi` files) are **manually maintained** for all modules. We don't use automated stub generation because tools like `pyo3-stubgen` only work for functions, not PyO3 classes (which make up most of our API).
 
 **When to update stubs:**
+
 - After adding/changing classes, methods, or functions in Rust
 - When method signatures change
 - After user reports of missing type information
 
 **Testing stubs:**
+
 ```bash
 # Run type checker on examples
 uv run mypy finstack-py/examples/
@@ -378,11 +381,13 @@ See `finstack-py/STUB_GENERATION.md` for detailed guidelines on writing and main
 The package includes comprehensive examples demonstrating all major features:
 
 ### Core Examples
+
 - **`core_basics.py`**: Currency, money, dates, and market data fundamentals
 - **`cashflow_basics.py`**: Cashflow modeling and scheduling
 - **`math_core_showcase.py`**: Mathematical utilities and distributions
 
 ### Valuations Examples
+
 - **`bond_capabilities.py`**: Fixed income instrument pricing
 - **`equity_capabilities.py`**: Equity options and derivatives
 - **`credit_capabilities.py`**: CDS and credit derivatives
@@ -395,12 +400,15 @@ The package includes comprehensive examples demonstrating all major features:
 - **`cashflow_builder_capabilities.py`**: Advanced cashflow modeling
 
 ### Statements Examples
+
 - **`statements_example.py`**: Financial statement modeling with forecasting
 
 ### Scenarios Examples
+
 - **`scenarios_example.py`**: Scenario analysis and stress testing
 
 ### Portfolio Examples
+
 - **`portfolio_example.py`**: Portfolio management and aggregation
 
 ### Running Examples
@@ -418,6 +426,7 @@ uv run python finstack-py/examples/scripts/portfolio/portfolio_example.py
 ### Jupyter Notebooks
 
 Interactive notebooks are available in `finstack-py/examples/notebooks/`:
+
 - **`core_basics.ipynb`**: Interactive core functionality walkthrough
 
 ## Using with TypeScript/WASM
@@ -435,6 +444,7 @@ The finstack library also provides WebAssembly bindings for browser and Node.js 
 ### Example: Same Code, Different Language
 
 **Python:**
+
 ```python
 from finstack.valuations.instruments import Bond
 from finstack.valuations.calibration import DiscountCurveCalibrator
@@ -445,6 +455,7 @@ curve, report = calibrator.calibrate(quotes, market)
 ```
 
 **TypeScript:**
+
 ```typescript
 import { Bond, DiscountCurveCalibrator } from 'finstack-wasm';
 
