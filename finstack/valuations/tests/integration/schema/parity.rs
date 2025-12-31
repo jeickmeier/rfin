@@ -118,7 +118,8 @@ fn test_calibration_step_kinds_schema_parity() {
     let schema: Value = serde_json::from_str(schema_json).expect("Schema JSON should be valid");
 
     // Extract CalibrationStep.kind enum from $defs
-    let mut schema_kinds: Vec<&str> = schema["$defs"]["CalibrationStep"]["properties"]["kind"]["enum"]
+    let mut schema_kinds: Vec<&str> = schema["$defs"]["CalibrationStep"]["properties"]["kind"]
+        ["enum"]
         .as_array()
         .expect("CalibrationStep.kind.enum should be array")
         .iter()

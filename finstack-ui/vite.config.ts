@@ -30,7 +30,10 @@ export default defineConfig({
       "@/types": path.resolve(__dirname, "src/types"),
       "@/lib": path.resolve(__dirname, "src/lib"),
       "@/store": path.resolve(__dirname, "src/store"),
-      "finstack-wasm": path.resolve(__dirname, "../../finstack-wasm/pkg/finstack_wasm"),
+      "finstack-wasm": path.resolve(
+        __dirname,
+        "../../finstack-wasm/pkg/finstack_wasm",
+      ),
     },
     preserveSymlinks: true,
   },

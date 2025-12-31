@@ -42,52 +42,60 @@
  * };
  * ```
  */
-export type VolQuote = { "option_vol": { 
-/**
- * Underlying identifier
- */
-underlying: string, 
-/**
- * Option expiry
- */
-expiry: string, 
-/**
- * Strike
- */
-strike: number, 
-/**
- * Implied volatility
- */
-vol: number, 
-/**
- * Option type ("Call", "Put", "Straddle")
- */
-option_type: string, 
-/**
- * Per-instrument conventions
- */
-convention: string, } } | { "swaption_vol": { 
-/**
- * Option expiry
- */
-expiry: string, 
-/**
- * Underlying swap maturity date
- */
-maturity: string, 
-/**
- * Strike rate
- */
-strike: number, 
-/**
- * Implied volatility
- */
-vol: number, 
-/**
- * Quote type
- */
-quote_type: string, 
-/**
- * Option exercise conventions
- */
-convention: string, } };
+export type VolQuote =
+  | {
+      option_vol: {
+        /**
+         * Underlying identifier
+         */
+        underlying: string;
+        /**
+         * Option expiry
+         */
+        expiry: string;
+        /**
+         * Strike
+         */
+        strike: number;
+        /**
+         * Implied volatility
+         */
+        vol: number;
+        /**
+         * Option type ("Call", "Put", "Straddle")
+         */
+        option_type: string;
+        /**
+         * Per-instrument conventions
+         */
+        convention: string;
+      };
+    }
+  | {
+      swaption_vol: {
+        /**
+         * Option expiry
+         */
+        expiry: string;
+        /**
+         * Underlying swap maturity date
+         */
+        maturity: string;
+        /**
+         * Strike rate
+         */
+        strike: number;
+        /**
+         * Implied volatility
+         */
+        vol: number;
+        /**
+         * Quote type
+         */
+        quote_type: string;
+        /**
+         * Option exercise conventions
+         */
+        convention: string;
+      };
+    };

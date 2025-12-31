@@ -33,36 +33,39 @@
  * # }
  * ```
  */
-export type CdsTrancheQuote = { "c_d_s_tranche": { 
-/**
- * Unique identifier.
- */
-id: string, 
-/**
- * Index identifier (e.g. CDX.NA.HY).
- */
-index: string, 
-/**
- * Attachment point (decimal, e.g. 0.03).
- */
-attachment: number, 
-/**
- * Detachment point (decimal, e.g. 0.07).
- */
-detachment: number, 
-/**
- * Maturity date.
- */
-maturity: string, 
-/**
- * Upfront payment percentage.
- */
-upfront_pct: number, 
-/**
- * Running spread (bps).
- */
-running_spread_bp: number, 
-/**
- * Convention key (currency + doc clause).
- */
-convention: string, } };
+export type CdsTrancheQuote = {
+  c_d_s_tranche: {
+    /**
+     * Unique identifier.
+     */
+    id: string;
+    /**
+     * Index identifier (e.g. CDX.NA.HY).
+     */
+    index: string;
+    /**
+     * Attachment point (decimal, e.g. 0.03).
+     */
+    attachment: number;
+    /**
+     * Detachment point (decimal, e.g. 0.07).
+     */
+    detachment: number;
+    /**
+     * Maturity date.
+     */
+    maturity: string;
+    /**
+     * Upfront payment percentage.
+     */
+    upfront_pct: number;
+    /**
+     * Running spread (bps).
+     */
+    running_spread_bp: number;
+    /**
+     * Convention key (currency + doc clause).
+     */
+    convention: string;
+  };
+};
