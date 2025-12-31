@@ -5,6 +5,7 @@ mod barrier_option;
 mod basis_swap;
 mod basket;
 mod bond;
+mod bond_future;
 mod cap_floor;
 mod cds;
 mod cds_index;
@@ -22,6 +23,7 @@ mod equity_option;
 mod fra;
 mod fx;
 mod fx_barrier_option;
+mod inflation_cap_floor;
 mod inflation_linked_bond;
 mod inflation_swap;
 mod ir_future;
@@ -39,6 +41,7 @@ mod trs;
 mod variance_swap;
 mod vol_index_future;
 mod vol_index_option;
+mod xccy_swap;
 
 // Re-export only used wrappers to avoid unused import lints during clippy
 use agency_mbs::{PyAgencyCmo, PyAgencyMbsPassthrough, PyAgencyTba, PyDollarRoll};
@@ -48,6 +51,7 @@ use barrier_option::PyBarrierOption;
 use basis_swap::PyBasisSwap;
 use basket::PyBasket;
 use bond::PyBond;
+use bond_future::PyBondFuture;
 use cap_floor::PyInterestRateOption;
 use cds::PyCreditDefaultSwap;
 use cds_index::PyCdsIndex;
@@ -64,6 +68,7 @@ use equity_option::PyEquityOption;
 use fra::PyForwardRateAgreement;
 use fx::{PyFxOption, PyFxSpot, PyFxSwap};
 use fx_barrier_option::PyFxBarrierOption;
+use inflation_cap_floor::PyInflationCapFloor;
 use inflation_linked_bond::PyInflationLinkedBond;
 use inflation_swap::PyInflationSwap;
 use ir_future::PyInterestRateFuture;
@@ -81,6 +86,7 @@ use trs::{PyEquityTotalReturnSwap, PyFiIndexTotalReturnSwap};
 use variance_swap::PyVarianceSwap;
 use vol_index_future::PyVolatilityIndexFuture;
 use vol_index_option::PyVolatilityIndexOption;
+use xccy_swap::PyCrossCurrencySwap;
 
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::pricer::InstrumentType;
@@ -118,6 +124,7 @@ pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<Ins
     try_extract!(value, PyDollarRoll, InstrumentType::DollarRoll);
     try_extract!(value, PyAgencyCmo, InstrumentType::AgencyCmo);
     try_extract!(value, PyBond, InstrumentType::Bond);
+    try_extract!(value, PyBondFuture, InstrumentType::BondFuture);
     try_extract!(value, PyDeposit, InstrumentType::Deposit);
     try_extract!(value, PyBasisSwap, InstrumentType::BasisSwap);
     try_extract!(value, PyForwardRateAgreement, InstrumentType::FRA);
@@ -159,6 +166,12 @@ pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<Ins
         InstrumentType::InflationLinkedBond
     );
     try_extract!(value, PyInflationSwap, InstrumentType::InflationSwap);
+    try_extract!(
+        value,
+        PyInflationCapFloor,
+        InstrumentType::InflationCapFloor
+    );
+    try_extract!(value, PyCrossCurrencySwap, InstrumentType::XccySwap);
     try_extract!(value, PyStructuredCredit, InstrumentType::StructuredCredit);
     try_extract!(
         value,
@@ -210,6 +223,9 @@ pub(crate) fn register<'py>(
 
     let bond_exports = bond::register(py, &module)?;
     exports.extend(bond_exports.iter().copied());
+
+    let bond_future_exports = bond_future::register(py, &module)?;
+    exports.extend(bond_future_exports.iter().copied());
 
     let basis_exports = basis_swap::register(py, &module)?;
     exports.extend(basis_exports.iter().copied());
@@ -273,6 +289,12 @@ pub(crate) fn register<'py>(
 
     let inflation_swap_exports = inflation_swap::register(py, &module)?;
     exports.extend(inflation_swap_exports.iter().copied());
+
+    let inflation_cap_floor_exports = inflation_cap_floor::register(py, &module)?;
+    exports.extend(inflation_cap_floor_exports.iter().copied());
+
+    let xccy_swap_exports = xccy_swap::register(py, &module)?;
+    exports.extend(xccy_swap_exports.iter().copied());
 
     let basket_exports = basket::register(py, &module)?;
     exports.extend(basket_exports.iter().copied());
