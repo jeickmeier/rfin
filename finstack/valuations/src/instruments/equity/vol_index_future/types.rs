@@ -359,6 +359,7 @@ impl CashflowProvider for VolatilityIndexFuture {
         Ok(crate::cashflow::traits::schedule_from_dated_flows(
             Vec::new(),
             self.notional(),
+            finstack_core::dates::DayCount::Act365F, // Standard for vol index futures
         ))
     }
 }

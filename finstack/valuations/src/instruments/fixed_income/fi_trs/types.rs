@@ -328,6 +328,7 @@ impl CashflowProvider for FIIndexTotalReturnSwap {
         Ok(crate::cashflow::traits::schedule_from_dated_flows(
             flows,
             self.notional(),
+            self.financing.day_count,
         ))
     }
 }

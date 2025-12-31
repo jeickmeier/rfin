@@ -725,6 +725,7 @@ impl CashflowProvider for InflationLinkedBond {
         Ok(crate::cashflow::traits::schedule_from_dated_flows(
             flows,
             self.notional(),
+            self.dc,
         ))
     }
 }

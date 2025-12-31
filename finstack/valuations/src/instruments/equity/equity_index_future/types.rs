@@ -599,6 +599,7 @@ impl CashflowProvider for EquityIndexFuture {
         Ok(crate::cashflow::traits::schedule_from_dated_flows(
             Vec::new(),
             self.notional(),
+            finstack_core::dates::DayCount::Act365F, // Standard for equity futures
         ))
     }
 }

@@ -1088,6 +1088,7 @@ impl crate::cashflow::traits::CashflowProvider for CreditDefaultSwap {
         Ok(crate::cashflow::traits::schedule_from_dated_flows(
             flows,
             self.notional(),
+            self.premium.dc,
         ))
     }
 }

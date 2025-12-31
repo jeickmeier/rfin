@@ -166,7 +166,7 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
         use finstack_core::dates::DayCountCtx;
 
         let flows = self.build_dated_flows(market, base)?;
-        let schedule = schedule_from_dated_flows(flows, self.notional());
+        let schedule = schedule_from_dated_flows(flows, self.notional(), dc);
 
         let disc_curve_id = self.discount_curve_id();
         let disc_arc = market.get_discount(disc_curve_id.as_str())?;

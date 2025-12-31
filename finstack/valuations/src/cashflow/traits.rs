@@ -42,7 +42,7 @@ pub trait CashflowProvider: Send + Sync {
     ///         _curves: &MarketContext,
     ///         _as_of: Date,
     ///     ) -> finstack_core::Result<CashFlowSchedule> {
-    ///         Ok(schedule_from_dated_flows(vec![], Some(self.notional)))
+    ///         Ok(schedule_from_dated_flows(vec![], Some(self.notional), DayCount::Act365F))
     ///     }
     ///
     ///     fn notional(&self) -> Option<Money> {
@@ -100,16 +100,44 @@ pub trait CashflowProvider: Send + Sync {
 ///
 /// This mirrors the legacy default implementation and can be used by instruments that
 /// naturally produce dated flows but still need to return a `CashFlowSchedule`.
+///
+/// # Arguments
+///
+/// * `flows` - List of dated cashflows as `(Date, Money)` pairs
+/// * `notional_hint` - Optional notional amount; if `None`, uses 0.0 with currency from first flow
+/// * `day_count` - Day count convention for the schedule. **Must be explicitly specified** to avoid
+///   incorrect yield/accrual calculations. Common conventions:
+///   - `DayCount::Act365F` for most bonds
+///   - `DayCount::Thirty360` for US corporate bonds
+///   - `DayCount::Act360` for money markets
+///
+/// # Example
+///
+/// ```rust
+/// use finstack_valuations::cashflow::traits::schedule_from_dated_flows;
+/// use finstack_core::dates::{Date, DayCount};
+/// use finstack_core::currency::Currency;
+/// use finstack_core::money::Money;
+/// use time::Month;
+///
+/// let flows = vec![
+///     (Date::from_calendar_date(2025, Month::June, 15).unwrap(), Money::new(50_000.0, Currency::USD)),
+///     (Date::from_calendar_date(2025, Month::December, 15).unwrap(), Money::new(1_050_000.0, Currency::USD)),
+/// ];
+/// let schedule = schedule_from_dated_flows(flows, None, DayCount::Thirty360);
+/// assert_eq!(schedule.day_count, DayCount::Thirty360);
+/// ```
 pub fn schedule_from_dated_flows(
     flows: DatedFlows,
     notional_hint: Option<Money>,
+    day_count: DayCount,
 ) -> CashFlowSchedule {
     if flows.is_empty() {
         let ccy = notional_hint.map(|n| n.currency()).unwrap_or(Currency::USD);
         return CashFlowSchedule {
             flows: vec![],
             notional: Notional::par(0.0, ccy),
-            day_count: DayCount::Act365F,
+            day_count,
             meta: Default::default(),
         };
     }
@@ -138,7 +166,7 @@ pub fn schedule_from_dated_flows(
     CashFlowSchedule {
         flows: cf_flows,
         notional: Notional::par(notional_amount, notional_currency),
-        day_count: DayCount::Act365F,
+        day_count,
         meta: Default::default(),
     }
 }
@@ -170,7 +198,7 @@ mod tests {
                 (d1, Money::new(100.0, Currency::USD)),
                 (d2, Money::new(250.0, Currency::USD)),
             ];
-            Ok(schedule_from_dated_flows(flows, self.notional()))
+            Ok(schedule_from_dated_flows(flows, self.notional(), DayCount::Act365F))
         }
     }
 
@@ -194,7 +222,7 @@ mod tests {
             Money::new(100.0, Currency::USD),
         )];
         let notional = Money::new(5_000_000.0, Currency::USD);
-        let schedule = schedule_from_dated_flows(flows, Some(notional));
+        let schedule = schedule_from_dated_flows(flows, Some(notional), DayCount::Act365F);
         assert_eq!(schedule.notional.initial.amount(), 5_000_000.0);
         assert_eq!(schedule.notional.initial.currency(), Currency::USD);
     }
@@ -205,8 +233,9 @@ mod tests {
             Date::from_calendar_date(2025, Month::January, 1).expect("valid date"),
             Money::new(100.0, Currency::EUR),
         )];
-        let schedule = schedule_from_dated_flows(flows, None);
+        let schedule = schedule_from_dated_flows(flows, None, DayCount::Thirty360);
         assert_eq!(schedule.notional.initial.amount(), 0.0);
         assert_eq!(schedule.notional.initial.currency(), Currency::EUR);
+        assert_eq!(schedule.day_count, DayCount::Thirty360);
     }
 }

@@ -400,6 +400,7 @@ impl CashflowProvider for InterestRateFuture {
         Ok(crate::cashflow::traits::schedule_from_dated_flows(
             Vec::new(),
             self.notional(),
+            self.day_count,
         ))
     }
 }

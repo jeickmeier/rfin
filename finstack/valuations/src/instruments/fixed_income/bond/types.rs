@@ -1499,13 +1499,16 @@ mod tests {
         let notional = Money::new(1_000_000.0, Currency::USD);
 
         // Amortizing bond with annual 5% coupon, 1/3 principal returned each year.
+        // StepRemaining schedule specifies remaining balance AFTER each date.
+        // After step1: 2/3 remaining (paid 1/3), after step2: 1/3 remaining (paid 2/3),
+        // after maturity: 0 remaining (all paid).
         let step1 = Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date");
         let step2 = Date::from_calendar_date(2027, Month::January, 1).expect("Valid test date");
         let amort_spec = AmortizationSpec::StepRemaining {
             schedule: vec![
-                (step1, Money::new(1_000_000.0 / 3.0, Currency::USD)),
-                (step2, Money::new(2.0 * 1_000_000.0 / 3.0, Currency::USD)),
-                (maturity, Money::new(0.0, Currency::USD)),
+                (step1, Money::new(2.0 * 1_000_000.0 / 3.0, Currency::USD)), // 2/3 remaining
+                (step2, Money::new(1_000_000.0 / 3.0, Currency::USD)),       // 1/3 remaining
+                (maturity, Money::new(0.0, Currency::USD)),                  // 0 remaining
             ],
         };
         let base_spec = CashflowSpec::fixed(0.05, Tenor::annual(), DayCount::Act365F);
@@ -1789,19 +1792,21 @@ mod tests {
             .build()
             .expect("Bullet bond construction should succeed in test");
 
-        // Amortizing bond with same coupon but 1/3 principal returned each year
+        // Amortizing bond with same coupon but 1/3 principal returned each year.
+        // StepRemaining schedule specifies remaining balance AFTER each date.
+        // After step1: 2/3 remaining (paid 1/3), after step2: 1/3 remaining (paid 2/3).
         let amort_step1 =
             Date::from_calendar_date(2026, Month::January, 1).expect("Valid test date");
         let amort_step2 =
             Date::from_calendar_date(2027, Month::January, 1).expect("Valid test date");
         let amort_schedule = AmortizationSpec::StepRemaining {
             schedule: vec![
-                (amort_step1, Money::new(1_000_000.0 / 3.0, Currency::USD)),
                 (
-                    amort_step2,
-                    Money::new(2.0 * 1_000_000.0 / 3.0, Currency::USD),
+                    amort_step1,
+                    Money::new(2.0 * 1_000_000.0 / 3.0, Currency::USD), // 2/3 remaining
                 ),
-                (maturity, Money::new(0.0, Currency::USD)),
+                (amort_step2, Money::new(1_000_000.0 / 3.0, Currency::USD)), // 1/3 remaining
+                (maturity, Money::new(0.0, Currency::USD)),                  // 0 remaining
             ],
         };
         let amort_base_spec = CashflowSpec::fixed(0.01, Tenor::annual(), DayCount::Act365F);

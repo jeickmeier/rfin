@@ -370,6 +370,7 @@ impl CashflowProvider for FxSpot {
         Ok(crate::cashflow::traits::schedule_from_dated_flows(
             flows,
             self.notional(),
+            finstack_core::dates::DayCount::Act365F, // Standard for FX spot
         ))
     }
 }

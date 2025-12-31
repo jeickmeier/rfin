@@ -195,7 +195,9 @@ impl CashflowProvider for PrivateMarketsFund {
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
         let flows = self.lp_cashflows()?;
         Ok(crate::cashflow::traits::schedule_from_dated_flows(
-            flows, None,
+            flows,
+            None,
+            finstack_core::dates::DayCount::Act365F, // Standard for PE fund cashflows
         ))
     }
 }

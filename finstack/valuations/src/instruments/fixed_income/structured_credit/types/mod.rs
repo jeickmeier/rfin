@@ -697,6 +697,7 @@ impl CashflowProvider for StructuredCredit {
         Ok(crate::cashflow::traits::schedule_from_dated_flows(
             flows,
             self.notional(),
+            finstack_core::dates::DayCount::Act360, // Standard for structured credit
         ))
     }
 }

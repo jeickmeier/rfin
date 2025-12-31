@@ -489,6 +489,7 @@ impl CashflowProvider for FxVarianceSwap {
         Ok(crate::cashflow::traits::schedule_from_dated_flows(
             vec![(self.maturity, Money::new(0.0, self.notional.currency()))],
             self.notional(),
+            self.day_count,
         ))
     }
 }

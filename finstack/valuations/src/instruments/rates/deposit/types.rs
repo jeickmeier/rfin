@@ -394,6 +394,7 @@ impl CashflowProvider for Deposit {
         Ok(crate::cashflow::traits::schedule_from_dated_flows(
             flows,
             self.notional(),
+            self.day_count,
         ))
     }
 }

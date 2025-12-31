@@ -84,6 +84,6 @@ pub use collections::HashMap;
 pub use collections::HashSet;
 
 // Re-export main error types for convenience.
-pub use error::{Error, InputError};
+pub use error::{Error, InputError, NonFiniteKind};
 /// Convenient alias carrying the crate's unified [`Error`].
 pub type Result<T> = core::result::Result<T, Error>;

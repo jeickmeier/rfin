@@ -143,6 +143,10 @@ fn validate_core_inputs(b: &CashFlowBuilder) -> finstack_core::Result<(Notional,
     let maturity = b.maturity.ok_or_else(|| InputError::NotFound {
         id: "maturity date (call principal() first)".into(),
     })?;
+
+    // Validate notional and amortization spec (e.g., total amortization <= notional)
+    notional.validate()?;
+
     Ok((notional, issue, maturity))
 }
 

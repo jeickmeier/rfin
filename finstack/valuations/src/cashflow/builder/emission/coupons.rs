@@ -1,15 +1,58 @@
 //! Coupon cashflow emission (fixed and floating).
+//!
+//! # Future Extensions
+//!
+//! TODO: Add explicit inflation-linked coupon emission logic. This would support:
+//! - CPI-linked coupons with interpolation (e.g., 2-month or 3-month lag)
+//! - Index ratio calculations for principal adjustment
+//! - Real vs nominal rate decomposition
+//! - Support for different inflation indices (CPI-U, HICP, RPI, etc.)
 
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DateExt, Tenor};
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::money::Money;
+use finstack_core::InputError;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
 use super::super::compiler::{FixedSchedule, FloatSchedule};
 use super::helpers::{add_pik_flow_if_nonzero, compute_reset_date, resolve_calendar};
+
+/// Convert an f64 to Decimal, returning an error for non-finite values.
+///
+/// This prevents silent masking of NaN/Infinity values as zero, which would
+/// result in zero coupons instead of a proper error indicating data corruption.
+fn f64_to_decimal(value: f64, _context: &str) -> finstack_core::Result<Decimal> {
+    use finstack_core::NonFiniteKind;
+
+    if value.is_nan() {
+        return Err(InputError::NonFiniteValue {
+            kind: NonFiniteKind::NaN,
+        }
+        .into());
+    }
+    if value.is_infinite() {
+        let kind = if value.is_sign_positive() {
+            NonFiniteKind::PosInfinity
+        } else {
+            NonFiniteKind::NegInfinity
+        };
+        return Err(InputError::NonFiniteValue { kind }.into());
+    }
+    Decimal::try_from(value).map_err(|_| finstack_core::Error::from(InputError::ConversionOverflow))
+}
+
+/// Convert Decimal to f64, returning an error if conversion fails.
+///
+/// While Decimal values are always finite, the conversion to f64 can fail
+/// for very large values that exceed f64's representable range.
+fn decimal_to_f64(value: Decimal, _context: &str) -> finstack_core::Result<f64> {
+    value
+        .to_f64()
+        .ok_or_else(|| finstack_core::Error::from(InputError::ConversionOverflow))
+}
 
 /// Compute the index maturity date based on reset date and index tenor.
 ///
@@ -72,21 +115,22 @@ pub(in crate::cashflow::builder) fn emit_fixed_coupons_on(
                 },
             )?;
 
-            // Convert Decimal rate to f64 for year fraction computation, then use Decimal for coupon calc
-            let base_out_dec = Decimal::try_from(base_out).unwrap_or(Decimal::ZERO);
-            let yf_dec = Decimal::try_from(yf).unwrap_or(Decimal::ZERO);
+            // Convert f64 values to Decimal with proper error handling for NaN/Infinity.
+            // This prevents silent masking of invalid values as zero.
+            let base_out_dec = f64_to_decimal(base_out, "outstanding balance")?;
+            let yf_dec = f64_to_decimal(yf, "year fraction")?;
             let coupon_total_dec = base_out_dec * spec.rate * yf_dec;
-            let coupon_total = coupon_total_dec.to_f64().unwrap_or(0.0);
+            let coupon_total = decimal_to_f64(coupon_total_dec, "coupon total")?;
 
             let (cash_pct, pik_pct) = spec.coupon_type.split_parts()?;
-            let cash_pct_f64 = cash_pct.to_f64().unwrap_or(0.0);
-            let pik_pct_f64 = pik_pct.to_f64().unwrap_or(0.0);
+            let cash_pct_f64 = decimal_to_f64(cash_pct, "cash percentage")?;
+            let pik_pct_f64 = decimal_to_f64(pik_pct, "pik percentage")?;
 
             let cash_amt = coupon_total * cash_pct_f64;
             let pik_amt = coupon_total * pik_pct_f64;
 
             // Convert rate to f64 for CashFlow storage
-            let rate_f64 = spec.rate.to_f64().unwrap_or(0.0);
+            let rate_f64 = decimal_to_f64(spec.rate, "coupon rate")?;
 
             if cash_amt > 0.0 {
                 let kind = if first_last.contains(&d) {
@@ -179,10 +223,13 @@ pub(in crate::cashflow::builder) fn emit_float_coupons_on(
             // regardless of when the payment actually occurs.
             let index_maturity = compute_index_maturity(reset_date, spec.rate_spec.reset_freq);
 
-            // Construct params for detailed projection (converting Decimal to f64 for rate_helpers)
+            // Construct params for detailed projection (converting Decimal to f64 for rate_helpers).
+            // Use proper error handling for Decimal->f64 conversion.
+            let spread_bp = decimal_to_f64(spec.rate_spec.spread_bp, "spread_bp")?;
+            let gearing = decimal_to_f64(spec.rate_spec.gearing, "gearing")?;
             let params = crate::cashflow::builder::rate_helpers::FloatingRateParams {
-                spread_bp: spec.rate_spec.spread_bp.to_f64().unwrap_or(0.0),
-                gearing: spec.rate_spec.gearing.to_f64().unwrap_or(1.0),
+                spread_bp,
+                gearing,
                 gearing_includes_spread: spec.rate_spec.gearing_includes_spread,
                 index_floor_bp: spec.rate_spec.floor_bp.and_then(|d| d.to_f64()),
                 index_cap_bp: spec.rate_spec.index_cap_bp.and_then(|d| d.to_f64()),
@@ -206,16 +253,17 @@ pub(in crate::cashflow::builder) fn emit_float_coupons_on(
                 super::super::rate_helpers::project_fallback_rate(&params)
             };
 
-            // Use Decimal for coupon calculation
-            let base_out_dec = Decimal::try_from(base_out).unwrap_or(Decimal::ZERO);
-            let total_rate_dec = Decimal::try_from(total_rate).unwrap_or(Decimal::ZERO);
-            let yf_dec = Decimal::try_from(yf).unwrap_or(Decimal::ZERO);
+            // Convert f64 values to Decimal with proper error handling for NaN/Infinity.
+            // This prevents silent masking of invalid values as zero.
+            let base_out_dec = f64_to_decimal(base_out, "outstanding balance")?;
+            let total_rate_dec = f64_to_decimal(total_rate, "total rate")?;
+            let yf_dec = f64_to_decimal(yf, "year fraction")?;
             let coupon_total_dec = base_out_dec * total_rate_dec * yf_dec;
-            let coupon_total = coupon_total_dec.to_f64().unwrap_or(0.0);
+            let coupon_total = decimal_to_f64(coupon_total_dec, "coupon total")?;
 
             let (cash_pct, pik_pct) = spec.coupon_type.split_parts()?;
-            let cash_pct_f64 = cash_pct.to_f64().unwrap_or(0.0);
-            let pik_pct_f64 = pik_pct.to_f64().unwrap_or(0.0);
+            let cash_pct_f64 = decimal_to_f64(cash_pct, "cash percentage")?;
+            let pik_pct_f64 = decimal_to_f64(pik_pct, "pik percentage")?;
             let cash_amt = coupon_total * cash_pct_f64;
             let pik_amt = coupon_total * pik_pct_f64;
 

@@ -169,6 +169,7 @@ impl Notional {
                 Ok(())
             }
             AmortizationSpec::CustomPrincipal { items } => {
+                let mut total_amort = 0.0;
                 for (_date, amount) in items {
                     if amount.currency() != currency {
                         return Err(finstack_core::Error::Validation(format!(
@@ -177,6 +178,18 @@ impl Notional {
                             currency
                         )));
                     }
+                    // Track total amortization (positive amounts reduce outstanding)
+                    if amount.amount() > 0.0 {
+                        total_amort += amount.amount();
+                    }
+                }
+                // Validate total amortization doesn't exceed initial notional
+                if total_amort > self.initial.amount() {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "CustomPrincipal total amortization ({:.2}) exceeds initial notional ({:.2})",
+                        total_amort,
+                        self.initial.amount()
+                    )));
                 }
                 Ok(())
             }
