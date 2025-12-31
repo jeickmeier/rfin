@@ -1,0 +1,74 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/equity/volatility_index_future.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Volatility index futures contract (VIX, VXN, VSTOXX)",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "contract_specs": {
+            "index_id": "VIX",
+            "multiplier": 1000.0,
+            "tick_size": 0.05,
+            "tick_value": 50.0
+          },
+          "discount_curve_id": "USD-OIS",
+          "expiry_date": "2025-03-19",
+          "id": "VIX-FUT-2025M03",
+          "notional": {
+            "amount": "100000",
+            "currency": "USD"
+          },
+          "position": "Long",
+          "quoted_price": 21.5,
+          "settlement_date": "2025-03-19",
+          "vol_index_curve_id": "VIX"
+        },
+        "type": "volatility_index_future"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The Volatility Index Future instrument definition",
+      "example": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "discount_curve_id": "USD-OIS",
+          "expiry_date": "2025-03-19",
+          "id": "VIX-FUT-2025M03",
+          "notional": {
+            "amount": "100000",
+            "currency": "USD"
+          },
+          "position": "Long",
+          "quoted_price": 21.5,
+          "settlement_date": "2025-03-19",
+          "vol_index_curve_id": "VIX"
+        },
+        "type": "volatility_index_future"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "Volatility Index Future",
+  "type": "object"
+}

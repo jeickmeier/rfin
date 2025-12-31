@@ -1,0 +1,54 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/rates/inflation_cap_floor.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "YoY inflation cap/floor option priced with Black-76 or Bachelier model",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "bdc": "ModifiedFollowing",
+          "day_count": "Act365F",
+          "discount_curve_id": "USD-OIS",
+          "end_date": "2029-01-15",
+          "frequency": "12M",
+          "id": "INFL-CAP-USD-5Y",
+          "inflation_index_id": "US-CPI",
+          "notional": {
+            "amount": "10000000",
+            "currency": "USD"
+          },
+          "option_type": "Cap",
+          "pricing_overrides": {},
+          "start_date": "2024-01-15",
+          "strike_rate": 0.03,
+          "stub_kind": "None",
+          "vol_surface_id": "USD-CPI-VOL"
+        },
+        "type": "inflation_cap_floor"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The Inflation Cap/Floor instrument definition",
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "Inflation Cap/Floor",
+  "type": "object"
+}

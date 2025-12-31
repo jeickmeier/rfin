@@ -1,0 +1,78 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/equity/equity_index_future.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Equity index futures contract (E-mini S&P 500, Nasdaq-100, etc.)",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "contract_specs": {
+            "multiplier": 50.0,
+            "settlement_method": "Cash settled to Special Opening Quotation",
+            "tick_size": 0.25,
+            "tick_value": 12.5
+          },
+          "currency": "USD",
+          "discount_curve_id": "USD-OIS",
+          "dividend_yield_id": null,
+          "entry_price": 4500.0,
+          "expiry_date": "2025-03-21",
+          "id": "ES-2025M03",
+          "index_price_id": "SPX-SPOT",
+          "index_ticker": "SPX",
+          "last_trading_date": "2025-03-20",
+          "position": "Long",
+          "quantity": 10.0,
+          "quoted_price": 4550.0
+        },
+        "type": "equity_index_future"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The Equity Index Future instrument definition",
+      "example": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "contract_specs": {
+            "multiplier": 50.0,
+            "tick_size": 0.25,
+            "tick_value": 12.5
+          },
+          "currency": "USD",
+          "discount_curve_id": "USD-OIS",
+          "expiry_date": "2025-03-21",
+          "id": "ES-2025M03",
+          "index_price_id": "SPX-SPOT",
+          "index_ticker": "SPX",
+          "last_trading_date": "2025-03-20",
+          "position": "Long",
+          "quantity": 10.0
+        },
+        "type": "equity_index_future"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "Equity Index Future",
+  "type": "object"
+}

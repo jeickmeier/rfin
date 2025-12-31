@@ -16,6 +16,8 @@
           "id": "CDX-IG-42",
           "index_factor": 1.0,
           "index_name": "CDX.NA.IG",
+          "series": 42,
+          "side": "pay_fixed",
           "notional": {
             "amount": "10000000",
             "currency": "USD"
@@ -52,8 +54,6 @@
             "recovery_rate": 0.4,
             "settlement_delay": 3
           },
-          "series": 42,
-          "side": "pay_fixed",
           "version": 1
         },
         "type": "cds_index"

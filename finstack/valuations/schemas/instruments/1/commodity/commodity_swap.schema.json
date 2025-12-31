@@ -1,0 +1,83 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/commodity/commodity_swap.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Commodity swap for fixed-for-floating commodity price exchange contracts",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {
+              "sector": "natural-gas"
+            },
+            "tags": ["energy"]
+          },
+          "bdc": "ModifiedFollowing",
+          "calendar_id": null,
+          "commodity_type": "Energy",
+          "currency": "USD",
+          "discount_curve_id": "USD-OIS",
+          "end_date": "2025-12-31",
+          "fixed_price": 3.50,
+          "floating_index_id": "NG-SPOT-AVG",
+          "id": "NG-SWAP-2025",
+          "index_lag_days": null,
+          "notional_quantity": 10000.0,
+          "pay_fixed": true,
+          "payment_frequency": {
+            "count": 1,
+            "unit": "months"
+          },
+          "start_date": "2025-01-01",
+          "ticker": "NG",
+          "unit": "MMBTU"
+        },
+        "type": "commodity_swap"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The Commodity Swap instrument definition",
+      "example": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "commodity_type": "Energy",
+          "currency": "USD",
+          "discount_curve_id": "USD-OIS",
+          "end_date": "2025-12-31",
+          "fixed_price": 3.50,
+          "floating_index_id": "NG-SPOT-AVG",
+          "id": "NG-SWAP-2025",
+          "notional_quantity": 10000.0,
+          "pay_fixed": true,
+          "payment_frequency": {
+            "count": 1,
+            "unit": "months"
+          },
+          "start_date": "2025-01-01",
+          "ticker": "NG",
+          "unit": "MMBTU"
+        },
+        "type": "commodity_swap"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "Commodity Swap",
+  "type": "object"
+}

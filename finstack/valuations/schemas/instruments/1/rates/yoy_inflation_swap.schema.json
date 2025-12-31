@@ -1,0 +1,54 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/rates/yoy_inflation_swap.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Year-on-Year inflation swap with periodic coupon payments",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "bdc": "Following",
+          "dc": "Act365F",
+          "discount_curve_id": "USD-OIS",
+          "fixed_rate": 0.025,
+          "frequency": "12M",
+          "id": "YOY-INFLSWAP-USD-5Y",
+          "inflation_index_id": "US-CPI",
+          "lag_override": {
+            "Months": 3
+          },
+          "maturity": "2029-01-15",
+          "notional": {
+            "amount": "1000000",
+            "currency": "USD"
+          },
+          "side": "PayFixed",
+          "start": "2024-01-15"
+        },
+        "type": "yo_y_inflation_swap"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The YoY Inflation Swap instrument definition",
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "YoY Inflation Swap",
+  "type": "object"
+}

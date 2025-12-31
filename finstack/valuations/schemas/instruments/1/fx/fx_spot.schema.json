@@ -1,0 +1,67 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/fx/fx_spot.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "FX spot position representing immediate currency exchange",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "base": "EUR",
+          "bdc": "Following",
+          "calendar_id": "TARGET",
+          "id": "EURUSD",
+          "notional": {
+            "amount": "1000000",
+            "currency": "EUR"
+          },
+          "quote": "USD",
+          "settlement": "2024-01-15",
+          "settlement_lag_days": 2,
+          "spot_rate": 1.10
+        },
+        "type": "fx_spot"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The FX Spot instrument definition",
+      "example": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "base": "EUR",
+          "bdc": "Following",
+          "id": "EURUSD",
+          "notional": {
+            "amount": "1000000",
+            "currency": "EUR"
+          },
+          "quote": "USD",
+          "spot_rate": 1.10
+        },
+        "type": "fx_spot"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "FX Spot",
+  "type": "object"
+}

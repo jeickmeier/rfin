@@ -1,0 +1,72 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/equity/real_estate_asset.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Real estate asset valuation using DCF or direct capitalization",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "appraisal_value": null,
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "cap_rate": 0.065,
+          "currency": "USD",
+          "day_count": "Act365F",
+          "discount_curve_id": "USD-OIS",
+          "discount_rate": 0.08,
+          "id": "RE-ASSET-001",
+          "noi_schedule": [
+            ["2025-01-01", 500000.0],
+            ["2026-01-01", 515000.0],
+            ["2027-01-01", 530450.0]
+          ],
+          "stabilized_noi": null,
+          "terminal_cap_rate": 0.07,
+          "valuation_date": "2025-01-01",
+          "valuation_method": "dcf"
+        },
+        "type": "real_estate_asset"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The Real Estate Asset instrument definition",
+      "example": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "cap_rate": 0.065,
+          "currency": "USD",
+          "day_count": "Act365F",
+          "discount_curve_id": "USD-OIS",
+          "id": "RE-ASSET-001",
+          "noi_schedule": [
+            ["2025-01-01", 500000.0]
+          ],
+          "valuation_date": "2025-01-01",
+          "valuation_method": "direct_cap"
+        },
+        "type": "real_estate_asset"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "Real Estate Asset",
+  "type": "object"
+}

@@ -1,0 +1,65 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/rates/basis_swap.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Basis swap exchanging two floating rate payments with different tenors",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "calendar_id": "usny",
+          "discount_curve_id": "OIS",
+          "id": "BASIS_SWAP_001",
+          "maturity_date": "2025-01-03",
+          "notional": {
+            "amount": "1000000",
+            "currency": "USD"
+          },
+          "primary_leg": {
+            "bdc": "ModifiedFollowing",
+            "day_count": "Act360",
+            "forward_curve_id": "3M-SOFR",
+            "frequency": "3M",
+            "payment_lag_days": 0,
+            "reset_lag_days": 0,
+            "spread": 0.0005
+          },
+          "reference_leg": {
+            "bdc": "ModifiedFollowing",
+            "day_count": "Act360",
+            "forward_curve_id": "6M-SOFR",
+            "frequency": "6M",
+            "payment_lag_days": 0,
+            "reset_lag_days": 0,
+            "spread": 0.0
+          },
+          "start_date": "2024-01-03",
+          "stub_kind": "None"
+        },
+        "type": "basis_swap"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The Basis Swap instrument definition",
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "Basis Swap",
+  "type": "object"
+}

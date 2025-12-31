@@ -1,0 +1,51 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/fixed_income/agency_tba.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Agency TBA (To-Be-Announced) forward trade on agency MBS",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "agency": "FNMA",
+          "attributes": {
+            "meta": {
+              "program": "fnma"
+            },
+            "tags": ["tba", "agency"]
+          },
+          "coupon": 0.04,
+          "discount_curve_id": "USD-OIS",
+          "id": "FN30-4.0-202403",
+          "notional": {
+            "amount": "10000000",
+            "currency": "USD"
+          },
+          "settlement_month": 3,
+          "settlement_year": 2024,
+          "term": "thirty_year",
+          "trade_price": 98.5
+        },
+        "type": "agency_tba"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The Agency TBA instrument definition",
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "Agency TBA",
+  "type": "object"
+}

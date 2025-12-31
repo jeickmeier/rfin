@@ -18,7 +18,7 @@ macro_rules! include_schema {
 /// Sourced from the generated instrument schemas under `schemas/instruments/1/`.
 pub fn bond_schema() -> &'static Value {
     static SCHEMA: OnceLock<Value> = OnceLock::new();
-    SCHEMA.get_or_init(|| include_schema!("../schemas/instruments/1/bond.schema.json"))
+    SCHEMA.get_or_init(|| include_schema!("../schemas/instruments/1/fixed_income/bond.schema.json"))
 }
 
 /// Get JSON-Schema for ValuationResult.

@@ -1,0 +1,74 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/equity/dcf_equity.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Discounted Cash Flow instrument for corporate equity valuation",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "currency": "USD",
+          "discount_curve_id": "USD-OIS",
+          "flows": [
+            ["2026-01-01", 100.0],
+            ["2027-01-01", 110.0],
+            ["2028-01-01", 121.0]
+          ],
+          "id": "DCF-EXAMPLE",
+          "net_debt": 500000.0,
+          "terminal_value": {
+            "type": "gordon_growth",
+            "growth_rate": 0.02
+          },
+          "valuation_date": "2025-01-01",
+          "wacc": 0.10
+        },
+        "type": "dcf_equity"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The DCF Equity instrument definition",
+      "example": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "currency": "USD",
+          "discount_curve_id": "USD-OIS",
+          "flows": [
+            ["2026-01-01", 100.0]
+          ],
+          "id": "DCF-EXAMPLE",
+          "net_debt": 0.0,
+          "terminal_value": {
+            "type": "gordon_growth",
+            "growth_rate": 0.02
+          },
+          "valuation_date": "2025-01-01",
+          "wacc": 0.10
+        },
+        "type": "dcf_equity"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "DCF Equity",
+  "type": "object"
+}

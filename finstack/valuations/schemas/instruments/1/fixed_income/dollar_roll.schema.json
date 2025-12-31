@@ -1,0 +1,54 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/fixed_income/dollar_roll.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Dollar roll - simultaneous sale and purchase of TBAs for different settlement months",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "agency": "FNMA",
+          "attributes": {
+            "meta": {
+              "program": "fnma"
+            },
+            "tags": ["dollar_roll", "agency"]
+          },
+          "back_price": 98.0,
+          "back_settlement_month": 4,
+          "back_settlement_year": 2024,
+          "coupon": 0.04,
+          "discount_curve_id": "USD-OIS",
+          "front_price": 98.5,
+          "front_settlement_month": 3,
+          "front_settlement_year": 2024,
+          "id": "FN30-4.0-ROLL-0324-0424",
+          "notional": {
+            "amount": "10000000",
+            "currency": "USD"
+          },
+          "term": "thirty_year"
+        },
+        "type": "dollar_roll"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The Dollar Roll instrument definition",
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "Dollar Roll",
+  "type": "object"
+}

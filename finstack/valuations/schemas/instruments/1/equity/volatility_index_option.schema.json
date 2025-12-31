@@ -1,0 +1,77 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/equity/volatility_index_option.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "European-style option on volatility indices (VIX, VXN, VSTOXX)",
+  "examples": [
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "contract_specs": {
+            "index_id": "VIX",
+            "multiplier": 100.0
+          },
+          "day_count": "Act365F",
+          "discount_curve_id": "USD-OIS",
+          "exercise_style": "European",
+          "expiry": "2025-03-19",
+          "id": "VIX-CALL-20-2025M03",
+          "notional": {
+            "amount": "10000",
+            "currency": "USD"
+          },
+          "option_type": "Call",
+          "settlement_date": null,
+          "strike": 20.0,
+          "vol_index_curve_id": "VIX",
+          "vol_of_vol_surface_id": "VIX-VOLVOL"
+        },
+        "type": "volatility_index_option"
+      },
+      "schema": "finstack.instrument/1"
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The Volatility Index Option instrument definition",
+      "example": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "day_count": "Act365F",
+          "discount_curve_id": "USD-OIS",
+          "exercise_style": "European",
+          "expiry": "2025-03-19",
+          "id": "VIX-CALL-20-2025M03",
+          "notional": {
+            "amount": "10000",
+            "currency": "USD"
+          },
+          "option_type": "Call",
+          "strike": 20.0,
+          "vol_index_curve_id": "VIX",
+          "vol_of_vol_surface_id": "VIX-VOLVOL"
+        },
+        "type": "volatility_index_option"
+      },
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "Volatility Index Option",
+  "type": "object"
+}
