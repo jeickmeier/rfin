@@ -376,35 +376,47 @@ impl BootstrapTarget for BaseCorrelationBootstrapper {
     }
 
     fn initial_guess(&self, _quote: &Self::Quote, previous_knots: &[(f64, f64)]) -> Result<f64> {
+        // Return the previous knot's correlation as both the starting point and the
+        // lower bound for the monotonicity constraint (β(K₂) ≥ β(K₁) for K₂ > K₁).
+        // For the first quote, return 0.0 (no constraint from previous knots).
         let prev = previous_knots.last().map(|(_, v)| *v).unwrap_or(0.0);
-        Ok(prev.max(0.30).clamp(0.0, 0.999))
+        Ok(prev.clamp(0.0, 0.999))
     }
 
     fn scan_points(&self, _quote: &Self::Quote, initial_guess: f64) -> Result<Vec<f64>> {
-        // Base correlation is a bounded parameter in [0, 1).
-        // Provide a dense bounded scan grid so the generic exponential scan does not
-        // explode to extreme values (which can make bracketing unstable).
+        // Base correlation is a bounded parameter in [0, 1) with a monotonicity
+        // constraint: β(K₂) ≥ β(K₁) for K₂ > K₁. The `initial_guess` provides the
+        // previous knot's correlation, which is the lower bound for valid solutions.
+        //
+        // Generate a dense bounded scan grid in [low, hi] so the solver only
+        // explores the feasible region, avoiding validation errors from
+        // non-monotonic trial curves.
         let mut pts = Vec::with_capacity(64);
         let hi = 0.999_f64;
 
-        pts.push(0.0);
-        pts.push(hi);
-        if initial_guess.is_finite() {
-            pts.push(initial_guess.clamp(0.0, hi));
-        }
+        // Lower bound from monotonicity: new correlation >= previous correlation.
+        let low = initial_guess.clamp(0.0, hi);
 
-        // Linear grid across the feasible region.
+        pts.push(low);
+        pts.push(hi);
+
+        // Linear grid across the feasible region [low, hi].
         const N: usize = 48;
         for i in 0..=N {
-            let x = (i as f64) / (N as f64) * hi;
+            let x = low + (i as f64) / (N as f64) * (hi - low);
             pts.push(x);
         }
 
-        // Extra refinement around the initial guess.
-        let c = initial_guess.clamp(0.0, hi);
-        for dx in [1e-4, 5e-4, 1e-3, 5e-3, 1e-2] {
+        // Extra refinement around a central estimate.
+        // Start searching from a point in the interior of the feasible region.
+        let center = if low < 0.5 {
+            (low + 0.30).min(0.85)
+        } else {
+            (low + hi) / 2.0
+        };
+        for dx in [1e-4, 5e-4, 1e-3, 5e-3, 1e-2, 0.05] {
             for s in [-1.0, 1.0] {
-                let x = (c + s * dx).clamp(0.0, hi);
+                let x = (center + s * dx).clamp(low, hi);
                 pts.push(x);
             }
         }
