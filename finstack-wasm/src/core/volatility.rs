@@ -68,36 +68,3 @@ pub fn convert_atm_volatility_js(
     .map_err(|e| js_error(e.to_string()))
 }
 
-/// Convert volatility between conventions by equating option prices.
-///
-/// @deprecated Use convertAtmVolatility instead, which provides explicit error handling.
-///
-/// @param {number} vol - Input volatility
-/// @param {VolatilityConvention} fromConvention - Source convention
-/// @param {VolatilityConvention} toConvention - Target convention
-/// @param {number} forwardRate - Forward rate
-/// @param {number} timeToExpiry - Time to expiry (years)
-/// @param {number} zeroThreshold - Threshold for near-zero forwards (ignored)
-/// @returns {number} Converted volatility (returns input on error)
-#[wasm_bindgen(js_name = convertVolatility)]
-pub fn convert_volatility_js(
-    vol: f64,
-    from_convention: &JsVolatilityConvention,
-    to_convention: &JsVolatilityConvention,
-    forward_rate: f64,
-    time_to_expiry: f64,
-    _zero_threshold: f64,
-) -> Result<f64, JsValue> {
-    if !vol.is_finite() || !forward_rate.is_finite() || !time_to_expiry.is_finite() {
-        return Err(js_error("convertVolatility: inputs must be finite numbers"));
-    }
-
-    Ok(convert_atm_volatility(
-        vol,
-        from_convention.inner,
-        to_convention.inner,
-        forward_rate,
-        time_to_expiry,
-    )
-    .unwrap_or(vol))
-}

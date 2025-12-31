@@ -1,6 +1,6 @@
 use finstack_wasm::{
-    BusinessDayConvention, DayCount, DayCountContext, DayCountContextState, FsDate, ScheduleSpec,
-    StubKind, Tenor,
+    BusinessDayConvention, DayCount, DayCountContext, DayCountContextState, Frequency, FsDate,
+    ScheduleSpec, StubKind, Tenor,
 };
 use wasm_bindgen_test::*;
 
@@ -10,7 +10,7 @@ wasm_bindgen_test_configure!(run_in_browser);
 fn daycount_context_state_roundtrip() {
     let mut ctx = DayCountContext::new();
     ctx.set_calendar_code("target2");
-    ctx.set_frequency(&Tenor::quarterly());
+    ctx.set_frequency(&Frequency::quarterly());
     ctx.set_bus_basis(260);
 
     let state = ctx.to_state();

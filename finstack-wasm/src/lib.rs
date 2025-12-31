@@ -51,9 +51,27 @@ pub use core::market_data::{
     ScalarTimeSeries, SeriesInterpolation, VolSurface,
 };
 pub use core::math::{
-    adaptiveSimpson, binomialProbability, gaussLegendreIntegrate, gaussLegendreIntegrateAdaptive,
-    gaussLegendreIntegrateComposite, logBinomialCoefficient, logFactorial, simpsonRule,
-    trapezoidalRule, BrentSolver, GaussHermiteQuadrature, NewtonSolver,
+    // Integration
+    adaptiveSimpson, gaussLegendreIntegrate, gaussLegendreIntegrateAdaptive,
+    gaussLegendreIntegrateComposite, simpsonRule, trapezoidalRule, GaussHermiteQuadrature,
+    // Distributions
+    binomialDistribution, binomialProbability, chiSquaredCdf, chiSquaredPdf, chiSquaredQuantile,
+    exponentialCdf, exponentialPdf, exponentialQuantile, logBinomialCoefficient, logFactorial,
+    lognormalCdf, lognormalPdf, lognormalQuantile,
+    // Linear Algebra
+    applyCorrelation, buildCorrelationMatrix, choleskyDecomposition, validateCorrelationMatrix,
+    // Probability
+    correlationBounds, jointProbabilities, CorrelatedBernoulliDist,
+    // Random
+    boxMullerTransform, Rng,
+    // Solvers
+    BrentSolver, NewtonSolver,
+    // Special Functions
+    erf, normCdf, normInvCdf, normPdf, studentTCdf, studentTInvCdf,
+    // Statistics
+    correlation, covariance, mean, variance,
+    // Summation
+    kahanSum, neumaierSum, SumAccumulator,
 };
 pub use core::money::JsMoney as Money;
 pub use core::types::{
@@ -62,15 +80,20 @@ pub use core::types::{
     JsRatingNotch as RatingNotch, PriceId, UnderlyingId,
 };
 pub use core::volatility::{
-    convert_atm_volatility_js as convertAtmVolatility, convert_volatility_js as convertVolatility,
+    convert_atm_volatility_js as convertAtmVolatility,
     JsVolatilityConvention as VolatilityConvention,
 };
 pub use valuations::calibration::{
-    JsCalibrationConfig as CalibrationConfig, JsCalibrationReport as CalibrationReport,
-    JsCreditQuote as CreditQuote, JsInflationQuote as InflationQuote, JsMarketQuote as MarketQuote,
-    JsRatesQuote as RatesQuote, JsSABRCalibrationDerivatives as SABRCalibrationDerivatives,
+    JsCalibrationConfig as CalibrationConfig, JsCalibrationMethod as CalibrationMethod,
+    JsCalibrationReport as CalibrationReport, JsCdsTrancheQuote as CdsTrancheQuote,
+    JsCreditQuote as CreditQuote, JsInflationQuote as InflationQuote,
+    JsMarketQuote as MarketQuote, JsRateBounds as RateBounds,
+    JsRateBoundsPolicy as RateBoundsPolicy, JsRatesQuote as RatesQuote,
+    JsResidualWeightingScheme as ResidualWeightingScheme,
+    JsSABRCalibrationDerivatives as SABRCalibrationDerivatives,
     JsSABRMarketData as SABRMarketData, JsSABRModelParams as SABRModelParams,
-    JsSolverKind as SolverKind, JsValidationConfig as ValidationConfig, JsVolQuote as VolQuote,
+    JsSolverKind as SolverKind, JsValidationConfig as ValidationConfig,
+    JsValidationMode as ValidationMode, JsVolQuote as VolQuote,
 };
 // Validation functions
 pub use valuations::calibration::validation::{
@@ -87,14 +110,15 @@ pub use valuations::metrics::{JsMetricId as MetricId, JsMetricRegistry as Metric
 // Instruments and their helper types
 pub use valuations::instruments::{
     evaluate_dcf_wasm as evaluateDcf, AsianOption, Autocallable, AveragingMethod, BarrierOption,
-    BasisSwap, Basket, Bond, CDSIndex, CdsOption, CdsTranche, CliquetOption, CmsOption,
-    ConvertibleBond, CoverageTestRules, CoverageTrigger, CreditDefaultSwap, Deposit, Equity,
-    EquityOption, EquityTotalReturnSwap, FiIndexTotalReturnSwap, ForwardRateAgreement,
-    FxBarrierOption, FxOption, FxSpot, FxSwap, InflationLinkedBond, InflationSwap,
-    InterestRateFuture, InterestRateOption, InterestRateSwap, LookbackOption, LookbackType, Pool,
-    PrivateMarketsFund, QuantoOption, RangeAccrual, RealizedVarMethod, Repo, RevolvingCredit,
-    StructuredCredit, Swaption, TermLoan, TrancheStructure, VarianceSwap, WaterfallDistribution,
-    WaterfallEngine,
+    BasisSwap, Basket, Bond, BondFuture, BondFutureSpecs, CDSIndex, CdsOption, CdsTranche,
+    CliquetOption, CmsOption, CommodityOption, ConvertibleBond, CoverageTestRules, CoverageTrigger,
+    CreditDefaultSwap, Deposit, Equity, EquityFutureSpecs, EquityIndexFuture, EquityOption,
+    EquityTotalReturnSwap, FiIndexTotalReturnSwap, ForwardRateAgreement, FuturePosition,
+    FxBarrierOption, FxForward, FxOption, FxSpot, FxSwap, FxVarianceSwap, InflationLinkedBond,
+    InflationSwap, InterestRateFuture, InterestRateOption, InterestRateSwap, LookbackOption,
+    LookbackType, Ndf, Pool, PrivateMarketsFund, QuantoOption, RangeAccrual, RealizedVarMethod,
+    Repo, RevolvingCredit, StructuredCredit, Swaption, TermLoan, TrancheStructure, VarianceSwap,
+    VarianceSwapSide, WaterfallDistribution, WaterfallEngine,
 };
 pub use valuations::performance::{
     calculate_npv_wasm as calculateNpv, irr_periodic_wasm as irrPeriodic, xirr_wasm as xirr,

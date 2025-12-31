@@ -6,6 +6,7 @@ mod autocallable;
 mod barrier_option;
 mod basis_swap;
 mod bond;
+mod bond_future;
 mod cap_floor;
 mod cds;
 mod cds_index;
@@ -14,20 +15,25 @@ mod cds_tranche;
 mod cliquet_option;
 mod cms_option;
 mod commodity_forward;
+mod commodity_option;
 mod commodity_swap;
 mod convertible;
 mod dcf;
 mod deposit;
 mod equity;
+mod equity_index_future;
 mod equity_option;
 mod fra;
 mod fx;
 mod fx_barrier_option;
+mod fx_forward;
+mod fx_variance_swap;
 mod inflation_linked_bond;
 mod inflation_swap;
 mod ir_future;
 mod irs;
 mod lookback_option;
+mod ndf;
 mod private_markets_fund;
 mod quanto_option;
 mod range_accrual;
@@ -61,6 +67,10 @@ pub use autocallable::JsAutocallable as Autocallable;
 pub use barrier_option::JsBarrierOption as BarrierOption;
 pub use basis_swap::JsBasisSwap as BasisSwap;
 pub use bond::JsBond as Bond;
+pub use bond_future::{
+    JsBondFuture as BondFuture, JsBondFutureSpecs as BondFutureSpecs,
+    JsFuturePosition as FuturePosition,
+};
 // Also export JsBond name for use within this crate
 pub use bond::JsBond;
 pub use cap_floor::JsInterestRateOption as InterestRateOption;
@@ -70,20 +80,27 @@ pub use cds_option::JsCdsOption as CdsOption;
 pub use cds_tranche::JsCdsTranche as CdsTranche;
 pub use cliquet_option::JsCliquetOption as CliquetOption;
 pub use cms_option::JsCmsOption as CmsOption;
+pub use commodity_option::JsCommodityOption as CommodityOption;
 // Commodity instruments: exported directly via wasm_bindgen
 pub use convertible::JsConvertibleBond as ConvertibleBond;
 pub use dcf::evaluate_dcf_wasm;
 pub use deposit::JsDeposit as Deposit;
 pub use equity::JsEquity as Equity;
+pub use equity_index_future::{
+    JsEquityFutureSpecs as EquityFutureSpecs, JsEquityIndexFuture as EquityIndexFuture,
+};
 pub use equity_option::JsEquityOption as EquityOption;
 pub use fra::JsForwardRateAgreement as ForwardRateAgreement;
 pub use fx::{JsFxOption as FxOption, JsFxSpot as FxSpot, JsFxSwap as FxSwap};
 pub use fx_barrier_option::JsFxBarrierOption as FxBarrierOption;
+pub use fx_forward::JsFxForward as FxForward;
+pub use fx_variance_swap::{JsFxVarianceSwap as FxVarianceSwap, JsVarianceSwapSide as VarianceSwapSide};
 pub use inflation_linked_bond::JsInflationLinkedBond as InflationLinkedBond;
 pub use inflation_swap::JsInflationSwap as InflationSwap;
 pub use ir_future::JsInterestRateFuture as InterestRateFuture;
 pub use irs::JsInterestRateSwap as InterestRateSwap;
 pub use lookback_option::{JsLookbackOption as LookbackOption, JsLookbackType as LookbackType};
+pub use ndf::JsNdf as Ndf;
 pub use private_markets_fund::JsPrivateMarketsFund as PrivateMarketsFund;
 pub use quanto_option::JsQuantoOption as QuantoOption;
 pub use range_accrual::JsRangeAccrual as RangeAccrual;
@@ -141,6 +158,8 @@ pub(crate) fn extract_instrument(value: &JsValue) -> Result<Box<dyn Instrument>,
     try_extract!(agency_mbs::JsDollarRoll, "DollarRoll");
     try_extract!(agency_mbs::JsAgencyCmo, "AgencyCmo");
     try_extract!(bond::JsBond, "Bond");
+    try_extract!(bond_future::JsBondFuture, "BondFuture");
+    try_extract!(commodity_option::JsCommodityOption, "CommodityOption");
     try_extract!(deposit::JsDeposit, "Deposit");
     try_extract!(basis_swap::JsBasisSwap, "BasisSwap");
     try_extract!(fra::JsForwardRateAgreement, "ForwardRateAgreement");
@@ -151,6 +170,7 @@ pub(crate) fn extract_instrument(value: &JsValue) -> Result<Box<dyn Instrument>,
     try_extract!(fx::JsFxOption, "FxOption");
     try_extract!(fx::JsFxSwap, "FxSwap");
     try_extract!(equity::JsEquity, "Equity");
+    try_extract!(equity_index_future::JsEquityIndexFuture, "EquityIndexFuture");
     try_extract!(equity_option::JsEquityOption, "EquityOption");
     try_extract!(convertible::JsConvertibleBond, "ConvertibleBond");
     try_extract!(swaption::JsSwaption, "Swaption");
@@ -181,7 +201,10 @@ pub(crate) fn extract_instrument(value: &JsValue) -> Result<Box<dyn Instrument>,
     try_extract!(commodity_forward::JsCommodityForward, "CommodityForward");
     try_extract!(commodity_swap::JsCommoditySwap, "CommoditySwap");
     try_extract!(fx_barrier_option::JsFxBarrierOption, "FxBarrierOption");
+    try_extract!(fx_forward::JsFxForward, "FxForward");
+    try_extract!(fx_variance_swap::JsFxVarianceSwap, "FxVarianceSwap");
     try_extract!(lookback_option::JsLookbackOption, "LookbackOption");
+    try_extract!(ndf::JsNdf, "Ndf");
     try_extract!(quanto_option::JsQuantoOption, "QuantoOption");
     try_extract!(range_accrual::JsRangeAccrual, "RangeAccrual");
     try_extract!(revolving_credit::JsRevolvingCredit, "RevolvingCredit");
