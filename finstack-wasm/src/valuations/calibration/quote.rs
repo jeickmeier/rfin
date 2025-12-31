@@ -253,6 +253,7 @@ impl JsCdsTrancheQuote {
     /// @param {string} currency - Currency code
     /// @param {string} docClause - CDS doc clause
     /// @returns {JsCdsTrancheQuote} CDS tranche quote
+    #[allow(clippy::too_many_arguments)]
     #[wasm_bindgen(constructor)]
     pub fn new(
         id: &str,

@@ -248,14 +248,14 @@ impl JsEquityIndexFuture {
     #[wasm_bindgen(js_name = fairForward)]
     pub fn fair_forward(&self, market: &JsMarketContext, as_of: &FsDate) -> Result<f64, JsValue> {
         self.inner
-            .fair_forward(&market.inner(), as_of.inner())
+            .fair_forward(market.inner(), as_of.inner())
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
     /// Calculate present value.
     pub fn npv(&self, market: &JsMarketContext, as_of: &FsDate) -> Result<f64, JsValue> {
         self.inner
-            .npv(&market.inner(), as_of.inner())
+            .npv(market.inner(), as_of.inner())
             .map(|m| m.amount())
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }

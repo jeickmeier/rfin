@@ -206,7 +206,7 @@ impl JsRealEstateAsset {
     /// Calculate the NPV.
     pub fn npv(&self, market: &JsMarketContext, as_of: &JsDate) -> Result<JsMoney, JsValue> {
         self.inner
-            .npv(&market.inner(), as_of.inner())
+            .npv(market.inner(), as_of.inner())
             .map(JsMoney::from_inner)
             .map_err(|e| js_error(e.to_string()))
     }

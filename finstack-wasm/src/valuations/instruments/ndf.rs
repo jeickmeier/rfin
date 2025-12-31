@@ -54,6 +54,7 @@ impl JsNdf {
     /// @param {number} notional - Notional amount in base currency
     /// @param {number} contractRate - Contract forward rate (base per settlement)
     /// @param {string} settlementCurveId - Settlement currency discount curve ID
+    #[allow(clippy::too_many_arguments)]
     #[wasm_bindgen(constructor)]
     pub fn new(
         id: &str,
@@ -140,7 +141,7 @@ impl JsNdf {
     /// Calculate present value.
     pub fn npv(&self, market: &JsMarketContext, as_of: &FsDate) -> Result<f64, JsValue> {
         self.inner
-            .npv(&market.inner(), as_of.inner())
+            .npv(market.inner(), as_of.inner())
             .map(|m| m.amount())
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }

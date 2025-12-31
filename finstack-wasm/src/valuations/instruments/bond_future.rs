@@ -254,7 +254,7 @@ impl JsBondFuture {
         use finstack_valuations::instruments::common::traits::Instrument;
 
         self.inner
-            .value(&market.inner(), as_of.inner())
+            .value(market.inner(), as_of.inner())
             .map(|m| m.amount())
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }

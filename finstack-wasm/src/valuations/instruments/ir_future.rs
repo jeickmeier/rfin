@@ -50,8 +50,10 @@ impl JsInterestRateFuture {
 
         // Use default contract specs with convexity adjustment set to 0.0
         // to avoid requiring a volatility surface for simple pricing
-        let mut contract_specs = FutureContractSpecs::default();
-        contract_specs.convexity_adjustment = Some(0.0);
+        let contract_specs = FutureContractSpecs {
+            convexity_adjustment: Some(0.0),
+            ..Default::default()
+        };
 
         let builder = InterestRateFuture::builder()
             .id(instrument_id_from_str(instrument_id))
