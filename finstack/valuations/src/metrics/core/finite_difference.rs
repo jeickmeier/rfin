@@ -23,6 +23,7 @@ pub mod bump_sizes {
     /// (Not a 1% relative scaling of the surface.)
     pub const VOLATILITY: f64 = 0.01;
     /// Correlation bump: 1% (0.01)
+    #[allow(dead_code)] // Reserved for future correlation risk metrics
     pub const CORRELATION: f64 = 0.01;
 }
 

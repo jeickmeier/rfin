@@ -1,6 +1,7 @@
 //! Test helpers for autocallable tests.
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+#![allow(dead_code)] // Helper functions may not all be used in every test configuration
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};

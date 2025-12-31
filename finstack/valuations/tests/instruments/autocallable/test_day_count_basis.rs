@@ -25,10 +25,14 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
+// These imports are used by the `#[cfg(feature = "mc")]` test below
+#[cfg(feature = "mc")]
 use super::helpers::*;
+#[cfg(feature = "mc")]
 use finstack_core::dates::DayCount;
+#[cfg(feature = "mc")]
 use finstack_valuations::instruments::common::traits::Instrument;
-use std::time::Instant;
+#[cfg(feature = "mc")]
 use time::macros::date;
 
 /// Test that a quarterly observation autocall with ACT/365 surface and ACT/360 curve prices correctly.

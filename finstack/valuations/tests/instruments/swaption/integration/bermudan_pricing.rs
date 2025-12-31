@@ -4,6 +4,7 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Tenor};
+#[cfg(feature = "mc")]
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
@@ -13,9 +14,11 @@ use finstack_valuations::instruments::common::models::trees::{HullWhiteTree, Hul
 use finstack_valuations::instruments::common::parameters::OptionType;
 use finstack_valuations::instruments::swaption::pricing::BermudanSwaptionTreeValuator;
 use finstack_valuations::instruments::swaption::{
-    BermudanSchedule, BermudanSwaption, BermudanSwaptionPricer, BermudanType, HullWhiteParams,
-    SwaptionSettlement,
+    BermudanSchedule, BermudanSwaption, BermudanType, SwaptionSettlement,
 };
+#[cfg(feature = "mc")]
+use finstack_valuations::instruments::swaption::{BermudanSwaptionPricer, HullWhiteParams};
+#[cfg(feature = "mc")]
 use finstack_valuations::pricer::Pricer;
 use time::Month;
 
@@ -311,6 +314,7 @@ fn test_bermudan_to_european_conversion() {
 // LSMC Tests (requires "mc" feature)
 // ============================================================================
 
+#[cfg(feature = "mc")]
 fn build_market_context() -> MarketContext {
     let curve = test_discount_curve();
     MarketContext::new().insert_discount(curve)

@@ -33,16 +33,17 @@
 //! ```rust,no_run
 //! use finstack_valuations::instruments::common::models::monte_carlo::prelude::*;
 //!
-//! // Configure Monte Carlo engine
-//! let config = McEngineConfig {
-//!     num_paths: 100_000,
-//!     seed: Some(42),  // Deterministic
-//!     ..Default::default()
-//! };
+//! // Configure Monte Carlo engine using the builder
+//! let engine = McEngine::builder()
+//!     .num_paths(100_000)
+//!     .seed(42)  // Deterministic
+//!     .uniform_grid(1.0, 252)  // 1 year, daily steps
+//!     .build()
+//!     .expect("valid config");
 //!
-//! // Price European call
-//! let payoff = EuropeanCall { strike: 100.0 };
-//! // let result = engine.price(&payoff, &process, &market, expiry)?;
+//! // Create European call payoff (strike, notional, maturity_step)
+//! let payoff = EuropeanCall::new(100.0, 1.0, 252);
+//! // let result = engine.price(&rng, &process, &disc, &initial_state, &payoff, currency, df)?;
 //! ```
 //!
 //! # LSM for American Options
@@ -54,13 +55,16 @@
 //! # fn example() {
 //! use finstack_valuations::instruments::common::models::monte_carlo::prelude::*;
 //!
-//! // American put with Laguerre basis
-//! let config = LsmcConfig {
-//!     num_paths: 50_000,
-//!     basis: LaguerreBasis::new(3),
-//!     seed: Some(42),
-//!     ..Default::default()
-//! };
+//! // Configure LSMC with exercise dates (step indices)
+//! let exercise_dates = vec![50, 100, 150, 200];
+//! let config = LsmcConfig::new(50_000, exercise_dates)
+//!     .with_seed(42);  // Deterministic
+//!
+//! // Create Laguerre basis (degree, strike for normalization)
+//! let basis = LaguerreBasis::new(3, 100.0);
+//!
+//! // Create LSMC pricer
+//! let pricer = LsmcPricer::new(config);
 //! # }
 //! ```
 //!

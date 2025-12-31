@@ -1003,4 +1003,136 @@ mod tests {
             _ => panic!("Expected FxSpot variant"),
         }
     }
+
+    /// Canonical list of all instrument type discriminators.
+    ///
+    /// This list MUST be kept in sync with:
+    /// 1. The `InstrumentJson` enum variants (with `#[serde(rename_all = "snake_case")]`)
+    /// 2. The JSON schema at `schemas/instruments/1/instrument.schema.json`
+    ///
+    /// When adding a new instrument type:
+    /// 1. Add the variant to `InstrumentJson` enum
+    /// 2. Add the snake_case name here (alphabetically sorted)
+    /// 3. Update the JSON schema file
+    /// 4. Run this test to verify parity
+    const CANONICAL_INSTRUMENT_TYPES: &[&str] = &[
+        "agency_cmo",
+        "agency_mbs_passthrough",
+        "agency_tba",
+        "asian_option",
+        "autocallable",
+        "barrier_option",
+        "basis_swap",
+        "basket",
+        "bond",
+        "bond_future",
+        "cds_index",
+        "cds_option",
+        "cds_tranche",
+        "cliquet_option",
+        "cms_option",
+        "commodity_forward",
+        "commodity_option",
+        "commodity_swap",
+        "convertible_bond",
+        "credit_default_swap",
+        "deposit",
+        "dollar_roll",
+        "equity",
+        "equity_index_future",
+        "equity_option",
+        "forward_rate_agreement",
+        "fx_barrier_option",
+        "fx_forward",
+        "fx_option",
+        "fx_spot",
+        "fx_swap",
+        "fx_variance_swap",
+        "inflation_cap_floor",
+        "inflation_linked_bond",
+        "inflation_swap",
+        "interest_rate_future",
+        "interest_rate_option",
+        "interest_rate_swap",
+        "lookback_option",
+        "ndf",
+        "private_markets_fund",
+        "quanto_option",
+        "range_accrual",
+        "real_estate_asset",
+        "repo",
+        "revolving_credit",
+        "structured_credit",
+        "swaption",
+        "term_loan",
+        "trs_equity",
+        "trs_fixed_income_index",
+        "variance_swap",
+        "volatility_index_future",
+        "volatility_index_option",
+        "xccy_swap",
+        "yoy_inflation_swap",
+    ];
+
+    /// Verifies that the instrument.schema.json enum matches the canonical list.
+    ///
+    /// This test ensures that the JSON schema stays in sync with the Rust code.
+    /// If this test fails, update the JSON schema file to match the canonical list.
+    #[test]
+    fn test_instrument_schema_enum_parity() {
+        let schema_json = include_str!("../../schemas/instruments/1/instrument.schema.json");
+        let schema: serde_json::Value =
+            serde_json::from_str(schema_json).expect("Schema JSON should be valid");
+
+        // Extract the enum array from the schema
+        let schema_types: Vec<&str> = schema["properties"]["instrument"]["properties"]["type"]
+            ["enum"]
+            .as_array()
+            .expect("Schema should have instrument.properties.type.enum array")
+            .iter()
+            .map(|v| v.as_str().expect("Enum values should be strings"))
+            .collect();
+
+        // Sort both lists for comparison
+        let mut expected: Vec<&str> = CANONICAL_INSTRUMENT_TYPES.to_vec();
+        expected.sort();
+        let mut actual: Vec<&str> = schema_types.clone();
+        actual.sort();
+
+        // Find differences
+        let missing_from_schema: Vec<&str> = expected
+            .iter()
+            .filter(|t| !actual.contains(t))
+            .copied()
+            .collect();
+        let extra_in_schema: Vec<&str> = actual
+            .iter()
+            .filter(|t| !expected.contains(t))
+            .copied()
+            .collect();
+
+        if !missing_from_schema.is_empty() || !extra_in_schema.is_empty() {
+            let mut msg =
+                String::from("instrument.schema.json is out of sync with Rust code!\n\n");
+            if !missing_from_schema.is_empty() {
+                msg.push_str(&format!(
+                    "Missing from schema (add these):\n  {}\n\n",
+                    missing_from_schema.join(", ")
+                ));
+            }
+            if !extra_in_schema.is_empty() {
+                msg.push_str(&format!(
+                    "Extra in schema (remove these or add to CANONICAL_INSTRUMENT_TYPES):\n  {}\n",
+                    extra_in_schema.join(", ")
+                ));
+            }
+            panic!("{}", msg);
+        }
+
+        // Verify the schema enum is alphabetically sorted (for maintainability)
+        assert_eq!(
+            schema_types, actual,
+            "Schema enum should be alphabetically sorted for maintainability"
+        );
+    }
 }

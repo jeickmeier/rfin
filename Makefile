@@ -1,4 +1,4 @@
-.PHONY: help setup-python build build-prod test-rust test-rust-slow test-rust-doc test-python doc clean fmt lint stubs list coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test install-nextest book-build book-serve book-clean book-watch install-mdbook bench-perf bench-baseline bench-flamegraph bench-compare install-bloat size-wasm size-py size-core size-all
+.PHONY: help setup-python build build-prod test-rust test-rust-slow test-rust-doc test-python doc clean fmt lint stubs list coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test install-nextest book-build book-serve book-clean book-watch install-mdbook bench-perf bench-baseline bench-flamegraph bench-compare install-bloat size-wasm size-py size-core size-all check-schemas
 
 help:
 	@echo "Builds:"
@@ -49,6 +49,9 @@ help:
 	@echo "  book-serve     				- Build and serve mdBook with live reload"
 	@echo "  book-watch     				- Watch and rebuild mdBook on changes"
 	@echo "  book-clean     				- Clean mdBook build artifacts"
+	@echo ""
+	@echo "Schema Validation:"
+	@echo "  check-schemas  				- Verify JSON schemas match Rust types"
 	@echo ""
 	@echo "Other:"
 	@echo "  clean          				- Clean build artifacts"
@@ -375,3 +378,20 @@ size-all: size-wasm size-py
 	@echo ""
 	@echo "Note: Library crates (rlib) like finstack-core cannot be analyzed directly."
 	@echo "Use 'make size-core' to see finstack-core contribution in binaries."
+
+# Schema validation targets
+check-schemas: install-nextest
+	@echo "Verifying JSON schemas match Rust types..."
+	@echo ""
+	@echo "=== Running schema parity tests ==="
+	cargo nextest run -p finstack-valuations schema_parity --no-fail-fast
+	cargo test -p finstack-valuations test_instrument_schema_enum_parity --no-fail-fast
+	@echo ""
+	@echo "✅ All schema parity tests passed!"
+	@echo ""
+	@echo "Schemas verified:"
+	@echo "  - instruments (56 instrument types)"
+	@echo "  - attribution (9 factors, 3 methods)"
+	@echo "  - calibration (7 step kinds)"
+	@echo "  - cashflow/amortization (5 variants)"
+	@echo "  - margin (IM methodologies, call types, tenors)"
