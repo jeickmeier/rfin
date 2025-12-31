@@ -40,10 +40,11 @@
 //! For parallel Monte Carlo, use independent streams:
 //!
 //! ```rust
-//! use finstack_core::math::random::{Pcg64Rng, RandomNumberGenerator};
+//! use finstack_core::math::random::Pcg64Rng;
 //!
-//! // Each thread gets an independent stream
-//! let rngs: Vec<_> = (0..num_cpus::get())
+//! // Each thread gets an independent stream (e.g., 4 threads)
+//! let num_threads = 4;
+//! let rngs: Vec<_> = (0..num_threads)
 //!     .map(|thread_id| Pcg64Rng::new_with_stream(42, thread_id as u64))
 //!     .collect();
 //! ```

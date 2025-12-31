@@ -474,12 +474,17 @@ pub fn measure_vol_surface_shift(
 /// # use finstack_core::market_data::diff::measure_fx_shift;
 /// # use finstack_core::market_data::context::MarketContext;
 /// # use finstack_core::currency::Currency;
+/// # use time::macros::date;
 /// # fn example(market_t0: MarketContext, market_t1: MarketContext) -> finstack_core::Result<()> {
+/// let date_t0 = date!(2024 - 01 - 01);
+/// let date_t1 = date!(2024 - 01 - 02);
 /// let fx_shift = measure_fx_shift(
 ///     Currency::USD,
 ///     Currency::EUR,
 ///     &market_t0,
 ///     &market_t1,
+///     date_t0,
+///     date_t1,
 /// )?;
 ///
 /// println!("USD/EUR moved {}%", fx_shift);
