@@ -46,6 +46,18 @@ pub fn format_suggestions(suggestions: &[String]) -> String {
 /// * `requested` - The identifier the user requested
 /// * `available` - Iterator of available identifiers to match against
 ///
+/// # Returns
+///
+/// A vector of up to 3 matching identifiers, ordered by iteration order
+/// (not by match quality). Returns an empty vector if no matches found.
+///
+/// # Complexity
+///
+/// - **Time**: O(k × m × n) where k = number of available identifiers,
+///   m = length of `requested`, n = average length of available identifiers.
+///   Each edit distance computation is O(m × n).
+/// - **Space**: O(m + n) for edit distance computation plus O(k) for results.
+///
 /// # Examples
 ///
 /// ```ignore
@@ -91,7 +103,24 @@ pub fn fuzzy_suggestions<'a>(
 ///
 /// # Returns
 ///
-/// The edit distance between the two strings.
+/// The edit distance between the two strings (0 means identical).
+///
+/// # Complexity
+///
+/// - **Time**: O(m × n) where m = `a_chars.len()`, n = `b.chars().count()`
+/// - **Space**: O(n) using two-row dynamic programming optimization
+///
+/// # Algorithm
+///
+/// Uses the classic Wagner-Fischer dynamic programming algorithm with
+/// space optimization (only two rows needed instead of full matrix).
+///
+/// # References
+///
+/// - Wagner, R. A., & Fischer, M. J. (1974). "The String-to-String Correction
+///   Problem." *Journal of the ACM*, 21(1), 168-173.
+/// - Levenshtein, V. I. (1966). "Binary codes capable of correcting deletions,
+///   insertions, and reversals." *Soviet Physics Doklady*, 10(8), 707-710.
 pub fn edit_distance(a_chars: &[char], b: &str) -> usize {
     let b_len = b.chars().count();
     let a_len = a_chars.len();

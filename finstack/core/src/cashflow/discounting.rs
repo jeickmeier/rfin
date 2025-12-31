@@ -72,6 +72,45 @@ use crate::money::Money;
 /// cashflow representations and instrument types. Implemented for any
 /// type that implements `AsRef<[(Date, Money)]>` (including `&[(..)]`
 /// and `Vec<(..)>`).
+///
+/// # Required Methods
+///
+/// Implementors must provide:
+/// - [`npv`](Self::npv): Compute present value against a discount curve
+///
+/// # Provided Implementations
+///
+/// This trait is automatically implemented for any type `T` where
+/// `T: AsRef<[(Date, Money)]>`, including:
+/// - `&[(Date, Money)]`
+/// - `Vec<(Date, Money)>`
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::cashflow::Discountable;
+/// use finstack_core::market_data::term_structures::DiscountCurve;
+/// use finstack_core::market_data::traits::Discounting;
+/// use finstack_core::dates::{Date, DayCount};
+/// use finstack_core::money::Money;
+/// use finstack_core::currency::Currency;
+/// use time::Month;
+///
+/// let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
+/// let curve = DiscountCurve::builder("USD-OIS")
+///     .base_date(base)
+///     .knots([(0.0, 1.0), (1.0, 0.95)])
+///     .build()?;
+///
+/// let flows = vec![(
+///     Date::from_calendar_date(2026, Month::January, 1).expect("Valid date"),
+///     Money::new(100.0, Currency::USD),
+/// )];
+///
+/// // Use the trait method
+/// let pv = flows.npv(&curve, base, None)?;
+/// # Ok::<(), finstack_core::Error>(())
+/// ```
 pub trait Discountable {
     /// Output type for the NPV calculation.
     type PVOutput;
@@ -84,6 +123,16 @@ pub trait Discountable {
     /// * `base` - Valuation date
     /// * `dc` - Day count convention: `None` uses the curve's day count (recommended),
     ///   `Some(dc)` overrides with an explicit day count
+    ///
+    /// # Returns
+    ///
+    /// Present value of all cashflows discounted to the base date.
+    ///
+    /// # Errors
+    ///
+    /// The default implementation returns `Err` when:
+    /// - [`InputError::TooFewPoints`](crate::error::InputError::TooFewPoints): Empty cashflow list
+    /// - Day count calculation fails (e.g., missing calendar for Bus/252)
     fn npv(&self, disc: &dyn Discounting, base: Date, dc: Option<DayCount>) -> Self::PVOutput;
 }
 
@@ -99,6 +148,20 @@ pub trait Discountable {
 /// * `dc` - Day count convention: `None` uses the curve's day count (recommended),
 ///   `Some(dc)` overrides with an explicit day count
 /// * `flows` - Dated cashflows to discount
+///
+/// # Returns
+///
+/// Present value as a [`Money`] amount in the same currency as the input flows.
+///
+/// # Errors
+///
+/// Returns `Err` when:
+/// - [`InputError::TooFewPoints`](crate::error::InputError::TooFewPoints): The `flows`
+///   slice is empty
+/// - Day count year fraction calculation fails (e.g., [`InputError::MissingCalendarForBus252`](crate::error::InputError::MissingCalendarForBus252)
+///   when using Bus/252 without a calendar context)
+/// - [`Error::CurrencyMismatch`](crate::Error::CurrencyMismatch): Cashflows have
+///   mixed currencies (all flows must share the same currency)
 ///
 /// # Day Count Selection
 ///
@@ -180,10 +243,24 @@ pub fn npv<D: Discounting + ?Sized>(
 /// - Real instruments require bootstrapped curves for accurate valuation
 ///
 /// # Arguments
+///
 /// * `cash_flows` - Vector of (date, money) tuples
 /// * `discount_rate` - Annual discount rate as decimal (0.05 = 5%)
 /// * `base_date` - Base date for discounting
 /// * `day_count` - Day count convention
+///
+/// # Returns
+///
+/// Present value as a [`Money`] amount in the same currency as the input flows.
+///
+/// # Errors
+///
+/// Returns `Err` when:
+/// - [`InputError::TooFewPoints`](crate::error::InputError::TooFewPoints): The `cash_flows`
+///   slice is empty
+/// - Day count year fraction calculation fails
+/// - [`Error::CurrencyMismatch`](crate::Error::CurrencyMismatch): Cashflows have
+///   mixed currencies
 ///
 /// # Example
 ///

@@ -193,10 +193,35 @@ pub struct ToleranceConfig {
     pub generic_epsilon: f64,
 }
 
+/// Default epsilon for rate comparisons: 1e-12.
+///
+/// # Rationale
+///
+/// This value is chosen to be:
+/// - Small enough to distinguish meaningful rate differences (1 bp = 0.0001)
+/// - Large enough to absorb floating-point accumulation errors in typical
+///   pricing calculations
+/// - Approximately sqrt(machine_epsilon) × typical_rate_magnitude, a standard
+///   choice for numerical tolerance (machine_epsilon ≈ 2.2e-16 for f64)
+///
+/// A rate difference of 1e-12 corresponds to ~0.0001 basis points, which is
+/// economically insignificant in all practical applications.
 fn default_rate_epsilon() -> f64 {
     1e-12
 }
 
+/// Default epsilon for generic floating-point comparisons: 1e-10.
+///
+/// # Rationale
+///
+/// This is more permissive than [`default_rate_epsilon`] because:
+/// - Generic calculations may accumulate more rounding error
+/// - Used for quantities like prices, notionals, PVs where precision
+///   requirements are less strict than for rates
+/// - Still tight enough to catch actual numerical errors vs. expected values
+///
+/// At 1e-10, a $1M notional would need to match within $0.0001 (0.01 cents),
+/// which is below any practical settlement precision.
 fn default_generic_epsilon() -> f64 {
     1e-10
 }
@@ -378,6 +403,31 @@ pub fn rounding_context_from(cfg: &FinstackConfig) -> RoundingContext {
 }
 
 /// Active numeric mode used by the engine.
+///
+/// This compile-time constant indicates the numeric representation used throughout
+/// Finstack. Currently fixed to [`NumericMode::F64`] (64-bit IEEE 754 floating point).
+///
+/// # Rationale
+///
+/// F64 provides:
+/// - ~15-17 significant decimal digits of precision
+/// - Sufficient for all practical financial calculations
+/// - Hardware-accelerated operations on modern CPUs
+/// - Wide ecosystem compatibility (Python, JavaScript, databases)
+///
+/// # Future Considerations
+///
+/// This constant exists to support potential future modes (e.g., decimal arithmetic
+/// for regulatory compliance). Code that needs to be mode-aware should reference
+/// this constant rather than assuming F64.
+///
+/// # Example
+///
+/// ```rust
+/// use finstack_core::config::{NUMERIC_MODE, NumericMode};
+///
+/// assert_eq!(NUMERIC_MODE, NumericMode::F64);
+/// ```
 pub const NUMERIC_MODE: NumericMode = NumericMode::F64;
 
 /// Construct a [`ResultsMeta`] snapshot for stamping into result envelopes.

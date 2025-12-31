@@ -299,8 +299,7 @@ pub mod pricer;
 pub mod results;
 pub mod schema;
 
-/// Test utilities - available only for tests or when explicitly enabled.
-#[cfg(any(test, feature = "test-utils"))]
+/// Test utilities for building market contexts, dates, and test fixtures.
 pub mod test_utils;
 
 // Export macros before instruments module

@@ -110,8 +110,101 @@ impl BracketHint {
 }
 
 /// Generic solver trait for 1D root finding.
+///
+/// Provides a unified interface for numerical root-finding algorithms that solve
+/// the equation `f(x) = 0` for `x`. Implementations may use different algorithms
+/// with varying convergence guarantees and performance characteristics.
+///
+/// # Required Methods
+///
+/// Implementors must provide:
+/// - [`solve`](Self::solve): Find a root given a function and initial guess
+///
+/// # Provided Implementations
+///
+/// The following solvers implement this trait:
+/// - [`NewtonSolver`]: Fast quadratic convergence, uses derivatives (finite diff or analytic)
+/// - [`BrentSolver`]: Robust bracketing method, guaranteed convergence
+///
+/// # Implementation Guide
+///
+/// When implementing this trait:
+/// 1. Validate that `initial_guess` is finite
+/// 2. Handle non-finite function values gracefully (return error, don't diverge)
+/// 3. Respect reasonable iteration limits to prevent infinite loops
+/// 4. Use appropriate convergence criteria (both |f(x)| and |x_n - x_{n-1}|)
+///
+/// # Examples
+///
+/// ## Using a solver
+///
+/// ```rust
+/// use finstack_core::math::solver::{Solver, NewtonSolver};
+///
+/// fn find_yield<S: Solver>(solver: &S, target_price: f64) -> finstack_core::Result<f64> {
+///     let price_error = |y: f64| {
+///         // Price as function of yield (simplified)
+///         100.0 / (1.0 + y) - target_price
+///     };
+///     solver.solve(price_error, 0.05)
+/// }
+/// ```
+///
+/// ## Implementing a custom solver
+///
+/// ```rust
+/// use finstack_core::math::solver::Solver;
+/// use finstack_core::Result;
+///
+/// struct BisectionSolver {
+///     tolerance: f64,
+///     max_iterations: usize,
+/// }
+///
+/// impl Solver for BisectionSolver {
+///     fn solve<F>(&self, f: F, initial_guess: f64) -> Result<f64>
+///     where
+///         F: Fn(f64) -> f64,
+///     {
+///         // Custom bisection implementation
+///         // (simplified - real impl would need proper bracketing)
+///         let mut x = initial_guess;
+///         for _ in 0..self.max_iterations {
+///             let fx = f(x);
+///             if fx.abs() < self.tolerance {
+///                 return Ok(x);
+///             }
+///             x -= fx * 0.01; // Simple step
+///         }
+///         Ok(x)
+///     }
+/// }
+/// ```
+///
+/// # See Also
+///
+/// - [`NewtonSolver`] for fast convergence with smooth functions
+/// - [`BrentSolver`] for robust convergence with bracketing
+/// - [`crate::math::solver_multi::MultiSolver`] for multi-dimensional problems
 pub trait Solver: Send + Sync {
-    /// Solve f(x) = 0 starting from initial guess.
+    /// Solve the equation `f(x) = 0` for `x`.
+    ///
+    /// # Arguments
+    ///
+    /// * `f` - Function to find the root of (where `f(x) = 0`)
+    /// * `initial_guess` - Starting point for the iteration
+    ///
+    /// # Returns
+    ///
+    /// A value `x` such that `|f(x)| < tolerance` (solver-dependent).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`InputError::SolverConvergenceFailed`](crate::error::InputError::SolverConvergenceFailed) when:
+    /// - Maximum iterations exceeded without convergence
+    /// - Function returns non-finite values (NaN, infinity)
+    /// - Derivative is too small (for Newton-based methods)
+    /// - No bracketing interval found (for Brent's method)
     fn solve<Func>(&self, f: Func, initial_guess: f64) -> Result<f64>
     where
         Func: Fn(f64) -> f64;

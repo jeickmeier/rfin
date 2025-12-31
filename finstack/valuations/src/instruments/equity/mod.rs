@@ -1,4 +1,67 @@
 //! Equity instruments and equity derivatives.
+//!
+//! This module provides equity-linked instruments spanning vanilla options,
+//! structured products, volatility derivatives, and private markets. Pricing
+//! models include Black-Scholes, Monte Carlo, and binomial trees.
+//!
+//! # Features
+//!
+//! - **Vanilla Options**: European calls/puts with analytical Greeks
+//! - **Volatility Products**: Variance swaps, VIX futures/options
+//! - **Structured Products**: Autocallables, cliquets, equity-linked notes
+//! - **Total Return Swaps**: Equity TRS with financing legs
+//! - **Private Markets**: PE funds, real estate with waterfall distributions
+//! - **Corporate Valuation**: DCF models with terminal value
+//!
+//! # Pricing Models
+//!
+//! | Instrument | Models Available |
+//! |------------|------------------|
+//! | Vanilla Options | Black-Scholes, Heston Fourier, Monte Carlo |
+//! | Autocallables | Monte Carlo with early exercise |
+//! | Variance Swaps | Replication via log contract |
+//! | Equity TRS | Discounted cashflows |
+//! | Private Markets | DCF with distribution waterfall |
+//!
+//! # Quick Example
+//!
+//! ```rust
+//! use finstack_valuations::instruments::equity::EquityOption;
+//! use finstack_core::currency::Currency;
+//! use finstack_core::money::Money;
+//! use time::macros::date;
+//!
+//! // Create a 6-month ATM call option
+//! let option = EquityOption::european_call(
+//!     "SPX-CALL-4500",
+//!     "SPX",              // Underlying
+//!     4500.0,             // Strike
+//!     date!(2025-07-15),  // Expiry
+//!     Money::new(100_000.0, Currency::USD),
+//!     100.0,              // Multiplier
+//! ).expect("valid option");
+//! ```
+//!
+//! # Greeks
+//!
+//! Equity options support full analytical Greeks:
+//! - **Delta**: ∂V/∂S (spot sensitivity)
+//! - **Gamma**: ∂²V/∂S² (delta convexity)
+//! - **Vega**: ∂V/∂σ (volatility sensitivity)
+//! - **Theta**: ∂V/∂t (time decay)
+//! - **Rho**: ∂V/∂r (rate sensitivity)
+//!
+//! # References
+//!
+//! - Black, F., & Scholes, M. (1973). "The Pricing of Options and Corporate Liabilities."
+//! - Heston, S. L. (1993). "A Closed-Form Solution for Options with Stochastic Volatility."
+//!
+//! # See Also
+//!
+//! - [`EquityOption`] for vanilla options
+//! - [`VarianceSwap`] for variance/volatility swaps
+//! - [`Autocallable`] for structured notes
+//! - [`PrivateMarketsFund`] for PE/credit fund valuation
 
 /// Autocallable module - Autocallable structured notes.
 pub mod autocallable;

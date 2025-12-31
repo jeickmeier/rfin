@@ -1,8 +1,81 @@
-//! Monte Carlo pricing module (pricing-specific components).
+//! Monte Carlo simulation engine for derivative pricing.
 //!
-//! This module contains payoffs, pricers, variance reduction, Greeks,
-//! and the pricing engine that build on top of the generic MC
-//! infrastructure under `instruments::common::mc`.
+//! This module provides a complete Monte Carlo pricing framework for path-dependent
+//! and exotic options. It includes stochastic process simulation, payoff evaluation,
+//! variance reduction techniques, and American option pricing via LSM.
+//!
+//! # Features
+//!
+//! - **Stochastic Processes**: GBM, Heston, Hull-White
+//! - **Payoffs**: Vanilla, Asian, barrier, basket, lookback
+//! - **Early Exercise**: Longstaff-Schwartz LSM algorithm
+//! - **Variance Reduction**: Antithetic variates, control variates
+//! - **Greeks**: Pathwise and finite-difference sensitivities
+//! - **Deterministic Results**: Seedable RNG for reproducibility
+//!
+//! # Supported Models
+//!
+//! | Process | Dynamics | Discretization |
+//! |---------|----------|----------------|
+//! | GBM | dS = μS dt + σS dW | Euler, Milstein |
+//! | Heston | dS = μS dt + √v S dW₁, dv = κ(θ-v)dt + ξ√v dW₂ | Andersen QE |
+//! | Hull-White | dr = (θ(t) - ar)dt + σ dW | Euler |
+//!
+//! # Variance Reduction
+//!
+//! Monte Carlo variance can be reduced via:
+//! - **Antithetic variates**: Pair paths with Z and -Z
+//! - **Control variates**: Use closed-form delta as control
+//! - **Importance sampling**: Tilt drift toward exercise region
+//!
+//! # Quick Example
+//!
+//! ```rust,no_run
+//! use finstack_valuations::instruments::common::models::monte_carlo::prelude::*;
+//!
+//! // Configure Monte Carlo engine
+//! let config = McEngineConfig {
+//!     num_paths: 100_000,
+//!     seed: Some(42),  // Deterministic
+//!     ..Default::default()
+//! };
+//!
+//! // Price European call
+//! let payoff = EuropeanCall { strike: 100.0 };
+//! // let result = engine.price(&payoff, &process, &market, expiry)?;
+//! ```
+//!
+//! # LSM for American Options
+//!
+//! Longstaff-Schwartz least squares Monte Carlo for early exercise:
+//!
+//! ```rust,no_run
+//! # #[cfg(feature = "mc")]
+//! # fn example() {
+//! use finstack_valuations::instruments::common::models::monte_carlo::prelude::*;
+//!
+//! // American put with Laguerre basis
+//! let config = LsmcConfig {
+//!     num_paths: 50_000,
+//!     basis: LaguerreBasis::new(3),
+//!     seed: Some(42),
+//!     ..Default::default()
+//! };
+//! # }
+//! ```
+//!
+//! # Academic References
+//!
+//! - Glasserman, P. (2003). *Monte Carlo Methods in Financial Engineering*. Springer.
+//! - Longstaff, F. A., & Schwartz, E. S. (2001). "Valuing American Options by Simulation."
+//! - Andersen, L. (2008). "Simple and Efficient Simulation of the Heston Model."
+//!
+//! # See Also
+//!
+//! - [`engine::McEngine`] for the main simulation engine
+//! - [`pricer::lsmc`] for American option pricing
+//! - [`variance_reduction`] for variance reduction techniques
+//! - [`crate::instruments::common::mc`] for low-level MC infrastructure
 
 pub mod barriers;
 pub mod discretization;

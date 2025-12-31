@@ -1,4 +1,103 @@
-//! Financial instruments module: imports and re-exports only.
+//! Financial instruments for pricing, risk, and cashflow analysis.
+//!
+//! This module provides 50+ instrument types across fixed income, rates, credit,
+//! equity, FX, commodities, and exotic options. All instruments implement the
+//! [`Instrument`] trait for unified pricing and risk metric computation.
+//!
+//! # Organization
+//!
+//! Instruments are organized by asset class:
+//!
+//! - [`fixed_income`]: Bonds, loans, MBS, CMOs, structured credit
+//! - [`rates`]: Swaps, caps/floors, swaptions, deposits, repos
+//! - [`credit_derivatives`]: CDS, indices, tranches, options
+//! - [`equity`]: Options, variance swaps, TRS, DCF, private markets
+//! - [`fx`]: Spots, forwards, swaps, options, barriers, quantos
+//! - [`commodity`]: Forwards, swaps, options
+//! - [`exotics`]: Asian, barrier, lookback, basket options
+//!
+//! # Core Trait
+//!
+//! All instruments implement [`Instrument`], providing:
+//! - `id()`: Unique instrument identifier
+//! - `key()`: Type classification for pricer dispatch
+//! - `value()`: Fast NPV calculation
+//! - `price_with_metrics()`: NPV plus risk metrics (DV01, Greeks, etc.)
+//!
+//! # Quick Example
+//!
+//! ```rust
+//! use finstack_valuations::instruments::{Bond, Instrument};
+//! use finstack_core::currency::Currency;
+//! use finstack_core::money::Money;
+//! use finstack_core::dates::create_date;
+//! use time::Month;
+//!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let issue = create_date(2025, Month::January, 15)?;
+//! let maturity = create_date(2030, Month::January, 15)?;
+//!
+//! let bond = Bond::fixed(
+//!     "US-TREASURY-5Y",
+//!     Money::new(1_000_000.0, Currency::USD),
+//!     0.045, // 4.5% coupon
+//!     issue,
+//!     maturity,
+//!     "USD-OIS",
+//! )?;
+//!
+//! // Access via Instrument trait
+//! assert_eq!(bond.id(), "US-TREASURY-5Y");
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # Supported Instrument Types
+//!
+//! ## Fixed Income
+//! | Type | Description |
+//! |------|-------------|
+//! | [`Bond`] | Fixed/floating-rate bonds with embedded options |
+//! | [`InflationLinkedBond`] | TIPS, index-linked gilts |
+//! | [`ConvertibleBond`] | Bonds with equity conversion |
+//! | [`TermLoan`] | Bilateral term loans |
+//! | [`RevolvingCredit`] | Revolving credit facilities |
+//! | [`StructuredCredit`] | ABS, CLO, RMBS, CMBS |
+//! | [`AgencyMbsPassthrough`] | Agency MBS pass-throughs |
+//! | [`AgencyCmo`] | Collateralized mortgage obligations |
+//!
+//! ## Interest Rates
+//! | Type | Description |
+//! |------|-------------|
+//! | [`InterestRateSwap`] | Plain vanilla IRS |
+//! | [`BasisSwap`] | Floating-for-floating swaps |
+//! | [`Swaption`] | Options on swaps |
+//! | [`InterestRateOption`] | Caps, floors, collars |
+//! | [`Deposit`] | Money market deposits |
+//! | [`Repo`] | Repurchase agreements |
+//!
+//! ## Credit Derivatives
+//! | Type | Description |
+//! |------|-------------|
+//! | [`CreditDefaultSwap`] | Single-name CDS |
+//! | [`CDSIndex`] | Credit indices (CDX, iTraxx) |
+//! | [`CdsTranche`] | Synthetic CDO tranches |
+//! | [`CdsOption`] | Options on CDS spreads |
+//!
+//! ## Equity & FX
+//! | Type | Description |
+//! |------|-------------|
+//! | [`EquityOption`] | Vanilla equity options |
+//! | [`FxOption`] | FX options (Garman-Kohlhagen) |
+//! | [`VarianceSwap`] | Variance/volatility swaps |
+//! | [`FxSwap`] | FX forwards and swaps |
+//!
+//! # See Also
+//!
+//! - [`common::traits::Instrument`] for the core instrument trait
+//! - [`common::traits::Attributes`] for tagging and scenario selection
+//! - [`crate::pricer`] for pricing registry and dispatch
+//! - [`crate::metrics`] for risk metric calculations
 
 // Common functionality (traits, macros, models, helpers)
 #[macro_use]

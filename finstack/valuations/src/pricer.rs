@@ -373,41 +373,112 @@ impl std::str::FromStr for InstrumentType {
     }
 }
 
+/// Pricing model selection for the pricer registry.
+///
+/// Determines which mathematical model is used to price an instrument.
+/// Each model has different computational characteristics and accuracy
+/// profiles for different instrument types.
+///
+/// # Model Categories
+///
+/// ## Analytical Models
+/// - [`Discounting`](Self::Discounting): Simple present value discounting
+/// - [`Black76`](Self::Black76): Black-76 formula for options
+/// - [`Normal`](Self::Normal): Bachelier (normal) model for rate options
+///
+/// ## Tree Models
+/// - [`Tree`](Self::Tree): Binomial/trinomial lattice
+/// - [`HullWhite1F`](Self::HullWhite1F): Hull-White one-factor short rate
+///
+/// ## Monte Carlo Models
+/// - [`MonteCarloGBM`](Self::MonteCarloGBM): GBM simulation
+/// - [`MonteCarloHeston`](Self::MonteCarloHeston): Heston stochastic vol
+///
+/// ## Exotic Analytical
+/// - [`BarrierBSContinuous`](Self::BarrierBSContinuous): Reiner-Rubinstein barriers
+/// - [`AsianGeometricBS`](Self::AsianGeometricBS): Geometric Asian (exact)
+/// - [`AsianTurnbullWakeman`](Self::AsianTurnbullWakeman): Arithmetic Asian (approx)
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::pricer::ModelKey;
+///
+/// // Select appropriate model for instrument type
+/// let model = ModelKey::Discounting;  // For bonds
+/// let model = ModelKey::Black76;      // For caps/floors
+/// let model = ModelKey::MonteCarloGBM; // For path-dependent exotics
+///
+/// // Parse from string
+/// let model: ModelKey = "black76".parse().unwrap();
+/// assert_eq!(model, ModelKey::Black76);
+/// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 #[repr(u16)]
-/// Model Key enumeration.
 pub enum ModelKey {
-    /// Discounting variant.
+    /// Present value discounting of projected cashflows.
+    ///
+    /// Used for: bonds, swaps, deposits, repos, forwards.
     Discounting = 1,
-    /// Tree variant.
+    /// Binomial or trinomial tree for callable/putable instruments.
+    ///
+    /// Used for: callable bonds, Bermudan options.
     Tree = 2,
-    /// Black76 variant.
+    /// Black-76 lognormal model for forward-based options.
+    ///
+    /// Used for: caps, floors, swaptions, FX options, commodity options.
     Black76 = 3,
-    /// Hull White1 F variant.
+    /// Hull-White one-factor short rate model.
+    ///
+    /// Used for: callable bonds with OAS, Bermudan swaptions.
     HullWhite1F = 4,
-    /// Hazard Rate variant.
+    /// Hazard rate model for credit instruments.
+    ///
+    /// Used for: CDS, CDS indices, credit risky bonds.
     HazardRate = 5,
-    /// Normal (Bachelier) model variant.
+    /// Bachelier (normal) model for rate options.
+    ///
+    /// Used for: inflation caps/floors, options on rates near zero.
     Normal = 6,
-    /// Monte Carlo with GBM process
+    /// Monte Carlo with Geometric Brownian Motion.
+    ///
+    /// Used for: path-dependent options, exotics requiring simulation.
     MonteCarloGBM = 10,
-    /// Monte Carlo with Heston stochastic volatility
+    /// Monte Carlo with Heston stochastic volatility.
+    ///
+    /// Used for: options requiring volatility smile dynamics.
     MonteCarloHeston = 11,
-    /// Monte Carlo with Hull-White 1F (rates)
+    /// Monte Carlo with Hull-White 1F rates.
+    ///
+    /// Used for: Bermudan swaptions, CMS options.
     MonteCarloHullWhite1F = 12,
-    /// Barrier BS Continuous (Reiner-Rubinstein formulas)
+    /// Reiner-Rubinstein continuous barrier formulas.
+    ///
+    /// Used for: equity/FX barrier options with continuous monitoring.
     BarrierBSContinuous = 20,
-    /// Asian Geometric BS (closed-form for geometric average)
+    /// Kemna-Vorst exact geometric Asian formula.
+    ///
+    /// Used for: geometric average Asian options.
     AsianGeometricBS = 21,
-    /// Asian Turnbull-Wakeman (semi-analytical for arithmetic average)
+    /// Turnbull-Wakeman approximation for arithmetic Asians.
+    ///
+    /// Used for: arithmetic average Asian options.
     AsianTurnbullWakeman = 22,
-    /// Lookback BS Continuous (closed-form for fixed/floating strike)
+    /// Conze-Viswanathan lookback option formulas.
+    ///
+    /// Used for: lookback options with continuous monitoring.
     LookbackBSContinuous = 23,
-    /// Quanto BS (vanilla quanto with drift adjustment)
+    /// Quanto BS with drift adjustment.
+    ///
+    /// Used for: quanto options (cross-currency).
     QuantoBS = 24,
-    /// FX Barrier BS Continuous (Reiner-Rubinstein with FX mapping)
+    /// FX barrier with Reiner-Rubinstein mapping.
+    ///
+    /// Used for: FX barrier options.
     FxBarrierBSContinuous = 25,
-    /// Heston Fourier (semi-analytical via characteristic function)
+    /// Heston semi-analytical via Fourier transform.
+    ///
+    /// Used for: European options requiring stochastic vol.
     HestonFourier = 26,
 }
 
@@ -478,18 +549,60 @@ impl std::str::FromStr for ModelKey {
     }
 }
 
+/// Composite key identifying a specific (instrument, model) pricing combination.
+///
+/// The pricer registry uses `PricerKey` to dispatch instruments to the
+/// appropriate pricer implementation. Each unique combination of instrument
+/// type and pricing model maps to exactly one pricer.
+///
+/// # Layout
+///
+/// Uses `#[repr(C)]` for stable memory layout (4 bytes total: 2 for each enum).
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_valuations::pricer::{PricerKey, InstrumentType, ModelKey};
+///
+/// // Create key for bond discounting
+/// let key = PricerKey::new(InstrumentType::Bond, ModelKey::Discounting);
+///
+/// // Create key for equity option Black-76
+/// let key = PricerKey::new(InstrumentType::EquityOption, ModelKey::Black76);
+///
+/// // Keys are hashable for registry lookup
+/// assert_eq!(key.instrument, InstrumentType::EquityOption);
+/// assert_eq!(key.model, ModelKey::Black76);
+/// ```
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-/// Pricer Key structure.
 pub struct PricerKey {
-    /// instrument.
+    /// The instrument type being priced.
     pub instrument: InstrumentType,
-    /// model.
+    /// The pricing model to use.
     pub model: ModelKey,
 }
 
 impl PricerKey {
-    /// fn constant.
+    /// Create a new pricer key from instrument type and model.
+    ///
+    /// This is a const function, so it can be used in static contexts.
+    ///
+    /// # Arguments
+    ///
+    /// * `instrument` - The type of instrument to price
+    /// * `model` - The pricing model to use
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::pricer::{PricerKey, InstrumentType, ModelKey};
+    ///
+    /// const BOND_DISCOUNT_KEY: PricerKey = PricerKey::new(
+    ///     InstrumentType::Bond,
+    ///     ModelKey::Discounting,
+    /// );
+    /// ```
     pub const fn new(instrument: InstrumentType, model: ModelKey) -> Self {
         Self { instrument, model }
     }

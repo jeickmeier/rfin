@@ -179,17 +179,69 @@ impl<T: TypeTag> Id<T> {
         }
     }
 
-    /// Get the string representation of this ID
+    /// Get the string representation of this ID.
+    ///
+    /// Returns a reference to the underlying string without cloning.
+    ///
+    /// # Returns
+    ///
+    /// A string slice containing the ID value.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::types::CurveId;
+    ///
+    /// let id = CurveId::new("USD-OIS");
+    /// assert_eq!(id.as_str(), "USD-OIS");
+    /// ```
     pub fn as_str(&self) -> &str {
         &self.value
     }
 
-    /// Convert this ID into its string representation
+    /// Convert this ID into an owned `String`.
+    ///
+    /// Consumes the ID and returns a new `String` containing the ID value.
+    /// This involves cloning the underlying string data.
+    ///
+    /// # Returns
+    ///
+    /// An owned `String` containing the ID value.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::types::CurveId;
+    ///
+    /// let id = CurveId::new("USD-OIS");
+    /// let s: String = id.into_string();
+    /// assert_eq!(s, "USD-OIS");
+    /// ```
     pub fn into_string(self) -> String {
         self.value.as_ref().to_owned()
     }
 
-    /// Create an ID from a string slice
+    /// Create an ID from a string slice.
+    ///
+    /// This is equivalent to using `From<&str>` but provides a named constructor
+    /// for clarity when the conversion intent is explicit.
+    ///
+    /// # Arguments
+    ///
+    /// * `value` - String slice to create the ID from
+    ///
+    /// # Returns
+    ///
+    /// A new `Id<T>` containing the string value.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::types::CurveId;
+    ///
+    /// let id = CurveId::from_string_slice("EUR-OIS");
+    /// assert_eq!(id.as_str(), "EUR-OIS");
+    /// ```
     pub fn from_string_slice(value: &str) -> Self {
         Self {
             value: Arc::<str>::from(value),
@@ -197,12 +249,42 @@ impl<T: TypeTag> Id<T> {
         }
     }
 
-    /// Check if this ID is empty
+    /// Check if this ID is empty.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the ID contains an empty string, `false` otherwise.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::types::CurveId;
+    ///
+    /// let empty = CurveId::new("");
+    /// let non_empty = CurveId::new("USD-OIS");
+    ///
+    /// assert!(empty.is_empty());
+    /// assert!(!non_empty.is_empty());
+    /// ```
     pub fn is_empty(&self) -> bool {
         self.value.is_empty()
     }
 
-    /// Get the length of the ID string
+    /// Get the length of the ID string in bytes.
+    ///
+    /// # Returns
+    ///
+    /// The number of bytes in the ID string (not the number of characters
+    /// for non-ASCII strings).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::types::CurveId;
+    ///
+    /// let id = CurveId::new("USD-OIS");
+    /// assert_eq!(id.len(), 7);
+    /// ```
     pub fn len(&self) -> usize {
         self.value.len()
     }

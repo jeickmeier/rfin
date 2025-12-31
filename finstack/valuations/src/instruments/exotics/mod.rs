@@ -1,4 +1,70 @@
 //! Exotic and path-dependent options.
+//!
+//! This module provides exotic option instruments whose payoffs depend on
+//! the path of the underlying asset, not just its terminal value. These
+//! instruments require either analytical approximations or Monte Carlo
+//! simulation for pricing.
+//!
+//! # Features
+//!
+//! - **Asian Options**: Payoff based on average price over option life
+//! - **Barrier Options**: Knock-in/knock-out based on barrier crossing
+//! - **Lookback Options**: Payoff based on path extremum (max or min)
+//! - **Basket Options**: Multi-asset options on weighted basket
+//!
+//! # Pricing Models
+//!
+//! | Option Type | Analytical | Monte Carlo |
+//! |-------------|------------|-------------|
+//! | Asian (Geometric) | Kemna-Vorst (exact) | ✓ |
+//! | Asian (Arithmetic) | Turnbull-Wakeman (approx) | ✓ |
+//! | Barrier (Continuous) | Reiner-Rubinstein | ✓ |
+//! | Barrier (Discrete) | Broadie-Glasserman correction | ✓ |
+//! | Lookback | Conze-Viswanathan | ✓ |
+//! | Basket | — | ✓ (correlation) |
+//!
+//! # Monte Carlo Requirements
+//!
+//! Path-dependent exotics require the `mc` feature for Monte Carlo pricing.
+//! Analytical formulas are available for some exotic types when applicable.
+//!
+//! # Quick Example
+//!
+//! ```rust,no_run
+//! use finstack_valuations::instruments::exotics::{AsianOption, AveragingMethod};
+//! use finstack_core::currency::Currency;
+//! use finstack_core::money::Money;
+//! use time::macros::date;
+//!
+//! // Arithmetic average Asian call
+//! let asian = AsianOption::call(
+//!     "ASIAN-SPX",
+//!     "SPX",
+//!     4500.0,  // Strike
+//!     date!(2025-01-15),
+//!     date!(2025-07-15),
+//!     AveragingMethod::Arithmetic,
+//!     Money::new(100_000.0, Currency::USD),
+//! );
+//! ```
+//!
+//! # Academic References
+//!
+//! - Kemna, A. G. Z., & Vorst, A. C. F. (1990). "A Pricing Method for Options
+//!   Based on Average Asset Values." *Journal of Banking & Finance*.
+//! - Turnbull, S. M., & Wakeman, L. M. (1991). "A Quick Algorithm for Pricing
+//!   European Average Options."
+//! - Reiner, E., & Rubinstein, M. (1991). "Breaking Down the Barriers."
+//! - Conze, A., & Viswanathan (1991). "Path Dependent Options: The Case of
+//!   Lookback Options."
+//!
+//! # See Also
+//!
+//! - [`AsianOption`] for average price options
+//! - [`BarrierOption`] for knock-in/knock-out options
+//! - [`LookbackOption`] for path extremum options
+//! - [`Basket`] for multi-asset options
+//! - [`crate::instruments::common::models::closed_form`] for analytical formulas
 
 /// Asian option module - Average price/strike options.
 pub mod asian_option;

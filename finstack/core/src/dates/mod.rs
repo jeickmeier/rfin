@@ -101,7 +101,26 @@ pub use periods::{
 /// This is a safer alternative to `Date::from_calendar_date(...).unwrap()`
 /// that provides proper error handling for invalid dates like February 30th.
 ///
+/// # Arguments
+///
+/// * `year` - Calendar year (can be negative for BCE dates)
+/// * `month` - Month from the `time` crate's [`time::Month`] enum
+/// * `day` - Day of month (1-31 depending on month)
+///
+/// # Returns
+///
+/// A valid [`Date`] if the combination of year, month, and day is valid.
+///
+/// # Errors
+///
+/// Returns [`InputError::InvalidDate`](crate::error::InputError::InvalidDate) when:
+/// - Day is 0 or exceeds the number of days in the given month
+/// - Day is 29 for February in a non-leap year
+/// - Day is 30 or 31 for February
+/// - Day is 31 for months with only 30 days (April, June, September, November)
+///
 /// # Examples
+///
 /// ```rust
 /// use finstack_core::dates::create_date;
 /// use time::Month;
@@ -111,6 +130,12 @@ pub use periods::{
 ///
 /// // Invalid date - returns error instead of panic
 /// let result = create_date(2025, Month::February, 30); // Returns Err
+/// assert!(result.is_err());
+///
+/// // Leap year handling
+/// let leap = create_date(2024, Month::February, 29)?; // OK - 2024 is a leap year
+/// let non_leap = create_date(2025, Month::February, 29); // Err - 2025 is not
+/// assert!(non_leap.is_err());
 /// # Ok::<(), finstack_core::Error>(())
 /// ```
 pub fn create_date(year: i32, month: time::Month, day: u8) -> crate::Result<Date> {

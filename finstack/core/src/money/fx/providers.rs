@@ -128,6 +128,14 @@ impl FxProvider for SimpleFxProvider {
     /// 3. Falls back to reciprocal if available
     /// 4. Returns `NotFound` error otherwise
     ///
+    /// # Errors
+    ///
+    /// Returns `Err` when:
+    /// - [`InputError::NotFound`](crate::error::InputError::NotFound): No direct quote
+    ///   exists for `from→to` and no reciprocal `to→from` is available
+    /// - [`InputError::NonFiniteValue`](crate::error::InputError::NonFiniteValue): The
+    ///   stored rate or its reciprocal is non-finite
+    ///
     /// # Examples
     /// ```rust
     /// use finstack_core::money::fx::SimpleFxProvider;
@@ -209,6 +217,18 @@ impl BumpedFxProvider {
 }
 
 impl FxProvider for BumpedFxProvider {
+    /// Return an FX rate, using the bumped value for the overridden pair.
+    ///
+    /// The provider:
+    /// 1. Returns the bumped rate if querying the overridden `from→to` pair
+    /// 2. Returns the reciprocal of the bumped rate for `to→from`
+    /// 3. Delegates to the original provider for all other pairs
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` when:
+    /// - The original provider fails for non-overridden pairs
+    /// - Any error propagated from [`FxProvider::rate`] on the underlying provider
     fn rate(
         &self,
         from: Currency,
