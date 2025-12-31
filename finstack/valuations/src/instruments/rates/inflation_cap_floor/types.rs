@@ -381,6 +381,7 @@ impl crate::instruments::common::traits::Instrument for InflationCapFloor {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 }

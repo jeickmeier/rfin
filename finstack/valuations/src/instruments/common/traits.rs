@@ -903,6 +903,7 @@ pub trait Instrument: Send + Sync {
             base_value,
             metrics,
             Some(std::sync::Arc::new(cfg.clone())),
+            None,
         )
     }
 
@@ -918,14 +919,14 @@ pub trait Instrument: Send + Sync {
         market_history: std::sync::Arc<crate::metrics::risk::MarketHistory>,
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(market, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn_with_market_history(
+        crate::instruments::common::helpers::build_with_metrics_dyn(
             std::sync::Arc::from(self.clone_box()),
             std::sync::Arc::new(market.clone()),
             as_of,
             base_value,
             metrics,
             None,
-            market_history,
+            Some(market_history),
         )
     }
 
@@ -939,14 +940,14 @@ pub trait Instrument: Send + Sync {
         cfg: &finstack_core::config::FinstackConfig,
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(market, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn_with_market_history(
+        crate::instruments::common::helpers::build_with_metrics_dyn(
             std::sync::Arc::from(self.clone_box()),
             std::sync::Arc::new(market.clone()),
             as_of,
             base_value,
             metrics,
             Some(std::sync::Arc::new(cfg.clone())),
-            market_history,
+            Some(market_history),
         )
     }
 

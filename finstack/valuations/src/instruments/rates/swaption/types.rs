@@ -815,6 +815,7 @@ impl crate::instruments::common::traits::Instrument for Swaption {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 }

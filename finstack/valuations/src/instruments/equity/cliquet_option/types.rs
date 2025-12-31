@@ -175,6 +175,7 @@ impl crate::instruments::common::traits::Instrument for CliquetOption {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 }

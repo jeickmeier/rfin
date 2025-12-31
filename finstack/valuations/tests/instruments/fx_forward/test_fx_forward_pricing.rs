@@ -276,7 +276,7 @@ fn test_fx_forward_registry_pricer() {
 
     // Price through registry
     let result = registry
-        .price_with_registry(&forward, ModelKey::Discounting, &market, as_of)
+        .price_with_registry(&forward, ModelKey::Discounting, &market, as_of, None)
         .expect("should price through registry");
 
     assert_eq!(result.value.currency(), Currency::USD);

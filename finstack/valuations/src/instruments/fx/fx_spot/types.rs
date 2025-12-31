@@ -282,6 +282,7 @@ impl crate::instruments::common::traits::Instrument for FxSpot {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 

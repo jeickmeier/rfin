@@ -60,7 +60,7 @@ fn price_with_optional_metrics(
     let as_of_date = as_of.inner();
 
     let base = registry
-        .price_with_registry(instrument, model_key, market.inner(), as_of_date)
+        .price_with_registry(instrument, model_key, market.inner(), as_of_date, None)
         .map_err(pricing_error_to_js)?;
 
     if let Some(metric_ids) = metrics {
@@ -73,6 +73,7 @@ fn price_with_optional_metrics(
             base.as_of,
             base.value,
             &metric_ids,
+            None,
             None,
         )
         .map(JsValuationResult::new)

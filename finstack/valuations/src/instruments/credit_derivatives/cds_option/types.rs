@@ -509,6 +509,7 @@ impl crate::instruments::common::traits::Instrument for CdsOption {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 }

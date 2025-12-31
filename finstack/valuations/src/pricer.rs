@@ -1080,6 +1080,8 @@ impl PricerRegistry {
     /// * `model` - Pricing model to use
     /// * `market` - Market data context with curves and surfaces
     /// * `as_of` - Valuation date
+    /// * `cfg` - Optional FinstackConfig. When `Some`, the result will be stamped with
+    ///   the exact rounding/tolerance policy from the config. When `None`, uses default config.
     ///
     /// # Returns
     ///
@@ -1097,27 +1099,7 @@ impl PricerRegistry {
         model: ModelKey,
         market: &Market,
         as_of: finstack_core::dates::Date,
-    ) -> PricingResult<crate::results::ValuationResult> {
-        self.price_with_registry_with_config(
-            instrument,
-            model,
-            market,
-            as_of,
-            &FinstackConfig::default(),
-        )
-    }
-
-    /// Price an instrument using the registry with an explicit `FinstackConfig`.
-    ///
-    /// This ensures the returned [`crate::results::ValuationResult`] is stamped with
-    /// the exact rounding/tolerance policy used by the caller.
-    pub fn price_with_registry_with_config(
-        &self,
-        instrument: &dyn Priceable,
-        model: ModelKey,
-        market: &Market,
-        as_of: finstack_core::dates::Date,
-        cfg: &FinstackConfig,
+        cfg: Option<&FinstackConfig>,
     ) -> PricingResult<crate::results::ValuationResult> {
         let key = PricerKey::new(instrument.key(), model);
         let Some(pricer) = self.get_pricer(key) else {
@@ -1125,7 +1107,8 @@ impl PricerRegistry {
         };
 
         let mut result = pricer.price_dyn(instrument, market, as_of)?;
-        stamp_results_meta(cfg, &mut result);
+        let effective_cfg = cfg.map_or_else(FinstackConfig::default, |c| c.clone());
+        stamp_results_meta(&effective_cfg, &mut result);
         Ok(result)
     }
 
@@ -1133,33 +1116,22 @@ impl PricerRegistry {
     ///
     /// The output order matches the input order. When the `parallel` feature is
     /// enabled, pricing is performed in parallel while preserving ordering.
+    ///
+    /// # Arguments
+    ///
+    /// * `instruments` - Slice of instruments to price (as trait objects)
+    /// * `model` - Pricing model to use
+    /// * `market` - Market data context with curves and surfaces
+    /// * `as_of` - Valuation date
+    /// * `cfg` - Optional FinstackConfig. When `Some`, results will be stamped with
+    ///   the exact rounding/tolerance policy from the config. When `None`, uses default config.
     pub fn price_batch(
         &self,
         instruments: &[&dyn Priceable],
         model: ModelKey,
         market: &Market,
         as_of: finstack_core::dates::Date,
-    ) -> Vec<PricingResult<crate::results::ValuationResult>> {
-        self.price_batch_with_config(
-            instruments,
-            model,
-            market,
-            as_of,
-            &FinstackConfig::default(),
-        )
-    }
-
-    /// Price a batch of instruments using the registry with an explicit `FinstackConfig`.
-    ///
-    /// The output order matches the input order. When the `parallel` feature is enabled,
-    /// pricing is performed in parallel while preserving ordering.
-    pub fn price_batch_with_config(
-        &self,
-        instruments: &[&dyn Priceable],
-        model: ModelKey,
-        market: &Market,
-        as_of: finstack_core::dates::Date,
-        cfg: &FinstackConfig,
+        cfg: Option<&FinstackConfig>,
     ) -> Vec<PricingResult<crate::results::ValuationResult>> {
         #[cfg(feature = "parallel")]
         {
@@ -1167,7 +1139,7 @@ impl PricerRegistry {
             instruments
                 .par_iter()
                 .map(|&instrument| {
-                    self.price_with_registry_with_config(instrument, model, market, as_of, cfg)
+                    self.price_with_registry(instrument, model, market, as_of, cfg)
                 })
                 .collect()
         }
@@ -1176,7 +1148,7 @@ impl PricerRegistry {
             instruments
                 .iter()
                 .map(|&instrument| {
-                    self.price_with_registry_with_config(instrument, model, market, as_of, cfg)
+                    self.price_with_registry(instrument, model, market, as_of, cfg)
                 })
                 .collect()
         }

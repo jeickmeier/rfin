@@ -242,6 +242,7 @@ impl crate::instruments::common::traits::Instrument for DollarRoll {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 

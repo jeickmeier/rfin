@@ -327,6 +327,7 @@ impl crate::instruments::common::traits::Instrument for InterestRateFuture {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 

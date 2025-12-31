@@ -296,6 +296,7 @@ impl crate::instruments::common::traits::Instrument for FIIndexTotalReturnSwap {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 

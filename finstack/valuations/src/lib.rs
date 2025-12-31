@@ -82,7 +82,7 @@
 //! // let as_of = create_date(2025, Month::January, 1)?;
 //!
 //! // Price the bond (requires populated market context)
-//! // let result = registry.price_with_registry(&bond, ModelKey::Discounting, &market, as_of)?;
+//! // let result = registry.price_with_registry(&bond, ModelKey::Discounting, &market, as_of, None)?;
 //! # Ok(())
 //! # }
 //! ```

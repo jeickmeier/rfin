@@ -166,6 +166,7 @@ impl crate::instruments::common::traits::Instrument for RangeAccrual {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 }

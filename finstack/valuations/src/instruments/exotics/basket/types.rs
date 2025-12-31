@@ -364,6 +364,7 @@ impl Instrument for Basket {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 }

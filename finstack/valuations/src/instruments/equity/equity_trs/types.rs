@@ -291,6 +291,7 @@ impl crate::instruments::common::traits::Instrument for EquityTotalReturnSwap {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 

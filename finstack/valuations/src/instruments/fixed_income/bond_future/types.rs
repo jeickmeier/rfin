@@ -1710,6 +1710,7 @@ Provide it at construction time via BondFutureBuilder::ctd_bond(...) or by using
             base_value,
             metrics,
             None,
+            None,
         )
     }
 

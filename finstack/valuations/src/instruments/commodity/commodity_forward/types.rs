@@ -295,6 +295,7 @@ impl crate::instruments::common::traits::Instrument for CommodityForward {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 

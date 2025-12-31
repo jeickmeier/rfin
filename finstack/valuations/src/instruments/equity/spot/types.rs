@@ -368,6 +368,7 @@ impl crate::instruments::common::traits::Instrument for Equity {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 

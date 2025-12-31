@@ -1044,6 +1044,7 @@ impl crate::instruments::common::traits::Instrument for CreditDefaultSwap {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 }

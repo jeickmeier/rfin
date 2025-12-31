@@ -594,6 +594,7 @@ impl crate::instruments::common::traits::Instrument for VolatilityIndexOption {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 

@@ -174,6 +174,7 @@ impl crate::instruments::common::traits::Instrument for Autocallable {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 }

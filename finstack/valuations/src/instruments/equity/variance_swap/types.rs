@@ -566,6 +566,7 @@ impl crate::instruments::common::traits::Instrument for VarianceSwap {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 

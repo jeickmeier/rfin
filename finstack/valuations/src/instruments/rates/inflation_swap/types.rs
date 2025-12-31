@@ -455,6 +455,7 @@ impl crate::instruments::common::traits::Instrument for InflationSwap {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 }
@@ -725,6 +726,7 @@ impl crate::instruments::common::traits::Instrument for YoYInflationSwap {
             as_of,
             base_value,
             metrics,
+            None,
             None,
         )
     }

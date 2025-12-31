@@ -752,6 +752,7 @@ mod tests {
                 base_value,
                 metrics,
                 None,
+                None,
             )
         }
     }
@@ -804,6 +805,7 @@ mod tests {
                 as_of,
                 base_value,
                 metrics,
+                None,
                 None,
             )
         }

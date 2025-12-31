@@ -206,6 +206,7 @@ impl crate::instruments::common::traits::Instrument for AsianOption {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 }

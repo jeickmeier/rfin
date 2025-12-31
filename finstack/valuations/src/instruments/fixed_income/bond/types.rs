@@ -1002,6 +1002,7 @@ impl crate::instruments::common::traits::Instrument for Bond {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 

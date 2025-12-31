@@ -287,6 +287,7 @@ impl crate::instruments::common::traits::Instrument for ForwardRateAgreement {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 

@@ -696,6 +696,7 @@ impl crate::instruments::common::traits::Instrument for InflationLinkedBond {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 

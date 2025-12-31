@@ -959,6 +959,7 @@ mod tests {
                 base_value,
                 metrics,
                 None,
+                None,
             )
         }
     }

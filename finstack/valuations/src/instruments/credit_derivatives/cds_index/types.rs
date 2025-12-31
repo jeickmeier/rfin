@@ -373,6 +373,7 @@ impl crate::instruments::common::traits::Instrument for CDSIndex {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 }

@@ -184,6 +184,7 @@ impl Instrument for DiscountedCashFlow {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 

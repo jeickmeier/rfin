@@ -406,6 +406,7 @@ impl crate::instruments::common::traits::Instrument for Ndf {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 

@@ -453,6 +453,7 @@ impl InstrumentTrait for FxVarianceSwap {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 

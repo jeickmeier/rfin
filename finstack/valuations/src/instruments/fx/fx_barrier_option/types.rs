@@ -174,6 +174,7 @@ impl crate::instruments::common::traits::Instrument for FxBarrierOption {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 }

@@ -292,6 +292,7 @@ impl crate::instruments::common::traits::Instrument for AgencyTba {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 

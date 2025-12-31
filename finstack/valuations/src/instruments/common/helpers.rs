@@ -107,6 +107,8 @@ where
 /// * `metrics` - List of metrics to compute
 /// * `cfg` - Optional FinstackConfig for user-tunable metric defaults (e.g., bump sizes).
 ///   When `None`, uses global defaults.
+/// * `market_history` - Optional market history for Historical VaR / Expected Shortfall metrics.
+///   When `None`, these metrics will not be available.
 ///
 /// # Performance
 ///
@@ -119,6 +121,7 @@ pub fn build_with_metrics_dyn(
     base_value: Money,
     metrics: &[crate::metrics::MetricId],
     cfg: Option<Arc<FinstackConfig>>,
+    market_history: Option<Arc<MarketHistory>>,
 ) -> finstack_core::Result<crate::results::ValuationResult> {
     let finstack_config = cfg.unwrap_or_else(MetricContext::default_config);
     let mut context = MetricContext::new(
@@ -128,6 +131,12 @@ pub fn build_with_metrics_dyn(
         base_value,
         finstack_config,
     );
+
+    // Attach market history if provided (for Historical VaR / Expected Shortfall metrics)
+    if let Some(history) = market_history {
+        context = context.with_market_history(history);
+    }
+
     // Preserve per-instrument pricing overrides (e.g., bump sizes, scenario shocks) for metrics.
     context.set_pricing_overrides(instrument.scenario_overrides().cloned());
 
@@ -152,68 +161,6 @@ pub fn build_with_metrics_dyn(
     // - We only include *custom* (composite) metric IDs to avoid leaking dependency metrics that
     //   were computed internally but not requested by the caller.
     // - We insert in a stable order (sorted by key) to ensure deterministic results.
-    let mut extras: Vec<(&crate::metrics::MetricId, f64)> = context
-        .computed
-        .iter()
-        .filter_map(|(metric_id, value)| {
-            if metric_id.is_custom() && !measures.contains_key(metric_id) {
-                Some((metric_id, *value))
-            } else {
-                None
-            }
-        })
-        .collect();
-    extras.sort_by(|(a, _), (b, _)| a.as_str().cmp(b.as_str()));
-    for (metric_id, value) in extras {
-        measures.insert(metric_id.clone(), value);
-    }
-
-    let meta = results_meta_now(context.config());
-    let mut result = crate::results::ValuationResult::stamped_with_meta(
-        context.instrument.id(),
-        as_of,
-        base_value,
-        meta,
-    );
-    result.measures = measures;
-
-    Ok(result)
-}
-
-/// Variant of [`build_with_metrics_dyn`] that attaches a [`MarketHistory`] to the metric context.
-///
-/// This enables Historical VaR / Expected Shortfall metrics to run without storing
-/// type-erased runtime data inside `finstack_core::MarketContext`.
-pub fn build_with_metrics_dyn_with_market_history(
-    instrument: Arc<dyn crate::instruments::common::traits::Instrument>,
-    curves: Arc<MarketContext>,
-    as_of: Date,
-    base_value: Money,
-    metrics: &[crate::metrics::MetricId],
-    cfg: Option<Arc<FinstackConfig>>,
-    market_history: Arc<MarketHistory>,
-) -> finstack_core::Result<crate::results::ValuationResult> {
-    let finstack_config = cfg.unwrap_or_else(MetricContext::default_config);
-    let mut context = MetricContext::new(
-        instrument.clone(),
-        curves,
-        as_of,
-        base_value,
-        finstack_config,
-    )
-    .with_market_history(Arc::clone(&market_history));
-    context.set_pricing_overrides(instrument.scenario_overrides().cloned());
-
-    let registry = standard_registry();
-    let metric_measures = registry.compute(metrics, &mut context)?;
-
-    let mut measures: IndexMap<MetricId, f64> = IndexMap::with_capacity(metrics.len() + 4);
-    for metric_id in metrics {
-        if let Some(value) = metric_measures.get(metric_id) {
-            measures.insert(metric_id.clone(), *value);
-        }
-    }
-
     let mut extras: Vec<(&crate::metrics::MetricId, f64)> = context
         .computed
         .iter()
@@ -315,6 +262,7 @@ mod tests {
                 base,
                 metrics,
                 None,
+                None,
             )
         }
     }
@@ -338,6 +286,7 @@ mod tests {
             base_value,
             &[],
             Some(cfg.clone()),
+            None,
         )?;
 
         let usd_scale = result
@@ -399,7 +348,7 @@ pub fn price_with_metrics_from_arcs(
     cfg: Option<Arc<FinstackConfig>>,
 ) -> finstack_core::Result<crate::results::ValuationResult> {
     let base_value = instrument.value(&market, as_of)?;
-    build_with_metrics_dyn(instrument, market, as_of, base_value, metrics, cfg)
+    build_with_metrics_dyn(instrument, market, as_of, base_value, metrics, cfg, None)
 }
 
 /// Convert a trait object reference to Arc-wrapped trait object.

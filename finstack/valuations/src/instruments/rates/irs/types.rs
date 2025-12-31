@@ -719,6 +719,7 @@ impl crate::instruments::common::traits::Instrument for InterestRateSwap {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 

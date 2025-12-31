@@ -642,6 +642,7 @@ impl Instrument for Repo {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 

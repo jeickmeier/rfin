@@ -344,6 +344,7 @@ impl Instrument for CommodityOption {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 

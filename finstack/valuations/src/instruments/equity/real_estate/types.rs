@@ -233,6 +233,7 @@ impl Instrument for RealEstateAsset {
             base_value,
             metrics,
             None,
+            None,
         )
     }
 

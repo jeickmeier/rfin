@@ -110,7 +110,7 @@ impl PyPricerRegistry {
         // Release GIL for compute-heavy Rust pricing operation
         py.detach(|| {
             self.inner
-                .price_with_registry(inst.as_ref(), model_key, &market.inner, as_of_date)
+                .price_with_registry(inst.as_ref(), model_key, &market.inner, as_of_date, None)
                 .map(PyValuationResult::new)
                 .map_err(pricing_error_to_py)
         })
@@ -160,6 +160,7 @@ impl PyPricerRegistry {
                         model_key,
                         &market.inner,
                         as_of_date,
+                        None,
                     )
                 })
                 .collect()
@@ -224,7 +225,7 @@ impl PyPricerRegistry {
             // Base price via registry to derive as_of deterministically per pricer
             let base = self
                 .inner
-                .price_with_registry(inst.as_ref(), model_key, &market.inner, as_of_date)
+                .price_with_registry(inst.as_ref(), model_key, &market.inner, as_of_date, None)
                 .map_err(pricing_error_to_py)?;
 
             // Compute requested metrics using helper
@@ -234,6 +235,7 @@ impl PyPricerRegistry {
                 base.as_of,
                 base.value,
                 &metric_ids,
+                None,
                 None,
             )
             .map_err(core_to_py)?;
