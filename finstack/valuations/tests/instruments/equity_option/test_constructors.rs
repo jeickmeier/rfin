@@ -5,9 +5,9 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use finstack_valuations::instruments::equity::equity_option::EquityOption;
 use finstack_valuations::instruments::market::{ExerciseStyle, OptionType};
 use finstack_valuations::instruments::Attributes;
-use finstack_valuations::instruments::equity::equity_option::EquityOption;
 use finstack_valuations::instruments::{PricingOverrides, SettlementType};
 use time::macros::date;
 

@@ -11,8 +11,8 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::{FixedLegSpec, FloatLegSpec};
 use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
+use finstack_valuations::instruments::{FixedLegSpec, FloatLegSpec};
 use proptest::prelude::*;
 use time::macros::date;
 

@@ -28,13 +28,13 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
 use finstack_valuations::instruments::fixed_income::bond::{CallPut, CallPutSchedule};
-use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::fixed_income::convertible::{
     calculate_convertible_greeks, calculate_parity, price_convertible_bond, ConvertibleTreeType,
 };
 use finstack_valuations::instruments::fixed_income::convertible::{
     AntiDilutionPolicy, ConversionPolicy, ConversionSpec, ConvertibleBond, DividendAdjustment,
 };
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 

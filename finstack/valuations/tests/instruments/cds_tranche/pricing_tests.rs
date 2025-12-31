@@ -7,7 +7,7 @@
 //! - Notional scaling
 //! - Maturity edge cases
 //!
-//! Note: Internal implementation details like payment schedules, premium/protection  
+//! Note: Internal implementation details like payment schedules, premium/protection
 //! leg decomposition, and accrual-on-default mechanics are tested indirectly
 //! through these end-to-end pricing tests and through public metric APIs.
 

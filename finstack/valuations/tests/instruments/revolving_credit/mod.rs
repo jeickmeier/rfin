@@ -34,4 +34,3 @@ mod revolving_credit_acceptance;
 mod revolving_credit_parity;
 mod revolving_credit_properties;
 mod test_pricing_review;
-mod test_review_pricing;

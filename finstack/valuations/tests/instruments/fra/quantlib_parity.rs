@@ -36,8 +36,8 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::rates::fra::ForwardRateAgreement;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 

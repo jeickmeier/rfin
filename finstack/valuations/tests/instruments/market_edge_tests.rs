@@ -22,8 +22,8 @@ mod cds_market_edge {
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
     use finstack_core::money::Money;
-    use finstack_valuations::instruments::credit_derivatives::cds::{CDSPricer, CDSPricerConfig};
     use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
+    use finstack_valuations::instruments::credit_derivatives::cds::{CDSPricer, CDSPricerConfig};
     use finstack_valuations::instruments::Instrument;
     use time::macros::date;
 
@@ -369,8 +369,7 @@ mod bond_market_edge {
         // For T+2, settlement is 2 business days later (approximately as_of + 2)
         let settle_t2 = as_of.saturating_add(time::Duration::days(2));
         let accrued_t2 =
-            accrued_interest_amount(&sched_t2, settle_t2, &bond_t2.accrual_config())
-                .unwrap();
+            accrued_interest_amount(&sched_t2, settle_t2, &bond_t2.accrual_config()).unwrap();
 
         // T+2 settlement means 2 more days of accrual
         // 6% annual / 2 = 3% semi-annual, 3% / 180 days ≈ 0.0167% per day
@@ -412,8 +411,7 @@ mod bond_market_edge {
 
         // 8 days before coupon = just before ex-coupon window
         let before_ex = coupon_date - time::Duration::days(8);
-        let accrued_before =
-            accrued_interest_amount(&schedule, before_ex, &config).unwrap();
+        let accrued_before = accrued_interest_amount(&schedule, before_ex, &config).unwrap();
 
         // 7 days before coupon = exactly at ex-coupon boundary
         let at_ex = coupon_date - time::Duration::days(7);
@@ -421,8 +419,7 @@ mod bond_market_edge {
 
         // 5 days before coupon = within ex-coupon window
         let within_ex = coupon_date - time::Duration::days(5);
-        let accrued_within =
-            accrued_interest_amount(&schedule, within_ex, &config).unwrap();
+        let accrued_within = accrued_interest_amount(&schedule, within_ex, &config).unwrap();
 
         // Before ex-coupon: should have significant accrued (~2.9% of 3% = full period minus 8 days)
         assert!(
@@ -534,19 +531,13 @@ mod bond_market_edge {
         // Feb 29 (leap day) - ~59 days into a 180-day period
         let leap_day = date!(2024 - 02 - 29);
 
-        let accrued_30_360 = accrued_interest_amount(
-            &sched_30_360,
-            leap_day,
-            &bond_30_360.accrual_config(),
-        )
-        .unwrap();
+        let accrued_30_360 =
+            accrued_interest_amount(&sched_30_360, leap_day, &bond_30_360.accrual_config())
+                .unwrap();
 
-        let accrued_act_365 = accrued_interest_amount(
-            &sched_act_365,
-            leap_day,
-            &bond_act_365.accrual_config(),
-        )
-        .unwrap();
+        let accrued_act_365 =
+            accrued_interest_amount(&sched_act_365, leap_day, &bond_act_365.accrual_config())
+                .unwrap();
 
         // Expected accrued: ~59 days out of ~180 days period, 3% semi-annual coupon = $30
         // 59/180 * $30 ≈ $9.83

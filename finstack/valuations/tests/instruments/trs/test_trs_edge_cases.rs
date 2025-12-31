@@ -10,12 +10,12 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::ScheduleParams;
-use finstack_valuations::instruments::FinancingLegSpec;
-use finstack_valuations::instruments::EquityUnderlyingParams;
-use finstack_valuations::instruments::IndexUnderlyingParams;
-use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::equity::equity_trs::EquityTotalReturnSwap;
 use finstack_valuations::instruments::fixed_income::fi_trs::FIIndexTotalReturnSwap;
+use finstack_valuations::instruments::EquityUnderlyingParams;
+use finstack_valuations::instruments::FinancingLegSpec;
+use finstack_valuations::instruments::IndexUnderlyingParams;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{TrsScheduleSpec, TrsSide};
 use rust_decimal::Decimal;
 

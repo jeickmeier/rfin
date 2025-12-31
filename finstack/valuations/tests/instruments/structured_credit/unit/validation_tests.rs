@@ -3,13 +3,13 @@
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::structured_credit::{
-    DiversionCondition, DiversionRule,
-};
-use finstack_valuations::instruments::fixed_income::structured_credit::{
     get_validation_errors, is_valid_waterfall_spec, ValidationError,
 };
 use finstack_valuations::instruments::fixed_income::structured_credit::{
     AllocationMode, PaymentCalculation, PaymentType, Recipient, RecipientType, WaterfallTier,
+};
+use finstack_valuations::instruments::fixed_income::structured_credit::{
+    DiversionCondition, DiversionRule,
 };
 
 fn fixed_fee_recipient(id: &str) -> Recipient {

@@ -70,16 +70,16 @@ def strip_rust_comments_from_text(content):
     (e.g., comment markers inside strings), but works well for most code.
     """
     import re
-    
+
     # Remove multi-line comments /* ... */
     # This regex handles nested cases by being non-greedy
     content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
-    
+
     # Remove single-line comments //
     # Only remove if // is not inside quotes (simple heuristic)
     lines = content.split('\n')
     cleaned_lines = []
-    
+
     for line in lines:
         # Find // that's not in a string (simple check)
         comment_pos = line.find('//')
@@ -89,11 +89,11 @@ def strip_rust_comments_from_text(content):
             # If even number of quotes, likely not in string
             if before_comment.count('"') % 2 == 0 and before_comment.count("'") % 2 == 0:
                 line = line[:comment_pos].rstrip()
-        
+
         # Only keep non-empty lines or lines with actual content
         if line.strip():
             cleaned_lines.append(line)
-    
+
     return '\n'.join(cleaned_lines)
 
 
@@ -158,11 +158,11 @@ def concatenate_files(output_filename="concatenated_code.txt"):
             try:
                 with open(file_path, encoding="utf-8") as input_file:
                     content = input_file.read()
-                    
+
                     # Strip Rust comments if enabled and file is a .rs file
                     if strip_rust_comments and file_path.suffix == ".rs":
                         content = strip_rust_comments_from_text(content)
-                    
+
                     output_file.write(content)
                     output_file.write("\n\n")
             except FileNotFoundError:

@@ -5,10 +5,10 @@ use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::fixed_income::revolving_credit::{
     BaseRateSpec, DrawRepayEvent, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
 };
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 

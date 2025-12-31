@@ -5,10 +5,10 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::scalars::InflationLag;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::rates::inflation_swap::{
     InflationSwap, InflationSwapBuilder, PayReceiveInflation,
 };
+use finstack_valuations::instruments::Attributes;
 use time::Month;
 
 #[test]

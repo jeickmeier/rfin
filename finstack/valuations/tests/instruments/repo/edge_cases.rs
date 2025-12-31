@@ -5,8 +5,8 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount};
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::{Attributes, Instrument};
 use finstack_valuations::instruments::rates::repo::{CollateralSpec, Repo, RepoType};
+use finstack_valuations::instruments::{Attributes, Instrument};
 
 #[test]
 fn test_very_small_notional() {

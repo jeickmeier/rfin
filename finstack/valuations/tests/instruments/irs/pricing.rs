@@ -12,8 +12,8 @@ use crate::common::test_helpers::{dates, usd_swap_market, usd_swap_market_split}
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
+use finstack_valuations::instruments::Instrument;
 use rust_decimal_macros::dec;
 
 #[test]

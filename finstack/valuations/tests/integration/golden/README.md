@@ -105,6 +105,7 @@ All golden test files follow a consistent JSON structure:
 Full instrument valuation tests with complete market context. Used by `market_compliance.rs`.
 
 **Example fixture:**
+
 ```json
 {
   "valuation_date": "2024-01-02",
@@ -119,6 +120,7 @@ Full instrument valuation tests with complete market context. Used by `market_co
 Parameter-based tests for option pricing validation.
 
 **European options:**
+
 ```json
 {
   "name": "BS_ATM_1Y_Call",
@@ -136,6 +138,7 @@ Parameter-based tests for option pricing validation.
 ```
 
 **Barrier options:**
+
 ```json
 {
   "name": "Barrier_UpOut_ATM",
@@ -154,6 +157,7 @@ Parameter-based tests for option pricing validation.
 ```
 
 **Asian options:**
+
 ```json
 {
   "name": "Asian_Geom_ATM_12M",

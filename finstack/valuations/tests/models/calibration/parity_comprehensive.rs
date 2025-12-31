@@ -139,11 +139,7 @@ fn test_all_types_calibration_parity() {
     curve_ids.insert("discount".to_string(), "USD-OIS".to_string());
     curve_ids.insert("forward".to_string(), "USD-LIBOR-3M".to_string());
     curve_ids.insert("credit".to_string(), "NA-HY-Curve".to_string());
-    let build_ctx = finstack_valuations::market::BuildCtx::new(
-        base_date,
-        1_000_000.0,
-        curve_ids,
-    );
+    let build_ctx = finstack_valuations::market::BuildCtx::new(base_date, 1_000_000.0, curve_ids);
 
     for q in &discount_quotes {
         if let MarketQuote::Rates(rq) = q {

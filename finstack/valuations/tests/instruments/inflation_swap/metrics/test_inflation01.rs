@@ -4,8 +4,10 @@ use crate::inflation_swap::fixtures::*;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::term_structures::InflationCurve;
 
+use finstack_valuations::instruments::rates::inflation_swap::{
+    InflationSwapBuilder, PayReceiveInflation,
+};
 use finstack_valuations::instruments::Instrument;
-use finstack_valuations::instruments::rates::inflation_swap::{InflationSwapBuilder, PayReceiveInflation};
 use finstack_valuations::metrics::MetricId;
 use time::Month;
 

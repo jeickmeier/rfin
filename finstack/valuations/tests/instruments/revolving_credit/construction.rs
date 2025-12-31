@@ -127,4 +127,3 @@ fn test_validation_drawn_within_commitment() {
     // Assert
     assert!(facility.is_err());
 }
-

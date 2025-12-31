@@ -43,40 +43,36 @@ fn test_irs_builder_pattern() {
         .id("IRS-CUSTOM".into())
         .notional(Money::new(5_000_000.0, Currency::USD))
         .side(PayReceive::ReceiveFixed)
-        .fixed(
-            finstack_valuations::instruments::FixedLegSpec {
-                discount_curve_id: "USD_OIS".into(),
-                rate: rust_decimal::Decimal::try_from(0.0325).expect("valid"),
-                freq: Tenor::semi_annual(),
-                dc: DayCount::Thirty360,
-                bdc: BusinessDayConvention::ModifiedFollowing,
-                calendar_id: Some("usny".to_string()),
-                stub: StubKind::None,
-                start: date!(2024 - 01 - 15),
-                end: date!(2034 - 01 - 15),
-                par_method: None,
-                compounding_simple: true,
-                payment_delay_days: 0,
-            },
-        )
-        .float(
-            finstack_valuations::instruments::FloatLegSpec {
-                discount_curve_id: "USD_OIS".into(),
-                forward_curve_id: "USD_LIBOR_3M".into(),
-                spread_bp: rust_decimal::Decimal::try_from(25.0).expect("valid"),
-                freq: Tenor::quarterly(),
-                dc: DayCount::Act360,
-                bdc: BusinessDayConvention::ModifiedFollowing,
-                calendar_id: Some("usny".to_string()),
-                fixing_calendar_id: Some("usny".to_string()),
-                stub: StubKind::None,
-                reset_lag_days: 2,
-                compounding: Default::default(),
-                payment_delay_days: 0,
-                start: date!(2024 - 01 - 15),
-                end: date!(2034 - 01 - 15),
-            },
-        )
+        .fixed(finstack_valuations::instruments::FixedLegSpec {
+            discount_curve_id: "USD_OIS".into(),
+            rate: rust_decimal::Decimal::try_from(0.0325).expect("valid"),
+            freq: Tenor::semi_annual(),
+            dc: DayCount::Thirty360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some("usny".to_string()),
+            stub: StubKind::None,
+            start: date!(2024 - 01 - 15),
+            end: date!(2034 - 01 - 15),
+            par_method: None,
+            compounding_simple: true,
+            payment_delay_days: 0,
+        })
+        .float(finstack_valuations::instruments::FloatLegSpec {
+            discount_curve_id: "USD_OIS".into(),
+            forward_curve_id: "USD_LIBOR_3M".into(),
+            spread_bp: rust_decimal::Decimal::try_from(25.0).expect("valid"),
+            freq: Tenor::quarterly(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some("usny".to_string()),
+            fixing_calendar_id: Some("usny".to_string()),
+            stub: StubKind::None,
+            reset_lag_days: 2,
+            compounding: Default::default(),
+            payment_delay_days: 0,
+            start: date!(2024 - 01 - 15),
+            end: date!(2034 - 01 - 15),
+        })
         .build();
 
     let swap = swap.expect("Builder should succeed");
@@ -238,40 +234,36 @@ fn test_irs_different_leg_frequencies() {
         .id("IRS-DIFF-FREQ".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
         .side(PayReceive::ReceiveFixed)
-        .fixed(
-            finstack_valuations::instruments::FixedLegSpec {
-                discount_curve_id: "USD_OIS".into(),
-                rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
-                freq: Tenor::semi_annual(),
-                dc: DayCount::Thirty360,
-                bdc: BusinessDayConvention::ModifiedFollowing,
-                calendar_id: None,
-                stub: StubKind::None,
-                start: date!(2024 - 01 - 01),
-                end: date!(2029 - 01 - 01),
-                par_method: None,
-                compounding_simple: true,
-                payment_delay_days: 0,
-            },
-        )
-        .float(
-            finstack_valuations::instruments::FloatLegSpec {
-                discount_curve_id: "USD_OIS".into(),
-                forward_curve_id: "USD_LIBOR_3M".into(),
-                spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
-                freq: Tenor::quarterly(),
-                dc: DayCount::Act360,
-                bdc: BusinessDayConvention::ModifiedFollowing,
-                calendar_id: None,
-                fixing_calendar_id: None,
-                stub: StubKind::None,
-                reset_lag_days: 2,
-                compounding: Default::default(),
-                payment_delay_days: 0,
-                start: date!(2024 - 01 - 01),
-                end: date!(2029 - 01 - 01),
-            },
-        )
+        .fixed(finstack_valuations::instruments::FixedLegSpec {
+            discount_curve_id: "USD_OIS".into(),
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
+            freq: Tenor::semi_annual(),
+            dc: DayCount::Thirty360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: StubKind::None,
+            start: date!(2024 - 01 - 01),
+            end: date!(2029 - 01 - 01),
+            par_method: None,
+            compounding_simple: true,
+            payment_delay_days: 0,
+        })
+        .float(finstack_valuations::instruments::FloatLegSpec {
+            discount_curve_id: "USD_OIS".into(),
+            forward_curve_id: "USD_LIBOR_3M".into(),
+            spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
+            freq: Tenor::quarterly(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            fixing_calendar_id: None,
+            stub: StubKind::None,
+            reset_lag_days: 2,
+            compounding: Default::default(),
+            payment_delay_days: 0,
+            start: date!(2024 - 01 - 01),
+            end: date!(2029 - 01 - 01),
+        })
         .build()
         .unwrap();
 
@@ -312,40 +304,36 @@ fn test_irs_calendar_specification() {
         .id("IRS-CAL".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
         .side(PayReceive::ReceiveFixed)
-        .fixed(
-            finstack_valuations::instruments::FixedLegSpec {
-                discount_curve_id: "USD_OIS".into(),
-                rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
-                freq: Tenor::semi_annual(),
-                dc: DayCount::Thirty360,
-                bdc: BusinessDayConvention::ModifiedFollowing,
-                calendar_id: Some("usny".to_string()),
-                stub: StubKind::None,
-                start: date!(2024 - 01 - 01),
-                end: date!(2029 - 01 - 01),
-                par_method: None,
-                compounding_simple: true,
-                payment_delay_days: 0,
-            },
-        )
-        .float(
-            finstack_valuations::instruments::FloatLegSpec {
-                discount_curve_id: "USD_OIS".into(),
-                forward_curve_id: "USD_LIBOR_3M".into(),
-                spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
-                freq: Tenor::quarterly(),
-                dc: DayCount::Act360,
-                bdc: BusinessDayConvention::ModifiedFollowing,
-                calendar_id: Some("usny".to_string()),
-                fixing_calendar_id: Some("usny".to_string()),
-                stub: StubKind::None,
-                reset_lag_days: 2,
-                compounding: Default::default(),
-                payment_delay_days: 0,
-                start: date!(2024 - 01 - 01),
-                end: date!(2029 - 01 - 01),
-            },
-        )
+        .fixed(finstack_valuations::instruments::FixedLegSpec {
+            discount_curve_id: "USD_OIS".into(),
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
+            freq: Tenor::semi_annual(),
+            dc: DayCount::Thirty360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some("usny".to_string()),
+            stub: StubKind::None,
+            start: date!(2024 - 01 - 01),
+            end: date!(2029 - 01 - 01),
+            par_method: None,
+            compounding_simple: true,
+            payment_delay_days: 0,
+        })
+        .float(finstack_valuations::instruments::FloatLegSpec {
+            discount_curve_id: "USD_OIS".into(),
+            forward_curve_id: "USD_LIBOR_3M".into(),
+            spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
+            freq: Tenor::quarterly(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some("usny".to_string()),
+            fixing_calendar_id: Some("usny".to_string()),
+            stub: StubKind::None,
+            reset_lag_days: 2,
+            compounding: Default::default(),
+            payment_delay_days: 0,
+            start: date!(2024 - 01 - 01),
+            end: date!(2029 - 01 - 01),
+        })
         .build()
         .unwrap();
 
@@ -359,40 +347,36 @@ fn test_irs_stub_specification() {
         .id("IRS-STUB".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
         .side(PayReceive::ReceiveFixed)
-        .fixed(
-            finstack_valuations::instruments::FixedLegSpec {
-                discount_curve_id: "USD_OIS".into(),
-                rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
-                freq: Tenor::semi_annual(),
-                dc: DayCount::Thirty360,
-                bdc: BusinessDayConvention::ModifiedFollowing,
-                calendar_id: None,
-                stub: StubKind::ShortFront,
-                start: date!(2024 - 01 - 15),
-                end: date!(2029 - 01 - 01),
-                par_method: None,
-                compounding_simple: true,
-                payment_delay_days: 0,
-            },
-        )
-        .float(
-            finstack_valuations::instruments::FloatLegSpec {
-                discount_curve_id: "USD_OIS".into(),
-                forward_curve_id: "USD_LIBOR_3M".into(),
-                spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
-                freq: Tenor::quarterly(),
-                dc: DayCount::Act360,
-                bdc: BusinessDayConvention::ModifiedFollowing,
-                calendar_id: None,
-                fixing_calendar_id: None,
-                stub: StubKind::ShortFront,
-                reset_lag_days: 2,
-                compounding: Default::default(),
-                payment_delay_days: 0,
-                start: date!(2024 - 01 - 15),
-                end: date!(2029 - 01 - 01),
-            },
-        )
+        .fixed(finstack_valuations::instruments::FixedLegSpec {
+            discount_curve_id: "USD_OIS".into(),
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
+            freq: Tenor::semi_annual(),
+            dc: DayCount::Thirty360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: StubKind::ShortFront,
+            start: date!(2024 - 01 - 15),
+            end: date!(2029 - 01 - 01),
+            par_method: None,
+            compounding_simple: true,
+            payment_delay_days: 0,
+        })
+        .float(finstack_valuations::instruments::FloatLegSpec {
+            discount_curve_id: "USD_OIS".into(),
+            forward_curve_id: "USD_LIBOR_3M".into(),
+            spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
+            freq: Tenor::quarterly(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            fixing_calendar_id: None,
+            stub: StubKind::ShortFront,
+            reset_lag_days: 2,
+            compounding: Default::default(),
+            payment_delay_days: 0,
+            start: date!(2024 - 01 - 15),
+            end: date!(2029 - 01 - 01),
+        })
         .build()
         .unwrap();
 

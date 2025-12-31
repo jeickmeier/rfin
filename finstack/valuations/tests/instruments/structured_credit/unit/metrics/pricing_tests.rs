@@ -52,10 +52,11 @@ fn test_wal_calculation_equal_payments() {
     };
 
     // Act
-    let wal = finstack_valuations::instruments::fixed_income::structured_credit::calculate_tranche_wal(
-        &cashflows, as_of,
-    )
-    .unwrap();
+    let wal =
+        finstack_valuations::instruments::fixed_income::structured_credit::calculate_tranche_wal(
+            &cashflows, as_of,
+        )
+        .unwrap();
 
     // Assert: (25k×1 + 25k×2 + 25k×3 + 25k×4) / 100k = 2.5 years
     assert!((wal - 2.5).abs() < 0.01);
@@ -92,10 +93,11 @@ fn test_wal_calculation_front_loaded_payments() {
     };
 
     // Act
-    let wal = finstack_valuations::instruments::fixed_income::structured_credit::calculate_tranche_wal(
-        &cashflows, as_of,
-    )
-    .unwrap();
+    let wal =
+        finstack_valuations::instruments::fixed_income::structured_credit::calculate_tranche_wal(
+            &cashflows, as_of,
+        )
+        .unwrap();
 
     // Assert: (70k×1 + 20k×2 + 10k×3) / 100k = 1.4 years
     assert!((wal - 1.4).abs() < 0.01);
@@ -132,10 +134,11 @@ fn test_wal_calculation_back_loaded_payments() {
     };
 
     // Act
-    let wal = finstack_valuations::instruments::fixed_income::structured_credit::calculate_tranche_wal(
-        &cashflows, as_of,
-    )
-    .unwrap();
+    let wal =
+        finstack_valuations::instruments::fixed_income::structured_credit::calculate_tranche_wal(
+            &cashflows, as_of,
+        )
+        .unwrap();
 
     // Assert: (10k×1 + 20k×2 + 70k×3) / 100k = 2.6 years
     assert!((wal - 2.6).abs() < 0.01);
@@ -162,10 +165,11 @@ fn test_wal_calculation_single_payment() {
     };
 
     // Act
-    let wal = finstack_valuations::instruments::fixed_income::structured_credit::calculate_tranche_wal(
-        &cashflows, as_of,
-    )
-    .unwrap();
+    let wal =
+        finstack_valuations::instruments::fixed_income::structured_credit::calculate_tranche_wal(
+            &cashflows, as_of,
+        )
+        .unwrap();
 
     // Assert: Should be exactly 5 years
     assert!((wal - 5.0).abs() < 0.01);
@@ -189,10 +193,11 @@ fn test_wal_calculation_empty_cashflows() {
     };
 
     // Act
-    let wal = finstack_valuations::instruments::fixed_income::structured_credit::calculate_tranche_wal(
-        &cashflows, as_of,
-    )
-    .unwrap();
+    let wal =
+        finstack_valuations::instruments::fixed_income::structured_credit::calculate_tranche_wal(
+            &cashflows, as_of,
+        )
+        .unwrap();
 
     // Assert
     assert_eq!(wal, 0.0);
@@ -225,10 +230,11 @@ fn test_wal_ignores_past_cashflows() {
     };
 
     // Act
-    let wal = finstack_valuations::instruments::fixed_income::structured_credit::calculate_tranche_wal(
-        &cashflows, as_of,
-    )
-    .unwrap();
+    let wal =
+        finstack_valuations::instruments::fixed_income::structured_credit::calculate_tranche_wal(
+            &cashflows, as_of,
+        )
+        .unwrap();
 
     // Assert: Only future cashflow counts → 1 year
     assert!((wal - 1.0).abs() < 0.01);
@@ -269,10 +275,11 @@ fn test_wal_rmbs_with_psa() {
     };
 
     // Act
-    let wal = finstack_valuations::instruments::fixed_income::structured_credit::calculate_tranche_wal(
-        &cashflows, as_of,
-    )
-    .unwrap();
+    let wal =
+        finstack_valuations::instruments::fixed_income::structured_credit::calculate_tranche_wal(
+            &cashflows, as_of,
+        )
+        .unwrap();
 
     // Assert: (40k×2 + 35k×4 + 25k×6) / 100k = 3.7 years (typical for RMBS)
     assert!((wal - 3.7).abs() < 0.01);
@@ -305,10 +312,11 @@ fn test_wal_clo_short_duration() {
     };
 
     // Act
-    let wal = finstack_valuations::instruments::fixed_income::structured_credit::calculate_tranche_wal(
-        &cashflows, as_of,
-    )
-    .unwrap();
+    let wal =
+        finstack_valuations::instruments::fixed_income::structured_credit::calculate_tranche_wal(
+            &cashflows, as_of,
+        )
+        .unwrap();
 
     // Assert: (60k×2 + 40k×3) / 100k = 2.4 years (typical for CLO AAA)
     assert!((wal - 2.4).abs() < 0.01);

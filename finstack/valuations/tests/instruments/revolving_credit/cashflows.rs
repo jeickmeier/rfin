@@ -85,4 +85,3 @@ fn test_utilization_fee_at_threshold() {
     // Assert
     assert!(!cashflows.is_empty());
 }
-

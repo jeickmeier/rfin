@@ -3,11 +3,11 @@
 use super::common::*;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionParams;
 use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOption;
-use finstack_valuations::instruments::OptionType;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionParams;
 use finstack_valuations::instruments::CreditParams;
+use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::OptionType;
 use finstack_valuations::pricer::InstrumentType;
 use time::macros::date;
 

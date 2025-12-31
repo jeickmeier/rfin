@@ -17,7 +17,7 @@ use crate::common::test_helpers::flat_discount_curve;
 fn test_commitment_fee_proportional_to_undrawn() {
     // Arrange
     let as_of = date!(2025 - 01 - 01);
-    
+
     // 50% utilization
     let facility_50 = RevolvingCredit::builder()
         .id("RC-FEE-50".into())
@@ -63,4 +63,3 @@ fn test_commitment_fee_proportional_to_undrawn() {
     assert!(pv_50.amount().is_finite());
     assert!(pv_25.amount().is_finite());
 }
-

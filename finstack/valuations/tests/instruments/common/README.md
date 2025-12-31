@@ -31,6 +31,7 @@ common/
 ### Models (200+ tests)
 
 #### Binomial Tree (`test_binomial_tree.rs`)
+
 - **Parameter Calculation** (10 tests): CRR, Leisen-Reimer, validation, edge cases
 - **European Options** (15 tests): Convergence, put-call parity, ITM/OTM/ATM pricing
 - **American Options** (5 tests): Early exercise premium, bounds checking
@@ -40,12 +41,14 @@ common/
 - **Edge Cases** (10+ tests): Deep ITM/OTM, extreme volatility, short/long maturity
 
 #### Black Formulas (`test_black.rs`)
+
 - **d1/d2 Calculations** (10 tests): ATM, ITM, OTM, with dividends
 - **Black76** (8 tests): Forward-based pricing, equivalence with BS
 - **Black-Scholes** (15 tests): Put-call parity, monotonicity, symmetry
 - **Numerical Stability** (10+ tests): Extreme values, negative rates
 
 #### SABR Model (`test_sabr.rs`)
+
 - **Parameter Validation** (10 tests): Alpha, beta, nu, rho bounds
 - **ATM Volatility** (5 tests): Normal, lognormal, consistency
 - **Implied Volatility** (12 tests): Smile generation, skew, term structure
@@ -56,6 +59,7 @@ common/
 ### Metrics (25+ tests)
 
 #### Theta Utils (`test_theta_utils.rs`)
+
 - **Period Parsing** (12 tests): Days, weeks, months, years, edge cases
 - **Date Calculations** (8 tests): Rolling forward, expiry caps, various periods
 - **Integration** (5 tests): Short/long dated options, workflows
@@ -63,6 +67,7 @@ common/
 ### Core Traits (7 tests)
 
 #### Trait Behavior Tests (`test_traits.rs`)
+
 - **CashflowProvider** (2 tests): Schedule building, NPV calculation with discount curves
 - **Priceable** (5 tests): Value extraction, metrics computation, result stamping
 
@@ -71,6 +76,7 @@ Tests use mock implementations to validate trait contracts in isolation from rea
 ### Test Utilities (`test_helpers.rs`)
 
 Provides shared fixtures and utilities:
+
 - **Comparison functions**: `assert_approx_eq`, `assert_relative_eq`, `assert_money_eq`
 - **Standard tolerances**: `TOLERANCE`, `TIGHT_TOLERANCE`, `RELATIVE_TOLERANCE`
 - **Market fixtures**: `standard_market()`, `flat_curve()`, `upward_curve()`
@@ -80,22 +86,25 @@ Provides shared fixtures and utilities:
 ## Testing Methodology
 
 ### AAA Pattern
+
 All tests follow the Arrange-Act-Assert pattern:
+
 ```rust
 #[test]
 fn test_example() {
     // Arrange: Set up test data
     let params = OptionMarketParams::call(100.0, 100.0, 0.05, 0.20, 1.0);
-    
+
     // Act: Execute the operation
     let price = tree.price_european(&params).unwrap();
-    
+
     // Assert: Verify results
     assert_approx_eq(price, expected, TOLERANCE, "Price matches");
 }
 ```
 
 ### Coverage Goals
+
 - **Critical paths**: All main pricing algorithms
 - **Edge cases**: Extreme parameters, boundary conditions
 - **Numerical stability**: Very small/large values
@@ -103,6 +112,7 @@ fn test_example() {
 - **Market standards**: Industry conventions, standard test cases
 
 ### Validation Techniques
+
 1. **Convergence tests**: Tree models → analytical solutions
 2. **Parity relationships**: Put-call, in-out barriers
 3. **Bounds checking**: Physical constraints (0 ≤ option ≤ spot)
@@ -151,4 +161,3 @@ cargo test --lib common -- --nocapture
 - [ ] Regression test suite with golden files
 - [ ] Coverage reporting integration
 - [ ] Mutation testing for robustness validation
-

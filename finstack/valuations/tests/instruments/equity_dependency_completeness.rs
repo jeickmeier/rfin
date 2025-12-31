@@ -12,9 +12,7 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_option::CommodityOption;
-use finstack_valuations::instruments::{
-    CurveDependencies, EquityDependencies, Instrument,
-};
+use finstack_valuations::instruments::{CurveDependencies, EquityDependencies, Instrument};
 use finstack_valuations::instruments::{
     ExerciseStyle, OptionType, PricingOverrides, SettlementType,
 };

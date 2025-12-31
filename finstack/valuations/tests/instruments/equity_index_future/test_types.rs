@@ -3,9 +3,11 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::Attributes;
-use finstack_valuations::instruments::equity::equity_index_future::{EquityFutureSpecs, EquityIndexFuture};
+use finstack_valuations::instruments::equity::equity_index_future::{
+    EquityFutureSpecs, EquityIndexFuture,
+};
 use finstack_valuations::instruments::rates::ir_future::Position;
+use finstack_valuations::instruments::Attributes;
 use time::Month;
 
 #[test]

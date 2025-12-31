@@ -6,10 +6,10 @@ use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_valuations::cashflow::primitives::CFKind;
 use finstack_valuations::cashflow::CashflowProvider;
-use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::fixed_income::term_loan::{
     self, CommitmentStepDown, DdtlSpec, DrawEvent, OidEirSpec, OidPolicy, TermLoan,
 };
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use finstack_valuations::pricer::Pricer;
 
@@ -71,7 +71,8 @@ fn term_loan_fixed_with_draws_and_fees() {
         .unwrap();
 
     let market = mc();
-    let pricer = finstack_valuations::instruments::fixed_income::term_loan::TermLoanDiscountingPricer;
+    let pricer =
+        finstack_valuations::instruments::fixed_income::term_loan::TermLoanDiscountingPricer;
     let as_of = issue;
 
     // Ensure pricing runs and PV is finite

@@ -139,7 +139,9 @@ class RustAPIExtractor:
                     exports.types.append(match.group(1))
 
             # Extract pub fn declarations (public API functions)
-            elif (re.match(r"^pub\s+fn\s+\w+", line) or re.match(r"^pub\s+async\s+fn\s+\w+", line)) and not line.startswith("pub(crate)"):
+            elif (
+                re.match(r"^pub\s+fn\s+\w+", line) or re.match(r"^pub\s+async\s+fn\s+\w+", line)
+            ) and not line.startswith("pub(crate)"):
                 match = re.search(r"pub\s+(?:async\s+)?fn\s+(\w+)", line)
                 if match and not match.group(1).startswith("_"):
                     exports.functions.append(match.group(1))
@@ -202,16 +204,16 @@ class RustAPIExtractor:
                     exports.types.append(match.group(1))
 
             # Extract pub fn declarations (public API functions)
-            elif (re.match(r"^pub\s+fn\s+\w+", line) or re.match(r"^pub\s+async\s+fn\s+\w+", line)) and not line.startswith("pub(crate)"):
+            elif (
+                re.match(r"^pub\s+fn\s+\w+", line) or re.match(r"^pub\s+async\s+fn\s+\w+", line)
+            ) and not line.startswith("pub(crate)"):
                 match = re.search(r"pub\s+(?:async\s+)?fn\s+(\w+)", line)
                 if match and not match.group(1).startswith("_"):
                     exports.functions.append(match.group(1))
 
         return exports
 
-    def collect_public_api_from_module(
-        self, module_path: Path, module_name: str, visited: set[str]
-    ) -> dict[str, Any]:
+    def collect_public_api_from_module(self, module_path: Path, module_name: str, visited: set[str]) -> dict[str, Any]:
         """Recursively collect public API from a module and its submodules."""
         if module_name in visited:
             return {}
@@ -237,9 +239,7 @@ class RustAPIExtractor:
                 submod_path = module_path / submod_name
                 if submod_path.is_dir():
                     submod_full_name = f"{module_name}::{submod_name}"
-                    submod_result = self.collect_public_api_from_module(
-                        submod_path, submod_full_name, visited
-                    )
+                    submod_result = self.collect_public_api_from_module(submod_path, submod_full_name, visited)
                     if submod_result:
                         result["modules"][submod_name] = submod_result
                 elif (module_path / f"{submod_name}.rs").exists():
@@ -283,9 +283,7 @@ class RustAPIExtractor:
                     submod_path = module_path / submod_name
                     if submod_path.is_dir():
                         submod_full_name = f"{module_name}::{submod_name}"
-                        submod_result = self.collect_public_api_from_module(
-                            submod_path, submod_full_name, visited
-                        )
+                        submod_result = self.collect_public_api_from_module(submod_path, submod_full_name, visited)
                         if submod_result:
                             result["modules"][submod_name] = submod_result
                     elif (module_path / f"{submod_name}.rs").exists():

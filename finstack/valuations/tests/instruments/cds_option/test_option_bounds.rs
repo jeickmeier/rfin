@@ -250,7 +250,7 @@ fn test_greeks_reasonable_magnitude() {
 ///
 /// where:
 /// - C = call option value
-/// - P = put option value  
+/// - P = put option value
 /// - A = risky annuity (RPV01)
 /// - F = forward CDS spread
 /// - K = strike spread
@@ -263,7 +263,9 @@ fn test_put_call_parity() {
     let notional = 10_000_000.0;
 
     // Get forward spread from a reference option
-    let pricer = finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionPricer::default();
+    let pricer =
+        finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionPricer::default(
+        );
 
     // Test parity at multiple strikes
     for strike in [100.0, 150.0, 200.0, 250.0, 300.0] {
@@ -320,7 +322,9 @@ fn test_put_call_parity_at_forward() {
     let market = standard_market(as_of);
     let notional = 10_000_000.0;
 
-    let pricer = finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionPricer::default();
+    let pricer =
+        finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionPricer::default(
+        );
 
     // Get forward spread
     let temp_option = CdsOptionBuilder::new().build(as_of);

@@ -5,8 +5,8 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::rates::repo::{CollateralSpec, Repo};
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::*;
 use std::sync::Arc;
 

@@ -8,10 +8,10 @@ use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::equity::variance_swap::{
     PayReceive, RealizedVarMethod, VarianceSwap,
 };
+use finstack_valuations::instruments::Attributes;
 use time::Month;
 
 pub const DISC_ID: &str = "USD_OIS";

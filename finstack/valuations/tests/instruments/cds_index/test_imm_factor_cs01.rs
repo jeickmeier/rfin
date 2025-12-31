@@ -5,10 +5,10 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::credit_derivatives::cds::CDSPricer;
+use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndex;
 use finstack_valuations::instruments::credit_derivatives::cds_index::{
     CDSIndexConstituentParam, CDSIndexConstructionParams, CDSIndexParams,
 };
-use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndex;
 use finstack_valuations::instruments::CreditParams;
 use time::Month;
 
@@ -75,8 +75,7 @@ fn index_factor_scales_pv() {
     let end = Date::from_calendar_date(2028, Month::January, 1).unwrap();
 
     let disc = flat_discount("USD-OIS", as_of);
-    let rec =
-        finstack_valuations::instruments::credit_derivatives::cds::RECOVERY_SENIOR_UNSECURED;
+    let rec = finstack_valuations::instruments::credit_derivatives::cds::RECOVERY_SENIOR_UNSECURED;
     let hz = 0.02;
     let names = [
         ("N1", "HZ1"),

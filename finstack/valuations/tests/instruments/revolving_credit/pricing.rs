@@ -105,4 +105,3 @@ fn test_pricing_full_utilization() {
     // Should include full principal + interest + utilization fees
     assert!(pv.amount() > 10_000_000.0);
 }
-

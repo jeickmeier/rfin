@@ -7,8 +7,8 @@ use super::fixtures::*;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::fx::fx_swap::FxSwap;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::Month;
 

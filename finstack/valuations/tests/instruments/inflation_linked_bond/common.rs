@@ -8,10 +8,10 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::term_structures::InflationCurve;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::fixed_income::inflation_linked_bond::{
     DeflationProtection, IndexationMethod, InflationLinkedBond,
 };
+use finstack_valuations::instruments::Attributes;
 use time::Month;
 
 /// Shorthand for date creation

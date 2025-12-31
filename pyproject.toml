@@ -35,7 +35,7 @@ dependencies = [
 dev-dependencies = [
     "maturin>=1.10.2,<2.0",
     "pytest>=9.0.2",
-    "pytest-benchmark>=5.2.3", 
+    "pytest-benchmark>=5.2.3",
     "mypy>=1.19.0",
     "ruff>=0.14.8",
     "flake8>=7.3.0",
@@ -43,6 +43,7 @@ dev-dependencies = [
     "flake8-pyproject>=1.2.4",
     "ipython>=9.8.0",
     "jupyter>=1.1.1",
+    "pre-commit>=4.0.1",
 ]
 
 [tool.maturin]
@@ -187,8 +188,6 @@ ignore = [
     "PLR0913", # Too many arguments - sometimes necessary
     "PLR0912", # Too many branches - complexity acceptable for now
     "PLC0415", # pylint complexity        – flags "god" functions
-    "UP047",   # Unnecessary pass
-    "UP046",   # Unnecessary pass
     "PLR2004", #
     "RUF003",  #
     "RUF002",  #

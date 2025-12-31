@@ -98,7 +98,9 @@ fn test_quantlib_black76_atf_call_put_parity() {
 
     // Get forward spread
     let temp_option = CdsOptionBuilder::new().build(as_of);
-    let pricer = finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionPricer::default();
+    let pricer =
+        finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionPricer::default(
+        );
     let forward = pricer
         .forward_spread_bp(&temp_option, &market, as_of)
         .unwrap();
@@ -447,7 +449,9 @@ fn test_quantlib_forward_spread_positive() {
     let market = standard_market(as_of);
 
     let option = CdsOptionBuilder::new().build(as_of);
-    let pricer = finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionPricer::default();
+    let pricer =
+        finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionPricer::default(
+        );
     let forward = pricer.forward_spread_bp(&option, &market, as_of).unwrap();
 
     assert_positive(forward, "Forward spread");
@@ -461,7 +465,9 @@ fn test_quantlib_forward_spread_atf_parity() {
     let market = standard_market(as_of);
 
     let temp = CdsOptionBuilder::new().build(as_of);
-    let pricer = finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionPricer::default();
+    let pricer =
+        finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionPricer::default(
+        );
     let forward = pricer.forward_spread_bp(&temp, &market, as_of).unwrap();
 
     let call = CdsOptionBuilder::new()

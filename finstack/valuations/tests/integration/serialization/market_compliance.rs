@@ -10,8 +10,10 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fixed_income::bond::Bond;
+use finstack_valuations::instruments::rates::irs::{
+    InterestRateSwap, IrsLegConventions, PayReceive,
+};
 use finstack_valuations::instruments::Instrument;
-use finstack_valuations::instruments::rates::irs::{InterestRateSwap, IrsLegConventions, PayReceive};
 use finstack_valuations::instruments::InstrumentJson;
 use serde::Deserialize;
 use std::collections::HashMap;

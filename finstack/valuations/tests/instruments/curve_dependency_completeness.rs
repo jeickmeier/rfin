@@ -13,8 +13,8 @@ use finstack_core::dates::{DateExt, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::fixed_income::bond::{Bond, CashflowSpec};
 use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
+use finstack_valuations::instruments::fixed_income::bond::{Bond, CashflowSpec};
 use finstack_valuations::instruments::{CurveDependencies, Instrument};
 use time::macros::date;
 

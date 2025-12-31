@@ -384,14 +384,17 @@ fn test_call_put_after_maturity() {
 
 #[test]
 fn test_zero_conversion_ratio() {
-    use finstack_valuations::instruments::fixed_income::convertible::{ConversionPolicy, ConversionSpec};
+    use finstack_valuations::instruments::fixed_income::convertible::{
+        ConversionPolicy, ConversionSpec,
+    };
 
     let mut bond = create_standard_convertible();
     bond.conversion = ConversionSpec {
         ratio: Some(0.0), // Zero conversion ratio - invalid but test handling
         price: None,
         policy: ConversionPolicy::Voluntary,
-        anti_dilution: finstack_valuations::instruments::fixed_income::convertible::AntiDilutionPolicy::None,
+        anti_dilution:
+            finstack_valuations::instruments::fixed_income::convertible::AntiDilutionPolicy::None,
         dividend_adjustment:
             finstack_valuations::instruments::fixed_income::convertible::DividendAdjustment::None,
     };
@@ -414,14 +417,17 @@ fn test_zero_conversion_ratio() {
 
 #[test]
 fn test_very_high_conversion_ratio() {
-    use finstack_valuations::instruments::fixed_income::convertible::{ConversionPolicy, ConversionSpec};
+    use finstack_valuations::instruments::fixed_income::convertible::{
+        ConversionPolicy, ConversionSpec,
+    };
 
     let mut bond = create_standard_convertible();
     bond.conversion = ConversionSpec {
         ratio: Some(1000.0), // Very high conversion ratio
         price: None,
         policy: ConversionPolicy::Voluntary,
-        anti_dilution: finstack_valuations::instruments::fixed_income::convertible::AntiDilutionPolicy::None,
+        anti_dilution:
+            finstack_valuations::instruments::fixed_income::convertible::AntiDilutionPolicy::None,
         dividend_adjustment:
             finstack_valuations::instruments::fixed_income::convertible::DividendAdjustment::None,
     };
@@ -544,7 +550,8 @@ fn test_numerical_stability_extreme_parameters() {
 #[test]
 fn test_empty_call_put_schedule() {
     let mut bond = create_standard_convertible();
-    bond.call_put = Some(finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default()); // Empty schedule
+    bond.call_put =
+        Some(finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default()); // Empty schedule
 
     let market = create_market_context();
 

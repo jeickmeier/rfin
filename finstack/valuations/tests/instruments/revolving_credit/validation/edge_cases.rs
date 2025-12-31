@@ -127,4 +127,3 @@ fn test_very_long_commitment_period() {
     // Assert
     assert!(pv.is_ok());
 }
-

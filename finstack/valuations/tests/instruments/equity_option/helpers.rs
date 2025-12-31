@@ -7,8 +7,8 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::market::{ExerciseStyle, OptionType};
 use finstack_valuations::instruments::equity::equity_option::EquityOption;
+use finstack_valuations::instruments::market::{ExerciseStyle, OptionType};
 use finstack_valuations::instruments::{PricingOverrides, SettlementType};
 
 /// Standard curve IDs

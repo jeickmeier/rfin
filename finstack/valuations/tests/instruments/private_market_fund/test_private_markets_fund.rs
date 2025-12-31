@@ -438,11 +438,9 @@ fn test_irr_calculation_accuracy() {
         ), // Distribution
     ];
 
-    let irr = finstack_valuations::instruments::equity::pe_fund::calculate_irr(
-        &flows,
-        DayCount::Act365F,
-    )
-    .unwrap();
+    let irr =
+        finstack_valuations::instruments::equity::pe_fund::calculate_irr(&flows, DayCount::Act365F)
+            .unwrap();
 
     // Expected IRR: (2.0)^(1/5) - 1 ≈ 0.1487 or ~14.87%
     assert!(

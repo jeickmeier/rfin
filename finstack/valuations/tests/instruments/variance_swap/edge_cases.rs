@@ -5,8 +5,8 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Tenor;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::equity::variance_swap::PayReceive;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 
 // ============================================================================

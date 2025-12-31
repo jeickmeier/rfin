@@ -1,0 +1,140 @@
+# Pre-commit hooks for finstack workspace
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
+# Install: pre-commit install
+# Run manually: pre-commit run --all-files
+
+default_stages: [pre-commit]
+fail_fast: false
+
+repos:
+  # ============================================
+  # General file hygiene
+  # ============================================
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^(finstack-wasm/pkg|finstack-py/finstack/.*\.pyi|.*/coverage/)
+      - id: end-of-file-fixer
+        exclude: ^(finstack-wasm/pkg|finstack-py/finstack/.*\.pyi|.*/coverage/)
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-toml
+      - id: check-json
+        # Exclude: tsconfig (JSONC with comments), generated audit files, pkg dirs
+        exclude: ^(finstack-wasm/pkg|node_modules|package-lock\.json|.*tsconfig.*\.json|scripts/audits/.*\.json)
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: detect-private-key
+
+  # ============================================
+  # Rust formatting and linting
+  # ============================================
+  - repo: local
+    hooks:
+      - id: rust-fmt
+        name: Rust format (cargo fmt)
+        entry: cargo fmt --all --
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+      - id: rust-clippy
+        name: Rust lint (cargo clippy)
+        entry: bash -c 'PYO3_PYTHON=python3 CARGO_INCREMENTAL=1 cargo clippy --workspace --all-targets --all-features -- -D warnings'
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+  # ============================================
+  # Python formatting and linting
+  # ============================================
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6
+    hooks:
+      - id: ruff-format
+        name: Python format (ruff)
+        args: [--config, pyproject.toml]
+      - id: ruff
+        name: Python lint (ruff)
+        args: [--config, pyproject.toml, --fix]
+
+  # ============================================
+  # TypeScript/JavaScript (WASM bindings)
+  # ============================================
+  - repo: local
+    hooks:
+      - id: wasm-format
+        name: WASM format (prettier)
+        entry: bash -c 'cd finstack-wasm && npm run format .'
+        language: system
+        files: ^finstack-wasm/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false
+
+      - id: wasm-lint
+        name: WASM lint (eslint)
+        entry: bash -c 'cd finstack-wasm && npm run lint'
+        language: system
+        files: ^finstack-wasm/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false
+
+  # ============================================
+  # TypeScript/JavaScript (UI)
+  # ============================================
+  - repo: local
+    hooks:
+      - id: ui-format
+        name: UI format (prettier)
+        entry: bash -c 'cd finstack-ui && npm run format:fix .'
+        language: system
+        files: ^finstack-ui/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false
+
+      - id: ui-lint
+        name: UI lint (eslint)
+        entry: bash -c 'cd finstack-ui && npm run lint'
+        language: system
+        files: ^finstack-ui/.*\.(ts|tsx|js|jsx)$
+        pass_filenames: false
+
+  # ============================================
+  # Markdown
+  # ============================================
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.43.0
+    hooks:
+      - id: markdownlint-fix
+        # Disabled rules:
+        # MD013: line length, MD033: inline HTML, MD041: first line heading
+        # MD024: duplicate headings, MD040: fenced code language
+        # MD036: emphasis as heading, MD029: ordered list prefix
+        # MD032: blanks around lists, MD051: link fragments
+        args: [--disable, MD013, MD033, MD041, MD024, MD040, MD036, MD029, MD032, MD051, --]
+        exclude: ^(CHANGELOG\.md|PARITY_AUDIT\.md|finstack-wasm/pkg|node_modules|\.cursor|\.agent|\.zenflow|\.zencoder)
+
+  # ============================================
+  # Security
+  # ============================================
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.22.1
+    hooks:
+      - id: gitleaks
+        name: Detect secrets (gitleaks)
+
+  # ============================================
+  # Cargo.toml validation
+  # ============================================
+  - repo: local
+    hooks:
+      - id: cargo-check
+        name: Cargo check
+        entry: cargo check --workspace --all-features
+        language: system
+        files: (Cargo\.toml|.*\.rs)$
+        pass_filenames: false
+        stages: [pre-push]  # Only run on push (slower)

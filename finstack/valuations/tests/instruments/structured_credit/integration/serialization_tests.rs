@@ -6,7 +6,6 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::fixed_income::structured_credit::RepLine;
 use finstack_valuations::instruments::fixed_income::structured_credit::{
     CorrelationStructure, CoverageTrigger, DealType, DefaultAssumptions, DefaultModelSpec,
@@ -14,8 +13,9 @@ use finstack_valuations::instruments::fixed_income::structured_credit::{
     ReinvestmentPeriod, Seniority, StochasticDefaultSpec, StochasticPrepaySpec, StructuredCredit,
     Tranche, TrancheCoupon, TrancheStructure, TriggerConsequence,
 };
-use finstack_valuations::instruments::{json_loader::InstrumentJson, InterestRateSwap};
+use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::{json_loader::InstrumentEnvelope, PayReceive};
+use finstack_valuations::instruments::{json_loader::InstrumentJson, InterestRateSwap};
 use time::Month;
 
 fn maturity_date() -> Date {
@@ -373,22 +373,24 @@ fn build_full_feature_structured_credit() -> StructuredCredit {
             custom_factors: vec![("stress".to_string(), 1.2)].into_iter().collect(),
         };
 
-    deal.credit_factors = finstack_valuations::instruments::fixed_income::structured_credit::CreditFactors {
-        credit_score: Some(720),
-        dti: Some(0.32),
-        ltv: Some(0.85),
-        delinquency_days: 15,
-        unemployment_rate: Some(0.04),
-        custom_factors: vec![("fico_band".to_string(), 700.0)].into_iter().collect(),
-    };
+    deal.credit_factors =
+        finstack_valuations::instruments::fixed_income::structured_credit::CreditFactors {
+            credit_score: Some(720),
+            dti: Some(0.32),
+            ltv: Some(0.85),
+            delinquency_days: 15,
+            unemployment_rate: Some(0.04),
+            custom_factors: vec![("fico_band".to_string(), 700.0)].into_iter().collect(),
+        };
 
-    deal.deal_metadata = finstack_valuations::instruments::fixed_income::structured_credit::Metadata {
-        manager_id: Some("Manager-X".to_string()),
-        servicer_id: Some("Servicer-Y".to_string()),
-        master_servicer_id: Some("Master-Z".to_string()),
-        special_servicer_id: Some("Special-W".to_string()),
-        trustee_id: Some("Trustee-T".to_string()),
-    };
+    deal.deal_metadata =
+        finstack_valuations::instruments::fixed_income::structured_credit::Metadata {
+            manager_id: Some("Manager-X".to_string()),
+            servicer_id: Some("Servicer-Y".to_string()),
+            master_servicer_id: Some("Master-Z".to_string()),
+            special_servicer_id: Some("Special-W".to_string()),
+            trustee_id: Some("Trustee-T".to_string()),
+        };
 
     deal.behavior_overrides = Overrides {
         cpr_annual: Some(0.18),

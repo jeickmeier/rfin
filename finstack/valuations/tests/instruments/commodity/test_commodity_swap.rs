@@ -211,4 +211,3 @@ fn test_commodity_swap_serialization() {
     assert_eq!(swap.ticker, parsed.ticker);
     assert_eq!(swap.fixed_price, parsed.fixed_price);
 }
-

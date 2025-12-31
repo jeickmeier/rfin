@@ -41,4 +41,3 @@ fn test_utilization_fee_above_threshold() {
     assert!(pv.is_ok());
     // Should include utilization fee in valuation
 }
-

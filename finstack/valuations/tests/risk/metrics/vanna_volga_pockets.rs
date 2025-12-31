@@ -286,5 +286,3 @@ fn fx_volga_returns_zero_when_surface_vol_is_zero() -> finstack_core::Result<()>
     assert_eq!(*res.get(&MetricId::Volga).unwrap(), 0.0);
     Ok(())
 }
-
-

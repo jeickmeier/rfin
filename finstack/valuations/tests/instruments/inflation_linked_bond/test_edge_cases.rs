@@ -476,9 +476,7 @@ fn test_has_discount_curve_trait() {
 
     // Act
     let curve_id =
-        finstack_valuations::instruments::common::HasDiscountCurve::discount_curve_id(
-            &ilb,
-        );
+        finstack_valuations::instruments::common::HasDiscountCurve::discount_curve_id(&ilb);
 
     // Assert
     assert_eq!(curve_id.as_str(), "USD-REAL");
@@ -492,10 +490,9 @@ fn test_cashflow_provider_trait() {
     let as_of = d(2025, 1, 2);
 
     // Act
-    let flows = finstack_valuations::cashflow::CashflowProvider::build_dated_flows(
-        &ilb, &ctx, as_of,
-    )
-    .unwrap();
+    let flows =
+        finstack_valuations::cashflow::CashflowProvider::build_dated_flows(&ilb, &ctx, as_of)
+            .unwrap();
 
     // Assert
     assert!(!flows.is_empty());

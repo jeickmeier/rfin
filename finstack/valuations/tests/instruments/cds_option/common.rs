@@ -12,10 +12,10 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::credit_derivatives::cds::RECOVERY_SENIOR_UNSECURED;
-use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionParams;
 use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOption;
-use finstack_valuations::instruments::OptionType;
+use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionParams;
 use finstack_valuations::instruments::CreditParams;
+use finstack_valuations::instruments::OptionType;
 
 /// Standard flat discount curve for testing
 pub fn flat_discount(id: &str, base: Date, rate: f64) -> DiscountCurve {

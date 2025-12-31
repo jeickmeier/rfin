@@ -4,8 +4,8 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::fixed_income::structured_credit::WaterfallContext;
 use finstack_valuations::instruments::fixed_income::structured_credit::RoundingConvention;
+use finstack_valuations::instruments::fixed_income::structured_credit::WaterfallContext;
 use finstack_valuations::instruments::fixed_income::structured_credit::{
     DealType, PaymentCalculation, PaymentType, Pool, Recipient, RecipientType, TrancheStructure,
     WaterfallBuilder, WaterfallTier,
@@ -55,10 +55,11 @@ fn run_rounding_test(amount: f64, rounding: RoundingConvention) -> f64 {
         market: &market,
     };
 
-    let result = finstack_valuations::instruments::fixed_income::structured_credit::execute_waterfall(
-        &waterfall, &tranches, &pool, context,
-    )
-    .unwrap();
+    let result =
+        finstack_valuations::instruments::fixed_income::structured_credit::execute_waterfall(
+            &waterfall, &tranches, &pool, context,
+        )
+        .unwrap();
 
     result
         .distributions

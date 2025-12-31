@@ -439,7 +439,8 @@ fn test_spread_dv01_sign_convention() {
     // Market Standard: For protection seller (long risk),
     // higher running coupon increases premium received → positive DV01
 
-    let pricer = finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTranchePricer::new();
+    let pricer =
+        finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTranchePricer::new();
     let mut tranche = mezzanine_tranche();
     tranche.side = finstack_valuations::instruments::credit_derivatives::cds_tranche::TrancheSide::SellProtection;
     let market = standard_market_context();

@@ -9,10 +9,10 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::InflationLag;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
-use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::rates::inflation_cap_floor::{
     InflationCapFloorBuilder, InflationCapFloorType,
 };
+use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::pricer::ModelKey;
 use finstack_valuations::test_utils::flat_vol_surface;

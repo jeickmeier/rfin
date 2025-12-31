@@ -145,4 +145,3 @@ fn test_commodity_forward_serialization() {
     assert_eq!(forward.quantity, parsed.quantity);
     assert_eq!(forward.currency, parsed.currency);
 }
-
