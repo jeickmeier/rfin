@@ -239,9 +239,173 @@ mod newton {
 // Serialization Tests
 // ============================================================================
 
+// ============================================================================
+// Solver Error Diagnostics Tests
+// ============================================================================
+
+mod error_diagnostics {
+    use super::*;
+    use finstack_core::math::solver::BracketHint;
+    use finstack_core::InputError;
+
+    #[test]
+    fn newton_error_contains_iteration_count() {
+        // Function that doesn't converge - always returns 1.0
+        let f = |_x: f64| 1.0;
+        let solver = NewtonSolver::new()
+            .with_tolerance(1e-12)
+            .with_max_iterations(10);
+
+        let result = solver.solve(f, 0.0);
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        let err_msg = format!("{}", err);
+
+        // Error message should contain iteration count
+        assert!(
+            err_msg.contains("10") || err_msg.contains("iterations"),
+            "Error should mention iterations: {}",
+            err_msg
+        );
+    }
+
+    #[test]
+    fn newton_error_contains_residual() {
+        // Function with no root in reasonable range
+        let f = |x: f64| x * x + 1.0; // always positive
+        let solver = NewtonSolver::new()
+            .with_tolerance(1e-12)
+            .with_max_iterations(5);
+
+        let result = solver.solve(f, 1.0);
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        let err_msg = format!("{}", err);
+
+        // Error message should contain diagnostic information
+        assert!(
+            err_msg.contains("residual") || err_msg.contains("e-") || err_msg.contains("e+"),
+            "Error should contain residual info: {}",
+            err_msg
+        );
+    }
+
+    #[test]
+    fn newton_derivative_too_small_error() {
+        // Function with zero derivative at the guess point
+        let f = |x: f64| (x - 1.0).powi(3); // f'(1) = 0
+        let solver = NewtonSolver::new()
+            .with_tolerance(1e-12)
+            .with_min_derivative(1e-10);
+
+        let result = solver.solve(f, 1.0);
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        let err_msg = format!("{}", err);
+
+        // Error should mention derivative
+        assert!(
+            err_msg.contains("derivative") || err_msg.contains("f'(x)"),
+            "Error should mention derivative issue: {}",
+            err_msg
+        );
+    }
+
+    #[test]
+    fn brent_no_bracket_found_error() {
+        // Function with no roots
+        let f = |x: f64| x * x + 1.0;
+        let solver = BrentSolver::new().with_tolerance(1e-12);
+
+        let result = solver.solve(f, 0.0);
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        let err_msg = format!("{}", err);
+
+        // Error should contain diagnostic information about the bracket search
+        assert!(
+            err_msg.contains("sign") || err_msg.contains("bracket") || err_msg.contains("f("),
+            "Error should explain bracket failure: {}",
+            err_msg
+        );
+    }
+
+    #[test]
+    fn bracket_hint_implied_vol() {
+        let solver = BrentSolver::new().with_bracket_hint(BracketHint::ImpliedVol);
+
+        // Initial bracket should be ±0.2
+        assert_eq!(solver.initial_bracket_size, Some(0.2));
+    }
+
+    #[test]
+    fn bracket_hint_rate() {
+        let solver = BrentSolver::new().with_bracket_hint(BracketHint::Rate);
+
+        assert_eq!(solver.initial_bracket_size, Some(0.02));
+    }
+
+    #[test]
+    fn bracket_hint_ytm() {
+        let solver = BrentSolver::new().with_bracket_hint(BracketHint::Ytm);
+
+        assert_eq!(solver.initial_bracket_size, Some(0.02));
+    }
+
+    #[test]
+    fn bracket_hint_spread() {
+        let solver = BrentSolver::new().with_bracket_hint(BracketHint::Spread);
+
+        assert_eq!(solver.initial_bracket_size, Some(0.005));
+    }
+
+    #[test]
+    fn bracket_hint_custom() {
+        let solver = BrentSolver::new().with_bracket_hint(BracketHint::Custom(0.5));
+
+        assert_eq!(solver.initial_bracket_size, Some(0.5));
+    }
+
+    #[test]
+    fn bracket_hint_improves_convergence() {
+        // Implied vol scenario: price error function
+        let target_price = 10.0;
+        let f = |vol: f64| vol * 100.0 - target_price; // root at vol = 0.1
+
+        // With implied vol hint (bracket ±0.2), should find root quickly
+        let solver = BrentSolver::new()
+            .with_bracket_hint(BracketHint::ImpliedVol)
+            .with_tolerance(1e-10);
+
+        let root = solver.solve(f, 0.2).unwrap();
+        assert!((root - 0.1).abs() < 1e-9);
+    }
+
+    #[test]
+    fn solver_convergence_failed_error_variant() {
+        // Verify that InputError::SolverConvergenceFailed exists and can be constructed
+        let err = InputError::SolverConvergenceFailed {
+            iterations: 50,
+            residual: 1e-5,
+            last_x: 0.123,
+            reason: "max iterations reached".to_string(),
+        };
+
+        let err_msg = format!("{}", err);
+        assert!(err_msg.contains("50"));
+        assert!(err_msg.contains("iterations"));
+    }
+}
+
 mod serde_tests {
-    use finstack_core::math::integration::GaussHermiteQuadrature;
+    #[allow(deprecated)]
     use finstack_core::math::random::{RandomNumberGenerator, TestRng};
+
+    use finstack_core::math::integration::GaussHermiteQuadrature;
     use finstack_core::math::solver::{BrentSolver, NewtonSolver};
 
     #[test]
@@ -307,6 +471,85 @@ mod serde_tests {
     }
 
     #[test]
+    fn gauss_hermite_quadrature_order_15() {
+        let quad15 = GaussHermiteQuadrature::order_15();
+        assert_eq!(quad15.points.len(), 15);
+        assert_eq!(quad15.weights.len(), 15);
+
+        let json = serde_json::to_string(&quad15).unwrap();
+        let deserialized: GaussHermiteQuadrature = serde_json::from_str(&json).unwrap();
+        assert_eq!(quad15.points.len(), deserialized.points.len());
+        assert_eq!(quad15.weights.len(), deserialized.weights.len());
+        assert!(json.contains("\"order\":15"));
+    }
+
+    #[test]
+    fn gauss_hermite_quadrature_order_20() {
+        let quad20 = GaussHermiteQuadrature::order_20();
+        assert_eq!(quad20.points.len(), 20);
+        assert_eq!(quad20.weights.len(), 20);
+
+        let json = serde_json::to_string(&quad20).unwrap();
+        let deserialized: GaussHermiteQuadrature = serde_json::from_str(&json).unwrap();
+        assert_eq!(quad20.points.len(), deserialized.points.len());
+        assert_eq!(quad20.weights.len(), deserialized.weights.len());
+        assert!(json.contains("\"order\":20"));
+    }
+
+    #[test]
+    fn gauss_hermite_new_supports_all_orders() {
+        // Test all supported orders
+        for order in [5, 7, 10, 15, 20] {
+            let quad = GaussHermiteQuadrature::new(order);
+            assert!(
+                quad.is_some(),
+                "Order {} should be supported",
+                order
+            );
+            assert_eq!(quad.unwrap().points.len(), order);
+        }
+
+        // Test unsupported orders
+        for order in [1, 3, 8, 12, 25, 32] {
+            let quad = GaussHermiteQuadrature::new(order);
+            assert!(
+                quad.is_none(),
+                "Order {} should not be supported",
+                order
+            );
+        }
+    }
+
+    #[test]
+    fn gauss_hermite_higher_order_accuracy() {
+        // Test that higher orders give better accuracy for E[X^4] = 3 (standard normal)
+        let f = |x: f64| x.powi(4);
+
+        let quad10 = GaussHermiteQuadrature::order_10();
+        let quad15 = GaussHermiteQuadrature::order_15();
+        let quad20 = GaussHermiteQuadrature::order_20();
+
+        let result10 = quad10.integrate(f);
+        let result15 = quad15.integrate(f);
+        let result20 = quad20.integrate(f);
+
+        let expected = 3.0;
+
+        // Higher orders should be more accurate (or at least as accurate)
+        assert!(
+            (result15 - expected).abs() <= (result10 - expected).abs() + 1e-10,
+            "Order 15 ({}) should be at least as accurate as order 10 ({})",
+            result15, result10
+        );
+        assert!(
+            (result20 - expected).abs() <= (result15 - expected).abs() + 1e-10,
+            "Order 20 ({}) should be at least as accurate as order 15 ({})",
+            result20, result15
+        );
+    }
+
+    #[test]
+    #[allow(deprecated)]
     fn test_rng_roundtrip() {
         let mut rng = TestRng::new(42);
 

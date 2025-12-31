@@ -700,11 +700,38 @@ impl FxMatrix {
         on: Date,
         policy: FxConversionPolicy,
     ) -> crate::Result<FxRate> {
+        use crate::error::InputError;
+
         let pivot = self.config.pivot_currency;
 
-        // Compute via pivot using available quotes/provider
-        let a = self.get_or_fetch(from, pivot, on, policy)?;
-        let b = self.get_or_fetch(pivot, to, on, policy)?;
+        // Try to get first leg: from -> pivot
+        let a = match self.get_or_fetch(from, pivot, on, policy) {
+            Ok(rate) => rate,
+            Err(_) => {
+                return Err(InputError::FxTriangulationFailed {
+                    from,
+                    to,
+                    pivot,
+                    missing_leg: format!("{from}->{pivot} rate not found"),
+                }
+                .into());
+            }
+        };
+
+        // Try to get second leg: pivot -> to
+        let b = match self.get_or_fetch(pivot, to, on, policy) {
+            Ok(rate) => rate,
+            Err(_) => {
+                return Err(InputError::FxTriangulationFailed {
+                    from,
+                    to,
+                    pivot,
+                    missing_leg: format!("{pivot}->{to} rate not found"),
+                }
+                .into());
+            }
+        };
+
         let rate = a * b;
         let rate = validate_fx_rate(from, to, rate)?;
         // Cache derived cross to avoid repeated recomputation

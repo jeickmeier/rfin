@@ -157,6 +157,11 @@ pub trait GlobalSolveTarget {
 
     /// Compute the Jacobian matrix of residuals with respect to curve parameters.
     ///
+    /// This method can be overridden by targets that provide an optimized Jacobian
+    /// calculation (e.g., exploiting sparsity structure or using efficient finite
+    /// differences). The default implementation returns an error, causing the solver
+    /// to fall back to generic finite differences.
+    ///
     /// # Arguments
     /// * `params` - The current parameter vector (e.g. zero rates).
     /// * `times` - The knot times corresponding to parameters.
@@ -170,13 +175,19 @@ pub trait GlobalSolveTarget {
         _jacobian: &mut [Vec<f64>],
     ) -> Result<()> {
         Err(finstack_core::Error::Calibration {
-            message: "Analytical Jacobian not implemented for this target".to_string(),
-            category: "analytical_jacobian".to_string(),
+            message: "Efficient Jacobian not implemented for this target".to_string(),
+            category: "efficient_jacobian".to_string(),
         })
     }
 
-    /// Returns true if this target supports analytical Jacobian calculation.
-    fn supports_analytical_jacobian(&self) -> bool {
+    /// Returns true if this target provides an efficient Jacobian implementation.
+    ///
+    /// Targets returning `true` have a custom [`jacobian`](Self::jacobian) method
+    /// that exploits problem structure (e.g., sparsity, locality) for faster
+    /// computation than generic finite differences. The actual implementation
+    /// may still use finite differences internally, but optimized for the
+    /// specific calibration target's structure.
+    fn supports_efficient_jacobian(&self) -> bool {
         false
     }
 }

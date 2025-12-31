@@ -161,6 +161,7 @@ pub fn weighted_estimate_with_diagnostics(
 ///
 /// Measures the efficiency of importance sampling.
 /// ESS = N means perfect (uniform weights), ESS << N means poor weighting.
+#[must_use]
 pub fn effective_sample_size(weights: &[f64]) -> f64 {
     if weights.is_empty() {
         return 0.0;

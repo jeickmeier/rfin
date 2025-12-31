@@ -54,6 +54,7 @@ pub fn gobet_miri_adjusted_barrier(
 /// Alternative barrier adjustment using the "half-step" method.
 ///
 /// This simpler method shifts the barrier by approximately 0.5 * σ * √Δt.
+#[must_use]
 pub fn half_step_adjusted_barrier(barrier: f64, sigma: f64, dt: f64, is_down_barrier: bool) -> f64 {
     let shift = 0.5 * sigma * dt.sqrt();
 

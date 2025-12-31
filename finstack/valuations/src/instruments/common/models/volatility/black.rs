@@ -8,6 +8,29 @@
 //! For hot paths that need both d1 and d2, use [`d1_d2`] or [`d1_d2_black76`]
 //! to avoid redundant computation. The combined functions compute shared
 //! intermediate values (ln, sqrt) only once.
+//!
+//! # Edge Case Behavior: At Expiry or Zero Volatility
+//!
+//! When time to expiry `t <= 0` or volatility `sigma <= 0`, the d1/d2 values
+//! are computed as mathematical limits:
+//!
+//! | Moneyness | d1, d2 | Resulting N(d1) | Delta |
+//! |-----------|--------|-----------------|-------|
+//! | ITM (S > K) | +∞ | 1.0 | 1.0 (call) |
+//! | OTM (S < K) | -∞ | 0.0 | 0.0 (call) |
+//! | ATM (S = K) | 0.0 | 0.5 | 0.5 (call) |
+//!
+//! The ATM case returns `(0.0, 0.0)` which implies delta = N(0) = 0.5. This is
+//! the **mathematical limit** as t→0 or σ→0, not the physical delta at expiry
+//! (which would be a step function). This convention:
+//!
+//! - Provides continuous, well-defined values for downstream calculations
+//! - Is consistent with the Black-Scholes model's limiting behavior
+//! - May differ from physical exercise decisions (which are binary at expiry)
+//!
+//! For production systems pricing expired options, consider validating that
+//! `t > 0` before calling these functions, or handling the ATM case separately
+//! based on your exercise convention.
 
 /// Calculate d1 for Black–Scholes (general form with dividends/carry)
 ///
@@ -25,6 +48,7 @@
 /// # Edge Cases
 /// - At expiration (t ≤ 0) or zero volatility: returns appropriate limit
 ///   based on intrinsic value (±∞ for ITM/OTM, 0 for ATM)
+/// - See module-level documentation for details on ATM-at-expiry behavior
 ///
 /// # Performance
 /// If you need both d1 and d2, use [`d1_d2`] instead to avoid redundant work.
@@ -54,6 +78,14 @@ pub fn d2(spot: f64, strike: f64, r: f64, sigma: f64, t: f64, q: f64) -> f64 {
 /// # Returns
 /// Tuple of (d1, d2)
 ///
+/// # Edge Cases
+/// When `t <= 0` or `sigma <= 0`, returns mathematical limits based on moneyness:
+/// - ITM (spot > strike): `(+∞, +∞)` → delta = 1
+/// - OTM (spot < strike): `(-∞, -∞)` → delta = 0
+/// - ATM (spot = strike): `(0, 0)` → delta = 0.5 (mathematical limit, not physical)
+///
+/// See module-level documentation for detailed explanation of ATM-at-expiry behavior.
+///
 /// # Example
 /// ```rust
 /// use finstack_valuations::instruments::common::models::volatility::black::d1_d2;
@@ -64,7 +96,8 @@ pub fn d2(spot: f64, strike: f64, r: f64, sigma: f64, t: f64, q: f64) -> f64 {
 #[inline]
 #[must_use]
 pub fn d1_d2(spot: f64, strike: f64, r: f64, sigma: f64, t: f64, q: f64) -> (f64, f64) {
-    // Handle edge cases with proper limiting behavior
+    // Handle edge cases with proper limiting behavior.
+    // See module-level docs for rationale on ATM-at-expiry returning (0, 0).
     if t <= 0.0 || sigma <= 0.0 {
         // At expiration or zero vol: d1/d2 → ±∞ based on moneyness
         // This ensures correct delta behavior (0 or 1 for OTM/ITM)
@@ -74,7 +107,7 @@ pub fn d1_d2(spot: f64, strike: f64, r: f64, sigma: f64, t: f64, q: f64) -> (f64
         } else if intrinsic_sign < 0.0 {
             f64::NEG_INFINITY // OTM call → delta = 0
         } else {
-            0.0 // ATM → delta = 0.5
+            0.0 // ATM → delta = 0.5 (mathematical limit)
         };
         return (limit, limit);
     }

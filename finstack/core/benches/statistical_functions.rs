@@ -8,6 +8,9 @@
 //! - Beta distribution sampling
 //! - Basic statistics (mean, variance, covariance)
 
+// Allow deprecated TestRng usage in benchmarks - it's acceptable for reproducible benchmarking
+#![allow(deprecated)]
+
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::math::distributions::{
     binomial_distribution, binomial_probability, log_binomial_coefficient, log_factorial,

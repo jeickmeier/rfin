@@ -33,6 +33,7 @@
 /// ```
 ///
 /// if both S_t and S_{t+Δt} are on the same side of B.
+#[must_use]
 pub fn bridge_hit_probability(s_t: f64, s_t_dt: f64, barrier: f64, sigma: f64, dt: f64) -> f64 {
     if dt <= 0.0 || sigma <= 0.0 {
         return 0.0;

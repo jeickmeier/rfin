@@ -442,6 +442,18 @@ Global solve requires strictly increasing times.",
                 .insert("bootstrap_seed_error".to_string(), err);
         }
 
+        // Stamp model version and calibration metadata for audit trail
+        report.model_version = Some("Multi-curve OIS discounting v1.0".to_string());
+        report
+            .metadata
+            .insert("calibration_type".to_string(), "discount_curve".to_string());
+        report
+            .metadata
+            .insert("curve_id".to_string(), params.curve_id.to_string());
+        report
+            .metadata
+            .insert("currency".to_string(), params.currency.to_string());
+
         Ok((new_context, report))
     }
 }
@@ -953,11 +965,14 @@ Ensure quotes map to strictly increasing year fractions.",
 
     /// Returns `true` to indicate an efficient Jacobian is available.
     ///
-    /// Note: The term "analytical" here refers to the solver interface—it means
-    /// "a Jacobian is provided by the target" (vs. the solver computing one blindly).
-    /// The actual implementation uses optimized finite differences with sparsity
-    /// exploitation. See [`jacobian`](Self::jacobian) for details.
-    fn supports_analytical_jacobian(&self) -> bool {
+    /// The discount curve target provides a custom Jacobian implementation that
+    /// exploits the locality/sparsity of discount curve calibration: each quote
+    /// typically depends only on nearby knot points. This uses optimized row-wise
+    /// finite differences rather than generic column-wise FD, achieving significant
+    /// speedups for large curve fits.
+    ///
+    /// See [`jacobian`](Self::jacobian) for implementation details.
+    fn supports_efficient_jacobian(&self) -> bool {
         true
     }
 }

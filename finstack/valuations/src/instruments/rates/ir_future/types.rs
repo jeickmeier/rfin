@@ -1,4 +1,38 @@
 //! Interest Rate Future types and implementation.
+//!
+//! # Convexity Adjustment
+//!
+//! Interest rate futures (e.g., Eurodollar, SOFR futures) are margined daily,
+//! creating a convexity bias between futures rates and forward rates. This
+//! adjustment accounts for the correlation between rates and present values.
+//!
+//! ## When to Apply
+//!
+//! - **Short-dated contracts (< 1Y)**: Convexity adjustment is typically negligible
+//!   (< 1bp) and can often be ignored
+//! - **Medium-dated contracts (1-5Y)**: Adjustment is material (1-10bp) and should
+//!   be included for pricing and curve building
+//! - **Long-dated contracts (> 5Y)**: Adjustment can be significant (10-50bp+) and
+//!   is essential for accurate pricing
+//!
+//! ## Methods
+//!
+//! 1. **Fixed adjustment**: Set `convexity_adjustment` in [`FutureContractSpecs`] to
+//!    a pre-computed value (e.g., from broker quotes or historical analysis)
+//! 2. **Model-based**: Provide a `volatility_id` to compute the adjustment using
+//!    the Hull-White approximation: CA ≈ 0.5 × σ² × T₁ × T₂
+//!
+//! ## Market Practice
+//!
+//! The Hull-White 1-factor model approximation is standard:
+//!
+//! ```text
+//! Convexity Adjustment ≈ 0.5 × σ² × T_fixing × (T_fixing + τ)
+//! ```
+//!
+//! where σ is short-rate volatility, T_fixing is time to fixing, and τ is the
+//! accrual period length. For STIR futures on SOFR, adjustments are typically
+//! sourced from broker screens or implied from listed options.
 use crate::cashflow::traits::CashflowProvider;
 use crate::constants::PERCENT_TO_DECIMAL;
 // Params-based constructor removed; build via builder instead.
@@ -47,18 +81,35 @@ pub struct InterestRateFuture {
 }
 
 /// Contract specifications for interest rate futures.
+///
+/// Encapsulates exchange-defined contract parameters and optional convexity
+/// adjustment for pricing.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FutureContractSpecs {
-    /// Face value of contract
+    /// Face value of contract (e.g., $1,000,000 for Eurodollar/SOFR futures)
     pub face_value: f64,
-    /// Tick size
+    /// Tick size in price points (e.g., 0.0025 = 0.25bp for SOFR futures)
     pub tick_size: f64,
-    /// Tick value in currency units
+    /// Tick value in currency units (e.g., $6.25 for 3M SOFR)
     pub tick_value: f64,
-    /// Number of delivery months
+    /// Number of delivery months (e.g., 3 for quarterly contracts)
     pub delivery_months: u8,
-    /// Convexity adjustment (for long-dated contracts)
+    /// Optional pre-computed convexity adjustment (in rate terms).
+    ///
+    /// # Usage
+    ///
+    /// - `Some(0.0)`: Explicitly disable model-based adjustment (strict mode)
+    /// - `Some(x)`: Use fixed adjustment of `x` (e.g., from broker quote)
+    /// - `None`: Compute adjustment from volatility surface (requires `volatility_id`)
+    ///
+    /// # Market Practice
+    ///
+    /// For calibration, use `Some(0.0)` and let the curve fitting process
+    /// implicitly absorb the convexity. For pricing with a pre-built curve,
+    /// either:
+    /// - Use a fixed adjustment from broker/vendor data
+    /// - Provide a volatility surface for model-based calculation
     pub convexity_adjustment: Option<f64>,
 }
 

@@ -1,3 +1,6 @@
+// Allow deprecated TestRng usage - Python bindings expose deterministic sampling
+#![allow(deprecated)]
+
 use finstack_core::math::random::{
     box_muller_transform as core_box_muller_transform, RandomNumberGenerator, TestRng,
 };

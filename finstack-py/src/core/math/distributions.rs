@@ -1,3 +1,6 @@
+// Allow deprecated TestRng usage - Python bindings expose deterministic sampling
+#![allow(deprecated)]
+
 use finstack_core::math::distributions::{
     binomial_probability as core_binomial_probability,
     log_binomial_coefficient as core_log_binomial_coefficient, log_factorial as core_log_factorial,

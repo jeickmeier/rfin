@@ -474,6 +474,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_sample_beta() {
         use super::super::random::TestRng;
 
@@ -493,6 +494,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_sample_beta_statistics() {
         use super::super::random::TestRng;
 
@@ -541,6 +543,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_sample_beta_small_shape() {
         use super::super::random::TestRng;
 

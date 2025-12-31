@@ -148,6 +148,11 @@ impl HazardBootstrapper {
             }
         };
 
+        let report = report
+            .with_model_version("ISDA Standard Model v1.8.2")
+            .with_metadata("calibration_type", "hazard_curve")
+            .with_metadata("curve_id", params.curve_id.as_str())
+            .with_metadata("entity", &params.entity);
         let mut report = report;
         report.update_solver_config(config.solver.clone());
 

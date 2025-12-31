@@ -66,6 +66,49 @@
 
 use crate::Result;
 
+/// Domain-specific hints for initial bracket sizing in Brent's method.
+///
+/// Different financial quantities have typical ranges that can dramatically
+/// improve convergence speed when the bracket is appropriately sized.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::math::solver::{BrentSolver, BracketHint, Solver};
+///
+/// // For implied volatility (typically 0.01 to 2.0)
+/// let solver = BrentSolver::new().with_bracket_hint(BracketHint::ImpliedVol);
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum BracketHint {
+    /// Implied volatility: σ typically in [0.01, 2.0], initial bracket ±0.2
+    ImpliedVol,
+    /// Interest rate: r typically in [-0.05, 0.30], initial bracket ±0.02
+    Rate,
+    /// Credit spread: spread typically in [0, 0.05], initial bracket ±0.005
+    Spread,
+    /// Yield-to-maturity: similar to rates, initial bracket ±0.02
+    Ytm,
+    /// Custom bracket size
+    Custom(f64),
+}
+
+impl BracketHint {
+    /// Convert hint to initial bracket size.
+    #[inline]
+    pub fn to_bracket_size(self) -> f64 {
+        match self {
+            BracketHint::ImpliedVol => 0.2,
+            BracketHint::Rate => 0.02,
+            BracketHint::Spread => 0.005,
+            BracketHint::Ytm => 0.02,
+            BracketHint::Custom(size) => size,
+        }
+    }
+}
+
 /// Generic solver trait for 1D root finding.
 pub trait Solver: Send + Sync {
     /// Solve f(x) = 0 starting from initial guess.
@@ -303,11 +346,21 @@ impl NewtonSolver {
         use crate::error::InputError;
 
         let mut x = x0;
+        let mut last_fx = f64::NAN;
+        let mut last_fpx = f64::NAN;
 
-        for _ in 0..self.max_iterations {
+        for iteration in 0..self.max_iterations {
             let fx = f(x);
+            last_fx = fx;
+
             if !fx.is_finite() {
-                return Err(InputError::Invalid.into());
+                return Err(InputError::SolverConvergenceFailed {
+                    iterations: iteration,
+                    residual: fx,
+                    last_x: x,
+                    reason: format!("function returned non-finite value: {fx}"),
+                }
+                .into());
             }
 
             // Check for convergence
@@ -316,13 +369,31 @@ impl NewtonSolver {
             }
 
             let fpx = f_prime(x);
+            last_fpx = fpx;
+
             if !fpx.is_finite() {
-                return Err(InputError::Invalid.into());
+                return Err(InputError::SolverConvergenceFailed {
+                    iterations: iteration,
+                    residual: fx.abs(),
+                    last_x: x,
+                    reason: format!("derivative returned non-finite value: {fpx}"),
+                }
+                .into());
             }
 
             // Avoid division by zero with both absolute and relative guards
             if fpx.abs() < self.min_derivative && fpx.abs() < self.min_derivative_rel * fx.abs() {
-                return Err(InputError::Invalid.into());
+                return Err(InputError::SolverConvergenceFailed {
+                    iterations: iteration,
+                    residual: fx.abs(),
+                    last_x: x,
+                    reason: format!(
+                        "derivative too small: |f'(x)| = {:.6e} < min_derivative = {:.6e}",
+                        fpx.abs(),
+                        self.min_derivative
+                    ),
+                }
+                .into());
             }
 
             let x_new = x - fx / fpx;
@@ -335,7 +406,16 @@ impl NewtonSolver {
             x = x_new;
         }
 
-        Err(InputError::Invalid.into())
+        Err(InputError::SolverConvergenceFailed {
+            iterations: self.max_iterations,
+            residual: last_fx.abs(),
+            last_x: x,
+            reason: format!(
+                "max iterations ({}) reached without convergence (tolerance: {:.6e}, last f'(x): {:.6e})",
+                self.max_iterations, self.tolerance, last_fpx
+            ),
+        }
+        .into())
     }
 }
 
@@ -446,6 +526,29 @@ impl BrentSolver {
         self
     }
 
+    /// Set bracket size using a domain-specific hint.
+    ///
+    /// This improves convergence speed by using an appropriate initial bracket
+    /// for the problem domain.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::math::solver::{BrentSolver, BracketHint, Solver};
+    ///
+    /// // For implied volatility solving
+    /// let solver = BrentSolver::new()
+    ///     .with_bracket_hint(BracketHint::ImpliedVol);
+    ///
+    /// // For yield-to-maturity solving
+    /// let ytm_solver = BrentSolver::new()
+    ///     .with_bracket_hint(BracketHint::Ytm);
+    /// ```
+    pub fn with_bracket_hint(mut self, hint: BracketHint) -> Self {
+        self.initial_bracket_size = Some(hint.to_bracket_size());
+        self
+    }
+
     /// Find bracket around the root starting from initial guess.
     fn find_bracket<Func>(&self, f: &Func, initial_guess: f64) -> Result<(f64, f64)>
     where
@@ -471,15 +574,25 @@ impl BrentSolver {
 
         let mut a = initial_guess - initial_size;
         let mut b = initial_guess + initial_size;
+        let mut expansion_iterations = 0;
 
         // Expand bracket until we find a sign change
         for _ in 0..20 {
+            expansion_iterations += 1;
             let fa = f(a);
             let fb = f(b);
 
             // Check for non-finite function values
             if !fa.is_finite() || !fb.is_finite() {
-                return Err(InputError::Invalid.into());
+                return Err(InputError::SolverConvergenceFailed {
+                    iterations: expansion_iterations,
+                    residual: if fa.is_finite() { fa.abs() } else { fb.abs() },
+                    last_x: if fa.is_finite() { a } else { b },
+                    reason: format!(
+                        "bracket search found non-finite value: f({a:.6e}) = {fa}, f({b:.6e}) = {fb}"
+                    ),
+                }
+                .into());
             }
 
             if fa * fb < 0.0 {
@@ -504,13 +617,19 @@ impl BrentSolver {
             }
         }
 
-        Err(crate::Error::Calibration {
-            message: format!(
-                "Could not find bracket for root within [{}, {}]",
-                MIN_VALUE, MAX_VALUE
+        // Compute final values for error reporting
+        let fa = f(a);
+        let fb = f(b);
+
+        Err(InputError::SolverConvergenceFailed {
+            iterations: expansion_iterations,
+            residual: fa.abs().min(fb.abs()),
+            last_x: initial_guess,
+            reason: format!(
+                "no sign change found in [{a:.6e}, {b:.6e}]: f(a) = {fa:.6e}, f(b) = {fb:.6e} (both same sign)"
             ),
-            category: "root_finding".to_string(),
-        })
+        }
+        .into())
     }
 }
 
@@ -538,7 +657,15 @@ impl BrentSolver {
         let fhi = f(hi);
         // Reject non-finite endpoint evaluations
         if !(flo.is_finite() && fhi.is_finite()) {
-            return Err(InputError::Invalid.into());
+            return Err(InputError::SolverConvergenceFailed {
+                iterations: 0,
+                residual: if flo.is_finite() { flo.abs() } else { fhi.abs() },
+                last_x: if flo.is_finite() { lo } else { hi },
+                reason: format!(
+                    "bracket endpoints have non-finite values: f({lo:.6e}) = {flo}, f({hi:.6e}) = {fhi}"
+                ),
+            }
+            .into());
         }
         // Early exit if an endpoint is already a root
         if flo == 0.0 {
@@ -549,7 +676,15 @@ impl BrentSolver {
         }
         // Require a valid bracket
         if flo.signum() == fhi.signum() {
-            return Err(InputError::Invalid.into());
+            return Err(InputError::SolverConvergenceFailed {
+                iterations: 0,
+                residual: flo.abs().min(fhi.abs()),
+                last_x: lo,
+                reason: format!(
+                    "bracket endpoints have same sign: f({lo:.6e}) = {flo:.6e}, f({hi:.6e}) = {fhi:.6e}"
+                ),
+            }
+            .into());
         }
 
         let mut a = lo;

@@ -13,42 +13,76 @@
 //! - [`poisson::poisson_inverse_cdf`]: Poisson sampling utilities
 //! - [`sobol_pca::pca_ordering`]: PCA ordering for Sobol dimensions
 //!
-//! # Production Use
+//! # ⚠️ Production Use - Important Guidelines
 //!
-//! **WARNING**: [`TestRng`] uses a simple LCG algorithm that is **NOT suitable for
-//! production Monte Carlo simulations**. For production use:
+//! **[`TestRng`] uses a simple LCG algorithm that is NOT suitable for production
+//! Monte Carlo simulations.** It is provided for:
+//! - Unit testing with deterministic sequences
+//! - Prototyping and development
+//! - Debugging where reproducibility is essential
 //!
-//! 1. Implement [`RandomNumberGenerator`] with a cryptographically secure or
-//!    statistically robust RNG from a crate like `rand`:
-//!    - **PCG64**: Fast, statistically excellent (recommended for simulations)
-//!    - **ChaCha8/12/20**: Cryptographically secure when needed
-//!    - **Xoshiro256++**: Fast, good statistical properties
+//! ## Recommended Production RNGs
 //!
-//! 2. Example production implementation:
+//! For production Monte Carlo simulations (VaR, CVA, option pricing, risk calculations),
+//! implement [`RandomNumberGenerator`] with a statistically robust generator:
 //!
-//! ```rust,no_run
+//! | Generator | Crate | Period | Speed | Best For |
+//! |-----------|-------|--------|-------|----------|
+//! | **PCG64** | `rand_pcg` | 2^128 | Very Fast | General simulations (recommended) |
+//! | **Xoshiro256++** | `rand_xoshiro` | 2^256 | Fastest | High-throughput sampling |
+//! | **ChaCha20** | `rand_chacha` | 2^64 per stream | Fast | Security-sensitive |
+//!
+//! ## Production Implementation Example
+//!
+//! ```rust,ignore
 //! use finstack_core::math::random::RandomNumberGenerator;
+//! use rand::prelude::*;
+//! use rand_pcg::Pcg64;
 //!
-//! /// Placeholder "production" RNG.
-//! ///
-//! /// In real systems, back this with a robust RNG (e.g. PCG64, ChaCha, Xoshiro) from a crate
-//! /// like `rand`, and implement these methods in terms of that generator.
-//! struct ProductionRng;
+//! /// Production-grade RNG backed by PCG64.
+//! pub struct ProductionRng {
+//!     inner: Pcg64,
+//!     cached_normal: Option<f64>,
+//! }
+//!
+//! impl ProductionRng {
+//!     pub fn new(seed: u64) -> Self {
+//!         Self {
+//!             inner: Pcg64::seed_from_u64(seed),
+//!             cached_normal: None,
+//!         }
+//!     }
+//! }
 //!
 //! impl RandomNumberGenerator for ProductionRng {
 //!     fn uniform(&mut self) -> f64 {
-//!         0.5
+//!         self.inner.gen()
 //!     }
 //!
-//!     fn normal(&mut self, mean: f64, _std_dev: f64) -> f64 {
-//!         // Placeholder: return the mean. A real implementation would sample.
-//!         mean
+//!     fn normal(&mut self, mean: f64, std_dev: f64) -> f64 {
+//!         use finstack_core::math::random::box_muller_transform;
+//!         if let Some(cached) = self.cached_normal.take() {
+//!             return mean + std_dev * cached;
+//!         }
+//!         let (z0, z1) = box_muller_transform(self.uniform(), self.uniform());
+//!         self.cached_normal = Some(z1);
+//!         mean + std_dev * z0
 //!     }
 //!
 //!     fn bernoulli(&mut self, p: f64) -> bool {
-//!         p >= 0.5
+//!         self.uniform() < p
 //!     }
 //! }
+//! ```
+//!
+//! ## Adding `rand` to Your Project
+//!
+//! ```toml
+//! [dependencies]
+//! rand = "0.8"
+//! rand_pcg = "0.3"  # For PCG64
+//! # OR
+//! rand_xoshiro = "0.6"  # For Xoshiro256++
 //! ```
 //!
 //! # References
@@ -57,7 +91,7 @@
 //!   - Box, G. E. P., & Muller, M. E. (1958). "A Note on the Generation of Random
 //!     Normal Deviates." *The Annals of Mathematical Statistics*, 29(2), 610-611.
 //!
-//! - **Polar Method**:
+//! - **Polar Method** (alternative to Box-Muller for better tail precision):
 //!   - Marsaglia, G., & Bray, T. A. (1964). "A Convenient Method for Generating
 //!     Normal Variables." *SIAM Review*, 6(3), 260-264.
 //!
@@ -66,6 +100,8 @@
 //!     Statistically Good Algorithms for Random Number Generation."
 //!   - L'Ecuyer, P. (2017). "Random Number Generation." In *Handbook of
 //!     Computational Statistics* (2nd ed.). Springer.
+//!   - Vigna, S. (2019). "Scrambled Linear Pseudorandom Number Generators."
+//!     *ACM Transactions on Mathematical Software*, 46(4).
 
 pub mod brownian_bridge;
 pub mod poisson;
@@ -113,6 +149,13 @@ pub trait RandomNumberGenerator {
 /// For production, implement [`RandomNumberGenerator`] with PCG64, ChaCha, or
 /// Xoshiro256++. See module documentation for example.
 ///
+/// # Appropriate Use Cases
+///
+/// - Unit tests requiring deterministic random sequences
+/// - Golden test cases where exact reproducibility is required
+/// - Debugging Monte Carlo algorithms
+/// - Prototyping before integrating production RNG
+///
 /// # Examples
 ///
 /// ```rust
@@ -123,58 +166,89 @@ pub trait RandomNumberGenerator {
 /// let u = rng.uniform();
 /// assert!((0.0..1.0).contains(&u));
 /// ```
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-pub struct TestRng {
-    state: u64,
-    cached_normal: Option<f64>, // Instance-based cache for Box-Muller
-}
+/// Internal implementation of TestRng - allows self-referential code without deprecation warnings.
+#[allow(deprecated, missing_docs)]
+mod test_rng_impl {
+    use super::{box_muller_transform, RandomNumberGenerator};
 
-impl TestRng {
-    /// Create a new RNG with the given seed.
+    /// Deterministic RNG for **testing only** — NOT for production Monte Carlo.
     ///
-    /// The same seed will always produce the same sequence of random numbers,
-    /// making tests deterministic and reproducible.
-    pub fn new(seed: u64) -> Self {
-        Self {
-            state: seed.wrapping_add(1), // Avoid zero state
-            cached_normal: None,
+    /// Uses a simple linear congruential generator (LCG) that provides:
+    /// - **Deterministic**: Same seed → same sequence (reproducible tests)
+    /// - **Fast**: Minimal overhead for unit tests
+    /// - **Portable**: No external dependencies
+    ///
+    /// # ⚠️ WARNING: Not for Production Use
+    ///
+    /// This LCG has **poor statistical properties** and is unsuitable for:
+    /// - Monte Carlo simulations (VaR, CVA, option pricing)
+    /// - Any risk-sensitive computation
+    /// - Large-scale sampling (>10⁶ samples)
+    ///
+    /// For production, implement [`RandomNumberGenerator`] with PCG64, ChaCha, or
+    /// Xoshiro256++. See module documentation for example.
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    #[deprecated(
+        since = "0.1.0",
+        note = "TestRng is for testing only. For production Monte Carlo, use PCG64 or Xoshiro256++ from the `rand` crate. See module documentation for example."
+    )]
+    pub struct TestRng {
+        state: u64,
+        cached_normal: Option<f64>, // Instance-based cache for Box-Muller
+    }
+
+    #[allow(deprecated)]
+    impl TestRng {
+        /// Create a new RNG with the given seed.
+        ///
+        /// The same seed will always produce the same sequence of random numbers,
+        /// making tests deterministic and reproducible.
+        pub fn new(seed: u64) -> Self {
+            Self {
+                state: seed.wrapping_add(1), // Avoid zero state
+                cached_normal: None,
+            }
+        }
+
+        /// Generate next random bits using LCG.
+        fn next_u64(&mut self) -> u64 {
+            // Simple LCG parameters (from Numerical Recipes)
+            // Note: These parameters are chosen for speed, not quality
+            self.state = self.state.wrapping_mul(1664525).wrapping_add(1013904223);
+            self.state
         }
     }
 
-    /// Generate next random bits using LCG.
-    fn next_u64(&mut self) -> u64 {
-        // Simple LCG parameters (from Numerical Recipes)
-        // Note: These parameters are chosen for speed, not quality
-        self.state = self.state.wrapping_mul(1664525).wrapping_add(1013904223);
-        self.state
-    }
-}
-
-impl RandomNumberGenerator for TestRng {
-    fn uniform(&mut self) -> f64 {
-        // Convert to [0, 1) using upper bits for better quality
-        let bits = self.next_u64() >> 11; // Use upper 53 bits for double precision
-        (bits as f64) / (1u64 << 53) as f64
-    }
-
-    fn normal(&mut self, mean: f64, std_dev: f64) -> f64 {
-        // Box-Muller transform with instance-based cache
-        if let Some(cached) = self.cached_normal.take() {
-            return mean + std_dev * cached;
+    #[allow(deprecated)]
+    impl RandomNumberGenerator for TestRng {
+        fn uniform(&mut self) -> f64 {
+            // Convert to [0, 1) using upper bits for better quality
+            let bits = self.next_u64() >> 11; // Use upper 53 bits for double precision
+            (bits as f64) / (1u64 << 53) as f64
         }
 
-        let u1 = self.uniform();
-        let u2 = self.uniform();
+        fn normal(&mut self, mean: f64, std_dev: f64) -> f64 {
+            // Box-Muller transform with instance-based cache
+            if let Some(cached) = self.cached_normal.take() {
+                return mean + std_dev * cached;
+            }
 
-        let (z0, z1) = box_muller_transform(u1, u2);
-        self.cached_normal = Some(z1);
-        mean + std_dev * z0
-    }
+            let u1 = self.uniform();
+            let u2 = self.uniform();
 
-    fn bernoulli(&mut self, p: f64) -> bool {
-        self.uniform() < p
+            let (z0, z1) = box_muller_transform(u1, u2);
+            self.cached_normal = Some(z1);
+            mean + std_dev * z0
+        }
+
+        fn bernoulli(&mut self, p: f64) -> bool {
+            self.uniform() < p
+        }
     }
 }
+
+#[allow(deprecated)]
+pub use test_rng_impl::TestRng;
 
 /// Box-Muller transform for generating normal random variables.
 ///
@@ -241,7 +315,7 @@ pub fn box_muller_transform(u1: f64, u2: f64) -> (f64, f64) {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing, deprecated)]
 mod tests {
     use super::*;
 

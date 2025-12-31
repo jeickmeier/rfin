@@ -80,16 +80,16 @@ impl GlobalFitOptimizer {
 
         validate_global_inputs(&times, &initials, n_residuals)?;
 
-        // Determine if we should use analytical Jacobian
-        let use_analytical = match config.calibration_method {
+        // Determine if we should use efficient (target-provided) Jacobian
+        let use_efficient = match config.calibration_method {
             crate::calibration::config::CalibrationMethod::GlobalSolve {
                 use_analytical_jacobian,
-            } => use_analytical_jacobian && target.supports_analytical_jacobian(),
+            } => use_analytical_jacobian && target.supports_efficient_jacobian(),
             _ => false,
         };
 
-        if config.verbose && use_analytical {
-            tracing::info!("GlobalFitOptimizer: using analytical Jacobian");
+        if config.verbose && use_efficient {
+            tracing::info!("GlobalFitOptimizer: using efficient (target-provided) Jacobian");
         }
 
         let solver = config.create_lm_solver();
@@ -236,7 +236,7 @@ impl GlobalFitOptimizer {
         }
 
         // Solve
-        let solution = if use_analytical {
+        let solution = if use_efficient {
             let derivatives = TargetDerivatives {
                 target,
                 active_quotes: &active_quotes,

@@ -1,11 +1,16 @@
 //! Stochastic pricing engine.
 
+// Allow deprecated TestRng usage - TODO: Replace with production RNG (PCG64, Xoshiro256++)
+#![allow(deprecated)]
+
 use super::config::{PricingMode, StochasticPricerConfig};
 use super::result::{StochasticPricingResult, TranchePricingResult};
 use crate::instruments::structured_credit::pricing::stochastic::tree::ScenarioTree;
 use crate::instruments::structured_credit::types::waterfall::WaterfallWorkspace;
 
 use finstack_core::currency::Currency;
+// TODO: Replace TestRng with a production-grade RNG (PCG64, Xoshiro256++) for Monte Carlo simulations.
+// TestRng is a simple LCG suitable only for testing and may produce biased results in production.
 use finstack_core::math::random::{RandomNumberGenerator, TestRng};
 use finstack_core::money::Money;
 use std::cmp::Ordering;

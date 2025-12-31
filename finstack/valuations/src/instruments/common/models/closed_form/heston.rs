@@ -258,6 +258,7 @@ fn heston_pj(
 /// let price = heston_call_price_fourier(100.0, 100.0, 1.0, &params);
 /// assert!(price > 0.0 && price < 100.0);
 /// ```
+#[must_use]
 pub fn heston_call_price_fourier(spot: f64, strike: f64, time: f64, params: &HestonParams) -> f64 {
     heston_call_price_fourier_with_settings(
         spot,
@@ -271,6 +272,7 @@ pub fn heston_call_price_fourier(spot: f64, strike: f64, time: f64, params: &Hes
 /// Price a European call option with custom integration settings.
 ///
 /// See [`heston_call_price_fourier`] for details.
+#[must_use]
 pub fn heston_call_price_fourier_with_settings(
     spot: f64,
     strike: f64,
@@ -316,6 +318,7 @@ pub fn heston_call_price_fourier_with_settings(
 /// # Formula
 ///
 /// Uses put-call parity: P = C - S*exp(-qT) + K*exp(-rT)
+#[must_use]
 pub fn heston_put_price_fourier(spot: f64, strike: f64, time: f64, params: &HestonParams) -> f64 {
     heston_put_price_fourier_with_settings(
         spot,

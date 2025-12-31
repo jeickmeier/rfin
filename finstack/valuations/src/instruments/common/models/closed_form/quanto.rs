@@ -37,6 +37,7 @@ use finstack_core::math::special_functions::norm_cdf;
 ///
 /// This adjustment is **subtracted** from the foreign risk-free rate in the BS formula.
 #[inline]
+#[must_use]
 pub fn quanto_drift_adjustment(correlation: f64, vol_asset: f64, vol_fx: f64) -> f64 {
     -correlation * vol_asset * vol_fx
 }

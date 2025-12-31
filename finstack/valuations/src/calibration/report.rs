@@ -142,6 +142,14 @@ pub struct CalibrationReport {
     /// Optional detailed trace of the calibration steps (enabled via config).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub explanation: Option<ExplanationTrace>,
+    /// Optional model/methodology version used for this calibration.
+    ///
+    /// Used for audit trails and regulatory compliance. Examples:
+    /// - "ISDA Standard Model v1.8.2" for CDS hazard curve calibration
+    /// - "Multi-curve OIS discounting" for discount curve calibration
+    /// - "SABR v1.0" for volatility surface calibration
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub model_version: Option<String>,
 }
 
 impl CalibrationReport {
@@ -176,6 +184,7 @@ impl CalibrationReport {
             solver_config: SolverConfig::default(),
             results_meta,
             explanation: None,
+            model_version: None,
         }
     }
 
@@ -190,6 +199,17 @@ impl CalibrationReport {
     #[must_use]
     pub fn with_results_meta(mut self, meta: ResultsMeta) -> Self {
         self.results_meta = meta;
+        self
+    }
+
+    /// Attach model/methodology version to this report.
+    ///
+    /// Used for audit trails and regulatory compliance. Examples:
+    /// - "ISDA Standard Model v1.8.2" for CDS hazard curve calibration
+    /// - "Multi-curve OIS discounting" for discount curve calibration
+    #[must_use]
+    pub fn with_model_version(mut self, version: impl Into<String>) -> Self {
+        self.model_version = Some(version.into());
         self
     }
 
@@ -385,6 +405,7 @@ impl Default for CalibrationReport {
             solver_config: SolverConfig::default(),
             results_meta,
             explanation: None,
+            model_version: None,
         }
     }
 }

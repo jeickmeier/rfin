@@ -4,6 +4,10 @@
 //! repeated calls with identical parameters return the same series. This makes
 //! them suitable for scenario analysis where reproducibility matters.
 
+// Allow deprecated TestRng usage - TODO: Replace with production RNG (PCG64, Xoshiro256++)
+// for better statistical properties in production scenarios.
+#![allow(deprecated)]
+
 use crate::error::{Error, Result};
 use finstack_core::dates::PeriodId;
 use finstack_core::math::random::{RandomNumberGenerator, TestRng};

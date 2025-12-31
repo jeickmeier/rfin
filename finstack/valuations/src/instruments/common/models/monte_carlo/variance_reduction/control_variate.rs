@@ -147,6 +147,7 @@ pub fn apply_control_variate(
 }
 
 /// Compute covariance between two samples.
+#[must_use]
 pub fn covariance(x: &[f64], y: &[f64]) -> f64 {
     assert_eq!(x.len(), y.len(), "Samples must have same length");
     let n = x.len();

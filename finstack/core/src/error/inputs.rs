@@ -350,6 +350,40 @@ pub enum InputError {
         /// Maximum iterations allowed.
         max_iters: u32,
     },
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Solver Failures
+    // ─────────────────────────────────────────────────────────────────────────
+    /// Root-finding solver failed to converge within tolerance.
+    ///
+    /// This error provides diagnostic information about why the solver failed,
+    /// including iteration count, final residual, and the specific failure mode.
+    #[error("Solver failed after {iterations} iterations: {reason} (residual: {residual:.6e}, last x: {last_x:.6e})")]
+    SolverConvergenceFailed {
+        /// Number of iterations performed before failure.
+        iterations: usize,
+        /// Final residual value |f(x)|.
+        residual: f64,
+        /// Last x value tried.
+        last_x: f64,
+        /// Human-readable reason for failure.
+        reason: String,
+    },
+
+    /// FX triangulation failed - unable to compute cross rate via pivot currency.
+    ///
+    /// This error identifies which leg of the triangulation was missing.
+    #[error("FX triangulation failed for {from}->{to} via {pivot}: {missing_leg}")]
+    FxTriangulationFailed {
+        /// Source currency.
+        from: Currency,
+        /// Target currency.
+        to: Currency,
+        /// Pivot currency used for triangulation.
+        pivot: Currency,
+        /// Description of the missing leg (e.g., "EUR->USD not found").
+        missing_leg: String,
+    },
 }
 
 #[cfg(test)]
