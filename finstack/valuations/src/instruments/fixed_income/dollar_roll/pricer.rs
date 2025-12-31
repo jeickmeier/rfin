@@ -5,7 +5,9 @@
 
 use super::DollarRoll;
 use crate::instruments::agency_tba::pricer::price_tba;
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult};
+use crate::pricer::{
+    InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
+};
 use crate::results::ValuationResult;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -65,8 +67,9 @@ impl Pricer for DollarRollDiscountingPricer {
         let roll =
             crate::pricer::expect_inst::<DollarRoll>(instrument, InstrumentType::DollarRoll)?;
 
-        let pv = price_dollar_roll(roll, market, as_of)
-            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
+        let pv = price_dollar_roll(roll, market, as_of).map_err(|e| {
+            PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+        })?;
 
         Ok(ValuationResult::stamped(roll.id.as_str(), as_of, pv))
     }

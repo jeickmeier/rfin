@@ -3,7 +3,9 @@
 // Common imports for all pricers
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::quanto_option::types::QuantoOption;
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult};
+use crate::pricer::{
+    InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
+};
 use crate::results::ValuationResult;
 use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
@@ -181,9 +183,9 @@ impl Pricer for QuantoOptionMcPricer {
                 PricingError::type_mismatch(InstrumentType::QuantoOption, instrument.key())
             })?;
 
-        let pv = self
-            .price_internal(quanto, market, as_of)
-            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
+        let pv = self.price_internal(quanto, market, as_of).map_err(|e| {
+            PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+        })?;
 
         Ok(ValuationResult::stamped(quanto.id(), as_of, pv))
     }
@@ -292,8 +294,9 @@ impl Pricer for QuantoOptionAnalyticalPricer {
             })?;
 
         let (spot, r_dom, r_for, q, sigma_equity, sigma_fx, t) =
-            collect_quanto_inputs(quanto, market, as_of)
-                .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
+            collect_quanto_inputs(quanto, market, as_of).map_err(|e| {
+                PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+            })?;
 
         if t <= 0.0 {
             return Ok(ValuationResult::stamped(

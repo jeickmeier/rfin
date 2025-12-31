@@ -344,7 +344,6 @@ impl GaussHermiteQuadrature {
         }
     }
 
-
     /// Integrate a function over the standard normal distribution.
     ///
     /// # Arguments

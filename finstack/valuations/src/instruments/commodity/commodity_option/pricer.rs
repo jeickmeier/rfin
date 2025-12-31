@@ -5,7 +5,9 @@
 
 use crate::instruments::commodity_option::CommodityOption;
 use crate::instruments::common::traits::Instrument;
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult};
+use crate::pricer::{
+    InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
+};
 use crate::results::ValuationResult;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -53,9 +55,9 @@ impl Pricer for CommodityOptionBlackPricer {
                 PricingError::type_mismatch(InstrumentType::CommodityOption, instrument.key())
             })?;
 
-        let pv = option
-            .npv(market, as_of)
-            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
+        let pv = option.npv(market, as_of).map_err(|e| {
+            PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+        })?;
 
         Ok(ValuationResult::stamped(option.id(), as_of, pv))
     }

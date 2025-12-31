@@ -1,6 +1,8 @@
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::private_markets_fund::PrivateMarketsFund;
-use crate::pricer::{expect_inst, InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext};
+use crate::pricer::{
+    expect_inst, InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
+};
 use crate::results::ValuationResult;
 use finstack_core::market_data::context::MarketContext;
 
@@ -37,7 +39,9 @@ impl Pricer for PrivateMarketsFundDiscountingPricer {
         let as_of = if let Some(ref discount_curve_id) = fund.discount_curve_id {
             let disc = market
                 .get_discount(discount_curve_id.as_str())
-                .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
+                .map_err(|e| {
+                    PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+                })?;
             disc.base_date()
         } else {
             fund.events
@@ -53,9 +57,9 @@ impl Pricer for PrivateMarketsFundDiscountingPricer {
                 })?
         };
 
-        let pv = fund
-            .value(market, as_of)
-            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
+        let pv = fund.value(market, as_of).map_err(|e| {
+            PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+        })?;
 
         Ok(ValuationResult::stamped(fund.id(), as_of, pv))
     }

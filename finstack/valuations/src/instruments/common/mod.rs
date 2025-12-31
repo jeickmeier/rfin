@@ -61,9 +61,7 @@ pub use parameters::{
     SettlementType, TotalReturnLegSpec, TrsScheduleSpec, TrsSide, UnderlyingParams,
 };
 pub use period_pv::PeriodizedPvExt;
-pub use pricing::{
-    GenericInstrumentPricer, TotalReturnLegParams, TrsEngine, TrsReturnModel,
-};
+pub use pricing::{GenericInstrumentPricer, TotalReturnLegParams, TrsEngine, TrsReturnModel};
 pub use traits::{
     Attributes, CurveIdVec, EquityDependencies, EquityInstrumentDeps, Instrument, PricingOptions,
 };

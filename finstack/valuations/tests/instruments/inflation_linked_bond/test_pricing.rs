@@ -268,9 +268,13 @@ fn test_npv_consistency_with_schedule() {
     // Manual NPV from schedule
     let flows = ilb.build_dated_flows(&ctx, as_of).unwrap();
     let disc = ctx.get_discount(ilb.discount_curve_id.as_str()).unwrap();
-    let expected_pv =
-        finstack_core::cashflow::npv(disc.as_ref(), disc.base_date(), Some(disc.day_count()), &flows)
-            .unwrap();
+    let expected_pv = finstack_core::cashflow::npv(
+        disc.as_ref(),
+        disc.base_date(),
+        Some(disc.day_count()),
+        &flows,
+    )
+    .unwrap();
 
     // Assert
     assert_approx_eq(

@@ -14,10 +14,10 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::revolving_credit::{
     BaseRateSpec, DrawRepayEvent, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
 };
+use finstack_valuations::instruments::Instrument;
 use time::Month;
 
 /// Helper function to generate deterministic cashflows with curves using the new engine
@@ -200,8 +200,7 @@ fn test_floating_vs_margin_only() {
         .insert_forward(fwd_curve);
 
     // Price with curves (should include forward rates)
-    let pv_with_curves =
-        facility.value(&market_with_curve, start).unwrap();
+    let pv_with_curves = facility.value(&market_with_curve, start).unwrap();
 
     // Price without curves (margin-only)
     // This would use generate_deterministic_cashflows instead of _with_curves

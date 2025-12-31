@@ -5,7 +5,9 @@
 //! implements the [`Instrument`] trait and doesn't need specialized pricing logic.
 
 use crate::instruments::common::traits::Instrument;
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext};
+use crate::pricer::{
+    InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
+};
 use crate::results::ValuationResult;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::CurveId;
@@ -70,9 +72,9 @@ where
             .ok_or_else(|| PricingError::type_mismatch(self.instrument_type, instrument.key()))?;
 
         // Compute present value using the instrument's unified value method
-        let pv = typed_instrument
-            .value(market, as_of)
-            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
+        let pv = typed_instrument.value(market, as_of).map_err(|e| {
+            PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+        })?;
 
         // Return stamped result
         Ok(ValuationResult::stamped(typed_instrument.id(), as_of, pv))

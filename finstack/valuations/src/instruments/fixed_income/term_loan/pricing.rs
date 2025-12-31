@@ -49,7 +49,9 @@
 //! - [`super::types::TermLoan`] for the instrument type
 
 use crate::instruments::common::traits::Instrument;
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext};
+use crate::pricer::{
+    InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
+};
 use crate::results::ValuationResult;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
@@ -202,8 +204,9 @@ impl Pricer for TermLoanDiscountingPricer {
             })?;
 
         // Use the provided as_of date for valuation
-        let pv = Self::price(loan, market, as_of)
-            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
+        let pv = Self::price(loan, market, as_of).map_err(|e| {
+            PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+        })?;
 
         Ok(ValuationResult::stamped(loan.id(), as_of, pv))
     }

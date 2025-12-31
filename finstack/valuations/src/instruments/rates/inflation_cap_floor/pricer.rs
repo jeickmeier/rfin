@@ -1,6 +1,8 @@
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::inflation_cap_floor::InflationCapFloor;
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext};
+use crate::pricer::{
+    InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
+};
 use crate::results::ValuationResult;
 use finstack_core::market_data::context::MarketContext;
 
@@ -49,7 +51,9 @@ impl Pricer for SimpleInflationCapFloorPricer {
 
         let pv = option
             .npv_with_model(market, as_of, self.model)
-            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
+            .map_err(|e| {
+                PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+            })?;
 
         Ok(ValuationResult::stamped(option.id(), as_of, pv))
     }

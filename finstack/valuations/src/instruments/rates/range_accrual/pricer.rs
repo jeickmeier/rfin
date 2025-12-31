@@ -13,7 +13,9 @@ use crate::instruments::common::traits::Instrument;
 #[cfg(feature = "mc")]
 use crate::instruments::range_accrual::types::RangeAccrual;
 #[cfg(feature = "mc")]
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult};
+use crate::pricer::{
+    InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
+};
 #[cfg(feature = "mc")]
 use crate::results::ValuationResult;
 #[cfg(feature = "mc")]
@@ -194,7 +196,9 @@ impl Pricer for RangeAccrualMcPricer {
 
         let pv = self
             .price_internal(range_accrual, market, as_of)
-            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
+            .map_err(|e| {
+                PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+            })?;
 
         Ok(ValuationResult::stamped(range_accrual.id(), as_of, pv))
     }

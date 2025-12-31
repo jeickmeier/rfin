@@ -27,8 +27,13 @@ fn create_test_curve(num_points: usize) -> (Box<[f64]>, Box<[f64]>) {
 
 fn bench_linear_interp(c: &mut Criterion) {
     let (knots, dfs) = create_test_curve(20);
-    let interp =
-        LinearDf::new(knots, dfs, ExtrapolationPolicy::FlatZero, ValidationPolicy::Strict).unwrap();
+    let interp = LinearDf::new(
+        knots,
+        dfs,
+        ExtrapolationPolicy::FlatZero,
+        ValidationPolicy::Strict,
+    )
+    .unwrap();
 
     c.bench_function("interp_linear_single", |b| {
         b.iter(|| {

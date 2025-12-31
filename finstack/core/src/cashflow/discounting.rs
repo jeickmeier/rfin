@@ -307,7 +307,12 @@ where
 {
     type PVOutput = crate::Result<Money>;
 
-    fn npv(&self, disc: &dyn Discounting, base: Date, dc: Option<DayCount>) -> crate::Result<Money> {
+    fn npv(
+        &self,
+        disc: &dyn Discounting,
+        base: Date,
+        dc: Option<DayCount>,
+    ) -> crate::Result<Money> {
         npv(disc, base, dc, self.as_ref())
     }
 }
@@ -382,8 +387,7 @@ mod tests {
         };
         let base = curve.base_date();
         let flows: Vec<(Date, Money)> = vec![];
-        let err =
-            npv(&curve, base, None, &flows).expect_err("Should fail with empty flows");
+        let err = npv(&curve, base, None, &flows).expect_err("Should fail with empty flows");
         let _ = format!("{}", err);
     }
 
@@ -472,8 +476,8 @@ mod tests {
         let dc = DayCount::Act365F;
 
         // Method 1: npv_constant (convenience)
-        let pv1 = npv_constant(&flows, rate, base, dc)
-            .expect("npv_constant should succeed in test");
+        let pv1 =
+            npv_constant(&flows, rate, base, dc).expect("npv_constant should succeed in test");
 
         // Method 2: Manual FlatCurve + npv (canonical)
         let continuous_rate = (1.0 + rate).ln();

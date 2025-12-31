@@ -152,7 +152,6 @@ pub trait MultiSolver: Send + Sync {
     ) -> Result<Vec<f64>>
     where
         Obj: Fn(&[f64]) -> f64;
-
 }
 
 /// Levenberg-Marquardt solver for non-linear least squares.

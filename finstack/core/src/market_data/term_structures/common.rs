@@ -35,7 +35,12 @@ pub(crate) fn build_interp_allow_any_values(
     values: Box<[f64]>,
     extrapolation: ExtrapolationPolicy,
 ) -> Result<Interp> {
-    style.build_enum(knots, values, extrapolation, ValidationPolicy::AllowNegative)
+    style.build_enum(
+        knots,
+        values,
+        extrapolation,
+        ValidationPolicy::AllowNegative,
+    )
 }
 
 /// Build an `Interp` mapping errors to `InputError` for discount curve builders.

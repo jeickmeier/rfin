@@ -2184,7 +2184,12 @@ impl crate::pricer::Pricer for SimpleCdsTrancheHazardPricer {
         // Compute present value using the engine
         let pv = CDSTranchePricer::new()
             .price_tranche(cds_tranche, market, as_of)
-            .map_err(|e| crate::pricer::PricingError::model_failure_ctx(e.to_string(), crate::pricer::PricingErrorContext::default()))?;
+            .map_err(|e| {
+                crate::pricer::PricingError::model_failure_ctx(
+                    e.to_string(),
+                    crate::pricer::PricingErrorContext::default(),
+                )
+            })?;
 
         // Return stamped result
         Ok(crate::results::ValuationResult::stamped(

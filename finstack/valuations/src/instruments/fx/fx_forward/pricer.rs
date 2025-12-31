@@ -6,7 +6,8 @@
 use crate::instruments::common::traits::Instrument as Priceable;
 use crate::instruments::fx_forward::FxForward;
 use crate::pricer::{
-    expect_inst, InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
+    expect_inst, InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
+    PricingResult,
 };
 use crate::results::ValuationResult;
 use finstack_core::dates::Date;
@@ -54,7 +55,10 @@ impl Pricer for FxForwardDiscountingPricer {
 
         // Delegate to instrument's npv method
         let pv = fwd.npv(market, as_of).map_err(|e| {
-            PricingError::model_failure_ctx(format!("FX forward pricing failed: {}", e), PricingErrorContext::default())
+            PricingError::model_failure_ctx(
+                format!("FX forward pricing failed: {}", e),
+                PricingErrorContext::default(),
+            )
         })?;
 
         Ok(ValuationResult::stamped(fwd.id(), as_of, pv))

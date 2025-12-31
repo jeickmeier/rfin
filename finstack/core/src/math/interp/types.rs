@@ -525,7 +525,10 @@ mod tests {
     #[test]
     fn validation_policy_equality() {
         assert_eq!(ValidationPolicy::Strict, ValidationPolicy::Strict);
-        assert_eq!(ValidationPolicy::AllowNegative, ValidationPolicy::AllowNegative);
+        assert_eq!(
+            ValidationPolicy::AllowNegative,
+            ValidationPolicy::AllowNegative
+        );
         assert_ne!(ValidationPolicy::Strict, ValidationPolicy::AllowNegative);
     }
 

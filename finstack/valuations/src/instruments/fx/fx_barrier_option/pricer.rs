@@ -3,7 +3,9 @@
 // Common imports for all pricers
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::fx_barrier_option::types::FxBarrierOption;
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult};
+use crate::pricer::{
+    InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
+};
 use crate::results::ValuationResult;
 use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
@@ -187,7 +189,9 @@ impl Pricer for FxBarrierOptionMcPricer {
 
         let pv = self
             .price_internal(fx_barrier, market, as_of)
-            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
+            .map_err(|e| {
+                PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+            })?;
 
         Ok(ValuationResult::stamped(fx_barrier.id(), as_of, pv))
     }
@@ -277,8 +281,9 @@ impl Pricer for FxBarrierOptionAnalyticalPricer {
             })?;
 
         let (fx_spot, r_dom, r_for, sigma, t) =
-            collect_fx_barrier_inputs(fx_barrier, market, as_of)
-                .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
+            collect_fx_barrier_inputs(fx_barrier, market, as_of).map_err(|e| {
+                PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+            })?;
 
         if t <= 0.0 {
             return Ok(ValuationResult::stamped(

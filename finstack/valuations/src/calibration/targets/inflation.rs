@@ -309,9 +309,10 @@ impl InflationBootstrapper {
         };
 
         report.update_solver_config(config.solver.clone());
-        report
-            .metadata
-            .insert("calibration_type".to_string(), "inflation_curve".to_string());
+        report.metadata.insert(
+            "calibration_type".to_string(),
+            "inflation_curve".to_string(),
+        );
         report
             .metadata
             .insert("curve_id".to_string(), params.curve_id.to_string());
@@ -558,7 +559,9 @@ Global solve requires strictly increasing times.",
 
         self.with_temp_context(curve, |ctx| {
             for (i, quote) in quotes.iter().enumerate() {
-                let pv = quote.get_instrument().value_raw(ctx, self.params.base_date)?;
+                let pv = quote
+                    .get_instrument()
+                    .value_raw(ctx, self.params.base_date)?;
                 residuals[i] = pv / self.params.notional;
             }
             Ok(())

@@ -199,7 +199,11 @@ mod tests {
                 (d1, Money::new(100.0, Currency::USD)),
                 (d2, Money::new(250.0, Currency::USD)),
             ];
-            Ok(schedule_from_dated_flows(flows, self.notional(), DayCount::Act365F))
+            Ok(schedule_from_dated_flows(
+                flows,
+                self.notional(),
+                DayCount::Act365F,
+            ))
         }
     }
 

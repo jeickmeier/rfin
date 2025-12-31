@@ -6,7 +6,8 @@
 use crate::instruments::common::traits::Instrument as Priceable;
 use crate::instruments::ndf::Ndf;
 use crate::pricer::{
-    expect_inst, InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
+    expect_inst, InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
+    PricingResult,
 };
 use crate::results::ValuationResult;
 use finstack_core::dates::Date;
@@ -65,9 +66,12 @@ impl Pricer for NdfDiscountingPricer {
         }
 
         // Delegate to instrument's npv method
-        let pv = ndf
-            .npv(market, as_of)
-            .map_err(|e| PricingError::model_failure_ctx(format!("NDF pricing failed: {}", e), PricingErrorContext::default()))?;
+        let pv = ndf.npv(market, as_of).map_err(|e| {
+            PricingError::model_failure_ctx(
+                format!("NDF pricing failed: {}", e),
+                PricingErrorContext::default(),
+            )
+        })?;
 
         Ok(ValuationResult::stamped(ndf.id(), as_of, pv))
     }

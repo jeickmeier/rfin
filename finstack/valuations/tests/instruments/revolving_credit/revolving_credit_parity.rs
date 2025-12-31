@@ -130,8 +130,7 @@ mod tests {
             .unwrap();
 
         // Price both
-        let pv_det =
-            facility_det.value(&market, start).unwrap();
+        let pv_det = facility_det.value(&market, start).unwrap();
 
         let result_stoch =
             RevolvingCreditPricer::price_with_paths(&facility_stoch, &market, start).unwrap();
@@ -224,8 +223,7 @@ mod tests {
             .unwrap();
 
         // Price both
-        let pv_det =
-            facility_det.value(&market, start).unwrap();
+        let pv_det = facility_det.value(&market, start).unwrap();
 
         let result_stoch =
             RevolvingCreditPricer::price_with_paths(&facility_stoch, &market, start).unwrap();
@@ -289,8 +287,7 @@ mod tests {
             .unwrap();
 
         // Price both
-        let pv_det =
-            facility_det.value(&market, start).unwrap();
+        let pv_det = facility_det.value(&market, start).unwrap();
 
         let result_stoch =
             RevolvingCreditPricer::price_with_paths(&facility_stoch, &market, start).unwrap();
@@ -395,8 +392,7 @@ mod tests {
                 .unwrap();
 
             // Price both
-            let pv_det =
-                facility_det.value(&market, start).unwrap();
+            let pv_det = facility_det.value(&market, start).unwrap();
 
             let result_stoch =
                 RevolvingCreditPricer::price_with_paths(&facility_stoch, &market, start).unwrap();
@@ -477,8 +473,7 @@ mod tests {
             .unwrap();
 
         // Price both
-        let pv_det =
-            facility_det.value(&market, start).unwrap();
+        let pv_det = facility_det.value(&market, start).unwrap();
 
         let result_stoch =
             RevolvingCreditPricer::price_with_paths(&facility_stoch, &market, start).unwrap();
@@ -536,8 +531,7 @@ mod tests {
                 .unwrap();
 
             // Price both
-            let pv_det =
-                facility_det.value(&market, start).unwrap();
+            let pv_det = facility_det.value(&market, start).unwrap();
 
             let result_stoch =
                 RevolvingCreditPricer::price_with_paths(&facility_stoch, &market, start).unwrap();

@@ -499,7 +499,8 @@ impl PyDiscountCurve {
 
         let dc = parse_day_count(day_count)?.unwrap_or(self.inner.day_count());
 
-        let result = npv(&*self.inner, self.inner.base_date(), Some(dc), &flows).map_err(core_to_py)?;
+        let result =
+            npv(&*self.inner, self.inner.base_date(), Some(dc), &flows).map_err(core_to_py)?;
         Ok(PyMoney::new(result))
     }
 }

@@ -15,7 +15,9 @@ use crate::instruments::common::models::monte_carlo::pricer::path_dependent::{
 #[cfg(feature = "mc")]
 use crate::instruments::common::traits::Instrument;
 #[cfg(feature = "mc")]
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult};
+use crate::pricer::{
+    InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
+};
 #[cfg(feature = "mc")]
 use crate::results::ValuationResult;
 #[cfg(feature = "mc")]
@@ -245,7 +247,9 @@ impl Pricer for AutocallableMcPricer {
 
         let pv = self
             .price_internal(autocallable, market, as_of)
-            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
+            .map_err(|e| {
+                PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+            })?;
 
         Ok(ValuationResult::stamped(autocallable.id(), as_of, pv))
     }

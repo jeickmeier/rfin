@@ -460,7 +460,10 @@ pub fn sample_beta(rng: &mut dyn RandomNumberGenerator, alpha: f64, beta: f64) -
 /// - Johnson, N. L., Kotz, S., & Balakrishnan, N. (1994). *Continuous Univariate
 ///   Distributions, Volume 1* (2nd ed.). Wiley. Chapter 19 (Exponential distribution).
 pub fn sample_exponential(rng: &mut dyn RandomNumberGenerator, lambda: f64) -> f64 {
-    assert!(lambda > 0.0, "Exponential rate parameter λ must be positive");
+    assert!(
+        lambda > 0.0,
+        "Exponential rate parameter λ must be positive"
+    );
 
     // Inverse CDF method: X = -ln(U) / λ
     // Clamp u away from 0 to prevent ln(0) = -∞
@@ -1425,7 +1428,11 @@ mod tests {
         // All samples should be non-negative
         for _ in 0..100 {
             let x = sample_exponential(&mut rng as &mut dyn RandomNumberGenerator, lambda);
-            assert!(x >= 0.0, "Exponential sample should be non-negative, got {}", x);
+            assert!(
+                x >= 0.0,
+                "Exponential sample should be non-negative, got {}",
+                x
+            );
         }
     }
 
@@ -1488,7 +1495,9 @@ mod tests {
             assert!(
                 (p - p_back).abs() < 1e-10,
                 "Round-trip failed for p={}, got x={}, p_back={}",
-                p, x, p_back
+                p,
+                x,
+                p_back
             );
         }
     }
@@ -1572,7 +1581,9 @@ mod tests {
             assert!(
                 (p - p_back).abs() < 1e-10,
                 "Round-trip failed for p={}, got x={}, p_back={}",
-                p, x, p_back
+                p,
+                x,
+                p_back
             );
         }
     }
@@ -1603,7 +1614,11 @@ mod tests {
 
         for _ in 0..100 {
             let x = sample_gamma(&mut rng as &mut dyn RandomNumberGenerator, 0.5);
-            assert!(x >= 0.0, "Gamma(0.5) sample should be non-negative, got {}", x);
+            assert!(
+                x >= 0.0,
+                "Gamma(0.5) sample should be non-negative, got {}",
+                x
+            );
         }
     }
 
@@ -1625,7 +1640,9 @@ mod tests {
         assert!(
             (sample_mean - shape).abs() < 0.05 * shape,
             "Gamma({}) mean: expected {:.4}, got {:.4}",
-            shape, shape, sample_mean
+            shape,
+            shape,
+            sample_mean
         );
     }
 
@@ -1642,7 +1659,11 @@ mod tests {
         // All samples should be non-negative
         for _ in 0..100 {
             let x = sample_chi_squared(&mut rng as &mut dyn RandomNumberGenerator, 5.0);
-            assert!(x >= 0.0, "Chi-squared sample should be non-negative, got {}", x);
+            assert!(
+                x >= 0.0,
+                "Chi-squared sample should be non-negative, got {}",
+                x
+            );
         }
     }
 
@@ -1664,7 +1685,9 @@ mod tests {
         assert!(
             (sample_mean - df).abs() < 0.05 * df,
             "Chi-squared({}) mean: expected {:.4}, got {:.4}",
-            df, df, sample_mean
+            df,
+            df,
+            sample_mean
         );
     }
 
@@ -1698,7 +1721,10 @@ mod tests {
             assert!(
                 (p - p_back).abs() < 1e-10,
                 "Round-trip failed for p={}, df={}, got x={}, p_back={}",
-                p, df, x, p_back
+                p,
+                df,
+                x,
+                p_back
             );
         }
     }
@@ -1716,7 +1742,11 @@ mod tests {
         // All samples should be finite
         for _ in 0..100 {
             let t = sample_student_t(&mut rng as &mut dyn RandomNumberGenerator, 5.0);
-            assert!(t.is_finite(), "Student's t sample should be finite, got {}", t);
+            assert!(
+                t.is_finite(),
+                "Student's t sample should be finite, got {}",
+                t
+            );
         }
     }
 
@@ -1738,7 +1768,8 @@ mod tests {
         assert!(
             sample_mean.abs() < 0.05,
             "Student's t({}) mean should be ~0, got {:.4}",
-            df, sample_mean
+            df,
+            sample_mean
         );
     }
 
@@ -1767,7 +1798,8 @@ mod tests {
         assert!(
             extreme_t3 > extreme_t30,
             "t(3) should have more extreme values than t(30): {} vs {}",
-            extreme_t3, extreme_t30
+            extreme_t3,
+            extreme_t30
         );
     }
 

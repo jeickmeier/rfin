@@ -1,4 +1,6 @@
-use finstack_core::math::summation::{kahan_sum as core_kahan_sum, neumaier_sum as core_neumaier_sum};
+use finstack_core::math::summation::{
+    kahan_sum as core_kahan_sum, neumaier_sum as core_neumaier_sum,
+};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;

@@ -5,7 +5,9 @@
 
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::equity_index_future::EquityIndexFuture;
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult};
+use crate::pricer::{
+    InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
+};
 use crate::results::ValuationResult;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -50,9 +52,9 @@ impl Pricer for EquityIndexFutureDiscountingPricer {
             })?;
 
         // Calculate NPV
-        let pv = future
-            .npv(market, as_of)
-            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
+        let pv = future.npv(market, as_of).map_err(|e| {
+            PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+        })?;
 
         // Return stamped result
         Ok(ValuationResult::stamped(future.id(), as_of, pv))

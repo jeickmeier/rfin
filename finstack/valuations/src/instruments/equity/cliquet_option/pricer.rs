@@ -25,7 +25,9 @@ use crate::instruments::common::models::monte_carlo::pricer::path_dependent::Pat
 #[cfg(feature = "mc")]
 use crate::instruments::common::traits::Instrument;
 #[cfg(feature = "mc")]
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult};
+use crate::pricer::{
+    InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
+};
 #[cfg(feature = "mc")]
 use crate::results::ValuationResult;
 #[cfg(feature = "mc")]
@@ -410,9 +412,9 @@ impl Pricer for CliquetOptionMcPricer {
                 PricingError::type_mismatch(InstrumentType::CliquetOption, instrument.key())
             })?;
 
-        let pv = self
-            .price_internal(cliquet, market, as_of)
-            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
+        let pv = self.price_internal(cliquet, market, as_of).map_err(|e| {
+            PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+        })?;
 
         Ok(ValuationResult::stamped(cliquet.id(), as_of, pv))
     }

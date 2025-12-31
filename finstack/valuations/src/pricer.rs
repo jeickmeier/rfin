@@ -1192,18 +1192,14 @@ impl PricerRegistry {
             use rayon::prelude::*;
             instruments
                 .par_iter()
-                .map(|&instrument| {
-                    self.price_with_registry(instrument, model, market, as_of, cfg)
-                })
+                .map(|&instrument| self.price_with_registry(instrument, model, market, as_of, cfg))
                 .collect()
         }
         #[cfg(not(feature = "parallel"))]
         {
             instruments
                 .iter()
-                .map(|&instrument| {
-                    self.price_with_registry(instrument, model, market, as_of, cfg)
-                })
+                .map(|&instrument| self.price_with_registry(instrument, model, market, as_of, cfg))
                 .collect()
         }
     }

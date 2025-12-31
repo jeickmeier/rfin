@@ -3,7 +3,9 @@
 // Common imports for all pricers
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::lookback_option::types::{LookbackOption, LookbackType};
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult};
+use crate::pricer::{
+    InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
+};
 use crate::results::ValuationResult;
 use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
@@ -206,9 +208,9 @@ impl Pricer for LookbackOptionMcPricer {
                 PricingError::type_mismatch(InstrumentType::LookbackOption, instrument.key())
             })?;
 
-        let pv = self
-            .price_internal(lookback, market, as_of)
-            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
+        let pv = self.price_internal(lookback, market, as_of).map_err(|e| {
+            PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+        })?;
 
         Ok(ValuationResult::stamped(lookback.id(), as_of, pv))
     }
@@ -307,8 +309,10 @@ impl Pricer for LookbackOptionAnalyticalPricer {
                 PricingError::type_mismatch(InstrumentType::LookbackOption, instrument.key())
             })?;
 
-        let (spot, r, q, sigma, t) = collect_lookback_inputs(lookback, market, as_of)
-            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
+        let (spot, r, q, sigma, t) =
+            collect_lookback_inputs(lookback, market, as_of).map_err(|e| {
+                PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+            })?;
 
         if t <= 0.0 {
             return Ok(ValuationResult::stamped(
@@ -376,7 +380,10 @@ impl Pricer for LookbackOptionAnalyticalPricer {
         let price = match lookback.lookback_type {
             LookbackType::FixedStrike => {
                 let strike = lookback.strike.as_ref().ok_or_else(|| {
-                    PricingError::model_failure_ctx("FixedStrike lookback requires a strike", PricingErrorContext::default())
+                    PricingError::model_failure_ctx(
+                        "FixedStrike lookback requires a strike",
+                        PricingErrorContext::default(),
+                    )
                 })?;
                 match lookback.option_type {
                     crate::instruments::OptionType::Call => fixed_strike_lookback_call(

@@ -629,7 +629,8 @@ fn test_price_batch_matches_serial_results() {
             registry.price_with_registry(instrument, ModelKey::Discounting, &market, as_of, None)
         })
         .collect();
-    let batch_results = registry.price_batch(&instruments, ModelKey::Discounting, &market, as_of, None);
+    let batch_results =
+        registry.price_batch(&instruments, ModelKey::Discounting, &market, as_of, None);
 
     assert_eq!(batch_results.len(), serial_results.len());
     for (serial, batch) in serial_results.iter().zip(batch_results.iter()) {

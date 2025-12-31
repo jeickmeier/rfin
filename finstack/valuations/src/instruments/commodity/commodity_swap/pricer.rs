@@ -5,7 +5,9 @@
 
 use crate::instruments::commodity_swap::CommoditySwap;
 use crate::instruments::common::traits::Instrument;
-use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult};
+use crate::pricer::{
+    InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
+};
 use crate::results::ValuationResult;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -49,9 +51,9 @@ impl Pricer for CommoditySwapDiscountingPricer {
             })?;
 
         // Calculate NPV
-        let pv = swap
-            .npv(market, as_of)
-            .map_err(|e| PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default()))?;
+        let pv = swap.npv(market, as_of).map_err(|e| {
+            PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+        })?;
 
         // Return stamped result
         Ok(ValuationResult::stamped(swap.id(), as_of, pv))

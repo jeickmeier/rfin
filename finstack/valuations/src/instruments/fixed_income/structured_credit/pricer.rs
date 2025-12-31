@@ -28,7 +28,11 @@ impl StructuredCredit {
     ///
     /// **Note**: This returns only the unhedged deal NPV. Use `price_with_hedges()`
     /// for combined deal + hedge valuation.
-    pub(crate) fn price(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
+    pub(crate) fn price(
+        &self,
+        context: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<Money> {
         let disc = context.get_discount(self.discount_curve_id.as_str())?;
         let flows = self.build_dated_flows(context, as_of)?;
 
