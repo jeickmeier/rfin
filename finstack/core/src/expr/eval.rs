@@ -373,18 +373,6 @@ impl CompiledExpr {
     }
 
     #[inline]
-    #[allow(dead_code)]
-    fn rolling_apply(base: &[f64], win: usize, mut op: impl FnMut(&[f64]) -> f64) -> Vec<f64> {
-        let len = base.len();
-        if win == 0 {
-            return Self::nan_output(len);
-        }
-        let mut out = vec![0.0; len];
-        Self::rolling_apply_into(base, win, &mut out, &mut op);
-        out
-    }
-
-    #[inline]
     fn rolling_with(
         &self,
         arg_results: &[Vec<f64>],
@@ -1221,8 +1209,9 @@ impl CompiledExpr {
         _cols: &[&[f64]],
         out: &mut [f64],
     ) {
-        // Convert slices to Vec for existing function implementations
-        // TODO: optimize individual functions to work with slices
+        // Convert slices to Vec for existing function implementations.
+        // Note: This copy is acceptable for current use cases. Future optimization
+        // could make eval_function_core work directly with slices.
         let arg_results: Vec<Vec<f64>> = arg_slices.iter().map(|&s| s.to_vec()).collect();
         let result = self.eval_function_core(fun, &arg_results, _ctx, _cols);
         let copy_len = out.len().min(result.len());

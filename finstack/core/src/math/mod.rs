@@ -13,6 +13,39 @@
 //! **Performance Tip:** When analytic derivatives are available (e.g., for XIRR, implied volatility),
 //! use `NewtonSolver::solve_with_derivative` for 2× fewer function evaluations and better numerical stability.
 //!
+//! ## Solver Selection Guide
+//!
+//! ### 1D Root Finding ([`solver`] module)
+//!
+//! | Use Case | Recommended Solver | Method | Why |
+//! |----------|-------------------|--------|-----|
+//! | **Implied volatility** | [`NewtonSolver`] | `solve_with_derivative()` | Vega (∂Price/∂σ) available |
+//! | **Yield-to-maturity** | [`NewtonSolver`] | `solve_with_derivative()` | Duration (∂Price/∂y) known |
+//! | **IRR/XIRR** | [`NewtonSolver`] | `solve_with_derivative()` | Analytic d(NPV)/dr |
+//! | **Piecewise functions** | [`BrentSolver`] | `solve()` | Robust to discontinuities |
+//! | **Poor initial guess** | [`BrentSolver`] | `solve()` | Guaranteed convergence |
+//! | **Smooth function, no derivatives** | [`NewtonSolver`] | `solve()` | Auto finite differences |
+//!
+//! ### Multi-Dimensional Optimization ([`solver_multi`] module)
+//!
+//! | Use Case | Recommended Method | Why |
+//! |----------|-------------------|-----|
+//! | **SABR calibration** | `solve_system_with_dim_stats()` | System of market quotes |
+//! | **Curve bootstrapping** | `solve_system_with_jacobian_stats()` | Analytic sensitivities |
+//! | **Simple minimization** | `minimize()` | Scalar objective function |
+//! | **With known Jacobian** | `solve_system_with_jacobian_stats()` | 2× faster convergence |
+//! | **Unknown dimensions** | `solve_system()` | Auto-probes dimension |
+//!
+//! ### Performance Trade-offs
+//!
+//! **Analytic vs Finite Difference Derivatives:**
+//! - Analytic: 2× fewer function calls, better accuracy, faster convergence
+//! - Finite Difference: Simpler to implement, works for any function
+//!
+//! **When to use each:**
+//! - Use analytic when derivatives are cheap to compute (most financial models)
+//! - Use finite difference for quick prototypes or complex black-box functions
+//!
 //! # Examples
 //!
 //! ## Root finding with finite differences

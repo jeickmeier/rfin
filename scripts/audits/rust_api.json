@@ -959,7 +959,6 @@
             "InternalRateOfReturn"
           ],
           "functions": [
-            "npv_using_curve_dc",
             "npv",
             "npv_constant"
           ],

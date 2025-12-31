@@ -228,15 +228,24 @@ impl Solver for NewtonSolver {
 impl NewtonSolver {
     /// Solve using Newton-Raphson with an analytic derivative.
     ///
+    /// **Recommended over [`solve()`](Solver::solve) when derivatives are available.**
     /// This method provides better performance and numerical stability compared to
-    /// the automatic finite-difference approach in [`solve`](Solver::solve) when
-    /// an analytic derivative is available.
+    /// the automatic finite-difference approach.
     ///
     /// # Performance Benefits
     ///
-    /// - **2x fewer function evaluations**: No need to compute `f(x+h)` and `f(x-h)`
+    /// - **2× fewer function evaluations**: No need to compute `f(x+h)` and `f(x-h)`
     /// - **Better numerical stability**: Avoids finite-difference cancellation errors
     /// - **Faster convergence**: Exact derivatives lead to more accurate Newton steps
+    ///
+    /// # Performance Comparison
+    ///
+    /// | Method | Function Evals/Iter | Typical Iterations | Total Evals |
+    /// |--------|---------------------|-------------------|-------------|
+    /// | `solve()` (finite diff) | 3 (f, f+h, f-h) | 5-10 | 15-30 |
+    /// | `solve_with_derivative()` | 2 (f, f') | 4-8 | 8-16 |
+    ///
+    /// **Speedup:** ~2× faster for most financial applications
     ///
     /// # When to Use
     ///
@@ -245,6 +254,11 @@ impl NewtonSolver {
     /// - **Implied volatility**: Vega (∂Price/∂σ) is available from option pricing
     /// - **Yield-to-maturity**: Duration (∂Price/∂y) is known from bond pricing
     /// - **Calibration**: When instrument sensitivities are already computed
+    ///
+    /// **Don't use** when:
+    /// - Derivative is expensive to compute (use finite diff instead)
+    /// - Prototyping (finite diff is simpler initially)
+    /// - Function is not smooth (use [`BrentSolver`] instead)
     ///
     /// # Arguments
     ///

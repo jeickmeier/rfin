@@ -161,8 +161,13 @@ pub fn npv<D: Discounting + ?Sized>(
 
 /// Calculate Net Present Value (NPV) using a constant discount rate.
 ///
-/// This convenience function creates a flat discount curve internally and
-/// delegates to the standard discounting logic.
+/// **Convenience wrapper** over [`npv()`] that creates a [`FlatCurve`] internally.
+/// For production use with market curves, prefer [`npv()`] directly.
+///
+/// This function is useful for:
+/// - Quick NPV calculations with a single assumed rate
+/// - Performance attribution and IRR validation
+/// - Testing and educational examples
 ///
 /// # Arguments
 /// * `cash_flows` - Vector of (date, money) tuples
@@ -196,11 +201,8 @@ pub fn npv_constant(
     base_date: Date,
     day_count: DayCount,
 ) -> crate::Result<Money> {
-    // Convert annual compounded rate to continuous for FlatCurve
-    // Note: FlatCurve expects a continuously compounded rate.
-    // Ideally we should clarify if input is annually compounded or continuous.
-    // Legacy behavior in performance.rs assumed input was annually compounded
-    // and converted it: r_cont = ln(1 + r_annual).
+    // Convert annually compounded rate to continuously compounded rate.
+    // FlatCurve expects continuously compounded rates: r_cont = ln(1 + r_annual)
     let continuous_rate = (1.0 + discount_rate).ln();
     let curve = FlatCurve::new(continuous_rate, base_date, day_count, "INTERNAL-NPV");
 
@@ -363,5 +365,41 @@ mod tests {
         let err = npv_constant(&flows, 0.05, base, DayCount::Act365F)
             .expect_err("Should fail with empty flows");
         let _ = format!("{}", err);
+    }
+
+    #[test]
+    fn test_npv_constant_equivalence_with_flat_curve() {
+        // Test that npv_constant produces identical results to npv() with FlatCurve
+        let base = create_date(2025, Month::January, 1).expect("Valid test date");
+        let flows = vec![
+            (
+                create_date(2025, Month::July, 1).expect("Valid test date"),
+                Money::new(1000.0, Currency::USD),
+            ),
+            (
+                create_date(2026, Month::January, 1).expect("Valid test date"),
+                Money::new(1000.0, Currency::USD),
+            ),
+        ];
+        let rate = 0.05;
+        let dc = DayCount::Act365F;
+
+        // Method 1: npv_constant (convenience)
+        let pv1 = npv_constant(&flows, rate, base, dc)
+            .expect("npv_constant should succeed in test");
+
+        // Method 2: Manual FlatCurve + npv (canonical)
+        let continuous_rate = (1.0 + rate).ln();
+        let curve =
+            crate::market_data::term_structures::FlatCurve::new(continuous_rate, base, dc, "TEST");
+        let pv2 = npv(&curve, base, Some(dc), &flows).expect("npv should succeed in test");
+
+        // Should produce identical results
+        assert!(
+            (pv1.amount() - pv2.amount()).abs() < 1e-10,
+            "npv_constant and npv with FlatCurve should be equivalent: {} vs {}",
+            pv1.amount(),
+            pv2.amount()
+        );
     }
 }

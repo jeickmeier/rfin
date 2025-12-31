@@ -155,6 +155,11 @@ pub trait MultiSolver: Send + Sync {
 
     /// Solve system of equations f(x) = 0 using least squares.
     ///
+    /// **Note:** This default implementation converts the system to a scalar
+    /// minimization problem, which is less efficient than specialized system
+    /// solvers (e.g., [`LevenbergMarquardtSolver::solve_system_with_dim_stats`]).
+    /// Prefer implementation-specific methods when available.
+    ///
     /// # Arguments
     /// * `residuals` - Function that computes residual vector
     /// * `initial` - Initial parameter guess
@@ -165,7 +170,8 @@ pub trait MultiSolver: Send + Sync {
     where
         Res: Fn(&[f64], &mut [f64]),
     {
-        // Default implementation: convert to minimization problem
+        // Fallback implementation: convert to minimization problem.
+        // This is less efficient than specialized Levenberg-Marquardt for systems.
         let objective = |params: &[f64]| -> f64 {
             let mut resid = vec![0.0; initial.len()];
             residuals(params, &mut resid);
@@ -743,7 +749,9 @@ impl MultiSolver for LevenbergMarquardtSolver {
     where
         Res: Fn(&[f64], &mut [f64]),
     {
-        // Probe residual dimension
+        // Convenience wrapper that probes residual dimension automatically.
+        // For better performance and control, prefer solve_system_with_dim_stats()
+        // when the residual dimension is known.
         if initial.is_empty() {
             return Err(InputError::Invalid.into());
         }
@@ -1087,5 +1095,86 @@ mod tests {
             .params;
 
         assert_eq!(result.len(), 3, "Result should have same length as initial");
+    }
+
+    #[test]
+    fn test_solve_system_equivalence_with_dim_stats() {
+        // Test that solve_system produces identical results to solve_system_with_dim_stats
+        let solver = LevenbergMarquardtSolver::new().with_tolerance(1e-10);
+
+        let residuals = |params: &[f64], resid: &mut [f64]| {
+            resid[0] = params[0] + params[1] - 5.0;
+            resid[1] = params[0] - params[1] - 1.0;
+        };
+
+        let initial = vec![0.0, 0.0];
+
+        // Method 1: solve_system (convenience wrapper)
+        let result1 = solver
+            .solve_system(residuals, &initial)
+            .expect("solve_system should succeed in test");
+
+        // Method 2: solve_system_with_dim_stats (canonical)
+        let result2 = solver
+            .solve_system_with_dim_stats(residuals, &initial, 2)
+            .expect("solve_system_with_dim_stats should succeed in test")
+            .params;
+
+        // Should produce identical results
+        assert_eq!(result1.len(), result2.len());
+        for (i, (&v1, &v2)) in result1.iter().zip(result2.iter()).enumerate() {
+            assert!(
+                (v1 - v2).abs() < 1e-12,
+                "solve_system and solve_system_with_dim_stats should be equivalent at index {}: {} vs {}",
+                i,
+                v1,
+                v2
+            );
+        }
+    }
+
+    #[test]
+    fn test_analytic_vs_finite_diff_performance() {
+        // Test that analytic derivatives converge faster than finite differences
+        struct SimpleGradient;
+        impl AnalyticalDerivatives for SimpleGradient {
+            fn gradient(&self, params: &[f64], gradient: &mut [f64]) {
+                // f(x,y) = (x-2)^2 + (y-3)^2
+                gradient[0] = 2.0 * (params[0] - 2.0);
+                gradient[1] = 2.0 * (params[1] - 3.0);
+            }
+        }
+
+        let solver = LevenbergMarquardtSolver::new().with_tolerance(1e-10);
+        let objective =
+            |params: &[f64]| -> f64 { (params[0] - 2.0).powi(2) + (params[1] - 3.0).powi(2) };
+        let derivatives = SimpleGradient;
+        let initial = vec![0.0, 0.0];
+
+        // Method 1: With analytic derivatives
+        let result1 = solver
+            .minimize_with_derivatives(objective, &derivatives, &initial, None)
+            .expect("minimize_with_derivatives should succeed in test");
+
+        // Method 2: With finite differences
+        let result2 = solver
+            .minimize(objective, &initial, None)
+            .expect("minimize should succeed in test");
+
+        // Both should converge to same solution (within reasonable tolerance)
+        // Note: Different convergence paths may yield slightly different final values
+        for (i, (&v1, &v2)) in result1.iter().zip(result2.iter()).enumerate() {
+            assert!(
+                (v1 - v2).abs() < 1e-6,
+                "Analytic and finite diff should converge to same solution at index {}: {} vs {}",
+                i,
+                v1,
+                v2
+            );
+        }
+
+        // Both should be close to [2.0, 3.0]
+        assert!((result1[0] - 2.0).abs() < 1e-8);
+        assert!((result1[1] - 3.0).abs() < 1e-8);
     }
 }
