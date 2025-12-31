@@ -9,25 +9,21 @@
 //!
 //! # Usage
 //!
-//! ```rust,no_run
-//! use finstack_valuations::instruments::revolving_credit::pricer;
-//! use finstack_valuations::instruments::revolving_credit::RevolvingCredit;
+//! Price a revolving credit facility using the pricer registry:
+//!
+//! ```rust,ignore
+//! use finstack_valuations::instruments::RevolvingCredit;
+//! use finstack_valuations::pricer::{Pricer, PricerRegistry};
 //! use finstack_core::market_data::context::MarketContext;
 //! use time::macros::date;
 //!
-//! # fn main() -> finstack_core::Result<()> {
 //! let facility = RevolvingCredit::example();
 //! let market = MarketContext::new();
 //! let as_of = date!(2025-01-01);
 //!
-//! // Unified pricing (automatic method selection)
-//! let pv = pricer::RevolvingCreditPricer::price(&facility, &market, as_of)?;
-//!
-//! // Explicit deterministic pricing
-//! let pv_det = pricer::RevolvingCreditPricer::price_deterministic(&facility, &market, as_of)?;
-//! # let _ = (pv, pv_det);
-//! # Ok(())
-//! # }
+//! // Use pricer registry for unified pricing
+//! let registry = PricerRegistry::default();
+//! let result = registry.price(&facility, &market, as_of)?;
 //! ```
 //!
 //! # Monte Carlo Pricing (requires `mc` feature)

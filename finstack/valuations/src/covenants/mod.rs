@@ -22,22 +22,19 @@
 //!
 //! # Quick Example
 //!
-//! ```rust,no_run
-//! use finstack_valuations::covenants::{
-//!     CovenantEngine, CovenantSpec, CovenantType, ThresholdTest
-//! };
+//! ```rust
+//! use finstack_valuations::covenants::{Covenant, CovenantSpec, CovenantType};
+//! use finstack_valuations::metrics::MetricId;
+//! use finstack_core::dates::Tenor;
 //!
-//! // Define a leverage covenant
-//! let leverage_covenant = CovenantSpec {
-//!     id: "MAX-LEVERAGE".to_string(),
-//!     covenant_type: CovenantType::Leverage,
-//!     test: ThresholdTest::LessThanOrEqual,
-//!     threshold: 4.5,  // Max 4.5x Debt/EBITDA
-//!     // ... other fields
-//! };
+//! // Define a max leverage covenant (4.5x Debt/EBITDA) with quarterly testing
+//! let covenant = Covenant::new(
+//!     CovenantType::MaxDebtToEBITDA { threshold: 4.5 },
+//!     Tenor::quarterly(),
+//! );
 //!
-//! // Evaluate against current metrics
-//! // let result = engine.test_covenant(&leverage_covenant, current_metrics);
+//! // Wrap in spec with a metric for evaluation
+//! let spec = CovenantSpec::with_metric(covenant, MetricId::Dv01);
 //! ```
 //!
 //! # Breach Forecasting

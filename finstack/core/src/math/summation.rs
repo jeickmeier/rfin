@@ -28,6 +28,41 @@
 ///
 /// Best for sequences where all values have the same sign. For mixed-sign values,
 /// prefer [`neumaier_sum`] which handles magnitude differences better.
+///
+/// # Arguments
+///
+/// * `iter` - Iterator yielding `f64` values to sum
+///
+/// # Returns
+///
+/// The sum of all values with reduced floating-point error.
+///
+/// # Complexity
+///
+/// - **Time**: O(n) where n is the number of elements
+/// - **Space**: O(1) auxiliary space (single compensation variable)
+///
+/// # Algorithm
+///
+/// Maintains a running compensation `c` that tracks lost low-order bits:
+/// ```text
+/// for x in iter:
+///     y = x - c          // Compensate for previous error
+///     t = sum + y        // Add compensated value
+///     c = (t - sum) - y  // New error term
+///     sum = t
+/// ```
+///
+/// # Example
+///
+/// ```rust
+/// use finstack_core::math::kahan_sum;
+///
+/// // Summing many small values where naive summation loses precision
+/// let values: Vec<f64> = (0..1_000_000).map(|_| 0.1).collect();
+/// let sum = kahan_sum(values.iter().copied());
+/// assert!((sum - 100_000.0).abs() < 0.01);
+/// ```
 #[inline]
 pub fn kahan_sum<I>(iter: I) -> f64
 where
@@ -49,6 +84,33 @@ where
 /// This algorithm improves upon Kahan summation by better handling cases where
 /// the sum and the next value have similar magnitudes but opposite signs.
 /// **Recommended for financial calculations with mixed-sign cashflows.**
+///
+/// # Arguments
+///
+/// * `iter` - Iterator yielding `f64` values to sum
+///
+/// # Returns
+///
+/// The sum of all values with reduced floating-point error.
+///
+/// # Complexity
+///
+/// - **Time**: O(n) where n is the number of elements
+/// - **Space**: O(1) auxiliary space (single compensation variable)
+///
+/// # Algorithm
+///
+/// Improves on Kahan by adaptively tracking error based on relative magnitudes:
+/// ```text
+/// for x in iter:
+///     t = sum + x
+///     if |sum| >= |x|:
+///         c += (sum - t) + x   // sum is bigger; track error from sum
+///     else:
+///         c += (x - t) + sum   // x is bigger; track error from x
+///     sum = t
+/// return sum + c
+/// ```
 ///
 /// # Example
 ///

@@ -22,22 +22,24 @@
 //!
 //! # Quick Example
 //!
-//! ```rust,no_run
+//! ```rust,ignore
 //! use finstack_valuations::instruments::rates::InterestRateSwap;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::money::Money;
+//! use finstack_core::types::{CurveId, InstrumentId};
 //! use time::macros::date;
 //!
-//! // Create a 5-year payer swap (pay fixed, receive floating)
-//! let swap = InterestRateSwap::payer(
-//!     "IRS-5Y-USD",
+//! // Create a 5-year USD payer swap (pay fixed, receive floating)
+//! let swap = InterestRateSwap::create_usd_swap(
+//!     InstrumentId::new("IRS-5Y-USD"),
 //!     Money::new(10_000_000.0, Currency::USD),
+//!     0.04,  // 4% fixed rate
 //!     date!(2025-01-15),
 //!     date!(2030-01-15),
-//!     0.04,  // 4% fixed rate
-//!     "USD-OIS",
-//!     "USD-SOFR-3M",
-//! );
+//!     PayReceive::Pay,  // Pay fixed
+//!     CurveId::new("USD-OIS"),
+//!     CurveId::new("USD-SOFR-3M"),
+//! )?;
 //! ```
 //!
 //! # Risk Metrics

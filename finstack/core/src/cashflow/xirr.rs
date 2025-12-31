@@ -31,18 +31,94 @@ pub const DEFAULT_GUESS: f64 = 0.1;
 ///
 /// This trait provides a unified interface for calculating IRR for both periodic
 /// cashflows (represented as `[f64]`) and irregular cashflows (represented as `[(Date, f64)]`).
+///
+/// # Required Methods
+///
+/// - [`irr`](Self::irr) - Calculate IRR with default day count
+/// - [`irr_with_daycount`](Self::irr_with_daycount) - Calculate IRR with specific day count
+///
+/// # Provided Implementations
+///
+/// - `[f64]` - Periodic cashflows with unit time intervals (standard IRR)
+/// - `[(Date, f64)]` - Irregular cashflows with explicit dates (XIRR)
+///
+/// # Mathematical Background
+///
+/// IRR is the discount rate `r` that makes the Net Present Value (NPV) equal to zero:
+///
+/// ```text
+/// NPV(r) = Σᵢ CFᵢ / (1 + r)^tᵢ = 0
+/// ```
+///
+/// For periodic cashflows, `tᵢ = i` (integer periods).
+/// For irregular cashflows (XIRR), `tᵢ` is the year fraction from the first date.
+///
+/// # Examples
+///
+/// ## Periodic Cashflows (Standard IRR)
+///
+/// ```rust
+/// use finstack_core::cashflow::InternalRateOfReturn;
+///
+/// // Investment of $100 returning $110 after one period = 10% IRR
+/// let flows = [-100.0, 110.0];
+/// let irr = flows.irr(None).expect("IRR converges");
+/// assert!((irr - 0.1).abs() < 1e-6);
+/// ```
+///
+/// ## Irregular Cashflows (XIRR)
+///
+/// ```rust
+/// use finstack_core::cashflow::InternalRateOfReturn;
+/// use finstack_core::dates::Date;
+/// use time::Month;
+///
+/// let flows = [
+///     (Date::from_calendar_date(2024, Month::January, 1).unwrap(), -100_000.0),
+///     (Date::from_calendar_date(2025, Month::January, 1).unwrap(), 110_000.0),
+/// ];
+///
+/// let xirr = flows.irr(None).expect("XIRR converges");
+/// assert!(xirr > 0.09 && xirr < 0.11);
+/// ```
 pub trait InternalRateOfReturn {
     /// Calculate the Internal Rate of Return.
     ///
     /// # Arguments
-    /// * `guess` - Optional initial guess for the rate.
+    ///
+    /// * `guess` - Optional initial guess for the rate. If `None`, uses 10%.
+    ///
+    /// # Returns
+    ///
+    /// The rate `r` such that NPV(r) ≈ 0.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when:
+    /// - Fewer than 2 cashflows are provided
+    /// - No sign change in cashflows (all positive or all negative)
+    /// - Solver fails to converge after trying multiple initial guesses
     fn irr(&self, guess: Option<f64>) -> crate::Result<f64>;
 
     /// Calculate the Internal Rate of Return with a specific day count convention.
     ///
     /// # Arguments
-    /// * `day_count` - Day count convention to use for time calculations.
-    /// * `guess` - Optional initial guess for the rate.
+    ///
+    /// * `day_count` - Day count convention to use for time calculations
+    /// * `guess` - Optional initial guess for the rate
+    ///
+    /// # Returns
+    ///
+    /// The rate `r` such that NPV(r) ≈ 0.
+    ///
+    /// # Errors
+    ///
+    /// Same as [`irr`](Self::irr), plus day count calculation errors.
+    ///
+    /// # Notes
+    ///
+    /// For periodic cashflows (`[f64]`), the day count is ignored since
+    /// periods are unitless integers.
     fn irr_with_daycount(&self, day_count: DayCount, guess: Option<f64>) -> crate::Result<f64>;
 }
 

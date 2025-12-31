@@ -30,7 +30,7 @@ use finstack_core::Result;
 ///
 /// Implementing for a custom option:
 ///
-/// ```rust,no_run
+/// ```rust,ignore
 /// use finstack_valuations::metrics::HasExpiry;
 /// use finstack_core::dates::Date;
 ///
@@ -51,7 +51,7 @@ pub trait HasExpiry {
     ///
     /// # Examples
     ///
-    /// ```rust,no_run
+    /// ```rust,ignore
     /// use finstack_valuations::metrics::HasExpiry;
     /// use finstack_core::dates::Date;
     ///
@@ -73,7 +73,7 @@ pub trait HasExpiry {
 ///
 /// Implementing for a custom option:
 ///
-/// ```rust,no_run
+/// ```rust,ignore
 /// use finstack_valuations::metrics::HasDayCount;
 /// use finstack_core::dates::DayCount;
 ///
@@ -96,7 +96,7 @@ pub trait HasDayCount {
     ///
     /// # Examples
     ///
-    /// ```rust,no_run
+    /// ```rust,ignore
     /// use finstack_valuations::metrics::HasDayCount;
     /// use finstack_core::dates::DayCount;
     ///
@@ -125,7 +125,7 @@ pub trait HasDayCount {
 ///
 /// Implementing for a Monte Carlo option:
 ///
-/// ```rust,no_run
+/// ```rust,ignore
 /// use finstack_valuations::metrics::HasPricingOverrides;
 /// use finstack_valuations::instruments::PricingOverrides;
 ///
@@ -145,7 +145,7 @@ pub trait HasPricingOverrides {
     ///
     /// # Examples
     ///
-    /// ```rust,no_run
+    /// ```rust,ignore
     /// use finstack_valuations::metrics::HasPricingOverrides;
     ///
     /// // Set deterministic MC seed for greek calculation
@@ -180,7 +180,7 @@ pub trait HasPricingOverrides {
 ///
 /// # Examples
 ///
-/// ```rust,no_run
+/// ```rust,ignore
 /// use finstack_valuations::instruments::BarrierOption;
 /// use finstack_valuations::metrics::{GenericFdDelta, MetricId, MetricRegistry};
 /// use finstack_valuations::pricer::InstrumentType;

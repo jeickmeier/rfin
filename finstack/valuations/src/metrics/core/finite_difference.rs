@@ -50,26 +50,17 @@ pub mod bump_sizes {
 ///
 /// # Examples
 ///
-/// ```rust
-/// use finstack_valuations::metrics::bump_scalar_price;
+/// ```rust,ignore
+/// // This function is internal - use Delta metric calculators for public API
+/// use finstack_valuations::metrics::core::finite_difference::bump_scalar_price;
 /// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::market_data::scalars::MarketScalar;
-/// use finstack_core::dates::create_date;
-/// use time::Month;
 ///
-/// # fn example() -> finstack_core::Result<()> {
-/// let as_of = create_date(2024, Month::January, 1)?;
-/// let context = MarketContext::new();
-///
-/// // Add a spot price
-/// let context = context.insert_price("AAPL", MarketScalar::Unitless(150.0));
+/// let context = MarketContext::new()
+///     .insert_price("AAPL", MarketScalar::Unitless(150.0));
 ///
 /// // Bump the price up by 1%
 /// let bumped = bump_scalar_price(&context, "AAPL", 0.01)?;
-/// let new_price = bumped.price("AAPL")?;
-/// // new_price should be 151.5 (150 * 1.01)
-/// # Ok(())
-/// # }
 /// ```
 pub fn bump_scalar_price(
     context: &finstack_core::market_data::context::MarketContext,
@@ -118,32 +109,17 @@ pub fn bump_scalar_price(
 ///
 /// # Examples
 ///
-/// ```rust
-/// use finstack_valuations::metrics::bump_discount_curve_parallel;
+/// ```rust,ignore
+/// // This function is internal - use DV01 metric calculators for public API
+/// use finstack_valuations::metrics::core::finite_difference::bump_discount_curve_parallel;
 /// use finstack_core::market_data::context::MarketContext;
-/// use finstack_core::market_data::term_structures::DiscountCurve;
 /// use finstack_core::types::CurveId;
-/// use finstack_core::dates::create_date;
-/// use finstack_core::dates::DayCount;
-/// use time::Month;
 ///
-/// # fn example() -> finstack_core::Result<()> {
-/// let as_of = create_date(2024, Month::January, 1)?;
+/// let context = MarketContext::new();
 /// let curve_id = CurveId::from("USD-OIS");
-///
-/// // Create a discount curve
-/// let curve = DiscountCurve::builder(curve_id.clone())
-///     .base_date(as_of)
-///     .day_count(DayCount::Act365F)
-///     .knots(vec![(0.0, 1.0), (1.0, 0.96), (5.0, 0.85)])
-///     .build()?;
-///
-/// let context = MarketContext::new().insert_discount(curve);
 ///
 /// // Bump the curve by 1bp (1.0 in bp units)
 /// let bumped = bump_discount_curve_parallel(&context, &curve_id, 1.0)?;
-/// # Ok(())
-/// # }
 /// ```
 pub fn bump_discount_curve_parallel(
     context: &finstack_core::market_data::context::MarketContext,

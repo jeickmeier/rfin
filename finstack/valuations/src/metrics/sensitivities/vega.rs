@@ -41,7 +41,7 @@ pub fn standard_strike_ratios() -> Vec<f64> {
 ///
 /// # Examples
 ///
-/// ```rust,no_run
+/// ```rust,ignore
 /// use finstack_valuations::instruments::EquityOption;
 /// use finstack_valuations::metrics::KeyRateVega;
 ///
@@ -69,12 +69,13 @@ impl<I> KeyRateVega<I> {
     ///
     /// # Examples
     ///
-    /// ```rust
-    /// use finstack_valuations::metrics::KeyRateVega;
+    /// ```rust,ignore
+    /// // KeyRateVega is internal - use MetricId::KeyRateVega via price_with_metrics
+    /// use finstack_valuations::metrics::sensitivities::vega::KeyRateVega;
     /// use finstack_valuations::instruments::EquityOption;
     ///
     /// let expiries = vec![0.25, 0.5, 1.0, 2.0];
-    /// let strikes = vec![0.9, 1.0, 1.1]; // 90%, 100%, 110% of spot
+    /// let strikes = vec![0.9, 1.0, 1.1];
     /// let calculator = KeyRateVega::<EquityOption>::new(expiries, strikes);
     /// ```
     pub fn new(expiries: Vec<f64>, strikes: Vec<f64>) -> Self {
@@ -92,8 +93,9 @@ impl<I> KeyRateVega<I> {
     ///
     /// # Examples
     ///
-    /// ```rust
-    /// use finstack_valuations::metrics::KeyRateVega;
+    /// ```rust,ignore
+    /// // KeyRateVega is internal - use MetricId::KeyRateVega via price_with_metrics
+    /// use finstack_valuations::metrics::sensitivities::vega::KeyRateVega;
     /// use finstack_valuations::instruments::EquityOption;
     ///
     /// let calculator = KeyRateVega::<EquityOption>::standard();

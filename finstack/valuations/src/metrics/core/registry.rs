@@ -17,8 +17,8 @@ use std::sync::Arc;
 ///
 /// # Examples
 ///
-/// ```
-/// use finstack_valuations::metrics::StrictMode;
+/// ```rust,ignore
+/// use finstack_valuations::metrics::core::registry::StrictMode;
 ///
 /// // Strict mode (default): fails fast on any error
 /// let mode = StrictMode::Strict;

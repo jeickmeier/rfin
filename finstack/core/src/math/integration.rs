@@ -438,13 +438,36 @@ impl GaussHermiteQuadrature {
 /// Provides good accuracy for smooth functions. Requires an even number of intervals.
 ///
 /// # Arguments
+///
 /// * `f` - Function to integrate
 /// * `a` - Lower bound
 /// * `b` - Upper bound  
-/// * `n` - Number of intervals (must be even)
+/// * `n` - Number of intervals (must be even and > 0)
 ///
 /// # Returns
-/// Approximate integral value
+///
+/// Approximate integral value.
+///
+/// # Errors
+///
+/// Returns [`InputError::Invalid`](crate::error::InputError::Invalid) when:
+/// - `n` is zero
+/// - `n` is not an even number
+///
+/// # Complexity
+///
+/// - **Time**: O(n) function evaluations
+/// - **Space**: O(1) auxiliary space
+///
+/// # Example
+///
+/// ```rust
+/// use finstack_core::math::integration::simpson_rule;
+///
+/// // Integrate x² from 0 to 1 (exact answer: 1/3)
+/// let integral = simpson_rule(|x| x * x, 0.0, 1.0, 100).expect("Valid parameters");
+/// assert!((integral - 1.0/3.0).abs() < 1e-6);
+/// ```
 pub fn simpson_rule<F2>(f: F2, a: f64, b: f64, n: usize) -> Result<f64, Error>
 where
     F2: Fn(f64) -> f64,
@@ -478,12 +501,40 @@ where
 /// function evaluations for smooth functions.
 ///
 /// # Arguments
-/// * `f` - Function to integrate
+///
+/// * `f` - Function to integrate (must implement `Copy` for recursive calls)
 /// * `a` - Lower bound
 /// * `b` - Upper bound
-/// * `tol` - Error tolerance
+/// * `tol` - Error tolerance for adaptive refinement
+/// * `max_depth` - Maximum recursion depth to prevent infinite refinement
 ///
-/// Convenience alias: Adaptive Simpson integration with error control.
+/// # Returns
+///
+/// Approximate integral value with error bounded by `tol` (when possible).
+///
+/// # Algorithm
+///
+/// Uses recursive bisection with Simpson's rule on each subinterval. At each level:
+/// 1. Compute Simpson's rule on `[a, b]`
+/// 2. Compute Simpson's rule on `[a, mid]` and `[mid, b]`
+/// 3. If error estimate ≤ `tol` or depth ≥ `max_depth`, return the composite estimate
+/// 4. Otherwise, recursively refine each half with `tol/2`
+///
+/// # Complexity
+///
+/// - **Time**: O(2^max_depth) function evaluations in worst case; typically much fewer
+/// - **Space**: O(max_depth) stack frames
+///
+/// # Example
+///
+/// ```rust
+/// use finstack_core::math::integration::adaptive_simpson;
+///
+/// // Integrate an oscillatory function with high precision
+/// let integral = adaptive_simpson(|x| (10.0 * x).sin(), 0.0, std::f64::consts::PI, 1e-6, 100)
+///     .expect("Integration succeeds");
+/// assert!(integral.abs() < 0.01); // Should be close to 0
+/// ```
 pub fn adaptive_simpson<F2>(f: F2, a: f64, b: f64, tol: f64, max_depth: usize) -> Result<f64, Error>
 where
     F2: Fn(f64) -> f64 + Copy,
@@ -650,10 +701,46 @@ fn gl_nodes_weights(order: usize) -> Result<(&'static [f64], &'static [f64]), Er
 ///   control and aren't sure about function smoothness.
 ///
 /// # Arguments
+///
 /// * `f` - Function to integrate
-/// * `a` - Lower bound of integration
-/// * `b` - Upper bound of integration
+/// * `a` - Lower bound of integration (must be finite)
+/// * `b` - Upper bound of integration (must be finite)
 /// * `order` - Quadrature order (supported: 2, 4, 8, 16)
+///
+/// # Returns
+///
+/// - `Ok(0.0)` if `a == b`
+/// - `Ok(integral)` for the approximate integral value
+///
+/// # Errors
+///
+/// Returns [`InputError::Invalid`](crate::error::InputError::Invalid) when:
+/// - `a` or `b` is not finite (NaN or infinity)
+/// - `order` is not one of the supported values (2, 4, 8, 16)
+///
+/// # Complexity
+///
+/// - **Time**: O(order) function evaluations
+/// - **Space**: O(1) auxiliary space (nodes/weights are static)
+///
+/// # Precision Guidelines
+///
+/// | Order | Polynomial Exactness | Recommended Use |
+/// |-------|---------------------|-----------------|
+/// | 2 | Degree 3 | Very rough estimates |
+/// | 4 | Degree 7 | Quick calculations |
+/// | 8 | Degree 15 | Standard accuracy |
+/// | 16 | Degree 31 | High precision |
+///
+/// # Example
+///
+/// ```rust
+/// use finstack_core::math::integration::gauss_legendre_integrate;
+///
+/// // Integrate x³ from -1 to 1 (exact answer: 0)
+/// let integral = gauss_legendre_integrate(|x| x.powi(3), -1.0, 1.0, 4).expect("Valid order");
+/// assert!(integral.abs() < 1e-10);
+/// ```
 pub fn gauss_legendre_integrate<F2>(f: F2, a: f64, b: f64, order: usize) -> Result<f64, Error>
 where
     F2: Fn(f64) -> f64,
@@ -676,6 +763,33 @@ where
 }
 
 /// Composite Gauss–Legendre over \[a,b\] using `panels` sub-intervals.
+///
+/// Divides the integration interval into `panels` equal sub-intervals and applies
+/// Gauss-Legendre quadrature to each. This improves accuracy for functions that
+/// are not well-approximated by polynomials over the full interval.
+///
+/// # Arguments
+///
+/// * `f` - Function to integrate
+/// * `a` - Lower bound of integration
+/// * `b` - Upper bound of integration
+/// * `order` - Quadrature order per panel (supported: 2, 4, 8, 16)
+/// * `panels` - Number of sub-intervals (must be > 0)
+///
+/// # Returns
+///
+/// Approximate integral value.
+///
+/// # Errors
+///
+/// Returns [`InputError::Invalid`](crate::error::InputError::Invalid) when:
+/// - `panels` is zero
+/// - `order` is unsupported (see [`gauss_legendre_integrate`])
+///
+/// # Complexity
+///
+/// - **Time**: O(panels × order) function evaluations
+/// - **Space**: O(1) auxiliary space
 pub fn gauss_legendre_integrate_composite<F2>(
     f: F2,
     a: f64,
@@ -699,7 +813,54 @@ where
     Ok(sum)
 }
 
-/// Adaptive Gauss–Legendre based on panel refinement until tolerance is met.
+/// Adaptive Gauss–Legendre integration with automatic refinement.
+///
+/// Recursively bisects the interval and refines where the error estimate
+/// exceeds tolerance, providing automatic accuracy control.
+///
+/// # Arguments
+///
+/// * `f` - Function to integrate (must implement `Copy` for recursive calls)
+/// * `a` - Lower bound of integration
+/// * `b` - Upper bound of integration
+/// * `order` - Quadrature order per subinterval (supported: 2, 4, 8, 16)
+/// * `tol` - Error tolerance for refinement decisions
+/// * `max_depth` - Maximum recursion depth to prevent infinite refinement
+///
+/// # Returns
+///
+/// Approximate integral value with error bounded by `tol` (when possible).
+///
+/// # Algorithm
+///
+/// At each level:
+/// 1. Compute integral over `[a, b]` using single Gauss-Legendre
+/// 2. Compute integral over `[a, mid]` + `[mid, b]`
+/// 3. If difference ≤ `tol` or depth ≥ `max_depth`, return composite result
+/// 4. Otherwise, recursively refine each half
+///
+/// # Complexity
+///
+/// - **Time**: O(order × 2^max_depth) evaluations worst case
+/// - **Space**: O(max_depth) stack frames
+///
+/// # Example
+///
+/// ```rust
+/// use finstack_core::math::integration::gauss_legendre_integrate_adaptive;
+///
+/// // Integrate a function with a peak
+/// let integral = gauss_legendre_integrate_adaptive(
+///     |x| (-x * x).exp(),
+///     -5.0, 5.0,
+///     8,    // order
+///     1e-8, // tolerance
+///     20    // max depth
+/// ).expect("Integration succeeds");
+///
+/// // Should be close to sqrt(π) ≈ 1.7725
+/// assert!((integral - std::f64::consts::PI.sqrt()).abs() < 1e-6);
+/// ```
 pub fn gauss_legendre_integrate_adaptive<F2>(
     f: F2,
     a: f64,
@@ -743,16 +904,42 @@ where
 /// Trapezoidal rule for numerical integration.
 ///
 /// Simple and robust integration method. Less accurate than Simpson's rule
-/// but more stable for discontinuous functions.
+/// for smooth functions, but more stable for discontinuous functions.
 ///
 /// # Arguments
+///
 /// * `f` - Function to integrate
 /// * `a` - Lower bound
 /// * `b` - Upper bound
-/// * `n` - Number of intervals
+/// * `n` - Number of intervals (must be > 0)
 ///
 /// # Returns
-/// Approximate integral value
+///
+/// Approximate integral value.
+///
+/// # Errors
+///
+/// Returns [`InputError::Invalid`](crate::error::InputError::Invalid) when `n` is zero.
+///
+/// # Complexity
+///
+/// - **Time**: O(n) function evaluations
+/// - **Space**: O(1) auxiliary space
+///
+/// # Accuracy
+///
+/// Error is O(h²) where h = (b-a)/n, assuming f has continuous second derivative.
+/// For smooth functions, prefer [`simpson_rule`] which has O(h⁴) error.
+///
+/// # Example
+///
+/// ```rust
+/// use finstack_core::math::integration::trapezoidal_rule;
+///
+/// // Integrate x from 0 to 1 (exact answer: 0.5)
+/// let integral = trapezoidal_rule(|x| x, 0.0, 1.0, 100).expect("Valid n");
+/// assert!((integral - 0.5).abs() < 1e-4);
+/// ```
 pub fn trapezoidal_rule<F2>(f: F2, a: f64, b: f64, n: usize) -> Result<f64, Error>
 where
     F2: Fn(f64) -> f64,

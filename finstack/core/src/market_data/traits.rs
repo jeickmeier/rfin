@@ -17,9 +17,37 @@ use crate::dates::{Date, DayCount, DayCountCtx};
 // -----------------------------------------------------------------------------
 
 /// Minimal trait for discount curve polymorphism.
+///
 /// Only implement this where you need to accept different discount curve types.
+/// Most code should use concrete curve types directly for better discoverability.
+///
+/// # Required Methods
+///
+/// - [`base_date`](Self::base_date) - Returns the curve's valuation date
+/// - [`df`](Self::df) - Returns discount factor at time `t`
+///
+/// # Provided Methods
+///
+/// - [`day_count`](Self::day_count) - Day count convention (default: Act365F)
+/// - [`df_between_dates`](Self::df_between_dates) - Relative discount factor between dates
+/// - [`df_between_times`](Self::df_between_times) - Relative discount factor between times
+/// - [`forward_rate_between_times`](Self::forward_rate_between_times) - Forward rate from times
+/// - [`forward_rate_between_dates`](Self::forward_rate_between_dates) - Forward rate from dates
+/// - [`instantaneous_forward`](Self::instantaneous_forward) - Instantaneous forward rate
+///
+/// # Implementation Guide
+///
+/// Implementors must provide:
+/// 1. A base (valuation) date via [`base_date`](Self::base_date)
+/// 2. A discount factor function via [`df`](Self::df) that maps year fractions to discount factors
+///
+/// The default [`day_count`](Self::day_count) returns `Act365F`. Override if your curve uses a
+/// different convention.
 ///
 /// # Examples
+///
+/// ## Using a Discount Curve
+///
 /// ```rust
 /// use finstack_core::market_data::traits::{Discounting, TermStructure};
 /// use finstack_core::types::CurveId;
@@ -51,6 +79,11 @@ use crate::dates::{Date, DayCount, DayCountCtx};
 /// let curve = FlatCurve::new("USD", 0.97);
 /// assert!(curve.df(1.0) < 1.0);
 /// ```
+///
+/// # See Also
+///
+/// - [`Forward`] - Trait for forward rate curves
+/// - [`Survival`] - Trait for hazard/survival curves
 pub trait Discounting: TermStructure {
     /// Base (valuation) date of the curve.
     fn base_date(&self) -> Date;
@@ -184,12 +217,67 @@ pub trait Discounting: TermStructure {
 }
 
 /// Minimal trait for forward curve polymorphism where needed.
-/// Most code should call methods directly on `ForwardCurve`.
+///
+/// Most code should call methods directly on `ForwardCurve`. This trait enables
+/// polymorphic code that needs to accept different forward curve implementations.
+///
+/// # Required Methods
+///
+/// - [`rate`](Self::rate) - Returns the forward rate at time `t`
+///
+/// # Provided Methods
+///
+/// - [`rate_period`](Self::rate_period) - Average rate over `[t1, t2]`
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::market_data::traits::{Forward, TermStructure};
+/// use finstack_core::types::CurveId;
+///
+/// struct FlatForward {
+///     id: CurveId,
+///     rate: f64,
+/// }
+///
+/// impl TermStructure for FlatForward {
+///     fn id(&self) -> &CurveId { &self.id }
+/// }
+///
+/// impl Forward for FlatForward {
+///     fn rate(&self, _t: f64) -> f64 { self.rate }
+/// }
+///
+/// let curve = FlatForward { id: CurveId::from("USD-3M"), rate: 0.05 };
+/// assert_eq!(curve.rate(1.0), 0.05);
+/// assert_eq!(curve.rate_period(0.5, 1.0), 0.05); // Flat curve: period average = rate
+/// ```
 pub trait Forward: TermStructure {
     /// Simple forward rate starting at time `t`.
+    ///
+    /// # Arguments
+    ///
+    /// * `t` - Time in years from the curve's base date
+    ///
+    /// # Returns
+    ///
+    /// The instantaneous forward rate at time `t`.
     fn rate(&self, t: f64) -> f64;
 
-    /// Average rate over `[t1, t2]`.
+    /// Average rate over the period `[t1, t2]`.
+    ///
+    /// # Arguments
+    ///
+    /// * `t1` - Start time in years
+    /// * `t2` - End time in years (must be > t1)
+    ///
+    /// # Returns
+    ///
+    /// The average of the forward rates at `t1` and `t2`.
+    ///
+    /// # Panics
+    ///
+    /// Debug assertion failure if `t2 <= t1`.
     #[inline]
     fn rate_period(&self, t1: f64, t2: f64) -> f64 {
         debug_assert!(t2 > t1, "t2 must be after t1");
@@ -198,9 +286,59 @@ pub trait Forward: TermStructure {
 }
 
 /// Minimal trait for survival/hazard curve polymorphism where needed.
-/// Most code should call methods directly on `HazardCurve`.
+///
+/// Most code should call methods directly on `HazardCurve`. This trait enables
+/// polymorphic code that needs to accept different survival curve implementations.
+///
+/// # Required Methods
+///
+/// - [`sp`](Self::sp) - Returns the survival probability at time `t`
+///
+/// # Mathematical Background
+///
+/// The survival probability `S(t)` represents the probability of no default
+/// occurring before time `t`. It relates to the hazard rate `λ(t)` via:
+///
+/// ```text
+/// S(t) = exp(-∫₀ᵗ λ(s) ds)
+/// ```
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::market_data::traits::{Survival, TermStructure};
+/// use finstack_core::types::CurveId;
+///
+/// struct FlatHazard {
+///     id: CurveId,
+///     hazard_rate: f64, // Constant hazard rate
+/// }
+///
+/// impl TermStructure for FlatHazard {
+///     fn id(&self) -> &CurveId { &self.id }
+/// }
+///
+/// impl Survival for FlatHazard {
+///     fn sp(&self, t: f64) -> f64 {
+///         (-self.hazard_rate * t).exp()
+///     }
+/// }
+///
+/// let curve = FlatHazard { id: CurveId::from("XYZ-HAZARD"), hazard_rate: 0.02 };
+/// let sp_1y = curve.sp(1.0);
+/// assert!(sp_1y < 1.0 && sp_1y > 0.0); // Survival prob decreases over time
+/// ```
 pub trait Survival: TermStructure {
     /// Survival probability up to time `t`.
+    ///
+    /// # Arguments
+    ///
+    /// * `t` - Time in years from the curve's base date
+    ///
+    /// # Returns
+    ///
+    /// The probability of survival (no default) from time 0 to time `t`,
+    /// a value in the range `(0, 1]`.
     fn sp(&self, t: f64) -> f64;
 }
 

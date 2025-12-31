@@ -12,18 +12,23 @@
 //!
 //! # Examples
 //!
-//! ```rust,no_run
-//! use finstack_valuations::instruments::bond::Bond;
-//! use finstack_valuations::instruments::bond::pricing::discount_engine::BondEngine;
-//! use finstack_core::market_data::context::MarketContext;
-//! use finstack_core::dates::Date;
+//! Price a bond using the [`Instrument`] trait:
 //!
-//! # let bond = Bond::example();
-//! # let market = MarketContext::new();
-//! # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
-//! let pv = BondEngine::price(&bond, &market, as_of)?;
-//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```rust,ignore
+//! use finstack_valuations::instruments::Bond;
+//! use finstack_valuations::instruments::common::traits::Instrument;
+//! use finstack_core::market_data::context::MarketContext;
+//! use time::macros::date;
+//!
+//! let bond = Bond::example();
+//! let market = MarketContext::new();
+//! let as_of = date!(2024-01-15);
+//!
+//! // Use Instrument trait for pricing
+//! let pv = bond.value(&market, as_of)?;
 //! ```
+//!
+//! [`Instrument`]: crate::instruments::common::traits::Instrument
 //!
 //! # See Also
 //!

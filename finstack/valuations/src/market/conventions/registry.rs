@@ -110,8 +110,11 @@ impl ConventionRegistry {
     /// ```rust
     /// use finstack_valuations::market::conventions::registry::ConventionRegistry;
     ///
+    /// # fn example() -> finstack_core::Result<()> {
     /// let registry = ConventionRegistry::try_global()?;
     /// // Registry is now initialized and ready to use
+    /// # Ok(())
+    /// # }
     /// ```
     ///
     /// # Panics

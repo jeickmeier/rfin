@@ -55,8 +55,8 @@ use ts_rs::TS;
 ///     rate: 0.0525,
 /// });
 ///
-/// // Bump by 1 basis point
-/// let bumped = quote.bump(0.0001);
+/// // Bump by 1 basis point (0.0001 in decimal)
+/// let bumped = quote.bump_rate_decimal(0.0001)?;
 /// # Ok(())
 /// # }
 /// ```

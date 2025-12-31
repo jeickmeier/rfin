@@ -25,12 +25,13 @@ pub trait CashflowProvider: Send + Sync {
     ///
     /// # Examples
     ///
-    /// ```rust,no_run
+    /// ```rust
     /// use finstack_core::currency::Currency;
-    /// use finstack_core::dates::Date;
+    /// use finstack_core::dates::{Date, DayCount};
     /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::money::Money;
-    /// use finstack_valuations::cashflow::traits::{CashflowProvider, DatedFlows};
+    /// use finstack_valuations::cashflow::builder::CashFlowSchedule;
+    /// use finstack_valuations::cashflow::traits::{CashflowProvider, schedule_from_dated_flows};
     ///
     /// struct MyInstrument {
     ///     notional: Money,

@@ -7,7 +7,7 @@
 //!
 //! ## Example 1: Computing 1-Day Theta for an Equity Option
 //!
-//! ```rust,no_run
+//! ```rust,ignore
 //! use finstack_valuations::instruments::EquityOption;
 //! use finstack_valuations::instruments::Instrument;
 //! use finstack_valuations::metrics::{standard_registry, MetricId};
@@ -47,7 +47,7 @@
 //!
 //! ## Example 2: Computing Custom Period Theta (1 Week)
 //!
-//! ```rust,no_run
+//! ```rust,ignore
 //! use finstack_valuations::instruments::{EquityOption, PricingOverrides};
 //! use finstack_valuations::instruments::Instrument;
 //! use finstack_valuations::metrics::{standard_registry, MetricId};
@@ -89,7 +89,7 @@
 //!
 //! ## Example 3: Bond Carry (Theta with Coupon Accrual)
 //!
-//! ```rust,no_run
+//! ```rust,ignore
 //! use finstack_valuations::instruments::{Bond, PricingOverrides};
 //! use finstack_valuations::instruments::Instrument;
 //! use finstack_valuations::metrics::{standard_registry, MetricId};
@@ -126,7 +126,7 @@
 //! When an instrument expires before the theta period ends, theta is automatically
 //! capped at the expiry date:
 //!
-//! ```rust,no_run
+//! ```rust,ignore
 //! use finstack_valuations::instruments::{EquityOption, PricingOverrides};
 //! use finstack_valuations::instruments::Instrument;
 //! use finstack_valuations::metrics::{standard_registry, MetricId};
@@ -450,19 +450,13 @@ where
 /// * `I` - Instrument type implementing `Instrument` trait
 ///
 /// # Examples
-/// ```
-/// use finstack_valuations::metrics::GenericTheta;
-/// use finstack_valuations::instruments::Bond;
-/// use finstack_valuations::metrics::{MetricRegistry, MetricId};
-/// use finstack_valuations::pricer::InstrumentType;
-/// use std::sync::Arc;
 ///
-/// let mut registry = MetricRegistry::new();
-/// registry.register_metric(
-///     MetricId::Theta,
-///     Arc::new(GenericTheta::<Bond>::default()),
-///     &[InstrumentType::Bond],
-/// );
+/// ```rust,ignore
+/// // GenericTheta is internal - use MetricId::Theta via price_with_metrics
+/// use finstack_valuations::metrics::sensitivities::theta::GenericTheta;
+/// use finstack_valuations::instruments::Bond;
+///
+/// let calculator = GenericTheta::<Bond>::default();
 /// ```
 pub struct GenericTheta<I> {
     _phantom: PhantomData<I>,

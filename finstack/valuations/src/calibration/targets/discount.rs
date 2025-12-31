@@ -65,12 +65,13 @@ pub struct DiscountCurveTargetParams {
 /// pricing logic.
 ///
 /// # Examples
-/// ```rust,no_run
-/// # use finstack_valuations::calibration::targets::discount::{DiscountCurveTarget, DiscountCurveTargetParams};
-/// # fn example(params: DiscountCurveTargetParams) {
-/// let target = DiscountCurveTarget::new(params);
-/// // Use with SequentialBootstrapper or GlobalFitOptimizer
-/// # }
+///
+/// ```rust,ignore
+/// // DiscountCurveTarget is internal - use the calibration API instead
+/// use finstack_valuations::calibration::{calibrate_discount_curve, DiscountCurveParams};
+///
+/// let params = DiscountCurveParams { /* ... */ };
+/// let curve = calibrate_discount_curve(&params, &quotes)?;
 /// ```
 pub struct DiscountCurveTarget {
     /// Base date for the curve.

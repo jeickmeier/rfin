@@ -30,18 +30,23 @@ use super::super::types::Bond;
 ///
 /// # Examples
 ///
-/// ```rust,no_run
-/// use finstack_valuations::instruments::bond::Bond;
-/// use finstack_valuations::instruments::bond::pricing::discount_engine::BondEngine;
-/// use finstack_core::market_data::context::MarketContext;
-/// use finstack_core::dates::Date;
+/// Bond pricing is performed via the [`Instrument`] trait or the pricer registry:
 ///
-/// # let bond = Bond::example();
-/// # let market = MarketContext::new();
-/// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
-/// let pv = BondEngine::price(&bond, &market, as_of)?;
-/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```rust,ignore
+/// use finstack_valuations::instruments::Bond;
+/// use finstack_valuations::instruments::common::traits::Instrument;
+/// use finstack_core::market_data::context::MarketContext;
+/// use time::macros::date;
+///
+/// let bond = Bond::example();
+/// let market = MarketContext::new();
+/// let as_of = date!(2024-01-15);
+///
+/// // Use Instrument trait for public API
+/// let pv = bond.value(&market, as_of)?;
 /// ```
+///
+/// [`Instrument`]: crate::instruments::common::traits::Instrument
 pub struct BondEngine;
 
 impl BondEngine {

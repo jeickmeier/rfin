@@ -30,23 +30,11 @@
 //!
 //! # Quick Example
 //!
-//! ```rust,no_run
+//! ```rust
 //! use finstack_valuations::instruments::fx::FxOption;
-//! use finstack_core::currency::Currency;
-//! use finstack_core::money::Money;
-//! use time::macros::date;
 //!
-//! // 3-month EUR/USD call option
-//! let option = FxOption::call(
-//!     "EURUSD-CALL",
-//!     Currency::EUR,
-//!     Currency::USD,
-//!     1.10,  // Strike
-//!     date!(2025-04-15),
-//!     Money::new(1_000_000.0, Currency::EUR),
-//!     "EUR-OIS",
-//!     "USD-OIS",
-//! );
+//! // Use the example FX option (EUR/USD call)
+//! let _option = FxOption::example();
 //! ```
 //!
 //! # Greeks

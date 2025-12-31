@@ -562,8 +562,47 @@ impl DayCount {
     /// Compute the year fraction between `start` and `end` per this convention.
     ///
     /// Provide any required context via [`DayCountCtx`]:
-    /// - `Bus/252` requires a holiday calendar.
-    /// - `Act/Act (ISMA)` requires a coupon frequency.
+    /// - `Bus/252` requires a holiday calendar
+    /// - `Act/Act (ISMA)` requires a coupon frequency
+    ///
+    /// # Arguments
+    ///
+    /// * `start` - Start date (inclusive)
+    /// * `end` - End date (exclusive)
+    /// * `ctx` - Optional context providing calendar or frequency as needed
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(0.0)` if `start == end`
+    /// - `Ok(year_fraction)` for the calculated year fraction (always ≥ 0)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when:
+    /// - [`InputError::InvalidDateRange`](crate::error::InputError::InvalidDateRange):
+    ///   `start > end` (inverted date range)
+    /// - [`InputError::MissingCalendarForBus252`](crate::error::InputError::MissingCalendarForBus252):
+    ///   Using `Bus252` without a calendar in `ctx`
+    /// - [`InputError::InvalidBusBasis`](crate::error::InputError::InvalidBusBasis):
+    ///   Using `Bus252` with a zero basis
+    /// - [`InputError::MissingFrequencyForActActIsma`](crate::error::InputError::MissingFrequencyForActActIsma):
+    ///   Using `ActActIsma` without a frequency in `ctx`
+    /// - [`InputError::ActActIsmaUnsupportedFrequency`](crate::error::InputError::ActActIsmaUnsupportedFrequency):
+    ///   Using `ActActIsma` with a Day or Week frequency
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::dates::{Date, DayCount, DayCountCtx};
+    /// use time::Month;
+    ///
+    /// let start = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
+    /// let end = Date::from_calendar_date(2025, Month::July, 1).expect("Valid date");
+    ///
+    /// let yf = DayCount::Act360.year_fraction(start, end, DayCountCtx::default())?;
+    /// assert!(yf > 0.0);
+    /// # Ok::<(), finstack_core::Error>(())
+    /// ```
     pub fn year_fraction(self, start: Date, end: Date, ctx: DayCountCtx<'_>) -> crate::Result<f64> {
         match start.cmp(&end) {
             Ordering::Greater => Err(InputError::InvalidDateRange.into()),
@@ -614,6 +653,41 @@ impl DayCount {
     ///
     /// Returns positive if `end > start`, negative if `end < start`, and zero if equal.
     /// This is useful for cashflow discounting where time can be negative relative to a base date.
+    ///
+    /// # Arguments
+    ///
+    /// * `start` - Reference date
+    /// * `end` - Target date
+    /// * `ctx` - Optional context providing calendar or frequency as needed
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(0.0)` if `start == end`
+    /// - `Ok(positive)` if `end > start`
+    /// - `Ok(negative)` if `end < start`
+    ///
+    /// # Errors
+    ///
+    /// Same errors as [`year_fraction`](Self::year_fraction), but never returns
+    /// `InvalidDateRange` since inverted dates produce negative fractions.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::dates::{Date, DayCount, DayCountCtx};
+    /// use time::Month;
+    ///
+    /// let base = Date::from_calendar_date(2025, Month::July, 1).expect("Valid date");
+    /// let past = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
+    /// let future = Date::from_calendar_date(2026, Month::January, 1).expect("Valid date");
+    ///
+    /// let yf_past = DayCount::Act365F.signed_year_fraction(base, past, DayCountCtx::default())?;
+    /// let yf_future = DayCount::Act365F.signed_year_fraction(base, future, DayCountCtx::default())?;
+    ///
+    /// assert!(yf_past < 0.0);  // Past is negative
+    /// assert!(yf_future > 0.0); // Future is positive
+    /// # Ok::<(), finstack_core::Error>(())
+    /// ```
     pub fn signed_year_fraction(
         self,
         start: Date,

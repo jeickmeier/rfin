@@ -26,22 +26,25 @@
 //!
 //! # Quick Example
 //!
-//! ```rust,no_run
+//! ```rust
 //! use finstack_valuations::instruments::commodity::CommodityForward;
 //! use finstack_core::currency::Currency;
-//! use finstack_core::money::Money;
+//! use finstack_core::types::{CurveId, InstrumentId};
 //! use time::macros::date;
 //!
-//! let forward = CommodityForward::new(
-//!     "WTI-DEC25",
-//!     "CL",  // WTI Crude
-//!     date!(2025-12-15),
-//!     75.50,  // Forward price
-//!     1000.0, // Quantity (barrels)
-//!     Money::new(1_000_000.0, Currency::USD),
-//!     "USD-OIS",
-//!     "CL-FORWARD",
-//! );
+//! let forward = CommodityForward::builder()
+//!     .id(InstrumentId::new("WTI-DEC25"))
+//!     .commodity_type("Energy".to_string())
+//!     .ticker("CL".to_string())
+//!     .quantity(1000.0)
+//!     .unit("BBL".to_string())
+//!     .multiplier(1.0)
+//!     .settlement_date(date!(2025-12-15))
+//!     .currency(Currency::USD)
+//!     .forward_curve_id(CurveId::new("CL-FORWARD"))
+//!     .discount_curve_id(CurveId::new("USD-OIS"))
+//!     .build()
+//!     .expect("Valid forward");
 //! ```
 //!
 //! # References

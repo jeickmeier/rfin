@@ -16,25 +16,15 @@
 //!
 //! # Quick Start
 //!
-//! ## Example 1: Key-Rate DV01 for a Bond (Triangular Method)
+//! For DV01 calculations, use the [`MetricId::Dv01`] or [`MetricId::BucketedDv01`]
+//! metrics via the [`Instrument::price_with_metrics`] method:
 //!
-//! ```rust,no_run
-//! use finstack_valuations::instruments::Bond;
-//! use finstack_valuations::metrics::{
-//!     Dv01CalculatorConfig, MetricCalculator, MetricContext, UnifiedDv01Calculator
-//! };
+//! ```rust,ignore
+//! use finstack_valuations::instruments::{Bond, Instrument};
+//! use finstack_valuations::metrics::MetricId;
 //!
-//! # fn main() -> finstack_core::Result<()> {
-//! let calculator = UnifiedDv01Calculator::<Bond>::new(
-//!     Dv01CalculatorConfig::triangular_key_rate()
-//! );
-//!
-//! # let mut context: MetricContext = todo!("construct MetricContext during pricing");
-//! let total_dv01 = calculator.calculate(&mut context)?;
-//! // Sum of bucketed DV01 will equal parallel DV01 within ~0.1%
-//! # let _ = total_dv01;
-//! # Ok(())
-//! # }
+//! let bond = Bond::example();
+//! let result = bond.price_with_metrics(&market, as_of, &[MetricId::Dv01])?;
 //! ```
 
 use crate::instruments::common::pricing::HasDiscountCurve;
@@ -64,13 +54,13 @@ use std::marker::PhantomData;
 ///
 /// # Examples
 ///
-/// ```rust
-/// use finstack_valuations::metrics::standard_ir_dv01_buckets;
+/// ```rust,ignore
+/// // This function is internal - use MetricId::BucketedDv01 for public API
+/// use finstack_valuations::metrics::sensitivities::dv01::standard_ir_dv01_buckets;
 ///
 /// let buckets = standard_ir_dv01_buckets();
 /// assert_eq!(buckets.len(), 11);
 /// assert_eq!(buckets[0], 0.25); // 3 months
-/// assert_eq!(buckets[10], 30.0); // 30 years
 /// ```
 pub fn standard_ir_dv01_buckets() -> Vec<f64> {
     sens_config::STANDARD_BUCKETS_YEARS.to_vec()

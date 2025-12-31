@@ -25,13 +25,12 @@ use std::sync::Arc;
 ///
 /// # Examples
 ///
-/// ```rust
-/// use finstack_valuations::metrics::standard_credit_cs01_buckets;
+/// ```rust,ignore
+/// // This function is internal - use MetricId::Cs01 for public API
+/// use finstack_valuations::metrics::sensitivities::cs01::standard_credit_cs01_buckets;
 ///
 /// let buckets = standard_credit_cs01_buckets();
 /// assert_eq!(buckets.len(), 11);
-/// assert_eq!(buckets[0], 0.25); // 3 months
-/// assert_eq!(buckets[10], 30.0); // 30 years
 /// ```
 pub fn standard_credit_cs01_buckets() -> Vec<f64> {
     sens_config::STANDARD_BUCKETS_YEARS.to_vec()

@@ -57,6 +57,7 @@ use indexmap::IndexMap;
 ///
 /// ```rust
 /// use finstack_valuations::results::ValuationResult;
+/// use finstack_valuations::metrics::MetricId;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::money::Money;
 /// use finstack_core::dates::create_date;
@@ -67,7 +68,7 @@ use indexmap::IndexMap;
 /// let as_of = create_date(2025, Month::January, 15)?;
 /// let pv = Money::new(1_000_000.0, Currency::USD);
 ///
-/// let mut measures = IndexMap::new();
+/// let mut measures: IndexMap<MetricId, f64> = IndexMap::new();
 /// measures.insert(MetricId::custom("ytm"), 0.0475);
 /// measures.insert(MetricId::custom("modified_duration"), 4.25);
 /// measures.insert(MetricId::custom("dv01"), 425.0);
@@ -361,6 +362,7 @@ impl ValuationResult {
     ///
     /// ```rust
     /// use finstack_valuations::results::ValuationResult;
+    /// use finstack_valuations::metrics::MetricId;
     /// use indexmap::IndexMap;
     /// # use finstack_core::currency::Currency;
     /// # use finstack_core::money::Money;
