@@ -38,6 +38,29 @@
 //! # }
 //! ```
 //!
+//! # API Layers
+//!
+//! The public API is organized into layers:
+//!
+//! ## Core API (Stable)
+//! - [`currency`]: Currency types and ISO-4217 codes
+//! - [`money`]: Monetary amounts with currency safety
+//! - [`dates`]: Date handling, calendars, and schedules
+//! - [`market_data`]: Term structures and market data containers
+//! - [`config`]: Configuration and global settings
+//! - [`types`]: Core type definitions (IDs, rates, etc.)
+//! - [`prelude`]: Convenient re-exports of commonly used types
+//!
+//! ## Extended API (Stable, Less Common)
+//! - [`cashflow`]: Cashflow primitives and discounting
+//! - [`math`]: Numerical utilities and interpolation
+//! - [`expr`]: Expression engine for formula evaluation
+//! - [`explain`]: Computation tracing and debugging
+//! - [`error`]: Error types and result handling
+//!
+//! For most users, importing `use finstack_core::prelude::*;` provides
+//! all commonly needed types.
+//!
 //! # Cargo features
 //! Serde support is always enabled in this crate; no feature flags are required.
 //!
@@ -60,12 +83,19 @@ pub mod config;
 pub mod currency;
 /// Date & calendar helpers (facade over the `time` crate)
 pub mod dates;
-pub(crate) mod error;
-/// Explainability infrastructure (opt-in tracing)
-#[doc(hidden)]
+/// Error types for finstack-core.
+///
+/// The crate uses a unified `Error` enum with specific variants for
+/// different error categories (validation, market data, computation, etc.).
+pub mod error;
+/// Explainability infrastructure for computation tracing.
+///
+/// Provides opt-in tracing for debugging and auditing financial computations.
 pub mod explain;
-/// Expression engine (AST, evaluator, Polars lowering)
-#[doc(hidden)]
+/// Expression engine (AST, evaluator, Polars lowering).
+///
+/// Used by the statements crate for formula evaluation and time-series operations.
+/// Generally not needed by end users unless building custom evaluation logic.
 pub mod expr;
 /// Market data term‐structure framework (former `curves` module)
 pub mod market_data;
@@ -73,6 +103,8 @@ pub mod market_data;
 pub mod math;
 /// Currency-tagged monetary amounts with safe arithmetic
 pub mod money;
+/// Convenient re-exports of commonly used types
+pub mod prelude;
 /// Core type definitions (phantom-typed IDs, rates, etc.)
 pub mod types;
 

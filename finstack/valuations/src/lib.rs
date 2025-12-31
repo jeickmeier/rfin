@@ -163,26 +163,33 @@
 //! - [`covenants`]: Covenant checking for structured products
 //! - [`schema`]: JSON Schema generation for API contracts
 //!
-//! # Public API surface (supported)
+//! # API Layers
 //!
-//! The crate intentionally exposes a small “front door” for downstream users and
-//! bindings. Supported entry points:
-//! - [`instruments`]: concrete instrument types, construction parameters, [`instruments::Instrument`], [`instruments::Attributes`]
-//! - [`pricer`]: [`pricer::PricerRegistry`], [`pricer::ModelKey`], [`pricer::InstrumentType`], [`pricer::PricingError`], [`pricer::create_standard_registry`]
-//! - [`results`]: [`results::ValuationResult`], [`finstack_core::config::ResultsMeta`]
-//! - [`metrics`]: [`metrics::MetricId`], [`metrics::MetricRegistry`], [`metrics::MetricCalculator`], [`metrics::MetricContext`], [`metrics::standard_registry`], plus VaR/Risk entry points
-//! - [`market`]: quote schemas and conventions
-//! - [`calibration::api`]: plan schema and execution engine (contract-only surface)
-//! - [`calibration::bumps`]: shared re-calibration helpers for scenarios and risk
-//! - [`attribution`]: attribution envelopes, methods, and execution functions
-//! - [`covenants`]: covenant specs, engine, and forecasting helpers
-//! - [`margin`]: core margin/netting types and top-level calculators used by portfolio
-//! - [`schema`]: JSON-Schema helpers for bindings/UI
+//! The public API is organized into three layers:
 //!
-//! Everything else is considered implementation detail and may change. Some
-//! legacy paths remain temporarily available under `#[deprecated]` re-exports
-//! for one release to ease migration; new code should use the supported surface
-//! above.
+//! ## Layer 1: Core API (Most Common)
+//! - [`instruments`]: Financial instrument types (bonds, swaps, options, etc.)
+//! - [`pricer`]: Pricing registry and dispatch ([`pricer::PricerRegistry`], [`pricer::create_standard_registry`])
+//! - [`metrics`]: Risk metric calculation ([`metrics::MetricId`], [`metrics::standard_registry`])
+//! - [`results`]: Valuation result envelopes ([`results::ValuationResult`])
+//! - [`calibration::api`]: Calibration schema and execution engine
+//! - [`prelude`]: Convenient re-exports of commonly used types
+//!
+//! ## Layer 2: Extended API (Less Common)
+//! - [`margin`]: Margin calculations (VM/IM/CSA) for collateralized derivatives
+//! - [`attribution`]: P&L attribution analysis
+//! - [`covenants`]: Covenant checking for structured products
+//! - [`cashflow`]: Advanced cashflow schedule builders
+//! - [`market`]: Market quote schemas and conventions
+//! - [`calibration::bumps`]: Shared re-calibration helpers for scenarios
+//!
+//! ## Layer 3: Internal API (Use with Caution)
+//! - Individual pricer implementations (use via [`pricer::PricerRegistry`] instead)
+//! - Calibration solvers (use via [`calibration::api`] instead)
+//! - Low-level market data helpers
+//!
+//! For most users, Layer 1 + `prelude` imports are sufficient.
+//! Import with `use finstack_valuations::prelude::*;` to get started quickly.
 //!
 //! # Supported Instruments
 //!
@@ -292,16 +299,21 @@ compile_error!("finstack-valuations requires the `serde` feature (enabled by def
 pub mod calibration;
 pub mod cashflow;
 pub(crate) mod constants;
-#[doc(hidden)]
+/// Margin calculation for collateralized derivatives.
+///
+/// Provides VM (Variation Margin) and IM (Initial Margin) calculations,
+/// CSA (Credit Support Annex) modeling, and netting set aggregation.
 pub mod margin;
 /// Market quotes and conventions
 pub mod market;
+/// Convenient re-exports for pricing and risk calculations
+pub mod prelude;
 pub mod pricer;
 pub mod results;
 pub(crate) mod schema;
 
 /// Test utilities for building market contexts, dates, and test fixtures.
-#[doc(hidden)]
+#[cfg(any(test, feature = "test-utils"))]
 pub mod test_utils;
 
 // Export macros before instruments module

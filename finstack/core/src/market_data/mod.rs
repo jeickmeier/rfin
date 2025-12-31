@@ -81,8 +81,10 @@ pub mod scalars;
 pub mod surfaces;
 /// One-dimensional term structures (yield, credit, ...).
 pub mod term_structures;
-/// Public trait hierarchy used by pricing components.
-#[doc(hidden)]
+/// Traits for market data types (Discounting, Forward, Survival, etc.).
+///
+/// These traits define the interface for curve types used in pricing.
+/// Useful for generic programming and custom curve implementations.
 pub mod traits;
 // Re-export selected helpers for convenience at `market_data::*` level.
 pub use crate::math::interp::utils::validate_knots;
