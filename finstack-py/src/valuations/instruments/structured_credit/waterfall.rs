@@ -7,7 +7,7 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::structured_credit::{
+use finstack_valuations::instruments::fixed_income::structured_credit::{
     AllocationMode as RustAllocationMode, PaymentCalculation as RustPaymentCalculation,
     PaymentType as RustPaymentType, Recipient as RustRecipient, RecipientType as RustRecipientType,
     WaterfallTier as RustWaterfallTier,

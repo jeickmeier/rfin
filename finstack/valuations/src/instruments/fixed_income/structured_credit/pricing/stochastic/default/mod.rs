@@ -28,4 +28,4 @@ pub use copula_based::CopulaBasedDefault;
 pub use hazard_curve_adapter::HazardCurveDefault;
 pub use intensity_process::IntensityProcessDefault;
 pub use spec::StochasticDefaultSpec;
-pub use traits::{MacroCreditFactors, StochasticDefault};
+pub use traits::StochasticDefault;

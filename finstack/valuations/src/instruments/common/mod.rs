@@ -9,43 +9,52 @@
 //! - Shared data structures and enums
 
 // Core instrument traits and metadata
-pub mod traits;
+pub(crate) mod traits;
 
 // Unified dependency representation
-pub mod dependencies;
+pub(crate) mod dependencies;
 
 // NPV calculation interface
-pub mod discountable;
+pub(crate) mod discountable;
 
 // Shared utilities and helper functions
-#[doc(hidden)]
-pub mod helpers;
+pub(crate) mod helpers;
 
 // Common parameter types shared across instruments
-pub mod fx_dates;
-pub mod parameters;
+pub(crate) mod fx_dates;
+pub(crate) mod parameters;
 
 // Option pricing models and frameworks (includes closed-form, volatility, and tree models)
+#[doc(hidden)]
 pub mod models;
 
 // Monte Carlo pricing engine (requires mc feature)
 #[cfg(feature = "mc")]
+#[doc(hidden)]
 pub mod mc;
 
 // Common pricing patterns and infrastructure
-pub mod pricing;
+pub(crate) mod pricing;
 
 // Periodized present value calculations
-pub mod period_pv;
+pub(crate) mod period_pv;
 
 // Re-export commonly used types for convenience
+#[doc(hidden)]
 pub use dependencies::{FxPair, InstrumentDependencies};
+#[doc(hidden)]
 pub use discountable::Discountable;
+#[doc(hidden)]
 pub use fx_dates::{
-    add_joint_business_days_with_calendars, adjust_joint_calendar,
+    add_joint_business_days, add_joint_business_days_with_calendars, adjust_joint_calendar,
     adjust_joint_calendar_with_calendars, roll_spot_date, ResolvedCalendarPair,
 };
+#[doc(hidden)]
 pub use helpers::validate_currency_consistency;
+/// Re-export resolve_calendar for backward compatibility with tests.
+#[doc(hidden)]
+pub use finstack_core::dates::fx::resolve_calendar;
+#[doc(hidden)]
 pub use models::{
     d1, d1_d2, d1_d2_black76, d2, norm_cdf, norm_pdf, short_rate_keys, single_factor_equity_state,
     state_keys, two_factor_equity_rates_state, BinomialTree, EvolutionParams, NodeState,
@@ -54,14 +63,20 @@ pub use models::{
     TreeType, TreeValuator, TrinomialTree, TrinomialTreeType,
 };
 pub use parameters::{
-    BasisSwapLeg, ContractSpec, CreditParams, EquityOptionParams, EquityUnderlyingParams,
-    ExerciseStyle, FinancingLegSpec, FixedLegSpec, FloatLegSpec, FxOptionParams,
-    FxUnderlyingParams, IndexUnderlyingParams, InterestRateOptionParams, OptionMarketParams,
-    OptionType, ParRateMethod, PayReceive, PremiumLegSpec, ProtectionLegSpec, ScheduleSpec,
-    SettlementType, TotalReturnLegSpec, TrsScheduleSpec, TrsSide, UnderlyingParams,
+    BasisSwapLeg, BondConvention, ContractSpec, CreditParams, EquityOptionParams,
+    EquityUnderlyingParams, ExerciseStyle, FinancingLegSpec, FixedLegSpec, FloatLegSpec,
+    FxOptionParams, FxUnderlyingParams, IRSConvention, IndexUnderlyingParams,
+    InterestRateOptionParams, OptionMarketParams, OptionType, ParRateMethod, PayReceive,
+    PremiumLegSpec, ProtectionLegSpec, ScheduleSpec, SettlementType, TotalReturnLegSpec,
+    TrsScheduleSpec, TrsSide, UnderlyingParams,
 };
+#[doc(hidden)]
 pub use period_pv::PeriodizedPvExt;
-pub use pricing::{GenericInstrumentPricer, TotalReturnLegParams, TrsEngine, TrsReturnModel};
+#[doc(hidden)]
+pub use pricing::{
+    GenericInstrumentPricer, HasDiscountCurve, HasForwardCurves, TotalReturnLegParams, TrsEngine,
+    TrsReturnModel,
+};
 pub use traits::{
     Attributes, CurveIdVec, EquityDependencies, EquityInstrumentDeps, Instrument, PricingOptions,
 };

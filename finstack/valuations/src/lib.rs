@@ -291,15 +291,17 @@ compile_error!("finstack-valuations requires the `serde` feature (enabled by def
 
 pub mod calibration;
 pub mod cashflow;
-pub mod constants;
+pub(crate) mod constants;
+#[doc(hidden)]
 pub mod margin;
 /// Market quotes and conventions
 pub mod market;
 pub mod pricer;
 pub mod results;
-pub mod schema;
+pub(crate) mod schema;
 
 /// Test utilities for building market contexts, dates, and test fixtures.
+#[doc(hidden)]
 pub mod test_utils;
 
 // Export macros before instruments module

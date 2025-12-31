@@ -5,7 +5,7 @@ use crate::errors::core_to_py;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::DayCount;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::ir_future::{
+use finstack_valuations::instruments::rates::ir_future::{
     FutureContractSpecs, InterestRateFuture, Position,
 };
 use pyo3::exceptions::PyValueError;

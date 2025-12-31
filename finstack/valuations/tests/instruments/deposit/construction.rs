@@ -8,7 +8,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::deposit::Deposit;
+use finstack_valuations::instruments::rates::deposit::Deposit;
 
 #[test]
 fn test_basic_construction() {

@@ -42,10 +42,18 @@
 //! - [`fx_option`](super::fx_option) for FX option pricing
 //! - [`fx_swap`](super::fx_swap) for FX forwards
 
-pub mod metrics;
+pub(crate) mod metrics;
 /// FX spot pricer implementation
-pub mod pricer;
+pub(crate) mod pricer;
 mod types;
 
 pub use pricer::FxSpotPricer;
 pub use types::FxSpot;
+
+// Re-export metric calculators for backward compatibility with tests.
+#[doc(hidden)]
+pub use metrics::base_amount::BaseAmountCalculator;
+#[doc(hidden)]
+pub use metrics::inverse_rate::InverseRateCalculator;
+#[doc(hidden)]
+pub use metrics::spot_rate::SpotRateCalculator;

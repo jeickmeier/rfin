@@ -4,10 +4,10 @@
 //! via a binomial tree on spot (or futures-implied spot).
 
 /// Metrics for commodity options.
-pub mod metrics;
+pub(crate) mod metrics;
 /// Pricer for commodity options.
-pub mod pricer;
-pub mod traits;
+pub(crate) mod pricer;
+pub(crate) mod traits;
 mod types;
 
 pub use pricer::CommodityOptionBlackPricer;

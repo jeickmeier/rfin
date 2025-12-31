@@ -1,7 +1,7 @@
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::asian_option::{AsianOption, AveragingMethod};
+use finstack_valuations::instruments::exotics::asian_option::{AsianOption, AveragingMethod};
 use finstack_valuations::instruments::OptionType;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;

@@ -5,8 +5,8 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::cap_floor::parameters::InterestRateOptionParams;
-use finstack_valuations::instruments::cap_floor::{InterestRateOption, RateOptionType};
+use finstack_valuations::instruments::rates::cap_floor::InterestRateOptionParams;
+use finstack_valuations::instruments::rates::cap_floor::{InterestRateOption, RateOptionType};
 use finstack_valuations::instruments::{ExerciseStyle, PricingOverrides, SettlementType};
 use time::Month;
 

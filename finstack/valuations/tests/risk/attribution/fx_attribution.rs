@@ -14,7 +14,7 @@ use finstack_core::money::Money;
 use finstack_valuations::attribution::{
     attribute_pnl_parallel, attribute_pnl_waterfall, default_waterfall_order, AttributionFactor,
 };
-use finstack_valuations::instruments::bond::Bond;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::Instrument;
 use std::sync::Arc;
 use time::Month;

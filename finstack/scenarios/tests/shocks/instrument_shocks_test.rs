@@ -7,7 +7,7 @@ use finstack_scenarios::{
     ExecutionContext, InstrumentType, OperationSpec, ScenarioEngine, ScenarioSpec,
 };
 use finstack_statements::FinancialModelSpec;
-use finstack_valuations::instruments::common::traits::{Attributes, Instrument};
+use finstack_valuations::instruments::{Attributes, Instrument};
 use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
 use finstack_valuations::instruments::Bond;
 use indexmap::IndexMap;
@@ -19,7 +19,7 @@ fn test_instrument_type_price_shock_matching() {
     let mut market = MarketContext::new();
     let mut model = FinancialModelSpec::new("test", vec![]);
 
-    use finstack_valuations::instruments::bond::CashflowSpec;
+    use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
     // Create test instruments
     let mut instruments: Vec<Box<dyn Instrument>> = vec![
         Box::new(
@@ -109,7 +109,7 @@ fn test_instrument_type_price_shock_matching() {
 
 #[test]
 fn test_instrument_type_spread_shock_matching() {
-    use finstack_valuations::instruments::bond::CashflowSpec;
+    use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let mut market = MarketContext::new();
     let mut model = FinancialModelSpec::new("test", vec![]);
@@ -180,7 +180,7 @@ fn test_instrument_type_spread_shock_matching() {
 
 #[test]
 fn test_instrument_attr_price_shock_matching() {
-    use finstack_valuations::instruments::bond::CashflowSpec;
+    use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let mut market = MarketContext::new();
     let mut model = FinancialModelSpec::new("test", vec![]);
@@ -270,7 +270,7 @@ fn test_instrument_attr_price_shock_matching() {
 
 #[test]
 fn test_instrument_attr_price_shock_no_matches() {
-    use finstack_valuations::instruments::bond::CashflowSpec;
+    use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let mut market = MarketContext::new();
     let mut model = FinancialModelSpec::new("test", vec![]);
@@ -356,7 +356,7 @@ fn test_instrument_shock_empty_list() {
 
 #[test]
 fn test_instrument_shock_no_matching_types() {
-    use finstack_valuations::instruments::bond::CashflowSpec;
+    use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let mut market = MarketContext::new();
     let mut model = FinancialModelSpec::new("test", vec![]);
@@ -440,7 +440,7 @@ fn test_instrument_shock_without_instruments_provided() {
 
 #[test]
 fn test_instrument_shock_multiple_types() {
-    use finstack_valuations::instruments::bond::CashflowSpec;
+    use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let mut market = MarketContext::new();
     let mut model = FinancialModelSpec::new("test", vec![]);

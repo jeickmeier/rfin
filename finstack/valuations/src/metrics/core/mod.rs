@@ -8,8 +8,8 @@
 //!   fail-fast error handling
 //! - Finite difference utilities for numerical derivatives
 
-pub mod finite_difference;
-pub mod ids;
-pub mod registration_macro;
-pub mod registry;
-pub mod traits;
+pub(crate) mod finite_difference;
+pub(crate) mod ids;
+pub(crate) mod registration_macro;
+pub(crate) mod registry;
+pub(crate) mod traits;

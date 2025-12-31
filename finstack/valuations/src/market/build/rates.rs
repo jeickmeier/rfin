@@ -5,7 +5,7 @@ use crate::instruments::deposit::Deposit;
 use crate::instruments::fra::ForwardRateAgreement;
 use crate::instruments::ir_future::{FutureContractSpecs, InterestRateFuture, Position};
 use crate::instruments::irs::{InterestRateSwap, IrsLegConventions};
-use crate::market::build::context::BuildCtx;
+use crate::market::BuildCtx;
 use crate::market::build::helpers::{resolve_calendar, resolve_spot_date};
 use crate::market::conventions::defs::{RateIndexConventions, RateIndexKind};
 use crate::market::conventions::registry::ConventionRegistry;
@@ -39,8 +39,8 @@ use finstack_core::{Error, InputError, Result};
 ///
 /// Building a deposit:
 /// ```rust
-/// use finstack_valuations::market::build::context::BuildCtx;
-/// use finstack_valuations::market::build::rates::build_rate_instrument;
+/// use finstack_valuations::market::BuildCtx;
+/// use finstack_valuations::market::build_rate_instrument;
 /// use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 /// use finstack_valuations::market::quotes::rates::RateQuote;
 /// use finstack_valuations::market::conventions::ids::IndexId;
@@ -68,8 +68,8 @@ use finstack_core::{Error, InputError, Result};
 ///
 /// Building a swap:
 /// ```rust
-/// use finstack_valuations::market::build::context::BuildCtx;
-/// use finstack_valuations::market::build::rates::build_rate_instrument;
+/// use finstack_valuations::market::BuildCtx;
+/// use finstack_valuations::market::build_rate_instrument;
 /// use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 /// use finstack_valuations::market::quotes::rates::RateQuote;
 /// use finstack_valuations::market::conventions::ids::IndexId;
@@ -99,7 +99,7 @@ use finstack_core::{Error, InputError, Result};
 /// # See Also
 ///
 /// - [`RateQuote`](crate::market::quotes::rates::RateQuote) for supported quote types
-/// - [`BuildCtx`](crate::market::build::context::BuildCtx) for build context configuration
+/// - [`BuildCtx`](crate::market::BuildCtx) for build context configuration
 pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dyn Instrument>> {
     let registry = ConventionRegistry::try_global()?;
     let missing_role = |role: &str| {

@@ -27,7 +27,7 @@ use finstack_core::Result;
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::agency_mbs_passthrough::{
+/// use finstack_valuations::instruments::fixed_income::mbs_passthrough::{
 ///     AgencyProgram,
 ///     delay::payment_delay_days,
 /// };
@@ -57,7 +57,7 @@ pub fn payment_delay_days(agency: AgencyProgram) -> u32 {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::agency_mbs_passthrough::delay::actual_payment_date;
+/// use finstack_valuations::instruments::fixed_income::mbs_passthrough::delay::actual_payment_date;
 /// use finstack_core::dates::Date;
 /// use time::Month;
 ///

@@ -2,7 +2,7 @@ use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_valuations::instruments::term_loan::TermLoan;
+use finstack_valuations::instruments::fixed_income::term_loan::TermLoan;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 

@@ -10,8 +10,8 @@
 
 use super::common::*;
 use finstack_core::currency::Currency;
-use finstack_valuations::cashflow::traits::CashflowProvider;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::cashflow::CashflowProvider;
+use finstack_valuations::instruments::Instrument;
 
 #[test]
 fn test_valuation_after_maturity() {
@@ -203,7 +203,7 @@ fn test_extreme_deflation() {
     let mut ilb = sample_tips();
     ilb.base_index = 300.0;
     ilb.deflation_protection =
-        finstack_valuations::instruments::inflation_linked_bond::DeflationProtection::None;
+        finstack_valuations::instruments::fixed_income::inflation_linked_bond::DeflationProtection::None;
 
     let (mut ctx, _) = market_context_with_index();
 
@@ -476,7 +476,7 @@ fn test_has_discount_curve_trait() {
 
     // Act
     let curve_id =
-        finstack_valuations::instruments::common::pricing::HasDiscountCurve::discount_curve_id(
+        finstack_valuations::instruments::common::HasDiscountCurve::discount_curve_id(
             &ilb,
         );
 
@@ -492,7 +492,7 @@ fn test_cashflow_provider_trait() {
     let as_of = d(2025, 1, 2);
 
     // Act
-    let flows = finstack_valuations::cashflow::traits::CashflowProvider::build_dated_flows(
+    let flows = finstack_valuations::cashflow::CashflowProvider::build_dated_flows(
         &ilb, &ctx, as_of,
     )
     .unwrap();

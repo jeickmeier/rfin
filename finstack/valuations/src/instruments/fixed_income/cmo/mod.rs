@@ -24,10 +24,10 @@
 //! # Examples
 //!
 //! ```rust
-//! use finstack_valuations::instruments::agency_cmo::{
+//! use finstack_valuations::instruments::fixed_income::cmo::{
 //!     AgencyCmo, CmoTranche, CmoTrancheType, CmoWaterfall,
 //! };
-//! use finstack_valuations::instruments::agency_mbs_passthrough::AgencyProgram;
+//! use finstack_valuations::instruments::fixed_income::mbs_passthrough::AgencyProgram;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::money::Money;
 //! use finstack_core::dates::Date;
@@ -55,8 +55,8 @@
 //!     .expect("Valid CMO");
 //! ```
 
-pub mod metrics;
-pub mod pricer;
+pub(crate) mod metrics;
+pub(crate) mod pricer;
 pub mod tranches;
 mod types;
 pub mod waterfall;

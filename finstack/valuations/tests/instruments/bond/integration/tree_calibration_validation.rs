@@ -9,9 +9,9 @@ use finstack_core::currency::Currency;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::bond::Bond;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::common::models::{ShortRateTree, ShortRateTreeConfig};
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 use time::macros::date;
 
 /// Helper: Create a flat discount curve
@@ -97,10 +97,10 @@ fn test_callable_bond_tree_pricing_reasonable() {
     )
     .unwrap();
 
-    let mut call_schedule = finstack_valuations::instruments::bond::CallPutSchedule::default();
+    let mut call_schedule = finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
     call_schedule
         .calls
-        .push(finstack_valuations::instruments::bond::CallPut {
+        .push(finstack_valuations::instruments::fixed_income::bond::CallPut {
             date: date!(2025 - 01 - 01),
             price_pct_of_par: 102.0,
         });
@@ -162,10 +162,10 @@ fn test_tree_convergence_with_steps() {
     )
     .unwrap();
 
-    let mut call_schedule = finstack_valuations::instruments::bond::CallPutSchedule::default();
+    let mut call_schedule = finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
     call_schedule
         .calls
-        .push(finstack_valuations::instruments::bond::CallPut {
+        .push(finstack_valuations::instruments::fixed_income::bond::CallPut {
             date: date!(2023 - 01 - 01),
             price_pct_of_par: 102.0,
         });
@@ -218,10 +218,10 @@ fn test_putable_bond_tree_pricing_reasonable() {
     )
     .unwrap();
 
-    let mut put_schedule = finstack_valuations::instruments::bond::CallPutSchedule::default();
+    let mut put_schedule = finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
     put_schedule
         .puts
-        .push(finstack_valuations::instruments::bond::CallPut {
+        .push(finstack_valuations::instruments::fixed_income::bond::CallPut {
             date: date!(2025 - 01 - 01),
             price_pct_of_par: 98.0,
         });

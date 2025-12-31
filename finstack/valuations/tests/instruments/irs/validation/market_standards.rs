@@ -15,8 +15,8 @@ use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Teno
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::instruments::irs::{
+use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::rates::irs::{
     FixedLegSpec, FloatLegSpec, InterestRateSwap, ParRateMethod, PayReceive,
 };
 use finstack_valuations::metrics::MetricId;

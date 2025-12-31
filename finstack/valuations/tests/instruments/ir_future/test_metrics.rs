@@ -1,8 +1,8 @@
 //! Comprehensive IR Future metrics tests.
 
 use super::utils::*;
-use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::instruments::ir_future::Position;
+use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::rates::ir_future::Position;
 use finstack_valuations::metrics::MetricId;
 
 #[test]

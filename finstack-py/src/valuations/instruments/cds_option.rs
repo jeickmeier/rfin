@@ -2,14 +2,16 @@ use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::types::InstrumentId;
-use finstack_valuations::instruments::cds_option::parameters::CdsOptionParams;
-use finstack_valuations::instruments::cds_option::CdsOption;
-use finstack_valuations::instruments::common::parameters::{CreditParams, OptionType};
+use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionParams;
+use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOption;
+use finstack_valuations::instruments::{CreditParams, OptionType};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+
+const STANDARD_RECOVERY_SENIOR: f64 = 0.40;
 
 fn parse_option_type(label: Option<&str>) -> PyResult<OptionType> {
     match label {
@@ -114,8 +116,7 @@ impl PyCdsOption {
         let discount = discount_curve.extract::<&str>().context("discount_curve")?;
         let credit = credit_curve.extract::<&str>().context("credit_curve")?;
         let option_type_value = parse_option_type(option_type).context("option_type")?;
-        let recovery =
-            recovery_rate.unwrap_or(finstack_valuations::constants::isda::STANDARD_RECOVERY_SENIOR);
+        let recovery = recovery_rate.unwrap_or(STANDARD_RECOVERY_SENIOR);
         if !(0.0..=1.0).contains(&recovery) {
             return Err(PyValueError::new_err(
                 "recovery_rate must be between 0 and 1",

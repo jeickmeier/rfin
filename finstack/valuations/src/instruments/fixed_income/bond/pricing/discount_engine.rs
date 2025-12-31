@@ -34,7 +34,7 @@ use super::super::types::Bond;
 ///
 /// ```rust,ignore
 /// use finstack_valuations::instruments::Bond;
-/// use finstack_valuations::instruments::common::traits::Instrument;
+/// use finstack_valuations::instruments::Instrument;
 /// use finstack_core::market_data::context::MarketContext;
 /// use time::macros::date;
 ///
@@ -75,8 +75,8 @@ impl BondEngine {
     /// # Examples
     ///
     /// ```ignore
-    /// use finstack_valuations::instruments::bond::Bond;
-    /// use finstack_valuations::instruments::bond::pricing::discount_engine::BondEngine;
+    /// use finstack_valuations::instruments::fixed_income::bond::Bond;
+    /// use finstack_valuations::instruments::fixed_income::bond::pricing::discount_engine::BondEngine;
     /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::dates::Date;
     ///
@@ -120,8 +120,8 @@ impl BondEngine {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use finstack_valuations::instruments::bond::Bond;
-    /// use finstack_valuations::instruments::bond::pricing::discount_engine::BondEngine;
+    /// use finstack_valuations::instruments::fixed_income::bond::Bond;
+    /// use finstack_valuations::instruments::fixed_income::bond::pricing::discount_engine::BondEngine;
     /// use finstack_core::explain::ExplainOpts;
     /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::dates::Date;

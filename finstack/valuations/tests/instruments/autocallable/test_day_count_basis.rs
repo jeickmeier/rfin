@@ -31,7 +31,7 @@ use super::helpers::*;
 #[cfg(feature = "mc")]
 use finstack_core::dates::DayCount;
 #[cfg(feature = "mc")]
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 #[cfg(feature = "mc")]
 use std::time::Instant;
 #[cfg(feature = "mc")]

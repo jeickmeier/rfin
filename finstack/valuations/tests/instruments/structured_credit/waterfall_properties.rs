@@ -7,9 +7,9 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DateExt};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::structured_credit::pricing::waterfall::WaterfallContext;
-use finstack_valuations::instruments::structured_credit::WaterfallDistribution;
-use finstack_valuations::instruments::structured_credit::{
+use finstack_valuations::instruments::fixed_income::structured_credit::WaterfallContext;
+use finstack_valuations::instruments::fixed_income::structured_credit::WaterfallDistribution;
+use finstack_valuations::instruments::fixed_income::structured_credit::{
     AllocationMode, DealType, PaymentCalculation, PaymentType, Pool, Recipient, RecipientType,
     Seniority, Tranche, TrancheCoupon, TrancheStructure, Waterfall, WaterfallBuilder,
     WaterfallTier,
@@ -62,7 +62,7 @@ fn run_waterfall(
         pool_balance,
         market,
     };
-    finstack_valuations::instruments::structured_credit::pricing::execute_waterfall(
+    finstack_valuations::instruments::fixed_income::structured_credit::execute_waterfall(
         waterfall, tranches, pool, context,
     )
     .expect("waterfall execution")
@@ -624,7 +624,7 @@ fn property_coverage_test_result_format() {
             )),
         )
         .add_coverage_trigger(
-            finstack_valuations::instruments::structured_credit::WaterfallCoverageTrigger {
+            finstack_valuations::instruments::fixed_income::structured_credit::WaterfallCoverageTrigger {
                 tranche_id: "TEST_TRANCHE".into(),
                 oc_trigger: Some(1.25),
                 ic_trigger: Some(1.20),

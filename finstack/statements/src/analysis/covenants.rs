@@ -7,7 +7,7 @@ use crate::evaluator::Results;
 use crate::types::{FinancialModelSpec, ForecastMethod};
 use finstack_core::dates::{Date, PeriodId};
 use finstack_core::Result;
-use finstack_valuations::covenants::forward::CovenantForecast as ValuationCovenantForecast;
+use finstack_valuations::covenants::GenericCovenantForecast as ValuationCovenantForecast;
 use finstack_valuations::covenants::{
     forecast_breaches_generic, forecast_covenant_generic, CovenantEngine, CovenantForecastConfig,
     CovenantSpec, FutureBreach, ModelTimeSeries,
@@ -143,7 +143,7 @@ pub fn forecast_breaches(
 }
 
 fn default_driver_node_id(spec: &CovenantSpec) -> Option<&'static str> {
-    use finstack_valuations::covenants::engine::CovenantType;
+    use finstack_valuations::covenants::CovenantType;
     match &spec.covenant.covenant_type {
         CovenantType::MaxDebtToEBITDA { .. } => Some("ebitda"),
         CovenantType::MinInterestCoverage { .. } => Some("ebit"),
@@ -201,8 +201,8 @@ mod tests {
     use super::*;
     use crate::evaluator::{Results, ResultsMeta};
     use finstack_core::dates::{Date, Tenor};
-    use finstack_valuations::covenants::engine::CovenantType;
-    use finstack_valuations::covenants::engine::{Covenant, CovenantEngine, CovenantSpec};
+    use finstack_valuations::covenants::CovenantType;
+    use finstack_valuations::covenants::{Covenant, CovenantEngine, CovenantSpec};
     use finstack_valuations::metrics::MetricId;
     use indexmap::IndexMap;
     use time::Month;

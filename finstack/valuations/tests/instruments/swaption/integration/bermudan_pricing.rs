@@ -11,13 +11,13 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::common::models::trees::{HullWhiteTree, HullWhiteTreeConfig};
-use finstack_valuations::instruments::common::parameters::OptionType;
-use finstack_valuations::instruments::swaption::pricing::BermudanSwaptionTreeValuator;
-use finstack_valuations::instruments::swaption::{
+use finstack_valuations::instruments::OptionType;
+use finstack_valuations::instruments::rates::swaption::BermudanSwaptionTreeValuator;
+use finstack_valuations::instruments::rates::swaption::{
     BermudanSchedule, BermudanSwaption, BermudanType, SwaptionSettlement,
 };
 #[cfg(feature = "mc")]
-use finstack_valuations::instruments::swaption::{BermudanSwaptionPricer, HullWhiteParams};
+use finstack_valuations::instruments::rates::swaption::{BermudanSwaptionPricer, HullWhiteParams};
 #[cfg(feature = "mc")]
 use finstack_valuations::pricer::Pricer;
 use time::Month;

@@ -49,7 +49,7 @@
 //! # Example
 //!
 //! ```rust
-//! use finstack_valuations::instruments::dcf::{DiscountedCashFlow, TerminalValueSpec};
+//! use finstack_valuations::instruments::equity::dcf_equity::{DiscountedCashFlow, TerminalValueSpec};
 //! use finstack_core::types::InstrumentId;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::dates::Date;
@@ -79,8 +79,8 @@
 //! # }
 //! ```
 
-pub mod metrics;
-pub mod pricer;
+pub(crate) mod metrics;
+pub(crate) mod pricer;
 mod types;
 
 pub use types::{DiscountedCashFlow, TerminalValueSpec};

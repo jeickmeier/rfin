@@ -13,9 +13,9 @@ use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::cashflow::builder::AmortizationSpec as ValAmortizationSpec;
-use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::instruments::bond::{CallPut, CallPutSchedule, CashflowSpec};
-use finstack_valuations::instruments::common::traits::Attributes;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
+use finstack_valuations::instruments::fixed_income::bond::{CallPut, CallPutSchedule, CashflowSpec};
+use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::PricingOverrides;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -619,7 +619,7 @@ impl PyBond {
         let amt = extract_money(&notional).context("notional")?;
         let issue_date = py_to_date(&issue).context("issue")?;
         let maturity_date = py_to_date(&maturity).context("maturity")?;
-        use finstack_valuations::instruments::common::parameters::BondConvention;
+        use finstack_valuations::instruments::BondConvention;
         Ok(Self::new(
             Bond::with_convention(
                 id,
@@ -917,7 +917,7 @@ impl PyBond {
         use crate::errors::PyContext;
         let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
         let disc = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
-        let mut bond = finstack_valuations::instruments::bond::Bond::from_cashflows(
+        let mut bond = finstack_valuations::instruments::fixed_income::bond::Bond::from_cashflows(
             id,
             schedule.inner_clone(),
             disc,
@@ -990,7 +990,7 @@ impl PyBond {
 
         use finstack_core::dates::{DayCount, Tenor};
 
-        let bond = finstack_valuations::instruments::bond::Bond::floating(
+        let bond = finstack_valuations::instruments::fixed_income::bond::Bond::floating(
             id,
             amt,
             fwd,

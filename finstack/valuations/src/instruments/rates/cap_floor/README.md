@@ -12,7 +12,7 @@
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::cap_floor::InterestRateOption;
+use finstack_valuations::instruments::rates::cap_floor::InterestRateOption;
 use finstack_core::{currency::Currency, dates::*, money::Money, types::CurveId};
 use time::Month;
 

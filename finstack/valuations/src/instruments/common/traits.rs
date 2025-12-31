@@ -40,7 +40,7 @@
 //! ## Attributes and Selection
 //!
 //! ```rust
-//! use finstack_valuations::instruments::common::traits::Attributes;
+//! use finstack_valuations::instruments::Attributes;
 //!
 //! let attrs = Attributes::new()
 //!     .with_tag("high-yield")
@@ -169,7 +169,7 @@ pub type CurveIdVec = SmallVec<[CurveId; 2]>;
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::common::traits::Attributes;
+/// use finstack_valuations::instruments::Attributes;
 ///
 /// let mut attrs = Attributes::new()
 ///     .with_tag("corporate")
@@ -209,7 +209,7 @@ impl Attributes {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::common::traits::Attributes;
+    /// use finstack_valuations::instruments::Attributes;
     ///
     /// let attrs = Attributes::new();
     /// assert!(attrs.tags.is_empty());
@@ -231,7 +231,7 @@ impl Attributes {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::common::traits::Attributes;
+    /// use finstack_valuations::instruments::Attributes;
     ///
     /// let attrs = Attributes::new()
     ///     .with_tag("corporate")
@@ -257,7 +257,7 @@ impl Attributes {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::common::traits::Attributes;
+    /// use finstack_valuations::instruments::Attributes;
     ///
     /// let attrs = Attributes::new()
     ///     .with_tags(&["equity", "technology", "growth"]);
@@ -283,7 +283,7 @@ impl Attributes {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::common::traits::Attributes;
+    /// use finstack_valuations::instruments::Attributes;
     ///
     /// let attrs = Attributes::new()
     ///     .with_meta("sector", "financials")
@@ -312,7 +312,7 @@ impl Attributes {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::common::traits::Attributes;
+    /// use finstack_valuations::instruments::Attributes;
     ///
     /// let attrs = Attributes::new().with_tag("high-yield");
     ///
@@ -338,7 +338,7 @@ impl Attributes {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::common::traits::Attributes;
+    /// use finstack_valuations::instruments::Attributes;
     ///
     /// let attrs = Attributes::new().with_meta("issuer", "AAPL");
     ///
@@ -367,7 +367,7 @@ impl Attributes {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::common::traits::Attributes;
+    /// use finstack_valuations::instruments::Attributes;
     ///
     /// let attrs = Attributes::new()
     ///     .with_tag("corporate")
@@ -635,7 +635,7 @@ pub trait Instrument: Send + Sync {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::cashflow::traits::CashflowProvider;
+    /// use finstack_valuations::cashflow::CashflowProvider;
     /// use finstack_valuations::instruments::{Bond, Instrument};
     /// # use finstack_core::currency::Currency;
     /// # use finstack_core::money::Money;
@@ -1128,7 +1128,7 @@ pub trait Instrument: Send + Sync {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::common::traits::{CurveDependencies, InstrumentCurves};
+/// use finstack_valuations::instruments::{CurveDependencies, InstrumentCurves};
 /// use finstack_core::types::CurveId;
 ///
 /// struct Bond {
@@ -1260,7 +1260,7 @@ pub enum RatesCurveKind {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::common::traits::{EquityDependencies, EquityInstrumentDeps};
+/// use finstack_valuations::instruments::{EquityDependencies, EquityInstrumentDeps};
 ///
 /// struct EquityOption {
 ///     spot_id: String,
@@ -1289,7 +1289,7 @@ pub trait EquityDependencies {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::common::traits::EquityInstrumentDeps;
+/// use finstack_valuations::instruments::EquityInstrumentDeps;
 ///
 /// let deps = EquityInstrumentDeps::builder()
 ///     .spot("AAPL")
@@ -1325,7 +1325,7 @@ impl EquityInstrumentDeps {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::common::traits::EquityInstrumentDeps;
+    /// use finstack_valuations::instruments::EquityInstrumentDeps;
     ///
     /// let deps = EquityInstrumentDeps::builder()
     ///     .spot("SPX")
@@ -1355,7 +1355,7 @@ impl EquityInstrumentDepsBuilder {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::common::traits::EquityInstrumentDeps;
+    /// use finstack_valuations::instruments::EquityInstrumentDeps;
     ///
     /// let deps = EquityInstrumentDeps::builder()
     ///     .spot("AAPL")
@@ -1375,7 +1375,7 @@ impl EquityInstrumentDepsBuilder {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::common::traits::EquityInstrumentDeps;
+    /// use finstack_valuations::instruments::EquityInstrumentDeps;
     ///
     /// let deps = EquityInstrumentDeps::builder()
     ///     .vol_surface("SPX-VOL")

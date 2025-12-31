@@ -8,7 +8,7 @@ use finstack_valuations::instruments::common::models::monte_carlo::engine::{
     McEngineConfig, PathCaptureConfig, PathCaptureMode,
 };
 use finstack_valuations::instruments::common::models::monte_carlo::payoff::vanilla::EuropeanCall;
-use finstack_valuations::instruments::common::models::monte_carlo::pricer::path_dependent::{
+use finstack_valuations::instruments::common::models::monte_carlo::prelude::{
     PathDependentPricer, PathDependentPricerConfig,
 };
 

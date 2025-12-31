@@ -40,8 +40,8 @@
 //! - [`CmsOption`] for instrument struct
 //! - [`metrics`] for CMS option risk metrics
 
-pub mod metrics;
-pub mod pricer;
-pub mod types;
+pub(crate) mod metrics;
+pub(crate) mod pricer;
+pub(crate) mod types;
 
 pub use types::CmsOption;

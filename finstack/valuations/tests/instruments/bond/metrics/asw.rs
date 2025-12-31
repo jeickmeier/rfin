@@ -8,12 +8,12 @@ use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::date_generation::build_dates;
-use finstack_valuations::instruments::bond::metrics::price_yield_spread::asw::AssetSwapConfig;
-use finstack_valuations::instruments::bond::metrics::price_yield_spread::{
+use finstack_valuations::instruments::fixed_income::bond::AssetSwapConfig;
+use finstack_valuations::instruments::fixed_income::bond::{
     AssetSwapMarketCalculator, AssetSwapParCalculator,
 };
-use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::instruments::bond::CashflowSpec;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
+use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::metrics::{standard_registry, MetricCalculator, MetricContext, MetricId};
 use std::sync::Arc;
@@ -175,7 +175,7 @@ fn test_asw_par_tracks_coupon_minus_par_rate() {
     )
     .expect("schedule build should succeed");
     let (par_rate, _) =
-        finstack_valuations::instruments::bond::pricing::quote_engine::par_rate_and_annuity_from_discount(
+        finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::par_rate_and_annuity_from_discount(
             &disc,
             spec.dc,
             &schedule.dates,
@@ -248,7 +248,7 @@ fn test_asw_par_with_forward_day_count_override_changes_result() {
         .insert_discount(disc)
         .insert_forward(fwd);
 
-    let par_default = finstack_valuations::instruments::bond::metrics::price_yield_spread::asw::asw_par_with_forward(
+    let par_default = finstack_valuations::instruments::fixed_income::bond::asw_par_with_forward(
         &bond,
         &market,
         as_of,
@@ -257,7 +257,7 @@ fn test_asw_par_with_forward_day_count_override_changes_result() {
     )
     .expect("par asw default");
 
-    let par_act365f = finstack_valuations::instruments::bond::metrics::price_yield_spread::asw::asw_par_with_forward_config(
+    let par_act365f = finstack_valuations::instruments::fixed_income::bond::asw_par_with_forward_config(
         &bond,
         &market,
         as_of,
@@ -287,7 +287,7 @@ fn test_asw_market_with_forward_requires_dirty_price() {
         .insert_discount(disc)
         .insert_forward(fwd);
 
-    let err = finstack_valuations::instruments::bond::metrics::price_yield_spread::asw::asw_market_with_forward_config(
+    let err = finstack_valuations::instruments::fixed_income::bond::asw_market_with_forward_config(
         &bond,
         &market,
         as_of,
@@ -315,7 +315,7 @@ fn test_asw_market_with_forward_moves_with_dirty_price() {
         .insert_discount(disc)
         .insert_forward(fwd);
 
-    let par_asw = finstack_valuations::instruments::bond::metrics::price_yield_spread::asw::asw_par_with_forward(
+    let par_asw = finstack_valuations::instruments::fixed_income::bond::asw_par_with_forward(
         &bond,
         &market,
         as_of,
@@ -324,7 +324,7 @@ fn test_asw_market_with_forward_moves_with_dirty_price() {
     )
     .expect("par asw");
 
-    let ann_asw_par_px = finstack_valuations::instruments::bond::metrics::price_yield_spread::asw::asw_market_with_forward_config(
+    let ann_asw_par_px = finstack_valuations::instruments::fixed_income::bond::asw_market_with_forward_config(
         &bond,
         &market,
         as_of,
@@ -335,7 +335,7 @@ fn test_asw_market_with_forward_moves_with_dirty_price() {
     )
     .expect("asw mkt at par");
 
-    let rich_asw = finstack_valuations::instruments::bond::metrics::price_yield_spread::asw::asw_market_with_forward_config(
+    let rich_asw = finstack_valuations::instruments::fixed_income::bond::asw_market_with_forward_config(
         &bond,
         &market,
         as_of,
@@ -368,7 +368,7 @@ fn test_asw_par_forward_returns_zero_for_zero_notional() {
         .insert_discount(disc)
         .insert_forward(fwd);
 
-    let asw = finstack_valuations::instruments::bond::metrics::price_yield_spread::asw::asw_par_with_forward(
+    let asw = finstack_valuations::instruments::fixed_income::bond::asw_par_with_forward(
         &bond,
         &market,
         as_of,

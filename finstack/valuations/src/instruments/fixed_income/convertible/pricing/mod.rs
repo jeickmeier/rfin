@@ -4,7 +4,7 @@
 //! logic lives in `pricer`. Instruments and metrics should depend on this
 //! module rather than private files to keep the public API stable.
 
-pub mod pricer;
+pub(crate) mod pricer;
 
 pub use pricer::{
     calculate_conversion_premium, calculate_convertible_greeks, calculate_parity,

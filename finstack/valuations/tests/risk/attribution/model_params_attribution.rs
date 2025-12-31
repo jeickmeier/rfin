@@ -10,7 +10,7 @@ use finstack_valuations::attribution::{
 use finstack_valuations::cashflow::builder::{
     DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec,
 };
-use finstack_valuations::instruments::convertible::{
+use finstack_valuations::instruments::fixed_income::convertible::{
     AntiDilutionPolicy, ConversionPolicy, ConversionSpec, DividendAdjustment,
 };
 
@@ -129,7 +129,7 @@ fn test_model_params_none_for_plain_instruments() {
     use finstack_core::dates::create_date;
     use finstack_core::money::Money;
     use finstack_valuations::attribution::extract_model_params;
-    use finstack_valuations::instruments::bond::Bond;
+    use finstack_valuations::instruments::fixed_income::bond::Bond;
     use finstack_valuations::instruments::Instrument;
     use std::sync::Arc;
     use time::Month;

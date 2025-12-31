@@ -1,7 +1,7 @@
 //! Market validation tests for option moneyness behavior (ITM/ATM/OTM).
 
 use super::common::*;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 use time::macros::date;
 
 #[test]

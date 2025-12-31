@@ -4,9 +4,9 @@
 //! accounting for domestic/foreign rate differentials.
 
 /// Metrics implementations for FX variance swaps.
-pub mod metrics;
+pub(crate) mod metrics;
 /// Pricer implementations for FX variance swaps.
-pub mod pricer;
+pub(crate) mod pricer;
 mod types;
 
 pub use types::{FxVarianceSwap, FxVarianceSwapBuilder, PayReceive};

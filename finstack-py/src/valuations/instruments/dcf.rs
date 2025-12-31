@@ -2,7 +2,7 @@ use crate::core::money::PyMoney;
 use crate::statements::error::stmt_to_py;
 use crate::statements::types::model::PyFinancialModelSpec;
 use finstack_statements::analysis::corporate::evaluate_dcf;
-use finstack_valuations::instruments::dcf::TerminalValueSpec;
+use finstack_valuations::instruments::equity::dcf_equity::TerminalValueSpec;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use pyo3::{Bound, PyResult};

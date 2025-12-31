@@ -10,7 +10,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::structured_credit::{
+use finstack_valuations::instruments::fixed_income::structured_credit::{
     CoverageTest, DealType, Pool, PoolAsset, Seniority, TestContext, Tranche, TrancheCoupon,
     TrancheStructure,
 };

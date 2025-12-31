@@ -13,11 +13,11 @@ use finstack_core::{
     money::Money,
 };
 use finstack_valuations::cashflow::builder::ScheduleParams;
-use finstack_valuations::instruments::common::parameters::legs::FinancingLegSpec;
-use finstack_valuations::instruments::common::parameters::underlying::EquityUnderlyingParams;
-use finstack_valuations::instruments::common::parameters::underlying::IndexUnderlyingParams;
-use finstack_valuations::instruments::equity_trs::EquityTotalReturnSwap;
-use finstack_valuations::instruments::fi_trs::FIIndexTotalReturnSwap;
+use finstack_valuations::instruments::FinancingLegSpec;
+use finstack_valuations::instruments::EquityUnderlyingParams;
+use finstack_valuations::instruments::IndexUnderlyingParams;
+use finstack_valuations::instruments::equity::equity_trs::EquityTotalReturnSwap;
+use finstack_valuations::instruments::fixed_income::fi_trs::FIIndexTotalReturnSwap;
 use finstack_valuations::instruments::{TrsScheduleSpec, TrsSide};
 use rust_decimal::Decimal;
 use time::Month;

@@ -147,7 +147,7 @@ fn extract_bucketed_dv01_per_curve(
 /// use finstack_core::currency::Currency;
 /// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::money::Money;
-/// use finstack_valuations::instruments::deposit::Deposit;
+/// use finstack_valuations::instruments::rates::deposit::Deposit;
 /// use finstack_valuations::attribution::attribute_pnl_metrics_based;
 /// use finstack_valuations::metrics::MetricId;
 /// use std::sync::Arc;
@@ -170,7 +170,7 @@ fn extract_bucketed_dv01_per_curve(
 ///         .discount_curve_id("USD-OIS".into())
 ///         .build()
 ///         .expect("deposit builder should succeed"),
-/// ) as Arc<dyn finstack_valuations::instruments::common::traits::Instrument>;
+/// ) as Arc<dyn finstack_valuations::instruments::Instrument>;
 ///
 /// // Compute valuations with bucketed metrics for best accuracy
 /// let metrics = vec![

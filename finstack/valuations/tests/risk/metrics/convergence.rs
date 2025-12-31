@@ -19,9 +19,9 @@ use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::Result;
-use finstack_valuations::instruments::common::parameters::market::{ExerciseStyle, OptionType};
-use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::instruments::equity_option::EquityOption;
+use finstack_valuations::instruments::market::{ExerciseStyle, OptionType};
+use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::equity::equity_option::EquityOption;
 use finstack_valuations::instruments::{PricingOverrides, SettlementType};
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 use std::sync::Arc;
@@ -155,7 +155,7 @@ fn test_bucketed_dv01_sums_to_parallel() {
     //   sum(bucketed DV01) ≈ parallel DV01
     let as_of = date!(2025 - 01 - 01);
 
-    use finstack_valuations::instruments::bond::Bond;
+    use finstack_valuations::instruments::fixed_income::bond::Bond;
     // Use large notional ($10M) to ensure bucket DV01s are above Money precision threshold
     let bond = Bond::fixed(
         "BUCKETED_TEST",
@@ -262,7 +262,7 @@ fn test_bucketed_cs01_sums_to_total() {
     let as_of = date!(2025 - 01 - 01);
 
     use finstack_core::market_data::term_structures::HazardCurve;
-    use finstack_valuations::instruments::cds::CreditDefaultSwap;
+    use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 
     let cds = CreditDefaultSwap::buy_protection(
         "BUCKETED_CS01_TEST",

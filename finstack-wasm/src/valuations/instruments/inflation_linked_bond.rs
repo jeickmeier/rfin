@@ -5,8 +5,8 @@ use crate::core::money::JsMoney;
 use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
-use finstack_valuations::instruments::inflation_linked_bond::parameters::InflationLinkedBondParams;
-use finstack_valuations::instruments::inflation_linked_bond::{
+use finstack_valuations::instruments::fixed_income::inflation_linked_bond::InflationLinkedBondParams;
+use finstack_valuations::instruments::fixed_income::inflation_linked_bond::{
     DeflationProtection, IndexationMethod, InflationLinkedBond,
 };
 use finstack_valuations::pricer::InstrumentType;

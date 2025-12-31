@@ -10,7 +10,7 @@
 #![allow(clippy::field_reassign_with_default)]
 
 use super::helpers::*;
-use finstack_valuations::instruments::cds_tranche::pricer::{
+use finstack_valuations::instruments::credit_derivatives::cds_tranche::{
     CDSTranchePricer, CDSTranchePricerConfig, HeteroMethod,
 };
 
@@ -214,7 +214,7 @@ fn test_hetero_spa_matches_homogeneous_when_issuers_identical() {
         3.0,
         7.0,
         0.0,
-        finstack_valuations::instruments::cds_tranche::TrancheSide::SellProtection,
+        finstack_valuations::instruments::credit_derivatives::cds_tranche::TrancheSide::SellProtection,
     );
 
     // Act
@@ -358,7 +358,7 @@ fn test_super_senior_low_expected_loss() {
         15.0,
         30.0,
         50.0,
-        finstack_valuations::instruments::cds_tranche::TrancheSide::SellProtection,
+        finstack_valuations::instruments::credit_derivatives::cds_tranche::TrancheSide::SellProtection,
     );
 
     // Act
@@ -388,7 +388,7 @@ fn test_zero_width_tranche_expected_loss() {
         5.0,
         5.0,
         100.0,
-        finstack_valuations::instruments::cds_tranche::TrancheSide::SellProtection,
+        finstack_valuations::instruments::credit_derivatives::cds_tranche::TrancheSide::SellProtection,
     );
 
     // Act
@@ -414,7 +414,7 @@ fn test_full_portfolio_tranche_expected_loss() {
         0.0,
         100.0,
         100.0,
-        finstack_valuations::instruments::cds_tranche::TrancheSide::SellProtection,
+        finstack_valuations::instruments::credit_derivatives::cds_tranche::TrancheSide::SellProtection,
     );
 
     // Act

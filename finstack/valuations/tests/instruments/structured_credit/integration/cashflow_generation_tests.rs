@@ -11,8 +11,8 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::CreditRating;
 use finstack_core::types::InstrumentId;
-use finstack_valuations::cashflow::traits::CashflowProvider;
-use finstack_valuations::instruments::structured_credit::{
+use finstack_valuations::cashflow::CashflowProvider;
+use finstack_valuations::instruments::fixed_income::structured_credit::{
     AssetType, DealType, Pool, Seniority, StructuredCredit, Tranche, TrancheCoupon,
     TrancheStructure,
 };
@@ -38,7 +38,7 @@ fn create_test_pool() -> Pool {
     let mut pool = Pool::new("TEST_POOL", DealType::CLO, Currency::USD);
 
     for i in 0..5 {
-        let asset = finstack_valuations::instruments::structured_credit::PoolAsset {
+        let asset = finstack_valuations::instruments::fixed_income::structured_credit::PoolAsset {
             day_count: finstack_core::dates::DayCount::Act360,
             id: InstrumentId::new(format!("LOAN_{}", i)),
             asset_type: AssetType::FirstLienLoan {

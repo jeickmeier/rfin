@@ -4,7 +4,7 @@
 //! - Array of row objects (for use with d3, lodash, or vanilla JS)
 //! - JSON format for easy serialization
 
-use finstack_valuations::results::dataframe::results_to_rows;
+use finstack_valuations::results::results_to_rows;
 use finstack_valuations::results::ValuationResult;
 use js_sys::{Array, Object, Reflect};
 use wasm_bindgen::prelude::*;

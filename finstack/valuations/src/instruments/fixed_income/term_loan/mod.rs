@@ -25,8 +25,8 @@
 //! # Quick Example
 //!
 //! ```rust,no_run
-//! use finstack_valuations::instruments::term_loan::{TermLoan, TermLoanSpec, RateSpec};
-//! use finstack_valuations::instruments::term_loan::spec::AmortizationSpec;
+//! use finstack_valuations::instruments::fixed_income::term_loan::{TermLoan, TermLoanSpec, RateSpec};
+//! use finstack_valuations::instruments::fixed_income::term_loan::spec::AmortizationSpec;
 //! use finstack_valuations::cashflow::builder::specs::CouponType;
 //! use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
 //! use finstack_core::money::Money;
@@ -77,10 +77,10 @@
 //! - [`metrics`] module for available metrics
 
 pub mod cashflows;
-pub mod metrics;
-pub mod pricing;
+pub(crate) mod metrics;
+pub(crate) mod pricing;
 pub mod spec;
-pub mod types;
+pub(crate) mod types;
 
 // Re-export main type
 pub use spec::{
@@ -89,3 +89,7 @@ pub use spec::{
     TermLoanSpec,
 };
 pub use types::{RateSpec, TermLoan};
+
+// Re-export pricer for backward compatibility with tests.
+#[doc(hidden)]
+pub use pricing::TermLoanDiscountingPricer;

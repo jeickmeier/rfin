@@ -374,7 +374,7 @@ fn test_aggregate_instrument_cashflows() {
     use finstack_core::types::{CurveId, InstrumentId};
     use finstack_statements::capital_structure::aggregate_instrument_cashflows;
     use finstack_statements::types::CapitalStructureSpec;
-    use finstack_valuations::cashflow::traits::CashflowProvider;
+    use finstack_valuations::cashflow::CashflowProvider;
     use finstack_valuations::instruments::Bond;
     use indexmap::IndexMap;
     use std::sync::Arc;
@@ -457,7 +457,7 @@ fn test_build_swap_from_spec() {
     use finstack_core::types::InstrumentId;
     use finstack_statements::capital_structure::integration::build_swap_from_spec;
     use finstack_statements::types::DebtInstrumentSpec;
-    use finstack_valuations::instruments::common::parameters::PayReceive;
+    use finstack_valuations::instruments::PayReceive;
     use finstack_valuations::instruments::InterestRateSwap;
     use time::Month;
 
@@ -556,7 +556,7 @@ fn test_build_any_instrument_from_spec_swap_variant() {
     use finstack_core::types::InstrumentId;
     use finstack_statements::capital_structure::integration::build_any_instrument_from_spec;
     use finstack_statements::types::DebtInstrumentSpec;
-    use finstack_valuations::instruments::common::parameters::PayReceive;
+    use finstack_valuations::instruments::PayReceive;
     use finstack_valuations::instruments::InterestRateSwap;
     use time::Month;
 

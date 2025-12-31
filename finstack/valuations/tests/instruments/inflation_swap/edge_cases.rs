@@ -4,8 +4,8 @@ use crate::inflation_swap::fixtures::*;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::common::traits::{Attributes, Instrument};
-use finstack_valuations::instruments::inflation_swap::{InflationSwapBuilder, PayReceiveInflation};
+use finstack_valuations::instruments::{Attributes, Instrument};
+use finstack_valuations::instruments::rates::inflation_swap::{InflationSwapBuilder, PayReceiveInflation};
 use time::Month;
 
 #[test]

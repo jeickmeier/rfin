@@ -1,6 +1,6 @@
 //! IR Future Position enum tests.
 
-use finstack_valuations::instruments::ir_future::Position;
+use finstack_valuations::instruments::rates::ir_future::Position;
 use std::str::FromStr;
 
 #[test]

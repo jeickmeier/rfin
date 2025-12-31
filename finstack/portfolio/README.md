@@ -23,7 +23,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::deposit::Deposit;
+use finstack_valuations::instruments::rates::deposit::Deposit;
 use std::sync::Arc;
 use time::macros::date;
 

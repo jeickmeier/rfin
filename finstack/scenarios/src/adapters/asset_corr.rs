@@ -11,7 +11,7 @@
 //!
 //! ```rust,no_run
 //! use finstack_scenarios::adapters::asset_corr::*;
-//! use finstack_valuations::instruments::structured_credit::StructuredCredit;
+//! use finstack_valuations::instruments::fixed_income::structured_credit::StructuredCredit;
 //!
 //! # fn main() -> finstack_scenarios::Result<()> {
 //! # let mut instruments: Vec<StructuredCredit> = Vec::new();
@@ -35,8 +35,8 @@ use crate::adapters::traits::{ScenarioAdapter, ScenarioEffect};
 use crate::engine::ExecutionContext;
 use crate::error::Result;
 use crate::spec::OperationSpec;
-use finstack_valuations::instruments::structured_credit::pricing::stochastic::CorrelationStructure;
-use finstack_valuations::instruments::structured_credit::StructuredCredit;
+use finstack_valuations::instruments::fixed_income::structured_credit::CorrelationStructure;
+use finstack_valuations::instruments::fixed_income::structured_credit::StructuredCredit;
 
 /// Adapter for asset correlation operations.
 pub struct AssetCorrAdapter;

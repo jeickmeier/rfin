@@ -10,7 +10,7 @@ use finstack_valuations::instruments::common::mc::process::gbm::GbmProcess;
 use finstack_valuations::instruments::common::mc::process::metadata::ProcessMetadata;
 use finstack_valuations::instruments::common::mc::rng::philox::PhiloxRng;
 use finstack_valuations::instruments::common::mc::time_grid::TimeGrid;
-use finstack_valuations::instruments::common::mc::traits::{
+use finstack_valuations::instruments::common::mc::{
     Discretization, RandomStream, StochasticProcess,
 };
 use finstack_valuations::instruments::common::models::monte_carlo::engine::{

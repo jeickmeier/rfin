@@ -12,7 +12,7 @@
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::barrier_option::BarrierOption;
+use finstack_valuations::instruments::exotics::barrier_option::BarrierOption;
 use finstack_core::dates::Date;
 use time::Month;
 

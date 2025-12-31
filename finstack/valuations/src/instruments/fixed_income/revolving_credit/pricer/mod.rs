@@ -43,7 +43,6 @@ pub mod path_generator;
 pub mod unified;
 
 // Re-export key types and functions
-pub use components::{DiscountFactors, FeeCalculator, RateProjector, SurvivalWeights};
 #[cfg(feature = "mc")]
 pub use unified::EnhancedMonteCarloResult;
 pub use unified::{PathResult, RevolvingCreditPricer};

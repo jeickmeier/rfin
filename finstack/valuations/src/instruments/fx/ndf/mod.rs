@@ -40,7 +40,7 @@
 //! # Examples
 //!
 //! ```rust
-//! use finstack_valuations::instruments::ndf::Ndf;
+//! use finstack_valuations::instruments::fx::ndf::Ndf;
 //! use finstack_core::currency::Currency;
 //!
 //! // Create a USD/CNY NDF
@@ -55,11 +55,11 @@
 //! - [`FxSwap`](super::fx_swap::FxSwap) for FX swap instruments
 
 /// Pricer for NDF instruments.
-pub mod pricer;
+pub(crate) mod pricer;
 mod types;
 
 pub use pricer::NdfDiscountingPricer;
 pub use types::Ndf;
 
 /// Metrics submodule for NDF risk measures.
-pub mod metrics;
+pub(crate) mod metrics;

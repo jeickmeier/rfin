@@ -3,8 +3,8 @@
 use super::utils::*;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::instruments::ir_future::Position;
+use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::rates::ir_future::Position;
 
 #[test]
 fn test_basic_npv() {
@@ -246,7 +246,7 @@ fn test_value_trait_consistency() {
 
 #[test]
 fn test_discount_curve_id() {
-    use finstack_valuations::instruments::common::pricing::HasDiscountCurve;
+    use finstack_valuations::instruments::common::HasDiscountCurve;
 
     let (_, start, end) = standard_dates();
     let future = create_standard_future(start, end);

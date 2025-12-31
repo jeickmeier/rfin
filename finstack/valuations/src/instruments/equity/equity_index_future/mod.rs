@@ -38,10 +38,10 @@
 //! ## Creating an E-mini S&P 500 Future
 //!
 //! ```rust
-//! use finstack_valuations::instruments::equity_index_future::{
+//! use finstack_valuations::instruments::equity::equity_index_future::{
 //!     EquityIndexFuture, EquityFutureSpecs,
 //! };
-//! use finstack_valuations::instruments::ir_future::Position;
+//! use finstack_valuations::instruments::rates::ir_future::Position;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::dates::Date;
 //! use finstack_core::types::{CurveId, InstrumentId};
@@ -79,7 +79,7 @@
 //! ## Calculating Delta
 //!
 //! ```rust
-//! use finstack_valuations::instruments::equity_index_future::EquityIndexFuture;
+//! use finstack_valuations::instruments::equity::equity_index_future::EquityIndexFuture;
 //!
 //! let future = EquityIndexFuture::example();
 //! let delta = future.delta();
@@ -107,8 +107,8 @@
 mod types;
 pub use types::{EquityFutureSpecs, EquityIndexFuture};
 
-pub mod pricer;
+pub(crate) mod pricer;
 pub use pricer::EquityIndexFutureDiscountingPricer;
 
-pub mod metrics;
+pub(crate) mod metrics;
 pub use metrics::register_equity_index_future_metrics;

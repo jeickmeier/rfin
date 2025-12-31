@@ -15,8 +15,8 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
@@ -283,7 +283,7 @@ fn test_swap_symmetry() {
 
     use finstack_core::market_data::term_structures::ForwardCurve;
     use finstack_core::types::InstrumentId;
-    use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
+    use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
 
     let as_of = date!(2024 - 01 - 01);
     let maturity = date!(2029 - 01 - 01);

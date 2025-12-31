@@ -1,5 +1,5 @@
 use finstack_valuations::instruments::common::models::BinomialTree;
-use finstack_valuations::instruments::common::parameters::OptionMarketParams;
+use finstack_valuations::instruments::OptionMarketParams;
 
 #[test]
 fn test_up_and_out_call_reduces_value_with_low_barrier() {

@@ -17,9 +17,9 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::aggregation::aggregate_cashflows_precise_checked;
 use finstack_valuations::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec};
-use finstack_valuations::cashflow::traits::CashflowProvider;
-use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::instruments::irs::InterestRateSwap;
+use finstack_valuations::cashflow::CashflowProvider;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
+use finstack_valuations::instruments::rates::irs::InterestRateSwap;
 use rust_decimal_macros::dec;
 use std::hint::black_box;
 use time::Month;
@@ -103,7 +103,7 @@ fn bench_swap_cashflow_generation(c: &mut Criterion) {
             0.04,
             start,
             end,
-            finstack_valuations::instruments::irs::PayReceive::PayFixed,
+            finstack_valuations::instruments::rates::irs::PayReceive::PayFixed,
         )
         .expect("Failed to create swap for benchmark");
 

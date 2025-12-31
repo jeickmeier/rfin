@@ -19,8 +19,8 @@ use finstack_core::market_data::term_structures::{
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::ScheduleParams;
-use finstack_valuations::instruments::cds_tranche::parameters::CDSTrancheParams;
-use finstack_valuations::instruments::cds_tranche::{CdsTranche, TrancheSide};
+use finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTrancheParams;
+use finstack_valuations::instruments::credit_derivatives::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 use std::hint::black_box;
 use std::sync::Arc;

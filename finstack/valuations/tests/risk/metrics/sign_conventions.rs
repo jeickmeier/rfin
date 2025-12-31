@@ -17,10 +17,10 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::instruments::common::parameters::market::{ExerciseStyle, OptionType};
-use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::instruments::equity_option::EquityOption;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
+use finstack_valuations::instruments::market::{ExerciseStyle, OptionType};
+use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::equity::equity_option::EquityOption;
 use finstack_valuations::instruments::{PricingOverrides, SettlementType};
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 use std::sync::Arc;
@@ -431,7 +431,7 @@ fn test_cds_cs01_protection_buyer_positive() {
     let as_of = date!(2025 - 01 - 01);
 
     use finstack_core::market_data::term_structures::HazardCurve;
-    use finstack_valuations::instruments::cds::CreditDefaultSwap;
+    use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 
     let cds = CreditDefaultSwap::buy_protection(
         "CS01_BUY_TEST",
@@ -506,7 +506,7 @@ fn test_cds_cs01_protection_seller_negative() {
     let as_of = date!(2025 - 01 - 01);
 
     use finstack_core::market_data::term_structures::HazardCurve;
-    use finstack_valuations::instruments::cds::CreditDefaultSwap;
+    use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 
     let cds = CreditDefaultSwap::sell_protection(
         "CS01_SELL_TEST",
@@ -580,7 +580,7 @@ fn test_cds_cs01_opposite_signs() {
     let as_of = date!(2025 - 01 - 01);
 
     use finstack_core::market_data::term_structures::HazardCurve;
-    use finstack_valuations::instruments::cds::CreditDefaultSwap;
+    use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 
     let cds_buy = CreditDefaultSwap::buy_protection(
         "CS01_BUY",

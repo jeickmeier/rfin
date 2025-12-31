@@ -12,7 +12,7 @@
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::range_accrual::RangeAccrual;
+use finstack_valuations::instruments::rates::range_accrual::RangeAccrual;
 
 let note = RangeAccrual::example();
 let pv = note.value(&market_context, as_of_date)?;

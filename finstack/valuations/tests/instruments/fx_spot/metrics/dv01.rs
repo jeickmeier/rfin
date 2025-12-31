@@ -9,7 +9,7 @@ use finstack_core::{
     currency::Currency, dates::Date, market_data::context::MarketContext, money::Money,
 };
 use finstack_valuations::{
-    instruments::{common::traits::Instrument, fx_spot::FxSpot},
+    instruments::{FxSpot, Instrument},
     metrics::MetricId,
 };
 

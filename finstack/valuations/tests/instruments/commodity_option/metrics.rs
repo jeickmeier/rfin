@@ -4,8 +4,8 @@ use finstack_core::currency::Currency;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::commodity_option::CommodityOption;
-use finstack_valuations::instruments::common::traits::Attributes;
+use finstack_valuations::instruments::commodity::commodity_option::CommodityOption;
+use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{
     ExerciseStyle, OptionType, PricingOverrides, SettlementType,

@@ -68,7 +68,7 @@ mod tests {
     use crate::valuation::value_portfolio;
     use finstack_core::config::{results_meta_now, FinstackConfig};
     use finstack_core::currency::Currency;
-    use finstack_valuations::instruments::deposit::Deposit;
+    use finstack_valuations::instruments::rates::deposit::Deposit;
     use std::sync::Arc;
     use time::macros::date;
 

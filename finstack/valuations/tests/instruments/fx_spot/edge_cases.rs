@@ -6,8 +6,8 @@ use finstack_core::{
     money::Money, types::InstrumentId,
 };
 use finstack_valuations::{
-    cashflow::traits::CashflowProvider,
-    instruments::{common::traits::Instrument, fx_spot::FxSpot},
+    cashflow::CashflowProvider,
+    instruments::{FxSpot, Instrument},
     pricer::InstrumentType,
 };
 

@@ -4,19 +4,20 @@ use crate::core::money::{extract_money, PyMoney};
 use crate::valuations::common::PyInstrumentType;
 use crate::valuations::instruments::cds::normalize_cds_side;
 use finstack_core::types::InstrumentId;
-use finstack_valuations::constants::isda;
-use finstack_valuations::instruments::cds::{CDSConvention, PayReceive};
-use finstack_valuations::instruments::cds_index::parameters::{
+use finstack_valuations::instruments::credit_derivatives::cds::{CDSConvention, PayReceive};
+use finstack_valuations::instruments::credit_derivatives::cds_index::{
     CDSIndexConstructionParams, CDSIndexParams,
 };
-use finstack_valuations::instruments::cds_index::CDSIndex;
-use finstack_valuations::instruments::common::parameters::CreditParams;
+use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndex;
+use finstack_valuations::instruments::CreditParams;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use rust_decimal::prelude::ToPrimitive;
 use std::fmt;
+
+const STANDARD_RECOVERY_SENIOR: f64 = 0.40;
 
 /// CDS index instrument binding exposing a simplified constructor.
 ///
@@ -116,7 +117,7 @@ impl PyCdsIndex {
         let disc_curve = discount_curve.extract::<&str>().context("discount_curve")?;
         let credit_curve_id = credit_curve.extract::<&str>().context("credit_curve")?;
         let side_value = normalize_cds_side(side.unwrap_or("pay_protection")).context("side")?;
-        let recovery = recovery_rate.unwrap_or(isda::STANDARD_RECOVERY_SENIOR);
+        let recovery = recovery_rate.unwrap_or(STANDARD_RECOVERY_SENIOR);
         if !(0.0..=1.0).contains(&recovery) {
             return Err(PyValueError::new_err(
                 "recovery_rate must be between 0 and 1",

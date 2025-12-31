@@ -3,7 +3,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Tenor, TenorUnit};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::bond::pricing::quote_engine::{
+use finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::{
     df_from_yield, periods_per_year, price_from_ytm_compounded_params, YieldCompounding,
 };
 

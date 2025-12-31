@@ -112,7 +112,7 @@ pub enum AttributionFactor {
 /// use finstack_valuations::attribution::AttributionMethod;
 /// use finstack_valuations::attribution::AttributionInput;
 /// use finstack_valuations::attribution::default_attribution_metrics;
-/// use finstack_valuations::instruments::deposit::Deposit;
+/// use finstack_valuations::instruments::rates::deposit::Deposit;
 /// use finstack_core::config::FinstackConfig;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::market_data::context::MarketContext;
@@ -137,7 +137,7 @@ pub enum AttributionFactor {
 ///         .discount_curve_id("USD-OIS".into())
 ///         .build()
 ///         .expect("deposit builder should succeed"),
-/// ) as Arc<dyn finstack_valuations::instruments::common::traits::Instrument>;
+/// ) as Arc<dyn finstack_valuations::instruments::Instrument>;
 ///
 /// // Parallel attribution
 /// let input = AttributionInput {
@@ -234,7 +234,7 @@ pub struct AttributionInput<'a> {
 ///
 /// ```rust,no_run
 /// use finstack_valuations::attribution::attribute_pnl_parallel;
-/// use finstack_valuations::instruments::deposit::Deposit;
+/// use finstack_valuations::instruments::rates::deposit::Deposit;
 /// use finstack_core::config::FinstackConfig;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::market_data::context::MarketContext;
@@ -259,7 +259,7 @@ pub struct AttributionInput<'a> {
 ///         .discount_curve_id("USD-OIS".into())
 ///         .build()
 ///         .expect("deposit builder should succeed"),
-/// ) as Arc<dyn finstack_valuations::instruments::common::traits::Instrument>;
+/// ) as Arc<dyn finstack_valuations::instruments::Instrument>;
 ///
 /// let attribution = attribute_pnl_parallel(
 ///     &instrument,

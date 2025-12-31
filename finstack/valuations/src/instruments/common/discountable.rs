@@ -1,6 +1,6 @@
 //! Compatibility layer for discounting instrument cashflow schedules.
 
-pub use finstack_core::cashflow::{npv, Discountable};
+pub use finstack_core::cashflow::Discountable;
 
 use crate::cashflow::builder::CashFlowSchedule;
 use finstack_core::dates::{Date, DayCount};

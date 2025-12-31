@@ -4,12 +4,12 @@
 //! using historical simulation methodology. It supports both full revaluation
 //! and Taylor approximation approaches.
 
-pub mod hvar;
-pub mod market_history;
-pub mod risk_factors;
+pub(crate) mod hvar;
+pub(crate) mod market_history;
+pub(crate) mod risk_factors;
 #[cfg(test)]
 pub(crate) mod test_utils;
-pub mod var_calculator;
+pub(crate) mod var_calculator;
 
 pub use hvar::{GenericExpectedShortfall, GenericHVar};
 pub use market_history::{MarketHistory, MarketScenario, RiskFactorShift};

@@ -11,7 +11,7 @@ use finstack_core::money::fx::{providers::SimpleFxProvider, FxMatrix};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::common::{FxPair, InstrumentDependencies};
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{FxForward, InstrumentJson};
 use std::sync::Arc;
 use time::macros::date;

@@ -4,7 +4,7 @@ use crate::core::money::{extract_money, PyMoney};
 use crate::errors::core_to_py;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::fra::ForwardRateAgreement;
+use finstack_valuations::instruments::rates::fra::ForwardRateAgreement;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;

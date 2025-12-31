@@ -13,8 +13,8 @@
 
 use super::helpers::*;
 use finstack_core::currency::Currency;
-use finstack_valuations::instruments::cds_tranche::pricer::CDSTranchePricer;
-use finstack_valuations::instruments::cds_tranche::TrancheSide;
+use finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTranchePricer;
+use finstack_valuations::instruments::credit_derivatives::cds_tranche::TrancheSide;
 
 // ==================== Basic Pricing Tests ====================
 

@@ -3,8 +3,8 @@
 use super::fixtures::*;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::traits::CashflowProvider;
-use finstack_valuations::instruments::repo::Repo;
+use finstack_valuations::cashflow::CashflowProvider;
+use finstack_valuations::instruments::rates::repo::Repo;
 
 #[test]
 fn test_cashflow_schedule_structure() {

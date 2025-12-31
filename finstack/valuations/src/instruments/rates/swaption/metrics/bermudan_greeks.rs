@@ -18,6 +18,7 @@
 //! ```text
 //! Delta = (V(r+dr) - V(r-dr)) / (2*dr)
 //! Gamma = (V(r+dr) - 2*V(r) + V(r-dr)) / (dr^2)
+#![allow(dead_code)] // Public API items may be used by external bindings
 //! Vega = (V(σ+dσ) - V(σ-dσ)) / (2*dσ)
 //! ```
 
@@ -31,18 +32,23 @@ use finstack_core::types::{Bps, Percentage, Rate};
 use finstack_core::Result;
 
 /// Default bump size for parallel rate shift (1 basis point).
+#[allow(dead_code)] // May be used by external bindings or tests
 pub const DEFAULT_RATE_BUMP_BP: f64 = 1.0;
 
 /// Default bump size for volatility (1% relative).
+#[allow(dead_code)] // May be used by external bindings or tests
 pub const DEFAULT_VOL_BUMP_PCT: f64 = 0.01;
 
 /// Default Hull-White mean reversion.
+#[allow(dead_code)] // May be used by external bindings or tests
 pub const DEFAULT_KAPPA: f64 = 0.03;
 
 /// Default Hull-White volatility.
+#[allow(dead_code)] // May be used by external bindings or tests
 pub const DEFAULT_SIGMA: f64 = 0.01;
 
 /// Default tree steps for Greeks.
+#[allow(dead_code)] // May be used by external bindings or tests
 pub const DEFAULT_TREE_STEPS: usize = 50;
 
 // ============================================================================

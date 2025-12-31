@@ -6,8 +6,8 @@ use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::types::CurveId;
-use finstack_valuations::instruments::cms_option::CmsOption;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::rates::cms_option::CmsOption;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::Month;
 

@@ -89,10 +89,11 @@
 //! - [`DeflationProtection`] for floor specifications
 //! - [`metrics`] for inflation-specific risk metrics
 
-pub mod metrics;
-pub mod parameters;
+pub(crate) mod metrics;
+pub(crate) mod parameters;
 /// Inflation-linked bond pricer implementation
-pub mod pricer;
+pub(crate) mod pricer;
 mod types;
 
+pub use parameters::InflationLinkedBondParams;
 pub use types::{DeflationProtection, IndexationMethod, InflationLinkedBond};

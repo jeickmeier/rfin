@@ -1,4 +1,5 @@
 //! Stochastic pricing engine.
+#![allow(dead_code)] // Public API items may be used by external bindings
 
 use super::config::{PricingMode, StochasticPricerConfig};
 use super::result::{StochasticPricingResult, TranchePricingResult};

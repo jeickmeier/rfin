@@ -21,7 +21,7 @@
 //! use finstack_core::currency::Currency;
 //! use finstack_core::dates::Date;
 //! use finstack_core::market_data::term_structures::DiscountCurve;
-//! use finstack_valuations::instruments::structured_credit::pricing::stochastic::pricer::{
+//! use finstack_valuations::instruments::fixed_income::structured_credit::pricing::stochastic::pricer::{
 //!     StochasticPricer, StochasticPricerConfig,
 //! };
 //! use std::sync::Arc;

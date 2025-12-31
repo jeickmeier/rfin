@@ -7,7 +7,7 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::repo::CollateralSpec;
+use finstack_valuations::instruments::rates::repo::CollateralSpec;
 use time::Month;
 
 /// Create a test date from year, month, day.

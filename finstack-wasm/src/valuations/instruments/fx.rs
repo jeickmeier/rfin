@@ -4,9 +4,9 @@ use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_valuations::instruments::fx_option::{parameters::FxOptionParams, FxOption};
-use finstack_valuations::instruments::fx_spot::FxSpot;
-use finstack_valuations::instruments::fx_swap::FxSwap;
+use finstack_valuations::instruments::fx::fx_option::{FxOption, FxOptionParams};
+use finstack_valuations::instruments::fx::fx_spot::FxSpot;
+use finstack_valuations::instruments::fx::fx_swap::FxSwap;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 
@@ -138,7 +138,7 @@ impl JsFxOption {
         foreign_curve: &str,
         vol_surface: &str,
     ) -> JsFxOption {
-        use finstack_valuations::instruments::common::parameters::FxUnderlyingParams;
+        use finstack_valuations::instruments::FxUnderlyingParams;
         let option_params = FxOptionParams::european_call(strike, expiry.inner(), notional.inner());
         let underlying = FxUnderlyingParams::new(
             base_currency.inner(),
@@ -168,7 +168,7 @@ impl JsFxOption {
         foreign_curve: &str,
         vol_surface: &str,
     ) -> JsFxOption {
-        use finstack_valuations::instruments::common::parameters::FxUnderlyingParams;
+        use finstack_valuations::instruments::FxUnderlyingParams;
         let option_params = FxOptionParams::european_put(strike, expiry.inner(), notional.inner());
         let underlying = FxUnderlyingParams::new(
             base_currency.inner(),

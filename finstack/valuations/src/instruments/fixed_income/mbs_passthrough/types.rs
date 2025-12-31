@@ -101,7 +101,7 @@ pub enum PoolType {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::agency_mbs_passthrough::{
+/// use finstack_valuations::instruments::fixed_income::mbs_passthrough::{
 ///     AgencyMbsPassthrough, AgencyProgram, PoolType,
 /// };
 /// use finstack_valuations::cashflow::builder::specs::PrepaymentModelSpec;

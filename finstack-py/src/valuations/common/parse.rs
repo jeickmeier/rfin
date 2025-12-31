@@ -6,7 +6,7 @@
 use crate::valuations::common::parameters::{
     PyExerciseStyle, PyOptionType, PyPayReceive, PySettlementType,
 };
-use finstack_valuations::instruments::common::parameters::{
+use finstack_valuations::instruments::{
     legs::PayReceive,
     market::{ExerciseStyle, OptionType, SettlementType},
 };

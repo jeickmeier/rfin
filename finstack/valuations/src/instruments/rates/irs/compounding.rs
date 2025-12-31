@@ -63,7 +63,7 @@
 /// # Examples
 ///
 /// ```
-/// use finstack_valuations::instruments::irs::FloatingLegCompounding;
+/// use finstack_valuations::instruments::rates::irs::FloatingLegCompounding;
 ///
 /// // LIBOR-style swap (simple compounding)
 /// let simple = FloatingLegCompounding::Simple;

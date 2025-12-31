@@ -34,9 +34,9 @@
 //! - [`LookbackType`] for fixed vs floating strike
 //! - [`models::closed_form::lookback`](crate::instruments::common::models::closed_form::lookback) for formulas
 
-pub mod metrics;
-pub mod pricer;
-pub mod traits;
-pub mod types;
+pub(crate) mod metrics;
+pub(crate) mod pricer;
+pub(crate) mod traits;
+pub(crate) mod types;
 
-pub use types::{LookbackOption, LookbackType};
+pub use types::{LookbackOption, LookbackOptionBuilder, LookbackType};

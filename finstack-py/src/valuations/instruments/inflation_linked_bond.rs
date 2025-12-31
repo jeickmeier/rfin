@@ -5,8 +5,8 @@ use crate::errors::core_to_py;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind};
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::inflation_linked_bond::parameters::InflationLinkedBondParams;
-use finstack_valuations::instruments::inflation_linked_bond::{
+use finstack_valuations::instruments::fixed_income::inflation_linked_bond::InflationLinkedBondParams;
+use finstack_valuations::instruments::fixed_income::inflation_linked_bond::{
     DeflationProtection, IndexationMethod, InflationLinkedBond,
 };
 use pyo3::exceptions::PyValueError;

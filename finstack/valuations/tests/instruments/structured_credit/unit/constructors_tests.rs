@@ -3,16 +3,17 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Tenor};
 use finstack_core::money::Money;
-use finstack_valuations::constants::DECIMAL_TO_PERCENT;
-use finstack_valuations::instruments::structured_credit::types::constants::{
+use finstack_valuations::instruments::fixed_income::structured_credit::config::constants::{
     ABS_AUTO_STANDARD_CDR, CLO_STANDARD_CDR, CMBS_STANDARD_CDR, PSA_RAMP_MONTHS, PSA_TERMINAL_CPR,
     RMBS_STANDARD_CDR, SDA_PEAK_CDR, SDA_PEAK_MONTH, SDA_TERMINAL_CDR,
 };
-use finstack_valuations::instruments::structured_credit::utils::rates::{cdr_to_mdr, cpr_to_smm};
-use finstack_valuations::instruments::structured_credit::{
+use finstack_valuations::instruments::fixed_income::structured_credit::{cdr_to_mdr, cpr_to_smm};
+use finstack_valuations::instruments::fixed_income::structured_credit::{
     DealType, Pool, PoolAsset, StructuredCredit, Tranche, TrancheCoupon, TrancheStructure,
 };
 use time::Month;
+
+const DECIMAL_TO_PERCENT: f64 = 100.0;
 
 fn test_date() -> Date {
     Date::from_calendar_date(2025, Month::January, 1).unwrap()
@@ -41,7 +42,7 @@ fn create_single_tranche() -> TrancheStructure {
         "SENIOR",
         0.0,
         100.0,
-        finstack_valuations::instruments::structured_credit::Seniority::Senior,
+        finstack_valuations::instruments::fixed_income::structured_credit::Seniority::Senior,
         Money::new(1_000_000.0, Currency::USD),
         TrancheCoupon::Fixed { rate: 0.05 },
         Date::from_calendar_date(2030, Month::January, 1).unwrap(),

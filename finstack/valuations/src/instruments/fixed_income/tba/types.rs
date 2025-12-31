@@ -85,8 +85,8 @@ pub struct TbaSettlement {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::agency_tba::{AgencyTba, TbaTerm};
-/// use finstack_valuations::instruments::agency_mbs_passthrough::AgencyProgram;
+/// use finstack_valuations::instruments::fixed_income::tba::{AgencyTba, TbaTerm};
+/// use finstack_valuations::instruments::fixed_income::mbs_passthrough::AgencyProgram;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::money::Money;
 /// use finstack_core::dates::Date;

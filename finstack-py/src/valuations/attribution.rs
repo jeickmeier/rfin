@@ -455,7 +455,7 @@ pub fn attribute_pnl(
 
     // Extract instrument using existing pattern
     let handle = crate::valuations::instruments::extract_instrument(&instrument)?;
-    let instrument_arc: Arc<dyn finstack_valuations::instruments::common::traits::Instrument> =
+    let instrument_arc: Arc<dyn finstack_valuations::instruments::Instrument> =
         Arc::from(handle.instrument);
 
     // Get attribution method (default to Parallel)

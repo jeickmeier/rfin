@@ -10,8 +10,8 @@
 //! # Example
 //!
 //! ```rust,no_run
-//! use finstack_valuations::instruments::swaption::BermudanSwaption;
-//! use finstack_valuations::instruments::swaption::pricing::BermudanSwaptionTreeValuator;
+//! use finstack_valuations::instruments::rates::swaption::BermudanSwaption;
+//! use finstack_valuations::instruments::rates::swaption::pricing::BermudanSwaptionTreeValuator;
 //!
 //! let swaption = BermudanSwaption::example();
 //! // Use with HullWhiteTree for backward induction pricing

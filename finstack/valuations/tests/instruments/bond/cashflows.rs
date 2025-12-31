@@ -17,8 +17,8 @@ use finstack_valuations::cashflow::builder::AmortizationSpec;
 use finstack_valuations::cashflow::builder::{
     CashFlowSchedule, CouponType, FixedCouponSpec, ScheduleParams,
 };
-use finstack_valuations::cashflow::traits::CashflowProvider;
-use finstack_valuations::instruments::bond::{Bond, CashflowSpec};
+use finstack_valuations::cashflow::CashflowProvider;
+use finstack_valuations::instruments::fixed_income::bond::{Bond, CashflowSpec};
 use finstack_valuations::instruments::PricingOverrides;
 use time::macros::date;
 

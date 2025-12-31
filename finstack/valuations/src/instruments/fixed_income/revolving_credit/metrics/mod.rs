@@ -9,7 +9,6 @@ pub mod utilization_rate;
 pub mod weighted_average_cost;
 
 pub use available_capacity::AvailableCapacityCalculator;
-pub use irr::calculate_path_irr;
 pub use utilization_rate::UtilizationRateCalculator;
 pub use weighted_average_cost::ApproxWeightedAverageCostCalculator;
 

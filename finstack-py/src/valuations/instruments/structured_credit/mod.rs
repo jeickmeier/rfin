@@ -3,7 +3,7 @@
 pub(crate) mod waterfall;
 
 use crate::valuations::common::PyInstrumentType;
-use finstack_valuations::instruments::structured_credit::StructuredCredit;
+use finstack_valuations::instruments::fixed_income::structured_credit::StructuredCredit;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyModule, PyType};

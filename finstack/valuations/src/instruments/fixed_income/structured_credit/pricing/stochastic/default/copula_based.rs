@@ -8,6 +8,7 @@
 //! For each obligor i:
 //! ```text
 //! Aᵢ = √ρ · Z + √(1-ρ) · εᵢ
+#![allow(dead_code)] // Public API items may be used by external bindings
 //! Default: Aᵢ ≤ Φ⁻¹(PD)
 //! ```
 //!

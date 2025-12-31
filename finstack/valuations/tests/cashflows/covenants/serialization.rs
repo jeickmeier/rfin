@@ -4,14 +4,11 @@
 
 use finstack_core::dates::{Date, Tenor};
 use finstack_valuations::covenants::{
-    engine::{
-        ConsequenceApplication, Covenant, CovenantBreach, CovenantConsequence, CovenantEngine,
-        CovenantScope, CovenantSpec, CovenantTestSpec, CovenantType, CovenantWindow,
-        SpringingCondition, ThresholdTest,
-    },
-    forward::{Comparator, CovenantForecast, CovenantForecastConfig, FutureBreach, McConfig},
-    mod_types::CovenantReport,
-    schedule::ThresholdSchedule,
+    Comparator, ConsequenceApplication, Covenant, CovenantBreach, CovenantConsequence,
+    CovenantEngine, CovenantForecastConfig, CovenantReport, CovenantScope, CovenantSpec,
+    CovenantTestSpec, CovenantType, CovenantWindow, FutureBreach,
+    GenericCovenantForecast as CovenantForecast, McConfig, SpringingCondition, ThresholdSchedule,
+    ThresholdTest,
 };
 use finstack_valuations::metrics::MetricId;
 use time::Month;

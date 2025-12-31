@@ -4,7 +4,7 @@ use super::common::*;
 use finstack_core::{
     currency::Currency, dates::BusinessDayConvention, money::Money, types::InstrumentId,
 };
-use finstack_valuations::instruments::fx_spot::FxSpot;
+use finstack_valuations::instruments::fx::fx_spot::FxSpot;
 
 #[test]
 fn test_basic_construction() {

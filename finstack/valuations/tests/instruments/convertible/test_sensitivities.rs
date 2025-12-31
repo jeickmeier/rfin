@@ -8,7 +8,7 @@
 //! - Monotonicity and convexity properties
 
 use super::fixtures::*;
-use finstack_valuations::instruments::convertible::pricer::{
+use finstack_valuations::instruments::fixed_income::convertible::{
     price_convertible_bond, ConvertibleTreeType,
 };
 

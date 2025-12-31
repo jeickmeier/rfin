@@ -14,7 +14,7 @@
 //!
 //! ```rust,no_run
 //! use finstack_valuations::margin::metrics::{InitialMarginMetric, VariationMarginMetric};
-//! use finstack_valuations::instruments::irs::InterestRateSwap;
+//! use finstack_valuations::instruments::rates::irs::InterestRateSwap;
 //! use finstack_core::market_data::context::MarketContext;
 //! use time::macros::date;
 //!

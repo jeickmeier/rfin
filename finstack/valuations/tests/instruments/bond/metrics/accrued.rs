@@ -10,8 +10,8 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
@@ -93,8 +93,8 @@ fn test_accrued_frn_uses_forward_rate() {
     // Floating-rate bond with SOFR 3M (using new CashflowSpec)
     use finstack_core::dates::Tenor;
     use finstack_core::types::CurveId;
-    use finstack_valuations::instruments::bond::CashflowSpec;
-    use finstack_valuations::instruments::common::traits::Attributes;
+    use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
+    use finstack_valuations::instruments::Attributes;
     use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
     let bond = Bond::builder()
         .id("FRN1".into())

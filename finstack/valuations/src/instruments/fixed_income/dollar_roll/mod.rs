@@ -21,9 +21,9 @@
 //! # Examples
 //!
 //! ```rust
-//! use finstack_valuations::instruments::dollar_roll::DollarRoll;
-//! use finstack_valuations::instruments::agency_tba::TbaTerm;
-//! use finstack_valuations::instruments::agency_mbs_passthrough::AgencyProgram;
+//! use finstack_valuations::instruments::fixed_income::dollar_roll::DollarRoll;
+//! use finstack_valuations::instruments::fixed_income::tba::TbaTerm;
+//! use finstack_valuations::instruments::fixed_income::mbs_passthrough::AgencyProgram;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::money::Money;
 //! use finstack_core::types::{CurveId, InstrumentId};
@@ -49,8 +49,8 @@
 //! ```
 
 pub mod carry;
-pub mod metrics;
-pub mod pricer;
+pub(crate) mod metrics;
+pub(crate) mod pricer;
 mod types;
 
 pub use pricer::DollarRollDiscountingPricer;

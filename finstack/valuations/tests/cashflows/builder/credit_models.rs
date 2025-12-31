@@ -24,7 +24,7 @@ fn psa_smm_golden_values() {
     // PSA (Public Securities Association) Prepayment Model Golden Values
     // 100% PSA ramps to 6% CPR over 30 months, then stays flat
     // SMM = 1 - (1 - CPR)^(1/12)
-    use finstack_valuations::cashflow::builder::credit_rates::{cpr_to_smm, smm_to_cpr};
+    use finstack_valuations::cashflow::builder::{cpr_to_smm, smm_to_cpr};
     use finstack_valuations::cashflow::builder::PrepaymentModelSpec;
 
     let model = PrepaymentModelSpec::psa_100();
@@ -84,7 +84,7 @@ fn psa_smm_golden_values() {
 fn sda_mdr_golden_values() {
     // SDA (Standard Default Assumption) Model Golden Values
     // SDA peaks at month 30 with 6% CDR, then declines to 3% terminal over next 30 months
-    use finstack_valuations::cashflow::builder::credit_rates::smm_to_cpr;
+    use finstack_valuations::cashflow::builder::smm_to_cpr;
     use finstack_valuations::cashflow::builder::DefaultModelSpec;
 
     let model = DefaultModelSpec::sda(1.0);
@@ -143,7 +143,7 @@ fn cpr_smm_conversion_roundtrip_precision() {
     // Test that CPR ↔ SMM conversion maintains precision across range
     // Formula: SMM = 1 - (1 - CPR)^(1/12)
     //          CPR = 1 - (1 - SMM)^12
-    use finstack_valuations::cashflow::builder::credit_rates::{cpr_to_smm, smm_to_cpr};
+    use finstack_valuations::cashflow::builder::{cpr_to_smm, smm_to_cpr};
 
     let test_cprs = [0.0, 0.01, 0.03, 0.06, 0.10, 0.15, 0.20, 0.50];
 
@@ -184,7 +184,7 @@ fn cpr_smm_conversion_roundtrip_precision() {
 fn psa_matches_industry_standard_ramp() {
     // Reference: Bond Market Association PSA Standard Prepayment Model
     // 100% PSA: Linear ramp from 0% CPR at month 0 to 6% CPR at month 30
-    use finstack_valuations::cashflow::builder::credit_rates::smm_to_cpr;
+    use finstack_valuations::cashflow::builder::smm_to_cpr;
     use finstack_valuations::cashflow::builder::PrepaymentModelSpec;
 
     let model = PrepaymentModelSpec::psa_100();
@@ -230,7 +230,7 @@ fn psa_matches_industry_standard_ramp() {
 #[test]
 fn psa_multiplier_scales_correctly() {
     // Test that PSA multipliers scale linearly
-    use finstack_valuations::cashflow::builder::credit_rates::smm_to_cpr;
+    use finstack_valuations::cashflow::builder::smm_to_cpr;
     use finstack_valuations::cashflow::builder::PrepaymentModelSpec;
 
     // 50% PSA, 100% PSA, 200% PSA at month 30
@@ -272,7 +272,7 @@ fn psa_multiplier_scales_correctly() {
 #[test]
 fn psa_terminal_rate_is_flat() {
     // After month 30, PSA should stay flat at terminal rate
-    use finstack_valuations::cashflow::builder::credit_rates::smm_to_cpr;
+    use finstack_valuations::cashflow::builder::smm_to_cpr;
     use finstack_valuations::cashflow::builder::PrepaymentModelSpec;
 
     let model = PrepaymentModelSpec::psa_100();
@@ -298,7 +298,7 @@ fn psa_terminal_rate_is_flat() {
 fn sda_matches_industry_standard_curve() {
     // Reference: Standard Default Assumption curve
     // Ramp to 6% CDR at month 30, decline to 3% CDR terminal by month 60
-    use finstack_valuations::cashflow::builder::credit_rates::smm_to_cpr;
+    use finstack_valuations::cashflow::builder::smm_to_cpr;
     use finstack_valuations::cashflow::builder::DefaultModelSpec;
 
     let model = DefaultModelSpec::sda(1.0);
@@ -345,7 +345,7 @@ fn sda_matches_industry_standard_curve() {
 #[test]
 fn sda_multiplier_scales_correctly() {
     // Test that SDA multipliers scale linearly
-    use finstack_valuations::cashflow::builder::credit_rates::smm_to_cpr;
+    use finstack_valuations::cashflow::builder::smm_to_cpr;
     use finstack_valuations::cashflow::builder::DefaultModelSpec;
 
     let sda_100 = DefaultModelSpec::sda(1.0);

@@ -5,8 +5,8 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Tenor;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::instruments::variance_swap::PayReceive;
+use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::equity::variance_swap::PayReceive;
 use finstack_valuations::metrics::MetricId;
 
 // ============================================================================
@@ -505,7 +505,7 @@ fn test_valuation_succeeds_when_as_of_equals_discount_curve_base() {
 
 #[test]
 fn test_cashflow_schedule_returns_single_maturity_flow() {
-    use finstack_valuations::cashflow::traits::CashflowProvider;
+    use finstack_valuations::cashflow::CashflowProvider;
 
     // Arrange
     let swap = sample_swap(PayReceive::Receive);
@@ -523,7 +523,7 @@ fn test_cashflow_schedule_returns_single_maturity_flow() {
 
 #[test]
 fn test_cashflow_schedule_preserves_currency() {
-    use finstack_valuations::cashflow::traits::CashflowProvider;
+    use finstack_valuations::cashflow::CashflowProvider;
 
     // Arrange
     let mut swap = sample_swap(PayReceive::Receive);
@@ -540,7 +540,7 @@ fn test_cashflow_schedule_preserves_currency() {
 
 #[test]
 fn test_cashflow_schedule_has_zero_amount_before_settlement() {
-    use finstack_valuations::cashflow::traits::CashflowProvider;
+    use finstack_valuations::cashflow::CashflowProvider;
 
     // Arrange
     let swap = sample_swap(PayReceive::Receive);

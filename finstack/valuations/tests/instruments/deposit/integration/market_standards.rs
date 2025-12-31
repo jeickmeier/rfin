@@ -7,7 +7,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::deposit::Deposit;
+use finstack_valuations::instruments::rates::deposit::Deposit;
 use finstack_valuations::metrics::MetricId;
 
 #[test]
@@ -273,7 +273,7 @@ fn test_usd_deposit_friday_trade_with_nyse_calendar() {
         .day_count(DayCount::Act360)
         .quote_rate_opt(Some(0.02))
         .discount_curve_id(CurveId::new("USD-OIS"))
-        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
+        .attributes(finstack_valuations::instruments::Attributes::new())
         .spot_lag_days_opt(Some(2))
         .bdc_opt(Some(BusinessDayConvention::ModifiedFollowing))
         .calendar_id_opt(Some("nyse".to_string()))
@@ -323,7 +323,7 @@ fn test_deposit_without_spot_lag_uses_raw_dates() {
         .day_count(DayCount::Act360)
         .quote_rate_opt(Some(0.02))
         .discount_curve_id(CurveId::new("USD-OIS"))
-        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
+        .attributes(finstack_valuations::instruments::Attributes::new())
         // No spot_lag_days_opt - should use raw dates
         .build()
         .expect("Valid deposit");
@@ -357,7 +357,7 @@ fn test_gbp_deposit_t0_settlement() {
         .day_count(DayCount::Act365F) // GBP uses Act/365
         .quote_rate_opt(Some(0.02))
         .discount_curve_id(CurveId::new("GBP-OIS"))
-        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
+        .attributes(finstack_valuations::instruments::Attributes::new())
         .spot_lag_days_opt(Some(0)) // T+0 for GBP
         .bdc_opt(Some(BusinessDayConvention::ModifiedFollowing))
         .build()
@@ -409,7 +409,7 @@ fn test_modified_following_eom_adjustment() {
         .day_count(DayCount::Act360)
         .quote_rate_opt(Some(0.02))
         .discount_curve_id(CurveId::new("USD-OIS"))
-        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
+        .attributes(finstack_valuations::instruments::Attributes::new())
         .bdc_opt(Some(BusinessDayConvention::ModifiedFollowing))
         .calendar_id_opt(Some("nyse".to_string()))
         .build()

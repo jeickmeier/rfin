@@ -3,8 +3,8 @@ use crate::core::money::JsMoney;
 use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_valuations::instruments::swaption::parameters::SwaptionParams;
-use finstack_valuations::instruments::swaption::{Swaption, SwaptionExercise, SwaptionSettlement};
+use finstack_valuations::instruments::rates::swaption::SwaptionParams;
+use finstack_valuations::instruments::rates::swaption::{Swaption, SwaptionExercise, SwaptionSettlement};
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 

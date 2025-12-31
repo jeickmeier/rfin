@@ -8,6 +8,7 @@
 //!
 //! # Mathematical Model
 //!
+#![allow(dead_code)] // Public API items may be used by external bindings
 //! ```text
 //! CPR(t, r, B) = refi_incentive(r) × seasoning(t) × burnout(B) × seasonality(month)
 //! ```

@@ -3,7 +3,7 @@
 use super::common::*;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::variance_swap::PayReceive;
+use finstack_valuations::instruments::equity::variance_swap::PayReceive;
 
 #[test]
 fn test_payoff_at_the_money_is_zero() {

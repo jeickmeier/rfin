@@ -31,7 +31,7 @@
 //! # Quick Example
 //!
 //! ```rust
-//! use finstack_valuations::instruments::term_loan::TermLoan;
+//! use finstack_valuations::instruments::fixed_income::term_loan::TermLoan;
 //! use finstack_valuations::metrics::{MetricId, MetricRegistry};
 //! use finstack_core::market_data::context::MarketContext;
 //! use finstack_core::dates::Date;
@@ -96,7 +96,7 @@ use crate::metrics::MetricRegistry;
 ///
 /// ```rust
 /// use finstack_valuations::metrics::MetricRegistry;
-/// use finstack_valuations::instruments::term_loan::metrics::register_term_loan_metrics;
+/// use finstack_valuations::instruments::fixed_income::term_loan::metrics::register_term_loan_metrics;
 ///
 /// let mut registry = MetricRegistry::new();
 /// register_term_loan_metrics(&mut registry);

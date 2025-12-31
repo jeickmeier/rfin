@@ -8,7 +8,7 @@
 ///
 /// ```text
 /// use finstack_wasm::valuations::instruments::InstrumentWrapper;
-/// use finstack_valuations::instruments::bond::Bond;
+/// use finstack_valuations::instruments::fixed_income::bond::Bond;
 /// use wasm_bindgen::prelude::*;
 ///
 /// #[wasm_bindgen(js_name = Bond)]

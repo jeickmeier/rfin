@@ -9,7 +9,7 @@
 
 use super::fixtures::*;
 use finstack_core::currency::Currency;
-use finstack_valuations::instruments::convertible::pricer::{
+use finstack_valuations::instruments::fixed_income::convertible::{
     calculate_parity as pricer_calculate_parity, price_convertible_bond, ConvertibleTreeType,
 };
 

@@ -96,7 +96,7 @@ pub use valuations::calibration::{
     JsValidationMode as ValidationMode, JsVolQuote as VolQuote,
 };
 // Validation functions
-pub use valuations::calibration::validation::{
+pub use valuations::calibration::{
     validate_discount_curve as validateDiscountCurve,
     validate_forward_curve as validateForwardCurve, validate_hazard_curve as validateHazardCurve,
     validate_inflation_curve as validateInflationCurve,

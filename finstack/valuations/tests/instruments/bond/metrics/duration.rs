@@ -2,9 +2,9 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::traits::CashflowProvider;
-use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::cashflow::CashflowProvider;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
@@ -113,18 +113,18 @@ fn test_convexity_matches_numerical_second_derivative() {
 
     let flows = bond.build_dated_flows(&market, as_of).unwrap();
     let dy = 1e-4;
-    let p0 = finstack_valuations::instruments::bond::pricing::quote_engine::price_from_ytm(
+    let p0 = finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::price_from_ytm(
         &bond, &flows, as_of, ytm,
     )
     .unwrap();
-    let p_up = finstack_valuations::instruments::bond::pricing::quote_engine::price_from_ytm(
+    let p_up = finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::price_from_ytm(
         &bond,
         &flows,
         as_of,
         ytm + dy,
     )
     .unwrap();
-    let p_dn = finstack_valuations::instruments::bond::pricing::quote_engine::price_from_ytm(
+    let p_dn = finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::price_from_ytm(
         &bond,
         &flows,
         as_of,

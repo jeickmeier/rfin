@@ -19,7 +19,7 @@ use rust_decimal::prelude::ToPrimitive;
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::bond::metrics::price_yield_spread::asw::AssetSwapConfig;
+/// use finstack_valuations::instruments::fixed_income::bond::metrics::price_yield_spread::asw::AssetSwapConfig;
 /// use finstack_core::dates::{DayCount, Tenor, BusinessDayConvention, StubKind};
 ///
 /// let config = AssetSwapConfig {
@@ -56,7 +56,7 @@ pub struct AssetSwapConfig {
 /// # Examples
 ///
 /// ```rust,no_run
-/// use finstack_valuations::instruments::bond::Bond;
+/// use finstack_valuations::instruments::fixed_income::bond::Bond;
 /// use finstack_valuations::metrics::{MetricRegistry, MetricId, MetricContext};
 /// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::dates::Date;
@@ -87,7 +87,7 @@ pub struct AssetSwapParCalculator {
 /// # Examples
 ///
 /// ```rust,no_run
-/// use finstack_valuations::instruments::bond::Bond;
+/// use finstack_valuations::instruments::fixed_income::bond::Bond;
 /// use finstack_valuations::metrics::{MetricRegistry, MetricId, MetricContext};
 /// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::dates::Date;

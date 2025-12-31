@@ -3,6 +3,7 @@
 //! Key-rate DV01 measures the sensitivity of MBS price to shifts in
 //! specific points along the yield curve, providing insight into
 //! curve risk exposure by maturity bucket.
+#![allow(dead_code)] // Public API items may be used by external bindings
 
 use crate::instruments::agency_mbs_passthrough::pricer::price_mbs;
 use crate::instruments::agency_mbs_passthrough::AgencyMbsPassthrough;
@@ -50,7 +51,7 @@ pub struct KeyRateDv01Result {
 /// # Examples
 ///
 /// ```rust,no_run
-/// use finstack_valuations::instruments::agency_mbs_passthrough::{
+/// use finstack_valuations::instruments::fixed_income::mbs_passthrough::{
 ///     AgencyMbsPassthrough,
 ///     metrics::key_rate::key_rate_dv01,
 /// };

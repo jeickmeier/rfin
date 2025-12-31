@@ -4,7 +4,7 @@ use crate::valuations::common::{
     curve_id_from_str, instrument_id_from_str, parameters::JsBarrierType as JsMcBarrierType,
 };
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_valuations::instruments::barrier_option::{
+use finstack_valuations::instruments::exotics::barrier_option::{
     BarrierOption, BarrierType as BarrierOptionType,
 };
 use finstack_valuations::instruments::common::models::monte_carlo::payoff::barrier::BarrierType as McBarrierType;
@@ -91,7 +91,7 @@ impl JsBarrierOption {
         builder = builder
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
         builder =
-            builder.attributes(finstack_valuations::instruments::common::traits::Attributes::new());
+            builder.attributes(finstack_valuations::instruments::Attributes::new());
 
         builder
             .build()

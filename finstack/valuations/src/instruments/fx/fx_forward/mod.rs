@@ -40,7 +40,7 @@
 //! # Examples
 //!
 //! ```rust
-//! use finstack_valuations::instruments::fx_forward::FxForward;
+//! use finstack_valuations::instruments::fx::fx_forward::FxForward;
 //! use finstack_core::currency::Currency;
 //!
 //! // Create a EUR/USD forward
@@ -56,11 +56,11 @@
 //! - [`FxOption`](super::fx_option::FxOption) for FX options
 
 /// Pricer for FX forwards.
-pub mod pricer;
+pub(crate) mod pricer;
 mod types;
 
 pub use pricer::FxForwardDiscountingPricer;
 pub use types::FxForward;
 
 /// Metrics submodule for FX forward risk measures.
-pub mod metrics;
+pub(crate) mod metrics;

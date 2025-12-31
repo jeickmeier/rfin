@@ -4,7 +4,7 @@
 //! Validates that all registered metrics can be calculated successfully via price_with_metrics().
 
 use super::helpers::*;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 
 // ==================== Individual Metric Calculation Tests ====================

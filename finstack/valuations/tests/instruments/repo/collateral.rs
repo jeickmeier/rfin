@@ -4,11 +4,11 @@ use super::fixtures::*;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::common::traits::Attributes;
-use finstack_valuations::instruments::repo::{CollateralSpec, CollateralType, Repo, RepoType};
+use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::rates::repo::{CollateralSpec, CollateralType, Repo, RepoType};
 
 #[allow(unused_imports)]
-use finstack_valuations::instruments::repo as _;
+use finstack_valuations::instruments::rates::repo as _;
 
 #[test]
 fn test_general_collateral_creation() {

@@ -16,7 +16,7 @@
 
 use super::helpers::*;
 use finstack_core::dates::DayCount;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 use time::macros::date;
 
 /// Test that a down-and-out call with ACT/365F vol vs ACT/360 curve prices correctly.

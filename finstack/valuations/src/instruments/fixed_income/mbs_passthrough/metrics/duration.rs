@@ -3,6 +3,7 @@
 //! Effective duration and convexity measure the price sensitivity of MBS
 //! to parallel shifts in interest rates, accounting for the change in
 //! prepayment behavior as rates change.
+#![allow(dead_code)] // Public API items may be used by external bindings
 
 use crate::instruments::agency_mbs_passthrough::pricer::price_mbs;
 use crate::instruments::agency_mbs_passthrough::AgencyMbsPassthrough;

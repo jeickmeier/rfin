@@ -60,9 +60,9 @@
 //! - [`FutureContractSpecs`] for contract specifications
 //! - Plan-driven calibration in [`calibration::api`] (Forward step)
 
-pub mod metrics;
+pub(crate) mod metrics;
 /// Interest rate future pricer implementation
-pub mod pricer;
+pub(crate) mod pricer;
 mod types;
 
 pub use types::{FutureContractSpecs, InterestRateFuture, Position};

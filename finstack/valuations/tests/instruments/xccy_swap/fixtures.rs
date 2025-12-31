@@ -92,11 +92,11 @@ pub fn market_without_fx() -> MarketContext {
         .insert_forward(eur_fwd)
 }
 
-pub fn leg_usd_receive() -> finstack_valuations::instruments::xccy_swap::XccySwapLeg {
-    finstack_valuations::instruments::xccy_swap::XccySwapLeg {
+pub fn leg_usd_receive() -> finstack_valuations::instruments::rates::xccy_swap::XccySwapLeg {
+    finstack_valuations::instruments::rates::xccy_swap::XccySwapLeg {
         currency: Currency::USD,
         notional: finstack_core::money::Money::new(1_000_000.0, Currency::USD),
-        side: finstack_valuations::instruments::xccy_swap::LegSide::Receive,
+        side: finstack_valuations::instruments::rates::xccy_swap::LegSide::Receive,
         forward_curve_id: finstack_core::types::CurveId::new("USD-SOFR-3M"),
         discount_curve_id: finstack_core::types::CurveId::new("USD-OIS"),
         frequency: Tenor::quarterly(),
@@ -109,11 +109,11 @@ pub fn leg_usd_receive() -> finstack_valuations::instruments::xccy_swap::XccySwa
     }
 }
 
-pub fn leg_eur_pay() -> finstack_valuations::instruments::xccy_swap::XccySwapLeg {
-    finstack_valuations::instruments::xccy_swap::XccySwapLeg {
+pub fn leg_eur_pay() -> finstack_valuations::instruments::rates::xccy_swap::XccySwapLeg {
+    finstack_valuations::instruments::rates::xccy_swap::XccySwapLeg {
         currency: Currency::EUR,
         notional: finstack_core::money::Money::new(900_000.0, Currency::EUR),
-        side: finstack_valuations::instruments::xccy_swap::LegSide::Pay,
+        side: finstack_valuations::instruments::rates::xccy_swap::LegSide::Pay,
         forward_curve_id: finstack_core::types::CurveId::new("EUR-EURIBOR-3M"),
         discount_curve_id: finstack_core::types::CurveId::new("EUR-OIS"),
         frequency: Tenor::quarterly(),

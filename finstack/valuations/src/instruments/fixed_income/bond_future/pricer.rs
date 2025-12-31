@@ -55,7 +55,7 @@ impl BondFuturePricer {
     /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::money::Money;
     /// use finstack_valuations::instruments::Bond;
-    /// use finstack_valuations::instruments::bond_future::pricer::BondFuturePricer;
+    /// use finstack_valuations::instruments::fixed_income::bond_future::pricer::BondFuturePricer;
     /// use time::macros::date;
     ///
     /// # fn main() -> finstack_core::Result<()> {
@@ -158,7 +158,7 @@ impl BondFuturePricer {
     /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::money::Money;
     /// use finstack_valuations::instruments::Bond;
-    /// use finstack_valuations::instruments::bond_future::pricer::BondFuturePricer;
+    /// use finstack_valuations::instruments::fixed_income::bond_future::pricer::BondFuturePricer;
     /// use time::macros::date;
     ///
     /// # fn main() -> finstack_core::Result<()> {
@@ -270,8 +270,8 @@ impl BondFuturePricer {
     /// use finstack_core::money::Money;
     /// use finstack_core::types::{CurveId, InstrumentId};
     /// use finstack_valuations::instruments::Bond;
-    /// use finstack_valuations::instruments::bond_future::{BondFuture, DeliverableBond, Position};
-    /// use finstack_valuations::instruments::bond_future::pricer::BondFuturePricer;
+    /// use finstack_valuations::instruments::fixed_income::bond_future::{BondFuture, DeliverableBond, Position};
+    /// use finstack_valuations::instruments::fixed_income::bond_future::pricer::BondFuturePricer;
     /// use time::macros::date;
     ///
     /// # fn main() -> finstack_core::Result<()> {

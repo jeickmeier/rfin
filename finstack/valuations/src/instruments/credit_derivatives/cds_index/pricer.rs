@@ -8,6 +8,7 @@
 //!    hazard curve and weight, then aggregate the results.
 //!
 //! Public API mirrors the CDS pricer surface for parity: NPV, par spread,
+#![allow(dead_code)] // Public API items may be used by external bindings
 //! risky PV01, and leg PVs. Heavy numerical work is delegated to
 //! `crate::instruments::cds::pricer::CDSPricer`.
 

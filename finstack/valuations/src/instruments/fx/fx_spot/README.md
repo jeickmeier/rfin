@@ -12,7 +12,7 @@
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::fx_spot::FxSpot;
+use finstack_valuations::instruments::fx::fx_spot::FxSpot;
 use finstack_core::{currency::Currency, dates::Date, money::Money, types::InstrumentId};
 use time::Month;
 

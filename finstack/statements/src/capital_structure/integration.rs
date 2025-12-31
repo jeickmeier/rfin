@@ -11,7 +11,7 @@ use finstack_core::dates::{Date, Period, PeriodId};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::{fx::FxQuery, Money};
 use finstack_valuations::cashflow::primitives::CFKind;
-use finstack_valuations::cashflow::traits::CashflowProvider;
+use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::{Bond, InterestRateSwap, TermLoan};
 use indexmap::IndexMap;
 use serde::Deserialize;
@@ -119,7 +119,7 @@ pub fn calculate_period_flows(
 /// use finstack_statements::CapitalStructureSpec;
 /// use finstack_core::dates::build_periods;
 /// use finstack_core::market_data::context::MarketContext;
-/// use finstack_valuations::cashflow::traits::CashflowProvider;
+/// use finstack_valuations::cashflow::CashflowProvider;
 /// use indexmap::IndexMap;
 /// use std::sync::Arc;
 /// use time::macros::date;
@@ -607,7 +607,7 @@ mod tests {
         assert_eq!(deserialized_bond.id.as_str(), "BOND-001");
         assert_eq!(deserialized_bond.notional.currency(), Currency::USD);
         // Check coupon from cashflow_spec
-        use finstack_valuations::instruments::bond::CashflowSpec;
+        use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
         if let CashflowSpec::Fixed(spec) = &deserialized_bond.cashflow_spec {
             // Compare as string since rate is Decimal
             assert_eq!(spec.rate.to_string(), "0.05");
@@ -621,7 +621,7 @@ mod tests {
         use finstack_core::money::Money;
         use finstack_core::types::InstrumentId;
 
-        use finstack_valuations::instruments::common::parameters::PayReceive;
+        use finstack_valuations::instruments::PayReceive;
 
         // Create a USD market-standard swap using valuations
         let swap = InterestRateSwap::create_usd_swap(

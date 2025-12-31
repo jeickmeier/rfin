@@ -1,10 +1,10 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Tenor};
-use finstack_valuations::instruments::deposit::Deposit;
-use finstack_valuations::instruments::fra::ForwardRateAgreement;
-use finstack_valuations::instruments::irs::InterestRateSwap;
-use finstack_valuations::market::build::context::BuildCtx;
-use finstack_valuations::market::build::rates::build_rate_instrument;
+use finstack_valuations::instruments::rates::deposit::Deposit;
+use finstack_valuations::instruments::rates::fra::ForwardRateAgreement;
+use finstack_valuations::instruments::rates::irs::InterestRateSwap;
+use finstack_valuations::market::BuildCtx;
+use finstack_valuations::market::build_rate_instrument;
 use rust_decimal::Decimal;
 
 use finstack_valuations::market::quotes::ids::Pillar;
@@ -111,7 +111,7 @@ fn test_build_futures() {
 
     if instrument
         .as_any()
-        .downcast_ref::<finstack_valuations::instruments::ir_future::InterestRateFuture>()
+        .downcast_ref::<finstack_valuations::instruments::rates::ir_future::InterestRateFuture>()
         .is_none()
     {
         panic!("Expected InterestRateFuture");

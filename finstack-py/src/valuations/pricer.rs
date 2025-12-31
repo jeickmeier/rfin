@@ -5,7 +5,7 @@ use crate::valuations::common::{pricing_error_to_py, ModelKeyArg, PyPricerKey};
 use crate::valuations::instruments::{extract_instrument, InstrumentHandle};
 use crate::valuations::metrics::MetricIdArg;
 use crate::valuations::results::PyValuationResult;
-use finstack_valuations::instruments::bond::metrics::price_yield_spread::asw::{
+use finstack_valuations::instruments::fixed_income::bond::{
     asw_market_with_forward, asw_par_with_forward,
 };
 use finstack_valuations::metrics::MetricId;
@@ -280,7 +280,7 @@ pass an explicit dirty price (e.g. 1.0125 * bond.notional.amount)",
         let bond_ref = inst
             .as_ref()
             .as_any()
-            .downcast_ref::<finstack_valuations::instruments::bond::Bond>()
+            .downcast_ref::<finstack_valuations::instruments::fixed_income::bond::Bond>()
             .ok_or_else(|| {
                 pricing_error_to_py(finstack_valuations::pricer::PricingError::TypeMismatch {
                     expected: finstack_valuations::pricer::InstrumentType::Bond,

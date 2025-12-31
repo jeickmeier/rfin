@@ -3,8 +3,8 @@ use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
-use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::instruments::term_loan::{self, LoanCall, LoanCallSchedule, TermLoan};
+use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::fixed_income::term_loan::{self, LoanCall, LoanCallSchedule, TermLoan};
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
@@ -25,7 +25,7 @@ fn build_simple_term_loan(as_of: Date, maturity: Date) -> TermLoan {
         .notional_limit(Money::new(10_000_000.0, Currency::USD))
         .issue(as_of)
         .maturity(maturity)
-        .rate(term_loan::types::RateSpec::Fixed { rate_bp: 600 }) // 6%
+        .rate(term_loan::RateSpec::Fixed { rate_bp: 600 }) // 6%
         .pay_freq(Tenor::semi_annual())
         .day_count(DayCount::Act360)
         .bdc(finstack_core::dates::BusinessDayConvention::ModifiedFollowing)

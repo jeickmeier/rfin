@@ -8,7 +8,7 @@
 use finstack_core::HashMap;
 use finstack_core::{currency::Currency, dates::Date, money::Money, types::InstrumentId};
 use finstack_valuations::{
-    instruments::{irs::InterestRateSwap, PayReceive},
+    instruments::{InterestRateSwap, PayReceive},
     margin::{
         ClearingStatus, CsaSpec, ImMethodology, ImParameters, MarginTenor, OtcMarginSpec,
         ScheduleImCalculator, SimmCalculator, VmCalculator, VmParameters,

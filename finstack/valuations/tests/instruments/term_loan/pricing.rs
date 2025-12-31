@@ -6,8 +6,8 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_valuations::cashflow::builder::specs::CouponType;
-use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::instruments::term_loan::{AmortizationSpec, RateSpec, TermLoan};
+use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::fixed_income::term_loan::{AmortizationSpec, RateSpec, TermLoan};
 use time::macros::date;
 
 use crate::common::test_helpers::flat_discount_curve;

@@ -4,7 +4,7 @@ use crate::error::{PortfolioError, Result};
 use crate::types::{EntityId, PositionId};
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::InstrumentJson;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -182,7 +182,7 @@ impl Position {
     /// use finstack_portfolio::{Position, PositionUnit};
     /// use finstack_core::currency::Currency;
     /// use finstack_core::money::Money;
-    /// use finstack_valuations::instruments::deposit::Deposit;
+    /// use finstack_valuations::instruments::rates::deposit::Deposit;
     /// use std::sync::Arc;
     /// use time::macros::date;
     ///
@@ -367,7 +367,7 @@ impl Eq for Position {}
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
-    use finstack_valuations::instruments::deposit::Deposit;
+    use finstack_valuations::instruments::rates::deposit::Deposit;
     use time::macros::date;
 
     #[test]

@@ -1,7 +1,7 @@
 use crate::core::dates::utils::py_to_date;
 use crate::core::money::{extract_money, PyMoney};
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::autocallable::{Autocallable, FinalPayoffType};
+use finstack_valuations::instruments::equity::autocallable::{Autocallable, FinalPayoffType};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};

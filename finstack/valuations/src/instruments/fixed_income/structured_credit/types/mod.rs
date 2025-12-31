@@ -34,9 +34,6 @@ mod stochastic;
 // RE-EXPORTS FROM TYPE MODULES
 // ============================================================================
 
-// Constants and defaults
-pub use constants::*;
-
 // Enums - use the new Seniority name
 pub use enums::{AssetType, DealType, PaymentMode, TrancheSeniority, TriggerConsequence};
 // Re-export TrancheSeniority as Seniority for cleaner naming
@@ -46,7 +43,7 @@ pub use enums::TrancheSeniority as Seniority;
 pub use pool::AssetPool as Pool;
 pub use pool::{
     calculate_pool_stats, AssetPool, ConcentrationCheckResult, ConcentrationViolation, PoolAsset,
-    PoolStats, ReinvestmentCriteria, ReinvestmentPeriod,
+    PoolStats, RepLine, ReinvestmentCriteria, ReinvestmentPeriod,
 };
 pub use pool_state::PoolState;
 
@@ -63,7 +60,6 @@ pub use setup::{CoverageTestConfig, DealConfig, DealDates, DealFees, DefaultAssu
 pub use reinvestment::ReinvestmentManager;
 
 // Waterfall types
-pub use waterfall::CoverageTrigger as WaterfallCoverageTrigger;
 pub use waterfall::{
     AllocationMode, CoverageTestType, ManagementFeeType, PaymentCalculation, PaymentRecord,
     PaymentType, Recipient, RecipientType, RoundingConvention, Waterfall, WaterfallBuilder,
@@ -344,7 +340,7 @@ impl StructuredCredit {
     ///
     /// ```rust,no_run
     /// use finstack_core::dates::BusinessDayConvention;
-    /// use finstack_valuations::instruments::structured_credit::StructuredCredit;
+    /// use finstack_valuations::instruments::fixed_income::structured_credit::StructuredCredit;
     ///
     /// let clo = StructuredCredit::example()
     ///     .with_payment_calendar("nyse")

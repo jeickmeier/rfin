@@ -50,7 +50,7 @@
 //! - ISDA CDS Standard Model (Markit, 2009)
 //! - O'Kane, D. "Modelling Single-name and Multi-name Credit Derivatives" (2008), Chapter 5
 //! - Hull, J.C. & White, A. "Valuing Credit Default Swaps I: No Counterparty Default Risk"
-
+#![allow(dead_code)] // Public API items may be used by external bindings or tests
 use crate::constants::{
     isda, numerical, time as time_constants, NUMERICAL_TOLERANCE, ONE_BASIS_POINT,
 };
@@ -144,7 +144,7 @@ impl IntegrationMethod {
     /// # Example
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::cds::pricer::IntegrationMethod;
+    /// use finstack_valuations::instruments::credit_derivatives::cds::pricer::IntegrationMethod;
     ///
     /// // Standard 5Y investment grade CDS
     /// let method = IntegrationMethod::recommended(5.0, false);

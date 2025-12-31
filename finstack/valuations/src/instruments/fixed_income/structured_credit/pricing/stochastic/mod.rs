@@ -20,33 +20,39 @@
 pub mod calibrations;
 pub mod correlation;
 pub mod default;
-pub mod metrics;
+pub(crate) mod metrics;
 pub mod prepayment;
-pub mod pricer;
+pub(crate) mod pricer;
 pub mod tree;
 
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests;
 
-// Re-export main types
+// Re-export main types (may be used by external bindings or tests)
+#[allow(unused_imports)]
 pub use calibrations::{
     CloCalibration, CmbsCalibration, RmbsCalibration, CLO_STANDARD, CMBS_STANDARD, RMBS_STANDARD,
 };
 pub use correlation::CorrelationStructure;
+#[allow(unused_imports)]
 pub use default::{
     CopulaBasedDefault, IntensityProcessDefault, StochasticDefault, StochasticDefaultSpec,
 };
+#[allow(unused_imports)]
 pub use metrics::{
     CorrelationSensitivities, SensitivityConfig, StochasticMetrics, StochasticMetricsCalculator,
 };
+#[allow(unused_imports)]
 pub use prepayment::{
     FactorCorrelatedPrepay, RichardRollPrepay, StochasticPrepaySpec, StochasticPrepayment,
 };
+#[allow(unused_imports)] // May be used by external bindings
 pub use pricer::{
     PricingMode, StochasticPricer, StochasticPricerConfig, StochasticPricingResult,
     TranchePricingResult,
 };
+#[allow(unused_imports)]
 pub use tree::{
     BranchingSpec, ScenarioNode, ScenarioNodeId, ScenarioPath, ScenarioTree, ScenarioTreeConfig,
 };

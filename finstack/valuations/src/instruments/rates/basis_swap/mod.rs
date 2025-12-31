@@ -48,9 +48,9 @@
 //! - [`BasisSwapLeg`] for leg specification
 //! - Multi-curve calibration in [`calibration`](crate::calibration)
 
-pub mod metrics;
+pub(crate) mod metrics;
 /// Basis swap pricer implementation
-pub mod pricer;
+pub(crate) mod pricer;
 mod types;
 
 pub use pricer::SimpleBasisSwapDiscountingPricer;

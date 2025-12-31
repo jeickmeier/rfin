@@ -8,6 +8,7 @@
 //! # Mathematical Model
 //!
 //! ```text
+#![allow(dead_code)] // Public API items may be used by external bindings
 //! CPR(Z) = base_cpr × exp(β × Z × σ)
 //! ```
 //!

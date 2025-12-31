@@ -8,7 +8,7 @@ use finstack_scenarios::{
     ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec, TimeRollMode,
 };
 use finstack_statements::FinancialModelSpec;
-use finstack_valuations::instruments::common::traits::{Attributes, Instrument};
+use finstack_valuations::instruments::{Attributes, Instrument};
 use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
 use finstack_valuations::instruments::Bond;
 use time::Month;
@@ -140,7 +140,7 @@ fn test_time_roll_with_bond_carry() {
     let mut market = MarketContext::new().insert_discount(curve);
     let mut model = FinancialModelSpec::new("test", vec![]);
 
-    use finstack_valuations::instruments::bond::CashflowSpec;
+    use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
     // Create a bond instrument
     let mut instruments: Vec<Box<dyn Instrument>> = vec![Box::new(
         Bond::builder()

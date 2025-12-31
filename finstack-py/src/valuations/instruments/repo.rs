@@ -5,7 +5,7 @@ use crate::errors::core_to_py;
 use crate::valuations::common::{to_optional_string, PyInstrumentType};
 use finstack_core::dates::BusinessDayConvention;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::repo::{CollateralSpec, CollateralType, Repo, RepoType};
+use finstack_valuations::instruments::rates::repo::{CollateralSpec, CollateralType, Repo, RepoType};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};

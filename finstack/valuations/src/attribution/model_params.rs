@@ -56,12 +56,12 @@ pub enum ModelParamsSnapshot {
 /// ```rust,no_run
 /// use finstack_valuations::attribution::extract_model_params;
 /// use finstack_valuations::attribution::ModelParamsSnapshot;
-/// use finstack_valuations::instruments::structured_credit::StructuredCredit;
+/// use finstack_valuations::instruments::fixed_income::structured_credit::StructuredCredit;
 /// use std::sync::Arc;
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let structured_credit = Arc::new(StructuredCredit::example())
-///     as Arc<dyn finstack_valuations::instruments::common::traits::Instrument>;
+///     as Arc<dyn finstack_valuations::instruments::Instrument>;
 ///
 /// let params = extract_model_params(&structured_credit);
 /// match params {
@@ -117,12 +117,12 @@ pub fn extract_model_params(instrument: &Arc<dyn Instrument>) -> ModelParamsSnap
 /// ```rust,no_run
 /// // Extract T₀ parameters
 /// use finstack_valuations::attribution::{extract_model_params, with_model_params};
-/// use finstack_valuations::instruments::structured_credit::StructuredCredit;
+/// use finstack_valuations::instruments::fixed_income::structured_credit::StructuredCredit;
 /// use std::sync::Arc;
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let instrument = Arc::new(StructuredCredit::example())
-///     as Arc<dyn finstack_valuations::instruments::common::traits::Instrument>;
+///     as Arc<dyn finstack_valuations::instruments::Instrument>;
 ///
 /// let params_t0 = extract_model_params(&instrument);
 ///

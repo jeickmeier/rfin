@@ -7,9 +7,9 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::traits::CashflowProvider;
-use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::instruments::structured_credit::{
+use finstack_valuations::cashflow::CashflowProvider;
+use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::fixed_income::structured_credit::{
     DealType, Pool, PoolAsset, Seniority, StructuredCredit, Tranche, TrancheCoupon,
     TrancheStructure, TrancheValuationExt,
 };

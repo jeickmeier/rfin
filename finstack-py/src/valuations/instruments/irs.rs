@@ -12,7 +12,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::irs::{
+use finstack_valuations::instruments::rates::irs::{
     FixedLegSpec, FloatLegSpec, InterestRateSwap, PayReceive,
 };
 use pyo3::basic::CompareOp;
@@ -596,7 +596,7 @@ impl PyInterestRateSwap {
         let amt = extract_money(&notional).context("notional")?;
         let start_date = py_to_date(&start).context("start")?;
         let end_date = py_to_date(&end).context("end")?;
-        use finstack_valuations::instruments::common::parameters::PayReceive;
+        use finstack_valuations::instruments::PayReceive;
         let swap = InterestRateSwap::create_usd_swap(
             id,
             amt,
@@ -641,7 +641,7 @@ impl PyInterestRateSwap {
         let amt = extract_money(&notional).context("notional")?;
         let start_date = py_to_date(&start).context("start")?;
         let end_date = py_to_date(&end).context("end")?;
-        use finstack_valuations::instruments::common::parameters::PayReceive;
+        use finstack_valuations::instruments::PayReceive;
         let swap = InterestRateSwap::create_usd_swap(
             id,
             amt,

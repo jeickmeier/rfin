@@ -12,8 +12,8 @@ use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::traits::CashflowProvider;
-use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
+use finstack_valuations::cashflow::CashflowProvider;
+use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
 use time::macros::date;
 
 fn build_test_curves() -> MarketContext {
@@ -95,7 +95,7 @@ fn test_irs_fixed_leg_quarterly_schedule() {
         .notional(Money::new(1_000_000.0, Currency::USD))
         .side(PayReceive::ReceiveFixed)
         .fixed(
-            finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
+            finstack_valuations::instruments::FixedLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
                 freq: Tenor::quarterly(),
@@ -111,7 +111,7 @@ fn test_irs_fixed_leg_quarterly_schedule() {
             },
         )
         .float(
-            finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
+            finstack_valuations::instruments::FloatLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 forward_curve_id: "USD_LIBOR_3M".into(),
                 spread_bp: rust_decimal::Decimal::ZERO,
@@ -151,7 +151,7 @@ fn test_irs_fixed_leg_semiannual_schedule() {
         .notional(Money::new(1_000_000.0, Currency::USD))
         .side(PayReceive::ReceiveFixed)
         .fixed(
-            finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
+            finstack_valuations::instruments::FixedLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
                 freq: Tenor::semi_annual(),
@@ -167,7 +167,7 @@ fn test_irs_fixed_leg_semiannual_schedule() {
             },
         )
         .float(
-            finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
+            finstack_valuations::instruments::FloatLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 forward_curve_id: "USD_LIBOR_3M".into(),
                 spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
@@ -228,7 +228,7 @@ fn test_irs_stub_front() {
         .notional(Money::new(1_000_000.0, Currency::USD))
         .side(PayReceive::ReceiveFixed)
         .fixed(
-            finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
+            finstack_valuations::instruments::FixedLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
                 freq: Tenor::semi_annual(),
@@ -244,7 +244,7 @@ fn test_irs_stub_front() {
             },
         )
         .float(
-            finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
+            finstack_valuations::instruments::FloatLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 forward_curve_id: "USD_LIBOR_3M".into(),
                 spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
@@ -280,7 +280,7 @@ fn test_irs_stub_back() {
         .notional(Money::new(1_000_000.0, Currency::USD))
         .side(PayReceive::ReceiveFixed)
         .fixed(
-            finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
+            finstack_valuations::instruments::FixedLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
                 freq: Tenor::semi_annual(),
@@ -296,7 +296,7 @@ fn test_irs_stub_back() {
             },
         )
         .float(
-            finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
+            finstack_valuations::instruments::FloatLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 forward_curve_id: "USD_LIBOR_3M".into(),
                 spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
@@ -414,7 +414,7 @@ fn test_irs_different_frequencies() {
         .notional(Money::new(1_000_000.0, Currency::USD))
         .side(PayReceive::ReceiveFixed)
         .fixed(
-            finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
+            finstack_valuations::instruments::FixedLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
                 freq: Tenor::semi_annual(),
@@ -430,7 +430,7 @@ fn test_irs_different_frequencies() {
             },
         )
         .float(
-            finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
+            finstack_valuations::instruments::FloatLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 forward_curve_id: "USD_LIBOR_3M".into(),
                 spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
@@ -467,7 +467,7 @@ fn test_irs_calendar_adjustments() {
         .notional(Money::new(1_000_000.0, Currency::USD))
         .side(PayReceive::ReceiveFixed)
         .fixed(
-            finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
+            finstack_valuations::instruments::FixedLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
                 freq: Tenor::semi_annual(),
@@ -483,7 +483,7 @@ fn test_irs_calendar_adjustments() {
             },
         )
         .float(
-            finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
+            finstack_valuations::instruments::FloatLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 forward_curve_id: "USD_LIBOR_3M".into(),
                 spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),

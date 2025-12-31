@@ -865,7 +865,7 @@ impl crate::instruments::common::traits::CurveDependencies for Swaption {
 /// # Example
 ///
 /// ```rust,no_run
-/// use finstack_valuations::instruments::swaption::{
+/// use finstack_valuations::instruments::rates::swaption::{
 ///     BermudanSwaption, BermudanSchedule, BermudanType, SwaptionSettlement,
 /// };
 ///

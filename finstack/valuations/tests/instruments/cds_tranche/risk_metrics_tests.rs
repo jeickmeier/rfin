@@ -11,10 +11,10 @@
 #![allow(clippy::field_reassign_with_default)]
 
 use super::helpers::*;
-use finstack_valuations::instruments::cds_tranche::pricer::{
+use finstack_valuations::instruments::credit_derivatives::cds_tranche::{
     CDSTranchePricer, CDSTranchePricerConfig, Cs01BumpUnits,
 };
-use finstack_valuations::instruments::cds_tranche::TrancheSide;
+use finstack_valuations::instruments::credit_derivatives::cds_tranche::TrancheSide;
 
 // ==================== CS01 Tests ====================
 

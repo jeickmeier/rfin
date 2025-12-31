@@ -1,7 +1,7 @@
 //! Market validation tests for CDS index option specific features.
 
 use super::common::*;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 use time::macros::date;
 
 #[test]

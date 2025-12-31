@@ -45,10 +45,10 @@ See examples below for updated API usage patterns.
   - `finstack_valuations::instruments::{Instrument, Attributes, PricingOptions, Bond, InterestRateSwap, ...}`
   - `finstack_valuations::pricer::{PricerRegistry, ModelKey, InstrumentType, create_standard_registry}`
   - `finstack_valuations::metrics::{MetricId, MetricRegistry, MetricContext, standard_registry}` (plus VaR via `metrics::risk`)
-  - `finstack_valuations::covenants::{Covenant, CovenantType, CovenantEngine, CovenantForecast, CovenantForecastConfig}`
+  - `finstack_valuations::covenants::{Covenant, CovenantType, CovenantEngine, GenericCovenantForecast, CovenantForecastConfig}`
   - `finstack_valuations::attribution::{AttributionMethod, AttributionEnvelope, attribute_pnl_parallel, attribute_pnl_waterfall, attribute_pnl_metrics_based, JsonEnvelope}`
   - `finstack_valuations::calibration::{api::*, SolverConfig, CalibrationConfig, ValidationConfig}` and bump helpers `calibration::bumps::{bump_discount_curve_synthetic, bump_hazard_spreads, bump_inflation_rates, BumpRequest}`
-- **Deprecated module paths**: deep module imports (e.g., `instruments::common::models`, `calibration::bumps::rates`, `covenants::engine`, `attribution::types`) remain temporarily available but are deprecated and will be removed in a future release. Switch to the canonical imports above.
+- **Deprecated module paths**: deep module imports (e.g., `instruments::common::models`, `calibration::bumps::rates`, `covenants::engine`, `attribution::types`) are no longer supported. Switch to the canonical imports above.
 
 ---
 
@@ -607,7 +607,7 @@ npm install finstack-wasm
 | `cashflow` | Schedule generation | `CashFlowSchedule`, `CashFlowBuilder`, `CFKind` | [cashflow/README.md](src/cashflow/README.md) |
 | `calibration` | Curve fitting | `SimpleCalibration`, `MarketQuote`, `CalibrationReport` | [calibration/README.md](src/calibration/README.md) |
 | `attribution` | P&L decomposition | `PnlAttribution`, `AttributionFactor`, `AttributionSpec` | [attribution/README.md](src/attribution/README.md) |
-| `covenants` | Covenant evaluation | `CovenantEngine`, `Covenant`, `CovenantForecast` | [covenants/README.md](src/covenants/README.md) |
+| `covenants` | Covenant evaluation | `CovenantEngine`, `Covenant`, `GenericCovenantForecast` | [covenants/README.md](src/covenants/README.md) |
 | `results` | Result envelopes | `ValuationResult`, `ValuationRow`, `ResultsMeta` | [results/README.md](src/results/README.md) |
 | `constants` | Numerical constants | `BP_TO_RATE`, `DAYS_PER_YEAR`, etc. | See source |
 | `schema` | JSON schema generation | `schema_for`, `JsonSchema` | See source |

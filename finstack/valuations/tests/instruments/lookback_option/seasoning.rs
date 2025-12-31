@@ -5,8 +5,8 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::instruments::lookback_option::types::{
+use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::exotics::lookback_option::{
     LookbackOptionBuilder, LookbackType,
 };
 use time::Month;
@@ -29,7 +29,7 @@ fn get_base_builder(as_of: Date) -> LookbackOptionBuilder {
         .vol_surface_id(CurveId::new("SPX-VOL"))
         .div_yield_id_opt(Some("SPX-DIV".to_string()))
         .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default())
-        .attributes(finstack_valuations::instruments::common::traits::Attributes::new())
+        .attributes(finstack_valuations::instruments::Attributes::new())
 }
 
 fn create_test_market(as_of: Date) -> MarketContext {

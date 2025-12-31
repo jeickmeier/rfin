@@ -12,7 +12,7 @@
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::ir_future::InterestRateFuture;
+use finstack_valuations::instruments::rates::ir_future::InterestRateFuture;
 
 let fut = InterestRateFuture::example();
 let pv = fut.value(&market_context, as_of_date)?;

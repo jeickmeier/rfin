@@ -48,7 +48,7 @@ use time::macros::date;
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::equity_index_future::EquityFutureSpecs;
+/// use finstack_valuations::instruments::equity::equity_index_future::EquityFutureSpecs;
 ///
 /// // E-mini S&P 500 specifications
 /// let es_specs = EquityFutureSpecs::sp500_emini();
@@ -195,10 +195,10 @@ impl EquityFutureSpecs {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::equity_index_future::{
+/// use finstack_valuations::instruments::equity::equity_index_future::{
 ///     EquityIndexFuture, EquityFutureSpecs,
 /// };
-/// use finstack_valuations::instruments::ir_future::Position;
+/// use finstack_valuations::instruments::rates::ir_future::Position;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::dates::Date;
 /// use finstack_core::types::{CurveId, InstrumentId};

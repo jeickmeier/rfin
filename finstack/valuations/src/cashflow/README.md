@@ -283,7 +283,7 @@ let schedule = CashFlowSchedule::builder()
 ### Accrued Interest Calculation
 
 ```rust
-use finstack_valuations::cashflow::accrual::{
+use finstack_valuations::cashflow::{
     AccrualMethod, AccrualConfig, ExCouponRule, accrued_interest_amount
 };
 
@@ -547,7 +547,7 @@ let pv_map = pv_by_period_credit_adjusted_detailed(
 Instruments implement this to expose schedules:
 
 ```rust
-use finstack_valuations::cashflow::traits::CashflowProvider;
+use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::cashflow::DatedFlows;
 
 impl CashflowProvider for MyInstrument {
@@ -863,7 +863,7 @@ for (period_id, ccy_map) in pv_map {
 ### Example 5: Accrued Interest with Ex-Coupon
 
 ```rust
-use finstack_valuations::cashflow::accrual::{
+use finstack_valuations::cashflow::{
     AccrualMethod, AccrualConfig, ExCouponRule, accrued_interest_amount
 };
 use time::Month;
@@ -1275,7 +1275,7 @@ fn test_periodized_pv_matches_npv() {
 ```rust
 #[test]
 fn test_accrual_methods() {
-    use finstack_valuations::cashflow::accrual::*;
+    use finstack_valuations::cashflow::{accrued_interest_amount, AccrualConfig, AccrualMethod};
     
     let schedule = /* build schedule with known coupon */;
     let mid_period = /* date halfway through coupon period */;

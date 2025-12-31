@@ -14,8 +14,8 @@ use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Teno
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::bond::{Bond, CashflowSpec};
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::fixed_income::bond::{Bond, CashflowSpec};
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::metrics::MetricId;
 use time::Month;
@@ -85,7 +85,7 @@ fn test_zero_coupon_bond_ytm() {
     let issue = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
-    use finstack_valuations::instruments::bond::CashflowSpec;
+    use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
     let bond_result = Bond::builder()
         .id("ZERO-COUPON".into())
         .notional(Money::new(1_000.0, Currency::USD))
@@ -141,7 +141,7 @@ fn test_odd_first_coupon_ytm() {
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
     use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
-    use finstack_valuations::instruments::bond::CashflowSpec;
+    use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
     let bond_result = Bond::builder()
         .id("ODD-FIRST".into())
         .notional(Money::new(1_000.0, Currency::USD))
@@ -245,7 +245,7 @@ fn test_eom_february_maturity_ytm() {
 #[test]
 fn test_long_first_coupon_ytm() {
     use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
-    use finstack_valuations::instruments::bond::CashflowSpec;
+    use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
     // Bond with long first coupon period
     let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();

@@ -15,7 +15,7 @@
 //! # Quick Example
 //!
 //! ```rust
-//! use finstack_valuations::instruments::term_loan::{TermLoan, RateSpec};
+//! use finstack_valuations::instruments::fixed_income::term_loan::{TermLoan, RateSpec};
 //! use finstack_core::currency::Currency;
 //! use finstack_core::money::Money;
 //! use finstack_core::dates::*;
@@ -66,14 +66,14 @@ use crate::instruments::pricing_overrides::PricingOverrides;
 ///
 /// Fixed rate loan:
 /// ```rust
-/// use finstack_valuations::instruments::term_loan::RateSpec;
+/// use finstack_valuations::instruments::fixed_income::term_loan::RateSpec;
 ///
 /// let fixed_rate = RateSpec::Fixed { rate_bp: 600 };  // 6% fixed
 /// ```
 ///
 /// Floating rate with floor:
 /// ```rust
-/// use finstack_valuations::instruments::term_loan::RateSpec;
+/// use finstack_valuations::instruments::fixed_income::term_loan::RateSpec;
 /// use finstack_valuations::cashflow::builder::FloatingRateSpec;
 /// use finstack_core::dates::{DayCount, BusinessDayConvention, Tenor};
 /// use finstack_core::types::CurveId;
@@ -144,8 +144,8 @@ impl RateSpec {
 /// Create via [`TermLoanSpec`] conversion or use the builder pattern:
 ///
 /// ```rust,no_run
-/// use finstack_valuations::instruments::term_loan::spec::TermLoanSpec;
-/// use finstack_valuations::instruments::term_loan::TermLoan;
+/// use finstack_valuations::instruments::fixed_income::term_loan::spec::TermLoanSpec;
+/// use finstack_valuations::instruments::fixed_income::term_loan::TermLoan;
 ///
 /// # fn example(spec: TermLoanSpec) -> Result<(), Box<dyn std::error::Error>> {
 /// let loan: TermLoan = spec.try_into()?;
@@ -259,7 +259,7 @@ impl TermLoan {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::term_loan::TermLoan;
+    /// use finstack_valuations::instruments::fixed_income::term_loan::TermLoan;
     /// use finstack_core::currency::Currency;
     ///
     /// let loan = TermLoan::example();

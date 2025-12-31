@@ -14,7 +14,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::revolving_credit::{
+use finstack_valuations::instruments::fixed_income::revolving_credit::{
     BaseRateSpec, DrawRepayEvent, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
 };
 use finstack_valuations::instruments::Instrument;
@@ -26,7 +26,7 @@ fn _generate_deterministic_cashflows_with_curves_replaced(
     market: &MarketContext,
     as_of: Date,
 ) -> finstack_core::Result<finstack_valuations::cashflow::builder::CashFlowSchedule> {
-    use finstack_valuations::instruments::revolving_credit::cashflow_engine::CashflowEngine;
+    use finstack_valuations::instruments::fixed_income::revolving_credit::cashflow_engine::CashflowEngine;
     let engine = CashflowEngine::new(facility, Some(market), as_of)?;
     let path_schedule = engine.generate_deterministic()?;
     Ok(path_schedule.schedule)

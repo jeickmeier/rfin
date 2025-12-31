@@ -16,7 +16,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::types::{moodys_warf_factor, CreditRating, RatingNotch};
-use finstack_valuations::instruments::structured_credit::{
+use finstack_valuations::instruments::fixed_income::structured_credit::{
     cdr_to_mdr, cpr_to_smm, mdr_to_cdr, psa_to_cpr, DealType, Pool, PoolAsset,
 };
 use time::Month;
@@ -495,7 +495,7 @@ fn test_recovery_rate_golden_industry_standards() {
     //
     // These are the standard assumptions used in modeling:
 
-    use finstack_valuations::instruments::structured_credit::types::constants::{
+    use finstack_valuations::instruments::fixed_income::structured_credit::config::constants::{
         ABS_AUTO_STANDARD_RECOVERY, CLO_STANDARD_RECOVERY, CMBS_STANDARD_RECOVERY,
         RMBS_STANDARD_RECOVERY,
     };

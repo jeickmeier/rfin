@@ -32,7 +32,7 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::traits::CashflowProvider;
+use finstack_valuations::cashflow::CashflowProvider;
 
 // =============================================================================
 // Contract Verification
@@ -180,7 +180,7 @@ mod bond_contract {
 
 mod irs_contract {
     use super::*;
-    use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
+    use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
 
     #[test]
     fn usd_swap_pay_fixed_satisfies_contract() {

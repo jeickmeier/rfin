@@ -8,6 +8,7 @@
 //!
 //! The adapter applies factor-based shocks to the hazard curve's survival probability:
 //! ```text
+#![allow(dead_code)] // Public API items may be used by external bindings
 //! λ_shocked(t) = λ_base(t) × exp(β × Z × σ)
 //! ```
 //!
@@ -40,7 +41,7 @@ use finstack_core::math::distributions::binomial_distribution;
 /// # Example
 ///
 /// ```rust,no_run
-/// use finstack_valuations::instruments::structured_credit::pricing::stochastic::default::HazardCurveDefault;
+/// use finstack_valuations::instruments::fixed_income::structured_credit::pricing::stochastic::default::HazardCurveDefault;
 /// use finstack_core::market_data::term_structures::HazardCurve;
 /// use finstack_core::dates::Date;
 /// use time::Month;

@@ -12,7 +12,7 @@
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::basket::Basket;
+use finstack_valuations::instruments::exotics::basket::Basket;
 
 let basket = Basket::example();
 let pv = basket.value(&market_context, as_of_date)?;

@@ -1,7 +1,7 @@
 //! Market validation tests for option value bounds and no-arbitrage conditions.
 
 use super::common::*;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 use time::macros::date;
 
 #[test]
@@ -263,7 +263,7 @@ fn test_put_call_parity() {
     let notional = 10_000_000.0;
 
     // Get forward spread from a reference option
-    let pricer = finstack_valuations::instruments::cds_option::pricer::CdsOptionPricer::default();
+    let pricer = finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionPricer::default();
 
     // Test parity at multiple strikes
     for strike in [100.0, 150.0, 200.0, 250.0, 300.0] {
@@ -320,7 +320,7 @@ fn test_put_call_parity_at_forward() {
     let market = standard_market(as_of);
     let notional = 10_000_000.0;
 
-    let pricer = finstack_valuations::instruments::cds_option::pricer::CdsOptionPricer::default();
+    let pricer = finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionPricer::default();
 
     // Get forward spread
     let temp_option = CdsOptionBuilder::new().build(as_of);

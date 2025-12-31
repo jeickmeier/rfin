@@ -12,7 +12,7 @@
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::autocallable::Autocallable;
+use finstack_valuations::instruments::equity::autocallable::Autocallable;
 use finstack_core::dates::Date;
 use time::Month;
 

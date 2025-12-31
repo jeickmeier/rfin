@@ -3,7 +3,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::private_markets_fund::*;
+use finstack_valuations::instruments::equity::pe_fund::*;
 use time::Month;
 
 fn test_currency() -> Currency {
@@ -438,7 +438,7 @@ fn test_irr_calculation_accuracy() {
         ), // Distribution
     ];
 
-    let irr = finstack_valuations::instruments::private_markets_fund::metrics::calculate_irr(
+    let irr = finstack_valuations::instruments::equity::pe_fund::calculate_irr(
         &flows,
         DayCount::Act365F,
     )

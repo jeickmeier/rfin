@@ -7,11 +7,11 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::cds::parameters::RECOVERY_SENIOR_UNSECURED;
-use finstack_valuations::instruments::cds_index::parameters::{
+use finstack_valuations::instruments::credit_derivatives::cds::RECOVERY_SENIOR_UNSECURED;
+use finstack_valuations::instruments::credit_derivatives::cds_index::{
     CDSIndexConstituentParam, CDSIndexConstructionParams, CDSIndexParams,
 };
-use finstack_valuations::instruments::cds_index::CDSIndex;
+use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndex;
 use finstack_valuations::instruments::CreditParams;
 
 /// Create a flat discount curve for testing

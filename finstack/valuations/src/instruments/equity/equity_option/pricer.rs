@@ -5,6 +5,7 @@
 //! sourced from a surface (clamped) unless overridden. This mirrors the
 //! structure used by `fx_option` and keeps pricing logic separate from
 //! instrument definitions.
+#![allow(dead_code)] // Public API items may be used by external bindings
 
 use crate::instruments::common::models::trees::binomial_tree::BinomialTree;
 use crate::instruments::common::models::{bs_greeks, bs_price, BsGreeks};
@@ -102,6 +103,7 @@ pub struct EquityOptionInputs {
 
 impl EquityOptionInputs {
     /// Returns the pricing time (t_vol for consistency with Black-Scholes)
+    #[allow(dead_code)] // May be used by external bindings or tests
     #[inline]
     pub fn t(&self) -> f64 {
         self.t_vol
@@ -346,6 +348,7 @@ pub fn compute_greeks(
 pub type UnitGreeks = BsGreeks;
 
 /// Compute unit greeks from explicit inputs (no market lookups).
+#[allow(dead_code)] // May be used by external bindings or tests
 #[inline]
 pub fn greeks_unit(
     spot: f64,

@@ -45,8 +45,8 @@
 //! - [`QuantoOption`] for instrument struct
 //! - [`models::closed_form::quanto`](crate::instruments::common::models::closed_form::quanto) for formulas
 
-pub mod metrics;
-pub mod pricer;
-pub mod types;
+pub(crate) mod metrics;
+pub(crate) mod pricer;
+pub(crate) mod types;
 
 pub use types::QuantoOption;

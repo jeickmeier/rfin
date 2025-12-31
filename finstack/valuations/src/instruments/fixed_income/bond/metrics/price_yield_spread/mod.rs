@@ -20,11 +20,11 @@ pub mod ytw;
 pub mod z_spread;
 
 pub use asw::{AssetSwapMarketCalculator, AssetSwapParCalculator};
-pub use dm::{DiscountMarginCalculator, DiscountMarginSolverConfig};
+pub use dm::DiscountMarginCalculator;
 pub use embedded_option_value::EmbeddedOptionValueCalculator;
 pub use i_spread::ISpreadCalculator;
 pub use oas::OasCalculator;
 pub use prices::{CleanPriceCalculator, DirtyPriceCalculator};
 pub use ytm::YtmCalculator;
 pub use ytw::YtwCalculator;
-pub use z_spread::{ZSpreadCalculator, ZSpreadSolverConfig};
+pub use z_spread::ZSpreadCalculator;

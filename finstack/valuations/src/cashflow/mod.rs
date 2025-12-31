@@ -144,7 +144,7 @@
 //! - [`primitives`] for core [`CashFlow`] type from finstack-core
 //! - [`builder`] for schedule construction
 //! - [`aggregation`] for currency-safe merging and [`pv_by_period`](aggregation::pv_by_period)
-//! - [`traits`] for [`CashflowProvider`] and [`DatedFlows`]
+//! - [`CashflowProvider`] and [`schedule_from_dated_flows`] for schedule interfaces
 
 /// Cash-flow primitives (`CashFlow`, `CFKind`, etc.).
 pub mod primitives {
@@ -158,10 +158,10 @@ pub mod aggregation;
 pub mod builder;
 
 /// Cashflow-related traits and aliases.
-pub mod traits;
+pub(crate) mod traits;
 
 /// Generic schedule-driven interest accrual engine.
-pub mod accrual;
+pub(crate) mod accrual;
 
 // -----------------------------------------------------------------------------
 // Canonical flow aliases (deduplicated across the cashflow module)
@@ -169,6 +169,8 @@ pub mod accrual;
 
 // Re-export primary builder type at the cashflow root for ergonomic access.
 pub use builder::CashFlowBuilder;
+pub use accrual::{accrued_interest_amount, AccrualConfig, AccrualMethod, ExCouponRule};
+pub use traits::{schedule_from_dated_flows, CashflowProvider};
 
 pub use finstack_core::dates::Date;
 pub use finstack_core::money::Money;

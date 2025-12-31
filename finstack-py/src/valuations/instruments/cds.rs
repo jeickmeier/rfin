@@ -2,7 +2,7 @@ use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::cds::{CreditDefaultSwap, PayReceive};
+use finstack_valuations::instruments::credit_derivatives::cds::{CreditDefaultSwap, PayReceive};
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;

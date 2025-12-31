@@ -16,10 +16,10 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DateExt};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::structured_credit::pricing::waterfall::WaterfallContext;
-use finstack_valuations::instruments::structured_credit::WaterfallCoverageTrigger as CoverageTrigger;
-use finstack_valuations::instruments::structured_credit::WaterfallDistribution;
-use finstack_valuations::instruments::structured_credit::{
+use finstack_valuations::instruments::fixed_income::structured_credit::WaterfallContext;
+use finstack_valuations::instruments::fixed_income::structured_credit::WaterfallCoverageTrigger as CoverageTrigger;
+use finstack_valuations::instruments::fixed_income::structured_credit::WaterfallDistribution;
+use finstack_valuations::instruments::fixed_income::structured_credit::{
     AllocationMode, DealType, ManagementFeeType, PaymentCalculation, PaymentType, Pool, Recipient,
     RecipientType, Seniority, Tranche, TrancheCoupon, TrancheStructure, Waterfall,
     WaterfallBuilder, WaterfallTier,
@@ -43,7 +43,7 @@ fn create_test_market() -> MarketContext {
 fn create_test_pool(balance: f64, currency: Currency) -> Pool {
     use finstack_core::types::CreditRating;
     use finstack_core::types::InstrumentId;
-    use finstack_valuations::instruments::structured_credit::{AssetType, PoolAsset};
+    use finstack_valuations::instruments::fixed_income::structured_credit::{AssetType, PoolAsset};
 
     let mut pool = Pool::new("TEST_POOL", DealType::CLO, currency);
 
@@ -149,7 +149,7 @@ fn run_waterfall(
         pool_balance,
         market,
     };
-    finstack_valuations::instruments::structured_credit::pricing::execute_waterfall(
+    finstack_valuations::instruments::fixed_income::structured_credit::execute_waterfall(
         waterfall, tranches, pool, context,
     )
     .expect("waterfall execution")

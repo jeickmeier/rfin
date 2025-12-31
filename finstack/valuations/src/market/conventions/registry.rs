@@ -26,7 +26,7 @@ use std::sync::OnceLock;
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::market::conventions::registry::ConventionRegistry;
+/// use finstack_valuations::market::conventions::ConventionRegistry;
 /// use finstack_valuations::market::conventions::ids::IndexId;
 ///
 /// let registry = ConventionRegistry::try_global()?;
@@ -108,7 +108,7 @@ impl ConventionRegistry {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::market::conventions::registry::ConventionRegistry;
+    /// use finstack_valuations::market::conventions::ConventionRegistry;
     ///
     /// # fn example() -> finstack_core::Result<()> {
     /// let registry = ConventionRegistry::try_global()?;
@@ -175,7 +175,7 @@ impl ConventionRegistry {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::market::conventions::registry::ConventionRegistry;
+    /// use finstack_valuations::market::conventions::ConventionRegistry;
     /// use finstack_valuations::market::conventions::ids::IndexId;
     ///
     /// let registry = ConventionRegistry::try_global()?;
@@ -205,7 +205,7 @@ impl ConventionRegistry {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::market::conventions::registry::ConventionRegistry;
+    /// use finstack_valuations::market::conventions::ConventionRegistry;
     /// use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
     /// use finstack_core::currency::Currency;
     ///

@@ -12,7 +12,7 @@
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::quanto_option::QuantoOption;
+use finstack_valuations::instruments::fx::quanto_option::QuantoOption;
 
 let option = QuantoOption::example();
 let pv = option.value(&market_context, as_of_date)?;

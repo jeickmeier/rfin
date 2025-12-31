@@ -499,14 +499,14 @@ impl Evaluator {
             IndexMap<
                 String,
                 std::sync::Arc<
-                    dyn finstack_valuations::cashflow::traits::CashflowProvider + Send + Sync,
+                    dyn finstack_valuations::cashflow::CashflowProvider + Send + Sync,
                 >,
             >,
         >,
     > {
         use crate::capital_structure::integration;
         use crate::types::DebtInstrumentSpec;
-        use finstack_valuations::cashflow::traits::CashflowProvider;
+        use finstack_valuations::cashflow::CashflowProvider;
 
         let cs_spec = match &model.capital_structure {
             Some(cs) => cs,
@@ -552,7 +552,7 @@ impl Evaluator {
         instruments: &IndexMap<
             String,
             std::sync::Arc<
-                dyn finstack_valuations::cashflow::traits::CashflowProvider + Send + Sync,
+                dyn finstack_valuations::cashflow::CashflowProvider + Send + Sync,
             >,
         >,
         cs_state: &mut crate::capital_structure::CapitalStructureState,

@@ -2,7 +2,7 @@ use crate::core::dates::date::JsDate;
 use crate::core::money::JsMoney;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_valuations::instruments::asian_option::{AsianOption, AveragingMethod};
+use finstack_valuations::instruments::exotics::asian_option::{AsianOption, AveragingMethod};
 use finstack_valuations::instruments::OptionType;
 use finstack_valuations::pricer::InstrumentType;
 use js_sys::Array;

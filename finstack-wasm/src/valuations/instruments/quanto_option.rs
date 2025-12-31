@@ -1,5 +1,5 @@
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_valuations::instruments::quanto_option::QuantoOption;
+use finstack_valuations::instruments::fx::quanto_option::QuantoOption;
 use finstack_valuations::pricer::InstrumentType;
 use serde_json;
 use wasm_bindgen::prelude::*;

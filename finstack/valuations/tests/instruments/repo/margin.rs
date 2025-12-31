@@ -7,7 +7,7 @@
 
 use finstack_core::{currency::Currency, dates::Date, money::Money, types::CurveId};
 use finstack_valuations::{
-    instruments::repo::{CollateralSpec, Repo, RepoMarginSpec, RepoMarginType},
+    instruments::{rates::repo::{RepoMarginSpec, RepoMarginType}, CollateralSpec, Repo},
     margin::{CsaSpec, MarginTenor, VmCalculator, VmParameters},
 };
 use time::Month;

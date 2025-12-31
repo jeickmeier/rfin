@@ -5,8 +5,8 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{DayCount, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::common::traits::{Attributes, Instrument};
-use finstack_valuations::instruments::variance_swap::{
+use finstack_valuations::instruments::{Attributes, Instrument};
+use finstack_valuations::instruments::equity::variance_swap::{
     PayReceive, RealizedVarMethod, VarianceSwap,
 };
 

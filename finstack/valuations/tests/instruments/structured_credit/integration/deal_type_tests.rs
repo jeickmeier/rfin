@@ -5,7 +5,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Tenor};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::structured_credit::{
+use finstack_valuations::instruments::fixed_income::structured_credit::{
     DealType, Pool, PoolAsset, PrepaymentCurve, Seniority, StructuredCredit, Tranche,
     TrancheCoupon, TrancheStructure,
 };

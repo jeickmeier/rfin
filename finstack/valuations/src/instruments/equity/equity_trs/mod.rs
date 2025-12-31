@@ -29,7 +29,7 @@
 //! # Example
 //!
 //! ```
-//! use finstack_valuations::instruments::equity_trs::EquityTotalReturnSwap;
+//! use finstack_valuations::instruments::equity::equity_trs::EquityTotalReturnSwap;
 //!
 //! let trs = EquityTotalReturnSwap::example();
 //! // let pv = trs.npv(&market_context, as_of_date)?;
@@ -40,7 +40,7 @@
 //! - [`crate::instruments::fi_trs`] for fixed income index TRS
 //! - [`TrsEngine`](crate::instruments::common::pricing::TrsEngine) for shared pricing logic
 
-pub mod metrics;
+pub(crate) mod metrics;
 pub(crate) mod pricer;
 mod types;
 

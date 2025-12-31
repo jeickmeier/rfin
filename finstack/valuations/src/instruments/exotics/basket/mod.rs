@@ -126,15 +126,20 @@
 //! - [`ConstituentReference`] for market data vs instrument references
 //! - [`AssetType`] for constituent asset classification
 
-pub mod metrics;
-pub mod pricer;
-pub mod types;
+pub(crate) mod metrics;
+pub(crate) mod pricer;
+pub(crate) mod types;
 
 // Re-export main types for convenience
 // Builder is generated via derive on `Basket`.
-pub use metrics::register_basket_metrics;
+#[doc(hidden)]
+pub use metrics::{
+    register_basket_metrics, AssetExposureCalculator, ConstituentCountCalculator,
+    ExpenseRatioCalculator,
+};
+#[doc(hidden)]
 pub use pricer::BasketCalculator;
-pub use types::{AssetType, Basket, BasketConstituent, ConstituentReference};
+pub use types::{AssetType, Basket, BasketConstituent, BasketPricingConfig, ConstituentReference};
 
 // Use the generic discounting pricer for registry integration
 pub use crate::instruments::common::GenericInstrumentPricer;

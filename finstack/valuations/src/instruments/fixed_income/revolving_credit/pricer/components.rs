@@ -2,6 +2,7 @@
 //!
 //! This module contains common pricing components used by both deterministic
 //! and stochastic pricing engines to ensure consistent behavior and reduce duplication.
+#![allow(dead_code)] // Public API items may be used by external bindings
 
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::traits::{Discounting, Forward, Survival};

@@ -4,8 +4,8 @@ use super::fixtures::*;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::common::traits::Attributes;
-use finstack_valuations::instruments::repo::{Repo, RepoBuilder, RepoType};
+use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::rates::repo::{Repo, RepoBuilder, RepoType};
 
 #[test]
 fn test_overnight_repo_factory() {

@@ -4,8 +4,8 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::cds_option::parameters::CdsOptionParams;
-use finstack_valuations::instruments::common::parameters::OptionType;
+use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionParams;
+use finstack_valuations::instruments::OptionType;
 use time::macros::date;
 
 #[test]

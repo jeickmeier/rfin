@@ -53,13 +53,14 @@
 //! - [`fx_spot`](super::fx_spot) for spot FX positions
 //! - [`fx_option`](super::fx_option) for FX options
 
-pub mod metrics;
-pub mod parameters;
+pub(crate) mod metrics;
+pub(crate) mod parameters;
 /// FX swap pricer implementation
-pub mod pricer;
+pub(crate) mod pricer;
 mod types;
 
 pub use crate::instruments::common::parameters::FxUnderlyingParams;
+pub use parameters::FxSwapParams;
 pub use types::FxSwap;
 
 // Builder provided by FinancialBuilder derive

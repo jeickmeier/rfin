@@ -1,5 +1,5 @@
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_valuations::instruments::lookback_option::{LookbackOption, LookbackType};
+use finstack_valuations::instruments::exotics::lookback_option::{LookbackOption, LookbackType};
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 

@@ -55,9 +55,9 @@
 //! - [`inflation_linked_bond`](super::inflation_linked_bond) for linkers
 //! - Plan-driven calibration in [`calibration::api`] (Inflation step)
 
-pub mod metrics;
+pub(crate) mod metrics;
 /// Inflation swap pricer implementation
-pub mod pricer;
+pub(crate) mod pricer;
 mod types;
 
 pub use pricer::SimpleInflationSwapDiscountingPricer;

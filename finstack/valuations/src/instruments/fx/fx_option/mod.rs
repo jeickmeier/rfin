@@ -106,16 +106,17 @@
 //! - [`metrics`] for FX option risk metrics
 
 /// Garman-Kohlhagen FX option calculator and Greeks computation
-pub mod calculator;
+pub(crate) mod calculator;
 /// FX option risk metrics (delta, gamma, vega, theta, rho)
-pub mod metrics;
+pub(crate) mod metrics;
 /// FX option parameters and market data extraction
-pub mod parameters;
+pub(crate) mod parameters;
 /// FX option pricer implementation using Black-Scholes FX model
-pub mod pricer;
+pub(crate) mod pricer;
 mod types;
 
 pub use crate::instruments::common::parameters::FxUnderlyingParams;
 pub use calculator::{FxOptionCalculator, FxOptionGreeks};
+pub use parameters::FxOptionParams;
 pub use pricer::SimpleFxOptionBlackPricer;
 pub use types::FxOption;

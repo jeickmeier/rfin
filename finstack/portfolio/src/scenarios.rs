@@ -17,7 +17,7 @@ use finstack_scenarios::spec::ScenarioSpec;
 #[cfg(feature = "scenarios")]
 use finstack_statements::types::FinancialModelSpec;
 #[cfg(feature = "scenarios")]
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 #[cfg(feature = "scenarios")]
 use std::sync::Arc;
 
@@ -141,7 +141,7 @@ mod tests {
     use finstack_core::currency::Currency;
     use finstack_core::money::Money;
     use finstack_scenarios::spec::{CurveKind, OperationSpec};
-    use finstack_valuations::instruments::deposit::Deposit;
+    use finstack_valuations::instruments::rates::deposit::Deposit;
     use std::sync::Arc;
     use time::macros::date;
 

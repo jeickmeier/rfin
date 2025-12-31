@@ -48,8 +48,8 @@ Captures the "double hit" effect: defaults cluster AND recovery falls in stress.
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::cds_tranche::{CdsTranche, CopulaSpec, RecoverySpec};
-use finstack_valuations::instruments::cds_tranche::pricer::{CDSTranchePricer, CDSTranchePricerConfig};
+use finstack_valuations::instruments::credit_derivatives::cds_tranche::{CdsTranche, CopulaSpec, RecoverySpec};
+use finstack_valuations::instruments::credit_derivatives::cds_tranche::pricer::{CDSTranchePricer, CDSTranchePricerConfig};
 use finstack_core::dates::Date;
 use time::Month;
 

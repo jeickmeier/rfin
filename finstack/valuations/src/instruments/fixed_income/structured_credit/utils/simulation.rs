@@ -2,6 +2,7 @@
 //!
 //! This module contains internal helpers used by the pricing engine
 //! for period-by-period simulation.
+#![allow(dead_code)] // Public API items may be used by external bindings
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DateExt};

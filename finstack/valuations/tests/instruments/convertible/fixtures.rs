@@ -16,8 +16,8 @@ use time::Month;
 use finstack_valuations::cashflow::builder::specs::{
     CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
 };
-use finstack_valuations::instruments::bond::{CallPut, CallPutSchedule};
-use finstack_valuations::instruments::convertible::{
+use finstack_valuations::instruments::fixed_income::bond::{CallPut, CallPutSchedule};
+use finstack_valuations::instruments::fixed_income::convertible::{
     AntiDilutionPolicy, ConversionPolicy, ConversionSpec, ConvertibleBond, DividendAdjustment,
 };
 

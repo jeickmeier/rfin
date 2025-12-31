@@ -101,6 +101,3 @@ pub use spot::Equity;
 pub use variance_swap::VarianceSwap;
 pub use vol_index_future::{VolIndexContractSpecs, VolatilityIndexFuture};
 pub use vol_index_option::{VolIndexOptionSpecs, VolatilityIndexOption};
-
-// Preserve public path for equity metrics
-pub use spot::metrics as equity_metrics;

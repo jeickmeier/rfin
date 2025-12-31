@@ -12,7 +12,7 @@
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::swaption::Swaption;
+use finstack_valuations::instruments::rates::swaption::Swaption;
 
 let swaption = Swaption::example();
 let pv = swaption.value(&market_context, as_of_date)?;

@@ -12,7 +12,7 @@
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::fra::ForwardRateAgreement;
+use finstack_valuations::instruments::rates::fra::ForwardRateAgreement;
 
 let fra = ForwardRateAgreement::example();
 let pv = fra.value(&market_context, as_of_date)?;

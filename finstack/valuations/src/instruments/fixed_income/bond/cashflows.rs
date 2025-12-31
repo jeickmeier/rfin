@@ -14,8 +14,8 @@
 //! # Examples
 //!
 //! ```rust,no_run
-//! use finstack_valuations::instruments::bond::Bond;
-//! use finstack_valuations::cashflow::traits::CashflowProvider;
+//! use finstack_valuations::instruments::fixed_income::bond::Bond;
+//! use finstack_valuations::cashflow::CashflowProvider;
 //! use finstack_core::market_data::context::MarketContext;
 //! use finstack_core::dates::Date;
 //!

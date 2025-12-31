@@ -23,8 +23,8 @@
 //! - Protection/premium leg consistency
 
 use super::test_utils::*;
-use finstack_valuations::instruments::cds_index::IndexPricing;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::credit_derivatives::cds_index::IndexPricing;
+use finstack_valuations::instruments::Instrument;
 use time::macros::date;
 
 #[test]

@@ -49,7 +49,7 @@ Central orchestrator for covenant evaluation and consequence application.
 Generic covenant forecasting with headroom analytics, optional MC simulation.
 
 - **ModelTimeSeries** trait: Adapter for any time-series model (e.g., statements)
-- **CovenantForecast**: Projected values, thresholds, headroom, breach probabilities
+- **GenericCovenantForecast**: Projected values, thresholds, headroom, breach probabilities
 - **CovenantForecastConfig**: Deterministic or stochastic (MC) configuration
 
 #### 3. **Threshold Schedules** (`schedule.rs`)
@@ -578,7 +578,7 @@ Implement the `ModelTimeSeries` trait for your model:
 
 ```rust
 use finstack_core::dates::{Date, PeriodId};
-use finstack_valuations::covenants::forward::ModelTimeSeries;
+use finstack_valuations::covenants::ModelTimeSeries;
 
 struct MyFinancialModel {
     // ... your model state ...

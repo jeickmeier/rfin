@@ -14,7 +14,7 @@
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::fi_trs::FIIndexTotalReturnSwap;
+use finstack_valuations::instruments::fixed_income::fi_trs::FIIndexTotalReturnSwap;
 
 let trs = FIIndexTotalReturnSwap::example();
 let pv = trs.value(&market_context, as_of_date)?;
@@ -28,9 +28,9 @@ use finstack_core::dates::{Date, DayCount, BusinessDayConvention, StubKind, Teno
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_valuations::cashflow::builder::ScheduleParams;
-use finstack_valuations::instruments::common::parameters::legs::FinancingLegSpec;
-use finstack_valuations::instruments::common::parameters::underlying::IndexUnderlyingParams;
-use finstack_valuations::instruments::fi_trs::{
+use finstack_valuations::instruments::FinancingLegSpec;
+use finstack_valuations::instruments::IndexUnderlyingParams;
+use finstack_valuations::instruments::fixed_income::fi_trs::{
     FIIndexTotalReturnSwap, TrsScheduleSpec, TrsSide,
 };
 
@@ -83,7 +83,7 @@ let total_return_pv = trs.pv_total_return_leg(&market_context, as_of_date)?;
 
 ## ETF Replication (Shorthand)
 ```rust
-use finstack_valuations::instruments::fi_trs::FIIndexTotalReturnSwap;
+use finstack_valuations::instruments::fixed_income::fi_trs::FIIndexTotalReturnSwap;
 
 // Using the same financing_spec and schedule_spec from above
 // Popular bond ETFs: LQD (IG Corp), HYG (HY Corp), AGG (Agg), TLT (Long Treasury)

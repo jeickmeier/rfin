@@ -189,7 +189,7 @@ impl CDSConvention {
     ///
     /// ```rust
     /// use finstack_core::currency::Currency;
-    /// use finstack_valuations::instruments::cds::CDSConvention;
+    /// use finstack_valuations::instruments::credit_derivatives::cds::CDSConvention;
     ///
     /// let na = CDSConvention::detect_from_currency(Currency::USD);
     /// assert_eq!(na, CDSConvention::IsdaNa);

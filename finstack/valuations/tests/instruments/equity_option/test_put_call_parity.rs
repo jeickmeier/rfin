@@ -14,7 +14,7 @@
 //! - T = time to expiry
 
 use super::helpers::*;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 use time::macros::date;
 
 #[test]

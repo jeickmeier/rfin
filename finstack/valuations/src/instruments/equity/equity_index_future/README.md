@@ -55,10 +55,10 @@ $$
 ### Creating an E-mini S&P 500 Future
 
 ```rust
-use finstack_valuations::instruments::equity_index_future::{
+use finstack_valuations::instruments::equity::equity_index_future::{
     EquityIndexFuture, EquityFutureSpecs,
 };
-use finstack_valuations::instruments::ir_future::Position;
+use finstack_valuations::instruments::rates::ir_future::Position;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -96,7 +96,7 @@ let es_future2 = EquityIndexFuture::sp500_emini(
 ### Calculating Delta
 
 ```rust
-use finstack_valuations::instruments::equity_index_future::EquityIndexFuture;
+use finstack_valuations::instruments::equity::equity_index_future::EquityIndexFuture;
 
 let future = EquityIndexFuture::example();
 let delta = future.delta();
@@ -107,7 +107,7 @@ let delta = future.delta();
 ### Pricing with Market Data
 
 ```rust
-use finstack_valuations::instruments::equity_index_future::EquityIndexFuture;
+use finstack_valuations::instruments::equity::equity_index_future::EquityIndexFuture;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::DiscountCurve;

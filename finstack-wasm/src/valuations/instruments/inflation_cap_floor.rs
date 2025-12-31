@@ -9,7 +9,7 @@ use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
-use finstack_valuations::instruments::inflation_cap_floor::{InflationCapFloor, InflationCapFloorType};
+use finstack_valuations::instruments::rates::inflation_cap_floor::{InflationCapFloor, InflationCapFloorType};
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;

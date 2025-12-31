@@ -12,7 +12,7 @@
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::inflation_linked_bond::InflationLinkedBond;
+use finstack_valuations::instruments::fixed_income::inflation_linked_bond::InflationLinkedBond;
 
 let linker = InflationLinkedBond::example();
 let pv = linker.value(&market_context, as_of_date)?;

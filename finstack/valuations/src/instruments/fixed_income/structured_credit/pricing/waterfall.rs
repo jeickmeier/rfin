@@ -2,6 +2,7 @@
 //!
 //! This module contains pure functions for executing waterfall distributions.
 //! All type definitions are in `types::waterfall`.
+#![allow(dead_code)] // Public API items may be used by external bindings
 
 use super::coverage_tests::{CoverageTest, TestContext};
 use crate::instruments::structured_credit::types::{

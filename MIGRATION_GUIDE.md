@@ -83,10 +83,12 @@ Do you use calibration heavily?
   - `finstack_valuations::instruments::{Instrument, Attributes, instrument_to_arc, build_with_metrics_dyn, Bond, InterestRateSwap, ...}`
   - `finstack_valuations::pricer::{PricerRegistry, ModelKey, InstrumentType, create_standard_registry}`
   - `finstack_valuations::metrics::{MetricId, MetricRegistry, MetricContext, standard_registry}` (plus VaR via `metrics::risk`)
-  - `finstack_valuations::covenants::{Covenant, CovenantType, CovenantEngine, CovenantForecast, CovenantForecastConfig}`
+  - `finstack_valuations::cashflow::{CashflowProvider, schedule_from_dated_flows, AccrualConfig, AccrualMethod, ExCouponRule, accrued_interest_amount}`
+  - `finstack_valuations::results::{ValuationResult, ValuationRow, ResultsMeta, results_to_rows}`
+  - `finstack_valuations::covenants::{Covenant, CovenantType, CovenantEngine, GenericCovenantForecast, CovenantForecastConfig}`
   - `finstack_valuations::attribution::{AttributionMethod, AttributionEnvelope, attribute_pnl_parallel, attribute_pnl_waterfall, attribute_pnl_metrics_based, JsonEnvelope}`
   - `finstack_valuations::calibration::{api::*, SolverConfig, CalibrationConfig, ValidationConfig}` and bump helpers `calibration::bumps::{bump_discount_curve_synthetic, bump_hazard_spreads, bump_inflation_rates, BumpRequest}`
-- **Deprecated paths** (still available for one release, will be removed): deep module imports such as `instruments::common::models`, `calibration::bumps::rates`/`hazard`/`inflation`, `covenants::engine`/`forward`, `attribution::types`/`spec`/`metrics_based`. Update imports to the canonical paths above.
+- **Deprecated paths** (no longer supported): deep module imports such as `instruments::common::models`, `calibration::bumps::rates`/`hazard`/`inflation`, `covenants::engine`/`forward`, `attribution::types`/`spec`/`metrics_based`, `cashflow::traits`, `cashflow::accrual`, `results::dataframe`, and legacy top‑level instrument module aliases like `instruments::bond`, `instruments::swaption`, `instruments::cds_option`, `instruments::fx_forward`. Use category modules under `instruments::{fixed_income, rates, credit_derivatives, equity, fx, commodity, exotics}`.
 
 ### Calibration API slimming
 
@@ -495,7 +497,7 @@ let swap_quote = RateQuote::Swap {
 #### Before (0.7.x) - Panicking Constructor
 
 ```rust
-use finstack_valuations::instruments::cds_option::{CdsOption, CdsOptionParams};
+use finstack_valuations::instruments::credit_derivatives::cds_option::{CdsOption, CdsOptionParams};
 
 // Panics if parameters are invalid (e.g., expiry > maturity)
 let params = CdsOptionParams::call(
@@ -518,7 +520,7 @@ let option = CdsOption::new(
 #### After (0.8.0) - Result-Returning Constructor
 
 ```rust
-use finstack_valuations::instruments::cds_option::{CdsOption, CdsOptionParams};
+use finstack_valuations::instruments::credit_derivatives::cds_option::{CdsOption, CdsOptionParams};
 
 // Returns Result for error handling
 let params = CdsOptionParams::try_call(

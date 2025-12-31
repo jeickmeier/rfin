@@ -10,7 +10,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::structured_credit::TrancheCashflows;
+use finstack_valuations::instruments::fixed_income::structured_credit::TrancheCashflows;
 use time::Month;
 
 // ============================================================================
@@ -52,7 +52,7 @@ fn test_wal_calculation_equal_payments() {
     };
 
     // Act
-    let wal = finstack_valuations::instruments::structured_credit::calculate_tranche_wal(
+    let wal = finstack_valuations::instruments::fixed_income::structured_credit::calculate_tranche_wal(
         &cashflows, as_of,
     )
     .unwrap();
@@ -92,7 +92,7 @@ fn test_wal_calculation_front_loaded_payments() {
     };
 
     // Act
-    let wal = finstack_valuations::instruments::structured_credit::calculate_tranche_wal(
+    let wal = finstack_valuations::instruments::fixed_income::structured_credit::calculate_tranche_wal(
         &cashflows, as_of,
     )
     .unwrap();
@@ -132,7 +132,7 @@ fn test_wal_calculation_back_loaded_payments() {
     };
 
     // Act
-    let wal = finstack_valuations::instruments::structured_credit::calculate_tranche_wal(
+    let wal = finstack_valuations::instruments::fixed_income::structured_credit::calculate_tranche_wal(
         &cashflows, as_of,
     )
     .unwrap();
@@ -162,7 +162,7 @@ fn test_wal_calculation_single_payment() {
     };
 
     // Act
-    let wal = finstack_valuations::instruments::structured_credit::calculate_tranche_wal(
+    let wal = finstack_valuations::instruments::fixed_income::structured_credit::calculate_tranche_wal(
         &cashflows, as_of,
     )
     .unwrap();
@@ -189,7 +189,7 @@ fn test_wal_calculation_empty_cashflows() {
     };
 
     // Act
-    let wal = finstack_valuations::instruments::structured_credit::calculate_tranche_wal(
+    let wal = finstack_valuations::instruments::fixed_income::structured_credit::calculate_tranche_wal(
         &cashflows, as_of,
     )
     .unwrap();
@@ -225,7 +225,7 @@ fn test_wal_ignores_past_cashflows() {
     };
 
     // Act
-    let wal = finstack_valuations::instruments::structured_credit::calculate_tranche_wal(
+    let wal = finstack_valuations::instruments::fixed_income::structured_credit::calculate_tranche_wal(
         &cashflows, as_of,
     )
     .unwrap();
@@ -269,7 +269,7 @@ fn test_wal_rmbs_with_psa() {
     };
 
     // Act
-    let wal = finstack_valuations::instruments::structured_credit::calculate_tranche_wal(
+    let wal = finstack_valuations::instruments::fixed_income::structured_credit::calculate_tranche_wal(
         &cashflows, as_of,
     )
     .unwrap();
@@ -305,7 +305,7 @@ fn test_wal_clo_short_duration() {
     };
 
     // Act
-    let wal = finstack_valuations::instruments::structured_credit::calculate_tranche_wal(
+    let wal = finstack_valuations::instruments::fixed_income::structured_credit::calculate_tranche_wal(
         &cashflows, as_of,
     )
     .unwrap();

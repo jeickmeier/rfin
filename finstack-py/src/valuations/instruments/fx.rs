@@ -6,9 +6,9 @@ use crate::errors::core_to_py;
 use crate::valuations::common::intern_calendar_id_opt;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::fx_option::FxOption;
-use finstack_valuations::instruments::fx_spot::FxSpot;
-use finstack_valuations::instruments::fx_swap::FxSwap;
+use finstack_valuations::instruments::fx::fx_option::FxOption;
+use finstack_valuations::instruments::fx::fx_spot::FxSpot;
+use finstack_valuations::instruments::fx::fx_swap::FxSwap;
 use finstack_valuations::instruments::{ExerciseStyle, OptionType, SettlementType};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
@@ -452,7 +452,7 @@ impl PyFxOption {
         builder = builder
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
         builder =
-            builder.attributes(finstack_valuations::instruments::common::traits::Attributes::new());
+            builder.attributes(finstack_valuations::instruments::Attributes::new());
         Ok(Self::new(builder.build().map_err(core_to_py)?))
     }
 

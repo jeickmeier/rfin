@@ -4,8 +4,8 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::commodity_forward::CommodityForward;
-use finstack_valuations::instruments::common::traits::Attributes;
+use finstack_valuations::instruments::commodity::commodity_forward::CommodityForward;
+use finstack_valuations::instruments::Attributes;
 use time::Month;
 
 /// Helper to create a test discount curve.
@@ -94,7 +94,7 @@ fn test_commodity_forward_pricing_expired() {
 
 #[test]
 fn test_commodity_forward_instrument_trait() {
-    use finstack_valuations::instruments::common::traits::Instrument;
+    use finstack_valuations::instruments::Instrument;
     use finstack_valuations::pricer::InstrumentType;
 
     let forward = CommodityForward::example();

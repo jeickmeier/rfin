@@ -11,7 +11,7 @@ use crate::TimeRollMode;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Tenor};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 use indexmap::IndexMap;
 
 /// Report from time roll-forward operation.

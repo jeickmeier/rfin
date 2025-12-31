@@ -1,5 +1,5 @@
 use crate::valuations::common::PyInstrumentType;
-use finstack_valuations::instruments::basket::Basket;
+use finstack_valuations::instruments::exotics::basket::Basket;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyModule, PyType};

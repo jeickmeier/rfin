@@ -4,9 +4,9 @@ use crate::statements::evaluator::PyResults;
 use crate::statements::types::model::PyFinancialModelSpec;
 use finstack_core::dates::{Date, PeriodId};
 use finstack_valuations::covenants::{
-    forward::CovenantForecast as ValCovForecast, Covenant,
-    CovenantForecastConfig as ValCovForecastConfig, CovenantScope, CovenantSpec, CovenantType,
-    McConfig as ValMcConfig, ModelTimeSeries, SpringingCondition, ThresholdTest,
+    Covenant, CovenantForecastConfig as ValCovForecastConfig, CovenantScope, CovenantSpec,
+    CovenantType, GenericCovenantForecast as ValCovForecast, McConfig as ValMcConfig,
+    ModelTimeSeries, SpringingCondition, ThresholdTest,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
@@ -402,7 +402,7 @@ pub fn py_forecast_covenant(
     let adapter = StatementsAdapter::new(&model.inner, &base_case.inner);
     let ps: Vec<PeriodId> = periods.into_iter().map(|p| p.inner).collect();
     let cfg = config.map(|c| c.inner.clone()).unwrap_or_default();
-    finstack_valuations::covenants::forward::forecast_covenant_generic(
+    finstack_valuations::covenants::forecast_covenant_generic(
         &covenant_spec.inner,
         &adapter,
         &ps,
@@ -419,7 +419,7 @@ pub fn py_forecast_covenant(
 )]
 #[derive(Clone, Debug)]
 pub struct PyFutureBreach {
-    pub(crate) inner: finstack_valuations::covenants::forward::FutureBreach,
+    pub(crate) inner: finstack_valuations::covenants::FutureBreach,
 }
 
 #[pymethods]
@@ -473,7 +473,7 @@ pub fn py_forecast_breaches(
     base_case: &PyResults,
     config: Option<&PyCovenantForecastConfig>,
 ) -> PyResult<Vec<PyFutureBreach>> {
-    let mut engine = finstack_valuations::covenants::engine::CovenantEngine::new();
+    let mut engine = finstack_valuations::covenants::CovenantEngine::new();
     for spec in specs {
         engine.add_spec(spec.inner.clone());
     }

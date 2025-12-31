@@ -10,8 +10,8 @@ use num_traits::ToPrimitive;
 use rust_decimal_macros::dec;
 use time::Month;
 
-use finstack_valuations::instruments::common::parameters::underlying::EquityUnderlyingParams;
-use finstack_valuations::instruments::common::parameters::PayReceive;
+use finstack_valuations::instruments::EquityUnderlyingParams;
+use finstack_valuations::instruments::PayReceive;
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::instruments::{
     Bond, CreditDefaultSwap, EquityOption, ExerciseStyle, InterestRateSwap,
@@ -53,7 +53,7 @@ fn main() -> finstack_core::Result<()> {
         "USD-OIS",
     )
     .expect("Bond::fixed should succeed with valid parameters");
-    use finstack_valuations::instruments::bond::CashflowSpec;
+    use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
     let coupon = match &bond.cashflow_spec {
         CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
         _ => 0.0,
@@ -99,7 +99,7 @@ fn main() -> finstack_core::Result<()> {
         .id("IRS-COMPLEX".to_string().into())
         .notional(Money::new(25_000_000.0, Currency::USD))
         .side(PayReceive::ReceiveFixed)
-        .fixed(finstack_valuations::instruments::irs::FixedLegSpec {
+        .fixed(finstack_valuations::instruments::rates::irs::FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: dec!(0.0425),
             freq: finstack_core::dates::Tenor::semi_annual(),
@@ -113,7 +113,7 @@ fn main() -> finstack_core::Result<()> {
             compounding_simple: true,
             payment_delay_days: 0,
         })
-        .float(finstack_valuations::instruments::irs::FloatLegSpec {
+        .float(finstack_valuations::instruments::rates::irs::FloatLegSpec {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: dec!(25.0),

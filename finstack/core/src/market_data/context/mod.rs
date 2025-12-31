@@ -50,6 +50,7 @@ mod stats;
 
 mod state_serde;
 
+#[doc(hidden)]
 pub use curve_storage::CurveStorage;
 pub use stats::ContextStats;
 

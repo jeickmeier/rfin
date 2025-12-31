@@ -28,7 +28,7 @@
 //! # Examples
 //!
 //! ```rust
-//! use finstack_valuations::instruments::agency_mbs_passthrough::{
+//! use finstack_valuations::instruments::fixed_income::mbs_passthrough::{
 //!     AgencyMbsPassthrough, AgencyProgram, PoolType,
 //! };
 //! use finstack_valuations::cashflow::builder::specs::PrepaymentModelSpec;
@@ -65,9 +65,9 @@
 //! ```
 
 pub mod delay;
-pub mod metrics;
+pub(crate) mod metrics;
 pub mod prepayment;
-pub mod pricer;
+pub(crate) mod pricer;
 pub mod servicing;
 mod types;
 

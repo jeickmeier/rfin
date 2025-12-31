@@ -4,9 +4,9 @@ use crate::core::money::JsMoney;
 use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str, optional_static_str};
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_valuations::instruments::cds_option::parameters::CdsOptionParams;
-use finstack_valuations::instruments::cds_option::CdsOption;
-use finstack_valuations::instruments::common::parameters::{CreditParams, OptionType};
+use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionParams;
+use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOption;
+use finstack_valuations::instruments::{CreditParams, OptionType};
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 

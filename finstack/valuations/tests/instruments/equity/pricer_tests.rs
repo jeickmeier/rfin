@@ -6,8 +6,8 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::instruments::equity::spot::pricer::{
+use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::equity::spot::{
     EquityPricer, SimpleEquityDiscountingPricer,
 };
 use finstack_valuations::instruments::equity::Equity;
@@ -206,7 +206,7 @@ fn test_simple_equity_pricer_price_dyn() {
 
 #[test]
 fn test_simple_equity_pricer_type_mismatch() {
-    use finstack_valuations::instruments::bond::Bond;
+    use finstack_valuations::instruments::fixed_income::bond::Bond;
 
     // Create a bond (wrong type)
     let issue = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();

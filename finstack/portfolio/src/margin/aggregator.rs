@@ -4,7 +4,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 // Note: InitialMarginMetric and VariationMarginMetric are available but
 // netting set margin is calculated via aggregated sensitivities directly.
 use finstack_valuations::margin::{
@@ -30,42 +30,42 @@ fn as_marginable(instrument: &Arc<dyn Instrument>) -> Option<&dyn Marginable> {
     // Try each known marginable type
     if let Some(irs) = instrument
         .as_any()
-        .downcast_ref::<finstack_valuations::instruments::irs::InterestRateSwap>()
+        .downcast_ref::<finstack_valuations::instruments::rates::irs::InterestRateSwap>()
     {
         return Some(irs as &dyn Marginable);
     }
 
     if let Some(cds) = instrument
         .as_any()
-        .downcast_ref::<finstack_valuations::instruments::cds::CreditDefaultSwap>()
+        .downcast_ref::<finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap>()
     {
         return Some(cds as &dyn Marginable);
     }
 
     if let Some(repo) = instrument
         .as_any()
-        .downcast_ref::<finstack_valuations::instruments::repo::Repo>()
+        .downcast_ref::<finstack_valuations::instruments::rates::repo::Repo>()
     {
         return Some(repo as &dyn Marginable);
     }
 
     if let Some(cds_index) = instrument
         .as_any()
-        .downcast_ref::<finstack_valuations::instruments::cds_index::CDSIndex>(
+        .downcast_ref::<finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndex>(
     ) {
         return Some(cds_index as &dyn Marginable);
     }
 
     if let Some(eq_trs) = instrument
         .as_any()
-        .downcast_ref::<finstack_valuations::instruments::equity_trs::EquityTotalReturnSwap>(
+        .downcast_ref::<finstack_valuations::instruments::equity::equity_trs::EquityTotalReturnSwap>(
     ) {
         return Some(eq_trs as &dyn Marginable);
     }
 
     if let Some(fi_trs) = instrument
         .as_any()
-        .downcast_ref::<finstack_valuations::instruments::fi_trs::FIIndexTotalReturnSwap>(
+        .downcast_ref::<finstack_valuations::instruments::fixed_income::fi_trs::FIIndexTotalReturnSwap>(
     ) {
         return Some(fi_trs as &dyn Marginable);
     }

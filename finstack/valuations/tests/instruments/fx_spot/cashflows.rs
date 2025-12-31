@@ -6,7 +6,7 @@ use finstack_core::{
     currency::Currency, dates::BusinessDayConvention, market_data::context::MarketContext,
     money::Money,
 };
-use finstack_valuations::cashflow::traits::CashflowProvider;
+use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::FxSpot;
 
 #[test]

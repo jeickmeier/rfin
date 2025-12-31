@@ -50,7 +50,7 @@ stochastic/
 ### Enable Stochastic Modeling
 
 ```rust
-use finstack_valuations::instruments::structured_credit::{
+use finstack_valuations::instruments::fixed_income::structured_credit::{
     StructuredCredit, StochasticPrepaySpec, StochasticDefaultSpec,
     CorrelationStructure,
 };
@@ -68,7 +68,7 @@ clo.with_stochastic_prepay(StochasticPrepaySpec::clo_standard())
 ### Run Stochastic Pricing
 
 ```rust
-use finstack_valuations::instruments::structured_credit::stochastic::{
+use finstack_valuations::instruments::fixed_income::structured_credit::stochastic::{
     StochasticPricer, StochasticPricerConfig, PricingMode,
 };
 

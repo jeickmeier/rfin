@@ -9,7 +9,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::deposit::Deposit;
+use finstack_valuations::instruments::rates::deposit::Deposit;
 use finstack_valuations::metrics::{MetricContext, MetricId, MetricRegistry};
 use std::sync::Arc;
 
@@ -175,7 +175,7 @@ pub fn setup_metric_context(base: Date) -> (Deposit, MarketContext, MetricContex
     let dep = standard_deposit(base);
     let base_val = dep.npv(&ctx, base).unwrap();
 
-    let instrument_arc: Arc<dyn finstack_valuations::instruments::common::traits::Instrument> =
+    let instrument_arc: Arc<dyn finstack_valuations::instruments::Instrument> =
         Arc::new(dep.clone());
     let metric_ctx = MetricContext::new(
         instrument_arc,
@@ -186,7 +186,7 @@ pub fn setup_metric_context(base: Date) -> (Deposit, MarketContext, MetricContex
     );
 
     let mut registry = MetricRegistry::new();
-    finstack_valuations::instruments::deposit::metrics::register_deposit_metrics(&mut registry);
+    finstack_valuations::instruments::rates::deposit::register_deposit_metrics(&mut registry);
 
     (dep, ctx, metric_ctx, registry)
 }
@@ -199,10 +199,10 @@ pub fn compute_metric(
     metric_id: MetricId,
 ) -> f64 {
     let mut registry = MetricRegistry::new();
-    finstack_valuations::instruments::deposit::metrics::register_deposit_metrics(&mut registry);
+    finstack_valuations::instruments::rates::deposit::register_deposit_metrics(&mut registry);
 
     let base_val = deposit.npv(ctx, base).unwrap();
-    let instrument_arc: Arc<dyn finstack_valuations::instruments::common::traits::Instrument> =
+    let instrument_arc: Arc<dyn finstack_valuations::instruments::Instrument> =
         Arc::new(deposit.clone());
     let mut metric_ctx = MetricContext::new(
         instrument_arc,
@@ -226,10 +226,10 @@ pub fn compute_metrics(
     metric_ids: &[MetricId],
 ) -> finstack_core::HashMap<MetricId, f64> {
     let mut registry = MetricRegistry::new();
-    finstack_valuations::instruments::deposit::metrics::register_deposit_metrics(&mut registry);
+    finstack_valuations::instruments::rates::deposit::register_deposit_metrics(&mut registry);
 
     let base_val = deposit.npv(ctx, base).unwrap();
-    let instrument_arc: Arc<dyn finstack_valuations::instruments::common::traits::Instrument> =
+    let instrument_arc: Arc<dyn finstack_valuations::instruments::Instrument> =
         Arc::new(deposit.clone());
     let mut metric_ctx = MetricContext::new(
         instrument_arc,

@@ -59,7 +59,7 @@ pub struct ExecutionContext<'a> {
 
     /// Optional vector of instruments for price/spread shocks and carry calculations.
     pub instruments:
-        Option<&'a mut Vec<Box<dyn finstack_valuations::instruments::common::traits::Instrument>>>,
+        Option<&'a mut Vec<Box<dyn finstack_valuations::instruments::Instrument>>>,
 
     /// Optional mapping from statement node IDs to binding specs for automatic rate updates.
     pub rate_bindings: Option<IndexMap<String, RateBindingSpec>>,

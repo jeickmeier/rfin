@@ -7,7 +7,7 @@ use crate::valuations::common::{
 };
 use finstack_core::dates::{BusinessDayConvention, DayCount};
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::cds_tranche::{CdsTranche, TrancheSide};
+use finstack_valuations::instruments::credit_derivatives::cds_tranche::{CdsTranche, TrancheSide};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};

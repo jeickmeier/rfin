@@ -36,6 +36,7 @@ pub const DF_MIN_HARD: f64 = 1e-12;
 ///
 /// Acts as a safety ceiling for discount factors during search. While DFs are
 /// usually <= 1.0, deep negative rates can lead to DFs > 1.0.
+#[allow(dead_code)]
 pub const DF_MAX_HARD: f64 = 1e6;
 
 /// Minimum weight floor to avoid division by zero or effectively ignoring valid quotes.
@@ -46,6 +47,7 @@ pub const WEIGHT_MIN_FLOOR: f64 = 1e-3;
 /// Tolerance for floating point equality checks in validation.
 ///
 /// General-purpose precision threshold for comparing calibrated values.
+#[allow(dead_code)]
 pub const TOLERANCE_FLOAT_EQ: f64 = 1e-12;
 
 /// Finite penalty value used in objective functions instead of infinity.

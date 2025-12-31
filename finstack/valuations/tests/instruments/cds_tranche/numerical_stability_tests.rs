@@ -11,7 +11,7 @@
 //! pricing tests with extreme scenarios.
 
 use super::helpers::*;
-use finstack_valuations::instruments::cds_tranche::pricer::CDSTranchePricer;
+use finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTranchePricer;
 
 // ==================== Extreme Correlation Tests ====================
 

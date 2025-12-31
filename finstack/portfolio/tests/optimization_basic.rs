@@ -15,8 +15,8 @@ use finstack_portfolio::{
     },
     PortfolioBuilder, Position, PositionUnit,
 };
-use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::instruments::deposit::Deposit;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
+use finstack_valuations::instruments::rates::deposit::Deposit;
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::metrics::MetricId;
 use std::sync::Arc;

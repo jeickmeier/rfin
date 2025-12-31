@@ -62,8 +62,10 @@ pub mod currency;
 pub mod dates;
 pub(crate) mod error;
 /// Explainability infrastructure (opt-in tracing)
+#[doc(hidden)]
 pub mod explain;
 /// Expression engine (AST, evaluator, Polars lowering)
+#[doc(hidden)]
 pub mod expr;
 /// Market data term‐structure framework (former `curves` module)
 pub mod market_data;

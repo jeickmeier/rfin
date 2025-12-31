@@ -1,5 +1,5 @@
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_valuations::instruments::revolving_credit::RevolvingCredit;
+use finstack_valuations::instruments::fixed_income::revolving_credit::RevolvingCredit;
 use finstack_valuations::pricer::InstrumentType;
 use serde_json;
 use wasm_bindgen::prelude::*;

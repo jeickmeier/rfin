@@ -8,8 +8,8 @@ use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::common::traits::Attributes;
-use finstack_valuations::instruments::variance_swap::{
+use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::equity::variance_swap::{
     PayReceive, RealizedVarMethod, VarianceSwap,
 };
 use time::Month;

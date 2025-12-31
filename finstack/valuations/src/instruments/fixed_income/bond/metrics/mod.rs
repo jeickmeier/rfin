@@ -28,8 +28,8 @@
 //! # Examples
 //!
 //! ```rust,no_run
-//! use finstack_valuations::instruments::bond::Bond;
-//! use finstack_valuations::instruments::bond::metrics::register_bond_metrics;
+//! use finstack_valuations::instruments::fixed_income::bond::Bond;
+//! use finstack_valuations::instruments::fixed_income::bond::metrics::register_bond_metrics;
 //! use finstack_valuations::metrics::{MetricRegistry, MetricId};
 //!
 //! let mut registry = MetricRegistry::new();
@@ -78,7 +78,7 @@ pub use price_yield_spread::{
 /// # Examples
 ///
 /// ```rust,no_run
-/// use finstack_valuations::instruments::bond::metrics::register_bond_metrics;
+/// use finstack_valuations::instruments::fixed_income::bond::metrics::register_bond_metrics;
 /// use finstack_valuations::metrics::MetricRegistry;
 ///
 /// let mut registry = MetricRegistry::new();

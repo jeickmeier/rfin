@@ -16,11 +16,13 @@
 //! // TODO: Add example once implementation is complete
 //! ```
 
-pub mod metrics;
-pub mod pricer;
-pub mod types;
+pub(crate) mod metrics;
+pub(crate) mod pricer;
+pub(crate) mod types;
 
 // Re-export commonly used types
+#[doc(hidden)]
+pub use pricer::BondFuturePricer;
 pub use types::{BondFuture, BondFutureBuilder, BondFutureSpecs, DeliverableBond, Position};
 
 #[cfg(test)]

@@ -227,7 +227,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
-use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
+use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
 use time::macros::date;
 
 let swap = InterestRateSwap::create_usd_swap(
@@ -245,7 +245,7 @@ let swap = InterestRateSwap::create_usd_swap(
 ```rust
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 
 // Build market curves
 let disc_curve = DiscountCurve::builder("USD-OIS")
@@ -280,7 +280,7 @@ println!("Swap NPV: {}", npv);
 ### Example 3: Create an OIS Swap
 
 ```rust
-use finstack_valuations::instruments::irs::FloatingLegCompounding;
+use finstack_valuations::instruments::rates::irs::FloatingLegCompounding;
 
 let mut swap = InterestRateSwap::create_usd_swap(
     InstrumentId::new("OIS-5Y-USD"),
@@ -336,7 +336,7 @@ println!("Annuity: {:.6}", result.get_metric(&MetricId::Annuity)?);
 ### Example 6: Generate Cashflows
 
 ```rust
-use finstack_valuations::cashflow::traits::CashflowProvider;
+use finstack_valuations::cashflow::CashflowProvider;
 
 let flows = swap.build_dated_flows(&market, date!(2024-01-01))?;
 for (date, amount) in flows {
@@ -354,7 +354,7 @@ for cf in full_schedule.flows {
 
 ```rust
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor, StubKind};
-use finstack_valuations::instruments::common::parameters::legs::{FixedLegSpec, FloatLegSpec};
+use finstack_valuations::instruments::{FixedLegSpec, FloatLegSpec};
 
 let swap = InterestRateSwap::builder()
     .id(InstrumentId::new("IRS-CUSTOM"))
@@ -774,7 +774,7 @@ Interest rate swaps implement full margin support following **ISDA CSA** (Credit
 ### Adding Margin Specification
 
 ```rust
-use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
+use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
 use finstack_valuations::margin::{
     OtcMarginSpec, CsaSpec, ClearingStatus, ImMethodology, MarginFrequency,
 };

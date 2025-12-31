@@ -73,7 +73,7 @@ impl StructuredCredit {
     /// # Example
     /// ```rust,no_run
     /// use finstack_core::market_data::context::MarketContext;
-    /// use finstack_valuations::instruments::structured_credit::StructuredCredit;
+    /// use finstack_valuations::instruments::fixed_income::structured_credit::StructuredCredit;
     /// use time::macros::date;
     ///
     /// # fn main() -> finstack_core::Result<()> {

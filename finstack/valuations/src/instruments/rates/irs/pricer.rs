@@ -22,7 +22,6 @@
 //! - Kahan, W. (1965). "Further Remarks on Reducing Truncation Errors."
 
 // Using generic pricer implementation to eliminate boilerplate
-pub use crate::instruments::common::GenericInstrumentPricer;
 
 // Re-export shared swap leg pricing utilities for internal use and backward compatibility
 use crate::instruments::common::pricing::swap_legs::{
@@ -460,7 +459,7 @@ impl InterestRateSwap {
 /// # Examples
 ///
 /// ```no_run
-/// use finstack_valuations::instruments::irs::{InterestRateSwap, pricer};
+/// use finstack_valuations::instruments::rates::irs::{InterestRateSwap, pricer};
 /// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::dates::Date;
 /// # use time::Month;

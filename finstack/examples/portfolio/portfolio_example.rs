@@ -25,32 +25,45 @@ use finstack_core::money::fx::SimpleFxProvider;
 use finstack_core::money::Money;
 use finstack_portfolio::{self, *};
 use finstack_scenarios::spec::{CurveKind, OperationSpec, ScenarioSpec};
-use finstack_valuations::constants::isda;
-use finstack_valuations::instruments;
-use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::instruments::cap_floor::{parameters::*, InterestRateOption};
-use finstack_valuations::instruments::cds::*;
-use finstack_valuations::instruments::cds_index::{parameters::*, CDSIndex};
-use finstack_valuations::instruments::cds_option::{parameters::*, CdsOption};
-use finstack_valuations::instruments::cds_tranche::{parameters::*, CdsTranche, TrancheSide};
-use finstack_valuations::instruments::common::parameters::legs::*;
-use finstack_valuations::instruments::deposit::Deposit;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
+use finstack_valuations::instruments::rates::cap_floor::{
+    InterestRateOption, InterestRateOptionParams,
+};
+use finstack_valuations::instruments::credit_derivatives::cds::*;
+use finstack_valuations::instruments::credit_derivatives::cds_index::{
+    CDSIndex, CDSIndexConstructionParams, CDSIndexParams,
+};
+use finstack_valuations::instruments::credit_derivatives::cds_option::{
+    CdsOption, CdsOptionParams,
+};
+use finstack_valuations::instruments::credit_derivatives::cds_tranche::{
+    CdsTranche, CDSTrancheParams, TrancheSide,
+};
+use finstack_valuations::instruments::*;
+use finstack_valuations::instruments::rates::deposit::Deposit;
 use finstack_valuations::instruments::equity::Equity;
-use finstack_valuations::instruments::equity_option::{parameters::*, EquityOption};
-use finstack_valuations::instruments::fx_option::{parameters::*, FxOption};
-use finstack_valuations::instruments::fx_spot::FxSpot;
-use finstack_valuations::instruments::fx_swap::FxSwap;
-use finstack_valuations::instruments::inflation_linked_bond::{parameters::*, InflationLinkedBond};
-use finstack_valuations::instruments::inflation_swap::{InflationSwap, PayReceiveInflation};
-use finstack_valuations::instruments::irs::*;
-use finstack_valuations::instruments::structured_credit::StructuredCredit;
-use finstack_valuations::instruments::structured_credit::{
+use finstack_valuations::instruments::equity::equity_option::{
+    EquityOption, EquityOptionParams,
+};
+use finstack_valuations::instruments::fx::fx_option::{FxOption, FxOptionParams};
+use finstack_valuations::instruments::fx::fx_spot::FxSpot;
+use finstack_valuations::instruments::fx::fx_swap::FxSwap;
+use finstack_valuations::instruments::fixed_income::inflation_linked_bond::{
+    InflationLinkedBond, InflationLinkedBondParams,
+};
+use finstack_valuations::instruments::rates::inflation_swap::{InflationSwap, PayReceiveInflation};
+#[allow(unused_imports)]
+use finstack_valuations::instruments::rates::irs::*;
+use finstack_valuations::instruments::fixed_income::structured_credit::StructuredCredit;
+use finstack_valuations::instruments::fixed_income::structured_credit::{
     DealType, Pool, Seniority, TrancheBuilder, TrancheCoupon, TrancheStructure,
 };
-use finstack_valuations::instruments::swaption::{parameters::*, Swaption};
+use finstack_valuations::instruments::rates::swaption::{Swaption, SwaptionParams};
 use rust_decimal_macros::dec;
 use std::sync::Arc;
 use time::macros::date;
+
+const STANDARD_RECOVERY_SENIOR: f64 = 0.40;
 
 fn main() -> finstack_portfolio::Result<()> {
     println!("=== Finstack Portfolio Example ===\n");
@@ -567,7 +580,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         0.05,                                    // 5% coupon
         as_of,
         date!(2027 - 01 - 01),
-        crate::instruments::common::parameters::BondConvention::Corporate,
+        BondConvention::Corporate,
         "USD",
     )
     .expect("Bond::with_convention should succeed for Corporate bonds");
@@ -720,10 +733,10 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         Money::new(10_000_000.0, Currency::USD), // $10M
     );
 
-    let credit_params = finstack_valuations::instruments::common::parameters::CreditParams {
+    let credit_params = finstack_valuations::instruments::CreditParams {
         reference_entity: "CORP_BB".into(),
         credit_curve_id: "CORP_BB".into(),
-        recovery_rate: isda::STANDARD_RECOVERY_SENIOR,
+        recovery_rate: STANDARD_RECOVERY_SENIOR,
     };
 
     let cds_index = CDSIndex::new_standard(
@@ -914,7 +927,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         33_333.33,                        // Shares to make ~$10M exposure
     );
 
-    let underlying_params = finstack_valuations::instruments::common::parameters::underlying::EquityUnderlyingParams::new(
+    let underlying_params = finstack_valuations::instruments::EquityUnderlyingParams::new(
         "MSFT",
         "MSFT-SPOT",
         Currency::USD,
@@ -962,9 +975,9 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         .maturity(tips_params.maturity)
         .base_index(tips_params.base_index)
         .base_date(tips_params.issue)
-        .indexation_method(finstack_valuations::instruments::inflation_linked_bond::IndexationMethod::TIPS)
+        .indexation_method(finstack_valuations::instruments::fixed_income::inflation_linked_bond::IndexationMethod::TIPS)
         .lag(finstack_core::market_data::scalars::InflationLag::Months(3))
-        .deflation_protection(finstack_valuations::instruments::inflation_linked_bond::DeflationProtection::MaturityOnly)
+        .deflation_protection(finstack_valuations::instruments::fixed_income::inflation_linked_bond::DeflationProtection::MaturityOnly)
         .bdc(finstack_core::dates::BusinessDayConvention::ModifiedFollowing)
         .stub(finstack_core::dates::StubKind::None)
         .discount_curve_id("USD".into())
@@ -1046,7 +1059,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     );
 
     let fx_underlying_params =
-        finstack_valuations::instruments::common::parameters::FxUnderlyingParams::new(
+        finstack_valuations::instruments::FxUnderlyingParams::new(
             Currency::EUR,
             Currency::USD,
             "USD",
@@ -1078,7 +1091,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     let mut clo_pool = Pool::new("CLO_POOL_001", DealType::CLO, Currency::USD);
 
     // Add some sample corporate loans to the pool (scaled to make mezz tranche = $10M)
-    let loan1 = finstack_valuations::instruments::bond::Bond::fixed(
+    let loan1 = finstack_valuations::instruments::fixed_income::bond::Bond::fixed(
         "LOAN_001",
         Money::new(7_142_857.14, Currency::USD), // Scaled down
         0.065,                                   // 6.5% coupon
@@ -1088,7 +1101,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     )
     .expect("Bond::fixed should succeed with valid parameters");
 
-    let loan2 = finstack_valuations::instruments::bond::Bond::fixed(
+    let loan2 = finstack_valuations::instruments::fixed_income::bond::Bond::fixed(
         "LOAN_002",
         Money::new(4_285_714.29, Currency::USD), // Scaled down
         0.055,                                   // 5.5% coupon

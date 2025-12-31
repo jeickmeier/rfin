@@ -27,5 +27,4 @@ pub mod fx;
 mod rounding;
 mod types;
 
-pub use types::Money;
-pub use types::Try;
+pub use types::{Money, Try};

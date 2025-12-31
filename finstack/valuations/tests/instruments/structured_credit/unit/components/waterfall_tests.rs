@@ -10,7 +10,7 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::structured_credit::{
+use finstack_valuations::instruments::fixed_income::structured_credit::{
     AllocationMode, ManagementFeeType, PaymentCalculation, PaymentType, Recipient, RecipientType,
     Waterfall, WaterfallBuilder, WaterfallTier,
 };

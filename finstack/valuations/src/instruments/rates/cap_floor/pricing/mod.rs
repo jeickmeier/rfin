@@ -6,4 +6,4 @@
 
 pub mod black;
 /// Cap/floor pricer implementation
-pub mod pricer;
+pub(crate) mod pricer;

@@ -39,7 +39,7 @@ pub use crate::instruments::common::parameters::SettlementType;
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::commodity_forward::CommodityForward;
+/// use finstack_valuations::instruments::commodity::commodity_forward::CommodityForward;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::dates::Date;
 /// use finstack_core::types::{CurveId, InstrumentId};

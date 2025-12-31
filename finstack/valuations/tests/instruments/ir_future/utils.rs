@@ -5,7 +5,7 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::ir_future::{
+use finstack_valuations::instruments::rates::ir_future::{
     FutureContractSpecs, InterestRateFuture, Position,
 };
 use time::macros::date;

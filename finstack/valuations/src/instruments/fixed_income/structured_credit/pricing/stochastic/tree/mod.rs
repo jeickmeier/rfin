@@ -15,7 +15,7 @@
 //! # Usage
 //!
 //! ```rust,no_run
-//! use finstack_valuations::instruments::structured_credit::pricing::stochastic::tree::{
+//! use finstack_valuations::instruments::fixed_income::structured_credit::pricing::stochastic::tree::{
 //!     BranchingSpec, ScenarioTree, ScenarioTreeConfig,
 //! };
 //!

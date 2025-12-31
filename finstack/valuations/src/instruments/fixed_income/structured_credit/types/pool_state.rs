@@ -1,3 +1,4 @@
+#![allow(dead_code)] // Public API items may be used by external bindings
 use super::pool::AssetPool as Pool;
 use finstack_core::dates::{Date, DayCount};
 

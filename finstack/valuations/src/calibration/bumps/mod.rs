@@ -8,9 +8,9 @@
 //! - [`hazard`]: Bumping logic for Credit (Hazard) curves.
 //! - [`inflation`]: Bumping logic for Inflation curves.
 
-pub mod hazard;
-pub mod inflation;
-pub mod rates;
+pub(crate) mod hazard;
+pub(crate) mod inflation;
+pub(crate) mod rates;
 
 pub use hazard::{bump_hazard_shift, bump_hazard_spreads};
 pub use inflation::bump_inflation_rates;

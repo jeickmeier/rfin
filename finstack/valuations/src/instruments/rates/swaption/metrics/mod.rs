@@ -3,6 +3,7 @@
 //! Contains per-metric calculators split into separate files for clarity and
 //! maintainability. The module exposes a registration helper to wire metrics
 //! into the shared `MetricRegistry`.
+#![allow(dead_code)] // Public API items may be used by external bindings
 
 pub mod bermudan_greeks;
 mod delta;
@@ -13,7 +14,7 @@ mod vega;
 
 pub use bermudan_greeks::{
     BermudanDeltaCalculator, BermudanGammaCalculator, BermudanVegaCalculator,
-    ExerciseProbabilityCalculator, ExerciseProbabilityProfile,
+    ExerciseProbabilityCalculator,
 };
 pub use delta::DeltaCalculator;
 pub use gamma::GammaCalculator;
@@ -47,6 +48,7 @@ pub fn register_swaption_metrics(registry: &mut MetricRegistry) {
 }
 
 /// Register Bermudan swaption metrics with the registry
+#[allow(dead_code)] // May be used by external bindings or tests
 pub fn register_bermudan_swaption_metrics(registry: &mut MetricRegistry) {
     use crate::pricer::InstrumentType;
     crate::register_metrics! {

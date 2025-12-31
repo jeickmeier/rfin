@@ -13,7 +13,7 @@ use finstack_core::dates::{Date, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::CreditRating;
 use finstack_core::types::CurveId;
-use finstack_valuations::instruments::structured_credit::{
+use finstack_valuations::instruments::fixed_income::structured_credit::{
     CoverageTrigger, Seniority, Tranche, TrancheBuilder, TrancheCoupon, TrancheStructure,
     TriggerConsequence,
 };

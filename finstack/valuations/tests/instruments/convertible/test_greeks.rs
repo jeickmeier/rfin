@@ -10,7 +10,7 @@
 //! - Greeks behavior across moneyness
 
 use super::fixtures::*;
-use finstack_valuations::instruments::convertible::pricer::{
+use finstack_valuations::instruments::fixed_income::convertible::{
     calculate_convertible_greeks, ConvertibleTreeType,
 };
 

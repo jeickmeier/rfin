@@ -30,6 +30,7 @@ pub const ONE_BASIS_POINT: f64 = 0.0001;
 /// let spread_decimal = 0.0025;
 /// let spread_bp = spread_decimal * BASIS_POINTS_PER_UNIT; // 25bp
 /// ```
+#[allow(dead_code)]
 pub const BASIS_POINTS_PER_UNIT: f64 = 10_000.0;
 
 /// Convert percentage to decimal (1% = 0.01).
@@ -60,6 +61,7 @@ pub const DECIMAL_TO_PERCENT: f64 = 100.0;
 /// These supplement f64 constants without breaking existing callers.
 /// Prefer these in money and aggregation code paths.
 #[inline]
+#[allow(dead_code)]
 pub fn one_basis_point_dec() -> rust_decimal::Decimal {
     // 0.0001
     rust_decimal::Decimal::new(1, 4)
@@ -67,6 +69,7 @@ pub fn one_basis_point_dec() -> rust_decimal::Decimal {
 
 /// Basis points per unit (10,000) as Decimal
 #[inline]
+#[allow(dead_code)]
 pub fn basis_points_per_unit_dec() -> rust_decimal::Decimal {
     // 10,000
     rust_decimal::Decimal::new(10_000, 0)
@@ -74,6 +77,7 @@ pub fn basis_points_per_unit_dec() -> rust_decimal::Decimal {
 
 /// Conversion factor from percentage to decimal (0.01) as Decimal
 #[inline]
+#[allow(dead_code)]
 pub fn percent_to_decimal_dec() -> rust_decimal::Decimal {
     // 0.01
     rust_decimal::Decimal::new(1, 2)
@@ -81,6 +85,7 @@ pub fn percent_to_decimal_dec() -> rust_decimal::Decimal {
 
 /// Conversion factor from decimal to percentage (100) as Decimal
 #[inline]
+#[allow(dead_code)]
 pub fn decimal_to_percent_dec() -> rust_decimal::Decimal {
     // 100
     rust_decimal::Decimal::new(100, 0)
@@ -128,6 +133,7 @@ pub mod numerical {
     ///
     /// Value: 1e-12 (tighter than ZERO_TOLERANCE because rates are typically
     /// O(0.01) to O(0.1), so relative precision matters more).
+    #[allow(dead_code)]
     pub const RATE_COMPARISON_TOLERANCE: f64 = 1e-12;
 
     /// Small epsilon to prevent division by zero.
@@ -137,6 +143,7 @@ pub mod numerical {
     ///
     /// Value: 1e-15 (close to but above f64 machine epsilon to ensure
     /// the addition is numerically meaningful).
+    #[allow(dead_code)]
     pub const DIVISION_EPSILON: f64 = 1e-15;
 
     /// Default relative tolerance for numerical comparisons.
@@ -144,21 +151,25 @@ pub mod numerical {
     /// Used for relative error checks: `|a - b| / max(|a|, |b|) < RELATIVE_TOLERANCE`.
     ///
     /// Value: 1e-9 (provides ~9 significant digits of precision).
+    #[allow(dead_code)]
     pub const RELATIVE_TOLERANCE: f64 = 1e-9;
 }
 
 /// ISDA 2014 standard constants used by the engine
 pub mod isda {
     /// Standard recovery rate for senior unsecured (40%)
+    #[allow(dead_code)]
     pub const STANDARD_RECOVERY_SENIOR: f64 = 0.40;
 
     /// Standard recovery rate for subordinated (20%)
+    #[allow(dead_code)]
     pub const STANDARD_RECOVERY_SUB: f64 = 0.20;
 
     /// Standard integration points per year for protection leg
     pub const STANDARD_INTEGRATION_POINTS: usize = 40;
 
     /// Standard coupon payment day
+    #[allow(dead_code)]
     pub const STANDARD_COUPON_DAY: u8 = 20;
 }
 

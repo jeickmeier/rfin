@@ -49,10 +49,10 @@ use time::macros::date;
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::vol_index_future::{
+/// use finstack_valuations::instruments::equity::vol_index_future::{
 ///     VolatilityIndexFuture, VolIndexContractSpecs,
 /// };
-/// use finstack_valuations::instruments::ir_future::Position;
+/// use finstack_valuations::instruments::rates::ir_future::Position;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::dates::Date;
 /// use finstack_core::money::Money;

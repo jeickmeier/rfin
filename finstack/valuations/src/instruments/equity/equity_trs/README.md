@@ -14,7 +14,7 @@
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::equity_trs::EquityTotalReturnSwap;
+use finstack_valuations::instruments::equity::equity_trs::EquityTotalReturnSwap;
 
 let trs = EquityTotalReturnSwap::example();
 let pv = trs.value(&market_context, as_of_date)?;
@@ -28,9 +28,9 @@ use finstack_core::dates::{Date, DayCount, BusinessDayConvention, StubKind, Teno
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_valuations::cashflow::builder::ScheduleParams;
-use finstack_valuations::instruments::common::parameters::legs::FinancingLegSpec;
-use finstack_valuations::instruments::common::parameters::underlying::EquityUnderlyingParams;
-use finstack_valuations::instruments::equity_trs::{
+use finstack_valuations::instruments::FinancingLegSpec;
+use finstack_valuations::instruments::EquityUnderlyingParams;
+use finstack_valuations::instruments::equity::equity_trs::{
     EquityTotalReturnSwap, TrsScheduleSpec, TrsSide,
 };
 
@@ -80,7 +80,7 @@ let total_return_pv = trs.pv_total_return_leg(&market_context, as_of_date)?;
 
 ## ETF Replication (Shorthand)
 ```rust
-use finstack_valuations::instruments::equity_trs::EquityTotalReturnSwap;
+use finstack_valuations::instruments::equity::equity_trs::EquityTotalReturnSwap;
 
 // Using the same financing_spec and schedule_spec from above
 let spy_trs = EquityTotalReturnSwap::replicate_etf(

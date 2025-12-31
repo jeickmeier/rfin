@@ -2,7 +2,7 @@ use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::date_to_py;
 use crate::core::money::PyMoney;
 use crate::valuations::common::PyInstrumentType;
-use finstack_valuations::instruments::term_loan::TermLoan;
+use finstack_valuations::instruments::fixed_income::term_loan::TermLoan;
 use pyo3::prelude::*;
 use pyo3::types::{PyModule, PyType};
 use pyo3::Bound;

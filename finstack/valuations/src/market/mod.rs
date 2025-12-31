@@ -25,12 +25,11 @@
 //! # Quick Example
 //!
 //! ```rust
-//! use finstack_valuations::market::build::context::BuildCtx;
-//! use finstack_valuations::market::build::rates::build_rate_instrument;
+//! use finstack_valuations::market::{BuildCtx, build_rate_instrument};
 //! use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 //! use finstack_valuations::market::quotes::rates::RateQuote;
 //! use finstack_valuations::market::conventions::ids::IndexId;
-//! use finstack_valuations::market::conventions::registry::ConventionRegistry;
+//! use finstack_valuations::market::conventions::ConventionRegistry;
 //! use finstack_core::dates::Date;
 //! use finstack_core::HashMap;
 //!
@@ -58,13 +57,18 @@
 //!
 //! # See Also
 //!
-//! - [`build::BuildCtx`](build::context::BuildCtx) for build context configuration
-//! - [`conventions::ConventionRegistry`](conventions::registry::ConventionRegistry) for convention lookups
+//! - [`BuildCtx`] for build context configuration
+//! - [`conventions::ConventionRegistry`] for convention lookups
 //! - [`quotes::MarketQuote`](quotes::market_quote::MarketQuote) for the unified quote enum
 
 /// Quote-to-instrument builders and prepared quotes.
-pub mod build;
+pub(crate) mod build;
 /// Market conventions and registries.
 pub mod conventions;
 /// Market quote schemas.
 pub mod quotes;
+
+pub use build::cds::build_cds_instrument;
+pub use build::cds_tranche::{build_cds_tranche_instrument, CdsTrancheBuildOverrides};
+pub use build::context::BuildCtx;
+pub use build::rates::build_rate_instrument;

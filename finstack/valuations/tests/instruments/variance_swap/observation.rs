@@ -2,7 +2,7 @@
 
 use super::common::*;
 use finstack_core::dates::Tenor;
-use finstack_valuations::instruments::variance_swap::PayReceive;
+use finstack_valuations::instruments::equity::variance_swap::PayReceive;
 
 // ============================================================================
 // Observation Dates Tests

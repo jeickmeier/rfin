@@ -37,7 +37,7 @@ pub use crate::instruments::common::parameters::legs::BasisSwapLeg;
 /// # Examples
 /// ```rust
 /// use finstack_core::{dates::*, money::Money, currency::Currency, types::CurveId};
-/// use finstack_valuations::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
+/// use finstack_valuations::instruments::rates::basis_swap::{BasisSwap, BasisSwapLeg};
 /// use time::Month;
 ///
 /// let primary_leg = BasisSwapLeg {

@@ -4,7 +4,7 @@
 //! boundary handling, and numerical stability.
 
 use super::helpers::*;
-use finstack_valuations::instruments::fx_option::FxOptionCalculator;
+use finstack_valuations::instruments::fx::fx_option::FxOptionCalculator;
 use time::macros::date;
 
 #[test]

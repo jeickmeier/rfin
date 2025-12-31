@@ -5,8 +5,8 @@ use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::commodity_forward::{CommodityForward, SettlementType};
-use finstack_valuations::instruments::common::traits::Attributes;
+use finstack_valuations::instruments::commodity::commodity_forward::{CommodityForward, SettlementType};
+use finstack_valuations::instruments::Attributes;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyType};
 use pyo3::{Bound, Py};
@@ -246,7 +246,7 @@ impl PyCommodityForward {
     /// Instrument type key.
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
-        use finstack_valuations::instruments::common::traits::Instrument;
+        use finstack_valuations::instruments::Instrument;
         PyInstrumentType::new(self.inner.key())
     }
 

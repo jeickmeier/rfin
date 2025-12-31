@@ -12,7 +12,7 @@
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::convertible::ConvertibleBond;
+use finstack_valuations::instruments::fixed_income::convertible::ConvertibleBond;
 use finstack_core::dates::Date;
 use time::Month;
 

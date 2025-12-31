@@ -387,7 +387,7 @@ impl InterestRateSwap {
     /// # Examples
     ///
     /// ```
-    /// use finstack_valuations::instruments::irs::InterestRateSwap;
+    /// use finstack_valuations::instruments::rates::irs::InterestRateSwap;
     ///
     /// let swap = InterestRateSwap::example()?;
     /// swap.validate()?; // Passes for valid swap

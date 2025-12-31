@@ -40,7 +40,7 @@ use time::macros::date;
 /// # Example
 ///
 /// ```
-/// use finstack_valuations::instruments::equity_trs::EquityTotalReturnSwap;
+/// use finstack_valuations::instruments::equity::equity_trs::EquityTotalReturnSwap;
 ///
 /// let trs = EquityTotalReturnSwap::example();
 /// // let pv = trs.npv(&market_context, as_of_date)?;

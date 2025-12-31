@@ -17,7 +17,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::{DatedFlow, DatedFlows};
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 use indexmap::IndexMap;
 
 /// Aggregated portfolio cashflows by date and currency.
@@ -56,7 +56,7 @@ fn instrument_holder_flows(
     market: &MarketContext,
     as_of: Date,
 ) -> finstack_core::Result<Option<DatedFlows>> {
-    use finstack_valuations::instruments::cds;
+    use finstack_valuations::instruments::credit_derivatives::cds;
 
     // Use the trait method instead of manual downcasting
     if let Some(provider) = instrument.as_cashflow_provider() {
@@ -211,7 +211,7 @@ mod tests {
     use crate::position::{Position, PositionUnit};
     use crate::test_utils::build_test_market_at;
     use crate::types::Entity;
-    use finstack_valuations::instruments::bond;
+    use finstack_valuations::instruments::fixed_income::bond;
     use std::sync::Arc;
     use time::macros::date;
 

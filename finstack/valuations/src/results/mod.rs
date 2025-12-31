@@ -59,8 +59,9 @@
 //! - [`ResultsMeta`] for execution metadata
 //! - [`crate::metrics`] for available metric calculators
 
-pub mod dataframe;
+pub(crate) mod dataframe;
 mod valuation_result;
 
 pub use finstack_core::config::ResultsMeta;
+pub use dataframe::{results_to_rows, ValuationRow};
 pub use valuation_result::ValuationResult;

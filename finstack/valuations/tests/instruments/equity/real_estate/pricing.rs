@@ -5,7 +5,7 @@ use finstack_core::dates::{DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::common::traits::Attributes;
+use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::equity::real_estate::{
     RealEstateAsset, RealEstateValuationMethod,
 };

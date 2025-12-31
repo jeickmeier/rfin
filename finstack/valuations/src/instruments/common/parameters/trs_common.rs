@@ -13,7 +13,7 @@ use finstack_core::dates::{Date, Schedule, ScheduleBuilder};
 /// # Examples
 ///
 /// ```
-/// use finstack_valuations::instruments::common::parameters::TrsSide;
+/// use finstack_valuations::instruments::TrsSide;
 ///
 /// let side = TrsSide::ReceiveTotalReturn;
 /// assert_eq!(side.sign(), 1.0);
@@ -73,7 +73,7 @@ impl TrsSide {
 /// # Examples
 ///
 /// ```
-/// use finstack_valuations::instruments::common::parameters::TrsScheduleSpec;
+/// use finstack_valuations::instruments::TrsScheduleSpec;
 /// use finstack_valuations::cashflow::builder::ScheduleParams;
 /// use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention, StubKind};
 ///

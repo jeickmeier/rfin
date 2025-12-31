@@ -1,6 +1,6 @@
 //! Integration tests for covenant enforcement in private credit instruments.
 
-use finstack_valuations::covenants::mod_types::CovenantReport;
+use finstack_valuations::covenants::CovenantReport;
 
 #[test]
 fn test_covenant_report_smoke() {

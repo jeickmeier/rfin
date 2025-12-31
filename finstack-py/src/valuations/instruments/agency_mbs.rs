@@ -14,15 +14,15 @@ use finstack_core::dates::DayCount;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::cashflow::builder::specs::PrepaymentModelSpec;
-use finstack_valuations::instruments::agency_cmo::{
+use finstack_valuations::instruments::fixed_income::cmo::{
     AgencyCmo, CmoTranche, CmoTrancheType, CmoWaterfall, PacCollar,
 };
-use finstack_valuations::instruments::agency_mbs_passthrough::{
+use finstack_valuations::instruments::fixed_income::mbs_passthrough::{
     AgencyMbsPassthrough, AgencyProgram, PoolType,
 };
-use finstack_valuations::instruments::agency_tba::{AgencyTba, TbaTerm};
-use finstack_valuations::instruments::common::traits::Attributes;
-use finstack_valuations::instruments::dollar_roll::DollarRoll;
+use finstack_valuations::instruments::fixed_income::tba::{AgencyTba, TbaTerm};
+use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::fixed_income::dollar_roll::DollarRoll;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyModule, PyType};

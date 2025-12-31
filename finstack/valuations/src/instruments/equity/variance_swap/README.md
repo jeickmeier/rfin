@@ -12,7 +12,7 @@
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::variance_swap::VarianceSwap;
+use finstack_valuations::instruments::equity::variance_swap::VarianceSwap;
 
 let swap = VarianceSwap::example();
 let pv = swap.value(&market_context, as_of_date)?;

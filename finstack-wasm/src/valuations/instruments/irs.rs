@@ -5,7 +5,7 @@ use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_valuations::instruments::irs::InterestRateSwap;
+use finstack_valuations::instruments::rates::irs::InterestRateSwap;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 
@@ -49,7 +49,7 @@ impl JsInterestRateSwap {
     ) -> Result<JsInterestRateSwap, JsValue> {
         use finstack_core::dates::BusinessDayConvention;
         use finstack_core::dates::StubKind;
-        use finstack_valuations::instruments::common::parameters::legs::{
+        use finstack_valuations::instruments::{
             FixedLegSpec, FloatLegSpec, PayReceive,
         };
 

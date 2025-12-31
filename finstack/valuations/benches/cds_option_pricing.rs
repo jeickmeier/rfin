@@ -15,9 +15,9 @@ use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve, Seniority};
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::cds_option::parameters::CdsOptionParams;
-use finstack_valuations::instruments::cds_option::CdsOption;
-use finstack_valuations::instruments::common::parameters::{CreditParams, OptionType};
+use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionParams;
+use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOption;
+use finstack_valuations::instruments::{CreditParams, OptionType};
 use std::hint::black_box;
 use time::Month;
 

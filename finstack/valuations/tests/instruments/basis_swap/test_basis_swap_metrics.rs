@@ -5,8 +5,8 @@ use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_core::{currency::Currency::USD, math::interp::InterpStyle};
 use finstack_valuations::cashflow::builder::ScheduleParams;
-use finstack_valuations::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::rates::basis_swap::{BasisSwap, BasisSwapLeg};
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::Month;
 

@@ -12,7 +12,7 @@
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::fx_swap::FxSwap;
+use finstack_valuations::instruments::fx::fx_swap::FxSwap;
 
 let swap = FxSwap::example();
 let pv = swap.value(&market_context, as_of_date)?;

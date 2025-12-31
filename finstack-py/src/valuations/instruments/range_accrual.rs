@@ -1,7 +1,7 @@
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::range_accrual::RangeAccrual;
+use finstack_valuations::instruments::rates::range_accrual::RangeAccrual;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::Bound;

@@ -59,7 +59,7 @@ pub mod api;
 /// Prepared quotes for calibration.
 pub(crate) mod prepared;
 /// Solver utilities and implementations used by calibration.
-pub mod solver;
+pub(crate) mod solver;
 /// Calibration targets mapping API steps to domain execution.
 pub(crate) mod targets;
 
@@ -67,24 +67,31 @@ pub(crate) mod targets;
 mod config;
 mod report;
 pub(crate) mod step_runtime;
-mod validation;
+pub(crate) mod validation;
 
 /// Curve bumping helpers used by scenarios and risk metrics (re-calibration).
+#[doc(hidden)]
 pub mod bumps;
 
 /// Shared constants (tolerances, magic numbers).
-pub mod constants;
+pub(crate) mod constants;
 
 /// Convexity adjustment logic.
-// Re-exports: Configuration
+// Re-exports: Configuration (kept public but not part of the supported surface)
+#[doc(hidden)]
 pub use config::{
     CalibrationConfig, CalibrationMethod, DiscountCurveSolveConfig, HazardCurveSolveConfig,
     RatesStepConventions, ResidualWeightingScheme, CALIBRATION_CONFIG_KEY,
 };
+#[doc(hidden)]
 pub use solver::SolverConfig;
+#[doc(hidden)]
 pub use validation::curves::CurveValidator;
+#[doc(hidden)]
 pub use validation::surfaces::SurfaceValidator;
+#[doc(hidden)]
 pub use validation::{RateBounds, RateBoundsPolicy, ValidationConfig, ValidationMode};
 
-// Re-exports: Reports
+// Re-exports: Reports (internal)
+#[doc(hidden)]
 pub use report::CalibrationReport;

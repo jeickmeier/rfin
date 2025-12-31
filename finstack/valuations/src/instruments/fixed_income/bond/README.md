@@ -53,7 +53,7 @@ bond/
 Standard bonds with fixed coupon payments at regular intervals.
 
 ```rust
-use finstack_valuations::instruments::bond::Bond;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use time::macros::date;
@@ -102,7 +102,7 @@ let zero = Bond::builder()
 Bonds with principal repayment schedules.
 
 ```rust
-use finstack_valuations::instruments::bond::CashflowSpec;
+use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
 use finstack_core::cashflow::builder::AmortizationSpec;
 
 let amort_spec = AmortizationSpec::linear(
@@ -128,7 +128,7 @@ let amortizing = Bond::builder()
 Bonds with embedded options allowing early redemption.
 
 ```rust
-use finstack_valuations::instruments::bond::{Bond, CallPutSchedule, CallPut};
+use finstack_valuations::instruments::fixed_income::bond::{Bond, CallPutSchedule, CallPut};
 
 let call_schedule = CallPutSchedule {
     calls: vec![
@@ -154,7 +154,7 @@ let callable = Bond::builder()
 Pre-configured regional market conventions:
 
 ```rust
-use finstack_valuations::instruments::common::parameters::BondConvention;
+use finstack_valuations::instruments::BondConvention;
 
 // US Treasury convention (30/360, semi-annual)
 let ust = Bond::with_convention(
@@ -185,7 +185,7 @@ let gilt = Bond::with_convention(
 Standard present value calculation using discount curves.
 
 ```rust
-use finstack_valuations::instruments::bond::pricing::discount_engine::BondEngine;
+use finstack_valuations::instruments::fixed_income::bond::pricing::discount_engine::BondEngine;
 use finstack_core::market_data::context::MarketContext;
 
 let market = MarketContext::new()
@@ -198,7 +198,7 @@ let pv = BondEngine::price(&bond, &market, as_of)?;
 Credit-adjusted pricing using hazard curves with fractional recovery of par.
 
 ```rust
-use finstack_valuations::instruments::bond::pricing::hazard_engine::HazardBondEngine;
+use finstack_valuations::instruments::fixed_income::bond::pricing::hazard_engine::HazardBondEngine;
 
 let market = MarketContext::new()
     .insert_discount(discount_curve)
@@ -211,7 +211,7 @@ let pv = HazardBondEngine::price(&bond, &market, as_of)?;
 Tree-based pricing for callable/putable bonds and option-adjusted spread calculation.
 
 ```rust
-use finstack_valuations::instruments::bond::pricing::tree_engine::TreePricer;
+use finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::TreePricer;
 
 let tree_pricer = TreePricer::new();
 let oas = tree_pricer.calculate_oas(&callable_bond, &market, as_of, quoted_price)?;
@@ -248,7 +248,7 @@ The bond module provides comprehensive risk and valuation metrics:
 
 ```rust
 use finstack_valuations::metrics::{MetricRegistry, MetricId};
-use finstack_valuations::instruments::bond::metrics::register_bond_metrics;
+use finstack_valuations::instruments::fixed_income::bond::metrics::register_bond_metrics;
 
 // Register bond metrics
 let mut registry = MetricRegistry::new();
@@ -273,7 +273,7 @@ let dv01 = result.metric(MetricId::Dv01);
 ### Basic Bond Pricing
 
 ```rust
-use finstack_valuations::instruments::bond::Bond;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_core::market_data::{MarketContext, DiscountCurve};
@@ -355,7 +355,7 @@ println!("Modified Duration: {}", result.metric(MetricId::DurationMod));
 ### Callable Bond OAS Calculation
 
 ```rust
-use finstack_valuations::instruments::bond::pricing::tree_engine::TreePricer;
+use finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::TreePricer;
 
 let callable_bond = Bond::builder()
     .id("CALLABLE".into())

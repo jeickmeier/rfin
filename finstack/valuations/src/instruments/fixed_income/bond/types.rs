@@ -89,7 +89,7 @@ pub struct Bond {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::bond::CallPut;
+/// use finstack_valuations::instruments::fixed_income::bond::CallPut;
 /// use finstack_core::dates::Date;
 /// use time::Month;
 ///
@@ -116,7 +116,7 @@ pub struct CallPut {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::bond::{CallPut, CallPutSchedule};
+/// use finstack_valuations::instruments::fixed_income::bond::{CallPut, CallPutSchedule};
 /// use finstack_core::dates::Date;
 /// use time::Month;
 ///
@@ -145,7 +145,7 @@ impl CallPutSchedule {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::bond::CallPutSchedule;
+    /// use finstack_valuations::instruments::fixed_income::bond::CallPutSchedule;
     ///
     /// let schedule = CallPutSchedule::default();
     /// assert!(!schedule.has_options());
@@ -223,7 +223,7 @@ impl Bond {
     ///
     /// # Example
     /// ```rust,no_run
-    /// use finstack_valuations::instruments::bond::Bond;
+    /// use finstack_valuations::instruments::fixed_income::bond::Bond;
     /// use finstack_core::money::Money;
     /// use finstack_core::currency::Currency;
     /// use time::macros::date;
@@ -316,8 +316,8 @@ impl Bond {
     ///
     /// # Example
     /// ```rust,no_run
-    /// use finstack_valuations::instruments::bond::Bond;
-    /// use finstack_valuations::instruments::common::parameters::BondConvention;
+    /// use finstack_valuations::instruments::fixed_income::bond::Bond;
+    /// use finstack_valuations::instruments::BondConvention;
     /// use finstack_core::money::Money;
     /// use finstack_core::currency::Currency;
     /// use time::macros::date;
@@ -428,7 +428,7 @@ impl Bond {
     ///
     /// # Example
     /// ```rust,no_run
-    /// use finstack_valuations::instruments::bond::Bond;
+    /// use finstack_valuations::instruments::fixed_income::bond::Bond;
     /// use finstack_core::dates::{Tenor, DayCount};
     /// use finstack_core::money::Money;
     /// use finstack_core::currency::Currency;
@@ -676,7 +676,7 @@ impl Bond {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use finstack_valuations::instruments::bond::Bond;
+    /// use finstack_valuations::instruments::fixed_income::bond::Bond;
     /// use finstack_valuations::cashflow::builder::CashFlowSchedule;
     /// use finstack_core::money::Money;
     /// use finstack_core::currency::Currency;
@@ -705,7 +705,7 @@ impl Bond {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use finstack_valuations::instruments::bond::Bond;
+    /// use finstack_valuations::instruments::fixed_income::bond::Bond;
     ///
     /// # let bond = Bond::example();
     /// let accrual_config = bond.accrual_config();
@@ -752,7 +752,7 @@ impl Bond {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use finstack_valuations::instruments::bond::Bond;
+    /// use finstack_valuations::instruments::fixed_income::bond::Bond;
     /// use finstack_core::market_data::context::MarketContext;
     ///
     /// # let bond = Bond::example();

@@ -6,7 +6,7 @@ use crate::utils::json::{from_js_value, to_js_value};
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::bond_future::{
+use finstack_valuations::instruments::fixed_income::bond_future::{
     BondFuture, BondFutureSpecs, DeliverableBond, Position,
 };
 use wasm_bindgen::prelude::*;
@@ -251,7 +251,7 @@ impl JsBondFuture {
 
     /// Calculate present value.
     pub fn npv(&self, market: &JsMarketContext, as_of: &FsDate) -> Result<f64, JsValue> {
-        use finstack_valuations::instruments::common::traits::Instrument;
+        use finstack_valuations::instruments::Instrument;
 
         self.inner
             .value(market.inner(), as_of.inner())

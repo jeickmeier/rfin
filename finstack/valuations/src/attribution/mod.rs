@@ -44,7 +44,7 @@
 //!
 //! ```rust,no_run
 //! use finstack_valuations::attribution::attribute_pnl_parallel;
-//! use finstack_valuations::instruments::deposit::Deposit;
+//! use finstack_valuations::instruments::rates::deposit::Deposit;
 //! use finstack_core::config::FinstackConfig;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::market_data::context::MarketContext;
@@ -69,7 +69,7 @@
 //!         .discount_curve_id("USD-OIS".into())
 //!         .build()
 //!         .expect("deposit builder should succeed"),
-//! ) as Arc<dyn finstack_valuations::instruments::common::traits::Instrument>;
+//! ) as Arc<dyn finstack_valuations::instruments::Instrument>;
 //!
 //! let attribution = attribute_pnl_parallel(
 //!     &instrument,
@@ -98,7 +98,7 @@
 //! use finstack_valuations::attribution::{
 //!     attribute_pnl_waterfall, AttributionFactor
 //! };
-//! use finstack_valuations::instruments::deposit::Deposit;
+//! use finstack_valuations::instruments::rates::deposit::Deposit;
 //! use finstack_core::config::FinstackConfig;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::market_data::context::MarketContext;
@@ -129,7 +129,7 @@
 //!         .discount_curve_id("USD-OIS".into())
 //!         .build()
 //!         .expect("deposit builder should succeed"),
-//! ) as Arc<dyn finstack_valuations::instruments::common::traits::Instrument>;
+//! ) as Arc<dyn finstack_valuations::instruments::Instrument>;
 //!
 //! let attribution = attribute_pnl_waterfall(
 //!     &instrument,
@@ -154,7 +154,7 @@
 //! ```rust,no_run
 //! use finstack_valuations::attribution::attribute_pnl_metrics_based;
 //! use finstack_valuations::attribution::default_attribution_metrics;
-//! use finstack_valuations::instruments::deposit::Deposit;
+//! use finstack_valuations::instruments::rates::deposit::Deposit;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::market_data::context::MarketContext;
 //! use finstack_core::money::Money;
@@ -179,7 +179,7 @@
 //!         .discount_curve_id("USD-OIS".into())
 //!         .build()
 //!         .expect("deposit builder should succeed"),
-//! ) as Arc<dyn finstack_valuations::instruments::common::traits::Instrument>;
+//! ) as Arc<dyn finstack_valuations::instruments::Instrument>;
 //!
 //! let val_t0 = instrument.price_with_metrics(&market_t0, as_of_t0, &metrics)?;
 //! let val_t1 = instrument.price_with_metrics(&market_t1, as_of_t1, &metrics)?;
@@ -202,7 +202,7 @@
 //!
 //! ```rust,no_run
 //! use finstack_valuations::attribution::attribute_pnl_parallel;
-//! use finstack_valuations::instruments::deposit::Deposit;
+//! use finstack_valuations::instruments::rates::deposit::Deposit;
 //! use finstack_core::config::FinstackConfig;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::market_data::context::MarketContext;
@@ -227,7 +227,7 @@
 //!         .discount_curve_id("USD-OIS".into())
 //!         .build()
 //!         .expect("deposit builder should succeed"),
-//! ) as Arc<dyn finstack_valuations::instruments::common::traits::Instrument>;
+//! ) as Arc<dyn finstack_valuations::instruments::Instrument>;
 //!
 //! let attribution = attribute_pnl_parallel(
 //!     &instrument,
@@ -280,7 +280,7 @@ pub use spec::{
     AttributionResultEnvelope, AttributionSpec, ATTRIBUTION_SCHEMA_V1,
 };
 pub use waterfall::{attribute_pnl_waterfall, default_waterfall_order};
-// Market snapshot helpers (kept internal module, public façade here)
+// Market snapshot helpers - exported for test usage
 pub use factors::{
     extract, restore_scalars, CreditCurvesSnapshot, CurveRestoreFlags, InflationCurvesSnapshot,
     MarketExtractable, MarketSnapshot, RatesCurvesSnapshot, ScalarsSnapshot,

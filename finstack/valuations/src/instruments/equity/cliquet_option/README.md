@@ -12,7 +12,7 @@
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::cliquet_option::CliquetOption;
+use finstack_valuations::instruments::equity::cliquet_option::CliquetOption;
 use finstack_core::dates::Date;
 use time::Month;
 

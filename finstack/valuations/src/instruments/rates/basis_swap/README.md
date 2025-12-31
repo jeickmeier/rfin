@@ -13,7 +13,7 @@
 ## Usage Example
 ```rust
 use finstack_core::{currency::Currency, dates::*, money::Money, types::CurveId};
-use finstack_valuations::instruments::basis_swap::{BasisSwap, BasisSwapLeg};
+use finstack_valuations::instruments::rates::basis_swap::{BasisSwap, BasisSwapLeg};
 use time::Month;
 
 let primary = BasisSwapLeg {

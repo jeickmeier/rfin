@@ -11,8 +11,8 @@
 
 use super::helpers::*;
 use finstack_core::math::{binomial_probability, log_factorial};
-use finstack_valuations::instruments::cds_tranche::parameters::CDSTrancheParams;
-use finstack_valuations::instruments::cds_tranche::pricer::Cs01BumpUnits;
+use finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTrancheParams;
+use finstack_valuations::instruments::credit_derivatives::cds_tranche::Cs01BumpUnits;
 
 // ==================== Standard Tranche Structure Tests ====================
 
@@ -283,7 +283,7 @@ fn test_aod_enabled_by_default() {
     // Reference: Post-2009 ISDA CDS standard model (ISDA CDS Standard Model)
 
     let config =
-        finstack_valuations::instruments::cds_tranche::pricer::CDSTranchePricerConfig::default();
+        finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTranchePricerConfig::default();
     assert!(
         config.accrual_on_default_enabled,
         "Accrual-on-default should be enabled by default per ISDA standards"
@@ -365,7 +365,7 @@ fn test_gaussian_copula_quadrature_orders() {
 
     for &order in &valid_orders {
         let mut config =
-            finstack_valuations::instruments::cds_tranche::pricer::CDSTranchePricerConfig::default(
+            finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTranchePricerConfig::default(
             );
         config.quadrature_order = order;
 
@@ -378,7 +378,7 @@ fn test_default_quadrature_order() {
     // Market Standard: 7-point Gauss-Hermite is typical for production
 
     let config =
-        finstack_valuations::instruments::cds_tranche::pricer::CDSTranchePricerConfig::default();
+        finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTranchePricerConfig::default();
     assert_eq!(
         config.quadrature_order, 7,
         "Default quadrature order should be 7"
@@ -439,9 +439,9 @@ fn test_spread_dv01_sign_convention() {
     // Market Standard: For protection seller (long risk),
     // higher running coupon increases premium received → positive DV01
 
-    let pricer = finstack_valuations::instruments::cds_tranche::pricer::CDSTranchePricer::new();
+    let pricer = finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTranchePricer::new();
     let mut tranche = mezzanine_tranche();
-    tranche.side = finstack_valuations::instruments::cds_tranche::TrancheSide::SellProtection;
+    tranche.side = finstack_valuations::instruments::credit_derivatives::cds_tranche::TrancheSide::SellProtection;
     let market = standard_market_context();
     let as_of = base_date();
 
@@ -466,11 +466,11 @@ fn test_homogeneous_pool_assumption() {
     // Reference: Li (2000)
 
     let mut config =
-        finstack_valuations::instruments::cds_tranche::pricer::CDSTranchePricerConfig::default();
+        finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTranchePricerConfig::default();
     config.use_issuer_curves = false;
 
     let pricer =
-        finstack_valuations::instruments::cds_tranche::pricer::CDSTranchePricer::with_params(
+        finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTranchePricer::with_params(
             config,
         );
     let tranche = mezzanine_tranche();
@@ -486,11 +486,11 @@ fn test_heterogeneous_pool_extension() {
     // Reference: Hull & White (2004), "Valuation of a CDO and an n-th to Default CDS"
 
     let mut config =
-        finstack_valuations::instruments::cds_tranche::pricer::CDSTranchePricerConfig::default();
+        finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTranchePricerConfig::default();
     config.use_issuer_curves = true;
 
     let pricer =
-        finstack_valuations::instruments::cds_tranche::pricer::CDSTranchePricer::with_params(
+        finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTranchePricer::with_params(
             config,
         );
     let tranche = mezzanine_tranche();

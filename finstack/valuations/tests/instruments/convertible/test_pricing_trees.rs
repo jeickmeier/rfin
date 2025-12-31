@@ -11,7 +11,7 @@ use super::fixtures::*;
 use finstack_valuations::instruments::common::models::{
     single_factor_equity_state, BinomialTree, NodeState, TreeModel, TreeValuator, TrinomialTree,
 };
-use finstack_valuations::instruments::convertible::pricer::{
+use finstack_valuations::instruments::fixed_income::convertible::{
     price_convertible_bond, ConvertibleTreeType,
 };
 

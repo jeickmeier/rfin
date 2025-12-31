@@ -13,8 +13,8 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::instruments::equity_option::EquityOption;
+use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::equity::equity_option::EquityOption;
 use proptest::prelude::*;
 use time::Month;
 

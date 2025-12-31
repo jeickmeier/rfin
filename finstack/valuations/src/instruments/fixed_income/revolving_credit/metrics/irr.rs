@@ -8,6 +8,7 @@
 //!
 //! # Facility-Specific Function
 //!
+#![allow(dead_code)] // Public API items may be used by external bindings
 //! - [`calculate_path_irr`]: Converts time-fraction cashflows (from MC paths) to dates
 //!   and computes XIRR. This is useful when working with path-based data where
 //!   cashflows are specified as `(time_in_years, amount)` tuples.
@@ -15,7 +16,7 @@
 //! # Usage
 //!
 //! ```rust,no_run
-//! use finstack_valuations::instruments::revolving_credit::metrics::irr::calculate_path_irr;
+//! use finstack_valuations::instruments::fixed_income::revolving_credit::metrics::irr::calculate_path_irr;
 //! use finstack_core::cashflow::InternalRateOfReturn;
 //! use finstack_core::dates::{Date, DayCount};
 //! use time::Month;
@@ -60,7 +61,7 @@ use finstack_core::dates::{Date, DayCount};
 /// # Example
 ///
 /// ```rust,no_run
-/// use finstack_valuations::instruments::revolving_credit::metrics::irr::calculate_path_irr;
+/// use finstack_valuations::instruments::fixed_income::revolving_credit::metrics::irr::calculate_path_irr;
 /// use finstack_core::dates::{Date, DayCount};
 /// use time::Month;
 ///

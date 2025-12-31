@@ -11,12 +11,12 @@
 
 use super::test_utils::*;
 use finstack_core::dates::{DayCount, Tenor};
-use finstack_valuations::instruments::cds::CDSConvention;
-use finstack_valuations::instruments::cds_index::parameters::{
+use finstack_valuations::instruments::credit_derivatives::cds::CDSConvention;
+use finstack_valuations::instruments::credit_derivatives::cds_index::{
     CDSIndexConstructionParams, CDSIndexParams,
 };
-use finstack_valuations::instruments::cds_index::CDSIndex;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndex;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::CreditParams;
 use time::macros::date;
 

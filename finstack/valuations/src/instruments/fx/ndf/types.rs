@@ -36,7 +36,7 @@ use smallvec::smallvec;
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::ndf::Ndf;
+/// use finstack_valuations::instruments::fx::ndf::Ndf;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::dates::Date;
 /// use finstack_core::money::Money;

@@ -3,9 +3,9 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::common::traits::Attributes;
-use finstack_valuations::instruments::equity_index_future::{EquityFutureSpecs, EquityIndexFuture};
-use finstack_valuations::instruments::ir_future::Position;
+use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::equity::equity_index_future::{EquityFutureSpecs, EquityIndexFuture};
+use finstack_valuations::instruments::rates::ir_future::Position;
 use time::Month;
 
 #[test]
@@ -204,7 +204,7 @@ fn test_notional_value() {
 
 #[test]
 fn test_instrument_trait() {
-    use finstack_valuations::instruments::common::traits::Instrument;
+    use finstack_valuations::instruments::Instrument;
     use finstack_valuations::pricer::InstrumentType;
 
     let future = EquityIndexFuture::example();
@@ -215,7 +215,7 @@ fn test_instrument_trait() {
 
 #[test]
 fn test_curve_dependencies() {
-    use finstack_valuations::instruments::common::traits::CurveDependencies;
+    use finstack_valuations::instruments::CurveDependencies;
 
     let future = EquityIndexFuture::example();
     let deps = future.curve_dependencies();

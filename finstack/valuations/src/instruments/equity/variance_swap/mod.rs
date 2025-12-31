@@ -69,10 +69,10 @@
 //! - [`RealizedVarMethod`] for variance calculation methods
 //! - Variance calculation functions in [`finstack_core::math::stats`]
 
-pub mod metrics;
+pub(crate) mod metrics;
 /// Variance swap pricer implementation
-pub mod pricer;
-pub mod types;
+pub(crate) mod pricer;
+pub(crate) mod types;
 
 pub use pricer::SimpleVarianceSwapDiscountingPricer;
 pub use types::{PayReceive, VarianceSwap};

@@ -14,7 +14,7 @@ mod tests {
         money::Money,
         types::{moodys_warf_factor, CreditRating},
     };
-    use finstack_valuations::instruments::structured_credit::{
+    use finstack_valuations::instruments::fixed_income::structured_credit::{
         config::{DealConfig, DealDates, DefaultAssumptions},
         DealType, Pool, PoolAsset,
     };

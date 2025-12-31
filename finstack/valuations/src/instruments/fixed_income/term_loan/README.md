@@ -247,7 +247,7 @@ call_schedule: Some(LoanCallSchedule {
 ### Example 1: Plain Vanilla Term Loan (Fixed Rate, Bullet)
 
 ```rust
-use finstack_valuations::instruments::term_loan::*;
+use finstack_valuations::instruments::fixed_income::term_loan::*;
 use finstack_core::money::Money;
 use finstack_core::currency::Currency;
 use finstack_core::dates::*;

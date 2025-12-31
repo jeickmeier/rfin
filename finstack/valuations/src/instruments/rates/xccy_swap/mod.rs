@@ -9,9 +9,9 @@
 //! underlying instrument for XCCY basis calibration.
 
 /// XCCY swap metrics.
-pub mod metrics;
+pub(crate) mod metrics;
 /// XCCY swap pricer implementation
-pub mod pricer;
+pub(crate) mod pricer;
 mod types;
 
 pub use pricer::SimpleXccySwapDiscountingPricer;

@@ -21,9 +21,9 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::cds::pricer::{CDSPricer, CDSPricerConfig};
-use finstack_valuations::instruments::cds::CreditDefaultSwap;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::credit_derivatives::cds::{CDSPricer, CDSPricerConfig};
+use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use rust_decimal::Decimal;
 use time::macros::date;
@@ -1053,7 +1053,7 @@ fn test_quantlib_integration_methods_consistency() {
     .expect("CDS construction should succeed");
     cds.protection.recovery_rate = 0.40;
 
-    use finstack_valuations::instruments::cds::pricer::IntegrationMethod;
+    use finstack_valuations::instruments::credit_derivatives::cds::IntegrationMethod;
 
     let methods = vec![
         IntegrationMethod::IsdaExact,

@@ -9,7 +9,7 @@ use crate::adapters::traits::{ScenarioAdapter, ScenarioEffect};
 use crate::engine::ExecutionContext;
 use crate::error::Result;
 use crate::spec::OperationSpec;
-use finstack_valuations::instruments::common::traits::{Attributes, Instrument};
+use finstack_valuations::instruments::{Attributes, Instrument};
 use finstack_valuations::pricer::InstrumentType;
 
 /// Adapter for instrument operations.

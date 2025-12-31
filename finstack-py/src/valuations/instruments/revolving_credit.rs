@@ -5,7 +5,7 @@ use crate::core::money::PyMoney;
 use crate::valuations::cashflow::builder::PyCashFlowSchedule;
 use crate::valuations::common::PyInstrumentType;
 use crate::valuations::results::PyValuationResult;
-use finstack_valuations::instruments::revolving_credit::RevolvingCredit;
+use finstack_valuations::instruments::fixed_income::revolving_credit::RevolvingCredit;
 use pyo3::prelude::*;
 use pyo3::types::{PyModule, PyType};
 use pyo3::Bound;
@@ -278,7 +278,7 @@ impl PyRevolvingCredit {
     ///     >>> print(f"PV: {pv}")
     fn value(&self, market: &PyMarketContext, as_of: Bound<'_, pyo3::PyAny>) -> PyResult<PyMoney> {
         use crate::core::dates::utils::py_to_date;
-        use finstack_valuations::instruments::common::traits::Instrument;
+        use finstack_valuations::instruments::Instrument;
 
         let as_of_date = py_to_date(&as_of)?;
         self.inner
@@ -313,7 +313,7 @@ impl PyRevolvingCredit {
         metrics: Vec<String>,
     ) -> PyResult<PyValuationResult> {
         use crate::core::dates::utils::py_to_date;
-        use finstack_valuations::instruments::common::traits::Instrument;
+        use finstack_valuations::instruments::Instrument;
         use finstack_valuations::metrics::MetricId;
 
         let as_of_date = py_to_date(&as_of)?;
@@ -353,7 +353,7 @@ impl PyRevolvingCredit {
         as_of: Bound<'_, pyo3::PyAny>,
     ) -> PyResult<PyCashFlowSchedule> {
         use crate::core::dates::utils::py_to_date;
-        use finstack_valuations::cashflow::traits::CashflowProvider;
+        use finstack_valuations::cashflow::CashflowProvider;
 
         let as_of_date = py_to_date(&as_of)?;
         self.inner
@@ -421,7 +421,7 @@ impl PyRevolvingCredit {
         as_of: Bound<'_, pyo3::PyAny>,
     ) -> PyResult<PyEnhancedMonteCarloResult> {
         use crate::core::dates::utils::py_to_date;
-        use finstack_valuations::instruments::revolving_credit::pricer::RevolvingCreditPricer;
+        use finstack_valuations::instruments::fixed_income::revolving_credit::RevolvingCreditPricer;
 
         let as_of_date = py_to_date(&as_of)?;
         RevolvingCreditPricer::price_with_paths(&self.inner, &market.inner, as_of_date)
@@ -463,12 +463,12 @@ impl fmt::Display for PyRevolvingCredit {
     name = "EnhancedMonteCarloResult"
 )]
 pub struct PyEnhancedMonteCarloResult {
-    inner: finstack_valuations::instruments::revolving_credit::pricer::EnhancedMonteCarloResult,
+    inner: finstack_valuations::instruments::fixed_income::revolving_credit::EnhancedMonteCarloResult,
 }
 
 impl PyEnhancedMonteCarloResult {
     pub(crate) fn new(
-        inner: finstack_valuations::instruments::revolving_credit::pricer::EnhancedMonteCarloResult,
+        inner: finstack_valuations::instruments::fixed_income::revolving_credit::EnhancedMonteCarloResult,
     ) -> Self {
         Self { inner }
     }
@@ -551,12 +551,12 @@ impl PyEnhancedMonteCarloResult {
 #[pyclass(module = "finstack.valuations.instruments", name = "PathResult")]
 #[derive(Clone)]
 pub struct PyPathResult {
-    inner: finstack_valuations::instruments::revolving_credit::pricer::PathResult,
+    inner: finstack_valuations::instruments::fixed_income::revolving_credit::PathResult,
 }
 
 impl PyPathResult {
     pub(crate) fn new(
-        inner: finstack_valuations::instruments::revolving_credit::pricer::PathResult,
+        inner: finstack_valuations::instruments::fixed_income::revolving_credit::PathResult,
     ) -> Self {
         Self { inner }
     }
@@ -613,12 +613,12 @@ impl PyPathResult {
 )]
 #[derive(Clone)]
 pub struct PyThreeFactorPathData {
-    inner: finstack_valuations::instruments::revolving_credit::ThreeFactorPathData,
+    inner: finstack_valuations::instruments::fixed_income::revolving_credit::ThreeFactorPathData,
 }
 
 impl PyThreeFactorPathData {
     pub(crate) fn new(
-        inner: finstack_valuations::instruments::revolving_credit::ThreeFactorPathData,
+        inner: finstack_valuations::instruments::fixed_income::revolving_credit::ThreeFactorPathData,
     ) -> Self {
         Self { inner }
     }

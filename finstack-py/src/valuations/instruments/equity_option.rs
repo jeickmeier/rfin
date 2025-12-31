@@ -2,7 +2,7 @@ use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::equity_option::EquityOption;
+use finstack_valuations::instruments::equity::equity_option::EquityOption;
 use finstack_valuations::instruments::{ExerciseStyle, OptionType};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
@@ -164,8 +164,8 @@ impl PyEquityOption {
         contract_size: Option<f64>,
     ) -> PyResult<Self> {
         use crate::errors::PyContext;
-        use finstack_valuations::instruments::common::parameters::underlying::EquityUnderlyingParams;
-        use finstack_valuations::instruments::equity_option::parameters::EquityOptionParams;
+        use finstack_valuations::instruments::EquityUnderlyingParams;
+        use finstack_valuations::instruments::equity::equity_option::EquityOptionParams;
 
         let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
         let expiry_date = py_to_date(&expiry).context("expiry")?;
@@ -186,7 +186,7 @@ impl PyEquityOption {
         let strike_money = finstack_core::money::Money::new(strike, notional_money.currency());
         let cs = contract_size.unwrap_or(1.0);
         let params = EquityOptionParams::european_call(strike_money, expiry_date, cs);
-        let option = finstack_valuations::instruments::equity_option::EquityOption::new(
+        let option = finstack_valuations::instruments::equity::equity_option::EquityOption::new(
             id.into_string(),
             &params,
             &underlying,

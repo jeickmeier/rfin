@@ -19,7 +19,7 @@ use finstack_core::HashMap;
 ///
 /// Basic usage:
 /// ```rust
-/// use finstack_valuations::market::build::context::BuildCtx;
+/// use finstack_valuations::market::BuildCtx;
 /// use finstack_core::dates::Date;
 /// use finstack_core::HashMap;
 ///
@@ -34,7 +34,7 @@ use finstack_core::HashMap;
 ///
 /// With default curve fallback:
 /// ```rust
-/// use finstack_valuations::market::build::context::BuildCtx;
+/// use finstack_valuations::market::BuildCtx;
 /// use finstack_core::dates::Date;
 /// use finstack_core::HashMap;
 ///
@@ -84,7 +84,7 @@ impl BuildCtx {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::market::build::context::BuildCtx;
+    /// use finstack_valuations::market::BuildCtx;
     /// use finstack_core::dates::Date;
     /// use finstack_core::HashMap;
     ///
@@ -125,7 +125,7 @@ impl BuildCtx {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::market::build::context::BuildCtx;
+    /// use finstack_valuations::market::BuildCtx;
     /// use finstack_core::dates::Date;
     /// use finstack_core::HashMap;
     ///

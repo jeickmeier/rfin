@@ -30,8 +30,8 @@
 //! use finstack_core::money::Money;
 //! use finstack_core::types::{CurveId, InstrumentId};
 //! use finstack_core::dates::Date;
-//! use finstack_valuations::instruments::bond_future::{BondFuture, DeliverableBond, Position};
-//! use finstack_valuations::instruments::common::traits::Instrument;
+//! use finstack_valuations::instruments::fixed_income::bond_future::{BondFuture, DeliverableBond, Position};
+//! use finstack_valuations::instruments::Instrument;
 //! use finstack_valuations::metrics::MetricId;
 //! use time::Month;
 //!
@@ -87,7 +87,7 @@ use crate::pricer::InstrumentType;
 ///
 /// ```rust,no_run
 /// use finstack_valuations::metrics::MetricRegistry;
-/// use finstack_valuations::instruments::bond_future::metrics::register_bond_future_metrics;
+/// use finstack_valuations::instruments::fixed_income::bond_future::metrics::register_bond_future_metrics;
 ///
 /// let mut registry = MetricRegistry::new();
 /// register_bond_future_metrics(&mut registry);

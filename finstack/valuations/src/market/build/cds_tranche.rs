@@ -4,7 +4,7 @@ use crate::cashflow::builder::ScheduleParams;
 use crate::instruments::cds_tranche::parameters::CDSTrancheParams;
 use crate::instruments::cds_tranche::{CdsTranche, TrancheSide};
 use crate::instruments::common::traits::Instrument;
-use crate::market::build::context::BuildCtx;
+use crate::market::BuildCtx;
 use crate::market::build::helpers::{resolve_calendar, resolve_spot_date};
 use crate::market::conventions::registry::ConventionRegistry;
 use crate::market::quotes::cds_tranche::CdsTrancheQuote;
@@ -132,7 +132,7 @@ impl CdsTrancheBuildOverrides {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::market::build::context::BuildCtx;
+/// use finstack_valuations::market::BuildCtx;
 /// use finstack_valuations::market::build::cds_tranche::{build_cds_tranche_instrument, CdsTrancheBuildOverrides};
 /// use finstack_valuations::market::quotes::cds_tranche::CdsTrancheQuote;
 /// use finstack_valuations::market::quotes::ids::QuoteId;
@@ -171,7 +171,7 @@ impl CdsTrancheBuildOverrides {
 /// # See Also
 ///
 /// - [`CdsTrancheQuote`](crate::market::quotes::cds_tranche::CdsTrancheQuote) for quote structure
-/// - [`BuildCtx`](crate::market::build::context::BuildCtx) for build context configuration
+/// - [`BuildCtx`](crate::market::BuildCtx) for build context configuration
 /// - [`CdsTrancheBuildOverrides`](CdsTrancheBuildOverrides) for override options
 pub fn build_cds_tranche_instrument(
     quote: &CdsTrancheQuote,

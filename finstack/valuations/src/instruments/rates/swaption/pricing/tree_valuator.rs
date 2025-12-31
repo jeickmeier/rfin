@@ -8,12 +8,13 @@
 //! At each tree node and time step:
 //! 1. Compute continuation value (discounted expected value from child nodes)
 //! 2. At exercise dates, compute exercise value = max(0, (S - K) × A × N) for payer
+#![allow(dead_code)] // Public API items may be used by external bindings
 //! 3. Take max(continuation, exercise) for optimal exercise decision
 //!
 //! # Usage
 //!
 //! ```rust,no_run
-//! use finstack_valuations::instruments::swaption::{BermudanSwaption, pricing::BermudanSwaptionTreeValuator};
+//! use finstack_valuations::instruments::rates::swaption::{BermudanSwaption, pricing::BermudanSwaptionTreeValuator};
 //! use finstack_valuations::instruments::common::models::trees::{HullWhiteTree, HullWhiteTreeConfig};
 //!
 //! let swaption = BermudanSwaption::example();
@@ -29,7 +30,7 @@
 //! let valuator = BermudanSwaptionTreeValuator::new(&swaption, &tree, discount_curve, as_of).unwrap();
 //! let price = valuator.price();
 //! ```
-
+#[allow(dead_code)] // Public API items may be used by external bindings or tests
 use crate::instruments::common::models::trees::HullWhiteTree;
 use crate::instruments::common::parameters::OptionType;
 use crate::instruments::swaption::BermudanSwaption;

@@ -3,9 +3,9 @@
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_core::{Error, InputError};
-use finstack_valuations::instruments::bond::metrics::DiscountMarginCalculator;
-use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::fixed_income::bond::DiscountMarginCalculator;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::{MetricCalculator, MetricContext, MetricId};
 use std::sync::Arc;
 use time::macros::date;
@@ -182,7 +182,7 @@ fn test_dm_solver_convergence_across_spread_regimes() {
     for (target_dm, base_bond) in scenarios {
         // Price the FRN at the target DM to obtain a dirty price in currency.
         let dirty_target =
-            finstack_valuations::instruments::bond::pricing::quote_engine::price_from_dm(
+            finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::price_from_dm(
                 &base_bond, &market, as_of, target_dm,
             )
             .expect("pricing with target DM should succeed");
@@ -213,7 +213,7 @@ fn test_dm_solver_convergence_across_spread_regimes() {
 
         // Re-price using the solved DM and verify price residual is tiny.
         let dirty_repriced =
-            finstack_valuations::instruments::bond::pricing::quote_engine::price_from_dm(
+            finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::price_from_dm(
                 &bond, &market, as_of, dm,
             )
             .expect("repricing with solved DM should succeed");

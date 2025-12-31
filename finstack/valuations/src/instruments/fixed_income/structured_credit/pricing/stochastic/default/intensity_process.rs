@@ -8,6 +8,7 @@
 //! The default intensity λ follows:
 //! ```text
 //! λ(t) = λ₀ × exp(β × X(t))
+#![allow(dead_code)] // Public API items may be used by external bindings
 //! ```
 //!
 //! where X(t) is an Ornstein-Uhlenbeck process:

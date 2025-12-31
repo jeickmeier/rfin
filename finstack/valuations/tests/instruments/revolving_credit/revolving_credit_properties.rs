@@ -5,7 +5,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::revolving_credit::{
+use finstack_valuations::instruments::fixed_income::revolving_credit::{
     BaseRateSpec, DrawRepayEvent, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
     StochasticUtilizationSpec, UtilizationProcess,
 };
@@ -17,7 +17,7 @@ fn _generate_deterministic_cashflows_replaced(
     facility: &RevolvingCredit,
     as_of: Date,
 ) -> finstack_core::Result<finstack_valuations::cashflow::builder::CashFlowSchedule> {
-    use finstack_valuations::instruments::revolving_credit::cashflow_engine::CashflowEngine;
+    use finstack_valuations::instruments::fixed_income::revolving_credit::cashflow_engine::CashflowEngine;
     let engine = CashflowEngine::new(facility, None, as_of)?;
     let path_schedule = engine.generate_deterministic()?;
     Ok(path_schedule.schedule)
@@ -185,7 +185,7 @@ proptest! {
             .unwrap();
 
         // Calculate balance after draw
-        use finstack_valuations::instruments::revolving_credit::cashflow_engine::calculate_drawn_balance_at_date;
+        use finstack_valuations::instruments::fixed_income::revolving_credit::cashflow_engine::calculate_drawn_balance_at_date;
         let balance_after = calculate_drawn_balance_at_date(&facility, draw_date).unwrap();
 
         let expected_balance = initial_drawn + draw_amount;

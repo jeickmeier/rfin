@@ -5,8 +5,8 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::structured_credit::pricing::stochastic::pricer::PricingMode;
-use finstack_valuations::instruments::structured_credit::{
+use finstack_valuations::instruments::fixed_income::structured_credit::PricingMode;
+use finstack_valuations::instruments::fixed_income::structured_credit::{
     DealType, Pool, PoolAsset, StructuredCredit, Tranche, TrancheCoupon, TrancheStructure,
 };
 use time::Month;
@@ -38,7 +38,7 @@ fn single_tranche_structure(balance: f64) -> TrancheStructure {
         "SENIOR",
         0.0,
         100.0,
-        finstack_valuations::instruments::structured_credit::Seniority::Senior,
+        finstack_valuations::instruments::fixed_income::structured_credit::Seniority::Senior,
         Money::new(balance, Currency::USD),
         TrancheCoupon::Fixed { rate: 0.05 },
         legal_maturity(),

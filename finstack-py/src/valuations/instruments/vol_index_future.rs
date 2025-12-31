@@ -5,8 +5,8 @@ use crate::core::money::{extract_money, PyMoney};
 use crate::errors::core_to_py;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::ir_future::Position;
-use finstack_valuations::instruments::vol_index_future::{
+use finstack_valuations::instruments::rates::ir_future::Position;
+use finstack_valuations::instruments::equity::vol_index_future::{
     VolIndexContractSpecs, VolatilityIndexFuture,
 };
 use pyo3::exceptions::PyValueError;

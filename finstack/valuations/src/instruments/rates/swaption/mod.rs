@@ -102,15 +102,18 @@
 //! - [`types::VolatilityModel`] for selecting Black vs Normal
 
 /// Swaption risk metrics (delta, vega, theta, rho)
-pub mod metrics;
+pub(crate) mod metrics;
 /// Swaption parameters and market data extraction
-pub mod parameters;
+pub(crate) mod parameters;
 /// Swaption pricer implementation using Black (1976) model
-pub mod pricer;
+pub(crate) mod pricer;
 /// Bermudan swaption pricing engines (tree, LSMC)
-pub mod pricing;
-pub mod types;
+pub(crate) mod pricing;
+pub(crate) mod types;
 
+pub use parameters::SwaptionParams;
+#[doc(hidden)]
+pub use pricing::BermudanSwaptionTreeValuator;
 pub use pricer::{
     BermudanPricingMethod, BermudanSwaptionPricer, HullWhiteParams, SimpleSwaptionBlackPricer,
 };

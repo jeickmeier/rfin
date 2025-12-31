@@ -11,8 +11,8 @@ use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
-use finstack_valuations::instruments::autocallable::{Autocallable, FinalPayoffType};
-use finstack_valuations::instruments::common::traits::Attributes;
+use finstack_valuations::instruments::equity::autocallable::{Autocallable, FinalPayoffType};
+use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::PricingOverrides;
 
 /// Standard curve IDs

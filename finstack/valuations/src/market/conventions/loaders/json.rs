@@ -9,12 +9,15 @@ use finstack_core::HashMap;
 pub struct RegistryFile<R> {
     /// Optional schema identifier.
     #[serde(default)]
+    #[allow(dead_code)]
     pub schema: Option<String>,
     /// Optional namespace identifier.
     #[serde(default)]
+    #[allow(dead_code)]
     pub namespace: Option<String>,
     /// Version number.
     #[serde(default)]
+    #[allow(dead_code)]
     pub version: Option<u32>,
     /// Registry entries.
     pub entries: Vec<RegistryEntry<R>>,

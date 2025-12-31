@@ -3,7 +3,7 @@
 //! Validates Linear, Compounded (ICMA Rule 251), and Indexed accrual conventions
 //! against known market calculations.
 //!
-//! Note: These tests exercise the core `accrual::accrued_interest_amount()` function
+//! Note: These tests exercise the core `accrued_interest_amount()` function
 //! directly. For metrics-interface tests (via `MetricId::Accrued`), see
 //! `metrics/accrued.rs` which validates the integration with the metrics framework.
 
@@ -11,8 +11,8 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::accrual;
-use finstack_valuations::instruments::bond::{AccrualMethod, Bond};
+use finstack_valuations::cashflow::accrued_interest_amount;
+use finstack_valuations::instruments::fixed_income::bond::{AccrualMethod, Bond};
 use time::Month;
 
 fn make_date(y: i32, m: u8, d: u8) -> Date {
@@ -42,7 +42,7 @@ fn test_accrued_interest_linear_default() {
 
     let schedule = bond.get_full_schedule(&MarketContext::new()).unwrap();
     let accrued =
-        accrual::accrued_interest_amount(&schedule, as_of, &bond.accrual_config()).unwrap();
+        accrued_interest_amount(&schedule, as_of, &bond.accrual_config()).unwrap();
 
     // Expected: 3% coupon * (90/180) = 1.5% of notional = $1.50
     let expected = 1.50;
@@ -88,14 +88,14 @@ fn test_accrued_interest_compounded_vs_linear() {
         .get_full_schedule(&MarketContext::new())
         .unwrap();
     let accrued_linear =
-        accrual::accrued_interest_amount(&sched_linear, as_of, &bond_linear.accrual_config())
+        accrued_interest_amount(&sched_linear, as_of, &bond_linear.accrual_config())
             .unwrap();
 
     let sched_comp = bond_compounded
         .get_full_schedule(&MarketContext::new())
         .unwrap();
     let accrued_compounded =
-        accrual::accrued_interest_amount(&sched_comp, as_of, &bond_compounded.accrual_config())
+        accrued_interest_amount(&sched_comp, as_of, &bond_compounded.accrual_config())
             .unwrap();
 
     // Linear: 3% × (90/180) = 1.50%
@@ -147,7 +147,7 @@ fn test_accrued_interest_compounded_zero_coupon() {
     let as_of = make_date(2025, 4, 1);
     let schedule = bond.get_full_schedule(&MarketContext::new()).unwrap();
     let accrued =
-        accrual::accrued_interest_amount(&schedule, as_of, &bond.accrual_config()).unwrap();
+        accrued_interest_amount(&schedule, as_of, &bond.accrual_config()).unwrap();
 
     assert!(
         accrued.abs() < 1e-10,
@@ -175,7 +175,7 @@ fn test_accrued_interest_ex_coupon_period() {
 
     let schedule = bond.get_full_schedule(&MarketContext::new()).unwrap();
     let accrued =
-        accrual::accrued_interest_amount(&schedule, as_of, &bond.accrual_config()).unwrap();
+        accrued_interest_amount(&schedule, as_of, &bond.accrual_config()).unwrap();
 
     assert_eq!(accrued, 0.0, "Should be zero during ex-coupon period");
 }
@@ -196,7 +196,7 @@ fn test_accrued_interest_at_coupon_boundaries() {
     let midway = make_date(2025, 4, 1); // 90 days into first 180-day period
     let schedule = bond.get_full_schedule(&MarketContext::new()).unwrap();
     let accrued_midway =
-        accrual::accrued_interest_amount(&schedule, midway, &bond.accrual_config()).unwrap();
+        accrued_interest_amount(&schedule, midway, &bond.accrual_config()).unwrap();
 
     // Should be positive: 2% × (90/180) = 1% of notional = $1.00
     assert!(
@@ -214,7 +214,7 @@ fn test_accrued_interest_amortizing_schedule_driven() {
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
     use finstack_valuations::cashflow::builder::AmortizationSpec;
-    use finstack_valuations::instruments::bond::CashflowSpec;
+    use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
 
     // 3-year annual amortizing bond, 5% coupon, 1/3 principal returned each year.
     let issue = make_date(2025, 1, 1);
@@ -267,7 +267,7 @@ fn test_accrued_interest_amortizing_schedule_driven() {
 
     let schedule = bond.get_full_schedule(&curves).unwrap();
     let accrued =
-        accrual::accrued_interest_amount(&schedule, as_of, &bond.accrual_config()).unwrap();
+        accrued_interest_amount(&schedule, as_of, &bond.accrual_config()).unwrap();
 
     // Derive expected accrued from the schedule itself: coupon_total × (elapsed/period)
     let schedule = bond

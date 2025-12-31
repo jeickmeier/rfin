@@ -1,7 +1,7 @@
 use crate::core::money::JsMoney;
 use crate::statements::types::JsFinancialModelSpec;
 use finstack_statements::analysis::corporate::evaluate_dcf;
-use finstack_valuations::instruments::dcf::TerminalValueSpec;
+use finstack_valuations::instruments::equity::dcf_equity::TerminalValueSpec;
 use js_sys::{Object, Reflect};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;

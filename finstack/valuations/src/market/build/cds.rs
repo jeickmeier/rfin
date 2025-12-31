@@ -4,7 +4,7 @@ use crate::instruments::cds::{CDSConvention, CreditDefaultSwap};
 use crate::instruments::common::parameters::legs::{PayReceive, PremiumLegSpec, ProtectionLegSpec};
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::instruments::PricingOverrides;
-use crate::market::build::context::BuildCtx;
+use crate::market::BuildCtx;
 use crate::market::build::helpers::{resolve_calendar, resolve_spot_date};
 use crate::market::conventions::registry::ConventionRegistry;
 use crate::market::quotes::cds::CdsQuote;
@@ -44,8 +44,8 @@ use rust_decimal::Decimal;
 ///
 /// Building from a par spread quote:
 /// ```rust
-/// use finstack_valuations::market::build::context::BuildCtx;
-/// use finstack_valuations::market::build::cds::build_cds_instrument;
+/// use finstack_valuations::market::BuildCtx;
+/// use finstack_valuations::market::build_cds_instrument;
 /// use finstack_valuations::market::quotes::cds::CdsQuote;
 /// use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 /// use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
@@ -79,8 +79,8 @@ use rust_decimal::Decimal;
 ///
 /// Building from an upfront quote:
 /// ```rust
-/// use finstack_valuations::market::build::context::BuildCtx;
-/// use finstack_valuations::market::build::cds::build_cds_instrument;
+/// use finstack_valuations::market::BuildCtx;
+/// use finstack_valuations::market::build_cds_instrument;
 /// use finstack_valuations::market::quotes::cds::CdsQuote;
 /// use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 /// use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
@@ -116,7 +116,7 @@ use rust_decimal::Decimal;
 /// # See Also
 ///
 /// - [`CdsQuote`](crate::market::quotes::cds::CdsQuote) for supported quote types
-/// - [`BuildCtx`](crate::market::build::context::BuildCtx) for build context configuration
+/// - [`BuildCtx`](crate::market::BuildCtx) for build context configuration
 pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<dyn Instrument>> {
     let registry = ConventionRegistry::try_global()?;
     let missing_role = |role: &str| {

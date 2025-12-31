@@ -236,7 +236,7 @@ mod tests {
     use crate::position::{Position, PositionUnit};
     use crate::types::Entity;
     use finstack_core::money::Money;
-    use finstack_valuations::instruments::deposit::Deposit;
+    use finstack_valuations::instruments::rates::deposit::Deposit;
     use std::sync::Arc;
     use time::macros::date;
 

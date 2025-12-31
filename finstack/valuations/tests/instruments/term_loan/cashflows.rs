@@ -8,8 +8,8 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_valuations::cashflow::builder::specs::CouponType;
-use finstack_valuations::cashflow::traits::CashflowProvider;
-use finstack_valuations::instruments::term_loan::{AmortizationSpec, RateSpec, TermLoan};
+use finstack_valuations::cashflow::CashflowProvider;
+use finstack_valuations::instruments::fixed_income::term_loan::{AmortizationSpec, RateSpec, TermLoan};
 use time::macros::date;
 
 fn build_market_context() -> MarketContext {

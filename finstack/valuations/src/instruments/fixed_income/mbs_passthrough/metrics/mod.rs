@@ -13,7 +13,6 @@ pub mod key_rate;
 pub mod oas;
 
 pub use duration::{effective_convexity, effective_duration};
-pub use key_rate::key_rate_dv01;
 pub use oas::calculate_oas;
 
 use crate::instruments::agency_mbs_passthrough::AgencyMbsPassthrough;

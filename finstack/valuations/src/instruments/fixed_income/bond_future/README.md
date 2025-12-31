@@ -53,7 +53,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::types::{InstrumentId, CurveId};
-use finstack_valuations::instruments::bond_future::{
+use finstack_valuations::instruments::fixed_income::bond_future::{
     BondFuture, DeliverableBond, Position,
 };
 use time::macros::date;
@@ -95,8 +95,8 @@ println!("Created UST 10Y future: {}", future.id());
 
 ```rust
 use finstack_core::market_data::context::MarketContext;
-use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::instruments::bond_future::pricer::BondFuturePricer;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
+use finstack_valuations::instruments::fixed_income::bond_future::pricer::BondFuturePricer;
 
 // Create market context with discount curve (see examples below)
 let market = create_market_context();
@@ -139,7 +139,7 @@ println!("Invoice price: {}", invoice_price);
 The deliverable basket contains all bonds eligible for delivery against the futures contract. Each bond has a conversion factor that normalizes its value to a standard notional bond.
 
 ```rust
-use finstack_valuations::instruments::bond_future::DeliverableBond;
+use finstack_valuations::instruments::fixed_income::bond_future::DeliverableBond;
 
 let deliverable = DeliverableBond {
     bond_id: InstrumentId::new("US912828XG33"),
@@ -179,7 +179,7 @@ The calculation uses:
 ### Position Types
 
 ```rust
-use finstack_valuations::instruments::bond_future::Position;
+use finstack_valuations::instruments::fixed_income::bond_future::Position;
 
 // Long position: benefits from price increase
 let long_future = BondFuture::ust_10y(
@@ -236,7 +236,7 @@ let short_future = BondFuture::ust_10y(
 ### Creating Market-Specific Futures
 
 ```rust
-use finstack_valuations::instruments::bond_future::BondFutureSpecs;
+use finstack_valuations::instruments::fixed_income::bond_future::BondFutureSpecs;
 
 // UST 10Y (default)
 let ust_10y_specs = BondFutureSpecs::default();
@@ -257,7 +257,7 @@ let gilt_specs = BondFutureSpecs::gilt();
 **Example: Creating a German Bund Future**
 
 ```rust
-use finstack_valuations::instruments::bond_future::BondFutureBuilder;
+use finstack_valuations::instruments::fixed_income::bond_future::BondFutureBuilder;
 
 let bund_future = BondFutureBuilder::new()
     .id(InstrumentId::new("FGBLH5"))
@@ -408,7 +408,7 @@ The main bond future instrument type.
 
 **Builder Pattern**:
 ```rust
-use finstack_valuations::instruments::bond_future::BondFutureBuilder;
+use finstack_valuations::instruments::fixed_income::bond_future::BondFutureBuilder;
 
 let future = BondFutureBuilder::new()
     .id(InstrumentId::new("TYH5"))
@@ -941,11 +941,11 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::instruments::bond_future::{
+use finstack_valuations::instruments::fixed_income::bond::Bond;
+use finstack_valuations::instruments::fixed_income::bond_future::{
     BondFuture, DeliverableBond, Position,
 };
-use finstack_valuations::instruments::bond_future::pricer::BondFuturePricer;
+use finstack_valuations::instruments::fixed_income::bond_future::pricer::BondFuturePricer;
 use time::macros::date;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

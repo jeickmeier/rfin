@@ -1,7 +1,7 @@
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::quanto_option::QuantoOption;
+use finstack_valuations::instruments::fx::quanto_option::QuantoOption;
 use finstack_valuations::instruments::OptionType;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;

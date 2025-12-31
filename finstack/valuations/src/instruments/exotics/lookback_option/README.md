@@ -12,7 +12,7 @@
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::lookback_option::LookbackOption;
+use finstack_valuations::instruments::exotics::lookback_option::LookbackOption;
 
 let option = LookbackOption::example();
 let pv = option.value(&market_context, as_of_date)?;

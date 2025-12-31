@@ -1,5 +1,5 @@
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_valuations::instruments::autocallable::Autocallable;
+use finstack_valuations::instruments::equity::autocallable::Autocallable;
 use finstack_valuations::pricer::InstrumentType;
 use serde_json;
 use wasm_bindgen::prelude::*;

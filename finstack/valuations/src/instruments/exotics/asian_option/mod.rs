@@ -29,9 +29,11 @@
 //! - [`AveragingMethod`] for geometric vs arithmetic
 //! - [`models::closed_form::asian`](crate::instruments::common::models::closed_form::asian) for pricing formulas
 
-pub mod metrics;
-pub mod pricer;
-pub mod traits;
-pub mod types;
+pub(crate) mod metrics;
+pub(crate) mod pricer;
+pub(crate) mod traits;
+pub(crate) mod types;
 
-pub use types::{AsianOption, AveragingMethod};
+#[doc(hidden)]
+pub use pricer::{AsianOptionAnalyticalGeometricPricer, AsianOptionSemiAnalyticalTwPricer};
+pub use types::{AsianOption, AsianOptionBuilder, AveragingMethod};

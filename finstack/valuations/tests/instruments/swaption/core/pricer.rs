@@ -4,10 +4,10 @@
 
 use crate::swaption::common::*;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::swaption::pricer::{
+use finstack_valuations::instruments::rates::swaption::{
     BermudanSwaptionPricer, HullWhiteParams, SimpleSwaptionBlackPricer,
 };
-use finstack_valuations::instruments::swaption::{BermudanSchedule, BermudanSwaption};
+use finstack_valuations::instruments::rates::swaption::{BermudanSchedule, BermudanSwaption};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::pricer::{ModelKey, Pricer};
 use time::macros::date;
@@ -16,7 +16,7 @@ use time::macros::date;
 fn test_simple_swaption_black_pricer_forces_black() {
     let (as_of, expiry, swap_start, swap_end) = standard_dates();
     let mut swaption = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.05);
-    swaption.vol_model = finstack_valuations::instruments::swaption::VolatilityModel::Normal;
+    swaption.vol_model = finstack_valuations::instruments::rates::swaption::VolatilityModel::Normal;
     swaption.pricing_overrides = swaption.pricing_overrides.clone().with_implied_vol(0.25);
 
     let market = create_flat_market(as_of, 0.03, 0.2);
@@ -40,7 +40,7 @@ fn test_simple_swaption_black_pricer_forces_black() {
 fn test_simple_swaption_pricer_fallback_uses_instrument_value() {
     let (as_of, expiry, swap_start, swap_end) = standard_dates();
     let mut swaption = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.05);
-    swaption.vol_model = finstack_valuations::instruments::swaption::VolatilityModel::Normal;
+    swaption.vol_model = finstack_valuations::instruments::rates::swaption::VolatilityModel::Normal;
     swaption.pricing_overrides = swaption.pricing_overrides.clone().with_implied_vol(0.35);
 
     let market = create_flat_market(as_of, 0.03, 0.2);

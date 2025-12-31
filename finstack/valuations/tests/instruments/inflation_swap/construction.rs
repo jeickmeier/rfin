@@ -5,8 +5,8 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::scalars::InflationLag;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::common::traits::Attributes;
-use finstack_valuations::instruments::inflation_swap::{
+use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::rates::inflation_swap::{
     InflationSwap, InflationSwapBuilder, PayReceiveInflation,
 };
 use time::Month;
@@ -226,7 +226,7 @@ fn test_swap_with_attributes() {
 
 #[test]
 fn test_instrument_trait_implementations() {
-    use finstack_valuations::instruments::common::traits::Instrument;
+    use finstack_valuations::instruments::Instrument;
 
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();

@@ -84,12 +84,15 @@
 //! - Base correlation calibration via plan-driven [`calibration::api`]
 
 pub mod copula;
-pub mod metrics;
-pub mod parameters;
-pub mod pricer;
+pub(crate) mod metrics;
+pub(crate) mod parameters;
+pub(crate) mod pricer;
 pub mod recovery;
 mod types;
 
 pub use copula::{Copula, CopulaSpec};
+pub use parameters::CDSTrancheParams;
+#[doc(hidden)]
+pub use pricer::{CDSTranchePricer, CDSTranchePricerConfig, Cs01BumpUnits, HeteroMethod};
 pub use recovery::{RecoveryModel, RecoverySpec};
 pub use types::{CdsTranche, TrancheSide};

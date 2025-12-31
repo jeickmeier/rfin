@@ -15,8 +15,8 @@ use finstack_core::currency::Currency;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::bond::{Bond, CallPut, CallPutSchedule};
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::fixed_income::bond::{Bond, CallPut, CallPutSchedule};
+use finstack_valuations::instruments::Instrument;
 use time::macros::date;
 
 /// Helper: Create a flat discount curve
@@ -848,11 +848,11 @@ fn quantlib_parity_tree_pricing_convergence() {
 
     // Price using tree-based method (add empty call schedule to trigger tree)
     let mut bond_with_tree = bond.clone();
-    let mut empty_schedule = finstack_valuations::instruments::bond::CallPutSchedule::default();
+    let mut empty_schedule = finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
     // Add a far out-of-the-money call to trigger tree pricing without affecting value
     empty_schedule
         .calls
-        .push(finstack_valuations::instruments::bond::CallPut {
+        .push(finstack_valuations::instruments::fixed_income::bond::CallPut {
             date: date!(2024 - 12 - 31),
             price_pct_of_par: 150.0, // Far OTM
         });
@@ -895,10 +895,10 @@ fn quantlib_parity_oas_calculation() {
     .unwrap();
 
     // Add call schedule
-    let mut call_schedule = finstack_valuations::instruments::bond::CallPutSchedule::default();
+    let mut call_schedule = finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
     call_schedule
         .calls
-        .push(finstack_valuations::instruments::bond::CallPut {
+        .push(finstack_valuations::instruments::fixed_income::bond::CallPut {
             date: date!(2025 - 01 - 01),
             price_pct_of_par: 102.0,
         });
@@ -909,7 +909,7 @@ fn quantlib_parity_oas_calculation() {
     let market = create_market(as_of, 0.04);
 
     // Calculate OAS using tree pricer
-    use finstack_valuations::instruments::bond::pricing::tree_engine::TreePricer;
+    use finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::TreePricer;
     let tree_pricer = TreePricer::new();
     let oas_result = tree_pricer.calculate_oas(&callable_bond, &market, as_of, market_price);
 
@@ -946,10 +946,10 @@ fn quantlib_parity_oas_price_sensitivity() {
     )
     .unwrap();
 
-    let mut call_schedule = finstack_valuations::instruments::bond::CallPutSchedule::default();
+    let mut call_schedule = finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
     call_schedule
         .calls
-        .push(finstack_valuations::instruments::bond::CallPut {
+        .push(finstack_valuations::instruments::fixed_income::bond::CallPut {
             date: date!(2025 - 01 - 01),
             price_pct_of_par: 102.0,
         });
@@ -957,7 +957,7 @@ fn quantlib_parity_oas_price_sensitivity() {
 
     let market = create_market(as_of, 0.05);
 
-    use finstack_valuations::instruments::bond::pricing::tree_engine::TreePricer;
+    use finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::TreePricer;
     let tree_pricer = TreePricer::new();
 
     // Calculate OAS at two different prices
@@ -1015,10 +1015,10 @@ fn quantlib_parity_effective_duration() {
     )
     .unwrap();
 
-    let mut call_schedule = finstack_valuations::instruments::bond::CallPutSchedule::default();
+    let mut call_schedule = finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
     call_schedule
         .calls
-        .push(finstack_valuations::instruments::bond::CallPut {
+        .push(finstack_valuations::instruments::fixed_income::bond::CallPut {
             date: date!(2025 - 01 - 01),
             price_pct_of_par: 102.0,
         });
@@ -1083,10 +1083,10 @@ fn quantlib_parity_negative_convexity() {
     )
     .unwrap();
 
-    let mut call_schedule = finstack_valuations::instruments::bond::CallPutSchedule::default();
+    let mut call_schedule = finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
     call_schedule
         .calls
-        .push(finstack_valuations::instruments::bond::CallPut {
+        .push(finstack_valuations::instruments::fixed_income::bond::CallPut {
             date: date!(2025 - 01 - 01),
             price_pct_of_par: 102.0,
         });
@@ -1174,10 +1174,10 @@ fn quantlib_parity_tree_step_convergence() {
     )
     .unwrap();
 
-    let mut call_schedule = finstack_valuations::instruments::bond::CallPutSchedule::default();
+    let mut call_schedule = finstack_valuations::instruments::fixed_income::bond::CallPutSchedule::default();
     call_schedule
         .calls
-        .push(finstack_valuations::instruments::bond::CallPut {
+        .push(finstack_valuations::instruments::fixed_income::bond::CallPut {
             date: date!(2023 - 01 - 01),
             price_pct_of_par: 102.0,
         });

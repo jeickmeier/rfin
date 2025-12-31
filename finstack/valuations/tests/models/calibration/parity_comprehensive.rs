@@ -139,7 +139,7 @@ fn test_all_types_calibration_parity() {
     curve_ids.insert("discount".to_string(), "USD-OIS".to_string());
     curve_ids.insert("forward".to_string(), "USD-LIBOR-3M".to_string());
     curve_ids.insert("credit".to_string(), "NA-HY-Curve".to_string());
-    let build_ctx = finstack_valuations::market::build::context::BuildCtx::new(
+    let build_ctx = finstack_valuations::market::BuildCtx::new(
         base_date,
         1_000_000.0,
         curve_ids,
@@ -147,21 +147,21 @@ fn test_all_types_calibration_parity() {
 
     for q in &discount_quotes {
         if let MarketQuote::Rates(rq) = q {
-            finstack_valuations::market::build::rates::build_rate_instrument(rq, &build_ctx)
+            finstack_valuations::market::build_rate_instrument(rq, &build_ctx)
                 .expect("discount instrument build");
         }
     }
 
     for q in &forward_quotes {
         if let MarketQuote::Rates(rq) = q {
-            finstack_valuations::market::build::rates::build_rate_instrument(rq, &build_ctx)
+            finstack_valuations::market::build_rate_instrument(rq, &build_ctx)
                 .expect("forward instrument build");
         }
     }
 
     for q in &hazard_quotes {
         if let MarketQuote::Cds(cds_q) = q {
-            finstack_valuations::market::build::cds::build_cds_instrument(cds_q, &build_ctx)
+            finstack_valuations::market::build_cds_instrument(cds_q, &build_ctx)
                 .expect("cds instrument build");
         }
     }

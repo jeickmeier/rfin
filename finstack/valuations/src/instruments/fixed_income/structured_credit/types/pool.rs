@@ -121,7 +121,7 @@ impl PoolAsset {
     /// use finstack_core::currency::Currency;
     /// use finstack_core::dates::{Date, DayCount};
     /// use finstack_core::money::Money;
-    /// use finstack_valuations::instruments::structured_credit::types::pool::PoolAsset;
+    /// use finstack_valuations::instruments::fixed_income::structured_credit::types::pool::PoolAsset;
     /// use time::Month;
     ///
     /// let maturity_date =

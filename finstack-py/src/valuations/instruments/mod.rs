@@ -82,7 +82,7 @@ use variance_swap::PyVarianceSwap;
 use vol_index_future::PyVolatilityIndexFuture;
 use vol_index_option::PyVolatilityIndexOption;
 
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::pricer::InstrumentType;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;

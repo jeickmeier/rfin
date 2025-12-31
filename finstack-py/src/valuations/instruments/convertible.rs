@@ -6,9 +6,9 @@ use crate::valuations::cashflow::builder::{PyFixedCouponSpec, PyFloatingCouponSp
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::cashflow::builder::specs::{FixedCouponSpec, FloatingCouponSpec};
-use finstack_valuations::instruments::bond::{CallPut, CallPutSchedule};
-use finstack_valuations::instruments::common::traits::Attributes;
-use finstack_valuations::instruments::convertible::{
+use finstack_valuations::instruments::fixed_income::bond::{CallPut, CallPutSchedule};
+use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::fixed_income::convertible::{
     AntiDilutionPolicy, ConversionEvent, ConversionPolicy, ConversionSpec, ConvertibleBond,
     DividendAdjustment,
 };

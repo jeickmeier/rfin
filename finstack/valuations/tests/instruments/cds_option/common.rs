@@ -11,10 +11,10 @@ use finstack_core::dates::DateExt;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::cds::parameters::RECOVERY_SENIOR_UNSECURED;
-use finstack_valuations::instruments::cds_option::parameters::CdsOptionParams;
-use finstack_valuations::instruments::cds_option::CdsOption;
-use finstack_valuations::instruments::common::parameters::OptionType;
+use finstack_valuations::instruments::credit_derivatives::cds::RECOVERY_SENIOR_UNSECURED;
+use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionParams;
+use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOption;
+use finstack_valuations::instruments::OptionType;
 use finstack_valuations::instruments::CreditParams;
 
 /// Standard flat discount curve for testing

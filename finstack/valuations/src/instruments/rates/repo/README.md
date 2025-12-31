@@ -13,7 +13,7 @@
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::repo::{CollateralSpec, CollateralType, Repo, RepoType};
+use finstack_valuations::instruments::rates::repo::{CollateralSpec, CollateralType, Repo, RepoType};
 use finstack_core::{currency::Currency, dates::Date, money::Money, types::CurveId};
 use time::Month;
 
@@ -51,7 +51,7 @@ Repo margining is implemented following **GMRA 2011** (Global Master Repurchase 
 ### Adding Margin Specification
 
 ```rust
-use finstack_valuations::instruments::repo::{Repo, RepoMarginSpec, RepoMarginType};
+use finstack_valuations::instruments::rates::repo::{Repo, RepoMarginSpec, RepoMarginType};
 use finstack_valuations::margin::{MarginFrequency, EligibleCollateralSchedule};
 
 // Create a repo with mark-to-market margining

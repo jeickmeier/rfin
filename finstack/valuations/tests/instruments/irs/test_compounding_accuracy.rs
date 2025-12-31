@@ -7,8 +7,8 @@ use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::Currency;
-use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::instruments::irs::{
+use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::rates::irs::{
     FixedLegSpec, FloatLegSpec, FloatingLegCompounding, PayReceive,
 };
 use finstack_valuations::instruments::InterestRateSwap;

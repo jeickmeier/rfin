@@ -17,7 +17,7 @@ This module implements a complete, production‑grade revolving credit facility 
 The instrument is defined by `RevolvingCredit` with a builder for ergonomic construction:
 
 ```rust
-use finstack_valuations::instruments::revolving_credit::{
+use finstack_valuations::instruments::fixed_income::revolving_credit::{
     RevolvingCredit, RevolvingCreditFees, BaseRateSpec, DrawRepaySpec, DrawRepayEvent,
 };
 use finstack_core::dates::{Date, DayCount, Tenor};
@@ -132,7 +132,7 @@ Correlation across the 3 factors is supported via a 3×3 matrix. RNG supports Ph
 ### Pricing
 
 ```rust
-use finstack_valuations::instruments::revolving_credit::pricer::unified::RevolvingCreditPricer;
+use finstack_valuations::instruments::fixed_income::revolving_credit::pricer::unified::RevolvingCreditPricer;
 
 // Deterministic (or fallback fast path)
 let pv = RevolvingCreditPricer::price(&facility, &market, as_of)?; // auto‑dispatch
@@ -149,7 +149,7 @@ let per_path = &enhanced.path_results; // PVs, cashflows, and 3‑factor traject
 ### Stochastic utilization spec
 
 ```rust
-use finstack_valuations::instruments::revolving_credit::types::{
+use finstack_valuations::instruments::fixed_income::revolving_credit::types::{
     StochasticUtilizationSpec, UtilizationProcess
 };
 
@@ -194,7 +194,7 @@ Facility‑specific metrics:
 IRR utilities are provided for explicit analysis of generated cashflows rather than as implicit metrics:
 
 ```rust
-use finstack_valuations::instruments::revolving_credit::metrics::irr::calculate_path_irr;
+use finstack_valuations::instruments::fixed_income::revolving_credit::metrics::irr::calculate_path_irr;
 
 let irr_opt = calculate_path_irr(&cashflows_as_(t, amt), base_date, day_count);
 ```

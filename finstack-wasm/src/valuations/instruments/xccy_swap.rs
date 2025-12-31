@@ -10,7 +10,7 @@ use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::curve_id_from_str;
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
-use finstack_valuations::instruments::xccy_swap::{LegSide, NotionalExchange, XccySwap, XccySwapLeg};
+use finstack_valuations::instruments::rates::xccy_swap::{LegSide, NotionalExchange, XccySwap, XccySwapLeg};
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 

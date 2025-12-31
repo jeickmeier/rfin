@@ -2,6 +2,7 @@
 //!
 //! Non-recombining tree for stochastic structured credit analysis.
 //! Designed for accuracy over speed, preserving full path information.
+#![allow(dead_code)] // Public API items may be used by external bindings
 
 use super::{
     config::ScenarioTreeConfig,
@@ -20,7 +21,7 @@ use finstack_core::HashMap;
 /// # Example
 ///
 /// ```rust,no_run
-/// use finstack_valuations::instruments::structured_credit::pricing::stochastic::tree::{
+/// use finstack_valuations::instruments::fixed_income::structured_credit::pricing::stochastic::tree::{
 ///     ScenarioTree, ScenarioTreeConfig,
 /// };
 ///

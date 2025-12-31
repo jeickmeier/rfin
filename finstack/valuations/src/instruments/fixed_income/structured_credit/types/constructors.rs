@@ -44,7 +44,7 @@ impl StructuredCredit {
     /// # Example
     ///
     /// ```rust,no_run
-    /// use finstack_valuations::instruments::structured_credit::{DealType, StructuredCredit};
+    /// use finstack_valuations::instruments::fixed_income::structured_credit::{DealType, StructuredCredit};
     ///
     /// # fn main() -> finstack_core::Result<()> {
     /// // Start from the canonical example deal and re-apply deal defaults explicitly.

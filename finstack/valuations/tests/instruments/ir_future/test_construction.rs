@@ -4,7 +4,7 @@ use super::utils::*;
 use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::ir_future::{
+use finstack_valuations::instruments::rates::ir_future::{
     FutureContractSpecs, InterestRateFuture, Position,
 };
 
@@ -212,7 +212,7 @@ fn test_derived_tick_value() {
 
 #[test]
 fn test_id_and_key() {
-    use finstack_valuations::instruments::common::traits::Instrument;
+    use finstack_valuations::instruments::Instrument;
     use finstack_valuations::pricer::InstrumentType;
 
     let (_, start, end) = standard_dates();
@@ -224,7 +224,7 @@ fn test_id_and_key() {
 
 #[test]
 fn test_attributes() {
-    use finstack_valuations::instruments::common::traits::Instrument;
+    use finstack_valuations::instruments::Instrument;
 
     let (_, start, end) = standard_dates();
     let mut future = create_standard_future(start, end);
@@ -248,7 +248,7 @@ fn test_attributes() {
 
 #[test]
 fn test_clone_box() {
-    use finstack_valuations::instruments::common::traits::Instrument;
+    use finstack_valuations::instruments::Instrument;
 
     let (_, start, end) = standard_dates();
     let future = create_standard_future(start, end);

@@ -12,7 +12,7 @@
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::fx_barrier_option::FxBarrierOption;
+use finstack_valuations::instruments::fx::fx_barrier_option::FxBarrierOption;
 
 let option = FxBarrierOption::example();
 let pv = option.value(&market_context, as_of_date)?;

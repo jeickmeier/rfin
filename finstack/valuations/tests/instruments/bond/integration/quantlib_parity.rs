@@ -22,8 +22,8 @@ use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::bond::{Bond, CallPut, CallPutSchedule, CashflowSpec};
-use finstack_valuations::instruments::common::traits::{Attributes, Instrument};
+use finstack_valuations::instruments::fixed_income::bond::{Bond, CallPut, CallPutSchedule, CashflowSpec};
+use finstack_valuations::instruments::{Attributes, Instrument};
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
@@ -115,7 +115,7 @@ fn quantlib_parity_par_bond() {
     let notional = 100.0;
     let coupon_rate = 0.05; // 5% annual
 
-    use finstack_valuations::instruments::bond::CashflowSpec;
+    use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
     // Use builder to explicitly set annual frequency to match QuantLib
     let bond = Bond::builder()
         .id("PAR001".into())

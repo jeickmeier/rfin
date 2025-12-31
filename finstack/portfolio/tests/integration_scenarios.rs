@@ -16,7 +16,7 @@ use finstack_portfolio::{PortfolioBuilder, Position, PositionUnit};
 #[cfg(feature = "scenarios")]
 use finstack_scenarios::spec::{CurveKind, OperationSpec, ScenarioSpec};
 #[cfg(feature = "scenarios")]
-use finstack_valuations::instruments::deposit::Deposit;
+use finstack_valuations::instruments::rates::deposit::Deposit;
 #[cfg(feature = "scenarios")]
 use std::sync::Arc;
 #[cfg(feature = "scenarios")]

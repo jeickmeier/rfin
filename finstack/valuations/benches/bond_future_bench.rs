@@ -13,11 +13,11 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::instruments::bond_future::{
+use finstack_valuations::instruments::fixed_income::bond::Bond;
+use finstack_valuations::instruments::fixed_income::bond_future::{
     BondFuture, BondFutureSpecs, DeliverableBond, Position,
 };
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use std::hint::black_box;
 use time::Month;
@@ -121,7 +121,7 @@ fn bench_conversion_factor(c: &mut Criterion) {
 
     group.bench_function("ust_10y", |b| {
         b.iter(|| {
-            finstack_valuations::instruments::bond_future::pricer::BondFuturePricer::calculate_conversion_factor(
+            finstack_valuations::instruments::fixed_income::bond_future::BondFuturePricer::calculate_conversion_factor(
                 black_box(&ctd_bond),
                 black_box(specs.standard_coupon),
                 black_box(specs.standard_maturity_years),
@@ -145,7 +145,7 @@ fn bench_model_price(c: &mut Criterion) {
 
     group.bench_function("ust_10y", |b| {
         b.iter(|| {
-            finstack_valuations::instruments::bond_future::pricer::BondFuturePricer::calculate_model_price(
+            finstack_valuations::instruments::fixed_income::bond_future::BondFuturePricer::calculate_model_price(
                 black_box(&ctd_bond),
                 black_box(cf),
                 black_box(&market),
@@ -177,7 +177,7 @@ fn bench_npv(c: &mut Criterion) {
             num_contracts,
             |b, _| {
                 b.iter(|| {
-                    finstack_valuations::instruments::bond_future::pricer::BondFuturePricer::calculate_npv(
+                    finstack_valuations::instruments::fixed_income::bond_future::BondFuturePricer::calculate_npv(
                         black_box(&sized_future),
                         black_box(&ctd_bond),
                         black_box(cf),

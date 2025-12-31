@@ -6,7 +6,7 @@ use crate::core::market_data::context::JsMarketContext;
 use crate::utils::json::{from_js_value, to_js_value};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::fx_forward::FxForward;
+use finstack_valuations::instruments::fx::fx_forward::FxForward;
 use wasm_bindgen::prelude::*;
 
 /// FX Forward (outright forward) instrument.
@@ -62,7 +62,7 @@ impl JsFxForward {
         domestic_curve_id: &str,
         foreign_curve_id: &str,
     ) -> Result<JsFxForward, JsValue> {
-        use finstack_valuations::instruments::common::traits::Attributes;
+        use finstack_valuations::instruments::Attributes;
 
         let forward = FxForward::builder()
             .id(InstrumentId::new(id))

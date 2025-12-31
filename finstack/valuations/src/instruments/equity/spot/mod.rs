@@ -47,9 +47,11 @@
 //! - [`Ticker`] for symbol type
 //! - [`equity_option`](super::equity_option) for options on equities
 
-pub mod metrics;
-pub mod pricer;
+pub(crate) mod metrics;
+pub(crate) mod pricer;
 mod types;
 
+#[doc(hidden)]
+pub use pricer::{EquityPricer, SimpleEquityDiscountingPricer};
 pub use types::Equity;
 pub use types::Ticker;

@@ -4,8 +4,8 @@ use super::common::*;
 use finstack_core::dates::Tenor;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::stats::{realized_variance, RealizedVarMethod};
-use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::instruments::variance_swap::PayReceive;
+use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::equity::variance_swap::PayReceive;
 
 // ============================================================================
 // Pre-Start Valuation Tests

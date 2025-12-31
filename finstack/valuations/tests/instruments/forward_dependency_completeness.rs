@@ -8,9 +8,9 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::commodity_option::CommodityOption;
-use finstack_valuations::instruments::common::dependencies::InstrumentDependencies;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::commodity::commodity_option::CommodityOption;
+use finstack_valuations::instruments::common::InstrumentDependencies;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::json_loader::InstrumentJson;
 use finstack_valuations::test_utils::{
     flat_discount_with_tenor, flat_forward_with_tenor, flat_vol_surface,

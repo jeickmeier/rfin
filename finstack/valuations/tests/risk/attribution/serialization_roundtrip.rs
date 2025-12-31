@@ -14,7 +14,7 @@ use finstack_valuations::attribution::{
 use finstack_valuations::cashflow::builder::{
     DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec,
 };
-use finstack_valuations::instruments::convertible::{
+use finstack_valuations::instruments::fixed_income::convertible::{
     AntiDilutionPolicy, ConversionPolicy, ConversionSpec, DividendAdjustment,
 };
 use finstack_valuations::instruments::json_loader::InstrumentJson;

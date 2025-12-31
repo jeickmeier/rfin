@@ -19,10 +19,10 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
-use finstack_valuations::instruments::convertible::pricer::{
+use finstack_valuations::instruments::fixed_income::convertible::{
     price_convertible_bond, ConvertibleTreeType,
 };
-use finstack_valuations::instruments::convertible::{
+use finstack_valuations::instruments::fixed_income::convertible::{
     AntiDilutionPolicy, ConversionPolicy, ConversionSpec, ConvertibleBond, DividendAdjustment,
 };
 use time::Month;

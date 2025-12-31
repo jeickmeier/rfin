@@ -11,10 +11,10 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::bond_future::{
+use finstack_valuations::instruments::fixed_income::bond_future::{
     BondFuture, BondFutureBuilder, BondFutureSpecs, DeliverableBond, Position,
 };
-use finstack_valuations::instruments::common::traits::Attributes;
+use finstack_valuations::instruments::Attributes;
 use time::Month;
 
 // ============================================================================

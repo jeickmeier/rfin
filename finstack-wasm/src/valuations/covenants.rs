@@ -2,9 +2,9 @@ use crate::statements::evaluator::JsResults;
 use crate::statements::types::JsFinancialModelSpec;
 use finstack_core::dates::{Date, PeriodId};
 use finstack_valuations::covenants::{
-    forward::CovenantForecast as ValCovForecast, Covenant,
-    CovenantForecastConfig as ValCovForecastConfig, CovenantSpec, CovenantType,
-    McConfig as ValMcConfig, ModelTimeSeries, ThresholdTest,
+    Covenant, CovenantForecastConfig as ValCovForecastConfig, CovenantSpec, CovenantType,
+    GenericCovenantForecast as ValCovForecast, McConfig as ValMcConfig, ModelTimeSeries,
+    ThresholdTest,
 };
 use std::str::FromStr;
 use wasm_bindgen::prelude::*;
@@ -228,7 +228,7 @@ pub fn forecast_covenant(
         ps.push(pid);
     }
     let cfg = config.map(|c| c.inner).unwrap_or_default();
-    finstack_valuations::covenants::forward::forecast_covenant_generic(
+    finstack_valuations::covenants::forecast_covenant_generic(
         &spec.inner,
         &adapter,
         &ps,

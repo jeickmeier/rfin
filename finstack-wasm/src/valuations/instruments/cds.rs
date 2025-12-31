@@ -2,7 +2,7 @@ use crate::core::dates::date::JsDate;
 use crate::core::money::JsMoney;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_valuations::instruments::cds::CreditDefaultSwap;
+use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use finstack_valuations::pricer::InstrumentType;
 use rust_decimal::prelude::ToPrimitive;
 use wasm_bindgen::prelude::*;

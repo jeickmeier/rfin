@@ -24,7 +24,7 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
 use finstack_valuations::cashflow::builder::{AmortizationSpec, CashFlowSchedule};
-use finstack_valuations::instruments::common::discountable::Discountable;
+use finstack_valuations::instruments::common::Discountable;
 use rust_decimal::Decimal;
 use time::Month;
 

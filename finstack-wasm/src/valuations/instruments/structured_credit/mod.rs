@@ -1,7 +1,7 @@
 use crate::core::error::js_error;
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_valuations::instruments::basket::Basket;
-use finstack_valuations::instruments::structured_credit::{
+use finstack_valuations::instruments::exotics::basket::Basket;
+use finstack_valuations::instruments::fixed_income::structured_credit::{
     Pool, StructuredCredit, TrancheStructure,
 };
 use finstack_valuations::pricer::InstrumentType;

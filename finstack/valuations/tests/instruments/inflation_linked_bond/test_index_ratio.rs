@@ -11,7 +11,7 @@
 use super::common::*;
 use finstack_core::dates::DateExt;
 use finstack_core::market_data::scalars::{InflationInterpolation, InflationLag};
-use finstack_valuations::instruments::inflation_linked_bond::{
+use finstack_valuations::instruments::fixed_income::inflation_linked_bond::{
     DeflationProtection, IndexationMethod,
 };
 

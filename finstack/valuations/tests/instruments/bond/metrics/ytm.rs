@@ -2,8 +2,8 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
@@ -59,7 +59,7 @@ fn test_ytm_floating_bond_is_finite_from_price() {
     use finstack_core::market_data::term_structures::ForwardCurve;
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::money::Money;
-    use finstack_valuations::instruments::bond::Bond;
+    use finstack_valuations::instruments::fixed_income::bond::Bond;
     use finstack_valuations::instruments::PricingOverrides;
     use finstack_valuations::metrics::MetricId;
 
@@ -125,9 +125,9 @@ fn test_ytm_amortizing_bond_is_finite_from_price() {
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::money::Money;
     use finstack_core::types::CurveId;
-    use finstack_valuations::instruments::bond::Bond;
-    use finstack_valuations::instruments::bond::{AmortizationSpec, CashflowSpec};
-    use finstack_valuations::instruments::common::traits::Attributes;
+    use finstack_valuations::instruments::fixed_income::bond::Bond;
+    use finstack_valuations::instruments::fixed_income::bond::{AmortizationSpec, CashflowSpec};
+    use finstack_valuations::instruments::Attributes;
     use finstack_valuations::instruments::PricingOverrides;
     use finstack_valuations::metrics::MetricId;
 

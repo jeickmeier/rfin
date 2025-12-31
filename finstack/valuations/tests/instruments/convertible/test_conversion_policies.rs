@@ -9,10 +9,10 @@
 
 use super::fixtures::*;
 use finstack_core::dates::Date;
-use finstack_valuations::instruments::convertible::pricer::{
+use finstack_valuations::instruments::fixed_income::convertible::{
     price_convertible_bond, ConvertibleTreeType,
 };
-use finstack_valuations::instruments::convertible::{ConversionEvent, ConversionPolicy};
+use finstack_valuations::instruments::fixed_income::convertible::{ConversionEvent, ConversionPolicy};
 use time::Month;
 
 #[test]

@@ -33,9 +33,9 @@
 //! - [`BarrierType`] for up/down and in/out classification
 //! - [`models::closed_form::barrier`](crate::instruments::common::models::closed_form::barrier) for pricing
 
-pub mod metrics;
-pub mod pricer;
-pub mod traits;
-pub mod types;
+pub(crate) mod metrics;
+pub(crate) mod pricer;
+pub(crate) mod traits;
+pub(crate) mod types;
 
-pub use types::{BarrierOption, BarrierType};
+pub use types::{BarrierOption, BarrierOptionBuilder, BarrierType};

@@ -12,7 +12,7 @@ use finstack_core::dates::Date as CoreDate;
 use finstack_valuations::cashflow::builder::specs::{
     CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
 };
-use finstack_valuations::instruments::bond::{Bond, CallPut, CallPutSchedule, CashflowSpec};
+use finstack_valuations::instruments::fixed_income::bond::{Bond, CallPut, CallPutSchedule, CashflowSpec};
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::pricer::InstrumentType;
 use js_sys::{Array, Reflect};
@@ -298,7 +298,7 @@ impl JsBond {
         discount_curve: &str,
         quoted_clean_price: Option<f64>,
     ) -> JsBond {
-        use finstack_valuations::instruments::common::parameters::BondConvention;
+        use finstack_valuations::instruments::BondConvention;
         let mut bond = Bond::with_convention(
             instrument_id_from_str(instrument_id),
             notional.inner(),

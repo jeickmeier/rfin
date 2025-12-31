@@ -9,7 +9,7 @@ use finstack_portfolio::grouping::{
 };
 use finstack_portfolio::types::Entity;
 use finstack_portfolio::{PortfolioBuilder, Position, PositionUnit};
-use finstack_valuations::instruments::deposit::Deposit;
+use finstack_valuations::instruments::rates::deposit::Deposit;
 use std::sync::Arc;
 use time::Duration;
 

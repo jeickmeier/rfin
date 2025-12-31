@@ -5,10 +5,7 @@ use finstack_core::{
     currency::Currency, dates::Date, market_data::context::MarketContext, money::Money,
 };
 use finstack_valuations::{
-    instruments::{
-        common::traits::Instrument,
-        fx_spot::{metrics::inverse_rate::InverseRateCalculator, FxSpot},
-    },
+    instruments::{fx::fx_spot::InverseRateCalculator, FxSpot, Instrument},
     metrics::{MetricCalculator, MetricContext},
 };
 use std::sync::Arc;
@@ -97,7 +94,7 @@ fn test_inverse_rate_unity() {
 fn test_inverse_rate_symmetry() {
     // If EUR/USD = r, then USD/EUR = 1/r
     // And inverse(inverse(r)) = r
-    use finstack_valuations::instruments::fx_spot::metrics::spot_rate::SpotRateCalculator;
+    use finstack_valuations::instruments::fx::fx_spot::SpotRateCalculator;
 
     let fx = eurusd_with_notional(1_000_000.0, 1.25);
     let mut ctx = create_context(fx, test_date());
@@ -186,7 +183,7 @@ fn test_inverse_rate_independent_of_date() {
 #[test]
 fn test_inverse_rate_product_equals_unity() {
     // spot_rate * inverse_rate should equal 1.0
-    use finstack_valuations::instruments::fx_spot::metrics::spot_rate::SpotRateCalculator;
+    use finstack_valuations::instruments::fx::fx_spot::SpotRateCalculator;
 
     let fx = eurusd_with_notional(1_500_000.0, 1.23456);
     let mut ctx = create_context(fx, test_date());

@@ -10,11 +10,11 @@
 
 use super::test_utils::*;
 use finstack_core::currency::Currency;
-use finstack_valuations::instruments::cds_index::parameters::{
+use finstack_valuations::instruments::credit_derivatives::cds_index::{
     CDSIndexConstituentParam, CDSIndexParams,
 };
-use finstack_valuations::instruments::cds_index::{CDSIndex, CDSIndexConstituent, IndexPricing};
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::credit_derivatives::cds_index::{CDSIndex, CDSIndexConstituent, IndexPricing};
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::CreditParams;
 use time::macros::date;
 
@@ -287,7 +287,7 @@ fn test_instrument_trait_clone() {
 #[test]
 fn test_has_discount_curve_trait() {
     // Test: HasDiscountCurve trait returns correct curve ID
-    use finstack_valuations::instruments::common::pricing::HasDiscountCurve;
+    use finstack_valuations::instruments::common::HasDiscountCurve;
 
     let start = date!(2025 - 01 - 01);
     let end = date!(2030 - 01 - 01);

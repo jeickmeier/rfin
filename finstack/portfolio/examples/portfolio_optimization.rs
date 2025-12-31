@@ -24,7 +24,7 @@ use finstack_portfolio::{
     Constraint, DefaultLpOptimizer, MetricExpr, MissingMetricPolicy, Objective, PerPositionMetric,
     PortfolioOptimizationProblem, WeightingScheme,
 };
-use finstack_valuations::instruments::bond::Bond;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::metrics::MetricId;
 use std::sync::Arc;

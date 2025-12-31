@@ -86,13 +86,15 @@ pub mod discretization;
 pub mod engine;
 pub mod greeks;
 pub mod payoff;
-pub mod pricer;
+pub(crate) mod pricer;
 pub mod process;
 pub mod results;
 #[cfg(feature = "mc")]
 pub mod seed;
-pub mod traits;
+pub(crate) mod traits;
 pub mod variance_reduction;
+
+pub use traits::{PathObserver, Payoff};
 
 /// Prelude for pricing-side convenient imports
 pub mod prelude {

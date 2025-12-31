@@ -3,7 +3,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::revolving_credit::{
+use finstack_valuations::instruments::fixed_income::revolving_credit::{
     BaseRateSpec, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
 };
 use time::macros::date;

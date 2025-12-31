@@ -47,6 +47,7 @@ impl AsianOptionMcPricer {
     }
 
     /// Create with custom configuration.
+    #[allow(dead_code)] // May be used by external bindings or tests
     pub fn with_config(config: PathDependentPricerConfig) -> Self {
         Self { config }
     }
@@ -518,6 +519,7 @@ impl AsianOptionMcPricer {
 
     /// Price with LRM Greeks (delta, vega) convenience.
     #[allow(clippy::too_many_lines)]
+    #[allow(dead_code)] // May be used by external bindings or tests
     pub(crate) fn price_with_lrm_greeks_internal(
         &self,
         inst: &AsianOption,
@@ -746,6 +748,7 @@ pub fn npv(
 }
 
 /// Present value with LRM Greeks via Monte Carlo.
+#[allow(dead_code)] // May be used by external bindings or tests
 #[cfg(feature = "mc")]
 pub fn npv_with_lrm_greeks(
     inst: &AsianOption,

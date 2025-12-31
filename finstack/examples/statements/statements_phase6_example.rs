@@ -175,7 +175,7 @@ fn main() -> Result<()> {
         for instr in &cs.debt_instruments {
             match instr {
                 finstack_statements::types::DebtInstrumentSpec::Bond { id, spec } => {
-                    use finstack_valuations::instruments::bond::CashflowSpec;
+                    use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
                     use rust_decimal::prelude::ToPrimitive;
                     if let Ok(bond) = serde_json::from_value::<Bond>(spec.clone()) {
                         let coupon_rate = match &bond.cashflow_spec {
@@ -223,7 +223,7 @@ fn main() -> Result<()> {
         let cs = model_full_cs.capital_structure.as_ref().unwrap();
 
         println!("   Stored Instruments:");
-        use finstack_valuations::instruments::bond::CashflowSpec;
+        use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
         use rust_decimal::prelude::ToPrimitive;
         for instr in &cs.debt_instruments {
             match instr {

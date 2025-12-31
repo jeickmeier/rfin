@@ -155,7 +155,7 @@ impl<State> ModelBuilder<State> {
     ) -> Result<Self> {
         let id_str: String = id.into();
 
-        use finstack_valuations::instruments::common::parameters::PayReceive;
+        use finstack_valuations::instruments::PayReceive;
 
         // Create USD market-standard swap using valuations crate
         let swap = InterestRateSwap::create_usd_swap(
@@ -272,8 +272,8 @@ impl<State> ModelBuilder<State> {
         initial_drawn: Money,
         start_date: Date,
         maturity_date: Date,
-        interest_spec: finstack_valuations::instruments::revolving_credit::InterestRateSpec,
-        fees: finstack_valuations::instruments::revolving_credit::RcfFeeSpec,
+        interest_spec: finstack_valuations::instruments::fixed_income::revolving_credit::InterestRateSpec,
+        fees: finstack_valuations::instruments::fixed_income::revolving_credit::RcfFeeSpec,
         discount_curve_id: impl Into<String>,
     ) -> Result<Self> {
         let id_str = id.into();

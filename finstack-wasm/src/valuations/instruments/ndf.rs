@@ -6,7 +6,7 @@ use crate::core::market_data::context::JsMarketContext;
 use crate::utils::json::{from_js_value, to_js_value};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::ndf::Ndf;
+use finstack_valuations::instruments::fx::ndf::Ndf;
 use wasm_bindgen::prelude::*;
 
 /// Non-Deliverable Forward (NDF) instrument.
@@ -66,7 +66,7 @@ impl JsNdf {
         contract_rate: f64,
         settlement_curve_id: &str,
     ) -> Result<JsNdf, JsValue> {
-        use finstack_valuations::instruments::common::traits::Attributes;
+        use finstack_valuations::instruments::Attributes;
 
         let ndf = Ndf::builder()
             .id(InstrumentId::new(id))

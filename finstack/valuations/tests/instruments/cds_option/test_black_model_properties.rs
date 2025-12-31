@@ -4,7 +4,7 @@
 //! Black-76 model properties and market conventions.
 
 use super::common::*;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 use time::macros::date;
 
 #[test]

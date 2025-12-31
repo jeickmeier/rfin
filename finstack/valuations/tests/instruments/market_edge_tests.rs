@@ -22,9 +22,9 @@ mod cds_market_edge {
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
     use finstack_core::money::Money;
-    use finstack_valuations::instruments::cds::pricer::{CDSPricer, CDSPricerConfig};
-    use finstack_valuations::instruments::cds::CreditDefaultSwap;
-    use finstack_valuations::instruments::common::traits::Instrument;
+    use finstack_valuations::instruments::credit_derivatives::cds::{CDSPricer, CDSPricerConfig};
+    use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
+    use finstack_valuations::instruments::Instrument;
     use time::macros::date;
 
     fn build_discount_curve(rate: f64, base_date: Date, id: &str) -> DiscountCurve {
@@ -291,9 +291,9 @@ mod bond_market_edge {
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::money::Money;
-    use finstack_valuations::cashflow::accrual;
-    use finstack_valuations::instruments::bond::{Bond, CashflowSpec};
-    use finstack_valuations::instruments::common::traits::Instrument;
+    use finstack_valuations::cashflow::accrued_interest_amount;
+    use finstack_valuations::instruments::fixed_income::bond::{Bond, CashflowSpec};
+    use finstack_valuations::instruments::Instrument;
     use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
     use std::sync::Arc;
     use time::macros::date;
@@ -359,7 +359,7 @@ mod bond_market_edge {
         let sched_t2 = bond_t2.get_full_schedule(&MarketContext::new()).unwrap();
 
         // Calculate accrued for each
-        let accrued_t0 = accrual::accrued_interest_amount(
+        let accrued_t0 = accrued_interest_amount(
             &sched_t0,
             as_of, // T+0: settlement = as_of
             &bond_t0.accrual_config(),
@@ -369,7 +369,7 @@ mod bond_market_edge {
         // For T+2, settlement is 2 business days later (approximately as_of + 2)
         let settle_t2 = as_of.saturating_add(time::Duration::days(2));
         let accrued_t2 =
-            accrual::accrued_interest_amount(&sched_t2, settle_t2, &bond_t2.accrual_config())
+            accrued_interest_amount(&sched_t2, settle_t2, &bond_t2.accrual_config())
                 .unwrap();
 
         // T+2 settlement means 2 more days of accrual
@@ -413,16 +413,16 @@ mod bond_market_edge {
         // 8 days before coupon = just before ex-coupon window
         let before_ex = coupon_date - time::Duration::days(8);
         let accrued_before =
-            accrual::accrued_interest_amount(&schedule, before_ex, &config).unwrap();
+            accrued_interest_amount(&schedule, before_ex, &config).unwrap();
 
         // 7 days before coupon = exactly at ex-coupon boundary
         let at_ex = coupon_date - time::Duration::days(7);
-        let accrued_at = accrual::accrued_interest_amount(&schedule, at_ex, &config).unwrap();
+        let accrued_at = accrued_interest_amount(&schedule, at_ex, &config).unwrap();
 
         // 5 days before coupon = within ex-coupon window
         let within_ex = coupon_date - time::Duration::days(5);
         let accrued_within =
-            accrual::accrued_interest_amount(&schedule, within_ex, &config).unwrap();
+            accrued_interest_amount(&schedule, within_ex, &config).unwrap();
 
         // Before ex-coupon: should have significant accrued (~2.9% of 3% = full period minus 8 days)
         assert!(
@@ -468,7 +468,7 @@ mod bond_market_edge {
 
         // 2 months into the stub period
         let as_of = date!(2025 - 05 - 01);
-        let accrued = accrual::accrued_interest_amount(&schedule, as_of, &config).unwrap();
+        let accrued = accrued_interest_amount(&schedule, as_of, &config).unwrap();
 
         // 2 months out of 4-month stub = 50% of stub coupon
         // Stub coupon = 3% * (4/6) = 2%
@@ -534,14 +534,14 @@ mod bond_market_edge {
         // Feb 29 (leap day) - ~59 days into a 180-day period
         let leap_day = date!(2024 - 02 - 29);
 
-        let accrued_30_360 = accrual::accrued_interest_amount(
+        let accrued_30_360 = accrued_interest_amount(
             &sched_30_360,
             leap_day,
             &bond_30_360.accrual_config(),
         )
         .unwrap();
 
-        let accrued_act_365 = accrual::accrued_interest_amount(
+        let accrued_act_365 = accrued_interest_amount(
             &sched_act_365,
             leap_day,
             &bond_act_365.accrual_config(),

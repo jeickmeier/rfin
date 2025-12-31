@@ -5,7 +5,7 @@
 
 use super::fixtures::*;
 use finstack_core::dates::Date;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::Month;
 

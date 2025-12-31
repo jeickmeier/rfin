@@ -4,8 +4,8 @@ use super::fixtures::*;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::common::traits::{Attributes, Instrument};
-use finstack_valuations::instruments::repo::{Repo, RepoType};
+use finstack_valuations::instruments::{Attributes, Instrument};
+use finstack_valuations::instruments::rates::repo::{Repo, RepoType};
 
 #[test]
 fn test_interest_calculation_act360() {

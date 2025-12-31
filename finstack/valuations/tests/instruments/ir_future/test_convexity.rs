@@ -1,7 +1,7 @@
 //! IR Future convexity adjustment tests.
 
 use super::utils::*;
-use finstack_valuations::instruments::ir_future::{FutureContractSpecs, Position};
+use finstack_valuations::instruments::rates::ir_future::{FutureContractSpecs, Position};
 
 #[test]
 fn test_strict_convexity_error() {

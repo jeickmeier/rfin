@@ -12,8 +12,8 @@ use crate::common::test_helpers::{dates, usd_swap_market, usd_swap_market_split}
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
+use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
 use rust_decimal_macros::dec;
 
 #[test]
@@ -29,7 +29,7 @@ fn test_irs_at_par_npv_zero() {
         id: "SWAP_PAR".into(),
         notional: Money::new(1_000_000.0, Currency::USD),
         side: PayReceive::ReceiveFixed,
-        fixed: finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
+        fixed: finstack_valuations::instruments::FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
             freq: Tenor::quarterly(),
@@ -43,7 +43,7 @@ fn test_irs_at_par_npv_zero() {
             start: as_of,
             end,
         },
-        float: finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
+        float: finstack_valuations::instruments::FloatLegSpec {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
@@ -85,7 +85,7 @@ fn test_irs_receive_fixed_below_market() {
         id: "SWAP_OFF_MARKET".into(),
         notional: Money::new(1_000_000.0, Currency::USD),
         side: PayReceive::ReceiveFixed,
-        fixed: finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
+        fixed: finstack_valuations::instruments::FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: rust_decimal::Decimal::try_from(0.03).expect("valid"), // Below market
             freq: Tenor::quarterly(),
@@ -99,7 +99,7 @@ fn test_irs_receive_fixed_below_market() {
             start: as_of,
             end,
         },
-        float: finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
+        float: finstack_valuations::instruments::FloatLegSpec {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
@@ -140,7 +140,7 @@ fn test_irs_receive_fixed_above_market() {
         id: "SWAP_ABOVE_MARKET".into(),
         notional: Money::new(1_000_000.0, Currency::USD),
         side: PayReceive::ReceiveFixed,
-        fixed: finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
+        fixed: finstack_valuations::instruments::FixedLegSpec {
             discount_curve_id: "USD-OIS".into(),
             rate: rust_decimal::Decimal::try_from(0.07).expect("valid"), // Above market
             freq: Tenor::quarterly(),
@@ -154,7 +154,7 @@ fn test_irs_receive_fixed_above_market() {
             start: as_of,
             end,
         },
-        float: finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
+        float: finstack_valuations::instruments::FloatLegSpec {
             discount_curve_id: "USD-OIS".into(),
             forward_curve_id: "USD-SOFR-3M".into(),
             spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
@@ -192,7 +192,7 @@ fn test_irs_pay_vs_receive_opposite_signs() {
     // Off-market: discount at 5%, forward at 6%
     let market = usd_swap_market_split(as_of, 0.05, 0.06);
 
-    let fixed_leg = finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
+    let fixed_leg = finstack_valuations::instruments::FixedLegSpec {
         discount_curve_id: "USD-OIS".into(),
         rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
         freq: Tenor::quarterly(),
@@ -207,7 +207,7 @@ fn test_irs_pay_vs_receive_opposite_signs() {
         end,
     };
 
-    let float_leg = finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
+    let float_leg = finstack_valuations::instruments::FloatLegSpec {
         discount_curve_id: "USD-OIS".into(),
         forward_curve_id: "USD-SOFR-3M".into(),
         spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),

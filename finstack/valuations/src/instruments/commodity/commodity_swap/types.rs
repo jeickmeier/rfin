@@ -32,7 +32,7 @@ use smallvec::smallvec;
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::commodity_swap::CommoditySwap;
+/// use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::dates::{Date, BusinessDayConvention, Tenor, TenorUnit};
 /// use finstack_core::types::{CurveId, InstrumentId};

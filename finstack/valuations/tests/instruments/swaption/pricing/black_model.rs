@@ -4,7 +4,7 @@ use crate::common::test_helpers::tolerances;
 use crate::swaption::common::*;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 
 #[test]
 fn test_atm_payer_swaption_pricing() {

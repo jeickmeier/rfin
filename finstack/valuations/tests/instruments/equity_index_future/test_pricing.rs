@@ -6,9 +6,9 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::common::traits::{Attributes, Instrument};
-use finstack_valuations::instruments::equity_index_future::{EquityFutureSpecs, EquityIndexFuture};
-use finstack_valuations::instruments::ir_future::Position;
+use finstack_valuations::instruments::{Attributes, Instrument};
+use finstack_valuations::instruments::equity::equity_index_future::{EquityFutureSpecs, EquityIndexFuture};
+use finstack_valuations::instruments::rates::ir_future::Position;
 use finstack_valuations::pricer::{create_standard_registry, ModelKey};
 use time::Month;
 

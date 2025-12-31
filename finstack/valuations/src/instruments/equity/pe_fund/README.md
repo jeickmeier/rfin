@@ -12,7 +12,7 @@
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::private_markets_fund::PrivateMarketsFund;
+use finstack_valuations::instruments::equity::pe_fund::PrivateMarketsFund;
 
 let fund = PrivateMarketsFund::example();
 let pv = fund.value(&market_context, fund.events.last().unwrap().date)?;

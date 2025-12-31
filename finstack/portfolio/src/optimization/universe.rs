@@ -41,7 +41,7 @@ pub struct CandidatePosition {
     pub entity_id: EntityId,
 
     /// The instrument that could be traded.
-    pub instrument: Arc<dyn finstack_valuations::instruments::common::traits::Instrument>,
+    pub instrument: Arc<dyn finstack_valuations::instruments::Instrument>,
 
     /// Unit type for quantity interpretation.
     pub unit: PositionUnit,
@@ -63,7 +63,7 @@ impl CandidatePosition {
     pub fn new(
         id: impl Into<PositionId>,
         entity_id: impl Into<EntityId>,
-        instrument: Arc<dyn finstack_valuations::instruments::common::traits::Instrument>,
+        instrument: Arc<dyn finstack_valuations::instruments::Instrument>,
         unit: PositionUnit,
     ) -> Self {
         Self {

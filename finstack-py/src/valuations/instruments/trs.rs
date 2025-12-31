@@ -7,13 +7,13 @@ use crate::valuations::cashflow::builder::PyScheduleParams;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::DayCount;
 use finstack_core::types::InstrumentId;
-use finstack_valuations::instruments::common::parameters::legs::FinancingLegSpec;
-use finstack_valuations::instruments::common::parameters::underlying::{
+use finstack_valuations::instruments::FinancingLegSpec;
+use finstack_valuations::instruments::{
     EquityUnderlyingParams, IndexUnderlyingParams,
 };
-use finstack_valuations::instruments::common::traits::Attributes;
-use finstack_valuations::instruments::equity_trs::EquityTotalReturnSwap;
-use finstack_valuations::instruments::fi_trs::FIIndexTotalReturnSwap;
+use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::equity::equity_trs::EquityTotalReturnSwap;
+use finstack_valuations::instruments::fixed_income::fi_trs::FIIndexTotalReturnSwap;
 use finstack_valuations::instruments::{TrsScheduleSpec, TrsSide};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;

@@ -33,15 +33,13 @@ mod tests {
     #[allow(unused_imports)]
     use finstack_core::money::Money;
     #[allow(unused_imports)]
-    use finstack_valuations::instruments::common::parameters::market::OptionType;
+    use finstack_valuations::instruments::market::OptionType;
     #[allow(unused_imports)]
-    use finstack_valuations::instruments::common::traits::Instrument;
+    use finstack_valuations::instruments::Instrument;
     #[allow(unused_imports)]
     use finstack_valuations::instruments::{
-        asian_option::{AsianOption, AveragingMethod},
-        autocallable::{Autocallable, FinalPayoffType},
-        barrier_option::{BarrierOption, BarrierType},
-        lookback_option::{LookbackOption, LookbackType},
+        AsianOption, Autocallable, AveragingMethod, BarrierOption, BarrierType, FinalPayoffType,
+        LookbackOption, LookbackType,
     };
     #[allow(unused_imports)]
     use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};

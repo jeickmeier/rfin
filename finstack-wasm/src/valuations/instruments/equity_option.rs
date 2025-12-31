@@ -1,7 +1,7 @@
 use crate::core::dates::date::JsDate;
 use crate::core::money::JsMoney;
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_valuations::instruments::equity_option::EquityOption;
+use finstack_valuations::instruments::equity::equity_option::EquityOption;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 

@@ -2,6 +2,7 @@
 //!
 //! OAS for CMO tranches requires running the waterfall at multiple
 //! spread levels to find the spread that equates model price to market.
+#![allow(dead_code)] // Public API items may be used by external bindings
 
 use crate::instruments::agency_cmo::pricer::generate_tranche_cashflows;
 use crate::instruments::agency_cmo::AgencyCmo;

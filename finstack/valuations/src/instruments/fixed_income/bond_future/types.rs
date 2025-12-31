@@ -21,7 +21,7 @@ pub use crate::instruments::ir_future::Position;
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::bond_future::DeliverableBond;
+/// use finstack_valuations::instruments::fixed_income::bond_future::DeliverableBond;
 /// use finstack_core::types::InstrumentId;
 ///
 /// let deliverable = DeliverableBond {
@@ -47,7 +47,7 @@ pub struct DeliverableBond {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::bond_future::BondFutureSpecs;
+/// use finstack_valuations::instruments::fixed_income::bond_future::BondFutureSpecs;
 ///
 /// // UST 10-year contract specs
 /// let specs = BondFutureSpecs::default(); // UST 10Y defaults
@@ -126,7 +126,7 @@ impl BondFutureSpecs {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::bond_future::BondFutureSpecs;
+    /// use finstack_valuations::instruments::fixed_income::bond_future::BondFutureSpecs;
     ///
     /// let specs = BondFutureSpecs::ust_10y();
     /// assert_eq!(specs.contract_size, 100_000.0);
@@ -156,7 +156,7 @@ impl BondFutureSpecs {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::bond_future::BondFutureSpecs;
+    /// use finstack_valuations::instruments::fixed_income::bond_future::BondFutureSpecs;
     ///
     /// let specs = BondFutureSpecs::ust_5y();
     /// assert_eq!(specs.contract_size, 100_000.0);
@@ -195,7 +195,7 @@ impl BondFutureSpecs {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::bond_future::BondFutureSpecs;
+    /// use finstack_valuations::instruments::fixed_income::bond_future::BondFutureSpecs;
     ///
     /// let specs = BondFutureSpecs::ust_2y();
     /// assert_eq!(specs.contract_size, 200_000.0);
@@ -240,7 +240,7 @@ impl BondFutureSpecs {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::bond_future::BondFutureSpecs;
+    /// use finstack_valuations::instruments::fixed_income::bond_future::BondFutureSpecs;
     ///
     /// let specs = BondFutureSpecs::bund();
     /// assert_eq!(specs.contract_size, 100_000.0);
@@ -286,7 +286,7 @@ impl BondFutureSpecs {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::bond_future::BondFutureSpecs;
+    /// use finstack_valuations::instruments::fixed_income::bond_future::BondFutureSpecs;
     ///
     /// let specs = BondFutureSpecs::gilt();
     /// assert_eq!(specs.contract_size, 100_000.0);
@@ -323,7 +323,7 @@ impl BondFutureSpecs {
 /// # Examples
 ///
 /// ```rust,no_run
-/// use finstack_valuations::instruments::bond_future::{
+/// use finstack_valuations::instruments::fixed_income::bond_future::{
 ///     BondFuture, BondFutureBuilder, BondFutureSpecs, DeliverableBond, Position,
 /// };
 /// use finstack_core::money::Money;
@@ -507,7 +507,7 @@ impl BondFuture {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use finstack_valuations::instruments::bond_future::{BondFuture, DeliverableBond, Position};
+    /// use finstack_valuations::instruments::fixed_income::bond_future::{BondFuture, DeliverableBond, Position};
     /// use finstack_core::money::Money;
     /// use finstack_core::currency::Currency;
     /// use finstack_core::types::{InstrumentId, CurveId};
@@ -626,7 +626,7 @@ impl BondFuture {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use finstack_valuations::instruments::bond_future::{BondFuture, Position};
+    /// use finstack_valuations::instruments::fixed_income::bond_future::{BondFuture, Position};
     /// use finstack_core::currency::Currency;
     /// use finstack_core::dates::Date;
     /// use finstack_core::money::Money;
@@ -705,7 +705,7 @@ impl BondFuture {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use finstack_valuations::instruments::bond_future::{BondFuture, Position};
+    /// use finstack_valuations::instruments::fixed_income::bond_future::{BondFuture, Position};
     /// use finstack_core::currency::Currency;
     /// use finstack_core::dates::Date;
     /// use finstack_core::money::Money;
@@ -782,7 +782,7 @@ impl BondFuture {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use finstack_valuations::instruments::bond_future::{BondFuture, Position};
+    /// use finstack_valuations::instruments::fixed_income::bond_future::{BondFuture, Position};
     /// use finstack_core::currency::Currency;
     /// use finstack_core::dates::Date;
     /// use finstack_core::money::Money;
@@ -861,7 +861,7 @@ impl BondFuture {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use finstack_valuations::instruments::bond_future::{BondFuture, Position};
+    /// use finstack_valuations::instruments::fixed_income::bond_future::{BondFuture, Position};
     /// use finstack_core::currency::Currency;
     /// use finstack_core::dates::Date;
     /// use finstack_core::money::Money;
@@ -948,7 +948,7 @@ impl BondFuture {
     /// use finstack_core::money::Money;
     /// use finstack_core::types::{CurveId, InstrumentId};
     /// use finstack_valuations::instruments::Bond;
-    /// use finstack_valuations::instruments::bond_future::{BondFuture, DeliverableBond, Position};
+    /// use finstack_valuations::instruments::fixed_income::bond_future::{BondFuture, DeliverableBond, Position};
     /// use time::macros::date;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -1067,7 +1067,7 @@ impl BondFutureBuilder {
     /// use finstack_core::currency::Currency;
     /// use finstack_core::money::Money;
     /// use finstack_core::types::{CurveId, InstrumentId};
-    /// use finstack_valuations::instruments::bond_future::{
+    /// use finstack_valuations::instruments::fixed_income::bond_future::{
     ///     BondFutureBuilder, BondFutureSpecs, DeliverableBond, Position,
     /// };
     /// use time::macros::date;

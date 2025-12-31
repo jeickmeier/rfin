@@ -13,9 +13,9 @@ use finstack_valuations::calibration::api::schema::{
     BaseCorrelationParams, CalibrationEnvelope, CalibrationPlan, CalibrationStep, StepParams,
 };
 use finstack_valuations::calibration::CalibrationConfig;
-use finstack_valuations::instruments::cds_tranche::pricer::CDSTranchePricer;
-use finstack_valuations::instruments::cds_tranche::{CdsTranche, TrancheSide};
-use finstack_valuations::instruments::common::traits::Attributes;
+use finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTranchePricer;
+use finstack_valuations::instruments::credit_derivatives::cds_tranche::{CdsTranche, TrancheSide};
+use finstack_valuations::instruments::Attributes;
 use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
 
 use finstack_core::HashMap;
@@ -205,7 +205,7 @@ fn base_correlation_step_builds_curve_and_updates_credit_index_data() {
         description: None,
         quote_sets,
         settings: CalibrationConfig {
-            solver: finstack_valuations::calibration::solver::SolverConfig::brent_default()
+            solver: finstack_valuations::calibration::SolverConfig::brent_default()
                 .with_tolerance(tolerances::BASE_CORR_UPFRONT_FRAC_TOL)
                 .with_max_iterations(500),
             ..Default::default()

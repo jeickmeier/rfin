@@ -11,8 +11,8 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::bond::{Bond, CashflowSpec};
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::fixed_income::bond::{Bond, CashflowSpec};
+use finstack_valuations::instruments::Instrument;
 use time::macros::date;
 
 use crate::common::test_helpers::tolerances;
@@ -278,7 +278,7 @@ fn test_bond_settlement_date_impact() {
     let as_of = date!(2025 - 01 - 01);
     let maturity = date!(2030 - 01 - 01);
 
-    use finstack_valuations::instruments::bond::CashflowSpec;
+    use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
     // No settlement lag
     let bond_t0 = Bond::builder()
         .id("SETTLE_T0".into())

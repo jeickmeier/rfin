@@ -46,7 +46,7 @@ use std::cell::RefCell;
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::bond::metrics::price_yield_spread::DiscountMarginSolverConfig;
+/// use finstack_valuations::instruments::fixed_income::bond::metrics::price_yield_spread::DiscountMarginSolverConfig;
 ///
 /// // Default for standard FRNs
 /// let default = DiscountMarginSolverConfig::default();
@@ -123,7 +123,7 @@ impl Default for DiscountMarginSolverConfig {
 /// # Examples
 ///
 /// ```rust,no_run
-/// use finstack_valuations::instruments::bond::Bond;
+/// use finstack_valuations::instruments::fixed_income::bond::Bond;
 /// use finstack_valuations::metrics::{MetricRegistry, MetricId, MetricContext};
 /// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::dates::Date;

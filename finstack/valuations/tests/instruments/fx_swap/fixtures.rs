@@ -11,7 +11,7 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider, FxRate};
 use finstack_core::money::Money;
 use finstack_core::HashMap;
-use finstack_valuations::instruments::fx_swap::FxSwap;
+use finstack_valuations::instruments::fx::fx_swap::FxSwap;
 use std::sync::Arc;
 use time::Month;
 

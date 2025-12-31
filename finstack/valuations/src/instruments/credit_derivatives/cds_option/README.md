@@ -12,7 +12,7 @@
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::cds_option::CdsOption;
+use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOption;
 use finstack_core::dates::Date;
 use time::Month;
 

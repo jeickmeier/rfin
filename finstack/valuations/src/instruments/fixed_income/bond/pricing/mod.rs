@@ -16,7 +16,7 @@
 //!
 //! ```rust,ignore
 //! use finstack_valuations::instruments::Bond;
-//! use finstack_valuations::instruments::common::traits::Instrument;
+//! use finstack_valuations::instruments::Instrument;
 //! use finstack_core::market_data::context::MarketContext;
 //! use time::macros::date;
 //!
@@ -42,7 +42,7 @@ pub mod discount_engine;
 /// Hazard-rate FRP bond pricing engine (HazardCurve + recovery)
 pub mod hazard_engine;
 /// Bond pricer implementation (registry integration)
-pub mod pricer;
+pub(crate) mod pricer;
 /// Quote engine for mapping between price, yields, and spreads
 pub mod quote_engine;
 /// Tree-based pricing for callable/putable bonds and OAS

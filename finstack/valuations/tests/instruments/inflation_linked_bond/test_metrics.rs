@@ -8,7 +8,7 @@
 //! - Multiple metrics in single call
 
 use super::common::*;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 
 #[test]
@@ -355,7 +355,7 @@ fn test_metrics_with_deflation_protection() {
     // Arrange
     let mut ilb = sample_tips();
     ilb.deflation_protection =
-        finstack_valuations::instruments::inflation_linked_bond::DeflationProtection::AllPayments;
+        finstack_valuations::instruments::fixed_income::inflation_linked_bond::DeflationProtection::AllPayments;
 
     let (ctx, _) = market_context_with_index();
     let as_of = d(2025, 1, 2);

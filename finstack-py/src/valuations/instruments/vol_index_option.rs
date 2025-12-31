@@ -5,7 +5,7 @@ use crate::core::money::{extract_money, PyMoney};
 use crate::errors::core_to_py;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::vol_index_option::{
+use finstack_valuations::instruments::equity::vol_index_option::{
     VolIndexOptionSpecs, VolatilityIndexOption,
 };
 use finstack_valuations::instruments::{ExerciseStyle, OptionType};

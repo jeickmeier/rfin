@@ -29,8 +29,8 @@
 //! - [`FxBarrierOption`] for instrument struct
 //! - [`fx_option`](super::fx_option) for vanilla FX options
 
-pub mod metrics;
-pub mod pricer;
-pub mod types;
+pub(crate) mod metrics;
+pub(crate) mod pricer;
+pub(crate) mod types;
 
 pub use types::FxBarrierOption;

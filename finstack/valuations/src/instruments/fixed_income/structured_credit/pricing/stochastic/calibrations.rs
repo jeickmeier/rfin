@@ -8,6 +8,7 @@
 //!
 //! - **RMBS (Residential Mortgage-Backed Securities)**: Agency and non-agency
 //! - **CLO (Collateralized Loan Obligations)**: Leveraged loan pools
+#![allow(dead_code)] // Public API items may be used by external bindings
 //! - **CMBS (Commercial Mortgage-Backed Securities)**: Commercial loans
 //!
 //! # References

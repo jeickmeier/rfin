@@ -7,7 +7,7 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::barrier_option::types::{BarrierOption, BarrierType};
+use finstack_valuations::instruments::exotics::barrier_option::{BarrierOption, BarrierType};
 use finstack_valuations::instruments::OptionType;
 use finstack_valuations::instruments::PricingOverrides;
 

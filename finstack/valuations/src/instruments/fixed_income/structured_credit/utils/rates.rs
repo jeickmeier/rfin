@@ -202,7 +202,7 @@ pub fn psa_to_cpr(psa_speed: f64, month: u32) -> f64 {
 ///
 /// ```
 /// use finstack_core::dates::Tenor;
-/// use finstack_valuations::instruments::structured_credit::utils::rates::frequency_periods_per_year;
+/// use finstack_valuations::instruments::fixed_income::structured_credit::utils::rates::frequency_periods_per_year;
 ///
 /// // Monthly = 12 periods/year
 /// assert_eq!(frequency_periods_per_year(Tenor::monthly()), 12.0);

@@ -60,12 +60,12 @@
 //! - [`ThresholdSchedule`] for time-varying thresholds
 //! - [`forecast_breaches_generic`] for breach forecasting
 
-pub mod engine;
-pub mod forward;
+pub(crate) mod engine;
+pub(crate) mod forward;
 /// Covenant report types and structures
-pub mod mod_types;
+pub(crate) mod mod_types;
 /// Covenant threshold schedules and interpolation
-pub mod schedule;
+pub(crate) mod schedule;
 
 pub use engine::{
     ConsequenceApplication, Covenant, CovenantBreach, CovenantConsequence, CovenantEngine,
@@ -73,7 +73,7 @@ pub use engine::{
     SpringingCondition, ThresholdTest,
 };
 pub use forward::{
-    forecast_breaches_generic, forecast_covenant_generic,
+    forecast_breaches_generic, forecast_covenant_generic, Comparator,
     CovenantForecast as GenericCovenantForecast, CovenantForecastConfig, FutureBreach, McConfig,
     ModelTimeSeries,
 };

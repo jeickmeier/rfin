@@ -6,7 +6,7 @@ use crate::swaption::common::*;
 use finstack_core::dates::{Tenor, TenorUnit};
 use finstack_valuations::instruments::common::models::SABRParameters;
 use finstack_valuations::instruments::pricing_overrides::VolSurfaceExtrapolation;
-use finstack_valuations::instruments::swaption::{
+use finstack_valuations::instruments::rates::swaption::{
     BermudanSchedule, BermudanSwaption, SwaptionExercise, SwaptionSettlement, VolatilityModel,
 };
 use time::macros::date;

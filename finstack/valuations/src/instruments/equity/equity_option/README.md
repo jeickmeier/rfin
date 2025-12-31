@@ -12,7 +12,7 @@
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::equity_option::EquityOption;
+use finstack_valuations::instruments::equity::equity_option::EquityOption;
 
 let option = EquityOption::example();
 let pv = option.value(&market_context, as_of_date)?;

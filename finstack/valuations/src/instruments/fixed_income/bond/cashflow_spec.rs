@@ -14,7 +14,7 @@
 //! # Examples
 //!
 //! ```rust
-//! use finstack_valuations::instruments::bond::CashflowSpec;
+//! use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
 //! use finstack_core::dates::{Tenor, DayCount};
 //! use finstack_core::types::Bps;
 //!
@@ -90,7 +90,7 @@ impl CashflowSpec {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::bond::CashflowSpec;
+    /// use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
     /// use finstack_core::dates::{Tenor, DayCount};
     /// use finstack_core::types::Rate;
     ///
@@ -173,7 +173,7 @@ impl CashflowSpec {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::bond::CashflowSpec;
+    /// use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
     /// use finstack_core::dates::{Tenor, DayCount};
     /// use finstack_core::types::CurveId;
     ///
@@ -249,7 +249,7 @@ impl CashflowSpec {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::bond::CashflowSpec;
+    /// use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
     /// use finstack_core::dates::{Tenor, DayCount};
     /// use finstack_core::types::CurveId;
     ///
@@ -352,7 +352,7 @@ impl CashflowSpec {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::bond::CashflowSpec;
+    /// use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
     /// use finstack_valuations::cashflow::builder::AmortizationSpec;
     /// use finstack_core::dates::{Tenor, DayCount, Date};
     /// use finstack_core::money::Money;

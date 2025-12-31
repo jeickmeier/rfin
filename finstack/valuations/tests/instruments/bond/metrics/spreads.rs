@@ -3,9 +3,9 @@
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_core::{Error, InputError};
-use finstack_valuations::instruments::bond::metrics::ZSpreadCalculator;
-use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::fixed_income::bond::ZSpreadCalculator;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::metrics::{MetricCalculator, MetricContext, MetricId};
 use std::sync::Arc;
@@ -157,7 +157,7 @@ fn test_z_spread_solver_convergence_across_spread_regimes() {
     for (target_z, base_bond) in scenarios {
         // Price the bond at the target Z-spread to obtain a dirty price.
         let dirty_target =
-            finstack_valuations::instruments::bond::pricing::quote_engine::price_from_z_spread(
+            finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::price_from_z_spread(
                 &base_bond, &market, as_of, target_z,
             )
             .expect("pricing with target Z-spread should succeed");
@@ -187,7 +187,7 @@ fn test_z_spread_solver_convergence_across_spread_regimes() {
 
         // Re-price with solved z and verify price residual is tiny.
         let dirty_repriced =
-            finstack_valuations::instruments::bond::pricing::quote_engine::price_from_z_spread(
+            finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::price_from_z_spread(
                 &bond, &market, as_of, z,
             )
             .expect("repricing with solved Z-spread should succeed");

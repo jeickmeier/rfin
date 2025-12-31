@@ -9,7 +9,7 @@
 use super::fixtures::*;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::FxSwap;
 
 #[test]

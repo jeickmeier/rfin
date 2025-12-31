@@ -6,9 +6,9 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::fx::{FxMatrix, SimpleFxProvider};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::common::traits::Attributes;
-use finstack_valuations::instruments::fx_variance_swap::{FxVarianceSwapBuilder, PayReceive};
-use finstack_valuations::instruments::variance_swap::RealizedVarMethod;
+use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::fx::fx_variance_swap::{FxVarianceSwapBuilder, PayReceive};
+use finstack_valuations::instruments::equity::variance_swap::RealizedVarMethod;
 use finstack_valuations::test_utils::{date, flat_discount_with_tenor, flat_vol_surface};
 use std::sync::Arc;
 

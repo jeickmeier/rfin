@@ -45,7 +45,7 @@
 //! - [`VolIndexOptionSpecs`] for contract specifications
 //! - [`crate::instruments::vol_index_future`] for VIX futures
 
-pub mod metrics;
+pub(crate) mod metrics;
 mod types;
 
 pub use types::{VolIndexOptionSpecs, VolatilityIndexOption};

@@ -218,7 +218,7 @@ let result = ValuationResult::stamped_with_meta("BOND-001", as_of, pv, meta);
 ### Batch Pricing with DataFrame Export
 
 ```rust
-use finstack_valuations::results::{ValuationResult, dataframe::results_to_rows};
+use finstack_valuations::results::{ValuationResult, results_to_rows};
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_core::dates::create_date;
@@ -691,4 +691,3 @@ fn test_covenant_consistency() {
 - [Core Config Documentation](../../../../core/src/config/)
 - [Explainability Module](../../../../core/src/explain/)
 - [Portfolio Results](../../../../portfolio/src/results.rs)
-

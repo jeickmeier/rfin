@@ -7,7 +7,7 @@
 //!
 //! All spread-style quantities exposed here use **decimal units**:
 //! `0.01` corresponds to **100 basis points**.
-
+#![allow(dead_code)] // Public API items may be used by external bindings or tests
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::bond::Bond;
 use crate::instruments::common::traits::Instrument;
@@ -57,7 +57,7 @@ use std::sync::Arc;
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::bond::pricing::quote_engine::periods_per_year;
+/// use finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::periods_per_year;
 /// use finstack_core::dates::Tenor;
 ///
 /// assert_eq!(periods_per_year(Tenor::semi_annual())?, 2.0);
@@ -133,7 +133,7 @@ pub fn periods_per_year(freq: finstack_core::dates::Tenor) -> finstack_core::Res
 /// # Examples
 ///
 /// ```rust,no_run
-/// use finstack_valuations::instruments::bond::pricing::quote_engine::fixed_leg_annuity;
+/// use finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::fixed_leg_annuity;
 /// use finstack_core::market_data::term_structures::DiscountCurve;
 /// use finstack_core::dates::{DayCount, Date};
 ///
@@ -194,7 +194,7 @@ pub fn fixed_leg_annuity(
 /// # Examples
 ///
 /// ```rust,no_run
-/// use finstack_valuations::instruments::bond::pricing::quote_engine::par_rate_and_annuity_from_discount;
+/// use finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::par_rate_and_annuity_from_discount;
 /// use finstack_core::market_data::term_structures::DiscountCurve;
 /// use finstack_core::dates::{DayCount, Date};
 ///
@@ -711,8 +711,8 @@ pub fn price_from_dm(
 /// # Examples
 ///
 /// ```rust,no_run
-/// use finstack_valuations::instruments::bond::Bond;
-/// use finstack_valuations::instruments::bond::pricing::quote_engine::{compute_quotes, BondQuoteInput};
+/// use finstack_valuations::instruments::fixed_income::bond::Bond;
+/// use finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::{compute_quotes, BondQuoteInput};
 /// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::dates::Date;
 ///

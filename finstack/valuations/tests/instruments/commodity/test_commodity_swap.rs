@@ -4,8 +4,8 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Tenor, TenorUnit};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::commodity_swap::CommoditySwap;
-use finstack_valuations::instruments::common::traits::Attributes;
+use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
+use finstack_valuations::instruments::Attributes;
 use time::Month;
 
 /// Helper to create a test market context.
@@ -134,7 +134,7 @@ fn test_commodity_swap_payment_schedule() {
 
 #[test]
 fn test_commodity_swap_instrument_trait() {
-    use finstack_valuations::instruments::common::traits::Instrument;
+    use finstack_valuations::instruments::Instrument;
     use finstack_valuations::pricer::InstrumentType;
 
     let swap = CommoditySwap::example();

@@ -9,7 +9,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
+use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
 use time::macros::date;
 
 #[test]
@@ -44,7 +44,7 @@ fn test_irs_builder_pattern() {
         .notional(Money::new(5_000_000.0, Currency::USD))
         .side(PayReceive::ReceiveFixed)
         .fixed(
-            finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
+            finstack_valuations::instruments::FixedLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 rate: rust_decimal::Decimal::try_from(0.0325).expect("valid"),
                 freq: Tenor::semi_annual(),
@@ -60,7 +60,7 @@ fn test_irs_builder_pattern() {
             },
         )
         .float(
-            finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
+            finstack_valuations::instruments::FloatLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 forward_curve_id: "USD_LIBOR_3M".into(),
                 spread_bp: rust_decimal::Decimal::try_from(25.0).expect("valid"),
@@ -239,7 +239,7 @@ fn test_irs_different_leg_frequencies() {
         .notional(Money::new(1_000_000.0, Currency::USD))
         .side(PayReceive::ReceiveFixed)
         .fixed(
-            finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
+            finstack_valuations::instruments::FixedLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
                 freq: Tenor::semi_annual(),
@@ -255,7 +255,7 @@ fn test_irs_different_leg_frequencies() {
             },
         )
         .float(
-            finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
+            finstack_valuations::instruments::FloatLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 forward_curve_id: "USD_LIBOR_3M".into(),
                 spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
@@ -313,7 +313,7 @@ fn test_irs_calendar_specification() {
         .notional(Money::new(1_000_000.0, Currency::USD))
         .side(PayReceive::ReceiveFixed)
         .fixed(
-            finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
+            finstack_valuations::instruments::FixedLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
                 freq: Tenor::semi_annual(),
@@ -329,7 +329,7 @@ fn test_irs_calendar_specification() {
             },
         )
         .float(
-            finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
+            finstack_valuations::instruments::FloatLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 forward_curve_id: "USD_LIBOR_3M".into(),
                 spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),
@@ -360,7 +360,7 @@ fn test_irs_stub_specification() {
         .notional(Money::new(1_000_000.0, Currency::USD))
         .side(PayReceive::ReceiveFixed)
         .fixed(
-            finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
+            finstack_valuations::instruments::FixedLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
                 freq: Tenor::semi_annual(),
@@ -376,7 +376,7 @@ fn test_irs_stub_specification() {
             },
         )
         .float(
-            finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
+            finstack_valuations::instruments::FloatLegSpec {
                 discount_curve_id: "USD_OIS".into(),
                 forward_curve_id: "USD_LIBOR_3M".into(),
                 spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),

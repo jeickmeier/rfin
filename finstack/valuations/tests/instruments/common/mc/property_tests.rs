@@ -17,7 +17,7 @@ mod tests {
     use finstack_valuations::instruments::common::mc::discretization::exact::ExactGbm;
     use finstack_valuations::instruments::common::mc::process::gbm::GbmProcess;
     use finstack_valuations::instruments::common::mc::rng::philox::PhiloxRng;
-    use finstack_valuations::instruments::common::mc::traits::{
+    use finstack_valuations::instruments::common::mc::{
         Discretization, RandomStream, StochasticProcess,
     };
     use proptest::prelude::*;

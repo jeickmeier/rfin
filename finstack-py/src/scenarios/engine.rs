@@ -12,7 +12,7 @@ use finstack_core::HashMap;
 use finstack_scenarios::engine::{ExecutionContext, ScenarioEngine};
 use finstack_scenarios::spec::RateBindingSpec;
 use finstack_scenarios::ScenarioSpec;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 use indexmap::IndexMap;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;

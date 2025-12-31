@@ -11,8 +11,8 @@ use super::common::*;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{DayCount, Tenor};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::inflation_linked_bond::parameters::InflationLinkedBondParams;
-use finstack_valuations::instruments::inflation_linked_bond::{
+use finstack_valuations::instruments::fixed_income::inflation_linked_bond::InflationLinkedBondParams;
+use finstack_valuations::instruments::fixed_income::inflation_linked_bond::{
     DeflationProtection, IndexationMethod, InflationLinkedBond,
 };
 

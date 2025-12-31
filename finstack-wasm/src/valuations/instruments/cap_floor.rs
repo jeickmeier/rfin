@@ -5,7 +5,7 @@ use crate::core::money::JsMoney;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::{DayCount, Tenor};
-use finstack_valuations::instruments::cap_floor::InterestRateOption;
+use finstack_valuations::instruments::rates::cap_floor::InterestRateOption;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 

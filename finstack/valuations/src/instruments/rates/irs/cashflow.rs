@@ -41,7 +41,7 @@ use crate::instruments::irs::{InterestRateSwap, PayReceive};
 /// # Examples
 ///
 /// ```
-/// use finstack_valuations::instruments::irs::{InterestRateSwap, cashflow};
+/// use finstack_valuations::instruments::rates::irs::{InterestRateSwap, cashflow};
 ///
 /// # fn example() -> finstack_core::Result<()> {
 /// let irs = InterestRateSwap::example()?;
@@ -97,7 +97,7 @@ pub fn fixed_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
 /// # Examples
 ///
 /// ```
-/// use finstack_valuations::instruments::irs::{InterestRateSwap, cashflow};
+/// use finstack_valuations::instruments::rates::irs::{InterestRateSwap, cashflow};
 ///
 /// # fn example() -> finstack_core::Result<()> {
 /// let irs = InterestRateSwap::example()?;
@@ -184,7 +184,7 @@ pub fn float_leg_schedule_with_curves(
 /// # Examples
 ///
 /// ```
-/// use finstack_valuations::instruments::irs::{InterestRateSwap, cashflow, PayReceive};
+/// use finstack_valuations::instruments::rates::irs::{InterestRateSwap, cashflow, PayReceive};
 ///
 /// # fn example() -> finstack_core::Result<()> {
 /// let irs = InterestRateSwap::example()?;
@@ -269,7 +269,7 @@ pub fn signed_dated_flows_with_curves(
 /// # Examples
 ///
 /// ```
-/// use finstack_valuations::instruments::irs::{InterestRateSwap, cashflow};
+/// use finstack_valuations::instruments::rates::irs::{InterestRateSwap, cashflow};
 ///
 /// # fn example() -> finstack_core::Result<()> {
 /// let irs = InterestRateSwap::example()?;

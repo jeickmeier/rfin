@@ -4,12 +4,12 @@ use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use crate::valuations::common::instrument_id_from_str;
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_valuations::instruments::common::parameters::legs::FinancingLegSpec;
-use finstack_valuations::instruments::common::parameters::underlying::{
+use finstack_valuations::instruments::FinancingLegSpec;
+use finstack_valuations::instruments::{
     EquityUnderlyingParams, IndexUnderlyingParams,
 };
-use finstack_valuations::instruments::equity_trs::EquityTotalReturnSwap;
-use finstack_valuations::instruments::fi_trs::FIIndexTotalReturnSwap;
+use finstack_valuations::instruments::equity::equity_trs::EquityTotalReturnSwap;
+use finstack_valuations::instruments::fixed_income::fi_trs::FIIndexTotalReturnSwap;
 use finstack_valuations::instruments::{TrsScheduleSpec, TrsSide};
 use finstack_valuations::pricer::InstrumentType;
 use rust_decimal::Decimal;

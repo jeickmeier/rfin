@@ -1,4 +1,5 @@
 //! Monte Carlo pricers for various instrument types.
+#![allow(dead_code)] // Public API items may be used by external bindings
 
 pub mod european;
 
@@ -20,4 +21,5 @@ pub mod swap_rate_utils;
 #[cfg(feature = "mc")]
 pub mod lsq;
 
+#[allow(unused_imports)]
 pub use european::*;

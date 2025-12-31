@@ -19,7 +19,7 @@
 //! # Examples
 //!
 //! ```rust
-//! use finstack_valuations::instruments::commodity_swap::CommoditySwap;
+//! use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
 //! use finstack_core::currency::Currency;
 //!
 //! // Create a natural gas swap
@@ -28,11 +28,11 @@
 //! ```
 
 /// Pricer for commodity swaps.
-pub mod pricer;
+pub(crate) mod pricer;
 mod types;
 
 pub use pricer::CommoditySwapDiscountingPricer;
 pub use types::CommoditySwap;
 
 /// Metrics submodule for commodity swap risk measures.
-pub mod metrics;
+pub(crate) mod metrics;

@@ -3,7 +3,7 @@ use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_valuations::instruments::convertible::{
+use finstack_valuations::instruments::fixed_income::convertible::{
     AntiDilutionPolicy, ConversionEvent, ConversionPolicy, ConversionSpec, ConvertibleBond,
     DividendAdjustment,
 };

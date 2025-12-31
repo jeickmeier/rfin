@@ -146,8 +146,8 @@ impl HazardBondEngine {
     /// # Examples
     ///
     /// ```ignore
-    /// use finstack_valuations::instruments::bond::Bond;
-    /// use finstack_valuations::instruments::bond::pricing::hazard_engine::HazardBondEngine;
+    /// use finstack_valuations::instruments::fixed_income::bond::Bond;
+    /// use finstack_valuations::instruments::fixed_income::bond::pricing::hazard_engine::HazardBondEngine;
     /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::dates::Date;
     ///

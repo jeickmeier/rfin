@@ -10,7 +10,7 @@ use finstack_core::{
     money::Money,
     types::InstrumentId,
 };
-use finstack_valuations::instruments::fx_spot::FxSpot;
+use finstack_valuations::instruments::fx::fx_spot::FxSpot;
 use std::sync::Arc;
 use time::Month;
 

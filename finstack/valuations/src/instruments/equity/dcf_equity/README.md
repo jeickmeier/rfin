@@ -12,7 +12,7 @@
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::dcf::{DiscountedCashFlow, TerminalValueSpec};
+use finstack_valuations::instruments::equity::dcf_equity::{DiscountedCashFlow, TerminalValueSpec};
 use finstack_core::{currency::Currency, dates::Date, money::Money, types::{CurveId, InstrumentId}};
 use time::Month;
 

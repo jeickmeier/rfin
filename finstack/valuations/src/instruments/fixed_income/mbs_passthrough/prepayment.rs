@@ -28,7 +28,7 @@ use crate::instruments::structured_credit::pricing::stochastic::prepayment::{
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::agency_mbs_passthrough::prepayment::AgencyPrepaymentModel;
+/// use finstack_valuations::instruments::fixed_income::mbs_passthrough::prepayment::AgencyPrepaymentModel;
 /// use finstack_valuations::cashflow::builder::specs::PrepaymentModelSpec;
 ///
 /// // Standard 100% PSA

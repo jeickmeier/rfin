@@ -12,8 +12,8 @@ mod tests {
     use finstack_core::money::Money;
     use finstack_core::types::CurveId;
     use finstack_valuations::cashflow::builder::FeeTier;
-    use finstack_valuations::instruments::revolving_credit::pricer::RevolvingCreditPricer;
-    use finstack_valuations::instruments::revolving_credit::types::{
+    use finstack_valuations::instruments::fixed_income::revolving_credit::RevolvingCreditPricer;
+    use finstack_valuations::instruments::fixed_income::revolving_credit::{
         BaseRateSpec, DrawRepayEvent, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
         StochasticUtilizationSpec, UtilizationProcess,
     };

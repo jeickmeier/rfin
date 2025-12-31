@@ -46,10 +46,15 @@
 //! - [`ConversionSpec`] for conversion terms
 //! - [`AntiDilutionPolicy`] for adjustment policies
 
-pub mod metrics;
-pub mod pricer;
+pub(crate) mod metrics;
+pub(crate) mod pricer;
 mod types;
 
+#[doc(hidden)]
+pub use pricer::{
+    calculate_conversion_premium, calculate_convertible_greeks, calculate_parity,
+    price_convertible_bond, ConvertibleTreeType,
+};
 pub use types::{
     AntiDilutionPolicy, ConversionEvent, ConversionPolicy, ConversionSpec, ConvertibleBond,
     DividendAdjustment,

@@ -11,8 +11,8 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::common::parameters::legs::{FixedLegSpec, FloatLegSpec};
-use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
+use finstack_valuations::instruments::{FixedLegSpec, FloatLegSpec};
+use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
 use proptest::prelude::*;
 use time::macros::date;
 
@@ -157,8 +157,8 @@ proptest! {
             })
             .build()?;
 
-        let npv_low = finstack_valuations::instruments::irs::pricer::npv(&irs_low, &context, base_date)?;
-        let npv_high = finstack_valuations::instruments::irs::pricer::npv(&irs_high, &context, base_date)?;
+        let npv_low = finstack_valuations::instruments::rates::irs::npv(&irs_low, &context, base_date)?;
+        let npv_high = finstack_valuations::instruments::rates::irs::npv(&irs_high, &context, base_date)?;
 
         // Higher fixed rate should yield higher NPV for receiver swap
         prop_assert!(
@@ -259,8 +259,8 @@ proptest! {
             })
             .build()?;
 
-        let npv_payer = finstack_valuations::instruments::irs::pricer::npv(&payer, &context, base_date)?;
-        let npv_receiver = finstack_valuations::instruments::irs::pricer::npv(&receiver, &context, base_date)?;
+        let npv_payer = finstack_valuations::instruments::rates::irs::npv(&payer, &context, base_date)?;
+        let npv_receiver = finstack_valuations::instruments::rates::irs::npv(&receiver, &context, base_date)?;
 
         // Payer and receiver should be exact opposites
         let sum = npv_payer.amount() + npv_receiver.amount();
@@ -352,7 +352,7 @@ proptest! {
             })
             .build()?;
 
-        let npv = finstack_valuations::instruments::irs::pricer::npv(&irs, &context, base_date)?;
+        let npv = finstack_valuations::instruments::rates::irs::npv(&irs, &context, base_date)?;
 
         // NPV should be finite (not NaN or infinite)
         prop_assert!(

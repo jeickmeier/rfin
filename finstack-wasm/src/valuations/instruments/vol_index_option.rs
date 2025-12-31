@@ -6,7 +6,7 @@ use crate::core::money::JsMoney;
 use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_valuations::instruments::vol_index_option::{
+use finstack_valuations::instruments::equity::vol_index_option::{
     VolIndexOptionSpecs, VolatilityIndexOption,
 };
 use finstack_valuations::instruments::{ExerciseStyle, OptionType};

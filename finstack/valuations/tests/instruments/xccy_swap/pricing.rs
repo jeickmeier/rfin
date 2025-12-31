@@ -1,6 +1,6 @@
 use super::fixtures::*;
 use finstack_core::currency::Currency;
-use finstack_valuations::instruments::xccy_swap::{NotionalExchange, XccySwap};
+use finstack_valuations::instruments::rates::xccy_swap::{NotionalExchange, XccySwap};
 
 #[test]
 fn requires_fx_matrix_when_reporting_currency_differs() {

@@ -12,7 +12,7 @@
 /// # Examples
 ///
 /// ```
-/// use finstack_valuations::cashflow::builder::credit_rates::cpr_to_smm;
+/// use finstack_valuations::cashflow::builder::cpr_to_smm;
 ///
 /// // Convert 6% CPR to SMM
 /// let cpr = 0.06;
@@ -35,7 +35,7 @@ pub fn cpr_to_smm(cpr: f64) -> f64 {
 /// # Examples
 ///
 /// ```
-/// use finstack_valuations::cashflow::builder::credit_rates::{cpr_to_smm, smm_to_cpr};
+/// use finstack_valuations::cashflow::builder::{cpr_to_smm, smm_to_cpr};
 ///
 /// // Roundtrip conversion
 /// let cpr = 0.06;

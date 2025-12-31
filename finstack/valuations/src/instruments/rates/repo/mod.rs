@@ -67,9 +67,9 @@
 
 /// Repo margin specification and cashflows
 pub mod margin;
-pub mod metrics;
+pub(crate) mod metrics;
 /// Repo pricer implementation
-pub mod pricer;
+pub(crate) mod pricer;
 mod types;
 
 // Re-export main types

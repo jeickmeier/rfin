@@ -63,7 +63,7 @@ use std::sync::Arc;
 ///
 /// ```rust,no_run
 /// use finstack_valuations::attribution::attribute_pnl_parallel;
-/// use finstack_valuations::instruments::deposit::Deposit;
+/// use finstack_valuations::instruments::rates::deposit::Deposit;
 /// use finstack_core::config::FinstackConfig;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::market_data::context::MarketContext;
@@ -88,7 +88,7 @@ use std::sync::Arc;
 ///         .discount_curve_id("USD-OIS".into())
 ///         .build()
 ///         .expect("deposit builder should succeed"),
-/// ) as Arc<dyn finstack_valuations::instruments::common::traits::Instrument>;
+/// ) as Arc<dyn finstack_valuations::instruments::Instrument>;
 ///
 /// let attribution = attribute_pnl_parallel(
 ///     &instrument,

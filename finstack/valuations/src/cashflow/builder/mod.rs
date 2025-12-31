@@ -64,8 +64,8 @@ mod compiler;
 mod emission;
 
 // Public modules
-pub mod credit_rates;
-pub mod dataframe;
+pub(crate) mod credit_rates;
+pub(crate) mod dataframe;
 pub mod date_generation;
 pub mod rate_helpers;
 pub mod schedule;

@@ -10,7 +10,7 @@
 //! - Risk metric sign conventions
 
 use super::test_utils::*;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 

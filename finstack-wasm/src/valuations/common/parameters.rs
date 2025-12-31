@@ -1,7 +1,7 @@
 //! WASM bindings for common parameter types (OptionType, ExerciseStyle, etc.)
 
 use finstack_valuations::instruments::common::models::monte_carlo::payoff::barrier::BarrierType;
-use finstack_valuations::instruments::common::parameters::{
+use finstack_valuations::instruments::{
     legs::PayReceive,
     market::{ExerciseStyle, OptionType, SettlementType},
 };

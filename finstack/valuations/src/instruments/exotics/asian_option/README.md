@@ -12,7 +12,7 @@
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::asian_option::{AsianOption, AveragingMethod};
+use finstack_valuations::instruments::exotics::asian_option::{AsianOption, AveragingMethod};
 use finstack_core::dates::Date;
 use time::Month;
 

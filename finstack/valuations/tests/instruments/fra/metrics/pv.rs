@@ -4,7 +4,7 @@
 //! These tests verify it's consistent with direct value() calls.
 
 use crate::fra::common::*;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 
 #[test]
 fn test_pv_result_matches_value() {

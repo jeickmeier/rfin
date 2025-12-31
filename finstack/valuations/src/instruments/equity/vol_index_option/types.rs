@@ -60,7 +60,7 @@ use time::macros::date;
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::vol_index_option::VolatilityIndexOption;
+/// use finstack_valuations::instruments::equity::vol_index_option::VolatilityIndexOption;
 /// use finstack_valuations::instruments::OptionType;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::dates::{Date, DayCount};

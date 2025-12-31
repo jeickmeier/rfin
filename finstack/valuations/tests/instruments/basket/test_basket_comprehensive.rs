@@ -14,16 +14,16 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::basket::metrics::{
+use finstack_valuations::instruments::exotics::basket::{
     register_basket_metrics, AssetExposureCalculator, ConstituentCountCalculator,
     ExpenseRatioCalculator,
 };
-use finstack_valuations::instruments::basket::pricer::BasketCalculator;
-use finstack_valuations::instruments::basket::types::{
+use finstack_valuations::instruments::exotics::basket::BasketCalculator;
+use finstack_valuations::instruments::exotics::basket::{
     AssetType, Basket, BasketConstituent, BasketPricingConfig, ConstituentReference,
 };
-use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::instruments::common::traits::{Attributes, Instrument};
+use finstack_valuations::instruments::fixed_income::bond::Bond;
+use finstack_valuations::instruments::{Attributes, Instrument};
 use finstack_valuations::metrics::{MetricCalculator, MetricContext, MetricRegistry};
 use std::sync::Arc;
 use time::Month;

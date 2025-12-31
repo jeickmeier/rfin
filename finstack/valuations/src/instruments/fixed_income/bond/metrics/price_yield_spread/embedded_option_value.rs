@@ -8,6 +8,7 @@
 //! The embedded option value is the difference between these prices.
 //!
 //! # Option Value Decomposition
+#![allow(dead_code)] // Public API items may be used by external bindings
 //!
 //! ## Callable Bonds (Issuer Owns the Call)
 //!
@@ -43,7 +44,7 @@
 //! # Examples
 //!
 //! ```rust,no_run
-//! use finstack_valuations::instruments::bond::Bond;
+//! use finstack_valuations::instruments::fixed_income::bond::Bond;
 //! use finstack_valuations::metrics::{MetricRegistry, MetricId};
 //!
 //! # let bond = Bond::example();
@@ -82,7 +83,7 @@ use finstack_core::dates::DayCountCtx;
 /// # Examples
 ///
 /// ```rust,no_run
-/// use finstack_valuations::instruments::bond::metrics::price_yield_spread::EmbeddedOptionValueCalculator;
+/// use finstack_valuations::instruments::fixed_income::bond::metrics::price_yield_spread::EmbeddedOptionValueCalculator;
 /// use finstack_valuations::metrics::MetricCalculator;
 ///
 /// let calculator = EmbeddedOptionValueCalculator::new();
@@ -117,7 +118,7 @@ impl EmbeddedOptionValueCalculator {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::bond::metrics::price_yield_spread::EmbeddedOptionValueCalculator;
+    /// use finstack_valuations::instruments::fixed_income::bond::metrics::price_yield_spread::EmbeddedOptionValueCalculator;
     ///
     /// // High precision with calibrated volatility
     /// let calc = EmbeddedOptionValueCalculator::with_config(200, 0.012);

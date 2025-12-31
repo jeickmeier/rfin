@@ -37,7 +37,7 @@ use time::macros::date;
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::fx_forward::FxForward;
+/// use finstack_valuations::instruments::fx::fx_forward::FxForward;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::dates::Date;
 /// use finstack_core::money::Money;

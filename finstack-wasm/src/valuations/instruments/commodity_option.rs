@@ -7,8 +7,8 @@ use crate::valuations::common::parameters::{JsExerciseStyle, JsOptionType, JsSet
 use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::commodity_option::CommodityOption;
-use finstack_valuations::instruments::common::traits::Attributes;
+use finstack_valuations::instruments::commodity::commodity_option::CommodityOption;
+use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::PricingOverrides;
 use wasm_bindgen::prelude::*;
 

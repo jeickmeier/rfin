@@ -3,7 +3,7 @@
 use crate::deposit::common::*;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::traits::CashflowProvider;
+use finstack_valuations::cashflow::CashflowProvider;
 
 #[test]
 fn test_cashflow_generation_two_flows() {

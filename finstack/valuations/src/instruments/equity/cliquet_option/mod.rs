@@ -35,9 +35,9 @@
 //! - [`CliquetOption`] for instrument struct
 //! - Monte Carlo pricer for path-dependent pricing
 
-pub mod metrics;
-pub mod pricer;
-pub mod traits;
-pub mod types;
+pub(crate) mod metrics;
+pub(crate) mod pricer;
+pub(crate) mod traits;
+pub(crate) mod types;
 
 pub use types::CliquetOption;

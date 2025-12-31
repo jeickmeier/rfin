@@ -4,9 +4,9 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::structured_credit::pricing::waterfall::WaterfallContext;
-use finstack_valuations::instruments::structured_credit::types::RoundingConvention;
-use finstack_valuations::instruments::structured_credit::{
+use finstack_valuations::instruments::fixed_income::structured_credit::WaterfallContext;
+use finstack_valuations::instruments::fixed_income::structured_credit::RoundingConvention;
+use finstack_valuations::instruments::fixed_income::structured_credit::{
     DealType, PaymentCalculation, PaymentType, Pool, Recipient, RecipientType, TrancheStructure,
     WaterfallBuilder, WaterfallTier,
 };
@@ -15,13 +15,13 @@ fn run_rounding_test(amount: f64, rounding: RoundingConvention) -> f64 {
     let currency = Currency::USD;
     let pool = Pool::new("TEST", DealType::CLO, currency);
     let tranches = TrancheStructure::new(vec![
-        finstack_valuations::instruments::structured_credit::Tranche::new(
+        finstack_valuations::instruments::fixed_income::structured_credit::Tranche::new(
             "A",
             0.0,
             100.0,
-            finstack_valuations::instruments::structured_credit::Seniority::Senior,
+            finstack_valuations::instruments::fixed_income::structured_credit::Seniority::Senior,
             Money::new(100.0, currency),
-            finstack_valuations::instruments::structured_credit::TrancheCoupon::Fixed {
+            finstack_valuations::instruments::fixed_income::structured_credit::TrancheCoupon::Fixed {
                 rate: 0.05,
             },
             Date::from_calendar_date(2030, time::Month::January, 1).unwrap(),
@@ -55,7 +55,7 @@ fn run_rounding_test(amount: f64, rounding: RoundingConvention) -> f64 {
         market: &market,
     };
 
-    let result = finstack_valuations::instruments::structured_credit::pricing::execute_waterfall(
+    let result = finstack_valuations::instruments::fixed_income::structured_credit::execute_waterfall(
         &waterfall, &tranches, &pool, context,
     )
     .unwrap();

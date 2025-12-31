@@ -14,8 +14,8 @@
 //! # Quick Example
 //!
 //! ```rust
-//! use finstack_valuations::market::build::context::BuildCtx;
-//! use finstack_valuations::market::build::rates::build_rate_instrument;
+//! use finstack_valuations::market::BuildCtx;
+//! use finstack_valuations::market::build_rate_instrument;
 //! use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 //! use finstack_valuations::market::quotes::rates::RateQuote;
 //! use finstack_valuations::market::conventions::ids::IndexId;
@@ -53,8 +53,8 @@ pub mod cds_tranche;
 /// Context for building instruments.
 pub mod context;
 /// Shared helper functions for builders.
-pub mod helpers;
+pub(crate) mod helpers;
 /// Envelope for prepared quotes.
-pub mod prepared;
+pub(crate) mod prepared;
 /// Builders for rates instruments.
 pub mod rates;

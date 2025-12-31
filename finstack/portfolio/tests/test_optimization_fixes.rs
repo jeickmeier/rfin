@@ -9,7 +9,7 @@ use finstack_portfolio::optimization::{
 };
 use finstack_portfolio::position::{Position, PositionUnit};
 use finstack_portfolio::types::Entity;
-use finstack_valuations::instruments::deposit::Deposit;
+use finstack_valuations::instruments::rates::deposit::Deposit;
 use std::sync::Arc;
 use time::Month;
 

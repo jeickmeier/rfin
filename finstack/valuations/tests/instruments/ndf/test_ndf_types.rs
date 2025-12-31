@@ -4,8 +4,8 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::common::traits::{Attributes, CurveDependencies, Instrument};
-use finstack_valuations::instruments::ndf::Ndf;
+use finstack_valuations::instruments::{Attributes, CurveDependencies, Instrument};
+use finstack_valuations::instruments::fx::ndf::Ndf;
 use finstack_valuations::pricer::InstrumentType;
 use time::Month;
 

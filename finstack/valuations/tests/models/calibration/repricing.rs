@@ -15,10 +15,10 @@ use finstack_valuations::calibration::api::schema::{
     StepParams,
 };
 use finstack_valuations::calibration::{CalibrationConfig, CalibrationMethod};
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::ForwardRateAgreement;
-use finstack_valuations::market::build::context::BuildCtx;
-use finstack_valuations::market::build::rates::build_rate_instrument;
+use finstack_valuations::market::BuildCtx;
+use finstack_valuations::market::build_rate_instrument;
 use finstack_valuations::market::conventions::ids::IndexId;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
@@ -76,7 +76,7 @@ fn discount_curve_deposit_repricing() {
     );
 
     let settings = CalibrationConfig {
-        solver: finstack_valuations::calibration::solver::SolverConfig::brent_default()
+        solver: finstack_valuations::calibration::SolverConfig::brent_default()
             .with_tolerance(1e-12)
             .with_max_iterations(200),
         ..Default::default()
@@ -194,7 +194,7 @@ fn forward_curve_fra_repricing() {
     );
 
     let settings = CalibrationConfig {
-        solver: finstack_valuations::calibration::solver::SolverConfig::brent_default()
+        solver: finstack_valuations::calibration::SolverConfig::brent_default()
             .with_tolerance(1e-12)
             .with_max_iterations(200),
         ..Default::default()

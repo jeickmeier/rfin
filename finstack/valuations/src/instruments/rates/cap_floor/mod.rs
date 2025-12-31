@@ -77,9 +77,10 @@
 //! - [`RateOptionType`] for cap vs floor distinction
 //! - [`metrics`] for cap/floor risk metrics (DV01, vega)
 
-pub mod metrics;
-pub mod parameters;
-pub mod pricing;
+pub(crate) mod metrics;
+pub(crate) mod parameters;
+pub(crate) mod pricing;
 mod types;
 
+pub use parameters::InterestRateOptionParams;
 pub use types::{InterestRateOption, RateOptionType};

@@ -2,7 +2,7 @@
 use crate::core::dates::utils::date_to_py;
 use crate::core::money::{extract_money, PyMoney};
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::cliquet_option::CliquetOption;
+use finstack_valuations::instruments::equity::cliquet_option::CliquetOption;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::Bound;

@@ -75,7 +75,7 @@ fn test_v2_simple_usd_calibration() {
         description: None,
         quote_sets,
         settings: CalibrationConfig {
-            solver: finstack_valuations::calibration::solver::SolverConfig::brent_default()
+            solver: finstack_valuations::calibration::SolverConfig::brent_default()
                 .with_tolerance(1e-12)
                 .with_max_iterations(250),
             ..Default::default()

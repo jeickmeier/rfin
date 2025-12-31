@@ -206,6 +206,7 @@ impl BarrierOptionMcPricer {
     /// Uses separate day count bases for different purposes:
     /// - **Discounting**: Uses the discount curve's own day count for DF and zero rate calculations
     /// - **Volatility lookup and MC simulation**: Uses the instrument's day count (assumed to match vol surface calibration)
+    #[allow(dead_code)] // May be used by external bindings or tests
     pub(crate) fn price_with_lrm_greeks_internal(
         &self,
         inst: &BarrierOption,
@@ -363,6 +364,7 @@ pub fn npv(
 }
 
 /// Present value with LRM Greeks via Monte Carlo (barrier option).
+#[allow(dead_code)] // May be used by external bindings or tests
 #[cfg(feature = "mc")]
 pub fn npv_with_lrm_greeks(
     inst: &BarrierOption,

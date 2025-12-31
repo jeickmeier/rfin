@@ -27,7 +27,7 @@
 //! # Examples
 //!
 //! ```rust
-//! use finstack_valuations::instruments::commodity_forward::CommodityForward;
+//! use finstack_valuations::instruments::commodity::commodity_forward::CommodityForward;
 //! use finstack_core::currency::Currency;
 //!
 //! // Create a WTI crude oil forward
@@ -36,7 +36,7 @@
 //! ```
 
 /// Pricer for commodity forwards.
-pub mod pricer;
+pub(crate) mod pricer;
 mod types;
 
 pub use pricer::CommodityForwardDiscountingPricer;
@@ -44,4 +44,4 @@ pub use types::CommodityForward;
 pub use types::SettlementType;
 
 /// Metrics submodule for commodity forward risk measures.
-pub mod metrics;
+pub(crate) mod metrics;

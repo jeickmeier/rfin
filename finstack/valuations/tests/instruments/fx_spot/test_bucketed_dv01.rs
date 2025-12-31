@@ -1,7 +1,7 @@
 //! FxSpot BucketedDv01 smoke tests
 
 use crate::fx_spot::common::{market_full, sample_eurusd, test_date};
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 
 #[test]

@@ -9,8 +9,8 @@
 
 use super::common::*;
 use finstack_core::currency::Currency;
-use finstack_valuations::cashflow::traits::CashflowProvider;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::cashflow::CashflowProvider;
+use finstack_valuations::instruments::Instrument;
 
 #[test]
 fn test_npv_basic() {
@@ -223,7 +223,7 @@ fn test_npv_with_deflation_protection() {
     // Arrange
     let mut ilb = sample_tips();
     ilb.deflation_protection =
-        finstack_valuations::instruments::inflation_linked_bond::DeflationProtection::AllPayments;
+        finstack_valuations::instruments::fixed_income::inflation_linked_bond::DeflationProtection::AllPayments;
     ilb.base_index = 300.0;
 
     let as_of = d(2025, 1, 2);

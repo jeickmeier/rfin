@@ -269,7 +269,11 @@ pub mod paths;
 pub mod process;
 pub mod rng;
 pub mod time_grid;
-pub mod traits;
+pub(crate) mod traits;
+
+pub use traits::{
+    state_keys, Discretization, PathState, RandomStream, StateVariables, StochasticProcess,
+};
 
 /// Prelude for convenient imports
 pub mod prelude {

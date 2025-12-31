@@ -5,8 +5,8 @@ use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::instruments::revolving_credit::{
+use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::fixed_income::revolving_credit::{
     BaseRateSpec, DrawRepayEvent, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
 };
 use finstack_valuations::metrics::MetricId;
@@ -589,10 +589,10 @@ fn test_deterministic_with_credit_risk() {
 #[test]
 fn test_deterministic_stochastic_convergence_with_credit_risk() {
     use finstack_core::market_data::term_structures::HazardCurve;
-    use finstack_valuations::instruments::revolving_credit::types::{
+    use finstack_valuations::instruments::fixed_income::revolving_credit::{
         CreditSpreadProcessSpec, McConfig,
     };
-    use finstack_valuations::instruments::revolving_credit::{
+    use finstack_valuations::instruments::fixed_income::revolving_credit::{
         StochasticUtilizationSpec, UtilizationProcess,
     };
 

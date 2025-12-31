@@ -24,8 +24,8 @@
 //! # Quick Example
 //!
 //! ```rust
-//! use finstack_valuations::instruments::term_loan::spec::*;
-//! use finstack_valuations::instruments::term_loan::RateSpec;
+//! use finstack_valuations::instruments::fixed_income::term_loan::spec::*;
+//! use finstack_valuations::instruments::fixed_income::term_loan::RateSpec;
 //! use finstack_valuations::cashflow::builder::specs::CouponType;
 //! use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
 //! use finstack_core::money::Money;
@@ -108,7 +108,7 @@ use super::types::RateSpec;
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::term_loan::spec::OidPolicy;
+/// use finstack_valuations::instruments::fixed_income::term_loan::spec::OidPolicy;
 /// use finstack_core::money::Money;
 /// use finstack_core::currency::Currency;
 ///
@@ -233,7 +233,7 @@ pub enum CommitmentFeeBase {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::term_loan::spec::*;
+/// use finstack_valuations::instruments::fixed_income::term_loan::spec::*;
 /// use finstack_core::money::Money;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::dates::create_date;
@@ -410,8 +410,8 @@ impl AmortizationSpec {
 ///
 /// ```rust,no_run
 /// # // Convert to runtime instrument via `try_into()` when needed.
-/// use finstack_valuations::instruments::term_loan::spec::*;
-/// use finstack_valuations::instruments::term_loan::types::RateSpec;
+/// use finstack_valuations::instruments::fixed_income::term_loan::spec::*;
+/// use finstack_valuations::instruments::fixed_income::term_loan::types::RateSpec;
 /// use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
 /// use finstack_valuations::cashflow::builder::specs::CouponType;
 /// use finstack_valuations::cashflow::builder::FloatingRateSpec;
@@ -548,7 +548,7 @@ pub struct LoanCall {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::term_loan::spec::{LoanCallSchedule, LoanCall};
+/// use finstack_valuations::instruments::fixed_income::term_loan::spec::{LoanCallSchedule, LoanCall};
 /// use finstack_core::dates::create_date;
 /// use time::Month;
 ///

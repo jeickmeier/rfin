@@ -5,8 +5,8 @@ use crate::core::dates::date::JsDate;
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::{BusinessDayConvention, Tenor, TenorUnit};
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::commodity_swap::CommoditySwap;
-use finstack_valuations::instruments::common::traits::Attributes;
+use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
+use finstack_valuations::instruments::Attributes;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 

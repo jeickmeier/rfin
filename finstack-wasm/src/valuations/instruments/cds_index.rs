@@ -4,16 +4,17 @@ use crate::core::money::JsMoney;
 use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_valuations::constants::isda;
-use finstack_valuations::instruments::cds::{CDSConvention, PayReceive as CdsPayReceive};
-use finstack_valuations::instruments::cds_index::parameters::{
+use finstack_valuations::instruments::credit_derivatives::cds::{CDSConvention, PayReceive as CdsPayReceive};
+use finstack_valuations::instruments::credit_derivatives::cds_index::{
     CDSIndexConstructionParams, CDSIndexParams,
 };
-use finstack_valuations::instruments::cds_index::CDSIndex;
-use finstack_valuations::instruments::common::parameters::CreditParams;
+use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndex;
+use finstack_valuations::instruments::CreditParams;
 use finstack_valuations::pricer::InstrumentType;
 use rust_decimal::prelude::ToPrimitive;
 use wasm_bindgen::prelude::*;
+
+const STANDARD_RECOVERY_SENIOR: f64 = 0.40;
 
 #[wasm_bindgen(js_name = CDSIndex)]
 #[derive(Clone, Debug)]
@@ -51,7 +52,7 @@ impl JsCDSIndex {
         index_factor: Option<f64>,
     ) -> Result<JsCDSIndex, JsValue> {
         let side_value = parse_optional_with_default(side, CdsPayReceive::PayFixed)?;
-        let recovery = recovery_rate.unwrap_or(isda::STANDARD_RECOVERY_SENIOR);
+        let recovery = recovery_rate.unwrap_or(STANDARD_RECOVERY_SENIOR);
 
         if !(0.0..=1.0).contains(&recovery) {
             return Err(js_error(

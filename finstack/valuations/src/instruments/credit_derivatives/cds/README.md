@@ -12,7 +12,7 @@
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::cds::CreditDefaultSwap;
+use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use finstack_core::dates::Date;
 use time::Month;
 
@@ -39,7 +39,7 @@ Credit default swaps implement full margin support following **ISDA CSA** standa
 ### Adding Margin Specification
 
 ```rust
-use finstack_valuations::instruments::cds::CreditDefaultSwap;
+use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use finstack_valuations::margin::{
     OtcMarginSpec, CsaSpec, ClearingStatus, ImMethodology, MarginFrequency,
 };

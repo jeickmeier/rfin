@@ -14,7 +14,7 @@
 //! # Quick Example
 //!
 //! ```rust
-//! use finstack_valuations::market::conventions::registry::ConventionRegistry;
+//! use finstack_valuations::market::conventions::ConventionRegistry;
 //! use finstack_valuations::market::conventions::ids::IndexId;
 //!
 //! let registry = ConventionRegistry::try_global()?;
@@ -25,16 +25,17 @@
 //!
 //! # See Also
 //!
-//! - [`registry::ConventionRegistry`](registry::ConventionRegistry) for convention lookups
-//! - [`defs`](defs) for convention data structures
+//! - [`ConventionRegistry`] for convention lookups
 //! - [`ids`](ids) for convention identifiers
 
 /// Data structures for conventions.
-pub mod defs;
+pub(crate) mod defs;
 /// Stable identifiers (typed keys).
 pub mod ids;
 
 /// Convention loaders and parsers.
-pub mod loaders;
+pub(crate) mod loaders;
 /// Registry for looking up conventions.
-pub mod registry;
+pub(crate) mod registry;
+
+pub use registry::ConventionRegistry;

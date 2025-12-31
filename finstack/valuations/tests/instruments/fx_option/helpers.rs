@@ -12,9 +12,9 @@ use finstack_core::money::fx::FxMatrix;
 use finstack_core::money::fx::SimpleFxProvider;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::common::parameters::market::{ExerciseStyle, OptionType};
-use finstack_valuations::instruments::common::traits::Attributes;
-use finstack_valuations::instruments::fx_option::FxOption;
+use finstack_valuations::instruments::market::{ExerciseStyle, OptionType};
+use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::fx::fx_option::FxOption;
 use finstack_valuations::instruments::{PricingOverrides, SettlementType};
 use std::sync::Arc;
 

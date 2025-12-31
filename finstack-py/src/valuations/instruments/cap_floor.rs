@@ -5,7 +5,7 @@ use crate::core::money::{extract_money, PyMoney};
 use crate::valuations::common::{frequency_from_payments_per_year, PyInstrumentType};
 use finstack_core::dates::DayCount;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::cap_floor::InterestRateOption;
+use finstack_valuations::instruments::rates::cap_floor::InterestRateOption;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;

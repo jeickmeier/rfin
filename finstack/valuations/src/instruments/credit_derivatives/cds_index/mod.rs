@@ -89,11 +89,12 @@
 //! - [`IndexPricing`] for intrinsic vs index-level pricing mode
 //! - [`metrics`] for index risk metrics
 
-pub mod metrics;
-pub mod parameters;
-pub mod pricer;
+pub(crate) mod metrics;
+pub(crate) mod parameters;
+pub(crate) mod pricer;
 mod types;
 
+pub use parameters::{CDSIndexConstituentParam, CDSIndexConstructionParams, CDSIndexParams};
 pub use types::CDSIndex;
 pub use types::CDSIndexConstituent;
 pub use types::IndexPricing;

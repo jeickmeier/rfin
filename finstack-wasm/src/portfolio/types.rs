@@ -309,7 +309,7 @@ impl JsPosition {
         position_id: String,
         entity_id: String,
         instrument_id: String,
-        instrument: Arc<dyn finstack_valuations::instruments::common::traits::Instrument>,
+        instrument: Arc<dyn finstack_valuations::instruments::Instrument>,
         quantity: f64,
         unit: PositionUnit,
     ) -> Result<JsPosition, JsValue> {
@@ -467,7 +467,7 @@ pub fn js_create_position_from_deposit(
     unit: JsPositionUnit,
 ) -> JsPosition {
     use crate::valuations::instruments::InstrumentWrapper;
-    use finstack_valuations::instruments::common::traits::Instrument;
+    use finstack_valuations::instruments::Instrument;
     use std::sync::Arc;
 
     let instrument_id = deposit.instrument_id();
@@ -518,7 +518,7 @@ pub fn js_create_position_from_bond(
     unit: JsPositionUnit,
 ) -> JsPosition {
     use crate::valuations::instruments::InstrumentWrapper;
-    use finstack_valuations::instruments::common::traits::Instrument;
+    use finstack_valuations::instruments::Instrument;
     use std::sync::Arc;
 
     let instrument_id = bond.instrument_id();

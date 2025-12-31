@@ -5,7 +5,7 @@ Unified implementation for ABS, RMBS, CMBS, and CLO instruments with waterfall m
 ## Quick Reference
 
 ```rust
-use finstack_valuations::instruments::structured_credit::prelude::*;
+use finstack_valuations::instruments::fixed_income::structured_credit::prelude::*;
 
 // Create a CLO
 let clo = StructuredCredit::new_clo(
@@ -131,7 +131,7 @@ Pool Cashflows → Fees → Senior Interest → Subordinate Interest → Princip
 ### Creating Instruments
 
 ```rust
-use finstack_valuations::instruments::structured_credit::prelude::*;
+use finstack_valuations::instruments::fixed_income::structured_credit::prelude::*;
 
 // With defaults
 let clo = StructuredCredit::new_clo(id, pool, tranches, close, maturity, curve);
@@ -165,7 +165,7 @@ let tranche_val = deal.value_tranche_with_metrics("CLASS_A", &context, as_of, &m
 ### Waterfall Execution
 
 ```rust
-use finstack_valuations::instruments::structured_credit::{
+use finstack_valuations::instruments::fixed_income::structured_credit::{
     WaterfallBuilder, WaterfallTier, Recipient, PaymentType, AllocationMode,
     execute_waterfall,
 };
@@ -194,7 +194,7 @@ let result = execute_waterfall(
 ### Stochastic Pricing
 
 ```rust
-use finstack_valuations::instruments::structured_credit::pricing::stochastic::{
+use finstack_valuations::instruments::fixed_income::structured_credit::pricing::stochastic::{
     StochasticPrepaySpec, StochasticDefaultSpec, CorrelationStructure,
 };
 
@@ -210,7 +210,7 @@ deal.with_stochastic_prepay(StochasticPrepaySpec::rmbs_agency(0.045))
 ### Rate Conversions
 
 ```rust
-use finstack_valuations::instruments::structured_credit::{
+use finstack_valuations::instruments::fixed_income::structured_credit::{
     cpr_to_smm, smm_to_cpr, cdr_to_mdr, mdr_to_cdr, psa_to_cpr,
 };
 
@@ -263,7 +263,7 @@ Two types of coverage triggers are available:
 Used for tranche-specific OC/IC thresholds:
 
 ```rust
-use finstack_valuations::instruments::structured_credit::{
+use finstack_valuations::instruments::fixed_income::structured_credit::{
     CoverageTrigger, TriggerConsequence,
 };
 
@@ -276,7 +276,7 @@ let trigger = CoverageTrigger::new(1.20, TriggerConsequence::DivertCashFlow)
 Used when building waterfalls with coverage test diversion:
 
 ```rust
-use finstack_valuations::instruments::structured_credit::WaterfallCoverageTrigger;
+use finstack_valuations::instruments::fixed_income::structured_credit::WaterfallCoverageTrigger;
 
 let waterfall = WaterfallBuilder::new(Currency::USD)
     // ... add tiers ...

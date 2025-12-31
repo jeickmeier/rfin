@@ -1,10 +1,10 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Tenor};
 use finstack_core::HashMap;
-use finstack_valuations::instruments::cds::CDSConvention;
-use finstack_valuations::instruments::cds::CreditDefaultSwap;
-use finstack_valuations::market::build::cds::build_cds_instrument;
-use finstack_valuations::market::build::context::BuildCtx;
+use finstack_valuations::instruments::credit_derivatives::cds::CDSConvention;
+use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
+use finstack_valuations::market::build_cds_instrument;
+use finstack_valuations::market::BuildCtx;
 use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
 use finstack_valuations::market::quotes::cds::CdsQuote;
 use finstack_valuations::market::quotes::ids::Pillar;

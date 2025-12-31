@@ -12,7 +12,7 @@
 
 ## Usage Example
 ```rust
-use finstack_valuations::instruments::inflation_swap::InflationSwap;
+use finstack_valuations::instruments::rates::inflation_swap::InflationSwap;
 
 let swap = InflationSwap::example();
 let pv = swap.value(&market_context, as_of_date)?;

@@ -138,7 +138,7 @@ impl BsGreeks {
 ///
 /// ```rust
 /// use finstack_valuations::instruments::common::models::closed_form::vanilla::bs_price;
-/// use finstack_valuations::instruments::common::parameters::OptionType;
+/// use finstack_valuations::instruments::OptionType;
 ///
 /// let price = bs_price(100.0, 100.0, 0.05, 0.02, 0.20, 1.0, OptionType::Call);
 /// assert!(price > 0.0);
@@ -212,7 +212,7 @@ pub fn bs_price(
 ///
 /// ```rust
 /// use finstack_valuations::instruments::common::models::closed_form::vanilla::{bs_greeks, BsGreeks};
-/// use finstack_valuations::instruments::common::parameters::OptionType;
+/// use finstack_valuations::instruments::OptionType;
 ///
 /// let greeks = bs_greeks(100.0, 100.0, 0.05, 0.02, 0.20, 1.0, OptionType::Call, 365.0);
 /// assert!(greeks.delta > 0.0 && greeks.delta < 1.0); // Call delta in (0, 1)

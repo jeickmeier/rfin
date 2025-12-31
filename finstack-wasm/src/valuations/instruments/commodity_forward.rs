@@ -4,8 +4,8 @@ use crate::core::currency::JsCurrency;
 use crate::core::dates::date::JsDate;
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::commodity_forward::{CommodityForward, SettlementType};
-use finstack_valuations::instruments::common::traits::Attributes;
+use finstack_valuations::instruments::commodity::commodity_forward::{CommodityForward, SettlementType};
+use finstack_valuations::instruments::Attributes;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 

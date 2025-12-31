@@ -7,8 +7,8 @@ use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Teno
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::common::traits::Instrument;
-use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
+use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
 use finstack_valuations::metrics::MetricId;
 use rust_decimal_macros::dec;
 use time::macros::date;
@@ -47,7 +47,7 @@ fn create_standard_swap(
         id: "IRS_PAR_TEST".into(),
         notional: Money::new(1_000_000.0, Currency::USD),
         side: PayReceive::ReceiveFixed,
-        fixed: finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
+        fixed: finstack_valuations::instruments::FixedLegSpec {
             discount_curve_id: "USD_OIS".into(),
             rate: fixed_rate,
             freq: Tenor::quarterly(),
@@ -61,7 +61,7 @@ fn create_standard_swap(
             start: as_of,
             end,
         },
-        float: finstack_valuations::instruments::common::parameters::legs::FloatLegSpec {
+        float: finstack_valuations::instruments::FloatLegSpec {
             discount_curve_id: "USD_OIS".into(),
             forward_curve_id: "USD_LIBOR_3M".into(),
             spread_bp: rust_decimal::Decimal::try_from(0.0).expect("valid"),

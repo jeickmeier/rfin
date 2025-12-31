@@ -101,6 +101,7 @@
 
 // Common functionality (traits, macros, models, helpers)
 #[macro_use]
+#[doc(hidden)]
 pub mod common;
 
 // === Category Modules ===
@@ -119,87 +120,77 @@ pub mod fx;
 /// Interest rate derivatives and money market instruments.
 pub mod rates;
 
-// These allow existing code using `instruments::bond`, `instruments::irs`, etc. to continue working.
+// Legacy module aliases retained for internal compatibility only.
 
 // Fixed Income
-pub use fixed_income::bond;
-pub use fixed_income::bond_future;
-pub use fixed_income::cmo;
-pub use fixed_income::convertible;
-pub use fixed_income::dollar_roll;
-pub use fixed_income::fi_trs;
-pub use fixed_income::inflation_linked_bond;
-pub use fixed_income::mbs_passthrough;
-pub use fixed_income::revolving_credit;
-pub use fixed_income::structured_credit;
-pub use fixed_income::tba;
-pub use fixed_income::term_loan;
+pub(crate) use fixed_income::bond;
+pub(crate) use fixed_income::bond_future;
+pub(crate) use fixed_income::convertible;
+pub(crate) use fixed_income::dollar_roll;
+pub(crate) use fixed_income::fi_trs;
+pub(crate) use fixed_income::inflation_linked_bond;
+pub(crate) use fixed_income::revolving_credit;
+pub(crate) use fixed_income::structured_credit;
+pub(crate) use fixed_income::term_loan;
 
 // Rates
-pub use rates::basis_swap;
-pub use rates::cap_floor;
-pub use rates::cms_option;
-pub use rates::deposit;
-pub use rates::fra;
-pub use rates::inflation_cap_floor;
-pub use rates::inflation_swap;
-pub use rates::ir_future;
-pub use rates::irs;
-pub use rates::range_accrual;
-pub use rates::repo;
-pub use rates::swaption;
-pub use rates::xccy_swap;
+pub(crate) use rates::basis_swap;
+pub(crate) use rates::cap_floor;
+pub(crate) use rates::cms_option;
+pub(crate) use rates::deposit;
+pub(crate) use rates::fra;
+pub(crate) use rates::inflation_cap_floor;
+pub(crate) use rates::inflation_swap;
+pub(crate) use rates::ir_future;
+pub(crate) use rates::irs;
+pub(crate) use rates::range_accrual;
+pub(crate) use rates::repo;
+pub(crate) use rates::swaption;
+pub(crate) use rates::xccy_swap;
 
 // Credit Derivatives
-pub use credit_derivatives::cds;
-pub use credit_derivatives::cds_index;
-pub use credit_derivatives::cds_option;
-pub use credit_derivatives::cds_tranche;
+pub(crate) use credit_derivatives::cds;
+pub(crate) use credit_derivatives::cds_index;
+pub(crate) use credit_derivatives::cds_option;
+pub(crate) use credit_derivatives::cds_tranche;
 
 // Equity
-pub use equity::autocallable;
-pub use equity::cliquet_option;
-pub use equity::dcf_equity;
-pub use equity::equity_index_future;
-pub use equity::equity_option;
-pub use equity::equity_trs;
-pub use equity::pe_fund;
-pub use equity::real_estate;
-pub use equity::spot as equity_spot;
-pub use equity::variance_swap;
-pub use equity::vol_index_future;
-pub use equity::vol_index_option;
+pub(crate) use equity::autocallable;
+pub(crate) use equity::cliquet_option;
+pub(crate) use equity::equity_index_future;
+pub(crate) use equity::equity_option;
+pub(crate) use equity::equity_trs;
+pub(crate) use equity::real_estate;
+pub(crate) use equity::variance_swap;
+pub(crate) use equity::vol_index_future;
+pub(crate) use equity::vol_index_option;
 
 // FX
-pub use fx::fx_barrier_option;
-pub use fx::fx_forward;
-pub use fx::fx_option;
-pub use fx::fx_spot;
-pub use fx::fx_swap;
-pub use fx::fx_variance_swap;
-pub use fx::ndf;
-pub use fx::quanto_option;
+pub(crate) use fx::fx_barrier_option;
+pub(crate) use fx::fx_forward;
+pub(crate) use fx::fx_option;
+pub(crate) use fx::fx_spot;
+pub(crate) use fx::fx_swap;
+pub(crate) use fx::fx_variance_swap;
+pub(crate) use fx::ndf;
+pub(crate) use fx::quanto_option;
 
 // Commodity
-pub use commodity::commodity_forward;
-pub use commodity::commodity_option;
-pub use commodity::commodity_swap;
+pub(crate) use commodity::commodity_forward;
+pub(crate) use commodity::commodity_option;
+pub(crate) use commodity::commodity_swap;
 
 // Exotics
-pub use exotics::asian_option;
-pub use exotics::barrier_option;
-pub use exotics::basket;
-pub use exotics::lookback_option;
+pub(crate) use exotics::asian_option;
+pub(crate) use exotics::barrier_option;
+pub(crate) use exotics::basket;
+pub(crate) use exotics::lookback_option;
 
-pub use equity::dcf_equity as dcf;
-pub use equity::pe_fund as private_markets_fund;
-pub use fixed_income::cmo as agency_cmo;
-pub use fixed_income::mbs_passthrough as agency_mbs_passthrough;
-pub use fixed_income::tba as agency_tba;
-
-pub use equity::equity_trs as trs;
-
-pub use equity::equity_metrics;
+pub(crate) use equity::dcf_equity as dcf;
+pub(crate) use equity::pe_fund as private_markets_fund;
+pub(crate) use fixed_income::cmo as agency_cmo;
+pub(crate) use fixed_income::mbs_passthrough as agency_mbs_passthrough;
+pub(crate) use fixed_income::tba as agency_tba;
 
 // === Core Instrument Types ===
 // Fixed Income
@@ -242,21 +233,35 @@ pub use exotics::{
 };
 
 // === Common Functionality ===
-pub use common::discountable::Discountable;
-pub use common::traits::{Attributes, Instrument, PricingOptions};
-pub use common::{BinomialTree, TreeType};
+pub use common::traits::{
+    Attributes, CurveDependencies, CurveIdVec, EquityDependencies, EquityInstrumentDeps, Instrument,
+    InstrumentCurves, PricingOptions,
+};
 
 // === Parameter Types ===
 pub use common::parameters::{
-    BasisSwapLeg, ContractSpec, CreditParams, EquityOptionParams, EquityUnderlyingParams,
-    ExerciseStyle, FinancingLegSpec, FixedLegSpec, FloatLegSpec, FxOptionParams,
-    FxUnderlyingParams, IndexUnderlyingParams, InterestRateOptionParams, OptionMarketParams,
-    OptionType, ParRateMethod, PayReceive, PremiumLegSpec, ProtectionLegSpec, ScheduleSpec,
-    SettlementType, TotalReturnLegSpec, UnderlyingParams,
+    BasisSwapLeg, BondConvention, ContractSpec, CreditParams, EquityOptionParams,
+    EquityUnderlyingParams, ExerciseStyle, FinancingLegSpec, FixedLegSpec, FloatLegSpec,
+    FxOptionParams, FxUnderlyingParams, IRSConvention, IndexUnderlyingParams,
+    InterestRateOptionParams, OptionMarketParams, OptionType, ParRateMethod, PayReceive,
+    PremiumLegSpec, ProtectionLegSpec, ScheduleSpec, SettlementType, TotalReturnLegSpec,
+    UnderlyingParams,
 };
 
 // Re-export TRS common types
 pub use common::parameters::trs_common::{TrsScheduleSpec, TrsSide};
+
+/// Market parameter types for backward compatibility with tests.
+///
+/// This module re-exports commonly used market parameter types.
+pub mod market {
+    pub use super::common::parameters::market::{ExerciseStyle, OptionType, SettlementType};
+}
+
+/// Leg parameter types for backward compatibility.
+pub mod legs {
+    pub use super::common::parameters::legs::PayReceive;
+}
 
 /// Pricing overrides module.
 pub mod pricing_overrides;

@@ -7,7 +7,7 @@ use finstack_core::money::Money;
 use finstack_portfolio::types::Entity;
 use finstack_portfolio::{attribute_portfolio_pnl, PortfolioBuilder, Position, PositionUnit};
 use finstack_valuations::attribution::AttributionMethod;
-use finstack_valuations::instruments::bond::Bond;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
 use std::sync::Arc;
 use time::Duration;
 

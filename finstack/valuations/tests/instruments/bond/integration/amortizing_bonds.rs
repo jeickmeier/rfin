@@ -7,8 +7,8 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::AmortizationSpec;
-use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
+use finstack_valuations::instruments::Instrument;
 use time::macros::date;
 
 fn create_curve(base_date: Date) -> MarketContext {
@@ -23,7 +23,7 @@ fn create_curve(base_date: Date) -> MarketContext {
 #[test]
 fn test_linear_amortization() {
     use finstack_core::dates::{DayCount, Tenor};
-    use finstack_valuations::instruments::bond::CashflowSpec;
+    use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
     let as_of = date!(2025 - 01 - 01);
     let bond = Bond::builder()
         .id("AMORT_LINEAR".into())
@@ -55,7 +55,7 @@ fn test_linear_amortization() {
 #[test]
 fn test_full_amortization() {
     use finstack_core::dates::{DayCount, Tenor};
-    use finstack_valuations::instruments::bond::CashflowSpec;
+    use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
     let as_of = date!(2025 - 01 - 01);
     let bond = Bond::builder()
         .id("AMORT_FULL".into())

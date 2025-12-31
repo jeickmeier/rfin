@@ -15,8 +15,8 @@ use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::bond::CashflowSpec;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{Bond, PricingOverrides};
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
@@ -50,7 +50,7 @@ fn test_bond_ytm_benchmark_1() {
 
     let pricing_overrides = PricingOverrides::default().with_clean_price(95.0);
 
-    use finstack_valuations::instruments::bond::CashflowSpec;
+    use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
     // Use 30/360 day count to match Fabozzi convention
     let bond = Bond::builder()
         .id("BOND_YTM_TEST1".into())
@@ -102,10 +102,10 @@ fn test_bond_ytm_benchmark_1() {
     );
 
     // Verify self-consistency: price from computed YTM should match target
-    use finstack_valuations::cashflow::traits::CashflowProvider;
+    use finstack_valuations::cashflow::CashflowProvider;
     let flows = bond.build_dated_flows(&market, as_of).unwrap();
     let recalc_price =
-        finstack_valuations::instruments::bond::pricing::quote_engine::price_from_ytm(
+        finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::price_from_ytm(
             &bond, &flows, as_of, ytm,
         )
         .unwrap();

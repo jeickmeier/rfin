@@ -129,11 +129,16 @@
 //! - [`ProtectionLegSpec`] for protection leg configuration
 //! - [`metrics`] for CDS risk metrics (CS01, DV01, recovery sensitivity)
 
-pub mod metrics;
-pub mod parameters;
-pub mod pricer;
+pub(crate) mod metrics;
+pub(crate) mod parameters;
+pub(crate) mod pricer;
 mod types;
 
+pub use parameters::{
+    RECOVERY_HIGH_YIELD_DEFAULT, RECOVERY_SENIOR_UNSECURED, RECOVERY_SUBORDINATED,
+};
+#[doc(hidden)]
+pub use pricer::{CDSPricer, CDSPricerConfig, IntegrationMethod};
 pub use types::CDSConvention;
 pub use types::CreditDefaultSwap;
 pub use types::CreditDefaultSwapBuilder;

@@ -1,7 +1,7 @@
 //! Integration tests for CDS Option pricing workflows.
 
 use super::common::*;
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::Instrument;
 use time::macros::date;
 
 #[test]
@@ -164,7 +164,7 @@ fn test_forward_spread_calculation() {
     let market = standard_market(as_of);
     let option = CdsOptionBuilder::new().build(as_of);
 
-    let pricer = finstack_valuations::instruments::cds_option::pricer::CdsOptionPricer::default();
+    let pricer = finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionPricer::default();
     let forward = pricer.forward_spread_bp(&option, &market, as_of).unwrap();
 
     assert_positive(forward, "Forward spread");

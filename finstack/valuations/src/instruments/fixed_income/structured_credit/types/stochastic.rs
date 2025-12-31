@@ -30,8 +30,8 @@ impl StructuredCredit {
     ///
     /// # Example
     /// ```rust,no_run
-    /// use finstack_valuations::instruments::structured_credit::StructuredCredit;
-    /// use finstack_valuations::instruments::structured_credit::pricing::StochasticPrepaySpec;
+    /// use finstack_valuations::instruments::fixed_income::structured_credit::StructuredCredit;
+    /// use finstack_valuations::instruments::fixed_income::structured_credit::pricing::StochasticPrepaySpec;
     ///
     /// let mut clo = StructuredCredit::example();
     /// clo.with_stochastic_prepay(StochasticPrepaySpec::clo_standard());

@@ -9,7 +9,7 @@
 pub mod deal_specific;
 // pub mod dv01; // removed - using GenericParallelDv01
 pub mod pool;
-pub mod pricing;
+pub(crate) mod pricing;
 pub mod risk;
 
 // Re-export all calculators for convenience

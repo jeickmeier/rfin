@@ -10,9 +10,9 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::bond::Bond;
-use finstack_valuations::instruments::bond_future::pricer::BondFuturePricer;
-use finstack_valuations::instruments::bond_future::{BondFuture, DeliverableBond, Position};
+use finstack_valuations::instruments::fixed_income::bond::Bond;
+use finstack_valuations::instruments::fixed_income::bond_future::BondFuturePricer;
+use finstack_valuations::instruments::fixed_income::bond_future::{BondFuture, DeliverableBond, Position};
 use finstack_valuations::pricer::{create_standard_registry, InstrumentType, ModelKey};
 use time::macros::date;
 
@@ -780,7 +780,7 @@ fn test_conversion_factor_calculation_accuracy() {
 /// 4. DV01 magnitude is reasonable for a 10-year futures contract
 #[test]
 fn test_bond_future_dv01_calculation() {
-    use finstack_valuations::instruments::common::traits::Instrument;
+    use finstack_valuations::instruments::Instrument;
     use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
     use std::sync::Arc;
 
@@ -941,7 +941,7 @@ fn test_bond_future_dv01_calculation() {
 /// DV01 should have opposite sign for short vs long positions.
 #[test]
 fn test_bond_future_dv01_sign_convention() {
-    use finstack_valuations::instruments::common::traits::Instrument;
+    use finstack_valuations::instruments::Instrument;
     use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
     use std::sync::Arc;
 

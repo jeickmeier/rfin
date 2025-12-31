@@ -14,7 +14,7 @@ fn parallel_stamps_configured_rounding_context() {
     let as_of_t0 = date!(2025 - 01 - 01);
     let as_of_t1 = date!(2025 - 01 - 02);
 
-    let instrument: Arc<dyn finstack_valuations::instruments::common::traits::Instrument> =
+    let instrument: Arc<dyn finstack_valuations::instruments::Instrument> =
         Arc::new(TestInstrument::new("TEST-ROUND", Money::new(1_000.0, Currency::USD)));
     let market_t0 = MarketContext::new();
     let market_t1 = MarketContext::new();

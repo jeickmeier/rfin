@@ -12,9 +12,9 @@
 use super::test_utils::*;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::cds::PayReceive;
-use finstack_valuations::instruments::cds_index::{CDSIndex, IndexPricing};
-use finstack_valuations::instruments::common::traits::Instrument;
+use finstack_valuations::instruments::credit_derivatives::cds::PayReceive;
+use finstack_valuations::instruments::credit_derivatives::cds_index::{CDSIndex, IndexPricing};
+use finstack_valuations::instruments::Instrument;
 use time::macros::date;
 
 #[test]

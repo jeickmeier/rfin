@@ -2,6 +2,7 @@
 //!
 //! Provides a robust yield-to-maturity solver using Brent's method with
 //! intelligent initial guesses.
+#![allow(dead_code)] // Public API items may be used by external bindings
 
 use finstack_core::dates::Tenor;
 use finstack_core::dates::{Date, DayCount};
@@ -121,7 +122,7 @@ impl Default for YtmSolverConfig {
 /// # Examples
 ///
 /// ```rust,no_run
-/// use finstack_valuations::instruments::bond::pricing::ytm_solver::{YtmSolver, YtmPricingSpec};
+/// use finstack_valuations::instruments::fixed_income::bond::pricing::ytm_solver::{YtmSolver, YtmPricingSpec};
 /// use finstack_core::dates::{Date, DayCount, Tenor};
 /// use finstack_core::money::Money;
 /// use finstack_core::currency::Currency;
@@ -134,7 +135,7 @@ impl Default for YtmSolverConfig {
 ///     day_count: DayCount::Act365F,
 ///     notional: Money::new(1000.0, Currency::USD),
 ///     coupon_rate: 0.05,
-///     compounding: finstack_valuations::instruments::bond::pricing::quote_engine::YieldCompounding::Street,
+///     compounding: finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::YieldCompounding::Street,
 ///     frequency: Tenor::semi_annual(),
 /// };
 /// let ytm = solver.solve(&cashflows, as_of, target_price, spec)?;
@@ -160,7 +161,7 @@ impl YtmSolver {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::bond::pricing::ytm_solver::YtmSolver;
+    /// use finstack_valuations::instruments::fixed_income::bond::pricing::ytm_solver::YtmSolver;
     ///
     /// let solver = YtmSolver::new();
     /// ```
@@ -183,7 +184,7 @@ impl YtmSolver {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::bond::pricing::ytm_solver::{YtmSolver, YtmSolverConfig};
+    /// use finstack_valuations::instruments::fixed_income::bond::pricing::ytm_solver::{YtmSolver, YtmSolverConfig};
     ///
     /// let config = YtmSolverConfig {
     ///     tolerance: 1e-10,      // Faster convergence
@@ -222,7 +223,7 @@ impl YtmSolver {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use finstack_valuations::instruments::bond::pricing::ytm_solver::{YtmSolver, YtmPricingSpec};
+    /// use finstack_valuations::instruments::fixed_income::bond::pricing::ytm_solver::{YtmSolver, YtmPricingSpec};
     /// use finstack_core::dates::{Date, DayCount, Tenor};
     /// use finstack_core::money::Money;
     /// use finstack_core::currency::Currency;
@@ -235,7 +236,7 @@ impl YtmSolver {
     ///     day_count: DayCount::Act365F,
     ///     notional: Money::new(1000.0, Currency::USD),
     ///     coupon_rate: 0.05,
-    ///     compounding: finstack_valuations::instruments::bond::pricing::quote_engine::YieldCompounding::Street,
+    ///     compounding: finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::YieldCompounding::Street,
     ///     frequency: Tenor::semi_annual(),
     /// };
     /// let ytm = solver.solve(&cashflows, as_of, target_price, spec)?;
@@ -351,7 +352,7 @@ impl YtmSolver {
 /// # Examples
 ///
 /// ```rust,no_run
-/// use finstack_valuations::instruments::bond::pricing::ytm_solver::{solve_ytm, YtmPricingSpec};
+/// use finstack_valuations::instruments::fixed_income::bond::pricing::ytm_solver::{solve_ytm, YtmPricingSpec};
 /// use finstack_core::dates::{Date, DayCount, Tenor};
 /// use finstack_core::money::Money;
 /// use finstack_core::currency::Currency;
@@ -363,7 +364,7 @@ impl YtmSolver {
 ///     day_count: DayCount::Act365F,
 ///     notional: Money::new(1000.0, Currency::USD),
 ///     coupon_rate: 0.05,
-///     compounding: finstack_valuations::instruments::bond::pricing::quote_engine::YieldCompounding::Street,
+///     compounding: finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::YieldCompounding::Street,
 ///     frequency: Tenor::semi_annual(),
 /// };
 /// let ytm = solve_ytm(&cashflows, as_of, target_price, spec)?;

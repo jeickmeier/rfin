@@ -5,10 +5,7 @@ use finstack_core::{
     currency::Currency, dates::Date, market_data::context::MarketContext, money::Money,
 };
 use finstack_valuations::{
-    instruments::{
-        common::traits::Instrument,
-        fx_spot::{metrics::spot_rate::SpotRateCalculator, FxSpot},
-    },
+    instruments::{fx::fx_spot::SpotRateCalculator, FxSpot, Instrument},
     metrics::{MetricCalculator, MetricContext},
 };
 use std::sync::Arc;
@@ -171,7 +168,7 @@ fn test_spot_rate_fractional_values() {
 #[test]
 fn test_spot_rate_relationship_with_amounts() {
     // Verify: spot_rate = quote_amount / base_amount
-    use finstack_valuations::instruments::fx_spot::metrics::base_amount::BaseAmountCalculator;
+    use finstack_valuations::instruments::fx::fx_spot::BaseAmountCalculator;
 
     let fx = eurusd_with_notional(1_500_000.0, 1.25);
     let mut ctx = create_context(fx.clone(), test_date());

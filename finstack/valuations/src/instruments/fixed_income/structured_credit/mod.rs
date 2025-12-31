@@ -40,12 +40,11 @@ pub mod config {
 }
 
 // New module structure
-pub mod metrics;
-pub mod pricer;
-pub mod pricing;
-pub mod types;
-#[doc(hidden)]
-pub mod utils;
+pub(crate) mod metrics;
+pub(crate) mod pricer;
+pub(crate) mod pricing;
+pub(crate) mod types;
+pub(crate) mod utils;
 
 // ============================================================================
 // PRELUDE
@@ -134,6 +133,7 @@ pub use types::{
     Pool,
     PoolAsset,
     PoolStats,
+    RepLine,
     Recipient,
     RecipientType,
     ReinvestmentCriteria,
@@ -158,6 +158,7 @@ pub use types::{
     Waterfall,
     WaterfallBuilder,
     WaterfallDistribution,
+    RoundingConvention,
     WaterfallTier,
     WaterfallWorkspace,
 };
@@ -185,9 +186,15 @@ pub use pricing::{
     execute_waterfall, execute_waterfall_with_workspace, generate_cashflows,
     generate_tranche_cashflows, run_simulation,
 };
+#[doc(hidden)]
+pub use pricing::waterfall::execute_waterfall_with_explanation;
+#[doc(hidden)]
+pub use pricing::stochastic::PricingMode;
 
 pub use pricing::coverage_tests::{CoverageTest, TestContext, TestResult};
 pub use pricing::diversion::{DiversionCondition, DiversionEngine, DiversionRule};
+#[doc(hidden)]
+pub use pricing::waterfall::WaterfallContext;
 
 // ============================================================================
 // METRICS
@@ -253,3 +260,9 @@ pub use types::constants::{
 /// Waterfall-level coverage trigger (for waterfall diversion).
 /// Use this when building waterfall engines with coverage test diversion.
 pub use types::waterfall::CoverageTrigger as WaterfallCoverageTrigger;
+
+/// Re-exports for backward compatibility with WASM bindings.
+#[doc(hidden)]
+pub mod waterfall {
+    pub use super::types::waterfall::{CoverageTestRules, CoverageTrigger};
+}

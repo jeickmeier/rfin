@@ -40,12 +40,13 @@
 //! - [`waterfall`] for distribution waterfall logic
 //! - [`metrics`] for private markets metrics
 
-pub mod metrics;
+pub(crate) mod metrics;
 /// Private markets fund pricer implementation
-pub mod pricer;
+pub(crate) mod pricer;
 mod types;
 pub mod waterfall;
 
+#[doc(hidden)]
 pub use metrics::*;
 pub use pricer::PrivateMarketsFundDiscountingPricer;
 pub use types::PrivateMarketsFund;

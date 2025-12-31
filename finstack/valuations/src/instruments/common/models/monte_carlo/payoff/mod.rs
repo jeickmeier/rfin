@@ -2,7 +2,7 @@
 //!
 //! All payoffs return `Money` types for currency safety.
 
-pub mod traits;
+pub(crate) mod traits;
 pub mod vanilla;
 
 #[cfg(feature = "mc")]

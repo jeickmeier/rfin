@@ -9,8 +9,8 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::common::traits::{CurveDependencies, Instrument};
-use finstack_valuations::instruments::fra::ForwardRateAgreement;
+use finstack_valuations::instruments::{CurveDependencies, Instrument};
+use finstack_valuations::instruments::rates::fra::ForwardRateAgreement;
 use time::macros::date;
 
 fn build_discount_curve(id: &str, rate: f64) -> DiscountCurve {

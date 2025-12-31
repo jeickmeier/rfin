@@ -3,7 +3,7 @@
 use super::super::common::*;
 use finstack_core::{currency::Currency, market_data::context::MarketContext, money::Money};
 use finstack_valuations::{
-    instruments::{common::traits::Instrument, fx_spot::FxSpotPricer},
+    instruments::{fx::fx_spot::FxSpotPricer, Instrument},
     pricer::{InstrumentType, ModelKey, Pricer},
 };
 

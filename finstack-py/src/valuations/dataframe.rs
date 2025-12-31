@@ -3,7 +3,7 @@
 //! Provides to_polars(), to_pandas(), and to_parquet() methods for
 //! batch export of valuation results.
 
-use finstack_valuations::results::dataframe::results_to_rows;
+use finstack_valuations::results::results_to_rows;
 use finstack_valuations::results::ValuationResult;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
