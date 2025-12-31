@@ -58,7 +58,6 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::types::Percentage;
-use finstack_core::HashMap;
 use finstack_core::Result;
 
 #[cfg(test)]
@@ -415,6 +414,12 @@ impl TreePricerConfig {
 /// Maps bond cashflows and call/put schedules to tree time steps and handles
 /// exercise decisions during backward induction.
 ///
+/// # Performance
+///
+/// Uses `Vec` instead of `HashMap` for step-indexed lookups to eliminate hashing
+/// overhead in the backward induction hot path. For a 200-step tree, this provides
+/// significant speedup over hash-based lookups.
+///
 /// # Examples
 ///
 /// ```rust,no_run
@@ -431,12 +436,15 @@ impl TreePricerConfig {
 /// ```
 pub struct BondValuator {
     bond: Bond,
-    /// Coupon amounts indexed by time step
-    coupon_map: HashMap<usize, f64>,
-    /// Call prices indexed by time step (if callable)
-    call_map: HashMap<usize, f64>,
-    /// Put prices indexed by time step (if putable)
-    put_map: HashMap<usize, f64>,
+    /// Coupon amounts indexed by time step (dense vector for O(1) access).
+    /// Index `i` corresponds to time step `i`. Default value is 0.0.
+    coupon_vec: Vec<f64>,
+    /// Call prices indexed by time step (sparse via Option for memory efficiency).
+    /// `Some(price)` indicates a call option is exercisable at that step.
+    call_vec: Vec<Option<f64>>,
+    /// Put prices indexed by time step (sparse via Option for memory efficiency).
+    /// `Some(price)` indicates a put option is exercisable at that step.
+    put_vec: Vec<Option<f64>>,
     /// Time steps for tree pricing
     time_steps: Vec<f64>,
     /// Optional recovery rate sourced from a hazard curve in MarketContext
@@ -498,13 +506,15 @@ impl BondValuator {
     ) -> Result<Self> {
         let dt = time_to_maturity / tree_steps as f64;
         let time_steps: Vec<f64> = (0..=tree_steps).map(|i| i as f64 * dt).collect();
+        let num_steps = tree_steps + 1; // Include step 0
 
         let curves = market_context;
         let discount_curve = market_context.get_discount(&bond.discount_curve_id)?;
         let dc_curve = discount_curve.day_count();
         let flows = bond.build_dated_flows(curves, as_of)?;
 
-        let mut coupon_map = HashMap::default();
+        // Pre-allocate vectors for O(1) access during backward induction
+        let mut coupon_vec = vec![0.0; num_steps];
         for (date, amount) in &flows {
             if *date > as_of {
                 let time_frac = dc_curve.year_fraction(
@@ -526,19 +536,20 @@ impl BondValuator {
                 let weight = raw_clamped - step_idx as f64;
 
                 // Distribute to step_idx (weight: 1.0 - weight)
-                if step_idx > 0 {
-                    *coupon_map.entry(step_idx).or_insert(0.0) += amount.amount() * (1.0 - weight);
+                if step_idx > 0 && step_idx < num_steps {
+                    coupon_vec[step_idx] += amount.amount() * (1.0 - weight);
                 }
 
                 // Distribute to step_idx + 1 (weight: weight)
-                if step_idx < tree_steps {
-                    *coupon_map.entry(step_idx + 1).or_insert(0.0) += amount.amount() * weight;
+                if step_idx + 1 < num_steps {
+                    coupon_vec[step_idx + 1] += amount.amount() * weight;
                 }
             }
         }
 
-        let mut call_map = HashMap::default();
-        let mut put_map = HashMap::default();
+        // Sparse vectors for call/put (most steps have no option)
+        let mut call_vec: Vec<Option<f64>> = vec![None; num_steps];
+        let mut put_vec: Vec<Option<f64>> = vec![None; num_steps];
         if let Some(ref call_put) = bond.call_put {
             for call in &call_put.calls {
                 if call.date > as_of && call.date <= bond.maturity {
@@ -552,11 +563,11 @@ impl BondValuator {
                     if step == 0 {
                         step = 1;
                     }
-                    if step > tree_steps {
-                        step = tree_steps;
+                    if step >= num_steps {
+                        step = num_steps - 1;
                     }
                     let call_price = bond.notional.amount() * (call.price_pct_of_par / 100.0);
-                    call_map.insert(step, call_price);
+                    call_vec[step] = Some(call_price);
                 }
             }
             for put in &call_put.puts {
@@ -571,11 +582,11 @@ impl BondValuator {
                     if step == 0 {
                         step = 1;
                     }
-                    if step > tree_steps {
-                        step = tree_steps;
+                    if step >= num_steps {
+                        step = num_steps - 1;
                     }
                     let put_price = bond.notional.amount() * (put.price_pct_of_par / 100.0);
-                    put_map.insert(step, put_price);
+                    put_vec[step] = Some(put_price);
                 }
             }
         }
@@ -592,32 +603,50 @@ impl BondValuator {
 
         Ok(Self {
             bond,
-            coupon_map,
-            call_map,
-            put_map,
+            coupon_vec,
+            call_vec,
+            put_vec,
             time_steps,
             recovery_rate,
         })
+    }
+
+    /// Check if there are any coupons at this time step.
+    #[inline]
+    fn coupon_at(&self, step: usize) -> f64 {
+        self.coupon_vec.get(step).copied().unwrap_or(0.0)
+    }
+
+    /// Check if there's a call option at this time step.
+    #[inline]
+    fn call_at(&self, step: usize) -> Option<f64> {
+        self.call_vec.get(step).copied().flatten()
+    }
+
+    /// Check if there's a put option at this time step.
+    #[inline]
+    fn put_at(&self, step: usize) -> Option<f64> {
+        self.put_vec.get(step).copied().flatten()
     }
 }
 
 impl TreeValuator for BondValuator {
     fn value_at_maturity(&self, _state: &NodeState) -> Result<f64> {
         let final_step = self.time_steps.len() - 1;
-        let cashflow = self.coupon_map.get(&final_step).copied().unwrap_or(0.0);
+        let cashflow = self.coupon_at(final_step);
         Ok(cashflow)
     }
 
     fn value_at_node(&self, state: &NodeState, continuation_value: f64, dt: f64) -> Result<f64> {
         let step = state.step;
-        let coupon = self.coupon_map.get(&step).copied().unwrap_or(0.0);
+        let coupon = self.coupon_at(step);
 
         // Alive (no default) value at end of the step including coupon, with call/put decisions
         let mut alive_value = continuation_value + coupon;
-        if let Some(&put_price) = self.put_map.get(&step) {
+        if let Some(put_price) = self.put_at(step) {
             alive_value = alive_value.max(put_price);
         }
-        if let Some(&call_price) = self.call_map.get(&step) {
+        if let Some(call_price) = self.call_at(step) {
             alive_value = alive_value.min(call_price);
         }
 
@@ -1019,7 +1048,8 @@ mod tests {
         let valuator = BondValuator::new(bond, &market_context, as_of, 5.0, 50);
         assert!(valuator.is_ok());
         let valuator = valuator.expect("BondValuator creation should succeed in test");
-        assert!(!valuator.coupon_map.is_empty());
+        // Verify coupons were distributed across the vector
+        assert!(valuator.coupon_vec.iter().any(|&c| c > 0.0));
         assert!(market_context.get_discount("USD-OIS").is_ok());
     }
     #[test]
@@ -1054,8 +1084,10 @@ mod tests {
         let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let valuator = BondValuator::new(bond, &market_context, as_of, 5.0, 50)
             .expect("BondValuator creation should succeed in test");
-        assert!(!valuator.call_map.is_empty());
-        assert!(valuator.put_map.is_empty());
+        // Verify call option was populated in the vector
+        assert!(valuator.call_vec.iter().any(|c| c.is_some()));
+        // Verify no put options
+        assert!(valuator.put_vec.iter().all(|p| p.is_none()));
     }
 
     #[test]

@@ -275,6 +275,54 @@ fn bench_tree_oas_solver(c: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmark tree pricing at different step counts to measure backward induction performance.
+///
+/// This benchmark is useful for measuring the impact of the Vec vs HashMap optimization
+/// in `BondValuator`. Higher step counts magnify the difference since backward induction
+/// visits more nodes.
+fn bench_tree_step_scaling(c: &mut Criterion) {
+    use finstack_valuations::instruments::bond::pricing::tree_engine::TreePricerConfig;
+
+    let mut group = c.benchmark_group("tree_step_scaling");
+    let market = create_market();
+    let market_ref = &market;
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+
+    // Use a 10Y callable bond for consistent comparison
+    let bond = create_callable_bond(10);
+    let clean = bond.pricing_overrides.quoted_clean_price.unwrap_or(99.0);
+
+    for steps in [50, 100, 200, 500] {
+        let config = TreePricerConfig {
+            tree_steps: steps,
+            volatility: 0.01,
+            tolerance: 1e-6,
+            max_iterations: 50,
+            initial_bracket_size_bp: Some(1000.0),
+        };
+        let pricer = TreePricer::with_config(config);
+
+        group.bench_with_input(
+            BenchmarkId::from_parameter(format!("{}steps", steps)),
+            &steps,
+            |b, _| {
+                b.iter(|| {
+                    let oas = pricer
+                        .calculate_oas(
+                            &bond,
+                            black_box(market_ref),
+                            black_box(as_of),
+                            black_box(clean),
+                        )
+                        .unwrap_or_else(|e| panic!("tree oas failed: {e:?}"));
+                    black_box(oas)
+                });
+            },
+        );
+    }
+    group.finish();
+}
+
 fn bench_spread_metrics(c: &mut Criterion) {
     let mut group = c.benchmark_group("bond_spread_metrics");
     let market = create_market();
@@ -340,6 +388,7 @@ criterion_group!(
     bench_bond_dv01,
     bench_callable_bond_tree_pv,
     bench_tree_oas_solver,
+    bench_tree_step_scaling,
     bench_spread_metrics
 );
 criterion_main!(benches);
