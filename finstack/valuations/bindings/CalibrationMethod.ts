@@ -2,6 +2,23 @@
 
 /**
  * Calibration method selection (bootstrap vs global solve).
+ *
+ * Defines the numerical approach used to solve for curve/surface parameters.
+ * Bootstrap is the traditional sequential approach, while GlobalSolve
+ * solves all parameters simultaneously.
+ *
+ * # Variants
+ * - [`Bootstrap`]: Traditional sequential bootstrap where each knot is solved
+ *   independently based on the previous knots.
+ * - [`GlobalSolve`]: Simultaneous optimization of all knots using Levenberg-Marquardt
+ *   or Newton-Raphson.
+ *
+ * # Examples
+ * ```rust
+ * use finstack_valuations::calibration::CalibrationMethod;
+ *
+ * let method = CalibrationMethod::GlobalSolve { use_analytical_jacobian: true };
+ * ```
  */
 export type CalibrationMethod = "Bootstrap" | { "GlobalSolve": { 
 /**

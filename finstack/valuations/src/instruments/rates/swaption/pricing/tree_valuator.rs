@@ -273,9 +273,21 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
                     let (p_up, p_mid, p_down) = self.tree.probabilities(step, j);
                     let j_signed = j as i32 - j_max_curr as i32;
                     let next_mid = (j_signed + j_max_next as i32) as usize;
-                    let v_up = cont_values.get(next_mid + 1).or(cont_values.last()).copied().unwrap_or(0.0);
-                    let v_mid = cont_values.get(next_mid).or(cont_values.last()).copied().unwrap_or(0.0);
-                    let v_down = if next_mid > 0 { cont_values[next_mid - 1] } else { cont_values[0] };
+                    let v_up = cont_values
+                        .get(next_mid + 1)
+                        .or(cont_values.last())
+                        .copied()
+                        .unwrap_or(0.0);
+                    let v_mid = cont_values
+                        .get(next_mid)
+                        .or(cont_values.last())
+                        .copied()
+                        .unwrap_or(0.0);
+                    let v_down = if next_mid > 0 {
+                        cont_values[next_mid - 1]
+                    } else {
+                        cont_values[0]
+                    };
                     let expected = p_up * v_up + p_mid * v_mid + p_down * v_down;
                     expected * (-r_j * dt).exp()
                 })

@@ -25,10 +25,16 @@ fn build_market_from_deps(
     let mut market = MarketContext::new();
 
     for curve_id in deps.curves.discount_curves.iter() {
-        market = market.insert_discount(flat_discount_with_tenor(curve_id.as_str(), as_of, 0.02, 5.0));
+        market = market.insert_discount(flat_discount_with_tenor(
+            curve_id.as_str(),
+            as_of,
+            0.02,
+            5.0,
+        ));
     }
     for curve_id in deps.curves.forward_curves.iter() {
-        market = market.insert_forward(flat_forward_with_tenor(curve_id.as_str(), as_of, 0.03, 5.0));
+        market =
+            market.insert_forward(flat_forward_with_tenor(curve_id.as_str(), as_of, 0.03, 5.0));
     }
     for surface_id in deps.vol_surface_ids.iter() {
         market = market.insert_surface(flat_vol_surface(
@@ -79,7 +85,12 @@ fn test_missing_forward_curve_fails() {
 
     let mut market = MarketContext::new();
     for curve_id in deps.curves.discount_curves.iter() {
-        market = market.insert_discount(flat_discount_with_tenor(curve_id.as_str(), as_of, 0.02, 5.0));
+        market = market.insert_discount(flat_discount_with_tenor(
+            curve_id.as_str(),
+            as_of,
+            0.02,
+            5.0,
+        ));
     }
     for surface_id in deps.vol_surface_ids.iter() {
         market = market.insert_surface(flat_vol_surface(

@@ -8,57 +8,22 @@
 //! - Theta calculation
 //! - Edge cases
 
+use crate::common::test_helpers::{dates, usd_swap_market, usd_swap_market_split};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
-use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::irs::{InterestRateSwap, PayReceive};
 use rust_decimal_macros::dec;
-use time::macros::date;
-
-fn build_flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> DiscountCurve {
-    let mut builder = DiscountCurve::builder(curve_id)
-        .base_date(base_date)
-        .day_count(DayCount::Act360)
-        .knots([
-            (0.0, 1.0),
-            (1.0, (-rate).exp()),
-            (5.0, (-rate * 5.0).exp()),
-            (10.0, (-rate * 10.0).exp()),
-            (30.0, (-rate * 30.0).exp()),
-        ]);
-
-    // For zero or negative rates, DFs may be flat or increasing
-    if rate.abs() < 1e-10 || rate < 0.0 {
-        builder = builder.allow_non_monotonic();
-    }
-
-    builder.build().unwrap()
-}
-
-fn build_flat_forward_curve(rate: f64, base_date: Date, curve_id: &str) -> ForwardCurve {
-    ForwardCurve::builder(curve_id, 0.25)
-        .base_date(base_date)
-        .day_count(DayCount::Act360)
-        .knots([(0.0, rate), (10.0, rate), (30.0, rate)])
-        .build()
-        .unwrap()
-}
 
 #[test]
 fn test_irs_at_par_npv_zero() {
     // At-the-money swap should have NPV ≈ 0
-    let as_of = date!(2024 - 01 - 01);
-    let end = date!(2029 - 01 - 01);
+    let as_of = dates::TODAY;
+    let end = dates::five_years_hence();
 
-    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
-    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD-SOFR-3M");
-
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+    // Use consolidated helper for par market (disc = fwd)
+    let market = usd_swap_market(as_of, 0.05);
 
     let swap = InterestRateSwap {
         id: "SWAP_PAR".into(),
@@ -111,15 +76,10 @@ fn test_irs_at_par_npv_zero() {
 #[test]
 fn test_irs_receive_fixed_below_market() {
     // Receive fixed at 3% when market is 5% → negative NPV
-    let as_of = date!(2024 - 01 - 01);
-    let end = date!(2029 - 01 - 01);
+    let as_of = dates::TODAY;
+    let end = dates::five_years_hence();
 
-    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
-    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD-SOFR-3M");
-
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+    let market = usd_swap_market(as_of, 0.05);
 
     let swap = InterestRateSwap {
         id: "SWAP_OFF_MARKET".into(),
@@ -171,15 +131,10 @@ fn test_irs_receive_fixed_below_market() {
 #[test]
 fn test_irs_receive_fixed_above_market() {
     // Receive fixed at 7% when market is 5% → positive NPV
-    let as_of = date!(2024 - 01 - 01);
-    let end = date!(2029 - 01 - 01);
+    let as_of = dates::TODAY;
+    let end = dates::five_years_hence();
 
-    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
-    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD-SOFR-3M");
-
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+    let market = usd_swap_market(as_of, 0.05);
 
     let swap = InterestRateSwap {
         id: "SWAP_ABOVE_MARKET".into(),
@@ -231,15 +186,11 @@ fn test_irs_receive_fixed_above_market() {
 #[test]
 fn test_irs_pay_vs_receive_opposite_signs() {
     // Pay and receive should have opposite NPVs
-    let as_of = date!(2024 - 01 - 01);
-    let end = date!(2029 - 01 - 01);
+    let as_of = dates::TODAY;
+    let end = dates::five_years_hence();
 
-    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
-    let fwd_curve = build_flat_forward_curve(0.06, as_of, "USD-SOFR-3M");
-
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+    // Off-market: discount at 5%, forward at 6%
+    let market = usd_swap_market_split(as_of, 0.05, 0.06);
 
     let fixed_leg = finstack_valuations::instruments::common::parameters::legs::FixedLegSpec {
         discount_curve_id: "USD-OIS".into(),
@@ -315,15 +266,10 @@ fn test_irs_pay_vs_receive_opposite_signs() {
 
 #[test]
 fn test_irs_npv_scales_with_notional() {
-    let as_of = date!(2024 - 01 - 01);
-    let end = date!(2029 - 01 - 01);
+    let as_of = dates::TODAY;
+    let end = dates::five_years_hence();
 
-    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
-    let fwd_curve = build_flat_forward_curve(0.06, as_of, "USD-SOFR-3M");
-
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+    let market = usd_swap_market_split(as_of, 0.05, 0.06);
 
     let swap_1m = InterestRateSwap::create_usd_swap(
         "SWAP_1M".into(),
@@ -360,8 +306,8 @@ fn test_irs_npv_scales_with_notional() {
 #[test]
 fn test_irs_rate_sensitivity_inverse() {
     // As rates rise, receive fixed position loses value
-    let as_of = date!(2024 - 01 - 01);
-    let end = date!(2029 - 01 - 01);
+    let as_of = dates::TODAY;
+    let end = dates::five_years_hence();
 
     let swap = InterestRateSwap::create_usd_swap(
         "SWAP_RATE_SENS".into(),
@@ -376,12 +322,8 @@ fn test_irs_rate_sensitivity_inverse() {
     let mut npvs = Vec::new();
 
     for rate in [0.03, 0.04, 0.05, 0.06, 0.07] {
-        let disc_curve = build_flat_discount_curve(rate, as_of, "USD-OIS");
-        let fwd_curve = build_flat_forward_curve(rate, as_of, "USD-SOFR-3M");
-
-        let market = MarketContext::new()
-            .insert_discount(disc_curve)
-            .insert_forward(fwd_curve);
+        // Use consolidated curve builder for each rate scenario
+        let market = usd_swap_market(as_of, rate);
 
         let npv = swap.value(&market, as_of).unwrap();
         npvs.push((rate, npv.amount()));
@@ -402,15 +344,10 @@ fn test_irs_rate_sensitivity_inverse() {
 
 #[test]
 fn test_irs_with_spread() {
-    let as_of = date!(2024 - 01 - 01);
-    let end = date!(2029 - 01 - 01);
+    let as_of = dates::TODAY;
+    let end = dates::five_years_hence();
 
-    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
-    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD-SOFR-3M");
-
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+    let market = usd_swap_market(as_of, 0.05);
 
     // Swap with 50bp spread on floating leg
     let mut swap = InterestRateSwap::create_usd_swap(
@@ -437,15 +374,10 @@ fn test_irs_with_spread() {
 #[test]
 fn test_irs_short_maturity() {
     // 1-year swap
-    let as_of = date!(2024 - 01 - 01);
-    let end = date!(2025 - 01 - 01);
+    let as_of = dates::TODAY;
+    let end = dates::one_year_hence();
 
-    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
-    let fwd_curve = build_flat_forward_curve(0.06, as_of, "USD-SOFR-3M");
-
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+    let market = usd_swap_market_split(as_of, 0.05, 0.06);
 
     let swap = InterestRateSwap::create_usd_swap(
         "SWAP_1Y".into(),
@@ -470,15 +402,10 @@ fn test_irs_short_maturity() {
 #[test]
 fn test_irs_long_maturity() {
     // 30-year swap
-    let as_of = date!(2024 - 01 - 01);
-    let end = date!(2054 - 01 - 01);
+    let as_of = dates::TODAY;
+    let end = dates::thirty_years_hence();
 
-    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
-    let fwd_curve = build_flat_forward_curve(0.06, as_of, "USD-SOFR-3M");
-
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+    let market = usd_swap_market_split(as_of, 0.05, 0.06);
 
     let swap = InterestRateSwap::create_usd_swap(
         "SWAP_30Y".into(),
@@ -502,16 +429,11 @@ fn test_irs_long_maturity() {
 #[test]
 fn test_irs_zero_rate() {
     // Very low rates edge case
-    let as_of = date!(2024 - 01 - 01);
-    let end = date!(2029 - 01 - 01);
+    let as_of = dates::TODAY;
+    let end = dates::five_years_hence();
 
     // Use very small rate instead of exactly 0 to avoid numerical issues
-    let disc_curve = build_flat_discount_curve(0.0001, as_of, "USD-OIS");
-    let fwd_curve = build_flat_forward_curve(0.0001, as_of, "USD-SOFR-3M");
-
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+    let market = usd_swap_market(as_of, 0.0001);
 
     let swap = InterestRateSwap::create_usd_swap(
         "SWAP_ZERO".into(),
@@ -532,15 +454,10 @@ fn test_irs_zero_rate() {
 fn test_irs_theta_calculation() {
     use finstack_valuations::metrics::MetricId;
 
-    let as_of = date!(2024 - 01 - 01);
-    let end = date!(2029 - 01 - 01);
+    let as_of = dates::TODAY;
+    let end = dates::five_years_hence();
 
-    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
-    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD-SOFR-3M");
-
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+    let market = usd_swap_market(as_of, 0.05);
 
     let swap = InterestRateSwap::create_usd_swap(
         "SWAP_THETA".into(),
@@ -569,16 +486,11 @@ fn test_irs_theta_calculation() {
 #[test]
 fn test_irs_forward_starting() {
     // Swap starting in the future
-    let as_of = date!(2024 - 01 - 01);
-    let start = date!(2025 - 01 - 01);
-    let end = date!(2030 - 01 - 01);
+    let as_of = dates::TODAY;
+    let start = dates::one_year_hence();
+    let end = dates::years_hence(6); // 5Y swap starting in 1Y
 
-    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
-    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD-SOFR-3M");
-
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+    let market = usd_swap_market(as_of, 0.05);
 
     let swap = InterestRateSwap::create_usd_swap(
         "SWAP_FORWARD".into(),
@@ -597,15 +509,10 @@ fn test_irs_forward_starting() {
 
 #[test]
 fn test_irs_npv_currency_matches() {
-    let as_of = date!(2024 - 01 - 01);
-    let end = date!(2029 - 01 - 01);
+    let as_of = dates::TODAY;
+    let end = dates::five_years_hence();
 
-    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
-    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD-SOFR-3M");
-
-    let market = MarketContext::new()
-        .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+    let market = usd_swap_market(as_of, 0.05);
 
     let swap = InterestRateSwap::create_usd_swap(
         "SWAP_CCY".into(),

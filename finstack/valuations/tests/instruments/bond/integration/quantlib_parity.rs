@@ -16,7 +16,7 @@
 //! will be in a separate file: `quantlib_parity_callable.rs`
 
 #[allow(unused_imports)]
-use crate::quantlib_parity_helpers::*;
+use crate::parity::*;
 use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;

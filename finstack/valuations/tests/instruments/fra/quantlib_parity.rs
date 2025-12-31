@@ -29,7 +29,7 @@
 //! 5. **testFRAbuySell**: Buy/sell symmetry
 
 #[allow(unused_imports)]
-use crate::quantlib_parity_helpers::*;
+use crate::parity::*;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;

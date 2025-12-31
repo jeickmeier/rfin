@@ -24,7 +24,7 @@
 //! for this systematic difference plus numerical precision variations.
 
 #[allow(unused_imports)]
-use crate::quantlib_parity_helpers::*;
+use crate::parity::*;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;

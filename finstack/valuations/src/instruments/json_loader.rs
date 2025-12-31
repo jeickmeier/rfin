@@ -1112,8 +1112,7 @@ mod tests {
             .collect();
 
         if !missing_from_schema.is_empty() || !extra_in_schema.is_empty() {
-            let mut msg =
-                String::from("instrument.schema.json is out of sync with Rust code!\n\n");
+            let mut msg = String::from("instrument.schema.json is out of sync with Rust code!\n\n");
             if !missing_from_schema.is_empty() {
                 msg.push_str(&format!(
                     "Missing from schema (add these):\n  {}\n\n",

@@ -12,7 +12,6 @@ use finstack_valuations::instruments::asian_option::types::{AsianOption, Averagi
 use finstack_valuations::instruments::common::models::closed_form::asian::{
     geometric_asian_call, geometric_asian_put,
 };
-use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::OptionType;
 use finstack_valuations::pricer::Pricer;
 use finstack_valuations::test_utils::{date, flat_discount_with_tenor, flat_vol_surface};

@@ -1,9 +1,0 @@
-name,spot,strike,time,rate,div_yield,volatility,expected_price,abs_tol,rel_tol,option_type
-BS_ATM_1Y_Call,100.0,100.0,1.0,0.05,0.02,0.20,8.916,0.05,0.005,call
-BS_ITM_6M_Call,110.0,100.0,0.5,0.05,0.01,0.25,14.123,0.05,0.005,call
-BS_OTM_1Y_Call,90.0,100.0,1.0,0.05,0.02,0.30,5.234,0.05,0.01,call
-BS_ATM_1Y_Put,100.0,100.0,1.0,0.05,0.02,0.20,5.967,0.05,0.005,put
-BS_ITM_6M_Put,90.0,100.0,0.5,0.05,0.01,0.25,11.876,0.05,0.005,put
-BS_Deep_ITM_Call,150.0,100.0,1.0,0.05,0.00,0.20,50.243,0.10,0.01,call
-BS_Deep_OTM_Call,50.0,100.0,1.0,0.05,0.00,0.20,0.001,0.01,0.50,call
-

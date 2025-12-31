@@ -1,17 +1,64 @@
-//! Integration tests module for market convention refactors.
+//! Integration Tests Module
 //!
-//! This module contains end-to-end integration tests that verify the
-//! complete workflows affected by market convention refactors across all phases.
+//! This module organizes end-to-end integration tests by category:
 //!
-//! # Phase 1: Critical Safety Fixes
-//! - [`metrics_strict_mode`]: Metrics framework with strict error handling
+//! # Test Categories
 //!
-//! # Phase 2: Market Convention Alignment
-//! - [`fx_settlement`]: FX spot date calculations and joint business day counting
+//! ## [`e2e`] - End-to-End Workflow Tests
 //!
-//! # Phase 3: API Safety & Reporting
-//! - [`full_regression`]: Comprehensive end-to-end regression test covering all phases
+//! Complete workflow tests exercising multiple components:
+//! - `bond_portfolio` - Multi-currency 100-bond portfolio pricing with metrics
+//! - `fx_settlement` - FX spot date calculations with joint holiday calendars
+//!
+//! ## [`metrics`] - Metrics Framework Tests
+//!
+//! Tests for the metrics computation system:
+//! - `strict_mode` - Error handling, unknown metric rejection, silent failure prevention
+//!
+//! ## [`serialization`] - Serialization Tests
+//!
+//! JSON round-trip tests ensuring data integrity:
+//! - `instrument_roundtrip` - All instrument types serialize/deserialize correctly
+//! - `result_roundtrip` - ValuationResult serialization (requires `serde` feature)
+//! - `market_compliance` - Golden tests validating pricing against reference values
+//!
+//! ## [`schema`] - Schema Validation Tests
+//!
+//! Tests ensuring schema files stay synchronized:
+//! - `parity` - JSON schema ↔ Rust type synchronization
+//! - `ts_export` - TypeScript type generation (requires `ts_export` feature)
+//!
+//! ## [`golden`] - Golden Test Framework
+//!
+//! Shared infrastructure for golden test data:
+//! - Test case loaders for European/Asian/Barrier options
+//! - Market compliance fixture loading
+//! - Tolerance-based assertion helpers
+//!
+//! # Running Tests
+//!
+//! ```bash
+//! # Run all integration tests
+//! cargo test --test integration
+//!
+//! # Run specific category
+//! cargo test --test integration e2e::
+//! cargo test --test integration metrics::
+//! cargo test --test integration serialization::
+//! cargo test --test integration schema::
+//! ```
 
-pub mod full_regression;
-pub mod fx_settlement;
-pub mod metrics_strict_mode;
+// End-to-end workflow tests
+pub mod e2e;
+
+// Metrics framework tests
+pub mod metrics;
+
+// Serialization round-trip tests
+pub mod serialization;
+
+// Schema validation tests
+pub mod schema;
+
+// Golden test framework and data loaders
+pub mod golden;

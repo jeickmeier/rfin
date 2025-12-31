@@ -15,7 +15,9 @@ use finstack_valuations::instruments::commodity_option::CommodityOption;
 use finstack_valuations::instruments::common::traits::{
     CurveDependencies, EquityDependencies, Instrument,
 };
-use finstack_valuations::instruments::{ExerciseStyle, OptionType, PricingOverrides, SettlementType};
+use finstack_valuations::instruments::{
+    ExerciseStyle, OptionType, PricingOverrides, SettlementType,
+};
 use time::macros::date;
 
 fn build_discount_curve(id: &str, rate: f64) -> DiscountCurve {

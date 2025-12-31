@@ -1,6 +1,0 @@
-name,spot,strike,time,rate,div_yield,volatility,num_fixings,averaging,expected_price,abs_tol,rel_tol
-Asian_Geom_ATM_12M,100.0,100.0,1.0,0.05,0.02,0.20,12,geometric,7.234,0.10,0.01
-Asian_Geom_ITM_12M,110.0,100.0,1.0,0.05,0.02,0.20,12,geometric,14.567,0.10,0.01
-Asian_Arith_ATM_12M,100.0,100.0,1.0,0.05,0.02,0.20,12,arithmetic,7.456,0.15,0.015
-Asian_Arith_ITM_12M,110.0,100.0,1.0,0.05,0.02,0.20,12,arithmetic,15.234,0.15,0.015
-

@@ -30,7 +30,12 @@ export default defineConfig({
       "@/types": path.resolve(__dirname, "src/types"),
       "@/lib": path.resolve(__dirname, "src/lib"),
       "@/store": path.resolve(__dirname, "src/store"),
+      "finstack-wasm": path.resolve(__dirname, "../../finstack-wasm/pkg/finstack_wasm"),
     },
+    preserveSymlinks: true,
+  },
+  optimizeDeps: {
+    include: ["finstack-wasm"],
   },
   server: {
     fs: {
@@ -73,5 +78,8 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: "./vitest.setup.ts",
     globals: true,
+    deps: {
+      inline: ["finstack-wasm"],
+    },
   },
 });
