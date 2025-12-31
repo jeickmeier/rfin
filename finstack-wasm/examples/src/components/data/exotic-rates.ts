@@ -21,8 +21,8 @@ export interface CmsOptionJsonData {
   option_type: 'call' | 'put';
   notional: MoneyData;
   day_count: string;
-  swap_fixed_freq: { Months: number };
-  swap_float_freq: { Months: number };
+  swap_fixed_freq: { count: number; unit: string };
+  swap_float_freq: { count: number; unit: string };
   swap_day_count: string;
   discount_curve_id: string;
   forward_curve_id: string;
@@ -111,8 +111,8 @@ const DEFAULT_CMS_OPTIONS: CmsOptionJsonData[] = [
     option_type: 'call',
     notional: { amount: 10_000_000, currency: 'USD' },
     day_count: 'Act365F',
-    swap_fixed_freq: { Months: 6 },
-    swap_float_freq: { Months: 3 },
+    swap_fixed_freq: { count: 6, unit: 'months' },
+    swap_float_freq: { count: 3, unit: 'months' },
     swap_day_count: 'Act360',
     discount_curve_id: 'USD-OIS',
     forward_curve_id: 'USD-SOFR-3M',
@@ -128,8 +128,8 @@ const DEFAULT_CMS_OPTIONS: CmsOptionJsonData[] = [
     option_type: 'put',
     notional: { amount: 10_000_000, currency: 'USD' },
     day_count: 'Act365F',
-    swap_fixed_freq: { Months: 6 },
-    swap_float_freq: { Months: 3 },
+    swap_fixed_freq: { count: 6, unit: 'months' },
+    swap_float_freq: { count: 3, unit: 'months' },
     swap_day_count: 'Act360',
     discount_curve_id: 'USD-OIS',
     forward_curve_id: 'USD-SOFR-3M',

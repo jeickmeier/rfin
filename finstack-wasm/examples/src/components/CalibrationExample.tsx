@@ -4,7 +4,6 @@ import {
   CalibrationConfig,
   CreditIndexData,
   FsDate,
-  Frequency,
   HazardCurve,
   MarketContext,
   RatesQuote,
@@ -56,28 +55,12 @@ const isoDate = (date: FsDate): string => {
   return `${y}-${m}-${d}`;
 };
 
-/** Quote factory for initial market setup */
+/** Quote factory for initial market setup - using consistent USD-OIS index for discount curve */
 const createDiscountQuotesForMarket = () => [
-  RatesQuote.deposit(new FsDate(2024, 2, 1), 0.045, 'act_360'),
-  RatesQuote.deposit(new FsDate(2024, 4, 2), 0.0465, 'act_360'),
-  RatesQuote.swap(
-    new FsDate(2025, 1, 2),
-    0.0475,
-    Frequency.annual(),
-    Frequency.quarterly(),
-    '30_360',
-    'act_360',
-    'USD-SOFR'
-  ),
-  RatesQuote.swap(
-    new FsDate(2027, 1, 2),
-    0.0485,
-    Frequency.annual(),
-    Frequency.quarterly(),
-    '30_360',
-    'act_360',
-    'USD-SOFR'
-  ),
+  RatesQuote.deposit('dep_1m', 'USD-OIS', new FsDate(2024, 2, 1), 0.045),
+  RatesQuote.deposit('dep_3m', 'USD-OIS', new FsDate(2024, 4, 2), 0.0465),
+  RatesQuote.swap('swap_1y', 'USD-OIS', new FsDate(2025, 1, 2), 0.0475),
+  RatesQuote.swap('swap_3y', 'USD-OIS', new FsDate(2027, 1, 2), 0.0485),
 ];
 
 export const CalibrationExample: React.FC = () => {
@@ -234,24 +217,25 @@ export const CalibrationExample: React.FC = () => {
         ];
 
         // Create credit index data for base correlation calibration
+        // Note: Use regular arrays, not Float64Array, for WASM Vec<f64> parameters
         const indexHazardCurve = new HazardCurve(
           'CDX.NA.IG.42',
           baseDate,
-          new Float64Array([1.0, 3.0, 5.0, 7.0, 10.0]),
-          new Float64Array([0.01, 0.012, 0.015, 0.018, 0.02]),
+          [1.0, 3.0, 5.0, 7.0, 10.0],
+          [0.01, 0.012, 0.015, 0.018, 0.02],
           0.4,
           'act_360',
           null,
           null,
           'USD',
-          new Float64Array([1.0, 3.0, 5.0, 7.0, 10.0]),
-          new Float64Array([50, 60, 75, 90, 110])
+          [1.0, 3.0, 5.0, 7.0, 10.0],
+          [50, 60, 75, 90, 110]
         );
 
         const placeholderBaseCorr = new BaseCorrelationCurve(
           'CDX.NA.IG.42_5Y',
-          new Float64Array([3.0, 7.0, 10.0, 15.0, 30.0]),
-          new Float64Array([0.2, 0.35, 0.45, 0.55, 0.7])
+          [3.0, 7.0, 10.0, 15.0, 30.0],
+          [0.2, 0.35, 0.45, 0.55, 0.7]
         );
 
         const creditIndexData = new CreditIndexData(

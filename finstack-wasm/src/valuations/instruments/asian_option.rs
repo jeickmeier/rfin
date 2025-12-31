@@ -110,6 +110,8 @@ impl JsAsianOption {
         builder = builder.discount_curve_id(curve_id_from_str(discount_curve));
         builder = builder.spot_id(spot_id.to_string());
         builder = builder.vol_surface_id(curve_id_from_str(vol_surface));
+        builder = builder.pricing_overrides(Default::default());
+        builder = builder.attributes(Default::default());
         if let Some(div) = div_yield_id {
             builder = builder.div_yield_id(curve_id_from_str(&div));
         }

@@ -60,7 +60,7 @@ export const RevolvingCreditInstrument: React.FC<RevolvingCreditInstrumentProps>
         maturity_date: maturityDate,
         base_rate_spec: { Fixed: { rate: formState.fixedRate } },
         day_count: 'act360',
-        payment_frequency: { Months: 3 },
+        payment_frequency: { count: 3, unit: 'months' },
         fees: {
           upfront_fee: null,
           commitment_fee_bp: formState.commitmentFeeBp,

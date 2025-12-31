@@ -1,6 +1,7 @@
 use crate::core::dates::calendar::JsBusinessDayConvention;
 use crate::core::dates::date::JsDate;
-use crate::core::dates::daycount::{JsDayCount, JsTenor};
+use crate::core::dates::daycount::JsDayCount;
+use crate::core::dates::frequency::JsFrequency;
 use crate::core::dates::schedule::JsStubKind;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
@@ -144,7 +145,7 @@ impl JsBond {
         maturity: &JsDate,
         discount_curve: &str,
         coupon_rate: Option<f64>,
-        frequency: Option<JsTenor>,
+        frequency: Option<JsFrequency>,
         day_count: Option<JsDayCount>,
         business_day_convention: Option<JsBusinessDayConvention>,
         calendar_id: Option<String>,
@@ -432,7 +433,7 @@ impl JsBond {
         margin_bp: f64,
         issue: &JsDate,
         maturity: &JsDate,
-        frequency: &JsTenor,
+        frequency: &JsFrequency,
         day_count: &JsDayCount,
         discount_curve: &str,
         quoted_clean_price: Option<f64>,
@@ -521,13 +522,13 @@ impl JsBond {
     }
 
     #[wasm_bindgen(getter)]
-    pub fn frequency(&self) -> JsTenor {
+    pub fn frequency(&self) -> JsFrequency {
         let freq = match &self.inner.cashflow_spec {
             CashflowSpec::Fixed(spec) => spec.freq,
             CashflowSpec::Floating(spec) => spec.freq,
             CashflowSpec::Amortizing { base, .. } => base.frequency(),
         };
-        JsTenor::from_inner(freq)
+        JsFrequency::from_inner(freq)
     }
 
     #[wasm_bindgen(getter, js_name = dayCount)]

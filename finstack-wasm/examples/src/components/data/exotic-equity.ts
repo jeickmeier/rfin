@@ -49,7 +49,7 @@ export interface LookbackOptionJsonData {
   day_count: string;
   discount_curve_id: string;
   spot_id: string;
-  vol_id: string;
+  vol_surface_id: string;
   div_yield_id: string;
 }
 
@@ -59,12 +59,14 @@ export interface CliquetOptionJsonData {
   underlying_ticker: string;
   reset_dates: string[];
   local_cap: number;
+  local_floor: number;
   global_cap: number;
+  global_floor: number;
   notional: MoneyData;
   day_count: string;
   discount_curve_id: string;
   spot_id: string;
-  vol_id: string;
+  vol_surface_id: string;
   div_yield_id: string;
 }
 
@@ -208,7 +210,7 @@ const DEFAULT_LOOKBACK_OPTIONS: LookbackOptionJsonData[] = [
     day_count: 'act_365f',
     discount_curve_id: 'USD-OIS',
     spot_id: 'AAPL-SPOT',
-    vol_id: 'EQUITY-VOL',
+    vol_surface_id: 'EQUITY-VOL',
     div_yield_id: 'AAPL-DIVYIELD',
   },
 ];
@@ -220,12 +222,14 @@ const DEFAULT_CLIQUET_OPTIONS: CliquetOptionJsonData[] = [
     underlying_ticker: 'AAPL',
     reset_dates: ['2024-04-01', '2024-07-01', '2024-10-01', '2024-12-31'],
     local_cap: 0.15,
+    local_floor: -0.05,
     global_cap: 0.3,
+    global_floor: 0.0,
     notional: { amount: 1_000_000, currency: 'USD' },
     day_count: 'act_365f',
     discount_curve_id: 'USD-OIS',
     spot_id: 'AAPL-SPOT',
-    vol_id: 'EQUITY-VOL',
+    vol_surface_id: 'EQUITY-VOL',
     div_yield_id: 'AAPL-DIVYIELD',
   },
 ];

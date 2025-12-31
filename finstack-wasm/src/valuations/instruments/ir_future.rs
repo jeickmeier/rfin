@@ -48,6 +48,11 @@ impl JsInterestRateFuture {
         let position_value = parse_optional_with_default(position, Position::Long)?;
         let dc = day_count.map(|d| d.inner()).unwrap_or(DayCount::Act360);
 
+        // Use default contract specs with convexity adjustment set to 0.0
+        // to avoid requiring a volatility surface for simple pricing
+        let mut contract_specs = FutureContractSpecs::default();
+        contract_specs.convexity_adjustment = Some(0.0);
+
         let builder = InterestRateFuture::builder()
             .id(instrument_id_from_str(instrument_id))
             .notional(notional.inner())
@@ -60,7 +65,7 @@ impl JsInterestRateFuture {
             .forward_id(curve_id_from_str(forward_curve))
             .day_count(dc)
             .position(position_value)
-            .contract_specs(FutureContractSpecs::default())
+            .contract_specs(contract_specs)
             .attributes(Default::default());
 
         builder

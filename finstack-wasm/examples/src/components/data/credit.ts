@@ -98,7 +98,7 @@ export interface RevolvingCreditData {
   maturityDate: string;
   baseRateSpec: { Fixed: { rate: number } };
   dayCount: string;
-  paymentFrequency: { Months: number };
+  paymentFrequency: { count: number; unit: string };
   fees: {
     upfrontFee: MoneyData | null;
     commitmentFeeBp: number;
@@ -266,7 +266,7 @@ export const DEFAULT_REVOLVING_CREDITS: RevolvingCreditData[] = [
     maturityDate: '2026-01-02',
     baseRateSpec: { Fixed: { rate: 0.05 } },
     dayCount: 'act360',
-    paymentFrequency: { Months: 3 },
+    paymentFrequency: { count: 3, unit: 'months' },
     fees: {
       upfrontFee: { amount: 50_000, currency: 'USD' },
       commitmentFeeBp: 25,

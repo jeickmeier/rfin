@@ -1,6 +1,7 @@
 pub mod calendar;
 pub mod date;
 pub mod daycount;
+pub mod frequency;
 pub mod imm;
 pub mod periods;
 pub mod schedule;
@@ -20,6 +21,7 @@ pub use daycount::JsDayCount as DayCount;
 pub use daycount::JsDayCountContext as DayCountContext;
 pub use daycount::JsDayCountContextState as DayCountContextState;
 pub use daycount::JsTenor as Tenor;
+pub use frequency::JsFrequency as Frequency;
 pub use imm::imm_option_expiry_js as imm_option_expiry;
 pub use imm::next_cds_date_js as next_cds_date;
 pub use imm::next_equity_option_expiry_js as next_equity_option_expiry;

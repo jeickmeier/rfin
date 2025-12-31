@@ -158,11 +158,23 @@ impl JsDayCountContext {
     }
 
     #[wasm_bindgen(js_name = setTenor)]
-    pub fn set_frequency(&mut self, frequency: &JsTenor) {
+    pub fn set_tenor(&mut self, tenor: &JsTenor) {
+        self.frequency = Some(tenor.inner());
+    }
+
+    /// Set the frequency context using a Frequency value.
+    /// This is equivalent to setTenor but accepts a Frequency for convenience.
+    #[wasm_bindgen(js_name = setFrequency)]
+    pub fn set_frequency(&mut self, frequency: &super::frequency::JsFrequency) {
         self.frequency = Some(frequency.inner());
     }
 
     #[wasm_bindgen(js_name = clearTenor)]
+    pub fn clear_tenor(&mut self) {
+        self.frequency = None;
+    }
+
+    #[wasm_bindgen(js_name = clearFrequency)]
     pub fn clear_frequency(&mut self) {
         self.frequency = None;
     }
