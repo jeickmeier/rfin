@@ -330,7 +330,7 @@ impl RevolvingCreditPricer {
     /// # Returns
     ///
     /// Present value as `Money`
-    pub fn price(facility: &RevolvingCredit, market: &MarketContext, as_of: Date) -> Result<Money> {
+    pub(crate) fn price(facility: &RevolvingCredit, market: &MarketContext, as_of: Date) -> Result<Money> {
         match &facility.draw_repay_spec {
             DrawRepaySpec::Deterministic(_) => {
                 // Single deterministic path
@@ -359,7 +359,7 @@ impl RevolvingCreditPricer {
     ///
     /// This is the same as calling `price()` with a deterministic facility,
     /// but provides an explicit API for callers who know they have a deterministic spec.
-    pub fn price_deterministic(
+    pub(crate) fn price_deterministic(
         facility: &RevolvingCredit,
         market: &MarketContext,
         as_of: Date,

@@ -157,20 +157,6 @@ impl MarketQuote {
     pub fn bump_vol_absolute(&self, bump: f64) -> finstack_core::Result<Self> {
         self.bump_with(MarketQuoteBump::VolAbsolute(bump))
     }
-
-    /// Deprecated: use explicit bump helpers with units.
-    #[deprecated(note = "use bump_rate_decimal/bp, bump_spread_decimal/bp, or bump_vol_absolute")]
-    pub fn bump(&self, amount: f64) -> Self {
-        match self {
-            // These transformations are infallible for the matching quote class; the
-            // Result-returning APIs exist to enforce explicit bump unit semantics.
-            MarketQuote::Rates(q) => MarketQuote::Rates(q.bump_rate_decimal(amount)),
-            MarketQuote::Inflation(q) => MarketQuote::Inflation(q.bump_rate_decimal(amount)),
-            MarketQuote::Cds(q) => MarketQuote::Cds(q.bump_spread_decimal(amount)),
-            MarketQuote::CdsTranche(q) => MarketQuote::CdsTranche(q.bump_spread_decimal(amount)),
-            MarketQuote::Vol(q) => MarketQuote::Vol(q.bump_vol_absolute(amount)),
-        }
-    }
 }
 
 /// Trait for filtering quote collections into specific types (owned).

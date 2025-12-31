@@ -12,13 +12,12 @@ mod tests {
     use finstack_core::money::Money;
     use finstack_core::types::CurveId;
     use finstack_valuations::cashflow::builder::FeeTier;
-    use finstack_valuations::instruments::revolving_credit::{
-        pricer::RevolvingCreditPricer,
-        types::{
-            BaseRateSpec, DrawRepayEvent, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
-            StochasticUtilizationSpec, UtilizationProcess,
-        },
+    use finstack_valuations::instruments::revolving_credit::pricer::RevolvingCreditPricer;
+    use finstack_valuations::instruments::revolving_credit::types::{
+        BaseRateSpec, DrawRepayEvent, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
+        StochasticUtilizationSpec, UtilizationProcess,
     };
+    use finstack_valuations::instruments::Instrument;
     use time::Month;
 
     /// Helper to create test dates
@@ -132,7 +131,7 @@ mod tests {
 
         // Price both
         let pv_det =
-            RevolvingCreditPricer::price_deterministic(&facility_det, &market, start).unwrap();
+            facility_det.value(&market, start).unwrap();
 
         let result_stoch =
             RevolvingCreditPricer::price_with_paths(&facility_stoch, &market, start).unwrap();
@@ -226,7 +225,7 @@ mod tests {
 
         // Price both
         let pv_det =
-            RevolvingCreditPricer::price_deterministic(&facility_det, &market, start).unwrap();
+            facility_det.value(&market, start).unwrap();
 
         let result_stoch =
             RevolvingCreditPricer::price_with_paths(&facility_stoch, &market, start).unwrap();
@@ -291,7 +290,7 @@ mod tests {
 
         // Price both
         let pv_det =
-            RevolvingCreditPricer::price_deterministic(&facility_det, &market, start).unwrap();
+            facility_det.value(&market, start).unwrap();
 
         let result_stoch =
             RevolvingCreditPricer::price_with_paths(&facility_stoch, &market, start).unwrap();
@@ -397,7 +396,7 @@ mod tests {
 
             // Price both
             let pv_det =
-                RevolvingCreditPricer::price_deterministic(&facility_det, &market, start).unwrap();
+                facility_det.value(&market, start).unwrap();
 
             let result_stoch =
                 RevolvingCreditPricer::price_with_paths(&facility_stoch, &market, start).unwrap();
@@ -479,7 +478,7 @@ mod tests {
 
         // Price both
         let pv_det =
-            RevolvingCreditPricer::price_deterministic(&facility_det, &market, start).unwrap();
+            facility_det.value(&market, start).unwrap();
 
         let result_stoch =
             RevolvingCreditPricer::price_with_paths(&facility_stoch, &market, start).unwrap();
@@ -538,7 +537,7 @@ mod tests {
 
             // Price both
             let pv_det =
-                RevolvingCreditPricer::price_deterministic(&facility_det, &market, start).unwrap();
+                facility_det.value(&market, start).unwrap();
 
             let result_stoch =
                 RevolvingCreditPricer::price_with_paths(&facility_stoch, &market, start).unwrap();

@@ -143,10 +143,8 @@ pub use exotics::{
 };
 
 // === Common Functionality ===
-pub use common::build_with_metrics_dyn;
 pub use common::discountable::Discountable;
-pub use common::helpers::{instrument_to_arc, price_with_metrics_from_arcs};
-pub use common::traits::{Attributes, Instrument};
+pub use common::traits::{Attributes, Instrument, PricingOptions};
 pub use common::{BinomialTree, TreeType};
 
 // === Parameter Types ===

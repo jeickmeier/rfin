@@ -69,7 +69,7 @@ impl BondEngine {
     ///
     /// # Examples
     ///
-    /// ```rust,no_run
+    /// ```ignore
     /// use finstack_valuations::instruments::bond::Bond;
     /// use finstack_valuations::instruments::bond::pricing::discount_engine::BondEngine;
     /// use finstack_core::market_data::context::MarketContext;
@@ -81,7 +81,7 @@ impl BondEngine {
     /// let pv = BondEngine::price(&bond, &market, as_of)?;
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn price(bond: &Bond, context: &MarketContext, as_of: Date) -> Result<Money> {
+    pub(crate) fn price(bond: &Bond, context: &MarketContext, as_of: Date) -> Result<Money> {
         Self::price_with_explanation(bond, context, as_of, ExplainOpts::disabled())
             .map(|(pv, _)| pv)
     }

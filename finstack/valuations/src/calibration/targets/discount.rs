@@ -3,9 +3,9 @@ use crate::calibration::config::ResidualWeightingScheme;
 use crate::calibration::config::{CalibrationConfig, CalibrationMethod};
 use crate::calibration::constants::*;
 use crate::calibration::prepared::CalibrationQuote;
-use crate::calibration::solver::{
-    BootstrapTarget, GlobalFitOptimizer, GlobalSolveTarget, SequentialBootstrapper,
-};
+use crate::calibration::solver::bootstrap::SequentialBootstrapper;
+use crate::calibration::solver::global::GlobalFitOptimizer;
+use crate::calibration::solver::traits::{BootstrapTarget, GlobalSolveTarget};
 use crate::calibration::validation::RateBoundsPolicy;
 use crate::calibration::CalibrationReport;
 use crate::market::quotes::market_quote::ExtractQuotes;
@@ -967,8 +967,8 @@ Ensure quotes map to strictly increasing year fractions.",
 mod tests {
     use super::*;
     use crate::calibration::prepared::CalibrationQuote;
-    use crate::calibration::solver::BootstrapTarget;
-    use crate::calibration::solver::GlobalFitOptimizer;
+    use crate::calibration::solver::global::GlobalFitOptimizer;
+    use crate::calibration::solver::traits::BootstrapTarget;
     use crate::market::build::prepared::PreparedQuote;
     use finstack_core::dates::{BusinessDayConvention, DayCountCtx};
     use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};

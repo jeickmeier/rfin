@@ -3,7 +3,8 @@
 use crate::calibration::api::schema::BaseCorrelationParams;
 use crate::calibration::config::CalibrationConfig;
 use crate::calibration::prepared::{CalibrationQuote, CdsTrancheCalibrationQuote};
-use crate::calibration::solver::{BootstrapTarget, SequentialBootstrapper};
+use crate::calibration::solver::bootstrap::SequentialBootstrapper;
+use crate::calibration::solver::traits::BootstrapTarget;
 use crate::calibration::CalibrationReport;
 use crate::market::build::cds_tranche::{build_cds_tranche_instrument, CdsTrancheBuildOverrides};
 use crate::market::build::context::BuildCtx;

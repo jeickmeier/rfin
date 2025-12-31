@@ -382,10 +382,11 @@ impl PyRevolvingCredit {
         as_of: Bound<'_, pyo3::PyAny>,
     ) -> PyResult<PyMoney> {
         use crate::core::dates::utils::py_to_date;
-        use finstack_valuations::instruments::revolving_credit::pricer::RevolvingCreditPricer;
+        use finstack_valuations::instruments::Instrument;
 
         let as_of_date = py_to_date(&as_of)?;
-        RevolvingCreditPricer::price_deterministic(&self.inner, &market.inner, as_of_date)
+        self.inner
+            .value(&market.inner, as_of_date)
             .map(PyMoney::new)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }

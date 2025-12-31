@@ -1,7 +1,8 @@
 use crate::calibration::api::schema::InflationCurveParams;
 use crate::calibration::config::{CalibrationConfig, CalibrationMethod};
 use crate::calibration::prepared::CalibrationQuote;
-use crate::calibration::solver::{BootstrapTarget, SequentialBootstrapper};
+use crate::calibration::solver::bootstrap::SequentialBootstrapper;
+use crate::calibration::solver::traits::BootstrapTarget;
 use crate::calibration::CalibrationReport;
 use crate::market::quotes::inflation::InflationQuote;
 use crate::market::quotes::market_quote::{ExtractQuotes, MarketQuote};

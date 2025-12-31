@@ -303,12 +303,6 @@ impl RateQuote {
     pub fn bump_rate_bp(&self, bump_bp: f64) -> Self {
         self.bump_rate_decimal(bump_bp / 10_000.0)
     }
-
-    /// Deprecated: use `bump_rate_decimal` or `bump_rate_bp` for explicit units.
-    #[deprecated(note = "use bump_rate_decimal or bump_rate_bp for explicit units")]
-    pub fn bump(&self, bump: f64) -> Self {
-        self.bump_rate_decimal(bump)
-    }
 }
 
 #[cfg(test)]

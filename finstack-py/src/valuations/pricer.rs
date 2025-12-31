@@ -8,7 +8,6 @@ use crate::valuations::results::PyValuationResult;
 use finstack_valuations::instruments::bond::metrics::price_yield_spread::asw::{
     asw_market_with_forward, asw_par_with_forward,
 };
-use finstack_valuations::instruments::{build_with_metrics_dyn, instrument_to_arc};
 use finstack_valuations::metrics::MetricId;
 use finstack_valuations::pricer::{create_standard_registry, PricerRegistry};
 use pyo3::exceptions::PyValueError;
@@ -206,7 +205,8 @@ impl PyPricerRegistry {
         let InstrumentHandle {
             instrument: inst, ..
         } = extract_instrument(&instrument)?;
-        let ModelKeyArg(model_key) = model.extract()?;
+        // Note: model_key is unused as Instrument::price_with_metrics uses the instrument's default pricing
+        let ModelKeyArg(_model_key) = model.extract()?;
 
         // Parse metrics
         let mut metric_ids: Vec<MetricId> = Vec::with_capacity(metrics.len());
@@ -222,25 +222,12 @@ impl PyPricerRegistry {
 
         // Release GIL for compute-heavy pricing and metric calculation
         py.detach(|| {
-            // Base price via registry to derive as_of deterministically per pricer
-            let base = self
-                .inner
-                .price_with_registry(inst.as_ref(), model_key, &market.inner, as_of_date, None)
-                .map_err(pricing_error_to_py)?;
+            // Use the canonical Instrument::price_with_metrics method
+            let result = inst
+                .price_with_metrics(&market.inner, as_of_date, &metric_ids)
+                .map_err(core_to_py)?;
 
-            // Compute requested metrics using helper
-            let with_metrics = build_with_metrics_dyn(
-                instrument_to_arc(inst.as_ref()),
-                Arc::new(market.inner.clone()),
-                base.as_of,
-                base.value,
-                &metric_ids,
-                None,
-                None,
-            )
-            .map_err(core_to_py)?;
-
-            Ok(PyValuationResult::new(with_metrics))
+            Ok(PyValuationResult::new(result))
         })
     }
 

@@ -14,7 +14,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::revolving_credit::pricer::RevolvingCreditPricer;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::revolving_credit::{
     BaseRateSpec, DrawRepayEvent, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
 };
@@ -66,7 +66,7 @@ fn test_upfront_fee_sign() {
         .unwrap();
     let market = MarketContext::new().insert_discount(disc_curve);
 
-    let pv = RevolvingCreditPricer::price_deterministic(&facility, &market, start).unwrap();
+    let pv = facility.value(&market, start).unwrap();
 
     // PV should equal upfront fee (positive, lender receives fee)
     assert!(
@@ -201,7 +201,7 @@ fn test_floating_vs_margin_only() {
 
     // Price with curves (should include forward rates)
     let pv_with_curves =
-        RevolvingCreditPricer::price_deterministic(&facility, &market_with_curve, start).unwrap();
+        facility.value(&market_with_curve, start).unwrap();
 
     // Price without curves (margin-only)
     // This would use generate_deterministic_cashflows instead of _with_curves

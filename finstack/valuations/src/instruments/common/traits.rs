@@ -58,14 +58,78 @@
 //! ```
 
 use crate::cashflow::traits::CashflowProvider;
+use crate::metrics::risk::MarketHistory;
 use crate::metrics::MetricId;
 use crate::pricer::InstrumentType;
+use finstack_core::config::FinstackConfig;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::{currency::Currency, dates::Date, money::Money, types::CurveId};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use std::any::Any;
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Arc;
+
+// =============================================================================
+// Pricing Options
+// =============================================================================
+
+/// Options for pricing with metrics.
+///
+/// This struct consolidates optional parameters for `Instrument::price_with_metrics`,
+/// replacing the proliferation of `_with_config`, `_with_market_history` variants.
+///
+/// # Examples
+///
+/// ## Basic usage (no options)
+///
+/// ```ignore
+/// let result = instrument.price_with_metrics(&market, as_of, &metrics, None)?;
+/// ```
+///
+/// ## With custom config
+///
+/// ```ignore
+/// let opts = PricingOptions::default().with_config(&my_config);
+/// let result = instrument.price_with_metrics(&market, as_of, &metrics, Some(opts))?;
+/// ```
+///
+/// ## With market history for VaR
+///
+/// ```ignore
+/// let opts = PricingOptions::default().with_market_history(history);
+/// let result = instrument.price_with_metrics(&market, as_of, &metrics, Some(opts))?;
+/// ```
+#[derive(Clone, Default)]
+pub struct PricingOptions {
+    /// Optional configuration for metric computation (bump sizes, tolerances, etc.)
+    pub config: Option<Arc<FinstackConfig>>,
+    /// Optional market history for Historical VaR / Expected Shortfall metrics
+    pub market_history: Option<Arc<MarketHistory>>,
+}
+
+impl PricingOptions {
+    /// Create new pricing options with no extras.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set the configuration for metric computation.
+    ///
+    /// The config controls sensitivity bump sizes and other calculation parameters.
+    pub fn with_config(mut self, cfg: &FinstackConfig) -> Self {
+        self.config = Some(Arc::new(cfg.clone()));
+        self
+    }
+
+    /// Set the market history for Historical VaR / Expected Shortfall.
+    ///
+    /// Required for computing `MetricId::HVAR` and `MetricId::EXPECTED_SHORTFALL`.
+    pub fn with_market_history(mut self, history: Arc<MarketHistory>) -> Self {
+        self.market_history = Some(history);
+        self
+    }
+}
 
 /// Type alias for curve ID collections that are typically small (0-2 items).
 ///
@@ -875,79 +939,48 @@ pub trait Instrument: Send + Sync {
         metrics: &[MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult>;
 
-    /// Compute present value with specified risk metrics, using an explicit `FinstackConfig`.
+    /// Compute present value with specified risk metrics and optional pricing options.
     ///
-    /// This method is identical to [`Instrument::price_with_metrics`] but allows callers to
-    /// supply a `FinstackConfig` so user-facing defaults (e.g., risk bump sizes via
-    /// `FinstackConfig.extensions["valuations.sensitivities.v1"]`) can be set once and
-    /// persisted as part of a reproducible pipeline.
+    /// This is the canonical method for pricing with additional configuration such as
+    /// custom sensitivity bump sizes or market history for VaR calculations.
     ///
-    /// # Notes
+    /// # Arguments
     ///
-    /// - Sensitivities (DV01/CS01/vega/FD greeks) resolve their bump sizes from the supplied
-    ///   `FinstackConfig` (via `valuations.sensitivities.v1`) for reproducibility.
-    /// - If you don't need config-aware defaults, use [`Instrument::price_with_metrics`].
-    fn price_with_metrics_with_config(
+    /// * `market` - Market data context
+    /// * `as_of` - Valuation date
+    /// * `metrics` - Metrics to compute
+    /// * `options` - Optional pricing configuration (config, market history)
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// // Basic usage - no options
+    /// let result = instrument.price_with_metrics(&market, as_of, &metrics)?;
+    ///
+    /// // With custom config for sensitivity bump sizes
+    /// let opts = PricingOptions::default().with_config(&my_config);
+    /// let result = instrument.price_with_options(&market, as_of, &metrics, opts)?;
+    ///
+    /// // With market history for VaR
+    /// let opts = PricingOptions::default().with_market_history(history);
+    /// let result = instrument.price_with_options(&market, as_of, &metrics, opts)?;
+    /// ```
+    fn price_with_options(
         &self,
         market: &MarketContext,
         as_of: Date,
         metrics: &[MetricId],
-        cfg: &finstack_core::config::FinstackConfig,
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(market, as_of)?;
-
-        crate::instruments::common::helpers::build_with_metrics_dyn(
-            std::sync::Arc::from(self.clone_box()),
-            std::sync::Arc::new(market.clone()),
-            as_of,
-            base_value,
-            metrics,
-            Some(std::sync::Arc::new(cfg.clone())),
-            None,
-        )
-    }
-
-    /// Compute present value with specified risk metrics, using an attached [`MarketHistory`].
-    ///
-    /// This is primarily used for Historical VaR / Expected Shortfall metrics, which require
-    /// a lookback window of historical market scenarios.
-    fn price_with_metrics_with_market_history(
-        &self,
-        market: &MarketContext,
-        as_of: Date,
-        metrics: &[MetricId],
-        market_history: std::sync::Arc<crate::metrics::risk::MarketHistory>,
+        options: PricingOptions,
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(market, as_of)?;
         crate::instruments::common::helpers::build_with_metrics_dyn(
-            std::sync::Arc::from(self.clone_box()),
-            std::sync::Arc::new(market.clone()),
+            Arc::from(self.clone_box()),
+            Arc::new(market.clone()),
             as_of,
             base_value,
             metrics,
-            None,
-            Some(market_history),
-        )
-    }
-
-    /// Config-aware variant of [`Instrument::price_with_metrics_with_market_history`].
-    fn price_with_metrics_with_market_history_with_config(
-        &self,
-        market: &MarketContext,
-        as_of: Date,
-        metrics: &[MetricId],
-        market_history: std::sync::Arc<crate::metrics::risk::MarketHistory>,
-        cfg: &finstack_core::config::FinstackConfig,
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(market, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
-            std::sync::Arc::from(self.clone_box()),
-            std::sync::Arc::new(market.clone()),
-            as_of,
-            base_value,
-            metrics,
-            Some(std::sync::Arc::new(cfg.clone())),
-            Some(market_history),
+            options.config,
+            options.market_history,
         )
     }
 

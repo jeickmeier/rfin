@@ -50,7 +50,6 @@
 //! - [`crate::instruments::vol_index_option`] for VIX options
 
 pub mod metrics;
-pub mod pricer;
 mod types;
 
 pub use types::{VolIndexContractSpecs, VolatilityIndexFuture};

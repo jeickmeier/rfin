@@ -13,7 +13,7 @@ use finstack_core::Result;
 ///
 /// This calculator integrates Historical VaR into the standard metrics
 /// framework. It requires a `MarketHistory` to be provided at the pricing
-/// boundary (see [`crate::instruments::common::traits::Instrument::price_with_metrics_with_market_history`]).
+/// boundary (see [`crate::instruments::common::traits::Instrument::price_with_options`]).
 ///
 /// # Examples
 ///
@@ -44,7 +44,7 @@ impl MetricCalculator for GenericHVar {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let history = context.market_history.as_deref().ok_or_else(|| {
             finstack_core::Error::Validation(
-                "Market history required for VaR calculation. Provide it via Instrument::price_with_metrics_with_market_history(...)"
+                "Market history required for VaR calculation. Provide it via Instrument::price_with_options(...) with PricingOptions::with_market_history(...)"
                     .to_string(),
             )
         })?;
@@ -101,7 +101,7 @@ impl MetricCalculator for GenericExpectedShortfall {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let history = context.market_history.as_deref().ok_or_else(|| {
             finstack_core::Error::Validation(
-                "Market history required for VaR/ES calculation. Provide it via Instrument::price_with_metrics_with_market_history(...)"
+                "Market history required for VaR/ES calculation. Provide it via Instrument::price_with_options(...) with PricingOptions::with_market_history(...)"
                     .to_string(),
             )
         })?;
@@ -177,11 +177,13 @@ mod tests {
         )?;
 
         // Calculate VaR + ES via metrics framework
-        let result_ordered = bond.price_with_metrics_with_market_history(
+        use crate::instruments::PricingOptions;
+        let opts = PricingOptions::default().with_market_history(history);
+        let result_ordered = bond.price_with_options(
             market.as_ref(),
             as_of,
             &[MetricId::HVAR, MetricId::EXPECTED_SHORTFALL],
-            history,
+            opts,
         )?;
 
         let var = *result_ordered
@@ -207,11 +209,12 @@ mod tests {
 
         // Also verify reversed ordering doesn't break ES vs VaR wiring.
         let history2 = Arc::new(history_from_rate_shifts(as_of, &shifts));
-        let result_reversed = bond.price_with_metrics_with_market_history(
+        let opts2 = PricingOptions::default().with_market_history(history2);
+        let result_reversed = bond.price_with_options(
             market.as_ref(),
             as_of,
             &[MetricId::EXPECTED_SHORTFALL, MetricId::HVAR],
-            history2,
+            opts2,
         )?;
         let var2 = *result_reversed
             .measures

@@ -7,7 +7,7 @@ use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use crate::core::market_data::context::JsMarketContext;
 use crate::valuations::instruments::{extract_instrument, JsBond};
-use finstack_valuations::instruments::{instrument_to_arc, Instrument};
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::risk::{
     calculate_var, MarketHistory, MarketScenario, RiskFactorShift, RiskFactorType, VarConfig,
     VarMethod, VarResult,
@@ -378,7 +378,7 @@ fn bucketed_metric(
         .map_err(|e| js_error(format!("Pricing failed: {}", e)))?;
 
     let mut context = MetricContext::new(
-        instrument_to_arc(instrument),
+        Arc::from(instrument.clone_box()),
         Arc::new(market.inner().clone()),
         as_of_date,
         base_value,

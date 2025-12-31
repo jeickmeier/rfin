@@ -19,8 +19,9 @@
 //! use finstack_valuations::calibration::api::engine;
 //! use finstack_valuations::calibration::api::schema::{
 //!     CalibrationEnvelope, CalibrationPlan, CalibrationStep, StepParams,
-//!     DiscountCurveParams, CalibrationMethod, CALIBRATION_SCHEMA,
+//!     DiscountCurveParams, CALIBRATION_SCHEMA,
 //! };
+//! use finstack_valuations::calibration::CalibrationMethod;
 //! use finstack_valuations::market::quotes::rates::RateQuote;
 //! use finstack_valuations::market::quotes::market_quote::MarketQuote;
 //! use finstack_core::HashMap;
@@ -77,51 +78,13 @@ pub mod constants;
 /// Convexity adjustment logic.
 // Re-exports: Configuration
 pub use config::{
-    CalibrationConfig, CalibrationMethod, DiscountCurveSolveConfig, ResidualWeightingScheme,
-    CALIBRATION_CONFIG_KEY,
+    CalibrationConfig, CalibrationMethod, DiscountCurveSolveConfig, RatesStepConventions,
+    ResidualWeightingScheme, CALIBRATION_CONFIG_KEY,
 };
-/// Backwards-compatible alias for tests expecting the old name. Prefer [`CalibrationMethod`].
-#[deprecated(note = "Use `finstack_valuations::calibration::CalibrationMethod`. \
-            This alias will be removed in the next major release.")]
-pub type CalibrationSolveMethod = CalibrationMethod;
 pub use solver::SolverConfig;
 pub use validation::curves::CurveValidator;
 pub use validation::surfaces::SurfaceValidator;
 pub use validation::{RateBounds, RateBoundsPolicy, ValidationConfig, ValidationMode};
-/// Test-focused wrapper exposing step execution for integration tests and benches.
-#[deprecated(
-    note = "Use `finstack_valuations::test_utils::calibration::execute_step` instead. \
-            This shim will be removed in the next major release."
-)]
-pub fn execute_step_for_tests(
-    params: &crate::calibration::api::schema::StepParams,
-    quotes: &[crate::market::quotes::market_quote::MarketQuote],
-    context: &finstack_core::market_data::context::MarketContext,
-    global_config: &crate::calibration::config::CalibrationConfig,
-) -> finstack_core::Result<(
-    finstack_core::market_data::context::MarketContext,
-    crate::calibration::CalibrationReport,
-)> {
-    crate::calibration::step_runtime::execute_params_and_apply(
-        params,
-        quotes,
-        context,
-        global_config,
-    )
-}
 
 // Re-exports: Reports
 pub use report::CalibrationReport;
-
-// Bump helpers (stable façade)
-#[deprecated(
-    note = "Import bump helpers from `finstack_valuations::calibration::bumps::*`. \
-            These root-level re-exports will be removed in the next major release."
-)]
-pub use bumps::{
-    hazard::{bump_hazard_shift, bump_hazard_spreads},
-    inflation::bump_inflation_rates,
-    rates::bump_discount_curve,
-    rates::bump_discount_curve_synthetic,
-    BumpRequest,
-};

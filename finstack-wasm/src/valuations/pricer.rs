@@ -21,11 +21,10 @@ use crate::valuations::instruments::{
     Swaption as JsSwaption, VarianceSwap as JsVarianceSwap,
 };
 use crate::valuations::results::JsValuationResult;
-use finstack_valuations::instruments::{build_with_metrics_dyn, instrument_to_arc, Instrument};
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use finstack_valuations::pricer::{create_standard_registry, ModelKey, PricerRegistry};
 use std::str::FromStr;
-use std::sync::Arc;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 
@@ -59,28 +58,21 @@ fn price_with_optional_metrics(
 ) -> Result<JsValuationResult, JsValue> {
     let as_of_date = as_of.inner();
 
-    let base = registry
-        .price_with_registry(instrument, model_key, market.inner(), as_of_date, None)
-        .map_err(pricing_error_to_js)?;
-
+    // If metrics requested, use the canonical price_with_metrics path
     if let Some(metric_ids) = metrics {
-        if metric_ids.is_empty() {
-            return Ok(JsValuationResult::new(base));
+        if !metric_ids.is_empty() {
+            return instrument
+                .price_with_metrics(market.inner(), as_of_date, &metric_ids)
+                .map(JsValuationResult::new)
+                .map_err(core_error_to_js);
         }
-        return build_with_metrics_dyn(
-            instrument_to_arc(instrument),
-            Arc::new(market.inner().clone()),
-            base.as_of,
-            base.value,
-            &metric_ids,
-            None,
-            None,
-        )
-        .map(JsValuationResult::new)
-        .map_err(core_error_to_js);
     }
 
-    Ok(JsValuationResult::new(base))
+    // Otherwise just get base price via registry
+    registry
+        .price_with_registry(instrument, model_key, market.inner(), as_of_date, None)
+        .map(JsValuationResult::new)
+        .map_err(pricing_error_to_js)
 }
 
 /// Configuration for pricing requests with optional metrics.

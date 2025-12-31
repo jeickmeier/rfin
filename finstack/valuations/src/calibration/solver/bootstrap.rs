@@ -348,7 +348,7 @@ impl SequentialBootstrapper {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::calibration::solver::BootstrapTarget;
+    use crate::calibration::solver::traits::BootstrapTarget;
 
     #[derive(Clone, Debug)]
     struct DummyTarget;

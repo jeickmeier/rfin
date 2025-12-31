@@ -12,11 +12,11 @@ use finstack_core::math::interp::ExtrapolationPolicy;
 use finstack_core::types::{Currency, CurveId};
 use finstack_core::HashMap;
 use finstack_valuations::calibration::api::schema::{
-    BaseCorrelationParams, CalibrationEnvelope, CalibrationMethod, CalibrationPlan,
-    CalibrationStep, DiscountCurveParams, ForwardCurveParams, HazardCurveParams,
-    InflationCurveParams, StepParams, SurfaceExtrapolationPolicy, SwaptionVolParams,
-    VolSurfaceParams,
+    BaseCorrelationParams, CalibrationEnvelope, CalibrationPlan, CalibrationStep,
+    DiscountCurveParams, ForwardCurveParams, HazardCurveParams, InflationCurveParams, StepParams,
+    SurfaceExtrapolationPolicy, SwaptionVolParams, VolSurfaceParams,
 };
+use finstack_valuations::calibration::CalibrationMethod;
 use finstack_valuations::market::conventions::ids::{
     CdsConventionKey, CdsDocClause, IndexId, SwaptionConventionId,
 };

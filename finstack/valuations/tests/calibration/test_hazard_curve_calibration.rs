@@ -9,10 +9,11 @@ use finstack_core::types::{Currency, CurveId};
 use finstack_core::HashMap;
 use finstack_valuations::calibration::api::engine;
 use finstack_valuations::calibration::api::schema::{
-    CalibrationConfig, CalibrationEnvelope, CalibrationMethod, CalibrationPlan, CalibrationStep,
-    HazardCurveParams, StepParams,
+    CalibrationEnvelope, CalibrationPlan, CalibrationStep, HazardCurveParams, StepParams,
 };
-use finstack_valuations::calibration::ResidualWeightingScheme;
+use finstack_valuations::calibration::{
+    CalibrationConfig, CalibrationMethod, ResidualWeightingScheme,
+};
 use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
 use finstack_valuations::market::quotes::cds::CdsQuote;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};

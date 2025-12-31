@@ -229,10 +229,4 @@ impl CdsQuote {
             },
         }
     }
-
-    /// Deprecated: use `bump_spread_bp` or `bump_spread_decimal` for explicit units.
-    #[deprecated(note = "use bump_spread_bp or bump_spread_decimal for explicit units")]
-    pub fn bump(&self, bump_decimal: f64) -> Self {
-        self.bump_spread_decimal(bump_decimal)
-    }
 }

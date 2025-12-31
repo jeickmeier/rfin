@@ -139,7 +139,7 @@ impl TermLoanDiscountingPricer {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```ignore
     /// use finstack_valuations::instruments::term_loan::TermLoan;
     /// use finstack_valuations::instruments::term_loan::pricing::TermLoanDiscountingPricer;
     /// use finstack_core::market_data::context::MarketContext;
@@ -155,7 +155,7 @@ impl TermLoanDiscountingPricer {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn price(
+    pub(crate) fn price(
         loan: &TermLoan,
         market: &MarketContext,
         as_of: finstack_core::dates::Date,

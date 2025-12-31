@@ -1,7 +1,7 @@
 //! CDS Tranche types, builder entrypoint, and pricing impl.
 
 use crate::cashflow::builder::ScheduleParams;
-use crate::instruments::build_with_metrics_dyn;
+use crate::instruments::common::helpers::build_with_metrics_dyn;
 use crate::instruments::common::traits::{Attributes, Instrument};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;

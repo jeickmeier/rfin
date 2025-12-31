@@ -139,7 +139,7 @@ impl HazardBondEngine {
     ///
     /// # Examples
     ///
-    /// ```rust,no_run
+    /// ```ignore
     /// use finstack_valuations::instruments::bond::Bond;
     /// use finstack_valuations::instruments::bond::pricing::hazard_engine::HazardBondEngine;
     /// use finstack_core::market_data::context::MarketContext;
@@ -151,7 +151,7 @@ impl HazardBondEngine {
     /// let pv = HazardBondEngine::price(&bond, &market, as_of)?;
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn price(bond: &Bond, market: &MarketContext, as_of: Date) -> Result<Money> {
+    pub(crate) fn price(bond: &Bond, market: &MarketContext, as_of: Date) -> Result<Money> {
         if as_of >= bond.maturity {
             return Ok(Money::new(0.0, bond.notional.currency()));
         }

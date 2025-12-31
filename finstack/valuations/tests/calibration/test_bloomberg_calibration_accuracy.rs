@@ -8,11 +8,10 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::interp::InterpStyle;
-use finstack_valuations::calibration::api::schema::{
-    CalibrationMethod, DiscountCurveParams, StepParams,
+use finstack_valuations::calibration::api::schema::{DiscountCurveParams, StepParams};
+use finstack_valuations::calibration::{
+    CalibrationConfig, CalibrationMethod, ResidualWeightingScheme, CALIBRATION_CONFIG_KEY,
 };
-use finstack_valuations::calibration::ResidualWeightingScheme;
-use finstack_valuations::calibration::{CalibrationConfig, CALIBRATION_CONFIG_KEY};
 use finstack_valuations::market::conventions::ids::IndexId;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
@@ -370,7 +369,7 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         extrapolation: finstack_core::math::interp::ExtrapolationPolicy::FlatForward,
         pricing_discount_id: None,
         pricing_forward_id: None,
-        conventions: finstack_valuations::calibration::api::schema::RatesStepConventions {
+        conventions: finstack_valuations::calibration::RatesStepConventions {
             curve_day_count: Some(DayCount::Act365F),
         },
     };

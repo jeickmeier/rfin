@@ -11,10 +11,10 @@ use finstack_core::types::{Currency, CurveId};
 use finstack_core::HashMap;
 use finstack_valuations::calibration::api::engine;
 use finstack_valuations::calibration::api::schema::{
-    CalibrationEnvelope, CalibrationMethod, CalibrationPlan, CalibrationStep, DiscountCurveParams,
-    ForwardCurveParams, StepParams,
+    CalibrationEnvelope, CalibrationPlan, CalibrationStep, DiscountCurveParams, ForwardCurveParams,
+    StepParams,
 };
-use finstack_valuations::calibration::CalibrationConfig;
+use finstack_valuations::calibration::{CalibrationConfig, CalibrationMethod};
 use finstack_valuations::instruments::common::traits::Instrument;
 use finstack_valuations::instruments::ForwardRateAgreement;
 use finstack_valuations::market::build::context::BuildCtx;

@@ -30,7 +30,7 @@ use ts_rs::TS;
 ///
 /// # Examples
 /// ```rust
-/// use finstack_valuations::calibration::api::schema::CalibrationMethod;
+/// use finstack_valuations::calibration::CalibrationMethod;
 ///
 /// let method = CalibrationMethod::GlobalSolve { use_analytical_jacobian: true };
 /// ```

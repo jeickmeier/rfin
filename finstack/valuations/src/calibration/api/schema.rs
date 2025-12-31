@@ -2,11 +2,7 @@
 //!
 //! Defines the JSON contract for plan-driven calibration.
 
-#[deprecated(
-    note = "Import config types from `finstack_valuations::calibration::{..}` instead of \
-            `calibration::api::schema`. These re-exports will be removed in the next major release."
-)]
-pub use crate::calibration::config::{CalibrationConfig, CalibrationMethod, RatesStepConventions};
+use crate::calibration::config::{CalibrationConfig, CalibrationMethod, RatesStepConventions};
 use crate::calibration::CalibrationReport;
 use crate::market::quotes::market_quote::MarketQuote;
 use finstack_core::config::ResultsMeta;

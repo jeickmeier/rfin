@@ -7,7 +7,7 @@ use crate::core::dates::utils::py_to_date;
 use crate::core::market_data::PyMarketContext;
 use crate::valuations::instruments::{extract_instrument, InstrumentHandle};
 use finstack_core::dates::Date;
-use finstack_valuations::instruments::{instrument_to_arc, Instrument};
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::risk::{
     calculate_var, MarketHistory, MarketScenario, RiskFactorShift, RiskFactorType, VarConfig,
     VarMethod, VarResult,
@@ -437,7 +437,7 @@ fn bucketed_metric(
         .map_err(|e| PyValueError::new_err(format!("Pricing failed: {}", e)))?;
 
     let mut context = MetricContext::new(
-        instrument_to_arc(inst.as_ref()),
+        Arc::from(inst.clone_box()),
         Arc::new(market.inner.clone()),
         as_of_date,
         base_value,

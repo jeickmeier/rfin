@@ -42,7 +42,7 @@ See examples below for updated API usage patterns.
 ### Public API surface and deprecations
 
 - **Canonical imports**: use the root modules for supported APIs:
-  - `finstack_valuations::instruments::{Instrument, Attributes, instrument_to_arc, build_with_metrics_dyn, Bond, InterestRateSwap, ...}`
+  - `finstack_valuations::instruments::{Instrument, Attributes, PricingOptions, Bond, InterestRateSwap, ...}`
   - `finstack_valuations::pricer::{PricerRegistry, ModelKey, InstrumentType, create_standard_registry}`
   - `finstack_valuations::metrics::{MetricId, MetricRegistry, MetricContext, standard_registry}` (plus VaR via `metrics::risk`)
   - `finstack_valuations::covenants::{Covenant, CovenantType, CovenantEngine, CovenantForecast, CovenantForecastConfig}`

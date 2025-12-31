@@ -2,9 +2,9 @@ use crate::calibration::api::schema::HazardCurveParams;
 use crate::calibration::config::{CalibrationConfig, CalibrationMethod, ResidualWeightingScheme};
 use crate::calibration::constants::WEIGHT_MIN_FLOOR;
 use crate::calibration::prepared::CalibrationQuote;
-use crate::calibration::solver::{
-    BootstrapTarget, GlobalFitOptimizer, GlobalSolveTarget, SequentialBootstrapper,
-};
+use crate::calibration::solver::bootstrap::SequentialBootstrapper;
+use crate::calibration::solver::global::GlobalFitOptimizer;
+use crate::calibration::solver::traits::{BootstrapTarget, GlobalSolveTarget};
 use crate::calibration::CalibrationReport;
 use crate::instruments::cds::CdsConventionResolved;
 use crate::market::build::context::BuildCtx;
@@ -531,7 +531,7 @@ Global solve requires strictly increasing times.",
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::calibration::solver::BootstrapTarget;
+    use crate::calibration::solver::traits::BootstrapTarget;
     use finstack_core::dates::Date;
 
     use finstack_core::market_data::term_structures::ParInterp;

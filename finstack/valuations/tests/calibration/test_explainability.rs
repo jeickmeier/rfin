@@ -11,10 +11,9 @@ use finstack_core::types::{Currency, CurveId};
 use finstack_core::HashMap;
 use finstack_valuations::calibration::api::engine;
 use finstack_valuations::calibration::api::schema::{
-    CalibrationEnvelope, CalibrationMethod, CalibrationPlan, CalibrationStep, ForwardCurveParams,
-    StepParams,
+    CalibrationEnvelope, CalibrationPlan, CalibrationStep, ForwardCurveParams, StepParams,
 };
-use finstack_valuations::calibration::CalibrationConfig;
+use finstack_valuations::calibration::{CalibrationConfig, CalibrationMethod};
 use finstack_valuations::market::conventions::ids::IndexId;
 use finstack_valuations::market::quotes::ids::Pillar;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;

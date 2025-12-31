@@ -4,7 +4,8 @@ use crate::calibration::api::schema::ForwardCurveParams;
 use crate::calibration::config::CalibrationConfig;
 use crate::calibration::config::CalibrationMethod;
 use crate::calibration::prepared::CalibrationQuote;
-use crate::calibration::solver::{BootstrapTarget, SequentialBootstrapper};
+use crate::calibration::solver::bootstrap::SequentialBootstrapper;
+use crate::calibration::solver::traits::BootstrapTarget;
 use crate::calibration::targets::util::curve_day_count_from_quotes;
 use crate::calibration::CalibrationReport;
 use crate::market::quotes::market_quote::{ExtractQuotes, MarketQuote};
@@ -347,7 +348,7 @@ impl BootstrapTarget for ForwardCurveTarget {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::calibration::solver::BootstrapTarget;
+    use crate::calibration::solver::traits::BootstrapTarget;
     use time::Month;
 
     #[test]
