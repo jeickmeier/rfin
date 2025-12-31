@@ -191,7 +191,7 @@ fn fixed_schedule_npv_equals_sum_cashflows() {
         .unwrap();
 
     let pv = schedule
-        .npv(&curve, curve.base_date(), schedule.day_count)
+        .npv(&curve, curve.base_date(), Some(schedule.day_count))
         .unwrap();
 
     // PV with flat curve DF=1.0 should equal sum of coupon amounts (no discounting)

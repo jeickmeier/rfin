@@ -732,7 +732,7 @@ impl Instrument for StructuredCredit {
 
         use crate::instruments::common::discountable::Discountable;
         let curve_day_count = disc.day_count();
-        flows.npv(disc.as_ref(), as_of, curve_day_count)
+        flows.npv(disc.as_ref(), as_of, Some(curve_day_count))
     }
 
     fn price_with_metrics(

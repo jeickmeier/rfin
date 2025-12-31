@@ -638,7 +638,7 @@ impl InflationLinkedBond {
         let base_date = disc.base_date();
         // Use curve basis for time mapping
         let dc = disc.day_count();
-        flows.npv(disc.as_ref(), base_date, dc)
+        flows.npv(disc.as_ref(), base_date, Some(dc))
     }
 }
 

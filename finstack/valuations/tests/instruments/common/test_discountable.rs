@@ -68,9 +68,9 @@ fn test_schedule_discountable_simple() {
         .build_with_curves(None)
         .unwrap();
 
-    // Act
+    // Act - use explicit day count
     let pv = schedule
-        .npv(&curve, curve.base_date(), DayCount::Act365F)
+        .npv(&curve, curve.base_date(), Some(DayCount::Act365F))
         .unwrap();
 
     // Assert
@@ -119,9 +119,9 @@ fn test_npv_zero_rate() {
         .build_with_curves(None)
         .unwrap();
 
-    // Act
+    // Act - use explicit day count
     let pv = schedule
-        .npv(&curve, curve.base_date(), DayCount::Act365F)
+        .npv(&curve, curve.base_date(), Some(DayCount::Act365F))
         .unwrap();
 
     // Assert: With zero rate, PV = sum of cashflows

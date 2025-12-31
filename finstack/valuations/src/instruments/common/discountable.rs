@@ -15,7 +15,7 @@ impl Discountable for CashFlowSchedule {
         &self,
         disc: &dyn Discounting,
         base: Date,
-        dc: DayCount,
+        dc: Option<DayCount>,
     ) -> finstack_core::Result<Money> {
         let flows: Vec<(Date, Money)> = self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
         finstack_core::cashflow::npv(disc, base, dc, &flows)
@@ -116,8 +116,9 @@ mod tests {
         };
         let base = curve.base_date();
         let schedule = simple_schedule();
+        // Use explicit day count
         let pv = schedule
-            .npv(&curve, base, DayCount::Act365F)
+            .npv(&curve, base, Some(DayCount::Act365F))
             .expect("should calculate NPV");
         assert!(pv.amount().is_finite());
     }

@@ -45,8 +45,12 @@
 //! );
 //! let flows = vec![cf1];
 //!
-//! let pv = npv(&curve, base_date, DayCount::Act360, &flows)?;
+//! // Use curve's day count (recommended for par-rate consistency)
+//! let pv = npv(&curve, base_date, None, &flows)?;
 //! assert!(pv.amount() < 100.0); // Discounted value < face value
+//!
+//! // Or override with explicit day count when needed
+//! let pv_explicit = npv(&curve, base_date, Some(DayCount::Act360), &flows)?;
 //! # Ok::<(), finstack_core::Error>(())
 //! ```
 //!
@@ -72,85 +76,87 @@ pub trait Discountable {
     /// Output type for the NPV calculation.
     type PVOutput;
 
-    /// Compute present value using the given discount curve and day count.
-    fn npv(&self, disc: &dyn Discounting, base: Date, dc: DayCount) -> Self::PVOutput;
+    /// Compute present value using the given discount curve.
+    ///
+    /// # Arguments
+    ///
+    /// * `disc` - Discount curve implementing the `Discounting` trait
+    /// * `base` - Valuation date
+    /// * `dc` - Day count convention: `None` uses the curve's day count (recommended),
+    ///   `Some(dc)` overrides with an explicit day count
+    fn npv(&self, disc: &dyn Discounting, base: Date, dc: Option<DayCount>) -> Self::PVOutput;
 }
 
-/// Compute NPV of dated `Money` flows using a `Discount` curve and `DayCount` with static dispatch.
+/// Compute NPV of dated `Money` flows using a discount curve with static dispatch.
 ///
-/// This generic helper avoids dynamic dispatch on the discount curve in tight loops.
-///
-/// **Note**: For consistent pricing with metrics (e.g., par rate), prefer using
-/// [`npv_using_curve_dc`] which uses the curve's own day count convention.
-pub fn npv<D: Discounting + ?Sized>(
-    disc: &D,
-    base: Date,
-    dc: DayCount,
-    flows: &[(Date, Money)],
-) -> crate::Result<Money> {
-    if flows.is_empty() {
-        return Err(crate::error::InputError::TooFewPoints.into());
-    }
-    let ccy = flows[0].1.currency();
-    let mut total = Money::new(0.0, ccy);
-    let ctx = DayCountCtx::default();
-    for (d, amt) in flows {
-        let t = dc.signed_year_fraction(base, *d, ctx)?;
-        let df = disc.df(t);
-        let disc_amt = *amt * df;
-        total = (total + disc_amt)?;
-    }
-    Ok(total)
-}
-
-/// Compute NPV of dated `Money` flows using the curve's own day count convention.
-///
-/// Unlike [`npv`], this function uses the curve's internal day count
-/// for computing year fractions. This ensures consistency between:
-/// - Metric calculations (e.g., par rate which uses `df_on_date_curve`)
-/// - NPV calculations
-///
-/// **Use this function when pricing instruments at par rate should yield zero PV.**
+/// By default, uses the curve's own day count convention for year fraction calculations.
+/// This ensures consistency between NPV and metric calculations (e.g., par rate).
 ///
 /// # Arguments
 ///
 /// * `disc` - Discount curve implementing the `Discounting` trait
-/// * `base` - Valuation date (flows before this are ignored)
+/// * `base` - Valuation date
+/// * `dc` - Day count convention: `None` uses the curve's day count (recommended),
+///   `Some(dc)` overrides with an explicit day count
 /// * `flows` - Dated cashflows to discount
+///
+/// # Day Count Selection
+///
+/// - **`None` (recommended)**: Uses the curve's internal day count. This ensures
+///   consistency between NPV calculations and metrics like par rate, so pricing
+///   at par rate yields zero PV.
+/// - **`Some(dc)`**: Overrides with an explicit day count. Use when you need a
+///   specific convention that differs from the curve's (e.g., instrument-specific accrual).
 ///
 /// # Example
 ///
 /// ```rust
-/// use finstack_core::cashflow::npv_using_curve_dc;
+/// use finstack_core::cashflow::npv;
 /// use finstack_core::market_data::term_structures::DiscountCurve;
 /// use finstack_core::dates::{Date, DayCount};
 /// use finstack_core::money::Money;
 /// use finstack_core::currency::Currency;
 /// use time::Month;
 ///
-/// let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
+/// let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
 /// let curve = DiscountCurve::builder("USD-OIS")
-///     .base_date(base_date)
-///     .day_count(DayCount::Act360) // Curve's day count
+///     .base_date(base)
+///     .day_count(DayCount::Act360)
 ///     .knots([(0.0, 1.0), (1.0, 0.95)])
 ///     .build()?;
 ///
-/// let cf = (
+/// let flows = vec![(
 ///     Date::from_calendar_date(2026, Month::January, 1).expect("Valid date"),
-///     Money::new(100.0, Currency::USD)
-/// );
-/// let flows = vec![cf];
+///     Money::new(100.0, Currency::USD),
+/// )];
 ///
-/// // Uses curve's Act360 day count for year fraction calculation
-/// let pv = npv_using_curve_dc(&curve, base_date, &flows)?;
+/// // Use curve's day count (recommended)
+/// let pv = npv(&curve, base, None, &flows)?;
+///
+/// // Override with explicit day count
+/// let pv_act365 = npv(&curve, base, Some(DayCount::Act365F), &flows)?;
 /// # Ok::<(), finstack_core::Error>(())
 /// ```
-pub fn npv_using_curve_dc<D: Discounting + ?Sized>(
+pub fn npv<D: Discounting + ?Sized>(
     disc: &D,
     base: Date,
+    dc: Option<DayCount>,
     flows: &[(Date, Money)],
 ) -> crate::Result<Money> {
-    npv(disc, base, disc.day_count(), flows)
+    if flows.is_empty() {
+        return Err(crate::error::InputError::TooFewPoints.into());
+    }
+    let day_count = dc.unwrap_or_else(|| disc.day_count());
+    let ccy = flows[0].1.currency();
+    let mut total = Money::new(0.0, ccy);
+    let ctx = DayCountCtx::default();
+    for (d, amt) in flows {
+        let t = day_count.signed_year_fraction(base, *d, ctx)?;
+        let df = disc.df(t);
+        let disc_amt = *amt * df;
+        total = (total + disc_amt)?;
+    }
+    Ok(total)
 }
 
 /// Calculate Net Present Value (NPV) using a constant discount rate.
@@ -198,11 +204,11 @@ pub fn npv_constant(
     let continuous_rate = (1.0 + discount_rate).ln();
     let curve = FlatCurve::new(continuous_rate, base_date, day_count, "INTERNAL-NPV");
 
-    // Delegate to the shared discounting logic
-    npv(&curve, base_date, day_count, cash_flows)
+    // Delegate to the shared discounting logic (use explicit day_count since FlatCurve was constructed with it)
+    npv(&curve, base_date, Some(day_count), cash_flows)
 }
 
-/// Compute NPV of dated `Money` flows using a `Discount` curve and `DayCount`.
+/// Compute NPV of dated `Money` flows using a discount curve.
 ///
 /// Discounts each cashflow to the base date using the provided curve.
 /// All flows must be in the same currency for the calculation to succeed.
@@ -212,7 +218,7 @@ where
 {
     type PVOutput = crate::Result<Money>;
 
-    fn npv(&self, disc: &dyn Discounting, base: Date, dc: DayCount) -> crate::Result<Money> {
+    fn npv(&self, disc: &dyn Discounting, base: Date, dc: Option<DayCount>) -> crate::Result<Money> {
         npv(disc, base, dc, self.as_ref())
     }
 }
@@ -256,8 +262,26 @@ mod tests {
             (base, Money::new(10.0, crate::currency::Currency::USD)),
             (base, Money::new(5.0, crate::currency::Currency::USD)),
         ];
+        // Use None to use curve's default day count
         let pv = flows
-            .npv(&curve, base, DayCount::Act365F)
+            .npv(&curve, base, None)
+            .expect("NPV calculation should succeed in test");
+        assert!((pv.amount() - 15.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn tuples_discountable_with_explicit_dc() {
+        let curve = FlatCurve {
+            id: CurveId::new("USD-OIS"),
+        };
+        let base = curve.base_date();
+        let flows = vec![
+            (base, Money::new(10.0, crate::currency::Currency::USD)),
+            (base, Money::new(5.0, crate::currency::Currency::USD)),
+        ];
+        // Use explicit day count
+        let pv = flows
+            .npv(&curve, base, Some(DayCount::Act365F))
             .expect("NPV calculation should succeed in test");
         assert!((pv.amount() - 15.0).abs() < 1e-12);
     }
@@ -270,7 +294,7 @@ mod tests {
         let base = curve.base_date();
         let flows: Vec<(Date, Money)> = vec![];
         let err =
-            npv(&curve, base, DayCount::Act365F, &flows).expect_err("Should fail with empty flows");
+            npv(&curve, base, None, &flows).expect_err("Should fail with empty flows");
         let _ = format!("{}", err);
     }
 

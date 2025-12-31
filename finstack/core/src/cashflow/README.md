@@ -16,7 +16,7 @@ This module focuses on **small, composable types** and **deterministic numerics*
   - Public entrypoint for the cashflow module.
   - Re‑exports:
     - `primitives::{CashFlow, CFKind}`
-    - `discounting::{npv_static, Discountable}`
+    - `discounting::{npv, Discountable}`
     - `xirr::{InternalRateOfReturn}`
 - **`primitives.rs`**
   - Defines:
@@ -26,8 +26,8 @@ This module focuses on **small, composable types** and **deterministic numerics*
 - **`discounting.rs`**
   - Curve‑based present value helpers:
     - `trait Discountable`: generic NPV interface for `AsRef<[(Date, Money)]>`.
-    - `npv_static`: NPV using an explicit `DayCount`.
-    - `npv_using_curve_dc`: NPV using the curve’s own `day_count`, for consistency with par‑rate calculations.
+    - `npv`: NPV with optional day count; uses the curve's day count when `None` (recommended for par-rate consistency).
+    - `npv_constant`: NPV using a constant discount rate.
   - Integrates with `market_data::traits::Discounting` and `dates::DayCount`.
 - **`xirr.rs`**
   - **Internal Rate of Return**:
@@ -89,10 +89,10 @@ This lets instruments and portfolios reuse the same discounting core while retai
 
 ### Present Value with a Discount Curve
 
-Use `npv_static` when you explicitly choose the day count, or `Discountable::npv` for a generic container:
+Use `npv` with `Some(day_count)` when you need an explicit day count, or `None` to use the curve's day count (recommended), or `Discountable::npv` for a generic container:
 
 ```rust
-use finstack_core::cashflow::discounting::{npv_static, Discountable};
+use finstack_core::cashflow::discounting::{npv, Discountable};
 use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
 use finstack_core::market_data::term_structures::DiscountCurve;
@@ -114,16 +114,16 @@ let flows = vec![(
 )];
 
 // 1) Static helper
-let pv_static = npv_static(&curve, base, DayCount::Act365F, &flows)?;
+let pv_explicit = npv(&curve, base, Some(DayCount::Act365F), &flows)?;
 
 // 2) Via the Discountable trait
-let pv_trait = flows.npv(&curve, base, DayCount::Act365F)?;
+let pv_trait = flows.npv(&curve, base, None)?; // Uses curve's day count
 
-assert!((pv_static.amount() - pv_trait.amount()).abs() < 1e-12);
+assert!((pv_explicit.amount() - pv_trait.amount()).abs() < 1e-12);
 # Ok::<(), finstack_core::Error>(())
 ```
 
-To ensure **par‑rate consistency** between metrics and NPV, use `npv_using_curve_dc` so the curve’s own `day_count` is used.
+To ensure **par-rate consistency** between metrics and NPV, use `npv(&curve, base, None, &flows)` so the curve's own `day_count` is used.
 
 ### NPV with a Constant Discount Rate
 

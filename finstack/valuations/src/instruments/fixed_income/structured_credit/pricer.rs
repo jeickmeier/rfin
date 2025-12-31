@@ -33,7 +33,7 @@ impl StructuredCredit {
         let flows = self.build_dated_flows(context, as_of)?;
 
         let day_count = disc.day_count();
-        flows.npv(disc.as_ref(), as_of, day_count)
+        flows.npv(disc.as_ref(), as_of, Some(day_count))
     }
 
     /// Value the total hedge swap portfolio.

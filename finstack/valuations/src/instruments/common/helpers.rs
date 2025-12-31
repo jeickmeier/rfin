@@ -35,12 +35,12 @@ pub fn schedule_pv_using_curve_dc<S>(
 where
     S: crate::cashflow::traits::CashflowProvider,
 {
-    use finstack_core::cashflow::npv_using_curve_dc;
+    use finstack_core::cashflow::npv;
 
     let flows = S::build_dated_flows(instrument, curves, as_of)?;
     let disc = curves.get_discount(discount_curve_id.as_str())?;
-    // Use the curve's day count for consistent pricing with metrics
-    npv_using_curve_dc(disc.as_ref(), as_of, &flows)
+    // Use None to use the curve's day count for consistent pricing with metrics
+    npv(disc.as_ref(), as_of, None, &flows)
 }
 
 /// Schedule → PV helper that uses the curve's own day count convention (raw f64).
