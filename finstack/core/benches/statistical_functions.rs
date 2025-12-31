@@ -8,15 +8,12 @@
 //! - Beta distribution sampling
 //! - Basic statistics (mean, variance, covariance)
 
-// Allow deprecated TestRng usage in benchmarks - it's acceptable for reproducible benchmarking
-#![allow(deprecated)]
-
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::math::distributions::{
     binomial_distribution, binomial_probability, log_binomial_coefficient, log_factorial,
     sample_beta,
 };
-use finstack_core::math::random::TestRng;
+use finstack_core::math::random::Pcg64Rng;
 use finstack_core::math::special_functions::{erf, norm_cdf, norm_pdf, standard_normal_inv_cdf};
 use finstack_core::math::stats::{correlation, covariance, mean, mean_var, variance};
 use finstack_core::math::RandomNumberGenerator;
@@ -279,7 +276,7 @@ fn bench_beta_sampling(c: &mut Criterion) {
 
     // Single samples with different shape parameters
     group.bench_function("sample_beta_1_1", |b| {
-        let mut rng = TestRng::new(42);
+        let mut rng = Pcg64Rng::new(42);
         b.iter(|| {
             let result = sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 1.0, 1.0);
             black_box(result);
@@ -287,7 +284,7 @@ fn bench_beta_sampling(c: &mut Criterion) {
     });
 
     group.bench_function("sample_beta_2_2", |b| {
-        let mut rng = TestRng::new(42);
+        let mut rng = Pcg64Rng::new(42);
         b.iter(|| {
             let result = sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 2.0, 2.0);
             black_box(result);
@@ -295,7 +292,7 @@ fn bench_beta_sampling(c: &mut Criterion) {
     });
 
     group.bench_function("sample_beta_4_2", |b| {
-        let mut rng = TestRng::new(42);
+        let mut rng = Pcg64Rng::new(42);
         b.iter(|| {
             let result = sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 4.0, 2.0);
             black_box(result);
@@ -304,7 +301,7 @@ fn bench_beta_sampling(c: &mut Criterion) {
 
     // Small shape parameters (tests Ahrens-Dieter branch)
     group.bench_function("sample_beta_0.5_0.5", |b| {
-        let mut rng = TestRng::new(42);
+        let mut rng = Pcg64Rng::new(42);
         b.iter(|| {
             let result = sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 0.5, 0.5);
             black_box(result);
@@ -314,7 +311,7 @@ fn bench_beta_sampling(c: &mut Criterion) {
     // Batch sampling
     for size in [10, 100, 1000] {
         group.bench_with_input(BenchmarkId::new("batch", size), &size, |b, &size| {
-            let mut rng = TestRng::new(42);
+            let mut rng = Pcg64Rng::new(42);
             b.iter(|| {
                 let samples: Vec<f64> = (0..size)
                     .map(|_| sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 4.0, 2.0))

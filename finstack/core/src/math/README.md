@@ -17,7 +17,7 @@ Everything is accessible via `finstack_core::math`, which re‑exports the most 
 - **Integration**: `GaussHermiteQuadrature`, `gauss_legendre_integrate`, `adaptive_simpson`, `trapezoidal_rule`, `simpson_rule`
 - **Interpolation**: `LinearDf`, `LogLinearDf`, `MonotoneConvex`, `CubicHermite`, `InterpFn`, `ExtrapolationPolicy`
 - **Linear algebra**: `cholesky_decomposition`, `apply_correlation`, `CholeskyError`
-- **Random numbers**: `RandomNumberGenerator`, `TestRng`, `box_muller_transform`, `SobolRng`, `BrownianBridge`, `poisson_inverse_cdf`, `pca_ordering`
+- **Random numbers**: `RandomNumberGenerator`, `Pcg64Rng`, `box_muller_transform`, `SobolRng`, `BrownianBridge`, `poisson_inverse_cdf`, `pca_ordering`
 - **Distributions**: `binomial_distribution`, `binomial_probability`, `log_binomial_coefficient`, `log_factorial`, `sample_beta`
 - **Probability**: `joint_probabilities`, `correlation_bounds`, `CorrelatedBernoulli`
 - **Special functions**: `erf`, `norm_cdf`, `norm_pdf`, `standard_normal_inv_cdf`
@@ -81,13 +81,13 @@ Everything is accessible via `finstack_core::math`, which re‑exports the most 
     - Credit portfolio loss distributions, default counting models.
     - Recovery‑rate and correlation priors in Bayesian/Monte Carlo frameworks.
 - **`random.rs`**
-  - Trait‑based RNG surface and simple deterministic RNG:
+  - Production-grade random number generation:
     - `RandomNumberGenerator`: trait (`uniform`, `normal`, `bernoulli`) for pluggable RNGs.
-    - `TestRng`: deterministic linear congruential generator for **testing only** (not suitable for production Monte Carlo).
+    - `Pcg64Rng`: Production-grade PCG64 generator with period 2^128, passes all TestU01/PractRand tests.
     - `box_muller_transform`: Box–Muller transform producing two independent `N(0,1)` samples from uniform inputs.
   - Intended usage:
-    - Use `TestRng` for reproducible tests and examples.
-    - Implement `RandomNumberGenerator` around a production RNG (e.g., PCG, ChaCha, Xoshiro) in application code.
+    - Use `Pcg64Rng::new(seed)` for deterministic, reproducible simulations.
+    - Use `Pcg64Rng::new_with_stream(seed, stream)` for parallel Monte Carlo with independent streams.
 - **`linalg.rs`**
   - Small linear‑algebra utilities for covariance and correlation matrices:
     - `cholesky_decomposition`: factorization `Σ = L Lᵀ` with robust error reporting via `CholeskyError`.
@@ -166,7 +166,7 @@ These solvers are used extensively throughout the project (e.g., IRR/XIRR, impli
 
 - **Random numbers**:
   - `RandomNumberGenerator` abstracts away the underlying RNG implementation.
-  - `TestRng` provides deterministic sequences for unit tests and documentation examples.
+  - `Pcg64Rng` is the production-grade RNG with excellent statistical properties (period 2^128, passes TestU01).
   - `box_muller_transform` is the canonical helper for turning uniforms into standard normals.
 - **Distributions**:
   - Binomial and Beta implementations are tailored for financial use (credit portfolios, recovery modeling).
@@ -280,10 +280,10 @@ apply_correlation(&chol, &z, &mut z_corr);
 ### 6. Random Numbers and Beta Sampling
 
 ```rust
-use finstack_core::math::random::{TestRng, RandomNumberGenerator};
+use finstack_core::math::random::{Pcg64Rng, RandomNumberGenerator};
 use finstack_core::math::distributions::sample_beta;
 
-let mut rng = TestRng::new(42);
+let mut rng = Pcg64Rng::new(42);
 let u = rng.uniform();
 assert!((0.0..1.0).contains(&u));
 

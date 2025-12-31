@@ -42,10 +42,10 @@
 //!
 //! ```
 //! use finstack_core::math::distributions::sample_beta;
-//! use finstack_core::math::random::TestRng;
+//! use finstack_core::math::random::Pcg64Rng;
 //! use finstack_core::math::RandomNumberGenerator;
 //!
-//! let mut rng = TestRng::new(42);
+//! let mut rng = Pcg64Rng::new(42);
 //!
 //! // Sample recovery rate from Beta(4, 2) - peaked around 60-70%
 //! let recovery = sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 4.0, 2.0);
@@ -324,10 +324,10 @@ pub fn log_factorial(n: usize) -> f64 {
 ///
 /// ```rust
 /// use finstack_core::math::distributions::sample_beta;
-/// use finstack_core::math::random::TestRng;
+/// use finstack_core::math::random::Pcg64Rng;
 /// use finstack_core::math::RandomNumberGenerator;
 ///
-/// let mut rng = TestRng::new(42);
+/// let mut rng = Pcg64Rng::new(42);
 ///
 /// // Sample recovery rate: Beta(4, 2) peaked around 65%
 /// let recovery = sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 4.0, 2.0);
@@ -474,11 +474,10 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn test_sample_beta() {
-        use super::super::random::TestRng;
+        use super::super::random::Pcg64Rng;
 
-        let mut rng = TestRng::new(42);
+        let mut rng = Pcg64Rng::new(42);
 
         // Test uniform case (alpha=1, beta=1)
         let uniform_sample = sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 1.0, 1.0);
@@ -494,11 +493,10 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn test_sample_beta_statistics() {
-        use super::super::random::TestRng;
+        use super::super::random::Pcg64Rng;
 
-        let mut rng = TestRng::new(12345);
+        let mut rng = Pcg64Rng::new(12345);
         let n_samples = 10_000;
 
         // Test Beta(4, 2) - expected mean = 4/(4+2) = 0.6667
@@ -543,12 +541,11 @@ mod tests {
     }
 
     #[test]
-    #[allow(deprecated)]
     fn test_sample_beta_small_shape() {
-        use super::super::random::TestRng;
+        use super::super::random::Pcg64Rng;
 
         // Test with shape parameters < 1 (uses Ahrens-Dieter transformation)
-        let mut rng = TestRng::new(9999);
+        let mut rng = Pcg64Rng::new(9999);
         let samples: Vec<f64> = (0..1000)
             .map(|_| sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 0.5, 0.5))
             .collect();

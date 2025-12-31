@@ -3,14 +3,12 @@
 //! Each algorithm consumes a pre-seeded pseudo-random number generator so that
 //! repeated calls with identical parameters return the same series. This makes
 //! them suitable for scenario analysis where reproducibility matters.
-
-// Allow deprecated TestRng usage - TODO: Replace with production RNG (PCG64, Xoshiro256++)
-// for better statistical properties in production scenarios.
-#![allow(deprecated)]
+//!
+//! Uses [`Pcg64Rng`] for production-quality random number generation.
 
 use crate::error::{Error, Result};
 use finstack_core::dates::PeriodId;
-use finstack_core::math::random::{RandomNumberGenerator, TestRng};
+use finstack_core::math::random::{Pcg64Rng, RandomNumberGenerator};
 use indexmap::IndexMap;
 
 /// Common parameters for statistical distribution forecasts.
@@ -72,7 +70,7 @@ fn extract_distribution_params(
 ///
 /// Uses two uniform samples to produce a normally distributed value.
 /// Guards against u1=0.0 which would cause ln(0) = -infinity.
-fn box_muller_sample(rng: &mut TestRng) -> f64 {
+fn box_muller_sample(rng: &mut Pcg64Rng) -> f64 {
     let u1 = rng.uniform().max(f64::MIN_POSITIVE);
     let u2 = rng.uniform();
     (-2.0_f64 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos()
@@ -117,9 +115,7 @@ pub fn normal_forecast(
 ) -> Result<IndexMap<PeriodId, f64>> {
     let p = extract_distribution_params(params, "Normal")?;
 
-    // Note: TestRng is for deterministic testing; for production Monte Carlo,
-    // implement RandomNumberGenerator with a robust RNG (e.g., PCG64)
-    let mut rng = TestRng::new(p.seed);
+    let mut rng = Pcg64Rng::new(p.seed);
     let mut results = IndexMap::new();
 
     for period_id in forecast_periods {
@@ -176,9 +172,7 @@ pub fn lognormal_forecast(
         );
     }
 
-    // Note: TestRng is for deterministic testing; for production Monte Carlo,
-    // implement RandomNumberGenerator with a robust RNG (e.g., PCG64)
-    let mut rng = TestRng::new(p.seed);
+    let mut rng = Pcg64Rng::new(p.seed);
     let mut results = IndexMap::new();
 
     for period_id in forecast_periods {

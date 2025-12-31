@@ -1,28 +1,45 @@
-// Allow deprecated TestRng usage - Python bindings expose deterministic sampling
-#![allow(deprecated)]
-
 use finstack_core::math::random::{
-    box_muller_transform as core_box_muller_transform, RandomNumberGenerator, TestRng,
+    box_muller_transform as core_box_muller_transform, Pcg64Rng, RandomNumberGenerator,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
 
-#[pyclass(name = "SimpleRng", module = "finstack.core.math.random")]
-/// Deterministic pseudo‑random number generator for testing and simple simulations.
+#[pyclass(name = "Rng", module = "finstack.core.math.random")]
+/// Production-grade pseudo-random number generator backed by PCG64.
 ///
-/// This wraps `finstack-core`'s `SimpleRng`, exposing:
-/// - `uniform()`: U(0, 1) variates
-/// - `normal(mean, std_dev)`: Normal variates
-/// - `bernoulli(p)`: Bernoulli trials
+/// PCG64 (Permuted Congruential Generator) provides excellent statistical
+/// properties for Monte Carlo simulations:
+///
+/// - **Period**: 2^128 (very long, no overlap in practice)
+/// - **Quality**: Passes all TestU01 and PractRand statistical tests
+/// - **Speed**: ~2ns per sample on modern hardware
+/// - **Deterministic**: Same seed always produces same sequence
+///
+/// Methods
+/// -------
+/// uniform()
+///     Draw U(0, 1) variates.
+/// normal(mean, std_dev)
+///     Draw Normal variates.
+/// bernoulli(p)
+///     Draw Bernoulli trials.
+///
+/// Examples
+/// --------
+/// >>> from finstack.core.math.random import Rng
+/// >>> rng = Rng(42)
+/// >>> rng.uniform()  # U(0, 1)
+/// >>> rng.normal(0.0, 1.0)  # N(0, 1)
+/// >>> rng.bernoulli(0.5)  # Coin flip
 #[derive(Clone, Debug)]
-pub struct PySimpleRng {
-    inner: TestRng,
+pub struct PyRng {
+    inner: Pcg64Rng,
 }
 
 #[pymethods]
-impl PySimpleRng {
+impl PyRng {
     #[new]
     #[pyo3(text_signature = "(seed)")]
     /// Create a new RNG with the given integer seed.
@@ -31,9 +48,16 @@ impl PySimpleRng {
     /// ----------
     /// seed : int
     ///     Seed for the underlying generator. The same seed yields the same sequence.
+    ///
+    /// Examples
+    /// --------
+    /// >>> rng1 = Rng(42)
+    /// >>> rng2 = Rng(42)
+    /// >>> rng1.uniform() == rng2.uniform()  # Same seed, same sequence
+    /// True
     pub fn new(seed: u64) -> Self {
         Self {
-            inner: TestRng::new(seed),
+            inner: Pcg64Rng::new(seed),
         }
     }
 
@@ -102,7 +126,7 @@ impl PySimpleRng {
 
     /// String representation summarising the RNG type.
     pub fn __repr__(&self) -> String {
-        "SimpleRng(seed=<internal>)".to_string()
+        "Rng(seed=<internal>, type=PCG64)".to_string()
     }
 }
 
@@ -132,13 +156,26 @@ pub(crate) fn register<'py>(
     let module = PyModule::new(py, "random")?;
     module.setattr(
         "__doc__",
-        "Random number utilities from finstack-core (SimpleRng, Box-Muller transforms).",
+        "Random number utilities from finstack-core.\n\n\
+         Classes:\n\
+         - Rng: Production-grade PCG64 random number generator (recommended)\n\
+         - SimpleRng: Alias for Rng (deprecated, use Rng instead)\n\n\
+         Functions:\n\
+         - box_muller_transform: Generate standard normal samples from uniform inputs",
     )?;
 
-    module.add_class::<PySimpleRng>()?;
+    // Register the main RNG class
+    module.add_class::<PyRng>()?;
+
+    // Add SimpleRng as an alias for backward compatibility
+    // Users importing SimpleRng will get the same PCG64-backed RNG
+    let rng_class = module.getattr("Rng")?;
+    module.setattr("SimpleRng", rng_class)?;
+
     module.add_function(wrap_pyfunction!(box_muller_transform_py, &module)?)?;
 
-    let exports = ["SimpleRng", "box_muller_transform"];
+    // Export both names for compatibility
+    let exports = ["Rng", "SimpleRng", "box_muller_transform"];
     module.setattr("__all__", PyList::new(py, &exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
