@@ -222,8 +222,8 @@ impl CommoditySwap {
     pub fn payment_schedule(&self, _as_of: Date) -> Result<Vec<Date>> {
         let bdc = self.bdc.unwrap_or(BusinessDayConvention::Following);
 
-        let mut builder =
-            ScheduleBuilder::new(self.start_date, self.end_date).frequency(self.payment_frequency);
+        let mut builder = ScheduleBuilder::new(self.start_date, self.end_date)?
+            .frequency(self.payment_frequency);
 
         // Apply calendar adjustment if calendar_id is specified
         if let Some(ref cal_id) = self.calendar_id {

@@ -25,7 +25,7 @@
 //! let start = Date::from_calendar_date(2025, Month::January, 15)?;
 //! let end = Date::from_calendar_date(2025, Month::April, 15)?;
 //!
-//! let sched = ScheduleBuilder::new(start, end)
+//! let sched = ScheduleBuilder::new(start, end)?
 //!     .frequency(Tenor::monthly())
 //!     .build()?;
 //!
@@ -42,7 +42,7 @@
 //! let start = Date::from_calendar_date(2025, Month::January, 15)?;
 //! let end = Date::from_calendar_date(2025, Month::December, 20)?;
 //!
-//! let sched = ScheduleBuilder::new(start, end)
+//! let sched = ScheduleBuilder::new(start, end)?
 //!     .cds_imm()  // Auto-adjusts start to next CDS roll date
 //!     .build()?;
 //!
@@ -60,7 +60,7 @@
 //! let start = Date::from_calendar_date(2025, Month::January, 15)?;
 //! let end = Date::from_calendar_date(2025, Month::December, 31)?;
 //!
-//! let sched = ScheduleBuilder::new(start, end)
+//! let sched = ScheduleBuilder::new(start, end)?
 //!     .imm()  // Auto-adjusts start to next IMM date (third Wednesday)
 //!     .build()?;
 //!
@@ -83,7 +83,7 @@
 //!     .resolve_str("nyse")
 //!     .ok_or("NYSE calendar not found")?;
 //!
-//! let sched = ScheduleBuilder::new(start, end)
+//! let sched = ScheduleBuilder::new(start, end)?
 //!     .frequency(Tenor::monthly())
 //!     .adjust_with(BusinessDayConvention::ModifiedFollowing, nyse)
 //!     .build()?;
@@ -205,7 +205,7 @@ pub use crate::dates::Tenor;
 /// let end = Date::from_calendar_date(2025, Month::December, 15)?;
 ///
 /// // Short stub at front
-/// let sched = ScheduleBuilder::new(start, end)
+/// let sched = ScheduleBuilder::new(start, end)?
 ///     .frequency(Tenor::quarterly())
 ///     .stub_rule(StubKind::ShortFront)
 ///     .build()?;
@@ -302,14 +302,11 @@ fn push_if_new(buf: &mut Buffer, d: Date) {
 /// let start = Date::from_calendar_date(2025, Month::December, 31)?;
 /// let end = Date::from_calendar_date(2025, Month::January, 1)?; // Invalid: end before start
 ///
-/// let schedule = ScheduleBuilder::new(start, end)
-///     .frequency(Tenor::monthly())
-///     .graceful_fallback(true)
-///     .build()?;
-///
-/// assert!(schedule.dates.is_empty());
-/// assert!(schedule.has_warnings());
-/// assert!(schedule.warnings.iter().any(|w| matches!(w, ScheduleWarning::GracefulFallback { .. })));
+/// // With graceful_fallback, invalid date range returns empty schedule with warning
+/// // rather than an error. Note: new() itself returns Result, so we handle the error
+/// // at the graceful_fallback level when start > end.
+/// let result = ScheduleBuilder::new(start, end);
+/// assert!(result.is_err()); // new() validates start <= end
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -377,7 +374,7 @@ impl std::fmt::Display for ScheduleWarning {
 /// let start = Date::from_calendar_date(2025, Month::January, 15)?;
 /// let end = Date::from_calendar_date(2025, Month::March, 15)?;
 ///
-/// let schedule = ScheduleBuilder::new(start, end)
+/// let schedule = ScheduleBuilder::new(start, end)?
 ///     .frequency(Tenor::monthly())
 ///     .build()?;
 ///
@@ -417,20 +414,15 @@ impl Schedule {
     /// use finstack_core::dates::{ScheduleBuilder, Tenor};
     /// use time::{Date, Month};
     ///
-    /// let start = Date::from_calendar_date(2025, Month::December, 31)?;
-    /// let end = Date::from_calendar_date(2025, Month::January, 1)?; // Invalid
+    /// let start = Date::from_calendar_date(2025, Month::January, 15)?;
+    /// let end = Date::from_calendar_date(2025, Month::March, 15)?;
     ///
-    /// let schedule = ScheduleBuilder::new(start, end)
+    /// let schedule = ScheduleBuilder::new(start, end)?
     ///     .frequency(Tenor::monthly())
-    ///     .graceful_fallback(true)
     ///     .build()?;
     ///
-    /// if schedule.has_warnings() {
-    ///     // Handle degraded schedule - PV may be zero
-    ///     for warning in &schedule.warnings {
-    ///         eprintln!("Schedule warning: {warning}");
-    ///     }
-    /// }
+    /// // Valid schedules have no warnings
+    /// assert!(!schedule.has_warnings());
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     #[must_use]
@@ -535,7 +527,7 @@ fn generate_imm_dates(start: Date, end: Date) -> Vec<Date> {
 /// let start = Date::from_calendar_date(2025, Month::March, 20)?;
 /// let end = Date::from_calendar_date(2025, Month::December, 20)?;
 ///
-/// let schedule = ScheduleBuilder::new(start, end)
+/// let schedule = ScheduleBuilder::new(start, end)?
 ///     .frequency(Tenor::quarterly())
 ///     .build()?;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
@@ -554,7 +546,7 @@ fn generate_imm_dates(start: Date, end: Date) -> Vec<Date> {
 ///     .resolve_str("nyse")
 ///     .ok_or("NYSE calendar not found")?;
 ///
-/// let schedule = ScheduleBuilder::new(start, end)
+/// let schedule = ScheduleBuilder::new(start, end)?
 ///     .frequency(Tenor::monthly())
 ///     .adjust_with(BusinessDayConvention::ModifiedFollowing, nyse)
 ///     .build()?;
@@ -570,7 +562,7 @@ fn generate_imm_dates(start: Date, end: Date) -> Vec<Date> {
 /// let start = Date::from_calendar_date(2025, Month::January, 15)?;
 /// let end = Date::from_calendar_date(2026, Month::December, 20)?;
 ///
-/// let schedule = ScheduleBuilder::new(start, end)
+/// let schedule = ScheduleBuilder::new(start, end)?
 ///     .cds_imm()  // Quarterly on 20-Mar/Jun/Sep/Dec
 ///     .build()?;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
@@ -584,7 +576,7 @@ fn generate_imm_dates(start: Date, end: Date) -> Vec<Date> {
 /// let start = Date::from_calendar_date(2025, Month::January, 15)?;
 /// let end = Date::from_calendar_date(2025, Month::December, 31)?;
 ///
-/// let schedule = ScheduleBuilder::new(start, end)
+/// let schedule = ScheduleBuilder::new(start, end)?
 ///     .imm()  // Quarterly on third Wednesday of Mar/Jun/Sep/Dec
 ///     .build()?;
 /// // Generates: Mar-19, Jun-18, Sep-17, Dec-17 (2025 third Wednesdays)
@@ -599,7 +591,7 @@ fn generate_imm_dates(start: Date, end: Date) -> Vec<Date> {
 /// let start = Date::from_calendar_date(2025, Month::January, 31)?;
 /// let end = Date::from_calendar_date(2025, Month::June, 30)?;
 ///
-/// let schedule = ScheduleBuilder::new(start, end)
+/// let schedule = ScheduleBuilder::new(start, end)?
 ///     .frequency(Tenor::monthly())
 ///     .end_of_month(true)  // Snap to month-end
 ///     .build()?;
@@ -636,13 +628,32 @@ pub struct ScheduleBuilder<'a> {
 
 impl<'a> ScheduleBuilder<'a> {
     /// Create a new builder with mandatory `start` and `end` dates.
+    ///
     /// Defaults: frequency = Monthly, stub = None, no adjustment, no EOM.
     ///
-    /// # Notes
-    /// Inputs should satisfy `start` <= `end`. If not, [`build`](Self::build) returns
-    /// `Err(InputError::InvalidDateRange)`.
-    pub fn new(start: Date, end: Date) -> Self {
-        Self {
+    /// # Errors
+    ///
+    /// Returns `Err(InputError::InvalidDateRange)` if `start > end`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::dates::{ScheduleBuilder, Tenor};
+    /// use time::{Date, Month};
+    ///
+    /// let start = Date::from_calendar_date(2025, Month::January, 15)?;
+    /// let end = Date::from_calendar_date(2025, Month::April, 15)?;
+    ///
+    /// let schedule = ScheduleBuilder::new(start, end)?
+    ///     .frequency(Tenor::monthly())
+    ///     .build()?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn new(start: Date, end: Date) -> crate::Result<Self> {
+        if start > end {
+            return Err(crate::error::InputError::InvalidDateRange.into());
+        }
+        Ok(Self {
             start,
             end,
             freq: Tenor::monthly(),
@@ -655,16 +666,7 @@ impl<'a> ScheduleBuilder<'a> {
             cds_imm_mode: false,
             graceful: false,
             allow_missing_calendar: false,
-        }
-    }
-
-    /// Fallible constructor that validates `start` <= `end`.
-    /// Returns an error rather than panicking when inputs are invalid.
-    pub fn try_new(start: Date, end: Date) -> crate::Result<Self> {
-        if start > end {
-            return Err(crate::error::InputError::InvalidDateRange.into());
-        }
-        Ok(Self::new(start, end))
+        })
     }
 
     /// Set coupon/payment frequency.
@@ -728,7 +730,7 @@ impl<'a> ScheduleBuilder<'a> {
     /// let start = Date::from_calendar_date(2025, Month::January, 15)?;
     /// let end = Date::from_calendar_date(2025, Month::December, 31)?;
     ///
-    /// let schedule = ScheduleBuilder::new(start, end)
+    /// let schedule = ScheduleBuilder::new(start, end)?
     ///     .imm()  // Quarterly on third Wednesday
     ///     .build()?;
     ///
@@ -767,28 +769,27 @@ impl<'a> ScheduleBuilder<'a> {
     /// let start = Date::from_calendar_date(2025, Month::December, 31).expect("Valid date");
     /// let end = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date"); // Invalid: end before start
     ///
-    /// // Without graceful mode: returns error
-    /// let result = ScheduleBuilder::new(start, end)
-    ///     .frequency(Tenor::monthly())
-    ///     .build();
+    /// // Invalid date range returns error immediately at new()
+    /// let result = ScheduleBuilder::new(start, end);
     /// assert!(result.is_err());
     ///
-    /// // With graceful mode: returns empty schedule WITH warning
-    /// let schedule = ScheduleBuilder::new(start, end)
+    /// // Graceful mode is useful for other errors (e.g., missing calendars):
+    /// let valid_start = Date::from_calendar_date(2025, Month::January, 15).expect("Valid date");
+    /// let valid_end = Date::from_calendar_date(2025, Month::March, 15).expect("Valid date");
+    ///
+    /// // Valid date range with invalid calendar + graceful mode returns empty with warning
+    /// use finstack_core::dates::BusinessDayConvention;
+    /// let schedule = ScheduleBuilder::new(valid_start, valid_end)
+    ///     .expect("Valid dates")
     ///     .frequency(Tenor::monthly())
+    ///     .adjust_with_id(BusinessDayConvention::Following, "INVALID_CALENDAR")
     ///     .graceful_fallback(true)
     ///     .build()
-    ///     .expect("Schedule builder should succeed");
-    /// assert_eq!(schedule.dates.len(), 0);
+    ///     .expect("Graceful fallback should succeed");
     ///
-    /// // CRITICAL: Always check for warnings
-    /// assert!(schedule.has_warnings(), "Should have warning about suppressed error");
+    /// assert!(schedule.dates.is_empty());
+    /// assert!(schedule.has_warnings());
     /// assert!(schedule.used_graceful_fallback());
-    ///
-    /// // Inspect the original error
-    /// for warning in &schedule.warnings {
-    ///     println!("Schedule generation warning: {warning}");
-    /// }
     /// ```
     #[must_use]
     pub fn graceful_fallback(mut self, enabled: bool) -> Self {
@@ -819,6 +820,7 @@ impl<'a> ScheduleBuilder<'a> {
     ///
     /// // Without allow_missing_calendar: error on unknown calendar
     /// let result = ScheduleBuilder::new(start, end)
+    ///     .expect("Valid dates")
     ///     .frequency(Tenor::monthly())
     ///     .adjust_with_id(BusinessDayConvention::Following, "unknown_calendar")
     ///     .build();
@@ -826,6 +828,7 @@ impl<'a> ScheduleBuilder<'a> {
     ///
     /// // With allow_missing_calendar: proceeds without adjustment and records a warning
     /// let schedule = ScheduleBuilder::new(start, end)
+    ///     .expect("Valid dates")
     ///     .frequency(Tenor::monthly())
     ///     .allow_missing_calendar(true)
     ///     .adjust_with_id(BusinessDayConvention::Following, "unknown_calendar")
@@ -865,6 +868,7 @@ impl<'a> ScheduleBuilder<'a> {
     /// let end = Date::from_calendar_date(2025, Month::December, 15).expect("Valid date");
     ///
     /// let schedule = ScheduleBuilder::new(start, end)
+    ///     .expect("Valid dates")
     ///     .frequency(Tenor::monthly())
     ///     .adjust_with_id(BusinessDayConvention::Following, "nyse")
     ///     .build()
@@ -1030,7 +1034,7 @@ pub struct ScheduleSpec {
 impl ScheduleSpec {
     /// Reconstruct a [`Schedule`] using the persisted configuration.
     pub fn build(&self) -> crate::Result<Schedule> {
-        let mut builder = ScheduleBuilder::new(self.start, self.end)
+        let mut builder = ScheduleBuilder::new(self.start, self.end)?
             .frequency(self.frequency)
             .stub_rule(self.stub)
             .end_of_month(self.end_of_month)
@@ -1210,26 +1214,33 @@ mod tests {
     }
 
     #[test]
-    fn test_graceful_fallback_returns_empty_with_warning_on_invalid_range() {
+    fn test_invalid_range_returns_error_at_new() {
         // Invalid: end before start
         let start = d(2025, 12, 31);
         let end = d(2025, 1, 1);
 
-        // Without graceful mode: should error
-        let result = ScheduleBuilder::new(start, end)
-            .frequency(Tenor::monthly())
-            .build();
+        // new() now validates dates and returns error immediately
+        let result = ScheduleBuilder::new(start, end);
         assert!(result.is_err());
+    }
 
-        // With graceful mode: should return empty schedule WITH warning
+    #[test]
+    fn test_graceful_fallback_for_calendar_errors() {
+        // Valid dates, but invalid calendar
+        let start = d(2025, 1, 15);
+        let end = d(2025, 3, 15);
+
+        // Graceful mode captures calendar lookup errors
         let schedule = ScheduleBuilder::new(start, end)
+            .expect("Valid dates")
             .frequency(Tenor::monthly())
+            .adjust_with_id(BusinessDayConvention::Following, "INVALID_CALENDAR")
             .graceful_fallback(true)
             .build()
             .expect("Schedule builder should succeed with graceful_fallback");
-        assert_eq!(schedule.dates.len(), 0);
 
-        // CRITICAL: Verify warning is present so callers know something went wrong
+        // Should return empty schedule with warning
+        assert_eq!(schedule.dates.len(), 0);
         assert!(
             schedule.has_warnings(),
             "Graceful fallback should set warning flag"
@@ -1238,21 +1249,6 @@ mod tests {
             schedule.used_graceful_fallback(),
             "Should indicate graceful fallback was used"
         );
-        assert_eq!(schedule.warnings.len(), 1);
-
-        // Warning should contain the original error message
-        let warning = &schedule.warnings[0];
-        match warning {
-            ScheduleWarning::GracefulFallback { error_message } => {
-                assert!(
-                    error_message.contains("date") || error_message.contains("range"),
-                    "Warning should describe the invalid date range: {error_message}"
-                );
-            }
-            ScheduleWarning::MissingCalendarId { .. } => {
-                panic!("Expected GracefulFallback warning, got MissingCalendarId")
-            }
-        }
     }
 
     #[test]
@@ -1271,6 +1267,7 @@ mod tests {
         let end = d(2025, 4, 15);
 
         let schedule = ScheduleBuilder::new(start, end)
+            .expect("Valid dates")
             .frequency(Tenor::monthly())
             .build()
             .expect("Valid schedule should succeed");
@@ -1293,6 +1290,7 @@ mod tests {
 
         // Use a known calendar (target2)
         let schedule = ScheduleBuilder::new(start, end)
+            .expect("Valid dates")
             .frequency(Tenor::monthly())
             .adjust_with_id(BusinessDayConvention::Following, "target2")
             .build()
@@ -1309,6 +1307,7 @@ mod tests {
 
         // Invalid calendar with strict mode (default) should error
         let result = ScheduleBuilder::new(start, end)
+            .expect("Valid dates")
             .frequency(Tenor::monthly())
             .adjust_with_id(BusinessDayConvention::Following, "INVALID_CALENDAR")
             .build();
@@ -1327,6 +1326,7 @@ mod tests {
 
         // Calendar ID with typo should suggest similar calendars
         let result = ScheduleBuilder::new(start, end)
+            .expect("Valid dates")
             .frequency(Tenor::monthly())
             .adjust_with_id(BusinessDayConvention::Following, "targt2") // typo in target2
             .build();
@@ -1347,6 +1347,7 @@ mod tests {
         // Invalid calendar with allow_missing_calendar enabled
         // Should succeed and return schedule without adjustment
         let schedule = ScheduleBuilder::new(start, end)
+            .expect("Valid dates")
             .frequency(Tenor::monthly())
             .allow_missing_calendar(true)
             .adjust_with_id(BusinessDayConvention::Following, "INVALID_CALENDAR")
@@ -1376,6 +1377,7 @@ mod tests {
 
         // Invalid calendar with graceful mode (returns empty schedule with warning)
         let schedule = ScheduleBuilder::new(start, end)
+            .expect("Valid dates")
             .frequency(Tenor::monthly())
             .adjust_with_id(BusinessDayConvention::Following, "INVALID_CALENDAR")
             .graceful_fallback(true)
@@ -1414,6 +1416,7 @@ mod tests {
 
         // Valid inputs with graceful mode should work normally without warnings
         let schedule = ScheduleBuilder::new(start, end)
+            .expect("Valid dates")
             .frequency(Tenor::monthly())
             .graceful_fallback(true)
             .build()
@@ -1438,6 +1441,7 @@ mod tests {
 
         // Combine adjust_with_id with end_of_month
         let schedule = ScheduleBuilder::new(start, end)
+            .expect("Valid dates")
             .frequency(Tenor::monthly())
             .end_of_month(true)
             .adjust_with_id(BusinessDayConvention::Following, "target2")
@@ -1454,6 +1458,7 @@ mod tests {
         let end = d(2025, 5, 20);
 
         let schedule = ScheduleBuilder::new(start, end)
+            .expect("Valid dates")
             .frequency(Tenor::monthly())
             .stub_rule(StubKind::ShortBack)
             .build()
@@ -1478,6 +1483,7 @@ mod tests {
         let end = d(2025, 5, 20);
 
         let schedule = ScheduleBuilder::new(start, end)
+            .expect("Valid dates")
             .frequency(Tenor::monthly())
             .stub_rule(StubKind::LongBack)
             .build()
@@ -1562,6 +1568,7 @@ mod serde_tests {
         let start = Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
         let end = Date::from_calendar_date(2025, Month::April, 15).expect("Valid test date");
         let sched = ScheduleBuilder::new(start, end)
+            .expect("Valid dates")
             .frequency(Tenor::monthly())
             .build()
             .expect("Schedule builder should succeed with valid test data");

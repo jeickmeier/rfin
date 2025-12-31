@@ -223,7 +223,7 @@ let nyse = CalendarRegistry::global()
     .resolve_str("nyse")
     .ok_or("nyse not found")?;
 
-let schedule = ScheduleBuilder::new(start, end)
+let schedule = ScheduleBuilder::new(start, end)?
     .frequency(Tenor::quarterly())
     .stub_rule(finstack_core::dates::StubKind::ShortBack)
     .end_of_month(false)

@@ -91,7 +91,7 @@ pub fn run_simulation(
         .unwrap_or(BusinessDayConvention::Following);
 
     // Generate payment schedule with calendar-adjusted dates
-    let schedule = ScheduleBuilder::try_new(
+    let schedule = ScheduleBuilder::new(
         instrument.first_payment_date.max(as_of),
         instrument.legal_maturity,
     )?

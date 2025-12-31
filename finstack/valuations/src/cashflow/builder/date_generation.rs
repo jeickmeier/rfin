@@ -61,7 +61,7 @@ fn build_dates_impl(
     bdc: BusinessDayConvention,
     calendar_id: Option<&str>,
 ) -> finstack_core::Result<PeriodSchedule> {
-    let mut builder = ScheduleBuilder::try_new(start, end)?
+    let mut builder = ScheduleBuilder::new(start, end)?
         .frequency(freq)
         .stub_rule(stub);
 

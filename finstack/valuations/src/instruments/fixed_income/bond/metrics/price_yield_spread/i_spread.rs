@@ -98,7 +98,7 @@ impl MetricCalculator for ISpreadCalculator {
         // business-day / stub rules. This approximates a plain-vanilla par swap
         // fixed leg at the bond maturity.
         let dates: Vec<Date> =
-            finstack_core::dates::ScheduleBuilder::new(context.as_of, bond.maturity)
+            finstack_core::dates::ScheduleBuilder::new(context.as_of, bond.maturity)?
                 .frequency(self.config.fixed_leg_frequency)
                 .stub_rule(StubKind::ShortFront)
                 .build()?

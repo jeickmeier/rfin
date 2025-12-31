@@ -45,7 +45,7 @@ impl MetricCalculator for AllInRateCalculator {
 
         // Build coupon dates
         let mut schedule_builder =
-            finstack_core::dates::ScheduleBuilder::new(loan.issue, loan.maturity)
+            finstack_core::dates::ScheduleBuilder::new(loan.issue, loan.maturity)?
                 .frequency(loan.pay_freq)
                 .stub_rule(loan.stub);
         if let Some(ref cal_id) = loan.calendar_id {

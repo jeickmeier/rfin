@@ -113,7 +113,7 @@ impl TrsScheduleSpec {
 
     /// Builds the period date schedule in a canonical way.
     pub fn period_schedule(&self) -> finstack_core::Result<Schedule> {
-        let mut builder = ScheduleBuilder::try_new(self.start, self.end)?
+        let mut builder = ScheduleBuilder::new(self.start, self.end)?
             .frequency(self.params.freq)
             .stub_rule(self.params.stub);
 

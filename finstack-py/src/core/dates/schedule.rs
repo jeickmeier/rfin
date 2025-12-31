@@ -280,7 +280,7 @@ impl PyScheduleBuilder {
     ) -> PyResult<Self> {
         let start_date = py_to_date(&start).context("start")?;
         let end_date = py_to_date(&end).context("end")?;
-        let builder = ScheduleBuilder::try_new(start_date, end_date).map_err(core_to_py)?;
+        let builder = ScheduleBuilder::new(start_date, end_date).map_err(core_to_py)?;
         Ok(Self::new_with_builder(builder, start_date, end_date))
     }
 

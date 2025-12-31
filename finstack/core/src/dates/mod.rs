@@ -25,7 +25,7 @@
 //! assert!(adjusted >= trade_date);
 //!
 //! let end = trade_date + Duration::days(365);
-//! let schedule = ScheduleBuilder::new(trade_date, end)
+//! let schedule = ScheduleBuilder::new(trade_date, end)?
 //!     .frequency(Tenor::quarterly())
 //!     .build()?;
 //! assert!(schedule.dates.len() >= 4);

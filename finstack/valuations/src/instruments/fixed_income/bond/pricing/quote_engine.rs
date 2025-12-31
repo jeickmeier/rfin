@@ -896,7 +896,7 @@ fn par_swap_rate_from_discount(bond: &Bond, curves: &MarketContext, as_of: Date)
     let disc = curves.get_discount(&bond.discount_curve_id)?;
 
     // Mirror the schedule used in ISpreadCalculator (annual Act/Act, ShortFront stub).
-    let dates: Vec<Date> = ScheduleBuilder::new(as_of, bond.maturity)
+    let dates: Vec<Date> = ScheduleBuilder::new(as_of, bond.maturity)?
         .frequency(Tenor::annual())
         .stub_rule(StubKind::ShortFront)
         .build()?
@@ -962,7 +962,7 @@ fn price_from_asw_market(
 
     // Mirror the schedule and annuity definition used by AssetSwapMarketCalculator
     // (discount-ratio approximation on the fixed-leg schedule).
-    let mut builder = ScheduleBuilder::new(as_of, bond.maturity)
+    let mut builder = ScheduleBuilder::new(as_of, bond.maturity)?
         .frequency(freq)
         .stub_rule(stub);
 

@@ -97,6 +97,7 @@ fn schedule_spec_builds_expected_dates() {
 
     // Cross-check with builder directly
     let builder_schedule = ScheduleBuilder::new(start, end)
+        .unwrap()
         .frequency(Tenor::new(1, TenorUnit::Months))
         .adjust_with_id(BusinessDayConvention::Following, "target2")
         .build()

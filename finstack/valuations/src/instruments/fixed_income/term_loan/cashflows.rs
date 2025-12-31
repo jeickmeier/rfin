@@ -164,7 +164,7 @@ pub fn generate_cashflows(
 
     // Coupon dates for amortization conversion
     let coupon_dates: Vec<Date> = {
-        let mut sb = finstack_core::dates::ScheduleBuilder::new(loan.issue, loan.maturity)
+        let mut sb = finstack_core::dates::ScheduleBuilder::new(loan.issue, loan.maturity)?
             .frequency(loan.pay_freq)
             .stub_rule(loan.stub);
         if let Some(ref cal) = loan.calendar_id {
@@ -403,7 +403,7 @@ fn build_commitment_fee_flows(
         return Ok(Vec::new());
     }
 
-    let mut schedule_builder = finstack_core::dates::ScheduleBuilder::new(fee_start, fee_end)
+    let mut schedule_builder = finstack_core::dates::ScheduleBuilder::new(fee_start, fee_end)?
         .frequency(loan.pay_freq)
         .stub_rule(loan.stub);
     if let Some(ref cal_id) = loan.calendar_id {

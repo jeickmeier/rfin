@@ -243,7 +243,7 @@ impl XccySwap {
 
     fn leg_schedule(&self, leg: &XccySwapLeg) -> Result<Schedule> {
         let cal = leg.resolve_calendar(&self.id)?;
-        let mut builder = ScheduleBuilder::try_new(self.start_date, self.maturity_date)?
+        let mut builder = ScheduleBuilder::new(self.start_date, self.maturity_date)?
             .frequency(leg.frequency)
             .stub_rule(self.stub_kind);
 

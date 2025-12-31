@@ -98,7 +98,7 @@ impl JsScheduleBuilder {
     pub fn new(start: &JsDate, end: &JsDate) -> Result<JsScheduleBuilder, JsValue> {
         let start_date = start.inner();
         let end_date = end.inner();
-        let builder = CoreScheduleBuilder::try_new(start_date, end_date)
+        let builder = CoreScheduleBuilder::new(start_date, end_date)
             .map_err(|e| js_error(e.to_string()))?;
         Ok(Self::new_with(builder, start_date, end_date))
     }

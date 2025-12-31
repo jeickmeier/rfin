@@ -222,7 +222,7 @@ impl BasisSwap {
     pub fn leg_schedule(&self, leg: &BasisSwapLeg) -> Result<Schedule> {
         let cal = self.resolve_calendar()?;
 
-        let mut builder = ScheduleBuilder::try_new(self.start_date, self.maturity_date)?
+        let mut builder = ScheduleBuilder::new(self.start_date, self.maturity_date)?
             .frequency(leg.frequency)
             .stub_rule(self.stub_kind);
 

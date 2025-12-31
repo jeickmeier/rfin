@@ -49,6 +49,7 @@ fn linear_vs_step_parity() {
 
     // Step schedule equivalent
     let sched: Vec<Date> = ScheduleBuilder::new(issue, maturity)
+        .unwrap()
         .frequency(Tenor::quarterly())
         .build()
         .unwrap()
