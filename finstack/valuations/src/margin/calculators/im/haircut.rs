@@ -141,10 +141,17 @@ impl ImCalculator for HaircutImCalculator {
         context: &MarketContext,
         as_of: Date,
     ) -> Result<ImResult> {
-        // Get instrument value as proxy for collateral value
-        // In production, this would use the actual collateral specification
-        let pv = instrument.value(context, as_of)?;
-        let collateral_value = Money::new(pv.amount().abs(), pv.currency());
+        // Prefer actual notional as collateral value; fall back to PV if unavailable
+        let collateral_value = instrument
+            .as_cashflow_provider()
+            .and_then(|cp| cp.notional())
+            .map(|n| Money::new(n.amount().abs(), n.currency()))
+            .unwrap_or_else(|| {
+                instrument
+                    .value(context, as_of)
+                    .map(|pv| Money::new(pv.amount().abs(), pv.currency()))
+                    .unwrap_or_else(|_| Money::new(0.0, finstack_core::currency::Currency::USD))
+            });
 
         let im_amount = self.calculate_for_collateral(
             collateral_value,

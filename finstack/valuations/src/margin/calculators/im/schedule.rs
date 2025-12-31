@@ -287,10 +287,17 @@ impl ImCalculator for ScheduleImCalculator {
         context: &MarketContext,
         as_of: Date,
     ) -> Result<ImResult> {
-        // Use PV as proxy for notional (simplified)
-        let pv = instrument.value(context, as_of)?;
-        let currency = pv.currency();
-        let notional = Money::new(pv.amount().abs(), currency);
+        // Prefer actual notional from instrument; fall back to PV if unavailable
+        let notional = instrument
+            .as_cashflow_provider()
+            .and_then(|cp| cp.notional())
+            .map(|n| Money::new(n.amount().abs(), n.currency()))
+            .unwrap_or_else(|| {
+                instrument
+                    .value(context, as_of)
+                    .map(|pv| Money::new(pv.amount().abs(), pv.currency()))
+                    .unwrap_or_else(|_| Money::new(0.0, finstack_core::currency::Currency::USD))
+            });
 
         let im_amount = self.calculate_for_notional(
             notional,

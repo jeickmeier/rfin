@@ -234,18 +234,128 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
     ///
     /// Returns a vector of (time, probability) pairs representing the
     /// risk-neutral probability of exercise at each date.
+    ///
+    /// Uses a forward pass tracking survival probabilities through the tree,
+    /// deducting mass at nodes where optimal exercise occurs.
+    #[allow(clippy::needless_range_loop)] // Index j used for multiple array accesses and method calls
     pub fn exercise_probabilities(&self) -> Vec<(f64, f64)> {
-        // This requires a forward pass through the tree tracking exercise decisions
-        // For now, return placeholder values
-        // Full implementation would track state prices through optimal exercise decisions
+        let n = self.tree.num_steps();
 
-        self.exercise_steps
-            .iter()
-            .map(|&step| {
-                let t = self.tree.time_at_step(step);
-                (t, 0.0) // Placeholder
+        // Helper to get j_max from num_nodes: num_nodes = 2*j_max + 1
+        let j_max_at = |step: usize| (self.tree.num_nodes(step) - 1) / 2;
+
+        // 1. Backward pass: compute continuation values at each node
+        let mut cont_values: Vec<f64> = (0..self.tree.num_nodes(n))
+            .map(|j| {
+                if self.exercise_steps.contains(&n) {
+                    self.exercise_value(n, j).max(0.0)
+                } else {
+                    0.0
+                }
             })
-            .collect()
+            .collect();
+
+        // Store continuation values at exercise steps for forward pass comparison
+        let mut exercise_cont_values: finstack_core::HashMap<usize, Vec<f64>> =
+            finstack_core::HashMap::default();
+
+        for step in (0..n).rev() {
+            let num_curr = self.tree.num_nodes(step);
+            let _num_next = cont_values.len();
+            let j_max_curr = j_max_at(step);
+            let j_max_next = j_max_at(step + 1);
+            let dt = self.tree.dt();
+
+            // Compute continuation values first (before exercise decision)
+            let continuations: Vec<f64> = (0..num_curr)
+                .map(|j| {
+                    let r_j = self.tree.rate_at_node(step, j);
+                    let (p_up, p_mid, p_down) = self.tree.probabilities(step, j);
+                    let j_signed = j as i32 - j_max_curr as i32;
+                    let next_mid = (j_signed + j_max_next as i32) as usize;
+                    let v_up = cont_values.get(next_mid + 1).or(cont_values.last()).copied().unwrap_or(0.0);
+                    let v_mid = cont_values.get(next_mid).or(cont_values.last()).copied().unwrap_or(0.0);
+                    let v_down = if next_mid > 0 { cont_values[next_mid - 1] } else { cont_values[0] };
+                    let expected = p_up * v_up + p_mid * v_mid + p_down * v_down;
+                    expected * (-r_j * dt).exp()
+                })
+                .collect();
+
+            if self.exercise_steps.contains(&step) {
+                exercise_cont_values.insert(step, continuations.clone());
+            }
+
+            // Apply exercise decision
+            cont_values = continuations
+                .into_iter()
+                .enumerate()
+                .map(|(j, cont)| {
+                    if self.exercise_steps.contains(&step) {
+                        cont.max(self.exercise_value(step, j))
+                    } else {
+                        cont
+                    }
+                })
+                .collect();
+        }
+
+        // 2. Forward pass: track survival probabilities
+        let mut survival = vec![1.0]; // Start at root
+        let mut exercise_probs = Vec::new();
+        let mut sorted_steps: Vec<usize> = self.exercise_steps.iter().copied().collect();
+        sorted_steps.sort();
+
+        for step in 0..=n {
+            let num_curr = self.tree.num_nodes(step);
+
+            // Pad survival if needed
+            while survival.len() < num_curr {
+                survival.push(0.0);
+            }
+
+            if self.exercise_steps.contains(&step) {
+                let cont_vals = exercise_cont_values.get(&step);
+                let mut step_prob = 0.0;
+
+                for (j, surv) in survival.iter_mut().enumerate().take(num_curr) {
+                    if *surv < 1e-15 {
+                        continue;
+                    }
+                    let exercise_val = self.exercise_value(step, j);
+                    let cont_val = cont_vals.and_then(|v| v.get(j)).copied().unwrap_or(0.0);
+                    if exercise_val >= cont_val && exercise_val > 0.0 {
+                        step_prob += *surv;
+                        *surv = 0.0; // Exercised
+                    }
+                }
+                exercise_probs.push((self.tree.time_at_step(step), step_prob));
+            }
+
+            if step < n {
+                let num_next = self.tree.num_nodes(step + 1);
+                let j_max_curr = j_max_at(step);
+                let j_max_next = j_max_at(step + 1);
+                let mut next_survival = vec![0.0; num_next];
+
+                for (j, &surv) in survival.iter().enumerate().take(num_curr) {
+                    if surv < 1e-15 {
+                        continue;
+                    }
+                    let (p_up, p_mid, p_down) = self.tree.probabilities(step, j);
+                    let j_signed = j as i32 - j_max_curr as i32;
+                    let next_mid = ((j_signed + j_max_next as i32) as usize).min(num_next - 1);
+                    let next_up = (next_mid + 1).min(num_next - 1);
+                    let next_down = next_mid.saturating_sub(1);
+
+                    next_survival[next_up] += surv * p_up;
+                    next_survival[next_mid] += surv * p_mid;
+                    next_survival[next_down] += surv * p_down;
+                }
+                survival = next_survival;
+            }
+        }
+
+        exercise_probs
     }
 }
 

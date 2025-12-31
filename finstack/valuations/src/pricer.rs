@@ -635,6 +635,26 @@ impl PricingErrorContext {
         Self::default()
     }
 
+    /// Create context from an instrument, capturing ID and type.
+    ///
+    /// This is a convenience method to reduce boilerplate when building
+    /// error context in pricer implementations.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// let ctx = PricingErrorContext::from_instrument(bond)
+    ///     .with_model(ModelKey::Discounting)
+    ///     .with_curve_id("USD-OIS");
+    /// ```
+    pub fn from_instrument(instrument: &dyn Priceable) -> Self {
+        Self {
+            instrument_id: Some(instrument.id().to_string()),
+            instrument_type: Some(instrument.key()),
+            ..Default::default()
+        }
+    }
+
     /// Set the instrument ID.
     pub fn with_instrument_id(mut self, id: impl Into<String>) -> Self {
         self.instrument_id = Some(id.into());

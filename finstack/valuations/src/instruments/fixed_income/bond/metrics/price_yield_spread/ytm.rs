@@ -62,6 +62,8 @@ impl MetricCalculator for YtmCalculator {
                 bond.cashflow_spec.day_count(),
                 bond.discount_curve_id.to_owned(),
                 match &bond.cashflow_spec {
+                    // Rate overflow is extremely unlikely for interest rates,
+                    // but use 0.0 as initial guess hint (solver will find correct YTM)
                     CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
                     _ => 0.0,
                 },
