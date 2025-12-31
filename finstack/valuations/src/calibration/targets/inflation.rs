@@ -1,8 +1,10 @@
 use crate::calibration::api::schema::InflationCurveParams;
-use crate::calibration::config::{CalibrationConfig, CalibrationMethod};
+use crate::calibration::config::{CalibrationConfig, CalibrationMethod, ResidualWeightingScheme};
+use crate::calibration::constants::{TOLERANCE_DUP_KNOTS, WEIGHT_MIN_FLOOR};
 use crate::calibration::prepared::CalibrationQuote;
 use crate::calibration::solver::bootstrap::SequentialBootstrapper;
-use crate::calibration::solver::traits::BootstrapTarget;
+use crate::calibration::solver::global::GlobalFitOptimizer;
+use crate::calibration::solver::traits::{BootstrapTarget, GlobalSolveTarget};
 use crate::calibration::CalibrationReport;
 use crate::market::quotes::inflation::InflationQuote;
 use crate::market::quotes::market_quote::{ExtractQuotes, MarketQuote};
@@ -20,17 +22,27 @@ use finstack_core::Result;
 use std::cell::RefCell;
 use std::sync::Arc;
 
+/// CPI hard bounds for numerical stability.
+const CPI_HARD_MIN: f64 = 1.0; // CPI level can't be below 1 (assuming reasonable indexation)
+const CPI_HARD_MAX: f64 = 10000.0; // Very high CPI levels (hyperinflation safety cap)
+
 /// Bootstrapper for inflation curves from inflation swap quotes.
 ///
-/// Implements sequential bootstrapping of inflation curves using zero-coupon
-/// inflation swap (ZCIS) quotes with different maturities. The bootstrapper
-/// prices synthetic inflation swaps to solve for CPI values that match
-/// market quotes.
+/// Implements sequential bootstrapping and global optimization of inflation curves
+/// using zero-coupon inflation swap (ZCIS) and year-on-year (YoY) swap quotes
+/// with different maturities. The bootstrapper prices synthetic inflation swaps
+/// to solve for CPI values that match market quotes.
+///
+/// # Supported Methods
+/// - **Bootstrap**: Sequential solving, one knot at a time (default).
+/// - **GlobalSolve**: Simultaneous Levenberg-Marquardt fit of all CPI knots.
 pub struct InflationBootstrapper {
     /// Parameters for the inflation curve (ID, interpolation, etc).
     pub params: InflationCurveParams,
     /// Baseline market context containing discount curves.
     pub base_context: MarketContext,
+    /// Global calibration settings (used for solver controls and weights).
+    pub config: CalibrationConfig,
     /// Optional reusable context for sequential solvers to reduce memory pressure.
     reuse_context: Option<RefCell<MarketContext>>,
 }
@@ -42,6 +54,7 @@ impl InflationBootstrapper {
     ///
     /// * `params` - Parameters defining the inflation curve structure
     /// * `base_context` - Market context containing discount curves
+    /// * `config` - Global calibration settings (solver controls and weights)
     ///
     /// # Returns
     ///
@@ -49,9 +62,9 @@ impl InflationBootstrapper {
     pub fn new(
         params: InflationCurveParams,
         base_context: MarketContext,
-        use_parallel: bool,
+        config: CalibrationConfig,
     ) -> Self {
-        let reuse_context = if use_parallel {
+        let reuse_context = if config.use_parallel {
             None
         } else {
             Some(RefCell::new(base_context.clone()))
@@ -59,6 +72,7 @@ impl InflationBootstrapper {
         Self {
             params,
             base_context,
+            config,
             reuse_context,
         }
     }
@@ -278,8 +292,7 @@ impl InflationBootstrapper {
         let mut config = global_config.clone();
         config.calibration_method = params.method.clone();
 
-        let target =
-            InflationBootstrapper::new(params.clone(), context.clone(), config.use_parallel);
+        let target = InflationBootstrapper::new(params.clone(), context.clone(), config.clone());
         let prepared_quotes = target.prepare_quotes(inflation_quotes)?;
 
         let (curve, mut report) = match params.method {
@@ -291,16 +304,66 @@ impl InflationBootstrapper {
                 None,
             )?,
             CalibrationMethod::GlobalSolve { .. } => {
-                return Err(finstack_core::Error::Input(
-                    finstack_core::InputError::Invalid,
-                ));
+                GlobalFitOptimizer::optimize(&target, &prepared_quotes, &config)?
             }
         };
 
         report.update_solver_config(config.solver.clone());
+        report
+            .metadata
+            .insert("calibration_type".to_string(), "inflation_curve".to_string());
+        report
+            .metadata
+            .insert("curve_id".to_string(), params.curve_id.to_string());
+        report
+            .metadata
+            .insert("index".to_string(), params.index.clone());
 
         let new_context = context.clone().insert_inflation(curve);
         Ok((new_context, report))
+    }
+
+    /// Compute CPI bounds for a given time based on reasonable inflation rate bounds.
+    fn cpi_bounds_for_time(&self, time: f64) -> Result<(f64, f64)> {
+        let base_cpi = self.effective_base_cpi()?;
+        // Allow inflation rates from -10% to +50% annualized
+        let min_inflation = -0.10_f64;
+        let max_inflation = 0.50_f64;
+        let cpi_lo = (base_cpi * (1.0 + min_inflation).powf(time)).max(CPI_HARD_MIN);
+        let cpi_hi = (base_cpi * (1.0 + max_inflation).powf(time)).min(CPI_HARD_MAX);
+        Ok((cpi_lo, cpi_hi))
+    }
+
+    /// Validate a CPI knot value.
+    fn validate_cpi_knot(&self, time: f64, value: f64) -> Result<()> {
+        if !value.is_finite() {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "Non-finite CPI value for {} at t={:.6}",
+                    self.params.curve_id, time
+                ),
+                category: "bootstrapping".to_string(),
+            });
+        }
+        if value < CPI_HARD_MIN {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "CPI value too low for {} at t={:.6}: {:.6} (min {:.6})",
+                    self.params.curve_id, time, value, CPI_HARD_MIN
+                ),
+                category: "bootstrapping".to_string(),
+            });
+        }
+        if value > CPI_HARD_MAX {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "CPI value too high for {} at t={:.6}: {:.6} (max {:.6})",
+                    self.params.curve_id, time, value, CPI_HARD_MAX
+                ),
+                category: "bootstrapping".to_string(),
+            });
+        }
+        Ok(())
     }
 }
 
@@ -346,11 +409,191 @@ impl BootstrapTarget for InflationBootstrapper {
         let rate = match quote {
             CalibrationQuote::Inflation(pq) => match pq.quote.as_ref() {
                 InflationQuote::InflationSwap { rate, .. } => *rate,
-                _ => 0.02,
+                InflationQuote::YoYInflationSwap { rate, .. } => *rate,
             },
             _ => 0.02, // Fallback if mismatched type (shouldn't happen)
         };
         let base_cpi = self.effective_base_cpi()?;
         Ok(base_cpi * (1.0 + rate).powf(t))
+    }
+
+    fn validate_knot(&self, time: f64, value: f64) -> Result<()> {
+        self.validate_cpi_knot(time, value)
+    }
+}
+
+impl GlobalSolveTarget for InflationBootstrapper {
+    type Quote = CalibrationQuote;
+    type Curve = InflationCurve;
+
+    fn build_time_grid_and_guesses(
+        &self,
+        quotes: &[Self::Quote],
+    ) -> Result<(Vec<f64>, Vec<f64>, Vec<Self::Quote>)> {
+        let base_cpi = self.effective_base_cpi()?;
+
+        let mut entries = Vec::with_capacity(quotes.len());
+
+        for quote in quotes {
+            let t = self.quote_time(quote)?;
+            if !t.is_finite() || t <= 0.0 {
+                continue;
+            }
+
+            // Extract inflation rate from quote for initial guess
+            let rate = match quote {
+                CalibrationQuote::Inflation(pq) => match pq.quote.as_ref() {
+                    InflationQuote::InflationSwap { rate, .. } => *rate,
+                    InflationQuote::YoYInflationSwap { rate, .. } => *rate,
+                },
+                _ => 0.02, // Fallback
+            };
+
+            // Initial guess: CPI = base_cpi * (1 + rate)^t
+            let cpi_guess = base_cpi * (1.0 + rate).powf(t);
+            let (cpi_lo, cpi_hi) = self.cpi_bounds_for_time(t)?;
+            let clamped_guess = cpi_guess.clamp(cpi_lo, cpi_hi);
+
+            entries.push((t, clamped_guess, quote.clone()));
+        }
+
+        // Sort by time
+        entries.sort_by(|a, b| a.0.total_cmp(&b.0));
+
+        let mut times = Vec::with_capacity(entries.len());
+        let mut initials = Vec::with_capacity(entries.len());
+        let mut active_quotes = Vec::with_capacity(entries.len());
+        let mut last_time: Option<f64> = None;
+
+        for (t, cpi, quote) in entries {
+            if let Some(prev) = last_time {
+                if (t - prev).abs() <= TOLERANCE_DUP_KNOTS {
+                    return Err(finstack_core::Error::Calibration {
+                        message: format!(
+                            "Duplicate or unsorted inflation knot times detected (prev={:.10}, new={:.10}). \
+Ensure quotes map to strictly increasing year fractions.",
+                            prev, t
+                        ),
+                        category: "global_solve".to_string(),
+                    });
+                }
+            }
+            last_time = Some(t);
+            times.push(t);
+            initials.push(cpi);
+            active_quotes.push(quote);
+        }
+
+        Ok((times, initials, active_quotes))
+    }
+
+    fn build_curve_from_params(&self, times: &[f64], params: &[f64]) -> Result<Self::Curve> {
+        self.build_curve_for_solver_from_params(times, params)
+    }
+
+    fn build_curve_for_solver_from_params(
+        &self,
+        times: &[f64],
+        params: &[f64],
+    ) -> Result<Self::Curve> {
+        if times.len() != params.len() {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "Global solve dimension mismatch: {} times vs {} params",
+                    times.len(),
+                    params.len()
+                ),
+                category: "global_solve".to_string(),
+            });
+        }
+
+        let base_cpi = self.effective_base_cpi()?;
+        let mut knots = Vec::with_capacity(times.len() + 1);
+        knots.push((0.0, base_cpi));
+
+        let mut last_t = 0.0;
+        for (&t, &cpi) in times.iter().zip(params.iter()) {
+            if t <= last_t {
+                return Err(finstack_core::Error::Calibration {
+                    message: format!(
+                        "Non-increasing inflation knot time {:.10} detected (previous {:.10}). \
+Global solve requires strictly increasing times.",
+                        t, last_t
+                    ),
+                    category: "global_solve".to_string(),
+                });
+            }
+            self.validate_cpi_knot(t, cpi)?;
+            last_t = t;
+            knots.push((t, cpi));
+        }
+
+        InflationCurve::builder(self.params.curve_id.to_string())
+            .base_cpi(base_cpi)
+            .knots(knots)
+            .set_interp(self.params.interpolation)
+            .build()
+    }
+
+    fn build_curve_final_from_params(&self, times: &[f64], params: &[f64]) -> Result<Self::Curve> {
+        self.build_curve_for_solver_from_params(times, params)
+    }
+
+    fn calculate_residuals(
+        &self,
+        curve: &Self::Curve,
+        quotes: &[Self::Quote],
+        residuals: &mut [f64],
+    ) -> Result<()> {
+        if residuals.len() < quotes.len() {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "Global solve residuals buffer too small: got {} need {}",
+                    residuals.len(),
+                    quotes.len()
+                ),
+                category: "global_solve".to_string(),
+            });
+        }
+
+        self.with_temp_context(curve, |ctx| {
+            for (i, quote) in quotes.iter().enumerate() {
+                let pv = quote.get_instrument().value_raw(ctx, self.params.base_date)?;
+                residuals[i] = pv / self.params.notional;
+            }
+            Ok(())
+        })
+    }
+
+    fn residual_key(&self, quote: &Self::Quote, idx: usize) -> String {
+        let q = quote.get_instrument();
+        format!("{}-{:03}", q.id(), idx)
+    }
+
+    fn residual_weights(&self, quotes: &[Self::Quote], weights_out: &mut [f64]) -> Result<()> {
+        if quotes.len() != weights_out.len() {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "Global solve requires weights.len() == quotes.len(); got {} vs {}.",
+                    weights_out.len(),
+                    quotes.len()
+                ),
+                category: "global_solve".to_string(),
+            });
+        }
+
+        for (i, quote) in quotes.iter().enumerate() {
+            let t = self.quote_time(quote)?.max(1e-6);
+
+            let weight = match self.config.discount_curve.weighting_scheme {
+                ResidualWeightingScheme::Equal => 1.0,
+                ResidualWeightingScheme::LinearTime => t,
+                ResidualWeightingScheme::SqrtTime => t.sqrt(),
+                ResidualWeightingScheme::InverseDuration => 1.0 / t.max(0.1),
+            };
+
+            weights_out[i] = weight.max(WEIGHT_MIN_FLOOR);
+        }
+        Ok(())
     }
 }

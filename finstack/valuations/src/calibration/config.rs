@@ -74,6 +74,71 @@ pub enum ResidualWeightingScheme {
     InverseDuration,
 }
 
+/// Hazard-curve specific numerical solver configuration.
+///
+/// Controls the search space and numerical stability of hazard curve
+/// bootstrapping or global solve for credit curve calibration.
+///
+/// # Invariants
+/// - `hazard_hard_min` >= 0 (hazard rates must be non-negative)
+/// - `hazard_hard_max` > `hazard_hard_min`
+///
+/// # Examples
+/// ```rust,no_run
+/// use finstack_valuations::calibration::HazardCurveSolveConfig;
+///
+/// // For distressed debt scenarios, increase the max hazard rate
+/// let config = HazardCurveSolveConfig {
+///     hazard_hard_max: 100.0,  // Allow up to ~100% default probability per year
+///     ..Default::default()
+/// };
+/// ```
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct HazardCurveSolveConfig {
+    /// Minimum allowed hazard rate (must be non-negative for survival monotonicity).
+    pub hazard_hard_min: f64,
+    /// Maximum allowed hazard rate.
+    ///
+    /// The default of 10.0 corresponds to roughly 99.995% 1Y default probability.
+    /// For distressed/distressed sovereign scenarios, increase to 50.0 or 100.0.
+    pub hazard_hard_max: f64,
+    /// Weighting scheme for global solve residuals.
+    #[serde(default)]
+    pub weighting_scheme: ResidualWeightingScheme,
+    /// Tolerance for determining calibration success (applied to residuals).
+    pub validation_tolerance: f64,
+}
+
+impl Default for HazardCurveSolveConfig {
+    fn default() -> Self {
+        Self {
+            hazard_hard_min: 0.0,
+            hazard_hard_max: 10.0, // ~99.995% 1Y default probability
+            weighting_scheme: ResidualWeightingScheme::default(),
+            validation_tolerance: 1e-8,
+        }
+    }
+}
+
+impl HazardCurveSolveConfig {
+    /// Create a configuration suitable for distressed debt scenarios.
+    ///
+    /// Increases the hazard rate cap to 100.0, allowing calibration of
+    /// credit curves for entities with very high default probabilities
+    /// (e.g., distressed sovereigns, near-default corporates).
+    pub fn distressed() -> Self {
+        Self {
+            hazard_hard_min: 0.0,
+            hazard_hard_max: 100.0,
+            weighting_scheme: ResidualWeightingScheme::default(),
+            validation_tolerance: 1e-6, // Slightly relaxed for distressed
+        }
+    }
+}
+
 /// Discount-curve specific numerical solver configuration.
 ///
 /// Controls the search space and numerical stability of the discount curve
@@ -207,6 +272,10 @@ pub struct CalibrationConfig {
     /// Discount-curve specific solver configuration.
     #[serde(default)]
     pub discount_curve: DiscountCurveSolveConfig,
+
+    /// Hazard-curve specific solver configuration.
+    #[serde(default)]
+    pub hazard_curve: HazardCurveSolveConfig,
 }
 
 /// Extension section key for calibration overrides.
@@ -225,6 +294,7 @@ impl Default for CalibrationConfig {
             rate_bounds: RateBounds::default(),
             calibration_method: CalibrationMethod::default(),
             discount_curve: DiscountCurveSolveConfig::default(),
+            hazard_curve: HazardCurveSolveConfig::default(),
         }
     }
 }
@@ -404,6 +474,7 @@ impl CalibrationConfig {
             },
             calibration_method: CalibrationMethod::default(),
             discount_curve: DiscountCurveSolveConfig::default(),
+            hazard_curve: HazardCurveSolveConfig::default(),
         }
     }
 
@@ -442,6 +513,7 @@ impl CalibrationConfig {
             rate_bounds: RateBounds::default(),
             calibration_method: CalibrationMethod::default(),
             discount_curve: DiscountCurveSolveConfig::default(),
+            hazard_curve: HazardCurveSolveConfig::default(),
         }
     }
 
@@ -480,6 +552,7 @@ impl CalibrationConfig {
             rate_bounds: RateBounds::default(),
             calibration_method: CalibrationMethod::default(),
             discount_curve: DiscountCurveSolveConfig::default(),
+            hazard_curve: HazardCurveSolveConfig::default(),
         }
     }
 

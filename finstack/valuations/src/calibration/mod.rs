@@ -78,8 +78,8 @@ pub mod constants;
 /// Convexity adjustment logic.
 // Re-exports: Configuration
 pub use config::{
-    CalibrationConfig, CalibrationMethod, DiscountCurveSolveConfig, RatesStepConventions,
-    ResidualWeightingScheme, CALIBRATION_CONFIG_KEY,
+    CalibrationConfig, CalibrationMethod, DiscountCurveSolveConfig, HazardCurveSolveConfig,
+    RatesStepConventions, ResidualWeightingScheme, CALIBRATION_CONFIG_KEY,
 };
 pub use solver::SolverConfig;
 pub use validation::curves::CurveValidator;

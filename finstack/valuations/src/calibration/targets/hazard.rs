@@ -1,6 +1,6 @@
 use crate::calibration::api::schema::HazardCurveParams;
 use crate::calibration::config::{CalibrationConfig, CalibrationMethod, ResidualWeightingScheme};
-use crate::calibration::constants::WEIGHT_MIN_FLOOR;
+use crate::calibration::constants::{TOLERANCE_DUP_KNOTS, WEIGHT_MIN_FLOOR};
 use crate::calibration::prepared::CalibrationQuote;
 use crate::calibration::solver::bootstrap::SequentialBootstrapper;
 use crate::calibration::solver::global::GlobalFitOptimizer;
@@ -14,12 +14,6 @@ use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::HashMap;
 use finstack_core::Result;
 use std::cell::RefCell;
-
-const HAZARD_HARD_MIN: f64 = 0.0;
-// Safety cap: λ=10 implies ~99.995% 1Y default probability and can lead to numerical underflow
-// in long-dated curves. Treat as a hard validation error during calibration.
-const HAZARD_HARD_MAX: f64 = 10.0;
-const TOLERANCE_DUP_KNOTS: f64 = 1e-12;
 
 /// Bootstrapper for hazard curves from CDS quotes.
 ///
@@ -181,8 +175,10 @@ impl HazardBootstrapper {
 
         let loss_given_default = (1.0 - recovery).max(1e-6);
         let guess = (spread_bp / 10_000.0) / loss_given_default;
+        let hazard_min = self.config.hazard_curve.hazard_hard_min;
+        let hazard_max = self.config.hazard_curve.hazard_hard_max;
         if guess.is_finite() && guess >= 0.0 {
-            Some(guess.clamp(HAZARD_HARD_MIN, HAZARD_HARD_MAX))
+            Some(guess.clamp(hazard_min, hazard_max))
         } else {
             None
         }
@@ -265,27 +261,30 @@ impl BootstrapTarget for HazardBootstrapper {
 
     fn initial_guess(&self, _quote: &Self::Quote, previous_knots: &[(f64, f64)]) -> Result<f64> {
         let guess = previous_knots.last().map(|&(_, v)| v).unwrap_or(0.01);
+        let hazard_min = self.config.hazard_curve.hazard_hard_min;
+        let hazard_max = self.config.hazard_curve.hazard_hard_max;
         if guess.is_finite() {
-            Ok(guess.clamp(HAZARD_HARD_MIN, HAZARD_HARD_MAX))
+            Ok(guess.clamp(hazard_min, hazard_max))
         } else {
             Ok(0.01)
         }
     }
 
     fn scan_points(&self, _quote: &Self::Quote, initial_guess: f64) -> Result<Vec<f64>> {
-        // Bounded, maturity-agnostic scan grid (log-spaced) on [0, HAZARD_HARD_MAX].
+        // Bounded, maturity-agnostic scan grid (log-spaced) on [0, hazard_hard_max].
         // This prevents the solver from spending effort in negative/absurd hazard regions.
-        let max_h = HAZARD_HARD_MAX;
+        let hazard_min = self.config.hazard_curve.hazard_hard_min;
+        let max_h = self.config.hazard_curve.hazard_hard_max;
         let min_positive = 1e-10_f64;
 
         let center = if initial_guess.is_finite() {
-            initial_guess.clamp(HAZARD_HARD_MIN, max_h)
+            initial_guess.clamp(hazard_min, max_h)
         } else {
             0.01_f64
         };
 
         let mut pts = Vec::with_capacity(64);
-        pts.push(0.0);
+        pts.push(hazard_min);
         pts.push(center);
         pts.push(max_h);
 
@@ -300,7 +299,7 @@ impl BootstrapTarget for HazardBootstrapper {
                 let t = i as f64 / (N - 1) as f64;
                 let exp = low_exp + t * (high_exp - low_exp);
                 let v = 10f64.powf(exp);
-                if v.is_finite() && v >= 0.0 && v <= max_h {
+                if v.is_finite() && v >= hazard_min && v <= max_h {
                     pts.push(v);
                 }
             }
@@ -314,6 +313,9 @@ impl BootstrapTarget for HazardBootstrapper {
     }
 
     fn validate_knot(&self, time: f64, value: f64) -> Result<()> {
+        let hazard_min = self.config.hazard_curve.hazard_hard_min;
+        let hazard_max = self.config.hazard_curve.hazard_hard_max;
+
         if !time.is_finite() || time <= 0.0 {
             return Err(finstack_core::Error::Calibration {
                 message: format!(
@@ -332,7 +334,7 @@ impl BootstrapTarget for HazardBootstrapper {
                 category: "bootstrapping".to_string(),
             });
         }
-        if value < HAZARD_HARD_MIN {
+        if value < hazard_min {
             return Err(finstack_core::Error::Calibration {
                 message: format!(
                     "Negative hazard rate for {} at t={:.6}: {:.6}",
@@ -341,11 +343,11 @@ impl BootstrapTarget for HazardBootstrapper {
                 category: "bootstrapping".to_string(),
             });
         }
-        if value > HAZARD_HARD_MAX {
+        if value > hazard_max {
             return Err(finstack_core::Error::Calibration {
                 message: format!(
                     "Hazard rate out of bounds for {} at t={:.6}: {:.6} (max {:.6})",
-                    self.params.curve_id, time, value, HAZARD_HARD_MAX
+                    self.params.curve_id, time, value, hazard_max
                 ),
                 category: "bootstrapping".to_string(),
             });
@@ -367,6 +369,9 @@ impl GlobalSolveTarget for HazardBootstrapper {
             .get_hazard(self.params.curve_id.as_str())
             .ok();
 
+        let hazard_min = self.config.hazard_curve.hazard_hard_min;
+        let hazard_max = self.config.hazard_curve.hazard_hard_max;
+
         let mut entries = Vec::with_capacity(quotes.len());
 
         for quote in quotes {
@@ -382,7 +387,7 @@ impl GlobalSolveTarget for HazardBootstrapper {
             };
 
             let guess = if guess.is_finite() {
-                guess.clamp(HAZARD_HARD_MIN, HAZARD_HARD_MAX)
+                guess.clamp(hazard_min, hazard_max)
             } else {
                 0.01
             };
@@ -577,14 +582,12 @@ mod tests {
 
     #[test]
     fn validate_knot_rejects_hazard_above_max() {
-        let target = HazardBootstrapper::new(
-            base_params(),
-            MarketContext::default(),
-            CalibrationConfig::default(),
-        )
-        .expect("target");
+        let config = CalibrationConfig::default();
+        let hazard_max = config.hazard_curve.hazard_hard_max;
+        let target = HazardBootstrapper::new(base_params(), MarketContext::default(), config)
+            .expect("target");
         let err = target
-            .validate_knot(1.0, HAZARD_HARD_MAX + 1e-6)
+            .validate_knot(1.0, hazard_max + 1e-6)
             .expect_err("should reject excessive hazard");
         assert!(err.to_string().to_lowercase().contains("out of bounds"));
     }
