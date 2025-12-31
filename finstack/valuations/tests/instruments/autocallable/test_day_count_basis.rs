@@ -33,6 +33,8 @@ use finstack_core::dates::DayCount;
 #[cfg(feature = "mc")]
 use finstack_valuations::instruments::common::traits::Instrument;
 #[cfg(feature = "mc")]
+use std::time::Instant;
+#[cfg(feature = "mc")]
 use time::macros::date;
 
 /// Test that a quarterly observation autocall with ACT/365 surface and ACT/360 curve prices correctly.
