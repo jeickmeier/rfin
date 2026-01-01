@@ -16,29 +16,21 @@ Prerequisites:
 - Margin and collateral concepts
 """
 
-from finstack import (
-    Money,
-    NettingSet,
-    NettingSetId,
-)
+from finstack.portfolio import NettingSet, NettingSetId
 
 
 def main() -> None:
+    # Create netting sets (group positions for margin aggregation).
+    bilateral_id = NettingSetId.bilateral(counterparty_id="JPM", csa_id="BILATERAL-001")
+    cleared_id = NettingSetId.cleared(ccp_id="LCH")
 
-    # Create netting sets with margin terms
-    NettingSet.bilateral(
-        NettingSetId("BILATERAL-001", "JPM"),
-        threshold=Money.from_code(1_000_000, "USD"),
-        minimum_transfer_amount=Money.from_code(250_000, "USD"),
-        initial_margin_pct=0.05,  # 5% IM
-    )
+    bilateral = NettingSet(bilateral_id)
+    cleared = NettingSet(cleared_id)
 
-    NettingSet.cleared(
-        NettingSetId("CLEARED-001", "LCH"),
-        threshold=Money.from_code(0, "USD"),  # No threshold for cleared
-        minimum_transfer_amount=Money.from_code(0, "USD"),
-        initial_margin_pct=0.10,  # 10% IM (higher for cleared)
-    )
+    # Attach some (example) position ids.
+    bilateral.add_position("POS-IRS-1")
+    bilateral.add_position("POS-FX-1")
+    cleared.add_position("POS-IRS-CCP-1")
 
     # Note: Actual margin calculation requires marginable positions
     # See finstack-py/examples/portfolio/margin_example.py for full workflow

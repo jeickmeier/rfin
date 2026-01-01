@@ -17,66 +17,61 @@ Prerequisites:
 - Understanding of optimization
 """
 
-from finstack import (
-    CandidatePosition,
-    Constraint,
-    Objective,
-    PortfolioOptimizationProblem,
-    TradeUniverse,
-)
+from datetime import date
+
+from finstack.core.currency import Currency
+from finstack.core.market_data.context import MarketContext
+from finstack.core.market_data.term_structures import DiscountCurve
+from finstack.core.money import Money
+from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit
+from finstack.portfolio import optimize_max_yield_with_ccc_limit
+from finstack.valuations.instruments import Bond
 
 
 def main() -> None:
+    # Build a small bond portfolio and run the built-in optimizer helper.
+    # This keeps the example fast while exercising the real optimization engine.
+    as_of = date(2024, 1, 15)
 
-    # Define candidate positions
-    candidates = [
-        CandidatePosition(
-            id="BOND.AAA.5Y",
-            instrument_type="bond",
-            tags={"rating": "AAA", "sector": "Financial"},
-            expected_yield=0.040,
-        ),
-        CandidatePosition(
-            id="BOND.AA.5Y", instrument_type="bond", tags={"rating": "AA", "sector": "Industrial"}, expected_yield=0.045
-        ),
-        CandidatePosition(
-            id="BOND.BBB.5Y",
-            instrument_type="bond",
-            tags={"rating": "BBB", "sector": "Technology"},
-            expected_yield=0.050,
-        ),
-        CandidatePosition(
-            id="BOND.BB.5Y", instrument_type="bond", tags={"rating": "BB", "sector": "Energy"}, expected_yield=0.070
-        ),
-        CandidatePosition(
-            id="BOND.CCC.3Y", instrument_type="bond", tags={"rating": "CCC", "sector": "Energy"}, expected_yield=0.100
-        ),
+    market = MarketContext()
+    market.insert_discount(DiscountCurve("USD-OIS", as_of, [(0.0, 1.0), (10.0, 0.65)]))
+
+    fund = Entity("FUND-OPT-001").with_name("Optimization Demo Fund")
+
+    bonds = [
+        ("BOND.AAA.5Y", 0.040, "AAA"),
+        ("BOND.AA.5Y", 0.045, "AA"),
+        ("BOND.BBB.5Y", 0.050, "BBB"),
+        ("BOND.BB.5Y", 0.070, "BB"),
+        ("BOND.CCC.3Y", 0.100, "CCC"),
     ]
 
-    universe = TradeUniverse(candidates)
+    positions = []
+    for pos_id, coupon, rating in bonds:
+        maturity = date(2029, 1, 15) if rating != "CCC" else date(2027, 1, 15)
+        instrument = Bond.fixed_semiannual(
+            pos_id,
+            Money(10_000_000, "USD"),
+            coupon,
+            as_of,
+            maturity,
+            "USD-OIS",
+        )
+        positions.append(
+            Position(pos_id, fund.id, pos_id, instrument, 1.0, PositionUnit.UNITS).with_tag("rating", rating)
+        )
 
-    # Create optimization problem
-    problem = PortfolioOptimizationProblem(universe)
+    portfolio = (
+        PortfolioBuilder("OPTIMIZATION_DEMO")
+        .base_ccy(Currency("USD"))
+        .as_of(as_of)
+        .entity(fund)
+        .position(positions)
+        .build()
+    )
 
-    # Objective: maximize yield
-    problem.add_objective(Objective.maximize_metric("expected_yield"))
-
-    # Constraints
-    problem.add_constraint(Constraint.budget(100_000_000))  # $100M total
-    problem.add_constraint(Constraint.weight_bounds(0.0, 0.25))  # Max 25% per position
-    problem.add_constraint(Constraint.tag_exposure_limit("rating", "CCC", 0.10))  # Max 10% CCC
-    problem.add_constraint(Constraint.tag_exposure_limit("rating", "BB", 0.20))  # Max 20% BB
-    problem.add_constraint(Constraint.tag_exposure_minimum("rating", "AAA", 0.20))  # Min 20% AAA
-    problem.add_constraint(Constraint.tag_exposure_limit("sector", "Energy", 0.30))  # Max 30% Energy
-
-    # Solve
-    result = problem.solve()
-
-    for trade in result.trades:
-        cand = next(c for c in candidates if c.id == trade.position_id)
-        cand.tags.get("rating", "N/A")
-        cand.tags.get("sector", "N/A")
-        trade.target_weight * 100
+    # Optimize with a CCC exposure cap (by weight). Returns a small dict of results.
+    _result = optimize_max_yield_with_ccc_limit(portfolio, market, ccc_limit=0.10)
 
 
 if __name__ == "__main__":

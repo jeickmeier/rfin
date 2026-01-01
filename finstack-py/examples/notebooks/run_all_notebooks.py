@@ -162,20 +162,24 @@ def format_time(seconds: float) -> str:
 
 def main() -> int:
     """Main function to run all notebooks and report results."""
-    # Find all notebooks
-    # Assuming this script is in finstack-py/examples/scripts/
-    base_dir = Path(__file__).parent.parent / "notebooks"
+    # Find all notebooks (this script lives in finstack-py/examples/notebooks/)
+    base_dir = Path(__file__).parent
 
     if not base_dir.exists():
+        print(f"Notebooks directory not found: {base_dir}")
         return 1
 
     notebooks = find_notebooks(base_dir)
 
     if not notebooks:
+        print("No notebooks found!")
         return 1
 
+    print(f"Found {len(notebooks)} notebooks to run:\n")
     for notebook in notebooks:
-        notebook.relative_to(base_dir)
+        rel_path = notebook.relative_to(base_dir)
+        print(f"  - {rel_path}")
+    print()
 
     # Run each notebook and collect results
     results: dict[Path, tuple[bool, str, float]] = {}
@@ -184,40 +188,59 @@ def main() -> int:
 
     total_start = time.time()
 
-    for _i, notebook in enumerate(notebooks, 1):
-        notebook.relative_to(base_dir)
+    for i, notebook in enumerate(notebooks, 1):
+        rel_path = notebook.relative_to(base_dir)
+        print(f"[{i}/{len(notebooks)}] Running {rel_path}...", end=" ", flush=True)
 
         success, output, exec_time = run_notebook(notebook)
         results[notebook] = (success, output, exec_time)
 
         if success:
             successful.append(notebook)
+            print(f"✓ ({format_time(exec_time)})")
         else:
             failed.append(notebook)
+            print(f"✗ ({format_time(exec_time)})")
 
-    time.time() - total_start
+    total_time = time.time() - total_start
 
     # Print summary
+    print("\n" + "=" * 60)
+    print(
+        f"SUMMARY: {len(successful)}/{len(notebooks)} passed in {format_time(total_time)}"
+    )
+    print("=" * 60)
 
     # List successful notebooks
     if successful:
+        print(f"\n✓ Successful ({len(successful)}):")
         for notebook in successful:
-            notebook.relative_to(base_dir)
+            rel_path = notebook.relative_to(base_dir)
             _, _, exec_time = results[notebook]
+            print(f"  {rel_path} ({format_time(exec_time)})")
 
     # List failed notebooks with error details
     if failed:
+        print(f"\n✗ Failed ({len(failed)}):")
         for notebook in failed:
-            notebook.relative_to(base_dir)
+            rel_path = notebook.relative_to(base_dir)
             _, error, exec_time = results[notebook]
-            for _line in error.split("\n"):
-                pass
+            print(f"  {rel_path} ({format_time(exec_time)})")
+            for line in error.split("\n"):
+                print(f"    {line}")
 
     # Print detailed output for all notebooks if requested
     if "--verbose" in sys.argv:
+        print("\n" + "=" * 60)
+        print("DETAILED OUTPUT")
+        print("=" * 60)
         for notebook in notebooks:
-            notebook.relative_to(base_dir)
+            rel_path = notebook.relative_to(base_dir)
             success, output, exec_time = results[notebook]
+            status = "✓" if success else "✗"
+            print(f"\n{status} {rel_path} ({format_time(exec_time)}):")
+            print("-" * 40)
+            print(output)
 
     # Return exit code based on whether all notebooks passed
     return 0 if len(failed) == 0 else 1

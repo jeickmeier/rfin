@@ -22,215 +22,115 @@ Prerequisites:
 - Understanding of risk metrics (DV01, Greeks)
 """
 
-from finstack import (
-    Bond,
-    CreditDefaultSwap,
-    Date,
-    DiscountCurve,
-    Entity,
-    EquityOption,
-    FxMatrix,
-    HazardCurve,
-    InterestRateSwap,
-    MarketContext,
-    Money,
-    PortfolioBuilder,
-    VolSurface,
-    create_standard_registry,
-)
+from datetime import date, timedelta
+
+from finstack.core.currency import Currency
+from finstack.core.market_data.context import MarketContext
+from finstack.core.market_data.fx import FxMatrix
+from finstack.core.market_data.term_structures import DiscountCurve, HazardCurve
+from finstack.core.money import Money
+from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit
+from finstack.valuations.instruments import Bond, CreditDefaultSwap
+from finstack.valuations.pricer import create_standard_registry
 
 
 def create_market_data():
     """Create market with curves and vol surfaces."""
     market = MarketContext()
-    market.set_as_of(Date(2024, 1, 15))
+    as_of = date(2024, 1, 15)
 
     # Discount curve
-    usd_curve = DiscountCurve.flat(id="USD.OIS", base_date=Date(2024, 1, 15), rate=0.045, day_count="Act360")
-    market.insert_discount(usd_curve)
+    market.insert_discount(DiscountCurve("USD-OIS", as_of, [(0.0, 1.0), (10.0, 0.65)]))
 
     # Hazard curve for CDS
-    corp_hazard = HazardCurve.flat(
-        id="CORP.CDS",
-        base_date=Date(2024, 1, 15),
-        rate=0.020,  # 200bps spread
-        recovery_rate=0.40,
-    )
-    market.insert_hazard(corp_hazard)
-
-    # Vol surface for equity options
-    vol_surface = VolSurface.flat(
-        id="SPY.VOL",
-        value=0.18,  # 18% flat vol
-        surface_type="lognormal",
-    )
-    market.set_vol_surface(vol_surface)
-
-    # Equity spot
-    market.set_equity("SPY", 480.0)
+    market.insert_hazard(HazardCurve("CORP.CDS", as_of, [(0.0, 0.02), (10.0, 0.02)], recovery_rate=0.40))
 
     # FX
     fx = FxMatrix()
-    fx.set_spot("USD", "EUR", 0.92)
-    market.set_fx_matrix(fx)
+    fx.set_quote(Currency("EUR"), Currency("USD"), 1.0 / 0.92)
+    market.insert_fx(fx)
 
     return market
 
 
 def create_diversified_portfolio():
     """Create portfolio with diverse risk exposures."""
-    builder = PortfolioBuilder()
-    builder.base_currency("USD")
-    builder.as_of(Date(2024, 1, 15))
-
-    fund = Entity(id="FUND-001", name="Global Macro Fund")
-    builder.entity(fund)
+    as_of = date(2024, 1, 15)
+    fund = Entity("FUND-001").with_name("Global Macro Fund")
 
     # 1. Short-term bond (low duration)
     bond_2y = Bond.fixed_semiannual(
-        id="BOND.2Y",
-        notional=Money.from_code(10_000_000, "USD"),
-        coupon_rate=0.04,
-        issue_date=Date(2024, 1, 15),
-        maturity_date=Date(2026, 1, 15),  # 2Y
-        discount_curve_id="USD.OIS",
+        "BOND.2Y",
+        Money(10_000_000, "USD"),
+        0.04,
+        date(2024, 1, 15),
+        date(2026, 1, 15),
+        "USD-OIS",
     )
-    builder.position(
-        id="POS-BOND-2Y",
-        instrument=bond_2y,
-        entity_id=fund.id,
-        quantity=1.0,
-        tags={"asset_class": "rates", "maturity_bucket": "0-2Y"},
+    pos_2y = Position("POS-BOND-2Y", fund.id, "BOND.2Y", bond_2y, 1.0, PositionUnit.UNITS).with_tags(
+        {"asset_class": "rates", "maturity_bucket": "0-2Y"}
     )
 
     # 2. Medium-term bond
     bond_5y = Bond.fixed_semiannual(
-        id="BOND.5Y",
-        notional=Money.from_code(20_000_000, "USD"),
-        coupon_rate=0.045,
-        issue_date=Date(2024, 1, 15),
-        maturity_date=Date(2029, 1, 15),  # 5Y
-        discount_curve_id="USD.OIS",
+        "BOND.5Y",
+        Money(20_000_000, "USD"),
+        0.045,
+        date(2024, 1, 15),
+        date(2029, 1, 15),
+        "USD-OIS",
     )
-    builder.position(
-        id="POS-BOND-5Y",
-        instrument=bond_5y,
-        entity_id=fund.id,
-        quantity=1.0,
-        tags={"asset_class": "rates", "maturity_bucket": "5-7Y"},
+    pos_5y = Position("POS-BOND-5Y", fund.id, "BOND.5Y", bond_5y, 1.0, PositionUnit.UNITS).with_tags(
+        {"asset_class": "rates", "maturity_bucket": "5-7Y"}
     )
 
-    # 3. Long-term bond (high duration)
-    bond_10y = Bond.fixed_semiannual(
-        id="BOND.10Y",
-        notional=Money.from_code(15_000_000, "USD"),
-        coupon_rate=0.05,
-        issue_date=Date(2024, 1, 15),
-        maturity_date=Date(2034, 1, 15),  # 10Y
-        discount_curve_id="USD.OIS",
+    # 3. CDS (long protection)
+    start = as_of + timedelta(days=1)
+    cds = CreditDefaultSwap.buy_protection(
+        "CDS.5Y",
+        Money(10_000_000, "USD"),
+        spread_bp=200.0,
+        start_date=start,
+        maturity=date(2029, 1, 15),
+        discount_curve="USD-OIS",
+        credit_curve="CORP.CDS",
     )
-    builder.position(
-        id="POS-BOND-10Y",
-        instrument=bond_10y,
-        entity_id=fund.id,
-        quantity=1.0,
-        tags={"asset_class": "rates", "maturity_bucket": "10Y+"},
+    pos_cds = Position("POS-CDS-5Y", fund.id, "CDS.5Y", cds, 1.0, PositionUnit.UNITS).with_tags(
+        {"asset_class": "credit", "maturity_bucket": "5-7Y"}
     )
 
-    # 4. Interest rate swap (receiver)
-    irs = InterestRateSwap.fixed_vs_float(
-        id="IRS.7Y",
-        notional=Money.from_code(25_000_000, "USD"),
-        fixed_rate=0.045,
-        issue_date=Date(2024, 1, 15),
-        maturity_date=Date(2031, 1, 15),  # 7Y
-        pay_fixed=False,  # Receiver
-        discount_curve_id="USD.OIS",
-        forward_curve_id="USD.OIS",
-    )
-    builder.position(
-        id="POS-IRS-7Y",
-        instrument=irs,
-        entity_id=fund.id,
-        quantity=1.0,
-        tags={"asset_class": "rates", "maturity_bucket": "5-7Y"},
+    portfolio = (
+        PortfolioBuilder("RISK_REPORT")
+        .base_ccy(Currency("USD"))
+        .as_of(as_of)
+        .entity(fund)
+        .position([pos_2y, pos_5y, pos_cds])
+        .build()
     )
 
-    # 5. CDS (long protection)
-    cds = CreditDefaultSwap(
-        id="CDS.5Y",
-        notional=Money.from_code(10_000_000, "USD"),
-        spread=0.020,  # 200bps
-        issue_date=Date(2024, 1, 15),
-        maturity_date=Date(2029, 1, 15),  # 5Y
-        is_protection_buyer=True,
-        hazard_curve_id="CORP.CDS",
-        discount_curve_id="USD.OIS",
-    )
-    builder.position(
-        id="POS-CDS-5Y",
-        instrument=cds,
-        entity_id=fund.id,
-        quantity=1.0,
-        tags={"asset_class": "credit", "maturity_bucket": "5-7Y"},
-    )
+    instruments_by_position_id = {
+        "POS-BOND-2Y": bond_2y,
+        "POS-BOND-5Y": bond_5y,
+        "POS-CDS-5Y": cds,
+    }
 
-    # 6. Equity call options (multiple strikes for gamma/vega)
-    for _i, strike in enumerate([460, 480, 500], 1):
-        option = EquityOption.european(
-            id=f"SPY.CALL.{strike}",
-            strike=float(strike),
-            expiry=Date(2024, 7, 15),  # 6M
-            is_call=True,
-            underlying="SPY",
-            quantity=100.0,
-            discount_curve_id="USD.OIS",
-        )
-        builder.position(
-            id=f"POS-CALL-{strike}",
-            instrument=option,
-            entity_id=fund.id,
-            quantity=10.0,
-            tags={"asset_class": "equity", "maturity_bucket": "0-1Y"},
-        )
-
-    # 7. Equity put option (for delta hedging)
-    put = EquityOption.european(
-        id="SPY.PUT.460",
-        strike=460.0,
-        expiry=Date(2024, 7, 15),
-        is_call=False,
-        underlying="SPY",
-        quantity=100.0,
-        discount_curve_id="USD.OIS",
-    )
-    builder.position(
-        id="POS-PUT-460",
-        instrument=put,
-        entity_id=fund.id,
-        quantity=20.0,
-        tags={"asset_class": "equity", "maturity_bucket": "0-1Y"},
-    )
-
-    return builder.build()
+    return portfolio, instruments_by_position_id
 
 
-def compute_risk_metrics(portfolio, market):
-    """Compute risk metrics for all positions."""
+def compute_risk_metrics(portfolio, instruments_by_position_id, market, *, as_of: date):
+    """Compute risk metrics for each instrument."""
     registry = create_standard_registry()
     risk_data = []
 
-    for position in portfolio.positions():
-        pos_id = position.id
-        instrument = position.instrument
+    for pos_id, instrument in instruments_by_position_id.items():
+        position = portfolio.get_position(pos_id)
+        tags = position.tags if position is not None else {}
 
         # Define metrics based on instrument type
-        if isinstance(instrument, (Bond, InterestRateSwap)):
+        if isinstance(instrument, Bond):
             metrics = ["dv01", "duration_mod", "convexity"]
         elif isinstance(instrument, CreditDefaultSwap):
             metrics = ["cs01", "dv01"]
-        elif isinstance(instrument, EquityOption):
-            metrics = ["delta", "gamma", "vega", "theta", "rho"]
         else:
             metrics = []
 
@@ -239,14 +139,13 @@ def compute_risk_metrics(portfolio, market):
 
         # Price with metrics
         try:
-            model = "black_scholes" if isinstance(instrument, EquityOption) else "discounting"
-            result = registry.price_with_metrics(instrument, model, market, metrics)
+            result = registry.price_with_metrics(instrument, "discounting", market, metrics, as_of=as_of)
 
             # Extract metrics
             metrics_dict = {
                 "position_id": pos_id,
-                "asset_class": position.tags.get("asset_class", "N/A"),
-                "maturity_bucket": position.tags.get("maturity_bucket", "N/A"),
+                "asset_class": tags.get("asset_class", "N/A"),
+                "maturity_bucket": tags.get("maturity_bucket", "N/A"),
                 "pv": result.value.amount,
             }
 
@@ -266,11 +165,12 @@ def compute_risk_metrics(portfolio, market):
 def main() -> None:
     """Generate comprehensive risk report."""
     # 1. Create market and portfolio
+    as_of = date(2024, 1, 15)
     market = create_market_data()
-    portfolio = create_diversified_portfolio()
+    portfolio, instruments_by_position_id = create_diversified_portfolio()
 
     # 2. Compute risk metrics
-    risk_data = compute_risk_metrics(portfolio, market)
+    risk_data = compute_risk_metrics(portfolio, instruments_by_position_id, market, as_of=as_of)
 
     # 3. Interest Rate Risk (DV01)
 
