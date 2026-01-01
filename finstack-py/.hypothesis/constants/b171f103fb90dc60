@@ -1,4 +1,0 @@
-# file: /Users/joneickmeier/projects/rfin/finstack-py/finstack/core/__init__.py
-# hypothesis_version: 6.148.8
-
-[1.0, 360.0, 365.0, 360, 392, 826, 840, 978, 'ACT_360', 'ACT_365F', 'CASHFLOW_DATE', 'Currency', 'Currency mismatch', 'DayCount', 'DayCountContext', 'EUR', 'Euro', 'FxMatrix', 'GBP', 'JPY', 'Japanese Yen', 'MarketContext', 'Money', 'PeriodId', 'Pound Sterling', 'SPOT_DATE', 'THIRTY_360', 'US Dollar', 'USD', '_', 'cashflow', 'code', 'config', 'currency', 'dates', 'explain', 'expr', 'expr_helpers', 'fx', 'invalid rate', 'market_data', 'math', 'money', 'types']

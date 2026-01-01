@@ -1,4 +1,0 @@
-# file: /Users/joneickmeier/projects/rfin/finstack-py/finstack/scenarios/dsl.py
-# hypothesis_version: 6.148.8
-
-['#', '([+-]?\\d+(?:\\.\\d+)?)', '(\\d+)\\s*([dwmy])', ';', 'DSLParseError', 'DSLParser', 'adjust', 'discount', 'dsl_scenario', 'equities', 'equity', 'forward', 'from_dsl', 'fx', 'hazard', 'inflation', 'roll', 'set', 'shift', 'vol', 'volatility']

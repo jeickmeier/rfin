@@ -63,12 +63,13 @@ node_modules/
 .coverage
 htmlcov/
 **/coverage/
+**/docs/_build/
+.hypothesis/
 
 # mypy
 .mypy_cache/
 .dmypy.json
 dmypy.json
-EOF < /dev/null
 .ruff_cache/
 
 # mdBook

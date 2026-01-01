@@ -1,4 +1,0 @@
-# file: /Users/joneickmeier/projects/rfin/finstack-py/finstack/core/expr_helpers.py
-# hypothesis_version: 6.148.8
-
-['Expr', 'ExprWrapper', 'col', 'cummax', 'cummin', 'cumprod', 'cumsum', 'diff', 'growth_rate', 'if_then_else', 'lag', 'lead', 'lit', 'pct_change', 'rolling_max', 'rolling_mean', 'rolling_min', 'rolling_std', 'rolling_sum', 'rolling_var']
