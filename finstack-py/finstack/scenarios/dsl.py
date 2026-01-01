@@ -383,46 +383,4 @@ def from_dsl(
     )
 
 
-# Monkey-patch ScenarioSpec to add from_dsl class method
-def _scenario_spec_from_dsl(
-    dsl_text: str,
-    scenario_id: str = "dsl_scenario",
-    name: str | None = None,
-    description: str | None = None,
-    priority: int = 0,
-) -> ScenarioSpec:
-    """Create a scenario from DSL text.
-
-    Parameters
-    ----------
-    dsl_text : str
-        The DSL text defining operations.
-    scenario_id : str, default "dsl_scenario"
-        Unique identifier.
-    name : str, optional
-        Human-readable name.
-    description : str, optional
-        Detailed description.
-    priority : int, default 0
-        Execution priority.
-
-    Returns:
-    -------
-    ScenarioSpec
-        The created scenario specification.
-    """
-    return from_dsl(
-        dsl_text,
-        scenario_id=scenario_id,
-        name=name,
-        description=description,
-        priority=priority,
-    )
-
-
-# Add the class method to ScenarioSpec
-if ScenarioSpec is not None:
-    ScenarioSpec.from_dsl = staticmethod(_scenario_spec_from_dsl)
-
-
 __all__ = ["DSLParseError", "DSLParser", "from_dsl"]

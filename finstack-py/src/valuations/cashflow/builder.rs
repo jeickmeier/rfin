@@ -4,6 +4,7 @@ use crate::core::market_data::context::PyMarketContext;
 use crate::core::market_data::term_structures::PyDiscountCurve;
 use crate::core::money::PyMoney;
 use crate::errors::core_to_py;
+use crate::errors::PyContext;
 use finstack_core::dates::{Period, PeriodId};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
@@ -303,14 +304,14 @@ impl PyCashflowBuilder {
         currency: &crate::core::currency::PyCurrency,
         issue: Bound<'_, PyAny>,
         maturity: Bound<'_, PyAny>,
-    ) -> Self {
-        let issue_date = py_to_date(&issue).expect("valid date");
-        let maturity_date = py_to_date(&maturity).expect("valid date");
+    ) -> PyResult<Self> {
+        let issue_date = py_to_date(&issue).context("issue")?;
+        let maturity_date = py_to_date(&maturity).context("maturity")?;
         let money = Money::new(amount, currency.inner);
         let _ = self.inner.principal(money, issue_date, maturity_date);
-        Self {
+        Ok(Self {
             inner: self.inner.clone(),
-        }
+        })
     }
 
     #[pyo3(text_signature = "(self, amortization)")]
@@ -346,31 +347,34 @@ impl PyCashflowBuilder {
         steps: Vec<(Bound<'_, PyAny>, f64)>,
         schedule: &PyScheduleParams,
         default_split: PyCouponType,
-    ) -> Self {
+    ) -> PyResult<Self> {
         let mut rust_steps: Vec<(time::Date, f64)> = Vec::with_capacity(steps.len());
         for (d, r) in steps {
-            rust_steps.push((py_to_date(&d).expect("valid date"), r));
+            rust_steps.push((py_to_date(&d).context("steps[].date")?, r));
         }
         let _ = self
             .inner
             .fixed_stepup(&rust_steps, schedule.inner.clone(), default_split.inner);
-        Self {
+        Ok(Self {
             inner: self.inner.clone(),
-        }
+        })
     }
 
     #[pyo3(text_signature = "(self, steps)")]
     /// Payment split program `(end_date, split)` where `split` is CouponType.
-    fn payment_split_program(&mut self, steps: Vec<(Bound<'_, PyAny>, PyCouponType)>) -> Self {
+    fn payment_split_program(
+        &mut self,
+        steps: Vec<(Bound<'_, PyAny>, PyCouponType)>,
+    ) -> PyResult<Self> {
         let mut rust_steps: Vec<(time::Date, val_builder::CouponType)> =
             Vec::with_capacity(steps.len());
         for (d, split) in steps {
-            rust_steps.push((py_to_date(&d).expect("valid date"), split.inner));
+            rust_steps.push((py_to_date(&d).context("steps[].date")?, split.inner));
         }
         let _ = self.inner.payment_split_program(&rust_steps);
-        Self {
+        Ok(Self {
             inner: self.inner.clone(),
-        }
+        })
     }
 
     #[pyo3(text_signature = "(self, market=None)")]

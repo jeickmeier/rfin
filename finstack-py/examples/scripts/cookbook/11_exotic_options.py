@@ -118,15 +118,15 @@ def main() -> None:
     )
 
     # Price with analytical method (Black-Scholes barrier formula)
-    result_barrier = registry.price_barrier_option_with_metrics(
+    result_barrier = registry.price_with_metrics(
         barrier_call,
-        model="barrier_bs_continuous",  # Analytical continuous barrier
-        market=market,
-        metrics=["delta", "gamma", "vega", "theta"],
+        "barrier_bs_continuous",  # Analytical continuous barrier
+        market,
+        ["delta", "gamma", "vega", "theta"],
     )
 
-    pv_barrier = result_barrier.present_value.amount
-    result_barrier.metric("delta")
+    pv_barrier = result_barrier.value.amount
+    result_barrier.measures.get("delta")
 
     # 2. Asian Option (Arithmetic Average)
 
@@ -142,14 +142,14 @@ def main() -> None:
     )
 
     # Price with Turnbull-Wakeman approximation (fast analytical method)
-    result_asian = registry.price_asian_option_with_metrics(
+    result_asian = registry.price_with_metrics(
         asian_call,
-        model="asian_turnbull_wakeman",  # Analytical approximation
-        market=market,
-        metrics=["delta", "vega"],
+        "asian_turnbull_wakeman",  # Analytical approximation
+        market,
+        ["delta", "vega"],
     )
 
-    result_asian.metric("delta")
+    result_asian.measures.get("delta")
 
     # 3. Lookback Option (Floating Strike Call)
 
@@ -163,14 +163,14 @@ def main() -> None:
     )
 
     # Price with analytical Black-Scholes lookback formula
-    result_lookback = registry.price_lookback_option_with_metrics(
+    result_lookback = registry.price_with_metrics(
         lookback_call,
-        model="lookback_bs_continuous",  # Analytical continuous lookback
-        market=market,
-        metrics=["delta", "gamma"],
+        "lookback_bs_continuous",  # Analytical continuous lookback
+        market,
+        ["delta", "gamma"],
     )
 
-    result_lookback.metric("delta")
+    result_lookback.measures.get("delta")
 
     # 4. Quanto Option (Cross-Currency)
 
@@ -188,15 +188,15 @@ def main() -> None:
     )
 
     # Price with quanto-adjusted Black-Scholes
-    result_quanto = registry.price_quanto_option_with_metrics(
+    result_quanto = registry.price_with_metrics(
         quanto_call,
-        model="quanto_bs",  # Analytical quanto adjustment
-        market=market,
-        metrics=["delta", "vega"],
+        "quanto_bs",  # Analytical quanto adjustment
+        market,
+        ["delta", "vega"],
     )
 
-    pv_quanto = result_quanto.present_value.amount
-    result_quanto.metric("delta")
+    pv_quanto = result_quanto.value.amount
+    result_quanto.measures.get("delta")
 
     # Convert EUR PV to USD for comparison
     fx_rate = market.fx_matrix().rate("EUR", "USD")
@@ -217,20 +217,19 @@ def main() -> None:
         discount_curve_id="USD.OIS",
     )
 
-    registry.price_equity_option(vanilla_call, model="black_scholes", market=market)
+    registry.price(vanilla_call, "black_scholes", market)
 
     # 6. Analytical vs Monte Carlo comparison
 
     # Price same barrier option with Monte Carlo
-    result_mc = registry.price_barrier_option_with_metrics(
+    result_mc = registry.price_with_metrics(
         barrier_call,
-        model="monte_carlo_gbm",  # Monte Carlo simulation
-        market=market,
-        metrics=["delta"],
-        mc_config={"num_paths": 100_000, "seed": 42, "antithetic": True},
+        "monte_carlo_gbm",  # Monte Carlo simulation
+        market,
+        ["delta"],
     )
 
-    pv_mc = result_mc.present_value.amount
+    pv_mc = result_mc.value.amount
     diff = pv_mc - pv_barrier
     (diff / pv_barrier) * 100
 

@@ -302,7 +302,7 @@ def test_example_margin_aggregator_creation(usd: Currency, as_of: date) -> None:
     builder = PortfolioBuilder("TEST_PORTFOLIO_EXAMPLE")
     builder.base_ccy(usd)
     builder.as_of(as_of)
-    builder.entity(Entity("ENTITY_001", "Test Entity"))
+    builder.entity(Entity("ENTITY_001").with_name("Test Entity"))
     portfolio = builder.build()
 
     aggregator_from_portfolio = PortfolioMarginAggregator.from_portfolio(portfolio)

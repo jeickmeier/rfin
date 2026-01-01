@@ -4,10 +4,11 @@ use finstack_statements::extensions::{
     AccountType, CorkscrewAccount, CorkscrewConfig, CorkscrewExtension, CreditScorecardExtension,
     ScorecardConfig, ScorecardMetric,
 };
+use pyo3::basic::CompareOp;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyType};
-use pyo3::Bound;
+use pyo3::{Bound, IntoPyObjectExt};
 
 /// Balance sheet account type for corkscrew analysis.
 #[pyclass(
@@ -15,7 +16,7 @@ use pyo3::Bound;
     name = "AccountType",
     frozen
 )]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyAccountType {
     pub(crate) inner: AccountType,
 }
@@ -43,6 +44,21 @@ impl PyAccountType {
 
     fn __repr__(&self) -> String {
         format!("AccountType.{:?}", self.inner)
+    }
+
+    fn __richcmp__(
+        &self,
+        other: PyRef<'_, Self>,
+        op: CompareOp,
+        py: Python<'_>,
+    ) -> PyResult<Py<PyAny>> {
+        let result = match op {
+            CompareOp::Eq => self.inner == other.inner,
+            CompareOp::Ne => self.inner != other.inner,
+            _ => return Err(PyValueError::new_err("Unsupported comparison")),
+        };
+        let py_bool = result.into_bound_py_any(py)?;
+        Ok(py_bool.into())
     }
 }
 

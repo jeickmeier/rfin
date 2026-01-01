@@ -119,12 +119,12 @@ class TestPricingDeterminism:
         registry = create_standard_registry()
 
         # Price twice
-        result1 = registry.price_deposit(deposit, "discounting", market)
-        result2 = registry.price_deposit(deposit, "discounting", market)
+        result1 = registry.price(deposit, "discounting", market)
+        result2 = registry.price(deposit, "discounting", market)
 
         # Results should be identical
-        assert abs(result1.present_value.amount - result2.present_value.amount) < 1e-10
-        assert result1.present_value.currency.code == result2.present_value.currency.code
+        assert abs(result1.value.amount - result2.value.amount) < 1e-10
+        assert result1.value.currency.code == result2.value.currency.code
 
     @given(bond_strategy(), discount_curve_strategy())
     @settings(max_examples=30, deadline=None)
@@ -139,16 +139,16 @@ class TestPricingDeterminism:
 
         # Price twice
         try:
-            result1 = registry.price_bond(bond, "discounting", market)
-            result2 = registry.price_bond(bond, "discounting", market)
+            result1 = registry.price(bond, "discounting", market)
+            result2 = registry.price(bond, "discounting", market)
 
             # Results should be identical
-            assert abs(result1.present_value.amount - result2.present_value.amount) < 1e-10
-            assert result1.present_value.currency.code == result2.present_value.currency.code
+            assert abs(result1.value.amount - result2.value.amount) < 1e-10
+            assert result1.value.currency.code == result2.value.currency.code
         except Exception:  # noqa: BLE001
             # If pricing fails, it should fail consistently
             with pytest.raises(Exception, match=r".*"):
-                registry.price_bond(bond, "discounting", market)
+                registry.price(bond, "discounting", market)
 
     @given(deposit_strategy(), discount_curve_strategy())
     @settings(max_examples=50, deadline=None)
@@ -161,8 +161,8 @@ class TestPricingDeterminism:
         # Price 5 times
         results = []
         for _ in range(5):
-            result = registry.price_deposit(deposit, "discounting", market)
-            results.append(result.present_value.amount)
+            result = registry.price(deposit, "discounting", market)
+            results.append(result.value.amount)
 
         # All results should be identical
         for i in range(1, len(results)):
@@ -182,14 +182,14 @@ class TestPricingDeterminism:
         # Price in original order
         results_forward = []
         for dep in deposits:
-            result = registry.price_deposit(dep, "discounting", market)
-            results_forward.append(result.present_value.amount)
+            result = registry.price(dep, "discounting", market)
+            results_forward.append(result.value.amount)
 
         # Price in reverse order
         results_backward = []
         for dep in reversed(deposits):
-            result = registry.price_deposit(dep, "discounting", market)
-            results_backward.insert(0, result.present_value.amount)
+            result = registry.price(dep, "discounting", market)
+            results_backward.insert(0, result.value.amount)
 
         # Results should be identical regardless of order
         for i in range(len(results_forward)):
@@ -208,13 +208,13 @@ class TestMarketContextImmutability:
         registry = create_standard_registry()
 
         # Use same market context multiple times
-        result1 = registry.price_deposit(deposit, "discounting", market)
-        result2 = registry.price_deposit(deposit, "discounting", market)
-        result3 = registry.price_deposit(deposit, "discounting", market)
+        result1 = registry.price(deposit, "discounting", market)
+        result2 = registry.price(deposit, "discounting", market)
+        result3 = registry.price(deposit, "discounting", market)
 
         # All results should be identical
-        assert abs(result1.present_value.amount - result2.present_value.amount) < 1e-10
-        assert abs(result2.present_value.amount - result3.present_value.amount) < 1e-10
+        assert abs(result1.value.amount - result2.value.amount) < 1e-10
+        assert abs(result2.value.amount - result3.value.amount) < 1e-10
 
     @given(st.lists(discount_curve_strategy(currency_code="USD"), min_size=1, max_size=3))
     @settings(max_examples=30, deadline=None)
@@ -234,8 +234,8 @@ class TestMarketContextImmutability:
 
         # Both should be able to retrieve the same curves
         for curve in curves:
-            retrieved1 = market1.get_discount(curve.id)
-            retrieved2 = market2.get_discount(curve.id)
+            retrieved1 = market1.discount(curve.id)
+            retrieved2 = market2.discount(curve.id)
 
             # Base dates should match
             assert retrieved1.base_date == retrieved2.base_date
@@ -259,8 +259,8 @@ class TestPricingReproducibility:
         # Collect results from multiple iterations
         results = []
         for _ in range(num_iterations):
-            result = registry.price_deposit(deposit, "discounting", market)
-            results.append(result.present_value.amount)
+            result = registry.price(deposit, "discounting", market)
+            results.append(result.value.amount)
 
         # All results should be identical
         reference = results[0]
@@ -279,8 +279,8 @@ class TestPricingReproducibility:
         try:
             results = []
             for _ in range(3):
-                result = registry.price_bond(bond, "discounting", market)
-                results.append(result.present_value.amount)
+                result = registry.price(bond, "discounting", market)
+                results.append(result.value.amount)
 
             # Check all results are identical
             for i in range(1, len(results)):
@@ -306,7 +306,7 @@ class TestMetricsDeterminism:
         result2 = registry.price_with_metrics(bond, "discounting", market, ["accrued", "ytm"])
 
         # Present values should be identical
-        assert abs(result1.present_value.amount - result2.present_value.amount) < 1e-10
+        assert abs(result1.value.amount - result2.value.amount) < 1e-10
 
         # Metrics should be identical if present
         if hasattr(result1, "has_metric") and result1.has_metric("accrued") and result2.has_metric("accrued"):
@@ -327,11 +327,11 @@ class TestMetricsDeterminism:
             # Compute metrics multiple times
             results = []
             for _ in range(3):
-                result = registry.price_bond_with_metrics(bond, "discounting", market, ["clean_price", "accrued"])
+                result = registry.price_with_metrics(bond, "discounting", market, ["clean_price", "accrued"])
                 results.append(result)
 
             # Check PV stability
-            pv_values = [r.present_value.amount for r in results]
+            pv_values = [r.value.amount for r in results]
             for i in range(1, len(pv_values)):
                 assert abs(pv_values[i] - pv_values[0]) < 1e-10
 

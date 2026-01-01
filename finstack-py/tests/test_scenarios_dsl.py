@@ -175,13 +175,13 @@ class TestFromDSL:
     def test_from_dsl_basic(self) -> None:
         """Test from_dsl with basic input."""
         scenario = from_dsl("shift USD.OIS +50bp")
-        assert scenario.id() == "dsl_scenario"
-        assert len(scenario.operations()) == 1
+        assert scenario.id == "dsl_scenario"
+        assert len(scenario.operations) == 1
 
     def test_from_dsl_custom_id(self) -> None:
         """Test from_dsl with custom ID."""
         scenario = from_dsl("shift USD.OIS +50bp", scenario_id="custom_id")
-        assert scenario.id() == "custom_id"
+        assert scenario.id == "custom_id"
 
     def test_from_dsl_with_metadata(self) -> None:
         """Test from_dsl with name and description."""
@@ -191,57 +191,14 @@ class TestFromDSL:
             name="Stress Test",
             description="Rate shock scenario",
         )
-        assert scenario.id() == "stress"
-        assert scenario.name() == "Stress Test"
-        assert scenario.description() == "Rate shock scenario"
+        assert scenario.id == "stress"
+        assert scenario.name == "Stress Test"
+        assert scenario.description == "Rate shock scenario"
 
     def test_from_dsl_with_priority(self) -> None:
         """Test from_dsl with priority."""
         scenario = from_dsl("shift USD.OIS +50bp", priority=10)
-        assert scenario.priority() == 10
-
-
-class TestScenarioSpecFromDSL:
-    """Test ScenarioSpec.from_dsl class method."""
-
-    def test_from_dsl_method_exists(self) -> None:
-        """Test from_dsl method exists on ScenarioSpec."""
-        assert hasattr(ScenarioSpec, "from_dsl")
-
-    def test_from_dsl_method_basic(self) -> None:
-        """Test from_dsl method with basic input."""
-        scenario = ScenarioSpec.from_dsl("shift USD.OIS +50bp")
-        assert scenario.id() == "dsl_scenario"
-        assert len(scenario.operations()) == 1
-
-    def test_from_dsl_method_custom_id(self) -> None:
-        """Test from_dsl method with custom ID."""
-        scenario = ScenarioSpec.from_dsl(
-            "shift USD.OIS +50bp",
-            scenario_id="custom_id",
-        )
-        assert scenario.id() == "custom_id"
-
-    def test_from_dsl_complex_scenario(self) -> None:
-        """Test from_dsl with complex scenario."""
-        scenario = ScenarioSpec.from_dsl(
-            """
-            # Market stress scenario
-            shift USD.OIS +50bp      # Rate shock
-            shift EUR.OIS +40bp      # Euro rates
-            shift equities -15%      # Equity drawdown
-            shift fx USD/EUR +5%     # USD strengthens
-            roll forward 1m          # Time decay
-            """,
-            scenario_id="market_stress",
-            name="Q1 2024 Market Stress",
-            description="Combined rate and equity shock",
-            priority=1,
-        )
-        assert scenario.id() == "market_stress"
-        assert scenario.name() == "Q1 2024 Market Stress"
-        assert len(scenario.operations()) == 5
-        assert scenario.priority() == 1
+        assert scenario.priority == 10
 
 
 class TestDSLIntegration:
@@ -249,7 +206,7 @@ class TestDSLIntegration:
 
     def test_dsl_scenario_serialization(self) -> None:
         """Test DSL-generated scenario can be serialized."""
-        scenario = ScenarioSpec.from_dsl("""
+        scenario = from_dsl("""
             shift USD.OIS +50bp
             shift equities -10%
         """)
@@ -261,12 +218,12 @@ class TestDSLIntegration:
 
         # Should be able to round-trip
         scenario2 = ScenarioSpec.from_json(json_str)
-        assert scenario2.id() == scenario.id()
-        assert len(scenario2.operations()) == len(scenario.operations())
+        assert scenario2.id == scenario.id
+        assert len(scenario2.operations) == len(scenario.operations)
 
     def test_dsl_scenario_to_dict(self) -> None:
         """Test DSL-generated scenario can be converted to dict."""
-        scenario = ScenarioSpec.from_dsl("shift USD.OIS +50bp")
+        scenario = from_dsl("shift USD.OIS +50bp")
         data = scenario.to_dict()
         assert data is not None
         assert data["id"] == "dsl_scenario"
@@ -279,12 +236,12 @@ class TestDSLDocumentation:
     def test_example_in_module_docstring(self) -> None:
         """Test example from module docstring works."""
         # This is the example from the dsl.py module docstring
-        scenario = ScenarioSpec.from_dsl("""
+        scenario = from_dsl("""
             shift USD.OIS +50bp
             shift equities -10%
             roll forward 1m
         """)
-        assert len(scenario.operations()) == 3
+        assert len(scenario.operations) == 3
 
     def test_all_documented_syntax_works(self) -> None:
         """Test all syntax examples from docstring."""

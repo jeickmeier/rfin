@@ -387,7 +387,10 @@ impl<'a> ModelTimeSeries for StatementsAdapter<'a> {
                 return p.end;
             }
         }
-        Date::from_calendar_date(period.year, Month::December, 31).unwrap()
+        // Fall back to a deterministic date instead of panicking.
+        Date::from_calendar_date(period.year, Month::December, 31).unwrap_or_else(|_| {
+            Date::from_calendar_date(1970, Month::January, 1).expect("Epoch valid")
+        })
     }
 }
 

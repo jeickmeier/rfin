@@ -70,10 +70,13 @@ Run Stress Test
 
 .. code-block:: python
 
-   from finstack import ScenarioSpec, ScenarioEngine
+   from datetime import date
+   from finstack.scenarios import ExecutionContext, ScenarioEngine
+   from finstack.scenarios.dsl import from_dsl
+   from finstack.statements.types import FinancialModelSpec
 
    # Define scenario
-   scenario = ScenarioSpec.from_dsl("""
+   scenario = from_dsl("""
        # Rates shock
        shift USD.OIS +50bp
        shift EUR.OIS +40bp
@@ -86,8 +89,10 @@ Run Stress Test
    """)
 
    # Apply and revalue
+   ctx = ExecutionContext(market, FinancialModelSpec("empty", []), date.today())
    engine = ScenarioEngine()
-   shocked_market, report = engine.apply(scenario, market)
+   report = engine.apply(scenario, ctx)
+   shocked_market = ctx.market
    stressed_valuation = value_portfolio(portfolio, shocked_market, None)
 
    # Calculate P&L
@@ -101,7 +106,9 @@ Generate Risk Report
 .. code-block:: python
 
    # Price with metrics
-   registry = PricerRegistry.create_standard()
+   from finstack.valuations.pricer import create_standard_registry
+
+   registry = create_standard_registry()
    results = []
 
    for position in portfolio.positions:
@@ -113,11 +120,11 @@ Generate Risk Report
        )
        results.append({
            "position_id": position.id,
-           "pv": result.present_value.amount,
-           "dv01": result.metric("dv01"),
-           "cs01": result.metric("cs01"),
-           "theta": result.metric("theta"),
-           "delta": result.metric("delta"),
+           "pv": result.value.amount,
+           "dv01": result.measures["dv01"],
+           "cs01": result.measures["cs01"],
+           "theta": result.measures["theta"],
+           "delta": result.measures["delta"],
        })
 
    # Export to DataFrame

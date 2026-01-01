@@ -5,11 +5,13 @@ Tests scenario spec, engine, DSL, and operation execution.
 
 from datetime import date
 
+from finstack.core.currency import Currency
 from finstack.core.market_data import DiscountCurve, MarketContext
 import pytest
 
 from finstack.scenarios import (
     CurveKind,
+    ExecutionContext,
     OperationSpec,
     ScenarioEngine,
     ScenarioSpec,
@@ -37,7 +39,7 @@ class TestScenarioSpecParity:
         """Test scenario spec with operations."""
         ops = [
             OperationSpec.curve_parallel_bp(
-                CurveKind.DISCOUNT,
+                CurveKind.Discount,
                 "USD-OIS",
                 50.0,
             )
@@ -69,7 +71,7 @@ class TestOperationSpecParity:
     def test_curve_parallel_bp_operation(self) -> None:
         """Test parallel basis point curve shift."""
         op = OperationSpec.curve_parallel_bp(
-            CurveKind.DISCOUNT,
+            CurveKind.Discount,
             "USD-OIS",
             50.0,
         )
@@ -79,24 +81,23 @@ class TestOperationSpecParity:
     def test_curve_node_bp_operation(self) -> None:
         """Test node-specific basis point curve shift."""
         op = OperationSpec.curve_node_bp(
-            CurveKind.DISCOUNT,
+            CurveKind.Discount,
             "USD-OIS",
-            "5Y",
-            25.0,
-            TenorMatchMode.EXACT,
+            [("5Y", 25.0)],
+            TenorMatchMode.Exact,
         )
 
         assert op is not None
 
     def test_equity_price_pct_operation(self) -> None:
         """Test equity price percentage shift."""
-        op = OperationSpec.equity_price_pct("SPY", -10.0)
+        op = OperationSpec.equity_price_pct(["SPY"], -10.0)
 
         assert op is not None
 
     def test_fx_pct_operation(self) -> None:
         """Test FX rate percentage shift."""
-        op = OperationSpec.market_fx_pct("EUR", "USD", 5.0)
+        op = OperationSpec.market_fx_pct(Currency("EUR"), Currency("USD"), 5.0)
 
         assert op is not None
 
@@ -105,7 +106,7 @@ class TestOperationSpecParity:
         from finstack.scenarios import VolSurfaceKind
 
         op = OperationSpec.vol_surface_parallel_pct(
-            VolSurfaceKind.EQUITY,
+            VolSurfaceKind.Equity,
             "SPX_VOL",
             10.0,
         )
@@ -114,7 +115,7 @@ class TestOperationSpecParity:
 
     def test_time_roll_forward_operation(self) -> None:
         """Test time roll forward operation."""
-        op = OperationSpec.time_roll_forward("1m", apply_shocks=True)
+        op = OperationSpec.time_roll_forward("1m", True, None)
 
         assert op is not None
 
@@ -129,6 +130,8 @@ class TestScenarioEngineParity:
 
     def test_apply_curve_parallel_shock(self) -> None:
         """Test applying parallel curve shock."""
+        from finstack.statements.builder import ModelBuilder
+
         # Create market context
         market = MarketContext()
         discount_curve = DiscountCurve(
@@ -144,7 +147,7 @@ class TestScenarioEngineParity:
             "rate_up",
             [
                 OperationSpec.curve_parallel_bp(
-                    CurveKind.DISCOUNT,
+                    CurveKind.Discount,
                     "USD-OIS",
                     50.0,  # +50bp
                 )
@@ -154,13 +157,19 @@ class TestScenarioEngineParity:
 
         # Apply scenario
         engine = ScenarioEngine()
-        result = engine.apply(spec, market)
+        builder = ModelBuilder.new("m")
+        builder.periods("2024Q1..Q1", None)
+        model = builder.build()
+        ctx = ExecutionContext(market, model, date(2024, 1, 1))
+        result = engine.apply(spec, ctx)
 
         # Should have report
         assert result is not None
 
     def test_apply_multiple_operations(self) -> None:
         """Test applying multiple operations."""
+        from finstack.statements.builder import ModelBuilder
+
         market = MarketContext()
         discount_curve = DiscountCurve(
             "USD-OIS",
@@ -175,17 +184,21 @@ class TestScenarioEngineParity:
             "multi_shock",
             [
                 OperationSpec.curve_parallel_bp(
-                    CurveKind.DISCOUNT,
+                    CurveKind.Discount,
                     "USD-OIS",
                     50.0,
                 ),
-                OperationSpec.equity_price_pct("SPY", -10.0),
+                OperationSpec.equity_price_pct(["SPY"], -10.0),
             ],
             name="Multiple Shocks",
         )
 
         engine = ScenarioEngine()
-        result = engine.apply(spec, market)
+        builder = ModelBuilder.new("m")
+        builder.periods("2024Q1..Q1", None)
+        model = builder.build()
+        ctx = ExecutionContext(market, model, date(2024, 1, 1))
+        result = engine.apply(spec, ctx)
 
         assert result is not None
 
@@ -196,7 +209,7 @@ class TestScenarioEngineParity:
             "base",
             [
                 OperationSpec.curve_parallel_bp(
-                    CurveKind.DISCOUNT,
+                    CurveKind.Discount,
                     "USD-OIS",
                     25.0,
                 )
@@ -209,7 +222,7 @@ class TestScenarioEngineParity:
         overlay = ScenarioSpec(
             "overlay",
             [
-                OperationSpec.equity_price_pct("SPY", -5.0),
+                OperationSpec.equity_price_pct(["SPY"], -5.0),
             ],
             name="Overlay Scenario",
             priority=5,  # Higher priority (lower value)
@@ -228,10 +241,10 @@ class TestCurveKindParity:
 
     def test_curve_kind_values(self) -> None:
         """Test curve kind enum values."""
-        assert CurveKind.DISCOUNT is not None
-        assert CurveKind.FORWARD is not None
-        assert CurveKind.HAZARD is not None
-        assert CurveKind.INFLATION is not None
+        assert CurveKind.Discount is not None
+        assert CurveKind.Forecast is not None
+        assert CurveKind.ParCDS is not None
+        assert CurveKind.Inflation is not None
 
 
 class TestTenorMatchModeParity:
@@ -239,8 +252,8 @@ class TestTenorMatchModeParity:
 
     def test_tenor_match_mode_values(self) -> None:
         """Test tenor match mode enum values."""
-        assert TenorMatchMode.EXACT is not None
-        assert TenorMatchMode.INTERPOLATE is not None
+        assert TenorMatchMode.Exact is not None
+        assert TenorMatchMode.Interpolate is not None
 
 
 class TestDSLParity:
@@ -248,30 +261,36 @@ class TestDSLParity:
 
     def test_dsl_parse_curve_shift(self) -> None:
         """Test DSL parsing of curve shift."""
+        from finstack.scenarios.dsl import from_dsl
+
         dsl_text = """
         shift USD.OIS +50bp
         """
 
-        spec = ScenarioSpec.from_dsl(dsl_text)
+        spec = from_dsl(dsl_text)
 
         assert spec is not None
         assert len(spec.operations) == 1
 
     def test_dsl_parse_multiple_operations(self) -> None:
         """Test DSL parsing multiple operations."""
+        from finstack.scenarios.dsl import from_dsl
+
         dsl_text = """
         shift USD.OIS +50bp
         shift equities -10%
         shift fx USD/EUR +3%
         """
 
-        spec = ScenarioSpec.from_dsl(dsl_text)
+        spec = from_dsl(dsl_text)
 
         assert spec is not None
         assert len(spec.operations) == 3
 
     def test_dsl_parse_with_comments(self) -> None:
         """Test DSL parsing with comments."""
+        from finstack.scenarios.dsl import from_dsl
+
         dsl_text = """
         # Rate shock
         shift USD.OIS +50bp
@@ -280,18 +299,20 @@ class TestDSLParity:
         shift equities -10%
         """
 
-        spec = ScenarioSpec.from_dsl(dsl_text)
+        spec = from_dsl(dsl_text)
 
         assert spec is not None
         assert len(spec.operations) == 2
 
     def test_dsl_parse_roll_forward(self) -> None:
         """Test DSL parsing time roll forward."""
+        from finstack.scenarios.dsl import from_dsl
+
         dsl_text = """
         roll forward 1m
         """
 
-        spec = ScenarioSpec.from_dsl(dsl_text)
+        spec = from_dsl(dsl_text)
 
         assert spec is not None
         assert len(spec.operations) == 1
@@ -306,7 +327,7 @@ class TestScenarioBuilderParity:
 
         spec = scenario("test").name("Test Scenario").shift_discount_curve("USD-OIS", 50).build()
 
-        assert spec.scenario_id == "test"
+        assert spec.id == "test"
         assert spec.name == "Test Scenario"
         assert len(spec.operations) == 1
 
@@ -334,6 +355,8 @@ class TestEdgeCases:
 
     def test_empty_scenario(self) -> None:
         """Test scenario with no operations."""
+        from finstack.statements.builder import ModelBuilder
+
         spec = ScenarioSpec(
             "empty",
             [],
@@ -342,15 +365,21 @@ class TestEdgeCases:
 
         market = MarketContext()
         engine = ScenarioEngine()
-        result = engine.apply(spec, market)
+        builder = ModelBuilder.new("m")
+        builder.periods("2024Q1..Q1", None)
+        model = builder.build()
+        ctx = ExecutionContext(market, model, date(2024, 1, 1))
+        result = engine.apply(spec, ctx)
 
         # Should succeed with no changes
         assert result is not None
 
     def test_zero_basis_point_shift(self) -> None:
         """Test zero basis point shift."""
+        from finstack.statements.builder import ModelBuilder
+
         op = OperationSpec.curve_parallel_bp(
-            CurveKind.DISCOUNT,
+            CurveKind.Discount,
             "USD-OIS",
             0.0,  # Zero shift
         )
@@ -371,7 +400,11 @@ class TestEdgeCases:
         market.insert_discount(discount_curve)
 
         engine = ScenarioEngine()
-        result = engine.apply(spec, market)
+        builder = ModelBuilder.new("m")
+        builder.periods("2024Q1..Q1", None)
+        model = builder.build()
+        ctx = ExecutionContext(market, model, date(2024, 1, 1))
+        result = engine.apply(spec, ctx)
 
         # Should succeed, curve unchanged
         assert result is not None
@@ -379,7 +412,7 @@ class TestEdgeCases:
     def test_large_shock_magnitude(self) -> None:
         """Test very large shock magnitude."""
         op = OperationSpec.curve_parallel_bp(
-            CurveKind.DISCOUNT,
+            CurveKind.Discount,
             "USD-OIS",
             1000.0,  # +1000bp (10%)
         )
@@ -389,7 +422,7 @@ class TestEdgeCases:
     def test_negative_shock(self) -> None:
         """Test negative shock."""
         op = OperationSpec.curve_parallel_bp(
-            CurveKind.DISCOUNT,
+            CurveKind.Discount,
             "USD-OIS",
             -50.0,  # -50bp
         )
@@ -400,13 +433,13 @@ class TestEdgeCases:
         """Test composing scenarios with same priority."""
         s1 = ScenarioSpec(
             "s1",
-            [OperationSpec.curve_parallel_bp(CurveKind.DISCOUNT, "USD-OIS", 25.0)],
+            [OperationSpec.curve_parallel_bp(CurveKind.Discount, "USD-OIS", 25.0)],
             priority=5,
         )
 
         s2 = ScenarioSpec(
             "s2",
-            [OperationSpec.equity_price_pct("SPY", -10.0)],
+            [OperationSpec.equity_price_pct(["SPY"], -10.0)],
             priority=5,
         )
 
@@ -426,7 +459,7 @@ class TestSerializationParity:
             "test",
             [
                 OperationSpec.curve_parallel_bp(
-                    CurveKind.DISCOUNT,
+                    CurveKind.Discount,
                     "USD-OIS",
                     50.0,
                 )
@@ -440,10 +473,10 @@ class TestSerializationParity:
 
     def test_scenario_spec_from_json(self) -> None:
         """Test scenario spec JSON deserialization."""
-        json_str = '{"scenario_id":"test","name":"Test","operations":[]}'
+        json_str = '{"id":"test","name":"Test","operations":[]}'
 
         spec = ScenarioSpec.from_json(json_str)
-        assert spec.scenario_id == "test"
+        assert spec.id == "test"
         assert spec.name == "Test"
 
     def test_scenario_spec_roundtrip(self) -> None:
@@ -452,7 +485,7 @@ class TestSerializationParity:
             "roundtrip",
             [
                 OperationSpec.curve_parallel_bp(
-                    CurveKind.DISCOUNT,
+                    CurveKind.Discount,
                     "USD-OIS",
                     50.0,
                 )
@@ -464,7 +497,7 @@ class TestSerializationParity:
         json_str = original.to_json()
         restored = ScenarioSpec.from_json(json_str)
 
-        assert restored.scenario_id == original.scenario_id
+        assert restored.id == original.id
         assert restored.name == original.name
         assert restored.priority == original.priority
         assert len(restored.operations) == len(original.operations)

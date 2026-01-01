@@ -136,6 +136,23 @@ impl PyDayCount {
             .map_err(core_to_py)
     }
 
+    #[pyo3(text_signature = "(self, start, end, ctx=None)")]
+    /// Compute the day count between two dates.
+    ///
+    /// This is a convenience helper for parity with common Python day-count APIs.
+    /// The optional context is currently ignored (it is only relevant for
+    /// business-day-aware year-fraction conventions).
+    fn days(
+        &self,
+        start: Bound<'_, PyAny>,
+        end: Bound<'_, PyAny>,
+        _ctx: Option<PyRef<PyDayCountContext>>,
+    ) -> PyResult<i64> {
+        let start_date = py_to_date(&start).context("start")?;
+        let end_date = py_to_date(&end).context("end")?;
+        Ok((end_date - start_date).whole_days())
+    }
+
     fn __repr__(&self) -> String {
         format!("DayCount('{}')", self.label())
     }

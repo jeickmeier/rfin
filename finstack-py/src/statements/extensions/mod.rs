@@ -8,9 +8,11 @@ use crate::statements::types::model::PyFinancialModelSpec;
 use finstack_statements::extensions::{
     ExtensionContext, ExtensionMetadata, ExtensionRegistry, ExtensionResult, ExtensionStatus,
 };
+use pyo3::basic::CompareOp;
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyModule, PyType};
-use pyo3::Bound;
+use pyo3::types::{PyAny, PyDict, PyModule, PyType};
+use pyo3::{Bound, IntoPyObjectExt};
 
 pub use builtins::{
     PyAccountType, PyCorkscrewAccount, PyCorkscrewConfig, PyCorkscrewExtension,
@@ -37,7 +39,10 @@ impl PyExtensionMetadata {
 #[pymethods]
 impl PyExtensionMetadata {
     #[new]
-    #[pyo3(text_signature = "(name, version, description=None, author=None)")]
+    #[pyo3(
+        text_signature = "(name, version, description=None, author=None)",
+        signature = (name, version, description = None, author = None)
+    )]
     /// Create extension metadata.
     ///
     /// Parameters
@@ -103,7 +108,7 @@ impl PyExtensionMetadata {
     name = "ExtensionStatus",
     frozen
 )]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyExtensionStatus {
     pub(crate) inner: ExtensionStatus,
 }
@@ -135,6 +140,21 @@ impl PyExtensionStatus {
 
     fn __repr__(&self) -> String {
         format!("ExtensionStatus.{:?}", self.inner)
+    }
+
+    fn __richcmp__(
+        &self,
+        other: PyRef<'_, Self>,
+        op: CompareOp,
+        py: Python<'_>,
+    ) -> PyResult<Py<PyAny>> {
+        let result = match op {
+            CompareOp::Eq => self.inner == other.inner,
+            CompareOp::Ne => self.inner != other.inner,
+            _ => return Err(PyValueError::new_err("Unsupported comparison")),
+        };
+        let py_bool = result.into_bound_py_any(py)?;
+        Ok(py_bool.into())
     }
 }
 

@@ -206,20 +206,20 @@ def step3_baseline_valuation(portfolio, market):
 
         # Determine metrics and pricing method
         if isinstance(instrument, Bond):
-            res = registry.price_bond_with_metrics(instrument, "discounting", market, ["dv01"])
-            dv01 = res.metric("dv01") or 0.0
+            res = registry.price_with_metrics(instrument, "discounting", market, ["dv01"])
+            dv01 = res.measures.get("dv01") or 0.0
             total_dv01 += dv01
 
         elif isinstance(instrument, CreditDefaultSwap):
-            res = registry.price_cds_with_metrics(instrument, "discounting", market, ["cs01", "dv01"])
-            cs01 = res.metric("cs01") or 0.0
-            dv01 = res.metric("dv01") or 0.0
+            res = registry.price_with_metrics(instrument, "discounting", market, ["cs01", "dv01"])
+            cs01 = res.measures.get("cs01") or 0.0
+            dv01 = res.measures.get("dv01") or 0.0
             total_cs01 += cs01
             total_dv01 += dv01
 
         elif isinstance(instrument, EquityOption):
-            res = registry.price_equity_option_with_metrics(instrument, "black_scholes", market, ["delta"])
-            delta = res.metric("delta") or 0.0
+            res = registry.price_with_metrics(instrument, "black_scholes", market, ["delta"])
+            delta = res.measures.get("delta") or 0.0
             total_delta += delta * position.quantity
 
     return result, {"dv01": total_dv01, "cs01": total_cs01, "delta": total_delta}
@@ -243,7 +243,14 @@ def step4_stress_testing(portfolio, market):
 
     stress_results = {}
     for name, spec in scenarios.items():
-        shocked_market, _ = engine.apply(spec, market)
+        from datetime import date
+
+        from finstack.scenarios import ExecutionContext
+        from finstack.statements.types import FinancialModelSpec
+
+        ctx = ExecutionContext(market.clone(), FinancialModelSpec("empty", []), date.today())
+        _ = engine.apply(spec, ctx)
+        shocked_market = ctx.market
         result = value_portfolio(portfolio, shocked_market, None)
         pv = result.total.amount
         pnl = pv - baseline_pv

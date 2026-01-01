@@ -330,6 +330,10 @@ impl PyMoney {
         (hasher.finish() & isize::MAX as u64) as isize
     }
 
+    fn __neg__(&self) -> Self {
+        Self::new(self.inner * -1.0)
+    }
+
     fn __richcmp__(
         &self,
         other: Bound<'_, PyAny>,
@@ -348,7 +352,19 @@ impl PyMoney {
             CompareOp::Ne => rhs
                 .map(|v| v.amount() != self.inner.amount() || v.currency() != self.inner.currency())
                 .unwrap_or(true),
-            _ => return Err(PyValueError::new_err("Unsupported comparison")),
+            CompareOp::Lt | CompareOp::Le | CompareOp::Gt | CompareOp::Ge => {
+                let rhs = rhs.ok_or_else(|| PyValueError::new_err("Unsupported comparison"))?;
+                if rhs.currency() != self.inner.currency() {
+                    return Err(PyValueError::new_err("Currency mismatch"));
+                }
+                match op {
+                    CompareOp::Lt => self.inner.amount() < rhs.amount(),
+                    CompareOp::Le => self.inner.amount() <= rhs.amount(),
+                    CompareOp::Gt => self.inner.amount() > rhs.amount(),
+                    CompareOp::Ge => self.inner.amount() >= rhs.amount(),
+                    _ => unreachable!("covered above"),
+                }
+            }
         };
         let py_bool = result.into_bound_py_any(py)?;
         Ok(py_bool.into())

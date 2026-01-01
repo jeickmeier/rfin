@@ -3,14 +3,15 @@
 use crate::statements::utils::json_to_py;
 use finstack_statements::registry::{MetricDefinition, MetricRegistry, UnitType};
 use indexmap::IndexMap;
+use pyo3::basic::CompareOp;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyModule, PyType};
-use pyo3::Bound;
+use pyo3::types::{PyAny, PyDict, PyModule, PyType};
+use pyo3::{Bound, IntoPyObjectExt};
 
 /// Unit type for metric values.
 #[pyclass(module = "finstack.statements.registry", name = "UnitType", frozen)]
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct PyUnitType {
     pub(crate) inner: UnitType,
 }
@@ -47,6 +48,21 @@ impl PyUnitType {
     fn __repr__(&self) -> String {
         format!("UnitType.{:?}", self.inner)
     }
+
+    fn __richcmp__(
+        &self,
+        other: PyRef<'_, Self>,
+        op: CompareOp,
+        py: Python<'_>,
+    ) -> PyResult<Py<PyAny>> {
+        let result = match op {
+            CompareOp::Eq => self.inner == other.inner,
+            CompareOp::Ne => self.inner != other.inner,
+            _ => return Err(PyValueError::new_err("Unsupported comparison")),
+        };
+        let py_bool = result.into_bound_py_any(py)?;
+        Ok(py_bool.into())
+    }
 }
 
 /// Individual metric definition.
@@ -66,7 +82,17 @@ impl PyMetricDefinition {
 impl PyMetricDefinition {
     #[new]
     #[pyo3(
-        text_signature = "(id, name, formula, description=None, category=None, unit_type=None, requires=None, tags=None)"
+        text_signature = "(id, name, formula, description=None, category=None, unit_type=None, requires=None, tags=None)",
+        signature = (
+            id,
+            name,
+            formula,
+            description = None,
+            category = None,
+            unit_type = None,
+            requires = None,
+            tags = None
+        )
     )]
     /// Create a metric definition.
     ///

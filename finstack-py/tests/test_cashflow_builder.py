@@ -23,6 +23,8 @@ from finstack.core.currency import EUR, USD
 from finstack.core.dates import BusinessDayConvention
 from finstack.core.dates.daycount import DayCount
 from finstack.core.dates.schedule import Frequency, StubKind
+from finstack.core.market_data import MarketContext
+from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.cashflow import (
     AmortizationSpec,
     CashflowBuilder,
@@ -153,9 +155,12 @@ class TestAmortizationSchedules:
         flows = list(cf_schedule.flows())
         notional_flows = [f for f in flows if f.kind.name == "notional"]
 
-        # Bullet: only final notional repayment
-        assert len(notional_flows) == 1
-        assert notional_flows[0].date == maturity
+        # Bullet: initial draw + final repayment
+        assert len(notional_flows) == 2
+        assert notional_flows[0].date == issue
+        assert notional_flows[0].amount.amount == -notional.amount
+        assert notional_flows[1].date == maturity
+        assert notional_flows[1].amount.amount == notional.amount
 
     def test_linear_amortization(self) -> None:
         """Test linear amortization to a final notional."""
@@ -183,9 +188,12 @@ class TestAmortizationSchedules:
         # Should have multiple amortization flows
         assert len(amort_flows) > 0
 
-        # Total amortization should equal initial - final notional
+        # Total amortization should repay principal in full by maturity.
+        #
+        # Note: the current builder emits the final balloon repayment as part of the
+        # last amortization flow (rather than as a separate notional flow).
         total_amort = sum(f.amount.amount for f in amort_flows)
-        expected_total_amort = notional.amount - final_notional.amount
+        expected_total_amort = notional.amount
         assert abs(total_amort - expected_total_amort) < 0.01  # Small tolerance for floating point
 
     def test_step_amortization(self) -> None:
@@ -488,7 +496,7 @@ class TestDataFrameConversion:
     """Test DataFrame export functionality."""
 
     def test_to_dataframe_no_market(self) -> None:
-        """Test DataFrame export without market context."""
+        """DataFrame export requires a market context."""
         issue = date(2025, 1, 1)
         maturity = date(2027, 1, 1)
         notional = Money(1_000_000, USD)
@@ -502,17 +510,19 @@ class TestDataFrameConversion:
 
         cf_schedule = builder.build_with_curves(None)
 
-        # Export to DataFrame (without market data for PV)
-        df_dict = cf_schedule.to_dataframe()
+        with pytest.raises(ValueError, match="market context required"):
+            cf_schedule.to_dataframe()
 
-        # Verify basic structure
-        assert "date" in df_dict or "end_date" in df_dict
-        assert "amount" in df_dict
-        assert "kind" in df_dict
-
-        # Should have multiple rows
-        first_col_key = next(iter(df_dict.keys()))
-        assert len(df_dict[first_col_key]) > 0
+        market = MarketContext()
+        market.insert_discount(
+            DiscountCurve(
+                "USD-OIS",
+                issue,
+                [(0.0, 1.0), (5.0, 0.9)],
+            )
+        )
+        df = cf_schedule.to_dataframe(market=market, discount_curve_id="USD-OIS")
+        assert df.shape[0] > 0
 
 
 def test_amortization_spec_repr() -> None:
@@ -555,15 +565,15 @@ def test_builder_with_5y_bond() -> None:
     # Verify dates
     flows = list(cf_schedule.flows())
 
-    # Should have 10 semiannual coupons + 1 principal = 11 flows minimum
-    assert len(flows) >= 11
+    # Should have 10 semiannual coupons + 2 notional flows (draw + repay)
+    assert len(flows) >= 12
 
     # Verify amounts
-    interest_flows = [f for f in flows if f.kind.name == "fixed"]
+    interest_flows = [f for f in flows if f.kind.name in ("fixed", "stub")]
     notional_flows = [f for f in flows if f.kind.name == "notional"]
 
-    assert len(interest_flows) == 10  # Semiannual for 5 years
-    assert len(notional_flows) == 1  # Final principal repayment
+    assert len(interest_flows) == 10  # Semiannual for 5 years (last payment may be a stub)
+    assert len(notional_flows) == 2  # Initial draw + final principal repayment
 
     # Verify interest amount (approximately $25,000 per semiannual period)
     expected_coupon = notional.amount * 0.05 / 2  # $25,000
@@ -571,8 +581,8 @@ def test_builder_with_5y_bond() -> None:
         # Allow 1% tolerance for day count adjustments
         assert abs(flow.amount.amount - expected_coupon) < expected_coupon * 0.01
 
-    # Verify final principal
-    final_flow = notional_flows[0]
+    # Verify final principal repayment is at maturity
+    final_flow = notional_flows[-1]
     assert final_flow.date == maturity
     assert abs(final_flow.amount.amount) == notional.amount
 

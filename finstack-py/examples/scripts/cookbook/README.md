@@ -202,23 +202,23 @@ bond = Bond.fixed_semiannual(
 ### 3. **Pricing and Metrics**
 
 ```python
-from finstack import create_standard_registry
+from finstack.valuations.pricer import create_standard_registry
 
 # Create pricer registry
 registry = create_standard_registry()
 
 # Price with metrics
-result = registry.price_bond_with_metrics(
+result = registry.price_with_metrics(
     bond,
-    model="discounting",
-    market=market,
-    metrics=["clean_price", "accrued", "duration_mod", "dv01", "convexity"]
+    "discounting",
+    market,
+    ["clean_price", "accrued_interest", "duration_modified", "dv01", "convexity"],
 )
 
 # Extract results
-pv = result.present_value.amount
-clean_price = result.metric("clean_price")
-dv01 = result.metric("dv01")
+pv = result.value.amount
+clean_price = result.measures["clean_price"]
+dv01 = result.measures["dv01"]
 ```
 
 ### 4. **DataFrame Export**

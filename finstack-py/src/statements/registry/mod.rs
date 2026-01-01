@@ -111,6 +111,7 @@ impl PyRegistry {
     /// -------
     /// list[str]
     ///     List of metric IDs
+    #[pyo3(signature = (namespace = None))]
     fn list_metrics(&self, namespace: Option<&str>) -> Vec<String> {
         if let Some(ns) = namespace {
             self.inner

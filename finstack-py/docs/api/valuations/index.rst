@@ -110,9 +110,10 @@ Example:
 
 .. code-block:: python
 
-   from finstack import PricerRegistry, ModelKey
+   from finstack.valuations.common import ModelKey
+   from finstack.valuations.pricer import create_standard_registry
 
-   registry = PricerRegistry.create_standard()
+   registry = create_standard_registry()
 
    # Analytical pricing
    result_analytical = registry.price_barrier_option(
@@ -187,13 +188,15 @@ Example:
 
 .. code-block:: python
 
-   result = registry.price_bond_with_metrics(
-       bond, "discounting", market,
-       ["clean_price", "accrued", "ytm", "dv01"]
+   result = registry.price_with_metrics(
+       bond,
+       "discounting",
+       market,
+       ["clean_price", "accrued_interest", "ytm", "dv01"],
    )
 
-   print(f"Clean Price: {result.metric('clean_price'):.4f}")
-   print(f"DV01: {result.metric('dv01'):.2f}")
+   print(f"Clean Price: {result.measures['clean_price']:.4f}")
+   print(f"DV01: {result.measures['dv01']:.2f}")
 
 Cashflows
 ---------

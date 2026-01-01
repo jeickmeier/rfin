@@ -71,7 +71,17 @@ fn build_dates_impl(
     }
 
     let schedule = builder.build()?;
-    Ok(PeriodSchedule::from_dates(schedule.dates))
+    let mut dates = schedule.dates;
+
+    // Ensure the schedule reaches the requested `end` when it falls exactly on a regular boundary.
+    //
+    // Some schedules can terminate at the penultimate boundary (e.g. 5Y semi-annual coupons)
+    // which would omit the maturity payment date from downstream coupon emission.
+    if matches!(dates.last(), Some(last) if *last < end) {
+        dates.push(end);
+    }
+
+    Ok(PeriodSchedule::from_dates(dates))
 }
 
 /// Build a schedule between start/end with strict error handling.

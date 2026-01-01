@@ -30,7 +30,7 @@ class TestModelBuilderParity:
 
         model = builder.build()
 
-        assert model.model_id == "test_model"
+        assert model.id == "test_model"
         assert len(model.periods) == 4
 
     def test_builder_with_actuals(self) -> None:
@@ -68,7 +68,13 @@ class TestModelBuilderParity:
         builder = ModelBuilder.new("test_model")
         builder.periods("2024Q1..Q2", None)
 
-        builder.value("revenue", [(PeriodId.quarter(2024, 1), AmountOrScalar.scalar(100000.0))])
+        builder.value(
+            "revenue",
+            [
+                (PeriodId.quarter(2024, 1), AmountOrScalar.scalar(100000.0)),
+                (PeriodId.quarter(2024, 2), AmountOrScalar.scalar(110000.0)),
+            ],
+        )
         builder.compute("cogs", "revenue * 0.6")
 
         model = builder.build()
@@ -187,14 +193,14 @@ class TestForecastSpecParity:
 
     def test_growth_percentage_forecast(self) -> None:
         """Test growth percentage forecast."""
-        forecast = ForecastSpec.growth_percentage(5.0)  # 5% growth
+        forecast = ForecastSpec.growth(0.05)  # 5% growth
         assert forecast is not None
 
     def test_normal_distribution_forecast(self) -> None:
         """Test normal distribution forecast."""
         forecast = ForecastSpec.normal(
             mean=100000.0,
-            std_dev=10000.0,
+            std=10000.0,
             seed=42,
         )
         assert forecast is not None
@@ -203,7 +209,7 @@ class TestForecastSpecParity:
         """Test lognormal distribution forecast."""
         forecast = ForecastSpec.lognormal(
             mean=100000.0,
-            std_dev=10000.0,
+            std=10000.0,
             seed=42,
         )
         assert forecast is not None
@@ -220,7 +226,7 @@ class TestAmountOrScalarParity:
     def test_money_construction(self) -> None:
         """Test money value construction."""
         money = Money(1000.0, USD)
-        value = AmountOrScalar.money(money)
+        value = AmountOrScalar.amount(money.amount, USD)
         assert value is not None
 
 
@@ -266,8 +272,20 @@ class TestRegistryParity:
         builder = ModelBuilder.new("test_model")
         builder.periods("2024Q1..Q2", None)
 
-        builder.value("revenue", [(PeriodId.quarter(2024, 1), AmountOrScalar.scalar(100000.0))])
-        builder.value("cogs", [(PeriodId.quarter(2024, 1), AmountOrScalar.scalar(60000.0))])
+        builder.value(
+            "revenue",
+            [
+                (PeriodId.quarter(2024, 1), AmountOrScalar.scalar(100000.0)),
+                (PeriodId.quarter(2024, 2), AmountOrScalar.scalar(110000.0)),
+            ],
+        )
+        builder.value(
+            "cogs",
+            [
+                (PeriodId.quarter(2024, 1), AmountOrScalar.scalar(60000.0)),
+                (PeriodId.quarter(2024, 2), AmountOrScalar.scalar(65000.0)),
+            ],
+        )
 
         # Add metric from registry
         builder.add_metric_from_registry("fin.gross_margin", registry)
@@ -285,7 +303,7 @@ class TestExtensionsParity:
         from finstack.statements.extensions import CorkscrewConfig, CorkscrewExtension
 
         config = CorkscrewConfig(accounts=[], tolerance=0.01)
-        extension = CorkscrewExtension.new(config)
+        extension = CorkscrewExtension.with_config(config)
 
         assert extension is not None
 
@@ -296,8 +314,8 @@ class TestExtensionsParity:
             ScorecardConfig,
         )
 
-        config = ScorecardConfig(rating_scale=["AAA", "AA", "A"], metrics=[])
-        extension = CreditScorecardExtension.new(config)
+        config = ScorecardConfig(rating_scale="S&P", metrics=[])
+        extension = CreditScorecardExtension.with_config(config)
 
         assert extension is not None
 
@@ -413,8 +431,20 @@ class TestFormulaParity:
         builder = ModelBuilder.new("test_model")
         builder.periods("2024Q1..Q2", None)
 
-        builder.value("a", [(PeriodId.quarter(2024, 1), AmountOrScalar.scalar(100.0))])
-        builder.value("b", [(PeriodId.quarter(2024, 1), AmountOrScalar.scalar(50.0))])
+        builder.value(
+            "a",
+            [
+                (PeriodId.quarter(2024, 1), AmountOrScalar.scalar(100.0)),
+                (PeriodId.quarter(2024, 2), AmountOrScalar.scalar(100.0)),
+            ],
+        )
+        builder.value(
+            "b",
+            [
+                (PeriodId.quarter(2024, 1), AmountOrScalar.scalar(50.0)),
+                (PeriodId.quarter(2024, 2), AmountOrScalar.scalar(50.0)),
+            ],
+        )
 
         builder.compute("sum", "a + b")
         builder.compute("diff", "a - b")
@@ -433,7 +463,13 @@ class TestFormulaParity:
         builder = ModelBuilder.new("test_model")
         builder.periods("2024Q1..Q2", None)
 
-        builder.value("revenue", [(PeriodId.quarter(2024, 1), AmountOrScalar.scalar(100000.0))])
+        builder.value(
+            "revenue",
+            [
+                (PeriodId.quarter(2024, 1), AmountOrScalar.scalar(100000.0)),
+                (PeriodId.quarter(2024, 2), AmountOrScalar.scalar(110000.0)),
+            ],
+        )
 
         builder.compute("cogs", "revenue * 0.6")
         builder.compute("opex", "revenue * 0.2")
@@ -514,7 +550,13 @@ class TestEdgeCases:
         builder = ModelBuilder.new("zero_values")
         builder.periods("2024Q1..Q2", None)
 
-        builder.value("revenue", [(PeriodId.quarter(2024, 1), AmountOrScalar.scalar(0.0))])
+        builder.value(
+            "revenue",
+            [
+                (PeriodId.quarter(2024, 1), AmountOrScalar.scalar(0.0)),
+                (PeriodId.quarter(2024, 2), AmountOrScalar.scalar(0.0)),
+            ],
+        )
         builder.compute("cogs", "revenue * 0.6")
 
         model = builder.build()
@@ -530,8 +572,20 @@ class TestEdgeCases:
         builder = ModelBuilder.new("negative_values")
         builder.periods("2024Q1..Q2", None)
 
-        builder.value("revenue", [(PeriodId.quarter(2024, 1), AmountOrScalar.scalar(100000.0))])
-        builder.value("loss", [(PeriodId.quarter(2024, 1), AmountOrScalar.scalar(-50000.0))])
+        builder.value(
+            "revenue",
+            [
+                (PeriodId.quarter(2024, 1), AmountOrScalar.scalar(100000.0)),
+                (PeriodId.quarter(2024, 2), AmountOrScalar.scalar(110000.0)),
+            ],
+        )
+        builder.value(
+            "loss",
+            [
+                (PeriodId.quarter(2024, 1), AmountOrScalar.scalar(-50000.0)),
+                (PeriodId.quarter(2024, 2), AmountOrScalar.scalar(-60000.0)),
+            ],
+        )
 
         model = builder.build()
 

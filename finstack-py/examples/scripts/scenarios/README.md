@@ -20,9 +20,9 @@ Finstack provides three complementary ways to create scenarios:
 The DSL parser allows you to define scenarios using simple text commands:
 
 ```python
-from finstack.scenarios import ScenarioSpec
+from finstack.scenarios.dsl import from_dsl
 
-scenario = ScenarioSpec.from_dsl("""
+scenario = from_dsl("""
     # Market shocks
     shift USD.OIS +50bp
     shift equities -10%
@@ -178,9 +178,10 @@ All three approaches produce `ScenarioSpec` objects that can be composed:
 
 ```python
 from finstack.scenarios import ScenarioEngine
+from finstack.scenarios.dsl import from_dsl
 
 # Create scenarios (any method)
-base = ScenarioSpec.from_dsl("shift USD.OIS +25bp", priority=0)
+base = from_dsl("shift USD.OIS +25bp", priority=0)
 overlay = scenario("overlay").shift_equities(-10).build()
 
 # Compose with deterministic ordering

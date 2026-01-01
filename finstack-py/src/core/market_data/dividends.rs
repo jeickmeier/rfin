@@ -340,10 +340,11 @@ impl PyDividendScheduleBuilder {
     /// >>> builder.cash(date(2024, 2, 15), Money(0.24, "USD"))
     fn cash(&mut self, date: Bound<'_, PyAny>, amount: &PyMoney) -> PyResult<()> {
         let d = py_to_date(&date).context("date")?;
-        let builder = self
-            .inner
-            .take()
-            .expect("builder should exist during chaining");
+        let builder = self.inner.take().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "DividendScheduleBuilder internal error: builder is not available",
+            )
+        })?;
         self.inner = Some(builder.cash(d, amount.inner));
         Ok(())
     }
@@ -363,10 +364,11 @@ impl PyDividendScheduleBuilder {
     /// None
     fn yield_div(&mut self, date: Bound<'_, PyAny>, yield_value: f64) -> PyResult<()> {
         let d = py_to_date(&date).context("date")?;
-        let builder = self
-            .inner
-            .take()
-            .expect("builder should exist during chaining");
+        let builder = self.inner.take().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "DividendScheduleBuilder internal error: builder is not available",
+            )
+        })?;
         self.inner = Some(builder.yield_div(d, yield_value));
         Ok(())
     }
@@ -386,10 +388,11 @@ impl PyDividendScheduleBuilder {
     /// None
     fn stock(&mut self, date: Bound<'_, PyAny>, ratio: f64) -> PyResult<()> {
         let d = py_to_date(&date).context("date")?;
-        let builder = self
-            .inner
-            .take()
-            .expect("builder should exist during chaining");
+        let builder = self.inner.take().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "DividendScheduleBuilder internal error: builder is not available",
+            )
+        })?;
         self.inner = Some(builder.stock(d, ratio));
         Ok(())
     }
@@ -402,10 +405,11 @@ impl PyDividendScheduleBuilder {
     /// DividendSchedule
     ///     Immutable schedule containing all accumulated events.
     fn build(&mut self) -> PyResult<PyDividendSchedule> {
-        let builder = self
-            .inner
-            .take()
-            .expect("builder should exist during chaining");
+        let builder = self.inner.take().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "DividendScheduleBuilder internal error: builder is not available",
+            )
+        })?;
         let schedule = builder.build().map_err(core_to_py)?;
         self.inner = Some(DividendScheduleBuilder::new(schedule.id.clone()));
         Ok(PyDividendSchedule::new(schedule))

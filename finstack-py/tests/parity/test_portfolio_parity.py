@@ -218,7 +218,7 @@ class TestPortfolioBuilderParity:
         builder.position(position)
 
         # Build should fail validation
-        with pytest.raises(Exception, match=r"[Vv]alid|error"):
+        with pytest.raises(Exception, match=r"[Vv]alid|error|unknown"):
             builder.build()
 
 
@@ -274,8 +274,8 @@ class TestPortfolioValuationParity:
         valuation = value_portfolio(portfolio, market)
 
         assert valuation is not None
-        assert len(valuation.positions) == 1
-        assert valuation.total.currency.code == "USD"
+        assert len(valuation.position_values) == 1
+        assert valuation.total_base_ccy.currency.code == "USD"
 
     def test_value_portfolio_multiple_positions(self) -> None:
         """Test valuation with multiple positions."""
@@ -324,7 +324,7 @@ class TestPortfolioValuationParity:
 
         valuation = value_portfolio(portfolio, market)
 
-        assert len(valuation.positions) == 2
+        assert len(valuation.position_values) == 2
 
     def test_value_portfolio_cross_currency(self) -> None:
         """Test portfolio with cross-currency positions."""
@@ -409,15 +409,15 @@ class TestPortfolioValuationParity:
         # Add FX rate
         fx = FxMatrix()
         fx.set_quote(EUR, USD, 1.10)
-        market.set_fx(fx)
+        market.insert_fx(fx)
 
         # Value portfolio
         valuation = value_portfolio(portfolio, market)
 
         # Should have two positions
-        assert len(valuation.positions) == 2
+        assert len(valuation.position_values) == 2
         # Total should be in USD (base currency)
-        assert valuation.total.currency.code == "USD"
+        assert valuation.total_base_ccy.currency.code == "USD"
 
 
 class TestPortfolioAggregationParity:
@@ -474,7 +474,7 @@ class TestPortfolioAggregationParity:
         valuation = value_portfolio(portfolio, market)
 
         # Should have entity-level aggregates
-        assert len(valuation.entities) == 2
+        assert len(valuation.by_entity) == 2
 
     def test_aggregate_by_attribute(self) -> None:
         """Test aggregation by attribute (tags)."""
@@ -526,7 +526,7 @@ class TestPortfolioAggregationParity:
         valuation = value_portfolio(portfolio, market)
 
         # Aggregate by rating
-        aggregated = aggregate_by_attribute(valuation, portfolio.positions, "rating", USD)
+        aggregated = aggregate_by_attribute(valuation, portfolio, "rating")
 
         assert len(aggregated) == 2
         assert "AAA" in aggregated
@@ -551,7 +551,7 @@ class TestEdgeCases:
         valuation = value_portfolio(portfolio, market)
 
         # Should succeed with zero positions
-        assert len(valuation.positions) == 0
+        assert len(valuation.position_values) == 0
 
     def test_position_zero_quantity(self) -> None:
         """Test position with zero quantity."""

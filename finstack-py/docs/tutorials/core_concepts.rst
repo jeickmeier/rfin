@@ -16,13 +16,15 @@ finstack guarantees **bit-for-bit reproducible results**:
 
 .. code-block:: python
 
-   from finstack import PricerRegistry
+   from finstack.valuations.pricer import create_standard_registry
+
+   registry = create_standard_registry()
 
    # Same instrument, market, config → always same result
-   result1 = registry.price_bond(bond, "discounting", market)
-   result2 = registry.price_bond(bond, "discounting", market)
+   result1 = registry.price(bond, "discounting", market)
+   result2 = registry.price(bond, "discounting", market)
 
-   assert result1.present_value.amount == result2.present_value.amount
+   assert result1.value.amount == result2.value.amount
 
 Currency Safety
 ---------------
@@ -155,9 +157,10 @@ The **PricerRegistry** maps (InstrumentType, ModelKey) → pricer:
 
 .. code-block:: python
 
-   from finstack import PricerRegistry, ModelKey
+   from finstack.valuations.common import ModelKey
+   from finstack.valuations.pricer import create_standard_registry
 
-   registry = PricerRegistry.create_standard()
+   registry = create_standard_registry()
 
    # Analytical pricing (default)
    result_analytical = registry.price_barrier_option(
@@ -186,7 +189,7 @@ Risk metrics can be **scalar** or **bucketed**:
 .. code-block:: python
 
    # Scalar DV01 (total sensitivity)
-   dv01_scalar = result.metric("dv01")  # e.g., 450.23
+   dv01_scalar = result.measures["dv01"]  # e.g., 450.23
 
    # Bucketed DV01 (per tenor)
    # Note: Currently requires manual bumping (see Task 1.5 notes)
@@ -210,7 +213,7 @@ finstack balances **correctness and speed**:
    # Batch pricing releases GIL
    instruments = [bond1, bond2, ..., bond1000]
    results = [
-       registry.price_bond(bond, "discounting", market)
+       registry.price(bond, "discounting", market)
        for bond in instruments
    ]
    # Parallelizes across CPU cores
@@ -227,7 +230,7 @@ finstack uses **granular error types**:
    from finstack import CurrencyMismatchError, MarketDataNotFoundError
 
    try:
-       result = registry.price_bond(bond, "discounting", market)
+       result = registry.price(bond, "discounting", market)
    except MarketDataNotFoundError as e:
        print(f"Missing curve: {e.curve_id}")
    except CurrencyMismatchError as e:

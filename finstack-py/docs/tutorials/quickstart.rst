@@ -110,24 +110,24 @@ Step 3: Price the Bond
 
 .. code-block:: python
 
-   from finstack import PricerRegistry
+   from finstack.valuations.pricer import create_standard_registry
 
-   registry = PricerRegistry.create_standard()
+   registry = create_standard_registry()
 
    # Price with metrics
-   result = registry.price_bond_with_metrics(
+   result = registry.price_with_metrics(
        bond,
        "discounting",
        market,
-       ["clean_price", "accrued", "ytm", "dv01"]
+       ["clean_price", "accrued_interest", "ytm", "dv01"],
    )
 
    print(f"\nBond Valuation:")
-   print(f"Present Value: {result.present_value.amount:,.2f}")
-   print(f"Clean Price:   {result.metric('clean_price'):.4f}")
-   print(f"Accrued:       {result.metric('accrued'):,.2f}")
-   print(f"Yield to Mat:  {result.metric('ytm') * 100:.4f}%")
-   print(f"DV01:          {result.metric('dv01'):,.2f}")
+   print(f"Present Value: {result.value.amount:,.2f}")
+   print(f"Clean Price:   {result.measures['clean_price']:.4f}")
+   print(f"Accrued:       {result.measures['accrued_interest']:,.2f}")
+   print(f"Yield to Mat:  {result.measures['ytm'] * 100:.4f}%")
+   print(f"DV01:          {result.measures['dv01']:,.2f}")
 
 Running Scenarios
 -----------------
@@ -136,27 +136,34 @@ Stress test the bond under different rate scenarios.
 
 .. code-block:: python
 
-   from finstack import ScenarioSpec, ScenarioEngine
+   from datetime import date
+   from finstack.scenarios import ExecutionContext, ScenarioEngine
+   from finstack.scenarios.dsl import from_dsl
+   from finstack.statements.types import FinancialModelSpec
 
    # Create a rates shock scenario
-   scenario = ScenarioSpec.from_dsl("""
+   scenario = from_dsl("""
        # Shock discount curve by +50bp
        shift USD.OIS +50bp
    """)
 
    # Apply scenario
+   ctx = ExecutionContext(market, FinancialModelSpec("empty", []), date(2024, 1, 15))
    engine = ScenarioEngine()
-   shocked_market, report = engine.apply(scenario, market)
+   report = engine.apply(scenario, ctx)
+   shocked_market = ctx.market
 
    # Re-price under stress
-   stressed_result = registry.price_bond_with_metrics(
-       bond, "discounting", shocked_market,
-       ["clean_price", "dv01"]
+   stressed_result = registry.price_with_metrics(
+       bond,
+       "discounting",
+       shocked_market,
+       ["clean_price", "dv01"],
    )
 
    # Compare results
-   base_pv = result.present_value.amount
-   stressed_pv = stressed_result.present_value.amount
+   base_pv = result.value.amount
+   stressed_pv = stressed_result.value.amount
    pnl = stressed_pv - base_pv
 
    print(f"\nScenario Analysis:")
@@ -249,7 +256,7 @@ Price multiple instruments efficiently:
 
    instruments = [bond1, bond2, bond3]
    results = [
-       registry.price_bond("discounting", market, bond)
+       registry.price(bond, "discounting", market)
        for bond in instruments
    ]
 

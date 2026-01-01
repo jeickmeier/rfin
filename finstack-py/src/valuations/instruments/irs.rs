@@ -495,21 +495,41 @@ impl PyInterestRateSwapBuilder {
     #[pyo3(text_signature = "($self)")]
     fn build(mut slf: PyRefMut<'_, Self>) -> PyResult<PyInterestRateSwap> {
         slf.ensure_ready()?;
-        let notional = slf
-            .notional_money()
-            .expect("notional validated by ensure_ready");
-        let side = slf.side.expect("validated by ensure_ready");
-        let fixed_rate = slf.fixed_rate.expect("validated by ensure_ready");
-        let start = slf.start.expect("validated by ensure_ready");
-        let end = slf.end.expect("validated by ensure_ready");
-        let discount = slf
-            .discount_curve
-            .clone()
-            .expect("validated by ensure_ready");
-        let forward = slf
-            .forward_curve
-            .clone()
-            .expect("validated by ensure_ready");
+        let notional = slf.notional_money().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "InterestRateSwapBuilder internal error: missing notional after validation",
+            )
+        })?;
+        let side = slf.side.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "InterestRateSwapBuilder internal error: missing side after validation",
+            )
+        })?;
+        let fixed_rate = slf.fixed_rate.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "InterestRateSwapBuilder internal error: missing fixed_rate after validation",
+            )
+        })?;
+        let start = slf.start.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "InterestRateSwapBuilder internal error: missing start date after validation",
+            )
+        })?;
+        let end = slf.end.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "InterestRateSwapBuilder internal error: missing end date after validation",
+            )
+        })?;
+        let discount = slf.discount_curve.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "InterestRateSwapBuilder internal error: missing discount curve after validation",
+            )
+        })?;
+        let forward = slf.forward_curve.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "InterestRateSwapBuilder internal error: missing forward curve after validation",
+            )
+        })?;
         let calendar = slf.calendar_id.clone();
 
         let fixed_leg = FixedLegSpec {

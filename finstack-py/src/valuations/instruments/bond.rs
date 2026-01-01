@@ -493,13 +493,26 @@ impl PyBondBuilder {
     #[pyo3(text_signature = "($self)")]
     fn build(mut slf: PyRefMut<'_, Self>) -> PyResult<PyBond> {
         slf.ensure_ready()?;
-        let money = slf.notional_money().expect("validated by ensure_ready");
-        let issue = slf.issue.expect("validated by ensure_ready");
-        let maturity = slf.maturity.expect("validated by ensure_ready");
-        let discount = slf
-            .discount_curve
-            .clone()
-            .expect("validated by ensure_ready");
+        let money = slf.notional_money().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "BondBuilder internal error: missing notional after validation",
+            )
+        })?;
+        let issue = slf.issue.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "BondBuilder internal error: missing issue date after validation",
+            )
+        })?;
+        let maturity = slf.maturity.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "BondBuilder internal error: missing maturity date after validation",
+            )
+        })?;
+        let discount = slf.discount_curve.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "BondBuilder internal error: missing discount curve after validation",
+            )
+        })?;
 
         let mut builder = Bond::builder()
             .id(slf.instrument_id.clone())

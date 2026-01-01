@@ -239,27 +239,19 @@ def compute_risk_metrics(portfolio, market):
 
         # Price with metrics
         try:
-            if isinstance(instrument, Bond):
-                result = registry.price_bond_with_metrics(instrument, "discounting", market, metrics)
-            elif isinstance(instrument, InterestRateSwap):
-                result = registry.price_swap_with_metrics(instrument, "discounting", market, metrics)
-            elif isinstance(instrument, CreditDefaultSwap):
-                result = registry.price_cds_with_metrics(instrument, "discounting", market, metrics)
-            elif isinstance(instrument, EquityOption):
-                result = registry.price_equity_option_with_metrics(instrument, "black_scholes", market, metrics)
-            else:
-                continue
+            model = "black_scholes" if isinstance(instrument, EquityOption) else "discounting"
+            result = registry.price_with_metrics(instrument, model, market, metrics)
 
             # Extract metrics
             metrics_dict = {
                 "position_id": pos_id,
                 "asset_class": position.tags.get("asset_class", "N/A"),
                 "maturity_bucket": position.tags.get("maturity_bucket", "N/A"),
-                "pv": result.present_value.amount,
+                "pv": result.value.amount,
             }
 
             for metric in metrics:
-                value = result.metric(metric)
+                value = result.measures.get(metric)
                 if value is not None:
                     metrics_dict[metric] = value
 

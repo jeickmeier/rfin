@@ -74,7 +74,7 @@ def test_trade_type_enum() -> None:
 def test_per_position_metric_construction() -> None:
     """Test PerPositionMetric factory methods."""
     # Metric ID-based
-    ytm_metric = PerPositionMetric.metric(MetricId.YTM)
+    ytm_metric = PerPositionMetric.metric(MetricId.from_name("ytm"))
     assert ytm_metric is not None
 
     # Custom key
@@ -98,7 +98,7 @@ def test_per_position_metric_construction() -> None:
 
 def test_metric_expr_construction() -> None:
     """Test MetricExpr construction."""
-    ytm_metric = PerPositionMetric.metric(MetricId.YTM)
+    ytm_metric = PerPositionMetric.metric(MetricId.from_name("ytm"))
 
     # Weighted sum
     weighted = MetricExpr.weighted_sum(ytm_metric)
@@ -115,7 +115,7 @@ def test_metric_expr_construction() -> None:
 
 def test_objective_construction() -> None:
     """Test Objective construction."""
-    ytm_metric = PerPositionMetric.metric(MetricId.YTM)
+    ytm_metric = PerPositionMetric.metric(MetricId.from_name("ytm"))
     metric_expr = MetricExpr.value_weighted_average(ytm_metric)
 
     # Maximize
@@ -123,7 +123,7 @@ def test_objective_construction() -> None:
     assert obj_max is not None
 
     # Minimize
-    dur_metric = PerPositionMetric.metric(MetricId.DURATION_MOD)
+    dur_metric = PerPositionMetric.metric(MetricId.from_name("duration_mod"))
     dur_expr = MetricExpr.weighted_sum(dur_metric)
     obj_min = Objective.minimize(dur_expr)
     assert obj_min is not None
@@ -164,7 +164,7 @@ def test_position_filter_construction() -> None:
 
 def test_constraint_metric_bound() -> None:
     """Test Constraint.metric_bound (duration <= 4.0)."""
-    dur_metric = PerPositionMetric.metric(MetricId.DURATION_MOD)
+    dur_metric = PerPositionMetric.metric(MetricId.from_name("duration_mod"))
     dur_expr = MetricExpr.weighted_sum(dur_metric)
 
     constraint = Constraint.metric_bound("duration_limit", dur_expr, Inequality.LE, 4.0)

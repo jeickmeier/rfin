@@ -63,16 +63,20 @@ Example:
 
 .. code-block:: python
 
-   from finstack import ScenarioEngine
+   from datetime import date
+   from finstack.scenarios import ExecutionContext, ScenarioEngine
+   from finstack.statements.types import FinancialModelSpec
 
    engine = ScenarioEngine()
-   shocked_market, report = engine.apply(spec, market)
+   ctx = ExecutionContext(market, FinancialModelSpec("empty", []), date.today())
+   report = engine.apply(spec, ctx)
+   shocked_market = ctx.market
 
    # Re-price under stress
-   stressed_result = registry.price_bond(bond, "discounting", shocked_market)
+   stressed_result = registry.price(bond, "discounting", shocked_market)
 
    # Compare
-   pnl = stressed_result.present_value.amount - base_result.present_value.amount
+   pnl = stressed_result.value.amount - base_result.value.amount
 
 DSL Parser
 ----------
@@ -87,7 +91,9 @@ Example:
 
 .. code-block:: python
 
-   spec = ScenarioSpec.from_dsl("""
+   from finstack.scenarios.dsl import from_dsl
+
+   spec = from_dsl("""
        # Curve shifts
        shift USD.OIS +50bp
        shift EUR.OIS +40bp
@@ -133,15 +139,22 @@ Merge multiple scenarios:
 .. code-block:: python
 
    # Define base and overlay
-   base = ScenarioSpec.from_dsl("shift USD.OIS +50bp")
-   overlay = ScenarioSpec.from_dsl("shift equities -10%")
+   from datetime import date
+   from finstack.scenarios import ExecutionContext
+   from finstack.scenarios.dsl import from_dsl
+   from finstack.statements.types import FinancialModelSpec
+
+   base = from_dsl("shift USD.OIS +50bp")
+   overlay = from_dsl("shift equities -10%")
 
    # Compose (base applied first, then overlay)
    engine = ScenarioEngine()
    composed = engine.compose([base, overlay])
 
    # Apply composed scenario
-   shocked_market, report = engine.apply(composed, market)
+   ctx = ExecutionContext(market, FinancialModelSpec("empty", []), date.today())
+   report = engine.apply(composed, ctx)
+   shocked_market = ctx.market
 
 Operation Types
 ---------------

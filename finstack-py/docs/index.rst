@@ -90,15 +90,19 @@ Quick Example
    market.insert_discount(curve)
 
    # Price the bond
-   registry = PricerRegistry.create_standard()
-   result = registry.price_bond_with_metrics(
-       bond, "discounting", market,
-       ["clean_price", "accrued", "ytm", "dv01"]
+   from finstack.valuations.pricer import create_standard_registry
+
+   registry = create_standard_registry()
+   result = registry.price_with_metrics(
+       bond,
+       "discounting",
+       market,
+       ["clean_price", "accrued_interest", "ytm", "dv01"],
    )
 
-   print(f"PV: {result.present_value.amount:,.2f}")
-   print(f"Clean Price: {result.metric('clean_price'):.4f}")
-   print(f"DV01: {result.metric('dv01'):.2f}")
+   print(f"PV: {result.value.amount:,.2f}")
+   print(f"Clean Price: {result.measures['clean_price']:.4f}")
+   print(f"DV01: {result.measures['dv01']:.2f}")
 
 Key Features
 ============

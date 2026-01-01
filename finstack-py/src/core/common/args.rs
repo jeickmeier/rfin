@@ -200,7 +200,10 @@ fn extract_from_dict(obj: &Bound<'_, PyAny>) -> PyResult<Option<Vec<(f64, f64)>>
             results.push((key, val));
         }
         // Sort by key (time) as dicts are unordered
-        results.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+        //
+        // NOTE: `partial_cmp` returns None for NaN, which would panic if unwrapped.
+        // We use a total ordering here to avoid hard-crashing the Python extension.
+        results.sort_by(|a, b| a.0.total_cmp(&b.0));
         return Ok(Some(results));
     }
     Ok(None)

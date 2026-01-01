@@ -360,11 +360,23 @@ impl PyFxMatrix {
     /// >>> fx = FxMatrix()
     /// >>> fx.set_quote(Currency("EUR"), Currency("USD"), 1.1)
     #[pyo3(text_signature = "(self, from_currency, to_currency, rate)")]
-    fn set_quote(&self, from_currency: &PyCurrency, to_currency: &PyCurrency, rate: f64) {
+    fn set_quote(
+        &self,
+        from_currency: &PyCurrency,
+        to_currency: &PyCurrency,
+        rate: f64,
+    ) -> PyResult<()> {
+        if !rate.is_finite() || rate <= 0.0 {
+            return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                "FxMatrix.set_quote requires finite, positive rate (got {}->{}={rate})",
+                from_currency.inner, to_currency.inner
+            )));
+        }
         self.provider
             .set_quote(from_currency.inner, to_currency.inner, rate);
         self.inner
             .set_quote(from_currency.inner, to_currency.inner, rate);
+        Ok(())
     }
 
     /// Bulk-load direct quotes from an iterable of ``(from, to, rate)`` tuples.
@@ -378,15 +390,22 @@ impl PyFxMatrix {
     /// -------
     /// None
     #[pyo3(text_signature = "(self, quotes)")]
-    fn set_quotes(&self, quotes: Vec<(PyCurrency, PyCurrency, f64)>) {
+    fn set_quotes(&self, quotes: Vec<(PyCurrency, PyCurrency, f64)>) -> PyResult<()> {
         let mut converted = Vec::with_capacity(quotes.len());
         for (from, to, rate) in &quotes {
+            if !rate.is_finite() || *rate <= 0.0 {
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "FxMatrix.set_quotes requires finite, positive rates (got {}->{}={})",
+                    from.inner, to.inner, rate
+                )));
+            }
             converted.push((from.inner, to.inner, *rate));
         }
         self.provider.set_quotes(&converted);
         for (from, to, rate) in converted {
             self.inner.set_quote(from, to, rate);
         }
+        Ok(())
     }
 
     /// Evaluate an FX rate for ``from_currency`` into ``to_currency`` on a given date.
