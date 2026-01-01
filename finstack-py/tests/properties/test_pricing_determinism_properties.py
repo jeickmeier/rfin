@@ -16,7 +16,7 @@ from finstack.core.dates import DayCount
 from finstack.core.market_data import DiscountCurve, MarketContext
 from finstack.core.money import Money
 from finstack.valuations.instruments import Bond, Deposit
-from finstack.valuations.pricer import PricerRegistry
+from finstack.valuations.pricer import create_standard_registry
 from hypothesis import assume, given, settings, strategies as st
 import pytest
 
@@ -46,13 +46,15 @@ def discount_curve_strategy(draw: Callable[[Any], Any], currency_code: str = "US
     dates = [base_date + timedelta(days=365 * i) for i in range(1, 6)]
     dfs = [1.0 / ((1.0 + base_rate) ** i) for i in range(1, 6)]
 
-    day_count = DayCount.act_365f()
+    day_count = DayCount.ACT_365F
+
+    # Convert dates to time years using day_count
+    knots = [(day_count.year_fraction(base_date, d, None), df) for d, df in zip(dates, dfs, strict=False)]
 
     return DiscountCurve(
-        id=curve_id,
-        base_date=base_date,
-        dates=dates,
-        discount_factors=dfs,
+        curve_id,
+        base_date,
+        knots,
         day_count=day_count,
     )
 
@@ -70,12 +72,13 @@ def deposit_strategy(draw: Callable[[Any], Any], currency_code: str = "USD") -> 
     currency = Currency(currency_code)
 
     return Deposit(
-        id=f"DEP-{tenor_days}D",
-        notional=Money(notional, currency),
-        rate=rate,
-        start_date=start_date,
-        maturity_date=maturity_date,
-        curve_id=f"{currency_code}-OIS",
+        f"DEP-{tenor_days}D",
+        Money(notional, currency),
+        start_date,
+        maturity_date,
+        DayCount.ACT_360,
+        f"{currency_code}-OIS",
+        quote_rate=rate,
     )
 
 
@@ -92,12 +95,12 @@ def bond_strategy(draw: Callable[[Any], Any], currency_code: str = "USD") -> Bon
     currency = Currency(currency_code)
 
     return Bond.fixed_semiannual(
-        id=f"BOND-{tenor_years}Y",
-        notional=Money(notional, currency),
-        coupon_rate=coupon,
-        issue_date=issue_date,
-        maturity_date=maturity_date,
-        curve_id=f"{currency_code}-OIS",
+        f"BOND-{tenor_years}Y",
+        Money(notional, currency),
+        coupon,
+        issue_date,
+        maturity_date,
+        f"{currency_code}-OIS",
     )
 
 
@@ -113,7 +116,7 @@ class TestPricingDeterminism:
         market.insert_discount(curve)
 
         # Create pricer registry
-        registry = PricerRegistry.create_standard()
+        registry = create_standard_registry()
 
         # Price twice
         result1 = registry.price_deposit(deposit, "discounting", market)
@@ -132,7 +135,7 @@ class TestPricingDeterminism:
         market.insert_discount(curve)
 
         # Create pricer registry
-        registry = PricerRegistry.create_standard()
+        registry = create_standard_registry()
 
         # Price twice
         try:
@@ -153,7 +156,7 @@ class TestPricingDeterminism:
         """Pricing multiple times yields stable results."""
         market = MarketContext()
         market.insert_discount(curve)
-        registry = PricerRegistry.create_standard()
+        registry = create_standard_registry()
 
         # Price 5 times
         results = []
@@ -174,7 +177,7 @@ class TestPricingDeterminism:
 
         market = MarketContext()
         market.insert_discount(curve)
-        registry = PricerRegistry.create_standard()
+        registry = create_standard_registry()
 
         # Price in original order
         results_forward = []
@@ -202,7 +205,7 @@ class TestMarketContextImmutability:
         """Market context can be reused for multiple pricings."""
         market = MarketContext()
         market.insert_discount(curve)
-        registry = PricerRegistry.create_standard()
+        registry = create_standard_registry()
 
         # Use same market context multiple times
         result1 = registry.price_deposit(deposit, "discounting", market)
@@ -251,7 +254,7 @@ class TestPricingReproducibility:
 
         market = MarketContext()
         market.insert_discount(curve)
-        registry = PricerRegistry.create_standard()
+        registry = create_standard_registry()
 
         # Collect results from multiple iterations
         results = []
@@ -270,7 +273,7 @@ class TestPricingReproducibility:
         """Bond pricing is stable across multiple calls."""
         market = MarketContext()
         market.insert_discount(curve)
-        registry = PricerRegistry.create_standard()
+        registry = create_standard_registry()
 
         # Price 3 times and check stability
         try:
@@ -296,7 +299,7 @@ class TestMetricsDeterminism:
         """Metrics computation is deterministic."""
         market = MarketContext()
         market.insert_discount(curve)
-        registry = PricerRegistry.create_standard()
+        registry = create_standard_registry()
 
         # Compute metrics twice
         result1 = registry.price_deposit_with_metrics(deposit, "discounting", market, ["accrued", "ytm"])
@@ -318,7 +321,7 @@ class TestMetricsDeterminism:
         """Bond metrics are stable across repeated computations."""
         market = MarketContext()
         market.insert_discount(curve)
-        registry = PricerRegistry.create_standard()
+        registry = create_standard_registry()
 
         try:
             # Compute metrics multiple times

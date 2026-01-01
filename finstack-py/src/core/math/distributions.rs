@@ -1,4 +1,5 @@
 use finstack_core::math::distributions::{
+    binomial_distribution as core_binomial_distribution,
     binomial_probability as core_binomial_probability, chi_squared_cdf as core_chi_squared_cdf,
     chi_squared_pdf as core_chi_squared_pdf, chi_squared_quantile as core_chi_squared_quantile,
     exponential_cdf as core_exponential_cdf, exponential_pdf as core_exponential_pdf,
@@ -38,6 +39,47 @@ use pyo3::Bound;
 ///     0.1171875
 pub fn binomial_probability_py(trials: usize, successes: usize, probability: f64) -> PyResult<f64> {
     Ok(core_binomial_probability(trials, successes, probability))
+}
+
+#[pyfunction(
+    name = "binomial_distribution",
+    text_signature = "(trials, probability)"
+)]
+/// Generate the complete binomial distribution P(X=k) for k = 0, 1, ..., n.
+///
+/// Returns a normalized probability vector where ``dist[k]`` = P(X = k).
+/// Uses log-space arithmetic to prevent overflow for large n.
+///
+/// Args:
+///     trials (int): Number of independent trials (n ≥ 0).
+///     probability (float): Probability of success on each trial (0 ≤ p ≤ 1).
+///
+/// Returns:
+///     list[float]: Vector of probabilities [P(X=0), P(X=1), ..., P(X=n)] with length n+1.
+///         The vector sums to 1.0 (normalized).
+///
+/// Use Cases:
+///     - **Credit modeling**: Loss distribution for homogeneous pool of n obligors
+///     - **Portfolio analytics**: Number of defaults given conditional default probability
+///     - **Structured credit**: Default distribution for CDO/CLO tranches
+///
+/// Examples:
+///     >>> from finstack.core.math.distributions import binomial_distribution
+///     >>> dist = binomial_distribution(10, 0.5)
+///     >>> len(dist)
+///     11
+///     >>> round(dist[5], 8)  # P(X=5) for fair coin
+///     0.24609375
+///     >>> round(sum(dist), 10)  # Sums to 1.0
+///     1.0
+///
+///     Credit portfolio example:
+///
+///     >>> loss_dist = binomial_distribution(100, 0.05)  # 100 names, 5% PD
+///     >>> len(loss_dist)
+///     101
+pub fn binomial_distribution_py(trials: usize, probability: f64) -> PyResult<Vec<f64>> {
+    Ok(core_binomial_distribution(trials, probability))
 }
 
 #[pyfunction(
@@ -490,6 +532,7 @@ pub(crate) fn register<'py>(
 
     // Binomial
     module.add_function(wrap_pyfunction!(binomial_probability_py, &module)?)?;
+    module.add_function(wrap_pyfunction!(binomial_distribution_py, &module)?)?;
     module.add_function(wrap_pyfunction!(log_binomial_coefficient_py, &module)?)?;
     module.add_function(wrap_pyfunction!(log_factorial_py, &module)?)?;
 
@@ -518,6 +561,7 @@ pub(crate) fn register<'py>(
 
     let exports = [
         "binomial_probability",
+        "binomial_distribution",
         "log_binomial_coefficient",
         "log_factorial",
         "exponential_pdf",

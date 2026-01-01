@@ -3,6 +3,7 @@ mod distributions;
 mod integration;
 pub(crate) mod interp;
 mod linalg;
+mod probability;
 mod random;
 mod solver;
 mod solver_multi;
@@ -22,7 +23,8 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
         concat!(
             "Mathematical utilities from finstack-core (distributions, integration, solvers, RNGs).\n\n",
             "This module aggregates bindings for common mathematical routines:\n",
-            "- distributions: binomial probabilities and related logarithms\n",
+            "- distributions: binomial probabilities, PDFs/CDFs, and sampling\n",
+            "- probability: correlated Bernoulli distributions and joint probabilities\n",
             "- integration: Simpson/trapezoidal rules and Gauss-Legendre/Hermite quadrature\n",
             "- solver: Newton and Brent root finders\n",
             "- interp: interpolation and extrapolation styles\n",
@@ -35,6 +37,9 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
 
     let dist_exports = distributions::register(py, &module)?;
     exports.extend(dist_exports.iter().copied());
+
+    let prob_exports = probability::register(py, &module)?;
+    exports.extend(prob_exports.iter().copied());
 
     let integration_exports = integration::register(py, &module)?;
     exports.extend(integration_exports.iter().copied());

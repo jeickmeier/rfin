@@ -1,0 +1,4 @@
+# file: /Users/joneickmeier/projects/rfin/finstack-py/finstack/statements/__init__.py
+# hypothesis_version: 6.148.8
+
+[0.0, 1.0, 'ASSET', 'AccountType', 'Asset', 'ExtensionMetadata', 'ExtensionStatus', 'FAILED', 'Failed', 'MetricDefinition', 'ModelBuilder', 'PERCENTAGE', 'Percentage', 'Registry', 'SKIPPED', 'SUCCESS', 'Skipped', 'Success', 'UnitType', '_', 'builder', 'category', 'cogs', 'description', 'ebitda', 'extensions', 'fin', 'fin.gross_margin', 'fin.gross_profit', 'formula', 'gross_margin', 'gross_profit', 'id', 'metrics', 'model', 'name', 'namespace', 'operating_expenses', 'registry', 'requires', 'revenue', 'schema_version', 'tags', 'unit_type', 'values']

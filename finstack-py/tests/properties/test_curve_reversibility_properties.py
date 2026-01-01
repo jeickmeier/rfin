@@ -16,7 +16,7 @@ from finstack.core.dates import DayCount
 from finstack.core.market_data import DiscountCurve, MarketContext
 from finstack.core.money import Money
 from finstack.valuations.instruments import Deposit
-from finstack.valuations.pricer import PricerRegistry
+from finstack.valuations.pricer import create_standard_registry
 from hypothesis import assume, given, settings, strategies as st
 
 # Strategies for generating test data
@@ -35,13 +35,15 @@ def discount_curve_strategy(draw: Callable[[Any], Any]) -> DiscountCurve:
     dates = [base_date + timedelta(days=365 * i) for i in range(1, 6)]
     dfs = [1.0 / ((1.0 + base_rate) ** i) for i in range(1, 6)]
 
-    day_count = DayCount.act_365f()
+    day_count = DayCount.ACT_365F
+
+    # Convert dates to time years using day_count
+    knots = [(day_count.year_fraction(base_date, d, None), df) for d, df in zip(dates, dfs, strict=False)]
 
     return DiscountCurve(
-        id=curve_id,
-        base_date=base_date,
-        dates=dates,
-        discount_factors=dfs,
+        curve_id,
+        base_date,
+        knots,
         day_count=day_count,
     )
 
@@ -59,12 +61,13 @@ def deposit_strategy(draw: Callable[[Any], Any]) -> Deposit:
     currency = Currency("USD")
 
     return Deposit(
-        id=f"DEP-{tenor_days}D",
-        notional=Money(notional, currency),
-        rate=rate,
-        start_date=start_date,
-        maturity_date=maturity_date,
-        curve_id="USD-OIS",
+        f"DEP-{tenor_days}D",
+        Money(notional, currency),
+        start_date,
+        maturity_date,
+        DayCount.ACT_360,
+        "USD-OIS",
+        quote_rate=rate,
     )
 
 
@@ -78,7 +81,7 @@ class TestCurveReversibility:
         # Setup market with original curve
         market_original = MarketContext()
         market_original.insert_discount(curve)
-        registry = PricerRegistry.create_standard()
+        registry = create_standard_registry()
 
         # Price with original curve
         result_original = registry.price_deposit(deposit, "discounting", market_original)
@@ -150,7 +153,7 @@ class TestCurveReversibility:
         # Setup
         market_original = MarketContext()
         market_original.insert_discount(curve)
-        registry = PricerRegistry.create_standard()
+        registry = create_standard_registry()
 
         # Price with original
         result_original = registry.price_deposit(deposit, "discounting", market_original)
@@ -265,7 +268,7 @@ class TestCurveStability:
         # Setup
         market_original = MarketContext()
         market_original.insert_discount(curve)
-        registry = PricerRegistry.create_standard()
+        registry = create_standard_registry()
 
         # Price with original
         result_original = registry.price_deposit(deposit, "discounting", market_original)

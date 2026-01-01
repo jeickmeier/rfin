@@ -8,6 +8,9 @@ from . import metrics
 from . import instruments
 from . import calibration
 from . import performance
+from . import lsmc
+from . import conventions
+from . import bumps
 
 # Import common types that are re-exported at the valuations level
 from .common import InstrumentType, ModelKey, PricerKey
@@ -21,6 +24,40 @@ from .instruments.structured_credit.waterfall import (
     AllocationMode,
     PaymentType,
     WaterfallTier,
+)
+
+# LSMC exports
+from .lsmc import (
+    AmericanPut,
+    AmericanCall,
+    PolynomialBasis,
+    LaguerreBasis,
+    LsmcConfig,
+    LsmcResult,
+    LsmcPricer,
+)
+
+# Conventions exports
+from .conventions import (
+    CdsDocClause,
+    RateIndexKind,
+    CdsConventionKey,
+    RateIndexConventions,
+    CdsConventions,
+    SwaptionConventions,
+    InflationSwapConventions,
+    OptionConventions,
+    IrFutureConventions,
+    ConventionRegistry,
+)
+
+# Bumps exports
+from .bumps import (
+    BumpRequest,
+    bump_discount_curve_synthetic,
+    bump_hazard_spreads,
+    bump_hazard_shift,
+    bump_inflation_rates,
 )
 
 __all__ = [
@@ -54,6 +91,31 @@ __all__ = [
     "AllocationMode",
     "PaymentType",
     "WaterfallTier",
+    # LSMC
+    "AmericanPut",
+    "AmericanCall",
+    "PolynomialBasis",
+    "LaguerreBasis",
+    "LsmcConfig",
+    "LsmcResult",
+    "LsmcPricer",
+    # Conventions
+    "CdsDocClause",
+    "RateIndexKind",
+    "CdsConventionKey",
+    "RateIndexConventions",
+    "CdsConventions",
+    "SwaptionConventions",
+    "InflationSwapConventions",
+    "OptionConventions",
+    "IrFutureConventions",
+    "ConventionRegistry",
+    # Bumps
+    "BumpRequest",
+    "bump_discount_curve_synthetic",
+    "bump_hazard_spreads",
+    "bump_hazard_shift",
+    "bump_inflation_rates",
     # Instruments (imported from submodule)
     # Calibration (imported from submodule)
     # Cashflow (imported from submodule)

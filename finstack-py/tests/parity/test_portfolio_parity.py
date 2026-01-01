@@ -26,24 +26,17 @@ class TestEntityParity:
 
     def test_entity_construction(self) -> None:
         """Test entity construction."""
-        entity = Entity(
-            entity_id="FUND-001",
-            name="Test Fund",
-            tags={"type": "hedge_fund", "strategy": "long_short"},
-        )
+        entity = Entity("FUND-001").with_name("Test Fund").with_tags({"type": "hedge_fund", "strategy": "long_short"})
 
-        assert entity.entity_id == "FUND-001"
+        assert entity.id == "FUND-001"
         assert entity.name == "Test Fund"
         assert entity.tags["type"] == "hedge_fund"
 
     def test_entity_minimal_construction(self) -> None:
         """Test entity with minimal fields."""
-        entity = Entity(
-            entity_id="FUND-002",
-            name="Minimal Fund",
-        )
+        entity = Entity("FUND-002").with_name("Minimal Fund")
 
-        assert entity.entity_id == "FUND-002"
+        assert entity.id == "FUND-002"
         assert entity.name == "Minimal Fund"
 
 
@@ -67,11 +60,12 @@ class TestPositionParity:
         )
 
         position = Position(
-            position_id="POS-001",
-            entity_id="FUND-001",
-            instrument=bond,
-            quantity=1.0,
-            unit=PositionUnit.UNITS,
+            "POS-001",
+            "FUND-001",
+            bond.instrument_id,
+            bond,
+            1.0,
+            PositionUnit.UNITS,
         )
 
         assert position.position_id == "POS-001"
@@ -93,13 +87,17 @@ class TestPositionParity:
             .build()
         )
 
-        position = Position(
-            position_id="POS-001",
-            entity_id="FUND-001",
-            instrument=bond,
-            quantity=1.0,
-            unit=PositionUnit.UNITS,
-            tags={"rating": "AAA", "sector": "government"},
+        position = (
+            Position(
+                "POS-001",
+                "FUND-001",
+                bond.instrument_id,
+                bond,
+                1.0,
+                PositionUnit.UNITS,
+            )
+            .with_tag("rating", "AAA")
+            .with_tag("sector", "government")
         )
 
         assert position.tags["rating"] == "AAA"
@@ -121,11 +119,12 @@ class TestPositionParity:
         )
 
         position = Position(
-            position_id="POS-SHORT",
-            entity_id="FUND-001",
-            instrument=bond,
-            quantity=-0.5,  # Short position
-            unit=PositionUnit.UNITS,
+            "POS-SHORT",
+            "FUND-001",
+            bond.instrument_id,
+            bond,
+            -0.5,  # Short position
+            PositionUnit.UNITS,
         )
 
         assert position.quantity == -0.5
@@ -136,12 +135,12 @@ class TestPortfolioBuilderParity:
 
     def test_builder_basic(self) -> None:
         """Test basic portfolio construction."""
-        builder = PortfolioBuilder()
+        builder = PortfolioBuilder("TEST_PORTFOLIO")
         builder.base_ccy("USD")
         builder.as_of(date(2024, 1, 1))
 
         # Add entity
-        entity = Entity(entity_id="FUND-001", name="Test Fund")
+        entity = Entity("FUND-001").with_name("Test Fund")
         builder.entity(entity)
 
         portfolio = builder.build()
@@ -152,12 +151,12 @@ class TestPortfolioBuilderParity:
 
     def test_builder_with_positions(self) -> None:
         """Test portfolio with positions."""
-        builder = PortfolioBuilder()
+        builder = PortfolioBuilder("TEST_PORTFOLIO")
         builder.base_ccy("USD")
         builder.as_of(date(2024, 1, 1))
 
         # Add entity
-        entity = Entity(entity_id="FUND-001", name="Test Fund")
+        entity = Entity("FUND-001").with_name("Test Fund")
         builder.entity(entity)
 
         # Add position
@@ -175,11 +174,12 @@ class TestPortfolioBuilderParity:
         )
 
         position = Position(
-            position_id="POS-001",
-            entity_id="FUND-001",
-            instrument=bond,
-            quantity=1.0,
-            unit=PositionUnit.UNITS,
+            "POS-001",
+            "FUND-001",
+            bond.instrument_id,
+            bond,
+            1.0,
+            PositionUnit.UNITS,
         )
         builder.position(position)
 
@@ -189,7 +189,7 @@ class TestPortfolioBuilderParity:
 
     def test_builder_validation(self) -> None:
         """Test portfolio builder validation."""
-        builder = PortfolioBuilder()
+        builder = PortfolioBuilder("TEST_PORTFOLIO")
         builder.base_ccy("USD")
         builder.as_of(date(2024, 1, 1))
 
@@ -208,11 +208,12 @@ class TestPortfolioBuilderParity:
         )
 
         position = Position(
-            position_id="POS-001",
-            entity_id="FUND-MISSING",  # Entity doesn't exist
-            instrument=bond,
-            quantity=1.0,
-            unit=PositionUnit.UNITS,
+            "POS-001",
+            "FUND-MISSING",  # Entity doesn't exist
+            bond.instrument_id,
+            bond,
+            1.0,
+            PositionUnit.UNITS,
         )
         builder.position(position)
 
@@ -227,11 +228,11 @@ class TestPortfolioValuationParity:
     def test_value_portfolio_simple(self) -> None:
         """Test simple portfolio valuation."""
         # Create portfolio
-        builder = PortfolioBuilder()
+        builder = PortfolioBuilder("TEST_PORTFOLIO")
         builder.base_ccy("USD")
         builder.as_of(date(2024, 1, 1))
 
-        entity = Entity(entity_id="FUND-001", name="Test Fund")
+        entity = Entity("FUND-001").with_name("Test Fund")
         builder.entity(entity)
 
         bond = (
@@ -248,11 +249,12 @@ class TestPortfolioValuationParity:
         )
 
         position = Position(
-            position_id="POS-001",
-            entity_id="FUND-001",
-            instrument=bond,
-            quantity=1.0,
-            unit=PositionUnit.UNITS,
+            "POS-001",
+            "FUND-001",
+            bond.instrument_id,
+            bond,
+            1.0,
+            PositionUnit.UNITS,
         )
         builder.position(position)
 
@@ -277,11 +279,11 @@ class TestPortfolioValuationParity:
 
     def test_value_portfolio_multiple_positions(self) -> None:
         """Test valuation with multiple positions."""
-        builder = PortfolioBuilder()
+        builder = PortfolioBuilder("TEST_PORTFOLIO")
         builder.base_ccy("USD")
         builder.as_of(date(2024, 1, 1))
 
-        entity = Entity(entity_id="FUND-001", name="Test Fund")
+        entity = Entity("FUND-001").with_name("Test Fund")
         builder.entity(entity)
 
         # Add two bond positions
@@ -300,11 +302,12 @@ class TestPortfolioValuationParity:
             )
 
             position = Position(
-                position_id=f"POS-00{i + 1}",
-                entity_id="FUND-001",
-                instrument=bond,
-                quantity=1.0,
-                unit=PositionUnit.UNITS,
+                f"POS-00{i + 1}",
+                "FUND-001",
+                bond.instrument_id,
+                bond,
+                1.0,
+                PositionUnit.UNITS,
             )
             builder.position(position)
 
@@ -325,11 +328,11 @@ class TestPortfolioValuationParity:
 
     def test_value_portfolio_cross_currency(self) -> None:
         """Test portfolio with cross-currency positions."""
-        builder = PortfolioBuilder()
+        builder = PortfolioBuilder("TEST_PORTFOLIO")
         builder.base_ccy("USD")
         builder.as_of(date(2024, 1, 1))
 
-        entity = Entity(entity_id="FUND-001", name="Test Fund")
+        entity = Entity("FUND-001").with_name("Test Fund")
         builder.entity(entity)
 
         # Add USD bond
@@ -348,11 +351,12 @@ class TestPortfolioValuationParity:
 
         builder.position(
             Position(
-                position_id="POS-USD",
-                entity_id="FUND-001",
-                instrument=usd_bond,
-                quantity=1.0,
-                unit=PositionUnit.UNITS,
+                "POS-USD",
+                "FUND-001",
+                usd_bond.instrument_id,
+                usd_bond,
+                1.0,
+                PositionUnit.UNITS,
             )
         )
 
@@ -372,11 +376,12 @@ class TestPortfolioValuationParity:
 
         builder.position(
             Position(
-                position_id="POS-EUR",
-                entity_id="FUND-001",
-                instrument=eur_bond,
-                quantity=1.0,
-                unit=PositionUnit.UNITS,
+                "POS-EUR",
+                "FUND-001",
+                eur_bond.instrument_id,
+                eur_bond,
+                1.0,
+                PositionUnit.UNITS,
             )
         )
 
@@ -420,13 +425,13 @@ class TestPortfolioAggregationParity:
 
     def test_aggregate_by_entity(self) -> None:
         """Test aggregation by entity."""
-        builder = PortfolioBuilder()
+        builder = PortfolioBuilder("TEST_PORTFOLIO")
         builder.base_ccy("USD")
         builder.as_of(date(2024, 1, 1))
 
         # Add two entities
-        entity1 = Entity(entity_id="FUND-001", name="Fund 1")
-        entity2 = Entity(entity_id="FUND-002", name="Fund 2")
+        entity1 = Entity("FUND-001").with_name("Fund 1")
+        entity2 = Entity("FUND-002").with_name("Fund 2")
         builder.entity(entity1)
         builder.entity(entity2)
 
@@ -446,11 +451,12 @@ class TestPortfolioAggregationParity:
             )
 
             position = Position(
-                position_id=f"POS-{fund_id}",
-                entity_id=fund_id,
-                instrument=bond,
-                quantity=1.0,
-                unit=PositionUnit.UNITS,
+                f"POS-{fund_id}",
+                fund_id,
+                bond.instrument_id,
+                bond,
+                1.0,
+                PositionUnit.UNITS,
             )
             builder.position(position)
 
@@ -474,11 +480,11 @@ class TestPortfolioAggregationParity:
         """Test aggregation by attribute (tags)."""
         from finstack.portfolio import aggregate_by_attribute
 
-        builder = PortfolioBuilder()
+        builder = PortfolioBuilder("TEST_PORTFOLIO")
         builder.base_ccy("USD")
         builder.as_of(date(2024, 1, 1))
 
-        entity = Entity(entity_id="FUND-001", name="Test Fund")
+        entity = Entity("FUND-001").with_name("Test Fund")
         builder.entity(entity)
 
         # Add positions with different ratings
@@ -497,13 +503,13 @@ class TestPortfolioAggregationParity:
             )
 
             position = Position(
-                position_id=f"POS-{rating}",
-                entity_id="FUND-001",
-                instrument=bond,
-                quantity=1.0,
-                unit=PositionUnit.UNITS,
-                tags={"rating": rating},
-            )
+                f"POS-{rating}",
+                "FUND-001",
+                bond.instrument_id,
+                bond,
+                1.0,
+                PositionUnit.UNITS,
+            ).with_tag("rating", rating)
             builder.position(position)
 
         portfolio = builder.build()
@@ -532,11 +538,11 @@ class TestEdgeCases:
 
     def test_empty_portfolio(self) -> None:
         """Test empty portfolio valuation."""
-        builder = PortfolioBuilder()
+        builder = PortfolioBuilder("TEST_PORTFOLIO")
         builder.base_ccy("USD")
         builder.as_of(date(2024, 1, 1))
 
-        entity = Entity(entity_id="FUND-001", name="Empty Fund")
+        entity = Entity("FUND-001").with_name("Empty Fund")
         builder.entity(entity)
 
         portfolio = builder.build()
@@ -563,22 +569,23 @@ class TestEdgeCases:
         )
 
         position = Position(
-            position_id="POS-ZERO",
-            entity_id="FUND-001",
-            instrument=bond,
-            quantity=0.0,
-            unit=PositionUnit.UNITS,
+            "POS-ZERO",
+            "FUND-001",
+            bond.instrument_id,
+            bond,
+            0.0,
+            PositionUnit.UNITS,
         )
 
         assert position.quantity == 0.0
 
     def test_portfolio_single_entity_multiple_positions(self) -> None:
         """Test portfolio with one entity holding multiple positions."""
-        builder = PortfolioBuilder()
+        builder = PortfolioBuilder("TEST_PORTFOLIO")
         builder.base_ccy("USD")
         builder.as_of(date(2024, 1, 1))
 
-        entity = Entity(entity_id="FUND-001", name="Diversified Fund")
+        entity = Entity("FUND-001").with_name("Diversified Fund")
         builder.entity(entity)
 
         # Add 10 positions
@@ -597,11 +604,12 @@ class TestEdgeCases:
             )
 
             position = Position(
-                position_id=f"POS-{i:03d}",
-                entity_id="FUND-001",
-                instrument=bond,
-                quantity=1.0,
-                unit=PositionUnit.UNITS,
+                f"POS-{i:03d}",
+                "FUND-001",
+                bond.instrument_id,
+                bond,
+                1.0,
+                PositionUnit.UNITS,
             )
             builder.position(position)
 

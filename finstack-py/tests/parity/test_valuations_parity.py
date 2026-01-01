@@ -252,33 +252,35 @@ class TestDepositPricingParity:
     """Test deposit pricing matches Rust."""
 
     def test_deposit_construction(self) -> None:
-        """Test deposit construction via builder."""
-        deposit = (
-            Deposit.builder("DEP-001")
-            .notional(1_000_000.0)
-            .currency("USD")
-            .start(date(2024, 1, 1))
-            .maturity(date(2024, 4, 1))
-            .rate(0.045)
-            .day_count(DayCount.ACT_360)
-            .disc_id("USD-OIS")
-            .build()
+        """Test deposit construction via constructor."""
+        from finstack.core.currency import Currency
+        from finstack.core.money import Money
+
+        deposit = Deposit(
+            "DEP-001",
+            Money(1_000_000.0, Currency("USD")),
+            date(2024, 1, 1),
+            date(2024, 4, 1),
+            DayCount.ACT_360,
+            "USD-OIS",
+            quote_rate=0.045,
         )
 
-        assert deposit.id == "DEP-001"
+        assert deposit.instrument_id == "DEP-001"
 
     def test_deposit_pricing_simple(self) -> None:
         """Test simple deposit pricing."""
-        deposit = (
-            Deposit.builder("DEP-001")
-            .notional(1_000_000.0)
-            .currency("USD")
-            .start(date(2024, 1, 1))
-            .maturity(date(2024, 4, 1))
-            .rate(0.045)
-            .day_count(DayCount.ACT_360)
-            .disc_id("USD-OIS")
-            .build()
+        from finstack.core.currency import Currency
+        from finstack.core.money import Money
+
+        deposit = Deposit(
+            "DEP-001",
+            Money(1_000_000.0, Currency("USD")),
+            date(2024, 1, 1),
+            date(2024, 4, 1),
+            DayCount.ACT_360,
+            "USD-OIS",
+            quote_rate=0.045,
         )
 
         market = MarketContext()
@@ -300,16 +302,14 @@ class TestDepositPricingParity:
     def test_deposit_analytical_value(self) -> None:
         """Test deposit NPV matches analytical calculation."""
         # 1M deposit at 4.5% on 1M USD
-        deposit = (
-            Deposit.builder("DEP-001")
-            .notional(1_000_000.0)
-            .currency("USD")
-            .start(date(2024, 1, 1))
-            .maturity(date(2024, 4, 1))  # 90 days
-            .rate(0.045)
-            .day_count(DayCount.ACT_360)
-            .disc_id("USD-OIS")
-            .build()
+        deposit = Deposit(
+            "DEP-001",
+            Money(1_000_000.0, USD),
+            date(2024, 1, 1),
+            date(2024, 4, 1),  # 90 days
+            DayCount.ACT_360,
+            "USD-OIS",
+            quote_rate=0.045,
         )
 
         # Flat discount curve at 4.5%
@@ -525,16 +525,14 @@ class TestEdgeCases:
 
     def test_deposit_overnight(self) -> None:
         """Test overnight deposit pricing."""
-        deposit = (
-            Deposit.builder("ON-001")
-            .notional(1_000_000.0)
-            .currency("USD")
-            .start(date(2024, 1, 1))
-            .maturity(date(2024, 1, 2))  # 1 day
-            .rate(0.045)
-            .day_count(DayCount.ACT_360)
-            .disc_id("USD-OIS")
-            .build()
+        deposit = Deposit(
+            "ON-001",
+            Money(1_000_000.0, USD),
+            date(2024, 1, 1),
+            date(2024, 1, 2),  # 1 day
+            DayCount.ACT_360,
+            "USD-OIS",
+            quote_rate=0.045,
         )
 
         market = MarketContext()

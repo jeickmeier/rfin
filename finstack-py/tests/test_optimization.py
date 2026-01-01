@@ -8,14 +8,13 @@ Tests cover:
 5. Result interpretation and trade generation
 """
 
+from finstack.valuations.metrics import MetricId
 import pytest
 
-from finstack import (
+from finstack.portfolio import (
     Constraint,
-    # Core types needed for testing
     Inequality,
     MetricExpr,
-    MetricId,
     MissingMetricPolicy,
     Objective,
     OptimizationResult,
@@ -25,7 +24,6 @@ from finstack import (
     TradeDirection,
     TradeType,
     WeightingScheme,
-    # Helper function
     optimize_max_yield_with_ccc_limit,
 )
 

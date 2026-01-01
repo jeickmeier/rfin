@@ -23,13 +23,13 @@ class TestScenarioSpecParity:
     def test_scenario_spec_construction(self) -> None:
         """Test basic scenario spec construction."""
         spec = ScenarioSpec(
-            scenario_id="stress_test",
+            "stress_test",
+            [],
             name="Q1 Stress Test",
             description="Rate shock scenario",
-            operations=[],
         )
 
-        assert spec.scenario_id == "stress_test"
+        assert spec.id == "stress_test"
         assert spec.name == "Q1 Stress Test"
         assert len(spec.operations) == 0
 
@@ -44,9 +44,9 @@ class TestScenarioSpecParity:
         ]
 
         spec = ScenarioSpec(
-            scenario_id="rate_up",
+            "rate_up",
+            ops,
             name="Rates Up 50bp",
-            operations=ops,
         )
 
         assert len(spec.operations) == 1
@@ -54,9 +54,9 @@ class TestScenarioSpecParity:
     def test_scenario_spec_priority(self) -> None:
         """Test scenario spec with priority."""
         spec = ScenarioSpec(
-            scenario_id="high_priority",
+            "high_priority",
+            [],
             name="High Priority Scenario",
-            operations=[],
             priority=1,
         )
 
@@ -141,15 +141,15 @@ class TestScenarioEngineParity:
 
         # Create scenario
         spec = ScenarioSpec(
-            scenario_id="rate_up",
-            name="Rates Up 50bp",
-            operations=[
+            "rate_up",
+            [
                 OperationSpec.curve_parallel_bp(
                     CurveKind.DISCOUNT,
                     "USD-OIS",
                     50.0,  # +50bp
                 )
             ],
+            name="Rates Up 50bp",
         )
 
         # Apply scenario
@@ -172,9 +172,8 @@ class TestScenarioEngineParity:
 
         # Create scenario with multiple operations
         spec = ScenarioSpec(
-            scenario_id="multi_shock",
-            name="Multiple Shocks",
-            operations=[
+            "multi_shock",
+            [
                 OperationSpec.curve_parallel_bp(
                     CurveKind.DISCOUNT,
                     "USD-OIS",
@@ -182,6 +181,7 @@ class TestScenarioEngineParity:
                 ),
                 OperationSpec.equity_price_pct("SPY", -10.0),
             ],
+            name="Multiple Shocks",
         )
 
         engine = ScenarioEngine()
@@ -193,25 +193,25 @@ class TestScenarioEngineParity:
         """Test composing multiple scenarios."""
         # Create base scenario
         base = ScenarioSpec(
-            scenario_id="base",
-            name="Base Scenario",
-            operations=[
+            "base",
+            [
                 OperationSpec.curve_parallel_bp(
                     CurveKind.DISCOUNT,
                     "USD-OIS",
                     25.0,
                 )
             ],
+            name="Base Scenario",
             priority=10,
         )
 
         # Create overlay scenario
         overlay = ScenarioSpec(
-            scenario_id="overlay",
-            name="Overlay Scenario",
-            operations=[
+            "overlay",
+            [
                 OperationSpec.equity_price_pct("SPY", -5.0),
             ],
+            name="Overlay Scenario",
             priority=5,  # Higher priority (lower value)
         )
 
@@ -335,9 +335,9 @@ class TestEdgeCases:
     def test_empty_scenario(self) -> None:
         """Test scenario with no operations."""
         spec = ScenarioSpec(
-            scenario_id="empty",
+            "empty",
+            [],
             name="Empty Scenario",
-            operations=[],
         )
 
         market = MarketContext()
@@ -356,9 +356,9 @@ class TestEdgeCases:
         )
 
         spec = ScenarioSpec(
-            scenario_id="zero_shift",
+            "zero_shift",
+            [op],
             name="Zero Shift",
-            operations=[op],
         )
 
         market = MarketContext()
@@ -399,14 +399,14 @@ class TestEdgeCases:
     def test_scenario_composition_same_priority(self) -> None:
         """Test composing scenarios with same priority."""
         s1 = ScenarioSpec(
-            scenario_id="s1",
-            operations=[OperationSpec.curve_parallel_bp(CurveKind.DISCOUNT, "USD-OIS", 25.0)],
+            "s1",
+            [OperationSpec.curve_parallel_bp(CurveKind.DISCOUNT, "USD-OIS", 25.0)],
             priority=5,
         )
 
         s2 = ScenarioSpec(
-            scenario_id="s2",
-            operations=[OperationSpec.equity_price_pct("SPY", -10.0)],
+            "s2",
+            [OperationSpec.equity_price_pct("SPY", -10.0)],
             priority=5,
         )
 
@@ -423,15 +423,15 @@ class TestSerializationParity:
     def test_scenario_spec_to_json(self) -> None:
         """Test scenario spec JSON serialization."""
         spec = ScenarioSpec(
-            scenario_id="test",
-            name="Test Scenario",
-            operations=[
+            "test",
+            [
                 OperationSpec.curve_parallel_bp(
                     CurveKind.DISCOUNT,
                     "USD-OIS",
                     50.0,
                 )
             ],
+            name="Test Scenario",
         )
 
         json_str = spec.to_json()
@@ -449,15 +449,15 @@ class TestSerializationParity:
     def test_scenario_spec_roundtrip(self) -> None:
         """Test scenario spec JSON roundtrip."""
         original = ScenarioSpec(
-            scenario_id="roundtrip",
-            name="Roundtrip Test",
-            operations=[
+            "roundtrip",
+            [
                 OperationSpec.curve_parallel_bp(
                     CurveKind.DISCOUNT,
                     "USD-OIS",
                     50.0,
                 )
             ],
+            name="Roundtrip Test",
             priority=5,
         )
 

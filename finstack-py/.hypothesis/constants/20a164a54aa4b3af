@@ -1,0 +1,4 @@
+# file: /Users/joneickmeier/projects/rfin/finstack-py/finstack/statements/__init__.py
+# hypothesis_version: 6.148.8
+
+[1.0, 'ASSET', 'AccountType', 'Asset', 'Evaluator', 'ExtensionMetadata', 'ExtensionResult', 'ExtensionStatus', 'FAILED', 'Failed', 'MetricDefinition', 'MetricRegistry', 'ModelBuilder', 'PERCENTAGE', 'Percentage', 'Registry', 'SKIPPED', 'SUCCESS', 'Skipped', 'Success', 'UnitType', '_', 'category', 'description', 'evaluator', 'extensions', 'fin', 'formula', 'id', 'metrics', 'model', 'name', 'namespace', 'registry', 'requires', 'schema_version', 'tags', 'unit_type', 'values']

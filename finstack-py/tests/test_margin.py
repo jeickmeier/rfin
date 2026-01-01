@@ -7,15 +7,17 @@ This module tests the margin aggregation functionality including:
 - Portfolio-level margin reporting
 """
 
-# Instrument imports
-from finstack.valuations.instruments.builders import InterestRateSwapBuilder
+from datetime import date
 
-# Market data imports
-from finstack.valuations.market_data import DiscountCurve, HazardCurve
+from finstack.core.market_data.context import MarketContext
+from finstack.core.market_data.term_structures import DiscountCurve, HazardCurve
+
+# Instrument imports
+from finstack.valuations.instruments import InterestRateSwapBuilder
 import pytest
 
 # Core imports
-from finstack.core import Currency, Date, MarketContext, Money
+from finstack import Currency, Money
 
 # Portfolio imports
 from finstack.portfolio import (
@@ -37,17 +39,17 @@ from finstack.portfolio import (
 @pytest.fixture
 def usd() -> Currency:
     """USD currency."""
-    return Currency.from_code("USD")
+    return Currency("USD")
 
 
 @pytest.fixture
-def as_of() -> Date:
+def as_of() -> date:
     """Valuation date."""
-    return Date(2024, 6, 15)
+    return date(2024, 6, 15)
 
 
 @pytest.fixture
-def market_context(usd: Currency, as_of: Date) -> MarketContext:
+def market_context(usd: Currency, as_of: date) -> MarketContext:
     """Create a market context with discount and credit curves."""
     market = MarketContext()
 
@@ -206,15 +208,15 @@ def test_margin_aggregator_creation(usd: Currency) -> None:
     assert aggregator is not None
 
 
-def test_margin_aggregator_from_portfolio(usd: Currency, as_of: Date) -> None:
+def test_margin_aggregator_from_portfolio(usd: Currency, as_of: date) -> None:
     """Test creating aggregator from portfolio."""
     # Create a simple portfolio
-    builder = PortfolioBuilder()
+    builder = PortfolioBuilder("TEST_PORTFOLIO")
     builder.base_ccy(usd)
     builder.as_of(as_of)
 
     # Add entity
-    entity = Entity("ENTITY_001", "Test Entity")
+    entity = Entity("ENTITY_001").with_name("Test Entity")
     builder.entity(entity)
 
     portfolio = builder.build()
@@ -225,7 +227,7 @@ def test_margin_aggregator_from_portfolio(usd: Currency, as_of: Date) -> None:
 
 
 @pytest.mark.skip(reason="Requires marginable instruments with proper market data")
-def test_margin_calculation_simple(usd: Currency, as_of: Date, market_context: MarketContext) -> None:
+def test_margin_calculation_simple(usd: Currency, as_of: date, market_context: MarketContext) -> None:
     """Test basic margin calculation with interest rate swaps.
 
     Note: This test is skipped because it requires:
@@ -237,7 +239,7 @@ def test_margin_calculation_simple(usd: Currency, as_of: Date, market_context: M
     margin specifications are properly configured.
     """
     # Create portfolio with IRS positions
-    builder = PortfolioBuilder()
+    builder = PortfolioBuilder("TEST_PORTFOLIO_IRS")
     builder.base_ccy(usd)
     builder.as_of(as_of)
 
@@ -246,13 +248,13 @@ def test_margin_calculation_simple(usd: Currency, as_of: Date, market_context: M
     builder.entity(entity)
 
     # Create IRS (would need proper margin spec assignment)
-    notional = Money.from_code(10_000_000.0, "USD")
+    notional = Money(10_000_000.0, Currency("USD"))
     irs = InterestRateSwapBuilder.new(
         "IRS_001",
         notional,
         0.055,  # fixed rate
         as_of,
-        Date(2029, 6, 15),  # maturity
+        date(2029, 6, 15),  # maturity
         "pay_fixed",
         "USD.OIS",
     ).build()
@@ -278,7 +280,7 @@ def test_margin_calculation_simple(usd: Currency, as_of: Date, market_context: M
 # ============================================================================
 
 
-def test_portfolio_margin_result_properties(usd: Currency, as_of: Date) -> None:
+def test_portfolio_margin_result_properties(usd: Currency, as_of: date) -> None:
     """Test portfolio margin result properties."""
     # Note: Cannot directly construct PortfolioMarginResult from Python
     # This would typically come from aggregator.calculate()
@@ -367,13 +369,13 @@ def test_example_netting_set_manager() -> None:
     assert ids[0].counterparty_id == "HOUSE_ACCOUNT"
 
 
-def test_example_margin_aggregator_creation(usd: Currency, as_of: Date) -> None:
+def test_example_margin_aggregator_creation(usd: Currency, as_of: date) -> None:
     """Example: Create margin aggregator and add positions."""
     # Create aggregator with base currency
     aggregator = PortfolioMarginAggregator(usd)
 
     # Or create from existing portfolio
-    builder = PortfolioBuilder()
+    builder = PortfolioBuilder("TEST_PORTFOLIO_EXAMPLE")
     builder.base_ccy(usd)
     builder.as_of(as_of)
     builder.entity(Entity("ENTITY_001", "Test Entity"))

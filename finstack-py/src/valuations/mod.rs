@@ -1,10 +1,13 @@
 pub(crate) mod attribution;
+pub(crate) mod bumps;
 pub(crate) mod calibration;
 pub(crate) mod cashflow;
 pub(crate) mod common;
+pub(crate) mod conventions;
 pub(crate) mod covenants;
 pub(crate) mod dataframe;
 pub(crate) mod instruments;
+pub(crate) mod lsmc;
 pub(crate) mod metrics;
 pub(crate) mod performance;
 pub(crate) mod pricer;
@@ -76,6 +79,21 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     module.setattr("attribution", &attr_submod)?;
     promote_exports(&module, "attribution", &attr_exports)?;
     exports.extend(attr_exports.iter().copied());
+
+    // Register LSMC module
+    let lsmc_exports = lsmc::register(py, &module)?;
+    exports.extend(lsmc_exports.iter().copied());
+    promote_exports(&module, "lsmc", &lsmc_exports)?;
+
+    // Register conventions module
+    let conventions_exports = conventions::register(py, &module)?;
+    exports.extend(conventions_exports.iter().copied());
+    promote_exports(&module, "conventions", &conventions_exports)?;
+
+    // Register bumps module
+    let bumps_exports = bumps::register(py, &module)?;
+    exports.extend(bumps_exports.iter().copied());
+    promote_exports(&module, "bumps", &bumps_exports)?;
 
     let mut uniq = HashSet::default();
     exports.retain(|item| uniq.insert(*item));
