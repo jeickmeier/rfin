@@ -440,6 +440,7 @@ pub trait TraitName {
 ### Common Patterns
 
 **Basic example with hidden setup:**
+
 ```rust
 /// # Examples
 /// ```rust
@@ -452,6 +453,7 @@ pub trait TraitName {
 ```
 
 **Example with error handling:**
+
 ```rust
 /// # Examples
 /// ```rust
@@ -464,6 +466,7 @@ pub trait TraitName {
 ```
 
 **Example that should not run:**
+
 ```rust
 /// # Examples
 /// ```rust,no_run
@@ -475,6 +478,7 @@ pub trait TraitName {
 ```
 
 **Example that should fail to compile:**
+
 ```rust
 /// # Examples
 /// This will not compile:
@@ -487,6 +491,7 @@ pub trait TraitName {
 ```
 
 **Example showing expected panic:**
+
 ```rust
 /// # Examples
 /// ```should_panic

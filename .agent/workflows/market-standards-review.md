@@ -140,7 +140,6 @@ description: Market-Standards Code Review Prompt
 
 * A **Markdown report** following the Output Format.
 
-
 ---
 
 **Begin by producing the System Map and Executive Summary, then proceed through the findings.**

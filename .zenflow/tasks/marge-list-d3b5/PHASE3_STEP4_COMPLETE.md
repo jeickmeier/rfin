@@ -11,9 +11,11 @@ Successfully implemented a unified `AttributionInput<'a>` context struct to cons
 ## Changes Made
 
 ### 1. AttributionInput Struct (types.rs)
+
 **File**: `finstack/valuations/src/attribution/types.rs`
 
 #### Added Imports
+
 ```rust
 use finstack_core::config::{FinstackConfig, RoundingContext};
 use std::sync::Arc;
@@ -22,12 +24,14 @@ use crate::results::ValuationResult;
 ```
 
 #### New Struct Definition
+
 - **Lines 93-188**: Added `AttributionInput<'a>` struct with comprehensive documentation
 - **Design**: Unified struct with optional fields for method-specific parameters
 - **Lifetime**: Uses `'a` lifetime for borrowed references
 - **Derives**: Clone only (cannot derive Debug or Copy due to trait objects)
 
 #### Fields
+
 - `instrument: &'a Arc<dyn Instrument>` - Common to all methods
 - `market_t0: &'a MarketContext` - Common to all methods
 - `market_t1: &'a MarketContext` - Common to all methods
@@ -40,27 +44,33 @@ use crate::results::ValuationResult;
 - `strict_validation: bool` - Used by waterfall
 
 ### 2. Parallel Attribution Refactoring (parallel.rs)
+
 **File**: `finstack/valuations/src/attribution/parallel.rs`
 
 #### Changes (Lines 80-117)
+
 - **Old signature**: 7 parameters
 - **New wrapper** (lines 80-102): Constructs `AttributionInput` and delegates
 - **New impl** (lines 104-117): `attribute_pnl_parallel_impl(&AttributionInput)` - single parameter
 - **Pattern**: Wrapper maintains backward compatibility, impl uses context struct
 
 ### 3. Waterfall Attribution Refactoring (waterfall.rs)
+
 **File**: `finstack/valuations/src/attribution/waterfall.rs`
 
 #### Changes (Lines 112-159)
+
 - **Old signature**: 9 parameters
 - **New wrapper** (lines 112-136): Constructs `AttributionInput` and delegates
 - **New impl** (lines 138-159): `attribute_pnl_waterfall_impl(&AttributionInput, Vec<AttributionFactor>)` - 2 parameters
 - **Pattern**: Wrapper maintains backward compatibility, impl uses context struct
 
 ### 4. Metrics-Based Attribution Refactoring (metrics_based.rs)
+
 **File**: `finstack/valuations/src/attribution/metrics_based.rs`
 
 #### Changes (Lines 167-203)
+
 - **Old signature**: 7 parameters
 - **New wrapper** (lines 167-189): Constructs `AttributionInput` and delegates
 - **New impl** (lines 191-203): `attribute_pnl_metrics_based_impl(&AttributionInput)` - single parameter
@@ -69,10 +79,13 @@ use crate::results::ValuationResult;
 ## Testing Results
 
 ### Unit Tests
+
 ```bash
 cargo test --lib attribution
 ```
+
 **Result**: ✅ All 60 tests passed
+
 - 31 tests in attribution::factors
 - 6 tests in attribution::helpers
 - 6 tests in attribution::metrics_based
@@ -84,10 +97,13 @@ cargo test --lib attribution
 - 2 tests in attribution::spec
 
 ### Integration Tests
+
 ```bash
 cargo test --test attribution_tests
 ```
+
 **Result**: ✅ All 32 tests passed
+
 - Bond attribution tests
 - FX attribution tests
 - Scalars attribution tests
@@ -96,29 +112,35 @@ cargo test --test attribution_tests
 - Serialization roundtrip tests
 
 ### Linting
+
 ```bash
 cargo clippy --lib --package finstack-valuations -- -D warnings
 ```
+
 **Result**: ✅ Zero warnings
 
 ## Architecture Benefits
 
 ### 1. Improved Ergonomics
+
 - **Before**: Functions with 7-9 parameters
 - **After**: Internal implementations with 1-2 parameters using context struct
 - **Benefit**: Easier to read, maintain, and extend
 
 ### 2. Backward Compatibility
+
 - **Strategy**: Public API unchanged, thin wrappers construct context and delegate
 - **Impact**: Zero breaking changes for existing code
 - **Testing**: All 92 tests pass unchanged
 
 ### 3. Extensibility
+
 - **New parameters**: Can be added to `AttributionInput` without changing all function signatures
 - **Method-specific params**: Optional fields allow flexible parameter sets per method
 - **Future-proof**: Easy to add new attribution methods with shared parameters
 
 ### 4. Type Safety
+
 - **Lifetime management**: Single `'a` lifetime ensures all references are valid together
 - **Optional validation**: `expect()` calls document required fields per method
 - **Clear contracts**: Documentation explains which fields each method needs
@@ -126,16 +148,19 @@ cargo clippy --lib --package finstack-valuations -- -D warnings
 ## Code Quality Metrics
 
 ### Parameter Reduction
+
 - **Parallel**: 7 → 1 parameter (in impl)
 - **Waterfall**: 9 → 2 parameters (in impl)
 - **Metrics-based**: 7 → 1 parameter (in impl)
 
 ### Test Coverage
+
 - **Total tests**: 92 (60 unit + 32 integration)
 - **Pass rate**: 100%
 - **Changed behavior**: None (all tests pass unchanged)
 
 ### Maintainability
+
 - **Pattern consistency**: All three methods use same wrapper + impl pattern
 - **Documentation**: Comprehensive inline docs explain field usage per method
 - **Examples**: Code examples show usage for each attribution method
@@ -143,11 +168,13 @@ cargo clippy --lib --package finstack-valuations -- -D warnings
 ## Next Steps
 
 ### Recommended
+
 1. **Phase 4**: Consider trait-based market data extraction (lower priority)
 2. **Documentation**: Update user-facing docs to recommend new pattern for new code
 3. **Migration**: Gradually migrate internal call sites to use context struct directly
 
 ### Future Enhancements
+
 - Could add builder pattern for `AttributionInput` if ergonomics can be improved
 - Could add validation methods to catch missing required fields earlier
 - Could add convenience constructors for each method type

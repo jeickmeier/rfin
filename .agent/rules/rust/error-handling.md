@@ -9,8 +9,8 @@ description: Information about the error handling framework for the finstack wor
 
 To ensure consistency and maintainability across the `finstack` workspace, we are adopting a dual-crate approach for error handling:
 
-1.  **`thiserror`** for **library crates** (`core`, `statements`, `valuations`, etc.).
-2.  **`anyhow`** for **application-level crates** (binaries, examples, and language bindings like `finstack-py` and `finstack-wasm`).
+1. **`thiserror`** for **library crates** (`core`, `statements`, `valuations`, etc.).
+2. **`anyhow`** for **application-level crates** (binaries, examples, and language bindings like `finstack-py` and `finstack-wasm`).
 
 This approach provides the best of both worlds: structured, specific error types for libraries, and convenient, easy-to-manage error propagation for applications. It avoids over-engineering by using simple, popular, and well-understood crates.
 
@@ -20,9 +20,9 @@ All library crates **MUST** define a crate-specific, public `Error` enum. This a
 
 ### Guidelines
 
--   Each library crate (e.g., `finstack/core`, `finstack/valuations`) must have a `src/errors.rs` or similar module containing its public `Error` type.
--   The `Error` enum should be comprehensive, covering all possible failure modes for that crate.
--   When a library function calls a function from another library crate within our workspace, it should wrap the error in its own `Error` type.
+- Each library crate (e.g., `finstack/core`, `finstack/valuations`) must have a `src/errors.rs` or similar module containing its public `Error` type.
+- The `Error` enum should be comprehensive, covering all possible failure modes for that crate.
+- When a library function calls a function from another library crate within our workspace, it should wrap the error in its own `Error` type.
 
 ### Example: `finstack/core/src/errors.rs`
 
@@ -74,10 +74,10 @@ Application-level crates (anything with a `main.rs`, examples, and the `finstack
 
 ### Guidelines
 
--   Functions should return `anyhow::Result<T>`.
--   Use the `?` operator to propagate errors. It will automatically convert `thiserror`-based errors into `anyhow::Error`.
--   Use `anyhow::Context` to add explanatory context to errors as they propagate up the call stack.
--   Use `anyhow::bail!` or `anyhow::ensure!` for new errors within application-level code.
+- Functions should return `anyhow::Result<T>`.
+- Use the `?` operator to propagate errors. It will automatically convert `thiserror`-based errors into `anyhow::Error`.
+- Use `anyhow::Context` to add explanatory context to errors as they propagate up the call stack.
+- Use `anyhow::bail!` or `anyhow::ensure!` for new errors within application-level code.
 
 ### Example: `finstack/examples/some_example.rs`
 
@@ -103,15 +103,15 @@ fn run_example() -> Result<()> {
 
 ## Rationale
 
--   **Libraries as Contracts**: Library error types are part of their public API. `thiserror` allows us to define a stable, well-documented contract for library consumers.
--   **Application Simplicity**: Applications often don't need to handle every specific error type. Their main concern is to report the error to the user (e.g., log it, print it to the console) and terminate gracefully. `anyhow` excels at this.
--   **Idiomatic Rust**: This pattern is widely adopted and considered a best practice in the Rust community.
+- **Libraries as Contracts**: Library error types are part of their public API. `thiserror` allows us to define a stable, well-documented contract for library consumers.
+- **Application Simplicity**: Applications often don't need to handle every specific error type. Their main concern is to report the error to the user (e.g., log it, print it to the console) and terminate gracefully. `anyhow` excels at this.
+- **Idiomatic Rust**: This pattern is widely adopted and considered a best practice in the Rust community.
 
 ## Implementation Plan
 
-1.  **Add Dependencies**:
-    -   Add `thiserror = "1.0"` to the `[dependencies]` section of each library crate's `Cargo.toml`.
-    -   Add `anyhow = "1.0"` to the `[dependencies]` section of application/binding crates' `Cargo.toml`.
-2.  **Create Error Types**: Create `errors.rs` modules and define `thiserror`-based `Error` enums for each library crate.
-3.  **Refactor Functions**: Update functions in library crates to return the new crate-specific `Result` type.
-4.  **Update Application-Level Crates**: Refactor `main` functions, examples, and binding entry points to use `anyhow::Result` for their return types.
+1. **Add Dependencies**:
+    - Add `thiserror = "1.0"` to the `[dependencies]` section of each library crate's `Cargo.toml`.
+    - Add `anyhow = "1.0"` to the `[dependencies]` section of application/binding crates' `Cargo.toml`.
+2. **Create Error Types**: Create `errors.rs` modules and define `thiserror`-based `Error` enums for each library crate.
+3. **Refactor Functions**: Update functions in library crates to return the new crate-specific `Result` type.
+4. **Update Application-Level Crates**: Refactor `main` functions, examples, and binding entry points to use `anyhow::Result` for their return types.

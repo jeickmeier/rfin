@@ -7,6 +7,7 @@ Successfully deprecated all `extract_*_curves()` functions in favor of trait-bas
 ## Changes Made
 
 ### 1. Added Deprecation Attributes
+
 Added `#[deprecated]` attributes to all 6 extraction functions in `finstack/valuations/src/attribution/factors.rs`:
 
 - `extract_rates_curves()` → Use `RatesCurvesSnapshot::extract()` or `extract::<RatesCurvesSnapshot>()`
@@ -17,23 +18,28 @@ Added `#[deprecated]` attributes to all 6 extraction functions in `finstack/valu
 - `extract_scalars()` → Use `ScalarsSnapshot::extract()` or `extract::<ScalarsSnapshot>()`
 
 Each deprecation includes:
+
 - Clear `since` version (`0.1.0`)
 - Actionable migration note
 - Complete migration examples in documentation
 
 ### 2. Enhanced Module Documentation
+
 Updated module-level documentation in `factors.rs` with new section:
 
 **"# Trait-Based Extraction (Recommended)"**
+
 - Explains the trait-based approach
 - Shows type-safe extraction with `T::extract()`
 - Demonstrates generic helper with type inference
 - Recommends migration from old functions
 
 ### 3. Updated Call Sites
+
 Added `#[allow(deprecated)]` annotations to modules and tests still using old functions:
 
 **`finstack/valuations/src/attribution/parallel.rs`:**
+
 ```rust
 // TODO: Migrate to trait-based extraction (RatesCurvesSnapshot::extract, etc.)
 // instead of deprecated extract_*_curves functions
@@ -41,6 +47,7 @@ Added `#[allow(deprecated)]` annotations to modules and tests still using old fu
 ```
 
 **`finstack/valuations/src/attribution/waterfall.rs`:**
+
 ```rust
 // TODO: Migrate to trait-based extraction (RatesCurvesSnapshot::extract, etc.)
 // instead of deprecated extract_*_curves functions
@@ -48,6 +55,7 @@ Added `#[allow(deprecated)]` annotations to modules and tests still using old fu
 ```
 
 **`finstack/valuations/src/attribution/factors.rs` (test module):**
+
 ```rust
 #[cfg(test)]
 #[allow(deprecated)] // TODO: Migrate tests to use trait-based extraction
@@ -55,6 +63,7 @@ mod tests {
 ```
 
 **`finstack/valuations/tests/attribution/scalars_attribution.rs` (2 test functions):**
+
 ```rust
 #[test]
 #[allow(deprecated)] // TODO: Migrate to ScalarsSnapshot::extract()
@@ -66,6 +75,7 @@ fn test_market_scalar_freeze_restore() {
 ```
 
 This allows for:
+
 - Zero breakage of existing code
 - Clear migration path via TODO comments
 - Gradual migration without urgent pressure
@@ -75,18 +85,21 @@ This allows for:
 ## Test Results
 
 ### Unit Tests
+
 ```
 ✅ 40 tests in attribution::factors (all passing)
 ✅ 69 tests in attribution module (all passing)
 ```
 
 ### Integration Tests
+
 ```
 ✅ 32 tests in attribution_tests (all passing)
 ✅ 4 expected deprecation warnings in test files (acceptable)
 ```
 
 ### Code Quality
+
 ```
 ✅ cargo clippy --lib -- -D warnings: 0 warnings
 ✅ make lint-rust: Passes with zero warnings
@@ -97,12 +110,14 @@ This allows for:
 ## Migration Path
 
 ### Current State
+
 - Old functions are deprecated but functional
 - Internal modules use `#[allow(deprecated)]` with TODO comments
 - All tests pass unchanged
 - Zero breaking changes
 
 ### Future Migration (Optional)
+
 When ready, internal modules can migrate like this:
 
 ```rust
@@ -183,6 +198,7 @@ With Step 4.3 complete, Phase 4 is nearly finished:
 - [x] Step 4.3: Update call sites and deprecate old functions ✅
 
 All Phase 4 objectives achieved:
+
 - Trait-based extraction system implemented
 - 6 extraction functions deprecated with migration guidance
 - Module documentation updated to recommend trait approach

@@ -3,6 +3,7 @@
 ## Summary
 
 All APIs modified in Phases 1-3 have been verified to have comprehensive rustdoc documentation with:
+
 - ✅ Examples sections with usage
 - ✅ Errors sections documenting error conditions
 - ✅ Cross-links to related APIs
@@ -11,6 +12,7 @@ All APIs modified in Phases 1-3 have been verified to have comprehensive rustdoc
 ## Phase 1: Critical Safety Fixes
 
 ### Core Error Types (`finstack/core/src/error.rs`)
+
 **Status**: ✅ Complete
 
 All four new error variants have comprehensive documentation:
@@ -40,6 +42,7 @@ All four new error variants have comprehensive documentation:
    - ✅ Path formatting in error display
 
 ### Metrics Registry (`finstack/valuations/src/metrics/core/registry.rs`)
+
 **Status**: ✅ Complete
 
 1. **`StrictMode` enum**
@@ -65,6 +68,7 @@ All four new error variants have comprehensive documentation:
    - ✅ Clear parameter descriptions
 
 ### Metric IDs (`finstack/valuations/src/metrics/core/ids.rs`)
+
 **Status**: ✅ Complete
 
 1. **`MetricId::parse_strict()`**
@@ -81,6 +85,7 @@ All four new error variants have comprehensive documentation:
    - ✅ Cross-reference to parse_strict
 
 ### Calibration (`finstack/valuations/src/calibration/targets/discount.rs`)
+
 **Status**: ✅ Complete
 
 1. **`calculate_residuals()` method**
@@ -95,6 +100,7 @@ All four new error variants have comprehensive documentation:
 ## Phase 2: Market Convention Alignment
 
 ### FX Dates (`finstack/valuations/src/instruments/common/fx_dates.rs`)
+
 **Status**: ✅ Complete
 
 1. **`resolve_calendar()`**
@@ -132,6 +138,7 @@ All four new error variants have comprehensive documentation:
    - ✅ Errors section listing failure cases
 
 ### Quote Units (`finstack/valuations/src/market/quotes/rates.rs`)
+
 **Status**: ✅ Complete
 
 1. **`RateQuote::Swap` variant**
@@ -148,6 +155,7 @@ All four new error variants have comprehensive documentation:
 ## Phase 3: API Safety & Reporting
 
 ### Constructor Deprecation (`finstack/valuations/src/instruments/cds_option/`)
+
 **Status**: ✅ Complete
 
 1. **`CdsOption::new()`**
@@ -165,6 +173,7 @@ All four new error variants have comprehensive documentation:
    - ✅ Migration guidance to `try_call()` and `try_put()`
 
 ### Results Export (`finstack/valuations/src/results/dataframe.rs`)
+
 **Status**: ✅ Complete
 
 1. **`ValuationResult::get_measure()` helper**
@@ -181,11 +190,13 @@ All four new error variants have comprehensive documentation:
 ## Documentation Quality Metrics
 
 ### Rustdoc Warnings
+
 - **Core error.rs**: 0 warnings ✅
 - **Valuations (all modified files)**: 0 warnings ✅
 - **Pre-existing warnings**: 182 (mostly unresolved intra-doc links, not related to our changes)
 
 ### Coverage Checklist
+
 - ✅ All new public methods have documentation
 - ✅ All changed signatures have updated documentation
 - ✅ All new error variants have documentation with examples
@@ -209,6 +220,7 @@ All four new error variants have comprehensive documentation:
 ## Examples Summary
 
 Total documented examples added or updated:
+
 - **Error handling**: 8 examples
 - **Metrics computation**: 6 examples
 - **Metric parsing**: 5 examples
@@ -221,6 +233,7 @@ Total documented examples added or updated:
 ## Conclusion
 
 All APIs modified in Phases 1-3 now have comprehensive documentation that:
+
 1. Explains what each API does
 2. Shows how to use it correctly
 3. Documents all possible errors
@@ -230,6 +243,7 @@ All APIs modified in Phases 1-3 now have comprehensive documentation that:
 7. Provides migration guidance
 
 The documentation is ready for release and will help users understand:
+
 - Why changes were made (safety, correctness, compliance)
 - How to migrate from old APIs
 - How to use new strict/safe modes

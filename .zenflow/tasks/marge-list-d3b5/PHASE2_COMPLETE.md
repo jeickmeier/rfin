@@ -7,6 +7,7 @@ Phase 2 is now complete with all steps finished and tested. This phase consolida
 ## Steps Completed
 
 ### ✅ Step 2.1: Merge CapPayoff and FloorPayoff (chat-id: 8f5f4876-5c5e-4006-ad41-da94571cbec3)
+
 - Created unified `RatesPayoff` struct with `RatesPayoffType` enum
 - Merged duplicate `impl Payoff` logic into single implementation
 - Added backward-compatible type aliases (`CapPayoff`, `FloorPayoff`)
@@ -14,6 +15,7 @@ Phase 2 is now complete with all steps finished and tested. This phase consolida
 - **Tests**: 7 tests passing (5 unified + 2 backward compat)
 
 ### ✅ Step 2.2: Merge LookbackCall and LookbackPut (chat-id: 0a799090-1db9-451b-9ecf-58ce7d01d92e)
+
 - Created unified `Lookback` struct with `LookbackDirection` enum
 - Implemented smart extreme tracking (max for Call, min for Put)
 - Added backward-compatible type aliases (`LookbackCall`, `LookbackPut`)
@@ -22,6 +24,7 @@ Phase 2 is now complete with all steps finished and tested. This phase consolida
 - **Tests**: 18 tests passing (10 new unified + 8 existing)
 
 ### ✅ Step 2.3: Monte Carlo Integration Tests (chat-id: bdfb7331-d50d-4bbe-9986-effaf84151bc)
+
 - Ran full MC test suite: **1103 lib tests + 2741 integration tests = 3844 total**
 - Verified pricing matches original implementations (no behavioral changes)
 - Confirmed no performance regression (same logic, different enum branching)
@@ -30,24 +33,28 @@ Phase 2 is now complete with all steps finished and tested. This phase consolida
 ## Test Results
 
 ### Library Tests (--features mc)
+
 ```bash
 cargo test --lib --features mc
 test result: ok. 1103 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ```
 
 ### Integration Tests
+
 ```bash
 cargo test --test instruments_tests --features mc
 test result: ok. 2741 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ```
 
 ### Full Test Suite
+
 ```bash
 make test-rust
 test result: ok. 5779 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 ```
 
 ### Lint Check
+
 ```bash
 make lint-rust
 Zero warnings
@@ -60,6 +67,7 @@ Zero warnings
 - **Total**: ~277 lines → ~224 lines (19% overall reduction)
 
 While not the 66% reduction estimated in the spec (which assumed complete elimination of duplicate structs), we achieved significant consolidation while maintaining:
+
 - Full backward compatibility via type aliases
 - All existing tests passing unchanged
 - No behavioral changes

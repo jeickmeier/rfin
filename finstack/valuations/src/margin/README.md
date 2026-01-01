@@ -495,14 +495,14 @@ impl ImCalculator for MyMethodologyCalculator {
 }
 ```
 
-2. Add to `calculators/im/mod.rs`:
+1. Add to `calculators/im/mod.rs`:
 
 ```rust
 mod my_methodology;
 pub use my_methodology::MyMethodologyCalculator;
 ```
 
-3. Update `calculators/mod.rs` to re-export.
+1. Update `calculators/mod.rs` to re-export.
 
 ### Adding a New Collateral Asset Class
 
@@ -515,9 +515,9 @@ pub enum CollateralAssetClass {
 }
 ```
 
-2. Implement `standard_haircut()` and `fx_addon()` for the new variant.
+1. Implement `standard_haircut()` and `fx_addon()` for the new variant.
 
-3. Update `FromStr` implementation for parsing.
+2. Update `FromStr` implementation for parsing.
 
 ### Adding a New CCP
 
@@ -530,9 +530,9 @@ pub enum CcpMethodology {
 }
 ```
 
-2. Implement `mpor_days()` and `conservative_rate()` for the new CCP.
+1. Implement `mpor_days()` and `conservative_rate()` for the new CCP.
 
-3. Add convenience constructor:
+2. Add convenience constructor:
 
 ```rust
 impl ClearingHouseImCalculator {

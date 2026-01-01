@@ -10,6 +10,7 @@ Finstack is a deterministic, cross‑platform financial computation engine with 
 ## Project Purpose
 
 Finstack aims to provide:
+
 - **Determinism**: Decimal by default; serial and parallel runs produce identical results.
 - **Currency‑safety**: No implicit cross‑currency math; explicit FX policies stamped in results.
 - **Stable schemas**: Strict serde names for long‑lived pipelines and golden tests.
@@ -59,20 +60,25 @@ Workspace (meta‑crate: finstack)
 ## Language Bindings
 
 ### Python (finstack‑py)
+
 - Wheels for major OSes; Pydantic v2 models mirror serde shapes; heavy compute releases the GIL; DataFrame‑friendly outputs.
 
 ### WebAssembly (finstack‑wasm)
+
 - Browser/Node support; JSON IO parity with serde; feature flags for tree‑shaking and small bundles.
 
 ## Key Features
 
 ### Performance
+
 - Vectorized execution via Polars pushdown; optional Rayon parallelism; caches for hot paths.
 
 ### Safety & Standards
+
 - Currency type safety; strict serde; ISO‑4217 currencies; ISDA day‑count conventions; no `unsafe`.
 
 ### Policy Visibility
+
 - Results include numeric mode, parallel flag, rounding context, and any applied FX policy.
 
 ## Primary Use Cases
@@ -86,7 +92,7 @@ Workspace (meta‑crate: finstack)
 ## Development Philosophy
 
 1. **Correctness first**; 2. **Performance second** (without changing Decimal outputs);
-3. **Ergonomic APIs**; 4. **Documentation** for every public API; 5. **Testing** across unit/property/golden/parity.
+2. **Ergonomic APIs**; 4. **Documentation** for every public API; 5. **Testing** across unit/property/golden/parity.
 
 ## Technical Guidelines
 

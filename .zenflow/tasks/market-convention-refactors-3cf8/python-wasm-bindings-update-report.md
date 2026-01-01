@@ -12,12 +12,14 @@
 ### Python Bindings (`finstack-py`)
 
 #### 1. Metrics - Strict Parsing (`src/valuations/metrics/ids.rs`)
+
 - ✅ Added `MetricId.parse_strict()` class method
 - ✅ Updated `from_name()` documentation with warning to use strict parsing for user inputs
 - ✅ Returns `ValueError` on unknown metrics with full list of available metrics
 - ✅ Comprehensive documentation with examples and migration guide
 
 **API Addition**:
+
 ```python
 # Strict parsing (recommended for user inputs):
 metric = MetricId.parse_strict("dv01")
@@ -27,6 +29,7 @@ metric = MetricId.from_name("custom_metric")
 ```
 
 #### 2. Quote Schema - Swap Spread (`src/valuations/calibration/quote.rs`)
+
 - ✅ Updated `swap()` method signature to use `spread_decimal` parameter
 - ✅ Updated internal field access to use `spread_decimal` (not `spread`)
 - ✅ Updated display implementation to show `spread_decimal`
@@ -34,6 +37,7 @@ metric = MetricId.from_name("custom_metric")
 - ✅ Backwards compatible via Rust serde alias
 
 **API Update**:
+
 ```python
 # NEW (explicit decimal units):
 quote = RatesQuote.swap(
@@ -53,12 +57,14 @@ quote = RatesQuote.swap(
 ### WASM Bindings (`finstack-wasm`)
 
 #### 1. Metrics - Strict Parsing (`src/valuations/metrics/ids.rs`)
+
 - ✅ Added `MetricId.parseStrict()` method (camelCase for JavaScript)
 - ✅ Updated `fromName()` documentation with warning
 - ✅ Returns JavaScript Error on unknown metrics with full list
 - ✅ TypeScript-friendly documentation with examples
 
 **API Addition**:
+
 ```typescript
 // Strict parsing (recommended for user inputs):
 const dv01 = MetricId.parseStrict("dv01");
@@ -76,12 +82,14 @@ try {
 ```
 
 #### 2. Quote Schema - Swap Spread (`src/valuations/calibration/quote.rs`)
+
 - ✅ Updated `swap()` method to use `spread_decimal` field (None)
 - ✅ Added new `swapWithSpread()` method for quotes with spread
 - ✅ Updated documentation explaining decimal format
 - ✅ TypeScript-friendly JSDoc comments
 
 **API Addition**:
+
 ```typescript
 // Without spread:
 const quote1 = JsRatesQuote.swap(
@@ -106,12 +114,15 @@ const quote2 = JsRatesQuote.swapWithSpread(
 ## Verification Results
 
 ### Build Status
+
 - ✅ **Python bindings**: Clean build (`cargo build --lib`)
 - ✅ **WASM bindings**: Clean build (`cargo build --lib --target wasm32-unknown-unknown`)
 - ✅ **Clippy**: Both pass with zero warnings (except expected deprecation warnings from Phase 3.1)
 
 ### Deprecation Warnings (Expected)
+
 Both bindings show 2 deprecation warnings from `CdsOption` constructors (Phase 3.1 work):
+
 ```
 warning: use of deprecated associated function `CdsOptionParams::new`:
          Use `try_new()` instead...
@@ -126,10 +137,12 @@ These are expected and will be addressed when the internal code is migrated to n
 ## Files Modified
 
 ### Python Bindings
+
 1. `finstack-py/src/valuations/metrics/ids.rs` - Added `parse_strict()` method
 2. `finstack-py/src/valuations/calibration/quote.rs` - Updated swap quote parameter and field names
 
 ### WASM Bindings
+
 1. `finstack-wasm/src/valuations/metrics/ids.rs` - Added `parseStrict()` method
 2. `finstack-wasm/src/valuations/calibration/quote.rs` - Updated swap quote and added `swapWithSpread()`
 
@@ -150,11 +163,13 @@ These are expected and will be addressed when the internal code is migrated to n
 ## Backwards Compatibility
 
 ### Python
+
 - ✅ **`from_name()`**: Remains permissive for backwards compatibility
 - ✅ **Swap quotes**: Rust serde alias `"spread"` → `"spread_decimal"` preserves JSON compatibility
 - ✅ **New code**: Recommended to use `parse_strict()` for user inputs
 
 ### WASM
+
 - ✅ **`fromName()`**: Remains permissive for backwards compatibility
 - ✅ **`swap()`**: Still works without spread
 - ✅ **New code**: Use `parseStrict()` for validation and `swapWithSpread()` for explicit spreads
@@ -164,12 +179,14 @@ These are expected and will be addressed when the internal code is migrated to n
 ## Documentation Quality
 
 ### Python
+
 - ✅ Sphinx-compatible docstrings with RST formatting
 - ✅ Args/Returns/Raises sections complete
 - ✅ Migration examples from old to new APIs
 - ✅ Warning admonitions for deprecated patterns
 
 ### WASM
+
 - ✅ JSDoc-compatible TypeScript comments
 - ✅ @param/@returns/@throws annotations
 - ✅ @example code blocks with runnable examples
@@ -180,21 +197,25 @@ These are expected and will be addressed when the internal code is migrated to n
 ## Testing Notes
 
 ### Manual Testing Required
+
 Since these are bindings, full testing requires:
 
 1. **Python**: Build Python wheels and test with pytest:
+
    ```bash
    make python-dev  # Rebuild bindings
    make test-python # Run Python test suite
    ```
 
 2. **WASM**: Build WASM package and test in browser/Node:
+
    ```bash
    make wasm-build  # Rebuild bindings
    make test-wasm   # Run WASM test suite
    ```
 
 ### Expected Behavior
+
 - **Strict parsing**: Rejects unknown metric names with helpful error messages
 - **Quote schema**: Swap quotes correctly use `spread_decimal` field with decimal values
 - **Error messages**: Include full list of available metrics on parse failures
@@ -204,12 +225,15 @@ Since these are bindings, full testing requires:
 ## Migration Impact
 
 ### Low Risk
+
 - Both changes are **additive** (new methods, enhanced docs)
 - Existing code continues to work via backwards compatibility
 - Only new code needs to adopt strict parsing and new field names
 
 ### Gradual Adoption
+
 Users can migrate at their own pace:
+
 1. Keep using `from_name()` / `fromName()` for now
 2. Add `parse_strict()` / `parseStrict()` for new user-facing inputs
 3. Gradually migrate existing validation code to strict mode
@@ -219,12 +243,14 @@ Users can migrate at their own pace:
 ## Next Steps
 
 ### Recommended Follow-up
+
 1. ✅ Update MIGRATION_GUIDE.md with Python/WASM examples (completed in Step 4.1)
 2. Add Python test cases using `parse_strict()` and `spread_decimal`
 3. Add WASM example pages showing strict parsing and swap spreads
 4. Update binding documentation (Sphinx/TypeDoc) with new APIs
 
 ### Future Enhancements
+
 - Consider exposing `StrictMode` enum to Python/WASM for explicit mode control
 - Add bulk validation functions (`validate_metric_list()`)
 - Consider deprecating permissive `from_name()` in v1.0

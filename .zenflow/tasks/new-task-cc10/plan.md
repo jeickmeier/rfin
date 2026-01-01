@@ -1,6 +1,7 @@
 # Spec and build
 
 ## Configuration
+
 - **Artifacts Path**: {@artifacts_path} → `.zenflow/tasks/{task_id}`
 
 ---
@@ -8,6 +9,7 @@
 ## Agent Instructions
 
 Ask the user questions when anything is unclear or needs their input. This includes:
+
 - Ambiguous or incomplete requirements
 - Technical decisions that affect architecture or user experience
 - Trade-offs that require business context
@@ -22,11 +24,13 @@ Do not make assumptions on important decisions — get clarification first.
 <!-- chat-id: 211536c9-8823-4a17-a219-46d25ef431d9 -->
 
 Assess the task's difficulty, as underestimating it leads to poor outcomes.
+
 - easy: Straightforward implementation, trivial bug fix or feature
 - medium: Moderate complexity, some edge cases or caveats to consider
 - hard: Complex logic, many caveats, architectural considerations, or high-risk changes
 
 Create a technical specification for the task that is appropriate for the complexity level:
+
 - Review the existing codebase architecture and identify reusable components.
 - Define the implementation approach based on established patterns in the project.
 - Identify all source code files that will be created or modified.
@@ -34,6 +38,7 @@ Create a technical specification for the task that is appropriate for the comple
 - Describe verification steps using the project's test and lint commands.
 
 Save the output to `{@artifacts_path}/spec.md` with:
+
 - Technical context (language, dependencies)
 - Implementation approach
 - Source code structure changes
@@ -41,6 +46,7 @@ Save the output to `{@artifacts_path}/spec.md` with:
 - Verification approach
 
 If the task is complex enough, create a detailed implementation plan based on `{@artifacts_path}/spec.md`:
+
 - Break down the work into concrete tasks (incrementable, testable milestones)
 - Each task should reference relevant contracts and include verification steps
 - Replace the Implementation step below with the planned tasks

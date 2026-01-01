@@ -60,21 +60,25 @@ pub fn execute_waterfall_with_workspace(...) -> Result<WaterfallDistribution> {
 ## Benefits
 
 ### Code Reduction
+
 - **Before**: ~240 lines of duplicated logic across two functions
 - **After**: ~155 lines in single core function + 2 thin wrappers
 - **Savings**: ~85 lines eliminated (35% reduction)
 
 ### Maintainability
+
 - Single source of truth for waterfall execution logic
 - Changes only need to be made in one place
 - Reduces risk of divergence between implementations
 
 ### Performance
+
 - Zero overhead: workspace path avoids intermediate allocations
 - Non-workspace path allocates as before
 - Identical deterministic results in both cases
 
 ### Backward Compatibility
+
 - All existing call sites work unchanged
 - Public API signatures maintained
 - No behavioral changes
@@ -82,24 +86,28 @@ pub fn execute_waterfall_with_workspace(...) -> Result<WaterfallDistribution> {
 ## Test Results
 
 ### Unit Tests
+
 ```
 cargo test --lib instruments::structured_credit::pricing::waterfall
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured
 ```
 
 ### Full Library Tests
+
 ```
 cargo test --lib --package finstack-valuations
 test result: ok. 826 passed; 0 failed; 0 ignored; 0 measured
 ```
 
 ### Integration Tests
+
 ```
 cargo test --test '*' --package finstack-valuations
 Total: 2959 tests passed across all integration test suites
 ```
 
 ### Linting
+
 ```
 cargo clippy --lib --package finstack-valuations -- -D warnings
 Finished `dev` profile [unoptimized + debuginfo] target(s)
@@ -119,16 +127,19 @@ The implementation ensures deterministic execution regardless of workspace usage
 ## Code Quality
 
 ### Documentation
+
 - Comprehensive function-level documentation explaining the unified approach
 - Inline comments clarifying workspace buffer management
 - Parameter documentation for the optional workspace
 
 ### Error Handling
+
 - All operations use `Result<T>` with proper error propagation
 - No panics in core execution path
 - Consistent error handling in both workspace and non-workspace paths
 
 ### Type Safety
+
 - Leverages Rust's type system to enforce correctness
 - `Option<&mut WaterfallWorkspace>` clearly indicates optional workspace
 - Lifetime parameters ensure memory safety

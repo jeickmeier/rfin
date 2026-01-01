@@ -7,6 +7,7 @@ This specification addresses critical market convention compliance issues identi
 **Complexity Level**: **HARD**
 
 This is a complex, high-risk refactor involving:
+
 - Multiple critical safety issues (silent errors, incorrect calculations)
 - Convention alignment requiring market-standard expertise
 - Breaking API changes across multiple crates
@@ -18,6 +19,7 @@ This is a complex, high-risk refactor involving:
 ## Technical Context
 
 ### Language & Dependencies
+
 - **Language**: Rust (stable)
 - **Primary Crates**:
   - `finstack/valuations` (main changes)
@@ -32,7 +34,9 @@ This is a complex, high-risk refactor involving:
   - `serde` for serialization
 
 ### Existing Architecture
+
 The codebase follows a modular architecture:
+
 ```
 finstack/valuations/
 ├── src/
@@ -59,6 +63,7 @@ finstack/valuations/
 ## Implementation Approach
 
 ### Phase 1: Critical Safety Fixes (Week 1)
+
 **Goal**: Eliminate silent failures and incorrect calculations that pose the highest risk.
 
 #### 1.1 Metrics Framework Strictness
@@ -66,6 +71,7 @@ finstack/valuations/
 **Problem**: Metrics computation silently returns `0.0` on errors and accepts unknown metric names.
 
 **Files to Modify**:
+
 - `finstack/valuations/src/metrics/core/registry.rs`
 - `finstack/valuations/src/metrics/core/ids.rs`
 - `finstack/core/src/error.rs` (add new error variants)
@@ -91,6 +97,7 @@ finstack/valuations/
    - Return `Err(Error::CircularDependency { path: Vec<MetricId> })`
 
 **New Error Variants** (in `finstack/core/src/error.rs`):
+
 ```rust
 pub enum Error {
     // ... existing variants
@@ -121,6 +128,7 @@ pub enum Error {
 ```
 
 **API Impact**:
+
 - `MetricRegistry::compute()` signature changes to include mode
 - Breaking change: some existing calls will error instead of returning 0.0
 - Migration: add explicit mode parameter or use new `compute_strict()` / `compute_best_effort()` convenience methods
@@ -130,11 +138,13 @@ pub enum Error {
 **Problem**: Discount curve global residuals divide by `1.0` instead of `residual_notional`.
 
 **Files to Modify**:
+
 - `finstack/valuations/src/calibration/targets/discount.rs`
 
 **Changes**:
 
 In `DiscountCurveTarget::calculate_residuals()` (line ~57):
+
 ```rust
 // BEFORE:
 residuals[i] = pv / 1.0;
@@ -144,6 +154,7 @@ residuals[i] = pv / self.residual_notional;
 ```
 
 **Validation**:
+
 - Add test: same curve calibration with `residual_notional = 1.0` and `1_000_000.0` should produce identical curves
 - Verify max residual ≤ `1e-8` in normalized units
 - Golden test against known calibration results
@@ -159,12 +170,14 @@ residuals[i] = pv / self.residual_notional;
 **Problem**: FX spot uses calendar days instead of joint-calendar business days.
 
 **Files to Modify**:
+
 - `finstack/valuations/src/instruments/common/fx_dates.rs`
 - `finstack/core/src/dates/` (may need helper functions)
 
 **Changes**:
 
 1. **Add joint business day arithmetic** (new function):
+
 ```rust
 /// Add N business days on a joint calendar (day is business if both calendars agree).
 pub fn add_joint_business_days(
@@ -206,7 +219,8 @@ pub fn add_joint_business_days(
 }
 ```
 
-2. **Update `roll_spot_date()`** (lines 61-70):
+1. **Update `roll_spot_date()`** (lines 61-70):
+
 ```rust
 pub fn roll_spot_date(
     trade_date: Date,
@@ -226,7 +240,8 @@ pub fn roll_spot_date(
 }
 ```
 
-3. **Make calendar resolution strict** (lines 12-19):
+1. **Make calendar resolution strict** (lines 12-19):
+
 ```rust
 fn resolve_calendar(cal_id: Option<&str>) -> Result<CalendarWrapper> {
     if let Some(id) = cal_id {
@@ -247,6 +262,7 @@ fn resolve_calendar(cal_id: Option<&str>) -> Result<CalendarWrapper> {
 ```
 
 **New Error Variant**:
+
 ```rust
 pub enum Error {
     // ...
@@ -258,11 +274,13 @@ pub enum Error {
 ```
 
 **Testing**:
+
 - Test FX spot around base/quote holidays (verify correct skip behavior)
 - Test unknown calendar ID → error
 - Golden test against known FX settlement dates
 
 **API Impact**:
+
 - `resolve_calendar()` now returns `Result` (breaking internal change)
 - FX settlement dates will shift for trades near holidays (correctness fix)
 - Add compatibility flag if gradual migration needed: `allow_calendar_fallback: bool`
@@ -272,12 +290,14 @@ pub enum Error {
 **Problem**: Swap spread field ambiguous (bp vs decimal).
 
 **Files to Modify**:
+
 - `finstack/valuations/src/market/quotes/rates.rs` (RateQuote enum)
 - `finstack/valuations/src/market/build/rates.rs` (builder)
 
 **Changes**:
 
 1. **Rename field with explicit units**:
+
 ```rust
 // In RateQuote::Swap variant:
 pub enum RateQuote {
@@ -302,7 +322,8 @@ pub enum RateQuote {
 }
 ```
 
-2. **Remove conversion in builder** (line 373):
+1. **Remove conversion in builder** (line 373):
+
 ```rust
 // BEFORE:
 if let Some(s) = spread {
@@ -320,17 +341,20 @@ if let Some(spread_decimal) = spread_decimal {
 }
 ```
 
-3. **Add serde alias for backwards compatibility**:
+1. **Add serde alias for backwards compatibility**:
+
 ```rust
 #[serde(alias = "spread")] // Old name still works on deserialization
 spread_bp: Option<f64>,
 ```
 
 **Validation**:
+
 - Add test: quote with `spread_bp = 10.0` produces swap with `float.spread_bp = 10.0`
 - Document unit convention in rustdoc
 
 **API Impact**:
+
 - Serde breaking change (mitigated by alias)
 - Programmatic API: field rename (breaking)
 - Migration guide: rename `spread` → `spread_bp` in JSON configs
@@ -344,12 +368,14 @@ spread_bp: Option<f64>,
 **Problem**: Public `new()` methods panic via `expect()`.
 
 **Files to Modify**:
+
 - `finstack/valuations/src/instruments/cds_option/*.rs`
 - Any other instruments with panicking `new()` (search: `grep -r "\.expect.*new\(\)" src/instruments/`)
 
 **Changes**:
 
 1. **Remove or gate panicking constructors**:
+
 ```rust
 impl CdsOption {
     // OPTION A: Remove entirely (recommended)
@@ -370,7 +396,8 @@ impl CdsOption {
 }
 ```
 
-2. **Add clippy lints to prevent regression**:
+1. **Add clippy lints to prevent regression**:
+
 ```rust
 // In lib.rs:
 #![deny(clippy::expect_used)]
@@ -382,10 +409,12 @@ impl CdsOption {
 ```
 
 **Testing**:
+
 - Verify all instrument construction via `try_new()` paths
 - Invalid parameters return structured errors
 
 **API Impact**:
+
 - Breaking: `new()` methods removed or gated
 - Migration: use `try_new()` and handle `Result`
 
@@ -394,6 +423,7 @@ impl CdsOption {
 **Problem**: `to_row()` uses wrong metric key strings.
 
 **Files to Modify**:
+
 - `finstack/valuations/src/results/dataframe.rs`
 
 **Changes**:
@@ -426,6 +456,7 @@ duration: self.get_measure(MetricId::DurationMod)
 ```
 
 **Add unit test**:
+
 ```rust
 #[test]
 fn test_to_row_metric_mapping() {
@@ -450,6 +481,7 @@ fn test_to_row_metric_mapping() {
 ## Source Code Structure Changes
 
 ### Files to Create
+
 - None (all changes to existing files)
 
 ### Files to Modify (Summary)
@@ -469,9 +501,11 @@ fn test_to_row_metric_mapping() {
 **Total estimate**: ~300 lines changed across 10-15 files
 
 ### Files to Delete
+
 - None
 
 ### New Dependencies
+
 - None
 
 ---
@@ -552,7 +586,9 @@ let opt = CdsOption::try_new(...)
   }
 }
 ```
+
 →
+
 ```json
 {
   "swap_quote": {
@@ -635,6 +671,7 @@ let opt = CdsOption::try_new(...)
 - FX dates: 10,000 spot date calculations
 
 **Acceptance Criteria**:
+
 - No >10% performance regression in any benchmark
 - Strict mode should be <5% slower than best effort
 
@@ -711,14 +748,17 @@ let opt = CdsOption::try_new(...)
 Each phase is independently deployable:
 
 **Phase 1 (Critical Safety)**:
+
 - Metrics: Keep `BestEffort` as default in 0.x, switch to `Strict` in 1.0
 - Calibration: Pure correctness fix, no rollback needed (validates via tests)
 
 **Phase 2 (Conventions)**:
+
 - FX dates: Add feature flag `legacy_fx_settlement` to preserve old behavior
 - Quote units: Serde alias allows gradual migration
 
 **Phase 3 (API Safety)**:
+
 - Constructors: Deprecation warnings in 0.x, removal in 1.0
 - Results export: Internal change, no rollback needed
 
@@ -735,6 +775,7 @@ If critical issues arise in production:
 ## Timeline & Dependencies
 
 ### Phase 1 (Week 1): Critical Safety - 5 days
+
 - Day 1-2: Metrics framework strict mode + error types
 - Day 3: Calibration residual fix + tests
 - Day 4: Dependency resolution + cycle detection
@@ -743,6 +784,7 @@ If critical issues arise in production:
 **Dependencies**: None (standalone changes)
 
 ### Phase 2 (Week 2): Market Conventions - 5 days
+
 - Day 1-2: FX joint calendar business day logic
 - Day 3: Quote units clarification + serde
 - Day 4: Calendar resolution strictness
@@ -751,6 +793,7 @@ If critical issues arise in production:
 **Dependencies**: Phase 1 error types
 
 ### Phase 3 (Week 3): API Safety & Reporting - 5 days
+
 - Day 1-2: Remove panicking constructors across instruments
 - Day 3: Clippy lints + static analysis
 - Day 4: Results export fixes
@@ -759,6 +802,7 @@ If critical issues arise in production:
 **Dependencies**: Phases 1-2 for full testing
 
 ### Buffer (Week 4): Documentation & Migration - 3 days
+
 - Migration guide
 - API documentation updates
 - Release notes
@@ -795,21 +839,25 @@ If critical issues arise in production:
 ## Success Criteria
 
 ### Functional
+
 - ✅ All unit tests pass (100% coverage for changed code)
 - ✅ Integration tests pass (calibration, FX settlement, multi-metric)
 - ✅ Regression tests show only *expected* differences
 - ✅ Clippy/fmt pass with no warnings
 
 ### Performance
+
 - ✅ Benchmarks show <10% regression (or justified)
 - ✅ Strict mode overhead <5% vs best effort
 
 ### Compliance
+
 - ✅ FX settlement matches ISDA conventions (verified via test cases)
 - ✅ Calibration tolerances work consistently across notionals
 - ✅ Metric errors are actionable (include context, not silent zeros)
 
 ### Documentation
+
 - ✅ Migration guide published
 - ✅ API documentation updated
 - ✅ Breaking changes documented in CHANGELOG
@@ -820,17 +868,20 @@ If critical issues arise in production:
 ## Post-Implementation
 
 ### Monitoring Plan
+
 - Track metric computation error rates (strict mode)
 - Monitor calibration residuals (verify no regressions)
 - Log FX settlement date shifts (validate corrections)
 
 ### Future Enhancements (Out of Scope)
+
 - Tenor bump exact matching (audit finding #9)
 - Inflation curve currency inference removal (audit finding #10)
 - Carry computation for multi-day attribution (audit finding #12)
 - Convention registry initialization safety (audit finding #11)
 
 ### Technical Debt Cleanup
+
 - Standardize all error handling to use new error variants
 - Add more comprehensive clippy lints across codebase
 - Expand golden file test coverage

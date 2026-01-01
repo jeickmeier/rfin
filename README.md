@@ -30,13 +30,13 @@ git clone https://github.com/rustfin/rfin.git
 cd rfin
 ```
 
-2. Build the core library:
+1. Build the core library:
 
 ```bash
 cargo build
 ```
 
-3. Run tests:
+1. Run tests:
 
 ```bash
 cargo test
@@ -151,7 +151,7 @@ python -m http.server 8000
 # Or use any other static file server
 ```
 
-3. Open <http://localhost:8000/examples/wasm/primitives_wasm_example.html>
+1. Open <http://localhost:8000/examples/wasm/primitives_wasm_example.html>
 
 ## Features
 

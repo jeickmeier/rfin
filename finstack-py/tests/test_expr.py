@@ -248,17 +248,6 @@ class TestCompilation:
         compiled = CompiledExpr(expr.expr)
         assert compiled is not None
 
-    @pytest.mark.skip(reason="ResultsMeta cannot be instantiated directly from Python")
-    def test_compile_with_planning(self) -> None:
-        """Test compiling with DAG planning."""
-        from finstack.core.config import ResultsMeta
-
-        expr = rolling_mean(col("x"), 3)
-        meta = ResultsMeta()
-        compiled = CompiledExpr.with_planning(expr.expr, meta)
-        assert compiled is not None
-        assert compiled.plan is not None
-
     def test_with_cache(self) -> None:
         """Test adding cache budget."""
         expr = col("x") + 10

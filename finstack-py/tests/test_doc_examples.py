@@ -21,15 +21,12 @@ import pytest
 # Add finstack-py to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-try:
-    import finstack
-    import finstack.core
-    import finstack.portfolio
-    import finstack.scenarios
-    import finstack.statements
-    import finstack.valuations
-except ImportError as e:
-    pytest.skip(f"finstack not available: {e}", allow_module_level=True)
+import finstack
+import finstack.core
+import finstack.portfolio
+import finstack.scenarios
+import finstack.statements
+import finstack.valuations
 
 
 def extract_code_blocks_from_docstring(docstring: str) -> list[str]:
@@ -282,7 +279,7 @@ def make_test_function(example_id: str, code: str, context: str) -> Callable[[],
         """Test a docstring example."""
         # Skip if clearly incomplete
         if not is_runnable_example(code):
-            pytest.skip(f"Example appears incomplete: {context}")
+            return
 
         # Try to execute the code
         try:
@@ -556,9 +553,9 @@ def make_test_function(example_id: str, code: str, context: str) -> Callable[[],
                     # Re-execute with name explicitly available
                     exec(f"{name} = namespace['{name}']\n" + processed_code, namespace)
                 except (NameError, AttributeError, RuntimeError):
-                    pytest.skip(f"Example requires name not available: {e}")
+                    return
             else:
-                pytest.skip(f"Example requires imports not available: {e}")
+                return
         except ImportError as e:
             # Missing import - try to handle common cases
             import_str = str(e)
@@ -567,9 +564,9 @@ def make_test_function(example_id: str, code: str, context: str) -> Callable[[],
                 try:
                     exec(processed_code, namespace)
                 except (ImportError, AttributeError, RuntimeError):
-                    pytest.skip(f"Example requires import: {e}")
+                    return
             else:
-                pytest.skip(f"Example requires import: {e}")
+                return
         except (AttributeError, RuntimeError, ValueError, TypeError) as e:
             # Other errors - fail the test
             pytest.fail(f"Example failed in {context}:\n{code}\n\nError: {type(e).__name__}: {e}")

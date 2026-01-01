@@ -13,6 +13,7 @@
 **Purpose**: Unified implementation that handles both regular and workspace-based execution paths.
 
 **Key Design Decisions**:
+
 - Takes `Option<&mut WaterfallWorkspace>` parameter to branch between local and workspace state
 - When `workspace` is `Some`, uses pre-allocated buffers for zero-allocation hot paths
 - When `workspace` is `None`, allocates local state as needed
@@ -22,11 +23,13 @@
 ### 2. Refactored Wrapper Functions
 
 **Before**:
+
 - `execute_waterfall_with_explanation()`: 107 lines of implementation
 - `execute_waterfall_with_workspace()`: 133 lines of implementation
 - Total: 240 lines of duplicated logic
 
 **After**:
+
 - `execute_waterfall_with_explanation()`: 1-line wrapper calling `execute_waterfall_core()`
 - `execute_waterfall_with_workspace()`: 1-line wrapper calling `execute_waterfall_core()`
 - `execute_waterfall_core()`: 168 lines of unified implementation
@@ -42,16 +45,21 @@
 ## Testing Results
 
 ### Unit Tests
+
 ```bash
 cargo test --lib --package finstack-valuations instruments::structured_credit::pricing::waterfall
 ```
+
 **Result**: ✅ 1 test passed
 
 ### Integration Tests
+
 ```bash
 cargo test --test instruments_tests structured_credit
 ```
+
 **Result**: ✅ 195 tests passed
+
 - All waterfall golden tests passed
 - All waterfall property tests passed
 - All coverage test format tests passed
@@ -59,9 +67,11 @@ cargo test --test instruments_tests structured_credit
 - All metrics tests passed
 
 ### Linting
+
 ```bash
 cargo clippy --lib --package finstack-valuations -- -D warnings
 ```
+
 **Result**: ✅ Zero warnings
 
 ## Technical Implementation Details
@@ -84,6 +94,7 @@ The key challenge was avoiding conflicting borrows of the `workspace` parameter.
 ### Coverage Test Handling
 
 Unified approach that works for both paths:
+
 ```rust
 // Evaluate once, use in both workspace and non-workspace paths
 let coverage_test_results = evaluate_coverage_tests(...)?;
@@ -98,6 +109,7 @@ if let Some(ref mut ws) = workspace {
 ### Output Construction
 
 Single code path for building final `WaterfallDistribution`:
+
 ```rust
 let distribution = WaterfallDistribution {
     payment_date: context.payment_date,
@@ -125,21 +137,25 @@ if let Some(ws) = workspace {
 ## Benefits
 
 ### 1. Maintainability
+
 - Single implementation to update when logic changes
 - No risk of divergence between workspace and non-workspace paths
 - Easier to understand and review
 
 ### 2. Testability
+
 - Testing core function tests both execution paths
 - Easier to add new tests for edge cases
 - Golden tests verify identical behavior
 
 ### 3. Performance
+
 - Zero-allocation path still available via workspace
 - No performance regression (same logic, different branching)
 - Workspace reuse pattern preserved
 
 ### 4. Backward Compatibility
+
 - Public API unchanged
 - All call sites work without modification
 - Behavior identical to original implementation
@@ -147,12 +163,14 @@ if let Some(ws) = workspace {
 ## Verification
 
 ### Compilation
+
 ```bash
 ✅ cargo build --lib --package finstack-valuations
    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.80s
 ```
 
 ### Test Suite
+
 ```bash
 ✅ 1 unit test passed
 ✅ 195 integration tests passed
@@ -160,6 +178,7 @@ if let Some(ws) = workspace {
 ```
 
 ### Code Quality
+
 ```bash
 ✅ cargo clippy -- -D warnings
    Zero warnings

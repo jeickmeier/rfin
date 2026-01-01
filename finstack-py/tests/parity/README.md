@@ -15,6 +15,7 @@ This directory contains comprehensive parity tests that verify the Python bindin
 ### What is Parity?
 
 Parity tests verify that:
+
 1. **Identical inputs produce identical outputs** - Rust and Python yield the same numeric results
 2. **API completeness** - All public Rust APIs are exposed in Python
 3. **Behavioral consistency** - Edge cases and error handling match across languages
@@ -79,6 +80,7 @@ When adding a new Python binding:
 ## CI/CD Integration
 
 These tests are run:
+
 - On every commit to main branch
 - Before releasing new versions
 - After updating Rust core library

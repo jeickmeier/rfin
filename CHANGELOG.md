@@ -20,45 +20,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Python Bindings Enhancements (v1.0.0-beta.1)
 
 **New Instrument Bindings** (8 instruments):
+
 - BondFuture, BondFutureOption - Treasury futures with CTD analysis
 - CrossCurrencySwap, InflationCapFloor - Dual-currency and inflation derivatives
 - EquityIndexFuture, NonDeliverableForward, FxVarianceSwap - Equity and FX instruments
 - CommodityOption, RealEstateAsset - Alternative asset classes
 
 **Pricer Registry** (11 model keys added):
+
 - Complete ModelKey coverage: HestonFourier, Normal, MonteCarloGBM, MonteCarloHeston, MonteCarloHullWhite1F
 - Analytical methods: BarrierBSContinuous, AsianGeometricBS, AsianTurnbullWakeman, LookbackBSContinuous, QuantoBS, FxBarrierBSContinuous
 - All 16 Rust model keys now accessible from Python
 
 **Calibration Framework**:
+
 - Plan-driven API (v2) for declarative calibration workflows
 - All curve types: discount, forward, hazard, inflation, vol surfaces, base correlation
 - Comprehensive quote types: RatesQuote, CreditQuote, VolQuote, InflationQuote
 - Configuration: CalibrationConfig, SolverKind, ValidationMode
 
 **Scenarios DSL and Builder** (800+ lines Python):
+
 - Text-based DSL parser for scenario construction
 - Fluent builder API for programmatic scenario building
 - Full integration with existing ScenarioSpec and ScenarioEngine
 - Comprehensive examples and documentation
 
 **Statement Extensions**:
+
 - Complete configuration API for Corkscrew (balance sheet validation)
 - Credit Scorecard configuration (rating assignment)
 - JSON serialization for all extension types
 
 **Portfolio Management**:
+
 - Book hierarchy support (Rust implementation complete)
 - Margin and netting calculations (already exposed)
 - Portfolio optimization framework (1200+ lines, 17 classes)
 
 **Testing and Quality**:
+
 - 411+ passing tests across all modules
 - Property-based testing with Hypothesis (70+ property tests)
 - Comprehensive parity tests (215+ test cases)
 - Benchmark infrastructure with pytest-benchmark
 
 **Documentation**:
+
 - Sphinx API documentation site structure
 - Tutorial series (installation, quickstart, core concepts)
 - 40+ working examples covering all instrument types
@@ -66,6 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NumPy-style docstrings throughout
 
 **Known Limitations**:
+
 - Bucketed metrics (DV01/CS01/Vega by tenor) require Rust ValuationResult changes
 - Python-side modules (scenarios.dsl, scenarios.builder) need package integration
 - Some tests pending package rebuild for new registrations
@@ -73,12 +82,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **See**: `.zenflow/tasks/100-python-binding-7042/task-4.6-summary.md` for detailed release assessment
 
 ### Planned for 0.9.0
+
 - Reduction of `expect()` and `panic!()` usage across all crates
 - Additional market convention validations
 - Performance optimizations for large portfolios
 - Python bindings: Bucketed metrics exposure (pending Rust core changes)
 
 ### Planned for 1.0.0
+
 - **BREAKING**: Removal of all deprecated APIs across crates
 - Full compliance with safety lints (no panics in production code)
 - Stabilized public APIs with backwards compatibility guarantees
@@ -116,6 +127,7 @@ Major release addressing critical safety issues and market convention compliance
 #### finstack-core (0.8.0)
 
 **Added**:
+
 - New error variants for better diagnostics:
   - `Error::UnknownMetric` - Unknown metric ID with list of available metrics
   - `Error::MetricNotApplicable` - Metric doesn't apply to instrument type
@@ -125,52 +137,62 @@ Major release addressing critical safety issues and market convention compliance
 #### finstack-valuations (0.8.0)
 
 **Breaking Changes**:
+
 - **Metrics**: `compute()` defaults to strict mode (errors instead of 0.0 for failures)
 - **FX Settlement**: Uses joint business day counting (spot dates may differ near holidays)
 - **Calendars**: `resolve_calendar()` returns errors for unknown IDs (no silent fallback)
 - **Quote Units**: `RateQuote::Swap { spread }` → `{ spread_decimal }` for clarity
 
 **Added**:
+
 - `MetricRegistry::compute_best_effort()` - Opt-in legacy behavior (removed in 0.4.1)
 - `MetricId::parse_strict()` - Strict metric name validation for user inputs
 - `add_joint_business_days()` - Proper FX settlement date calculation
 - `CalendarWrapper` - Better error messages for calendar resolution
 
 **Fixed**:
+
 - Calibration residual normalization (now scales by `residual_notional`)
 - Metric dependency cycles now detected and reported with full path
 - Results export uses correct `MetricId` constants (duration, DV01, etc.)
 
 **Deprecated**:
+
 - `CdsOption::new()` and related panicking constructors (removed in 0.8.x)
 - Use `try_new()` variants instead for proper error handling
 
 #### finstack-py (0.8.0)
 
 **Added**:
+
 - Python bindings for strict metric parsing: `MetricId.parse_strict()`
 - Swap quote schema updated to use `spread_decimal` field
 
 **Changed**:
+
 - Error conversions updated for new error variants
 
 #### finstack-wasm (0.8.0)
 
 **Added**:
+
 - WASM bindings for strict metric parsing: `MetricId.parseStrict()`
 - TypeScript types updated for swap quote schema changes
 
 **Changed**:
+
 - Error mappings updated for new error variants
 
 ### Documentation
 
 **New**:
+
 - `MIGRATION_GUIDE.md` - Comprehensive migration instructions with decision trees
 - `finstack/valuations/tests/golden/fx_spot_dates.json` - FX settlement reference dates
 - API documentation for all new methods with examples
 
 **Updated**:
+
 - All changed APIs include `# Examples` and `# Errors` sections
 - Cross-links between related APIs
 - Migration paths documented in the migration guide and API docs
@@ -178,21 +200,25 @@ Major release addressing critical safety issues and market convention compliance
 ### Testing
 
 **Integration Tests Added** (19 total):
+
 - `metrics_strict_mode.rs` - 7 tests covering strict mode
 - `fx_settlement.rs` - 12 tests covering joint business day logic
 
 **Unit Tests Added** (50+):
+
 - Metrics core: 19 tests (error paths, strict mode, dependency resolution)
 - FX dates: 11 tests (joint calendar, error handling)
 - Results export: 11 tests (metric key mappings)
 - Calibration: 3 tests (residual normalization invariance)
 
 **Golden Reference Files**:
+
 - FX spot dates validated against ISDA, ECB, NYSE, Bank of England, JPX calendars
 
 ### Performance
 
 **Benchmarks** (no significant regressions):
+
 - Metrics strict mode: <1% overhead (within measurement noise)
 - Calibration: <0.1% difference after residual fix
 - FX settlement: ~5% slower (expected; now correct)
@@ -226,19 +252,22 @@ For comparison with 0.8.0 changes:
 ## Migration Resources
 
 ### Documentation
+
 - **Migration Guide**: `MIGRATION_GUIDE.md` - Comprehensive migration instructions
 - **Crate Changelog**: `finstack/valuations/CHANGELOG.md` - Detailed phase-by-phase changes
 - **API Docs**: Run `cargo doc --open` for full documentation
 
 ### Test Files
+
 - **Golden Tests**: `finstack/valuations/tests/golden/fx_spot_dates.json`
 - **Integration Tests**: `finstack/valuations/tests/integration/`
 - **Migration Examples**: See test files for before/after patterns
 
 ### Support
+
 - **Issue Tracker**: [GitHub Issues](https://github.com/yourusername/finstack/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/finstack/discussions)
-- **Email**: support@finstack.dev
+- **Email**: <support@finstack.dev>
 
 ---
 
@@ -272,6 +301,7 @@ Starting with 0.8.0, the Finstack workspace follows strict semantic versioning:
 ### Quick Upgrade (Recommended)
 
 1. **Update dependencies** in `Cargo.toml`:
+
    ```toml
    finstack-core = "0.8"
    finstack-valuations = "0.8"

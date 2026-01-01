@@ -258,20 +258,24 @@ export const MyValuationExample: React.FC = () => {
 ## Common Errors and Solutions
 
 ### Error: "memory access out of bounds"
+
 **Cause**: WASM init() called multiple times or WASM objects stored in React state and garbage collected.
 **Fix**: Use global init guard and extract primitives immediately.
 
 ### Error: "null pointer passed to rust"
+
 **Cause**: WASM object was garbage collected before use.
 **Fix**: Extract primitives immediately, don't store WASM objects.
 
 ### Error: "Invalid input data"
+
 **Cause**: Wrong parameters to Rust functions (e.g., date ranges, curve tenors).
 **Fix**: Check Rust validation rules (dates must be ordered, curves need minimum points, etc.).
 
 ## API-Specific Patterns
 
 ### Date Handling
+
 ```typescript
 // Properties, not methods
 const year = date.year;      // NOT date.year()
@@ -283,12 +287,14 @@ const dateStr = date.toString();
 ```
 
 ### Tenor Handling
+
 ```typescript
 // Property, not method
 const months = tenor.months;  // NOT tenor.months()
 ```
 
 ### Curve Handling
+
 ```typescript
 // Methods, not properties
 const dayCount = curve.dayCount();  // Method call
@@ -296,6 +302,7 @@ const baseDate = curve.baseDate;    // Property
 ```
 
 ### Pricing Registry
+
 ```typescript
 // Type-specific methods (not generic)
 const bondResult = registry.priceBondWithMetrics(bond, model, market, metrics);

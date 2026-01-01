@@ -503,7 +503,7 @@ impl MetricCalculator<TermLoan> for YourMetricCalculator {
 }
 ```
 
-2. **Register metric** in `metrics/mod.rs`:
+1. **Register metric** in `metrics/mod.rs`:
 
 ```rust
 pub use your_metric::YourMetricCalculator;
@@ -519,7 +519,7 @@ pub fn register_term_loan_metrics(registry: &mut MetricRegistry) {
 }
 ```
 
-3. **Add tests** in `tests/instruments/term_loan/metrics/your_metric.rs`
+1. **Add tests** in `tests/instruments/term_loan/metrics/your_metric.rs`
 
 ### Adding a New Amortization Type
 
@@ -540,7 +540,7 @@ pub enum AmortizationSpec {
 }
 ```
 
-2. **Implement amortization logic** in `cashflows.rs` (in the `generate_cashflows` function, within the amortization match block):
+1. **Implement amortization logic** in `cashflows.rs` (in the `generate_cashflows` function, within the amortization match block):
 
 ```rust
 match &loan.amortization {
@@ -574,7 +574,7 @@ match &loan.amortization {
 }
 ```
 
-3. **Add validation** (if needed) and **tests**
+1. **Add validation** (if needed) and **tests**
 
 ### Adding a New Covenant Event Type
 
@@ -592,7 +592,7 @@ pub struct CovenantSpec {
 }
 ```
 
-2. **Define event struct**:
+1. **Define event struct**:
 
 ```rust
 #[derive(Clone, Debug)]
@@ -604,9 +604,9 @@ pub struct YourEvent {
 }
 ```
 
-3. **Implement event logic** in `cashflows.rs` (within the date iteration loop)
+1. **Implement event logic** in `cashflows.rs` (within the date iteration loop)
 
-4. **Add tests** demonstrating the new feature
+2. **Add tests** demonstrating the new feature
 
 ### Supporting a New Rate Index
 

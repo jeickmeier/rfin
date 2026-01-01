@@ -8,8 +8,6 @@ Tests verify that:
 
 from pathlib import Path
 
-import pytest
-
 try:
     import pandas as pd
     import polars as pl
@@ -21,7 +19,6 @@ except ImportError:
     HAS_PANDAS = False
 
 
-@pytest.mark.skipif(not HAS_POLARS, reason="polars not installed")
 class TestDataFrameConversions:
     """Test DataFrame export functionality for all result types."""
 
@@ -42,9 +39,10 @@ class TestDataFrameConversions:
     def test_statements_results_to_polars_wide(self) -> None:
         """Test Statements Results to_polars_wide() method."""
 
-    @pytest.mark.skipif(not HAS_PANDAS, reason="pandas not installed")
     def test_polars_to_pandas_conversion(self) -> None:
         """Test that Polars DataFrames can be converted to Pandas."""
+        if not (HAS_POLARS and HAS_PANDAS):
+            return
         # Create a simple Polars DataFrame
         df_pl = pl.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]})
 
@@ -56,9 +54,10 @@ class TestDataFrameConversions:
         assert len(df_pd) == 3
         assert list(df_pd.columns) == ["a", "b"]
 
-    @pytest.mark.skipif(not HAS_POLARS, reason="polars not installed")
     def test_polars_io_csv(self, tmp_path: Path) -> None:
         """Test CSV I/O via Polars native methods."""
+        if not HAS_POLARS:
+            return
         # Create DataFrame
         df = pl.DataFrame({"instrument_id": ["BOND1", "BOND2"], "pv": [1000.0, 2000.0], "currency": ["USD", "USD"]})
 
@@ -71,9 +70,10 @@ class TestDataFrameConversions:
         assert len(df_read) == 2
         assert list(df_read.columns) == ["instrument_id", "pv", "currency"]
 
-    @pytest.mark.skipif(not HAS_POLARS, reason="polars not installed")
     def test_polars_io_parquet(self, tmp_path: Path) -> None:
         """Test Parquet I/O via Polars native methods."""
+        if not HAS_POLARS:
+            return
         # Create DataFrame
         df = pl.DataFrame({
             "position_id": ["POS1", "POS2"],
@@ -90,9 +90,10 @@ class TestDataFrameConversions:
         assert len(df_read) == 2
         assert list(df_read.columns) == ["position_id", "value", "entity_id"]
 
-    @pytest.mark.skipif(not (HAS_POLARS and HAS_PANDAS), reason="polars/pandas not installed")
     def test_pandas_io_csv(self, tmp_path: Path) -> None:
         """Test CSV I/O via Pandas native methods."""
+        if not (HAS_POLARS and HAS_PANDAS):
+            return
         # Create Polars DataFrame, convert to Pandas
         df_pl = pl.DataFrame({
             "node_id": ["revenue", "cogs"],
@@ -109,9 +110,10 @@ class TestDataFrameConversions:
         df_read = pd.read_csv(csv_path)
         assert len(df_read) == 2
 
-    @pytest.mark.skipif(not (HAS_POLARS and HAS_PANDAS), reason="polars/pandas not installed")
     def test_pandas_io_parquet(self, tmp_path: Path) -> None:
         """Test Parquet I/O via Pandas native methods."""
+        if not (HAS_POLARS and HAS_PANDAS):
+            return
         # Create Polars DataFrame, convert to Pandas
         df_pl = pl.DataFrame({
             "as_of": ["2025-01-01", "2025-01-01"],

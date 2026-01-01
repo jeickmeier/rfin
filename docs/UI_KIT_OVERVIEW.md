@@ -58,23 +58,23 @@ To create a "Lego set" for financial engineering that is:
 
 ### 5.2 Performance
 
-5. **60fps Rendering:** Smooth scrolling on 10,000-row virtualized tables.
-6. **Handle Pattern:** Market context serialization occurs ≤1 time per session (delta updates thereafter).
-7. **Interactive Editing:** Curve drag operations complete in <16ms (single frame budget).
-8. **Lazy Loading:** ECharts/3D components load on-demand, not in initial bundle.
+1. **60fps Rendering:** Smooth scrolling on 10,000-row virtualized tables.
+2. **Handle Pattern:** Market context serialization occurs ≤1 time per session (delta updates thereafter).
+3. **Interactive Editing:** Curve drag operations complete in <16ms (single frame budget).
+4. **Lazy Loading:** ECharts/3D components load on-demand, not in initial bundle.
 
 ### 5.3 LLM Integration
 
-9. **Zero Hallucination:** LLM never generates numeric values; all data comes from WASM engine.
-10. **Context Efficiency:** LLM context payloads < 4KB (semantic summaries, not raw data).
-11. **Schema Validation:** LLM-generated JSON validates against dynamic Zod schemas with < 5% rejection rate.
-12. **Mutation Actions:** LLMs use granular actions (add/remove/update) not full dashboard redefines.
-13. **Safe Modes:** All sensitive components support `viewer | editor | llm-assisted` modes.
+1. **Zero Hallucination:** LLM never generates numeric values; all data comes from WASM engine.
+2. **Context Efficiency:** LLM context payloads < 4KB (semantic summaries, not raw data).
+3. **Schema Validation:** LLM-generated JSON validates against dynamic Zod schemas with < 5% rejection rate.
+4. **Mutation Actions:** LLMs use granular actions (add/remove/update) not full dashboard redefines.
+5. **Safe Modes:** All sensitive components support `viewer | editor | llm-assisted` modes.
 
 ### 5.4 Quality
 
-14. **Accessibility:** WCAG 2.1 AA compliance.
-15. **Bundle Size:** < 300KB core gzipped, < 500KB with pro features (excluding WASM).
-16. **Test Coverage:** > 80% line coverage, all golden tests passing.
-17. **Schema Parity Tests:** Every Rust ↔ TS ↔ Zod type validated in CI.
-18. **LLM Dashboard Snapshots:** Canonical dashboard outputs maintained as regression tests.
+1. **Accessibility:** WCAG 2.1 AA compliance.
+2. **Bundle Size:** < 300KB core gzipped, < 500KB with pro features (excluding WASM).
+3. **Test Coverage:** > 80% line coverage, all golden tests passing.
+4. **Schema Parity Tests:** Every Rust ↔ TS ↔ Zod type validated in CI.
+5. **LLM Dashboard Snapshots:** Canonical dashboard outputs maintained as regression tests.

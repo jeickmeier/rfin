@@ -454,6 +454,43 @@ impl PyDiscountCurve {
             .map_err(core_to_py)
     }
 
+    /// Discount factors at each knot point.
+    ///
+    /// Returns
+    /// -------
+    /// list[float]
+    ///     Discount factor values at each knot time.
+    #[getter]
+    fn discount_factors(&self) -> Vec<f64> {
+        self.inner.dfs().to_vec()
+    }
+
+    /// Create a new curve with a parallel rate bump applied.
+    ///
+    /// Uses the formula: ``df_bumped(t) = df_original(t) * exp(-bump * t)``
+    /// where ``bump = bp / 10_000``.
+    ///
+    /// Parameters
+    /// ----------
+    /// bp : float
+    ///     Bump size in basis points (e.g., 1.0 = 1bp = 0.01%).
+    ///
+    /// Returns
+    /// -------
+    /// DiscountCurve
+    ///     A new discount curve with bumped discount factors.
+    ///
+    /// Examples
+    /// --------
+    /// >>> bumped = curve.bumped_parallel(10.0)  # 10bp parallel bump
+    /// >>> bumped.df(5.0) < curve.df(5.0)
+    /// True
+    #[pyo3(text_signature = "(self, bp)")]
+    fn bumped_parallel(&self, bp: f64) -> PyResult<Self> {
+        let bumped = self.inner.with_parallel_bump(bp).map_err(core_to_py)?;
+        Ok(Self::new_arc(Arc::new(bumped)))
+    }
+
     #[pyo3(text_signature = "(self, cash_flows, day_count=None)")]
     /// Calculate the Net Present Value of a series of cashflows.
     ///

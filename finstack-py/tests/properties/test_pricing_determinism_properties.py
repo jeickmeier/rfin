@@ -293,23 +293,23 @@ class TestPricingReproducibility:
 class TestMetricsDeterminism:
     """Property tests for metrics computation determinism."""
 
-    @given(deposit_strategy(), discount_curve_strategy())
+    @given(bond_strategy(), discount_curve_strategy())
     @settings(max_examples=30, deadline=None)
-    def test_metrics_deterministic(self, deposit: Deposit, curve: DiscountCurve) -> None:
+    def test_metrics_deterministic(self, bond: Bond, curve: DiscountCurve) -> None:
         """Metrics computation is deterministic."""
         market = MarketContext()
         market.insert_discount(curve)
         registry = create_standard_registry()
 
-        # Compute metrics twice
-        result1 = registry.price_deposit_with_metrics(deposit, "discounting", market, ["accrued", "ytm"])
-        result2 = registry.price_deposit_with_metrics(deposit, "discounting", market, ["accrued", "ytm"])
+        # Compute metrics twice - use metrics applicable to bonds
+        result1 = registry.price_with_metrics(bond, "discounting", market, ["accrued", "ytm"])
+        result2 = registry.price_with_metrics(bond, "discounting", market, ["accrued", "ytm"])
 
         # Present values should be identical
         assert abs(result1.present_value.amount - result2.present_value.amount) < 1e-10
 
-        # Metrics should be identical
-        if result1.has_metric("accrued") and result2.has_metric("accrued"):
+        # Metrics should be identical if present
+        if hasattr(result1, "has_metric") and result1.has_metric("accrued") and result2.has_metric("accrued"):
             metric1 = result1.metric("accrued")
             metric2 = result2.metric("accrued")
             if metric1 is not None and metric2 is not None:

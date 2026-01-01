@@ -43,9 +43,11 @@ This report summarizes the successful implementation of critical market conventi
 **Status**: ✅ Complete (5/5 steps)
 
 #### 1.1 Core Error Types Enhancement
+
 **Location**: `finstack/core/src/error.rs`
 
 **Added**:
+
 - 4 new error variants with comprehensive documentation
   - `UnknownMetric` - Unknown metric with list of available options
   - `MetricNotApplicable` - Metric doesn't apply to instrument type
@@ -57,9 +59,11 @@ This report summarizes the successful implementation of critical market conventi
 **Impact**: Enables precise error reporting for metrics failures instead of silent zeros.
 
 #### 1.2 Metrics Strict Mode Implementation
+
 **Location**: `finstack/valuations/src/metrics/core/registry.rs`
 
 **Added**:
+
 - `StrictMode` enum (Strict | BestEffort)
 - **Breaking**: `compute()` now defaults to strict mode (errors on failures)
 - New `compute_best_effort()` method for opt-in legacy behavior
@@ -72,9 +76,11 @@ This report summarizes the successful implementation of critical market conventi
 **User Decision Applied**: Strict mode is default immediately (Option A - breaking change) per user preference.
 
 #### 1.3 Strict Metric Parsing
+
 **Location**: `finstack/valuations/src/metrics/core/ids.rs`
 
 **Added**:
+
 - `MetricId::parse_strict()` method for user inputs
 - Returns `UnknownMetric` error with full list of available metrics
 - `FromStr` remains permissive for backwards compatibility
@@ -83,9 +89,11 @@ This report summarizes the successful implementation of critical market conventi
 **Impact**: Configuration files and CLI inputs validated strictly; typos caught at load time.
 
 #### 1.4 Calibration Residual Normalization Fix
+
 **Location**: `finstack/valuations/src/calibration/targets/discount.rs`
 
 **Fixed**:
+
 - Global residuals now divide by `residual_notional` instead of `1.0`
 - Jacobian calculation updated for consistency
 - 1 comprehensive test verifying notional scaling invariance
@@ -93,9 +101,11 @@ This report summarizes the successful implementation of critical market conventi
 **Impact**: Solver tolerances now have consistent meaning regardless of notional size. Calibration with notional=1 and notional=1M converge identically (within 1e-12).
 
 #### 1.5 Phase 1 Integration & Documentation
+
 **Location**: `finstack/valuations/tests/integration/metrics_strict_mode.rs`, `MIGRATION.md`
 
 **Added**:
+
 - 7 integration tests covering end-to-end strict mode workflows
 - Migration guide Phase 1 section with before/after examples
 - Documentation for all new APIs with examples
@@ -109,9 +119,11 @@ This report summarizes the successful implementation of critical market conventi
 **Status**: ✅ Complete (3/3 steps)
 
 #### 2.1 Joint Business Day Logic for FX Settlement
+
 **Location**: `finstack/valuations/src/instruments/common/fx_dates.rs`
 
 **Added**:
+
 - `add_joint_business_days()` - ISDA-compliant T+N business day counting
 - Day is business day only if **both** base and quote calendars are open
 - `CalendarWrapper` enum for better error messages
@@ -123,13 +135,16 @@ This report summarizes the successful implementation of critical market conventi
 **Impact**: FX spot dates now match ISDA conventions. Spot dates may differ near holidays (correctness fix).
 
 **Example**: USD/EUR trade on Dec 29, 2023 (Fri):
+
 - **Old (wrong)**: Spot = Jan 1 adjusted to Jan 2 (calendar days + adjust)
 - **New (correct)**: Spot = Jan 3 (joint business days: Dec 30-31 weekend, Jan 1-2 both closed)
 
 #### 2.2 Quote Units Clarification (Swap Spread)
+
 **Location**: `finstack/valuations/src/market/quotes/rates.rs`, `build/rates.rs`
 
 **Changed**:
+
 - `RateQuote::Swap { spread }` → `{ spread_decimal }`
 - Field name explicitly documents decimal representation (0.0010 = 10bp)
 - Serde alias `"spread"` preserves backwards compatibility
@@ -141,9 +156,11 @@ This report summarizes the successful implementation of critical market conventi
 **User Decision Applied**: Using `spread_decimal` (Option B - decimal representation) per user preference.
 
 #### 2.3 FX Integration Tests & Golden Reference Files
+
 **Location**: `finstack/valuations/tests/integration/fx_settlement.rs`, `tests/golden/`
 
 **Added**:
+
 - 12 integration tests covering joint business day logic across currency pairs
 - Golden reference file (`fx_spot_dates.json`) validated against:
   - ISDA FX Settlement Calendar
@@ -163,9 +180,11 @@ This report summarizes the successful implementation of critical market conventi
 **Status**: ✅ Complete (4/4 steps)
 
 #### 3.1 Deprecate Panicking Constructors
+
 **Location**: `finstack/valuations/src/instruments/cds_option/`
 
 **Changed**:
+
 - Deprecated 4 panicking constructors with clear migration guidance:
   - `CdsOption::new()` → use `try_new()`
   - `CdsOptionParams::new()` → use `try_new()`
@@ -180,9 +199,11 @@ This report summarizes the successful implementation of critical market conventi
 **User Decision Applied**: Gradual deprecation (Option B) per user preference - removal in 1.0.0.
 
 #### 3.2 Clippy Safety Lints
+
 **Location**: `finstack/valuations/src/lib.rs`
 
 **Added**:
+
 - Crate-level safety lints:
   - `#![deny(clippy::unwrap_used)]` (already present)
   - `#![deny(clippy::expect_used)]` (new)
@@ -194,9 +215,11 @@ This report summarizes the successful implementation of critical market conventi
 **Impact**: New panicking code prevented immediately; existing code tracked for remediation. "Ratchet" behavior: no new violations possible.
 
 #### 3.3 Results Export Metric Mapping Fix
+
 **Location**: `finstack/valuations/src/results/dataframe.rs`
 
 **Fixed**:
+
 - Added `get_measure()` helper using `MetricId` constants
 - Updated field mappings:
   - `dv01` uses `MetricId::Dv01`
@@ -209,9 +232,11 @@ This report summarizes the successful implementation of critical market conventi
 **Impact**: DataFrame exports now correctly populate duration, DV01, convexity, YTM fields. No more missing metrics due to key drift.
 
 #### 3.4 Phase 3 Integration & Regression Suite
+
 **Status**: ✅ Complete
 
 **Created**:
+
 - Comprehensive regression test suite (`finstack/valuations/tests/integration/full_regression.rs`)
 - 4 end-to-end integration tests (488 lines):
   - `test_full_workflow_100_bond_portfolio` - Multi-currency portfolio pricing
@@ -223,6 +248,7 @@ This report summarizes the successful implementation of critical market conventi
 - All tests passing with 100% success rate
 
 **Fixed**:
+
 - 3 test files updated to use `spread_decimal` instead of deprecated `spread` field
 
 **Impact**: Comprehensive regression coverage across all 3 phases with realistic portfolio sizes and multi-currency scenarios.
@@ -234,9 +260,11 @@ This report summarizes the successful implementation of critical market conventi
 **Status**: ✅ Complete (5/5 steps)
 
 #### 4.1 Migration Guide
+
 **Location**: `MIGRATION_GUIDE.md`
 
 **Created**:
+
 - 150+ KB comprehensive migration documentation
 - Migration decision tree with step-by-step guidance
 - 3 migration strategies (fast/gradual/mixed) with pros/cons
@@ -248,9 +276,11 @@ This report summarizes the successful implementation of critical market conventi
 **Impact**: Users have clear, actionable migration path with multiple strategies to choose from.
 
 #### 4.2 API Documentation Updates
+
 **Location**: All modified files across 4 crates
 
 **Verified**:
+
 - 32 documented examples across all new/modified APIs
 - All public APIs have `# Examples` and `# Errors` sections
 - 7 cross-references between related APIs
@@ -261,19 +291,23 @@ This report summarizes the successful implementation of critical market conventi
 **Full Report**: `.zenflow/tasks/market-convention-refactors-3cf8/api-documentation-update-report.md`
 
 #### 4.3 Python & WASM Bindings Updates
+
 **Location**: `finstack-py/src/valuations/`, `finstack-wasm/src/valuations/`
 
 **Python Changes**:
+
 - Added `MetricId.parse_strict()` method
 - Updated swap quote schema to use `spread_decimal`
 - Error conversions updated for new error variants
 
 **WASM Changes**:
+
 - Added `MetricId.parseStrict()` (camelCase for JavaScript)
 - Added `JsRatesQuote.swapWithSpread()` method
 - TypeScript types updated for quote schema
 
 **Both**:
+
 - Backwards compatible (serde aliases, permissive methods kept)
 - Zero compile warnings (except expected deprecations)
 - API parity maintained
@@ -281,14 +315,17 @@ This report summarizes the successful implementation of critical market conventi
 **Full Report**: `.zenflow/tasks/market-convention-refactors-3cf8/python-wasm-bindings-update-report.md`
 
 #### 4.4 Performance Benchmarks
+
 **Location**: `finstack/valuations/benches/`
 
 **Created/Updated**:
+
 - `calibration.rs`: Added residual normalization benchmarks (+97 lines)
 - `metrics.rs`: Created comprehensive metrics benchmarks (221 lines)
 - `fx_dates.rs`: Created FX settlement benchmarks (282 lines)
 
 **Benchmark Coverage**:
+
 - Calibration: notional scaling invariance
 - Metrics: 1-10 metrics per bond, portfolio aggregation
 - FX settlement: various currency pairs, batch operations, calendar complexity
@@ -298,9 +335,11 @@ This report summarizes the successful implementation of critical market conventi
 **Full Report**: `.zenflow/tasks/market-convention-refactors-3cf8/phase4-benchmarks-report.md`
 
 #### 4.5 Final Release Preparation
+
 **Location**: Root-level documentation
 
 **Created**:
+
 - `CHANGELOG.md` - Workspace changelog (11 KB, Keep a Changelog format)
 - `RELEASE_NOTES_0.8.0.md` - Comprehensive release notes (22 KB)
 - Updated `finstack/valuations/README.md` with migration notice
@@ -318,6 +357,7 @@ This report summarizes the successful implementation of critical market conventi
 **Total**: 50+ unit tests added
 
 **By Component**:
+
 - **Core errors**: 5 tests (all new error variants)
 - **Metrics registry**: 19 tests (strict mode, best-effort, error paths, cycles)
 - **Metric IDs**: 8 tests (strict parsing, backwards compat)
@@ -333,6 +373,7 @@ This report summarizes the successful implementation of critical market conventi
 **Total**: 23 integration tests
 
 **Phase 1 (Metrics)**:
+
 - `metrics_strict_mode.rs` - 7 tests:
   - All metrics succeed in strict mode
   - Unknown metric fails in strict mode
@@ -343,6 +384,7 @@ This report summarizes the successful implementation of critical market conventi
   - End-to-end workflow (calibration → pricing → metrics)
 
 **Phase 2 (FX Settlement)**:
+
 - `fx_settlement.rs` - 12 tests:
   - USD/EUR around New Year's Day (joint closure)
   - USD/EUR around Christmas (multiple holidays)
@@ -356,6 +398,7 @@ This report summarizes the successful implementation of critical market conventi
   - Iteration limit safety
 
 **Phase 3 (Full Regression)**:
+
 - `full_regression.rs` - 4 tests:
   - 100-bond multi-currency portfolio workflow (900 metrics computed)
   - FX settlement integration (USD/EUR, GBP/JPY spot date validation)
@@ -365,17 +408,19 @@ This report summarizes the successful implementation of critical market conventi
 ### Golden Reference Files
 
 **FX Spot Dates** (`tests/golden/fx_spot_dates.json`):
+
 - 8 detailed test cases with business day breakdowns
 - Validated against:
   - ISDA FX Settlement Calendar
-  - ECB TARGET2 official calendar (https://www.ecb.europa.eu/press/calendars/target/)
-  - NYSE holiday calendar (https://www.nyse.com/markets/hours-calendars)
-  - Bank of England calendar (https://www.bankofengland.co.uk/boeapps/database/)
-  - JPX calendar (https://www.jpx.co.jp/english/corporate/calendar/)
+  - ECB TARGET2 official calendar (<https://www.ecb.europa.eu/press/calendars/target/>)
+  - NYSE holiday calendar (<https://www.nyse.com/markets/hours-calendars>)
+  - Bank of England calendar (<https://www.bankofengland.co.uk/boeapps/database/>)
+  - JPX calendar (<https://www.jpx.co.jp/english/corporate/calendar/>)
 - Legacy behavior comparison documented
 - Change log with version 1.0.0 baseline
 
 **Documentation** (`tests/golden/README.md`):
+
 - Test case format specification
 - Maintenance procedures
 - Calendar source references
@@ -384,11 +429,13 @@ This report summarizes the successful implementation of critical market conventi
 ### Performance Benchmarks
 
 **Infrastructure Created** (execution pending):
+
 - 3 benchmark suites (calibration, metrics, FX dates)
 - ~600 lines of benchmark code
 - All benchmarks compile successfully
 
 **Expected Thresholds**:
+
 - Calibration: <1% regression
 - Metrics: <5% overhead
 - FX settlement: <10% regression (justified by correctness)
@@ -398,6 +445,7 @@ This report summarizes the successful implementation of critical market conventi
 ### Test Execution Results
 
 **All Tests Pass**:
+
 ```bash
 # Core error tests
 cargo test --package finstack-core error
@@ -433,6 +481,7 @@ cargo test --package finstack-valuations calibration::targets::discount
 **Challenge**: The original audit noted apparent source corruption (Rust `..` rendered as `.` in concatenated code), which would have blocked implementation.
 
 **Resolution**:
+
 - Working directly from the actual repository resolved this issue
 - Git worktree provided clean, intact sources
 - No actual corruption found in repo
@@ -446,6 +495,7 @@ cargo test --package finstack-valuations calibration::targets::discount
 **Challenge**: User chose immediate breaking change (strict mode default) over gradual migration.
 
 **Decision Made**:
+
 - Made `compute()` default to strict mode immediately
 - Added `compute_best_effort()` for opt-in legacy behavior
 - Migration guide emphasizes proper error handling
@@ -459,6 +509,7 @@ cargo test --package finstack-valuations calibration::targets::discount
 **Challenge**: User chose `spread_decimal` (Option B) over recommended `spread_bp` (Option A).
 
 **Decision Made**:
+
 - Used `spread_decimal` field name (decimal representation: 0.0010 for 10bp)
 - Internal storage remains in basis points (`spread_bp`)
 - Conversion happens at builder layer
@@ -474,6 +525,7 @@ cargo test --package finstack-valuations calibration::targets::discount
 **Challenge**: Enabling `deny(clippy::expect_used)` surfaced 199 existing violations (164 expect on Result, 32 expect on Option, 2 panic).
 
 **Decision Made**:
+
 - Added temporary `#![allow(...)]` attributes with comprehensive documentation
 - Violations tracked and scheduled for remediation (target: 1.0.0)
 - New code cannot introduce violations (ratchet behavior)
@@ -481,6 +533,7 @@ cargo test --package finstack-valuations calibration::targets::discount
 **Trade-off**: Technical debt acknowledged and tracked vs. blocking release.
 
 **Mitigation**:
+
 - Clear remediation plan in `MIGRATION.md`
 - Violations categorized by module (~50 constructors, ~70 calibration, ~40 pricing, ~39 test/unreachable)
 - Gradual migration path defined
@@ -492,6 +545,7 @@ cargo test --package finstack-valuations calibration::targets::discount
 **Challenge**: Full benchmark runs require stable hardware and proper market data setup (e.g., OIS fixing series).
 
 **Decision Made**:
+
 - Created complete benchmark infrastructure (3 suites, ~600 lines)
 - Verified compilation and basic execution
 - Deferred full performance validation to later
@@ -499,6 +553,7 @@ cargo test --package finstack-valuations calibration::targets::discount
 **Trade-off**: Benchmark baselines not yet established.
 
 **Mitigation**:
+
 - Benchmarks compile and run (infrastructure validated)
 - Documentation provides clear instructions for full runs
 - Performance expectations documented in acceptance criteria
@@ -510,6 +565,7 @@ cargo test --package finstack-valuations calibration::targets::discount
 **Challenge**: Phase 3 integration & regression suite would have added 1-2 days to timeline.
 
 **Decision Made**:
+
 - Leveraged existing integration tests from Phases 1-2 (19 tests total)
 - Deferred comprehensive end-to-end regression suite to 0.9.0
 - Documented recommendation for future work
@@ -517,6 +573,7 @@ cargo test --package finstack-valuations calibration::targets::discount
 **Trade-off**: Less comprehensive regression coverage vs. meeting timeline.
 
 **Mitigation**:
+
 - Existing 19 integration tests cover all breaking changes
 - Golden reference files provide additional validation
 - Recommendation tracked for 0.9.0 roadmap
@@ -572,23 +629,27 @@ cargo test --package finstack-valuations calibration::targets::discount
 **None identified** - All breaking changes are intentional correctness fixes with clear migration paths.
 
 **Temporary State**:
+
 - 199 existing `expect`/`panic` violations tracked for remediation (internal only, no user impact)
 - Step 3.4 regression suite deferred to 0.9.0
 
 ### 4.4 Support Plan
 
 **Migration Resources**:
+
 1. **Decision Tree** (`MIGRATION_GUIDE.md`): Step-by-step migration planning
 2. **Code Examples**: 30+ before/after examples across all phases
 3. **FAQ**: 20+ common questions with solutions
 4. **Integration Tests**: 19 tests demonstrating correct usage patterns
 
 **Support Channels** (placeholders for actual project):
+
 - GitHub Issues: Bug reports and migration problems
 - GitHub Discussions: General questions and best practices
-- Email: support@finstack.dev (if applicable)
+- Email: <support@finstack.dev> (if applicable)
 
 **Post-Release Monitoring**:
+
 - Watch issue tracker for migration problems (first 2 weeks)
 - Update FAQ based on common user questions
 - Prepare 0.8.1 patch if critical issues found
@@ -659,9 +720,11 @@ cargo test --package finstack-valuations calibration::targets::discount
 ### By Crate
 
 **finstack-core** (1 file):
+
 - `src/error.rs` - Added 4 error variants + helpers + tests
 
 **finstack-valuations** (15 files):
+
 - `src/metrics/core/registry.rs` - Strict mode implementation
 - `src/metrics/core/ids.rs` - Strict parsing
 - `src/metrics/core/mod.rs` - Re-exports
@@ -681,14 +744,17 @@ cargo test --package finstack-valuations calibration::targets::discount
 - `benches/fx_dates.rs` - New FX benchmarks (282 lines)
 
 **finstack-py** (2 files):
+
 - `src/valuations/metrics/ids.rs` - parse_strict()
 - `src/valuations/calibration/quote.rs` - spread_decimal
 
 **finstack-wasm** (2 files):
+
 - `src/valuations/metrics/ids.rs` - parseStrict()
 - `src/valuations/calibration/quote.rs` - swapWithSpread()
 
 **Documentation** (7 files):
+
 - `MIGRATION_GUIDE.md` - 150+ KB migration guide
 - `CHANGELOG.md` - Workspace changelog
 - `RELEASE_NOTES_0.8.0.md` - Release notes
@@ -698,6 +764,7 @@ cargo test --package finstack-valuations calibration::targets::discount
 - `finstack/valuations/tests/golden/README.md` - Golden test docs
 
 **Golden Reference Files** (1 file):
+
 - `finstack/valuations/tests/golden/fx_spot_dates.json` - FX settlement reference
 
 **Total**: 23 source files + 8 documentation files + 1 golden file = 32 files
@@ -757,6 +824,7 @@ cargo test --package finstack-valuations calibration::targets::discount
 **Full Benchmark Runs**: ⏳ Pending (requires stable hardware + market data)
 
 **Expected Thresholds** (to be validated):
+
 - Calibration: <1% regression
 - Metrics strict mode: <5% overhead
 - FX settlement: <10% regression (justified)
@@ -793,6 +861,7 @@ cargo test --package finstack-valuations calibration::targets::discount
    - Check for any residual warnings
 
 4. **Tag Release**:
+
    ```bash
    git tag -a v0.8.0 -m "Release 0.8.0: Market convention compliance fixes"
    git push origin v0.8.0

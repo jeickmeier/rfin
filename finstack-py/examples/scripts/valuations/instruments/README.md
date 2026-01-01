@@ -149,6 +149,7 @@ maturin develop --release
 ### Market Data Errors
 
 If pricing fails with "Curve not found" or similar, verify:
+
 - Curve IDs match between instrument and market context
 - Discount curves exist for all required currencies
 - Forward curves exist for floating legs
@@ -157,6 +158,7 @@ If pricing fails with "Curve not found" or similar, verify:
 ### Numerical Issues
 
 If results differ from expected values:
+
 - Check day count conventions (Act/360 vs Act/365F)
 - Verify business day conventions (Following, Modified Following)
 - Ensure calendar IDs are valid (USNY, GBLO, etc.)

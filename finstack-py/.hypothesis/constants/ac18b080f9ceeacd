@@ -1,0 +1,4 @@
+# file: /Users/joneickmeier/projects/rfin/finstack-py/finstack/valuations/__init__.py
+# hypothesis_version: 6.148.8
+
+[0.0, 1e-12, 1.0, '3M', 'AmortizationType', 'CashFlowSchedule', 'DURATION_MOD', 'Deposit', 'MetricId', 'USD-OIS', 'ValuationResult', 'YTM', '_', 'atm_convention', 'black', 'calibration', 'cashflow', 'conventions', 'currency', 'curve_id', 'day_count', 'discount', 'discount_curve', 'discount_curve_id', 'duration_mod', 'end', 'get_discount', 'index', 'inflation', 'instruments', 'irs', 'kind', 'linear', 'lognormal', 'metrics', 'model', 'normal', 'notional', 'num_flows', 'observation_lag', 'present_value', 'pricer', 'quote_rate', 'results', 'start', 'swap_rate', 'swaption_vol', 'underlying_id', 'vol_convention', 'vol_surface', 'vol_type', 'ytm']

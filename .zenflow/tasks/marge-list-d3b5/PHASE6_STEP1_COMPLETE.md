@@ -7,9 +7,11 @@ Successfully implemented the `JsonEnvelope` trait in `finstack/valuations/src/at
 ## What Was Delivered
 
 ### 1. JsonEnvelope Trait (207 lines)
+
 **Location**: `finstack/valuations/src/attribution/types.rs:1061-1268`
 
 **Features**:
+
 - **Three default methods** with full implementations:
   - `from_json(&str) -> Result<Self>` - Parse from JSON string
   - `from_reader<R: Read>(R) -> Result<Self>` - Parse from reader (file/stream)
@@ -25,9 +27,11 @@ Successfully implemented the `JsonEnvelope` trait in `finstack/valuations/src/at
   - Implementors control error messages and categories
 
 ### 2. Comprehensive Documentation
+
 **Lines**: 1061-1133 (73 lines of documentation)
 
 **Includes**:
+
 - Module-level trait overview with rationale
 - Detailed method documentation with parameters, returns, errors
 - Multiple usage examples (basic usage, file I/O, error handling)
@@ -36,9 +40,11 @@ Successfully implemented the `JsonEnvelope` trait in `finstack/valuations/src/at
 - Complete type requirement documentation
 
 ### 3. Test Suite (8 tests, 196 lines)
+
 **Location**: `finstack/valuations/src/attribution/types.rs:1270-1464`
 
 **Test Coverage**:
+
 1. ✅ `test_json_envelope_roundtrip` - Serialize → deserialize cycle
 2. ✅ `test_json_envelope_from_reader` - Reader-based parsing
 3. ✅ `test_json_envelope_parse_error` - Invalid type conversion errors
@@ -53,6 +59,7 @@ Successfully implemented the `JsonEnvelope` trait in `finstack/valuations/src/at
 ## Verification Results
 
 ### Build and Test
+
 ```bash
 cargo build --lib                                # ✅ SUCCESS in 5.94s
 cargo test --lib attribution::types::json_envelope_tests  # ✅ 8/8 passed
@@ -60,6 +67,7 @@ cargo test --lib attribution                     # ✅ 77/77 passed
 ```
 
 ### Quality Checks
+
 ```bash
 cargo clippy --lib -- -D warnings                # ✅ ZERO warnings
 cargo doc --no-deps --lib                        # ✅ Documentation builds successfully
@@ -68,21 +76,25 @@ cargo doc --no-deps --lib                        # ✅ Documentation builds succ
 ## Key Design Decisions
 
 ### 1. Trait-Based Design
+
 - **Chosen**: Trait with default implementations
 - **Alternative**: Macro-based code generation
 - **Rationale**: Traits provide better IDE support, clearer error messages, and easier testing
 
 ### 2. Error Conversion Strategy
+
 - **Chosen**: Two abstract methods (`parse_error`, `serialize_error`)
 - **Alternative**: Generic error type
 - **Rationale**: Allows implementors to use domain-specific error types with custom messages/categories
 
 ### 3. Default Method Format
+
 - **Chosen**: Pretty-printed JSON via `serde_json::to_string_pretty`
 - **Alternative**: Compact JSON
 - **Rationale**: Consistency with existing envelope implementations; human-readable for debugging
 
 ### 4. Feature Gating
+
 - **Chosen**: `#[cfg(feature = "serde")]` on trait
 - **Alternative**: Always enabled
 - **Rationale**: Matches existing codebase pattern; allows serde-free builds
@@ -90,17 +102,20 @@ cargo doc --no-deps --lib                        # ✅ Documentation builds succ
 ## Impact Analysis
 
 ### Lines of Code
+
 - **Added**: 403 lines (207 trait + 196 tests)
 - **Future Savings**: ~30 lines per envelope type × 8 types = **240 lines**
 - **Net Reduction** (after Step 6.2): ~160 lines (40% reduction in envelope boilerplate)
 
 ### Benefits
+
 1. **Consistency**: All envelope types use identical serialization logic
 2. **Maintainability**: Single source of truth for JSON I/O patterns
 3. **Type Safety**: Compile-time guarantees via trait bounds
 4. **Ergonomics**: Implementors write 3 lines instead of ~30
 
 ### Performance
+
 - **Runtime**: Zero overhead (monomorphization inlines all calls)
 - **Compile Time**: Minimal impact (trait is simple with no generics beyond Self)
 
@@ -109,12 +124,14 @@ cargo doc --no-deps --lib                        # ✅ Documentation builds succ
 **Goal**: Implement trait for all existing envelope types
 
 **Target Types** (8 total):
+
 1. `AttributionEnvelope` (spec.rs)
 2. `AttributionResultEnvelope` (spec.rs)
 3. `PnlAttribution` (types.rs - via dataframe.rs)
 4. Additional envelope types to be identified during implementation
 
 **Expected Workflow**:
+
 1. Add `impl JsonEnvelope for Type` with error conversion methods
 2. Remove existing `from_json`, `from_reader`, `to_string/to_json` methods
 3. Verify tests pass unchanged (backward compatibility)
@@ -123,11 +140,13 @@ cargo doc --no-deps --lib                        # ✅ Documentation builds succ
 ## Files Modified
 
 ### Primary Implementation
+
 - `finstack/valuations/src/attribution/types.rs`
   - Lines 1061-1268: JsonEnvelope trait definition
   - Lines 1270-1464: Test suite
 
 ### Documentation Updates
+
 - `.zenflow/tasks/marge-list-d3b5/plan.md`
   - Marked Step 6.1 as complete with verification results
 
@@ -144,6 +163,7 @@ cargo doc --no-deps --lib                        # ✅ Documentation builds succ
 - ✅ Pretty-printing matches existing envelope patterns
 
 ## Completion Timestamp
+
 - **Date**: 2025-12-20
 - **Build Time**: 5.94s
 - **Test Time**: 12.81s (all tests)

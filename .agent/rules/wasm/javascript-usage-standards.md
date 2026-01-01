@@ -8,6 +8,7 @@ globs: *.tsx,*.ts,*.js
 ## Overview
 
 This document covers standards for JavaScript and TypeScript code that uses the rfin-wasm module, including:
+
 - Web applications
 - Node.js applications
 - Example code
@@ -17,6 +18,7 @@ This document covers standards for JavaScript and TypeScript code that uses the 
 ## Setup and Initialization
 
 ### Browser Setup
+
 ```javascript
 // ES Modules
 import init, { Currency, Money, Date } from './pkg/rfin_wasm.js';
@@ -35,6 +37,7 @@ initialize().catch(console.error);
 ```
 
 ### Node.js Setup
+
 ```javascript
 // CommonJS
 const { Currency, Money, Date } = require('./pkg-node/rfin_wasm.js');
@@ -44,6 +47,7 @@ const usd = new Currency("USD");
 ```
 
 ### TypeScript Setup
+
 ```typescript
 // types.d.ts or inline
 import type { Currency, Money, Date, DayCount } from './pkg/rfin_wasm';
@@ -59,6 +63,7 @@ async function createMoney(amount: number, currencyCode: string): Promise<Money>
 ## Import Patterns
 
 ### Recommended Import Structure
+
 ```javascript
 // Import init function and types
 import init, {
@@ -85,6 +90,7 @@ import init, {
 ```
 
 ### Avoid Global Scope Pollution
+
 ```javascript
 // Good: Import only what you need
 import { Currency, Money } from './pkg/rfin_wasm.js';
@@ -97,6 +103,7 @@ window.rfin = rfin; // Don't do this
 ## Type Construction
 
 ### Currency Creation
+
 ```javascript
 // Good: Direct construction
 const usd = new Currency("USD");
@@ -116,6 +123,7 @@ console.log(usd.decimals);     // 2
 ```
 
 ### Money Creation
+
 ```javascript
 // Create money instances
 const amount = new Money(1000.50, usd);
@@ -137,6 +145,7 @@ try {
 ```
 
 ### Date Creation
+
 ```javascript
 // Create dates (month is 1-based)
 const date = new Date(2023, 12, 25); // December 25, 2023
@@ -155,6 +164,7 @@ const nextBusinessDay = date.addBusinessDays(1);
 ## Error Handling
 
 ### Try-Catch Pattern
+
 ```javascript
 async function safeCurrencyOperation() {
     try {
@@ -170,6 +180,7 @@ async function safeCurrencyOperation() {
 ```
 
 ### Validation Before Operations
+
 ```javascript
 function addMoney(amount1, amount2) {
     // Validate inputs
@@ -191,6 +202,7 @@ function addMoney(amount1, amount2) {
 ## Enum Usage
 
 ### Frequency Enum
+
 ```javascript
 import { Frequency } from './pkg/rfin_wasm.js';
 
@@ -210,6 +222,7 @@ const bondConfig = {
 ```
 
 ### DayCount Static Methods
+
 ```javascript
 import { DayCount } from './pkg/rfin_wasm.js';
 
@@ -226,6 +239,7 @@ const days = act360.days(startDate, endDate);
 ## Complex Operations
 
 ### Schedule Generation
+
 ```javascript
 async function generatePaymentSchedule(config) {
     await init();
@@ -253,6 +267,7 @@ async function generatePaymentSchedule(config) {
 ```
 
 ### Fixed Rate Leg Creation
+
 ```javascript
 async function createBond(params) {
     await init();
@@ -290,6 +305,7 @@ async function createBond(params) {
 ## Memory Management
 
 ### Proper Cleanup
+
 ```javascript
 // WASM objects are automatically garbage collected
 // But avoid holding unnecessary references
@@ -316,6 +332,7 @@ class PortfolioManager {
 ```
 
 ### Avoid Memory Leaks
+
 ```javascript
 // Bad: Creating objects in loops without need
 function calculateTotal(amounts) {
@@ -340,6 +357,7 @@ function calculateTotalEfficient(amounts, currency) {
 ## TypeScript Best Practices
 
 ### Type Definitions
+
 ```typescript
 // Define interfaces for your domain objects
 interface BondParameters {
@@ -361,6 +379,7 @@ interface CashFlow {
 ```
 
 ### Generic Functions
+
 ```typescript
 // Type-safe wrappers
 function createMoney<T extends number>(
@@ -388,6 +407,7 @@ async function safeCurrencyCreation(code: string): Promise<Result<Currency>> {
 ## Testing
 
 ### Jest/Mocha Test Structure
+
 ```javascript
 import { beforeAll, describe, it, expect } from '@jest/globals';
 import init, { Currency, Money, Date } from '../pkg/rfin_wasm.js';
@@ -434,6 +454,7 @@ describe('Money Operations', () => {
 ```
 
 ### Browser Testing
+
 ```html
 <!DOCTYPE html>
 <html>
@@ -483,6 +504,7 @@ describe('Money Operations', () => {
 ## Performance Optimization
 
 ### Batch Operations
+
 ```javascript
 // Good: Process multiple items efficiently
 function calculatePortfolioValue(positions) {
@@ -512,6 +534,7 @@ function calculatePortfolioValue(positions) {
 ```
 
 ### Caching Instances
+
 ```javascript
 // Cache frequently used objects
 class CurrencyCache {
@@ -541,6 +564,7 @@ const eur = currencyCache.get('EUR');
 ## Framework Integration
 
 ### React Example
+
 ```jsx
 import React, { useState, useEffect } from 'react';
 import init, { Currency, Money } from './pkg/rfin_wasm.js';
@@ -596,6 +620,7 @@ function MoneyCalculator() {
 ```
 
 ### Vue.js Example
+
 ```vue
 <template>
   <div>
@@ -650,6 +675,7 @@ export default {
 ## Documentation
 
 ### JSDoc Comments
+
 ```javascript
 /**
  * Calculate the present value of a bond.
@@ -683,6 +709,7 @@ async function calculateBondPV(params) {
 ## Common Patterns
 
 ### Builder Pattern
+
 ```javascript
 class BondBuilder {
     constructor() {
@@ -752,6 +779,7 @@ const bond = new BondBuilder()
 ```
 
 ### Factory Functions
+
 ```javascript
 // Currency factory with validation
 function createCurrency(code) {
@@ -805,6 +833,7 @@ initialize().catch(console.error);
 ```
 
 ### Node.js Setup
+
 ```javascript
 // CommonJS
 const { Currency, Money, Date } = require('./pkg-node/rfin_wasm.js');
@@ -814,6 +843,7 @@ const usd = new Currency("USD");
 ```
 
 ### TypeScript Setup
+
 ```typescript
 // types.d.ts or inline
 import type { Currency, Money, Date, DayCount } from './pkg/rfin_wasm';
@@ -829,6 +859,7 @@ async function createMoney(amount: number, currencyCode: string): Promise<Money>
 ## Import Patterns
 
 ### Recommended Import Structure
+
 ```javascript
 // Import init function and types
 import init, {
@@ -855,6 +886,7 @@ import init, {
 ```
 
 ### Avoid Global Scope Pollution
+
 ```javascript
 // Good: Import only what you need
 import { Currency, Money } from './pkg/rfin_wasm.js';
@@ -867,6 +899,7 @@ window.rfin = rfin; // Don't do this
 ## Type Construction
 
 ### Currency Creation
+
 ```javascript
 // Good: Direct construction
 const usd = new Currency("USD");
@@ -886,6 +919,7 @@ console.log(usd.decimals);     // 2
 ```
 
 ### Money Creation
+
 ```javascript
 // Create money instances
 const amount = new Money(1000.50, usd);
@@ -907,6 +941,7 @@ try {
 ```
 
 ### Date Creation
+
 ```javascript
 // Create dates (month is 1-based)
 const date = new Date(2023, 12, 25); // December 25, 2023
@@ -925,6 +960,7 @@ const nextBusinessDay = date.addBusinessDays(1);
 ## Error Handling
 
 ### Try-Catch Pattern
+
 ```javascript
 async function safeCurrencyOperation() {
     try {
@@ -940,6 +976,7 @@ async function safeCurrencyOperation() {
 ```
 
 ### Validation Before Operations
+
 ```javascript
 function addMoney(amount1, amount2) {
     // Validate inputs
@@ -961,6 +998,7 @@ function addMoney(amount1, amount2) {
 ## Enum Usage
 
 ### Frequency Enum
+
 ```javascript
 import { Frequency } from './pkg/rfin_wasm.js';
 
@@ -980,6 +1018,7 @@ const bondConfig = {
 ```
 
 ### DayCount Static Methods
+
 ```javascript
 import { DayCount } from './pkg/rfin_wasm.js';
 
@@ -996,6 +1035,7 @@ const days = act360.days(startDate, endDate);
 ## Complex Operations
 
 ### Schedule Generation
+
 ```javascript
 async function generatePaymentSchedule(config) {
     await init();
@@ -1023,6 +1063,7 @@ async function generatePaymentSchedule(config) {
 ```
 
 ### Fixed Rate Leg Creation
+
 ```javascript
 async function createBond(params) {
     await init();
@@ -1060,6 +1101,7 @@ async function createBond(params) {
 ## Memory Management
 
 ### Proper Cleanup
+
 ```javascript
 // WASM objects are automatically garbage collected
 // But avoid holding unnecessary references
@@ -1086,6 +1128,7 @@ class PortfolioManager {
 ```
 
 ### Avoid Memory Leaks
+
 ```javascript
 // Bad: Creating objects in loops without need
 function calculateTotal(amounts) {
@@ -1110,6 +1153,7 @@ function calculateTotalEfficient(amounts, currency) {
 ## TypeScript Best Practices
 
 ### Type Definitions
+
 ```typescript
 // Define interfaces for your domain objects
 interface BondParameters {
@@ -1131,6 +1175,7 @@ interface CashFlow {
 ```
 
 ### Generic Functions
+
 ```typescript
 // Type-safe wrappers
 function createMoney<T extends number>(
@@ -1158,6 +1203,7 @@ async function safeCurrencyCreation(code: string): Promise<Result<Currency>> {
 ## Testing
 
 ### Jest/Mocha Test Structure
+
 ```javascript
 import { beforeAll, describe, it, expect } from '@jest/globals';
 import init, { Currency, Money, Date } from '../pkg/rfin_wasm.js';
@@ -1204,6 +1250,7 @@ describe('Money Operations', () => {
 ```
 
 ### Browser Testing
+
 ```html
 <!DOCTYPE html>
 <html>
@@ -1253,6 +1300,7 @@ describe('Money Operations', () => {
 ## Performance Optimization
 
 ### Batch Operations
+
 ```javascript
 // Good: Process multiple items efficiently
 function calculatePortfolioValue(positions) {
@@ -1282,6 +1330,7 @@ function calculatePortfolioValue(positions) {
 ```
 
 ### Caching Instances
+
 ```javascript
 // Cache frequently used objects
 class CurrencyCache {
@@ -1311,6 +1360,7 @@ const eur = currencyCache.get('EUR');
 ## Framework Integration
 
 ### React Example
+
 ```jsx
 import React, { useState, useEffect } from 'react';
 import init, { Currency, Money } from './pkg/rfin_wasm.js';
@@ -1366,6 +1416,7 @@ function MoneyCalculator() {
 ```
 
 ### Vue.js Example
+
 ```vue
 <template>
   <div>
@@ -1420,6 +1471,7 @@ export default {
 ## Documentation
 
 ### JSDoc Comments
+
 ```javascript
 /**
  * Calculate the present value of a bond.
@@ -1453,6 +1505,7 @@ async function calculateBondPV(params) {
 ## Common Patterns
 
 ### Builder Pattern
+
 ```javascript
 class BondBuilder {
     constructor() {
@@ -1522,6 +1575,7 @@ const bond = new BondBuilder()
 ```
 
 ### Factory Functions
+
 ```javascript
 // Currency factory with validation
 function createCurrency(code) {

@@ -5,6 +5,7 @@
 **Difficulty**: **HARD**
 
 **Rationale**:
+
 - Significant architectural refactoring across 10+ files and 3 crates
 - High risk of introducing regressions in critical pricing/attribution code
 - Requires maintaining backward compatibility while consolidating abstractions
@@ -13,6 +14,7 @@
 - Need to coordinate changes across Rust core, WASM, and Python bindings
 
 **Estimated Impact**:
+
 - ~600+ lines of duplicated code to consolidate
 - 15+ functions to refactor or eliminate
 - 6 new traits/abstractions to introduce
@@ -23,6 +25,7 @@
 ## Technical Context
 
 ### Language & Dependencies
+
 - **Primary Language**: Rust (2021 edition)
 - **Affected Crates**:
   - `finstack-valuations` (primary target)
@@ -36,6 +39,7 @@
   - Standard library traits (Default, Clone, Debug)
 
 ### Architecture Patterns
+
 - **Trait-based polymorphism** for extraction/restoration
 - **Bitflags** for type-safe combination of restore options
 - **Enum-based dispatch** for payoff and allocation strategies
@@ -47,17 +51,21 @@
 ## Implementation Approach
 
 ### Phase 1: Market Data Curve Restoration (Highest Priority)
+
 **Impact**: 327 lines → ~80 lines (75% reduction)
 **Files**: `finstack/valuations/src/attribution/factors.rs`
 
 #### Current State
+
 Four nearly-identical functions (~80 lines each):
+
 - `restore_rates_curves()`
 - `restore_credit_curves()`
 - `restore_inflation_curves()`
 - `restore_correlations()`
 
 Each manually:
+
 1. Creates new MarketContext
 2. Iterates curve_ids() with 4-5 if-let branches
 3. Selectively copies non-restored curves
@@ -65,6 +73,7 @@ Each manually:
 5. Copies FX, surfaces, scalars
 
 #### Target State
+
 Single unified implementation using bitflags:
 
 ```rust
@@ -114,6 +123,7 @@ pub fn restore_rates_curves(market: &MarketContext, snapshot: &RatesCurvesSnapsh
 ```
 
 **Benefits**:
+
 - Single source of truth for curve restoration logic
 - Type-safe combinations (e.g., RATES | CREDIT)
 - Extensible for future curve types
@@ -122,15 +132,19 @@ pub fn restore_rates_curves(market: &MarketContext, snapshot: &RatesCurvesSnapsh
 ---
 
 ### Phase 2: Monte Carlo Payoff Consolidation
+
 **Impact**: ~150 lines → ~50 lines per pair (66% reduction)
 **Files**:
+
 - `finstack/valuations/src/instruments/common/models/monte_carlo/payoff/rates.rs`
 - `finstack/valuations/src/instruments/common/models/monte_carlo/payoff/lookback.rs`
 
 #### 2.1 Cap/Floor Payoff Merge
+
 **Current**: Two 95% identical structs (CapPayoff, FloorPayoff)
 
 **Target**:
+
 ```rust
 pub enum RatesPayoffType {
     Cap,
@@ -162,9 +176,11 @@ impl Payoff for RatesPayoff {
 ```
 
 #### 2.2 Lookback Call/Put Merge
+
 **Current**: Two similar structs with opposite min/max tracking
 
 **Target**:
+
 ```rust
 pub enum LookbackDirection {
     Call,
@@ -209,13 +225,16 @@ impl Payoff for Lookback {
 ---
 
 ### Phase 3: Parameter Reduction via Context Structs
+
 **Impact**: 15-parameter functions → 2-parameter functions
 **Files**: `finstack/valuations/src/instruments/structured_credit/pricing/waterfall.rs`
 
 #### 3.1 Waterfall Allocation Context
+
 **Current**: `allocate_pro_rata()` and `allocate_sequential()` take 15 parameters
 
 **Target**:
+
 ```rust
 pub struct AllocationContext<'a> {
     pub base_currency: Currency,
@@ -245,15 +264,18 @@ fn allocate_pro_rata(
 ```
 
 **Benefits**:
+
 - Self-documenting parameter groups
 - Easy to extend without breaking signatures
 - Clear separation of inputs vs outputs
 - Enables partial application and testing
 
 #### 3.2 Attribution Context
+
 **Current**: `attribute_pnl_parallel()` and similar take 7+ mixed parameters
 
 **Target**:
+
 ```rust
 pub struct AttributionInput<'a> {
     pub instrument: &'a Arc<dyn Instrument>,
@@ -280,11 +302,14 @@ pub fn attribute_pnl(
 ---
 
 ### Phase 4: Trait-Based Market Data Extraction
+
 **Impact**: 6 functions → 1 generic + 6 trait impls
 **Files**: `finstack/valuations/src/attribution/factors.rs`
 
 #### Current State
+
 Six similar functions:
+
 - `extract_rates_curves()`
 - `extract_credit_curves()`
 - `extract_inflation_curves()`
@@ -293,6 +318,7 @@ Six similar functions:
 - `extract_scalars()`
 
 #### Target State
+
 ```rust
 pub trait MarketExtractable: Sized {
     fn extract(market: &MarketContext) -> Self;
@@ -317,6 +343,7 @@ pub fn extract<T: MarketExtractable>(market: &MarketContext) -> T {
 ```
 
 **Benefits**:
+
 - Uniform interface for all extraction types
 - Easy to add new snapshot types
 - Type inference: `let snapshot = extract::<RatesCurvesSnapshot>(market);`
@@ -324,16 +351,20 @@ pub fn extract<T: MarketExtractable>(market: &MarketContext) -> T {
 ---
 
 ### Phase 5: Waterfall Execution Unification
+
 **Impact**: 200+ duplicate lines → single implementation
 **Files**: `finstack/valuations/src/instruments/structured_credit/pricing/waterfall.rs`
 
 #### Current State
+
 Three functions with ~150 lines of identical logic:
+
 - `execute_waterfall()`
 - `execute_waterfall_with_explanation()`
 - `execute_waterfall_with_workspace()`
 
 #### Target State
+
 ```rust
 pub fn execute_waterfall_core(
     waterfall: &Waterfall,
@@ -360,10 +391,12 @@ pub fn execute_waterfall_with_workspace(...) -> Result<WaterfallDistribution> {
 ---
 
 ### Phase 6: JSON Envelope Boilerplate (Lower Priority)
+
 **Impact**: Eliminate ~30 lines per envelope type (8+ types)
 **Files**: Multiple envelope types across `finstack/valuations/src/attribution/`
 
 #### Target State
+
 ```rust
 pub trait JsonEnvelope: Sized + Serialize + DeserializeOwned {
     fn from_json(json: &str) -> Result<Self> {
@@ -399,9 +432,11 @@ impl JsonEnvelope for AttributionEnvelope {
 ## Source Code Structure Changes
 
 ### New Files
+
 1. **None** - All changes are refactorings within existing files
 
 ### Modified Files (Priority Order)
+
 1. ✅ **HIGH PRIORITY**:
    - `finstack/valuations/src/attribution/factors.rs`
      - Add CurveRestoreFlags bitflags
@@ -439,7 +474,9 @@ impl JsonEnvelope for AttributionEnvelope {
      - Implement for all envelope types
 
 ### Cargo.toml Changes
+
 Add to `finstack-valuations/Cargo.toml`:
+
 ```toml
 [dependencies]
 bitflags = "2.4"  # For CurveRestoreFlags
@@ -450,9 +487,11 @@ bitflags = "2.4"  # For CurveRestoreFlags
 ## Data Model / API Changes
 
 ### Breaking Changes (Require Major Version Bump)
+
 **NONE** - All refactorings maintain backward compatibility via wrapper functions.
 
 ### Backward-Compatible Additions
+
 1. **New Public Types**:
    - `CurveRestoreFlags` (bitflags)
    - `MarketSnapshot` (unified snapshot)
@@ -470,6 +509,7 @@ bitflags = "2.4"  # For CurveRestoreFlags
    - Existing standalone extraction functions (become trait methods)
 
 ### API Stability Guarantees
+
 - **Old functions remain**: All existing public functions kept as wrappers
 - **Semantic equivalence**: Wrappers produce identical results to original implementations
 - **Deprecation warnings**: Add `#[deprecated]` attributes with migration guidance
@@ -480,12 +520,15 @@ bitflags = "2.4"  # For CurveRestoreFlags
 ## Verification Approach
 
 ### 1. Unit Tests (Per Phase)
+
 Each refactoring phase must include:
+
 - **Equivalence tests**: Verify new implementation matches old behavior exactly
 - **Edge case tests**: Empty markets, missing curves, zero notionals, etc.
 - **Performance tests**: Ensure no regression in hot paths
 
 **Example Test Structure**:
+
 ```rust
 #[cfg(test)]
 mod tests {
@@ -514,17 +557,21 @@ mod tests {
 ```
 
 ### 2. Integration Tests
+
 - **Attribution tests**: Run full P&L attribution on complex portfolios
 - **Waterfall tests**: Execute structured credit waterfalls with actual data
 - **Monte Carlo tests**: Price exotic options with both old and new payoffs
 
 Test data sources:
+
 - Existing test fixtures in `finstack/valuations/tests/`
 - Golden outputs from production runs
 - Edge cases from historical bugs
 
 ### 3. Benchmark Verification
+
 Run existing benchmarks to ensure no performance regression:
+
 ```bash
 cd finstack/valuations
 cargo bench --bench attribution
@@ -535,6 +582,7 @@ cargo bench --bench waterfall
 **Acceptance Criteria**: No more than 5% regression in any benchmark.
 
 ### 4. Lint and Type Checking
+
 ```bash
 make lint-rust
 make test-rust
@@ -543,12 +591,14 @@ cargo doc --no-deps --document-private-items
 ```
 
 **Must pass**:
+
 - Zero clippy warnings
 - Zero failing tests
 - All documentation builds
 - No new unsafe code
 
 ### 5. Manual Verification Checklist
+
 - [ ] WASM bindings build successfully
 - [ ] Python bindings build and import
 - [ ] Example notebooks run unchanged
@@ -562,24 +612,30 @@ cargo doc --no-deps --document-private-items
 ### High-Risk Areas
 
 #### 1. Market Data Restoration (Phase 1)
+
 **Risk**: Attribution P&L calculations depend on precise curve restoration
 **Mitigation**:
+
 - Extensive unit tests for each curve type combination
 - Integration tests with real market data
 - Golden file tests comparing old vs new outputs
 - Gradual rollout: Keep old functions as non-deprecated fallbacks initially
 
 #### 2. Monte Carlo Payoffs (Phase 2)
+
 **Risk**: Pricing errors could propagate to production valuations
 **Mitigation**:
+
 - Property-based tests (quickcheck) for payoff symmetries
 - Compare against analytical formulas where available
 - Run side-by-side with old implementation for 1 sprint before deprecation
 - Extra scrutiny in code review from quant team
 
 #### 3. Waterfall Allocation (Phase 3)
+
 **Risk**: Cash distribution errors in structured credit products
 **Mitigation**:
+
 - Test with actual deal structures from production
 - Verify sum of distributions equals available amount (conservation)
 - Check against external waterfall calculators (Excel, Bloomberg)
@@ -588,15 +644,19 @@ cargo doc --no-deps --document-private-items
 ### Medium-Risk Areas
 
 #### 4. Parameter Context Structs (Phase 3)
+
 **Risk**: Accidentally changing semantics during restructuring
 **Mitigation**:
+
 - Keep internal implementation identical initially
 - Use compiler to ensure all fields are preserved
 - Add #[non_exhaustive] to allow future extensions without breaking changes
 
 #### 5. Trait Abstractions (Phase 4, 6)
+
 **Risk**: Over-engineering or future extensibility issues
 **Mitigation**:
+
 - Keep traits simple and focused
 - Document intended use cases and extension points
 - Don't over-generalize beyond current needs
@@ -606,23 +666,27 @@ cargo doc --no-deps --document-private-items
 ## Rollout Strategy
 
 ### Stage 1: Internal Refactoring (Week 1-2)
+
 - Implement unified abstractions
 - Keep old functions as primary public API
 - New functions marked as `#[doc(hidden)]` or in private submodules
 - Full test coverage before exposing
 
 ### Stage 2: Soft Launch (Week 3)
+
 - Expose new APIs in public docs
 - Mark old functions as "soft deprecated" (no compiler warning yet)
 - Update examples to use new APIs
 - Monitor usage in internal projects
 
 ### Stage 3: Deprecation (Week 4-5)
+
 - Add `#[deprecated]` attributes with migration guidance
 - Update all internal code to use new APIs
 - Release as minor version bump (backward compatible)
 
 ### Stage 4: Removal (Future Major Version)
+
 - Remove deprecated wrapper functions
 - Clean up any transitional code
 - Major version bump
@@ -632,6 +696,7 @@ cargo doc --no-deps --document-private-items
 ## Success Criteria
 
 ### Quantitative Metrics
+
 - ✅ Reduce duplication by 500+ lines (from ~600 duplicate lines)
 - ✅ Reduce parameter counts from 15+ to 2-3 in waterfall functions
 - ✅ Zero test failures
@@ -640,6 +705,7 @@ cargo doc --no-deps --document-private-items
 - ✅ 100% backward compatibility (all old APIs still work)
 
 ### Qualitative Goals
+
 - ✅ Code is easier to understand and maintain
 - ✅ Adding new curve types requires minimal boilerplate
 - ✅ Parameter context structs improve readability
@@ -651,13 +717,16 @@ cargo doc --no-deps --document-private-items
 ## Dependencies and Blockers
 
 ### Internal Dependencies
+
 - None - this is a pure refactoring within finstack-valuations
 
 ### External Dependencies
+
 - `bitflags = "2.4"` - Well-established, stable crate
 - No breaking changes to finstack-core required
 
 ### Potential Blockers
+
 1. **Test data availability**: Need real market scenarios for validation
    - **Mitigation**: Use existing test fixtures, generate synthetic data if needed
 
@@ -703,6 +772,7 @@ After spec approval:
 4. **Iterate based on feedback** before proceeding to subsequent phases
 
 **Estimated Timeline** (with 1 engineer, full-time):
+
 - Phase 1 (Curve Restoration): 3-4 days
 - Phase 2 (Monte Carlo Payoffs): 2-3 days
 - Phase 3 (Parameter Contexts): 3-4 days

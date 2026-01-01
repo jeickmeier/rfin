@@ -40,6 +40,7 @@ scenario = ScenarioSpec.from_dsl("""
 ### Supported DSL Syntax
 
 **Curve Shifts**:
+
 - `shift <CURVE_ID> +/-<VALUE>bp` - Default (discount) curve
 - `shift discount <CURVE_ID> +/-<VALUE>bp` - Discount curve
 - `shift forward <CURVE_ID> +/-<VALUE>bp` - Forward curve
@@ -47,23 +48,29 @@ scenario = ScenarioSpec.from_dsl("""
 - `shift inflation <CURVE_ID> +/-<VALUE>bp` - Inflation curve
 
 **Equity Shocks**:
+
 - `shift equities +/-<VALUE>%` - All equities
 - `shift equity <ID> +/-<VALUE>%` - Single equity
 
 **FX Shocks**:
+
 - `shift fx <BASE>/<QUOTE> +/-<VALUE>%` - FX rate
 
 **Vol Shocks**:
+
 - `shift vol <ID> +/-<VALUE>%` - Vol surface
 
 **Time Operations**:
+
 - `roll forward <VALUE><UNIT>` - Roll forward (1d, 1w, 1m, 3m, 1y)
 
 **Statement Operations**:
+
 - `adjust <NODE_ID> +/-<VALUE>%` - Forecast percent change
 - `set <NODE_ID> <VALUE>` - Forecast assignment
 
 **Features**:
+
 - Case-insensitive
 - Comments with `#`
 - Operations separated by semicolons or newlines
@@ -95,11 +102,13 @@ spec = (
 ### Builder Methods
 
 **Metadata**:
+
 - `.name(str)` - Set display name
 - `.description(str)` - Set description
 - `.priority(int)` - Set composition priority
 
 **Curve Operations**:
+
 - `.shift_curve(id, bp, kind)` - Generic curve shift
 - `.shift_discount_curve(id, bp)` - Discount curve
 - `.shift_forward_curve(id, bp)` - Forward curve
@@ -107,22 +116,28 @@ spec = (
 - `.shift_inflation_curve(id, bp)` - Inflation curve
 
 **Equity Operations**:
+
 - `.shift_equities(pct, ids)` - Equity price shock
 
 **FX Operations**:
+
 - `.shift_fx(base, quote, pct)` - FX rate shock
 
 **Vol Operations**:
+
 - `.shift_vol_surface(id, pct, kind)` - Vol surface shock
 
 **Time Operations**:
+
 - `.roll_forward(period)` - Time roll-forward
 
 **Statement Operations**:
+
 - `.adjust_forecast(node_id, pct, period_id)` - Forecast percent change
 - `.set_forecast(node_id, value, period_id)` - Forecast assignment
 
 **Build**:
+
 - `.build()` - Construct final `ScenarioSpec`
 
 ## Running Examples

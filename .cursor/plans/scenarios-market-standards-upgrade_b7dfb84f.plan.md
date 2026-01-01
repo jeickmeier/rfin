@@ -93,7 +93,7 @@ todos:
 - Attribute keys/values case sensitivity, AND vs OR semantics, and treatment of missing attributes.
 - **4.2 Implement attribute-based filtering**
 - Implement `apply_instrument_attr_price_shock` and `apply_instrument_attr_spread_shock` in [`finstack/scenarios/src/adapters/instruments.rs`](finstack/scenarios/src/adapters/instruments.rs) to:
-- Iterate over `&mut [Box<dyn Instrument>] `and use instrument attributes metadata to select matches based on the specified `IndexMap<String, String>`.
+- Iterate over `&mut [Box<dyn Instrument>]`and use instrument attributes metadata to select matches based on the specified `IndexMap<String, String>`.
 - Apply shocks via `scenario_overrides_mut` when available, falling back to metadata tags (consistent with type-based shocks).
 - Simplify the engine’s attr-handling path in [`finstack/scenarios/src/engine.rs`](finstack/scenarios/src/engine.rs) by removing the `empty_instruments` fallback and treating missing instruments as a clear error or warning.
 - **4.3 Tests and consistency**

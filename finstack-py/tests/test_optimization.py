@@ -9,7 +9,6 @@ Tests cover:
 """
 
 from finstack.valuations.metrics import MetricId
-import pytest
 
 from finstack.portfolio import (
     Constraint,
@@ -220,40 +219,6 @@ def test_constraint_budget() -> None:
 # ===========================
 # 5. Helper Function Test
 # ===========================
-
-
-@pytest.mark.skip(reason="Requires full market setup with Bond instruments")
-def test_optimize_max_yield_with_ccc_limit_helper() -> None:
-    """Test the optimize_max_yield_with_ccc_limit helper function."""
-    # This test requires a complete setup with:
-    # - Portfolio with bond instruments that have YTM metric
-    # - MarketContext with discount curves
-    # - Positions tagged with ratings
-    #
-    # Skip for now as it's a high-level integration test
-
-
-# ===========================
-# 6. Full Optimization Workflow Test
-# ===========================
-
-
-@pytest.mark.skip(reason="Requires full market setup")
-def test_full_optimization_workflow() -> None:
-    """Test complete optimization workflow from problem construction to trade list."""
-    # This would test:
-    # 1. Create portfolio with multiple bond positions
-    # 2. Set up market context with discount curves
-    # 3. Define objective (maximize YTM)
-    # 4. Add constraints (CCC limit, duration limit, turnover limit)
-    # 5. Create optimization problem
-    # 6. Solve problem
-    # 7. Extract results
-    # 8. Generate trade list
-    # 9. Verify binding constraints
-    # 10. Calculate turnover
-    #
-    # Skip for now as it requires extensive setup
 
 
 # ===========================

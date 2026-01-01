@@ -11,6 +11,7 @@ Property tests complement unit tests by automatically generating hundreds of tes
 ### 1. Currency Safety Properties (`test_currency_safety_properties.py`)
 
 **Invariants Tested:**
+
 - **Same-currency operations never raise**: Adding/subtracting Money with same currency always succeeds
 - **Cross-currency operations raise**: Adding/subtracting Money with different currencies always raises
 - **Currency preservation**: Operations preserve currency through transformations
@@ -27,6 +28,7 @@ Currency safety is critical in financial systems. These tests ensure that cross-
 ### 2. Pricing Determinism Properties (`test_pricing_determinism_properties.py`)
 
 **Invariants Tested:**
+
 - **Pricing reproducibility**: Pricing the same instrument twice yields identical results
 - **Order independence**: Order of pricing multiple instruments doesn't affect individual results
 - **Market context reusability**: Same market context can be used for multiple pricings
@@ -40,6 +42,7 @@ Determinism is essential for reproducible risk reports, trade confirmations, and
 ### 3. Curve Reversibility Properties (`test_curve_reversibility_properties.py`)
 
 **Invariants Tested:**
+
 - **Bump reversibility**: Bumping curve up then down restores original
 - **Symmetric bumps cancel**: `bump(+x)` then `bump(-x)` is identity
 - **Multiple cycle stability**: Multiple bump-unbump cycles don't accumulate errors
@@ -54,6 +57,7 @@ Curve bumping is fundamental to risk calculations (DV01, CS01). These tests ensu
 ### 4. Monotonicity Properties (`test_monotonicity_properties.py`)
 
 **Invariants Tested:**
+
 - **Discount rate monotonicity**: Higher discount rate → lower PV
 - **Coupon rate monotonicity**: Higher coupon → higher PV
 - **Maturity monotonicity**: Longer maturity → more accrued interest
@@ -100,6 +104,7 @@ pytest finstack-py/tests/properties/ -v --hypothesis-show-statistics
 ## Hypothesis Configuration
 
 The tests use the following default settings:
+
 - **max_examples**: 30-50 per test (can be increased for stress testing)
 - **deadline**: None (allows tests to run without time limits)
 - **suppress_health_check**: Disabled for most tests
@@ -107,6 +112,7 @@ The tests use the following default settings:
 ## Test Coverage Statistics
 
 Each test module generates:
+
 - **Currency Safety**: 25+ property tests, 100+ examples per test
 - **Pricing Determinism**: 15+ property tests, 30-50 examples per test
 - **Curve Reversibility**: 15+ property tests, 20-30 examples per test
@@ -176,6 +182,7 @@ def test_scalar_division_preserves_currency(self, money, divisor):
 ## Integration with CI/CD
 
 Property tests are part of the standard test suite and run automatically on:
+
 - Pull requests
 - Main branch commits
 - Scheduled nightly builds (with increased `max_examples`)
@@ -183,6 +190,7 @@ Property tests are part of the standard test suite and run automatically on:
 ## Future Enhancements
 
 Planned additions:
+
 - **Statement evaluation properties**: Determinism, commutativity of node evaluation
 - **Scenario composition properties**: Associativity, identity
 - **Portfolio aggregation properties**: Commutativity, currency safety
@@ -197,6 +205,7 @@ Planned additions:
 ## Contributing
 
 When adding new property tests:
+
 1. Identify mathematical invariants that should hold
 2. Write clear test docstrings explaining the property
 3. Use appropriate Hypothesis strategies for input generation

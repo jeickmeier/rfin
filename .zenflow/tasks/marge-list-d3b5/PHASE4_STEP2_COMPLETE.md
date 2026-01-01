@@ -20,6 +20,7 @@ impl MarketExtractable for ScalarsSnapshot { ... }
 ```
 
 **Implementation Details**:
+
 - Each trait method contains the complete extraction logic previously in standalone functions
 - Logic is identical to original implementations - no behavioral changes
 - Extraction patterns match existing test helper functions
@@ -30,6 +31,7 @@ impl MarketExtractable for ScalarsSnapshot { ... }
 Converted six extraction functions into thin wrappers:
 
 **Before** (per function):
+
 ```rust
 pub fn extract_rates_curves(market: &MarketContext) -> RatesCurvesSnapshot {
     let mut discount_curves = HashMap::new();
@@ -40,6 +42,7 @@ pub fn extract_rates_curves(market: &MarketContext) -> RatesCurvesSnapshot {
 ```
 
 **After** (per function):
+
 ```rust
 pub fn extract_rates_curves(market: &MarketContext) -> RatesCurvesSnapshot {
     RatesCurvesSnapshot::extract(market)
@@ -47,6 +50,7 @@ pub fn extract_rates_curves(market: &MarketContext) -> RatesCurvesSnapshot {
 ```
 
 **Impact**:
+
 - Reduced from ~110 lines total to ~6 lines (one per function)
 - 104 lines eliminated through trait delegation
 - Maintained backward compatibility - all existing call sites work unchanged
@@ -67,6 +71,7 @@ Added 9 new tests validating trait behavior:
 9. **`test_market_extractable_multiple_curves`**: Tests extraction with multiple curves of mixed types
 
 **Test Coverage**:
+
 - Individual snapshot type extraction
 - Generic `extract::<T>()` function with type inference
 - Equivalence between trait and function approaches
@@ -76,6 +81,7 @@ Added 9 new tests validating trait behavior:
 ### 4. Test Patterns
 
 Tests follow existing patterns from the codebase:
+
 - Use existing test helper functions (`create_test_discount_curve`, etc.)
 - Match API usage patterns from existing tests
 - Leverage builder patterns correctly (e.g., `ForwardCurve::builder("USD-SOFR", 0.25)`)
@@ -85,15 +91,18 @@ Tests follow existing patterns from the codebase:
 ## Test Results
 
 ### Before Changes
+
 - 31 tests passing (from Phase 4 Step 1)
 
 ### After Changes
+
 - **40 tests passing** (31 existing + 9 new)
 - Zero test failures
 - Zero clippy warnings
 - All existing behavior preserved
 
 **Verification Command**:
+
 ```bash
 cargo test --lib attribution::factors
 # Output: test result: ok. 40 passed; 0 failed; 0 ignored; 0 measured
@@ -102,11 +111,13 @@ cargo test --lib attribution::factors
 ## Code Metrics
 
 ### Lines of Code
+
 - **Before**: ~110 lines of extraction function implementations
 - **After**: ~6 lines (thin wrappers) + ~98 lines (trait impls)
 - **Net Change**: Similar total, but better organized and extensible
 
 ### Duplication Reduction
+
 - Eliminated 6 nearly-identical 15-20 line functions
 - Replaced with single unified trait pattern
 - All extraction logic now lives in trait implementations
@@ -115,21 +126,25 @@ cargo test --lib attribution::factors
 ## Benefits
 
 ### 1. Type Safety
+
 - Generic `extract::<T>()` function enables type-driven extraction
 - Type inference eliminates need for explicit type annotations
 - Compile-time verification of snapshot type compatibility
 
 ### 2. Extensibility
+
 - Easy to add new snapshot types - just implement the trait
 - Consistent pattern for all market data extraction
 - Single trait definition documents extraction contract
 
 ### 3. Consistency
+
 - All snapshot types follow the same extraction pattern
 - Uniform API across different market data categories
 - Clear separation between "what to extract" (trait) and "how to call it" (functions)
 
 ### 4. Backward Compatibility
+
 - All existing code continues to work unchanged
 - Function-based API remains available
 - Gradual migration path for users
@@ -137,11 +152,13 @@ cargo test --lib attribution::factors
 ## API Examples
 
 ### Using the Trait Directly
+
 ```rust
 let snapshot = RatesCurvesSnapshot::extract(&market);
 ```
 
 ### Using the Generic Function
+
 ```rust
 let snapshot: RatesCurvesSnapshot = extract(&market);
 // Or with turbofish syntax:
@@ -149,6 +166,7 @@ let snapshot = extract::<RatesCurvesSnapshot>(&market);
 ```
 
 ### Using Legacy Functions (Still Supported)
+
 ```rust
 let snapshot = extract_rates_curves(&market);
 ```
@@ -156,6 +174,7 @@ let snapshot = extract_rates_curves(&market);
 ## Next Steps (Step 4.3)
 
 The following will complete Phase 4:
+
 1. Update call sites to use new trait-based approach
 2. Mark old functions as `#[deprecated]` with migration guidance
 3. Add deprecation warnings and documentation

@@ -1,4 +1,4 @@
-.PHONY: help setup-python build build-prod test-rust test-rust-slow test-rust-doc test-python doc clean fmt lint stubs list coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test install-nextest book-build book-serve book-clean book-watch install-mdbook bench-perf bench-baseline bench-flamegraph bench-compare install-bloat size-wasm size-py size-core size-all check-schemas pre-commit-install pre-commit-run pre-commit-update
+.PHONY: help setup-python build build-prod test-rust test-rust-slow test-rust-doc test-python doc clean fmt lint fmt-check lint-check stubs list coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test install-nextest book-build book-serve book-clean book-watch install-mdbook bench-perf bench-baseline bench-flamegraph bench-compare install-bloat size-wasm size-py size-core size-all check-schemas pre-commit-install pre-commit-run pre-commit-update test-and-fix test-fix-rust test-fix-python test-fix-wasm test-fix-ui format-code
 
 help:
 	@echo "Builds:"
@@ -9,9 +9,13 @@ help:
 	@echo "  examples       				- Run all Rust examples"
 	@echo ""
 	@echo "Formatting:"
+	@echo "  fmt           				- Format all code (Rust, Python, WASM, UI)"
 	@echo "  fmt-rust       				- Format Rust code"
 	@echo "  fmt-python     				- Format Python code"
 	@echo "  fmt-wasm       				- Format WASM code"
+	@echo "  fmt-ui         				- Format UI code"
+	@echo "  fmt-check      				- Check formatting without fixing"
+	@echo "  format-code    				- Run comprehensive formatting script"
 	@echo ""
 	@echo "Linting:"
 	@echo "  lint-rust      				- Run Rust linters"
@@ -29,6 +33,11 @@ help:
 	@echo "  test-rust-doc  				- Run Rust documentation tests only"
 	@echo "  test-python     				- Run Python tests in finstack-py"
 	@echo "  test-wasm       				- Run WASM tests in finstack-wasm"
+	@echo "  test-and-fix  				- Run all tests and auto-fix issues"
+	@echo "  test-fix-rust  				- Run Rust tests and auto-fix issues"
+	@echo "  test-fix-python				- Run Python tests and auto-fix issues"
+	@echo "  test-fix-wasm   				- Run WASM tests and auto-fix issues"
+	@echo "  test-fix-ui     				- Run UI tests and auto-fix issues"
 	@echo ""
 	@echo "Benchmarking & Profiling:"
 	@echo "  bench-perf         				- Run all benchmarks with optimized profile"
@@ -430,3 +439,37 @@ pre-commit-run:
 pre-commit-update:
 	@echo "Updating pre-commit hooks to latest versions..."
 	@. .venv/bin/activate && pre-commit autoupdate
+
+# Test and fix targets
+test-and-fix:
+	@echo "Running all tests and auto-fixing issues..."
+	./run-tests-and-fix
+
+test-fix-rust:
+	@echo "Running Rust tests and auto-fixing issues..."
+	./run-tests-and-fix --rust-only
+
+test-fix-python:
+	@echo "Running Python tests and auto-fixing issues..."
+	./run-tests-and-fix --python-only
+
+test-fix-wasm:
+	@echo "Running WASM tests and auto-fixing issues..."
+	./run-tests-and-fix --wasm-only
+
+test-fix-ui:
+	@echo "Running UI tests and auto-fixing issues..."
+	./run-tests-and-fix --ui-only
+
+# Comprehensive formatting targets
+format-code:
+	@echo "Running comprehensive code formatting..."
+	./scripts/format-code
+
+fmt-check:
+	@echo "Checking code formatting..."
+	./scripts/format-code --check-only
+
+lint-check:
+	@echo "Checking linting without fixing..."
+	./scripts/format-code --check-only

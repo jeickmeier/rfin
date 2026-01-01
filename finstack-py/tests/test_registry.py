@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 import tempfile
 
-from finstack.core.dates import Period
 from finstack.statements.builder import ModelBuilder
 from finstack.statements.registry import (
     MetricDefinition,
@@ -230,7 +229,7 @@ class TestModelBuilderWithRegistry:
     def test_with_builtin_metrics(self) -> None:
         """Test loading built-in metrics into model."""
         builder = ModelBuilder.new("test_model")
-        builder.periods([Period(2024, 1, "Q1"), Period(2024, 2, "Q2")])
+        builder.periods("2024Q1..Q2", None)
 
         # Add some input nodes
         builder.value("revenue", [(1, 100000.0), (2, 110000.0)])
@@ -250,7 +249,7 @@ class TestModelBuilderWithRegistry:
     def test_add_single_metric(self) -> None:
         """Test adding a single metric from built-in registry."""
         builder = ModelBuilder.new("test_model")
-        builder.periods([Period(2024, 1, "Q1"), Period(2024, 2, "Q2")])
+        builder.periods("2024Q1..Q2", None)
 
         # Add dependencies
         builder.value("revenue", [(1, 100000.0), (2, 110000.0)])
@@ -282,7 +281,7 @@ class TestModelBuilderWithRegistry:
 
         # Create model
         builder = ModelBuilder.new("test_model")
-        builder.periods([Period(2024, 1, "Q1")])
+        builder.periods("2024Q1..Q1", None)
         builder.value("profit", [(1, 40000.0)])
         builder.value("revenue", [(1, 100000.0)])
 
@@ -301,7 +300,7 @@ class TestModelBuilderWithRegistry:
 
         # Create model with dependencies
         builder = ModelBuilder.new("test_model")
-        builder.periods([Period(2024, 1, "Q1"), Period(2024, 2, "Q2")])
+        builder.periods("2024Q1..Q2", None)
         builder.value("revenue", [(1, 100000.0), (2, 110000.0)])
         builder.value("cogs", [(1, 60000.0), (2, 65000.0)])
         builder.value("operating_expenses", [(1, 20000.0), (2, 22000.0)])
@@ -339,7 +338,7 @@ class TestModelBuilderWithRegistry:
 
         # Create model with required inputs for EBITDA
         builder = ModelBuilder.new("test_model")
-        builder.periods([Period(2024, 1, "Q1"), Period(2024, 2, "Q2")])
+        builder.periods("2024Q1..Q2", None)
 
         # EBITDA typically = revenue - cogs - operating_expenses
         builder.value("revenue", [(1, 100000.0), (2, 110000.0)])
@@ -392,7 +391,7 @@ class TestInterMetricDependencies:
 
         # Create model
         builder = ModelBuilder.new("test_model")
-        builder.periods([Period(2024, 1, "Q1")])
+        builder.periods("2024Q1..Q1", None)
         builder.value("revenue", [(1, 100000.0)])
         builder.value("cogs", [(1, 60000.0)])
 

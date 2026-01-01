@@ -1,0 +1,4 @@
+# file: /Users/joneickmeier/projects/rfin/finstack-py/finstack/scenarios/__init__.py
+# hypothesis_version: 6.148.8
+
+['"id"', '"scenario_id"', 'ApplicationReport', 'Compounding', 'CurveKind', 'DISCOUNT', 'Discount', 'EQUITY', 'EXACT', 'Equity', 'Exact', 'ExecutionContext', 'FORWARD', 'Forecast', 'Forward', 'HAZARD', 'Hazard', 'INFLATION', 'INTERPOLATE', 'Inflation', 'Interpolate', 'OperationSpec', 'ParCDS', 'RateBindingSpec', 'RollForwardReport', 'ScenarioEngine', 'ScenarioSpec', 'TenorMatchMode', 'VolSurfaceKind', '_', 'as_of', 'builder', 'dsl', 'id', 'scenario', 'scenario_id']

@@ -13,6 +13,7 @@ Comprehensive examples demonstrating all Phase 1 instruments added to the Python
 - **Commodity & Real Estate**: Commodity options, real estate valuation
 
 Each example includes:
+
 - Complete instrument construction
 - Market data setup
 - Pricing and valuation
@@ -77,6 +78,7 @@ When adding new examples:
 ## Support
 
 For questions or issues with examples:
+
 - Check instrument docstrings: `help(InstrumentClass)`
 - Review the phase1_instruments README
 - Consult the main documentation

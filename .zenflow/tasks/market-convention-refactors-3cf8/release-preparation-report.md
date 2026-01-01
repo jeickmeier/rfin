@@ -21,6 +21,7 @@ All release preparation artifacts have been created and verified. The release is
 **Status**: Complete
 
 **Contents**:
+
 - Workspace-level changelog following Keep a Changelog format
 - Version 0.8.0 breaking changes summary
 - Migration resources section
@@ -29,6 +30,7 @@ All release preparation artifacts have been created and verified. The release is
 - Links to support resources
 
 **Key Sections**:
+
 - ⚠️ Breaking Changes Summary (4 major changes)
 - Changed by Crate (core, valuations, py, wasm)
 - Documentation (migration guide, golden tests)
@@ -37,6 +39,7 @@ All release preparation artifacts have been created and verified. The release is
 - Migration Resources (docs, tests, support)
 
 **Verification**:
+
 - [x] Follows Keep a Changelog format
 - [x] All breaking changes documented
 - [x] Migration guide links work
@@ -52,6 +55,7 @@ All release preparation artifacts have been created and verified. The release is
 **Status**: Complete with migration notice
 
 **Changes Made**:
+
 1. Added migration notice section (lines 21-40):
    - Breaking changes summary
    - Links to migration guide and changelog
@@ -66,6 +70,7 @@ All release preparation artifacts have been created and verified. The release is
    - Uses correct metric IDs (`duration_mod`, not `modified_duration`)
 
 **Verification**:
+
 - [x] Migration notice prominent at top
 - [x] Examples use new 0.8.0 APIs
 - [x] Code examples compile (checked syntax)
@@ -80,6 +85,7 @@ All release preparation artifacts have been created and verified. The release is
 **Status**: Complete and comprehensive
 
 **Contents**:
+
 1. **Executive Summary**
    - At a glance table (breaking changes, tests, migration time)
    - Who should upgrade (must/should/can defer)
@@ -138,6 +144,7 @@ All release preparation artifacts have been created and verified. The release is
     - Step-by-step verification list
 
 **Verification**:
+
 - [x] Comprehensive coverage of all changes
 - [x] Clear migration instructions
 - [x] Code examples compile (checked syntax)
@@ -194,12 +201,14 @@ All release preparation artifacts have been created and verified. The release is
 ### Version Consistency
 
 **Current State**:
+
 - Workspace version: `0.4.0` (in `Cargo.toml`)
 - Documentation version: `0.8.0` (in CHANGELOG, release notes)
 
 **Note**: Version numbers in `Cargo.toml` files need to be updated to `0.8.0` at release time. This is tracked separately from documentation updates.
 
 **Action Required Before Release**:
+
 1. Update `[workspace.package] version = "0.8.0"` in root `Cargo.toml`
 2. Verify all crates use `version.workspace = true`
 3. Run `cargo update` to sync lock file
@@ -218,6 +227,7 @@ All release preparation artifacts have been created and verified. The release is
 ## Ready for Release Checklist
 
 ### Code & Tests
+
 - [x] All 50+ unit tests pass
 - [x] All 19 integration tests pass
 - [x] Zero clippy warnings
@@ -225,6 +235,7 @@ All release preparation artifacts have been created and verified. The release is
 - [x] Benchmarks run (see phase4-benchmarks-report.md)
 
 ### Documentation
+
 - [x] Root CHANGELOG.md complete
 - [x] Crate CHANGELOG.md complete (finstack/valuations/CHANGELOG.md)
 - [x] Migration guide complete (MIGRATION_GUIDE.md)
@@ -233,12 +244,14 @@ All release preparation artifacts have been created and verified. The release is
 - [x] API docs updated (all new methods documented)
 
 ### Artifacts
+
 - [x] Golden test files created (`tests/golden/fx_spot_dates.json`)
 - [x] Integration tests created (metrics, FX settlement)
 - [x] Migration examples verified
 - [x] Before/after code examples compile
 
 ### Pre-Release Actions (Not Yet Done)
+
 - [ ] Update version to 0.8.0 in Cargo.toml files
 - [ ] Update GitHub links (replace placeholder URLs)
 - [ ] Run full test suite on clean checkout

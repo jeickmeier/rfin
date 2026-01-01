@@ -21,6 +21,7 @@ This task requires removing redundant and vestigial code across multiple files i
 **Location**: `finstack/valuations/src/attribution/factors.rs:533`
 
 **Current Implementation**:
+
 ```rust
 pub fn freeze_all_market(market_t0: &MarketContext, _market_t1: &MarketContext) -> MarketContext {
     market_t0.clone()
@@ -28,12 +29,14 @@ pub fn freeze_all_market(market_t0: &MarketContext, _market_t1: &MarketContext) 
 ```
 
 **Analysis**:
+
 - Function accepts `market_t1` parameter but completely ignores it (prefixed with `_`)
 - Function is essentially a wrapper around `.clone()`
 - Used in exactly one place: `finstack/valuations/src/attribution/parallel.rs:126`
 - Has a dedicated test: `test_freeze_all_market()` at line 578
 
 **Impact**:
+
 - Direct usage: 1 call site in `parallel.rs`
 - Test coverage: 1 test in `factors.rs`
 
@@ -44,6 +47,7 @@ pub fn freeze_all_market(market_t0: &MarketContext, _market_t1: &MarketContext) 
 **Current Implementation**:
 
 **CapPayoff** (line 97):
+
 ```rust
 fn compute_forward_rate(&self, short_rate: f64, _idx: usize) -> f64 {
     // Simple approximation: forward rate ≈ short rate
@@ -52,6 +56,7 @@ fn compute_forward_rate(&self, short_rate: f64, _idx: usize) -> f64 {
 ```
 
 **FloorPayoff** (line 191):
+
 ```rust
 fn compute_forward_rate(&self, short_rate: f64, _idx: usize) -> f64 {
     short_rate
@@ -59,6 +64,7 @@ fn compute_forward_rate(&self, short_rate: f64, _idx: usize) -> f64 {
 ```
 
 **Analysis**:
+
 - Both methods are identical pass-through stubs
 - The `_idx` parameter is unused in both implementations
 - Methods are private and only called internally within the same struct
@@ -68,6 +74,7 @@ fn compute_forward_rate(&self, short_rate: f64, _idx: usize) -> f64 {
 - Comments suggest this is a simplification pending full Hull-White implementation
 
 **Impact**:
+
 - These are helper methods, not part of a trait interface
 - Can be inlined without breaking changes
 - No external dependencies
@@ -77,6 +84,7 @@ fn compute_forward_rate(&self, short_rate: f64, _idx: usize) -> f64 {
 **Instances Found**: 5 files contain functions with unused `_idx` parameters
 
 **Specific Cases**:
+
 1. `compute_forward_rate` in both `CapPayoff` and `FloorPayoff` (already covered above)
 2. Additional instances in:
    - `finstack/valuations/src/calibration/solver/global.rs`
@@ -91,6 +99,7 @@ fn compute_forward_rate(&self, short_rate: f64, _idx: usize) -> f64 {
 ### Phase 1: Remove `freeze_all_market`
 
 1. **Replace call site** in `parallel.rs:126`:
+
    ```rust
    // Before
    let market_frozen = freeze_all_market(market_t0, market_t1);
@@ -109,6 +118,7 @@ fn compute_forward_rate(&self, short_rate: f64, _idx: usize) -> f64 {
 ### Phase 2: Inline `compute_forward_rate` Stubs
 
 1. **Update CapPayoff::on_event** (line 119):
+
    ```rust
    // Before
    let forward_rate = self.compute_forward_rate(short_rate, self.next_fixing_idx);
@@ -118,6 +128,7 @@ fn compute_forward_rate(&self, short_rate: f64, _idx: usize) -> f64 {
    ```
 
 2. **Update FloorPayoff::on_event** (line 208):
+
    ```rust
    // Before
    let forward_rate = self.compute_forward_rate(short_rate, self.next_fixing_idx);
@@ -141,7 +152,8 @@ fn compute_forward_rate(&self, short_rate: f64, _idx: usize) -> f64 {
 
 ## Source Code Structure Changes
 
-### Files to Modify:
+### Files to Modify
+
 1. `finstack/valuations/src/attribution/factors.rs`
    - Remove: `freeze_all_market` function and test (~17 lines)
 
@@ -152,31 +164,37 @@ fn compute_forward_rate(&self, short_rate: f64, _idx: usize) -> f64 {
    - Remove: Two `compute_forward_rate` methods (~12 lines total)
    - Modify: Two call sites to inline the logic (2 lines)
 
-### Files to Investigate:
+### Files to Investigate
+
 4. `finstack/valuations/src/calibration/solver/global.rs`
-5. `finstack/valuations/src/instruments/structured_credit/pricing/stochastic/tree/tree.rs`
-6. `finstack/valuations/src/instruments/swaption/pricing/tree_valuator.rs`
-7. `finstack/valuations/src/instruments/common/models/trees/hull_white_tree.rs`
+2. `finstack/valuations/src/instruments/structured_credit/pricing/stochastic/tree/tree.rs`
+3. `finstack/valuations/src/instruments/swaption/pricing/tree_valuator.rs`
+4. `finstack/valuations/src/instruments/common/models/trees/hull_white_tree.rs`
 
 ## Verification Approach
 
 ### Testing Strategy
 
 1. **Run valuations tests**:
+
    ```bash
    make test-rust
    ```
+
    Focus on:
    - Attribution tests (for `freeze_all_market` removal)
    - Monte Carlo payoff tests (for `compute_forward_rate` changes)
 
 2. **Run linting**:
+
    ```bash
    make lint-rust
    ```
+
    Verify no new warnings introduced
 
 3. **Spot check specific tests**:
+
    ```bash
    cargo test --package finstack-valuations attribution
    cargo test --package finstack-valuations rates_payoff
@@ -201,17 +219,20 @@ fn compute_forward_rate(&self, short_rate: f64, _idx: usize) -> f64 {
 **No API changes**: All removed functions are internal implementation details, not public APIs.
 
 **Behavioral equivalence**:
+
 - `freeze_all_market(m0, m1)` → `m0.clone()` : Semantically identical
 - `self.compute_forward_rate(r, idx)` → `r` : Semantically identical for current stub implementation
 
 ## Risk Assessment
 
 **Low Risk**:
+
 - Removed code is clearly vestigial or redundant
 - Changes are localized with clear call site boundaries
 - Comprehensive test coverage exists for affected modules
 
 **Potential Issues**:
+
 - If `freeze_all_market` was intended for future use (keeping structure of T₁ market), removing it loses that intent
   - **Mitigation**: Add comment at call site explaining the simplification
 - Removing `compute_forward_rate` makes future Hull-White implementation slightly more work

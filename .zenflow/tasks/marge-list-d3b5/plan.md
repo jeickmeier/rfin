@@ -14,6 +14,7 @@ This plan breaks down the "Marge List" code consolidation into incremental, test
 **Estimated Time**: 3-4 days
 
 ### [x] Step: Technical Specification
+
 ✅ Created comprehensive technical specification in spec.md
 
 ### [x] Step 1.1: Add bitflags dependency and CurveRestoreFlags
@@ -21,6 +22,7 @@ This plan breaks down the "Marge List" code consolidation into incremental, test
 **File**: `finstack/valuations/Cargo.toml`, `finstack/valuations/src/attribution/factors.rs`
 
 **Tasks**:
+
 - ✅ Add `bitflags = "2.4"` to valuations Cargo.toml
 - ✅ Define `CurveRestoreFlags` bitflags enum in factors.rs (lines after existing imports)
 - ✅ Add constants: DISCOUNT, FORWARD, HAZARD, INFLATION, CORRELATION
@@ -28,12 +30,14 @@ This plan breaks down the "Marge List" code consolidation into incremental, test
 - ✅ Write unit tests for bitflag operations (union, intersection, complement)
 
 **Verification**:
+
 ```bash
 cd finstack/valuations
 cargo test --lib attribution::factors::tests::test_curve_restore_flags
 ```
 
 **Acceptance**:
+
 - ✅ Bitflags compile without warnings
 - ✅ All combination operations work correctly
 - ✅ Tests pass for flag manipulation
@@ -45,6 +49,7 @@ cargo test --lib attribution::factors::tests::test_curve_restore_flags
 **File**: `finstack/valuations/src/attribution/factors.rs`
 
 **Tasks**:
+
 - ✅ Add `MarketSnapshot` struct after existing snapshot types (~line 119)
 - ✅ Include all 5 curve type HashMap fields
 - ✅ Derive Clone, Debug, Default
@@ -52,11 +57,13 @@ cargo test --lib attribution::factors::tests::test_curve_restore_flags
 - ✅ Add unit tests for extraction with various flag combinations (8 tests added)
 
 **Verification**:
+
 ```bash
 cargo test --lib attribution::factors::tests::test_market_snapshot_extract
 ```
 
 **Acceptance**:
+
 - ✅ Struct compiles and derives work
 - ✅ Extract method correctly filters by flags
 - ✅ Tests cover single flags, combinations, and empty markets
@@ -69,6 +76,7 @@ cargo test --lib attribution::factors::tests::test_market_snapshot_extract
 **File**: `finstack/valuations/src/attribution/factors.rs`
 
 **Tasks**:
+
 - ✅ Implement `restore_market(current, snapshot, flags)` function
 - ✅ Use bitflag complement to determine preserved curves
 - ✅ Insert preserved curves first, then snapshot curves
@@ -76,11 +84,13 @@ cargo test --lib attribution::factors::tests::test_market_snapshot_extract
 - ✅ Helper `copy_scalars` already exists and is used
 
 **Verification**:
+
 ```bash
 cargo test --lib attribution::factors::tests::test_restore_market_unified
 ```
 
 **Acceptance**:
+
 - ✅ Function compiles and handles all flag combinations
 - ✅ Preserved curves are not overwritten
 - ✅ Snapshot curves are correctly inserted
@@ -94,6 +104,7 @@ cargo test --lib attribution::factors::tests::test_restore_market_unified
 **File**: `finstack/valuations/src/attribution/factors.rs`
 
 **Tasks**:
+
 - ✅ Update `restore_rates_curves()` to call `restore_market()` with RATES flag
 - ✅ Update `restore_credit_curves()` to call `restore_market()` with CREDIT flag
 - ✅ Update `restore_inflation_curves()` to call `restore_market()` with INFLATION flag
@@ -101,6 +112,7 @@ cargo test --lib attribution::factors::tests::test_restore_market_unified
 - ✅ Keep function signatures unchanged (backward compatibility)
 
 **Verification**:
+
 ```bash
 cargo test --lib attribution::factors  # ✅ 25 tests pass
 cargo test --test attribution_tests    # ✅ 32 tests pass
@@ -108,6 +120,7 @@ make lint-rust                         # ✅ No warnings
 ```
 
 **Acceptance**:
+
 - ✅ All existing tests pass unchanged (25 unit + 32 integration = 57 total)
 - ✅ Wrapper functions are 10-13 lines each (down from 35-52 lines)
 - ✅ No change in behavior (all tests pass, no lint warnings)
@@ -120,12 +133,14 @@ make lint-rust                         # ✅ No warnings
 **File**: `finstack/valuations/src/attribution/factors.rs` (test module)
 
 **Tasks**:
+
 - ✅ Create test helper `assert_market_contexts_equal()`
 - ✅ Add equivalence test for each restore function
 - ✅ Compare curve counts, curve IDs, FX presence
 - ✅ Verify DF values match at sample dates
 
 **Verification**:
+
 ```bash
 cargo test --lib attribution::factors::tests::test_restore_equivalence  # ✅ 7 equivalence tests pass
 cargo test --lib attribution::factors                                   # ✅ All 31 tests pass
@@ -134,6 +149,7 @@ cargo clippy --lib -- -D warnings                                       # ✅ No
 ```
 
 **Acceptance**:
+
 - ✅ Old and new implementations produce identical results
 - ✅ Tests cover all 4 restore functions (rates, credit, inflation, correlations)
 - ✅ Edge cases: empty markets, missing curves, mixed types
@@ -149,6 +165,7 @@ cargo clippy --lib -- -D warnings                                       # ✅ No
 **Files**: `finstack/valuations/src/attribution/factors.rs`, `finstack/valuations/CHANGELOG.md`
 
 **Tasks**:
+
 - ✅ Add module-level documentation explaining unified approach
 - ✅ Document CurveRestoreFlags with examples
 - ✅ Add inline comments to `restore_market()` explaining logic
@@ -156,6 +173,7 @@ cargo clippy --lib -- -D warnings                                       # ✅ No
 - ✅ Update CHANGELOG with refactoring notes
 
 **Verification**:
+
 ```bash
 make test-rust       # ✅ All 5774 tests pass
 make lint-rust       # ✅ No warnings
@@ -163,6 +181,7 @@ cargo doc --no-deps  # ✅ Documentation builds successfully
 ```
 
 **Acceptance**:
+
 - ✅ All tests pass (valuations + integration): **5774 tests passed**
 - ✅ No clippy warnings: **Zero warnings**
 - ✅ Benchmarks: No attribution-specific benchmark exists; refactoring doesn't change hot paths
@@ -184,6 +203,7 @@ cargo doc --no-deps  # ✅ Documentation builds successfully
 **File**: `finstack/valuations/src/instruments/common/models/monte_carlo/payoff/rates.rs`
 
 **Tasks**:
+
 - ✅ Add `RatesPayoffType` enum (Cap, Floor)
 - ✅ Create unified `RatesPayoff` struct with `payoff_type` field
 - ✅ Merge `impl Payoff for CapPayoff` and `FloorPayoff` into single impl
@@ -191,11 +211,13 @@ cargo doc --no-deps  # ✅ Documentation builds successfully
 - ✅ Keep `CapPayoff` and `FloorPayoff` as type aliases (deprecated)
 
 **Verification**:
+
 ```bash
 cargo test --lib --features mc 2>&1 | grep rates::tests
 ```
 
 **Acceptance**:
+
 - ✅ Unified struct compiles and tests pass (7 tests passing)
 - ✅ Behavior identical to original implementations
 - ✅ Type aliases maintain backward compatibility
@@ -208,6 +230,7 @@ cargo test --lib --features mc 2>&1 | grep rates::tests
 **File**: `finstack/valuations/src/instruments/common/models/monte_carlo/payoff/lookback.rs`
 
 **Tasks**:
+
 - ✅ Add `LookbackDirection` enum (Call, Put)
 - ✅ Create unified `Lookback` struct with `direction` field
 - ✅ Implement `new()` to initialize `extreme_spot` based on direction
@@ -217,6 +240,7 @@ cargo test --lib --features mc 2>&1 | grep rates::tests
 - ✅ Add `#[allow(deprecated)]` annotations for backward compatibility
 
 **Verification**:
+
 ```bash
 cargo test --lib --features mc lookback   # ✅ 18 tests pass (10 new unified tests + 8 existing)
 make test-rust                            # ✅ All 5779 tests pass
@@ -224,6 +248,7 @@ make lint-rust                            # ✅ Zero warnings
 ```
 
 **Acceptance**:
+
 - ✅ Unified struct compiles and tests pass (18 tests passing)
 - ✅ Extreme tracking (min/max) works correctly
 - ✅ Backward-compatible aliases work (deprecated but functional)
@@ -239,12 +264,14 @@ make lint-rust                            # ✅ Zero warnings
 **Files**: Existing MC integration tests
 
 **Tasks**:
+
 - ✅ Run full MC test suite with new unified payoffs
 - ✅ Verify pricing matches original implementations
 - ✅ Test edge cases: zero strike, extreme volatility, long maturities
 - ✅ Compare against analytical formulas where available
 
 **Verification**:
+
 ```bash
 cargo test --lib --features mc            # ✅ 1103 tests passed
 cargo test --test instruments_tests --features mc  # ✅ 2741 tests passed
@@ -252,6 +279,7 @@ make test-rust                            # ✅ All 5779 tests passed
 ```
 
 **Acceptance**:
+
 - ✅ All integration tests pass: **1103 lib tests + 2741 integration tests = 3844 MC-related tests**
 - ✅ Prices match original implementations (no behavioral changes in Phase 2)
 - ✅ No performance regression (unified payoffs use same logic, just different enum branching)
@@ -269,17 +297,20 @@ make test-rust                            # ✅ All 5779 tests passed
 **File**: `finstack/valuations/src/instruments/structured_credit/pricing/waterfall.rs`
 
 **Tasks**:
+
 - ✅ Add `AllocationContext<'a>` struct before allocation functions (~line 90200)
 - ✅ Include all 11 input parameters as fields
 - ✅ Add `AllocationOutput` struct for mutable outputs (3 fields)
 - ✅ Add constructor methods with validation
 
 **Verification**:
+
 ```bash
 cargo build --lib  # ✅ Compiles successfully
 ```
 
 **Acceptance**:
+
 - ✅ Structs compile with correct lifetimes
 - ✅ Fields are public and accessible
 - ✅ Validation methods enforce invariants
@@ -291,12 +322,14 @@ cargo build --lib  # ✅ Compiles successfully
 **File**: `finstack/valuations/src/instruments/structured_credit/pricing/waterfall.rs`
 
 **Tasks**:
+
 - ✅ Update `allocate_pro_rata()` signature to take context structs
 - ✅ Keep internal logic identical initially
 - ✅ Update `allocate_sequential()` similarly
 - ✅ Update all call sites to construct context structs
 
 **Verification**:
+
 ```bash
 cargo test --lib instruments::structured_credit::pricing::waterfall  # ✅ 1 test passed
 cargo test --test instruments_tests structured_credit                # ✅ 195 tests passed
@@ -304,6 +337,7 @@ cargo clippy --lib --package finstack-valuations -- -D warnings      # ✅ No wa
 ```
 
 **Acceptance**:
+
 - ✅ Functions compile with new signatures (reduced from 15 to 8 parameters)
 - ✅ All tests pass unchanged (196 total tests passing)
 - ✅ Call sites updated correctly (execute_waterfall and execute_waterfall_with_workspace)
@@ -317,12 +351,14 @@ cargo clippy --lib --package finstack-valuations -- -D warnings      # ✅ No wa
 **File**: `finstack/valuations/src/instruments/structured_credit/pricing/waterfall.rs`
 
 **Tasks**:
+
 - ✅ Implement `execute_waterfall_core()` with optional workspace parameter
 - ✅ Merge logic from `execute_waterfall_with_explanation()` and `execute_waterfall_with_workspace()`
 - ✅ Use `Option<&mut WaterfallWorkspace>` to branch between local and workspace state
 - ✅ Update wrapper functions to call core implementation
 
 **Verification**:
+
 ```bash
 cargo test --lib instruments::structured_credit::pricing::waterfall  # ✅ 1 test passed
 cargo test --test instruments_tests structured_credit                # ✅ 195 tests passed
@@ -330,6 +366,7 @@ cargo clippy --lib --package finstack-valuations -- -D warnings      # ✅ No wa
 ```
 
 **Acceptance**:
+
 - ✅ Core function handles both workspace and non-workspace cases
 - ✅ Wrapper functions are thin (1 line each, down from 107 and 133 lines)
 - ✅ All tests pass with identical results (196 total: 1 unit + 195 integration)
@@ -343,11 +380,13 @@ cargo clippy --lib --package finstack-valuations -- -D warnings      # ✅ No wa
 ### [x] Step 3.4: Create AttributionInput context struct
 <!-- chat-id: ebf18bee-534b-4304-96be-8a0e70868739 -->
 **Files**:
+
 - `finstack/valuations/src/attribution/parallel.rs`
 - `finstack/valuations/src/attribution/waterfall.rs`
 - `finstack/valuations/src/attribution/metrics_based.rs`
 
 **Tasks**:
+
 - ✅ Add `AttributionInput<'a>` struct in `attribution/types.rs`
 - ✅ AttributionMethod enum already exists (Parallel, Waterfall, MetricsBased)
 - ✅ Refactor `attribute_pnl_parallel()` to use context struct (wrapper + impl pattern)
@@ -355,6 +394,7 @@ cargo clippy --lib --package finstack-valuations -- -D warnings      # ✅ No wa
 - ✅ Refactor `attribute_pnl_metrics_based()` similarly (wrapper + impl pattern)
 
 **Verification**:
+
 ```bash
 cargo test --lib attribution              # ✅ All 60 tests pass
 cargo test --test attribution_tests       # ✅ All 32 integration tests pass
@@ -362,6 +402,7 @@ cargo clippy --lib -- -D warnings         # ✅ Zero warnings
 ```
 
 **Acceptance**:
+
 - ✅ Context struct reduces parameter counts (internal impl functions use single AttributionInput parameter)
 - ✅ All attribution methods use unified input struct
 - ✅ Tests pass unchanged (60 unit + 32 integration = 92 total tests passing)
@@ -381,11 +422,13 @@ cargo clippy --lib -- -D warnings         # ✅ Zero warnings
 **File**: `finstack/valuations/src/attribution/factors.rs`
 
 **Tasks**:
+
 - ✅ Add `MarketExtractable` trait with `extract(market) -> Self` method
 - ✅ Add documentation explaining trait purpose
 - ✅ Add generic `extract::<T>(market)` helper function
 
 **Verification**:
+
 ```bash
 cargo build --lib                         # ✅ Compiles successfully
 cargo test --lib attribution::factors     # ✅ 31 tests pass
@@ -393,6 +436,7 @@ cargo doc --no-deps --lib                 # ✅ Documentation builds
 ```
 
 **Acceptance**:
+
 - ✅ Trait compiles and is well-documented
 - ✅ Generic helper works with type inference
 - ✅ Trait definition added at line 485 with clear documentation
@@ -406,6 +450,7 @@ cargo doc --no-deps --lib                 # ✅ Documentation builds
 **File**: `finstack/valuations/src/attribution/factors.rs`
 
 **Tasks**:
+
 - ✅ Implement `MarketExtractable` for `RatesCurvesSnapshot`
 - ✅ Implement for `CreditCurvesSnapshot`
 - ✅ Implement for `InflationCurvesSnapshot`
@@ -417,11 +462,13 @@ cargo doc --no-deps --lib                 # ✅ Documentation builds
 - ✅ Add comprehensive tests for all trait implementations
 
 **Verification**:
+
 ```bash
 cargo test --lib attribution::factors  # ✅ 40 tests pass (31 existing + 9 new)
 ```
 
 **Acceptance**:
+
 - ✅ All snapshot types implement trait correctly (6 implementations added)
 - ✅ Extraction behavior unchanged (verified by test_trait_vs_function_equivalence)
 - ✅ Generic function works with all types (verified by test_generic_extract_with_type_inference)
@@ -437,12 +484,14 @@ cargo test --lib attribution::factors  # ✅ 40 tests pass (31 existing + 9 new)
 **Files**: Multiple attribution files
 
 **Tasks**:
+
 - ✅ Update call sites to use `#[allow(deprecated)]` annotations
 - ✅ Mark old `extract_*_curves()` functions as `#[deprecated]`
 - ✅ Add deprecation messages with migration guidance
 - ✅ Update documentation to recommend new trait-based approach
 
 **Verification**:
+
 ```bash
 cargo test --lib attribution::factors      # ✅ 40 tests pass
 cargo test --lib attribution                # ✅ 69 tests pass
@@ -452,6 +501,7 @@ cargo doc --no-deps --lib                   # ✅ Builds successfully
 ```
 
 **Acceptance**:
+
 - ✅ All call sites updated with `#[allow(deprecated)]` and TODO comments
 - ✅ All 6 `extract_*` functions marked as deprecated with migration examples
 - ✅ Module-level documentation enhanced with trait-based extraction section
@@ -474,6 +524,7 @@ cargo doc --no-deps --lib                   # ✅ Builds successfully
 **File**: `finstack/valuations/src/instruments/structured_credit/pricing/waterfall.rs`
 
 **Tasks**:
+
 - ✅ Implemented unified core function `execute_waterfall_core()`
 - ✅ Handle optional workspace parameter with branching logic using `Option<&mut WaterfallWorkspace>`
 - ✅ Ensure determinism regardless of workspace usage
@@ -481,6 +532,7 @@ cargo doc --no-deps --lib                   # ✅ Builds successfully
 - ✅ Restore workspace buffers after execution when workspace is provided
 
 **Verification**:
+
 ```bash
 cargo test --lib instruments::structured_credit::pricing::waterfall  # ✅ 1 test passed
 cargo test --lib --package finstack-valuations                       # ✅ 826 tests passed
@@ -489,6 +541,7 @@ cargo clippy --lib --package finstack-valuations -- -D warnings      # ✅ Zero 
 ```
 
 **Acceptance**:
+
 - ✅ Core function works with and without workspace
 - ✅ Identical results in both cases (deterministic execution)
 - ✅ No code duplication (unified implementation in single core function)
@@ -507,18 +560,21 @@ cargo clippy --lib --package finstack-valuations -- -D warnings      # ✅ Zero 
 **Files**: Integration tests, benchmarks
 
 **Tasks**:
+
 - Run full structured credit test suite
 - Compare outputs with golden files
 - Run waterfall benchmarks
 - Verify no regression in performance or correctness
 
 **Verification**:
+
 ```bash
 cargo test --test integration_structured_credit
 cargo bench --bench waterfall
 ```
 
 **Acceptance**:
+
 - ✅ All tests pass (216 structured credit tests: 195 integration + 12 unit + 9 property)
 - ✅ Outputs match golden files (JSON serialization tests pass, conservation laws verified)
 - ✅ Performance within 5% of original (zero algorithm changes, wrapper overhead negligible)
@@ -535,12 +591,14 @@ cargo bench --bench waterfall
 **File**: `finstack/valuations/src/attribution/types.rs`
 
 **Tasks**:
+
 - ✅ Add `JsonEnvelope` trait with default methods
 - ✅ Include `from_json`, `from_reader`, `to_json` methods
 - ✅ Define error conversion methods (abstract: `parse_error`, `serialize_error`)
 - ✅ Add comprehensive documentation with examples
 
 **Verification**:
+
 ```bash
 cargo build --lib                                # ✅ Compiles successfully
 cargo test --lib attribution::types::json_envelope_tests  # ✅ 8 tests pass
@@ -550,6 +608,7 @@ cargo doc --no-deps --lib                        # ✅ Documentation builds
 ```
 
 **Acceptance**:
+
 - ✅ Trait compiles and default methods work
 - ✅ Documentation is clear with usage examples
 - ✅ Added 8 comprehensive tests covering:
@@ -567,11 +626,13 @@ cargo doc --no-deps --lib                        # ✅ Documentation builds
 ### [x] Step 6.2: Implement trait for all envelope types
 <!-- chat-id: 247a7186-80e7-448f-a9c5-4f6bd5c6e215 -->
 **Files**:
+
 - `finstack/valuations/src/attribution/spec.rs`
 - `finstack/valuations/src/attribution/types.rs`
 - `finstack/valuations/tests/attribution/serialization_roundtrip.rs`
 
 **Tasks**:
+
 - ✅ Implement `JsonEnvelope` for `AttributionEnvelope`
 - ✅ Implement for `AttributionResultEnvelope`
 - ✅ Implement for `PnlAttribution`
@@ -581,6 +642,7 @@ cargo doc --no-deps --lib                        # ✅ Documentation builds
 - ✅ Add comprehensive tests for all three types
 
 **Verification**:
+
 ```bash
 cargo test --lib attribution                      # ✅ 80 tests pass (3 new)
 cargo test --test attribution_tests               # ✅ 32 tests pass
@@ -588,6 +650,7 @@ cargo clippy --lib -- -D warnings                 # ✅ Zero warnings
 ```
 
 **Acceptance**:
+
 - ✅ All envelope types implement trait (3 types: AttributionEnvelope, AttributionResultEnvelope, PnlAttribution)
 - ✅ JSON serialization/deserialization works (verified with roundtrip tests)
 - ✅ Reduced boilerplate by 64 lines total (71% reduction)
@@ -605,6 +668,7 @@ cargo clippy --lib -- -D warnings                 # ✅ Zero warnings
 **Files**: Multiple, documentation, CHANGELOG
 
 **Tasks**:
+
 - ✅ Run full test suite across all crates
 - ✅ Run all benchmarks and verify no regressions
 - ✅ Update main README with refactoring summary (N/A - CHANGELOG is primary doc)
@@ -613,6 +677,7 @@ cargo clippy --lib -- -D warnings                 # ✅ Zero warnings
 - ✅ Prepare release notes
 
 **Verification**:
+
 ```bash
 make test-rust      # ✅ 5799/5799 tests passed (76.7s)
 make lint-rust      # ✅ Zero warnings (22.9s)
@@ -622,6 +687,7 @@ cd finstack && cargo doc --no-deps --all-features  # ✅ Successful (22.4s)
 ```
 
 **Acceptance**:
+
 - ✅ All tests pass (Rust + WASM + Python): **6155 total tests passing**
 - ✅ Zero clippy warnings: **0 warnings after fixing 5 clippy issues**
 - ✅ All benchmarks show <5% regression: **0% regression (no algorithm changes)**
@@ -636,6 +702,7 @@ cd finstack && cargo doc --no-deps --all-features  # ✅ Successful (22.4s)
 ### [x] Step: Create pull request and review
 <!-- chat-id: e6e7853a-bf47-423a-8b15-6c6f3d3d9354 -->
 **Tasks**:
+
 - ✅ Create PR description with detailed documentation
 - ✅ Create PR instructions for GitHub authentication and submission
 - ✅ Link to spec.md and this plan
@@ -647,6 +714,7 @@ cd finstack && cargo doc --no-deps --all-features  # ✅ Successful (22.4s)
 - ⏳ Merge when approved
 
 **Prepared Materials**:
+
 - ✅ PR Description: `.zenflow/tasks/marge-list-d3b5/PR_DESCRIPTION.md`
 - ✅ PR Instructions: `.zenflow/tasks/marge-list-d3b5/PR_INSTRUCTIONS.md`
 - ✅ Branch ready: `marge-list-d3b5` with 21 commits
@@ -655,6 +723,7 @@ cd finstack && cargo doc --no-deps --all-features  # ✅ Successful (22.4s)
 - ✅ All documentation complete
 
 **Next Steps** (manual):
+
 1. Authenticate with GitHub (see PR_INSTRUCTIONS.md)
 2. Push branch: `git push -u origin marge-list-d3b5`
 3. Create PR using PR_DESCRIPTION.md as template
@@ -666,6 +735,7 @@ cd finstack && cargo doc --no-deps --all-features  # ✅ Successful (22.4s)
 ## Success Metrics Summary
 
 **After completion, verify**:
+
 - ✅ Reduced duplication by 500+ lines
 - ✅ Parameter counts reduced from 15+ to 2-3 in waterfall functions
 - ✅ Zero test failures
@@ -688,6 +758,7 @@ If issues arise in production:
 5. **Re-deploy**: With extra monitoring and gradual rollout
 
 **Rollback triggers**:
+
 - Attribution P&L differs by >1bp from previous version
 - Monte Carlo prices outside acceptable tolerances
 - Waterfall distributions fail conservation checks

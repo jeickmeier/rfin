@@ -246,15 +246,15 @@ df_pd.to_excel("results.xlsx")
 
 ### Intermediate
 
-4. **02_stress_test.py** - Scenario analysis
-5. **03_risk_report.py** - Risk metrics
-6. **11_exotic_options.py** - Options pricing
+1. **02_stress_test.py** - Scenario analysis
+2. **03_risk_report.py** - Risk metrics
+3. **11_exotic_options.py** - Options pricing
 
 ### Advanced
 
-7. **12_mc_pricing.py** - Numerical methods
-8. **21_full_portfolio_workflow.py** - Complete workflows
-9. **24_multi_curve_framework.py** - Advanced market data
+1. **12_mc_pricing.py** - Numerical methods
+2. **21_full_portfolio_workflow.py** - Complete workflows
+3. **24_multi_curve_framework.py** - Advanced market data
 
 ---
 
@@ -348,6 +348,7 @@ To add a new cookbook example:
 ## Support
 
 For questions or issues:
+
 - **GitHub Issues**: <https://github.com/your-org/finstack/issues>
 - **Discussions**: <https://github.com/your-org/finstack/discussions>
 - **Documentation**: <https://finstack.readthedocs.io>

@@ -28,9 +28,10 @@ git push -u origin marge-list-d3b5
 ```
 
 **If authentication fails**, you may need to:
-1. Generate a GitHub Personal Access Token at https://github.com/settings/tokens
+
+1. Generate a GitHub Personal Access Token at <https://github.com/settings/tokens>
 2. Use the token as your password when prompted
-3. Or configure SSH keys: https://docs.github.com/en/authentication/connecting-to-github-with-ssh
+3. Or configure SSH keys: <https://docs.github.com/en/authentication/connecting-to-github-with-ssh>
 
 ---
 
@@ -38,7 +39,7 @@ git push -u origin marge-list-d3b5
 
 Once the branch is pushed:
 
-1. **Go to GitHub**: https://github.com/jeickmeier/rfin
+1. **Go to GitHub**: <https://github.com/jeickmeier/rfin>
 2. **You should see a banner**: "Compare & pull request" for branch `marge-list-d3b5`
 3. **Click "Compare & pull request"**
 4. **Copy the PR description** from `.zenflow/tasks/marge-list-d3b5/PR_DESCRIPTION.md`
@@ -76,7 +77,9 @@ In the PR description or comments, add links to:
 ## Step 4: CI/CD and Review
 
 ### Expected CI Results
+
 All CI checks should pass:
+
 - ✅ **Rust tests**: 5799/5799 passing
 - ✅ **WASM tests**: 26/26 passing
 - ✅ **Python tests**: 330/330 passing
@@ -85,13 +88,16 @@ All CI checks should pass:
 - ✅ **Documentation**: Builds successfully
 
 ### Review Process
+
 1. **Request reviews** from assigned reviewers
 2. **Address comments** by pushing additional commits to the branch
 3. **Re-run CI** if changes are made
 4. **Wait for approval** from all required reviewers
 
 ### Review Checklist
+
 Reviewers should verify:
+
 - [ ] All tests pass (6155/6155)
 - [ ] Zero clippy warnings
 - [ ] Performance within 5% (0% actual regression)
@@ -112,6 +118,7 @@ Once all reviews are approved and CI passes:
    - **Rebase and merge**: Replays commits on top of main
 
 2. **Update commit message** (if squashing):
+
    ```
    Marge List: Code Consolidation Refactoring (#XXX)
 
@@ -134,11 +141,13 @@ Once all reviews are approved and CI passes:
 ## Troubleshooting
 
 ### Push Fails with Authentication Error
+
 ```bash
 fatal: could not read Username for 'https://github.com': Device not configured
 ```
 
 **Solution**: Set up GitHub authentication:
+
 ```bash
 # Option 1: Use HTTPS with token
 git config --global credential.helper store
@@ -151,13 +160,16 @@ git push -u origin marge-list-d3b5
 ```
 
 ### CI Tests Fail
+
 1. **Check logs** in GitHub Actions
 2. **Run tests locally**: `make test-rust && make test-wasm && make test-python`
 3. **Fix issues** and push new commits to the branch
 4. **CI will automatically re-run** on new commits
 
 ### Merge Conflicts
+
 If main branch has changed since you started:
+
 ```bash
 git checkout marge-list-d3b5
 git fetch origin
@@ -167,7 +179,9 @@ git push origin marge-list-d3b5
 ```
 
 ### Need to Make Changes After PR Created
+
 Just commit and push to the same branch:
+
 ```bash
 # Make your changes
 git add .
@@ -195,16 +209,19 @@ After the PR is merged:
 After merge, track these metrics over the next sprint:
 
 ### Performance
+
 - Attribution calculation time (should be ±5%)
 - Monte Carlo pricing speed (should be ±5%)
 - Waterfall execution time (should be ±5%)
 
 ### Correctness
+
 - Attribution P&L differences (<1bp tolerance)
 - Monte Carlo price stability
 - Waterfall conservation law violations (should be 0)
 
 ### Adoption
+
 - Teams migrating to new APIs
 - Questions/issues raised about deprecated APIs
 - Documentation clarity feedback
@@ -226,6 +243,7 @@ git push --force origin main
 ```
 
 **Only use if**:
+
 - Attribution P&L differs by >1bp
 - Monte Carlo prices outside tolerances
 - Waterfall distributions fail conservation checks
@@ -237,6 +255,7 @@ git push --force origin main
 ## Questions?
 
 For help with:
+
 - **Git/GitHub**: Check GitHub docs or ask DevOps team
 - **CI/CD**: Check Actions logs or ask DevOps team
 - **Code changes**: Review phase completion docs
@@ -266,7 +285,7 @@ gh run list --branch marge-list-d3b5
 gh pr view marge-list-d3b5 --web
 ```
 
-**Note**: `gh` CLI requires installation: `brew install gh` (macOS) or https://cli.github.com/
+**Note**: `gh` CLI requires installation: `brew install gh` (macOS) or <https://cli.github.com/>
 
 ---
 

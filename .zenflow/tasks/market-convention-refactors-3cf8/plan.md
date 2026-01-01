@@ -1,6 +1,7 @@
 # Market Convention Refactors - Implementation Plan
 
 ## Configuration
+
 - **Artifacts Path**: `.zenflow/tasks/market-convention-refactors-3cf8`
 - **Complexity**: HARD
 - **Estimated Duration**: 4 weeks (18 working days)
@@ -34,6 +35,7 @@
 <!-- chat-id: e41ce7fc-ca60-4343-b6f4-b00104b80512 -->
 
 **Completed**: Comprehensive spec created in `spec.md`
+
 - Complexity assessed as HARD
 - 3 phases identified (Critical Safety, Conventions, API Safety)
 - ~300 lines of code changes across 10-15 files
@@ -52,9 +54,11 @@
 **Goal**: Extend `finstack-core` error types for metrics framework.
 
 **Files to modify**:
+
 - `finstack/core/src/error.rs`
 
 **Changes**:
+
 1. Add error variants:
    - `UnknownMetric { metric_id, available }`
    - `MetricNotApplicable { metric_id, instrument_type }`
@@ -65,6 +69,7 @@
 3. Add helper constructors (optional)
 
 **Verification**:
+
 ```bash
 cd finstack/core
 cargo test error
@@ -72,11 +77,13 @@ cargo clippy -- -D warnings
 ```
 
 **Acceptance**:
+
 - ✅ All error variants compile and have Display implementations
 - ✅ No clippy warnings
 - ✅ Rustdoc examples build and doc tests pass
 
 **Completed**:
+
 - Added 4 new error variants to `Error` enum: `UnknownMetric`, `MetricNotApplicable`, `MetricCalculationFailed`, `CircularDependency`
 - Each variant includes comprehensive documentation with examples
 - Added helper constructor methods: `unknown_metric()`, `metric_not_applicable()`, `metric_calculation_failed()`, `circular_dependency()`
@@ -95,18 +102,23 @@ cargo clippy -- -D warnings
 **USER DECISION**: Strict mode is the default immediately (breaking change).
 
 **Files to modify**:
+
 - `finstack/valuations/src/metrics/core/registry.rs`
 - `finstack/valuations/src/metrics/core/mod.rs` (re-exports)
 
 **Changes**:
+
 1. Add `StrictMode` enum:
+
    ```rust
    pub enum StrictMode {
        Strict,
        BestEffort,
    }
    ```
+
 2. **BREAKING**: Modify `compute()` to default to strict mode:
+
    ```rust
    // Primary method defaults to strict:
    pub fn compute(&self, ids: &[MetricId], ctx: &mut MetricContext)
@@ -114,6 +126,7 @@ cargo clippy -- -D warnings
        self.compute_with_mode(ids, ctx, StrictMode::Strict)
    }
    ```
+
 3. Add mode-specific methods:
    - `compute_with_mode(&self, ids, ctx, mode: StrictMode) -> Result<...>` (internal)
    - `compute_best_effort(&self, ids, ctx) -> Result<...>` (for opt-in fallback)
@@ -128,6 +141,7 @@ cargo clippy -- -D warnings
    - Return `Err(CircularDependency { path })`
 
 **Verification**:
+
 ```bash
 cd finstack/valuations
 cargo test metrics::core::registry --lib -- --nocapture
@@ -135,6 +149,7 @@ cargo clippy -- -D warnings
 ```
 
 **Tests to add** (in `registry.rs`):
+
 - `test_strict_mode_unknown_metric()`
 - `test_strict_mode_calculation_failure()`
 - `test_strict_mode_not_applicable()`
@@ -143,6 +158,7 @@ cargo clippy -- -D warnings
 - `test_dependency_resolution_error_propagation()`
 
 **Acceptance**:
+
 - Strict mode returns Err for all error cases
 - Best effort mode inserts 0.0 and logs warnings
 - Circular dependencies detected with full path
@@ -150,6 +166,7 @@ cargo clippy -- -D warnings
 - No clippy warnings
 
 **Completed**:
+
 - ✅ Added `StrictMode` enum with `Strict` and `BestEffort` variants (with comprehensive documentation)
 - ✅ Modified `compute()` to default to strict mode (breaking change)
 - ✅ Added `compute_best_effort()` public method for opt-in fallback behavior
@@ -181,11 +198,14 @@ cargo clippy -- -D warnings
 **Goal**: Provide strict parsing for metric IDs from user inputs.
 
 **Files to modify**:
+
 - `finstack/valuations/src/metrics/core/ids.rs`
 
 **Changes**:
+
 1. Add `parse_strict(s: &str) -> Result<MetricId>` method
 2. Implementation:
+
    ```rust
    pub fn parse_strict(s: &str) -> Result<Self> {
        let lower = s.to_lowercase();
@@ -202,27 +222,32 @@ cargo clippy -- -D warnings
        }
    }
    ```
+
 3. Keep `FromStr` implementation unchanged (backwards compat)
 4. Update docs recommending strict for user inputs
 
 **Verification**:
+
 ```bash
 cd finstack/valuations
 cargo test metrics::core::ids --lib
 ```
 
 **Tests to add**:
+
 - `test_parse_strict_known_metric()`
 - `test_parse_strict_unknown_metric()`
 - `test_from_str_still_permissive()`
 
 **Acceptance**:
+
 - ✅ Strict parsing errors on unknown metrics
 - ✅ FromStr remains permissive
 - ✅ Error includes list of available metrics
 - ✅ All tests pass
 
 **Completed**:
+
 - ✅ Added `MetricId::parse_strict()` method with comprehensive documentation and examples
 - ✅ Method uses `finstack_core::Error::UnknownMetric` for unknown metric names
 - ✅ Error includes the invalid metric name and complete list of available standard metrics
@@ -251,11 +276,14 @@ cargo test metrics::core::ids --lib
 **Goal**: Normalize global residuals by `residual_notional`.
 
 **Files to modify**:
+
 - `finstack/valuations/src/calibration/targets/discount.rs`
 
 **Changes**:
+
 1. Locate global residual calculation (around line 57 in `calculate_residuals`)
 2. Change:
+
    ```rust
    // BEFORE:
    residuals[i] = pv / 1.0;
@@ -265,6 +293,7 @@ cargo test metrics::core::ids --lib
    ```
 
 **Verification**:
+
 ```bash
 cd finstack/valuations
 cargo test calibration::targets::discount --lib
@@ -272,14 +301,17 @@ cargo test calibration --test integration_tests -- --nocapture
 ```
 
 **Tests to add**:
+
 - `test_residual_normalization_invariance()` - same curve with different notionals
 
 **Acceptance**:
+
 - Notional 1.0 and 1_000_000.0 produce identical curves (within 1e-12)
 - Max residual ≤ 1e-8 in normalized units
 - Existing calibration tests still pass
 
 **Completed**:
+
 - ✅ Fixed `calculate_residuals()` method line 865: changed `pv / 1.0` to `pv / self.residual_notional`
 - ✅ Fixed `jacobian()` method line 982: changed `pv / 1.0` to `pv / self.residual_notional` for consistency
 - ✅ Added comprehensive test `test_residual_normalization_invariance()` with 4 deposit quotes
@@ -298,10 +330,12 @@ cargo test calibration --test integration_tests -- --nocapture
 **Goal**: Integration tests and migration guide for Phase 1 changes.
 
 **Files to create/modify**:
+
 - `finstack/valuations/tests/integration/metrics_strict_mode.rs` (new)
 - `finstack/valuations/MIGRATION.md` (update or create)
 
 **Changes**:
+
 1. Add integration test covering multi-metric strict mode workflow
 2. Test scenarios:
    - Request 10 metrics, all succeed
@@ -311,6 +345,7 @@ cargo test calibration --test integration_tests -- --nocapture
 4. Add rustdoc examples to new APIs
 
 **Verification**:
+
 ```bash
 cd finstack/valuations
 cargo test --test integration -- metrics_strict_mode
@@ -319,12 +354,14 @@ make lint-rust
 ```
 
 **Acceptance**:
+
 - Integration tests pass
 - Migration guide includes before/after examples
 - Documentation builds without warnings
 - All Phase 1 changes tested end-to-end
 
 **Completed**:
+
 - ✅ Created comprehensive integration test suite in `tests/integration/metrics_strict_mode.rs` with 7 test cases:
   - `test_all_metrics_succeed_strict_mode()` - verifies strict mode succeeds with valid metrics
   - `test_unknown_metric_fails_strict_mode()` - verifies strict mode fails on unknown metrics
@@ -358,21 +395,25 @@ make lint-rust
 **Goal**: Add joint calendar business day counting for FX settlement.
 
 **Files to modify**:
+
 - `finstack/valuations/src/instruments/common/fx_dates.rs`
 
 **Changes**:
+
 1. Add new function `add_joint_business_days()` (see spec for implementation)
 2. Update `roll_spot_date()` to use joint business day logic
 3. Make `resolve_calendar()` return `Result` (error on unknown ID)
 4. Remove silent fallback to `weekends_only()`
 
 **Verification**:
+
 ```bash
 cd finstack/valuations
 cargo test instruments::common::fx_dates --lib -- --nocapture
 ```
 
 **Tests to add**:
+
 - `test_add_joint_business_days_no_holidays()`
 - `test_add_joint_business_days_base_holiday()`
 - `test_add_joint_business_days_quote_holiday()`
@@ -382,12 +423,14 @@ cargo test instruments::common::fx_dates --lib -- --nocapture
 - `test_resolve_calendar_explicit_none()`
 
 **Acceptance**:
+
 - Joint business day counting skips days when either calendar is closed
 - Unknown calendar IDs return `CalendarNotFound` error
 - Explicit None uses weekends-only (not as fallback)
 - All tests pass
 
 **Completed**:
+
 - ✅ Added `add_joint_business_days()` function with joint calendar business day counting
 - ✅ Updated `roll_spot_date()` to use `add_joint_business_days()` instead of calendar days
 - ✅ Made `resolve_calendar()` return `Result<CalendarWrapper>` with proper error handling
@@ -420,11 +463,14 @@ cargo test instruments::common::fx_dates --lib -- --nocapture
 **USER DECISION**: Using `spread_decimal` (not `spread_bp`) per user preference.
 
 **Files to modify**:
+
 - `finstack/valuations/src/market/quotes/rates.rs` (RateQuote enum)
 - `finstack/valuations/src/market/build/rates.rs` (builder, line ~373)
 
 **Changes**:
+
 1. In `RateQuote::Swap`:
+
    ```rust
    // BEFORE:
    spread: Option<f64>,
@@ -433,7 +479,9 @@ cargo test instruments::common::fx_dates --lib -- --nocapture
    #[serde(alias = "spread")] // Backwards compat
    spread_decimal: Option<f64>,
    ```
+
 2. In `build_rate_instrument()`:
+
    ```rust
    // BEFORE:
    if let Some(s) = spread {
@@ -445,12 +493,14 @@ cargo test instruments::common::fx_dates --lib -- --nocapture
        swap.float.spread_bp = *spread_decimal * 10000.0;  // Correct: decimal → bp
    }
    ```
+
    Note: Internal `swap.float.spread_bp` field stays in basis points; only the quote schema field name changes to clarify units.
 
 3. Update all tests using old `spread` field
 4. Update rustdoc examples to show decimal format (e.g., 0.0010 for 10bp)
 
 **Verification**:
+
 ```bash
 cd finstack/valuations
 cargo test market::quotes::rates --lib
@@ -458,17 +508,20 @@ cargo test market::build::rates --lib
 ```
 
 **Tests to add**:
+
 - `test_swap_spread_decimal_conversion()` - verify 0.0010 → 10.0bp
 - `test_swap_spread_serde_backwards_compat()`
 - `test_swap_spread_decimal_programmatic_api()`
 
 **Acceptance**:
+
 - `spread_decimal = 0.0010` → `swap.float.spread_bp = 10.0`
 - Old JSON `"spread": 0.0010` deserializes correctly via alias
 - New JSON `"spread_decimal": 0.0010` preferred in docs
 - All tests pass
 
 **Completed**:
+
 - ✅ Renamed `spread` field to `spread_decimal` in `RateQuote::Swap` with comprehensive documentation
 - ✅ Added `#[serde(default, alias = "spread")]` for backwards compatibility
 - ✅ Updated field documentation to clarify decimal format (e.g., 0.0010 for 10bp)
@@ -504,12 +557,14 @@ cargo test market::build::rates --lib
 **Goal**: Validate FX settlement against ISDA conventions and update golden files.
 
 **Files to create/modify**:
+
 - `finstack/valuations/tests/integration/fx_settlement.rs` (new)
 - `finstack/valuations/tests/golden/fx_spot_dates.json` (new)
 - `finstack/valuations/tests/golden/README.md` (new)
 - `finstack/valuations/tests/integration/mod.rs` (update)
 
 **Changes**:
+
 1. Create test cases:
    - USD/EUR around New Year (T+2, joint holidays)
    - GBP/JPY around UK/JP holidays
@@ -519,17 +574,20 @@ cargo test market::build::rates --lib
 4. Update golden files with new correct dates
 
 **Verification**:
+
 ```bash
 cd finstack/valuations
 cargo test --test integration_tests fx_settlement
 ```
 
 **Acceptance**:
+
 - All test cases match ISDA conventions
 - Golden files updated with documented rationale
 - Legacy behavior differences documented in test comments
 
 **Completed**:
+
 - ✅ Created comprehensive integration test suite in `tests/integration/fx_settlement.rs` with 12 test cases:
   - `test_usd_eur_spot_new_year_2024()` - USD/EUR around New Year's Day (joint closure)
   - `test_usd_eur_spot_christmas_2024()` - USD/EUR around Christmas (Christmas + Boxing Day)
@@ -593,11 +651,14 @@ cargo test --test integration_tests fx_settlement
 **USER DECISION**: Using deprecation-first approach (gradual migration, Option B).
 
 **Files to modify**:
+
 - `finstack/valuations/src/instruments/cds_option/*.rs`
 - Search for other panicking constructors: `grep -r "expect.*Invalid.*parameters" src/instruments/`
 
 **Changes**:
+
 1. For each panicking constructor, add deprecation warning:
+
    ```rust
    #[deprecated(
        since = "0.8.0",
@@ -609,17 +670,21 @@ cargo test --test integration_tests fx_settlement
        Self::try_new(...).expect("Invalid parameters")
    }
    ```
+
 2. Ensure `try_new() -> Result<Self>` is well-documented as the preferred constructor
 3. Update internal uses to prefer `try_new()` where possible
 4. Add clippy allow for deprecated methods in tests:
+
    ```rust
    #[cfg(test)]
    #[allow(deprecated)]
    mod tests { ... }
    ```
+
 5. Document removal timeline in migration guide
 
 **Verification**:
+
 ```bash
 cd finstack/valuations
 cargo test instruments --lib
@@ -628,12 +693,14 @@ cargo clippy -- -D clippy::expect_used -D clippy::unwrap_used -D clippy::panic
 ```
 
 **Acceptance**:
+
 - No panicking constructors in production code paths
 - All instrument construction via `try_new()`
 - Tests updated to use `try_new()?` or `expect` in test context
 - Clippy passes with strict lints
 
 **Completed**:
+
 - ✅ Deprecated 4 panicking constructors in cds_option module:
   - `CdsOption::new()` → deprecated with clear migration path to `try_new()`
   - `CdsOptionParams::new()` → deprecated with clear migration path to `try_new()`
@@ -655,6 +722,7 @@ cargo clippy -- -D clippy::expect_used -D clippy::unwrap_used -D clippy::panic
 - ✅ Deprecation timeline documented: 0.8.0 (warnings) → 1.0.0 (removal)
 
 **Files modified**:
+
 1. `finstack/valuations/src/instruments/cds_option/types.rs` - deprecated `CdsOption::new()` and updated `example()`
 2. `finstack/valuations/src/instruments/cds_option/parameters.rs` - deprecated `new()`, `call()`, `put()` methods
 3. `finstack/valuations/src/instruments/cds_option/metrics/cs01.rs` - added `#[allow(deprecated)]` to test module
@@ -668,35 +736,44 @@ cargo clippy -- -D clippy::expect_used -D clippy::unwrap_used -D clippy::panic
 **Goal**: Enforce safety lints at crate level.
 
 **Files to modify**:
+
 - `finstack/valuations/src/lib.rs`
 
 **Changes**:
+
 1. Add at top of lib.rs:
+
    ```rust
    #![deny(clippy::expect_used)]
    #![deny(clippy::unwrap_used)]
    #![deny(clippy::panic)]
    ```
+
 2. Allow exceptions only where necessary (e.g., tests):
+
    ```rust
    #[cfg(test)]
    #[allow(clippy::expect_used)]
    mod tests { ... }
    ```
+
 3. Fix any violations surfaced by lints
 
 **Verification**:
+
 ```bash
 cd finstack/valuations
 cargo clippy --all-features -- -D warnings
 ```
 
 **Acceptance**:
+
 - Clippy passes with all safety lints enabled
 - Exceptions explicitly documented with `#[allow]` and rationale
 - No new panics possible in production code
 
 **Completed**:
+
 - ✅ Added three safety lints to `finstack/valuations/src/lib.rs`:
   - `#![deny(clippy::unwrap_used)]` (already present)
   - `#![deny(clippy::expect_used)]` (new)
@@ -721,6 +798,7 @@ cargo clippy --all-features -- -D warnings
 - ✅ New code submissions will be checked against these lints in code review
 
 **Notes**:
+
 - Pragmatic approach taken due to large number of existing violations (199)
 - Lints are enabled to prevent new violations while existing code is gradually refactored
 - Technical debt is explicitly tracked and scheduled for remediation
@@ -734,11 +812,14 @@ cargo clippy --all-features -- -D warnings
 **Goal**: Use correct MetricId constants for DataFrame export.
 
 **Files to modify**:
+
 - `finstack/valuations/src/results/dataframe.rs`
 
 **Changes**:
+
 1. Add import: `use crate::metrics::MetricId;`
 2. Update `to_row()` implementation (lines 42-56):
+
    ```rust
    // Add helper method:
    fn get_measure(&self, id: MetricId) -> Option<f64> {
@@ -754,23 +835,27 @@ cargo clippy --all-features -- -D warnings
    ```
 
 **Verification**:
+
 ```bash
 cd finstack/valuations
 cargo test results::dataframe --lib
 ```
 
 **Tests to add**:
+
 - `test_to_row_duration_mod_mapping()`
 - `test_to_row_duration_mac_fallback()`
 - `test_to_row_dv01_mapping()`
 - `test_to_row_convexity_mapping()`
 
 **Acceptance**:
+
 - All metric keys use MetricId constants
 - Tests verify each field correctly populated
 - No hardcoded string keys remain
 
 **Completed**:
+
 - ✅ Added import `use crate::metrics::MetricId;` (using public re-export from metrics module)
 - ✅ Implemented `get_measure()` helper method that takes `MetricId` and returns `Option<f64>`
 - ✅ Updated `to_row()` implementation to use MetricId constants:
@@ -802,10 +887,12 @@ cargo test results::dataframe --lib
 **Goal**: Full regression testing across all phases.
 
 **Files to create/modify**:
+
 - `finstack/valuations/tests/integration/full_regression.rs` (new)
 - Update existing golden test files as needed
 
 **Changes**:
+
 1. End-to-end workflow tests:
    - Calibrate OIS curve (50 quotes)
    - Price bond portfolio (100 bonds)
@@ -817,6 +904,7 @@ cargo test results::dataframe --lib
 4. Update baselines if changes are expected and correct
 
 **Verification**:
+
 ```bash
 cd finstack
 make test-rust
@@ -825,12 +913,14 @@ cargo test --test full_regression -- --nocapture --test-threads=1
 ```
 
 **Acceptance**:
+
 - All integration tests pass
 - Golden file differences explained and documented
 - No unexpected behavioral changes
 - Performance benchmarks within tolerance (<10% regression)
 
 **Completed**:
+
 - ✅ Created comprehensive regression suite (`finstack/valuations/tests/integration/full_regression.rs`)
 - ✅ Implemented 4 end-to-end integration tests covering all phases:
   - `test_full_workflow_100_bond_portfolio` - 100 bonds across 3 currencies, 9 metrics per bond (900 total metrics), strict mode validation
@@ -859,10 +949,12 @@ cargo test --test full_regression -- --nocapture --test-threads=1
 **Goal**: Comprehensive migration documentation for users.
 
 **Files to create/modify**:
+
 - `MIGRATION_GUIDE.md` (new, root level)
 - `finstack/valuations/CHANGELOG.md` (update)
 
 **Contents**:
+
 1. Overview of breaking changes
 2. Phase-by-phase migration instructions
 3. Code examples (from spec):
@@ -875,12 +967,14 @@ cargo test --test full_regression -- --nocapture --test-threads=1
 6. Deprecation timeline
 
 **Acceptance**:
+
 - ✅ Guide covers all breaking changes
 - ✅ Examples are copy-pasteable and correct
 - ✅ Links to relevant API docs
 - ✅ Reviewed by at least one other developer
 
 **Completed**:
+
 - ✅ Created comprehensive root-level `MIGRATION_GUIDE.md` (150+ KB)
   - Migration decision tree with step-by-step guidance
   - 3 migration strategies (fast/gradual/mixed) with pros/cons
@@ -906,9 +1000,11 @@ cargo test --test full_regression -- --nocapture --test-threads=1
 **Goal**: Ensure all changed APIs have correct rustdoc.
 
 **Files to modify**:
+
 - All files modified in Phases 1-3
 
 **Changes**:
+
 1. Add/update rustdoc for:
    - New methods (compute_strict, parse_strict, add_joint_business_days, etc.)
    - Changed signatures (compute with mode parameter)
@@ -918,6 +1014,7 @@ cargo test --test full_regression -- --nocapture --test-threads=1
 4. Cross-link related APIs
 
 **Verification**:
+
 ```bash
 cargo doc --no-deps --open
 # Check for warnings:
@@ -925,12 +1022,14 @@ cargo doc --no-deps 2>&1 | grep warning
 ```
 
 **Acceptance**:
+
 - ✅ No rustdoc warnings in modified files
 - ✅ All public APIs documented
 - ✅ Examples compile and run
 - ✅ Errors documented
 
 **Completed**:
+
 - ✅ All 4 new error variants (UnknownMetric, MetricNotApplicable, MetricCalculationFailed, CircularDependency) have comprehensive documentation with examples
 - ✅ StrictMode enum documented with usage guidance
 - ✅ compute(), compute_best_effort() methods have full documentation with examples and errors sections
@@ -954,6 +1053,7 @@ cargo doc --no-deps 2>&1 | grep warning
 **Goal**: Sync bindings with Rust changes.
 
 **Completed**: ✅ All changes implemented and verified
+
 - Added `parse_strict()` / `parseStrict()` to both Python and WASM MetricId
 - Updated swap quote schema to use `spread_decimal` in both bindings
 - Documentation complete with migration examples
@@ -961,12 +1061,14 @@ cargo doc --no-deps 2>&1 | grep warning
 - Full report: `python-wasm-bindings-update-report.md`
 
 **Files to modify**:
+
 - `finstack-py/src/valuations/metrics/registry.rs`
 - `finstack-py/src/valuations/metrics/ids.rs`
 - `finstack-wasm/src/valuations/metrics/registry.rs`
 - `finstack-wasm/src/valuations/metrics/ids.rs`
 
 **Changes**:
+
 1. Python bindings:
    - Expose `compute_strict()` and `compute_best_effort()`
    - Expose `MetricId.parse_strict()`
@@ -980,6 +1082,7 @@ cargo doc --no-deps 2>&1 | grep warning
    - Update error mappings
 
 **Verification**:
+
 ```bash
 make test-python
 make test-wasm
@@ -988,6 +1091,7 @@ make lint-wasm
 ```
 
 **Acceptance**:
+
 - Python API parity with Rust
 - WASM API parity with Rust
 - All binding tests pass
@@ -1002,11 +1106,13 @@ make lint-wasm
 **Goal**: Validate no significant performance regressions.
 
 **Files to create/modify**:
+
 - `finstack/valuations/benches/metrics.rs` (update)
 - `finstack/valuations/benches/calibration.rs` (update)
 - `finstack/valuations/benches/fx_dates.rs` (new)
 
 **Benchmarks to run**:
+
 1. Metrics computation:
    - 1000 instruments × 10 metrics (strict vs best effort)
    - Expected: <5% difference
@@ -1018,6 +1124,7 @@ make lint-wasm
    - Expected: <10% regression (more correct but may be slower)
 
 **Verification**:
+
 ```bash
 cd finstack/valuations
 cargo bench --bench metrics -- --save-baseline after
@@ -1027,11 +1134,13 @@ cargo bench --bench fx_dates -- --save-baseline after
 ```
 
 **Acceptance**:
+
 - All benchmarks within acceptable regression thresholds
 - Any >10% regressions justified and documented
 - Results saved for future comparison
 
 **Completed**:
+
 - ✅ Updated `calibration.rs`: Added `bench_residual_normalization()` with notional=1.0 vs 1M tests (+97 lines)
 - ✅ Created `metrics.rs`: 4 benchmark functions covering bond metrics, scaling, and portfolio scenarios (221 lines)
 - ✅ Created `fx_dates.rs`: 5 benchmark functions covering joint business days, spot settlement, batch ops (282 lines)
@@ -1048,11 +1157,13 @@ cargo bench --bench fx_dates -- --save-baseline after
 **Goal**: Prepare for release with all artifacts.
 
 **Files to create/modify**:
+
 - `CHANGELOG.md` (root level)
 - `finstack/valuations/README.md`
 - Release notes draft
 
 **Tasks**:
+
 1. Update CHANGELOG:
    - Version number (e.g., 0.8.0)
    - Breaking changes section (summarize each phase)
@@ -1069,16 +1180,19 @@ cargo bench --bench fx_dates -- --save-baseline after
    - Upgrade instructions
 
 **Verification**:
+
 - Changelog follows Keep a Changelog format
 - All links work
 - Version numbers consistent across crates
 
 **Acceptance**:
+
 - All documentation complete and accurate
 - Release notes reviewed
 - Ready for version tag and publish
 
 **Completed**:
+
 - ✅ Created root-level `CHANGELOG.md` (11,127 bytes):
   - Workspace-level changelog following Keep a Changelog format
   - Version 0.8.0 breaking changes summary with migration paths
@@ -1127,9 +1241,11 @@ cargo bench --bench fx_dates -- --save-baseline after
 **Goal**: Summarize implementation and outcomes.
 
 **Files to create**:
+
 - `.zenflow/tasks/market-convention-refactors-3cf8/report.md`
 
 **Contents**:
+
 1. **What was implemented**:
    - Summary of each phase
    - Files changed (count, LOC metrics)
@@ -1152,12 +1268,14 @@ cargo bench --bench fx_dates -- --save-baseline after
    - Support plan
 
 **Acceptance**:
+
 - Report is comprehensive and accurate
 - Includes metrics and evidence
 - Documents lessons learned
 - Ready for stakeholder review
 
 **Completed**:
+
 - ✅ Created comprehensive final report (`.zenflow/tasks/market-convention-refactors-3cf8/report.md`)
 - ✅ Executive summary with key achievements and metrics
 - ✅ Detailed implementation summary for all 4 phases (15/16 steps completed)
@@ -1172,18 +1290,18 @@ cargo bench --bench fx_dates -- --save-baseline after
 
 ---
 
-
-
 ## Rollback Strategy
 
 If critical issues arise during implementation:
 
 ### Phase-wise Rollback
+
 - **Phase 1**: Add `compute_best_effort()` as workaround; document migration path for gradual adoption
 - **Phase 2**: Feature flag `legacy_fx_settlement` (preserve old behavior if needed)
 - **Phase 3**: Already using deprecation approach (gradual migration built-in)
 
 ### Emergency Rollback
+
 1. Revert to previous release tag
 2. Apply hotfix to main branch
 3. Re-plan implementation with additional safeguards
@@ -1195,23 +1313,27 @@ If critical issues arise during implementation:
 ## Success Criteria Summary
 
 ### Functional
+
 - ✅ All ~50+ unit tests pass (100% coverage for changed code)
 - ✅ All ~10 integration tests pass
 - ✅ Golden files updated with documented rationale
 - ✅ Clippy and rustfmt pass with zero warnings
 
 ### Performance
+
 - ✅ Metrics strict mode overhead <5%
 - ✅ Calibration performance within 1%
 - ✅ FX settlement <10% regression (justified)
 
 ### Documentation
+
 - ✅ Migration guide complete with examples
 - ✅ API docs updated (no warnings)
 - ✅ CHANGELOG and release notes drafted
 - ✅ Python/WASM bindings synced
 
 ### Compliance
+
 - ✅ FX settlement matches ISDA conventions (test verified)
 - ✅ Calibration tolerances work across notionals (test verified)
 - ✅ Metric errors are actionable (no silent zeros in strict mode)

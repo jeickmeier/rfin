@@ -35,6 +35,7 @@ fn residual_key(&self, quote: &Self::Quote, _idx: usize) -> String {
 **Reason**: This is an implementation of the trait method defined in `calibration/solver/traits.rs:121`. The trait provides `idx` as a parameter for implementations that need sequential indexing. This implementation uses the quote directly for the key, which is a valid design choice. The `_idx` prefix correctly signals this is an intentional unused parameter.
 
 **Trait Definition**:
+
 ```rust
 // Default implementation in trait
 fn residual_key(&self, _quote: &Self::Quote, idx: usize) -> String {
@@ -94,6 +95,7 @@ cargo clippy --package finstack-valuations 2>&1 | grep "unused"
 **Result**: No unused parameter warnings
 
 This confirms that:
+
 - All parameters prefixed with `_` are intentionally unused
 - Rust's compiler and clippy recognize these as valid trait implementations or future placeholders
 - No action is required from a compiler correctness standpoint
@@ -103,15 +105,20 @@ This confirms that:
 Parameters with underscore prefixes in the codebase fall into these categories:
 
 #### Category 1: Trait Implementations
+
 Parameters required by trait interface but not needed in specific implementations:
+
 - `calibration/solver/traits.rs` - Multiple trait methods with default implementations
 - Various metric calculators implementing common traits
 
 #### Category 2: Future Extension Points
+
 Parameters reserved for future functionality (marked with TODOs):
+
 - Previously removed `compute_forward_rate` stubs (completed in Phase 2)
 
 #### Category 3: API Consistency
+
 Parameters maintained to keep function signatures consistent across similar operations
 
 ## Recommendations
@@ -129,6 +136,7 @@ Based on this audit:
 While not required, the following documentation enhancements could provide additional clarity:
 
 1. Add inline comments for trait implementations explaining why parameters are unused:
+
    ```rust
    fn residual_key(&self, quote: &Self::Quote, _idx: usize) -> String {
        // Uses quote-based key instead of index-based key (trait provides idx for other implementations)
@@ -145,16 +153,19 @@ While not required, the following documentation enhancements could provide addit
 ## Comparison with Previous Phases
 
 ### Phase 1: `freeze_all_market` ✅ Removed
+
 - **Lines removed**: 18 (function + test)
 - **Call sites updated**: 1
 - **Status**: Successfully eliminated dead code
 
 ### Phase 2: `compute_forward_rate` Stubs ✅ Removed
+
 - **Lines removed**: ~15 (two stub methods)
 - **Call sites updated**: 2 (inlined logic with TODO comments)
 - **Status**: Successfully eliminated vestigial code
 
 ### Phase 3: Unused Parameters ✅ No Action Required
+
 - **Lines removed**: 0
 - **Findings**: All parameters with underscore prefixes are intentionally unused for valid architectural reasons
 - **Status**: Audit complete - no changes needed

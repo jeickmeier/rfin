@@ -13,11 +13,10 @@ from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve, HazardCurve
 
 # Instrument imports
-from finstack.valuations.instruments import InterestRateSwapBuilder
 import pytest
 
 # Core imports
-from finstack import Currency, Money
+from finstack import Currency
 
 # Portfolio imports
 from finstack.portfolio import (
@@ -27,8 +26,6 @@ from finstack.portfolio import (
     NettingSetManager,
     PortfolioBuilder,
     PortfolioMarginAggregator,
-    Position,
-    PositionUnit,
 )
 
 # ============================================================================
@@ -226,55 +223,6 @@ def test_margin_aggregator_from_portfolio(usd: Currency, as_of: date) -> None:
     assert aggregator is not None
 
 
-@pytest.mark.skip(reason="Requires marginable instruments with proper market data")
-def test_margin_calculation_simple(usd: Currency, as_of: date, market_context: MarketContext) -> None:
-    """Test basic margin calculation with interest rate swaps.
-
-    Note: This test is skipped because it requires:
-    1. Instruments that implement the Marginable trait
-    2. Proper netting set assignment to instruments
-    3. Complete market data for SIMM sensitivities
-
-    This is a placeholder for future integration tests once the instrument
-    margin specifications are properly configured.
-    """
-    # Create portfolio with IRS positions
-    builder = PortfolioBuilder("TEST_PORTFOLIO_IRS")
-    builder.base_ccy(usd)
-    builder.as_of(as_of)
-
-    # Add entity
-    entity = Entity("BANK_A", "Bank A")
-    builder.entity(entity)
-
-    # Create IRS (would need proper margin spec assignment)
-    notional = Money(10_000_000.0, Currency("USD"))
-    irs = InterestRateSwapBuilder.new(
-        "IRS_001",
-        notional,
-        0.055,  # fixed rate
-        as_of,
-        date(2029, 6, 15),  # maturity
-        "pay_fixed",
-        "USD.OIS",
-    ).build()
-
-    # Add position
-    position = Position("POS_001", irs, 1.0, PositionUnit.Units, "BANK_A")
-    builder.position(position)
-
-    portfolio = builder.build()
-
-    # Calculate margin
-    aggregator = PortfolioMarginAggregator.from_portfolio(portfolio)
-    result = aggregator.calculate(portfolio, market_context, as_of)
-
-    # Verify result structure
-    assert result.base_currency.code == "USD"
-    assert result.total_positions >= 0
-    assert result.total_initial_margin.amount >= 0
-
-
 # ============================================================================
 # Test Margin Results
 # ============================================================================
@@ -297,30 +245,6 @@ def test_netting_set_margin_properties() -> None:
 # ============================================================================
 # Integration Tests
 # ============================================================================
-
-
-@pytest.mark.usefixtures("usd", "as_of")
-def test_margin_workflow_end_to_end() -> None:
-    """Test complete margin calculation workflow.
-
-    This test demonstrates the expected workflow:
-    1. Create portfolio with positions
-    2. Create netting set manager
-    3. Create margin aggregator
-    4. Calculate margin requirements
-
-    Note: Skipped because it requires marginable instruments with proper
-    netting set specifications.
-    """
-    pytest.skip("Requires marginable instruments with netting set specs")
-
-
-def test_cleared_bilateral_split() -> None:
-    """Test splitting margin between cleared and bilateral.
-
-    Note: Skipped because it requires a calculated PortfolioMarginResult.
-    """
-    pytest.skip("Requires calculated margin result")
 
 
 # ============================================================================

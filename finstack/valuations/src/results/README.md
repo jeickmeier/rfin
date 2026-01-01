@@ -458,13 +458,13 @@ To add a new risk metric to results:
 let new_metric_value = calculate_new_metric(instrument, market)?;
 ```
 
-2. **Add to measures map**:
+1. **Add to measures map**:
 
 ```rust
 measures.insert("new_metric".to_string(), new_metric_value);
 ```
 
-3. **(Optional) Add to ValuationRow** if it should be a top-level column:
+1. **(Optional) Add to ValuationRow** if it should be a top-level column:
 
 ```rust
 // In dataframe.rs
@@ -488,7 +488,7 @@ impl ValuationResult {
 }
 ```
 
-4. **Use consistent naming** via `MetricId` enum (see `metrics/mod.rs`):
+1. **Use consistent naming** via `MetricId` enum (see `metrics/mod.rs`):
 
 ```rust
 measures.insert(MetricId::NewMetric.as_str(), new_metric_value);
@@ -512,7 +512,7 @@ pub struct ValuationResult {
 }
 ```
 
-2. **Update constructors** to initialize the field:
+1. **Update constructors** to initialize the field:
 
 ```rust
 impl ValuationResult {
@@ -530,7 +530,7 @@ impl ValuationResult {
 }
 ```
 
-3. **Add a builder method**:
+1. **Add a builder method**:
 
 ```rust
 impl ValuationResult {
@@ -542,9 +542,9 @@ impl ValuationResult {
 }
 ```
 
-4. **Update documentation** with usage examples
+1. **Update documentation** with usage examples
 
-5. **Add tests**:
+2. **Add tests**:
 
 ```rust
 #[test]
@@ -571,7 +571,7 @@ pub struct CustomRow {
 }
 ```
 
-2. **Implement conversion**:
+1. **Implement conversion**:
 
 ```rust
 impl ValuationResult {
@@ -585,7 +585,7 @@ impl ValuationResult {
 }
 ```
 
-3. **Add batch converter**:
+1. **Add batch converter**:
 
 ```rust
 pub fn results_to_custom_rows(results: &[ValuationResult]) -> Vec<CustomRow> {

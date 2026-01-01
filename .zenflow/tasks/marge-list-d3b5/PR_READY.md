@@ -12,6 +12,7 @@
 ## What's Been Completed ✅
 
 ### Implementation (100% Complete)
+
 - ✅ **Phase 1**: Market Data Curve Restoration (327→80 lines, 75% reduction)
 - ✅ **Phase 2**: Monte Carlo Payoff Consolidation (~150→50 lines per pair, 66% reduction)
 - ✅ **Phase 3**: Parameter Reduction via Context Structs (15→2-3 parameters)
@@ -20,6 +21,7 @@
 - ✅ **Phase 6**: JSON Envelope Boilerplate (64 lines removed, 71% reduction)
 
 ### Testing (100% Complete)
+
 - ✅ **Rust Tests**: 5799/5799 passing (76.7s)
 - ✅ **WASM Tests**: 26/26 passing (179.9s)
 - ✅ **Python Tests**: 330/330 passing (132.5s)
@@ -29,6 +31,7 @@
 - ✅ **Performance**: 0% regression (no algorithm changes)
 
 ### Documentation (100% Complete)
+
 - ✅ **CHANGELOG**: Updated with all 6 phases
 - ✅ **Module Documentation**: Enhanced with examples and migration guides
 - ✅ **Deprecation Warnings**: Clear migration paths for all deprecated APIs
@@ -36,6 +39,7 @@
 - ✅ **Final Verification**: Comprehensive verification complete
 
 ### PR Materials (100% Complete)
+
 - ✅ **PR Description**: Comprehensive 644-line description with:
   - Overview and motivation
   - Detailed phase-by-phase changes
@@ -63,6 +67,7 @@
 **Commits**: 22 commits (from `6c6ff091` to `49e51810`)
 
 ### Commit Summary
+
 ```
 49e51810 Complete PR preparation: description, instructions, and plan update
 201a08b0 Mark final PR step as in progress
@@ -94,6 +99,7 @@ fb129f71 Phase 1.5: Add equivalence tests (old vs new)
 ## Files Changed
 
 ### Core Implementation Files
+
 ```
 finstack/valuations/Cargo.toml                                          (bitflags dependency)
 finstack/valuations/CHANGELOG.md                                        (comprehensive changelog)
@@ -109,6 +115,7 @@ finstack/valuations/src/instruments/structured_credit/pricing/waterfall.rs      
 ```
 
 ### Documentation and Test Files
+
 ```
 .zenflow/tasks/marge-list-d3b5/spec.md                                  (technical specification)
 .zenflow/tasks/marge-list-d3b5/plan.md                                  (implementation plan)
@@ -133,6 +140,7 @@ finstack/valuations/src/instruments/structured_credit/pricing/waterfall.rs      
 You need to authenticate before pushing the branch. Choose one method:
 
 **Option A: HTTPS with Personal Access Token**
+
 ```bash
 # Generate token at: https://github.com/settings/tokens
 cd /private/var/folders/20/nm1z0qb90hvcnsbr53t87xt40000gn/T/zenflow/worktrees/marge-list-d3b5
@@ -141,6 +149,7 @@ git push -u origin marge-list-d3b5
 ```
 
 **Option B: SSH Keys**
+
 ```bash
 # Set up SSH keys: https://docs.github.com/en/authentication/connecting-to-github-with-ssh
 cd /private/var/folders/20/nm1z0qb90hvcnsbr53t87xt40000gn/T/zenflow/worktrees/marge-list-d3b5
@@ -149,6 +158,7 @@ git push -u origin marge-list-d3b5
 ```
 
 **Option C: GitHub CLI**
+
 ```bash
 # Install: brew install gh
 gh auth login
@@ -160,7 +170,7 @@ git push -u origin marge-list-d3b5
 
 Once the branch is pushed:
 
-1. **Go to**: https://github.com/jeickmeier/rfin
+1. **Go to**: <https://github.com/jeickmeier/rfin>
 2. **Click**: "Compare & pull request" banner
 3. **Title**: `Marge List: Code Consolidation Refactoring`
 4. **Description**: Copy from `.zenflow/tasks/marge-list-d3b5/PR_DESCRIPTION.md`
@@ -169,6 +179,7 @@ Once the branch is pushed:
 7. **Click**: "Create pull request"
 
 **OR use GitHub CLI**:
+
 ```bash
 cd /private/var/folders/20/nm1z0qb90hvcnsbr53t87xt40000gn/T/zenflow/worktrees/marge-list-d3b5
 gh pr create \
@@ -204,15 +215,18 @@ All success metrics have been achieved:
 ## Reference Documents
 
 ### PR Materials
+
 - **PR Description**: `.zenflow/tasks/marge-list-d3b5/PR_DESCRIPTION.md` (644 lines)
 - **PR Instructions**: `.zenflow/tasks/marge-list-d3b5/PR_INSTRUCTIONS.md` (full guide)
 
 ### Implementation Documentation
+
 - **Technical Spec**: `.zenflow/tasks/marge-list-d3b5/spec.md`
 - **Implementation Plan**: `.zenflow/tasks/marge-list-d3b5/plan.md`
 - **Phase Completion Docs**: 7 detailed documents in `.zenflow/tasks/marge-list-d3b5/`
 
 ### Codebase Documentation
+
 - **CHANGELOG**: `finstack/valuations/CHANGELOG.md`
 - **Module Docs**: Enhanced in all modified Rust files
 - **Migration Examples**: Included in deprecation warnings
@@ -222,24 +236,28 @@ All success metrics have been achieved:
 ## Review Checklist for Reviewers
 
 ### Quant Team (Phase 2: Monte Carlo)
+
 - [ ] Review `RatesPayoff` and `Lookback` implementations
 - [ ] Verify payoff logic matches original behavior
 - [ ] Check test coverage for edge cases
 - [ ] Validate against analytical formulas where available
 
 ### Structuring Desk (Phase 3: Waterfall)
+
 - [ ] Review `AllocationContext` and `AllocationOutput` structs
 - [ ] Verify waterfall execution matches original behavior
 - [ ] Check conservation laws (all property tests pass)
 - [ ] Validate against golden files
 
 ### Core Maintainers (Architecture)
+
 - [ ] Review trait-based patterns (Phases 4, 6)
 - [ ] Verify deprecation strategy and migration guides
 - [ ] Check documentation completeness
 - [ ] Validate backward compatibility guarantees
 
 ### All Reviewers
+
 - [ ] All tests pass (6155/6155)
 - [ ] Zero clippy warnings
 - [ ] Performance within 5% (0% actual regression)
@@ -286,6 +304,7 @@ git push origin main
 ```
 
 **Only use rollback if**:
+
 - Attribution P&L differs by >1bp
 - Monte Carlo prices outside tolerances
 - Waterfall distributions fail conservation checks
@@ -312,6 +331,7 @@ After the PR is merged:
 ## Contact
 
 For questions about:
+
 - **Git/GitHub**: Check GitHub docs or ask DevOps team
 - **CI/CD**: Check Actions logs or ask DevOps team
 - **Code changes**: Review phase completion docs

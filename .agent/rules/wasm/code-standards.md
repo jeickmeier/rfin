@@ -16,6 +16,7 @@ description: Rust-Wasm Bindings
 ## Project Structure
 
 ### Organization
+
 ```
 rfin-wasm/
 ├── src/
@@ -34,6 +35,7 @@ rfin-wasm/
 ```
 
 ### Build Targets
+
 ```toml
 # Cargo.toml
 [lib]
@@ -47,6 +49,7 @@ serde-wasm-bindgen = "0.6"  # For complex object serialization
 ## Type Wrapping Patterns
 
 ### Basic Type Wrapper
+
 ```rust
 use wasm_bindgen::prelude::*;
 use rfin_core::TypeName as CoreType;
@@ -72,6 +75,7 @@ impl TypeName {
 ```
 
 ### Property Getters
+
 ```rust
 #[wasm_bindgen]
 impl TypeName {
@@ -90,6 +94,7 @@ impl TypeName {
 ```
 
 ### Methods
+
 ```rust
 #[wasm_bindgen]
 impl TypeName {
@@ -116,6 +121,7 @@ impl TypeName {
 ## Error Handling
 
 ### Convert Rust Errors to JavaScript
+
 ```rust
 use rfin_core::error::{Error, InputError};
 
@@ -139,6 +145,7 @@ fn convert_error(err: Error) -> JsValue {
 ```
 
 ### Method Error Handling
+
 ```rust
 #[wasm_bindgen]
 impl Money {
@@ -155,6 +162,7 @@ impl Money {
 ## Enum Handling
 
 ### Simple Enums
+
 ```rust
 use wasm_bindgen::prelude::*;
 
@@ -181,6 +189,7 @@ impl Into<CoreFrequency> for Frequency {
 ```
 
 ### Static Enum Methods
+
 ```rust
 #[wasm_bindgen]
 impl DayCount {
@@ -199,6 +208,7 @@ impl DayCount {
 ## Complex Type Serialization
 
 ### Using Serde for Complex Objects
+
 ```rust
 use serde::{Serialize, Deserialize};
 use serde_wasm_bindgen::{to_value, from_value};
@@ -235,6 +245,7 @@ impl FixedRateLeg {
 ## Module Initialization
 
 ### lib.rs Pattern
+
 ```rust
 use wasm_bindgen::prelude::*;
 
@@ -260,6 +271,7 @@ pub use dates::{
 ```
 
 ### utils.rs Pattern
+
 ```rust
 pub fn set_panic_hook() {
     // Only include panic hook in debug builds
@@ -271,6 +283,7 @@ pub fn set_panic_hook() {
 ## Memory Management
 
 ### Avoid Unnecessary Clones
+
 ```rust
 #[wasm_bindgen]
 impl Currency {
@@ -286,6 +299,7 @@ impl Currency {
 ```
 
 ### Handle Collections Efficiently
+
 ```rust
 use js_sys::Array;
 
@@ -304,6 +318,7 @@ pub fn generate_dates(start: &Date, end: &Date, freq: Frequency) -> Array {
 ## Testing
 
 ### WASM Test Structure
+
 ```rust
 // tests/web.rs
 use wasm_bindgen_test::*;
@@ -332,6 +347,7 @@ fn test_money_arithmetic() {
 ## JavaScript API Design
 
 ### Constructor Pattern
+
 ```rust
 // Always provide constructors for main types
 #[wasm_bindgen(constructor)]
@@ -341,6 +357,7 @@ pub fn new(/* params */) -> Result<Self, JsValue> {
 ```
 
 ### Method Naming
+
 ```rust
 // Use JavaScript conventions
 #[wasm_bindgen(js_name = "toString")]
@@ -354,6 +371,7 @@ pub fn to_json(&self) -> Result<JsValue, JsValue> { }
 ```
 
 ### Optional Parameters
+
 ```rust
 use wasm_bindgen::JsValue;
 
@@ -377,6 +395,7 @@ impl Calculator {
 ## Documentation
 
 ### Type Documentation
+
 ```rust
 /// Currency representation based on ISO 4217 standards.
 ///
@@ -395,6 +414,7 @@ pub struct Currency {
 ```
 
 ### Method Documentation
+
 ```rust
 /// Add two money values.
 ///
@@ -412,6 +432,7 @@ pub fn add(&self, other: &Money) -> Result<Money, JsValue> {
 ## Build Configuration
 
 ### wasm-pack Settings
+
 ```toml
 # Cargo.toml
 [package.metadata.wasm-pack]
@@ -427,6 +448,7 @@ decimal128 = ["rfin-core/decimal128"]
 ```
 
 ### Build Scripts
+
 ```json
 // package.json
 {
@@ -442,6 +464,7 @@ decimal128 = ["rfin-core/decimal128"]
 ## Performance Guidelines
 
 ### Minimize Boundary Crossings
+
 ```rust
 // Good: Batch operations
 #[wasm_bindgen]
@@ -453,6 +476,7 @@ pub fn calculate_multiple(values: &[f64]) -> Vec<f64> {
 ```
 
 ### Use References Where Possible
+
 ```rust
 // Good: Accept references
 #[wasm_bindgen]
@@ -467,6 +491,7 @@ pub fn compare(self, other: Money) -> bool { }
 ## Debugging Support
 
 ### Console Logging
+
 ```rust
 use web_sys::console;
 
@@ -480,6 +505,7 @@ impl Calculator {
 ```
 
 ### Development Features
+
 ```rust
 #[cfg(debug_assertions)]
 #[wasm_bindgen]
@@ -503,6 +529,7 @@ impl TypeName {
 
 ### Organization
 ```
+
 rfin-wasm/
 ├── src/
 │   ├── lib.rs        # Module initialization and re-exports
@@ -517,6 +544,7 @@ rfin-wasm/
 ├── pkg-node/         # Generated Node.js package
 └── tests/           # WASM tests
     └── web.rs
+
 ```
 
 ### Build Targets
@@ -533,6 +561,7 @@ serde-wasm-bindgen = "0.6"  # For complex object serialization
 ## Type Wrapping Patterns
 
 ### Basic Type Wrapper
+
 ```rust
 use wasm_bindgen::prelude::*;
 use rfin_core::TypeName as CoreType;
@@ -558,6 +587,7 @@ impl TypeName {
 ```
 
 ### Property Getters
+
 ```rust
 #[wasm_bindgen]
 impl TypeName {
@@ -576,6 +606,7 @@ impl TypeName {
 ```
 
 ### Methods
+
 ```rust
 #[wasm_bindgen]
 impl TypeName {
@@ -602,6 +633,7 @@ impl TypeName {
 ## Error Handling
 
 ### Convert Rust Errors to JavaScript
+
 ```rust
 use rfin_core::error::{Error, InputError};
 
@@ -625,6 +657,7 @@ fn convert_error(err: Error) -> JsValue {
 ```
 
 ### Method Error Handling
+
 ```rust
 #[wasm_bindgen]
 impl Money {
@@ -641,6 +674,7 @@ impl Money {
 ## Enum Handling
 
 ### Simple Enums
+
 ```rust
 use wasm_bindgen::prelude::*;
 
@@ -667,6 +701,7 @@ impl Into<CoreFrequency> for Frequency {
 ```
 
 ### Static Enum Methods
+
 ```rust
 #[wasm_bindgen]
 impl DayCount {
@@ -685,6 +720,7 @@ impl DayCount {
 ## Complex Type Serialization
 
 ### Using Serde for Complex Objects
+
 ```rust
 use serde::{Serialize, Deserialize};
 use serde_wasm_bindgen::{to_value, from_value};
@@ -721,6 +757,7 @@ impl FixedRateLeg {
 ## Module Initialization
 
 ### lib.rs Pattern
+
 ```rust
 use wasm_bindgen::prelude::*;
 
@@ -746,6 +783,7 @@ pub use dates::{
 ```
 
 ### utils.rs Pattern
+
 ```rust
 pub fn set_panic_hook() {
     // Only include panic hook in debug builds
@@ -757,6 +795,7 @@ pub fn set_panic_hook() {
 ## Memory Management
 
 ### Avoid Unnecessary Clones
+
 ```rust
 #[wasm_bindgen]
 impl Currency {
@@ -772,6 +811,7 @@ impl Currency {
 ```
 
 ### Handle Collections Efficiently
+
 ```rust
 use js_sys::Array;
 
@@ -790,6 +830,7 @@ pub fn generate_dates(start: &Date, end: &Date, freq: Frequency) -> Array {
 ## Testing
 
 ### WASM Test Structure
+
 ```rust
 // tests/web.rs
 use wasm_bindgen_test::*;
@@ -818,6 +859,7 @@ fn test_money_arithmetic() {
 ## JavaScript API Design
 
 ### Constructor Pattern
+
 ```rust
 // Always provide constructors for main types
 #[wasm_bindgen(constructor)]
@@ -827,6 +869,7 @@ pub fn new(/* params */) -> Result<Self, JsValue> {
 ```
 
 ### Method Naming
+
 ```rust
 // Use JavaScript conventions
 #[wasm_bindgen(js_name = "toString")]
@@ -840,6 +883,7 @@ pub fn to_json(&self) -> Result<JsValue, JsValue> { }
 ```
 
 ### Optional Parameters
+
 ```rust
 use wasm_bindgen::JsValue;
 
@@ -863,6 +907,7 @@ impl Calculator {
 ## Documentation
 
 ### Type Documentation
+
 ```rust
 /// Currency representation based on ISO 4217 standards.
 ///
@@ -881,6 +926,7 @@ pub struct Currency {
 ```
 
 ### Method Documentation
+
 ```rust
 /// Add two money values.
 ///
@@ -898,6 +944,7 @@ pub fn add(&self, other: &Money) -> Result<Money, JsValue> {
 ## Build Configuration
 
 ### wasm-pack Settings
+
 ```toml
 # Cargo.toml
 [package.metadata.wasm-pack]
@@ -913,6 +960,7 @@ decimal128 = ["rfin-core/decimal128"]
 ```
 
 ### Build Scripts
+
 ```json
 // package.json
 {
@@ -928,6 +976,7 @@ decimal128 = ["rfin-core/decimal128"]
 ## Performance Guidelines
 
 ### Minimize Boundary Crossings
+
 ```rust
 // Good: Batch operations
 #[wasm_bindgen]
@@ -939,6 +988,7 @@ pub fn calculate_multiple(values: &[f64]) -> Vec<f64> {
 ```
 
 ### Use References Where Possible
+
 ```rust
 // Good: Accept references
 #[wasm_bindgen]
@@ -953,6 +1003,7 @@ pub fn compare(self, other: Money) -> bool { }
 ## Debugging Support
 
 ### Console Logging
+
 ```rust
 use web_sys::console;
 
@@ -966,6 +1017,7 @@ impl Calculator {
 ```
 
 ### Development Features
+
 ```rust
 #[cfg(debug_assertions)]
 #[wasm_bindgen]

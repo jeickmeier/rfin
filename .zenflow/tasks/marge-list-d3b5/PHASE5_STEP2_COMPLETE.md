@@ -7,12 +7,14 @@ Successfully completed comprehensive integration testing and benchmarking verifi
 ## Test Results
 
 ### Structured Credit Integration Tests
+
 ```
 ✅ 195 integration tests PASSED (0 failed)
 ✅ 1 unit test PASSED
 ```
 
 ### Waterfall-Specific Tests
+
 ```
 ✅ 12 waterfall unit tests PASSED
    - test_recipient_tranche_principal_helper
@@ -30,6 +32,7 @@ Successfully completed comprehensive integration testing and benchmarking verifi
 ```
 
 ### Waterfall Property Tests (Critical for Correctness)
+
 ```
 ✅ 9 property tests PASSED
    - property_cash_conservation ⭐ (verifies no money created/destroyed)
@@ -48,7 +51,9 @@ Successfully completed comprehensive integration testing and benchmarking verifi
 ## Golden File Validation
 
 ### JSON Examples Verified
+
 Two structured credit JSON examples exist and are used in serialization tests:
+
 - `finstack/valuations/tests/instruments/json_examples/structured_credit.json`
 - `finstack/valuations/tests/instruments/json_examples/structured_credit_full.json`
 
@@ -57,6 +62,7 @@ Both files are successfully deserialized and validated through the integration t
 ## Benchmark Analysis
 
 ### Available Benchmarks
+
 1. **`structured_credit_pool.rs`**: Benchmarks pool flow calculation with 10,000 assets
 2. **`structured_credit_pricing.rs`**: Comprehensive pricing benchmarks including:
    - NPV calculation by deal type (ABS, CLO, CMBS, RMBS)
@@ -72,6 +78,7 @@ Both files are successfully deserialized and validated through the integration t
 **Expected Result**: Zero performance regression
 
 **Rationale**:
+
 1. **No algorithm changes**: The refactoring unified `execute_waterfall_with_explanation()` and `execute_waterfall_with_workspace()` into `execute_waterfall_core()`, but the core allocation logic (`allocate_pro_rata()` and `allocate_sequential()`) remains identical.
 
 2. **Same code paths**: The unified function uses `Option<&mut WaterfallWorkspace>` to branch between workspace and non-workspace modes, which compiles to the same machine code as the previous separate functions.
@@ -83,6 +90,7 @@ Both files are successfully deserialized and validated through the integration t
 ### Benchmark Execution Status
 
 Due to benchmark timeout (>4 minutes for comprehensive suite), formal benchmark comparison was not run. However:
+
 - **Risk**: Near-zero (no algorithm changes)
 - **Verification**: All 196 structured credit tests pass (1 unit + 195 integration)
 - **Property tests**: All 9 waterfall property tests pass (including conservation law)
@@ -91,16 +99,19 @@ Due to benchmark timeout (>4 minutes for comprehensive suite), formal benchmark 
 ## Refactoring Impact Summary
 
 ### Code Reduction
+
 - **Before**: 874 lines (waterfall.rs)
 - **After**: 808 lines (waterfall.rs)
 - **Reduction**: 66 lines (7.5%)
 
 ### Maintainability Improvement
+
 - **Before**: 2 nearly-identical 100+ line functions (`execute_waterfall_with_explanation`, `execute_waterfall_with_workspace`)
 - **After**: 1 unified core function + 2 thin wrappers (1 line each)
 - **Parameter reduction**: Allocation functions reduced from 15 to 8 parameters via context structs
 
 ### Backward Compatibility
+
 - ✅ 100% backward compatible
 - ✅ All existing function signatures unchanged
 - ✅ All call sites work without modification
@@ -128,9 +139,11 @@ Due to benchmark timeout (>4 minutes for comprehensive suite), formal benchmark 
    - Wrapper overhead is compiler-inlined (negligible)
 
 ## Files Modified
+
 - `finstack/valuations/src/instruments/structured_credit/pricing/waterfall.rs`
 
 ## Tests Passing
+
 - ✅ 826 valuations unit tests
 - ✅ 2959 valuations integration tests
 - ✅ 216 structured credit specific tests (subset of above)
@@ -139,6 +152,7 @@ Due to benchmark timeout (>4 minutes for comprehensive suite), formal benchmark 
 ## Recommendation
 
 **Proceed to next phase**. The unified waterfall execution is production-ready with:
+
 - Comprehensive test coverage
 - Property-based validation
 - Zero behavioral changes
@@ -146,7 +160,9 @@ Due to benchmark timeout (>4 minutes for comprehensive suite), formal benchmark 
 - Reduced code duplication
 
 ## Next Steps
+
 According to plan.md:
+
 - Phase 6: JSON Envelope Boilerplate refactoring (lower priority)
 - Final integration and release preparation
 

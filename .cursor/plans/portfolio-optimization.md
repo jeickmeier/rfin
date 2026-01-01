@@ -344,11 +344,13 @@ fn matches_filter(position: &crate::position::Position, filter: &PositionFilter)
 **Use cases**:
 
 1. **Basic optimization** (existing behavior):
+
    ```rust
    let universe = TradeUniverse::all_positions();
    ```
 
 2. **Add hedging instruments**:
+
    ```rust
    let universe = TradeUniverse::all_positions()
        .with_candidate(CandidatePosition::new(
@@ -366,6 +368,7 @@ fn matches_filter(position: &crate::position::Position, filter: &PositionFilter)
    ```
 
 3. **What-if: Evaluate adding new bonds**:
+
    ```rust
    let universe = TradeUniverse::all_positions()
        .with_candidates(new_bond_candidates.iter().map(|bond| {
@@ -379,6 +382,7 @@ fn matches_filter(position: &crate::position::Position, filter: &PositionFilter)
    ```
 
 4. **Lock illiquid positions**:
+
    ```rust
    let universe = TradeUniverse::all_positions()
        .with_held_positions(PositionFilter::ByTag {
@@ -388,6 +392,7 @@ fn matches_filter(position: &crate::position::Position, filter: &PositionFilter)
    ```
 
 5. **Only trade specific positions**:
+
    ```rust
    let universe = TradeUniverse::filtered(PositionFilter::ByTag {
        key: "tradeable".into(),
@@ -446,6 +451,7 @@ pub enum PerPositionMetric {
 **Metric key mapping**:
 
 The actual metric keys stored in `ValuationResult::measures` follow snake_case naming:
+
 - `MetricId::DurationMac` → `"duration_mac"`
 - `MetricId::DurationMod` → `"duration_mod"`
 - `MetricId::Ytm` → `"ytm"`
@@ -1154,6 +1160,7 @@ enum DecisionItem {
 - Construct `PortfolioValuationOptions` with appropriate settings.
 
 **Value existing portfolio**:
+
 - Call:
 
   ```rust
@@ -1170,6 +1177,7 @@ enum DecisionItem {
   - `value_base: Money` (for PV-based weights).
 
 **Value candidate instruments**:
+
 - For each candidate in `trade_universe.candidates`:
   - Call `candidate.instrument.price_with_metrics(market, as_of, &required_metrics)`.
   - Extract measures for constraint evaluation.

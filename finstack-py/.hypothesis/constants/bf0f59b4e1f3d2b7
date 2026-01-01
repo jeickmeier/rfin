@@ -1,0 +1,4 @@
+# file: /Users/joneickmeier/projects/rfin/finstack-py/finstack/statements/__init__.py
+# hypothesis_version: 6.148.8
+
+[0.0, ',', 'ASSET', 'AccountType', 'AmountOrScalar', 'Asset', 'CorkscrewExtension', 'Evaluator', 'ExtensionMetadata', 'ExtensionStatus', 'FAILED', 'Failed', 'FinancialModelSpec', 'ForecastSpec', 'MetricDefinition', 'ModelBuilder', 'PERCENTAGE', 'Percentage', 'Registry', 'Results', 'S&P', 'SKIPPED', 'SUCCESS', 'ScorecardConfig', 'Skipped', 'Success', 'UnitType', '_', 'amortization', 'amount', 'category', 'code', 'currency', 'depreciation', 'description', 'evaluator', 'extensions', 'fin', 'fin.gross_margin', 'fin.gross_profit', 'forecast', 'formula', 'id', 'metrics', 'model', 'name', 'namespace', 'operating_expenses', 'opex', 'registry', 'requires', 'schema_version', 'tags', 'unit_type', 'value']

@@ -15,12 +15,14 @@ description: Information about the coding standards of the rust finstack library
 ## Module Organization
 
 ### Structure
+
 - Use facade patterns for complex modules (see `market_data` as example)
 - Public re-exports at module root for ergonomic imports
 - Separate files for submodules over 500 lines
 - Group related functionality (e.g., all interpolators in `interp/`)
 
 ### Documentation
+
 ```rust
 //! Module-level documentation explaining purpose and usage.
 //!
@@ -35,6 +37,7 @@ description: Information about the coding standards of the rust finstack library
 /// ```
 pub struct MyType;
 ```
+
 - Do not add #[allow(missing_docs)], add missing docs instead
 
 ### Mathematical Utilities Organization
@@ -42,6 +45,7 @@ pub struct MyType;
 **Default Principle**: Mathematical functions belong in `finstack_core::math::` unless they are exclusively useful for a specific domain (e.g., Monte Carlo path simulation, not general numerical computation).
 
 **Core Math Modules** (`finstack_core::math::`):
+
 - `stats` - Statistical functions (mean, variance, correlation, streaming statistics via `OnlineStats`)
 - `special_functions` - Normal distribution functions (norm_cdf, norm_pdf, erf, inverse CDF)
 - `linalg` - Linear algebra (Cholesky decomposition, correlation matrices)
@@ -54,11 +58,13 @@ pub struct MyType;
 
 **Domain-Specific Modules** (e.g., `valuations::mc::`):
 Keep in domain-specific modules ONLY if exclusively useful for that domain:
+
 - **MC-specific**: Stochastic processes (GBM, Heston), discretization schemes (Euler, Milstein, QE), payoff definitions, pricing engines, variance reduction strategies specific to MC simulation
 - **Statements-specific**: Precedence evaluation, corkscrew logic, articulation
 - **Portfolio-specific**: Position aggregation, book hierarchies
 
 **Examples**:
+
 - ✅ Move `PhiloxRng` to `core::math::random` - useful for parallel simulations across modules
 - ✅ Move `cholesky_decomposition` to `core::math::linalg` - useful for factor models, portfolio optimization
 - ✅ Move `OnlineStats` to `core::math::stats` - useful for streaming metrics anywhere
@@ -66,6 +72,7 @@ Keep in domain-specific modules ONLY if exclusively useful for that domain:
 - ❌ Keep `EuropeanCall` payoff in `mc::payoff` - specific to MC option pricing
 
 **Before adding math utilities**:
+
 1. Check if similar functionality exists in `core::math`
 2. If adding to a domain module, justify why it can't be generalized to `core::math`
 3. Prefer re-exporting from `core::math` over duplicating code
@@ -73,6 +80,7 @@ Keep in domain-specific modules ONLY if exclusively useful for that domain:
 ## Error Handling
 
 ### Unified Error Type
+
 ```rust
 // Use the crate's unified error type
 use crate::Result; // type alias for Result<T, crate::Error>
@@ -87,6 +95,7 @@ pub enum InputError {
 ```
 
 ### Result Usage
+
 - Return `crate::Result<T>` for all fallible operations
 - Use `?` for error propagation
 - Provide context with error variants, not strings
@@ -94,6 +103,7 @@ pub enum InputError {
 ## Type Design
 
 ### Builder Pattern
+
 ```rust
 pub struct CurveBuilder {
     // Required fields without defaults
@@ -118,6 +128,7 @@ impl CurveBuilder {
 ```
 
 ### Newtype Pattern
+
 ```rust
 // Use for type safety and zero-cost abstraction
 #[repr(transparent)]
@@ -134,6 +145,7 @@ impl CurveId {
 ## Performance Guidelines
 
 ### Inlining
+
 ```rust
 // Always inline trivial accessors
 #[inline]
@@ -145,6 +157,7 @@ pub fn locate_segment(xs: &[F], x: F) -> Result<usize> { /* ... */ }
 ```
 
 ### Memory Management
+
 - Prefer `Box<[T]>` over `Vec<T>` for immutable data
 - Use `SmallVec` for small, bounded collections
 - Pre-allocate with `with_capacity` when size is known
@@ -152,6 +165,7 @@ pub fn locate_segment(xs: &[F], x: F) -> Result<usize> { /* ... */ }
 ## Feature Flags
 
 ### Organization
+
 ```toml
 [features]
 default = ["std"]
@@ -161,6 +175,7 @@ decimal128 = ["dep:rust_decimal"]
 ```
 
 ### Code Organization
+
 ```rust
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
@@ -178,6 +193,7 @@ pub fn parallel_npv(&self) -> Money {
 ## Testing
 
 ### Unit Tests
+
 ```rust
 #[cfg(test)]
 mod tests {
@@ -206,6 +222,7 @@ mod tests {
 ```
 
 ### Integration Tests
+
 - Place in `tests/` directory
 - One test file per major feature
 - Share fixtures via helper modules
@@ -213,6 +230,7 @@ mod tests {
 ## Trait Design
 
 ### Object Safety
+
 ```rust
 // Ensure traits are object-safe when needed for polymorphism
 pub trait InterpFn: Send + Sync + Debug {
@@ -235,12 +253,14 @@ pub trait Discount: TermStructure {
 ## Naming Conventions
 
 ### General Rules
+
 - Types: `CamelCase` (e.g., `DiscountCurve`)
 - Functions/methods: `snake_case` (e.g., `year_fraction`)
 - Constants: `SCREAMING_SNAKE_CASE` (e.g., `MAX_ENTRIES`)
 - Modules: `snake_case` (e.g., `market_data`)
 
 ### Specific Patterns
+
 - Builders: `Type::builder()` returning `TypeBuilder`
 - Conversions: `into_*` (consuming), `as_*` (borrowing), `to_*` (expensive)
 - Predicates: `is_*` or `has_*`
@@ -248,6 +268,7 @@ pub trait Discount: TermStructure {
 ## Documentation Standards
 
 ### Module Documentation
+
 ```rust
 //! Short description of module purpose.
 //!
@@ -264,6 +285,7 @@ pub trait Discount: TermStructure {
 ```
 
 ### Public API Documentation
+
 - All public items must have doc comments
 - Include at least one example for non-trivial APIs
 - Use tables for enumerating options/variants
@@ -273,6 +295,7 @@ pub trait Discount: TermStructure {
 ## Code Organization
 
 ### Import Style
+
 ```rust
 // Standard library
 use std::collections::HashMap;
@@ -290,6 +313,7 @@ use super::traits::Discount;
 ```
 
 ### Visibility
+
 - Start with minimum visibility, increase as needed
 - Use `pub(crate)` for internal APIs
 - Seal traits that shouldn't be implemented downstream
@@ -297,6 +321,7 @@ use super::traits::Discount;
 ## Unsafe Code
 
 ### Guidelines
+
 - Avoid `unsafe` unless absolutely necessary
 - When used, must have:
   - `// SAFETY:` comment explaining invariants
@@ -306,6 +331,7 @@ use super::traits::Discount;
 ## Benchmarking
 
 ### Criterion Benchmarks
+
 ```rust
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
@@ -325,6 +351,7 @@ fn bench_interpolation(c: &mut Criterion) {
 ## Macro Usage
 
 ### Guidelines
+
 - Prefer const generics and traits over macros
 - Use declarative macros for reducing boilerplate
 - Document macro inputs and outputs
@@ -333,11 +360,13 @@ fn bench_interpolation(c: &mut Criterion) {
 ## Version Control
 
 ### Commit Messages
+
 - Use conventional commits (feat:, fix:, docs:, etc.)
 - Reference issue numbers where applicable
 - Keep changes focused and atomic
 
 ### Backwards Compatibility
+
 - Mark new APIs with version tags in docs
 - Use `#[non_exhaustive]` for enums/structs that may grow
 - Follow semver strictly
@@ -345,6 +374,7 @@ fn bench_interpolation(c: &mut Criterion) {
 ## Clippy and Formatting
 
 ### Required Lints
+
 ```rust
 #![warn(missing_docs)]
 #![warn(clippy::all)]
@@ -353,6 +383,7 @@ fn bench_interpolation(c: &mut Criterion) {
 ```
 
 ### Formatting
+
 - Run `cargo fmt` before committing
 - Use `rustfmt.toml` for project-wide consistency
 - Maximum line width: 100 characters
@@ -360,11 +391,13 @@ fn bench_interpolation(c: &mut Criterion) {
 ## Financial Domain Specifics
 
 ### Numeric Types
+
 - Use `F` type alias (`f64`) for consistency
 - Document precision requirements
 - Use tolerance checks for float comparisons
 
 ### Currency Safety
+
 ```rust
 // Operations must check currency compatibility
 impl Add for Money {
@@ -378,6 +411,7 @@ impl Add for Money {
 ```
 
 ### Date Handling
+
 - Use `time` crate types consistently
 - Document timezone assumptions
 - Use `Date` for dates, `OffsetDateTime` for timestamps # Rust Code Standards for rfin Project
@@ -392,12 +426,14 @@ impl Add for Money {
 ## Module Organization
 
 ### Structure
+
 - Use facade patterns for complex modules (see `market_data` as example)
 - Public re-exports at module root for ergonomic imports
 - Separate files for submodules over 500 lines
 - Group related functionality (e.g., all interpolators in `interp/`)
 
 ### Documentation
+
 ```rust
 //! Module-level documentation explaining purpose and usage.
 //!
@@ -416,6 +452,7 @@ pub struct MyType;
 ## Error Handling
 
 ### Unified Error Type
+
 ```rust
 // Use the crate's unified error type
 use crate::Result; // type alias for Result<T, crate::Error>
@@ -430,6 +467,7 @@ pub enum InputError {
 ```
 
 ### Result Usage
+
 - Return `crate::Result<T>` for all fallible operations
 - Use `?` for error propagation
 - Provide context with error variants, not strings
@@ -437,6 +475,7 @@ pub enum InputError {
 ## Type Design
 
 ### Builder Pattern
+
 ```rust
 pub struct CurveBuilder {
     // Required fields without defaults
@@ -461,6 +500,7 @@ impl CurveBuilder {
 ```
 
 ### Newtype Pattern
+
 ```rust
 // Use for type safety and zero-cost abstraction
 #[repr(transparent)]
@@ -477,6 +517,7 @@ impl CurveId {
 ## Performance Guidelines
 
 ### Inlining
+
 ```rust
 // Always inline trivial accessors
 #[inline]
@@ -488,6 +529,7 @@ pub fn locate_segment(xs: &[F], x: F) -> Result<usize> { /* ... */ }
 ```
 
 ### Memory Management
+
 - Prefer `Box<[T]>` over `Vec<T>` for immutable data
 - Use `SmallVec` for small, bounded collections
 - Pre-allocate with `with_capacity` when size is known
@@ -495,6 +537,7 @@ pub fn locate_segment(xs: &[F], x: F) -> Result<usize> { /* ... */ }
 ## Feature Flags
 
 ### Organization
+
 ```toml
 [features]
 default = ["std"]
@@ -504,6 +547,7 @@ decimal128 = ["dep:rust_decimal"]
 ```
 
 ### Code Organization
+
 ```rust
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
@@ -521,6 +565,7 @@ pub fn parallel_npv(&self) -> Money {
 ## Testing
 
 ### Unit Tests
+
 ```rust
 #[cfg(test)]
 mod tests {
@@ -549,6 +594,7 @@ mod tests {
 ```
 
 ### Integration Tests
+
 - Place in `tests/` directory
 - One test file per major feature
 - Share fixtures via helper modules
@@ -556,6 +602,7 @@ mod tests {
 ## Trait Design
 
 ### Object Safety
+
 ```rust
 // Ensure traits are object-safe when needed for polymorphism
 pub trait InterpFn: Send + Sync + Debug {
@@ -578,12 +625,14 @@ pub trait Discount: TermStructure {
 ## Naming Conventions
 
 ### General Rules
+
 - Types: `CamelCase` (e.g., `DiscountCurve`)
 - Functions/methods: `snake_case` (e.g., `year_fraction`)
 - Constants: `SCREAMING_SNAKE_CASE` (e.g., `MAX_ENTRIES`)
 - Modules: `snake_case` (e.g., `market_data`)
 
 ### Specific Patterns
+
 - Builders: `Type::builder()` returning `TypeBuilder`
 - Conversions: `into_*` (consuming), `as_*` (borrowing), `to_*` (expensive)
 - Predicates: `is_*` or `has_*`
@@ -591,6 +640,7 @@ pub trait Discount: TermStructure {
 ## Documentation Standards
 
 ### Module Documentation
+
 ```rust
 //! Short description of module purpose.
 //!
@@ -607,6 +657,7 @@ pub trait Discount: TermStructure {
 ```
 
 ### Public API Documentation
+
 - All public items must have doc comments
 - Include at least one example for non-trivial APIs
 - Use tables for enumerating options/variants
@@ -616,6 +667,7 @@ pub trait Discount: TermStructure {
 ## Code Organization
 
 ### Import Style
+
 ```rust
 // Standard library
 use std::collections::HashMap;
@@ -633,6 +685,7 @@ use super::traits::Discount;
 ```
 
 ### Visibility
+
 - Start with minimum visibility, increase as needed
 - Use `pub(crate)` for internal APIs
 - Seal traits that shouldn't be implemented downstream
@@ -640,6 +693,7 @@ use super::traits::Discount;
 ## Unsafe Code
 
 ### Guidelines
+
 - Avoid `unsafe` unless absolutely necessary
 - When used, must have:
   - `// SAFETY:` comment explaining invariants
@@ -649,6 +703,7 @@ use super::traits::Discount;
 ## Benchmarking
 
 ### Criterion Benchmarks
+
 ```rust
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
@@ -668,6 +723,7 @@ fn bench_interpolation(c: &mut Criterion) {
 ## Macro Usage
 
 ### Guidelines
+
 - Prefer const generics and traits over macros
 - Use declarative macros for reducing boilerplate
 - Document macro inputs and outputs
@@ -676,11 +732,13 @@ fn bench_interpolation(c: &mut Criterion) {
 ## Version Control
 
 ### Commit Messages
+
 - Use conventional commits (feat:, fix:, docs:, etc.)
 - Reference issue numbers where applicable
 - Keep changes focused and atomic
 
 ### Backwards Compatibility
+
 - Mark new APIs with version tags in docs
 - Use `#[non_exhaustive]` for enums/structs that may grow
 - Follow semver strictly
@@ -688,6 +746,7 @@ fn bench_interpolation(c: &mut Criterion) {
 ## Clippy and Formatting
 
 ### Required Lints
+
 ```rust
 #![warn(missing_docs)]
 #![warn(clippy::all)]
@@ -696,6 +755,7 @@ fn bench_interpolation(c: &mut Criterion) {
 ```
 
 ### Formatting
+
 - Run `cargo fmt` before committing
 - Use `rustfmt.toml` for project-wide consistency
 - Maximum line width: 100 characters
@@ -703,11 +763,13 @@ fn bench_interpolation(c: &mut Criterion) {
 ## Financial Domain Specifics
 
 ### Numeric Types
+
 - Use `F` type alias (`f64`) for consistency
 - Document precision requirements
 - Use tolerance checks for float comparisons
 
 ### Currency Safety
+
 ```rust
 // Operations must check currency compatibility
 impl Add for Money {
@@ -721,6 +783,7 @@ impl Add for Money {
 ```
 
 ### Date Handling
+
 - Use `time` crate types consistently
 - Document timezone assumptions
 - Use `Date` for dates, `OffsetDateTime` for timestamps

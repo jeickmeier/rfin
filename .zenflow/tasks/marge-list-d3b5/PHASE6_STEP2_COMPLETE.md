@@ -9,6 +9,7 @@ Successfully implemented the `JsonEnvelope` trait for all envelope types in the 
 ### 1. AttributionEnvelope (spec.rs)
 
 **Before** (68 lines with boilerplate):
+
 ```rust
 impl AttributionEnvelope {
     pub fn from_json(json: &str) -> Result<Self> {
@@ -35,6 +36,7 @@ impl AttributionEnvelope {
 ```
 
 **After** (14 lines, trait implementation only):
+
 ```rust
 impl JsonEnvelope for AttributionEnvelope {
     fn parse_error(e: serde_json::Error) -> finstack_core::Error {
@@ -58,6 +60,7 @@ impl JsonEnvelope for AttributionEnvelope {
 ### 2. AttributionResultEnvelope (spec.rs)
 
 **Before** (24 lines with boilerplate):
+
 ```rust
 impl AttributionResultEnvelope {
     pub fn to_string(&self) -> Result<String> {
@@ -77,6 +80,7 @@ impl AttributionResultEnvelope {
 ```
 
 **After** (14 lines, trait implementation only):
+
 ```rust
 impl JsonEnvelope for AttributionResultEnvelope {
     fn parse_error(e: serde_json::Error) -> finstack_core::Error {
@@ -101,6 +105,7 @@ impl JsonEnvelope for AttributionResultEnvelope {
 ### 3. PnlAttribution (types.rs)
 
 **New Implementation** (14 lines):
+
 ```rust
 #[cfg(feature = "serde")]
 impl JsonEnvelope for PnlAttribution {
@@ -142,17 +147,20 @@ impl JsonEnvelope for PnlAttribution {
 ## Test Results
 
 ### Unit Tests
+
 ```
 running 80 tests
 test result: ok. 80 passed; 0 failed; 0 ignored; 0 measured; 757 filtered out
 ```
 
 **New Tests Added**: 3
+
 - `test_attribution_envelope_json_envelope_trait()` in spec.rs
 - `test_attribution_result_envelope_json_envelope_trait()` in spec.rs
 - `test_pnl_attribution_json_envelope_trait()` in types.rs
 
 ### Integration Tests
+
 ```
 running 32 tests
 test result: ok. 32 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
@@ -161,6 +169,7 @@ test result: ok. 32 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out
 All existing integration tests pass with updated trait method calls.
 
 ### Clippy
+
 ```
 Zero warnings
 ```
@@ -168,21 +177,25 @@ Zero warnings
 ## Benefits
 
 ### 1. Code Reduction
+
 - **Total lines removed**: 64 lines of boilerplate
 - **Reduction percentage**: 71% reduction across envelope types
 - **Maintenance**: Single trait definition instead of per-type implementations
 
 ### 2. Consistency
+
 - All envelope types use identical error handling patterns
 - Same method names (`from_json`, `to_json`, `from_reader`) across all types
 - Consistent error messages with proper categorization
 
 ### 3. New Features
+
 - `AttributionResultEnvelope` now has `from_reader()` method (previously missing)
 - `PnlAttribution` now has first-class JSON support (previously only via serde derives)
 - All types gain any future trait method additions automatically
 
 ### 4. API Improvements
+
 - Trait-based design makes JSON capabilities discoverable via type system
 - Error conversion is centralized and customizable per type
 - Easy to add new envelope types by implementing two error conversion methods

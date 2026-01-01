@@ -415,14 +415,14 @@ impl MetricCalculator for MyMetricCalculator {
 }
 ```
 
-2. **Export the calculator** in `metrics/mod.rs`:
+1. **Export the calculator** in `metrics/mod.rs`:
 
 ```rust
 pub mod my_metric;
 pub use my_metric::MyMetricCalculator;
 ```
 
-3. **Register the metric** in `register_bond_metrics()`:
+1. **Register the metric** in `register_bond_metrics()`:
 
 ```rust
 pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
@@ -437,7 +437,7 @@ pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
 }
 ```
 
-4. **Add MetricId** in the main metrics module (if needed):
+1. **Add MetricId** in the main metrics module (if needed):
 
 ```rust
 // In finstack/valuations/src/metrics/mod.rs
@@ -473,14 +473,14 @@ impl MyPricingEngine {
 }
 ```
 
-2. **Export the engine** in `pricing/mod.rs`:
+1. **Export the engine** in `pricing/mod.rs`:
 
 ```rust
 pub mod my_engine;
 pub use my_engine::MyPricingEngine;
 ```
 
-3. **Create a pricer** in `pricing/pricer.rs`:
+1. **Create a pricer** in `pricing/pricer.rs`:
 
 ```rust
 use crate::pricer::{InstrumentType, ModelKey, Pricer, PricerKey, PricingError};
@@ -512,7 +512,7 @@ impl Pricer for MyBondPricer {
 }
 ```
 
-4. **Register the pricer** in the pricer registry (typically in `finstack/valuations/src/pricer/mod.rs`).
+1. **Register the pricer** in the pricer registry (typically in `finstack/valuations/src/pricer/mod.rs`).
 
 ### Adding a New Bond Type
 
@@ -529,7 +529,7 @@ pub enum CashflowSpec {
 }
 ```
 
-2. **Add factory method** to `Bond` (in `types.rs`):
+1. **Add factory method** to `Bond` (in `types.rs`):
 
 ```rust
 impl Bond {
@@ -551,7 +551,7 @@ impl Bond {
 }
 ```
 
-3. **Update cashflow generation** in `cashflows.rs` to handle the new type.
+1. **Update cashflow generation** in `cashflows.rs` to handle the new type.
 
 ### Best Practices
 

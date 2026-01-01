@@ -50,6 +50,7 @@ Finstack is a deterministic financial computation engine written in Rust with fi
 **Edition**: 2021
 **Build System**: Cargo (workspace resolver v2)
 **Profiles**:
+
 - `dev`: Fast compilation, full debug info
 - `test`: Reduced debug, incremental
 - `release`: Optimized for speed (thin LTO, 3x optimization)
@@ -59,6 +60,7 @@ Finstack is a deterministic financial computation engine written in Rust with fi
 #### Dependencies
 
 **Key Dependencies**:
+
 - `rust_decimal` (1.39): Accounting-grade decimal arithmetic
 - `polars` (re-exported from core): DataFrames for time-series analysis
 - `time` (0.3): Date/time handling with ISO-8601 support
@@ -68,9 +70,11 @@ Finstack is a deterministic financial computation engine written in Rust with fi
 - `statrs` (0.18): Statistical distributions
 
 **Build Dependencies**:
+
 - `strum`/`strum_macros` (0.27): Enum introspection
 
 **Features**:
+
 - `core` (default): Core types and utilities
 - `statements`: Financial statement modeling
 - `valuations`: Pricing and risk analytics
@@ -156,6 +160,7 @@ make lint-rust-fix
 #### Dependencies
 
 **Main Dependencies**:
+
 - `numpy` (2.3.5+): Numeric arrays
 - `pandas` (2.3.3+): Data manipulation
 - `polars` (1.35.2+): DataFrames (primary for time-series)
@@ -164,6 +169,7 @@ make lint-rust-fix
 - `matplotlib` (3.10.7+): Visualization
 
 **Development Dependencies**:
+
 - pytest, pytest-benchmark: Testing and performance
 - mypy: Type checking
 - ruff: Linting/formatting
@@ -217,10 +223,12 @@ make test-python
 #### Dependencies
 
 **Main**:
+
 - Generated WASM bindings via wasm-bindgen
 - `comlink` (4.4.2): Worker communication
 
 **Development**:
+
 - TypeScript (5.9.3)
 - ESLint + Prettier: Code quality
 - No test framework in package.json (tests via wasm-pack test)
@@ -269,6 +277,7 @@ make test-wasm
 #### Dependencies
 
 **Main**:
+
 - React 19.0.0, react-dom: UI framework
 - Radix UI: Accessible primitives (label, select, slot)
 - TanStack: Table and virtual scrolling
@@ -279,6 +288,7 @@ make test-wasm
 - comlink (4.4.2): WASM worker communication
 
 **Development**:
+
 - Vite (5.4.10): Build tool
 - Vitest (2.1.4): Test runner with coverage
 - ESLint + TypeScript: Code quality

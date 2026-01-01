@@ -106,6 +106,7 @@ Based on the task requirements, we aim for:
 **Python overhead <10% vs pure Rust for batch operations**
 
 To measure this, compare:
+
 - Python batch operation time
 - Equivalent Rust benchmark time (from `cargo bench`)
 - Overhead = (Python time - Rust time) / Rust time
@@ -285,6 +286,7 @@ If benchmarks complete in <1ms, pytest-benchmark will warn. Increase workload si
 ### High Variance
 
 If StdDev is >10% of Mean:
+
 - Close background applications
 - Increase rounds: `--benchmark-min-rounds=100`
 - Check for system throttling (CPU frequency scaling)
@@ -292,6 +294,7 @@ If StdDev is >10% of Mean:
 ### Out of Memory
 
 For large benchmarks:
+
 - Reduce batch size
 - Run benchmarks individually
 - Increase system memory or use swap
