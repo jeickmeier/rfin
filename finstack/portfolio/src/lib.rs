@@ -61,6 +61,7 @@
 //! ```
 
 pub mod attribution;
+pub mod book;
 pub mod builder;
 #[cfg(feature = "dataframes")]
 pub mod dataframe;
@@ -87,10 +88,11 @@ pub mod scenarios;
 
 // Re-export key types
 pub use attribution::{attribute_portfolio_pnl, PortfolioAttribution};
+pub use book::{Book, BookId};
 pub use builder::PortfolioBuilder;
 pub use cashflows::{aggregate_cashflows, PortfolioCashflows};
 pub use error::{PortfolioError, Result};
-pub use grouping::{aggregate_by_attribute, group_by_attribute};
+pub use grouping::{aggregate_by_attribute, aggregate_by_book, group_by_attribute};
 pub use margin::{
     NettingSet, NettingSetManager, NettingSetMargin, PortfolioMarginAggregator,
     PortfolioMarginResult,

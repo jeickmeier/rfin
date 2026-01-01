@@ -203,6 +203,53 @@ impl PyPortfolioValuation {
         Ok(dict.into())
     }
 
+    #[pyo3(text_signature = "($self)")]
+    /// Export position values to Polars DataFrame.
+    ///
+    /// Uses the same schema as :func:`finstack.portfolio.dataframe.positions_to_polars`.
+    /// For pandas conversion, call `.to_pandas()` on the returned DataFrame from Python.
+    ///
+    /// Returns:
+    ///     polars.DataFrame: Position-level valuations with columns for position_id,
+    ///         entity_id, value_native, currency_native, value_base, currency_base.
+    ///
+    /// Examples:
+    ///     >>> df_pl = valuation.to_polars()
+    ///     >>> df_pd = df_pl.to_pandas()  # Convert to pandas from Python
+    ///     >>> # Alternative: use standalone function
+    ///     >>> from finstack.portfolio.dataframe import positions_to_polars
+    ///     >>> df = positions_to_polars(valuation)
+    fn to_polars(&self) -> PyResult<pyo3_polars::PyDataFrame> {
+        use finstack_portfolio::dataframe::positions_to_dataframe;
+        
+        let df = positions_to_dataframe(&self.inner).map_err(|e| {
+            pyo3::exceptions::PyRuntimeError::new_err(format!("to_polars failed: {}", e))
+        })?;
+        Ok(pyo3_polars::PyDataFrame(df))
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    /// Export entity-level aggregates to Polars DataFrame.
+    ///
+    /// Uses the same schema as :func:`finstack.portfolio.dataframe.entities_to_polars`.
+    /// For pandas conversion, call `.to_pandas()` on the returned DataFrame from Python.
+    ///
+    /// Returns:
+    ///     polars.DataFrame: Entity-level totals with columns for entity_id,
+    ///         total_value, currency.
+    ///
+    /// Examples:
+    ///     >>> df_pl = valuation.entities_to_polars()
+    ///     >>> df_pd = df_pl.to_pandas()  # Convert to pandas from Python
+    fn entities_to_polars(&self) -> PyResult<pyo3_polars::PyDataFrame> {
+        use finstack_portfolio::dataframe::entities_to_dataframe;
+        
+        let df = entities_to_dataframe(&self.inner).map_err(|e| {
+            pyo3::exceptions::PyRuntimeError::new_err(format!("entities_to_polars failed: {}", e))
+        })?;
+        Ok(pyo3_polars::PyDataFrame(df))
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "PortfolioValuation(total={}, positions={}, entities={})",

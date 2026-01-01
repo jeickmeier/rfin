@@ -1,5 +1,6 @@
 //! Position types for holding instruments in a portfolio.
 
+use crate::book::BookId;
 use crate::error::{PortfolioError, Result};
 use crate::types::{EntityId, PositionId};
 use finstack_core::currency::Currency;
@@ -58,6 +59,9 @@ pub struct Position {
     /// Unit of measurement for the quantity
     pub unit: PositionUnit,
 
+    /// Optional book identifier for hierarchical organization
+    pub book_id: Option<BookId>,
+
     /// Position-level tags for attribute-based grouping
     pub tags: IndexMap<String, String>,
 
@@ -86,6 +90,9 @@ pub struct PositionSpec {
     pub quantity: f64,
     /// Unit of measurement
     pub unit: PositionUnit,
+    /// Optional book identifier
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub book_id: Option<BookId>,
     /// Position-level tags
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub tags: IndexMap<String, String>,
@@ -152,9 +159,20 @@ impl Position {
             instrument,
             quantity,
             unit,
+            book_id: None,
             tags: IndexMap::new(),
             meta: IndexMap::new(),
         })
+    }
+
+    /// Assign this position to a book.
+    ///
+    /// # Arguments
+    ///
+    /// * `book_id` - Book identifier for hierarchical organization.
+    pub fn with_book(mut self, book_id: impl Into<BookId>) -> Self {
+        self.book_id = Some(book_id.into());
+        self
     }
 
     /// Add a tag to the position.
@@ -303,6 +321,7 @@ impl Position {
             instrument_spec,
             quantity: self.quantity,
             unit: self.unit,
+            book_id: self.book_id.clone(),
             tags: self.tags.clone(),
             meta: self.meta.clone(),
         }

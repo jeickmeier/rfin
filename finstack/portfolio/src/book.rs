@@ -1,0 +1,324 @@
+//! Book hierarchy for portfolio organization.
+//!
+//! Books provide an optional hierarchical organization structure for portfolios,
+//! allowing positions to be grouped into folders/books with parent-child relationships.
+//! This enables multi-level aggregation and reporting (e.g., Americas > Credit > IG).
+
+use indexmap::IndexMap;
+use serde::{Deserialize, Serialize};
+use std::borrow::Borrow;
+use std::fmt;
+
+use crate::types::PositionId;
+
+/// Book identifier.
+///
+/// A newtype wrapper around `String` that provides type safety for book identifiers,
+/// preventing accidental misuse of other ID types.
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[repr(transparent)]
+pub struct BookId(String);
+
+impl BookId {
+    /// Create a new book identifier.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The identifier string.
+    pub fn new(id: impl Into<String>) -> Self {
+        Self(id.into())
+    }
+
+    /// Get the identifier as a string slice.
+    #[inline]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for BookId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl From<&str> for BookId {
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
+}
+
+impl From<String> for BookId {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
+
+impl Borrow<str> for BookId {
+    fn borrow(&self) -> &str {
+        &self.0
+    }
+}
+
+impl AsRef<str> for BookId {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl PartialEq<&str> for BookId {
+    fn eq(&self, other: &&str) -> bool {
+        self.0 == *other
+    }
+}
+
+impl PartialEq<str> for BookId {
+    fn eq(&self, other: &str) -> bool {
+        self.0 == other
+    }
+}
+
+/// A book represents a folder-like organizational unit within a portfolio.
+///
+/// Books can contain positions and/or child books, forming a hierarchical tree.
+/// This allows multi-level aggregation (e.g., Americas > Credit > Investment Grade).
+///
+/// # Design
+///
+/// - Flat position list is default; books are optional
+/// - Parent-child relationships tracked via `parent_id` field
+/// - Positions reference books via optional `book_id` field
+/// - Backward compatible: positions without `book_id` are not in any book
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Book {
+    /// Unique identifier for this book
+    pub id: BookId,
+
+    /// Human-readable name
+    pub name: Option<String>,
+
+    /// Parent book identifier (None for root books)
+    pub parent_id: Option<BookId>,
+
+    /// Position IDs directly assigned to this book (non-recursive)
+    pub position_ids: Vec<PositionId>,
+
+    /// Child book IDs (for hierarchical organization)
+    pub child_book_ids: Vec<BookId>,
+
+    /// Book-level tags for grouping and filtering
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    pub tags: IndexMap<String, String>,
+
+    /// Additional metadata
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    pub meta: IndexMap<String, serde_json::Value>,
+}
+
+impl Book {
+    /// Create a new book with no parent (root book).
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Unique book identifier.
+    /// * `name` - Optional human-readable name.
+    pub fn new(id: impl Into<BookId>, name: Option<String>) -> Self {
+        Self {
+            id: id.into(),
+            name,
+            parent_id: None,
+            position_ids: Vec::new(),
+            child_book_ids: Vec::new(),
+            tags: IndexMap::new(),
+            meta: IndexMap::new(),
+        }
+    }
+
+    /// Create a new book with a parent.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Unique book identifier.
+    /// * `name` - Optional human-readable name.
+    /// * `parent_id` - Parent book identifier.
+    pub fn with_parent(
+        id: impl Into<BookId>,
+        name: Option<String>,
+        parent_id: impl Into<BookId>,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            name,
+            parent_id: Some(parent_id.into()),
+            position_ids: Vec::new(),
+            child_book_ids: Vec::new(),
+            tags: IndexMap::new(),
+            meta: IndexMap::new(),
+        }
+    }
+
+    /// Check if this is a root book (no parent).
+    pub fn is_root(&self) -> bool {
+        self.parent_id.is_none()
+    }
+
+    /// Check if this book contains a specific position.
+    ///
+    /// # Arguments
+    ///
+    /// * `position_id` - Position identifier to check.
+    pub fn contains_position(&self, position_id: &PositionId) -> bool {
+        self.position_ids.contains(position_id)
+    }
+
+    /// Check if this book contains a specific child book.
+    ///
+    /// # Arguments
+    ///
+    /// * `child_id` - Child book identifier to check.
+    pub fn contains_child(&self, child_id: &BookId) -> bool {
+        self.child_book_ids.contains(child_id)
+    }
+
+    /// Add a position to this book.
+    ///
+    /// # Arguments
+    ///
+    /// * `position_id` - Position identifier to add.
+    pub fn add_position(&mut self, position_id: PositionId) {
+        if !self.contains_position(&position_id) {
+            self.position_ids.push(position_id);
+        }
+    }
+
+    /// Add a child book to this book.
+    ///
+    /// # Arguments
+    ///
+    /// * `child_id` - Child book identifier to add.
+    pub fn add_child(&mut self, child_id: BookId) {
+        if !self.contains_child(&child_id) {
+            self.child_book_ids.push(child_id);
+        }
+    }
+
+    /// Remove a position from this book.
+    ///
+    /// # Arguments
+    ///
+    /// * `position_id` - Position identifier to remove.
+    pub fn remove_position(&mut self, position_id: &PositionId) {
+        self.position_ids.retain(|id| id != position_id);
+    }
+
+    /// Remove a child book from this book.
+    ///
+    /// # Arguments
+    ///
+    /// * `child_id` - Child book identifier to remove.
+    pub fn remove_child(&mut self, child_id: &BookId) {
+        self.child_book_ids.retain(|id| id != child_id);
+    }
+
+    /// Get all positions in this book (non-recursive).
+    pub fn positions(&self) -> &[PositionId] {
+        &self.position_ids
+    }
+
+    /// Get all child books (non-recursive).
+    pub fn children(&self) -> &[BookId] {
+        &self.child_book_ids
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_book_id_creation() {
+        let id = BookId::new("americas");
+        assert_eq!(id.as_str(), "americas");
+        assert_eq!(id.to_string(), "americas");
+    }
+
+    #[test]
+    fn test_book_id_conversions() {
+        let id1: BookId = "americas".into();
+        let id2: BookId = "americas".to_string().into();
+        assert_eq!(id1, id2);
+        assert_eq!(id1, "americas");
+    }
+
+    #[test]
+    fn test_book_creation_root() {
+        let book = Book::new("americas", Some("Americas".to_string()));
+        assert_eq!(book.id, BookId::new("americas"));
+        assert_eq!(book.name, Some("Americas".to_string()));
+        assert!(book.is_root());
+        assert!(book.positions().is_empty());
+        assert!(book.children().is_empty());
+    }
+
+    #[test]
+    fn test_book_creation_with_parent() {
+        let book = Book::with_parent("credit", Some("Credit".to_string()), "americas");
+        assert_eq!(book.id, BookId::new("credit"));
+        assert_eq!(book.parent_id, Some(BookId::new("americas")));
+        assert!(!book.is_root());
+    }
+
+    #[test]
+    fn test_book_add_position() {
+        let mut book = Book::new("ig", Some("Investment Grade".to_string()));
+        let pos_id = PositionId::new("pos1");
+        
+        book.add_position(pos_id.clone());
+        assert!(book.contains_position(&pos_id));
+        assert_eq!(book.positions().len(), 1);
+
+        // Adding again should not duplicate
+        book.add_position(pos_id.clone());
+        assert_eq!(book.positions().len(), 1);
+    }
+
+    #[test]
+    fn test_book_add_child() {
+        let mut book = Book::new("americas", Some("Americas".to_string()));
+        let child_id = BookId::new("credit");
+        
+        book.add_child(child_id.clone());
+        assert!(book.contains_child(&child_id));
+        assert_eq!(book.children().len(), 1);
+
+        // Adding again should not duplicate
+        book.add_child(child_id.clone());
+        assert_eq!(book.children().len(), 1);
+    }
+
+    #[test]
+    fn test_book_remove_position() {
+        let mut book = Book::new("ig", Some("Investment Grade".to_string()));
+        let pos_id = PositionId::new("pos1");
+        
+        book.add_position(pos_id.clone());
+        assert!(book.contains_position(&pos_id));
+
+        book.remove_position(&pos_id);
+        assert!(!book.contains_position(&pos_id));
+        assert!(book.positions().is_empty());
+    }
+
+    #[test]
+    fn test_book_remove_child() {
+        let mut book = Book::new("americas", Some("Americas".to_string()));
+        let child_id = BookId::new("credit");
+        
+        book.add_child(child_id.clone());
+        assert!(book.contains_child(&child_id));
+
+        book.remove_child(&child_id);
+        assert!(!book.contains_child(&child_id));
+        assert!(book.children().is_empty());
+    }
+}

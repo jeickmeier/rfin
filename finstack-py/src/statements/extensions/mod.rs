@@ -12,7 +12,10 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyModule, PyType};
 use pyo3::Bound;
 
-pub use builtins::{PyCorkscrewExtension, PyCreditScorecardExtension};
+pub use builtins::{
+    PyAccountType, PyCorkscrewAccount, PyCorkscrewConfig, PyCorkscrewExtension,
+    PyCreditScorecardExtension, PyScorecardConfig, PyScorecardMetric,
+};
 
 /// Extension metadata.
 #[pyclass(
@@ -336,6 +339,15 @@ pub(crate) fn register<'py>(
     module.add_class::<PyExtensionResult>()?;
     module.add_class::<PyExtensionContext>()?;
     module.add_class::<PyExtensionRegistry>()?;
+    
+    // Configuration types
+    module.add_class::<PyAccountType>()?;
+    module.add_class::<PyCorkscrewAccount>()?;
+    module.add_class::<PyCorkscrewConfig>()?;
+    module.add_class::<PyScorecardMetric>()?;
+    module.add_class::<PyScorecardConfig>()?;
+    
+    // Extension implementations
     module.add_class::<PyCorkscrewExtension>()?;
     module.add_class::<PyCreditScorecardExtension>()?;
 
@@ -348,6 +360,11 @@ pub(crate) fn register<'py>(
         "ExtensionResult",
         "ExtensionContext",
         "ExtensionRegistry",
+        "AccountType",
+        "CorkscrewAccount",
+        "CorkscrewConfig",
+        "ScorecardMetric",
+        "ScorecardConfig",
         "CorkscrewExtension",
         "CreditScorecardExtension",
     ])

@@ -424,6 +424,63 @@ impl PyValuationResult {
         Ok(dict.into())
     }
 
+    #[pyo3(text_signature = "(self)")]
+    /// Export single result to Polars DataFrame (single row).
+    ///
+    /// For batch exports, use :func:`finstack.valuations.dataframe.results_to_polars`.
+    ///
+    /// Returns:
+    ///     polars.DataFrame: Single-row DataFrame with columns for instrument_id,
+    ///         as_of_date, pv, currency, and all available metrics.
+    ///
+    /// Examples:
+    ///     >>> df = result.to_polars()
+    ///     >>> print(df.schema)
+    ///     >>> # To export multiple results:
+    ///     >>> from finstack.valuations.dataframe import results_to_polars
+    ///     >>> df = results_to_polars([result1, result2, result3])
+    fn to_polars(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        use pythonize::pythonize;
+        
+        // Convert single result to row format
+        let rows = finstack_valuations::results::results_to_rows(&[self.inner.clone()]);
+        
+        // Convert to Python dict
+        let py_rows: Vec<Py<PyAny>> = rows
+            .iter()
+            .map(|row| {
+                pythonize(py, row)
+                    .map(|bound| bound.unbind())
+                    .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        
+        // Call pl.DataFrame(rows)
+        let polars = py.import("polars")?;
+        let df = polars.call_method1("DataFrame", (py_rows,))?;
+        
+        Ok(df.into())
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    /// Export single result to Pandas DataFrame (single row).
+    ///
+    /// For batch exports, use :func:`finstack.valuations.dataframe.results_to_pandas`.
+    ///
+    /// Returns:
+    ///     pandas.DataFrame: Single-row DataFrame via Polars conversion.
+    ///
+    /// Examples:
+    ///     >>> df = result.to_pandas()
+    ///     >>> print(df.dtypes)
+    ///     >>> # To export multiple results:
+    ///     >>> from finstack.valuations.dataframe import results_to_pandas
+    ///     >>> df = results_to_pandas([result1, result2, result3])
+    fn to_pandas(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let polars_df = self.to_polars(py)?;
+        polars_df.call_method0(py, "to_pandas")
+    }
+
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!(
             "ValuationResult(id='{}', pv={}, measures={})",

@@ -36,10 +36,11 @@
 //! }
 //! ```
 
+use crate::book::{Book, BookId};
 use crate::error::Result;
 use crate::portfolio::Portfolio;
 use crate::position::Position;
-use crate::types::{Entity, EntityId, DUMMY_ENTITY_ID};
+use crate::types::{Entity, EntityId, PositionId, DUMMY_ENTITY_ID};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use indexmap::IndexMap;
@@ -57,6 +58,7 @@ pub struct PortfolioBuilder {
     as_of: Option<Date>,
     entities: IndexMap<EntityId, Entity>,
     positions: Vec<Position>,
+    books: IndexMap<BookId, Book>,
     tags: IndexMap<String, String>,
     meta: IndexMap<String, serde_json::Value>,
 }
@@ -75,6 +77,7 @@ impl PortfolioBuilder {
             as_of: None,
             entities: IndexMap::new(),
             positions: Vec::new(),
+            books: IndexMap::new(),
             tags: IndexMap::new(),
             meta: IndexMap::new(),
         }
@@ -176,6 +179,80 @@ impl PortfolioBuilder {
         self
     }
 
+    /// Add a book to the portfolio hierarchy.
+    ///
+    /// # Arguments
+    ///
+    /// * `book` - Book definition with optional parent reference.
+    pub fn book(mut self, book: Book) -> Self {
+        // If book has a parent, ensure parent exists or will be added
+        if let Some(parent_id) = &book.parent_id {
+            if let Some(parent) = self.books.get_mut(parent_id) {
+                parent.add_child(book.id.clone());
+            }
+        }
+        self.books.insert(book.id.clone(), book);
+        self
+    }
+
+    /// Add multiple books in a single call.
+    ///
+    /// # Arguments
+    ///
+    /// * `books` - Iterator yielding books to insert.
+    pub fn books(mut self, books: impl IntoIterator<Item = Book>) -> Self {
+        for book in books {
+            self = self.book(book);
+        }
+        self
+    }
+
+    /// Assign a position to a book.
+    ///
+    /// This method updates both the position's book_id and adds the position
+    /// to the book's position_ids list.
+    ///
+    /// # Arguments
+    ///
+    /// * `position_id` - Position identifier.
+    /// * `book_id` - Book identifier.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if the position or book doesn't exist.
+    pub fn add_position_to_book(
+        mut self,
+        position_id: impl Into<PositionId>,
+        book_id: impl Into<BookId>,
+    ) -> Result<Self> {
+        let pos_id = position_id.into();
+        let bk_id = book_id.into();
+
+        // Find the position
+        let position = self
+            .positions
+            .iter_mut()
+            .find(|p| p.position_id == pos_id)
+            .ok_or_else(|| {
+                crate::error::PortfolioError::InvalidInput(format!(
+                    "Position not found: {}",
+                    pos_id
+                ))
+            })?;
+
+        // Update position's book_id
+        position.book_id = Some(bk_id.clone());
+
+        // Add position to book
+        let book = self.books.get_mut(&bk_id).ok_or_else(|| {
+            crate::error::PortfolioError::InvalidInput(format!("Book not found: {}", bk_id))
+        })?;
+
+        book.add_position(pos_id);
+
+        Ok(self)
+    }
+
     /// Build the portfolio with validation and entity reconciliation.
     ///
     /// This method performs several checks before returning a portfolio:
@@ -218,6 +295,7 @@ impl PortfolioBuilder {
             as_of,
             entities: self.entities,
             positions: self.positions,
+            books: self.books,
             tags: self.tags,
             meta: self.meta,
         };

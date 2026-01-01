@@ -4,6 +4,7 @@
 //! The module provides helpers for traversing positions, filtering by tags, and
 //! validating structural invariants before valuation takes place.
 
+use crate::book::{Book, BookId};
 use crate::error::{PortfolioError, Result};
 use crate::position::Position;
 use crate::types::{Entity, EntityId, DUMMY_ENTITY_ID};
@@ -16,7 +17,8 @@ use serde::{Deserialize, Serialize};
 ///
 /// The portfolio holds a flat list of positions, each referencing an entity
 /// and instrument. Positions can be grouped and aggregated by entity or by
-/// arbitrary attributes (tags).
+/// arbitrary attributes (tags). Optional book hierarchy provides multi-level
+/// organizational structure.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Portfolio {
     /// Unique identifier for this portfolio
@@ -37,6 +39,10 @@ pub struct Portfolio {
     /// Flat list of positions (not serialized directly due to Instrument trait)
     #[serde(skip)]
     pub positions: Vec<Position>,
+
+    /// Optional hierarchical book organization
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    pub books: IndexMap<BookId, Book>,
 
     /// Portfolio-level tags
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
@@ -66,6 +72,9 @@ pub struct PortfolioSpec {
     pub entities: IndexMap<EntityId, Entity>,
     /// Positions as serializable specs
     pub positions: Vec<crate::position::PositionSpec>,
+    /// Optional hierarchical book organization
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    pub books: IndexMap<BookId, Book>,
     /// Portfolio-level tags
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub tags: IndexMap<String, String>,
@@ -90,6 +99,7 @@ impl Portfolio {
             as_of,
             entities: IndexMap::new(),
             positions: Vec::new(),
+            books: IndexMap::new(),
             tags: IndexMap::new(),
             meta: IndexMap::new(),
         }
@@ -187,6 +197,7 @@ impl Portfolio {
             as_of: self.as_of,
             entities: self.entities.clone(),
             positions: self.positions.iter().map(|p| p.to_spec()).collect(),
+            books: self.books.clone(),
             tags: self.tags.clone(),
             meta: self.meta.clone(),
         }
@@ -217,6 +228,7 @@ impl Portfolio {
             as_of: spec.as_of,
             entities: spec.entities,
             positions: positions?,
+            books: spec.books,
             tags: spec.tags,
             meta: spec.meta,
         };

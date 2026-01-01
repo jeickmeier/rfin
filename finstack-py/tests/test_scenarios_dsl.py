@@ -1,0 +1,317 @@
+"""Tests for scenario DSL parser."""
+
+import pytest
+
+from finstack import Currency
+from finstack.scenarios import (
+    CurveKind,
+    OperationSpec,
+    ScenarioSpec,
+    VolSurfaceKind,
+)
+from finstack.scenarios.dsl import DSLParseError, DSLParser, from_dsl
+
+
+class TestDSLParser:
+    """Test DSL parser."""
+
+    def test_curve_shift_default(self):
+        """Test default curve shift (discount curve)."""
+        parser = DSLParser("shift USD.OIS +50bp")
+        assert len(parser.operations) == 1
+        # Note: We can't directly compare OperationSpec instances
+        # Just verify it was parsed
+
+    def test_curve_shift_explicit_kind(self):
+        """Test curve shift with explicit kind."""
+        parser = DSLParser("shift forward USD.SOFR -25bp")
+        assert len(parser.operations) == 1
+
+    def test_curve_shift_hazard(self):
+        """Test hazard curve shift."""
+        parser = DSLParser("shift hazard ACME.5Y +100bp")
+        assert len(parser.operations) == 1
+
+    def test_curve_shift_inflation(self):
+        """Test inflation curve shift."""
+        parser = DSLParser("shift inflation US.CPI +10bp")
+        assert len(parser.operations) == 1
+
+    def test_equity_shift_all(self):
+        """Test all equities shift."""
+        parser = DSLParser("shift equities -10%")
+        assert len(parser.operations) == 1
+
+    def test_equity_shift_single(self):
+        """Test single equity shift."""
+        parser = DSLParser("shift equity SPY +5%")
+        assert len(parser.operations) == 1
+
+    def test_fx_shift(self):
+        """Test FX shift."""
+        parser = DSLParser("shift fx USD/EUR +3%")
+        assert len(parser.operations) == 1
+
+    def test_vol_shift(self):
+        """Test vol surface shift."""
+        parser = DSLParser("shift vol SPX_VOL +15%")
+        assert len(parser.operations) == 1
+
+    def test_roll_forward_days(self):
+        """Test roll forward in days."""
+        parser = DSLParser("roll forward 1d")
+        assert len(parser.operations) == 1
+
+    def test_roll_forward_weeks(self):
+        """Test roll forward in weeks."""
+        parser = DSLParser("roll forward 2w")
+        assert len(parser.operations) == 1
+
+    def test_roll_forward_months(self):
+        """Test roll forward in months."""
+        parser = DSLParser("roll forward 3m")
+        assert len(parser.operations) == 1
+
+    def test_roll_forward_years(self):
+        """Test roll forward in years."""
+        parser = DSLParser("roll forward 1y")
+        assert len(parser.operations) == 1
+
+    def test_adjust_forecast(self):
+        """Test statement forecast adjustment."""
+        parser = DSLParser("adjust revenue +10%")
+        assert len(parser.operations) == 1
+
+    def test_set_forecast(self):
+        """Test statement forecast assignment."""
+        parser = DSLParser("set revenue 1000000")
+        assert len(parser.operations) == 1
+
+    def test_multiple_operations_newline(self):
+        """Test multiple operations separated by newlines."""
+        parser = DSLParser("""
+            shift USD.OIS +50bp
+            shift equities -10%
+            roll forward 1m
+        """)
+        assert len(parser.operations) == 3
+
+    def test_multiple_operations_semicolon(self):
+        """Test multiple operations separated by semicolons."""
+        parser = DSLParser("shift USD.OIS +50bp; shift equities -10%; roll forward 1m")
+        assert len(parser.operations) == 3
+
+    def test_comments(self):
+        """Test comment handling."""
+        parser = DSLParser("""
+            # This is a comment
+            shift USD.OIS +50bp  # Inline comment
+            # Another comment
+            shift equities -10%
+        """)
+        assert len(parser.operations) == 2
+
+    def test_whitespace_tolerance(self):
+        """Test tolerance to extra whitespace."""
+        parser = DSLParser("   shift   USD.OIS   +50bp   ")
+        assert len(parser.operations) == 1
+
+    def test_case_insensitivity(self):
+        """Test case insensitivity."""
+        parser = DSLParser("SHIFT USD.OIS +50BP")
+        assert len(parser.operations) == 1
+
+    def test_negative_values(self):
+        """Test negative values."""
+        parser = DSLParser("shift USD.OIS -50bp")
+        assert len(parser.operations) == 1
+
+    def test_decimal_values(self):
+        """Test decimal values."""
+        parser = DSLParser("shift equities -12.5%")
+        assert len(parser.operations) == 1
+
+    def test_invalid_operation(self):
+        """Test invalid operation raises error."""
+        with pytest.raises(DSLParseError) as exc_info:
+            DSLParser("invalid operation")
+        assert "Unknown operation" in str(exc_info.value)
+
+    def test_invalid_shift_syntax(self):
+        """Test invalid shift syntax raises error."""
+        with pytest.raises(DSLParseError) as exc_info:
+            DSLParser("shift invalid syntax")
+        assert "Invalid shift syntax" in str(exc_info.value)
+
+    def test_invalid_roll_forward_syntax(self):
+        """Test invalid roll forward syntax raises error."""
+        with pytest.raises(DSLParseError) as exc_info:
+            DSLParser("roll forward invalid")
+        assert "Invalid roll forward syntax" in str(exc_info.value)
+
+    def test_error_includes_line_number(self):
+        """Test error includes line number."""
+        with pytest.raises(DSLParseError) as exc_info:
+            DSLParser("""
+                shift USD.OIS +50bp
+                invalid operation
+                shift equities -10%
+            """)
+        assert "Line 2" in str(exc_info.value) or "Line 3" in str(exc_info.value)
+
+    def test_empty_input(self):
+        """Test empty input."""
+        parser = DSLParser("")
+        assert len(parser.operations) == 0
+
+    def test_comments_only(self):
+        """Test comments-only input."""
+        parser = DSLParser("""
+            # Just comments
+            # Nothing else
+        """)
+        assert len(parser.operations) == 0
+
+
+class TestFromDSL:
+    """Test from_dsl function."""
+
+    def test_from_dsl_basic(self):
+        """Test from_dsl with basic input."""
+        scenario = from_dsl("shift USD.OIS +50bp")
+        assert scenario.id() == "dsl_scenario"
+        assert len(scenario.operations()) == 1
+
+    def test_from_dsl_custom_id(self):
+        """Test from_dsl with custom ID."""
+        scenario = from_dsl("shift USD.OIS +50bp", scenario_id="custom_id")
+        assert scenario.id() == "custom_id"
+
+    def test_from_dsl_with_metadata(self):
+        """Test from_dsl with name and description."""
+        scenario = from_dsl(
+            "shift USD.OIS +50bp",
+            scenario_id="stress",
+            name="Stress Test",
+            description="Rate shock scenario",
+        )
+        assert scenario.id() == "stress"
+        assert scenario.name() == "Stress Test"
+        assert scenario.description() == "Rate shock scenario"
+
+    def test_from_dsl_with_priority(self):
+        """Test from_dsl with priority."""
+        scenario = from_dsl("shift USD.OIS +50bp", priority=10)
+        assert scenario.priority() == 10
+
+
+class TestScenarioSpecFromDSL:
+    """Test ScenarioSpec.from_dsl class method."""
+
+    def test_from_dsl_method_exists(self):
+        """Test from_dsl method exists on ScenarioSpec."""
+        assert hasattr(ScenarioSpec, "from_dsl")
+
+    def test_from_dsl_method_basic(self):
+        """Test from_dsl method with basic input."""
+        scenario = ScenarioSpec.from_dsl("shift USD.OIS +50bp")
+        assert scenario.id() == "dsl_scenario"
+        assert len(scenario.operations()) == 1
+
+    def test_from_dsl_method_custom_id(self):
+        """Test from_dsl method with custom ID."""
+        scenario = ScenarioSpec.from_dsl(
+            "shift USD.OIS +50bp",
+            scenario_id="custom_id",
+        )
+        assert scenario.id() == "custom_id"
+
+    def test_from_dsl_complex_scenario(self):
+        """Test from_dsl with complex scenario."""
+        scenario = ScenarioSpec.from_dsl(
+            """
+            # Market stress scenario
+            shift USD.OIS +50bp      # Rate shock
+            shift EUR.OIS +40bp      # Euro rates
+            shift equities -15%      # Equity drawdown
+            shift fx USD/EUR +5%     # USD strengthens
+            roll forward 1m          # Time decay
+            """,
+            scenario_id="market_stress",
+            name="Q1 2024 Market Stress",
+            description="Combined rate and equity shock",
+            priority=1,
+        )
+        assert scenario.id() == "market_stress"
+        assert scenario.name() == "Q1 2024 Market Stress"
+        assert len(scenario.operations()) == 5
+        assert scenario.priority() == 1
+
+
+class TestDSLIntegration:
+    """Integration tests for DSL with scenario engine."""
+
+    def test_dsl_scenario_serialization(self):
+        """Test DSL-generated scenario can be serialized."""
+        scenario = ScenarioSpec.from_dsl("""
+            shift USD.OIS +50bp
+            shift equities -10%
+        """)
+
+        # Should be able to convert to JSON
+        json_str = scenario.to_json()
+        assert json_str is not None
+        assert "USD.OIS" in json_str
+
+        # Should be able to round-trip
+        scenario2 = ScenarioSpec.from_json(json_str)
+        assert scenario2.id() == scenario.id()
+        assert len(scenario2.operations()) == len(scenario.operations())
+
+    def test_dsl_scenario_to_dict(self):
+        """Test DSL-generated scenario can be converted to dict."""
+        scenario = ScenarioSpec.from_dsl("shift USD.OIS +50bp")
+        data = scenario.to_dict()
+        assert data is not None
+        assert data["id"] == "dsl_scenario"
+        assert len(data["operations"]) == 1
+
+
+class TestDSLDocumentation:
+    """Test DSL syntax documented in module docstring."""
+
+    def test_example_in_module_docstring(self):
+        """Test example from module docstring works."""
+        # This is the example from the dsl.py module docstring
+        scenario = ScenarioSpec.from_dsl('''
+            shift USD.OIS +50bp
+            shift equities -10%
+            roll forward 1m
+        ''')
+        assert len(scenario.operations()) == 3
+
+    def test_all_documented_syntax_works(self):
+        """Test all syntax examples from docstring."""
+        examples = [
+            "shift USD.OIS +50bp",
+            "shift discount USD.OIS +50bp",
+            "shift forward USD.SOFR -25bp",
+            "shift hazard ACME.5Y +100bp",
+            "shift inflation US.CPI +10bp",
+            "shift equities -10%",
+            "shift equity SPY +5%",
+            "shift fx USD/EUR +3%",
+            "shift vol SPX_VOL +15%",
+            "roll forward 1d",
+            "roll forward 1w",
+            "roll forward 1m",
+            "roll forward 3m",
+            "roll forward 1y",
+            "adjust revenue +10%",
+            "set revenue 1000000",
+        ]
+
+        for example in examples:
+            # Each should parse without error
+            parser = DSLParser(example)
+            assert len(parser.operations) == 1

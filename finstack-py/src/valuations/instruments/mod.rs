@@ -14,24 +14,29 @@ mod cds_tranche;
 mod cliquet_option;
 mod cms_option;
 mod commodity_forward;
+mod commodity_option;
 mod commodity_swap;
 mod convertible;
 mod dcf;
 mod deposit;
 mod equity;
+mod equity_index_future;
 mod equity_option;
 mod fra;
 mod fx;
 mod fx_barrier_option;
+mod fx_variance_swap;
 mod inflation_cap_floor;
 mod inflation_linked_bond;
 mod inflation_swap;
 mod ir_future;
 mod irs;
 mod lookback_option;
+mod ndf;
 mod private_markets_fund;
 mod quanto_option;
 mod range_accrual;
+mod real_estate;
 mod repo;
 mod revolving_credit;
 mod structured_credit;
@@ -60,23 +65,28 @@ use cds_tranche::PyCdsTranche;
 use cliquet_option::PyCliquetOption;
 use cms_option::PyCmsOption;
 use commodity_forward::PyCommodityForward;
+use commodity_option::PyCommodityOption;
 use commodity_swap::PyCommoditySwap;
 use convertible::PyConvertibleBond;
 use deposit::PyDeposit;
 use equity::PyEquity;
+use equity_index_future::PyEquityIndexFuture;
 use equity_option::PyEquityOption;
 use fra::PyForwardRateAgreement;
 use fx::{PyFxOption, PyFxSpot, PyFxSwap};
 use fx_barrier_option::PyFxBarrierOption;
+use fx_variance_swap::PyFxVarianceSwap;
 use inflation_cap_floor::PyInflationCapFloor;
 use inflation_linked_bond::PyInflationLinkedBond;
 use inflation_swap::PyInflationSwap;
 use ir_future::PyInterestRateFuture;
 use irs::PyInterestRateSwap;
 use lookback_option::PyLookbackOption;
+use ndf::PyNdf;
 use private_markets_fund::PyPrivateMarketsFund;
 use quanto_option::PyQuantoOption;
 use range_accrual::PyRangeAccrual;
+use real_estate::PyRealEstateAsset;
 use repo::PyRepo;
 use revolving_credit::PyRevolvingCredit;
 use structured_credit::PyStructuredCredit;
@@ -138,7 +148,14 @@ pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<Ins
     try_extract!(value, PyFxSpot, InstrumentType::FxSpot);
     try_extract!(value, PyFxOption, InstrumentType::FxOption);
     try_extract!(value, PyFxSwap, InstrumentType::FxSwap);
+    try_extract!(value, PyNdf, InstrumentType::Ndf);
+    try_extract!(value, PyFxVarianceSwap, InstrumentType::FxVarianceSwap);
     try_extract!(value, PyEquity, InstrumentType::Equity);
+    try_extract!(
+        value,
+        PyEquityIndexFuture,
+        InstrumentType::EquityIndexFuture
+    );
     try_extract!(value, PyEquityOption, InstrumentType::EquityOption);
     try_extract!(value, PyConvertibleBond, InstrumentType::Convertible);
     try_extract!(value, PySwaption, InstrumentType::Swaption);
@@ -158,6 +175,7 @@ pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<Ins
     try_extract!(value, PyCdsOption, InstrumentType::CDSOption);
     try_extract!(value, PyCdsTranche, InstrumentType::CDSTranche);
     try_extract!(value, PyCommodityForward, InstrumentType::CommodityForward);
+    try_extract!(value, PyCommodityOption, InstrumentType::CommodityOption);
     try_extract!(value, PyCommoditySwap, InstrumentType::CommoditySwap);
     try_extract!(value, PyRepo, InstrumentType::Repo);
     try_extract!(
@@ -178,6 +196,7 @@ pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<Ins
         PyPrivateMarketsFund,
         InstrumentType::PrivateMarketsFund
     );
+    try_extract!(value, PyRealEstateAsset, InstrumentType::RealEstateAsset);
     try_extract!(value, PyBasket, InstrumentType::Basket);
     try_extract!(value, PyAsianOption, InstrumentType::AsianOption);
     try_extract!(value, PyAutocallable, InstrumentType::Autocallable);
@@ -254,8 +273,17 @@ pub(crate) fn register<'py>(
     let fx_exports = fx::register(py, &module)?;
     exports.extend(fx_exports.iter().copied());
 
+    let ndf_exports = ndf::register(py, &module)?;
+    exports.extend(ndf_exports.iter().copied());
+
+    let fx_variance_swap_exports = fx_variance_swap::register(py, &module)?;
+    exports.extend(fx_variance_swap_exports.iter().copied());
+
     let equity_exports = equity::register(py, &module)?;
     exports.extend(equity_exports.iter().copied());
+
+    let equity_index_future_exports = equity_index_future::register(py, &module)?;
+    exports.extend(equity_index_future_exports.iter().copied());
 
     let equity_option_exports = equity_option::register(py, &module)?;
     exports.extend(equity_option_exports.iter().copied());
@@ -323,8 +351,14 @@ pub(crate) fn register<'py>(
     commodity_forward::register_module(&module)?;
     exports.push("CommodityForward");
 
+    commodity_option::register_module(&module)?;
+    exports.push("CommodityOption");
+
     commodity_swap::register_module(&module)?;
     exports.push("CommoditySwap");
+
+    real_estate::register_module(&module)?;
+    exports.push("RealEstateAsset");
 
     let fx_barrier_option_exports = fx_barrier_option::register(py, &module)?;
     exports.extend(fx_barrier_option_exports.iter().copied());

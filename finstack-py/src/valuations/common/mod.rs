@@ -202,6 +202,28 @@ impl PyModelKey {
     const HULL_WHITE_1F: Self = Self::new(ModelKey::HullWhite1F);
     #[classattr]
     const HAZARD_RATE: Self = Self::new(ModelKey::HazardRate);
+    #[classattr]
+    const NORMAL: Self = Self::new(ModelKey::Normal);
+    #[classattr]
+    const MONTE_CARLO_GBM: Self = Self::new(ModelKey::MonteCarloGBM);
+    #[classattr]
+    const MONTE_CARLO_HESTON: Self = Self::new(ModelKey::MonteCarloHeston);
+    #[classattr]
+    const MONTE_CARLO_HULL_WHITE_1F: Self = Self::new(ModelKey::MonteCarloHullWhite1F);
+    #[classattr]
+    const BARRIER_BS_CONTINUOUS: Self = Self::new(ModelKey::BarrierBSContinuous);
+    #[classattr]
+    const ASIAN_GEOMETRIC_BS: Self = Self::new(ModelKey::AsianGeometricBS);
+    #[classattr]
+    const ASIAN_TURNBULL_WAKEMAN: Self = Self::new(ModelKey::AsianTurnbullWakeman);
+    #[classattr]
+    const LOOKBACK_BS_CONTINUOUS: Self = Self::new(ModelKey::LookbackBSContinuous);
+    #[classattr]
+    const QUANTO_BS: Self = Self::new(ModelKey::QuantoBS);
+    #[classattr]
+    const FX_BARRIER_BS_CONTINUOUS: Self = Self::new(ModelKey::FxBarrierBSContinuous);
+    #[classattr]
+    const HESTON_FOURIER: Self = Self::new(ModelKey::HestonFourier);
 
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]

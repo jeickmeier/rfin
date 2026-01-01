@@ -3,12 +3,14 @@
 //! Helper functions for slicing portfolios by arbitrary tags and rolling up
 //! valuations across one or more categorical dimensions.
 
+use crate::book::{Book, BookId};
 use crate::error::Result;
 use crate::position::Position;
 use crate::valuation::PortfolioValuation;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use indexmap::IndexMap;
+use std::collections::HashMap;
 
 /// Group positions by a specific tag or attribute.
 ///
@@ -131,6 +133,127 @@ pub fn aggregate_by_multiple_attributes(
     }
 
     Ok(aggregated)
+}
+
+/// Aggregate portfolio values by book hierarchy with recursive rollup.
+///
+/// Computes total value for each book by summing:
+/// 1. Direct position values in the book
+/// 2. Recursively aggregated values from child books
+///
+/// This enables multi-level reporting (e.g., Americas > Credit > IG).
+///
+/// # Arguments
+///
+/// * `valuation` - Pre-computed valuation results providing per-position values.
+/// * `positions` - Positions that correspond to the valuation results.
+/// * `books` - Book hierarchy definition.
+/// * `base_ccy` - Currency used when adding monetary amounts.
+///
+/// # Returns
+///
+/// [`Result`] with an [`IndexMap`] of book IDs to aggregated [`Money`].
+/// Includes both direct and rolled-up values from child books.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// use finstack_portfolio::{aggregate_by_book, value_portfolio};
+/// use finstack_core::currency::Currency;
+///
+/// # fn example(portfolio: finstack_portfolio::Portfolio, market: finstack_core::market_data::MarketContext, config: finstack_core::config::FinstackConfig) -> finstack_portfolio::Result<()> {
+/// let valuation = value_portfolio(&portfolio, &market, &config)?;
+/// let by_book = aggregate_by_book(
+///     &valuation,
+///     &portfolio.positions,
+///     &portfolio.books,
+///     Currency::USD,
+/// )?;
+///
+/// // Get total for "Americas" book (includes all child books like Credit, Equity, etc.)
+/// if let Some(americas_total) = by_book.get("americas") {
+///     println!("Americas total: {}", americas_total);
+/// }
+/// # Ok(())
+/// # }
+/// ```
+pub fn aggregate_by_book(
+    valuation: &PortfolioValuation,
+    positions: &[Position],
+    books: &IndexMap<BookId, Book>,
+    base_ccy: Currency,
+) -> Result<IndexMap<BookId, Money>> {
+    let mut book_totals: IndexMap<BookId, Money> = IndexMap::new();
+    
+    // Build a map of position values by position_id for quick lookup
+    let position_values: HashMap<&crate::types::PositionId, &Money> = valuation
+        .position_values
+        .iter()
+        .map(|(id, val)| (id, &val.value_base))
+        .collect();
+    
+    // Helper function to recursively compute book total
+    fn compute_book_total(
+        book_id: &BookId,
+        books: &IndexMap<BookId, Book>,
+        positions: &[Position],
+        position_values: &HashMap<&crate::types::PositionId, &Money>,
+        base_ccy: Currency,
+        memo: &mut HashMap<BookId, Money>,
+    ) -> Result<Money> {
+        // Check memo first
+        if let Some(cached) = memo.get(book_id) {
+            return Ok(*cached);
+        }
+        
+        let book = books.get(book_id).ok_or_else(|| {
+            crate::error::PortfolioError::InvalidInput(format!("Book not found: {}", book_id))
+        })?;
+        
+        // Start with zero
+        let mut total = Money::new(0.0, base_ccy);
+        
+        // Add direct position values
+        for pos_id in &book.position_ids {
+            if let Some(&&value) = position_values.get(pos_id) {
+                total = total.checked_add(value)?;
+            }
+        }
+        
+        // Recursively add child book totals
+        for child_id in &book.child_book_ids {
+            let child_total = compute_book_total(
+                child_id,
+                books,
+                positions,
+                position_values,
+                base_ccy,
+                memo,
+            )?;
+            total = total.checked_add(child_total)?;
+        }
+        
+        // Memoize
+        memo.insert(book_id.clone(), total);
+        
+        Ok(total)
+    }
+    
+    // Compute totals for all books
+    let mut memo: HashMap<BookId, Money> = HashMap::new();
+    for book_id in books.keys() {
+        let total = compute_book_total(
+            book_id,
+            books,
+            positions,
+            &position_values,
+            base_ccy,
+            &mut memo,
+        )?;
+        book_totals.insert(book_id.clone(), total);
+    }
+    
+    Ok(book_totals)
 }
 
 #[cfg(test)]

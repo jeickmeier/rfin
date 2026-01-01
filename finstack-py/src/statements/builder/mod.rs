@@ -613,6 +613,54 @@ impl PyModelBuilder {
         Ok(())
     }
 
+    #[pyo3(text_signature = "(self, qualified_ids, registry)")]
+    /// Add multiple metrics from a registry at once.
+    ///
+    /// This is a convenience method for batch-adding metrics from a registry
+    /// instead of calling add_metric_from_registry multiple times.
+    ///
+    /// Parameters
+    /// ----------
+    /// qualified_ids : list[str]
+    ///     List of fully qualified metric identifiers to add
+    /// registry : Registry
+    ///     Registry loaded by the caller (allows reuse across builders)
+    ///
+    /// Returns
+    /// -------
+    /// None
+    ///
+    /// Examples
+    /// --------
+    /// >>> registry = Registry.new()
+    /// >>> registry.load_builtins()
+    /// >>> builder.add_registry_metrics(
+    /// ...     ["fin.gross_margin", "fin.ebitda", "fin.net_income"],
+    /// ...     registry
+    /// ... )
+    #[pyo3(signature = (qualified_ids, registry))]
+    fn add_registry_metrics(
+        &mut self,
+        qualified_ids: Vec<String>,
+        registry: Bound<'_, PyAny>,
+    ) -> PyResult<()> {
+        // Extract the PyRegistry directly
+        let registry_ref: PyRef<'_, crate::statements::registry::PyRegistry> =
+            registry.extract()?;
+
+        let mut builder = self.take_ready_builder()?;
+        
+        // Add each metric in sequence
+        for qualified_id in qualified_ids {
+            builder = builder
+                .add_metric_from_registry(&qualified_id, registry_ref.inner())
+                .map_err(stmt_to_py)?;
+        }
+        
+        self.state = BuilderState::Ready(Some(builder));
+        Ok(())
+    }
+
     #[pyo3(text_signature = "(self)")]
     /// Build the final model specification.
     ///
