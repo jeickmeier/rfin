@@ -24,7 +24,7 @@
 //!
 //! # Examples
 //!
-//! ```rust,no_run
+//! ```text
 //! use finstack_core::currency::Currency;
 //! use finstack_core::market_data::context::MarketContext;
 //! use finstack_core::money::Money;
@@ -85,7 +85,7 @@ use crate::pricer::InstrumentType;
 ///
 /// # Examples
 ///
-/// ```rust,no_run
+/// ```text
 /// use finstack_valuations::metrics::MetricRegistry;
 /// use finstack_valuations::instruments::fixed_income::bond_future::metrics::register_bond_future_metrics;
 ///

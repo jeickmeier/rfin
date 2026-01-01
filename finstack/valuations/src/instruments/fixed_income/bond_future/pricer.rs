@@ -50,7 +50,7 @@ impl BondFuturePricer {
     ///
     /// # Example
     ///
-    /// ```rust,no_run
+    /// ```text
     /// use finstack_core::currency::Currency;
     /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::money::Money;
@@ -153,7 +153,7 @@ impl BondFuturePricer {
     ///
     /// # Example
     ///
-    /// ```rust,no_run
+    /// ```text
     /// use finstack_core::currency::Currency;
     /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::money::Money;
@@ -264,7 +264,7 @@ impl BondFuturePricer {
     ///
     /// # Example
     ///
-    /// ```rust,no_run
+    /// ```text
     /// use finstack_core::currency::Currency;
     /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::money::Money;

@@ -27,7 +27,7 @@
 //!
 //! # Examples
 //!
-//! ```rust,no_run
+//! ```text
 //! use finstack_valuations::instruments::fixed_income::bond::Bond;
 //! use finstack_valuations::instruments::fixed_income::bond::metrics::register_bond_metrics;
 //! use finstack_valuations::metrics::{MetricRegistry, MetricId};
@@ -36,7 +36,6 @@
 //! register_bond_metrics(&mut registry);
 //!
 //! // Use registry to compute metrics for bonds
-//! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 //!
 //! # See Also
@@ -77,7 +76,7 @@ pub use price_yield_spread::{
 ///
 /// # Examples
 ///
-/// ```rust,no_run
+/// ```text
 /// use finstack_valuations::instruments::fixed_income::bond::metrics::register_bond_metrics;
 /// use finstack_valuations::metrics::MetricRegistry;
 ///

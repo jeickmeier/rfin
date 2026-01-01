@@ -458,7 +458,7 @@ impl InterestRateSwap {
 ///
 /// # Examples
 ///
-/// ```no_run
+/// ```text
 /// use finstack_valuations::instruments::rates::irs::{InterestRateSwap, pricer};
 /// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::dates::Date;

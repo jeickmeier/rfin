@@ -38,4 +38,9 @@ pub(crate) mod loaders;
 /// Registry for looking up conventions.
 pub(crate) mod registry;
 
+// Re-export convention types for external use
+pub use defs::{
+    CdsConventions, InflationSwapConventions, IrFutureConventions, OptionConventions,
+    RateIndexConventions, RateIndexKind, SwaptionConventions,
+};
 pub use registry::ConventionRegistry;

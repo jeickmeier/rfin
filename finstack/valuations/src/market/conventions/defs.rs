@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::market::conventions::defs::RateIndexKind;
+/// use finstack_valuations::market::conventions::RateIndexKind;
 ///
 /// let overnight = RateIndexKind::OvernightRfr;
 /// let term = RateIndexKind::Term;
@@ -46,7 +46,7 @@ pub enum RateIndexKind {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::market::conventions::defs::{RateIndexConventions, RateIndexKind};
+/// use finstack_valuations::market::conventions::{RateIndexConventions, RateIndexKind};
 /// use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 /// use finstack_core::currency::Currency;
 ///
@@ -94,7 +94,7 @@ pub struct RateIndexConventions {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::market::conventions::defs::CdsConventions;
+/// use finstack_valuations::market::conventions::CdsConventions;
 /// use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 ///
 /// // In practice, conventions are loaded from the registry

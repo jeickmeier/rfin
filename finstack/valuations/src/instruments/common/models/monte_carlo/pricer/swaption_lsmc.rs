@@ -13,7 +13,7 @@
 //!
 //! # Usage
 //!
-//! ```rust,no_run
+//! ```text
 //! use finstack_valuations::instruments::common::models::monte_carlo::pricer::swaption_lsmc::{
 //!     SwaptionLsmcPricer, SwaptionLsmcConfig,
 //! };

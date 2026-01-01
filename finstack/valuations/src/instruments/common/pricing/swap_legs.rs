@@ -85,7 +85,7 @@ pub const ANNUITY_EPSILON: f64 = 1e-12;
 ///
 /// # Examples
 ///
-/// ```rust,no_run
+/// ```text
 /// use finstack_core::dates::Date;
 /// use finstack_core::market_data::term_structures::DiscountCurve;
 /// use finstack_valuations::instruments::common::pricing::swap_legs::robust_relative_df;

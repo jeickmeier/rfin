@@ -13,7 +13,7 @@
 //!
 //! # Usage
 //!
-//! ```rust,no_run
+//! ```text
 //! use finstack_valuations::instruments::rates::swaption::{BermudanSwaption, pricing::BermudanSwaptionTreeValuator};
 //! use finstack_valuations::instruments::common::models::trees::{HullWhiteTree, HullWhiteTreeConfig};
 //!

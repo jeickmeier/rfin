@@ -81,10 +81,14 @@ def main() -> int:
     scripts = find_python_scripts(base_dir)
 
     if not scripts:
+        print("No scripts found!")
         return 1
 
+    print(f"Found {len(scripts)} example scripts to run:\n")
     for script in scripts:
-        script.relative_to(base_dir)
+        rel_path = script.relative_to(base_dir)
+        print(f"  - {rel_path}")
+    print()
 
     # Run each script and collect results
     results: dict[Path, tuple[bool, str, float]] = {}
@@ -93,40 +97,57 @@ def main() -> int:
 
     total_start = time.time()
 
-    for _i, script in enumerate(scripts, 1):
-        script.relative_to(base_dir)
+    for i, script in enumerate(scripts, 1):
+        rel_path = script.relative_to(base_dir)
+        print(f"[{i}/{len(scripts)}] Running {rel_path}...", end=" ", flush=True)
 
         success, output, exec_time = run_script(script)
         results[script] = (success, output, exec_time)
 
         if success:
             successful.append(script)
+            print(f"✓ ({format_time(exec_time)})")
         else:
             failed.append(script)
+            print(f"✗ ({format_time(exec_time)})")
 
-    time.time() - total_start
+    total_time = time.time() - total_start
 
     # Print summary
+    print("\n" + "=" * 60)
+    print(f"SUMMARY: {len(successful)}/{len(scripts)} passed in {format_time(total_time)}")
+    print("=" * 60)
 
     # List successful scripts
     if successful:
+        print(f"\n✓ Successful ({len(successful)}):")
         for script in successful:
-            script.relative_to(base_dir)
+            rel_path = script.relative_to(base_dir)
             _, _, exec_time = results[script]
+            print(f"  {rel_path} ({format_time(exec_time)})")
 
     # List failed scripts with error details
     if failed:
+        print(f"\n✗ Failed ({len(failed)}):")
         for script in failed:
-            script.relative_to(base_dir)
+            rel_path = script.relative_to(base_dir)
             _, error, exec_time = results[script]
-            for _line in error.split("\n"):
-                pass
+            print(f"  {rel_path} ({format_time(exec_time)})")
+            for line in error.split("\n"):
+                print(f"    {line}")
 
     # Print detailed output for all scripts if requested
     if "--verbose" in sys.argv:
+        print("\n" + "=" * 60)
+        print("DETAILED OUTPUT")
+        print("=" * 60)
         for script in scripts:
-            script.relative_to(base_dir)
+            rel_path = script.relative_to(base_dir)
             success, output, exec_time = results[script]
+            status = "✓" if success else "✗"
+            print(f"\n{status} {rel_path} ({format_time(exec_time)}):")
+            print("-" * 40)
+            print(output)
 
     # Return exit code based on whether all scripts passed
     return 0 if len(failed) == 0 else 1

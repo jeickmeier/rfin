@@ -260,7 +260,10 @@ def calibrate_forward_curves(
 
         calibrator = cal.ForwardCurveCalibrator(curve_id, tenor_years, base_date, "USD", "USD-OIS")
         calibrator = calibrator.with_config(
-            cal.CalibrationConfig.multi_curve().with_solver_kind(cal.SolverKind.BRENT).with_max_iterations(100)
+            cal.CalibrationConfig(
+                solver_kind=cal.SolverKind.BRENT,
+                max_iterations=100,
+            )
         )
 
         try:
@@ -294,7 +297,10 @@ def calibrate_credit_index_structures(
     if index_cds:
         calibrator = cal.HazardCurveCalibrator(index_curve_id, "senior", 0.40, base_date, "USD", "USD-OIS")
         calibrator = calibrator.with_config(
-            cal.CalibrationConfig.multi_curve().with_solver_kind(cal.SolverKind.BRENT).with_max_iterations(40)
+            cal.CalibrationConfig(
+                solver_kind=cal.SolverKind.BRENT,
+                max_iterations=40,
+            )
         )
         try:
             curve, report = calibrator.calibrate(index_cds, market)
@@ -399,11 +405,10 @@ def main() -> None:
     base_date = date(2024, 1, 2)
     _market_quotes, _forward_inputs, _credit_inputs, _swaption_specs = build_market_quotes(base_date)
 
-    (
-        cal.CalibrationConfig.multi_curve()
-        .with_solver_kind(cal.SolverKind.BRENT)
-        .with_max_iterations(40)
-        .with_verbose(False)
+    cal.CalibrationConfig(
+        solver_kind=cal.SolverKind.BRENT,
+        max_iterations=40,
+        verbose=False,
     )
 
 

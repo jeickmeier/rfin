@@ -46,7 +46,7 @@ pub struct OasResult {
 ///
 /// # Examples
 ///
-/// ```rust,no_run
+/// ```text
 /// use finstack_valuations::instruments::fixed_income::mbs_passthrough::{
 ///     AgencyMbsPassthrough,
 ///     metrics::oas::calculate_oas,

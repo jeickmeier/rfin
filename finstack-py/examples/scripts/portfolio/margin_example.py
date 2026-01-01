@@ -15,17 +15,13 @@ Note: This example shows the API structure. Full margin calculation requires:
 
 from datetime import date
 
-# Instrument imports (for demonstration)
-from finstack.valuations.instruments.builders import (
-    CreditDefaultSwapBuilder,
-    InterestRateSwapBuilder,
-)
-
 # Market data imports
-from finstack.valuations.market_data import DiscountCurve, HazardCurve
+from finstack.core.market_data.term_structures import DiscountCurve, HazardCurve
+from finstack.core.market_data.context import MarketContext
 
 # Core imports
-from finstack.core import Currency, Date, MarketContext, Money
+from finstack.core.currency import Currency
+from finstack.core.money import Money
 
 # Portfolio imports
 from finstack.portfolio import (
@@ -43,29 +39,38 @@ from finstack.portfolio import (
 
 def create_market_context():
     """Create a market context with discount and credit curves."""
-    usd = Currency.from_code("USD")
-    as_of = Date(2024, 6, 15)
+    usd = Currency("USD")
+    as_of = date(2024, 6, 15)
     market = MarketContext()
 
-    # Create discount curve for OIS
-    tenors = ["1D", "1M", "3M", "6M", "1Y", "2Y", "5Y", "10Y", "30Y"]
-    rates = [0.0520, 0.0525, 0.0530, 0.0535, 0.0545, 0.0565, 0.0615, 0.0655, 0.0695]
-    discount_curve = DiscountCurve.from_par_rates("USD.OIS", as_of, tenors, rates, usd, "Act360", "Linear")
+    # Create discount curve from discount factors
+    # Approximate discount factors from rates
+    discount_knots = [
+        (0.0, 1.0),
+        (1.0 / 365, 0.999857),  # 1D
+        (1.0 / 12, 0.99565),  # 1M
+        (0.25, 0.98703),  # 3M
+        (0.5, 0.97427),  # 6M
+        (1.0, 0.94912),  # 1Y
+        (2.0, 0.89526),  # 2Y
+        (5.0, 0.75131),  # 5Y
+        (10.0, 0.53351),  # 10Y
+        (30.0, 0.13313),  # 30Y
+    ]
+    discount_curve = DiscountCurve("USD.OIS", as_of, discount_knots)
     market.insert_discount(discount_curve)
 
-    # Create hazard curve for credit
-    cds_tenors = ["6M", "1Y", "2Y", "3Y", "5Y", "7Y", "10Y"]
-    cds_spreads = [0.0100, 0.0120, 0.0150, 0.0180, 0.0220, 0.0250, 0.0280]
-    hazard_curve = HazardCurve.from_cds_spreads(
-        "ACME.5Y",
-        as_of,
-        cds_tenors,
-        cds_spreads,
-        0.40,  # recovery rate
-        usd,
-        "USD.OIS",
-        "Act360",
-    )
+    # Create hazard curve from hazard rates
+    hazard_knots = [
+        (0.5, 0.0167),  # 6M
+        (1.0, 0.0200),  # 1Y
+        (2.0, 0.0250),  # 2Y
+        (3.0, 0.0300),  # 3Y
+        (5.0, 0.0367),  # 5Y
+        (7.0, 0.0417),  # 7Y
+        (10.0, 0.0467),  # 10Y
+    ]
+    hazard_curve = HazardCurve("ACME.5Y", as_of, hazard_knots, recovery_rate=0.40)
     market.insert_hazard(hazard_curve)
 
     return market, as_of, usd
@@ -158,13 +163,13 @@ def example3_margin_aggregator():
     _market, as_of, usd = create_market_context()
 
     # Create portfolio
-    builder = PortfolioBuilder()
+    builder = PortfolioBuilder("margin_portfolio")
     builder.base_ccy(usd)
     builder.as_of(as_of)
 
     # Add entities
-    builder.entity(Entity("JPMORGAN", "JPMorgan Chase"))
-    builder.entity(Entity("LCH", "LCH Clearnet"))
+    builder.entity(Entity("JPMORGAN").with_name("JPMorgan Chase"))
+    builder.entity(Entity("LCH").with_name("LCH Clearnet"))
 
     # Build portfolio
     portfolio = builder.build()

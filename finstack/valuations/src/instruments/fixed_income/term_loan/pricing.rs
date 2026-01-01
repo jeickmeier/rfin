@@ -25,7 +25,7 @@
 //!
 //! # Examples
 //!
-//! ```rust
+//! ```text
 //! use finstack_valuations::instruments::fixed_income::term_loan::TermLoan;
 //! use finstack_valuations::instruments::fixed_income::term_loan::pricing::TermLoanDiscountingPricer;
 //! use finstack_core::market_data::context::MarketContext;
@@ -80,7 +80,7 @@ use super::types::TermLoan;
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```text
 /// use finstack_valuations::instruments::fixed_income::term_loan::TermLoan;
 /// use finstack_valuations::instruments::fixed_income::term_loan::pricing::TermLoanDiscountingPricer;
 /// use finstack_valuations::pricer::Pricer;

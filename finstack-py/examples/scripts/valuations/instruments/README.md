@@ -1,61 +1,65 @@
-# Phase 1 Instruments - Examples
+# Valuations Instruments - Examples
 
-This directory contains comprehensive, runnable examples demonstrating the usage of all Phase 1 instruments added to the Python bindings.
+This directory contains comprehensive, runnable examples demonstrating the usage of all instruments available in the Finstack Python bindings.
 
-## Examples Included
+## Examples by Instrument Category
 
-### Fixed Income Instruments
+### Fixed Income
 
-1. **bond_future_example.py** - Government bond futures with deliverable baskets
-   - UST 10-year future (TY contract)
-   - Mark-to-market and fair value pricing
-   - Cheapest-to-deliver (CTD) bond analysis
-   - P&L calculation
+| Example | Instruments Covered |
+|---------|---------------------|
+| `bond_capabilities.py` | Bond (fixed, floating, zero-coupon, callable, PIK) |
+| `irs_capabilities.py` | InterestRateSwap |
+| `rates_capabilities.py` | Deposit, ForwardRateAgreement, InterestRateFuture, InterestRateOption (caps/floors), BasisSwap, Swaption |
+| `floating_rate_with_curves_example.py` | Floating rate note pricing with curves |
+| `inflation_capabilities.py` | InflationLinkedBond, InflationSwap |
+| `term_loan_example.py` | TermLoan (fixed rate, PIK, serialization) |
+| `repo_capabilities.py` | Repo |
 
-2. **xccy_swap_example.py** - Cross-currency floating-for-floating swaps
-   - USD/EUR basis swap with notional exchange
-   - Dual-curve pricing (SOFR + ESTR)
-   - FX risk management
-   - NPV decomposition by leg
+### Credit
 
-3. **inflation_capfloor_example.py** - Year-on-year inflation caps/floors
-   - US CPI-U cap with Black-76 pricing
-   - Caplet valuation and Greeks
-   - Sensitivity to volatility
+| Example | Instruments Covered |
+|---------|---------------------|
+| `credit_capabilities.py` | CreditDefaultSwap, CdsIndex, CdsOption, CdsTranche |
+| `structured_credit_capabilities.py` | StructuredCredit (ABS, CLO, CMBS, RMBS) |
+| `cms_option_example.py` | CmsOption |
 
-### Equity & FX Instruments
+### Equity
 
-4. **equity_index_future_example.py** - Equity index futures
-   - E-mini S&P 500 future (ES)
-   - Mark-to-market and cost-of-carry models
-   - Basis and carry cost analytics
-   - Contract specification handling
+| Example | Instruments Covered |
+|---------|---------------------|
+| `equity_capabilities.py` | Equity, EquityOption |
+| `basket_capabilities.py` | Basket |
+| `barrier_option_example.py` | BarrierOption |
+| `asian_option_example.py` | AsianOption |
+| `lookback_option_example.py` | LookbackOption |
+| `cliquet_option_example.py` | CliquetOption |
+| `quanto_option_example.py` | QuantoOption |
+| `autocallable_example.py` | Autocallable |
+| `range_accrual_example.py` | RangeAccrual |
+| `convertible_capabilities.py` | ConvertibleBond |
+| `variance_swap_capabilities.py` | VarianceSwap |
+| `trs_capabilities.py` | EquityTotalReturnSwap, FiIndexTotalReturnSwap |
 
-5. **ndf_example.py** - Non-deliverable forwards
-   - USD/CNY 3-month NDF
-   - Pre-fixing and post-fixing modes
-   - Covered interest rate parity
-   - Settlement cashflow calculation
+### FX
 
-6. **fx_variance_swap_example.py** - FX variance swaps
-   - EUR/USD variance swap with daily observations
-   - Realized variance tracking
-   - Implied forward variance from vol surface
-   - Payoff decomposition
+| Example | Instruments Covered |
+|---------|---------------------|
+| `fx_capabilities.py` | FxSpot, FxOption, FxSwap, FxBarrierOption |
 
-### Commodity & Real Estate
+### Private Markets
 
-7. **commodity_option_example.py** - Commodity options (calls/puts)
-   - WTI crude oil call option (European)
-   - WTI put option (American with early exercise)
-   - Black-76 and binomial tree pricing
-   - Greeks (delta, gamma, vega, theta, rho)
+| Example | Instruments Covered |
+|---------|---------------------|
+| `private_markets_capabilities.py` | PrivateMarketsFund |
+| `revolving_credit/` | RevolvingCredit (deterministic and stochastic pricing) |
 
-8. **real_estate_example.py** - Real estate valuation
-   - Direct capitalization method
-   - Discounted cashflow (DCF) method
-   - NOI projection and exit value
-   - Cap rate sensitivity analysis
+### Monte Carlo Demonstrations
+
+| Example | Description |
+|---------|-------------|
+| `mc_path_capture_example.py` | Monte Carlo path capture and analysis |
+| `mc_visualization_demo.py` | Monte Carlo visualization techniques |
 
 ## Prerequisites
 
@@ -64,6 +68,9 @@ Ensure you have finstack-py installed:
 ```bash
 # From the finstack-py directory
 maturin develop --release
+
+# Or using uv
+uv pip install -e .
 ```
 
 ## Running the Examples
@@ -71,51 +78,18 @@ maturin develop --release
 Each example is standalone and can be run directly:
 
 ```bash
-cd finstack-py/examples/phase1_instruments
+cd finstack-py/examples/scripts/valuations/instruments
 
 # Run individual examples
-python bond_future_example.py
-python xccy_swap_example.py
-python inflation_capfloor_example.py
-python equity_index_future_example.py
-python ndf_example.py
-python fx_variance_swap_example.py
-python commodity_option_example.py
-python real_estate_example.py
-```
+uv run python bond_capabilities.py
+uv run python rates_capabilities.py
+uv run python term_loan_example.py
+uv run python credit_capabilities.py
+# etc.
 
-## Example Output
-
-Each example produces formatted output showing:
-
-- Instrument configuration parameters
-- Market data inputs
-- Valuation results (NPV/PV)
-- Risk metrics (DV01, CS01, Greeks where applicable)
-- Additional analytics specific to the instrument type
-
-Example output format:
-
-```
-======================================================================
-Bond Future Valuation Results
-======================================================================
-Contract ID:        TYH5
-Contract Specs:     UST 10Y Future
-Position:           Long
-Quantity:           10
-Entry Price:        125.5000
-Quoted Price:       126.2500
-
-Present Value:      23,437.50 USD
-
-Metrics:
-  Clean Price:      126.2500
-  Dirty Price:      127.1234
-  Accrued Interest: 873.44
-  CTD Bond:         US912828XG33
-  Gross Basis:      0.1234 (32nds)
-======================================================================
+# Or run all examples via the runner script
+cd finstack-py/examples/scripts
+uv run python run_all_examples.py
 ```
 
 ## Key Concepts Demonstrated
@@ -123,65 +97,43 @@ Metrics:
 ### Pricing Methodologies
 
 - **Discounting**: Present value with market discount curves
-- **Black-76**: European option pricing for commodities and rates
+- **Black-Scholes/Black-76**: Option pricing
+- **Monte Carlo**: Path-dependent derivative pricing
 - **Binomial Trees**: American option pricing with early exercise
-- **Cost-of-Carry**: Fair value for futures contracts
-- **Variance Replication**: FX variance swap pricing
 
 ### Market Data Integration
 
 - Discount curves (OIS, government)
-- Forward curves (SOFR, ESTR, commodity forwards)
+- Forward curves (SOFR, ESTR, etc.)
 - FX matrices and spot rates
-- Volatility surfaces (equity, FX, commodity, inflation)
-- Inflation indices (CPI-U)
+- Volatility surfaces (equity, FX, rates)
+- Hazard curves (credit)
+- Inflation curves (CPI)
 
 ### Risk Metrics
 
 - **DV01**: Dollar value of 1bp rate shift
 - **CS01**: Credit spread sensitivity
 - **Greeks**: Delta, Gamma, Vega, Theta, Rho
-- **FX Delta**: Currency exposure
-- **Basis**: Fair value vs. quoted price difference
+- **Duration**: Macaulay and Modified duration
+- **Convexity**: Interest rate convexity
 
-## Modifying the Examples
+## Instrument Coverage Summary
 
-All examples use realistic but simplified market data. To adapt for production use:
+All instruments from `finstack.valuations.instruments` are covered:
 
-1. **Replace market data sources**:
-   - Load curves from Bloomberg, Refinitiv, or internal systems
-   - Use actual volatility surfaces
-   - Incorporate real-time FX rates
-
-2. **Adjust instrument parameters**:
-   - Use actual contract specifications
-   - Update notionals, strikes, and dates
-   - Modify settlement conventions
-
-3. **Extend metrics**:
-   - Add bucketed DV01 (when available in Phase 2)
-   - Compute stress scenarios
-   - Generate time-series valuations
-
-## Documentation
-
-Each instrument wrapper has comprehensive NumPy-style docstrings accessible via:
-
-```python
-from finstack.valuations.instruments import BondFuture
-help(BondFuture)
-help(BondFuture.builder)
-```
-
-For detailed API reference, see the main documentation.
-
-## Testing
-
-Examples can be tested with pytest:
-
-```bash
-pytest examples/phase1_instruments/ --doctest-modules
-```
+- ✅ Bond, Deposit, InterestRateSwap, ForwardRateAgreement
+- ✅ InterestRateOption, InterestRateFuture, BasisSwap, Swaption
+- ✅ InflationLinkedBond, InflationSwap
+- ✅ FxSpot, FxOption, FxSwap, FxBarrierOption
+- ✅ Equity, EquityOption, LookbackOption, CliquetOption
+- ✅ ConvertibleBond, QuantoOption, RangeAccrual
+- ✅ CreditDefaultSwap, CdsIndex, CdsOption, CdsTranche, CmsOption
+- ✅ StructuredCredit, Repo
+- ✅ RevolvingCredit, TermLoan
+- ✅ EquityTotalReturnSwap, FiIndexTotalReturnSwap
+- ✅ VarianceSwap, AsianOption, Autocallable
+- ✅ Basket, BarrierOption, PrivateMarketsFund
 
 ## Troubleshooting
 
@@ -209,14 +161,6 @@ If results differ from expected values:
 - Verify business day conventions (Following, Modified Following)
 - Ensure calendar IDs are valid (USNY, GBLO, etc.)
 - Confirm interpolation methods match expectations
-
-## Support
-
-For issues or questions:
-- Check the main finstack-py documentation
-- Review the Rust API documentation (cargo doc)
-- Consult the pricing methodology guide
-- Open a GitHub issue with reproduction steps
 
 ## License
 

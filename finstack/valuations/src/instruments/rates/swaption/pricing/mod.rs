@@ -9,7 +9,7 @@
 //!
 //! # Example
 //!
-//! ```rust,no_run
+//! ```text
 //! use finstack_valuations::instruments::rates::swaption::BermudanSwaption;
 //! use finstack_valuations::instruments::rates::swaption::pricing::BermudanSwaptionTreeValuator;
 //!

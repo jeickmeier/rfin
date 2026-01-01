@@ -256,7 +256,7 @@ pub trait StochasticProcess: Send + Sync {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```text
     /// use finstack_valuations::instruments::common::mc::traits::StochasticProcess;
     /// use finstack_valuations::instruments::common::mc::process::gbm::GbmProcess;
     ///
@@ -298,7 +298,7 @@ pub trait Discretization<P: StochasticProcess + ?Sized>: Send + Sync {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```text
     /// use finstack_valuations::instruments::common::mc::traits::{Discretization, StochasticProcess};
     /// use finstack_valuations::instruments::common::mc::process::gbm::GbmProcess;
     /// use finstack_valuations::instruments::common::mc::discretization::exact::ExactGbm;

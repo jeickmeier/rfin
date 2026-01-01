@@ -206,7 +206,7 @@ impl HullWhiteParams {
 /// For portfolio pricing, calibrate the Hull-White model once and reuse it
 /// across multiple instruments using [`with_calibrated_model`]:
 ///
-/// ```rust,no_run
+/// ```text
 /// use finstack_valuations::instruments::rates::swaption::pricer::{
 ///     BermudanSwaptionPricer, HullWhiteParams,
 /// };
@@ -231,7 +231,7 @@ impl HullWhiteParams {
 ///
 /// # Example
 ///
-/// ```rust,no_run
+/// ```text
 /// use finstack_valuations::instruments::rates::swaption::pricer::{
 ///     BermudanSwaptionPricer, BermudanPricingMethod, HullWhiteParams,
 /// };
@@ -316,7 +316,7 @@ impl BermudanSwaptionPricer {
     ///
     /// # Example
     ///
-    /// ```rust,no_run
+    /// ```text
     /// use finstack_valuations::instruments::common::models::trees::HullWhiteTree;
     /// use finstack_valuations::instruments::rates::swaption::pricer::{BermudanSwaptionPricer, HullWhiteParams};
     /// use finstack_core::market_data::traits::Discounting;

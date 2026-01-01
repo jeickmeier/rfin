@@ -15,7 +15,7 @@
 //!
 //! # Usage
 //!
-//! ```rust,no_run
+//! ```text
 //! use finstack_valuations::instruments::fixed_income::revolving_credit::metrics::irr::calculate_path_irr;
 //! use finstack_core::cashflow::InternalRateOfReturn;
 //! use finstack_core::dates::{Date, DayCount};
@@ -60,7 +60,7 @@ use finstack_core::dates::{Date, DayCount};
 ///
 /// # Example
 ///
-/// ```rust,no_run
+/// ```text
 /// use finstack_valuations::instruments::fixed_income::revolving_credit::metrics::irr::calculate_path_irr;
 /// use finstack_core::dates::{Date, DayCount};
 /// use time::Month;

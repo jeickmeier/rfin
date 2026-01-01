@@ -18,7 +18,7 @@
 //!
 //! ```rust
 //! use finstack_valuations::instruments::Bond;
-//! use finstack_valuations::instruments::common::period_pv::PeriodizedPvExt;
+//! use finstack_valuations::instruments::PeriodizedPvExt;
 //! use finstack_core::dates::{Date, Period, PeriodId, DayCount};
 //! use finstack_core::currency::Currency;
 //! use finstack_core::money::Money;
@@ -133,7 +133,7 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
     /// use finstack_core::money::Money;
     /// use finstack_core::currency::Currency;
     /// use finstack_valuations::instruments::Bond;
-    /// use finstack_valuations::instruments::common::period_pv::PeriodizedPvExt;
+    /// use finstack_valuations::instruments::PeriodizedPvExt;
     /// use time::macros::date;
     ///
     /// # fn main() -> finstack_core::Result<()> {
@@ -212,7 +212,7 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
     /// use finstack_core::currency::Currency;
     /// use finstack_core::types::CurveId;
     /// use finstack_valuations::instruments::Bond;
-    /// use finstack_valuations::instruments::common::period_pv::PeriodizedPvExt;
+    /// use finstack_valuations::instruments::PeriodizedPvExt;
     /// use time::macros::date;
     ///
     /// # fn main() -> finstack_core::Result<()> {

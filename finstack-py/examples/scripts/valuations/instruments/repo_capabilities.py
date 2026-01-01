@@ -65,7 +65,7 @@ def main() -> None:
     repo = build_repo(as_of)
     registry = create_standard_registry()
 
-    registry.price_with_metrics(repo, "discounting", market, ["accrued_interest"], as_of=as_of)
+    registry.price_with_metrics(repo, "discounting", market, ["accrued"], as_of=as_of)
 
 
 if __name__ == "__main__":

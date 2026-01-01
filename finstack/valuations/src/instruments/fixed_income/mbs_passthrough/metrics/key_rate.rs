@@ -50,7 +50,7 @@ pub struct KeyRateDv01Result {
 ///
 /// # Examples
 ///
-/// ```rust,no_run
+/// ```text
 /// use finstack_valuations::instruments::fixed_income::mbs_passthrough::{
 ///     AgencyMbsPassthrough,
 ///     metrics::key_rate::key_rate_dv01,

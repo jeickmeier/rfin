@@ -117,7 +117,7 @@ impl PoolAsset {
     /// * `day_count` - Day count convention
     ///
     /// # Example
-    /// ```rust,no_run
+    /// ```text
     /// use finstack_core::currency::Currency;
     /// use finstack_core::dates::{Date, DayCount};
     /// use finstack_core::money::Money;

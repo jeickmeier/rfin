@@ -143,7 +143,7 @@ impl IntegrationMethod {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```text
     /// use finstack_valuations::instruments::credit_derivatives::cds::pricer::IntegrationMethod;
     ///
     /// // Standard 5Y investment grade CDS

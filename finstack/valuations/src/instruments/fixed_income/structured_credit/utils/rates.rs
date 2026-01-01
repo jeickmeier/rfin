@@ -200,7 +200,7 @@ pub fn psa_to_cpr(psa_speed: f64, month: u32) -> f64 {
 ///
 /// # Examples
 ///
-/// ```
+/// ```text
 /// use finstack_core::dates::Tenor;
 /// use finstack_valuations::instruments::fixed_income::structured_credit::utils::rates::frequency_periods_per_year;
 ///

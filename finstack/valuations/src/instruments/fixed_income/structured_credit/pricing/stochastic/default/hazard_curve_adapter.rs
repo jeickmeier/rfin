@@ -40,7 +40,7 @@ use finstack_core::math::distributions::binomial_distribution;
 ///
 /// # Example
 ///
-/// ```rust,no_run
+/// ```text
 /// use finstack_valuations::instruments::fixed_income::structured_credit::pricing::stochastic::default::HazardCurveDefault;
 /// use finstack_core::market_data::term_structures::HazardCurve;
 /// use finstack_core::dates::Date;

@@ -22,7 +22,7 @@ use finstack_core::{Error, InputError, Result};
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```text
 /// use finstack_valuations::market::build::cds_tranche::CdsTrancheBuildOverrides;
 ///
 /// // Use default overrides with only series specified
@@ -78,7 +78,7 @@ impl CdsTrancheBuildOverrides {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```text
     /// use finstack_valuations::market::build::cds_tranche::CdsTrancheBuildOverrides;
     ///
     /// let overrides = CdsTrancheBuildOverrides::new(42);
@@ -131,7 +131,7 @@ impl CdsTrancheBuildOverrides {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```text
 /// use finstack_valuations::market::BuildCtx;
 /// use finstack_valuations::market::build::cds_tranche::{build_cds_tranche_instrument, CdsTrancheBuildOverrides};
 /// use finstack_valuations::market::quotes::cds_tranche::CdsTrancheQuote;

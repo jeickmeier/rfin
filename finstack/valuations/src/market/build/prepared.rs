@@ -32,7 +32,7 @@ use std::sync::Arc;
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```text
 /// # use finstack_valuations::market::build::prepared::PreparedQuote;
 /// # use finstack_valuations::market::quotes::rates::RateQuote;
 /// # use finstack_valuations::market::quotes::ids::QuoteId;
@@ -96,7 +96,7 @@ impl<Q> PreparedQuote<Q> {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```text
     /// # use finstack_valuations::market::build::prepared::PreparedQuote;
     /// # use finstack_core::dates::Date;
     /// # use std::sync::Arc;

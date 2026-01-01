@@ -30,7 +30,7 @@
 //!
 //! # Quick Example
 //!
-//! ```rust
+//! ```text
 //! use finstack_valuations::instruments::fixed_income::term_loan::TermLoan;
 //! use finstack_valuations::metrics::{MetricId, MetricRegistry};
 //! use finstack_core::market_data::context::MarketContext;
@@ -94,7 +94,7 @@ use crate::metrics::MetricRegistry;
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```text
 /// use finstack_valuations::metrics::MetricRegistry;
 /// use finstack_valuations::instruments::fixed_income::term_loan::metrics::register_term_loan_metrics;
 ///

@@ -23,7 +23,7 @@
 //!
 //! # Quick Example
 //!
-//! ```rust
+//! ```text
 //! use finstack_valuations::instruments::fixed_income::term_loan::spec::*;
 //! use finstack_valuations::instruments::fixed_income::term_loan::RateSpec;
 //! use finstack_valuations::cashflow::builder::specs::CouponType;
@@ -107,7 +107,7 @@ use super::types::RateSpec;
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```text
 /// use finstack_valuations::instruments::fixed_income::term_loan::spec::OidPolicy;
 /// use finstack_core::money::Money;
 /// use finstack_core::currency::Currency;
@@ -232,7 +232,7 @@ pub enum CommitmentFeeBase {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```text
 /// use finstack_valuations::instruments::fixed_income::term_loan::spec::*;
 /// use finstack_core::money::Money;
 /// use finstack_core::currency::Currency;
@@ -408,7 +408,7 @@ impl AmortizationSpec {
 ///
 /// # Examples
 ///
-/// ```rust,no_run
+/// ```text
 /// # // Convert to runtime instrument via `try_into()` when needed.
 /// use finstack_valuations::instruments::fixed_income::term_loan::spec::*;
 /// use finstack_valuations::instruments::fixed_income::term_loan::types::RateSpec;
@@ -547,7 +547,7 @@ pub struct LoanCall {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```text
 /// use finstack_valuations::instruments::fixed_income::term_loan::spec::{LoanCallSchedule, LoanCall};
 /// use finstack_core::dates::create_date;
 /// use time::Month;

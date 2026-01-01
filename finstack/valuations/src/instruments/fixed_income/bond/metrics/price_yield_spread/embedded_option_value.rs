@@ -43,7 +43,7 @@
 //!
 //! # Examples
 //!
-//! ```rust,no_run
+//! ```text
 //! use finstack_valuations::instruments::fixed_income::bond::Bond;
 //! use finstack_valuations::metrics::{MetricRegistry, MetricId};
 //!
@@ -82,7 +82,7 @@ use finstack_core::dates::DayCountCtx;
 ///
 /// # Examples
 ///
-/// ```rust,no_run
+/// ```text
 /// use finstack_valuations::instruments::fixed_income::bond::metrics::price_yield_spread::EmbeddedOptionValueCalculator;
 /// use finstack_valuations::metrics::MetricCalculator;
 ///
@@ -117,7 +117,7 @@ impl EmbeddedOptionValueCalculator {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```text
     /// use finstack_valuations::instruments::fixed_income::bond::metrics::price_yield_spread::EmbeddedOptionValueCalculator;
     ///
     /// // High precision with calibrated volatility

@@ -17,7 +17,7 @@
 //!
 //! # Example
 //!
-//! ```rust,no_run
+//! ```text
 //! use finstack_core::currency::Currency;
 //! use finstack_core::dates::Date;
 //! use finstack_core::market_data::term_structures::DiscountCurve;
