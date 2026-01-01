@@ -1,12 +1,10 @@
-"""
-Cliquet Option Example
+"""Cliquet Option Example.
 
 Demonstrates pricing and analysis of cliquet (ratchet) options with periodic resets.
 """
 
 from datetime import date
 
-from finstack import Money
 from finstack.core.currency import USD
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.scalars import MarketScalar
@@ -14,6 +12,8 @@ from finstack.core.market_data.surfaces import VolSurface
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.instruments import CliquetOption
 from finstack.valuations.pricer import create_standard_registry
+
+from finstack import Money
 
 
 def create_market_data(val_date: date) -> MarketContext:
@@ -50,10 +50,6 @@ def create_market_data(val_date: date) -> MarketContext:
 
 def example_quarterly_cliquet():
     """Example: Cliquet option with quarterly resets."""
-    print("\n" + "=" * 80)
-    print("QUARTERLY CLIQUET OPTION")
-    print("=" * 80)
-
     # Quarterly reset dates over 1 year
     # NOTE: reset_dates must be future dates
     reset_dates = [
@@ -78,33 +74,17 @@ def example_quarterly_cliquet():
         div_yield_id="NVDA.DIV",
     )
 
-    print(f"\nInstrument: {cliquet}")
-    print(f"  Ticker: {cliquet.ticker}")
-    print(f"  Notional: {cliquet.notional}")
-    print(f"  Local Cap: {cliquet.local_cap:.1%}")
-    print(f"  Global Cap: {cliquet.global_cap:.1%}")
-    print(f"  Number of Resets: {len(cliquet.reset_dates)}")
-    print(f"  Reset Dates: {cliquet.reset_dates}")
-
     # Price the cliquet
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
     result = registry.price(cliquet, "monte_carlo_gbm", market, as_of=val_date)
 
-    print(f"\nPricing Results:")
-    print(f"  Present Value: {result.value}")
-    print(f"  Currency: {result.value.currency}")
-
     return cliquet, result
 
 
 def example_annual_cliquet():
     """Example: Cliquet option with annual resets."""
-    print("\n" + "=" * 80)
-    print("ANNUAL CLIQUET OPTION")
-    print("=" * 80)
-
     # Annual reset dates over 3 years
     reset_dates = [
         date(2026, 1, 1),
@@ -127,32 +107,17 @@ def example_annual_cliquet():
         div_yield_id="NVDA.DIV",
     )
 
-    print(f"\nInstrument: {cliquet}")
-    print(f"  Ticker: {cliquet.ticker}")
-    print(f"  Notional: {cliquet.notional}")
-    print(f"  Local Cap: {cliquet.local_cap:.1%}")
-    print(f"  Global Cap: {cliquet.global_cap:.1%}")
-    print(f"  Number of Resets: {len(cliquet.reset_dates)}")
-
     # Price the cliquet
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
     result = registry.price(cliquet, "monte_carlo_gbm", market, as_of=val_date)
 
-    print(f"\nPricing Results:")
-    print(f"  Present Value: {result.value}")
-    print(f"  Currency: {result.value.currency}")
-
     return cliquet, result
 
 
 def example_monthly_cliquet():
     """Example: Cliquet option with monthly resets."""
-    print("\n" + "=" * 80)
-    print("MONTHLY CLIQUET OPTION")
-    print("=" * 80)
-
     # Monthly reset dates over 6 months
     reset_dates = [
         date(2025, 2, 1),
@@ -178,45 +143,20 @@ def example_monthly_cliquet():
         div_yield_id="NVDA.DIV",
     )
 
-    print(f"\nInstrument: {cliquet}")
-    print(f"  Ticker: {cliquet.ticker}")
-    print(f"  Notional: {cliquet.notional}")
-    print(f"  Local Cap: {cliquet.local_cap:.1%}")
-    print(f"  Global Cap: {cliquet.global_cap:.1%}")
-    print(f"  Number of Resets: {len(cliquet.reset_dates)}")
-
     # Price the cliquet
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
     result = registry.price(cliquet, "monte_carlo_gbm", market, as_of=val_date)
 
-    print(f"\nPricing Results:")
-    print(f"  Present Value: {result.value}")
-    print(f"  Currency: {result.value.currency}")
-
-    print(f"\n  Explanation:")
-    print(f"    - Cliquet options lock in gains at each reset date")
-    print(f"    - Local cap limits gains per period")
-    print(f"    - Global cap limits total cumulative gains")
-    print(f"    - Popular for structured notes and employee compensation")
-
     return cliquet, result
 
 
-def main():
+def main() -> None:
     """Run all cliquet option examples."""
-    print("\n" + "=" * 80)
-    print("CLIQUET OPTION EXAMPLES")
-    print("=" * 80)
-
     example_quarterly_cliquet()
     example_annual_cliquet()
     example_monthly_cliquet()
-
-    print("\n" + "=" * 80)
-    print("Examples completed successfully!")
-    print("=" * 80 + "\n")
 
 
 if __name__ == "__main__":

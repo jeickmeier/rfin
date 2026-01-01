@@ -11,7 +11,6 @@ This example shows how to:
 Run with:
     uv run python finstack-py/examples/scripts/portfolio/portfolio_example.py
 """
-# ruff: noqa: T201
 
 from datetime import date
 
@@ -58,8 +57,8 @@ def build_market_data(as_of: date) -> MarketContext:
     return market
 
 
-def example_1_basic_portfolio():
-    """Example 1: Basic Portfolio Construction"""
+def example_1_basic_portfolio() -> None:
+    """Example 1: Basic Portfolio Construction."""
     print("\n" + "=" * 80)
     print("Example 1: Basic Portfolio Construction")
     print("=" * 80)
@@ -90,8 +89,8 @@ def example_1_basic_portfolio():
     print(f"Positions: {len(portfolio.positions)}")
 
 
-def example_2_portfolio_builder():
-    """Example 2: Portfolio Builder with Instruments"""
+def example_2_portfolio_builder() -> None:
+    """Example 2: Portfolio Builder with Instruments."""
     print("\n" + "=" * 80)
     print("Example 2: Portfolio Builder with Instruments")
     print("=" * 80)
@@ -99,8 +98,9 @@ def example_2_portfolio_builder():
     from finstack.core.currency import Currency
     from finstack.core.dates.daycount import DayCount
     from finstack.core.money import Money
-    from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit
     from finstack.valuations.instruments import Bond, Deposit, InterestRateSwap
+
+    from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit
 
     as_of = date(2024, 1, 2)
 
@@ -194,8 +194,8 @@ def example_2_portfolio_builder():
         print(f"  Long position: {pos.is_long()}")
 
 
-def example_3_portfolio_valuation():
-    """Example 3: Portfolio Valuation and Metrics"""
+def example_3_portfolio_valuation() -> None:
+    """Example 3: Portfolio Valuation and Metrics."""
     print("\n" + "=" * 80)
     print("Example 3: Portfolio Valuation and Metrics")
     print("=" * 80)
@@ -203,8 +203,9 @@ def example_3_portfolio_valuation():
     from finstack.core.currency import Currency
     from finstack.core.dates.daycount import DayCount
     from finstack.core.money import Money
-    from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit, aggregate_metrics, value_portfolio
     from finstack.valuations.instruments import Bond, Deposit
+
+    from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit, aggregate_metrics, value_portfolio
 
     as_of = date(2024, 1, 2)
     market = build_market_data(as_of)
@@ -291,16 +292,17 @@ def example_3_portfolio_valuation():
                 print(f"  {metric.metric_id}: {metric.total:.6f}")
 
 
-def example_4_grouping_and_aggregation():
-    """Example 4: Attribute-based Grouping and Aggregation"""
+def example_4_grouping_and_aggregation() -> None:
+    """Example 4: Attribute-based Grouping and Aggregation."""
     print("\n" + "=" * 80)
     print("Example 4: Attribute-based Grouping and Aggregation")
     print("=" * 80)
 
     from finstack.core.currency import Currency
     from finstack.core.money import Money
-    from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit, value_portfolio
     from finstack.valuations.instruments import Bond
+
+    from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit, value_portfolio
 
     as_of = date(2024, 1, 2)
     market = build_market_data(as_of)
@@ -364,8 +366,8 @@ def example_4_grouping_and_aggregation():
         print(f"  {pos_id}: {pos_value.value_base.format()}")
 
 
-def example_5_multi_entity_portfolio():
-    """Example 5: Multi-Entity Portfolio with Various Instruments"""
+def example_5_multi_entity_portfolio() -> None:
+    """Example 5: Multi-Entity Portfolio with Various Instruments."""
     print("\n" + "=" * 80)
     print("Example 5: Multi-Entity Portfolio with Various Instruments")
     print("=" * 80)
@@ -374,8 +376,9 @@ def example_5_multi_entity_portfolio():
     from finstack.core.currency import Currency
     from finstack.core.dates.daycount import DayCount
     from finstack.core.money import Money
-    from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit, aggregate_metrics, value_portfolio
     from finstack.valuations.instruments import Bond, Deposit, Equity, InterestRateSwap
+
+    from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit, aggregate_metrics, value_portfolio
 
     as_of = date(2024, 1, 2)
     market = build_market_data(as_of)
@@ -466,8 +469,8 @@ def example_5_multi_entity_portfolio():
             print(f"  {metric_id}: {metric.total:.6f}")
 
 
-def example_6_portfolio_results():
-    """Example 6: Complete Portfolio Results"""
+def example_6_portfolio_results() -> None:
+    """Example 6: Complete Portfolio Results."""
     print("\n" + "=" * 80)
     print("Example 6: Complete Portfolio Results")
     print("=" * 80)
@@ -475,8 +478,9 @@ def example_6_portfolio_results():
     from finstack.core.config import FinstackConfig
     from finstack.core.currency import Currency
     from finstack.core.money import Money
-    from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit, aggregate_metrics, value_portfolio
     from finstack.valuations.instruments import Bond
+
+    from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit, aggregate_metrics, value_portfolio
 
     as_of = date(2024, 1, 2)
     market = build_market_data(as_of)
@@ -523,16 +527,17 @@ def example_6_portfolio_results():
         print(f"  {entity_id}: {value.format()}")
 
 
-def example_7_position_units():
-    """Example 7: Different Position Units"""
+def example_7_position_units() -> None:
+    """Example 7: Different Position Units."""
     print("\n" + "=" * 80)
     print("Example 7: Different Position Units")
     print("=" * 80)
 
     from finstack.core.currency import Currency
     from finstack.core.money import Money
-    from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit
     from finstack.valuations.instruments import Bond, Equity
+
+    from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit
 
     as_of = date(2024, 1, 2)
 
@@ -579,8 +584,8 @@ def example_7_position_units():
         print(f"    Long: {pos.is_long()}")
 
 
-def example_8_scenario_integration():
-    """Example 8: Portfolio Scenario Analysis (if scenarios feature enabled)"""
+def example_8_scenario_integration() -> None:
+    """Example 8: Portfolio Scenario Analysis (if scenarios feature enabled)."""
     print("\n" + "=" * 80)
     print("Example 8: Portfolio Scenario Analysis")
     print("=" * 80)
@@ -588,6 +593,8 @@ def example_8_scenario_integration():
     try:
         from finstack.core.currency import Currency
         from finstack.core.money import Money
+        from finstack.valuations.instruments import Bond
+
         from finstack.portfolio import (
             Entity,
             PortfolioBuilder,
@@ -597,7 +604,6 @@ def example_8_scenario_integration():
             value_portfolio,
         )
         from finstack.scenarios import CurveKind, OperationSpec, ScenarioSpec
-        from finstack.valuations.instruments import Bond
     except ImportError:
         print("  ⚠ Scenarios feature not enabled - skipping")
         return
@@ -659,16 +665,17 @@ def example_8_scenario_integration():
     print(f"  Change:        ${change:,.2f} ({change_pct:+.2f}%)")
 
 
-def example_9_long_short_positions():
-    """Example 9: Long and Short Positions"""
+def example_9_long_short_positions() -> None:
+    """Example 9: Long and Short Positions."""
     print("\n" + "=" * 80)
     print("Example 9: Long and Short Positions")
     print("=" * 80)
 
     from finstack.core.currency import Currency
     from finstack.core.money import Money
-    from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit
     from finstack.valuations.instruments import Bond
+
+    from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit
 
     as_of = date(2024, 1, 2)
 
@@ -706,8 +713,8 @@ def example_9_long_short_positions():
         print(f"  {pos.position_id}: {direction} {abs(pos.quantity):.1f}x {pos.instrument_id}")
 
 
-def example_10_dummy_entity():
-    """Example 10: Standalone Instruments with Dummy Entity"""
+def example_10_dummy_entity() -> None:
+    """Example 10: Standalone Instruments with Dummy Entity."""
     print("\n" + "=" * 80)
     print("Example 10: Standalone Instruments with Dummy Entity")
     print("=" * 80)
@@ -715,8 +722,9 @@ def example_10_dummy_entity():
     from finstack.core.currency import Currency
     from finstack.core.dates.daycount import DayCount
     from finstack.core.money import Money
-    from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit
     from finstack.valuations.instruments import Deposit, InterestRateSwap
+
+    from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit
 
     as_of = date(2024, 1, 2)
 
@@ -764,7 +772,7 @@ def example_10_dummy_entity():
         print(f"    - {pos.position_id}: entity={pos.entity_id}, instrument={pos.instrument_id}")
 
 
-def main():
+def main() -> None:
     """Run all portfolio examples."""
     print("\n" + "#" * 80)
     print("# FINSTACK PORTFOLIO MANAGEMENT EXAMPLES")

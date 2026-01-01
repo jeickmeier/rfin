@@ -9,6 +9,7 @@ This cookbook provides end-to-end examples demonstrating how to use Finstack for
 ## Table of Contents
 
 ### Portfolio Management (Examples 01-05)
+
 - **01_build_portfolio.py** - Multi-asset portfolio construction with entities and books
 - **02_stress_test.py** - Scenario-based stress testing with market shocks
 - **03_risk_report.py** - Comprehensive DV01/CS01/Greeks risk reporting
@@ -16,6 +17,7 @@ This cookbook provides end-to-end examples demonstrating how to use Finstack for
 - **05_margin_and_netting.py** - Margin calculation with CSA terms and netting sets
 
 ### Fixed Income & Credit (Examples 06-10)
+
 - **06_calibrate_curves.py** - Bootstrap discount, forward, and credit curves
 - **07_term_loan_model.py** - Term loan modeling with covenants and waterfalls
 - **08_bond_analytics.py** - Bond pricing, yields, duration, and convexity
@@ -23,6 +25,7 @@ This cookbook provides end-to-end examples demonstrating how to use Finstack for
 - **10_revolving_credit.py** - Revolving credit facility pricing and analytics
 
 ### Derivatives Pricing (Examples 11-15)
+
 - **11_exotic_options.py** - Price barrier, Asian, lookback, and quanto options
 - **12_mc_pricing.py** - Monte Carlo vs analytical pricing comparison
 - **13_swaptions_caps_floors.py** - Interest rate options with SABR vol
@@ -30,6 +33,7 @@ This cookbook provides end-to-end examples demonstrating how to use Finstack for
 - **15_fx_derivatives.py** - FX options, NDF, and variance swaps
 
 ### Advanced Analytics (Examples 16-20)
+
 - **16_pnl_attribution.py** - Daily P&L attribution with carry, theta, and market moves
 - **17_real_estate_dcf.py** - Real estate DCF with rent rolls and cap rates
 - **18_private_equity_fund.py** - PE fund modeling with J-curve and waterfall
@@ -37,6 +41,7 @@ This cookbook provides end-to-end examples demonstrating how to use Finstack for
 - **20_inflation_linked.py** - Inflation-linked bonds and swaps
 
 ### Integrated Workflows (Examples 21-25)
+
 - **21_full_portfolio_workflow.py** - Complete workflow: build, price, stress, optimize
 - **22_statement_modeling.py** - Financial statement modeling with forecasts and scenarios
 - **23_covenant_monitoring.py** - Automated covenant testing and alerts
@@ -48,22 +53,27 @@ This cookbook provides end-to-end examples demonstrating how to use Finstack for
 ## User Personas Covered
 
 ### 1. **Equity Analyst**
+
 - Examples: 11 (equity options), 16 (P&L attribution), 18 (PE fund)
 - **Focus**: Equity derivatives, fund modeling, performance attribution
 
 ### 2. **Credit Analyst**
+
 - Examples: 07 (term loan), 09 (credit analysis), 10 (revolving credit), 23 (covenants)
 - **Focus**: Credit instruments, default risk, covenant monitoring
 
 ### 3. **Quantitative Researcher**
+
 - Examples: 06 (calibration), 11 (exotic options), 12 (MC pricing), 24 (multi-curve)
 - **Focus**: Pricing models, numerical methods, market data calibration
 
 ### 4. **Portfolio Manager**
+
 - Examples: 01 (portfolio construction), 02 (stress test), 04 (optimization), 21 (full workflow)
 - **Focus**: Portfolio management, risk limits, optimization
 
 ### 5. **Risk Analyst**
+
 - Examples: 03 (risk report), 05 (margin), 16 (P&L attribution), 25 (VaR)
 - **Focus**: Market risk, credit risk, counterparty risk, VaR
 
@@ -72,6 +82,7 @@ This cookbook provides end-to-end examples demonstrating how to use Finstack for
 ## Running the Examples
 
 ### Prerequisites
+
 ```bash
 # Install finstack-py with all optional dependencies
 pip install finstack[polars,pandas]
@@ -83,6 +94,7 @@ pip install polars pandas matplotlib
 ```
 
 ### Run Individual Examples
+
 ```bash
 # Run single example
 python finstack-py/examples/cookbook/01_build_portfolio.py
@@ -92,6 +104,7 @@ python finstack-py/examples/cookbook/06_calibrate_curves.py --verbose
 ```
 
 ### Run All Examples (Test Suite)
+
 ```bash
 # Run all cookbook examples
 pytest finstack-py/examples/cookbook/ --doctest-modules -v
@@ -145,7 +158,9 @@ if __name__ == "__main__":
 ## Common Patterns
 
 ### 1. **Market Data Setup**
+
 Most examples use this pattern for market data:
+
 ```python
 from finstack import MarketContext, DiscountCurve, FxMatrix, Date
 
@@ -169,6 +184,7 @@ market.set_fx_matrix(fx_matrix)
 ```
 
 ### 2. **Instrument Construction**
+
 ```python
 from finstack import Bond, Money
 
@@ -184,6 +200,7 @@ bond = Bond.fixed_semiannual(
 ```
 
 ### 3. **Pricing and Metrics**
+
 ```python
 from finstack import create_standard_registry
 
@@ -205,6 +222,7 @@ dv01 = result.metric("dv01")
 ```
 
 ### 4. **DataFrame Export**
+
 ```python
 # Export to Polars/Pandas for analysis
 df = results.to_polars()
@@ -221,16 +239,19 @@ df_pd.to_excel("results.xlsx")
 ## Learning Path
 
 ### Beginner (Start Here)
+
 1. **01_build_portfolio.py** - Learn portfolio basics
 2. **08_bond_analytics.py** - Understand bond pricing
 3. **06_calibrate_curves.py** - Build market data
 
 ### Intermediate
+
 4. **02_stress_test.py** - Scenario analysis
 5. **03_risk_report.py** - Risk metrics
 6. **11_exotic_options.py** - Options pricing
 
 ### Advanced
+
 7. **12_mc_pricing.py** - Numerical methods
 8. **21_full_portfolio_workflow.py** - Complete workflows
 9. **24_multi_curve_framework.py** - Advanced market data
@@ -240,6 +261,7 @@ df_pd.to_excel("results.xlsx")
 ## Performance Tips
 
 ### 1. **Batch Operations**
+
 ```python
 # Instead of pricing one-by-one
 for bond in bonds:
@@ -250,6 +272,7 @@ results = registry.price_bonds_bulk(bonds, market)
 ```
 
 ### 2. **Reuse Market Context**
+
 ```python
 # Create once, reuse many times
 market = create_market_context()
@@ -260,6 +283,7 @@ for instrument in portfolio:
 ```
 
 ### 3. **DataFrame Operations**
+
 ```python
 # Use Polars for fast operations
 df = results.to_polars()
@@ -276,6 +300,7 @@ summary = df.group_by("currency").agg([
 ### Common Issues
 
 **1. Missing Market Data**
+
 ```python
 # Always check market context has required data
 if not market.has_discount("USD.OIS"):
@@ -283,12 +308,14 @@ if not market.has_discount("USD.OIS"):
 ```
 
 **2. Currency Mismatch**
+
 ```python
 # Ensure all instruments use consistent currencies
 # Or provide FX conversion via FxMatrix
 ```
 
 **3. Date Ordering**
+
 ```python
 # Ensure dates are properly ordered
 assert issue_date <= settlement_date <= maturity_date
@@ -321,12 +348,12 @@ To add a new cookbook example:
 ## Support
 
 For questions or issues:
-- **GitHub Issues**: https://github.com/your-org/finstack/issues
-- **Discussions**: https://github.com/your-org/finstack/discussions
-- **Documentation**: https://finstack.readthedocs.io
+- **GitHub Issues**: <https://github.com/your-org/finstack/issues>
+- **Discussions**: <https://github.com/your-org/finstack/discussions>
+- **Documentation**: <https://finstack.readthedocs.io>
 
 ---
 
-**Last Updated**: January 2025  
-**Examples Count**: 25  
+**Last Updated**: January 2025
+**Examples Count**: 25
 **Total Lines**: ~10,000+

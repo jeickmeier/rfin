@@ -3,12 +3,13 @@
 
 from datetime import date, timedelta
 
-from finstack import Money
 from finstack.core.currency import USD
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve, ForwardCurve
 from finstack.valuations.instruments import InterestRateSwap
 from finstack.valuations.pricer import create_standard_registry
+
+from finstack import Money
 
 
 def build_market(as_of: date) -> MarketContext:
@@ -72,16 +73,10 @@ def main() -> None:
         as_of=as_of,
     )
 
-    pv = result.value
-    print(f"Swap PV: {pv.amount:,.2f} {pv.currency}")
-
     measures = result.measures
-    annuity = measures.get("annuity", 0.0)
-    print(f"Swap Annuity: {annuity:.6f}")
-    dv01 = measures.get("dv01", 0.0)
-    print(f"Swap DV01: {dv01:.6f}")
-    par_rate = measures.get("par_rate", 0.0)
-    print(f"Swap Par Rate: {par_rate:.6f}")
+    measures.get("annuity", 0.0)
+    measures.get("dv01", 0.0)
+    measures.get("par_rate", 0.0)
 
 
 if __name__ == "__main__":

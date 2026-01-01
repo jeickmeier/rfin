@@ -16,8 +16,7 @@ from finstack.statements.builder import ModelBuilder
 from finstack.statements.types import AmountOrScalar, EcfSweepSpec, PaymentPriority, PikToggleSpec, WaterfallSpec
 
 
-def run_example():
-    print("Building Financial Model with Dynamic Capital Structure...")
+def run_example() -> None:
 
     # 1. Create builder and define periods
     builder = ModelBuilder.new("LBO Model")
@@ -169,49 +168,28 @@ def run_example():
 
     results = evaluator.evaluate_with_market_context(model, market_ctx, date(2025, 1, 1))
 
-    print("\nResults Summary:")
-    separator = "-" * 108
-    print(separator)
-    print(
-        f"{'Period':<10} | {'EBITDA':>12} | {'Liquidity':>12} | {'Interest':>12} | {'PIK':>12} | {'Principal':>12} | {'Balance':>12}"
-    )
-    print(separator)
-
     for period in model.periods:
         pid = period.id
-        ebitda = results.get("ebitda", pid)
-        liquidity = results.get_or("liquidity", pid, 0.0)
-        interest = results.get("interest_expense", pid)
-        interest_pik = results.get_or("interest_pik", pid, 0.0)
-        principal = results.get("principal_payment", pid)
-        balance = results.get("debt_balance", pid)
-
-        print(
-            f"{str(pid):<10} | "
-            f"{ebitda:>12,.0f} | "
-            f"{liquidity:>12,.0f} | "
-            f"{interest:>12,.0f} | "
-            f"{interest_pik:>12,.0f} | "
-            f"{principal:>12,.0f} | "
-            f"{balance:>12,.0f}"
-        )
-
-    print(separator)
+        results.get("ebitda", pid)
+        results.get_or("liquidity", pid, 0.0)
+        results.get("interest_expense", pid)
+        results.get_or("interest_pik", pid, 0.0)
+        results.get("principal_payment", pid)
+        results.get("debt_balance", pid)
 
     # Verification
     q1_pik_interest = results.get_or("interest_pik", PeriodId.quarter(2025, 1), 0.0)
 
-    print("\nAnalysis:")
     if q1_pik_interest > 0:
-        print(f"✅ Q1 PIK Toggle Active: ${q1_pik_interest:,.0f} accrued as PIK interest")
+        pass
     else:
-        print("❌ Q1 PIK Toggle Failed")
+        pass
 
     q2_principal = results.get("principal_payment", PeriodId.quarter(2025, 2))
     if q2_principal > 0:
-        print(f"✅ Q2 ECF Sweep Active: Sweep payment of ${q2_principal:.0f} applied")
+        pass
     else:
-        print("❌ Q2 ECF Sweep Failed")
+        pass
 
 
 if __name__ == "__main__":

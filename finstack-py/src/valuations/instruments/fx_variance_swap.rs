@@ -16,7 +16,7 @@ use finstack_valuations::instruments::Attributes;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};
-use pyo3::{Bound, Py, FromPyObject, PyRef, PyRefMut};
+use pyo3::{Bound, FromPyObject, Py, PyRef, PyRefMut};
 use std::fmt;
 
 /// Variance direction (pay or receive variance).
@@ -286,7 +286,9 @@ impl PyFxVarianceSwapBuilder {
             .ok_or_else(|| PyValueError::new_err("strike_variance is required"))?;
 
         if strike_variance < 0.0 {
-            return Err(PyValueError::new_err("strike_variance must be non-negative"));
+            return Err(PyValueError::new_err(
+                "strike_variance must be non-negative",
+            ));
         }
 
         let start_date = self
@@ -298,9 +300,7 @@ impl PyFxVarianceSwapBuilder {
             .ok_or_else(|| PyValueError::new_err("maturity is required"))?;
 
         if maturity <= start_date {
-            return Err(PyValueError::new_err(
-                "maturity must be after start_date",
-            ));
+            return Err(PyValueError::new_err("maturity must be after start_date"));
         }
 
         let observation_freq = self
@@ -345,13 +345,19 @@ impl PyFxVarianceSwapBuilder {
 
 #[pymethods]
 impl PyFxVarianceSwapBuilder {
-    fn base_currency<'py>(mut slf: PyRefMut<'py, Self>, ccy: Bound<'py, PyAny>) -> PyResult<PyRefMut<'py, Self>> {
+    fn base_currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        ccy: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         use crate::core::currency::extract_currency;
         slf.base_currency = Some(extract_currency(&ccy)?);
         Ok(slf)
     }
 
-    fn quote_currency<'py>(mut slf: PyRefMut<'py, Self>, ccy: Bound<'py, PyAny>) -> PyResult<PyRefMut<'py, Self>> {
+    fn quote_currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        ccy: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         use crate::core::currency::extract_currency;
         slf.quote_currency = Some(extract_currency(&ccy)?);
         Ok(slf)
@@ -362,7 +368,10 @@ impl PyFxVarianceSwapBuilder {
         slf
     }
 
-    fn notional<'py>(mut slf: PyRefMut<'py, Self>, notional: Bound<'py, PyAny>) -> PyResult<PyRefMut<'py, Self>> {
+    fn notional<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        notional: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         slf.notional = Some(extract_money(&notional)?);
         Ok(slf)
     }
@@ -372,17 +381,26 @@ impl PyFxVarianceSwapBuilder {
         slf
     }
 
-    fn start_date<'py>(mut slf: PyRefMut<'py, Self>, date: Bound<'py, PyAny>) -> PyResult<PyRefMut<'py, Self>> {
+    fn start_date<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        date: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         slf.start_date = Some(py_to_date(&date)?);
         Ok(slf)
     }
 
-    fn maturity<'py>(mut slf: PyRefMut<'py, Self>, date: Bound<'py, PyAny>) -> PyResult<PyRefMut<'py, Self>> {
+    fn maturity<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        date: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         slf.maturity = Some(py_to_date(&date)?);
         Ok(slf)
     }
 
-    fn observation_freq<'py>(mut slf: PyRefMut<'py, Self>, freq: &str) -> PyResult<PyRefMut<'py, Self>> {
+    fn observation_freq<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        freq: &str,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         let normalized = normalize_label(freq);
         let tenor = match normalized.as_str() {
             "daily" => Tenor::daily(),
@@ -399,7 +417,10 @@ impl PyFxVarianceSwapBuilder {
         Ok(slf)
     }
 
-    fn realized_method<'py>(mut slf: PyRefMut<'py, Self>, method: FxRealizedVarMethodArg) -> PyRefMut<'py, Self> {
+    fn realized_method<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        method: FxRealizedVarMethodArg,
+    ) -> PyRefMut<'py, Self> {
         slf.realized_var_method = method.0.inner;
         slf
     }
@@ -409,12 +430,18 @@ impl PyFxVarianceSwapBuilder {
         slf
     }
 
-    fn domestic_discount_curve<'py>(mut slf: PyRefMut<'py, Self>, curve_id: &str) -> PyRefMut<'py, Self> {
+    fn domestic_discount_curve<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        curve_id: &str,
+    ) -> PyRefMut<'py, Self> {
         slf.domestic_discount_curve_id = Some(CurveId::new(curve_id));
         slf
     }
 
-    fn foreign_discount_curve<'py>(mut slf: PyRefMut<'py, Self>, curve_id: &str) -> PyRefMut<'py, Self> {
+    fn foreign_discount_curve<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        curve_id: &str,
+    ) -> PyRefMut<'py, Self> {
         slf.foreign_discount_curve_id = Some(CurveId::new(curve_id));
         slf
     }

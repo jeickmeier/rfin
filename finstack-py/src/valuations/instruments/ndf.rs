@@ -182,29 +182,44 @@ impl PyNdfBuilder {
 
 #[pymethods]
 impl PyNdfBuilder {
-    fn base_currency<'py>(mut slf: PyRefMut<'py, Self>, ccy: Bound<'py, PyAny>) -> PyResult<PyRefMut<'py, Self>> {
+    fn base_currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        ccy: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         use crate::core::currency::extract_currency;
         slf.base_currency = Some(extract_currency(&ccy)?);
         Ok(slf)
     }
 
-    fn settlement_currency<'py>(mut slf: PyRefMut<'py, Self>, ccy: Bound<'py, PyAny>) -> PyResult<PyRefMut<'py, Self>> {
+    fn settlement_currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        ccy: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         use crate::core::currency::extract_currency;
         slf.settlement_currency = Some(extract_currency(&ccy)?);
         Ok(slf)
     }
 
-    fn fixing_date<'py>(mut slf: PyRefMut<'py, Self>, date: Bound<'py, PyAny>) -> PyResult<PyRefMut<'py, Self>> {
+    fn fixing_date<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        date: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         slf.fixing_date = Some(py_to_date(&date)?);
         Ok(slf)
     }
 
-    fn maturity_date<'py>(mut slf: PyRefMut<'py, Self>, date: Bound<'py, PyAny>) -> PyResult<PyRefMut<'py, Self>> {
+    fn maturity_date<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        date: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         slf.maturity_date = Some(py_to_date(&date)?);
         Ok(slf)
     }
 
-    fn notional<'py>(mut slf: PyRefMut<'py, Self>, notional: Bound<'py, PyAny>) -> PyResult<PyRefMut<'py, Self>> {
+    fn notional<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        notional: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         slf.notional = Some(extract_money(&notional)?);
         Ok(slf)
     }
@@ -244,7 +259,10 @@ impl PyNdfBuilder {
         slf
     }
 
-    fn settlement_calendar<'py>(mut slf: PyRefMut<'py, Self>, calendar_id: &str) -> PyRefMut<'py, Self> {
+    fn settlement_calendar<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        calendar_id: &str,
+    ) -> PyRefMut<'py, Self> {
         slf.settlement_calendar_id = Some(calendar_id.to_string());
         slf
     }

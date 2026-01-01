@@ -32,7 +32,7 @@ except ImportError as e:
     pytest.skip(f"finstack not available: {e}", allow_module_level=True)
 
 
-def extract_code_blocks_from_docstring(docstring: str) -> list[str]:  # noqa: C901
+def extract_code_blocks_from_docstring(docstring: str) -> list[str]:
     """Extract code blocks from a docstring.
 
     Looks for code blocks marked with `>>>` (interactive Python prompt)
@@ -242,7 +242,7 @@ def create_simple_market_context() -> "finstack.core.market_data.context.MarketC
             base_date=date(2024, 1, 1),
         )
         ctx.insert_forward(forward_curve)
-    except Exception:  # noqa: S110, BLE001
+    except Exception:  # noqa: BLE001
         # Forward curve insertion may fail if not supported
         pass
 
@@ -275,10 +275,10 @@ for pyi_file in find_pyi_files(PYI_ROOT):
 
 
 # Generate test functions dynamically
-def make_test_function(example_id: str, code: str, context: str) -> Callable[[], None]:  # noqa: C901, PLR0915
+def make_test_function(example_id: str, code: str, context: str) -> Callable[[], None]:
     """Create a test function for an example."""
 
-    def test_example() -> None:  # noqa: C901, PLR0915
+    def test_example() -> None:
         """Test a docstring example."""
         # Skip if clearly incomplete
         if not is_runnable_example(code):
@@ -544,7 +544,7 @@ def make_test_function(example_id: str, code: str, context: str) -> Callable[[],
                     processed_code = "\n".join(line[min_indent:] if len(line) > min_indent else line for line in lines)
 
             # Execute the code
-            exec(processed_code, namespace)  # noqa: S102
+            exec(processed_code, namespace)
 
         except NameError as e:
             # Missing import or name - try to provide it from namespace
@@ -554,7 +554,7 @@ def make_test_function(example_id: str, code: str, context: str) -> Callable[[],
                 # Try again with explicit assignment
                 try:
                     # Re-execute with name explicitly available
-                    exec(f"{name} = namespace['{name}']\n" + processed_code, namespace)  # noqa: S102
+                    exec(f"{name} = namespace['{name}']\n" + processed_code, namespace)
                 except (NameError, AttributeError, RuntimeError):
                     pytest.skip(f"Example requires name not available: {e}")
             else:
@@ -565,7 +565,7 @@ def make_test_function(example_id: str, code: str, context: str) -> Callable[[],
             if "cashflow.performance" in import_str:
                 # Already handled above, but try again
                 try:
-                    exec(processed_code, namespace)  # noqa: S102
+                    exec(processed_code, namespace)
                 except (ImportError, AttributeError, RuntimeError):
                     pytest.skip(f"Example requires import: {e}")
             else:

@@ -3,34 +3,33 @@
 This module provides Pythonic shortcuts for building expression ASTs without
 using verbose static method calls.
 
-Examples
+Examples:
 --------
 >>> from finstack.core.expr import Expr, Function
 >>> from finstack.core.expr_helpers import col, lit
->>> 
+>>>
 >>> # Instead of: Expr.bin_op(BinOp.ADD, Expr.column("x"), Expr.literal(10))
 >>> # Use: col("x") + 10
 >>> expr = col("x") + 10
->>> 
+>>>
 >>> # Complex expressions
 >>> expr = (col("revenue") * 1.1 - col("cogs")) / col("periods")
->>> 
+>>>
 >>> # Function calls
 >>> expr = rolling_mean(col("x"), 3)
 """
 
-from typing import Union, List
-from finstack.core.expr import Expr, Function, BinOp, UnaryOp
+from finstack.core.expr import BinOp, Expr, Function, UnaryOp
 
 # Type alias for values that can be converted to Expr
-ExprLike = Union[Expr, float, int]
+ExprLike = Expr | float | int
 
 
 def _to_expr(value: ExprLike) -> Expr:
     """Convert a value to an Expr if needed."""
     if isinstance(value, Expr):
         return value
-    elif isinstance(value, (int, float)):
+    elif isinstance(value, int | float):
         return Expr.literal(float(value))
     else:
         raise TypeError(f"Cannot convert {type(value)} to Expr")
@@ -38,18 +37,18 @@ def _to_expr(value: ExprLike) -> Expr:
 
 def col(name: str) -> Expr:
     """Create a column reference expression.
-    
+
     Parameters
     ----------
     name : str
         Column name to reference
-        
-    Returns
+
+    Returns:
     -------
     Expr
         Column reference expression
-        
-    Examples
+
+    Examples:
     --------
     >>> expr = col("revenue")
     >>> expr = col("x") + col("y")
@@ -59,18 +58,18 @@ def col(name: str) -> Expr:
 
 def lit(value: float) -> Expr:
     """Create a literal value expression.
-    
+
     Parameters
     ----------
     value : float
         Literal value
-        
-    Returns
+
+    Returns:
     -------
     Expr
         Literal expression
-        
-    Examples
+
+    Examples:
     --------
     >>> expr = lit(100.0)
     >>> expr = col("x") + lit(50)
@@ -80,104 +79,104 @@ def lit(value: float) -> Expr:
 
 # Monkey-patch arithmetic operators onto Expr
 def _expr_add(self: Expr, other: ExprLike) -> Expr:
-    """Add two expressions: self + other"""
+    """Add two expressions: self + other."""
     return Expr.bin_op(BinOp.ADD, self, _to_expr(other))
 
 
 def _expr_radd(self: Expr, other: ExprLike) -> Expr:
-    """Reverse add: other + self"""
+    """Reverse add: other + self."""
     return Expr.bin_op(BinOp.ADD, _to_expr(other), self)
 
 
 def _expr_sub(self: Expr, other: ExprLike) -> Expr:
-    """Subtract: self - other"""
+    """Subtract: self - other."""
     return Expr.bin_op(BinOp.SUB, self, _to_expr(other))
 
 
 def _expr_rsub(self: Expr, other: ExprLike) -> Expr:
-    """Reverse subtract: other - self"""
+    """Reverse subtract: other - self."""
     return Expr.bin_op(BinOp.SUB, _to_expr(other), self)
 
 
 def _expr_mul(self: Expr, other: ExprLike) -> Expr:
-    """Multiply: self * other"""
+    """Multiply: self * other."""
     return Expr.bin_op(BinOp.MUL, self, _to_expr(other))
 
 
 def _expr_rmul(self: Expr, other: ExprLike) -> Expr:
-    """Reverse multiply: other * self"""
+    """Reverse multiply: other * self."""
     return Expr.bin_op(BinOp.MUL, _to_expr(other), self)
 
 
 def _expr_truediv(self: Expr, other: ExprLike) -> Expr:
-    """Divide: self / other"""
+    """Divide: self / other."""
     return Expr.bin_op(BinOp.DIV, self, _to_expr(other))
 
 
 def _expr_rtruediv(self: Expr, other: ExprLike) -> Expr:
-    """Reverse divide: other / self"""
+    """Reverse divide: other / self."""
     return Expr.bin_op(BinOp.DIV, _to_expr(other), self)
 
 
 def _expr_mod(self: Expr, other: ExprLike) -> Expr:
-    """Modulo: self % other"""
+    """Modulo: self % other."""
     return Expr.bin_op(BinOp.MOD, self, _to_expr(other))
 
 
 def _expr_rmod(self: Expr, other: ExprLike) -> Expr:
-    """Reverse modulo: other % self"""
+    """Reverse modulo: other % self."""
     return Expr.bin_op(BinOp.MOD, _to_expr(other), self)
 
 
 def _expr_neg(self: Expr) -> Expr:
-    """Negate: -self"""
+    """Negate: -self."""
     return Expr.unary_op(UnaryOp.NEG, self)
 
 
 # Comparison operators
 def _expr_eq(self: Expr, other: ExprLike) -> Expr:
-    """Equal: self == other"""
+    """Equal: self == other."""
     return Expr.bin_op(BinOp.EQ, self, _to_expr(other))
 
 
 def _expr_ne(self: Expr, other: ExprLike) -> Expr:
-    """Not equal: self != other"""
+    """Not equal: self != other."""
     return Expr.bin_op(BinOp.NE, self, _to_expr(other))
 
 
 def _expr_lt(self: Expr, other: ExprLike) -> Expr:
-    """Less than: self < other"""
+    """Less than: self < other."""
     return Expr.bin_op(BinOp.LT, self, _to_expr(other))
 
 
 def _expr_le(self: Expr, other: ExprLike) -> Expr:
-    """Less than or equal: self <= other"""
+    """Less than or equal: self <= other."""
     return Expr.bin_op(BinOp.LE, self, _to_expr(other))
 
 
 def _expr_gt(self: Expr, other: ExprLike) -> Expr:
-    """Greater than: self > other"""
+    """Greater than: self > other."""
     return Expr.bin_op(BinOp.GT, self, _to_expr(other))
 
 
 def _expr_ge(self: Expr, other: ExprLike) -> Expr:
-    """Greater than or equal: self >= other"""
+    """Greater than or equal: self >= other."""
     return Expr.bin_op(BinOp.GE, self, _to_expr(other))
 
 
 # Logical operators
 def _expr_and(self: Expr, other: ExprLike) -> Expr:
-    """Logical AND: self & other"""
+    """Logical AND: self & other."""
     return Expr.bin_op(BinOp.AND, self, _to_expr(other))
 
 
 def _expr_or(self: Expr, other: ExprLike) -> Expr:
-    """Logical OR: self | other"""
+    """Logical OR: self | other."""
     return Expr.bin_op(BinOp.OR, self, _to_expr(other))
 
 
 def _expr_invert(self: Expr) -> Expr:
-    """Logical NOT: ~self"""
+    """Logical NOT: ~self."""
     return Expr.unary_op(UnaryOp.NOT, self)
 
 
@@ -205,17 +204,17 @@ Expr.__invert__ = _expr_invert
 
 
 # Function call helpers
-def lag(expr: Expr, n: Union[int, Expr]) -> Expr:
+def lag(expr: Expr, n: int | Expr) -> Expr:
     """Lag expression by n periods.
-    
+
     Parameters
     ----------
     expr : Expr
         Expression to lag
     n : int or Expr
         Number of periods to lag
-        
-    Returns
+
+    Returns:
     -------
     Expr
         Lagged expression
@@ -223,232 +222,232 @@ def lag(expr: Expr, n: Union[int, Expr]) -> Expr:
     return Expr.call(Function.LAG, [expr, _to_expr(n)])
 
 
-def lead(expr: Expr, n: Union[int, Expr]) -> Expr:
+def lead(expr: Expr, n: int | Expr) -> Expr:
     """Lead expression by n periods."""
     return Expr.call(Function.LEAD, [expr, _to_expr(n)])
 
 
-def diff(expr: Expr, n: Union[int, Expr] = 1) -> Expr:
-    """Difference: expr[t] - expr[t-n]"""
+def diff(expr: Expr, n: int | Expr = 1) -> Expr:
+    """Difference: expr[t] - expr[t-n]."""
     return Expr.call(Function.DIFF, [expr, _to_expr(n)])
 
 
-def pct_change(expr: Expr, n: Union[int, Expr] = 1) -> Expr:
-    """Percent change: (expr[t] - expr[t-n]) / expr[t-n]"""
+def pct_change(expr: Expr, n: int | Expr = 1) -> Expr:
+    """Percent change: (expr[t] - expr[t-n]) / expr[t-n]."""
     return Expr.call(Function.PCT_CHANGE, [expr, _to_expr(n)])
 
 
 def cumsum(expr: Expr) -> Expr:
-    """Cumulative sum"""
+    """Cumulative sum."""
     return Expr.call(Function.CUM_SUM, [expr])
 
 
 def cumprod(expr: Expr) -> Expr:
-    """Cumulative product"""
+    """Cumulative product."""
     return Expr.call(Function.CUM_PROD, [expr])
 
 
 def cummin(expr: Expr) -> Expr:
-    """Cumulative minimum"""
+    """Cumulative minimum."""
     return Expr.call(Function.CUM_MIN, [expr])
 
 
 def cummax(expr: Expr) -> Expr:
-    """Cumulative maximum"""
+    """Cumulative maximum."""
     return Expr.call(Function.CUM_MAX, [expr])
 
 
-def rolling_mean(expr: Expr, window: Union[int, Expr]) -> Expr:
-    """Rolling mean over window"""
+def rolling_mean(expr: Expr, window: int | Expr) -> Expr:
+    """Rolling mean over window."""
     return Expr.call(Function.ROLLING_MEAN, [expr, _to_expr(window)])
 
 
-def rolling_sum(expr: Expr, window: Union[int, Expr]) -> Expr:
-    """Rolling sum over window"""
+def rolling_sum(expr: Expr, window: int | Expr) -> Expr:
+    """Rolling sum over window."""
     return Expr.call(Function.ROLLING_SUM, [expr, _to_expr(window)])
 
 
-def rolling_std(expr: Expr, window: Union[int, Expr]) -> Expr:
-    """Rolling standard deviation over window"""
+def rolling_std(expr: Expr, window: int | Expr) -> Expr:
+    """Rolling standard deviation over window."""
     return Expr.call(Function.ROLLING_STD, [expr, _to_expr(window)])
 
 
-def rolling_var(expr: Expr, window: Union[int, Expr]) -> Expr:
-    """Rolling variance over window"""
+def rolling_var(expr: Expr, window: int | Expr) -> Expr:
+    """Rolling variance over window."""
     return Expr.call(Function.ROLLING_VAR, [expr, _to_expr(window)])
 
 
-def rolling_median(expr: Expr, window: Union[int, Expr]) -> Expr:
-    """Rolling median over window"""
+def rolling_median(expr: Expr, window: int | Expr) -> Expr:
+    """Rolling median over window."""
     return Expr.call(Function.ROLLING_MEDIAN, [expr, _to_expr(window)])
 
 
-def rolling_min(expr: Expr, window: Union[int, Expr]) -> Expr:
-    """Rolling minimum over window"""
+def rolling_min(expr: Expr, window: int | Expr) -> Expr:
+    """Rolling minimum over window."""
     return Expr.call(Function.ROLLING_MIN, [expr, _to_expr(window)])
 
 
-def rolling_max(expr: Expr, window: Union[int, Expr]) -> Expr:
-    """Rolling maximum over window"""
+def rolling_max(expr: Expr, window: int | Expr) -> Expr:
+    """Rolling maximum over window."""
     return Expr.call(Function.ROLLING_MAX, [expr, _to_expr(window)])
 
 
-def rolling_count(expr: Expr, window: Union[int, Expr]) -> Expr:
-    """Rolling count of non-null values over window"""
+def rolling_count(expr: Expr, window: int | Expr) -> Expr:
+    """Rolling count of non-null values over window."""
     return Expr.call(Function.ROLLING_COUNT, [expr, _to_expr(window)])
 
 
-def ewm_mean(expr: Expr, alpha: Union[float, Expr], adjust: Union[bool, Expr] = True) -> Expr:
-    """Exponentially weighted moving average"""
+def ewm_mean(expr: Expr, alpha: float | Expr, adjust: bool | Expr = True) -> Expr:
+    """Exponentially weighted moving average."""
     return Expr.call(Function.EWM_MEAN, [expr, _to_expr(alpha), _to_expr(1.0 if adjust else 0.0)])
 
 
-def ewm_std(expr: Expr, alpha: Union[float, Expr], adjust: Union[bool, Expr] = True) -> Expr:
-    """Exponentially weighted moving standard deviation"""
+def ewm_std(expr: Expr, alpha: float | Expr, adjust: bool | Expr = True) -> Expr:
+    """Exponentially weighted moving standard deviation."""
     return Expr.call(Function.EWM_STD, [expr, _to_expr(alpha), _to_expr(1.0 if adjust else 0.0)])
 
 
-def ewm_var(expr: Expr, alpha: Union[float, Expr], adjust: Union[bool, Expr] = True) -> Expr:
-    """Exponentially weighted moving variance"""
+def ewm_var(expr: Expr, alpha: float | Expr, adjust: bool | Expr = True) -> Expr:
+    """Exponentially weighted moving variance."""
     return Expr.call(Function.EWM_VAR, [expr, _to_expr(alpha), _to_expr(1.0 if adjust else 0.0)])
 
 
 def std(expr: Expr) -> Expr:
-    """Standard deviation (global reducer)"""
+    """Standard deviation (global reducer)."""
     return Expr.call(Function.STD, [expr])
 
 
 def var(expr: Expr) -> Expr:
-    """Variance (global reducer)"""
+    """Variance (global reducer)."""
     return Expr.call(Function.VAR, [expr])
 
 
 def median(expr: Expr) -> Expr:
-    """Median (global reducer)"""
+    """Median (global reducer)."""
     return Expr.call(Function.MEDIAN, [expr])
 
 
-def shift(expr: Expr, n: Union[int, Expr]) -> Expr:
-    """Shift expression by n periods (alias for lag)"""
+def shift(expr: Expr, n: int | Expr) -> Expr:
+    """Shift expression by n periods (alias for lag)."""
     return Expr.call(Function.SHIFT, [expr, _to_expr(n)])
 
 
 def rank(expr: Expr) -> Expr:
-    """Rank values (global reducer, broadcasts scalar rank)"""
+    """Rank values (global reducer, broadcasts scalar rank)."""
     return Expr.call(Function.RANK, [expr])
 
 
-def quantile(expr: Expr, q: Union[float, Expr]) -> Expr:
-    """Quantile (global reducer, broadcasts scalar)"""
+def quantile(expr: Expr, q: float | Expr) -> Expr:
+    """Quantile (global reducer, broadcasts scalar)."""
     return Expr.call(Function.QUANTILE, [expr, _to_expr(q)])
 
 
 def sum_(expr: Expr) -> Expr:
-    """Sum (global reducer)"""
+    """Sum (global reducer)."""
     return Expr.call(Function.SUM, [expr])
 
 
 def mean(expr: Expr) -> Expr:
-    """Mean (global reducer)"""
+    """Mean (global reducer)."""
     return Expr.call(Function.MEAN, [expr])
 
 
-def annualize(expr: Expr, periods_per_year: Union[int, Expr]) -> Expr:
-    """Annualize a return or rate"""
+def annualize(expr: Expr, periods_per_year: int | Expr) -> Expr:
+    """Annualize a return or rate."""
     return Expr.call(Function.ANNUALIZE, [expr, _to_expr(periods_per_year)])
 
 
-def annualize_rate(expr: Expr, periods_per_year: Union[int, Expr]) -> Expr:
-    """Annualize a rate (compound)"""
+def annualize_rate(expr: Expr, periods_per_year: int | Expr) -> Expr:
+    """Annualize a rate (compound)."""
     return Expr.call(Function.ANNUALIZE_RATE, [expr, _to_expr(periods_per_year)])
 
 
 def ttm(expr: Expr) -> Expr:
-    """Trailing twelve months sum"""
+    """Trailing twelve months sum."""
     return Expr.call(Function.TTM, [expr])
 
 
 def ytd(expr: Expr) -> Expr:
-    """Year-to-date sum"""
+    """Year-to-date sum."""
     return Expr.call(Function.YTD, [expr])
 
 
 def qtd(expr: Expr) -> Expr:
-    """Quarter-to-date sum"""
+    """Quarter-to-date sum."""
     return Expr.call(Function.QTD, [expr])
 
 
-def fiscal_ytd(expr: Expr, fiscal_month: Union[int, Expr] = 1) -> Expr:
-    """Fiscal year-to-date sum"""
+def fiscal_ytd(expr: Expr, fiscal_month: int | Expr = 1) -> Expr:
+    """Fiscal year-to-date sum."""
     return Expr.call(Function.FISCAL_YTD, [expr, _to_expr(fiscal_month)])
 
 
 def coalesce(*exprs: Expr) -> Expr:
-    """Return first non-null value"""
+    """Return first non-null value."""
     if not exprs:
         raise ValueError("coalesce requires at least one argument")
     return Expr.call(Function.COALESCE, list(exprs))
 
 
 def abs_(expr: Expr) -> Expr:
-    """Absolute value"""
+    """Absolute value."""
     return Expr.call(Function.ABS, [expr])
 
 
 def sign(expr: Expr) -> Expr:
-    """Sign (-1, 0, or 1)"""
+    """Sign (-1, 0, or 1)."""
     return Expr.call(Function.SIGN, [expr])
 
 
-def growth_rate(expr: Expr, n: Union[int, Expr] = 1) -> Expr:
-    """Growth rate over n periods"""
+def growth_rate(expr: Expr, n: int | Expr = 1) -> Expr:
+    """Growth rate over n periods."""
     return Expr.call(Function.GROWTH_RATE, [expr, _to_expr(n)])
 
 
 def if_then_else(condition: Expr, then_expr: ExprLike, else_expr: ExprLike) -> Expr:
-    """Conditional expression: if condition then then_expr else else_expr"""
+    """Conditional expression: if condition then then_expr else else_expr."""
     return Expr.if_then_else(condition, _to_expr(then_expr), _to_expr(else_expr))
 
 
 __all__ = [
+    "abs_",
+    "annualize",
+    "annualize_rate",
+    "coalesce",
     "col",
-    "lit",
-    "lag",
-    "lead",
-    "diff",
-    "pct_change",
-    "cumsum",
-    "cumprod",
-    "cummin",
     "cummax",
-    "rolling_mean",
-    "rolling_sum",
-    "rolling_std",
-    "rolling_var",
-    "rolling_median",
-    "rolling_min",
-    "rolling_max",
-    "rolling_count",
+    "cummin",
+    "cumprod",
+    "cumsum",
+    "diff",
     "ewm_mean",
     "ewm_std",
     "ewm_var",
-    "std",
-    "var",
-    "median",
-    "shift",
-    "rank",
-    "quantile",
-    "sum_",
-    "mean",
-    "annualize",
-    "annualize_rate",
-    "ttm",
-    "ytd",
-    "qtd",
     "fiscal_ytd",
-    "coalesce",
-    "abs_",
-    "sign",
     "growth_rate",
     "if_then_else",
+    "lag",
+    "lead",
+    "lit",
+    "mean",
+    "median",
+    "pct_change",
+    "qtd",
+    "quantile",
+    "rank",
+    "rolling_count",
+    "rolling_max",
+    "rolling_mean",
+    "rolling_median",
+    "rolling_min",
+    "rolling_std",
+    "rolling_sum",
+    "rolling_var",
+    "shift",
+    "sign",
+    "std",
+    "sum_",
+    "ttm",
+    "var",
+    "ytd",
 ]

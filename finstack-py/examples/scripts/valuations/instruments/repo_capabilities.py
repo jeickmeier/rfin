@@ -3,13 +3,14 @@
 
 from datetime import date, timedelta
 
-from finstack import Money
 from finstack.core.currency import USD
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.scalars import MarketScalar
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.instruments import Repo, RepoCollateral
 from finstack.valuations.pricer import create_standard_registry
+
+from finstack import Money
 
 
 def build_market(as_of: date) -> MarketContext:
@@ -64,9 +65,7 @@ def main() -> None:
     repo = build_repo(as_of)
     registry = create_standard_registry()
 
-    result = registry.price_with_metrics(repo, "discounting", market, ["accrued_interest"], as_of=as_of)
-    print("Repo PV:", round(result.value.amount, 2), result.value.currency)
-    print("Repo accrued interest:", result.measures.get("accrued_interest"))
+    registry.price_with_metrics(repo, "discounting", market, ["accrued_interest"], as_of=as_of)
 
 
 if __name__ == "__main__":

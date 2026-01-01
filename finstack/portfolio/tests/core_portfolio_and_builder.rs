@@ -62,6 +62,7 @@ fn validate_unknown_entity_fails() {
         as_of,
         entities: indexmap::IndexMap::new(),
         positions: vec![p],
+        books: indexmap::IndexMap::new(),
         tags: indexmap::IndexMap::new(),
         meta: indexmap::IndexMap::new(),
     };

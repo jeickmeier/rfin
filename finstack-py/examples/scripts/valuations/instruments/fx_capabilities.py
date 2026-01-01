@@ -3,7 +3,6 @@
 
 from datetime import date, timedelta
 
-from finstack import Money
 from finstack.core.currency import EUR, JPY, USD
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.fx import FxMatrix
@@ -11,6 +10,8 @@ from finstack.core.market_data.surfaces import VolSurface
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.instruments import FxOption, FxSpot, FxSwap
 from finstack.valuations.pricer import create_standard_registry
+
+from finstack import Money
 
 
 def build_fx_market(as_of: date) -> MarketContext:
@@ -92,8 +93,7 @@ def main() -> None:
         spot_rate=1.0860,
         notional=Money(1_000_000, EUR),
     )
-    spot_value = registry.price(spot, "discounting", market, as_of=as_of)
-    print("FX spot PV:", round(spot_value.value.amount, 2), spot_value.value.currency)
+    registry.price(spot, "discounting", market, as_of=as_of)
 
     # FX swap exchanging notionals
     near = as_of + timedelta(days=2)
@@ -110,14 +110,13 @@ def main() -> None:
         near_rate=1.0865,
         far_rate=1.0920,
     )
-    swap_result = registry.price_with_metrics(
+    registry.price_with_metrics(
         fx_swap,
         "discounting",
         market,
         ["carry_pv"],
         as_of=as_of,
     )
-    print("FX swap PV:", round(swap_result.value.amount, 2), swap_result.value.currency)
 
     # European FX option (call on EURUSD)
     fx_call = FxOption.european_call(
@@ -129,15 +128,13 @@ def main() -> None:
         notional=Money(2_000_000, EUR),
         vol_surface="FX-VOL",
     )
-    option_result = registry.price_with_metrics(
+    registry.price_with_metrics(
         fx_call,
         "discounting",
         market,
         ["delta", "gamma"],
         as_of=as_of,
     )
-    print("FX option PV:", round(option_result.value.amount, 2), option_result.value.currency)
-    print("FX option delta:", option_result.measures.get("delta"))
 
     # Put option via helper for completeness
     fx_put = FxOption.european_put(
@@ -149,8 +146,7 @@ def main() -> None:
         notional=Money(1_500_000, EUR),
         vol_surface="FX-VOL",
     )
-    put_value = registry.price(fx_put, "discounting", market, as_of=as_of)
-    print("FX put PV:", round(put_value.value.amount, 2), put_value.value.currency)
+    registry.price(fx_put, "discounting", market, as_of=as_of)
 
 
 if __name__ == "__main__":

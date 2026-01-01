@@ -266,22 +266,19 @@ class APIComparator:
 
         if instruments["missing_in_rust"]:
             lines.extend(["### Missing in Rust", "", "```"])
-            for instr in instruments["missing_in_rust"]:
-                lines.append(f"- {instr}")
+            lines.extend([f"- {instr}" for instr in instruments["missing_in_rust"]])
             lines.append("```")
             lines.append("")
 
         if instruments["missing_in_python"]:
             lines.extend(["### Missing in Python", "", "```"])
-            for instr in instruments["missing_in_python"]:
-                lines.append(f"- {instr}")
+            lines.extend([f"- {instr}" for instr in instruments["missing_in_python"]])
             lines.append("```")
             lines.append("")
 
         if instruments["missing_in_wasm"]:
             lines.extend(["### Missing in WASM", "", "```"])
-            for instr in instruments["missing_in_wasm"]:
-                lines.append(f"- {instr}")
+            lines.extend([f"- {instr}" for instr in instruments["missing_in_wasm"]])
             lines.append("```")
             lines.append("")
 
@@ -298,22 +295,19 @@ class APIComparator:
 
         if calibration["missing_in_rust"]:
             lines.extend(["### Missing in Rust", "", "```"])
-            for cal in calibration["missing_in_rust"]:
-                lines.append(f"- {cal}")
+            lines.extend([f"- {cal}" for cal in calibration["missing_in_rust"]])
             lines.append("```")
             lines.append("")
 
         if calibration["missing_in_python"]:
             lines.extend(["### Missing in Python", "", "```"])
-            for cal in calibration["missing_in_python"]:
-                lines.append(f"- {cal}")
+            lines.extend([f"- {cal}" for cal in calibration["missing_in_python"]])
             lines.append("```")
             lines.append("")
 
         if calibration["missing_in_wasm"]:
             lines.extend(["### Missing in WASM", "", "```"])
-            for cal in calibration["missing_in_wasm"]:
-                lines.append(f"- {cal}")
+            lines.extend([f"- {cal}" for cal in calibration["missing_in_wasm"]])
             lines.append("```")
             lines.append("")
 
@@ -326,8 +320,7 @@ class APIComparator:
             "",
             "```",
         ])
-        for cls in sorted(class_comparison["in_all_three"]):
-            lines.append(f"✓ {cls}")
+        lines.extend([f"✓ {cls}" for cls in sorted(class_comparison["in_all_three"])])
         lines.append("```")
         lines.append("")
 
@@ -339,8 +332,7 @@ class APIComparator:
                 "",
                 "```",
             ])
-            for cls in sorted(class_comparison["rust_and_python"])[:20]:  # Limit to first 20
-                lines.append(f"- {cls}")
+            lines.extend([f"- {cls}" for cls in sorted(class_comparison["rust_and_python"])[:20]])  # Limit to first 20
             if len(class_comparison["rust_and_python"]) > 20:
                 lines.append(f"... and {len(class_comparison['rust_and_python']) - 20} more")
             lines.append("```")
@@ -354,8 +346,7 @@ class APIComparator:
                 "",
                 "```",
             ])
-            for cls in sorted(class_comparison["rust_and_wasm"])[:20]:
-                lines.append(f"- {cls}")
+            lines.extend([f"- {cls}" for cls in sorted(class_comparison["rust_and_wasm"])[:20]])
             if len(class_comparison["rust_and_wasm"]) > 20:
                 lines.append(f"... and {len(class_comparison['rust_and_wasm']) - 20} more")
             lines.append("```")
@@ -369,8 +360,7 @@ class APIComparator:
                 "",
                 "```",
             ])
-            for cls in sorted(class_comparison["python_and_wasm"])[:20]:
-                lines.append(f"- {cls}")
+            lines.extend([f"- {cls}" for cls in sorted(class_comparison["python_and_wasm"])[:20]])
             if len(class_comparison["python_and_wasm"]) > 20:
                 lines.append(f"... and {len(class_comparison['python_and_wasm']) - 20} more")
             lines.append("```")
@@ -384,8 +374,7 @@ class APIComparator:
                 "",
                 "```",
             ])
-            for cls in sorted(class_comparison["only_rust"])[:20]:
-                lines.append(f"- {cls}")
+            lines.extend([f"- {cls}" for cls in sorted(class_comparison["only_rust"])[:20]])
             if len(class_comparison["only_rust"]) > 20:
                 lines.append(f"... and {len(class_comparison['only_rust']) - 20} more")
             lines.append("```")
@@ -399,8 +388,7 @@ class APIComparator:
                 "",
                 "```",
             ])
-            for cls in sorted(class_comparison["only_python"])[:20]:
-                lines.append(f"- {cls}")
+            lines.extend([f"- {cls}" for cls in sorted(class_comparison["only_python"])[:20]])
             if len(class_comparison["only_python"]) > 20:
                 lines.append(f"... and {len(class_comparison['only_python']) - 20} more")
             lines.append("```")
@@ -414,8 +402,7 @@ class APIComparator:
                 "",
                 "```",
             ])
-            for cls in sorted(class_comparison["only_wasm"])[:20]:
-                lines.append(f"- {cls}")
+            lines.extend([f"- {cls}" for cls in sorted(class_comparison["only_wasm"])[:20]])
             if len(class_comparison["only_wasm"]) > 20:
                 lines.append(f"... and {len(class_comparison['only_wasm']) - 20} more")
             lines.append("```")
@@ -529,15 +516,12 @@ def main() -> int:
     wasm_api_file = script_dir / "wasm_api.json"
 
     if not rust_api_file.exists():
-        print(f"Error: {rust_api_file} not found. Run scripts/audit_rust_api.py first.")
         return 1
 
     if not python_api_file.exists():
-        print(f"Error: {python_api_file} not found. Run scripts/audit_python_api.py first.")
         return 1
 
     if not wasm_api_file.exists():
-        print(f"Error: {wasm_api_file} not found. Run scripts/audit_wasm_api.py first.")
         return 1
 
     with rust_api_file.open() as f:
@@ -556,8 +540,6 @@ def main() -> int:
     # Write report
     output_file = project_root / "PARITY_AUDIT.md"
     output_file.write_text(report)
-
-    print(f"Parity audit report generated: {output_file}")
 
     return 0
 

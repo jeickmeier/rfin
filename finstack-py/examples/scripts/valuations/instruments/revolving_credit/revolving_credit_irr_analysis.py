@@ -9,11 +9,11 @@ Key analyses:
 2. Comparison grid of IRR distributions across volatility combinations
 """
 
-import json
-import sys
 from datetime import date
+import json
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+import sys
+from typing import Any
 
 import numpy as np
 
@@ -22,21 +22,20 @@ OUTPUT_DIR = Path(__file__).parent.parent.parent.parent.parent / "outputs"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 try:
-    import matplotlib.patches as mpatches
-    import matplotlib.pyplot as plt
-    import pandas as pd
-    from matplotlib.gridspec import GridSpec
-
     from finstack.core.cashflow import xirr
     from finstack.core.market_data.context import MarketContext
     from finstack.core.market_data.term_structures import DiscountCurve, ForwardCurve, HazardCurve
     from finstack.valuations.instruments import RevolvingCredit
+    from matplotlib.gridspec import GridSpec
+    import matplotlib.patches as mpatches
+    import matplotlib.pyplot as plt
+    import pandas as pd
 
-    print("All imports successful")  # noqa: T201
+    print("All imports successful")
 except ImportError as e:
-    print(f"Error importing modules: {e}")  # noqa: T201
-    print("Please ensure finstack-py is installed: make python-dev")  # noqa: T201
-    print("Also ensure matplotlib and pandas are installed: uv pip install matplotlib pandas")  # noqa: T201
+    print(f"Error importing modules: {e}")
+    print("Please ensure finstack-py is installed: make python-dev")
+    print("Also ensure matplotlib and pandas are installed: uv pip install matplotlib pandas")
     sys.exit(1)
 
 
@@ -227,7 +226,7 @@ def create_stochastic_facility(
 
 def calculate_irr_from_cashflows(
     cashflows, initial_investment: float, commitment_date: date = date(2025, 1, 1), debug: bool = False
-) -> Optional[float]:
+) -> float | None:
     """Calculate IRR from a cashflow schedule.
 
     Note: When as_of < commitment_date, the initial draw should be in the Rust cashflows.
@@ -253,17 +252,16 @@ def calculate_irr_from_cashflows(
         if flow.date == commitment_date and flow.amount.amount < -(initial_investment * 0.9):  # 90% of expected amount
             has_initial_draw = True
             if debug:
-                print(f"  Found initial draw in Rust cashflows: {flow.date}: ${flow.amount.amount:,.2f}")  # noqa: T201
+                print(f"  Found initial draw in Rust cashflows: {flow.date}: ${flow.amount.amount:,.2f}")
             break
 
     # Only add if not already present
     if not has_initial_draw:
         cash_flow_list.append((commitment_date, -initial_investment))  # Initial lending
         if debug:
-            print(f"  Added initial investment manually: {commitment_date}: ${-initial_investment:,.2f}")  # noqa: T201
-    else:
-        if debug:
-            print(f"  Using initial draw from Rust cashflows (not adding manually)")  # noqa: T201
+            print(f"  Added initial investment manually: {commitment_date}: ${-initial_investment:,.2f}")
+    elif debug:
+        print("  Using initial draw from Rust cashflows (not adding manually)")
 
     # Add all cashflows from the schedule
     # From lender perspective: interest and fees received are positive
@@ -274,15 +272,15 @@ def calculate_irr_from_cashflows(
         total_received += lender_flow
 
         if debug and abs(lender_flow) > 0:
-            print(f"  {flow.date}: {lender_flow:,.2f}")  # noqa: T201
+            print(f"  {flow.date}: {lender_flow:,.2f}")
 
     # No need to add terminal value - it should be in the cashflows already
     # The facility should handle repayment at maturity
 
     if debug:
-        print(f"  Total flows: {len(cash_flow_list)}")  # noqa: T201
-        print(f"  Total received: {total_received:,.2f}")  # noqa: T201
-        print(f"  Net cash: {total_received - initial_investment:,.2f}")  # noqa: T201
+        print(f"  Total flows: {len(cash_flow_list)}")
+        print(f"  Total received: {total_received:,.2f}")
+        print(f"  Net cash: {total_received - initial_investment:,.2f}")
 
     try:
         # Filter out zero cashflows that might cause issues
@@ -293,7 +291,7 @@ def calculate_irr_from_cashflows(
         return irr
     except Exception as e:
         if debug:
-            print(f"  IRR calculation failed: {e}")  # noqa: T201
+            print(f"  IRR calculation failed: {e}")
         return None
 
 
@@ -306,7 +304,7 @@ def analyze_single_scenario(
     commitment: float = 100_000_000,
     initial_utilization: float = 0.25,
     commitment_date: date = date(2025, 1, 1),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Analyze IRR distribution for a single volatility scenario.
 
     Returns dict with:
@@ -315,7 +313,7 @@ def analyze_single_scenario(
         - path_data: Utilization and credit spread paths
         - path_irr_pairs: List of (path_result, irr) tuples for detailed analysis
     """
-    print(f"\nAnalyzing scenario: Util Vol={util_vol:.0%}, CS Vol={cs_vol:.0%}")  # noqa: T201
+    print(f"\nAnalyzing scenario: Util Vol={util_vol:.0%}, CS Vol={cs_vol:.0%}")
 
     # Create deterministic facility
     det_spec = create_deterministic_facility("DET-BASE", commitment, initial_utilization)
@@ -333,7 +331,7 @@ def analyze_single_scenario(
 
     det_schedule = det_facility.build_dated_flows(market, as_of)  # Keep original as_of for det pricing
     det_irr = calculate_irr_from_cashflows(det_schedule, commitment * initial_utilization, commitment_date)
-    print(f"Deterministic IRR: {det_irr:.2%}" if det_irr else "Deterministic IRR: N/A")  # noqa: T201
+    print(f"Deterministic IRR: {det_irr:.2%}" if det_irr else "Deterministic IRR: N/A")
 
     # Create and price stochastic facility
     stoch_spec = create_stochastic_facility(
@@ -348,9 +346,9 @@ def analyze_single_scenario(
     # Use mc_as_of to ensure valid range for simulation
     mc_result = stoch_facility.price_with_paths(market, mc_as_of)
 
-    print(f"Monte Carlo paths: {mc_result.num_paths}")  # noqa: T201
-    print(f"Mean PV: {mc_result.mean}")  # noqa: T201
-    print(f"Std Error: ${mc_result.std_error:,.2f}")  # noqa: T201
+    print(f"Monte Carlo paths: {mc_result.num_paths}")
+    print(f"Mean PV: {mc_result.mean}")
+    print(f"Std Error: ${mc_result.std_error:,.2f}")
 
     # Calculate IRR for each path
     irr_distribution = []
@@ -358,7 +356,7 @@ def analyze_single_scenario(
     credit_spread_paths = []
     path_irr_pairs = []  # Store (path_result, irr) tuples
 
-    for i, path_result in enumerate(mc_result.path_results):
+    for _i, path_result in enumerate(mc_result.path_results):
         # Calculate IRR for this path
         path_irr = calculate_irr_from_cashflows(
             path_result.cashflows, commitment * initial_utilization, commitment_date
@@ -372,7 +370,7 @@ def analyze_single_scenario(
             utilization_paths.append(path_result.path_data.utilization_path)
             credit_spread_paths.append(path_result.path_data.credit_spread_path)
 
-    print(f"Valid IRRs calculated: {len(irr_distribution)}/{mc_result.num_paths}")  # noqa: T201
+    print(f"Valid IRRs calculated: {len(irr_distribution)}/{mc_result.num_paths}")
 
     # Get time points from first path
     time_points = None
@@ -394,7 +392,7 @@ def analyze_single_scenario(
     }
 
 
-def plot_single_scenario_analysis(results: Dict[str, Any], output_file: Optional[Path] = None):
+def plot_single_scenario_analysis(results: dict[str, Any], output_file: Path | None = None) -> None:
     """Create comprehensive visualization for single scenario analysis."""
     if output_file is None:
         output_file = OUTPUT_DIR / "irr_single_scenario.png"
@@ -406,7 +404,7 @@ def plot_single_scenario_analysis(results: Dict[str, Any], output_file: Optional
     irr_dist = np.array(results["irr_distribution"]) * 100  # Convert to percentage
 
     # Plot histogram
-    n, bins, patches = ax1.hist(
+    _n, _bins, _patches = ax1.hist(
         irr_dist, bins=50, alpha=0.7, color="steelblue", edgecolor="black", density=True, label="MC Distribution"
     )
 
@@ -452,7 +450,7 @@ def plot_single_scenario_analysis(results: Dict[str, Any], output_file: Optional
         transform=ax1.transAxes,
         fontsize=10,
         verticalalignment="top",
-        bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
+        bbox={"boxstyle": "round", "facecolor": "wheat", "alpha": 0.5},
     )
 
     # 2. Utilization Paths
@@ -532,19 +530,19 @@ def plot_single_scenario_analysis(results: Dict[str, Any], output_file: Optional
 
     plt.tight_layout()
     plt.savefig(output_file, dpi=150, bbox_inches="tight")
-    print(f"\nSingle scenario analysis saved to {output_file}")  # noqa: T201
+    print(f"\nSingle scenario analysis saved to {output_file}")
 
 
 def analyze_volatility_grid(
     market: MarketContext,
     as_of: date,
-    util_vols: List[float] = None,
-    cs_vols: List[float] = None,
+    util_vols: list[float] | None = None,
+    cs_vols: list[float] | None = None,
     num_paths: int = 500,
     commitment: float = 100_000_000,
     initial_utilization: float = 0.25,
     commitment_date: date = date(2025, 1, 1),
-) -> Dict[Tuple[float, float], List[float]]:
+) -> dict[tuple[float, float], list[float]]:
     """Analyze IRR distributions across a grid of volatility combinations.
 
     Returns dict mapping (util_vol, cs_vol) tuples to IRR distributions.
@@ -555,13 +553,13 @@ def analyze_volatility_grid(
         cs_vols = [0.20, 0.30, 0.40]
     results = {}
 
-    print("\n" + "=" * 80)  # noqa: T201
-    print("VOLATILITY GRID ANALYSIS")  # noqa: T201
-    print("=" * 80)  # noqa: T201
+    print("\n" + "=" * 80)
+    print("VOLATILITY GRID ANALYSIS")
+    print("=" * 80)
 
     for util_vol in util_vols:
         for cs_vol in cs_vols:
-            print(f"\nProcessing: Util Vol={util_vol:.0%}, CS Vol={cs_vol:.0%}")  # noqa: T201
+            print(f"\nProcessing: Util Vol={util_vol:.0%}, CS Vol={cs_vol:.0%}")
 
             # Create stochastic facility
             stoch_spec = create_stochastic_facility(
@@ -591,16 +589,16 @@ def analyze_volatility_grid(
             if irr_distribution:
                 mean_irr = np.mean(irr_distribution) * 100
                 std_irr = np.std(irr_distribution) * 100
-                print(f"  Mean IRR: {mean_irr:.2f}%, Std Dev: {std_irr:.2f}%")  # noqa: T201
+                print(f"  Mean IRR: {mean_irr:.2f}%, Std Dev: {std_irr:.2f}%")
             else:
-                print("  Warning: No valid IRRs calculated")  # noqa: T201
+                print("  Warning: No valid IRRs calculated")
 
     return results
 
 
 def export_raw_polars_cashflows(
-    path_irr_pairs: List[Tuple[Any, float]], market, as_of_date, num_paths: int = 1, output_dir: str = "."
-):
+    path_irr_pairs: list[tuple[Any, float]], market, as_of_date, num_paths: int = 1, output_dir: str = "."
+) -> None:
     """Export raw Polars cashflow DataFrames for extreme IRR paths.
 
     Exports the pure Rust-computed cashflows with all columns:
@@ -619,7 +617,7 @@ def export_raw_polars_cashflows(
     import os
 
     if not path_irr_pairs:
-        print("No path data available for Polars export")  # noqa: T201
+        print("No path data available for Polars export")
         return
 
     # Sort by IRR
@@ -629,8 +627,8 @@ def export_raw_polars_cashflows(
     bottom_n = sorted_pairs[:num_paths]
     top_n = sorted_pairs[-num_paths:]
 
-    print(f"\nExporting raw Polars cashflows for top {num_paths} and bottom {num_paths} IRR paths...")  # noqa: T201
-    print("All data computed in Rust - zero Python logic!")  # noqa: T201
+    print(f"\nExporting raw Polars cashflows for top {num_paths} and bottom {num_paths} IRR paths...")
+    print("All data computed in Rust - zero Python logic!")
 
     # Process bottom performers
     for idx, (path_result, irr) in enumerate(bottom_n, 1):
@@ -645,9 +643,9 @@ def export_raw_polars_cashflows(
         # Save to CSV using Polars
         filename = os.path.join(output_dir, f"cashflows_polars_bottom_{idx}_irr_{irr:.4f}.csv")
         df.write_csv(filename)
-        print(f"  ✓ Bottom #{idx} (IRR={irr:.2%}): {filename}")  # noqa: T201
-        print(f"    Columns: {df.columns}")  # noqa: T201
-        print(f"    Rows: {df.height}")  # noqa: T201
+        print(f"  ✓ Bottom #{idx} (IRR={irr:.2%}): {filename}")
+        print(f"    Columns: {df.columns}")
+        print(f"    Rows: {df.height}")
 
     # Process top performers
     for idx, (path_result, irr) in enumerate(top_n, 1):
@@ -662,17 +660,17 @@ def export_raw_polars_cashflows(
         # Save to CSV using Polars
         filename = os.path.join(output_dir, f"cashflows_polars_top_{idx}_irr_{irr:.4f}.csv")
         df.write_csv(filename)
-        print(f"  ✓ Top #{idx} (IRR={irr:.2%}): {filename}")  # noqa: T201
-        print(f"    Columns: {df.columns}")  # noqa: T201
-        print(f"    Rows: {df.height}")  # noqa: T201
+        print(f"  ✓ Top #{idx} (IRR={irr:.2%}): {filename}")
+        print(f"    Columns: {df.columns}")
+        print(f"    Rows: {df.height}")
 
-    print("\n✓ Raw Polars cashflows exported successfully!")  # noqa: T201
-    print("  All outstanding balances computed deterministically in Rust")  # noqa: T201
+    print("\n✓ Raw Polars cashflows exported successfully!")
+    print("  All outstanding balances computed deterministically in Rust")
 
 
 def save_cashflow_schedules_with_pv_to_csv(
-    path_irr_pairs: List[Tuple[Any, float]], market, as_of_date, num_paths: int = 5, output_dir: str = "."
-):
+    path_irr_pairs: list[tuple[Any, float]], market, as_of_date, num_paths: int = 5, output_dir: str = "."
+) -> None:
     """Save cashflow schedules directly from Rust using to_dataframe().
 
     Uses Rust's to_dataframe() which includes:
@@ -691,10 +689,8 @@ def save_cashflow_schedules_with_pv_to_csv(
     """
     import os
 
-    import pandas as pd
-
     if not path_irr_pairs:
-        print("No path data available for CSV export")  # noqa: T201
+        print("No path data available for CSV export")
         return
 
     # Sort by IRR
@@ -704,8 +700,8 @@ def save_cashflow_schedules_with_pv_to_csv(
     bottom_n = sorted_pairs[:num_paths]
     top_n = sorted_pairs[-num_paths:]
 
-    print("\nExporting cashflow schedules from Rust to_dataframe()...")  # noqa: T201
-    print("Includes: Outstanding (drawn), Outstanding Undrawn - all from Rust!")  # noqa: T201
+    print("\nExporting cashflow schedules from Rust to_dataframe()...")
+    print("Includes: Outstanding (drawn), Outstanding Undrawn - all from Rust!")
 
     # Process bottom performers
     for idx, (path_result, irr) in enumerate(bottom_n, 1):
@@ -720,7 +716,7 @@ def save_cashflow_schedules_with_pv_to_csv(
         # Save to CSV
         filename = os.path.join(output_dir, f"cashflows_bottom_{idx}_irr_{irr:.4f}.csv")
         df_pandas.to_csv(filename, index=False)
-        print(f"  Saved: {filename}")  # noqa: T201
+        print(f"  Saved: {filename}")
 
     # Process top performers
     for idx, (path_result, irr) in enumerate(top_n, 1):
@@ -735,14 +731,16 @@ def save_cashflow_schedules_with_pv_to_csv(
         # Save to CSV
         filename = os.path.join(output_dir, f"cashflows_top_{idx}_irr_{irr:.4f}.csv")
         df_pandas.to_csv(filename, index=False)
-        print(f"  Saved: {filename}")  # noqa: T201
+        print(f"  Saved: {filename}")
 
-    print("\nAll cashflow data comes from Rust's to_dataframe():")  # noqa: T201
-    print("  - outstanding = Drawn balance (correctly tracked for revolving credit)")  # noqa: T201
-    print("  - outstanding_undrawn = Unused commitment (if facility limit exists)")  # noqa: T201
+    print("\nAll cashflow data comes from Rust's to_dataframe():")
+    print("  - outstanding = Drawn balance (correctly tracked for revolving credit)")
+    print("  - outstanding_undrawn = Unused commitment (if facility limit exists)")
 
 
-def save_cashflow_schedules_to_csv(path_irr_pairs: List[Tuple[Any, float]], num_paths: int = 5, output_dir: str = "."):
+def save_cashflow_schedules_to_csv(
+    path_irr_pairs: list[tuple[Any, float]], num_paths: int = 5, output_dir: str = "."
+) -> None:
     """Save detailed cashflow schedules for top and bottom IRR paths to CSV files.
 
     NOTE: The cashflow schedules come directly from the Rust engine and include
@@ -760,13 +758,13 @@ def save_cashflow_schedules_to_csv(path_irr_pairs: List[Tuple[Any, float]], num_
         num_paths: Number of top and bottom paths to save
         output_dir: Directory to save CSV files
     """
-    import os
     from datetime import date
+    import os
 
     import pandas as pd
 
     if not path_irr_pairs:
-        print("No path data available for CSV export")  # noqa: T201
+        print("No path data available for CSV export")
         return
 
     # Sort by IRR
@@ -827,7 +825,7 @@ def save_cashflow_schedules_to_csv(path_irr_pairs: List[Tuple[Any, float]], num_
         df = pd.DataFrame(records)
         filename = os.path.join(output_dir, f"cashflows_bottom_{idx}_irr_{irr:.4f}.csv")
         df.to_csv(filename, index=False)
-        print(f"  Saved: {filename}")  # noqa: T201
+        print(f"  Saved: {filename}")
 
     # Process top performers
     for idx, (path_result, irr) in enumerate(top_n, 1):
@@ -880,13 +878,13 @@ def save_cashflow_schedules_to_csv(path_irr_pairs: List[Tuple[Any, float]], num_
         df = pd.DataFrame(records)
         filename = os.path.join(output_dir, f"cashflows_top_{idx}_irr_{irr:.4f}.csv")
         df.to_csv(filename, index=False)
-        print(f"  Saved: {filename}")  # noqa: T201
+        print(f"  Saved: {filename}")
 
     # Create summary CSV with aggregated data
     summary_records = []
 
-    print("\nNote: Credit spreads may go to 0 in some paths due to CIR model dynamics.")  # noqa: T201
-    print("      This is realistic when mean reversion is strong or volatility is low.")  # noqa: T201
+    print("\nNote: Credit spreads may go to 0 in some paths due to CIR model dynamics.")
+    print("      This is realistic when mean reversion is strong or volatility is low.")
 
     # Add bottom performers summary
     for idx, (path_result, irr) in enumerate(bottom_n, 1):
@@ -962,10 +960,10 @@ def save_cashflow_schedules_to_csv(path_irr_pairs: List[Tuple[Any, float]], num_
     summary_df = pd.DataFrame(summary_records)
     summary_filename = os.path.join(output_dir, "cashflows_summary.csv")
     summary_df.to_csv(summary_filename, index=False)
-    print(f"\nSummary saved: {summary_filename}")  # noqa: T201
+    print(f"\nSummary saved: {summary_filename}")
 
 
-def plot_extreme_paths_analysis(path_irr_pairs: List[Tuple[Any, float]], output_file: Optional[Path] = None):
+def plot_extreme_paths_analysis(path_irr_pairs: list[tuple[Any, float]], output_file: Path | None = None) -> None:
     """Analyze and visualize cashflow patterns for top 5 and bottom 5 IRR paths.
     Each path gets two panels: cashflow bars and cumulative cashflows.
 
@@ -976,7 +974,7 @@ def plot_extreme_paths_analysis(path_irr_pairs: List[Tuple[Any, float]], output_
     if output_file is None:
         output_file = OUTPUT_DIR / "irr_extreme_paths.png"
     if not path_irr_pairs:
-        print("No path data available for extreme paths analysis")  # noqa: T201
+        print("No path data available for extreme paths analysis")
         return
 
     # Sort by IRR
@@ -987,7 +985,7 @@ def plot_extreme_paths_analysis(path_irr_pairs: List[Tuple[Any, float]], output_
     top_5 = sorted_pairs[-5:]
 
     # Create figure with 10x2 grid (each path gets 2 rows: bars + cumulative)
-    import matplotlib.gridspec as gridspec
+    from matplotlib import gridspec
 
     fig = plt.figure(figsize=(20, 35))
     gs = gridspec.GridSpec(10, 2, figure=fig, hspace=0.3, wspace=0.25)
@@ -1291,18 +1289,18 @@ def plot_extreme_paths_analysis(path_irr_pairs: List[Tuple[Any, float]], output_
 
     stats_text = f"Bottom 5 Avg: {bottom_avg_irr:.2f}%  |  Top 5 Avg: {top_avg_irr:.2f}%  |  Spread: {spread:.2f}%"
     fig.text(
-        0.5, 0.005, stats_text, ha="center", fontsize=11, bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5)
+        0.5, 0.005, stats_text, ha="center", fontsize=11, bbox={"boxstyle": "round", "facecolor": "wheat", "alpha": 0.5}
     )
 
     # Save figure
     plt.tight_layout(rect=[0, 0.01, 1, 0.99])
     plt.savefig(output_file, dpi=150, bbox_inches="tight")
-    print(f"\nExtreme paths analysis saved to {output_file}")  # noqa: T201
+    print(f"\nExtreme paths analysis saved to {output_file}")
 
 
 def plot_volatility_grid_comparison(
-    grid_results: Dict[Tuple[float, float], List[float]], output_file: Optional[Path] = None
-):
+    grid_results: dict[tuple[float, float], list[float]], output_file: Path | None = None
+) -> None:
     """Create overlay plot of IRR distributions for different volatility combinations."""
     if output_file is None:
         output_file = OUTPUT_DIR / "irr_volatility_grid.png"
@@ -1352,7 +1350,7 @@ def plot_volatility_grid_comparison(
     box_colors = []
 
     for scenario in sorted_scenarios:
-        if scenario in grid_results and grid_results[scenario]:
+        if grid_results.get(scenario):
             irr_pct = np.array(grid_results[scenario]) * 100
             box_data.append(irr_pct)
             util_vol, cs_vol = scenario
@@ -1360,7 +1358,7 @@ def plot_volatility_grid_comparison(
             box_colors.append(scenario_colors[scenario])
 
     bp = ax2.boxplot(box_data, labels=box_labels, patch_artist=True)
-    for patch, color in zip(bp["boxes"], box_colors):
+    for patch, color in zip(bp["boxes"], box_colors, strict=False):
         patch.set_facecolor(color)
         patch.set_alpha(0.7)
 
@@ -1402,7 +1400,7 @@ def plot_volatility_grid_comparison(
     table_data = [["Scenario", "Mean IRR", "Std Dev", "5th Pctl", "95th Pctl"]]
 
     for scenario in sorted_scenarios:
-        if scenario in grid_results and grid_results[scenario]:
+        if grid_results.get(scenario):
             irr_pct = np.array(grid_results[scenario]) * 100
             util_vol, cs_vol = scenario
             scenario_label = f"U:{util_vol:.0%}, CS:{cs_vol:.0%}"
@@ -1433,15 +1431,15 @@ def plot_volatility_grid_comparison(
 
     plt.tight_layout()
     plt.savefig(output_file, dpi=150, bbox_inches="tight")
-    print(f"\nVolatility grid comparison saved to {output_file}")  # noqa: T201
+    print(f"\nVolatility grid comparison saved to {output_file}")
 
 
 def main() -> int:
     """Run IRR distribution analysis for revolving credit facilities."""
-    print("\n" + "=" * 80)  # noqa: T201
-    print("REVOLVING CREDIT IRR DISTRIBUTION ANALYSIS")  # noqa: T201
-    print("Monte Carlo Simulation with Volatility Scenarios")  # noqa: T201
-    print("=" * 80)  # noqa: T201
+    print("\n" + "=" * 80)
+    print("REVOLVING CREDIT IRR DISTRIBUTION ANALYSIS")
+    print("Monte Carlo Simulation with Volatility Scenarios")
+    print("=" * 80)
 
     # For the first example, we use a date clearly before the facility starts
     # to allow calculation of the initial drawdown
@@ -1453,9 +1451,9 @@ def main() -> int:
         commitment_date = date(2025, 1, 1)
 
         # Part 1: Single scenario analysis (10% util vol, 30% credit spread vol)
-        print("\n" + "=" * 80)  # noqa: T201
-        print("PART 1: Single Scenario Analysis")  # noqa: T201
-        print("=" * 80)  # noqa: T201
+        print("\n" + "=" * 80)
+        print("PART 1: Single Scenario Analysis")
+        print("=" * 80)
 
         # Use same commitment date as in create_deterministic_facility
         single_results = analyze_single_scenario(
@@ -1470,34 +1468,34 @@ def main() -> int:
         plot_single_scenario_analysis(single_results)
 
         # Analyze extreme performers
-        if "path_irr_pairs" in single_results and single_results["path_irr_pairs"]:
+        if single_results.get("path_irr_pairs"):
             plot_extreme_paths_analysis(single_results["path_irr_pairs"])
 
             # Export raw Polars cashflows for top 1 and bottom 1
-            print("\n" + "=" * 80)  # noqa: T201
-            print("Exporting Raw Polars Cashflows (Top 1 & Bottom 1)")  # noqa: T201
-            print("=" * 80)  # noqa: T201
+            print("\n" + "=" * 80)
+            print("Exporting Raw Polars Cashflows (Top 1 & Bottom 1)")
+            print("=" * 80)
 
             export_raw_polars_cashflows(
                 single_results["path_irr_pairs"], market, as_of, num_paths=1, output_dir=str(OUTPUT_DIR)
             )
 
             # Save RAW cashflow schedules for PV debugging
-            print("\n" + "=" * 80)  # noqa: T201
-            print("Saving Additional Cashflow Schedules")  # noqa: T201
-            print("=" * 80)  # noqa: T201
+            print("\n" + "=" * 80)
+            print("Saving Additional Cashflow Schedules")
+            print("=" * 80)
             save_cashflow_schedules_with_pv_to_csv(
                 single_results["path_irr_pairs"], market, as_of, num_paths=5, output_dir=str(OUTPUT_DIR)
             )
 
             # Save detailed cashflow schedules with MC path data to CSV
-            print("\nSaving cashflow schedules with MC path data...")  # noqa: T201
+            print("\nSaving cashflow schedules with MC path data...")
             save_cashflow_schedules_to_csv(single_results["path_irr_pairs"], num_paths=5, output_dir=str(OUTPUT_DIR))
 
         # Part 2: Volatility grid analysis
-        print("\n" + "=" * 80)  # noqa: T201
-        print("PART 2: Volatility Grid Analysis")  # noqa: T201
-        print("=" * 80)  # noqa: T201
+        print("\n" + "=" * 80)
+        print("PART 2: Volatility Grid Analysis")
+        print("=" * 80)
 
         grid_results = analyze_volatility_grid(
             market,
@@ -1511,24 +1509,24 @@ def main() -> int:
         plot_volatility_grid_comparison(grid_results)
 
         # Summary
-        print("\n" + "=" * 80)  # noqa: T201
-        print("ANALYSIS COMPLETE")  # noqa: T201
-        print("=" * 80)  # noqa: T201
-        print("\nKey Insights:")  # noqa: T201
-        print("1. IRR distributions show significant variability with volatility parameters")  # noqa: T201
-        print("2. Higher utilization volatility generally increases IRR uncertainty")  # noqa: T201
-        print("3. Credit spread volatility impacts both mean and dispersion of returns")  # noqa: T201
-        print("4. Path-dependent features create complex IRR distributions")  # noqa: T201
+        print("\n" + "=" * 80)
+        print("ANALYSIS COMPLETE")
+        print("=" * 80)
+        print("\nKey Insights:")
+        print("1. IRR distributions show significant variability with volatility parameters")
+        print("2. Higher utilization volatility generally increases IRR uncertainty")
+        print("3. Credit spread volatility impacts both mean and dispersion of returns")
+        print("4. Path-dependent features create complex IRR distributions")
 
-        print("\nOutput files generated:")  # noqa: T201
-        print("- irr_single_scenario.png: Single scenario deep dive")  # noqa: T201
-        print("- irr_extreme_paths.png: Top 5 vs Bottom 5 cashflow analysis")  # noqa: T201
-        print("- irr_volatility_grid.png: Grid comparison across scenarios")  # noqa: T201
+        print("\nOutput files generated:")
+        print("- irr_single_scenario.png: Single scenario deep dive")
+        print("- irr_extreme_paths.png: Top 5 vs Bottom 5 cashflow analysis")
+        print("- irr_volatility_grid.png: Grid comparison across scenarios")
 
         return 0
 
-    except Exception as e:  # noqa: BLE001
-        print(f"\n✗ Error during analysis: {e}")  # noqa: T201
+    except Exception as e:
+        print(f"\n✗ Error during analysis: {e}")
         import traceback
 
         traceback.print_exc()

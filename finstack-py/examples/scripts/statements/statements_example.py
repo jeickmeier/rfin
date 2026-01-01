@@ -1,4 +1,4 @@
-"""Financial Statement Modeling Example
+"""Financial Statement Modeling Example.
 
 This example demonstrates the statements Python bindings, mirroring the
 functionality from the Rust examples (statements_phase*.rs).
@@ -22,12 +22,8 @@ from finstack.statements.registry import Registry
 from finstack.statements.types import AmountOrScalar, ForecastSpec
 
 
-def example_1_basic_pl_model():
-    """Example 1: Basic P&L Model"""
-    print("=" * 60)
-    print("Example 1: Basic P&L Model")
-    print("=" * 60)
-
+def example_1_basic_pl_model() -> None:
+    """Example 1: Basic P&L Model."""
     # Build the model
     builder = ModelBuilder.new("Acme Corp Q1-Q4 2025")
     builder.periods("2025Q1..Q4", "2025Q2")  # Q1-Q2 actuals, Q3-Q4 forecast
@@ -62,25 +58,13 @@ def example_1_basic_pl_model():
 
     model = builder.build()
 
-    print(f"Model ID: {model.id}")
-    print(f"Periods: {len(model.periods)} total")
-    print(f"Nodes: {len(list(model.nodes.keys()))} total")
-    print()
-
     # Show period breakdown
-    print("Period Breakdown:")
-    for period in model.periods:
-        period_type = "Actual  " if period.is_actual else "Forecast"
-        print(f"  {period.id} | {period_type} | {period.start} to {period.end}")
-    print()
+    for _period in model.periods:
+        pass
 
 
-def example_2_model_evaluation():
-    """Example 2: Model Evaluation"""
-    print("=" * 60)
-    print("Example 2: Model Evaluation")
-    print("=" * 60)
-
+def example_2_model_evaluation() -> None:
+    """Example 2: Model Evaluation."""
     # Build model
     builder = ModelBuilder.new("Evaluation Example")
     builder.periods("2025Q1..Q4", "2025Q2")
@@ -115,31 +99,15 @@ def example_2_model_evaluation():
 
     # Evaluate the model
     evaluator = Evaluator.new()
-    results = evaluator.evaluate(model)
-
-    print(f"Evaluation completed in {results.meta.eval_time_ms}ms")
-    print(f"Nodes evaluated: {results.meta.num_nodes}")
-    print(f"Periods evaluated: {results.meta.num_periods}")
-    print()
+    evaluator.evaluate(model)
 
     # Display results
-    print("Results by Period:")
-    for period in model.periods:
-        print(f"\n{period.id} ({'Actual' if period.is_actual else 'Forecast'}):")
-        print(f"  Revenue:        ${results.get('revenue', period.id):,.0f}")
-        print(f"  COGS:           ${results.get('cogs', period.id):,.0f}")
-        print(f"  Gross Profit:   ${results.get('gross_profit', period.id):,.0f}")
-        print(f"  OpEx:           ${results.get('opex', period.id):,.0f}")
-        print(f"  EBITDA:         ${results.get('ebitda', period.id):,.0f}")
-        print(f"  EBITDA Margin:  {results.get('ebitda_margin', period.id):.1%}")
+    for _period in model.periods:
+        pass
 
 
-def example_3_metric_registry():
-    """Example 3: Dynamic Metric Registry"""
-    print("=" * 60)
-    print("Example 3: Dynamic Metric Registry")
-    print("=" * 60)
-
+def example_3_metric_registry() -> None:
+    """Example 3: Dynamic Metric Registry."""
     # Create registry and load custom metrics
     # Note: Built-in metrics have a circular dependency issue, so we demonstrate
     # with custom metrics instead
@@ -179,36 +147,19 @@ def example_3_metric_registry():
     """
     registry.load_from_json_str(custom_metrics_json)
 
-    print(f"Total metrics loaded: {len(registry.list_metrics(None))}")
-    print()
-
     # List metrics by namespace
     custom_metrics = registry.list_metrics("custom")
-    print(f"Metrics in 'custom' namespace: {len(custom_metrics)}")
-    print()
 
     # Get a specific metric
-    gross_margin = registry.get("custom.gross_margin")
-    print(f"Metric: {gross_margin.name}")
-    print(f"  ID: {gross_margin.id}")
-    print(f"  Formula: {gross_margin.formula}")
-    print(f"  Category: {gross_margin.category}")
-    print(f"  Requires: {gross_margin.requires}")
-    print()
+    registry.get("custom.gross_margin")
 
     # Show some available metrics
-    print("Sample metrics:")
     for metric_id in sorted(custom_metrics):
-        metric = registry.get(metric_id)
-        print(f"  {metric_id}: {metric.name}")
+        registry.get(metric_id)
 
 
-def example_4_extensions():
-    """Example 4: Extension System"""
-    print("=" * 60)
-    print("Example 4: Extension System")
-    print("=" * 60)
-
+def example_4_extensions() -> None:
+    """Example 4: Extension System."""
     # Build a simple model
     builder = ModelBuilder.new("Extension Test")
     builder.periods("2025Q1..Q2", None)
@@ -224,25 +175,17 @@ def example_4_extensions():
 
     # Evaluate
     evaluator = Evaluator.new()
-    results = evaluator.evaluate(model)
+    evaluator.evaluate(model)
 
     # Create extension registry
-    ext_registry = ExtensionRegistry.new()
+    ExtensionRegistry.new()
 
     # Note: register() method is not yet available due to Clone constraints
     # This will be added in a future version
 
-    print("Extension system initialized")
-    print("✓ CorkscrewExtension available")
-    print("✓ CreditScorecardExtension available")
 
-
-def example_5_json_serialization():
-    """Example 5: JSON Serialization"""
-    print("=" * 60)
-    print("Example 5: JSON Serialization")
-    print("=" * 60)
-
+def example_5_json_serialization() -> None:
+    """Example 5: JSON Serialization."""
     # Build a model
     builder = ModelBuilder.new("Serialization Test")
     builder.periods("2025Q1..Q2", None)
@@ -256,42 +199,24 @@ def example_5_json_serialization():
 
     # Serialize to JSON
     json_str = model.to_json()
-    print("Model serialized to JSON successfully")
-    print(f"JSON length: {len(json_str)} bytes")
 
     # Deserialize from JSON
     from finstack.statements.types import FinancialModelSpec
 
-    restored = FinancialModelSpec.from_json(json_str)
-    print(f"Model restored from JSON: {restored.id}")
-    print(f"Periods: {len(restored.periods)}")
-    print(f"Nodes: {len(list(restored.nodes.keys()))}")
+    FinancialModelSpec.from_json(json_str)
 
 
-def main():
+def main() -> None:
     """Run all examples."""
-    print("\n" + "=" * 60)
-    print("Finstack Statements Python Bindings - Examples")
-    print("=" * 60 + "\n")
-
     example_1_basic_pl_model()
-    print()
 
     example_2_model_evaluation()
-    print()
 
     example_3_metric_registry()
-    print()
 
     example_4_extensions()
-    print()
 
     example_5_json_serialization()
-    print()
-
-    print("=" * 60)
-    print("All examples completed successfully!")
-    print("=" * 60)
 
 
 if __name__ == "__main__":

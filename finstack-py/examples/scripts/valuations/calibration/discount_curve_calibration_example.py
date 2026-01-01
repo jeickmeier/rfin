@@ -9,11 +9,12 @@ Run:
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date
-from typing import Iterable, List, Optional, Sequence, Tuple
 
 from finstack.core.market_data.context import MarketContext
+
 from finstack.valuations import calibration as cal
 
 # pyright: reportMissingImports=false, reportMissingModuleSource=false
@@ -36,9 +37,8 @@ def _maybe_get_calendar(code: str):
     return fdates.get_calendar(code)
 
 
-def _add_payment_delay_business_days(d: date, delay_days: int, calendar_id: Optional[str]) -> date:
+def _add_payment_delay_business_days(d: date, delay_days: int, calendar_id: str | None) -> date:
     """Replicate `irs::dates::add_payment_delay` behavior (business days, fallback to weekdays)."""
-
     if delay_days <= 0:
         return d
 
@@ -63,7 +63,6 @@ def _settlement_date(
     bdc: str,
 ) -> date:
     """Replicate `CalibrationPricer::settlement_date_for_quote` (happy path)."""
-
     from finstack.core import dates as fdates
 
     cal_ = _maybe_get_calendar(calendar_id)
@@ -74,10 +73,9 @@ def _settlement_date(
     return fdates.adjust(spot, bdc_, cal_)
 
 
-def build_usd_ois_quotes(base_date: date, *, ois_index_id: str = DEFAULT_OIS_INDEX_ID) -> List[cal.RatesQuote]:
+def build_usd_ois_quotes(base_date: date, *, ois_index_id: str = DEFAULT_OIS_INDEX_ID) -> list[cal.RatesQuote]:
     """Build USD OIS deposit + swap quotes (as shown in the calibration notebook)."""
-
-    quotes: List[cal.RatesQuote] = [
+    quotes: list[cal.RatesQuote] = [
         cal.RatesQuote.deposit("DEP-1W", ois_index_id, date(2025, 12, 19), 0.0364447),
         cal.RatesQuote.deposit("DEP-2W", ois_index_id, date(2025, 12, 26), 0.0364455),
         cal.RatesQuote.deposit("DEP-3W", ois_index_id, date(2026, 1, 2), 0.0365300),
@@ -124,29 +122,20 @@ def build_usd_ois_quotes(base_date: date, *, ois_index_id: str = DEFAULT_OIS_IND
 def print_conventions_debug(
     base_date: date,
     *,
-    curve_day_count: Optional[str],
+    curve_day_count: str | None,
     strict_step_pricing: bool,
     ois_index_id: str,
 ) -> None:
     """Print the simplified conventions used in the v2 quote API."""
-
-    step_conventions = build_discount_step_conventions(
+    build_discount_step_conventions(
         curve_day_count=curve_day_count,
         strict_pricing=strict_step_pricing,
     )
 
-    print()
-    print("Conventions debug:")
-    print("  deposits: ACT/360, 2bd settle (implicit)")
-    print("  OIS swaps: fixed 1Y vs float 1Y reset, index:", ois_index_id)
-    print("  base_date:", base_date)
-    print("  strict_step_pricing flag (ignored in v2 schema):", strict_step_pricing)
-    print("  step.conventions:", step_conventions)
-
 
 def build_discount_step_conventions(
     *,
-    curve_day_count: Optional[str],
+    curve_day_count: str | None,
     strict_pricing: bool,
 ) -> dict:
     """Build the JSON conventions payload for the v2 discount step."""
@@ -188,8 +177,7 @@ def build_discount_step_conventions(
 
 def bloomberg_zero_points() -> Sequence[BloombergZeroPoint]:
     """Bloomberg zero table used in the notebook (rates in percent)."""
-
-    raw: Sequence[Tuple[date, float, float]] = [
+    raw: Sequence[tuple[date, float, float]] = [
         (date(2025, 12, 19), 3.69398, 0.999090),
         (date(2025, 12, 26), 3.69282, 0.998383),
         (date(2026, 1, 2), 3.69935, 0.997672),
@@ -226,13 +214,12 @@ def bloomberg_zero_points() -> Sequence[BloombergZeroPoint]:
     return [BloombergZeroPoint(maturity=m, zero_pct=z, df=df) for m, z, df in raw]
 
 
-def top_residuals(report: object, limit: int = 10) -> List[Tuple[str, float]]:
+def top_residuals(report: object, limit: int = 10) -> list[tuple[str, float]]:
     """Extract the largest absolute residuals from a step report (best-effort)."""
-
     residuals = getattr(report, "residuals", None)
     if not isinstance(residuals, dict):
         return []
-    pairs: List[Tuple[str, float]] = []
+    pairs: list[tuple[str, float]] = []
     for k, v in residuals.items():
         try:
             pairs.append((str(k), float(v)))
@@ -247,24 +234,13 @@ def print_bloomberg_comparison(
     curve: object,
     points: Iterable[BloombergZeroPoint],
 ) -> None:
-    header = (
-        f"{'Maturity':<12} {'BBG Zero%':>10} {'Calc Zero%':>11} {'Diff (bp)':>10} "
-        f"{'BBG DF':>10} {'Calc DF':>10} {'DF Diff':>10}"
-    )
-    print()
-    print(header)
-    print("-" * len(header))
 
     for pt in points:
         calc_df = float(curve.df_on_date(pt.maturity))
         calc_zero_pct = float(curve.zero_on_date(pt.maturity)) * 100.0
-        zero_diff_bp = (calc_zero_pct - pt.zero_pct) * 100.0
-        df_diff = calc_df - pt.df
+        (calc_zero_pct - pt.zero_pct) * 100.0
+        calc_df - pt.df
         _ = base_date  # retained for symmetry with notebook, useful if you extend to tenor plots
-        print(
-            f"{pt.maturity} {pt.zero_pct:>10.5f} {calc_zero_pct:>11.5f} {zero_diff_bp:>10.2f} "
-            f"{pt.df:>10.6f} {calc_df:>10.6f} {df_diff:>10.6f}"
-        )
 
 
 def print_bbg_df_debug(
@@ -276,34 +252,19 @@ def print_bbg_df_debug(
     swap_payment_calendar_id: str,
 ) -> None:
     """Debug DF mismatches by comparing maturity-date vs pillar-date discount factors."""
-
     try:
         curve_dc = curve.day_count
-        curve_base = curve.base_date()
+        curve.base_date()
     except Exception:
         curve_dc = None
-        curve_base = base_date
 
     from finstack.core import dates as fdates
 
     dc_act360 = fdates.DayCount.ACT_360
     dc_act365f = fdates.DayCount.ACT_365F
 
-    print()
-    print("DF debug (maturity vs pillar date):")
-    print(f"  curve.base_date: {curve_base}")
     if curve_dc is not None:
-        print(f"  curve.day_count: {curve_dc.name}")
-    print(f"  assumed swap payment_delay_days: {swap_payment_delay_days} business days")
-    print(f"  assumed swap payment_calendar_id: {swap_payment_calendar_id}")
-
-    header = (
-        f"{'Maturity':<12} {'BBG DF':>10} {'DF(maturity)':>13} {'DF(pillar)':>11} "
-        f"{'pillar':>12} {'|Δm|':>8} {'|Δp|':>8} {'t365':>8} {'t360':>8}"
-    )
-    print()
-    print(header)
-    print("-" * len(header))
+        pass
 
     for pt in points:
         df_maturity = float(curve.df_on_date(pt.maturity))
@@ -313,16 +274,11 @@ def print_bbg_df_debug(
             swap_payment_calendar_id,
         )
         df_pillar = float(curve.df_on_date(pillar))
-        dm = abs(df_maturity - pt.df)
-        dp = abs(df_pillar - pt.df)
+        abs(df_maturity - pt.df)
+        abs(df_pillar - pt.df)
 
-        t365 = dc_act365f.year_fraction(base_date, pt.maturity, None)
-        t360 = dc_act360.year_fraction(base_date, pt.maturity, None)
-
-        print(
-            f"{pt.maturity} {pt.df:>10.6f} {df_maturity:>13.6f} {df_pillar:>11.6f} "
-            f"{pillar} {dm:>8.2e} {dp:>8.2e} {t365:>8.4f} {t360:>8.4f}"
-        )
+        dc_act365f.year_fraction(base_date, pt.maturity, None)
+        dc_act360.year_fraction(base_date, pt.maturity, None)
 
 
 def try_plot_zero_comparison(
@@ -332,10 +288,7 @@ def try_plot_zero_comparison(
 ) -> None:
     try:
         import matplotlib.pyplot as plt  # type: ignore
-    except Exception as exc:  # pragma: no cover
-        print()
-        print("Plot skipped (matplotlib not available).")
-        print(f"Reason: {exc}")
+    except Exception:  # pragma: no cover
         return
 
     tenors = []
@@ -352,7 +305,7 @@ def try_plot_zero_comparison(
         bbg_dfs.append(pt.df)
         calc_dfs.append(float(curve.df_on_date(pt.maturity)))
 
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    _fig, axes = plt.subplots(2, 2, figsize=(14, 10))
     ax1, ax2, ax3, ax4 = axes.flatten()
 
     ax1.plot(tenors, bbg_zeros, "o-", color="orange", label="Bloomberg", markersize=5, linewidth=1.5)
@@ -371,7 +324,7 @@ def try_plot_zero_comparison(
     ax2.grid(True, alpha=0.3)
     ax2.set_xlim(0, max(tenors) + 1)
 
-    zero_diffs_bp = [(c - b) * 100.0 for c, b in zip(calc_zeros, bbg_zeros)]
+    zero_diffs_bp = [(c - b) * 100.0 for c, b in zip(calc_zeros, bbg_zeros, strict=False)]
     ax3.bar(tenors, zero_diffs_bp, width=0.4, color="steelblue", alpha=0.7, edgecolor="black", linewidth=0.5)
     ax3.axhline(y=0, color="black", linestyle="-", linewidth=0.8)
     ax3.set_xlabel("Tenor (Years)")
@@ -380,7 +333,7 @@ def try_plot_zero_comparison(
     ax3.grid(True, alpha=0.3)
     ax3.set_xlim(0, max(tenors) + 1)
 
-    df_diffs = [(c - b) * 10000.0 for c, b in zip(calc_dfs, bbg_dfs)]
+    df_diffs = [(c - b) * 10000.0 for c, b in zip(calc_dfs, bbg_dfs, strict=False)]
     ax4.bar(tenors, df_diffs, width=0.4, color="indianred", alpha=0.7, edgecolor="black", linewidth=0.5)
     ax4.axhline(y=0, color="black", linestyle="-", linewidth=0.8)
     ax4.set_xlabel("Tenor (Years)")
@@ -404,10 +357,10 @@ def calibrate_discount_curve(
     use_global_solve: bool,
     use_analytical_jacobian: bool,
     tolerance: float,
-    curve_day_count: Optional[str],
+    curve_day_count: str | None,
     strict_step_pricing: bool,
     ois_index_id: str,
-) -> Tuple[MarketContext, object, object]:
+) -> tuple[MarketContext, object, object]:
     quotes = build_usd_ois_quotes(base_date, ois_index_id=ois_index_id)
 
     method_json: object
@@ -510,7 +463,7 @@ def main() -> None:
         )
 
     use_analytical_jacobian = not args.no_analytical_jacobian
-    market, plan_report, disc_report = calibrate_discount_curve(
+    market, _plan_report, disc_report = calibrate_discount_curve(
         base_date,
         use_global_solve=bool(args.global_solve),
         use_analytical_jacobian=use_analytical_jacobian,
@@ -521,19 +474,11 @@ def main() -> None:
     )
 
     curve = market.discount("USD-OIS")
-    print("Discount curve calibrated:", curve.id)
-    print("Plan success:", bool(getattr(plan_report, "success", False)))
-    print("Step success:", bool(getattr(disc_report, "success", False)))
-    print("Max residual:", getattr(disc_report, "max_residual", None))
-    print("RMSE:", getattr(disc_report, "rmse", None))
-    print("Number of knots:", len(list(getattr(curve, "points", []))))
 
     residuals = top_residuals(disc_report, limit=10)
     if residuals:
-        print()
-        print("Top residuals (abs):")
-        for k, v in residuals:
-            print(f"  {k}: {v:.3e}")
+        for _k, _v in residuals:
+            pass
 
     if args.compare_bloomberg or args.plot:
         points = list(bloomberg_zero_points())

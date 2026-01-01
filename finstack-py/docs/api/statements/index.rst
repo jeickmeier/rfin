@@ -42,21 +42,21 @@ Example:
    builder = ModelBuilder()
    builder.id("my_model")
    builder.periods(start, end, Tenor.Quarterly())
-   
+
    # Add node with forecast
    builder.node(
        node_id="revenue",
        node_type=NodeType.Revenue,
        forecast=ForecastSpec.growth_pct(rate=0.10)
    )
-   
+
    # Add node with formula
    builder.node(
        node_id="gross_profit",
        node_type=NodeType.GrossProfit,
        formula="revenue - cogs"
    )
-   
+
    model = builder.build()
 
 Evaluator
@@ -77,12 +77,12 @@ Example:
 
    evaluator = Evaluator()
    results = evaluator.evaluate(model)
-   
+
    # Access results
    revenue = results.get_node("revenue")
    for period, value in revenue.items():
        print(f"{period}: {value}")
-   
+
    # Export to DataFrame
    df = results.to_polars()
 
@@ -112,14 +112,14 @@ Example:
 
    # Growth forecast
    growth = ForecastSpec.growth_pct(rate=0.05)
-   
+
    # Seasonal forecast
    seasonal = ForecastSpec.seasonal(
        pattern=[1.0, 1.2, 0.9, 1.1],  # Q1, Q2, Q3, Q4
        mode="multiplicative",
        growth_rate=0.03
    )
-   
+
    # Statistical forecast
    lognormal = ForecastSpec.lognormal(mean=100000, std_dev=10000, seed=42)
 
@@ -141,13 +141,13 @@ Example:
 
    # Load built-in metrics
    registry = Registry.load_builtins()
-   
+
    # List available metrics
    metrics = registry.list_metrics()
-   
+
    # Add metric to model from registry
    builder.add_metric_from_registry("fin.ebitda", registry)
-   
+
    # Load custom metrics from JSON
    custom_registry = Registry.load_from_json(json_str)
 
@@ -170,9 +170,9 @@ Post-evaluation validation and augmentation.
    config = CorkscrewConfig()
    config.add_account("cash", AccountType.Asset, ["revenue", "expenses"])
    config.tolerance(0.01)
-   
+
    extension = CorkscrewExtension(config)
-   
+
    # Apply to results
    validated = extension.execute(results, model)
 
@@ -189,7 +189,7 @@ Post-evaluation validation and augmentation.
        weight=0.4,
        thresholds={"AAA": 2.0, "BBB": 4.0}
    )
-   
+
    extension = CreditScorecardExtension(config)
    rating_results = extension.execute(results, model)
 

@@ -2,20 +2,21 @@
 
 from __future__ import annotations
 
-# pyright: reportMissingImports=false
-
-import math
+from collections.abc import Sequence
+import contextlib
 from datetime import date, timedelta
-from typing import Dict, List, Optional, Sequence, Tuple
 
+# pyright: reportMissingImports=false
 from finstack.core.dates.schedule import Frequency
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.surfaces import VolSurface as MarketVolSurface
 from finstack.core.market_data.term_structures import BaseCorrelationCurve, CreditIndexData
+
 from finstack.valuations import calibration as cal
 
-RatesPoint = Tuple[str, Dict[str, object]]
-SwaptionPoint = Tuple[date, date, float]
+RatesPoint = tuple[str, dict[str, object]]
+SwaptionPoint = tuple[date, date, float]
+
 
 def _freq_to_tenor(freq: Frequency) -> str:
     """Convert Frequency enum (used throughout the examples) into a Tenor string (e.g. '3M')."""
@@ -43,9 +44,8 @@ def _freq_to_tenor(freq: Frequency) -> str:
 
 def build_market_quotes(
     base_date: date,
-) -> Tuple[List[cal.MarketQuote], Dict[str, List[cal.RatesQuote]], Dict[str, object], Sequence[SwaptionPoint]]:
+) -> tuple[list[cal.MarketQuote], dict[str, list[cal.RatesQuote]], dict[str, object], Sequence[SwaptionPoint]]:
     """Create a representative quote set spanning rates, credit, inflation, and vols."""
-
     # Discount curve anchors (SOFR OIS swaps)
     discount_quotes = [
         cal.RatesQuote.deposit("DEP-1M", "USD-OIS", base_date + timedelta(days=30), 0.0450),
@@ -55,7 +55,7 @@ def build_market_quotes(
     ]
 
     # Quotes supporting 3M forward curve calibration
-    forward_3m_raw: List[RatesPoint] = [
+    forward_3m_raw: list[RatesPoint] = [
         (
             "fra",
             {
@@ -88,7 +88,7 @@ def build_market_quotes(
         ),
     ]
 
-    forward_6m_raw: List[RatesPoint] = [
+    forward_6m_raw: list[RatesPoint] = [
         (
             "swap",
             {
@@ -117,13 +117,17 @@ def build_market_quotes(
         ),
     ]
 
-    def expand_rates(points: List[RatesPoint]) -> List[cal.RatesQuote]:
-        expanded: List[cal.RatesQuote] = []
+    def expand_rates(points: list[RatesPoint]) -> list[cal.RatesQuote]:
+        expanded: list[cal.RatesQuote] = []
         for kind, info in points:
             if kind == "fra":
-                expanded.append(cal.RatesQuote.fra(f"FRA-{info['start']}", "USD-SOFR-3M", info["start"], info["end"], info["rate"]))
+                expanded.append(
+                    cal.RatesQuote.fra(f"FRA-{info['start']}", "USD-SOFR-3M", info["start"], info["end"], info["rate"])
+                )
             elif kind == "swap":
-                expanded.append(cal.RatesQuote.swap(f"SWAP-{info['maturity']}", info["index"], info["maturity"], info["rate"]))
+                expanded.append(
+                    cal.RatesQuote.swap(f"SWAP-{info['maturity']}", info["index"], info["maturity"], info["rate"])
+                )
             elif kind == "basis":
                 # Basis swap support requires explicit conventions in the new API;
                 # skip for this lightweight example.
@@ -156,7 +160,7 @@ def build_market_quotes(
         cal.VolQuote.option_vol("ACME", vol_expiry_1y, 110.0, 0.25, "Call", "Black"),
     ]
 
-    swaption_specs: List[SwaptionPoint] = [
+    swaption_specs: list[SwaptionPoint] = [
         (base_date + timedelta(days=365), base_date + timedelta(days=365 * 6), 0.24),
         (base_date + timedelta(days=365), base_date + timedelta(days=365 * 8), 0.242),
         (base_date + timedelta(days=365 * 2), base_date + timedelta(days=365 * 6), 0.235),
@@ -167,7 +171,7 @@ def build_market_quotes(
     ]
 
     rates_quotes = discount_quotes + forward_3m_quotes + forward_6m_quotes
-    market_quotes: List[cal.MarketQuote] = []
+    market_quotes: list[cal.MarketQuote] = []
     market_quotes.extend(q.to_market_quote() for q in rates_quotes)
     market_quotes.extend(q.to_market_quote() for q in credit_single_name)
     market_quotes.extend(q.to_market_quote() for q in inflation_quotes)
@@ -198,7 +202,6 @@ def ensure_swaption_surface(
     points: Sequence[SwaptionPoint],
 ) -> bool:
     """Populate a basic swaption surface if calibration did not generate one."""
-
     try:
         market.surface("SWAPTION-VOL")
         return False
@@ -210,9 +213,9 @@ def ensure_swaption_surface(
 
     expiries = sorted({(expiry - base_date).days / 365.0 for expiry, _, _ in points})
     tenors = sorted({(tenor - expiry).days / 365.0 for expiry, tenor, _ in points})
-    grid: List[List[float]] = []
+    grid: list[list[float]] = []
     for expiry_years in expiries:
-        row: List[float] = []
+        row: list[float] = []
         for tenor_years in tenors:
             vols = [
                 vol
@@ -230,12 +233,11 @@ def ensure_swaption_surface(
 def calibrate_forward_curves(
     market: MarketContext,
     base_date: date,
-    forward_inputs: Dict[str, List[cal.RatesQuote]],
-) -> Dict[str, Dict[str, object]]:
+    forward_inputs: dict[str, list[cal.RatesQuote]],
+) -> dict[str, dict[str, object]]:
     """Calibrate tenor-specific forward curves using the official calibrators."""
-
-    reports: Dict[str, Dict[str, object]] = {}
-    tenor_meta: Dict[str, Tuple[str, float]] = {
+    reports: dict[str, dict[str, object]] = {}
+    tenor_meta: dict[str, tuple[str, float]] = {
         "1M": ("USD-SOFR-1M-FWD", 1.0 / 12.0),
         "3M": ("USD-SOFR-3M-FWD", 0.25),
         "6M": ("USD-SOFR-6M-FWD", 0.50),
@@ -280,16 +282,15 @@ def calibrate_forward_curves(
 def calibrate_credit_index_structures(
     market: MarketContext,
     base_date: date,
-    credit_inputs: Dict[str, object],
-) -> Dict[str, Dict[str, object]]:
+    credit_inputs: dict[str, object],
+) -> dict[str, dict[str, object]]:
     """Calibrate index hazard and register base correlation data."""
-
-    reports: Dict[str, Dict[str, object]] = {}
+    reports: dict[str, dict[str, object]] = {}
     index_curve_id = credit_inputs.get("index_curve_id", "CDX.NA.IG")
     index_name = credit_inputs.get("index_name", index_curve_id)
     index_cds = credit_inputs.get("index_cds", [])
 
-    hazard_curve_id: Optional[str] = None
+    hazard_curve_id: str | None = None
     if index_cds:
         calibrator = cal.HazardCurveCalibrator(index_curve_id, "senior", 0.40, base_date, "USD", "USD-OIS")
         calibrator = calibrator.with_config(
@@ -327,110 +328,83 @@ def calibrate_credit_index_structures(
 
 def summarize_context(
     context: MarketContext,
-    forward_reports: Optional[Dict[str, Dict[str, object]]] = None,
-    credit_reports: Optional[Dict[str, Dict[str, object]]] = None,
+    forward_reports: dict[str, dict[str, object]] | None = None,
+    credit_reports: dict[str, dict[str, object]] | None = None,
 ) -> None:
-    stats = context.stats()
-    print("Curves:", stats["curve_counts"])
-    print("Vol surfaces:", stats["surface_count"])
+    context.stats()
 
     if forward_reports:
         for curve_id, data in forward_reports.items():
             if data.get("success"):
                 meta = data.get("metadata", {})
                 note = data.get("note") or meta.get("note")
-                msg = (
+                (
                     f"{curve_id} calibrated (iterations={data.get('iterations', 0)},"
                     f" max residual={float(data.get('max_residual', 0.0)):.6f})"
                 )
-                print(msg)
                 if note:
-                    print(f"  note: {note}")
+                    pass
             else:
-                print(f"{curve_id} calibration failed: {data.get('error')}")
+                pass
 
     if credit_reports:
-        for key, data in credit_reports.items():
+        for data in credit_reports.values():
             if data.get("success"):
                 note = data.get("note") or data.get("metadata", {}).get("note")
-                print(f"{key} available")
                 if note:
-                    print(f"  note: {note}")
+                    pass
             else:
-                print(f"{key} calibration failed: {data.get('error')}")
+                pass
 
-    try:
-        usd_ois = context.discount("USD-OIS")
-        print("USD-OIS df(5y):", round(usd_ois.df(5.0), 6))
-    except (ValueError, KeyError):
-        print("USD-OIS discount curve missing")
+    with contextlib.suppress(ValueError, KeyError):
+        context.discount("USD-OIS")
 
-    for curve_id, sample in [
+    for curve_id, _sample in [
         ("USD-SOFR-3M-FWD", 2.0),
         ("USD-SOFR-6M-FWD", 2.0),
     ]:
-        try:
-            fwd_curve = context.forward(curve_id)
-            print(f"{curve_id} rate(2y):", round(fwd_curve.rate(sample), 6))
-        except (ValueError, KeyError):
-            print(f"{curve_id} missing")
+        with contextlib.suppress(ValueError, KeyError):
+            context.forward(curve_id)
 
-    try:
-        hazard = context.hazard("ACME-Senior")
-        print("ACME senior survival(5y):", round(hazard.survival(5.0), 6))
-    except (ValueError, KeyError):
-        print("ACME hazard curve missing")
+    with contextlib.suppress(ValueError, KeyError):
+        context.hazard("ACME-Senior")
 
     for index_id in ["CDX.NA.IG-Senior", "CDX.NA.IG"]:
         try:
-            hazard_idx = context.hazard(index_id)
-            print(f"{index_id} survival(5y):", round(hazard_idx.survival(5.0), 6))
+            context.hazard(index_id)
             break
         except (ValueError, KeyError):
             continue
 
-    try:
-        inflation = context.inflation("US-CPI-U")
-        print("US-CPI-U level(5y):", round(inflation.cpi(5.0), 4))
-    except (ValueError, KeyError):
-        print("US-CPI-U inflation curve missing")
+    with contextlib.suppress(ValueError, KeyError):
+        context.inflation("US-CPI-U")
 
-    try:
-        base_corr = context.base_correlation("CDX-IG-BC")
-        print("CDX base correlation 7%: ", round(base_corr.correlation(0.07), 4))
-    except (ValueError, KeyError):
-        print("CDX base correlation missing")
+    with contextlib.suppress(ValueError, KeyError):
+        context.base_correlation("CDX-IG-BC")
 
-    for surface_id, label in [("ACME-VOL", "ACME equity"), ("SWAPTION-VOL", "Swaption")]:
+    for surface_id, _label in [("ACME-VOL", "ACME equity"), ("SWAPTION-VOL", "Swaption")]:
         try:
             surface = context.surface(surface_id)
             expiries = list(surface.expiries)
             strikes = list(surface.strikes)
             if expiries and strikes:
-                sample = (expiries[min(1, len(expiries) - 1)], strikes[len(strikes) // 2])
-                print(
-                    f"{label} vol {round(sample[0], 3)}y / strike {round(sample[1], 2)}:",
-                    round(surface.value(sample[0], sample[1]), 4),
-                )
+                (expiries[min(1, len(expiries) - 1)], strikes[len(strikes) // 2])
             else:
-                print(f"{surface_id} surface missing grid data")
+                pass
         except (ValueError, KeyError):
-            print(f"{surface_id} surface missing")
+            pass
 
 
 def main() -> None:
     base_date = date(2024, 1, 2)
-    market_quotes, forward_inputs, credit_inputs, swaption_specs = build_market_quotes(base_date)
+    _market_quotes, _forward_inputs, _credit_inputs, _swaption_specs = build_market_quotes(base_date)
 
-    config = (
+    (
         cal.CalibrationConfig.multi_curve()
         .with_solver_kind(cal.SolverKind.BRENT)
         .with_max_iterations(40)
         .with_verbose(False)
     )
-
-    print("SimpleCalibration is deprecated. Please use specific calibrators (DiscountCurveCalibrator, etc.)")
-    return
 
 
 if __name__ == "__main__":

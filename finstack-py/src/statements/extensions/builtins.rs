@@ -49,10 +49,7 @@ impl PyAccountType {
 /// Configuration for a single corkscrew account.
 ///
 /// Defines balance sheet account to validate roll-forward.
-#[pyclass(
-    module = "finstack.statements.extensions",
-    name = "CorkscrewAccount"
-)]
+#[pyclass(module = "finstack.statements.extensions", name = "CorkscrewAccount")]
 #[derive(Clone, Debug)]
 pub struct PyCorkscrewAccount {
     pub(crate) inner: CorkscrewAccount,
@@ -140,10 +137,7 @@ impl PyCorkscrewAccount {
 /// Configuration for corkscrew analysis.
 ///
 /// Defines accounts and validation parameters for balance sheet roll-forward.
-#[pyclass(
-    module = "finstack.statements.extensions",
-    name = "CorkscrewConfig"
-)]
+#[pyclass(module = "finstack.statements.extensions", name = "CorkscrewConfig")]
 #[derive(Clone, Debug)]
 pub struct PyCorkscrewConfig {
     pub(crate) inner: CorkscrewConfig,
@@ -267,10 +261,7 @@ impl PyCorkscrewConfig {
 /// Definition of a scorecard metric.
 ///
 /// Defines metric calculation formula, weight, and rating thresholds.
-#[pyclass(
-    module = "finstack.statements.extensions",
-    name = "ScorecardMetric"
-)]
+#[pyclass(module = "finstack.statements.extensions", name = "ScorecardMetric")]
 #[derive(Clone, Debug)]
 pub struct PyScorecardMetric {
     pub(crate) inner: ScorecardMetric,
@@ -387,10 +378,7 @@ impl PyScorecardMetric {
 /// Configuration for credit scorecard analysis.
 ///
 /// Defines rating scale, metrics, and thresholds for credit rating assignment.
-#[pyclass(
-    module = "finstack.statements.extensions",
-    name = "ScorecardConfig"
-)]
+#[pyclass(module = "finstack.statements.extensions", name = "ScorecardConfig")]
 #[derive(Clone, Debug)]
 pub struct PyScorecardConfig {
     pub(crate) inner: ScorecardConfig,
@@ -590,7 +578,9 @@ impl PyCorkscrewExtension {
     /// CorkscrewConfig | None
     ///     Current configuration if set, None otherwise
     fn config(&self) -> Option<PyCorkscrewConfig> {
-        self.inner.config().map(|c| PyCorkscrewConfig::new(c.clone()))
+        self.inner
+            .config()
+            .map(|c| PyCorkscrewConfig::new(c.clone()))
     }
 
     fn __repr__(&self) -> String {
@@ -686,7 +676,9 @@ impl PyCreditScorecardExtension {
     /// ScorecardConfig | None
     ///     Current configuration if set, None otherwise
     fn config(&self) -> Option<PyScorecardConfig> {
-        self.inner.config().map(|c| PyScorecardConfig::new(c.clone()))
+        self.inner
+            .config()
+            .map(|c| PyScorecardConfig::new(c.clone()))
     }
 
     fn __repr__(&self) -> String {

@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import pytest
-
 from finstack.core.dates.periods import PeriodId
 from finstack.statements.builder import ModelBuilder
 from finstack.statements.evaluator import Evaluator, MonteCarloResults
 from finstack.statements.types import AmountOrScalar, FinancialModelSpec, ForecastSpec
+import pytest
 
 
 def build_simple_normal_model() -> FinancialModelSpec:

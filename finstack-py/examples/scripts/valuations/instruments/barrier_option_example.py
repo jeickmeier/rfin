@@ -1,12 +1,10 @@
-"""
-Barrier Option Example
+"""Barrier Option Example.
 
 Demonstrates pricing and analysis of barrier options with various barrier types.
 """
 
 from datetime import date
 
-from finstack import Money
 from finstack.core.currency import USD
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.scalars import MarketScalar
@@ -14,6 +12,8 @@ from finstack.core.market_data.surfaces import VolSurface
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.instruments import BarrierOption, BarrierType
 from finstack.valuations.pricer import create_standard_registry
+
+from finstack import Money
 
 
 def create_market_data(val_date: date) -> MarketContext:
@@ -49,9 +49,6 @@ def create_market_data(val_date: date) -> MarketContext:
 
 def example_up_and_out_call():
     """Example: Up-and-out barrier call option."""
-    print("\n" + "=" * 80)
-    print("UP-AND-OUT BARRIER CALL")
-    print("=" * 80)
     val_date = date(2025, 1, 1)
     # Up-and-out call: knocks out if spot goes above barrier
     # Cheaper than vanilla call since it can knock out
@@ -71,31 +68,16 @@ def example_up_and_out_call():
         use_gobet_miri=False,
     )
 
-    print(f"\nInstrument: {option}")
-    print(f"  Ticker: {option.ticker}")
-    print(f"  Strike: {option.strike}")
-    print(f"  Barrier: {option.barrier}")
-    print(f"  Option Type: {option.option_type}")
-    print(f"  Barrier Type: {option.barrier_type}")
-    print(f"  Expiry: {option.expiry}")
-
     # Price the option
     market = create_market_data(val_date)
     registry = create_standard_registry()
     result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
-
-    print(f"\nPricing Results:")
-    print(f"  Present Value: {result.value}")
-    print(f"  Currency: {result.value.currency}")
 
     return option, result
 
 
 def example_down_and_in_put():
     """Example: Down-and-in barrier put option."""
-    print("\n" + "=" * 80)
-    print("DOWN-AND-IN BARRIER PUT")
-    print("=" * 80)
     val_date = date(2025, 1, 1)
     # Down-and-in put: activates only if spot falls below barrier
     # Provides protection only if market falls significantly
@@ -115,32 +97,16 @@ def example_down_and_in_put():
         use_gobet_miri=True,  # Use Gobet-Miri approximation
     )
 
-    print(f"\nInstrument: {option}")
-    print(f"  Ticker: {option.ticker}")
-    print(f"  Strike: {option.strike}")
-    print(f"  Barrier: {option.barrier}")
-    print(f"  Option Type: {option.option_type}")
-    print(f"  Barrier Type: {option.barrier_type}")
-    print(f"  Expiry: {option.expiry}")
-
     # Price the option
     market = create_market_data(val_date)
     registry = create_standard_registry()
     result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
-
-    print(f"\nPricing Results:")
-    print(f"  Present Value: {result.value}")
-    print(f"  Currency: {result.value.currency}")
 
     return option, result
 
 
 def example_down_and_out_put():
     """Example: Down-and-out barrier put option."""
-    print("\n" + "=" * 80)
-    print("DOWN-AND-OUT BARRIER PUT")
-    print("=" * 80)
-
     # Down-and-out put: knocks out if spot falls below barrier
     # Provides protection only if market doesn't fall too far
     option = BarrierOption.builder(
@@ -159,31 +125,17 @@ def example_down_and_out_put():
         use_gobet_miri=False,
     )
 
-    print(f"\nInstrument: {option}")
-    print(f"  Ticker: {option.ticker}")
-    print(f"  Strike: {option.strike}")
-    print(f"  Barrier: {option.barrier}")
-    print(f"  Option Type: {option.option_type}")
-    print(f"  Barrier Type: {option.barrier_type}")
-
     # Price the option
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
     result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
 
-    print(f"\nPricing Results:")
-    print(f"  Present Value: {result.value}")
-
     return option, result
 
 
 def example_up_and_in_call():
     """Example: Up-and-in barrier call option."""
-    print("\n" + "=" * 80)
-    print("UP-AND-IN BARRIER CALL")
-    print("=" * 80)
-
     # Up-and-in call: activates only if spot rises above barrier
     # Bet on strong upward movement
     option = BarrierOption.builder(
@@ -202,64 +154,30 @@ def example_up_and_in_call():
         use_gobet_miri=False,
     )
 
-    print(f"\nInstrument: {option}")
-    print(f"  Ticker: {option.ticker}")
-    print(f"  Strike: {option.strike}")
-    print(f"  Barrier: {option.barrier}")
-    print(f"  Option Type: {option.option_type}")
-    print(f"  Barrier Type: {option.barrier_type}")
-
     # Price the option
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
     result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
 
-    print(f"\nPricing Results:")
-    print(f"  Present Value: {result.value}")
-
     return option, result
 
 
-def example_barrier_type_enum():
+def example_barrier_type_enum() -> None:
     """Example: Using BarrierType enum."""
-    print("\n" + "=" * 80)
-    print("BARRIER TYPE ENUM")
-    print("=" * 80)
-
     # Access enum constants
-    up_out = BarrierType.UP_AND_OUT
-    up_in = BarrierType.UP_AND_IN
-    down_out = BarrierType.DOWN_AND_OUT
-    down_in = BarrierType.DOWN_AND_IN
-
-    print(f"\nBarrier Types:")
-    print(f"  Up-and-Out: {up_out}")
-    print(f"  Up-and-In: {up_in}")
-    print(f"  Down-and-Out: {down_out}")
-    print(f"  Down-and-In: {down_in}")
 
     # Parse from string
-    from_str = BarrierType.from_name("down_and_in")
-    print(f"\nParsed from string 'down_and_in': {from_str}")
-    print(f"  Name: {from_str.name}")
+    BarrierType.from_name("down_and_in")
 
 
-def main():
+def main() -> None:
     """Run all barrier option examples."""
-    print("\n" + "=" * 80)
-    print("BARRIER OPTION EXAMPLES")
-    print("=" * 80)
-
     example_up_and_out_call()
     example_down_and_in_put()
     example_down_and_out_put()
     example_up_and_in_call()
     example_barrier_type_enum()
-
-    print("\n" + "=" * 80)
-    print("Examples completed successfully!")
-    print("=" * 80 + "\n")
 
 
 if __name__ == "__main__":

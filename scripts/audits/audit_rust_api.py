@@ -392,7 +392,6 @@ def main() -> int:
     rust_src = project_root / "finstack"
 
     if not rust_src.exists():
-        print(f"Error: {rust_src} does not exist")
         return 1
 
     extractor = RustAPIExtractor(rust_src)
@@ -404,12 +403,7 @@ def main() -> int:
         json.dump(api_data, f, indent=2)
 
     # Print summary
-    types, functions = extractor._flatten_types_and_functions(api_data)
-
-    print("Extracted Rust Public API Surface:")
-    print(f"  Total types: {len(set(types))}")
-    print(f"  Total functions: {len(set(functions))}")
-    print(f"  Output: {output_file}")
+    _types, _functions = extractor._flatten_types_and_functions(api_data)
 
     return 0
 

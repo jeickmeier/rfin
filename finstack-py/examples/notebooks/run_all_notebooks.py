@@ -1,23 +1,20 @@
 #!/usr/bin/env python3
-"""
-Script to run all example notebooks and report their status.
+"""Script to run all example notebooks and report their status.
 Uses nbclient to execute notebooks programmatically.
 """
 
+import os
+from pathlib import Path
+import re
 import sys
 import time
-from datetime import datetime
-from pathlib import Path
-from typing import Dict, List, Tuple
 
-import os
-import re
-import nbformat
 from nbclient import NotebookClient
 from nbclient.exceptions import CellExecutionError
+import nbformat
 
 
-def find_notebooks(base_dir: Path) -> List[Path]:
+def find_notebooks(base_dir: Path) -> list[Path]:
     """Find all Jupyter notebooks in the notebooks directory and all subdirectories."""
     # Recursively find all .ipynb files
     notebooks = sorted(base_dir.glob("**/*.ipynb"))
@@ -28,9 +25,8 @@ def find_notebooks(base_dir: Path) -> List[Path]:
     return notebooks
 
 
-def run_notebook(notebook_path: Path) -> Tuple[bool, str, float]:
-    """
-    Run a Jupyter notebook and return success status, output/error, and execution time.
+def run_notebook(notebook_path: Path) -> tuple[bool, str, float]:
+    """Run a Jupyter notebook and return success status, output/error, and execution time.
 
     Returns:
         Tuple of (success, output_or_error, execution_time_seconds)
@@ -54,7 +50,7 @@ def run_notebook(notebook_path: Path) -> Tuple[bool, str, float]:
         os.environ["PYTHONPATH"] = os.pathsep.join(pieces)
 
         # Read the notebook
-        with open(notebook_path, "r", encoding="utf-8") as f:
+        with open(notebook_path, encoding="utf-8") as f:
             nb = nbformat.read(f, as_version=4)
 
         # Normalize a small set of legacy example shapes to keep notebooks
@@ -154,7 +150,7 @@ def run_notebook(notebook_path: Path) -> Tuple[bool, str, float]:
     except Exception as e:
         execution_time = time.time() - start_time
         error_type = type(e).__name__
-        return False, f"{error_type}: {str(e)}", execution_time
+        return False, f"{error_type}: {e!s}", execution_time
 
 
 def format_time(seconds: float) -> str:
@@ -164,109 +160,64 @@ def format_time(seconds: float) -> str:
     return f"{seconds:.2f}s"
 
 
-def main():
+def main() -> int:
     """Main function to run all notebooks and report results."""
-
-    print("=" * 80)
-    print("FINSTACK EXAMPLE NOTEBOOKS TEST RUNNER")
-    print("=" * 80)
-    print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print()
-
     # Find all notebooks
     # Assuming this script is in finstack-py/examples/scripts/
     base_dir = Path(__file__).parent.parent / "notebooks"
 
     if not base_dir.exists():
-        print(f"Notebooks directory not found: {base_dir}")
         return 1
 
     notebooks = find_notebooks(base_dir)
 
     if not notebooks:
-        print("No notebooks found!")
         return 1
 
-    print(f"Found {len(notebooks)} notebooks to run:")
     for notebook in notebooks:
-        rel_path = notebook.relative_to(base_dir)
-        print(f"  - {rel_path}")
-    print()
-    print("-" * 80)
+        notebook.relative_to(base_dir)
 
     # Run each notebook and collect results
-    results: Dict[Path, Tuple[bool, str, float]] = {}
+    results: dict[Path, tuple[bool, str, float]] = {}
     successful = []
     failed = []
 
     total_start = time.time()
 
-    for i, notebook in enumerate(notebooks, 1):
-        rel_path = notebook.relative_to(base_dir)
-        print(f"\n[{i}/{len(notebooks)}] Running: {rel_path}")
-        print("  ", end="", flush=True)
+    for _i, notebook in enumerate(notebooks, 1):
+        notebook.relative_to(base_dir)
 
         success, output, exec_time = run_notebook(notebook)
         results[notebook] = (success, output, exec_time)
 
         if success:
-            print(f"✓ SUCCESS ({format_time(exec_time)})")
             successful.append(notebook)
         else:
-            print(f"✗ FAILED ({format_time(exec_time)})")
             failed.append(notebook)
 
-    total_time = time.time() - total_start
+    time.time() - total_start
 
     # Print summary
-    print("\n" + "=" * 80)
-    print("SUMMARY")
-    print("=" * 80)
-
-    print(f"\nTotal notebooks run: {len(notebooks)}")
-    print(f"Successful: {len(successful)} ({len(successful) * 100 / len(notebooks):.1f}%)")
-    print(f"Failed: {len(failed)} ({len(failed) * 100 / len(notebooks):.1f}%)")
-    print(f"Total execution time: {format_time(total_time)}")
 
     # List successful notebooks
     if successful:
-        print("\n" + "-" * 40)
-        print("SUCCESSFUL NOTEBOOKS:")
-        print("-" * 40)
         for notebook in successful:
-            rel_path = notebook.relative_to(base_dir)
+            notebook.relative_to(base_dir)
             _, _, exec_time = results[notebook]
-            print(f"  ✓ {rel_path} ({format_time(exec_time)})")
 
     # List failed notebooks with error details
     if failed:
-        print("\n" + "-" * 40)
-        print("FAILED NOTEBOOKS:")
-        print("-" * 40)
         for notebook in failed:
-            rel_path = notebook.relative_to(base_dir)
+            notebook.relative_to(base_dir)
             _, error, exec_time = results[notebook]
-            print(f"\n  ✗ {rel_path} ({format_time(exec_time)})")
-            print("    Error:")
-            for line in error.split("\n"):
-                print(f"      {line}")
+            for _line in error.split("\n"):
+                pass
 
     # Print detailed output for all notebooks if requested
     if "--verbose" in sys.argv:
-        print("\n" + "=" * 80)
-        print("DETAILED OUTPUT")
-        print("=" * 80)
         for notebook in notebooks:
-            rel_path = notebook.relative_to(base_dir)
+            notebook.relative_to(base_dir)
             success, output, exec_time = results[notebook]
-            status = "SUCCESS" if success else "FAILED"
-            print(f"\n{rel_path} [{status}] ({format_time(exec_time)}):")
-            print("-" * 40)
-            print(output)
-
-    print("\n" + "=" * 80)
-    print(f"Completed at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("=" * 80)
 
     # Return exit code based on whether all notebooks passed
     return 0 if len(failed) == 0 else 1

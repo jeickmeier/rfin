@@ -441,10 +441,10 @@ impl PyValuationResult {
     ///     >>> df = results_to_polars([result1, result2, result3])
     fn to_polars(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         use pythonize::pythonize;
-        
+
         // Convert single result to row format
         let rows = finstack_valuations::results::results_to_rows(&[self.inner.clone()]);
-        
+
         // Convert to Python dict
         let py_rows: Vec<Py<PyAny>> = rows
             .iter()
@@ -454,11 +454,11 @@ impl PyValuationResult {
                     .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))
             })
             .collect::<Result<Vec<_>, _>>()?;
-        
+
         // Call pl.DataFrame(rows)
         let polars = py.import("polars")?;
         let df = polars.call_method1("DataFrame", (py_rows,))?;
-        
+
         Ok(df.into())
     }
 

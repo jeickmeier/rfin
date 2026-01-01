@@ -1,12 +1,10 @@
-"""
-Autocallable Example
+"""Autocallable Example.
 
 Demonstrates pricing and analysis of autocallable structured products.
 """
 
 from datetime import date
 
-from finstack import Money
 from finstack.core.currency import USD
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.scalars import MarketScalar
@@ -14,6 +12,8 @@ from finstack.core.market_data.surfaces import VolSurface
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.instruments import Autocallable
 from finstack.valuations.pricer import create_standard_registry
+
+from finstack import Money
 
 
 def create_market_data(val_date: date) -> MarketContext:
@@ -49,10 +49,6 @@ def create_market_data(val_date: date) -> MarketContext:
 
 def example_participation_autocallable():
     """Example: Autocallable with participation in upside."""
-    print("\n" + "=" * 80)
-    print("AUTOCALLABLE WITH PARTICIPATION")
-    print("=" * 80)
-
     # Quarterly observation dates over 3 years
     observation_dates = [
         date(2025, 4, 1),
@@ -118,33 +114,17 @@ def example_participation_autocallable():
         div_yield_id="SPX.DIV",
     )
 
-    print(f"\nInstrument: {autocallable}")
-    print(f"  Ticker: {autocallable.ticker}")
-    print(f"  Notional: {autocallable.notional}")
-    print(f"  Final Barrier: {autocallable.final_barrier:.1%}")
-    print(f"  Participation Rate: {autocallable.participation_rate:.1%}")
-    print(f"  Cap Level: {autocallable.cap_level:.1%}")
-    print(f"  Number of Observations: {len(observation_dates)}")
-
     # Price the autocallable
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
     result = registry.price(autocallable, "monte_carlo_gbm", market, as_of=val_date)
 
-    print(f"\nPricing Results:")
-    print(f"  Present Value: {result.value}")
-    print(f"  Currency: {result.value.currency}")
-
     return autocallable, result
 
 
 def example_capital_protection_autocallable():
     """Example: Autocallable with capital protection."""
-    print("\n" + "=" * 80)
-    print("AUTOCALLABLE WITH CAPITAL PROTECTION")
-    print("=" * 80)
-
     # Semi-annual observations over 2 years
     observation_dates = [
         date(2025, 7, 1),
@@ -176,32 +156,17 @@ def example_capital_protection_autocallable():
         div_yield_id="SPX.DIV",
     )
 
-    print(f"\nInstrument: {autocallable}")
-    print(f"  Ticker: {autocallable.ticker}")
-    print(f"  Notional: {autocallable.notional}")
-    print(f"  Final Barrier: {autocallable.final_barrier:.1%}")
-    print(f"  Participation Rate: {autocallable.participation_rate:.1%}")
-    print(f"  Cap Level: {autocallable.cap_level:.1%}")
-
     # Price the autocallable
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
     result = registry.price(autocallable, "monte_carlo_gbm", market, as_of=val_date)
 
-    print(f"\nPricing Results:")
-    print(f"  Present Value: {result.value}")
-    print(f"  Currency: {result.value.currency}")
-
     return autocallable, result
 
 
 def example_knock_in_autocallable():
     """Example: Autocallable with knock-in put feature."""
-    print("\n" + "=" * 80)
-    print("AUTOCALLABLE WITH KNOCK-IN PUT")
-    print("=" * 80)
-
     # Annual observations
     observation_dates = [
         date(2026, 1, 1),
@@ -229,38 +194,20 @@ def example_knock_in_autocallable():
         div_yield_id="SPX.DIV",
     )
 
-    print(f"\nInstrument: {autocallable}")
-    print(f"  Ticker: {autocallable.ticker}")
-    print(f"  Notional: {autocallable.notional}")
-    print(f"  Final Barrier: {autocallable.final_barrier:.1%}")
-    print(f"  Number of Observations: {len(observation_dates)}")
-
     # Price the autocallable
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = create_standard_registry()
     result = registry.price(autocallable, "monte_carlo_gbm", market, as_of=val_date)
 
-    print(f"\nPricing Results:")
-    print(f"  Present Value: {result.value}")
-    print(f"  Currency: {result.value.currency}")
-
     return autocallable, result
 
 
-def main():
+def main() -> None:
     """Run all autocallable examples."""
-    print("\n" + "=" * 80)
-    print("AUTOCALLABLE EXAMPLES")
-    print("=" * 80)
-
     example_participation_autocallable()
     example_capital_protection_autocallable()
     example_knock_in_autocallable()
-
-    print("\n" + "=" * 80)
-    print("Examples completed successfully!")
-    print("=" * 80 + "\n")
 
 
 if __name__ == "__main__":

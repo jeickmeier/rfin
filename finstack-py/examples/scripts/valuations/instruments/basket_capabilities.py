@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """Basket instrument example combining equity and bond constituents."""
 
-import json
 from datetime import date
+import json
 
-from finstack import Money
 from finstack.core.currency import USD
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.scalars import MarketScalar
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.instruments import Basket
 from finstack.valuations.pricer import create_standard_registry
+
+from finstack import Money
 
 
 def build_market(as_of: date) -> MarketContext:
@@ -77,15 +78,12 @@ def main() -> None:
     basket_json = build_basket_definition()
     basket = Basket.from_json(basket_json)
 
-    result = registry.price_with_metrics(
+    registry.price_with_metrics(
         basket,
         "discounting",
         market,
         ["constituent_count", "expense_ratio"],
     )
-    print("Basket PV:", round(result.value.amount, 2), result.value.currency)
-    print("Constituent count:", result.measures.get("constituent_count"))
-    print("Expense ratio:", result.measures.get("expense_ratio"))
 
 
 if __name__ == "__main__":

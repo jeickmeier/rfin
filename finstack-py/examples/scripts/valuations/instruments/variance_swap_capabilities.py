@@ -3,7 +3,6 @@
 
 from datetime import date
 
-from finstack import Money
 from finstack.core.currency import USD
 from finstack.core.dates.daycount import DayCount
 from finstack.core.dates.schedule import Frequency
@@ -13,6 +12,8 @@ from finstack.core.market_data.surfaces import VolSurface
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.instruments import VarianceSwap
 from finstack.valuations.pricer import create_standard_registry
+
+from finstack import Money
 
 
 def build_market(as_of: date) -> MarketContext:
@@ -79,15 +80,13 @@ def main() -> None:
         day_count=DayCount.ACT_365F,
     )
 
-    result = registry.price_with_metrics(
+    registry.price_with_metrics(
         variance_swap,
         "discounting",
         market,
         ["variance_vega", "variance_expected"],
         as_of=as_of,
     )
-    print("Variance swap PV:", round(result.value.amount, 2), result.value.currency)
-    print("Variance swap vega:", result.measures.get("variance_vega"))
 
 
 if __name__ == "__main__":

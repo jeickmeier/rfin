@@ -19,7 +19,7 @@ use time::macros::date;
 
 fn build_test_market() -> MarketContext {
     use finstack_core::dates::Date as CoreDate;
-    
+
     // Simple static FX provider
     struct StaticFx {
         rate: f64,
@@ -35,7 +35,7 @@ fn build_test_market() -> MarketContext {
             Ok(self.rate)
         }
     }
-    
+
     // Build USD discount curve
     let usd_curve = DiscountCurve::builder("USD")
         .base_date(date!(2024 - 01 - 01))
@@ -44,10 +44,10 @@ fn build_test_market() -> MarketContext {
         .allow_non_monotonic()
         .build()
         .expect("USD curve should build");
-    
+
     // Build FX matrix
     let fx = FxMatrix::new(Arc::new(StaticFx { rate: 1.10 }));
-    
+
     // Build market context
     MarketContext::new()
         .insert_discount(usd_curve)
@@ -156,17 +156,17 @@ fn test_book_hierarchy_three_levels() {
     assert!(portfolio.books.contains_key("ig"));
 
     // Verify parent-child relationships
-    let americas_book = portfolio.books.get("americas").expect("americas should exist");
+    let americas_book = portfolio
+        .books
+        .get("americas")
+        .expect("americas should exist");
     assert!(americas_book.is_root());
     assert_eq!(americas_book.children().len(), 1);
     assert_eq!(americas_book.children()[0], BookId::new("credit"));
 
     let credit_book = portfolio.books.get("credit").expect("credit should exist");
     assert!(!credit_book.is_root());
-    assert_eq!(
-        credit_book.parent_id,
-        Some(BookId::new("americas"))
-    );
+    assert_eq!(credit_book.parent_id, Some(BookId::new("americas")));
     assert_eq!(credit_book.children().len(), 1);
     assert_eq!(credit_book.children()[0], BookId::new("ig"));
 
@@ -183,17 +183,12 @@ fn test_book_hierarchy_three_levels() {
     // Value the portfolio
     let market = build_test_market();
     let config = FinstackConfig::default();
-    let valuation = value_portfolio(&portfolio, &market, &config)
-        .expect("valuation should succeed");
+    let valuation =
+        value_portfolio(&portfolio, &market, &config).expect("valuation should succeed");
 
     // Aggregate by book with recursive rollup
-    let by_book = aggregate_by_book(
-        &valuation,
-        &portfolio.positions,
-        &portfolio.books,
-        Currency::USD,
-    )
-    .expect("aggregation should succeed");
+    let by_book = aggregate_by_book(&valuation, &portfolio.books, Currency::USD)
+        .expect("aggregation should succeed");
 
     // Verify aggregation
     assert_eq!(by_book.len(), 3);
@@ -281,27 +276,25 @@ fn test_book_hierarchy_multiple_root_books() {
 
     // Verify both root books
     assert_eq!(portfolio.books.len(), 2);
-    
-    let americas_book = portfolio.books.get("americas").expect("americas should exist");
+
+    let americas_book = portfolio
+        .books
+        .get("americas")
+        .expect("americas should exist");
     assert!(americas_book.is_root());
-    
+
     let asia_book = portfolio.books.get("asia").expect("asia should exist");
     assert!(asia_book.is_root());
-    
+
     // Value and aggregate
     let market = build_test_market();
     let config = FinstackConfig::default();
-    let valuation = value_portfolio(&portfolio, &market, &config)
-        .expect("valuation should succeed");
-        
-    let by_book = aggregate_by_book(
-        &valuation,
-        &portfolio.positions,
-        &portfolio.books,
-        Currency::USD,
-    )
-    .expect("aggregation should succeed");
-    
+    let valuation =
+        value_portfolio(&portfolio, &market, &config).expect("valuation should succeed");
+
+    let by_book = aggregate_by_book(&valuation, &portfolio.books, Currency::USD)
+        .expect("aggregation should succeed");
+
     // Each root book should have independent totals
     assert_eq!(by_book.len(), 2);
     assert!(by_book.contains_key("americas"));

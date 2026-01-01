@@ -1,10 +1,10 @@
 """Sphinx configuration for finstack-py documentation."""
 
-import os
+from pathlib import Path
 import sys
 
 # Add finstack to path
-sys.path.insert(0, os.path.abspath("../python"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "python"))
 
 # -- Project information -----------------------------------------------------
 

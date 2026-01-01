@@ -4,7 +4,7 @@ This module provides a builder pattern for constructing ScenarioSpec objects
 with a fluent, chainable API. This is more ergonomic than manually constructing
 OperationSpec objects.
 
-Examples
+Examples:
 --------
 >>> from finstack.scenarios import ScenarioBuilder
 >>> scenario = (
@@ -17,8 +17,6 @@ Examples
 ...     .build()
 ... )
 """
-
-from typing import List, Optional
 
 from finstack import Currency  # type: ignore
 from finstack.scenarios import (  # type: ignore
@@ -40,23 +38,24 @@ class ScenarioBuilder:
     scenario_id : str
         Unique scenario identifier.
 
-    Examples
+    Examples:
     --------
     >>> builder = ScenarioBuilder("stress_test")
-    >>> scenario = (
-    ...     builder
-    ...     .name("Q1 Stress")
-    ...     .shift_curve("USD.OIS", 50)
-    ...     .shift_equities(-10)
-    ...     .build()
-    ... )
+    >>> scenario = builder.name("Q1 Stress").shift_curve("USD.OIS", 50).shift_equities(-10).build()
     """
 
-    def __init__(self, scenario_id: str):
+    def __init__(self, scenario_id: str) -> None:
+        """Initialize a scenario builder.
+
+        Parameters
+        ----------
+        scenario_id : str
+            Unique identifier for the scenario.
+        """
         self._id = scenario_id
-        self._name: Optional[str] = None
-        self._description: Optional[str] = None
-        self._operations: List[OperationSpec] = []
+        self._name: str | None = None
+        self._description: str | None = None
+        self._operations: list[OperationSpec] = []
         self._priority: int = 0
 
     def name(self, name: str) -> "ScenarioBuilder":
@@ -67,7 +66,7 @@ class ScenarioBuilder:
         name : str
             Display name.
 
-        Returns
+        Returns:
         -------
         ScenarioBuilder
             Self for chaining.
@@ -83,7 +82,7 @@ class ScenarioBuilder:
         description : str
             Description text.
 
-        Returns
+        Returns:
         -------
         ScenarioBuilder
             Self for chaining.
@@ -101,7 +100,7 @@ class ScenarioBuilder:
         priority : int
             Priority value.
 
-        Returns
+        Returns:
         -------
         ScenarioBuilder
             Self for chaining.
@@ -115,7 +114,7 @@ class ScenarioBuilder:
         self,
         curve_id: str,
         bp: float,
-        curve_kind: Optional[CurveKind] = None,
+        curve_kind: CurveKind | None = None,
     ) -> "ScenarioBuilder":
         """Add parallel curve shift.
 
@@ -128,12 +127,12 @@ class ScenarioBuilder:
         curve_kind : CurveKind, optional
             Type of curve (default: Discount).
 
-        Returns
+        Returns:
         -------
         ScenarioBuilder
             Self for chaining.
 
-        Examples
+        Examples:
         --------
         >>> builder.shift_curve("USD.OIS", 50)  # +50bp discount curve
         >>> builder.shift_curve("USD.SOFR", -25, CurveKind.Forward)  # -25bp forward
@@ -153,7 +152,7 @@ class ScenarioBuilder:
         bp : float
             Basis points to shift.
 
-        Returns
+        Returns:
         -------
         ScenarioBuilder
             Self for chaining.
@@ -170,7 +169,7 @@ class ScenarioBuilder:
         bp : float
             Basis points to shift.
 
-        Returns
+        Returns:
         -------
         ScenarioBuilder
             Self for chaining.
@@ -187,7 +186,7 @@ class ScenarioBuilder:
         bp : float
             Basis points to shift.
 
-        Returns
+        Returns:
         -------
         ScenarioBuilder
             Self for chaining.
@@ -204,7 +203,7 @@ class ScenarioBuilder:
         bp : float
             Basis points to shift.
 
-        Returns
+        Returns:
         -------
         ScenarioBuilder
             Self for chaining.
@@ -213,7 +212,7 @@ class ScenarioBuilder:
 
     # --- Equity Operations ---
 
-    def shift_equities(self, pct: float, ids: Optional[List[str]] = None) -> "ScenarioBuilder":
+    def shift_equities(self, pct: float, ids: list[str] | None = None) -> "ScenarioBuilder":
         """Add equity price percent shock.
 
         Parameters
@@ -223,12 +222,12 @@ class ScenarioBuilder:
         ids : list[str], optional
             Specific equity IDs to shock. If None, shocks all equities.
 
-        Returns
+        Returns:
         -------
         ScenarioBuilder
             Self for chaining.
 
-        Examples
+        Examples:
         --------
         >>> builder.shift_equities(-10)  # -10% all equities
         >>> builder.shift_equities(5, ["SPY", "QQQ"])  # +5% specific equities
@@ -251,12 +250,12 @@ class ScenarioBuilder:
         pct : float
             Percentage change (positive = base strengthens).
 
-        Returns
+        Returns:
         -------
         ScenarioBuilder
             Self for chaining.
 
-        Examples
+        Examples:
         --------
         >>> builder.shift_fx("USD", "EUR", 5)  # USD strengthens 5% vs EUR
         """
@@ -272,7 +271,7 @@ class ScenarioBuilder:
         self,
         surface_id: str,
         pct: float,
-        surface_kind: Optional[VolSurfaceKind] = None,
+        surface_kind: VolSurfaceKind | None = None,
     ) -> "ScenarioBuilder":
         """Add volatility surface parallel shift.
 
@@ -285,12 +284,12 @@ class ScenarioBuilder:
         surface_kind : VolSurfaceKind, optional
             Type of surface (default: Equity).
 
-        Returns
+        Returns:
         -------
         ScenarioBuilder
             Self for chaining.
 
-        Examples
+        Examples:
         --------
         >>> builder.shift_vol_surface("SPX_VOL", 10)  # +10% equity vol
         """
@@ -309,12 +308,12 @@ class ScenarioBuilder:
         period : str
             Period to roll forward (e.g., "1d", "1w", "1m", "3m", "1y").
 
-        Returns
+        Returns:
         -------
         ScenarioBuilder
             Self for chaining.
 
-        Examples
+        Examples:
         --------
         >>> builder.roll_forward("1m")  # Roll forward 1 month
         >>> builder.roll_forward("3m")  # Roll forward 3 months
@@ -329,7 +328,7 @@ class ScenarioBuilder:
         self,
         node_id: str,
         pct: float,
-        period_id: Optional[str] = None,
+        period_id: str | None = None,
     ) -> "ScenarioBuilder":
         """Add statement forecast percent adjustment.
 
@@ -342,12 +341,12 @@ class ScenarioBuilder:
         period_id : str, optional
             Specific period to adjust. If None, adjusts all periods.
 
-        Returns
+        Returns:
         -------
         ScenarioBuilder
             Self for chaining.
 
-        Examples
+        Examples:
         --------
         >>> builder.adjust_forecast("revenue", 10)  # +10% revenue all periods
         """
@@ -359,7 +358,7 @@ class ScenarioBuilder:
         self,
         node_id: str,
         value: float,
-        period_id: Optional[str] = None,
+        period_id: str | None = None,
     ) -> "ScenarioBuilder":
         """Add statement forecast assignment.
 
@@ -372,12 +371,12 @@ class ScenarioBuilder:
         period_id : str, optional
             Specific period to set. If None, sets all periods.
 
-        Returns
+        Returns:
         -------
         ScenarioBuilder
             Self for chaining.
 
-        Examples
+        Examples:
         --------
         >>> builder.set_forecast("revenue", 1000000)  # Set revenue to 1M
         """
@@ -390,12 +389,12 @@ class ScenarioBuilder:
     def build(self) -> ScenarioSpec:
         """Build the ScenarioSpec.
 
-        Returns
+        Returns:
         -------
         ScenarioSpec
             Constructed scenario specification.
 
-        Examples
+        Examples:
         --------
         >>> scenario = builder.build()
         """
@@ -418,18 +417,14 @@ def scenario(scenario_id: str) -> ScenarioBuilder:
     scenario_id : str
         Scenario identifier.
 
-    Returns
+    Returns:
     -------
     ScenarioBuilder
         New builder instance.
 
-    Examples
+    Examples:
     --------
     >>> from finstack.scenarios import scenario
-    >>> spec = (
-    ...     scenario("stress_test")
-    ...     .shift_curve("USD.OIS", 50)
-    ...     .build()
-    ... )
+    >>> spec = scenario("stress_test").shift_curve("USD.OIS", 50).build()
     """
     return ScenarioBuilder(scenario_id)

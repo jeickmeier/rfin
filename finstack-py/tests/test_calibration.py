@@ -2,12 +2,12 @@
 
 import datetime as dt
 
-import pytest
-
-import finstack
 from finstack.core.dates.schedule import Frequency
 from finstack.core.market_data import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve
+import pytest
+
+import finstack
 
 cal = finstack.valuations.calibration
 
@@ -476,8 +476,8 @@ def test_execute_calibration_v2_base_correlation_manual() -> None:
 
     # Base correlation points: (detachment_pct, correlation)
     base_corr_points = [
-        (3.0, 0.25),   # 0-3% tranche: 25% correlation
-        (7.0, 0.35),   # 0-7% tranche: 35% correlation
+        (3.0, 0.25),  # 0-3% tranche: 25% correlation
+        (7.0, 0.35),  # 0-7% tranche: 35% correlation
         (10.0, 0.42),  # 0-10% tranche: 42% correlation
         (15.0, 0.50),  # 0-15% tranche: 50% correlation
         (30.0, 0.60),  # 0-30% tranche: 60% correlation

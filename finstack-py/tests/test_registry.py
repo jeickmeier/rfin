@@ -1,10 +1,8 @@
 """Tests for dynamic metric registry functionality."""
 
 import json
-import tempfile
 from pathlib import Path
-
-import pytest
+import tempfile
 
 from finstack.statements.builder import ModelBuilder
 from finstack.statements.registry import (
@@ -14,6 +12,7 @@ from finstack.statements.registry import (
     UnitType,
 )
 from finstack.statements.types import Period
+import pytest
 
 
 class TestRegistry:
@@ -119,9 +118,7 @@ class TestRegistry:
         }
 
         # Create temporary file
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(json_content, f)
             temp_path = f.name
 
@@ -216,7 +213,7 @@ class TestMetricRegistry:
         ]
 
         registry = MetricRegistry("custom", metrics)
-        
+
         # Serialize to JSON
         json_str = registry.to_json()
         assert json_str is not None
@@ -234,17 +231,17 @@ class TestModelBuilderWithRegistry:
         """Test loading built-in metrics into model."""
         builder = ModelBuilder.new()
         builder.periods([Period(2024, 1, "Q1"), Period(2024, 2, "Q2")])
-        
+
         # Add some input nodes
         builder.value("revenue", [(1, 100000.0), (2, 110000.0)])
         builder.value("cogs", [(1, 60000.0), (2, 65000.0)])
-        
+
         # Load built-in metrics
         builder.with_builtin_metrics()
-        
+
         spec = builder.build()
         assert spec is not None
-        
+
         # Built-in metrics should be in the spec
         node_ids = [node.node_id for node in spec.nodes]
         assert "fin.gross_profit" in node_ids
@@ -254,14 +251,14 @@ class TestModelBuilderWithRegistry:
         """Test adding a single metric from built-in registry."""
         builder = ModelBuilder.new()
         builder.periods([Period(2024, 1, "Q1"), Period(2024, 2, "Q2")])
-        
+
         # Add dependencies
         builder.value("revenue", [(1, 100000.0), (2, 110000.0)])
         builder.value("cogs", [(1, 60000.0), (2, 65000.0)])
-        
+
         # Add single metric (this will load builtins internally)
         builder.add_metric("fin.gross_profit")
-        
+
         spec = builder.build()
         node_ids = [node.node_id for node in spec.nodes]
         assert "fin.gross_profit" in node_ids
@@ -288,10 +285,10 @@ class TestModelBuilderWithRegistry:
         builder.periods([Period(2024, 1, "Q1")])
         builder.value("profit", [(1, 40000.0)])
         builder.value("revenue", [(1, 100000.0)])
-        
+
         # Add metric from custom registry
         builder.add_metric_from_registry("custom.margin", registry)
-        
+
         spec = builder.build()
         node_ids = [node.node_id for node in spec.nodes]
         assert "custom.margin" in node_ids
@@ -310,7 +307,7 @@ class TestModelBuilderWithRegistry:
         builder.value("operating_expenses", [(1, 20000.0), (2, 22000.0)])
         builder.value("interest_expense", [(1, 2000.0), (2, 2100.0)])
         builder.value("tax_expense", [(1, 5000.0), (2, 5500.0)])
-        
+
         # Batch add multiple metrics
         builder.add_registry_metrics(
             [
@@ -320,7 +317,7 @@ class TestModelBuilderWithRegistry:
             ],
             registry,
         )
-        
+
         spec = builder.build()
         node_ids = [node.node_id for node in spec.nodes]
         assert "fin.gross_profit" in node_ids
@@ -343,25 +340,25 @@ class TestModelBuilderWithRegistry:
         # Create model with required inputs for EBITDA
         builder = ModelBuilder.new()
         builder.periods([Period(2024, 1, "Q1"), Period(2024, 2, "Q2")])
-        
+
         # EBITDA typically = revenue - cogs - operating_expenses
         builder.value("revenue", [(1, 100000.0), (2, 110000.0)])
         builder.value("cogs", [(1, 60000.0), (2, 65000.0)])
         builder.value("operating_expenses", [(1, 20000.0), (2, 22000.0)])
-        
+
         # Add the EBITDA metric
         builder.add_metric("fin.ebitda")
-        
+
         # Build and evaluate
         spec = builder.build()
         evaluator = Evaluator.new(spec)
         results = evaluator.evaluate()
-        
+
         # Verify EBITDA was calculated
         ebitda_values = results.get_node_values("fin.ebitda")
         assert ebitda_values is not None
         assert len(ebitda_values) > 0
-        
+
         # EBITDA for Q1 should be 100000 - 60000 - 20000 = 20000
         # (depends on actual formula in builtin registry)
         assert ebitda_values[0][1] > 0  # Should be positive
@@ -398,25 +395,25 @@ class TestInterMetricDependencies:
         builder.periods([Period(2024, 1, "Q1")])
         builder.value("revenue", [(1, 100000.0)])
         builder.value("cogs", [(1, 60000.0)])
-        
+
         # Add dependent metric (should automatically include gross_profit)
         builder.add_metric_from_registry("test.gross_margin", registry)
-        
+
         # Build and evaluate
         spec = builder.build()
         evaluator = Evaluator.new(spec)
         results = evaluator.evaluate()
-        
+
         # Both metrics should be calculated
         gross_profit = results.get_node_values("test.gross_profit")
         gross_margin = results.get_node_values("test.gross_margin")
-        
+
         assert gross_profit is not None
         assert gross_margin is not None
-        
+
         # gross_profit = 100000 - 60000 = 40000
         assert abs(gross_profit[0][1] - 40000.0) < 0.01
-        
+
         # gross_margin = 40000 / 100000 = 0.4
         assert abs(gross_margin[0][1] - 0.4) < 0.01
 

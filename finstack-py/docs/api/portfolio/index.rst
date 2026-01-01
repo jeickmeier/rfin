@@ -41,13 +41,13 @@ Example:
 
    # Create entity
    fund = Entity(id="FUND001", name="Alpha Fund")
-   
+
    # Build portfolio
    builder = PortfolioBuilder()
    builder.entity(fund)
    builder.base_ccy(Currency.from_code("USD"))
    builder.as_of(Date(2024, 1, 15))
-   
+
    # Add positions
    builder.position_from_instrument(
        position_id="POS_BOND",
@@ -55,7 +55,7 @@ Example:
        quantity=10.0,
        entity_id="FUND001"
    )
-   
+
    portfolio = builder.build()
 
 Valuation
@@ -75,14 +75,14 @@ Example:
    from finstack import value_portfolio
 
    valuation = value_portfolio(portfolio, market, None)
-   
+
    # Total value
    print(f"Total: {valuation.total_value.amount:,.2f}")
-   
+
    # By entity
    for entity_id, value in valuation.by_entity.items():
        print(f"{entity_id}: {value.amount:,.2f}")
-   
+
    # Export to DataFrame
    df = valuation.to_polars()
 
@@ -138,7 +138,7 @@ Flexible grouping and aggregation.
        fx_matrix,
        Date(2024, 1, 15)
    )
-   
+
    print(f"Portfolio DV01: {metrics.dv01}")
    print(f"Portfolio Delta: {metrics.delta}")
 
@@ -162,16 +162,16 @@ Example:
    manager = NettingSetManager()
    manager.add_set(NettingSetId.bilateral("COUNTERPARTY_A", "USD"))
    manager.add_set(NettingSetId.cleared("CLEARING_HOUSE", "EUR"))
-   
+
    # Assign positions to netting sets
    manager.assign_position("POS_SWAP1", "COUNTERPARTY_A")
-   
+
    # Calculate margin
    from finstack import PortfolioMarginAggregator
-   
+
    aggregator = PortfolioMarginAggregator(manager, csa_terms)
    margin_result = aggregator.calculate_margin(valuation, market)
-   
+
    # Access results
    for set_id, margin in margin_result.by_set.items():
        print(f"{set_id}: VM={margin.variation_margin}, IM={margin.initial_margin}")
@@ -194,25 +194,25 @@ Example:
        PortfolioOptimizationProblem,
        Constraint, Objective, TradeUniverse
    )
-   
+
    # Define universe
    universe = TradeUniverse()
    universe.add_candidate("BOND_A", bond_a, 100.0)
    universe.add_candidate("BOND_B", bond_b, 95.0)
-   
+
    # Build problem
    problem = PortfolioOptimizationProblem()
    problem.universe(universe)
    problem.objective(Objective.maximize_yield())
-   
+
    # Add constraints
    problem.add_constraint(Constraint.tag_exposure_limit("rating", "CCC", 0.10))
    problem.add_constraint(Constraint.weight_bounds(0.0, 0.05))
    problem.add_constraint(Constraint.budget(10_000_000))
-   
+
    # Solve
    result = problem.solve()
-   
+
    # Extract trades
    for trade in result.trades:
        print(f"{trade.position_id}: {trade.quantity} @ {trade.price}")

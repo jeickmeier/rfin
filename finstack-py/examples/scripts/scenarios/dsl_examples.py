@@ -226,21 +226,21 @@ def example_dsl_error_handling():
 
     # Valid scenario
     try:
-        scenario = ScenarioSpec.from_dsl("shift USD.OIS +50bp")
+        ScenarioSpec.from_dsl("shift USD.OIS +50bp")
         print("✓ Valid scenario parsed successfully")
     except DSLParseError as e:
         print(f"✗ Unexpected error: {e}")
 
     # Invalid syntax
     try:
-        scenario = ScenarioSpec.from_dsl("invalid syntax here")
+        ScenarioSpec.from_dsl("invalid syntax here")
         print("✗ Should have raised error")
     except DSLParseError as e:
         print(f"✓ Caught expected error: {e}")
 
     # Multiple operations with one invalid
     try:
-        scenario = ScenarioSpec.from_dsl(
+        ScenarioSpec.from_dsl(
             """
             shift USD.OIS +50bp
             this is invalid
@@ -278,7 +278,7 @@ ScenarioSpec.from_dsl("""
 
     # Manual approach
     print("\n2. Manual Approach (verbose):")
-    manual_code = '''
+    manual_code = """
 from finstack.scenarios import ScenarioSpec, OperationSpec, CurveKind
 
 scenario = ScenarioSpec(
@@ -289,7 +289,7 @@ scenario = ScenarioSpec(
         OperationSpec.time_roll_forward("1m"),
     ],
 )
-    '''
+    """
     print(manual_code)
 
     from finstack.scenarios import CurveKind, OperationSpec

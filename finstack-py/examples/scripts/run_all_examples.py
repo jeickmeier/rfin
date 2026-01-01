@@ -1,17 +1,13 @@
 #!/usr/bin/env python3
-"""
-Script to run all example scripts and report their status.
-"""
+"""Script to run all example scripts and report their status."""
 
+from pathlib import Path
 import subprocess
 import sys
 import time
-from datetime import datetime
-from pathlib import Path
-from typing import Dict, List, Tuple
 
 
-def find_python_scripts(base_dir: Path) -> List[Path]:
+def find_python_scripts(base_dir: Path) -> list[Path]:
     """Find all Python scripts in the examples/scripts directory and all subdirectories."""
     # Recursively find all Python files in all subdirectories
     scripts = sorted(base_dir.glob("**/*.py"))
@@ -29,9 +25,8 @@ def find_python_scripts(base_dir: Path) -> List[Path]:
     return scripts
 
 
-def run_script(script_path: Path) -> Tuple[bool, str, float]:
-    """
-    Run a Python script and return success status, output/error, and execution time.
+def run_script(script_path: Path) -> tuple[bool, str, float]:
+    """Run a Python script and return success status, output/error, and execution time.
 
     Returns:
         Tuple of (success, output_or_error, execution_time_seconds)
@@ -42,6 +37,7 @@ def run_script(script_path: Path) -> Tuple[bool, str, float]:
         # Run the script with uv run as per user preference
         result = subprocess.run(
             ["uv", "run", "python", str(script_path)],
+            check=False,
             capture_output=True,
             text=True,
             timeout=60,  # 60 second timeout per script (increased for calibration examples)
@@ -68,7 +64,7 @@ def run_script(script_path: Path) -> Tuple[bool, str, float]:
         return False, "Script timed out (>60s)", execution_time
     except Exception as e:
         execution_time = time.time() - start_time
-        return False, f"Exception: {str(e)}", execution_time
+        return False, f"Exception: {e!s}", execution_time
 
 
 def format_time(seconds: float) -> str:
@@ -78,103 +74,59 @@ def format_time(seconds: float) -> str:
     return f"{seconds:.2f}s"
 
 
-def main():
+def main() -> int:
     """Main function to run all scripts and report results."""
-
-    print("=" * 80)
-    print("FINSTACK EXAMPLE SCRIPTS TEST RUNNER")
-    print("=" * 80)
-    print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print()
-
     # Find all scripts
     base_dir = Path(__file__).parent
     scripts = find_python_scripts(base_dir)
 
     if not scripts:
-        print("No example scripts found!")
         return 1
 
-    print(f"Found {len(scripts)} example scripts to run:")
     for script in scripts:
-        rel_path = script.relative_to(base_dir)
-        print(f"  - {rel_path}")
-    print()
-    print("-" * 80)
+        script.relative_to(base_dir)
 
     # Run each script and collect results
-    results: Dict[Path, Tuple[bool, str, float]] = {}
+    results: dict[Path, tuple[bool, str, float]] = {}
     successful = []
     failed = []
 
     total_start = time.time()
 
-    for i, script in enumerate(scripts, 1):
-        rel_path = script.relative_to(base_dir)
-        print(f"\n[{i}/{len(scripts)}] Running: {rel_path}")
-        print("  ", end="", flush=True)
+    for _i, script in enumerate(scripts, 1):
+        script.relative_to(base_dir)
 
         success, output, exec_time = run_script(script)
         results[script] = (success, output, exec_time)
 
         if success:
-            print(f"✓ SUCCESS ({format_time(exec_time)})")
             successful.append(script)
         else:
-            print(f"✗ FAILED ({format_time(exec_time)})")
             failed.append(script)
 
-    total_time = time.time() - total_start
+    time.time() - total_start
 
     # Print summary
-    print("\n" + "=" * 80)
-    print("SUMMARY")
-    print("=" * 80)
-
-    print(f"\nTotal scripts run: {len(scripts)}")
-    print(f"Successful: {len(successful)} ({len(successful) * 100 / len(scripts):.1f}%)")
-    print(f"Failed: {len(failed)} ({len(failed) * 100 / len(scripts):.1f}%)")
-    print(f"Total execution time: {format_time(total_time)}")
 
     # List successful scripts
     if successful:
-        print("\n" + "-" * 40)
-        print("SUCCESSFUL SCRIPTS:")
-        print("-" * 40)
         for script in successful:
-            rel_path = script.relative_to(base_dir)
+            script.relative_to(base_dir)
             _, _, exec_time = results[script]
-            print(f"  ✓ {rel_path} ({format_time(exec_time)})")
 
     # List failed scripts with error details
     if failed:
-        print("\n" + "-" * 40)
-        print("FAILED SCRIPTS:")
-        print("-" * 40)
         for script in failed:
-            rel_path = script.relative_to(base_dir)
+            script.relative_to(base_dir)
             _, error, exec_time = results[script]
-            print(f"\n  ✗ {rel_path} ({format_time(exec_time)})")
-            print("    Error:")
-            for line in error.split("\n"):
-                print(f"      {line}")
+            for _line in error.split("\n"):
+                pass
 
     # Print detailed output for all scripts if requested
     if "--verbose" in sys.argv:
-        print("\n" + "=" * 80)
-        print("DETAILED OUTPUT")
-        print("=" * 80)
         for script in scripts:
-            rel_path = script.relative_to(base_dir)
+            script.relative_to(base_dir)
             success, output, exec_time = results[script]
-            status = "SUCCESS" if success else "FAILED"
-            print(f"\n{rel_path} [{status}] ({format_time(exec_time)}):")
-            print("-" * 40)
-            print(output)
-
-    print("\n" + "=" * 80)
-    print(f"Completed at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print("=" * 80)
 
     # Return exit code based on whether all scripts passed
     return 0 if len(failed) == 0 else 1

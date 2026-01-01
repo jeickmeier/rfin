@@ -146,7 +146,6 @@ pub fn aggregate_by_multiple_attributes(
 /// # Arguments
 ///
 /// * `valuation` - Pre-computed valuation results providing per-position values.
-/// * `positions` - Positions that correspond to the valuation results.
 /// * `books` - Book hierarchy definition.
 /// * `base_ccy` - Currency used when adding monetary amounts.
 ///
@@ -161,11 +160,10 @@ pub fn aggregate_by_multiple_attributes(
 /// use finstack_portfolio::{aggregate_by_book, value_portfolio};
 /// use finstack_core::currency::Currency;
 ///
-/// # fn example(portfolio: finstack_portfolio::Portfolio, market: finstack_core::market_data::MarketContext, config: finstack_core::config::FinstackConfig) -> finstack_portfolio::Result<()> {
+/// # fn example(portfolio: finstack_portfolio::Portfolio, market: finstack_core::market_data::context::MarketContext, config: finstack_core::config::FinstackConfig) -> finstack_portfolio::Result<()> {
 /// let valuation = value_portfolio(&portfolio, &market, &config)?;
 /// let by_book = aggregate_by_book(
 ///     &valuation,
-///     &portfolio.positions,
 ///     &portfolio.books,
 ///     Currency::USD,
 /// )?;
@@ -179,24 +177,22 @@ pub fn aggregate_by_multiple_attributes(
 /// ```
 pub fn aggregate_by_book(
     valuation: &PortfolioValuation,
-    positions: &[Position],
     books: &IndexMap<BookId, Book>,
     base_ccy: Currency,
 ) -> Result<IndexMap<BookId, Money>> {
     let mut book_totals: IndexMap<BookId, Money> = IndexMap::new();
-    
+
     // Build a map of position values by position_id for quick lookup
     let position_values: HashMap<&crate::types::PositionId, &Money> = valuation
         .position_values
         .iter()
         .map(|(id, val)| (id, &val.value_base))
         .collect();
-    
+
     // Helper function to recursively compute book total
     fn compute_book_total(
         book_id: &BookId,
         books: &IndexMap<BookId, Book>,
-        positions: &[Position],
         position_values: &HashMap<&crate::types::PositionId, &Money>,
         base_ccy: Currency,
         memo: &mut HashMap<BookId, Money>,
@@ -205,54 +201,40 @@ pub fn aggregate_by_book(
         if let Some(cached) = memo.get(book_id) {
             return Ok(*cached);
         }
-        
+
         let book = books.get(book_id).ok_or_else(|| {
             crate::error::PortfolioError::InvalidInput(format!("Book not found: {}", book_id))
         })?;
-        
+
         // Start with zero
         let mut total = Money::new(0.0, base_ccy);
-        
+
         // Add direct position values
         for pos_id in &book.position_ids {
             if let Some(&&value) = position_values.get(pos_id) {
                 total = total.checked_add(value)?;
             }
         }
-        
+
         // Recursively add child book totals
         for child_id in &book.child_book_ids {
-            let child_total = compute_book_total(
-                child_id,
-                books,
-                positions,
-                position_values,
-                base_ccy,
-                memo,
-            )?;
+            let child_total = compute_book_total(child_id, books, position_values, base_ccy, memo)?;
             total = total.checked_add(child_total)?;
         }
-        
+
         // Memoize
         memo.insert(book_id.clone(), total);
-        
+
         Ok(total)
     }
-    
+
     // Compute totals for all books
     let mut memo: HashMap<BookId, Money> = HashMap::new();
     for book_id in books.keys() {
-        let total = compute_book_total(
-            book_id,
-            books,
-            positions,
-            &position_values,
-            base_ccy,
-            &mut memo,
-        )?;
+        let total = compute_book_total(book_id, books, &position_values, base_ccy, &mut memo)?;
         book_totals.insert(book_id.clone(), total);
     }
-    
+
     Ok(book_totals)
 }
 

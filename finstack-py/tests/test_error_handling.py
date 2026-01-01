@@ -6,15 +6,15 @@ to ensure proper error mapping from Rust to Python exceptions.
 
 import datetime as dt
 
-import pytest
-
-import finstack
 from finstack.core.currency import Currency
 from finstack.core.dates import BusinessDayConvention, DayCount, adjust, get_calendar
 from finstack.core.market_data import DiscountCurve, FxMatrix, MarketContext, VolSurface
-from finstack.valuations import calibration as cal
 from finstack.valuations.instruments import Bond
 from finstack.valuations.pricer import create_standard_registry
+import pytest
+
+import finstack
+from finstack.valuations import calibration as cal
 
 
 class TestExceptionHierarchy:

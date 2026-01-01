@@ -1,5 +1,4 @@
-"""
-End-to-end covenant forward-projection with headroom analytics (Python).
+"""End-to-end covenant forward-projection with headroom analytics (Python).
 
 This example builds a minimal financial model with EBITDA and Total Debt nodes,
 computes a Debt/EBITDA ratio node, evaluates the model, and then forecasts a
@@ -23,10 +22,11 @@ try:
 except Exception:  # pragma: no cover - optional
     pl = None
 
-from finstack import Covenant, CovenantForecastConfig, CovenantSpec, CovenantType, forecast_covenant
 from finstack.core.dates.periods import build_periods
 from finstack.statements.evaluator import Evaluator
 from finstack.statements.types import AmountOrScalar, FinancialModelSpec, ForecastSpec, NodeSpec, NodeType
+
+from finstack import Covenant, CovenantForecastConfig, CovenantSpec, CovenantType, forecast_covenant
 
 
 def build_demo_model() -> tuple[FinancialModelSpec, list]:
@@ -89,28 +89,20 @@ def main() -> int:
 
     forecast = forecast_covenant(cov_spec, model, results, window_ids, cfg)
 
-    print("=== Covenant Forward Projection: Max Debt/EBITDA <= 5.0x ===")
-    print(f"First breach date: {forecast.first_breach_date}")
-    print(f"Min headroom: {forecast.min_headroom_value:.1%} on {forecast.min_headroom_date}")
-
     # Warn where headroom < 10%
     warn_indices = [i for i, h in enumerate(forecast.headroom) if h < 0.10]
     if warn_indices:
-        warn_dates = [forecast.test_dates[i] for i in warn_indices]
-        print(f"⚠️  {len(warn_indices)} periods with <10% headroom: {warn_dates}")
+        [forecast.test_dates[i] for i in warn_indices]
     else:
-        print("No periods with headroom below 10% in the selected window.")
+        pass
 
     # Human-readable quarter-by-quarter explanation
-    print("\n-- Explain --")
-    print(forecast.explain())
 
     # Optional: export to Polars for visualization
     if pl is not None:
         df = forecast.to_polars().to_pandas() if hasattr(forecast, "to_polars") else None
         if df is not None:
-            print("\nHeadroom sample (Polars->Pandas):")
-            print(df.head())
+            pass
 
     return 0
 

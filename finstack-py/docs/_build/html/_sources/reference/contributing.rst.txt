@@ -20,7 +20,7 @@ Getting Started
 
       # Using pip
       pip install -e '.[dev]'
-      
+
       # Or using uv (faster)
       pip install uv
       uv pip install -e '.[dev]'
@@ -59,10 +59,10 @@ All new features must include tests:
 
    # Run tests
    pytest finstack-py/tests/
-   
+
    # Run specific test file
    pytest finstack-py/tests/test_bond.py -v
-   
+
    # Run with coverage
    pytest --cov=finstack --cov-report=html
 
@@ -73,10 +73,10 @@ All new features must include tests:
 
    # Rust linting
    make lint-rust
-   
+
    # Python linting
    make lint-python
-   
+
    # Auto-fix (where possible)
    make lint-rust-fix
    ruff check --fix .
@@ -88,7 +88,7 @@ All new features must include tests:
 
    cd finstack-py/docs
    make html
-   
+
    # View locally
    open _build/html/index.html
 
@@ -134,20 +134,20 @@ Example:
 .. code-block:: python
 
    """Bond pricing utilities.
-   
+
    This module provides functions for pricing fixed-income securities.
    """
-   
+
    from typing import Optional
    from finstack import Bond, Money, Date
-   
+
    def price_bond(
        bond: Bond,
        market: MarketContext,
        config: Optional[FinstackConfig] = None
    ) -> Money:
        """Price a bond using the discounting model.
-       
+
        Parameters
        ----------
        bond : Bond
@@ -156,12 +156,12 @@ Example:
            Market data (discount curve).
        config : FinstackConfig, optional
            Configuration for rounding, by default None.
-       
+
        Returns
        -------
        Money
            Present value of the bond.
-       
+
        Examples
        --------
        >>> bond = Bond.fixed_semiannual(...)

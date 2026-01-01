@@ -11,10 +11,9 @@ use crate::valuations::instruments::extract_instrument;
 use crate::valuations::metrics::ids::PyMetricId;
 use finstack_portfolio::optimization::{
     optimize_max_yield_with_ccc_limit, CandidatePosition, Constraint, DefaultLpOptimizer,
-    Inequality, MetricExpr, MissingMetricPolicy, Objective, OptimizationStatus,
-    PerPositionMetric, PortfolioOptimizationProblem, PortfolioOptimizationResult,
-    PortfolioOptimizer, PositionFilter, TradeDirection, TradeSpec, TradeType, TradeUniverse,
-    WeightingScheme,
+    Inequality, MetricExpr, MissingMetricPolicy, Objective, OptimizationStatus, PerPositionMetric,
+    PortfolioOptimizationProblem, PortfolioOptimizationResult, PortfolioOptimizer, PositionFilter,
+    TradeDirection, TradeSpec, TradeType, TradeUniverse, WeightingScheme,
 };
 use finstack_portfolio::position::PositionUnit;
 use pyo3::exceptions::PyValueError;
@@ -144,7 +143,10 @@ impl PyWeightingScheme {
 /// >>> MissingMetricPolicy.ZERO  # Treat missing as 0.0 (default)
 /// >>> MissingMetricPolicy.EXCLUDE  # Exclude position from constraint
 /// >>> MissingMetricPolicy.STRICT  # Fail with error if missing
-#[pyclass(name = "MissingMetricPolicy", module = "finstack.portfolio.optimization")]
+#[pyclass(
+    name = "MissingMetricPolicy",
+    module = "finstack.portfolio.optimization"
+)]
 #[derive(Clone)]
 pub struct PyMissingMetricPolicy {
     pub inner: MissingMetricPolicy,
@@ -214,7 +216,10 @@ impl PyInequality {
 /// --------
 /// >>> result.status == OptimizationStatus.OPTIMAL
 /// True
-#[pyclass(name = "OptimizationStatus", module = "finstack.portfolio.optimization")]
+#[pyclass(
+    name = "OptimizationStatus",
+    module = "finstack.portfolio.optimization"
+)]
 #[derive(Clone)]
 pub struct PyOptimizationStatus {
     pub inner: OptimizationStatus,
@@ -414,10 +419,7 @@ impl PyMetricExpr {
     #[staticmethod]
     fn tag_exposure_share(tag_key: String, tag_value: String) -> Self {
         Self {
-            inner: MetricExpr::TagExposureShare {
-                tag_key,
-                tag_value,
-            },
+            inner: MetricExpr::TagExposureShare { tag_key, tag_value },
         }
     }
 
@@ -624,12 +626,7 @@ impl PyConstraint {
     /// Weight bounds for all positions matching the filter.
     #[staticmethod]
     #[pyo3(signature = (label, filter, min, max))]
-    fn weight_bounds(
-        label: Option<String>,
-        filter: PyPositionFilter,
-        min: f64,
-        max: f64,
-    ) -> Self {
+    fn weight_bounds(label: Option<String>, filter: PyPositionFilter, min: f64, max: f64) -> Self {
         Self {
             inner: Constraint::WeightBounds {
                 label,
@@ -655,11 +652,7 @@ impl PyConstraint {
     /// Maximum single position weight change.
     #[staticmethod]
     #[pyo3(signature = (label, filter, max_delta))]
-    fn max_position_delta(
-        label: Option<String>,
-        filter: PyPositionFilter,
-        max_delta: f64,
-    ) -> Self {
+    fn max_position_delta(label: Option<String>, filter: PyPositionFilter, max_delta: f64) -> Self {
         Self {
             inner: Constraint::MaxPositionDelta {
                 label,
@@ -799,7 +792,10 @@ impl PyTradeSpec {
 ///     Get constraints that are binding at the solution (slack ≈ 0).
 /// turnover()
 ///     Calculate total turnover (sum of absolute weight changes).
-#[pyclass(name = "OptimizationResult", module = "finstack.portfolio.optimization")]
+#[pyclass(
+    name = "OptimizationResult",
+    module = "finstack.portfolio.optimization"
+)]
 pub struct PyOptimizationResult {
     pub inner: PortfolioOptimizationResult,
 }
@@ -1059,7 +1055,10 @@ impl PyTradeUniverse {
 /// >>> problem = problem.with_constraint(Constraint.max_turnover(None, 0.20))
 /// >>> # Solve
 /// >>> result = problem.optimize(market_context)
-#[pyclass(name = "PortfolioOptimizationProblem", module = "finstack.portfolio.optimization")]
+#[pyclass(
+    name = "PortfolioOptimizationProblem",
+    module = "finstack.portfolio.optimization"
+)]
 pub struct PyPortfolioOptimizationProblem {
     pub inner: PortfolioOptimizationProblem,
 }

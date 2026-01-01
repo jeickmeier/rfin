@@ -4,7 +4,7 @@ This module provides a simple text-based DSL for defining scenarios without
 manually constructing ScenarioSpec objects. The DSL supports common operations
 like curve shifts, equity shocks, and time roll-forwards.
 
-Examples
+Examples:
 --------
 >>> from finstack.scenarios import ScenarioSpec
 >>> scenario = ScenarioSpec.from_dsl('''
@@ -41,7 +41,7 @@ The DSL supports the following operations:
 - `adjust <NODE_ID> +/-<VALUE>%` - Statement forecast percent change
 - `set <NODE_ID> <VALUE>` - Statement forecast assignment
 
-Notes
+Notes:
 -----
 - Commands are case-insensitive and whitespace-tolerant
 - Multiple operations can be separated by semicolons or newlines
@@ -49,7 +49,7 @@ Notes
 """
 
 import re
-from typing import List, Optional, Tuple
+from typing import Any
 
 from finstack import Currency  # type: ignore
 from finstack.scenarios import (  # type: ignore
@@ -62,7 +62,18 @@ from finstack.scenarios import (  # type: ignore
 class DSLParseError(Exception):
     """Error raised when DSL parsing fails."""
 
-    def __init__(self, message: str, line: Optional[int] = None, text: Optional[str] = None):
+    def __init__(self, message: str, line: int | None = None, text: str | None = None) -> None:
+        """Initialize DSL parse error.
+
+        Parameters
+        ----------
+        message : str
+            Error message.
+        line : int | None, optional
+            Line number where error occurred.
+        text : str | None, optional
+            Line text where error occurred.
+        """
         self.message = message
         self.line = line
         self.text = text
@@ -88,15 +99,22 @@ class DSLParser:
     text : str
         DSL text to parse.
 
-    Attributes
+    Attributes:
     ----------
     operations : list[OperationSpec]
         Parsed operations.
     """
 
-    def __init__(self, text: str):
+    def __init__(self, text: str) -> None:
+        """Initialize parser with DSL text.
+
+        Parameters
+        ----------
+        text : str
+            DSL text to parse.
+        """
         self.text = text
-        self.operations: List[OperationSpec] = []
+        self.operations: list[OperationSpec] = []
         self._parse()
 
     def _parse(self) -> None:
@@ -111,34 +129,34 @@ class DSLParser:
             except Exception as e:
                 raise DSLParseError(str(e), line_num, line) from e
 
-    def _preprocess(self, text: str) -> List[str]:
+    def _preprocess(self, text: str) -> list[str]:
         """Preprocess text: remove comments, split on semicolons."""
         lines = []
-        for line in text.split('\n'):
+        for orig_line in text.split("\n"):
             # Remove comments
-            line = line.split('#')[0].strip()
+            line = orig_line.split("#")[0].strip()
             if not line:
                 continue
             # Split on semicolons
-            for subline in line.split(';'):
-                subline = subline.strip()
+            for orig_subline in line.split(";"):
+                subline = orig_subline.strip()
                 if subline:
                     lines.append(subline)
         return lines
 
-    def _parse_line(self, line: str) -> List[OperationSpec]:
+    def _parse_line(self, line: str) -> list[OperationSpec]:
         """Parse a single line into operations."""
         # Normalize whitespace
-        line = ' '.join(line.split())
+        line = " ".join(line.split())
 
         # Match operation type
-        if re.match(r'^shift\s+', line, re.I):
+        if re.match(r"^shift\s+", line, re.I):
             return [self._parse_shift(line)]
-        elif re.match(r'^roll\s+forward\s+', line, re.I):
+        elif re.match(r"^roll\s+forward\s+", line, re.I):
             return [self._parse_roll_forward(line)]
-        elif re.match(r'^adjust\s+', line, re.I):
+        elif re.match(r"^adjust\s+", line, re.I):
             return [self._parse_adjust(line)]
-        elif re.match(r'^set\s+', line, re.I):
+        elif re.match(r"^set\s+", line, re.I):
             return [self._parse_set(line)]
         else:
             raise ValueError(f"Unknown operation: {line}")
@@ -148,7 +166,7 @@ class DSLParser:
         # Curve shifts: shift [curve_kind] <CURVE_ID> +/-<VALUE>bp
         # Example: shift discount USD.OIS +50bp
         m = re.match(
-            r'^shift\s+(discount|forward|hazard|inflation)\s+(\S+)\s+([-+]?\d+(?:\.\d+)?)bp$',
+            r"^shift\s+(discount|forward|hazard|inflation)\s+(\S+)\s+([-+]?\d+(?:\.\d+)?)bp$",
             line,
             re.I,
         )
@@ -160,7 +178,7 @@ class DSLParser:
 
         # Default curve shift: shift <CURVE_ID> +/-<VALUE>bp
         # Example: shift USD.OIS +50bp
-        m = re.match(r'^shift\s+(\S+)\s+([-+]?\d+(?:\.\d+)?)bp$', line, re.I)
+        m = re.match(r"^shift\s+(\S+)\s+([-+]?\d+(?:\.\d+)?)bp$", line, re.I)
         if m:
             curve_id, bp_str = m.groups()
             bp = float(bp_str)
@@ -168,20 +186,20 @@ class DSLParser:
             return OperationSpec.curve_parallel_bp(CurveKind.Discount, curve_id, bp)
 
         # Equity shifts: shift equities +/-<VALUE>%
-        m = re.match(r'^shift\s+equities\s+([-+]?\d+(?:\.\d+)?)%$', line, re.I)
+        m = re.match(r"^shift\s+equities\s+([-+]?\d+(?:\.\d+)?)%$", line, re.I)
         if m:
             pct = float(m.group(1))
             return OperationSpec.equity_price_pct([], pct)
 
         # Single equity shift: shift equity <ID> +/-<VALUE>%
-        m = re.match(r'^shift\s+equity\s+(\S+)\s+([-+]?\d+(?:\.\d+)?)%$', line, re.I)
+        m = re.match(r"^shift\s+equity\s+(\S+)\s+([-+]?\d+(?:\.\d+)?)%$", line, re.I)
         if m:
             equity_id, pct_str = m.groups()
             pct = float(pct_str)
             return OperationSpec.equity_price_pct([equity_id], pct)
 
         # FX shift: shift fx <BASE>/<QUOTE> +/-<VALUE>%
-        m = re.match(r'^shift\s+fx\s+([A-Z]{3})/([A-Z]{3})\s+([-+]?\d+(?:\.\d+)?)%$', line, re.I)
+        m = re.match(r"^shift\s+fx\s+([A-Z]{3})/([A-Z]{3})\s+([-+]?\d+(?:\.\d+)?)%$", line, re.I)
         if m:
             base_str, quote_str, pct_str = m.groups()
             base = Currency.from_code(base_str.upper())
@@ -190,16 +208,14 @@ class DSLParser:
             return OperationSpec.market_fx_pct(base, quote, pct)
 
         # Vol surface shift: shift vol <ID> +/-<VALUE>%
-        m = re.match(r'^shift\s+vol\s+(\S+)\s+([-+]?\d+(?:\.\d+)?)%$', line, re.I)
+        m = re.match(r"^shift\s+vol\s+(\S+)\s+([-+]?\d+(?:\.\d+)?)%$", line, re.I)
         if m:
             vol_id, pct_str = m.groups()
             pct = float(pct_str)
             # Default to equity vol surface
             from finstack.scenarios import VolSurfaceKind  # type: ignore
 
-            return OperationSpec.vol_surface_parallel_pct(
-                VolSurfaceKind.Equity, vol_id, pct
-            )
+            return OperationSpec.vol_surface_parallel_pct(VolSurfaceKind.Equity, vol_id, pct)
 
         raise ValueError(f"Invalid shift syntax: {line}")
 
@@ -207,13 +223,13 @@ class DSLParser:
         """Parse roll forward operations."""
         # roll forward <VALUE><UNIT>
         # Example: roll forward 1m
-        m = re.match(r'^roll\s+forward\s+(\d+)([dwmy])$', line, re.I)
+        m = re.match(r"^roll\s+forward\s+(\d+)([dwmy])$", line, re.I)
         if m:
             value_str, unit = m.groups()
             value = int(value_str)
 
             # Convert to period string
-            unit_map = {'d': 'd', 'w': 'w', 'm': 'm', 'y': 'y'}
+            unit_map = {"d": "d", "w": "w", "m": "m", "y": "y"}
             period = f"{value}{unit_map[unit.lower()]}"
 
             return OperationSpec.time_roll_forward(period)
@@ -224,7 +240,7 @@ class DSLParser:
         """Parse statement forecast percent adjustments."""
         # adjust <NODE_ID> +/-<VALUE>%
         # Example: adjust revenue +10%
-        m = re.match(r'^adjust\s+(\S+)\s+([-+]?\d+(?:\.\d+)?)%$', line, re.I)
+        m = re.match(r"^adjust\s+(\S+)\s+([-+]?\d+(?:\.\d+)?)%$", line, re.I)
         if m:
             node_id, pct_str = m.groups()
             pct = float(pct_str)
@@ -236,7 +252,7 @@ class DSLParser:
         """Parse statement forecast assignments."""
         # set <NODE_ID> <VALUE>
         # Example: set revenue 1000000
-        m = re.match(r'^set\s+(\S+)\s+([-+]?\d+(?:\.\d+)?)$', line, re.I)
+        m = re.match(r"^set\s+(\S+)\s+([-+]?\d+(?:\.\d+)?)$", line, re.I)
         if m:
             node_id, value_str = m.groups()
             value = float(value_str)
@@ -247,10 +263,10 @@ class DSLParser:
     def _parse_curve_kind(self, kind_str: str) -> CurveKind:
         """Parse curve kind from string."""
         kind_map = {
-            'discount': CurveKind.Discount,
-            'forward': CurveKind.Forward,
-            'hazard': CurveKind.Hazard,
-            'inflation': CurveKind.Inflation,
+            "discount": CurveKind.Discount,
+            "forward": CurveKind.Forward,
+            "hazard": CurveKind.Hazard,
+            "inflation": CurveKind.Inflation,
         }
         kind = kind_map.get(kind_str.lower())
         if kind is None:
@@ -258,7 +274,7 @@ class DSLParser:
         return kind
 
 
-def from_dsl(text: str, scenario_id: str = "dsl_scenario", **kwargs) -> ScenarioSpec:
+def from_dsl(text: str, scenario_id: str = "dsl_scenario", **kwargs: Any) -> ScenarioSpec:
     """Parse DSL text into a ScenarioSpec.
 
     Parameters
@@ -270,23 +286,27 @@ def from_dsl(text: str, scenario_id: str = "dsl_scenario", **kwargs) -> Scenario
     **kwargs
         Additional arguments passed to ScenarioSpec constructor (name, description, priority).
 
-    Returns
+    Returns:
     -------
     ScenarioSpec
         Parsed scenario specification.
 
-    Raises
+    Raises:
     ------
     DSLParseError
         If parsing fails.
 
-    Examples
+    Examples:
     --------
-    >>> scenario = from_dsl('''
+    >>> scenario = from_dsl(
+    ...     '''
     ...     shift USD.OIS +50bp
     ...     shift equities -10%
     ...     roll forward 1m
-    ... ''', scenario_id="stress_test", name="Q1 Stress")
+    ... ''',
+    ...     scenario_id="stress_test",
+    ...     name="Q1 Stress",
+    ... )
     """
     parser = DSLParser(text)
     return ScenarioSpec(scenario_id, parser.operations, **kwargs)
@@ -296,11 +316,11 @@ def from_dsl(text: str, scenario_id: str = "dsl_scenario", **kwargs) -> Scenario
 _original_scenario_spec = ScenarioSpec
 
 
-def _add_from_dsl_to_spec():
+def _add_from_dsl_to_spec() -> None:
     """Add from_dsl class method to ScenarioSpec."""
 
     @classmethod
-    def from_dsl_method(cls, text: str, scenario_id: str = "dsl_scenario", **kwargs):
+    def from_dsl_method(_cls: type, text: str, scenario_id: str = "dsl_scenario", **kwargs: Any) -> ScenarioSpec:
         """Parse DSL text into a ScenarioSpec.
 
         This is a convenience method that wraps the standalone from_dsl function.
@@ -314,17 +334,17 @@ def _add_from_dsl_to_spec():
         **kwargs
             Additional arguments (name, description, priority).
 
-        Returns
+        Returns:
         -------
         ScenarioSpec
             Parsed scenario specification.
 
-        Raises
+        Raises:
         ------
         DSLParseError
             If parsing fails.
 
-        Examples
+        Examples:
         --------
         >>> scenario = ScenarioSpec.from_dsl('''
         ...     shift USD.OIS +50bp

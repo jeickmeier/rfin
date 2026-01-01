@@ -67,10 +67,10 @@ Example:
 
    engine = ScenarioEngine()
    shocked_market, report = engine.apply(spec, market)
-   
+
    # Re-price under stress
    stressed_result = registry.price_bond(bond, "discounting", shocked_market)
-   
+
    # Compare
    pnl = stressed_result.present_value.amount - base_result.present_value.amount
 
@@ -91,11 +91,11 @@ Example:
        # Curve shifts
        shift USD.OIS +50bp
        shift EUR.OIS +40bp
-       
+
        # Equity and FX
        shift equities -10%
        shift fx USD/EUR +3%
-       
+
        # Time
        roll forward 1m
    """)
@@ -135,11 +135,11 @@ Merge multiple scenarios:
    # Define base and overlay
    base = ScenarioSpec.from_dsl("shift USD.OIS +50bp")
    overlay = ScenarioSpec.from_dsl("shift equities -10%")
-   
+
    # Compose (base applied first, then overlay)
    engine = ScenarioEngine()
    composed = engine.compose([base, overlay])
-   
+
    # Apply composed scenario
    shocked_market, report = engine.apply(composed, market)
 

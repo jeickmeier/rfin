@@ -3,7 +3,6 @@
 
 from datetime import date
 
-from finstack import Money
 from finstack.core.currency import USD
 from finstack.core.dates import BusinessDayConvention
 from finstack.core.dates.daycount import DayCount
@@ -22,6 +21,8 @@ from finstack.valuations.instruments import (
     TrsSide,
 )
 from finstack.valuations.pricer import create_standard_registry
+
+from finstack import Money
 
 
 def build_market(as_of: date) -> MarketContext:
@@ -99,15 +100,12 @@ def main() -> None:
         TrsSide.RECEIVE_TOTAL_RETURN,
         initial_level=120.0,
     )
-    equity_result = registry.price_with_metrics(
+    registry.price_with_metrics(
         equity_trs,
         "discounting",
         market,
         ["index_delta", "financing_annuity"],
     )
-    print("Equity TRS PV:", round(equity_result.value.amount, 2), equity_result.value.currency)
-    print("Equity TRS delta:", equity_result.measures.get("index_delta"))
-    print("Equity TRS financing annuity:", equity_result.measures.get("financing_annuity"))
 
     index_underlying = IndexUnderlying.new(
         index_id="CDX.NA.IG",
@@ -126,14 +124,12 @@ def main() -> None:
         TrsSide.PAY_TOTAL_RETURN,
         initial_level=100.0,
     )
-    index_result = registry.price_with_metrics(
+    registry.price_with_metrics(
         index_trs,
         "discounting",
         market,
         ["par_spread", "dv01"],
     )
-    print("FI index TRS PV:", round(index_result.value.amount, 2), index_result.value.currency)
-    print("FI index TRS par spread:", index_result.measures.get("par_spread"))
 
 
 if __name__ == "__main__":

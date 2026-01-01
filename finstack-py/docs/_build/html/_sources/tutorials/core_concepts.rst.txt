@@ -21,7 +21,7 @@ finstack guarantees **bit-for-bit reproducible results**:
    # Same instrument, market, config → always same result
    result1 = registry.price_bond(bond, "discounting", market)
    result2 = registry.price_bond(bond, "discounting", market)
-   
+
    assert result1.present_value.amount == result2.present_value.amount
 
 Currency Safety
@@ -54,7 +54,7 @@ Cross-currency arithmetic requires **explicit conversion**:
 
    # Portfolio with mixed currencies
    valuation = value_portfolio(portfolio, market, None)
-   
+
    # Check applied FX policy
    print(valuation.metadata.fx_policy)  # e.g., "TriangulationViaBase(USD)"
 
@@ -76,7 +76,7 @@ finstack uses **Decimal arithmetic** by default (not IEEE 754 floats):
    total = amount
    for _ in range(10):
        total = total.add(amount)
-   
+
    # Exactly 1.1 (no floating-point drift)
    assert total.amount == 1.1
 
@@ -108,13 +108,13 @@ All public types support **JSON serialization** with stable field names:
    from finstack import Bond
 
    bond = Bond.fixed_semiannual(...)
-   
+
    # Serialize to JSON
    json_str = bond.to_json()
-   
+
    # Deserialize from JSON
    bond2 = Bond.from_json(json_str)
-   
+
    # Same bond
    assert bond.id == bond2.id
 

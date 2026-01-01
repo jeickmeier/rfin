@@ -19,9 +19,6 @@ All tests follow the pattern:
 
 from datetime import date
 
-import pytest
-
-from finstack import Money
 from finstack.core.currency import EUR, USD
 from finstack.core.dates import BusinessDayConvention
 from finstack.core.dates.daycount import DayCount
@@ -35,12 +32,15 @@ from finstack.valuations.cashflow import (
     FloatingCouponSpec,
     ScheduleParams,
 )
+import pytest
+
+from finstack import Money
 
 
 class TestBasicCashflowConstruction:
     """Test basic cashflow construction with fixed and floating rates."""
 
-    def test_simple_fixed_coupon_bond(self):
+    def test_simple_fixed_coupon_bond(self) -> None:
         """Create a simple fixed-rate bond with quarterly coupons."""
         issue = date(2025, 1, 15)
         maturity = date(2027, 1, 15)
@@ -76,7 +76,7 @@ class TestBasicCashflowConstruction:
         assert any(flow.kind.name == "fixed" for flow in flows)
         assert any(flow.kind.name == "notional" for flow in flows)
 
-    def test_floating_rate_note(self):
+    def test_floating_rate_note(self) -> None:
         """Create a floating-rate note with SOFR + margin."""
         issue = date(2025, 3, 1)
         maturity = date(2028, 3, 1)
@@ -112,7 +112,7 @@ class TestBasicCashflowConstruction:
         # Should have float_reset flows
         assert any(flow.kind.name == "float_reset" for flow in flows)
 
-    def test_market_standard_conventions(self):
+    def test_market_standard_conventions(self) -> None:
         """Test market standard schedule parameters."""
         # USD standard: quarterly Act/360
         usd_schedule = ScheduleParams.usd_standard()
@@ -134,16 +134,14 @@ class TestBasicCashflowConstruction:
 class TestAmortizationSchedules:
     """Test various amortization schedule types."""
 
-    def test_bullet_no_amortization(self):
+    def test_bullet_no_amortization(self) -> None:
         """Test bullet loan (no amortization until maturity)."""
         issue = date(2025, 1, 1)
         maturity = date(2030, 1, 1)
         notional = Money(10_000_000, USD)
 
         schedule = ScheduleParams.quarterly_act360()
-        fixed_spec = FixedCouponSpec.new(
-            rate=0.06, schedule=schedule, coupon_type=CouponType.CASH
-        )
+        fixed_spec = FixedCouponSpec.new(rate=0.06, schedule=schedule, coupon_type=CouponType.CASH)
 
         # No amortization spec = bullet
         builder = CashflowBuilder.new()
@@ -159,7 +157,7 @@ class TestAmortizationSchedules:
         assert len(notional_flows) == 1
         assert notional_flows[0].date == maturity
 
-    def test_linear_amortization(self):
+    def test_linear_amortization(self) -> None:
         """Test linear amortization to a final notional."""
         issue = date(2025, 6, 1)
         maturity = date(2030, 6, 1)
@@ -167,9 +165,7 @@ class TestAmortizationSchedules:
         final_notional = Money(2_000_000, USD)  # Amortize down to 20%
 
         schedule = ScheduleParams.quarterly_act360()
-        fixed_spec = FixedCouponSpec.new(
-            rate=0.06, schedule=schedule, coupon_type=CouponType.CASH
-        )
+        fixed_spec = FixedCouponSpec.new(rate=0.06, schedule=schedule, coupon_type=CouponType.CASH)
 
         # Linear amortization
         amort_spec = AmortizationSpec.linear_to(final_notional)
@@ -192,16 +188,14 @@ class TestAmortizationSchedules:
         expected_total_amort = notional.amount - final_notional.amount
         assert abs(total_amort - expected_total_amort) < 0.01  # Small tolerance for floating point
 
-    def test_step_amortization(self):
+    def test_step_amortization(self) -> None:
         """Test step amortization with specific balance targets."""
         issue = date(2025, 1, 1)
         maturity = date(2030, 1, 1)
         notional = Money(10_000_000, USD)
 
         schedule = ScheduleParams.annual_actact()
-        fixed_spec = FixedCouponSpec.new(
-            rate=0.055, schedule=schedule, coupon_type=CouponType.CASH
-        )
+        fixed_spec = FixedCouponSpec.new(rate=0.055, schedule=schedule, coupon_type=CouponType.CASH)
 
         # Define step amortization: remaining balance at specific dates
         amort_steps = [
@@ -225,16 +219,14 @@ class TestAmortizationSchedules:
         # Should have amortization flows at the specified dates
         assert len(amort_flows) > 0
 
-    def test_percent_per_period_amortization(self):
+    def test_percent_per_period_amortization(self) -> None:
         """Test amortization with fixed percentage per period."""
         issue = date(2025, 1, 1)
         maturity = date(2028, 1, 1)
         notional = Money(1_000_000, USD)
 
         schedule = ScheduleParams.quarterly_act360()
-        fixed_spec = FixedCouponSpec.new(
-            rate=0.05, schedule=schedule, coupon_type=CouponType.CASH
-        )
+        fixed_spec = FixedCouponSpec.new(rate=0.05, schedule=schedule, coupon_type=CouponType.CASH)
 
         # 5% of original notional per period
         amort_spec = AmortizationSpec.percent_per_period(0.05)
@@ -257,16 +249,14 @@ class TestAmortizationSchedules:
         for flow in amort_flows[:-1]:  # Exclude final flow which may differ
             assert abs(abs(flow.amount.amount) - expected_per_period) < 100  # $100 tolerance
 
-    def test_custom_principal_flows(self):
+    def test_custom_principal_flows(self) -> None:
         """Test custom principal repayment schedule."""
         issue = date(2025, 1, 1)
         maturity = date(2027, 1, 1)
         notional = Money(3_000_000, USD)
 
         schedule = ScheduleParams.semiannual_30360()
-        fixed_spec = FixedCouponSpec.new(
-            rate=0.06, schedule=schedule, coupon_type=CouponType.CASH
-        )
+        fixed_spec = FixedCouponSpec.new(rate=0.06, schedule=schedule, coupon_type=CouponType.CASH)
 
         # Custom principal payments
         principal_payments = [
@@ -295,16 +285,14 @@ class TestAmortizationSchedules:
 class TestCouponTypes:
     """Test different coupon payment types."""
 
-    def test_cash_coupon(self):
+    def test_cash_coupon(self) -> None:
         """Test cash coupon (100% paid in cash)."""
         issue = date(2025, 1, 1)
         maturity = date(2027, 1, 1)
         notional = Money(1_000_000, USD)
 
         schedule = ScheduleParams.semiannual_30360()
-        fixed_spec = FixedCouponSpec.new(
-            rate=0.05, schedule=schedule, coupon_type=CouponType.CASH
-        )
+        fixed_spec = FixedCouponSpec.new(rate=0.05, schedule=schedule, coupon_type=CouponType.CASH)
 
         builder = CashflowBuilder.new()
         builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
@@ -319,16 +307,14 @@ class TestCouponTypes:
         # All interest flows should be cash (not PIK)
         assert all(f.amount.amount > 0 for f in interest_flows)  # Cash payments are positive
 
-    def test_pik_coupon(self):
+    def test_pik_coupon(self) -> None:
         """Test PIK coupon (100% capitalized)."""
         issue = date(2025, 1, 1)
         maturity = date(2030, 1, 1)
         notional = Money(2_000_000, USD)
 
         schedule = ScheduleParams.semiannual_30360()
-        fixed_spec = FixedCouponSpec.new(
-            rate=0.08, schedule=schedule, coupon_type=CouponType.PIK
-        )
+        fixed_spec = FixedCouponSpec.new(rate=0.08, schedule=schedule, coupon_type=CouponType.PIK)
 
         builder = CashflowBuilder.new()
         builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
@@ -342,7 +328,7 @@ class TestCouponTypes:
         # Should have PIK flows
         assert len(pik_flows) > 0
 
-    def test_split_coupon(self):
+    def test_split_coupon(self) -> None:
         """Test split coupon (partial cash, partial PIK)."""
         issue = date(2025, 1, 1)
         maturity = date(2030, 1, 1)
@@ -350,10 +336,7 @@ class TestCouponTypes:
 
         schedule = ScheduleParams.semiannual_30360()
 
-        # 70% cash, 30% PIK
-        fixed_spec = FixedCouponSpec.new(
-            rate=0.08, schedule=schedule, coupon_type=CouponType.split(0.7, 0.3)
-        )
+        fixed_spec = FixedCouponSpec.new(rate=0.08, schedule=schedule, coupon_type=CouponType.split(0.7, 0.3))
 
         builder = CashflowBuilder.new()
         builder.principal(amount=notional.amount, currency=EUR, issue=issue, maturity=maturity)
@@ -371,7 +354,7 @@ class TestCouponTypes:
 class TestAdvancedFeatures:
     """Test advanced cashflow builder features."""
 
-    def test_step_up_coupon(self):
+    def test_step_up_coupon(self) -> None:
         """Test step-up coupon structure (rate increases over time)."""
         issue = date(2025, 1, 1)
         maturity = date(2032, 1, 1)
@@ -388,9 +371,7 @@ class TestAdvancedFeatures:
 
         builder = CashflowBuilder.new()
         builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
-        builder.fixed_stepup(
-            steps=step_program, schedule=schedule, default_split=CouponType.CASH
-        )
+        builder.fixed_stepup(steps=step_program, schedule=schedule, default_split=CouponType.CASH)
 
         cf_schedule = builder.build_with_curves(None)
 
@@ -401,7 +382,7 @@ class TestAdvancedFeatures:
         interest_flows = [f for f in flows if f.kind.name == "fixed"]
         assert len(interest_flows) > 0
 
-    def test_payment_split_program(self):
+    def test_payment_split_program(self) -> None:
         """Test payment split program (cash/PIK mix changes over time)."""
         issue = date(2025, 1, 1)
         maturity = date(2030, 1, 1)
@@ -410,7 +391,9 @@ class TestAdvancedFeatures:
         schedule = ScheduleParams.quarterly_act360()
 
         fixed_spec = FixedCouponSpec.new(
-            rate=0.07, schedule=schedule, coupon_type=CouponType.CASH  # Initial default
+            rate=0.07,
+            schedule=schedule,
+            coupon_type=CouponType.CASH,  # Initial default
         )
 
         # Split program: 100% cash → 50/50 → 100% PIK
@@ -434,7 +417,7 @@ class TestAdvancedFeatures:
         interest_flows = [f for f in flows if f.kind.name in ("fixed", "pik")]
         assert len(interest_flows) > 0
 
-    def test_complex_structure(self):
+    def test_complex_structure(self) -> None:
         """Test complex structure combining multiple features."""
         issue = date(2025, 1, 1)
         maturity = date(2035, 1, 1)
@@ -474,7 +457,7 @@ class TestAdvancedFeatures:
 class TestScheduleParameters:
     """Test schedule parameter construction and helpers."""
 
-    def test_custom_schedule_params(self):
+    def test_custom_schedule_params(self) -> None:
         """Test creating custom schedule parameters."""
         schedule = ScheduleParams.new(
             freq=Frequency.QUARTERLY,
@@ -486,7 +469,7 @@ class TestScheduleParameters:
 
         assert schedule is not None
 
-    def test_convenience_helpers(self):
+    def test_convenience_helpers(self) -> None:
         """Test convenience schedule parameter helpers."""
         # Quarterly Act/360
         q_act360 = ScheduleParams.quarterly_act360()
@@ -504,16 +487,14 @@ class TestScheduleParameters:
 class TestDataFrameConversion:
     """Test DataFrame export functionality."""
 
-    def test_to_dataframe_no_market(self):
+    def test_to_dataframe_no_market(self) -> None:
         """Test DataFrame export without market context."""
         issue = date(2025, 1, 1)
         maturity = date(2027, 1, 1)
         notional = Money(1_000_000, USD)
 
         schedule = ScheduleParams.quarterly_act360()
-        fixed_spec = FixedCouponSpec.new(
-            rate=0.05, schedule=schedule, coupon_type=CouponType.CASH
-        )
+        fixed_spec = FixedCouponSpec.new(rate=0.05, schedule=schedule, coupon_type=CouponType.CASH)
 
         builder = CashflowBuilder.new()
         builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
@@ -530,11 +511,11 @@ class TestDataFrameConversion:
         assert "kind" in df_dict
 
         # Should have multiple rows
-        first_col_key = list(df_dict.keys())[0]
+        first_col_key = next(iter(df_dict.keys()))
         assert len(df_dict[first_col_key]) > 0
 
 
-def test_amortization_spec_repr():
+def test_amortization_spec_repr() -> None:
     """Test AmortizationSpec string representations."""
     # None
     spec_none = AmortizationSpec.none()
@@ -552,7 +533,7 @@ def test_amortization_spec_repr():
     assert "0.05" in repr_pct
 
 
-def test_builder_with_5y_bond():
+def test_builder_with_5y_bond() -> None:
     """Task requirement: Build cashflows for 5Y bond with semiannual coupons."""
     issue = date(2025, 1, 1)
     maturity = date(2030, 1, 1)  # 5 years
@@ -562,9 +543,7 @@ def test_builder_with_5y_bond():
     schedule = ScheduleParams.semiannual_30360()
 
     # 5% fixed coupon
-    fixed_spec = FixedCouponSpec.new(
-        rate=0.05, schedule=schedule, coupon_type=CouponType.CASH
-    )
+    fixed_spec = FixedCouponSpec.new(rate=0.05, schedule=schedule, coupon_type=CouponType.CASH)
 
     # Build schedule
     builder = CashflowBuilder.new()

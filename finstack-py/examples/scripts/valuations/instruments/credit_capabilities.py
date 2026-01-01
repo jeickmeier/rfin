@@ -3,13 +3,14 @@
 
 from datetime import date, timedelta
 
-from finstack import Money
 from finstack.core.currency import USD
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.surfaces import VolSurface
 from finstack.core.market_data.term_structures import BaseCorrelationCurve, CreditIndexData, DiscountCurve, HazardCurve
 from finstack.valuations.instruments import CDSIndex, CdsOption, CdsTranche, CreditDefaultSwap
 from finstack.valuations.pricer import create_standard_registry
+
+from finstack import Money
 
 
 def build_credit_market(as_of: date) -> MarketContext:
@@ -106,15 +107,13 @@ def main() -> None:
         discount_curve="USD-OIS",
         credit_curve="ACME-HZD",
     )
-    cds_result = registry.price_with_metrics(
+    registry.price_with_metrics(
         cds,
         "discounting",
         market,
         ["par_spread", "pv01"],
         as_of=as_of,
     )
-    print("CDS PV:", round(cds_result.value.amount, 2), cds_result.value.currency)
-    print("CDS par spread:", cds_result.measures.get("par_spread"))
 
     index = CDSIndex.create(
         "CDX-TRAD",
@@ -128,14 +127,13 @@ def main() -> None:
         discount_curve="USD-OIS",
         credit_curve="CDX-IG-HZD",
     )
-    index_result = registry.price_with_metrics(
+    registry.price_with_metrics(
         index,
         "discounting",
         market,
         ["par_spread"],
         as_of=as_of,
     )
-    print("CDS index PV:", round(index_result.value.amount, 2), index_result.value.currency)
 
     option = CdsOption.create(
         "ACME-CDSOPT",
@@ -148,14 +146,13 @@ def main() -> None:
         vol_surface="CDS-VOL",
         option_type="call",
     )
-    option_result = registry.price_with_metrics(
+    registry.price_with_metrics(
         option,
         "discounting",
         market,
         ["vega"],
         as_of=as_of,
     )
-    print("CDS option PV:", round(option_result.value.amount, 2), option_result.value.currency)
 
     tranche = CdsTranche.create(
         "CDX-MEZ-TRANCHE",
@@ -171,14 +168,13 @@ def main() -> None:
         side="buy_protection",
         payments_per_year=4,
     )
-    tranche_result = registry.price_with_metrics(
+    registry.price_with_metrics(
         tranche,
         "discounting",
         market,
         ["par_spread", "expected_loss"],
         as_of=as_of,
     )
-    print("CDS tranche PV:", round(tranche_result.value.amount, 2), tranche_result.value.currency)
 
 
 if __name__ == "__main__":

@@ -4,8 +4,8 @@
 Updated to use the unified StructuredCredit type and the current serde shapes.
 """
 
-import json
 from datetime import date
+import json
 
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve
@@ -339,10 +339,8 @@ def main() -> None:
         "RMBS": StructuredCredit.from_json(json.dumps(build_rmbs_payload())),
     }
 
-    for name, instrument in deals.items():
-        result = registry.price(instrument, "discounting", market, as_of=as_of)
-        value = result.value
-        print(f"{name} PV: {value.amount:,.2f} {value.currency}")
+    for instrument in deals.values():
+        registry.price(instrument, "discounting", market, as_of=as_of)
 
 
 if __name__ == "__main__":

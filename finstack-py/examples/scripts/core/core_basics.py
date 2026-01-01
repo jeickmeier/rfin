@@ -10,8 +10,8 @@ that the compiled ``finstack`` module is available to Python.
 
 from __future__ import annotations
 
-import logging
 from datetime import date
+import logging
 
 from finstack.core.config import FinstackConfig
 from finstack.core.currency import Currency

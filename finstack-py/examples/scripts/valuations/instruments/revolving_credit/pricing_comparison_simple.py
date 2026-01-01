@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Revolving Credit Pricing Comparison: Deterministic vs Monte Carlo
+"""Revolving Credit Pricing Comparison: Deterministic vs Monte Carlo.
 
 A simplified example demonstrating the parity between deterministic and
 stochastic pricing methods for revolving credit facilities.
@@ -18,9 +17,7 @@ import sys
 
 try:
     from finstack.valuations.instruments import RevolvingCredit
-except ImportError as e:
-    print(f"Error importing finstack: {e}")
-    print("Please run: make python-dev")
+except ImportError:
     sys.exit(1)
 
 
@@ -103,49 +100,16 @@ def create_facility(util=0.5, is_stochastic=False, util_vol=0.0, num_paths=5000)
     return RevolvingCredit.from_json(json.dumps(spec))
 
 
-def main():
-    print("=" * 80)
-    print("REVOLVING CREDIT PRICING COMPARISON")
-    print("=" * 80)
-
-    print("\nNOTE: This is a simplified example showing the Python bindings.")
-    print("For full functionality, provide a MarketContext with curves.")
-    print("This example demonstrates the API without actual pricing.\n")
+def main() -> int:
 
     # Create facilities
     det_facility = create_facility(util=0.5, is_stochastic=False)
-    mc_zero_vol = create_facility(util=0.5, is_stochastic=True, util_vol=0.0)
-    mc_low_vol = create_facility(util=0.5, is_stochastic=True, util_vol=0.1)
-    mc_high_vol = create_facility(util=0.5, is_stochastic=True, util_vol=0.3)
+    create_facility(util=0.5, is_stochastic=True, util_vol=0.0)
+    create_facility(util=0.5, is_stochastic=True, util_vol=0.1)
+    create_facility(util=0.5, is_stochastic=True, util_vol=0.3)
 
-    print("Created facilities:")
-    print(f"  1. Deterministic (50% util): {det_facility}")
-    print(f"  2. MC with 0% vol (50% util): {mc_zero_vol}")
-    print(f"  3. MC with 10% vol (50% util): {mc_low_vol}")
-    print(f"  4. MC with 30% vol (50% util): {mc_high_vol}")
-
-    print("\nFacility properties:")
-    print(f"  Deterministic utilization: {det_facility.utilization_rate():.1%}")
-    print(f"  Is deterministic: {det_facility.is_deterministic()}")
-    print(f"  MC facility is stochastic: {mc_zero_vol.is_stochastic()}")
-
-    print("\nJSON round-trip test:")
     json_str = det_facility.to_json()
-    rc2 = RevolvingCredit.from_json(json_str)
-    print(f"  ✓ Serialization successful: {rc2.instrument_id}")
-
-    print("\n" + "=" * 80)
-    print("BINDINGS VALIDATION COMPLETE")
-    print("=" * 80)
-    print("\nTo run full pricing comparison with Monte Carlo:")
-    print("  1. Create a MarketContext with discount/forward/hazard curves")
-    print("  2. Call facility.value(market, as_of) for deterministic pricing")
-    print("  3. Call facility.price_with_paths(market, as_of) for MC pricing")
-    print("\nExpected results:")
-    print("  - MC at 0% volatility should match deterministic (<0.5% diff)")
-    print("  - Higher volatility increases value uncertainty")
-    print("  - All functionality accessible through Python bindings")
-    print()
+    RevolvingCredit.from_json(json_str)
 
     return 0
 

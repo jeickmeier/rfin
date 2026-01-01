@@ -74,7 +74,7 @@ Quick Example
    notional = Money.from_code(1_000_000, "USD")
    issue = Date(2024, 1, 15)
    maturity = Date(2029, 1, 15)
-   
+
    bond = Bond.fixed_semiannual(
        id="US912828A",
        notional=notional,

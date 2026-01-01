@@ -36,12 +36,14 @@ Generated outputs and reports from examples (existing).
 ## Quick Start
 
 1. **Install finstack-py**:
+
    ```bash
    cd finstack-py
    maturin develop --release
    ```
 
 2. **Run an example**:
+
    ```bash
    python examples/phase1_instruments/bond_future_example.py
    ```

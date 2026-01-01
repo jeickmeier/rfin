@@ -28,9 +28,6 @@ from __future__ import annotations
 
 from datetime import date
 
-import polars as pl
-
-from finstack import Money
 from finstack.core.currency import EUR, USD
 from finstack.core.dates import BusinessDayConvention
 from finstack.core.dates.daycount import DayCount
@@ -46,9 +43,12 @@ from finstack.valuations.cashflow import (
     FloatingCouponSpec,
     ScheduleParams,
 )
+import polars as pl
+
+from finstack import Money
 
 
-def format_cashflow_table(cf_schedule, max_rows=None):
+def format_cashflow_table(cf_schedule, max_rows=None) -> None:
     """Display cashflows using the Rust-generated Polars DataFrame.
 
     Args:
@@ -63,10 +63,7 @@ def format_cashflow_table(cf_schedule, max_rows=None):
     market = MarketContext()
     # Use first flow date as discount curve base date (or default to 2025-01-01)
     flows = list(cf_schedule.flows())
-    if flows:
-        base_date = flows[0].date
-    else:
-        base_date = date(2025, 1, 1)
+    base_date = flows[0].date if flows else date(2025, 1, 1)
     discount_curve = DiscountCurve(
         "DISCOUNT",
         base_date,
@@ -80,21 +77,13 @@ def format_cashflow_table(cf_schedule, max_rows=None):
 
     # Limit rows if specified
     if max_rows is not None and len(df) > max_rows:
-        df_display = df.head(max_rows)
-        print(df_display)
-        print(f"\n  ... ({len(df) - max_rows} more rows)")
+        df.head(max_rows)
     else:
-        print(df)
-
-    print()
+        pass
 
 
-def example_1_simple_fixed_coupon():
+def example_1_simple_fixed_coupon() -> None:
     """Example 1: Simple fixed-rate bond with quarterly 5% coupons."""
-    print("\n" + "=" * 80)
-    print("Example 1: Simple Fixed Coupon Bond")
-    print("=" * 80)
-
     issue = date(2025, 1, 15)
     maturity = date(2027, 1, 15)
     notional = Money(1_000_000, USD)
@@ -116,18 +105,11 @@ def example_1_simple_fixed_coupon():
 
     schedule = builder.build_with_curves(None)
 
-    print(f"Notional: {schedule.notional.format()}")
-    print(f"Day Count: {schedule.day_count.name}")
-    print(f"\nCash flows ({len(schedule.flows())} total):")
     format_cashflow_table(schedule, max_rows=8)
 
 
-def example_2_floating_coupon():
+def example_2_floating_coupon() -> None:
     """Example 2: Floating-rate note with SOFR + 150 bps margin."""
-    print("\n" + "=" * 80)
-    print("Example 2: Floating Rate Note (SOFR + 150 bps)")
-    print("=" * 80)
-
     issue = date(2025, 3, 1)
     maturity = date(2028, 3, 1)
     notional = Money(5_000_000, USD)
@@ -156,18 +138,11 @@ def example_2_floating_coupon():
 
     cf_schedule = builder.build_with_curves(None)
 
-    print(f"Notional: {cf_schedule.notional.format()}")
-    print(f"Index: USD-SOFR-3M with +150 bps margin")
-    print(f"\nCash flows:")
     format_cashflow_table(cf_schedule, max_rows=8)
 
 
-def example_3_pik_toggle():
+def example_3_pik_toggle() -> None:
     """Example 3: PIK toggle bond (split between cash and payment-in-kind)."""
-    print("\n" + "=" * 80)
-    print("Example 3: PIK Toggle Bond (70% Cash / 30% PIK)")
-    print("=" * 80)
-
     issue = date(2025, 1, 1)
     maturity = date(2030, 1, 1)
     notional = Money(2_000_000, EUR)
@@ -187,18 +162,11 @@ def example_3_pik_toggle():
 
     cf_schedule = builder.build_with_curves(None)
 
-    print(f"Notional: {cf_schedule.notional.format()}")
-    print(f"Coupon: 8% (70% cash, 30% PIK)")
-    print(f"\nCash flows:")
     format_cashflow_table(cf_schedule, max_rows=8)
 
 
-def example_4_amortizing_loan():
+def example_4_amortizing_loan() -> None:
     """Example 4: Amortizing loan with linear amortization."""
-    print("\n" + "=" * 80)
-    print("Example 4: Amortizing Loan (Linear to 20% of notional)")
-    print("=" * 80)
-
     issue = date(2025, 6, 1)
     maturity = date(2030, 6, 1)
     notional = Money(10_000_000, USD)
@@ -230,18 +198,11 @@ def example_4_amortizing_loan():
 
     cf_schedule = builder.build_with_curves(None)
 
-    print(f"Initial Notional: {notional.format()}")
-    print(f"Final Notional: {final_notional.format()}")
-    print(f"\nCash flows (showing interest + amortization):")
     format_cashflow_table(cf_schedule, max_rows=12)
 
 
-def example_5_step_amortization():
+def example_5_step_amortization() -> None:
     """Example 5: Step amortization schedule."""
-    print("\n" + "=" * 80)
-    print("Example 5: Step Amortization Schedule")
-    print("=" * 80)
-
     issue = date(2025, 1, 1)
     maturity = date(2030, 1, 1)
     notional = Money(10_000_000, USD)
@@ -270,18 +231,11 @@ def example_5_step_amortization():
 
     cf_schedule = builder.build_with_curves(None)
 
-    print(f"Initial Notional: {notional.format()}")
-    print(f"Amortization steps at: 2027, 2028, 2029")
-    print(f"\nCash flows:")
     format_cashflow_table(cf_schedule)
 
 
-def example_6_step_up_coupon():
+def example_6_step_up_coupon() -> None:
     """Example 6: Step-up coupon structure."""
-    print("\n" + "=" * 80)
-    print("Example 6: Step-Up Coupon Structure")
-    print("=" * 80)
-
     issue = date(2025, 1, 1)
     maturity = date(2032, 1, 1)
     notional = Money(3_000_000, USD)
@@ -308,21 +262,11 @@ def example_6_step_up_coupon():
 
     cf_schedule = builder.build_with_curves(None)
 
-    print(f"Notional: {cf_schedule.notional.format()}")
-    print("Step-up schedule:")
-    print("  2025-2027: 4%")
-    print("  2027-2030: 5%")
-    print("  2030-2032: 6%")
-    print(f"\nCash flows:")
     format_cashflow_table(cf_schedule, max_rows=12)
 
 
-def example_7_payment_split_program():
+def example_7_payment_split_program() -> None:
     """Example 7: Payment split program (cash-to-PIK transition)."""
-    print("\n" + "=" * 80)
-    print("Example 7: Payment Split Program (Cash → PIK Transition)")
-    print("=" * 80)
-
     issue = date(2025, 1, 1)
     maturity = date(2030, 1, 1)
     notional = Money(5_000_000, USD)
@@ -353,21 +297,11 @@ def example_7_payment_split_program():
 
     cf_schedule = builder.build_with_curves(None)
 
-    print(f"Notional: {cf_schedule.notional.format()}")
-    print("Payment program:")
-    print("  2025-2027: 100% cash")
-    print("  2027-2028: 50% cash / 50% PIK")
-    print("  2028-2030: 100% PIK")
-    print(f"\nCash flows (showing transitions):")
     format_cashflow_table(cf_schedule, max_rows=15)
 
 
-def example_8_complex_structure():
+def example_8_complex_structure() -> None:
     """Example 8: Complex structure combining amortization and step-up."""
-    print("\n" + "=" * 80)
-    print("Example 8: Complex Structure (Amortizing + Step-up)")
-    print("=" * 80)
-
     issue = date(2025, 1, 1)
     maturity = date(2035, 1, 1)
     notional = Money(20_000_000, USD)
@@ -392,27 +326,11 @@ def example_8_complex_structure():
 
     cf_schedule = builder.build_with_curves(None)
 
-    print(f"Initial Notional: {notional.format()}")
-    print(f"Final Notional: {final_notional.format()}")
-    print("\nFeatures:")
-    print("  • Linear amortization to 25% of notional")
-    print("  • Step-up coupons: 6% → 7% → 8%")
-    print(f"\nCash flows:")
     format_cashflow_table(cf_schedule, max_rows=20)
 
 
-def main():
+def main() -> None:
     """Run all cashflow builder examples."""
-    print("\n" + "#" * 80)
-    print("# FINSTACK CASHFLOW BUILDER CAPABILITIES")
-    print("#" * 80)
-    print("\nDemonstrating composable cashflow building with:")
-    print("  • Fixed and floating coupons")
-    print("  • Cash / PIK / Split payment types")
-    print("  • Amortization schedules")
-    print("  • Step-up coupon programs")
-    print("  • Payment split programs")
-
     example_1_simple_fixed_coupon()
     example_2_floating_coupon()
     example_3_pik_toggle()
@@ -421,10 +339,6 @@ def main():
     example_6_step_up_coupon()
     example_7_payment_split_program()
     example_8_complex_structure()
-
-    print("\n" + "#" * 80)
-    print("# All examples completed successfully!")
-    print("#" * 80)
 
 
 if __name__ == "__main__":

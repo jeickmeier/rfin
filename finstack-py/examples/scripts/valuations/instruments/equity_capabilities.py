@@ -3,7 +3,6 @@
 
 from datetime import date
 
-from finstack import Money
 from finstack.core.currency import USD
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.scalars import MarketScalar
@@ -11,6 +10,8 @@ from finstack.core.market_data.surfaces import VolSurface
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.instruments import Equity, EquityOption
 from finstack.valuations.pricer import create_standard_registry
+
+from finstack import Money
 
 
 def build_equity_market(as_of: date) -> MarketContext:
@@ -63,8 +64,7 @@ def main() -> None:
         currency=USD,
         shares=1_000.0,
     )
-    equity_value = registry.price(equity, "discounting", market)
-    print("Equity PV:", round(equity_value.value.amount, 2), equity_value.value.currency)
+    registry.price(equity, "discounting", market)
 
     call = EquityOption.european_call(
         "ACME-CALL-150",
@@ -74,14 +74,12 @@ def main() -> None:
         notional=Money(150.0, USD),
         contract_size=100.0,
     )
-    call_result = registry.price_with_metrics(
+    registry.price_with_metrics(
         call,
         "discounting",
         market,
         ["delta", "gamma", "vega"],
     )
-    print("Call PV:", round(call_result.value.amount, 2), call_result.value.currency)
-    print("Call delta:", call_result.measures.get("delta"))
 
     put = EquityOption.european_put(
         "ACME-PUT-140",
@@ -91,8 +89,7 @@ def main() -> None:
         notional=Money(140.0, USD),
         contract_size=100.0,
     )
-    put_value = registry.price(put, "discounting", market)
-    print("Put PV:", round(put_value.value.amount, 2), put_value.value.currency)
+    registry.price(put, "discounting", market)
 
 
 if __name__ == "__main__":

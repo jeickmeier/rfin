@@ -43,10 +43,10 @@ Example:
 
    usd = Currency.from_code("USD")
    amount = Money(100.0, usd)
-   
+
    # Safe arithmetic
    total = amount.add(Money(50.0, usd))  # Works
-   
+
    # Cross-currency requires explicit FX
    eur = Currency.from_code("EUR")
    eur_amount = Money(50.0, eur)
@@ -70,11 +70,11 @@ Example:
 
    start = Date(2024, 1, 15)
    end = Date(2024, 7, 15)
-   
+
    # Year fraction
    dc = DayCount.act360()
    yf = dc.year_fraction(start, end)
-   
+
    # Add period
    period = Period.from_string("6M")
    future = start.add_period(period)
@@ -103,7 +103,7 @@ Example:
        rates=[0.045, 0.046, 0.048],
        currency=Currency.from_code("USD")
    )
-   
+
    # Add to market context
    market = MarketContext()
    market.insert_discount(curve)

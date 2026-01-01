@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 from datetime import date
 
-from finstack import Money
 from finstack.core.currency import USD
 from finstack.core.dates import BusinessDayConvention
 from finstack.core.dates.daycount import DayCount
@@ -12,6 +11,8 @@ from finstack.valuations.cashflow import CashflowBuilder, CouponType, FixedCoupo
 from finstack.valuations.instruments import Bond
 from finstack.valuations.metrics import MetricId, MetricRegistry
 from finstack.valuations.pricer import create_standard_registry
+
+from finstack import Money
 
 
 def build_market(as_of: date) -> MarketContext:
@@ -60,7 +61,7 @@ def build_custom_schedule(issue: date, maturity: date, notional: Money):
     return cfb.build_with_curves(None)
 
 
-def main():
+def main() -> None:
     # Always pass an explicit as_of to pricing calls; PricerRegistry otherwise defaults
     # to "today", which can accidentally price the instrument after some cashflows.
     as_of = date(2025, 1, 16)
@@ -72,7 +73,7 @@ def main():
 
     # A) Custom schedule with PIK + amortization; call schedule defined in instrument
     schedule = build_custom_schedule(issue, maturity, notional)
-    calls = [(date(2028, 1, 15), 102.0), (date(2029, 1, 15), 101.0)]
+    [(date(2028, 1, 15), 102.0), (date(2029, 1, 15), 101.0)]
     bond_custom = Bond.fixed_semiannual(
         "BOND-CUSTOM-PIK-AMORT-CALL",
         notional,
@@ -103,18 +104,13 @@ def main():
 
     # Price examples
     reg = create_standard_registry()
-    res_custom = reg.price(bond_custom, "discounting", market, as_of=as_of)
-    res_sched = reg.price(bond_from_sched, "discounting", market, as_of=as_of)
-    res_frn = reg.price(bond_frn, "discounting", market, as_of=as_of)
-
-    print("PV (custom builder):", res_custom.value.amount, res_custom.value.currency)
-    print("PV (custom from schedule):", res_sched.value.amount, res_sched.value.currency)
-    print("PV (FRN):", res_frn.value.amount, res_frn.value.currency)
+    reg.price(bond_custom, "discounting", market, as_of=as_of)
+    reg.price(bond_from_sched, "discounting", market, as_of=as_of)
+    reg.price(bond_frn, "discounting", market, as_of=as_of)
 
     # Show first few flows from schedule
     flows = schedule.flows()
-    preview = [f.to_tuple()[:3] for f in flows[:3]]
-    print("Custom schedule flows (first 3):", preview)
+    [f.to_tuple()[:3] for f in flows[:3]]
 
     # C) Zero-coupon bond
     zcb = Bond.zero_coupon(
@@ -124,8 +120,7 @@ def main():
         maturity=maturity,
         discount_curve="USD-OIS",
     )
-    res_zcb = reg.price(zcb, "discounting", market, as_of=as_of)
-    print("PV (ZCB):", res_zcb.value.amount, res_zcb.value.currency)
+    reg.price(zcb, "discounting", market, as_of=as_of)
 
     # D) Fixed bond helper priced off USD-OIS
     fixed = Bond.fixed_semiannual(
@@ -136,8 +131,7 @@ def main():
         maturity,
         "USD-OIS",
     )
-    res_fixed = reg.price(fixed, "discounting", market, as_of=as_of)
-    print("PV (Fixed helper):", res_fixed.value.amount, res_fixed.value.currency)
+    reg.price(fixed, "discounting", market, as_of=as_of)
 
     # E) Payment split program: switch 100% PIK for the first year, then 100% cash
     cfb2 = (
@@ -158,8 +152,7 @@ def main():
         discount_curve="USD-OIS",
         quoted_clean=100.25,
     )
-    res_split = reg.price(bond_split, "discounting", market, as_of=as_of)
-    print("PV (Payment split program):", res_split.value.amount, res_split.value.currency)
+    reg.price(bond_split, "discounting", market, as_of=as_of)
 
     # F) Bond metrics examples — request standard metrics from engine (standard fixed-rate bond)
     metrics = [
@@ -177,8 +170,7 @@ def main():
     ]
 
     # Build a registry of metrics (engine uses standard registry internally)
-    mreg = MetricRegistry.standard()
-    print("Metric registry available:", len(mreg.available_metrics()))
+    MetricRegistry.standard()
 
     # Build a standard fixed bond with a quoted clean price for metrics
     fixed_for_metrics = Bond.builder(
@@ -208,7 +200,7 @@ def main():
     for m in metrics_core:
         name = m.name
         if isinstance(name, str) and name in measures:
-            print(f"metric[{name}] = {measures[name]}")
+            pass
 
 
 if __name__ == "__main__":

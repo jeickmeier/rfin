@@ -15,30 +15,30 @@ Note: This example shows the API structure. Full margin calculation requires:
 
 from datetime import date
 
-# Core imports
-from finstack.core import Currency, Money, Date, MarketContext
-
-# Portfolio imports
-from finstack.portfolio import (
-    Portfolio,
-    PortfolioBuilder,
-    Entity,
-    Position,
-    PositionUnit,
-    NettingSetId,
-    NettingSet,
-    NettingSetManager,
-    PortfolioMarginAggregator,
-)
-
 # Instrument imports (for demonstration)
 from finstack.valuations.instruments.builders import (
-    InterestRateSwapBuilder,
     CreditDefaultSwapBuilder,
+    InterestRateSwapBuilder,
 )
 
 # Market data imports
 from finstack.valuations.market_data import DiscountCurve, HazardCurve
+
+# Core imports
+from finstack.core import Currency, Date, MarketContext, Money
+
+# Portfolio imports
+from finstack.portfolio import (
+    Entity,
+    NettingSet,
+    NettingSetId,
+    NettingSetManager,
+    Portfolio,
+    PortfolioBuilder,
+    PortfolioMarginAggregator,
+    Position,
+    PositionUnit,
+)
 
 
 def create_market_context():
@@ -46,21 +46,13 @@ def create_market_context():
     usd = Currency.from_code("USD")
     as_of = Date(2024, 6, 15)
     market = MarketContext()
-    
+
     # Create discount curve for OIS
     tenors = ["1D", "1M", "3M", "6M", "1Y", "2Y", "5Y", "10Y", "30Y"]
     rates = [0.0520, 0.0525, 0.0530, 0.0535, 0.0545, 0.0565, 0.0615, 0.0655, 0.0695]
-    discount_curve = DiscountCurve.from_par_rates(
-        "USD.OIS",
-        as_of,
-        tenors,
-        rates,
-        usd,
-        "Act360",
-        "Linear"
-    )
+    discount_curve = DiscountCurve.from_par_rates("USD.OIS", as_of, tenors, rates, usd, "Act360", "Linear")
     market.insert_discount(discount_curve)
-    
+
     # Create hazard curve for credit
     cds_tenors = ["6M", "1Y", "2Y", "3Y", "5Y", "7Y", "10Y"]
     cds_spreads = [0.0100, 0.0120, 0.0150, 0.0180, 0.0220, 0.0250, 0.0280]
@@ -72,10 +64,10 @@ def create_market_context():
         0.40,  # recovery rate
         usd,
         "USD.OIS",
-        "Act360"
+        "Act360",
     )
     market.insert_hazard(hazard_curve)
-    
+
     return market, as_of, usd
 
 
@@ -83,40 +75,41 @@ def create_market_context():
 # Example 1: Creating Netting Sets
 # ============================================================================
 
+
 def example1_netting_sets():
     """Example 1: Create and manage netting sets."""
     print("=" * 80)
     print("Example 1: Creating Netting Sets")
     print("=" * 80)
-    
+
     # Create bilateral netting set (OTC with CSA)
     bilateral_id = NettingSetId.bilateral("JPMORGAN", "CSA_2024_001")
     bilateral_ns = NettingSet(bilateral_id)
-    
+
     # Create cleared netting set (CCP)
     cleared_id = NettingSetId.cleared("LCH")
     cleared_ns = NettingSet(cleared_id)
-    
-    print(f"\nBilateral Netting Set:")
+
+    print("\nBilateral Netting Set:")
     print(f"  ID: {bilateral_id}")
     print(f"  Counterparty: {bilateral_id.counterparty_id}")
     print(f"  CSA: {bilateral_id.csa_id}")
     print(f"  Is Cleared: {bilateral_id.is_cleared()}")
-    
-    print(f"\nCleared Netting Set:")
+
+    print("\nCleared Netting Set:")
     print(f"  ID: {cleared_id}")
     print(f"  CCP: {cleared_id.ccp_id}")
     print(f"  Is Cleared: {cleared_id.is_cleared()}")
-    
+
     # Add positions to netting sets
     bilateral_ns.add_position("IRS_001")
     bilateral_ns.add_position("IRS_002")
     bilateral_ns.add_position("CDS_001")
-    
+
     cleared_ns.add_position("IRS_003")
     cleared_ns.add_position("IRS_004")
     cleared_ns.add_position("IRS_005")
-    
+
     print(f"\nBilateral positions: {bilateral_ns.position_count()}")
     print(f"Cleared positions: {cleared_ns.position_count()}")
 
@@ -125,23 +118,24 @@ def example1_netting_sets():
 # Example 2: Using Netting Set Manager
 # ============================================================================
 
+
 def example2_netting_set_manager():
     """Example 2: Use NettingSetManager to organize positions."""
     print("\n" + "=" * 80)
     print("Example 2: Netting Set Manager")
     print("=" * 80)
-    
+
     # Create manager
     manager = NettingSetManager()
-    
+
     # Set default netting set for positions without explicit assignment
     default_id = NettingSetId.bilateral("HOUSE_ACCOUNT", "CSA_DEFAULT")
     manager = manager.with_default_set(default_id)
-    
-    print(f"\nNetting Set Manager:")
+
+    print("\nNetting Set Manager:")
     print(f"  Total netting sets: {manager.count()}")
-    print(f"  Netting set IDs:")
-    
+    print("  Netting set IDs:")
+
     for ns_id in manager.ids():
         print(f"    - {ns_id}")
         ns = manager.get(ns_id)
@@ -154,34 +148,35 @@ def example2_netting_set_manager():
 # Example 3: Portfolio Margin Aggregator
 # ============================================================================
 
+
 def example3_margin_aggregator():
     """Example 3: Create and use portfolio margin aggregator."""
     print("\n" + "=" * 80)
     print("Example 3: Portfolio Margin Aggregator")
     print("=" * 80)
-    
-    market, as_of, usd = create_market_context()
-    
+
+    _market, as_of, usd = create_market_context()
+
     # Create portfolio
     builder = PortfolioBuilder()
     builder.base_ccy(usd)
     builder.as_of(as_of)
-    
+
     # Add entities
     builder.entity(Entity("JPMORGAN", "JPMorgan Chase"))
     builder.entity(Entity("LCH", "LCH Clearnet"))
-    
+
     # Build portfolio
     portfolio = builder.build()
-    
+
     # Create margin aggregator from portfolio
-    aggregator = PortfolioMarginAggregator.from_portfolio(portfolio)
-    
-    print(f"\nMargin Aggregator Created:")
+    PortfolioMarginAggregator.from_portfolio(portfolio)
+
+    print("\nMargin Aggregator Created:")
     print(f"  Base Currency: {usd.code}")
     print(f"  Portfolio Entities: {len(portfolio.entities)}")
     print(f"  Portfolio Positions: {len(portfolio.positions)}")
-    
+
     print("\nNote: To calculate margin, you need:")
     print("  1. Positions with marginable instruments (IRS, CDS, etc.)")
     print("  2. Instruments with netting set assignments")
@@ -198,12 +193,13 @@ def example3_margin_aggregator():
 # Example 4: Margin Workflow (Conceptual)
 # ============================================================================
 
+
 def example4_margin_workflow():
     """Example 4: Complete margin workflow (conceptual)."""
     print("\n" + "=" * 80)
     print("Example 4: Margin Calculation Workflow (Conceptual)")
     print("=" * 80)
-    
+
     print("""
 Typical Margin Calculation Workflow:
 
@@ -279,12 +275,13 @@ Cleared vs Bilateral Split:
 # Example 5: CSA Terms
 # ============================================================================
 
+
 def example5_csa_terms():
     """Example 5: Common CSA terms affecting margin."""
     print("\n" + "=" * 80)
     print("Example 5: Standard CSA Terms")
     print("=" * 80)
-    
+
     print("""
 Common Credit Support Annex (CSA) Terms:
 
@@ -353,6 +350,7 @@ NettingSetId.cleared(ccp_id="LCH")
 # Main
 # ============================================================================
 
+
 def main():
     """Run all examples."""
     example1_netting_sets()
@@ -360,7 +358,7 @@ def main():
     example3_margin_aggregator()
     example4_margin_workflow()
     example5_csa_terms()
-    
+
     print("\n" + "=" * 80)
     print("Summary")
     print("=" * 80)

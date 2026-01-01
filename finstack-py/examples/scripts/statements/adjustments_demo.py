@@ -5,8 +5,7 @@ PeriodId = dates.PeriodId
 from finstack.statements.adjustments import Adjustment, NormalizationConfig, NormalizationEngine
 
 
-def main():
-    print("Setting up model...")
+def main() -> None:
     # 1. Create a simple model with Revenue and EBITDA
     builder = ModelBuilder.new("private_credit_deal")
     builder.periods("2025Q1..Q4", None)
@@ -28,12 +27,10 @@ def main():
     model = builder.build()
 
     # 2. Evaluate the model
-    print("Evaluating base model...")
     evaluator = Evaluator.new()
     results = evaluator.evaluate(model)
 
     # 3. Define Adjustments
-    print("Defining adjustments...")
 
     # Adjustment 1: Owner's Compensation (Fixed add-back)
     owners_comp = Adjustment.fixed(
@@ -71,29 +68,19 @@ def main():
     config.add_adjustment(legal_fees)
 
     # 5. Run Normalization
-    print("Running normalization...")
     normalization_results = NormalizationEngine.normalize(results, config)
 
     # 6. Print Audit Trail
-    print("\n--- EBITDA Normalization Audit Trail ---")
     for res in normalization_results:
-        print(f"\nPeriod: {res.period}")
-        print(f"  Unadjusted EBITDA: {res.base_value:.2f}")
-
-        for adj in res.adjustments:
-            cap_info = f" (Capped from {adj.raw_amount:.2f})" if adj.is_capped else ""
-            print(f"  + {adj.name}: {adj.capped_amount:.2f}{cap_info}")
-
-        print(f"  = Adjusted EBITDA: {res.final_value:.2f}")
+        for _adj in res.adjustments:
+            pass
 
     # 7. Merge back into Results
-    print("\nMerging Adjusted EBITDA back into results...")
     NormalizationEngine.merge_into_results(results, normalization_results, "Adjusted EBITDA")
 
     # Verify it's there
     period_q1 = PeriodId.quarter(2025, 1)
-    adj_ebitda = results.get("Adjusted EBITDA", period_q1)
-    print(f"Adjusted EBITDA in Results (2025Q1): {adj_ebitda}")
+    results.get("Adjusted EBITDA", period_q1)
 
 
 if __name__ == "__main__":

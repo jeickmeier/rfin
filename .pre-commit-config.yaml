@@ -54,15 +54,20 @@ repos:
   # ============================================
   # Python formatting and linting
   # ============================================
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.8.6
+  - repo: local
     hooks:
       - id: ruff-format
         name: Python format (ruff)
-        args: [--config, pyproject.toml]
-      - id: ruff
+        entry: uv run ruff format .
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: ruff-lint
         name: Python lint (ruff)
-        args: [--config, pyproject.toml, --fix]
+        entry: uv run ruff check . --fix --unsafe-fixes
+        language: system
+        types: [python]
+        pass_filenames: false
 
   # ============================================
   # TypeScript/JavaScript (WASM bindings)

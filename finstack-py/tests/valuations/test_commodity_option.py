@@ -1,12 +1,11 @@
 """Tests for CommodityOption instrument."""
 
 import datetime as dt
-import pytest
-from finstack.core.currency import Currency
+
 from finstack.valuations.instruments import CommodityOption
 
 
-def test_commodity_option_create():
+def test_commodity_option_create() -> None:
     """Test creating a commodity option."""
     option = CommodityOption.create(
         "WTI-CALL-75-2025M06",
@@ -40,7 +39,7 @@ def test_commodity_option_create():
     assert option.vol_surface_id == "WTI-VOL"
 
 
-def test_commodity_option_american():
+def test_commodity_option_american() -> None:
     """Test creating an American commodity option."""
     option = CommodityOption.create(
         "WTI-PUT-70-2025M06",
@@ -64,7 +63,7 @@ def test_commodity_option_american():
     assert option.strike == 70.0
 
 
-def test_commodity_option_with_overrides():
+def test_commodity_option_with_overrides() -> None:
     """Test commodity option with pricing overrides."""
     option = CommodityOption.create(
         "GC-CALL-2000-2025M12",
@@ -93,7 +92,7 @@ def test_commodity_option_with_overrides():
     assert option.spot_price_id == "GOLD-SPOT"
 
 
-def test_commodity_option_repr():
+def test_commodity_option_repr() -> None:
     """Test commodity option repr."""
     option = CommodityOption.create(
         "WTI-CALL-75-2025M06",

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Monte Carlo Path Capture Example
+"""Monte Carlo Path Capture Example.
 
 Demonstrates practical usage of path capture functionality for:
 1. Generating and visualizing GBM paths
@@ -8,8 +7,8 @@ Demonstrates practical usage of path capture functionality for:
 3. Understanding payoff behavior along paths
 """
 
-import sys
 from pathlib import Path
+import sys
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -32,29 +31,22 @@ try:
     )
 
     HAS_FINSTACK = True
-except ImportError as e:
-    print(f"Error importing finstack: {e}")
+except ImportError:
     HAS_FINSTACK = False
 
 try:
-    import matplotlib.cm as cm
-    import matplotlib.pyplot as plt
+    from matplotlib import cm
     from matplotlib.patches import Rectangle
+    import matplotlib.pyplot as plt
 
     HAS_MATPLOTLIB = True
 except ImportError:
-    print("matplotlib not available - install for visualizations")
     HAS_MATPLOTLIB = False
 
 
-def example_1_basic_path_generation():
+def example_1_basic_path_generation() -> None:
     """Example 1: Basic GBM path generation."""
-    print("\n" + "=" * 70)
-    print("EXAMPLE 1: Basic GBM Path Generation")
-    print("=" * 70)
-
     if not HAS_FINSTACK:
-        print("finstack not available - skipping")
         return
 
     # Create path generator
@@ -74,32 +66,17 @@ def example_1_basic_path_generation():
         seed=42,
     )
 
-    print(f"Generated paths: {paths.num_paths_total}")
-    print(f"Captured paths: {paths.num_captured()}")
-    print(f"Sampling ratio: {paths.sampling_ratio():.1%}")
-    print(f"Sampling method: {paths.sampling_method}")
-
     # Get state variable keys
-    print(f"State variables: {paths.state_var_keys()}")
 
     # Access first path
     first_path = paths.path(0)
     if first_path:
-        print(f"\nFirst path (ID {first_path.path_id}):")
-        print(f"  Number of steps: {first_path.num_steps()}")
-        print(f"  Initial spot: {first_path.initial_point().spot():.2f}")
-        print(f"  Terminal spot: {first_path.terminal_point().spot():.2f}")
-        print(f"  Final value: {first_path.final_value:.2f}")
+        pass
 
 
-def example_2_dataframe_conversion():
+def example_2_dataframe_conversion() -> None:
     """Example 2: Converting paths to pandas DataFrame."""
-    print("\n" + "=" * 70)
-    print("EXAMPLE 2: DataFrame Conversion")
-    print("=" * 70)
-
     if not HAS_FINSTACK:
-        print("finstack not available - skipping")
         return
 
     generator = MonteCarloPathGenerator()
@@ -118,30 +95,17 @@ def example_2_dataframe_conversion():
 
     # Convert to long-format DataFrame
     df_long = pd.DataFrame(paths.to_dict())
-    print("\nLong format DataFrame:")
-    print(df_long.head(10))
-    print(f"\nShape: {df_long.shape}")
-    print(f"Columns: {list(df_long.columns)}")
 
     # Calculate statistics at each time step
-    stats = df_long.groupby("time")["spot"].agg(["mean", "std", "min", "max"])
-    print("\nStatistics over time (first 5 steps):")
-    print(stats.head())
+    df_long.groupby("time")["spot"].agg(["mean", "std", "min", "max"])
 
     # Convert to wide format
-    df_wide = pd.DataFrame(paths.to_wide_dict("spot"))
-    print(f"\nWide format DataFrame shape: {df_wide.shape}")
-    print(f"Columns: {list(df_wide.columns)[:5]}...")  # First 5 columns
+    pd.DataFrame(paths.to_wide_dict("spot"))
 
 
-def example_3_visualization():
+def example_3_visualization() -> None:
     """Example 3: Visualizing Monte Carlo paths."""
-    print("\n" + "=" * 70)
-    print("EXAMPLE 3: Path Visualization")
-    print("=" * 70)
-
     if not HAS_FINSTACK or not HAS_MATPLOTLIB:
-        print("Required libraries not available - skipping")
         return
 
     generator = MonteCarloPathGenerator()
@@ -150,7 +114,7 @@ def example_3_visualization():
     vol_low = generator.generate_gbm_paths(100.0, 0.05, 0.02, 0.15, 1.0, 252, 500, "sample", 30, 42)
     vol_high = generator.generate_gbm_paths(100.0, 0.05, 0.02, 0.35, 1.0, 252, 500, "sample", 30, 43)
 
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+    _fig, axes = plt.subplots(2, 2, figsize=(14, 10))
 
     # Plot 1: Low volatility paths
     ax = axes[0, 0]
@@ -212,41 +176,23 @@ def example_3_visualization():
     plt.tight_layout()
     output_file = OUTPUT_DIR / "mc_path_examples.png"
     plt.savefig(output_file, dpi=150, bbox_inches="tight")
-    print(f"Saved visualization to: {output_file}")
 
 
-def example_4_process_parameters():
+def example_4_process_parameters() -> None:
     """Example 4: Analyzing process parameters."""
-    print("\n" + "=" * 70)
-    print("EXAMPLE 4: Process Parameters Analysis")
-    print("=" * 70)
-
     if not HAS_FINSTACK:
-        print("finstack not available - skipping")
         return
 
     generator = MonteCarloPathGenerator()
-    paths = generator.generate_gbm_paths(100.0, 0.05, 0.02, 0.25, 1.0, 252, 100, "all", seed=42)
+    generator.generate_gbm_paths(100.0, 0.05, 0.02, 0.25, 1.0, 252, 100, "all", seed=42)
 
     # Access process parameters (available via internal API)
     # In production, this would come from result.paths.process_params
-    print("Process parameters would include:")
-    print("  - Process type: GBM")
-    print("  - r (risk-free rate): 0.05")
-    print("  - q (dividend yield): 0.02")
-    print("  - sigma (volatility): 0.25")
-    print("  - Factor names: ['spot']")
-    print("  - Correlation: None (single factor)")
 
 
-def example_5_barrier_analysis():
+def example_5_barrier_analysis() -> None:
     """Example 5: Analyzing barrier hits in paths."""
-    print("\n" + "=" * 70)
-    print("EXAMPLE 5: Barrier Hit Analysis")
-    print("=" * 70)
-
     if not HAS_FINSTACK:
-        print("finstack not available - skipping")
         return
 
     generator = MonteCarloPathGenerator()
@@ -283,15 +229,9 @@ def example_5_barrier_analysis():
         else:
             paths_in_range.append(path)
 
-    print(f"Total captured paths: {paths.num_captured()}")
-    print(f"Paths hitting upper barrier ({upper_barrier}): {len(paths_hit_upper)}")
-    print(f"Paths hitting lower barrier ({lower_barrier}): {len(paths_hit_lower)}")
-    print(f"Paths staying in range: {len(paths_in_range)}")
-    print(f"Estimated knock-out rate: {(len(paths_hit_upper) + len(paths_hit_lower)) / paths.num_captured():.1%}")
-
     if HAS_MATPLOTLIB:
         # Visualize paths by category
-        fig, ax = plt.subplots(figsize=(12, 7))
+        _fig, ax = plt.subplots(figsize=(12, 7))
 
         # Plot paths in range (green)
         for path in paths_in_range:
@@ -336,17 +276,11 @@ def example_5_barrier_analysis():
 
         output_file = OUTPUT_DIR / "barrier_analysis.png"
         plt.savefig(output_file, dpi=150, bbox_inches="tight")
-        print(f"\nSaved barrier analysis to: {output_file}")
 
 
-def example_6_export_for_external_analysis():
+def example_6_export_for_external_analysis() -> None:
     """Example 6: Exporting data for external analysis tools."""
-    print("\n" + "=" * 70)
-    print("EXAMPLE 6: Data Export")
-    print("=" * 70)
-
     if not HAS_FINSTACK:
-        print("finstack not available - skipping")
         return
 
     generator = MonteCarloPathGenerator()
@@ -358,62 +292,34 @@ def example_6_export_for_external_analysis():
     # Export to CSV for external tools
     csv_file = OUTPUT_DIR / "mc_paths_export.csv"
     df.to_csv(csv_file, index=False)
-    print(f"Exported {len(df)} rows to {csv_file}")
 
     # Export to Parquet for efficient storage
     parquet_file = OUTPUT_DIR / "mc_paths_export.parquet"
     df.to_parquet(parquet_file, index=False)
-    print(f"Exported to {parquet_file} (compressed)")
 
     # Show summary statistics
-    print("\nSummary Statistics:")
-    print(df.groupby("path_id")["spot"].agg(["count", "mean", "std", "min", "max"]).head())
 
 
-def example_7_sampling_strategies():
+def example_7_sampling_strategies() -> None:
     """Example 7: Comparing all vs sample capture."""
-    print("\n" + "=" * 70)
-    print("EXAMPLE 7: Capture Mode Comparison")
-    print("=" * 70)
-
     if not HAS_FINSTACK:
-        print("finstack not available - skipping")
         return
 
     generator = MonteCarloPathGenerator()
 
     # Small simulation - capture all
-    print("\nSmall simulation (100 paths, capture all):")
     paths_all = generator.generate_gbm_paths(100.0, 0.05, 0.02, 0.20, 1.0, 50, 100, "all", seed=42)
-    print(f"  Captured: {paths_all.num_captured()}/{paths_all.num_paths_total}")
-    print(f"  Is complete: {paths_all.is_complete()}")
 
     # Large simulation - capture sample
-    print("\nLarge simulation (2,000 paths, sample 100):")
     paths_sample = generator.generate_gbm_paths(100.0, 0.05, 0.02, 0.20, 1.0, 50, 2000, "sample", 100, 42)
-    print(f"  Captured: {paths_sample.num_captured()}/{paths_sample.num_paths_total}")
-    print(f"  Sampling ratio: {paths_sample.sampling_ratio():.2%}")
-    print(f"  Is complete: {paths_sample.is_complete()}")
 
-    print("\nMemory efficiency:")
-    df_all = pd.DataFrame(paths_all.to_dict())
-    df_sample = pd.DataFrame(paths_sample.to_dict())
-    print(f"  All paths (100): {len(df_all)} rows, ~{df_all.memory_usage(deep=True).sum() / 1024:.1f} KB")
-    print(f"  Sample (100 of 2k): {len(df_sample)} rows, ~{df_sample.memory_usage(deep=True).sum() / 1024:.1f} KB")
-    print("  => Same memory usage, but second simulation has 20x better statistics!")
+    pd.DataFrame(paths_all.to_dict())
+    pd.DataFrame(paths_sample.to_dict())
 
 
-def main():
+def main() -> None:
     """Run all examples."""
-    print("\n" + "=" * 70)
-    print("MONTE CARLO PATH CAPTURE - PRACTICAL EXAMPLES")
-    print("=" * 70)
-
     if not HAS_FINSTACK:
-        print("\nERROR: finstack module not found")
-        print("Please build and install finstack-py first:")
-        print("  cd finstack-py")
-        print("  pip install -e .")
         return
 
     example_1_basic_path_generation()
@@ -423,45 +329,6 @@ def main():
     example_5_barrier_analysis()
     example_6_export_for_external_analysis()
     example_7_sampling_strategies()
-
-    print("\n" + "=" * 70)
-    print("SUMMARY")
-    print("=" * 70)
-    print("""
-Key Capabilities Demonstrated:
-
-1. Path Generation
-   - MonteCarloPathGenerator for standalone path simulation
-   - Flexible capture modes (all or sample)
-   - Deterministic and reproducible (via seed)
-
-2. Data Access
-   - Easy DataFrame conversion (long and wide formats)
-   - Access individual paths and points
-   - Extract state variables at any timestep
-
-3. Analysis
-   - Barrier hit detection
-   - Statistical aggregation over time
-   - Path classification and filtering
-
-4. Visualization
-   - Individual path plotting
-   - Mean paths with confidence bands
-   - Distribution analysis
-   - Multi-scenario comparison
-
-5. Export
-   - CSV for spreadsheet tools
-   - Parquet for efficient storage
-   - Ready for additional analysis in Python ecosystem
-
-Next Steps:
-   - Use with actual instrument pricing (via price_with_paths)
-   - Analyze multi-factor processes (Heston, RevolvingCredit)
-   - Build custom visualizations for specific use cases
-   - Integrate into model validation workflows
-    """)
 
 
 if __name__ == "__main__":

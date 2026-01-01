@@ -99,8 +99,11 @@ pub use pricer::EnhancedMonteCarloResult;
 #[doc(hidden)]
 pub use pricer::{PathResult, RevolvingCreditPricer};
 pub use types::{
-    BaseRateSpec, DrawRepayEvent, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees, UtilizationProcess,
+    BaseRateSpec, DrawRepayEvent, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
+    UtilizationProcess,
 };
 
 #[cfg(feature = "mc")]
-pub use types::{CreditSpreadProcessSpec, InterestRateProcessSpec, McConfig, StochasticUtilizationSpec};
+pub use types::{
+    CreditSpreadProcessSpec, InterestRateProcessSpec, McConfig, StochasticUtilizationSpec,
+};

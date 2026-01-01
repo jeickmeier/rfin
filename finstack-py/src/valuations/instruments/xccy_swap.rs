@@ -8,7 +8,9 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::rates::xccy_swap::{LegSide, NotionalExchange, XccySwap, XccySwapLeg};
+use finstack_valuations::instruments::rates::xccy_swap::{
+    LegSide, NotionalExchange, XccySwap, XccySwapLeg,
+};
 use finstack_valuations::instruments::Attributes;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
@@ -57,7 +59,11 @@ use std::fmt;
 /// --------
 /// InterestRateSwap : Single-currency interest rate swap
 /// BasisSwap : Single-currency basis swap
-#[pyclass(module = "finstack.valuations.instruments", name = "CrossCurrencySwap", frozen)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "CrossCurrencySwap",
+    frozen
+)]
 #[derive(Clone, Debug)]
 pub struct PyCrossCurrencySwap {
     pub(crate) inner: XccySwap,

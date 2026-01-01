@@ -28,11 +28,13 @@ The benchmarks measure three critical areas:
 ### Prerequisites
 
 Install pytest-benchmark:
+
 ```bash
 pip install pytest-benchmark
 ```
 
 Or use the dev dependencies:
+
 ```bash
 uv sync --dev
 ```
@@ -185,6 +187,7 @@ fn price_bond(py: Python, bond: &PyBond, market: &PyMarketContext) -> PyResult<f
 ### 2. Vectorize Batch Operations
 
 Instead of:
+
 ```python
 # Slow: Individual FFI calls
 for bond in bonds:
@@ -192,6 +195,7 @@ for bond in bonds:
 ```
 
 Use:
+
 ```python
 # Fast: Single FFI call for batch
 results = price_bonds_batch(bonds, market)
@@ -262,10 +266,12 @@ jobs:
 1. **Warmup**: pytest-benchmark automatically handles warmup rounds
 2. **Consistent Environment**: Run on the same hardware, same Python version
 3. **Disable CPU Scaling**: For more consistent results
+
    ```bash
    # Linux
    sudo cpupower frequency-set --governor performance
    ```
+
 4. **Close Other Applications**: Minimize background processes
 5. **Multiple Runs**: Use `--benchmark-min-rounds=10` for statistical significance
 6. **Version Control**: Save benchmark data with git to track trends

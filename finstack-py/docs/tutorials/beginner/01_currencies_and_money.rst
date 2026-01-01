@@ -62,7 +62,7 @@ Money combines an amount with a currency:
 
    # Create from amount and currency
    amount1 = Money(1000.50, usd)
-   
+
    # Or use the convenience method
    amount2 = Money.from_code(1000.50, "USD")
 
@@ -174,7 +174,7 @@ Create zero amounts:
 .. code-block:: python
 
    zero = Money.from_code(0.0, "USD")
-   
+
    # Check for zero
    if zero.amount == 0.0:
        print("Amount is zero")

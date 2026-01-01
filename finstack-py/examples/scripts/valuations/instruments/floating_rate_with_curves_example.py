@@ -15,7 +15,6 @@ from __future__ import annotations
 
 from datetime import date
 
-from finstack import Money
 from finstack.core.currency import USD
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve, ForwardCurve
@@ -26,6 +25,8 @@ from finstack.valuations.cashflow import (
     FloatingCouponSpec,
     ScheduleParams,
 )
+
+from finstack import Money
 
 
 def main() -> None:
@@ -52,33 +53,14 @@ def main() -> None:
     builder.principal(amount=notional.amount, currency=USD, issue=issue, maturity=maturity)
     builder.floating_cf(float_spec)
 
-    print("=" * 80)
-    print("FLOATING RATE CASHFLOW COMPARISON")
-    print("=" * 80)
-    print(f"\nInstrument: FRN with USD-SOFR-3M + 150 bps")
-    print(f"Notional: {notional.format()}")
-    print(f"Period: {issue} → {maturity}")
-    print()
-
     # Example 1: Build WITHOUT curves (margin only)
-    print("-" * 80)
-    print("Example 1: build_with_curves(None) - Margin Only (No Forward Rates)")
-    print("-" * 80)
     sched_no_curves = builder.build_with_curves(None)
     flows_no_curves = sched_no_curves.flows()
 
-    print(f"\nCalculation: coupon = outstanding * (margin_bp * 1e-4 * gearing) * year_fraction")
-    print(f"            = outstanding * (150 * 0.0001 * 1.0) * yf")
-    print(f"            = outstanding * 0.0150 * yf\n")
-
-    print("First 3 cashflows:")
-    for i, flow in enumerate(flows_no_curves[:3]):
-        print(f"  {flow.date}: {flow.amount.format():>15} ({flow.kind.name}, accrual={flow.accrual_factor:.6f})")
+    for i, _flow in enumerate(flows_no_curves[:3]):
+        pass
 
     # Example 2: Build WITH curves (forward rate + margin)
-    print("\n" + "-" * 80)
-    print("Example 2: build_with_curves(market) - Forward Rates from Market")
-    print("-" * 80)
 
     # Create market context with forward curve
     base_date = date(2025, 1, 2)
@@ -105,54 +87,23 @@ def main() -> None:
     )
     market.insert_forward(forward_curve)
 
-    print("\nForward Curve (USD-SOFR-3M):")
-    for t, rate in [(0.0, 0.0300), (0.5, 0.0325), (1.0, 0.0350), (2.0, 0.0400)]:
-        print(f"  t={t:.1f}y: {rate * 100:.2f}%")
-
-    print(f"\nCalculation: coupon = outstanding * (forward_rate * gearing + margin_bp * 1e-4) * yf")
-    print(f"            = outstanding * (forward_rate * 1.0 + 0.0150) * yf\n")
+    for _t, _rate in [(0.0, 0.0300), (0.5, 0.0325), (1.0, 0.0350), (2.0, 0.0400)]:
+        pass
 
     sched_with_curves = builder.build_with_curves(market)
     flows_with_curves = sched_with_curves.flows()
 
-    print("First 3 cashflows:")
-    for i, flow in enumerate(flows_with_curves[:3]):
-        print(f"  {flow.date}: {flow.amount.format():>15} ({flow.kind.name}, accrual={flow.accrual_factor:.6f})")
+    for i, _flow in enumerate(flows_with_curves[:3]):
+        pass
 
     # Example 3: Comparison
-    print("\n" + "=" * 80)
-    print("COMPARISON: build_with_curves(None) vs build_with_curves(market)")
-    print("=" * 80)
-    print(f"\n{'Date':<12} {'Without Curves':>18} {'With Curves':>18} {'Difference':>18}")
-    print("-" * 72)
 
     for i in range(min(5, len(flows_no_curves), len(flows_with_curves))):
         f_no = flows_no_curves[i]
         f_with = flows_with_curves[i]
 
         if f_no.kind.name == "float_reset":  # Only compare float flows
-            diff = f_with.amount.amount - f_no.amount.amount
-            print(f"{f_no.date}  {f_no.amount.amount:>18,.2f}  {f_with.amount.amount:>18,.2f}  {diff:>18,.2f}")
-
-    print("\n" + "=" * 80)
-    print("KEY INSIGHTS")
-    print("=" * 80)
-    print("""
-1. build_with_curves(None) - Margin Only:
-   - Uses fixed margin regardless of market conditions
-   - Appropriate for initial modeling without market data
-   - Formula: outstanding * (margin_bp * 0.0001 * gearing) * year_fraction
-
-2. build_with_curves(market) - Market-Based:
-   - Incorporates forward rates from ForwardCurve
-   - Reflects actual market expectations for floating rates
-   - Formula: outstanding * (forward_rate * gearing + margin_bp * 0.0001) * year_fraction
-   - Reset date = payment_date - reset_lag_days (adjusted for business days)
-
-3. Use Cases:
-   - Without curves: Quick estimates, template generation, initial modeling
-   - With curves: Accurate valuations, what-if scenarios, portfolio analytics
-    """)
+            f_with.amount.amount - f_no.amount.amount
 
 
 if __name__ == "__main__":

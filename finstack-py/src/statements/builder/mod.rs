@@ -649,14 +649,14 @@ impl PyModelBuilder {
             registry.extract()?;
 
         let mut builder = self.take_ready_builder()?;
-        
+
         // Add each metric in sequence
         for qualified_id in qualified_ids {
             builder = builder
                 .add_metric_from_registry(&qualified_id, registry_ref.inner())
                 .map_err(stmt_to_py)?;
         }
-        
+
         self.state = BuilderState::Ready(Some(builder));
         Ok(())
     }

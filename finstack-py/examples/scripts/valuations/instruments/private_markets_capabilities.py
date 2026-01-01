@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Private markets fund example demonstrating waterfall-driven cashflows."""
 
-import json
 from datetime import date
+import json
 
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve
@@ -87,19 +87,15 @@ def main() -> None:
     registry = create_standard_registry()
 
     fund = PrivateMarketsFund.from_json(build_fund_definition())
-    result = registry.price_with_metrics(
+    registry.price_with_metrics(
         fund,
         "discounting",
         market,
         ["lp_irr", "tvpi_lp"],
     )
-    print("Private markets fund PV:", round(result.value.amount, 2), result.value.currency)
-    print("LP IRR:", result.measures.get("lp_irr"))
-    print("TVPI:", result.measures.get("tvpi_lp"))
 
     ledger = fund.lp_cashflows()
-    preview = [(dt.isoformat(), round(cf.amount, 2)) for dt, cf in ledger[:3]]
-    print("LP cashflows preview:", preview)
+    [(dt.isoformat(), round(cf.amount, 2)) for dt, cf in ledger[:3]]
 
 
 if __name__ == "__main__":

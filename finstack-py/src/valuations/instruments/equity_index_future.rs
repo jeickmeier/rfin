@@ -104,10 +104,7 @@ impl<'py> FromPyObject<'py> for PositionArg {
 ///         tick_value=5.0,
 ///         settlement_method="Cash settled"
 ///     )
-#[pyclass(
-    module = "finstack.valuations.instruments",
-    name = "EquityFutureSpecs"
-)]
+#[pyclass(module = "finstack.valuations.instruments", name = "EquityFutureSpecs")]
 #[derive(Clone, Debug)]
 pub struct PyEquityFutureSpecs {
     pub(crate) inner: EquityFutureSpecs,
@@ -129,12 +126,7 @@ impl PyEquityFutureSpecs {
     ///     Settlement method description
     #[new]
     #[pyo3(signature = (multiplier, tick_size, tick_value, settlement_method))]
-    fn new_py(
-        multiplier: f64,
-        tick_size: f64,
-        tick_value: f64,
-        settlement_method: String,
-    ) -> Self {
+    fn new_py(multiplier: f64, tick_size: f64, tick_value: f64, settlement_method: String) -> Self {
         Self {
             inner: EquityFutureSpecs {
                 multiplier,
@@ -183,7 +175,7 @@ impl PyEquityFutureSpecs {
 /// Euro Stoxx 50, DAX, FTSE 100, or Nikkei 225.
 ///
 /// The contract supports two pricing modes:
-/// 
+///
 /// 1. **Mark-to-Market** (when quoted_price is provided):
 ///    NPV = (quoted_price - entry_price) × multiplier × quantity × position_sign
 ///
@@ -345,7 +337,10 @@ impl PyEquityIndexFutureBuilder {
         slf
     }
 
-    fn currency<'py>(mut slf: PyRefMut<'py, Self>, ccy: Bound<'py, PyAny>) -> PyResult<PyRefMut<'py, Self>> {
+    fn currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        ccy: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         use crate::core::currency::extract_currency;
         slf.currency = Some(extract_currency(&ccy)?);
         Ok(slf)
@@ -356,12 +351,18 @@ impl PyEquityIndexFutureBuilder {
         slf
     }
 
-    fn expiry_date<'py>(mut slf: PyRefMut<'py, Self>, date: Bound<'py, PyAny>) -> PyResult<PyRefMut<'py, Self>> {
+    fn expiry_date<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        date: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         slf.expiry_date = Some(py_to_date(&date)?);
         Ok(slf)
     }
 
-    fn last_trading_date<'py>(mut slf: PyRefMut<'py, Self>, date: Bound<'py, PyAny>) -> PyResult<PyRefMut<'py, Self>> {
+    fn last_trading_date<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        date: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         slf.last_trading_date = Some(py_to_date(&date)?);
         Ok(slf)
     }
@@ -381,7 +382,10 @@ impl PyEquityIndexFutureBuilder {
         slf
     }
 
-    fn contract_specs<'py>(mut slf: PyRefMut<'py, Self>, specs: &PyEquityFutureSpecs) -> PyRefMut<'py, Self> {
+    fn contract_specs<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        specs: &PyEquityFutureSpecs,
+    ) -> PyRefMut<'py, Self> {
         slf.contract_specs = Some(specs.inner.clone());
         slf
     }

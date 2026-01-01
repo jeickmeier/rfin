@@ -4,8 +4,9 @@ This script shows how to use the ScenarioBuilder fluent API to create scenarios
 with a chainable, method-based approach.
 """
 
-from finstack.scenarios import CurveKind, ScenarioEngine, VolSurfaceKind
 from finstack.scenarios.builder import ScenarioBuilder, scenario
+
+from finstack.scenarios import CurveKind, ScenarioEngine, VolSurfaceKind
 
 
 def example_basic_builder():
@@ -157,13 +158,7 @@ def example_convenience_function():
     print("\n=== Convenience Function Example ===")
 
     # Using scenario() instead of ScenarioBuilder()
-    spec = (
-        scenario("stress")
-        .name("Stress Test")
-        .shift_discount_curve("USD.OIS", 50)
-        .shift_equities(-10)
-        .build()
-    )
+    spec = scenario("stress").name("Stress Test").shift_discount_curve("USD.OIS", 50).shift_equities(-10).build()
 
     print(f"Scenario ID: {spec.id()}")
     print(f"Scenario Name: {spec.name()}")
@@ -175,13 +170,7 @@ def example_scenario_composition():
     print("\n=== Scenario Composition Example ===")
 
     # Create base scenario
-    base = (
-        scenario("base")
-        .name("Base Scenario")
-        .priority(0)
-        .shift_discount_curve("USD.OIS", 25)
-        .build()
-    )
+    base = scenario("base").name("Base Scenario").priority(0).shift_discount_curve("USD.OIS", 25).build()
 
     # Create overlay scenario
     overlay = (
@@ -220,22 +209,13 @@ def example_builder_patterns():
 
     # Pattern 2: Rate + Equity shock
     print("\n2. Rate + Equity shock pattern:")
-    rate_equity = (
-        scenario("rate_equity")
-        .shift_discount_curve("USD.OIS", 50)
-        .shift_equities(-10)
-        .build()
-    )
+    rate_equity = scenario("rate_equity").shift_discount_curve("USD.OIS", 50).shift_equities(-10).build()
     print(f"   Operations: {len(rate_equity.operations())}")
 
     # Pattern 3: Horizon + market shock
     print("\n3. Horizon + market shock pattern:")
     horizon_shock = (
-        scenario("horizon_shock")
-        .roll_forward("1m")
-        .shift_discount_curve("USD.OIS", 25)
-        .shift_equities(-5)
-        .build()
+        scenario("horizon_shock").roll_forward("1m").shift_discount_curve("USD.OIS", 25).shift_equities(-5).build()
     )
     print(f"   Operations: {len(horizon_shock.operations())}")
 
@@ -294,26 +274,22 @@ def example_builder_vs_manual():
 
     # Builder approach
     print("\n1. Builder Approach (fluent, chainable):")
-    builder_code = '''
+    builder_code = """
 scenario("stress")
     .shift_discount_curve("USD.OIS", 50)
     .shift_equities(-10)
     .roll_forward("1m")
     .build()
-    '''
+    """
     print(builder_code)
 
     scenario_builder = (
-        scenario("stress")
-        .shift_discount_curve("USD.OIS", 50)
-        .shift_equities(-10)
-        .roll_forward("1m")
-        .build()
+        scenario("stress").shift_discount_curve("USD.OIS", 50).shift_equities(-10).roll_forward("1m").build()
     )
 
     # Manual approach
     print("\n2. Manual Approach (explicit):")
-    manual_code = '''
+    manual_code = """
 from finstack.scenarios import ScenarioSpec, OperationSpec, CurveKind
 
 ScenarioSpec(
@@ -324,10 +300,10 @@ ScenarioSpec(
         OperationSpec.time_roll_forward("1m"),
     ],
 )
-    '''
+    """
     print(manual_code)
 
-    from finstack.scenarios import CurveKind, OperationSpec, ScenarioSpec
+    from finstack.scenarios import OperationSpec, ScenarioSpec
 
     scenario_manual = ScenarioSpec(
         "stress",

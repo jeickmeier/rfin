@@ -1,5 +1,4 @@
-"""
-Advanced covenant modeling demo: springing leverage tests and basket tracking.
+"""Advanced covenant modeling demo: springing leverage tests and basket tracking.
 
 This script extends the standard covenant forward-projection example by adding:
 
@@ -16,6 +15,10 @@ uv run python finstack-py/examples/scripts/valuations/covenants/advanced_covenan
 
 from __future__ import annotations
 
+from finstack.core.dates.periods import build_periods
+from finstack.statements.evaluator import Evaluator
+from finstack.statements.types import AmountOrScalar, FinancialModelSpec, ForecastSpec, NodeSpec, NodeType
+
 from finstack import (
     Covenant,
     CovenantForecastConfig,
@@ -25,9 +28,6 @@ from finstack import (
     SpringingCondition,
     forecast_covenant,
 )
-from finstack.core.dates.periods import build_periods
-from finstack.statements.evaluator import Evaluator
-from finstack.statements.types import AmountOrScalar, FinancialModelSpec, ForecastSpec, NodeSpec, NodeType
 
 
 def build_extended_model() -> tuple[FinancialModelSpec, list]:
@@ -72,19 +72,12 @@ def build_extended_model() -> tuple[FinancialModelSpec, list]:
 
 
 def describe_forecast(label: str, forecast, warn_threshold: float = 0.1) -> None:
-    print(f"\n== {label} ==")
-    print(f"First breach date: {forecast.first_breach_date}")
-    print(f"Minimum headroom: {forecast.min_headroom_value:.1%} on {forecast.min_headroom_date}")
 
     warn_indices = [i for i, headroom in enumerate(forecast.headroom) if headroom < warn_threshold]
     if warn_indices:
-        warn_dates = [forecast.test_dates[i] for i in warn_indices]
-        print(f"Warning: headroom < {warn_threshold:.0%} on {warn_dates}")
+        [forecast.test_dates[i] for i in warn_indices]
     else:
-        print(f"No periods under {warn_threshold:.0%} headroom.")
-
-    print("\n-- Explain --")
-    print(forecast.explain())
+        pass
 
 
 def main() -> int:

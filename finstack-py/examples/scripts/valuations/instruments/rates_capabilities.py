@@ -3,7 +3,6 @@
 
 from datetime import date, timedelta
 
-from finstack import Money
 from finstack.core.currency import USD
 from finstack.core.dates import BusinessDayConvention
 from finstack.core.dates.daycount import DayCount
@@ -20,6 +19,8 @@ from finstack.valuations.instruments import (
     Swaption,
 )
 from finstack.valuations.pricer import create_standard_registry
+
+from finstack import Money
 
 
 def build_rate_market(as_of: date) -> MarketContext:
@@ -110,8 +111,7 @@ def main() -> None:
         "USD-OIS",
         quote_rate=0.0450,
     )
-    deposit_pricing = registry.price(deposit, "discounting", market, as_of=as_of)
-    print("Deposit PV:", round(deposit_pricing.value.amount, 2), deposit_pricing.value.currency)
+    registry.price(deposit, "discounting", market, as_of=as_of)
 
     # FRA: receive fixed vs pay floating (SOFR 3M)
     fra = ForwardRateAgreement.create(
@@ -125,15 +125,13 @@ def main() -> None:
         forward_curve="USD-SOFR-3M",
         pay_fixed=False,
     )
-    fra_result = registry.price_with_metrics(
+    registry.price_with_metrics(
         fra,
         "discounting",
         market,
         ["par_rate", "pv01"],
         as_of=as_of,
     )
-    print("FRA PV:", round(fra_result.value.amount, 2), fra_result.value.currency)
-    print("FRA par rate:", fra_result.measures.get("par_rate"))
 
     # Basis swap: SOFR 3M vs 6M with small spread
     start = as_of + timedelta(days=2)
@@ -163,14 +161,13 @@ def main() -> None:
         calendar="usny",
         stub="none",
     )
-    basis_result = registry.price_with_metrics(
+    registry.price_with_metrics(
         basis_swap,
         "discounting",
         market,
         ["dv01"],
         as_of=as_of,
     )
-    print("Basis swap PV:", round(basis_result.value.amount, 2), basis_result.value.currency)
 
     # Interest-rate cap and floor built via helper constructors
     cap = InterestRateOption.cap(
@@ -183,14 +180,13 @@ def main() -> None:
         forward_curve="USD-SOFR-3M",
         vol_surface="USD-CAP-VOL",
     )
-    cap_result = registry.price_with_metrics(
+    registry.price_with_metrics(
         cap,
         "discounting",
         market,
         ["vega", "delta"],
         as_of=as_of,
     )
-    print("Cap PV:", round(cap_result.value.amount, 2), cap_result.value.currency)
 
     floor = InterestRateOption.floor(
         "USD-FLOOR-5Y",
@@ -202,8 +198,7 @@ def main() -> None:
         forward_curve="USD-SOFR-3M",
         vol_surface="USD-CAP-VOL",
     )
-    floor_pv = registry.price(floor, "discounting", market, as_of=as_of)
-    print("Floor PV:", round(floor_pv.value.amount, 2), floor_pv.value.currency)
+    registry.price(floor, "discounting", market, as_of=as_of)
 
     # Interest-rate future (SOFR) with simple contract specs
     future = InterestRateFuture.create(
@@ -219,14 +214,13 @@ def main() -> None:
         position="long",
         convexity_adjustment=0.0,
     )
-    future_result = registry.price_with_metrics(
+    registry.price_with_metrics(
         future,
         "discounting",
         market,
         ["dv01"],
         as_of=as_of,
     )
-    print("IR future PV:", round(future_result.value.amount, 2), future_result.value.currency)
 
     # Swaption: payer on 5y underlying swap starting in 1y
     swaption = Swaption.payer(
@@ -242,14 +236,13 @@ def main() -> None:
         exercise="european",
         settlement="physical",
     )
-    swaption_result = registry.price_with_metrics(
+    registry.price_with_metrics(
         swaption,
         "discounting",
         market,
         ["vega", "delta"],
         as_of=as_of,
     )
-    print("Swaption PV:", round(swaption_result.value.amount, 2), swaption_result.value.currency)
 
 
 if __name__ == "__main__":

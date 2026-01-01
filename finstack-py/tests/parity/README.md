@@ -34,13 +34,13 @@ def test_feature_parity():
     """Test that Python and Rust produce identical results for feature X."""
     # 1. Create inputs (same values for both languages)
     input_value = 100.0
-    
+
     # 2. Execute operation in Python
     python_result = python_api(input_value)
-    
+
     # 3. Define expected result (from Rust golden values or analytical calculation)
     expected_result = 105.0  # Known correct answer
-    
+
     # 4. Assert parity within tolerance
     assert abs(python_result - expected_result) < 1e-10
 ```
@@ -48,17 +48,20 @@ def test_feature_parity():
 ## Running Tests
 
 Run all parity tests:
+
 ```bash
 pytest tests/parity/ -v
 ```
 
 Run specific module:
+
 ```bash
 pytest tests/parity/test_core_parity.py -v
 pytest tests/parity/test_valuations_parity.py -v
 ```
 
 Run with coverage:
+
 ```bash
 pytest tests/parity/ --cov=finstack --cov-report=html
 ```

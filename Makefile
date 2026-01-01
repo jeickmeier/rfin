@@ -126,7 +126,13 @@ fmt-rust:
 	cargo fmt --all
 
 fmt-python:
-	cd finstack-py && uv run ruff format .
+	@if command -v uv >/dev/null 2>&1; then \
+		if [ -f .venv/bin/activate ]; then \
+			. .venv/bin/activate && ruff format .; \
+		else \
+			uv run ruff format .; \
+		fi \
+	fi
 
 fmt-wasm:
 	cd finstack-wasm && npm run format .
@@ -155,9 +161,9 @@ lint-python:
 lint-python-fix:
 	@if command -v uv >/dev/null 2>&1; then \
 		if [ -f .venv/bin/activate ]; then \
-			. .venv/bin/activate && ruff check . --fix; \
+			. .venv/bin/activate && ruff format . && ruff check . --fix --unsafe-fixes; \
 		else \
-			uv run ruff check . --fix; \
+			uv run ruff format . && uv run ruff check . --fix --unsafe-fixes; \
 		fi \
 	fi
 

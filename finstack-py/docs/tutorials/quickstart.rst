@@ -113,7 +113,7 @@ Step 3: Price the Bond
    from finstack import PricerRegistry
 
    registry = PricerRegistry.create_standard()
-   
+
    # Price with metrics
    result = registry.price_bond_with_metrics(
        bond,
@@ -208,7 +208,7 @@ Aggregate multiple positions.
    from finstack import value_portfolio
 
    valuation = value_portfolio(portfolio, market, None)
-   
+
    print(f"\nPortfolio Valuation:")
    print(f"Total Value: {valuation.total_value.amount:,.2f}")
    for entity_id, value in valuation.by_entity.items():

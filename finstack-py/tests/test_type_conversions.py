@@ -6,13 +6,13 @@ ensuring that both typed objects and string aliases work correctly.
 
 import datetime as dt
 
-import pytest
-
-import finstack
 from finstack.core.currency import Currency
 from finstack.core.dates import BusinessDayConvention, DayCount, Frequency, ScheduleBuilder, adjust, get_calendar
 from finstack.core.market_data import DiscountCurve, VolSurface
 from finstack.core.money import Money
+import pytest
+
+import finstack
 from finstack.valuations import calibration as cal
 
 

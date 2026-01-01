@@ -272,7 +272,7 @@ mod tests {
     fn test_book_add_position() {
         let mut book = Book::new("ig", Some("Investment Grade".to_string()));
         let pos_id = PositionId::new("pos1");
-        
+
         book.add_position(pos_id.clone());
         assert!(book.contains_position(&pos_id));
         assert_eq!(book.positions().len(), 1);
@@ -286,7 +286,7 @@ mod tests {
     fn test_book_add_child() {
         let mut book = Book::new("americas", Some("Americas".to_string()));
         let child_id = BookId::new("credit");
-        
+
         book.add_child(child_id.clone());
         assert!(book.contains_child(&child_id));
         assert_eq!(book.children().len(), 1);
@@ -300,7 +300,7 @@ mod tests {
     fn test_book_remove_position() {
         let mut book = Book::new("ig", Some("Investment Grade".to_string()));
         let pos_id = PositionId::new("pos1");
-        
+
         book.add_position(pos_id.clone());
         assert!(book.contains_position(&pos_id));
 
@@ -313,7 +313,7 @@ mod tests {
     fn test_book_remove_child() {
         let mut book = Book::new("americas", Some("Americas".to_string()));
         let child_id = BookId::new("credit");
-        
+
         book.add_child(child_id.clone());
         assert!(book.contains_child(&child_id));
 

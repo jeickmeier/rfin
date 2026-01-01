@@ -3,12 +3,13 @@
 
 from datetime import date
 
-from finstack import Money
 from finstack.core.currency import USD
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve, InflationCurve
 from finstack.valuations.instruments import InflationLinkedBond, InflationSwap
 from finstack.valuations.pricer import create_standard_registry
+
+from finstack import Money
 
 
 def build_market(as_of: date) -> MarketContext:
@@ -59,13 +60,12 @@ def main() -> None:
         inflation_curve="US-CPI",
         indexation="tips",
     )
-    ilb_result = registry.price_with_metrics(
+    registry.price_with_metrics(
         ilb,
         "discounting",
         market,
         ["real_duration", "breakeven_inflation"],
     )
-    print("Inflation-linked bond PV:", round(ilb_result.value.amount, 2), ilb_result.value.currency)
 
     inf_swap = InflationSwap.create(
         "US-ZC-INFLATION-SWAP",
@@ -77,13 +77,12 @@ def main() -> None:
         inflation_curve="US-CPI",
         side="pay_fixed",
     )
-    swap_result = registry.price_with_metrics(
+    registry.price_with_metrics(
         inf_swap,
         "discounting",
         market,
         ["par_rate", "npv01"],
     )
-    print("Inflation swap PV:", round(swap_result.value.amount, 2), swap_result.value.currency)
 
 
 if __name__ == "__main__":

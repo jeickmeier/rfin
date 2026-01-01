@@ -221,7 +221,7 @@ impl PyPortfolioValuation {
     ///     >>> df = positions_to_polars(valuation)
     fn to_polars(&self) -> PyResult<pyo3_polars::PyDataFrame> {
         use finstack_portfolio::dataframe::positions_to_dataframe;
-        
+
         let df = positions_to_dataframe(&self.inner).map_err(|e| {
             pyo3::exceptions::PyRuntimeError::new_err(format!("to_polars failed: {}", e))
         })?;
@@ -243,7 +243,7 @@ impl PyPortfolioValuation {
     ///     >>> df_pd = df_pl.to_pandas()  # Convert to pandas from Python
     fn entities_to_polars(&self) -> PyResult<pyo3_polars::PyDataFrame> {
         use finstack_portfolio::dataframe::entities_to_dataframe;
-        
+
         let df = entities_to_dataframe(&self.inner).map_err(|e| {
             pyo3::exceptions::PyRuntimeError::new_err(format!("entities_to_polars failed: {}", e))
         })?;

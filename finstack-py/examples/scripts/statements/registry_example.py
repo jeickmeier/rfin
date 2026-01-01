@@ -1,5 +1,4 @@
-"""
-Dynamic Metric Registry Example
+"""Dynamic Metric Registry Example.
 
 Demonstrates how to use the metric registry to define, load, and reuse
 financial metrics across statement models.
@@ -13,8 +12,8 @@ Key Features:
 """
 
 import json
-import tempfile
 from pathlib import Path
+import tempfile
 
 from finstack.statements.builder import ModelBuilder
 from finstack.statements.evaluator import Evaluator
@@ -103,9 +102,7 @@ def example_2_custom_json_metrics():
     }
 
     # Save to temporary file
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".json", delete=False
-    ) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         json.dump(custom_json, f, indent=2)
         temp_path = f.name
 
@@ -180,14 +177,12 @@ def example_4_model_with_builtin_metrics():
     builder = ModelBuilder.new()
 
     # Define periods (4 quarters)
-    builder.periods(
-        [
-            Period(2024, 1, "Q1 2024"),
-            Period(2024, 2, "Q2 2024"),
-            Period(2024, 3, "Q3 2024"),
-            Period(2024, 4, "Q4 2024"),
-        ]
-    )
+    builder.periods([
+        Period(2024, 1, "Q1 2024"),
+        Period(2024, 2, "Q2 2024"),
+        Period(2024, 3, "Q3 2024"),
+        Period(2024, 4, "Q4 2024"),
+    ])
 
     # Add input data (all values in thousands)
     builder.value(

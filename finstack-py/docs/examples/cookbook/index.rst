@@ -42,7 +42,7 @@ Build a Multi-Asset Portfolio
    builder = PortfolioBuilder()
    builder.entity(Entity(id="FUND", name="Alpha Fund"))
    builder.base_ccy(Currency.from_code("USD"))
-   
+
    # Add bonds
    for bond in bonds:
        builder.position_from_instrument(
@@ -52,7 +52,7 @@ Build a Multi-Asset Portfolio
            entity_id="FUND",
            tags={"asset_class": "fixed_income", "rating": bond.rating}
        )
-   
+
    # Add equities
    for option in options:
        builder.position_from_instrument(
@@ -62,7 +62,7 @@ Build a Multi-Asset Portfolio
            entity_id="FUND",
            tags={"asset_class": "equity_options"}
        )
-   
+
    portfolio = builder.build()
 
 Run Stress Test
@@ -77,19 +77,19 @@ Run Stress Test
        # Rates shock
        shift USD.OIS +50bp
        shift EUR.OIS +40bp
-       
+
        # Equity crash
        shift equities -20%
-       
+
        # FX stress
        shift fx USD/EUR +5%
    """)
-   
+
    # Apply and revalue
    engine = ScenarioEngine()
    shocked_market, report = engine.apply(scenario, market)
    stressed_valuation = value_portfolio(portfolio, shocked_market, None)
-   
+
    # Calculate P&L
    base_pv = base_valuation.total_value.amount
    stressed_pv = stressed_valuation.total_value.amount
@@ -103,7 +103,7 @@ Generate Risk Report
    # Price with metrics
    registry = PricerRegistry.create_standard()
    results = []
-   
+
    for position in portfolio.positions:
        result = registry.price_with_metrics(
            position.instrument,
@@ -119,7 +119,7 @@ Generate Risk Report
            "theta": result.metric("theta"),
            "delta": result.metric("delta"),
        })
-   
+
    # Export to DataFrame
    import polars as pl
    df = pl.DataFrame(results)
@@ -138,7 +138,7 @@ Calibrate Curves
        RatesQuote.swap_rate("5Y", 0.050),
        RatesQuote.swap_rate("10Y", 0.052),
    ]
-   
+
    plan = {
        "steps": [{
            "kind": "discount",
@@ -147,7 +147,7 @@ Calibrate Curves
            "quotes": [q.to_json() for q in quotes]
        }]
    }
-   
+
    result = execute_calibration_v2(plan, {})
    curve = result.curves["USD.OIS"]
 
@@ -160,22 +160,22 @@ Optimize Portfolio
        PortfolioOptimizationProblem,
        Constraint, Objective, TradeUniverse
    )
-   
+
    # Define universe
    universe = TradeUniverse()
    for bond in candidate_bonds:
        universe.add_candidate(bond.id, bond, bond.price)
-   
+
    # Build problem
    problem = PortfolioOptimizationProblem()
    problem.universe(universe)
    problem.objective(Objective.maximize_yield())
-   
+
    # Constraints
    problem.add_constraint(Constraint.budget(10_000_000))
    problem.add_constraint(Constraint.tag_exposure_limit("rating", "CCC", 0.10))
    problem.add_constraint(Constraint.weight_bounds(0.0, 0.05))
-   
+
    # Solve
    result = problem.solve()
 

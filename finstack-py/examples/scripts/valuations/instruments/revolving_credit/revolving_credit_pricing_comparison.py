@@ -18,17 +18,17 @@ this gracefully, allowing spreads to occasionally hit zero (tight spreads, not d
 You will see Feller warnings - these are informational, not errors.
 """
 
+from datetime import date
 import json
 import sys
-from datetime import date
 
 try:
     from finstack.core.market_data.context import MarketContext
     from finstack.core.market_data.term_structures import DiscountCurve, ForwardCurve, HazardCurve
     from finstack.valuations.instruments import RevolvingCredit
 except ImportError as e:
-    print(f"Error importing finstack modules: {e}")  # noqa: T201  # noqa: T201
-    print("Please ensure finstack-py is installed: make python-dev")  # noqa: T201  # noqa: T201
+    print(f"Error importing finstack modules: {e}")
+    print("Please ensure finstack-py is installed: make python-dev")
     sys.exit(1)
 
 
@@ -263,9 +263,9 @@ def test_zero_volatility_parity() -> bool:
     Validates that stochastic pricing with zero volatility produces results
     within 0.5% of deterministic pricing.
     """
-    print("\n" + "=" * 80)  # noqa: T201
-    print("TEST 1: Zero Volatility Parity (MC should match Deterministic)")  # noqa: T201
-    print("=" * 80)  # noqa: T201
+    print("\n" + "=" * 80)
+    print("TEST 1: Zero Volatility Parity (MC should match Deterministic)")
+    print("=" * 80)
 
     market = create_test_market()
     as_of = date(2025, 1, 1)
@@ -316,19 +316,19 @@ def test_zero_volatility_parity() -> bool:
             "passed": diff_pct < 0.5,
         })
 
-        print(f"\n{description}:")  # noqa: T201
-        print(f"  Deterministic PV: {det_pv}")  # noqa: T201
-        print(f"  Monte Carlo PV:   {mc_pv}")  # noqa: T201
-        print(f"  Std Error:        ${mc_result.std_error:,.2f}")  # noqa: T201
-        print(f"  Difference:       {diff_pct:.3f}%")  # noqa: T201
-        print(f"  Status:           {'✓ PASS' if diff_pct < 0.5 else '✗ FAIL'}")  # noqa: T201
+        print(f"\n{description}:")
+        print(f"  Deterministic PV: {det_pv}")
+        print(f"  Monte Carlo PV:   {mc_pv}")
+        print(f"  Std Error:        ${mc_result.std_error:,.2f}")
+        print(f"  Difference:       {diff_pct:.3f}%")
+        print(f"  Status:           {'✓ PASS' if diff_pct < 0.5 else '✗ FAIL'}")
 
     # Summary
     passed = sum(1 for r in results if r["passed"])
     total = len(results)
-    print(f"\n{'=' * 80}")  # noqa: T201
-    print(f"Parity Test Summary: {passed}/{total} tests passed")  # noqa: T201
-    print(f"{'=' * 80}")  # noqa: T201
+    print(f"\n{'=' * 80}")
+    print(f"Parity Test Summary: {passed}/{total} tests passed")
+    print(f"{'=' * 80}")
 
     return all(r["passed"] for r in results)
 
@@ -339,9 +339,9 @@ def test_utilization_volatility_grid() -> list:
     Sweeps through different utilization volatilities to demonstrate
     the impact on average facility value and value distribution.
     """
-    print("\n" + "=" * 80)  # noqa: T201
-    print("TEST 2: Utilization Volatility Impact")  # noqa: T201
-    print("=" * 80)  # noqa: T201
+    print("\n" + "=" * 80)
+    print("TEST 2: Utilization Volatility Impact")
+    print("=" * 80)
 
     market = create_test_market()
     as_of = date(2025, 1, 1)
@@ -351,10 +351,10 @@ def test_utilization_volatility_grid() -> list:
     det_facility = RevolvingCredit.from_json(det_spec)
     baseline_pv = det_facility.value(market, as_of)
 
-    print(f"\nBaseline (Deterministic, 50% util): {baseline_pv}")  # noqa: T201
-    print("\nUtilization Volatility Sweep:")  # noqa: T201
-    print(f"{'Vol':>8} {'Mean PV':>15} {'Std Err':>12} {'CI Width':>12} {'vs Baseline':>12}")  # noqa: T201
-    print("-" * 80)  # noqa: T201
+    print(f"\nBaseline (Deterministic, 50% util): {baseline_pv}")
+    print("\nUtilization Volatility Sweep:")
+    print(f"{'Vol':>8} {'Mean PV':>15} {'Std Err':>12} {'CI Width':>12} {'vs Baseline':>12}")
+    print("-" * 80)
 
     # Test different volatilities
     volatilities = [0.0001, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30]
@@ -380,7 +380,7 @@ def test_utilization_volatility_grid() -> list:
             "diff_vs_baseline": diff_vs_baseline,
         })
 
-        print(f"{vol:>7.0%} ${mean_pv:>14,.0f} ${stderr:>11,.0f} ${ci_width:>11,.0f} ${diff_vs_baseline:>11,.0f}")  # noqa: T201
+        print(f"{vol:>7.0%} ${mean_pv:>14,.0f} ${stderr:>11,.0f} ${ci_width:>11,.0f} ${diff_vs_baseline:>11,.0f}")
 
     return results
 
@@ -391,9 +391,9 @@ def test_credit_spread_volatility_grid() -> list:
     Sweeps through different credit spread volatilities to demonstrate
     the impact on facility value through default risk.
     """
-    print("\n" + "=" * 80)  # noqa: T201
-    print("TEST 3: Credit Spread Volatility Impact")  # noqa: T201
-    print("=" * 80)  # noqa: T201
+    print("\n" + "=" * 80)
+    print("TEST 3: Credit Spread Volatility Impact")
+    print("=" * 80)
 
     market = create_test_market()
     as_of = date(2025, 1, 1)
@@ -412,10 +412,10 @@ def test_credit_spread_volatility_grid() -> list:
     baseline_result = baseline_facility.price_with_paths(market, as_of)
     baseline_pv = baseline_result.mean
 
-    print(f"\nBaseline (50% util, 0% credit spread vol): {baseline_pv}")  # noqa: T201
-    print("\nCredit Spread Volatility Sweep:")  # noqa: T201
-    print(f"{'CS Vol':>8} {'Mean PV':>15} {'Std Err':>12} {'vs Baseline':>12}")  # noqa: T201
-    print("-" * 80)  # noqa: T201
+    print(f"\nBaseline (50% util, 0% credit spread vol): {baseline_pv}")
+    print("\nCredit Spread Volatility Sweep:")
+    print(f"{'CS Vol':>8} {'Mean PV':>15} {'Std Err':>12} {'vs Baseline':>12}")
+    print("-" * 80)
 
     # Test different credit spread volatilities (ANNUALIZED)
     # Market typical: 30-50% annual volatility for credit spreads
@@ -446,7 +446,7 @@ def test_credit_spread_volatility_grid() -> list:
             "diff_vs_baseline": diff_vs_baseline,
         })
 
-        print(f"{cs_vol:>7.1%} ${mean_pv:>14,.0f} ${stderr:>11,.0f} ${diff_vs_baseline:>11,.0f}")  # noqa: T201
+        print(f"{cs_vol:>7.1%} ${mean_pv:>14,.0f} ${stderr:>11,.0f} ${diff_vs_baseline:>11,.0f}")
 
     return results
 
@@ -456,9 +456,9 @@ def test_volatility_heatmap() -> dict:
 
     This demonstrates how the two sources of uncertainty interact.
     """
-    print("\n" + "=" * 80)  # noqa: T201
-    print("TEST 4: Combined Volatility Heatmap")  # noqa: T201
-    print("=" * 80)  # noqa: T201
+    print("\n" + "=" * 80)
+    print("TEST 4: Combined Volatility Heatmap")
+    print("=" * 80)
 
     market = create_test_market()
     as_of = date(2025, 1, 1)
@@ -467,17 +467,17 @@ def test_volatility_heatmap() -> dict:
     util_vols = [0.0, 0.1, 0.2, 0.3]  # Annual utilization volatility
     cs_vols = [0.20, 0.35, 0.50]  # Annual credit spread volatility (market: 30-50%)
 
-    print("\nMean PV Grid (rows = util vol, cols = credit spread vol):")  # noqa: T201
-    print(f"{'Util Vol':>10} ", end="")  # noqa: T201
+    print("\nMean PV Grid (rows = util vol, cols = credit spread vol):")
+    print(f"{'Util Vol':>10} ", end="")
     for cs_vol in cs_vols:
-        print(f"{cs_vol:>15.1%}", end="")  # noqa: T201
-    print()  # noqa: T201
-    print("-" * (10 + 15 * len(cs_vols)))  # noqa: T201
+        print(f"{cs_vol:>15.1%}", end="")
+    print()
+    print("-" * (10 + 15 * len(cs_vols)))
 
     results = {}
 
     for util_vol in util_vols:
-        print(f"{util_vol:>9.0%} ", end="")  # noqa: T201
+        print(f"{util_vol:>9.0%} ", end="")
         row_results = []
 
         for cs_vol in cs_vols:
@@ -494,20 +494,20 @@ def test_volatility_heatmap() -> dict:
 
             mean_pv = mc_result.mean.amount
             row_results.append(mean_pv)
-            print(f" ${mean_pv:>13,.0f}", end="")  # noqa: T201
+            print(f" ${mean_pv:>13,.0f}", end="")
 
         results[util_vol] = row_results
-        print()  # noqa: T201
+        print()
 
     return results
 
 
 def main() -> int:
     """Run all pricing comparison tests."""
-    print("\n" + "=" * 80)  # noqa: T201
-    print("REVOLVING CREDIT PRICING COMPARISON")  # noqa: T201
-    print("Deterministic vs Monte Carlo Validation")  # noqa: T201
-    print("=" * 80)  # noqa: T201
+    print("\n" + "=" * 80)
+    print("REVOLVING CREDIT PRICING COMPARISON")
+    print("Deterministic vs Monte Carlo Validation")
+    print("=" * 80)
 
     try:
         # Test 1: Zero volatility parity
@@ -523,28 +523,28 @@ def main() -> int:
         test_volatility_heatmap()  # Results printed inline
 
         # Final summary
-        print("\n" + "=" * 80)  # noqa: T201
-        print("SUMMARY")  # noqa: T201
-        print("=" * 80)  # noqa: T201
-        print(f"\n✓ Zero volatility parity test: {'PASSED' if parity_passed else 'FAILED'}")  # noqa: T201
-        print(f"✓ Utilization volatility sweep completed ({len(util_vol_results)} scenarios)")  # noqa: T201
-        print(f"✓ Credit spread volatility sweep completed ({len(cs_vol_results)} scenarios)")  # noqa: T201
-        print("✓ Combined volatility heatmap completed")  # noqa: T201
+        print("\n" + "=" * 80)
+        print("SUMMARY")
+        print("=" * 80)
+        print(f"\n✓ Zero volatility parity test: {'PASSED' if parity_passed else 'FAILED'}")
+        print(f"✓ Utilization volatility sweep completed ({len(util_vol_results)} scenarios)")
+        print(f"✓ Credit spread volatility sweep completed ({len(cs_vol_results)} scenarios)")
+        print("✓ Combined volatility heatmap completed")
 
-        print("\nKey Insights:")  # noqa: T201
-        print("1. MC pricing with zero volatility matches deterministic within <0.5%")  # noqa: T201
-        print("2. Higher utilization volatility increases value uncertainty (wider CI)")  # noqa: T201
-        print("3. Credit spread volatility affects expected value through default risk")  # noqa: T201
-        print("4. Both volatilities interact in multi-factor scenarios")  # noqa: T201
+        print("\nKey Insights:")
+        print("1. MC pricing with zero volatility matches deterministic within <0.5%")
+        print("2. Higher utilization volatility increases value uncertainty (wider CI)")
+        print("3. Credit spread volatility affects expected value through default risk")
+        print("4. Both volatilities interact in multi-factor scenarios")
 
-        print("\n" + "=" * 80)  # noqa: T201
-        print("All tests completed successfully!")  # noqa: T201
-        print("=" * 80 + "\n")  # noqa: T201
+        print("\n" + "=" * 80)
+        print("All tests completed successfully!")
+        print("=" * 80 + "\n")
 
         return 0
 
-    except Exception as e:  # noqa: BLE001
-        print(f"\n✗ Error during testing: {e}")  # noqa: T201
+    except Exception as e:
+        print(f"\n✗ Error during testing: {e}")
         import traceback
 
         traceback.print_exc()

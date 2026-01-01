@@ -51,7 +51,11 @@ use std::fmt;
 /// --------
 /// Bond : Plain vanilla fixed income bond
 /// InterestRateFuture : Short-term interest rate futures
-#[pyclass(module = "finstack.valuations.instruments", name = "BondFuture", frozen)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "BondFuture",
+    frozen
+)]
 #[derive(Clone, Debug)]
 pub struct PyBondFuture {
     pub(crate) inner: BondFuture,
@@ -444,7 +448,9 @@ impl PyBondFutureBuilder {
             .ok_or_else(|| PyValueError::new_err("disc_id() must be provided"))?;
 
         if slf.deliverable_basket.is_empty() {
-            return Err(PyValueError::new_err("deliverable_basket() cannot be empty"));
+            return Err(PyValueError::new_err(
+                "deliverable_basket() cannot be empty",
+            ));
         }
 
         let bond_future = BondFuture {

@@ -120,7 +120,9 @@ impl PyRealEstateAsset {
         // Parse NOI schedule
         let mut schedule: Vec<(time::Date, f64)> = Vec::new();
         for item in noi_schedule.iter() {
-            let tuple = item.extract::<(Bound<'_, PyAny>, f64)>().context("noi_schedule item should be (date, amount) tuple")?;
+            let tuple = item
+                .extract::<(Bound<'_, PyAny>, f64)>()
+                .context("noi_schedule item should be (date, amount) tuple")?;
             let date = py_to_date(&tuple.0).context("noi_schedule date")?;
             schedule.push((date, tuple.1));
         }
@@ -221,7 +223,9 @@ impl PyRealEstateAsset {
         let schedule = if let Some(noi_list) = noi_schedule {
             let mut sched: Vec<(time::Date, f64)> = Vec::new();
             for item in noi_list.iter() {
-                let tuple = item.extract::<(Bound<'_, PyAny>, f64)>().context("noi_schedule item should be (date, amount) tuple")?;
+                let tuple = item
+                    .extract::<(Bound<'_, PyAny>, f64)>()
+                    .context("noi_schedule item should be (date, amount) tuple")?;
                 let date = py_to_date(&tuple.0).context("noi_schedule date")?;
                 sched.push((date, tuple.1));
             }

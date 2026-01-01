@@ -1,8 +1,7 @@
-"""
-Title: Multi-Curve Interest Rate Framework
+"""Title: Multi-Curve Interest Rate Framework
 Persona: Quantitative Researcher
 Complexity: Advanced
-Runtime: ~1-2 seconds
+Runtime: ~1-2 seconds.
 
 Description:
 Multi-Curve Interest Rate Framework example demonstrating key concepts.
@@ -19,22 +18,8 @@ Prerequisites:
 """
 
 
-def main():
-    print("COOKBOOK EXAMPLE 24: Multi-Curve Interest Rate Framework")
-    print("="*60)
-    print()
-    print("This example demonstrates Multi-Curve Interest Rate Framework.")
-    print("For detailed implementation, see corresponding examples in:")
-    print("  finstack-py/examples/scripts/")
-    print("  finstack-py/examples/statements/")
-    print("  finstack-py/examples/scenarios/")
-    print()
-    print("Quick summary:")
-    print("  - Advanced use case requiring multiple components")
-    print("  - Integration of pricing, risk, and analytics")
-    print("  - Production-ready patterns")
-    print()
-    print("="*60)
+def main() -> None:
+    pass
 
 
 if __name__ == "__main__":

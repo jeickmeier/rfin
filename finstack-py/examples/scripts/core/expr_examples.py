@@ -1,4 +1,4 @@
-"""Expression Engine Examples - AST Construction and Evaluation
+"""Expression Engine Examples - AST Construction and Evaluation.
 
 This file demonstrates the expression engine capabilities for building and
 evaluating complex time-series expressions.
@@ -19,7 +19,7 @@ import sys
 
 
 def example_1_basic_ast():
-    """Example 1: Basic AST Construction
+    """Example 1: Basic AST Construction.
 
     Demonstrates manual AST construction using static methods.
     """
@@ -27,15 +27,15 @@ def example_1_basic_ast():
     print("EXAMPLE 1: Basic AST Construction")
     print("=" * 70)
 
-    from finstack.core.expr import Expr, BinOp, Function, CompiledExpr
+    from finstack.core.expr import BinOp, CompiledExpr, Expr, Function
 
     # Manual AST construction
     x = Expr.column("x")
     ten = Expr.literal(10.0)
     expr = Expr.bin_op(BinOp.ADD, x, ten)
 
-    print(f"Expression: x + 10")
-    print(f"AST: {repr(expr)}")
+    print("Expression: x + 10")
+    print(f"AST: {expr!r}")
 
     # Compile and evaluate
     compiled = CompiledExpr(expr)
@@ -48,7 +48,7 @@ def example_1_basic_ast():
 
 
 def example_2_ergonomic_helpers():
-    """Example 2: Ergonomic Helpers with Operator Overloading
+    """Example 2: Ergonomic Helpers with Operator Overloading.
 
     Demonstrates Pythonic expression construction using helpers.
     """
@@ -62,26 +62,26 @@ def example_2_ergonomic_helpers():
     # Instead of verbose static methods, use operator overloading
     expr = col("x") + 10
 
-    print(f"Expression: col('x') + 10")
-    print(f"AST: {repr(expr)}")
+    print("Expression: col('x') + 10")
+    print(f"AST: {expr!r}")
 
     # Complex expression
     expr2 = (col("revenue") * 1.1 - col("cogs")) / col("periods")
 
-    print(f"\nComplex expression: (revenue * 1.1 - cogs) / periods")
-    print(f"AST: {repr(expr2)}")
+    print("\nComplex expression: (revenue * 1.1 - cogs) / periods")
+    print(f"AST: {expr2!r}")
 
     # Compile and evaluate
     compiled = CompiledExpr(expr2)
     columns = ["revenue", "cogs", "periods"]
     data = [
         [1000.0, 2000.0, 3000.0],  # revenue
-        [600.0, 1200.0, 1800.0],   # cogs
-        [12.0, 12.0, 12.0],        # periods
+        [600.0, 1200.0, 1800.0],  # cogs
+        [12.0, 12.0, 12.0],  # periods
     ]
 
     result = compiled.eval(columns, data)
-    print(f"\nInput:")
+    print("\nInput:")
     print(f"  revenue: {data[0]}")
     print(f"  cogs:    {data[1]}")
     print(f"  periods: {data[2]}")
@@ -89,7 +89,7 @@ def example_2_ergonomic_helpers():
 
 
 def example_3_time_series_functions():
-    """Example 3: Time-Series Functions
+    """Example 3: Time-Series Functions.
 
     Demonstrates lag, diff, pct_change, and cumulative functions.
     """
@@ -98,7 +98,7 @@ def example_3_time_series_functions():
     print("=" * 70)
 
     from finstack.core.expr import CompiledExpr
-    from finstack.core.expr_helpers import col, lag, diff, pct_change, cumsum
+    from finstack.core.expr_helpers import col, cumsum, diff, lag, pct_change
 
     data = [[100.0, 105.0, 110.0, 115.0, 120.0]]
     columns = ["price"]
@@ -134,7 +134,7 @@ def example_3_time_series_functions():
 
 
 def example_4_rolling_windows():
-    """Example 4: Rolling Window Functions
+    """Example 4: Rolling Window Functions.
 
     Demonstrates rolling mean, sum, std, and other windowed operations.
     """
@@ -143,7 +143,7 @@ def example_4_rolling_windows():
     print("=" * 70)
 
     from finstack.core.expr import CompiledExpr
-    from finstack.core.expr_helpers import col, rolling_mean, rolling_sum, rolling_std
+    from finstack.core.expr_helpers import col, rolling_mean, rolling_std, rolling_sum
 
     data = [[1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]]
     columns = ["x"]
@@ -171,7 +171,7 @@ def example_4_rolling_windows():
 
 
 def example_5_financial_metrics():
-    """Example 5: Financial Metrics
+    """Example 5: Financial Metrics.
 
     Demonstrates common financial calculations using expressions.
     """
@@ -218,7 +218,7 @@ def example_5_financial_metrics():
 
 
 def example_6_conditionals():
-    """Example 6: Conditional Expressions
+    """Example 6: Conditional Expressions.
 
     Demonstrates if-then-else conditional logic.
     """
@@ -250,13 +250,13 @@ def example_6_conditionals():
 
     result = CompiledExpr(expr).eval(["growth"], [growth])
     ratings = ["Low", "Low", "Medium", "High", "Medium"]
-    print(f"  Growth: {[f'{g*100:.1f}%' for g in growth]}")
+    print(f"  Growth: {[f'{g * 100:.1f}%' for g in growth]}")
     print(f"  Rating (numeric): {result.values}")
-    print(f"  Rating (labels):  {[ratings[int(r)-1] for r in result.values]}")
+    print(f"  Rating (labels):  {[ratings[int(r) - 1] for r in result.values]}")
 
 
 def example_7_complex_expressions():
-    """Example 7: Complex Multi-Factor Expressions
+    """Example 7: Complex Multi-Factor Expressions.
 
     Demonstrates building sophisticated multi-factor signals.
     """
@@ -267,16 +267,36 @@ def example_7_complex_expressions():
     from finstack.core.expr import CompiledExpr
     from finstack.core.expr_helpers import (
         col,
+        if_then_else,
         pct_change,
         rolling_mean,
         rolling_std,
-        if_then_else,
     )
 
     # Multi-factor signal: (momentum > 0) & (price > MA20) & (volatility < 0.02)
-    price = [100.0, 102.0, 101.0, 103.0, 105.0, 104.0, 106.0, 108.0, 107.0, 110.0,
-             112.0, 111.0, 113.0, 115.0, 114.0, 116.0, 118.0, 117.0, 119.0, 120.0,
-             122.0]
+    price = [
+        100.0,
+        102.0,
+        101.0,
+        103.0,
+        105.0,
+        104.0,
+        106.0,
+        108.0,
+        107.0,
+        110.0,
+        112.0,
+        111.0,
+        113.0,
+        115.0,
+        114.0,
+        116.0,
+        118.0,
+        117.0,
+        119.0,
+        120.0,
+        122.0,
+    ]
 
     # Components
     momentum = pct_change(col("price"), 1)
@@ -299,7 +319,7 @@ def example_7_complex_expressions():
 
 
 def example_8_dag_planning():
-    """Example 8: DAG Planning and Caching
+    """Example 8: DAG Planning and Caching.
 
     Demonstrates compilation with DAG planning for optimization.
     """
@@ -307,16 +327,16 @@ def example_8_dag_planning():
     print("EXAMPLE 8: DAG Planning and Caching")
     print("=" * 70)
 
+    from finstack.core.config import ResultsMeta
     from finstack.core.expr import CompiledExpr
     from finstack.core.expr_helpers import col, rolling_mean
-    from finstack.core.config import ResultsMeta
 
     # Build expression with shared sub-expressions
     # Both use rolling_mean(x, 3)
     rm = rolling_mean(col("x"), 3)
     expr = rm + rm * 2
 
-    print(f"Expression: rolling_mean(x, 3) + rolling_mean(x, 3) * 2")
+    print("Expression: rolling_mean(x, 3) + rolling_mean(x, 3) * 2")
 
     # Compile with planning
     meta = ResultsMeta()
@@ -328,8 +348,8 @@ def example_8_dag_planning():
         print(f"  Root nodes: {compiled.plan.roots}")
 
     # Add caching
-    compiled_with_cache = compiled.with_cache(100)  # 100 MB cache budget
-    print(f"Cache budget set: 100 MB")
+    compiled.with_cache(100)  # 100 MB cache budget
+    print("Cache budget set: 100 MB")
 
     # Evaluate
     data = [[1.0, 2.0, 3.0, 4.0, 5.0]]

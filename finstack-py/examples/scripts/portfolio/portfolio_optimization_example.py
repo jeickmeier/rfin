@@ -11,8 +11,6 @@ Run with:
     uv run python finstack-py/examples/scripts/portfolio/portfolio_optimization_example.py
 """
 
-# ruff: noqa: T201
-
 from __future__ import annotations
 
 from datetime import date
@@ -45,8 +43,9 @@ def build_bond_portfolio(as_of: date):
     """Build a small USD bond portfolio with rating tags."""
     from finstack.core.currency import Currency
     from finstack.core.money import Money
-    from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit
     from finstack.valuations.instruments import Bond
+
+    from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit
 
     # 5-year horizon for all bonds
     maturity = date(as_of.year + 5, 1, 1)
@@ -137,9 +136,10 @@ def build_bond_portfolio(as_of: date):
     return portfolio
 
 
-def run_optimization_example():
+def run_optimization_example() -> None:
     """Run the max-YTM / CCC-constrained optimization and print results."""
     from finstack.core.config import FinstackConfig
+
     from finstack.portfolio import optimize_max_yield_with_ccc_limit
 
     as_of = date(2025, 1, 1)
@@ -181,7 +181,7 @@ def run_optimization_example():
         print(f"  {pos_id}: {w:.4f}")
 
 
-def main():
+def main() -> None:
     """Entry point for the optimization example."""
     run_optimization_example()
 

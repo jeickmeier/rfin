@@ -1,8 +1,7 @@
-"""
-Title: Real Estate DCF Valuation
+"""Title: Real Estate DCF Valuation
 Persona: Equity Analyst
 Complexity: Intermediate
-Runtime: ~1-2 seconds
+Runtime: ~1-2 seconds.
 
 Description:
 Real Estate DCF Valuation example demonstrating key concepts.
@@ -19,22 +18,8 @@ Prerequisites:
 """
 
 
-def main():
-    print("COOKBOOK EXAMPLE 17: Real Estate DCF Valuation")
-    print("="*60)
-    print()
-    print("This example demonstrates Real Estate DCF Valuation.")
-    print("For detailed implementation, see corresponding examples in:")
-    print("  finstack-py/examples/scripts/")
-    print("  finstack-py/examples/statements/")
-    print("  finstack-py/examples/scenarios/")
-    print()
-    print("Quick summary:")
-    print("  - Advanced use case requiring multiple components")
-    print("  - Integration of pricing, risk, and analytics")
-    print("  - Production-ready patterns")
-    print()
-    print("="*60)
+def main() -> None:
+    pass
 
 
 if __name__ == "__main__":

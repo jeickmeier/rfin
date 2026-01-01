@@ -3,7 +3,6 @@
 
 from datetime import date
 
-from finstack import Money
 from finstack.core.currency import USD
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.scalars import MarketScalar
@@ -12,6 +11,8 @@ from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.cashflow import CouponType, FixedCouponSpec, ScheduleParams
 from finstack.valuations.instruments import ConversionEvent, ConversionPolicy, ConversionSpec, ConvertibleBond
 from finstack.valuations.pricer import create_standard_registry
+
+from finstack import Money
 
 
 def build_market(as_of: date) -> MarketContext:
@@ -89,17 +90,14 @@ def main() -> None:
 
     convertible = build_convertible(as_of)
 
-    result = registry.price_with_metrics(
+    registry.price_with_metrics(
         convertible,
         "discounting",
         market,
         ["delta", "gamma", "vega"],
     )
-    print("Convertible PV:", round(result.value.amount, 2), result.value.currency)
-    print("Convertible delta:", result.measures.get("delta"))
 
-    parity = convertible.parity(market)
-    print("Parity (spot ratio):", round(parity, 4))
+    convertible.parity(market)
 
 
 if __name__ == "__main__":

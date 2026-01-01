@@ -7,7 +7,6 @@ This example shows how to:
 3. Apply scenarios to market and statement contexts
 4. Extract results and analyze impacts
 """
-# ruff: noqa: T201, PLR0915
 
 from datetime import date
 

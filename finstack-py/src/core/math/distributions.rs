@@ -1,7 +1,6 @@
 use finstack_core::math::distributions::{
-    binomial_probability as core_binomial_probability,
-    chi_squared_cdf as core_chi_squared_cdf, chi_squared_pdf as core_chi_squared_pdf,
-    chi_squared_quantile as core_chi_squared_quantile,
+    binomial_probability as core_binomial_probability, chi_squared_cdf as core_chi_squared_cdf,
+    chi_squared_pdf as core_chi_squared_pdf, chi_squared_quantile as core_chi_squared_quantile,
     exponential_cdf as core_exponential_cdf, exponential_pdf as core_exponential_pdf,
     exponential_quantile as core_exponential_quantile,
     log_binomial_coefficient as core_log_binomial_coefficient, log_factorial as core_log_factorial,
@@ -488,35 +487,35 @@ pub(crate) fn register<'py>(
             "Provides binomial, exponential, lognormal, chi-squared, gamma, and Student's t distributions."
         ),
     )?;
-    
+
     // Binomial
     module.add_function(wrap_pyfunction!(binomial_probability_py, &module)?)?;
     module.add_function(wrap_pyfunction!(log_binomial_coefficient_py, &module)?)?;
     module.add_function(wrap_pyfunction!(log_factorial_py, &module)?)?;
-    
+
     // Exponential
     module.add_function(wrap_pyfunction!(exponential_pdf_py, &module)?)?;
     module.add_function(wrap_pyfunction!(exponential_cdf_py, &module)?)?;
     module.add_function(wrap_pyfunction!(exponential_quantile_py, &module)?)?;
     module.add_function(wrap_pyfunction!(sample_exponential_py, &module)?)?;
-    
+
     // Lognormal
     module.add_function(wrap_pyfunction!(lognormal_pdf_py, &module)?)?;
     module.add_function(wrap_pyfunction!(lognormal_cdf_py, &module)?)?;
     module.add_function(wrap_pyfunction!(lognormal_quantile_py, &module)?)?;
     module.add_function(wrap_pyfunction!(sample_lognormal_py, &module)?)?;
-    
+
     // Chi-squared
     module.add_function(wrap_pyfunction!(chi_squared_pdf_py, &module)?)?;
     module.add_function(wrap_pyfunction!(chi_squared_cdf_py, &module)?)?;
     module.add_function(wrap_pyfunction!(chi_squared_quantile_py, &module)?)?;
     module.add_function(wrap_pyfunction!(sample_chi_squared_py, &module)?)?;
-    
+
     // Gamma and Student-t
     module.add_function(wrap_pyfunction!(sample_gamma_py, &module)?)?;
     module.add_function(wrap_pyfunction!(sample_student_t_py, &module)?)?;
     module.add_function(wrap_pyfunction!(sample_beta_py, &module)?)?;
-    
+
     let exports = [
         "binomial_probability",
         "log_binomial_coefficient",

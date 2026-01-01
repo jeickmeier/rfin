@@ -1,16 +1,14 @@
 """Tests for scenario builder."""
 
-import pytest
-
-from finstack import Currency
-from finstack.scenarios import CurveKind, ScenarioSpec, VolSurfaceKind
 from finstack.scenarios.builder import ScenarioBuilder, scenario
+
+from finstack.scenarios import CurveKind, ScenarioSpec, VolSurfaceKind
 
 
 class TestScenarioBuilder:
     """Test ScenarioBuilder."""
 
-    def test_builder_basic(self):
+    def test_builder_basic(self) -> None:
         """Test basic builder construction."""
         builder = ScenarioBuilder("test_scenario")
         spec = builder.build()
@@ -18,30 +16,24 @@ class TestScenarioBuilder:
         assert spec.id() == "test_scenario"
         assert len(spec.operations()) == 0
 
-    def test_builder_with_name(self):
+    def test_builder_with_name(self) -> None:
         """Test builder with name."""
         spec = ScenarioBuilder("test").name("Test Scenario").build()
         assert spec.name() == "Test Scenario"
 
-    def test_builder_with_description(self):
+    def test_builder_with_description(self) -> None:
         """Test builder with description."""
         spec = ScenarioBuilder("test").description("Test description").build()
         assert spec.description() == "Test description"
 
-    def test_builder_with_priority(self):
+    def test_builder_with_priority(self) -> None:
         """Test builder with priority."""
         spec = ScenarioBuilder("test").priority(10).build()
         assert spec.priority() == 10
 
-    def test_builder_chaining(self):
+    def test_builder_chaining(self) -> None:
         """Test method chaining."""
-        spec = (
-            ScenarioBuilder("test")
-            .name("Test")
-            .description("Desc")
-            .priority(5)
-            .build()
-        )
+        spec = ScenarioBuilder("test").name("Test").description("Desc").priority(5).build()
         assert spec.id() == "test"
         assert spec.name() == "Test"
         assert spec.description() == "Desc"
@@ -51,41 +43,37 @@ class TestScenarioBuilder:
 class TestBuilderCurveOperations:
     """Test curve-related builder methods."""
 
-    def test_shift_curve_default(self):
+    def test_shift_curve_default(self) -> None:
         """Test shift_curve with default curve kind."""
         spec = ScenarioBuilder("test").shift_curve("USD.OIS", 50).build()
         assert len(spec.operations()) == 1
 
-    def test_shift_curve_explicit_kind(self):
+    def test_shift_curve_explicit_kind(self) -> None:
         """Test shift_curve with explicit curve kind."""
-        spec = (
-            ScenarioBuilder("test")
-            .shift_curve("USD.SOFR", -25, CurveKind.Forward)
-            .build()
-        )
+        spec = ScenarioBuilder("test").shift_curve("USD.SOFR", -25, CurveKind.Forward).build()
         assert len(spec.operations()) == 1
 
-    def test_shift_discount_curve(self):
+    def test_shift_discount_curve(self) -> None:
         """Test shift_discount_curve."""
         spec = ScenarioBuilder("test").shift_discount_curve("USD.OIS", 50).build()
         assert len(spec.operations()) == 1
 
-    def test_shift_forward_curve(self):
+    def test_shift_forward_curve(self) -> None:
         """Test shift_forward_curve."""
         spec = ScenarioBuilder("test").shift_forward_curve("USD.SOFR", -25).build()
         assert len(spec.operations()) == 1
 
-    def test_shift_hazard_curve(self):
+    def test_shift_hazard_curve(self) -> None:
         """Test shift_hazard_curve."""
         spec = ScenarioBuilder("test").shift_hazard_curve("ACME.5Y", 100).build()
         assert len(spec.operations()) == 1
 
-    def test_shift_inflation_curve(self):
+    def test_shift_inflation_curve(self) -> None:
         """Test shift_inflation_curve."""
         spec = ScenarioBuilder("test").shift_inflation_curve("US.CPI", 10).build()
         assert len(spec.operations()) == 1
 
-    def test_multiple_curve_shifts(self):
+    def test_multiple_curve_shifts(self) -> None:
         """Test multiple curve shifts."""
         spec = (
             ScenarioBuilder("test")
@@ -100,93 +88,74 @@ class TestBuilderCurveOperations:
 class TestBuilderEquityOperations:
     """Test equity-related builder methods."""
 
-    def test_shift_equities_all(self):
+    def test_shift_equities_all(self) -> None:
         """Test shift all equities."""
         spec = ScenarioBuilder("test").shift_equities(-10).build()
         assert len(spec.operations()) == 1
 
-    def test_shift_equities_specific(self):
+    def test_shift_equities_specific(self) -> None:
         """Test shift specific equities."""
         spec = ScenarioBuilder("test").shift_equities(5, ["SPY", "QQQ"]).build()
         assert len(spec.operations()) == 1
 
-    def test_multiple_equity_shifts(self):
+    def test_multiple_equity_shifts(self) -> None:
         """Test multiple equity shifts."""
-        spec = (
-            ScenarioBuilder("test")
-            .shift_equities(-10)
-            .shift_equities(5, ["SPY"])
-            .build()
-        )
+        spec = ScenarioBuilder("test").shift_equities(-10).shift_equities(5, ["SPY"]).build()
         assert len(spec.operations()) == 2
 
 
 class TestBuilderFXOperations:
     """Test FX-related builder methods."""
 
-    def test_shift_fx(self):
+    def test_shift_fx(self) -> None:
         """Test FX shift."""
         spec = ScenarioBuilder("test").shift_fx("USD", "EUR", 5).build()
         assert len(spec.operations()) == 1
 
-    def test_multiple_fx_shifts(self):
+    def test_multiple_fx_shifts(self) -> None:
         """Test multiple FX shifts."""
-        spec = (
-            ScenarioBuilder("test")
-            .shift_fx("USD", "EUR", 5)
-            .shift_fx("GBP", "USD", -3)
-            .build()
-        )
+        spec = ScenarioBuilder("test").shift_fx("USD", "EUR", 5).shift_fx("GBP", "USD", -3).build()
         assert len(spec.operations()) == 2
 
 
 class TestBuilderVolOperations:
     """Test volatility-related builder methods."""
 
-    def test_shift_vol_surface_default(self):
+    def test_shift_vol_surface_default(self) -> None:
         """Test vol surface shift with default kind."""
         spec = ScenarioBuilder("test").shift_vol_surface("SPX_VOL", 10).build()
         assert len(spec.operations()) == 1
 
-    def test_shift_vol_surface_explicit_kind(self):
+    def test_shift_vol_surface_explicit_kind(self) -> None:
         """Test vol surface shift with explicit kind."""
-        spec = (
-            ScenarioBuilder("test")
-            .shift_vol_surface("SPX_VOL", 10, VolSurfaceKind.Equity)
-            .build()
-        )
+        spec = ScenarioBuilder("test").shift_vol_surface("SPX_VOL", 10, VolSurfaceKind.Equity).build()
         assert len(spec.operations()) == 1
 
-    def test_multiple_vol_shifts(self):
+    def test_multiple_vol_shifts(self) -> None:
         """Test multiple vol shifts."""
-        spec = (
-            ScenarioBuilder("test")
-            .shift_vol_surface("SPX_VOL", 10)
-            .shift_vol_surface("VIX_VOL", -5)
-            .build()
-        )
+        spec = ScenarioBuilder("test").shift_vol_surface("SPX_VOL", 10).shift_vol_surface("VIX_VOL", -5).build()
         assert len(spec.operations()) == 2
 
 
 class TestBuilderTimeOperations:
     """Test time-related builder methods."""
 
-    def test_roll_forward_days(self):
+    def test_roll_forward_days(self) -> None:
         """Test roll forward in days."""
         spec = ScenarioBuilder("test").roll_forward("1d").build()
         assert len(spec.operations()) == 1
 
-    def test_roll_forward_weeks(self):
+    def test_roll_forward_weeks(self) -> None:
         """Test roll forward in weeks."""
         spec = ScenarioBuilder("test").roll_forward("2w").build()
         assert len(spec.operations()) == 1
 
-    def test_roll_forward_months(self):
+    def test_roll_forward_months(self) -> None:
         """Test roll forward in months."""
         spec = ScenarioBuilder("test").roll_forward("3m").build()
         assert len(spec.operations()) == 1
 
-    def test_roll_forward_years(self):
+    def test_roll_forward_years(self) -> None:
         """Test roll forward in years."""
         spec = ScenarioBuilder("test").roll_forward("1y").build()
         assert len(spec.operations()) == 1
@@ -195,45 +164,36 @@ class TestBuilderTimeOperations:
 class TestBuilderStatementOperations:
     """Test statement-related builder methods."""
 
-    def test_adjust_forecast(self):
+    def test_adjust_forecast(self) -> None:
         """Test forecast adjustment."""
         spec = ScenarioBuilder("test").adjust_forecast("revenue", 10).build()
         assert len(spec.operations()) == 1
 
-    def test_adjust_forecast_with_period(self):
+    def test_adjust_forecast_with_period(self) -> None:
         """Test forecast adjustment for specific period."""
         spec = ScenarioBuilder("test").adjust_forecast("revenue", 10, "2024Q1").build()
         assert len(spec.operations()) == 1
 
-    def test_set_forecast(self):
+    def test_set_forecast(self) -> None:
         """Test forecast assignment."""
         spec = ScenarioBuilder("test").set_forecast("revenue", 1000000).build()
         assert len(spec.operations()) == 1
 
-    def test_set_forecast_with_period(self):
+    def test_set_forecast_with_period(self) -> None:
         """Test forecast assignment for specific period."""
-        spec = (
-            ScenarioBuilder("test")
-            .set_forecast("revenue", 1000000, "2024Q1")
-            .build()
-        )
+        spec = ScenarioBuilder("test").set_forecast("revenue", 1000000, "2024Q1").build()
         assert len(spec.operations()) == 1
 
-    def test_multiple_statement_operations(self):
+    def test_multiple_statement_operations(self) -> None:
         """Test multiple statement operations."""
-        spec = (
-            ScenarioBuilder("test")
-            .adjust_forecast("revenue", 10)
-            .set_forecast("cogs", 500000)
-            .build()
-        )
+        spec = ScenarioBuilder("test").adjust_forecast("revenue", 10).set_forecast("cogs", 500000).build()
         assert len(spec.operations()) == 2
 
 
 class TestBuilderComplexScenarios:
     """Test complex multi-operation scenarios."""
 
-    def test_comprehensive_scenario(self):
+    def test_comprehensive_scenario(self) -> None:
         """Test comprehensive scenario with all operation types."""
         spec = (
             ScenarioBuilder("comprehensive")
@@ -257,7 +217,7 @@ class TestBuilderComplexScenarios:
         assert spec.priority() == 1
         assert len(spec.operations()) == 9
 
-    def test_rate_shock_scenario(self):
+    def test_rate_shock_scenario(self) -> None:
         """Test rate shock scenario."""
         spec = (
             ScenarioBuilder("rate_shock")
@@ -273,7 +233,7 @@ class TestBuilderComplexScenarios:
 
         assert len(spec.operations()) == 5
 
-    def test_equity_drawdown_scenario(self):
+    def test_equity_drawdown_scenario(self) -> None:
         """Test equity drawdown scenario."""
         spec = (
             ScenarioBuilder("equity_crash")
@@ -287,7 +247,7 @@ class TestBuilderComplexScenarios:
 
         assert len(spec.operations()) == 3
 
-    def test_horizon_scenario(self):
+    def test_horizon_scenario(self) -> None:
         """Test horizon scenario with time decay."""
         spec = (
             ScenarioBuilder("horizon_1m")
@@ -303,20 +263,15 @@ class TestBuilderComplexScenarios:
 class TestScenarioConvenienceFunction:
     """Test scenario() convenience function."""
 
-    def test_scenario_function(self):
+    def test_scenario_function(self) -> None:
         """Test scenario() creates builder."""
         spec = scenario("test").name("Test").build()
         assert spec.id() == "test"
         assert spec.name() == "Test"
 
-    def test_scenario_function_chaining(self):
+    def test_scenario_function_chaining(self) -> None:
         """Test scenario() with full chain."""
-        spec = (
-            scenario("stress")
-            .shift_discount_curve("USD.OIS", 50)
-            .shift_equities(-10)
-            .build()
-        )
+        spec = scenario("stress").shift_discount_curve("USD.OIS", 50).shift_equities(-10).build()
         assert spec.id() == "stress"
         assert len(spec.operations()) == 2
 
@@ -324,14 +279,9 @@ class TestScenarioConvenienceFunction:
 class TestBuilderIntegration:
     """Integration tests for builder with scenario engine."""
 
-    def test_builder_scenario_serialization(self):
+    def test_builder_scenario_serialization(self) -> None:
         """Test builder-generated scenario can be serialized."""
-        spec = (
-            ScenarioBuilder("test")
-            .shift_discount_curve("USD.OIS", 50)
-            .shift_equities(-10)
-            .build()
-        )
+        spec = ScenarioBuilder("test").shift_discount_curve("USD.OIS", 50).shift_equities(-10).build()
 
         # Should be able to convert to JSON
         json_str = spec.to_json()
@@ -343,7 +293,7 @@ class TestBuilderIntegration:
         assert spec2.id() == spec.id()
         assert len(spec2.operations()) == len(spec.operations())
 
-    def test_builder_scenario_to_dict(self):
+    def test_builder_scenario_to_dict(self) -> None:
         """Test builder-generated scenario can be converted to dict."""
         spec = ScenarioBuilder("test").shift_discount_curve("USD.OIS", 50).build()
         data = spec.to_dict()
@@ -355,7 +305,7 @@ class TestBuilderIntegration:
 class TestBuilderDocumentation:
     """Test builder examples from docstrings."""
 
-    def test_example_in_module_docstring(self):
+    def test_example_in_module_docstring(self) -> None:
         """Test example from module docstring works."""
         # This is the example from builder.py module docstring
         scenario_spec = (
@@ -370,16 +320,10 @@ class TestBuilderDocumentation:
         assert scenario_spec.id() == "stress_test"
         assert len(scenario_spec.operations()) == 3
 
-    def test_example_in_class_docstring(self):
+    def test_example_in_class_docstring(self) -> None:
         """Test example from class docstring works."""
         # This is the example from ScenarioBuilder class docstring
         builder = ScenarioBuilder("stress_test")
-        scenario_spec = (
-            builder
-            .name("Q1 Stress")
-            .shift_curve("USD.OIS", 50)
-            .shift_equities(-10)
-            .build()
-        )
+        scenario_spec = builder.name("Q1 Stress").shift_curve("USD.OIS", 50).shift_equities(-10).build()
         assert scenario_spec.id() == "stress_test"
         assert len(scenario_spec.operations()) == 2

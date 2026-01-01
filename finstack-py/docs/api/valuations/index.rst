@@ -113,12 +113,12 @@ Example:
    from finstack import PricerRegistry, ModelKey
 
    registry = PricerRegistry.create_standard()
-   
+
    # Analytical pricing
    result_analytical = registry.price_barrier_option(
        option, ModelKey.BarrierBSContinuous(), market, []
    )
-   
+
    # Monte Carlo pricing
    result_mc = registry.price_barrier_option(
        option, ModelKey.MonteCarloGBM(), market, []
@@ -151,7 +151,7 @@ Example:
        RatesQuote.swap_rate(tenor="1Y", rate=0.048),
        RatesQuote.swap_rate(tenor="5Y", rate=0.050),
    ]
-   
+
    plan = {
        "steps": [{
            "kind": "discount",
@@ -160,7 +160,7 @@ Example:
            "quotes": [q.to_json() for q in quotes]
        }]
    }
-   
+
    result = execute_calibration_v2(plan, {})
    curve = result.curves["USD.OIS"]
 
@@ -191,7 +191,7 @@ Example:
        bond, "discounting", market,
        ["clean_price", "accrued", "ytm", "dv01"]
    )
-   
+
    print(f"Clean Price: {result.metric('clean_price'):.4f}")
    print(f"DV01: {result.metric('dv01'):.2f}")
 
@@ -219,7 +219,7 @@ Example:
    builder.end_date(Date(2029, 1, 15))
    builder.frequency(Tenor.SemiAnnual())
    builder.amortization(AmortizationType.Bullet())
-   
+
    schedule = builder.build()
    flows = schedule.flows()
 

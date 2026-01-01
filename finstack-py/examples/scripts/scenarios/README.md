@@ -27,10 +27,10 @@ scenario = ScenarioSpec.from_dsl("""
     shift USD.OIS +50bp
     shift equities -10%
     shift fx USD/EUR +3%
-    
+
     # Time decay
     roll forward 1m
-    
+
     # Statement adjustments
     adjust revenue +10%
     set cogs 500000
@@ -137,19 +137,22 @@ python examples/scenarios/builder_examples.py
 
 ## When to Use Each Approach
 
-### Use DSL When:
+### Use DSL When
+
 - Writing scenarios in configuration files
 - Quick prototyping and exploration
 - Non-programmers define scenarios
 - Conciseness is priority
 
-### Use Builder When:
+### Use Builder When
+
 - Type safety and IDE autocomplete are important
 - Programmatic scenario generation
 - Complex conditional logic
 - Integration with other Python code
 
-### Use Manual When:
+### Use Manual When
+
 - Maximum control over operation details
 - Debugging specific operations
 - Custom operation types

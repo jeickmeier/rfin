@@ -8,7 +8,9 @@ use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::DayCount;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_option::CommodityOption;
-use finstack_valuations::instruments::{Attributes, ExerciseStyle, OptionType, PricingOverrides, SettlementType};
+use finstack_valuations::instruments::{
+    Attributes, ExerciseStyle, OptionType, PricingOverrides, SettlementType,
+};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyType};
 use pyo3::{Bound, Py};

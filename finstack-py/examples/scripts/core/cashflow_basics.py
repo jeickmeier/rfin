@@ -23,7 +23,6 @@ def main() -> None:
     cfkind = finstack.core.cashflow.CFKind
     money = finstack.Money
 
-    print("=== Cashflow primitives ===")
     # Note: For production use, prefer CashflowBuilder for scheduled flows
     fixed_cf = cashflow(
         date=date(2025, 3, 15),
@@ -49,32 +48,19 @@ def main() -> None:
         kind=cfkind.from_name("Notional"),
     )
 
-    for label, cf in [
+    for _label, _cf in [
         ("Fixed coupon", fixed_cf),
         ("Floating coupon", float_cf),
         ("Up-front fee", fee_cf),
         ("Principal exchange", principal_cf),
     ]:
-        print(f"{label}: {cf}")
-        print(
-            "  kind=",
-            cf.kind.name,
-            "; date=",
-            cf.date,
-            "; amount=",
-            cf.amount.format(),
-            "; accrual=",
-            cf.accrual_factor,
-        )
+        pass
 
-    print("\n=== Tuple conversion ===")
-    tuple_view = fixed_cf.to_tuple()
-    print("CashFlow tuple:", tuple_view)
+    fixed_cf.to_tuple()
 
-    print("\n=== Sorting by date ===")
     schedule = sorted([fixed_cf, float_cf, fee_cf, principal_cf], key=lambda item: item.date)
-    for cf in schedule:
-        print(cf.date, cf.kind.name, cf.amount.amount)
+    for _cf in schedule:
+        pass
 
 
 if __name__ == "__main__":

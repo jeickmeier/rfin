@@ -203,8 +203,28 @@ ignore = [
 "**/test_*.py" = ["S101"]  # Allow assert statements in test files
 "**/*_test.py" = ["S101"]  # Allow assert statements in test files
 "tests/**/*.py" = ["S101"]  # Allow assert statements in test files
-"finstack-py/tests/**/*.py" = ["S101"]  # Allow assert statements in finstack-py test files
-"scripts/**/*.py" = ["T201", "C901", "PLR0915", "PERF401"]  # Allow print, complexity, and simple perf issues in scripts
+"finstack-py/tests/**/*.py" = ["S101", "S110", "S102", "C901", "PLR0915"]  # Allow assert, try-except-pass, exec, complexity in test files
+"benches/**/*.py" = ["PLR0915"]  # Allow too many statements in benchmark files
+"scripts/**/*.py" = ["T201", "C901", "PLR0915", "PERF401", "ANN", "BLE001", "S112", "PTH", "G004", "TRY401"]  # Allow print, complexity, annotations, etc. in scripts
+"finstack-py/examples/**/*.py" = [
+    "D100", "D101", "D103", "D205",  # Missing docstrings - examples are self-documenting
+    "ANN",  # Type annotations - examples prioritize readability
+    "T201",  # print() is expected in examples
+    "EXE001",  # Shebang without executable - fine for examples
+    "ERA001",  # Commented code can be instructional
+    "B007",  # Unused loop variables in demos
+    "E402",  # Import order less strict in examples
+    "PLW2901",  # Loop variable overwrites ok in demos
+    "BLE001",  # Blind except ok in examples
+    "S603", "S607",  # Subprocess security - examples are trusted
+    "ARG001",  # Unused arguments in example functions
+    "F401",  # Unused imports may be for demonstration
+    "PTH118", "PTH123",  # pathlib style not required
+    "C901", "PLR0915",  # Complexity limits relaxed
+    "E741",  # Ambiguous variable names in math examples
+    "RUF001",  # Unicode characters (math symbols)
+    "S112",  # try-except-continue ok in examples
+]
 
 # Configuration for pydocstyle (D rules)
 [tool.ruff.lint.pydocstyle]

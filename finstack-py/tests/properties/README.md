@@ -67,27 +67,32 @@ Monotonicity relationships are fundamental to fixed income pricing. Violations i
 
 ## Running the Tests
 
-### Run all property tests:
+### Run all property tests
+
 ```bash
 pytest finstack-py/tests/properties/ -v
 ```
 
-### Run specific test module:
+### Run specific test module
+
 ```bash
 pytest finstack-py/tests/properties/test_currency_safety_properties.py -v
 ```
 
-### Run with more examples (stress testing):
+### Run with more examples (stress testing)
+
 ```bash
 pytest finstack-py/tests/properties/ -v --hypothesis-profile=stress
 ```
 
-### Run with specific random seed (for reproducibility):
+### Run with specific random seed (for reproducibility)
+
 ```bash
 pytest finstack-py/tests/properties/ -v --hypothesis-seed=12345
 ```
 
-### Run and show generated examples:
+### Run and show generated examples
+
 ```bash
 pytest finstack-py/tests/properties/ -v --hypothesis-show-statistics
 ```
@@ -118,6 +123,7 @@ When a property test fails, Hypothesis provides:
 3. **Full stack trace**: Shows exact assertion that failed
 
 Example failure output:
+
 ```
 Falsifying example: test_same_currency_addition_never_raises(
     money_pair=(Money(1e+100, USD), Money(-1e+100, USD))
@@ -134,7 +140,8 @@ Falsifying example: test_same_currency_addition_never_raises(
 
 ## Common Patterns
 
-### Generating test data:
+### Generating test data
+
 ```python
 @st.composite
 def money_strategy(draw, currency_code=None):
@@ -145,7 +152,8 @@ def money_strategy(draw, currency_code=None):
     return Money(amount, currency)
 ```
 
-### Testing with tolerance:
+### Testing with tolerance
+
 ```python
 @given(same_currency_pair())
 def test_addition_commutative(self, money_pair):
@@ -155,7 +163,8 @@ def test_addition_commutative(self, money_pair):
     assert abs(result1.amount - result2.amount) < 1e-10
 ```
 
-### Filtering invalid inputs:
+### Filtering invalid inputs
+
 ```python
 @given(money_strategy(), non_zero_amounts)
 def test_scalar_division_preserves_currency(self, money, divisor):

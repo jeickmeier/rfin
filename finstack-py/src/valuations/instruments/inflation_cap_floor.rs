@@ -9,9 +9,11 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::PricingOverrides;
-use finstack_valuations::instruments::rates::inflation_cap_floor::{InflationCapFloor, InflationCapFloorType};
+use finstack_valuations::instruments::rates::inflation_cap_floor::{
+    InflationCapFloor, InflationCapFloorType,
+};
 use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::PricingOverrides;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
@@ -48,7 +50,11 @@ use std::fmt;
 /// --------
 /// InflationSwap : Vanilla inflation swap
 /// InterestRateOption : Interest rate caps/floors
-#[pyclass(module = "finstack.valuations.instruments", name = "InflationCapFloor", frozen)]
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "InflationCapFloor",
+    frozen
+)]
 #[derive(Clone, Debug)]
 pub struct PyInflationCapFloor {
     pub(crate) inner: InflationCapFloor,
@@ -219,7 +225,10 @@ impl PyInflationCapFloorBuilder {
     /// option_type : str
     ///     One of: "cap", "floor", "caplet", "floorlet"
     #[pyo3(text_signature = "($self, option_type)")]
-    fn option_type<'py>(mut slf: PyRefMut<'py, Self>, option_type: &str) -> PyResult<PyRefMut<'py, Self>> {
+    fn option_type<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        option_type: &str,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         slf.option_type = Self::parse_option_type(option_type)?;
         Ok(slf)
     }

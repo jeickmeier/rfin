@@ -6,9 +6,7 @@ import logging
 from pathlib import Path
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 # Define the paths to include (can be empty for 'include everything' mode)
@@ -51,20 +49,15 @@ def get_default_includes():
     return [str(p) for p in Path().iterdir() if p.is_dir() or p.is_file()]
 
 
-def is_excluded(path, patterns):
+def is_excluded(path, patterns) -> bool:
     """Check if a path matches any exclude pattern (very basic globbing)."""
     from fnmatch import fnmatch
 
-    for pattern in patterns:
-        # Match either by name (for dirs) or glob (for files)
-        if fnmatch(path.name, pattern) or fnmatch(str(path), pattern):
-            return True
-    return False
+    return any(fnmatch(path.name, pattern) or fnmatch(str(path), pattern) for pattern in patterns)
 
 
 def strip_rust_comments_from_text(content):
-    """
-    Remove Rust comments from text content.
+    """Remove Rust comments from text content.
     Handles single-line (//) and multi-line (/* */) comments.
     Note: This is a simple implementation that may not handle all edge cases
     (e.g., comment markers inside strings), but works well for most code.
@@ -73,16 +66,16 @@ def strip_rust_comments_from_text(content):
 
     # Remove multi-line comments /* ... */
     # This regex handles nested cases by being non-greedy
-    content = re.sub(r'/\*.*?\*/', '', content, flags=re.DOTALL)
+    content = re.sub(r"/\*.*?\*/", "", content, flags=re.DOTALL)
 
     # Remove single-line comments //
     # Only remove if // is not inside quotes (simple heuristic)
-    lines = content.split('\n')
+    lines = content.split("\n")
     cleaned_lines = []
 
     for line in lines:
         # Find // that's not in a string (simple check)
-        comment_pos = line.find('//')
+        comment_pos = line.find("//")
         if comment_pos != -1:
             # Simple heuristic: count quotes before the comment
             before_comment = line[:comment_pos]
@@ -94,10 +87,10 @@ def strip_rust_comments_from_text(content):
         if line.strip():
             cleaned_lines.append(line)
 
-    return '\n'.join(cleaned_lines)
+    return "\n".join(cleaned_lines)
 
 
-def concatenate_files(output_filename="concatenated_code.txt"):
+def concatenate_files(output_filename="concatenated_code.txt") -> None:
     """Concatenate all Python files and specified other files in the specified directories."""
     file_paths = []
     allowed_suffixes = {
@@ -121,7 +114,7 @@ def concatenate_files(output_filename="concatenated_code.txt"):
             # Only descend into dirs, or add the file directly
             if path.is_dir():
                 # Skip heavy/binary build and vendor directories
-                skip_dirs = {"target", "node_modules", "pkg", ".git", "__pycache__","docs","examples"}
+                skip_dirs = {"target", "node_modules", "pkg", ".git", "__pycache__", "docs", "examples"}
                 for candidate in path.rglob("*"):
                     # Fast skip for directories by name
                     try:
@@ -134,10 +127,7 @@ def concatenate_files(output_filename="concatenated_code.txt"):
                     if (
                         candidate.is_file()
                         and not is_excluded(candidate, exclude_patterns)
-                        and (
-                            candidate.suffix in allowed_suffixes
-                            or candidate.name in allowed_filenames
-                        )
+                        and (candidate.suffix in allowed_suffixes or candidate.name in allowed_filenames)
                     ):
                         file_paths.append(candidate)
             elif path.is_file():
@@ -176,11 +166,9 @@ def concatenate_files(output_filename="concatenated_code.txt"):
         output_path = Path(output_filename)
         if output_path.exists():
             comment_status = " (with Rust comments stripped)" if strip_rust_comments else ""
-            logger.info(
-                f"Successfully concatenated {len(file_paths)} files into {output_filename}{comment_status}"
-            )
+            logger.info(f"Successfully concatenated {len(file_paths)} files into {output_filename}{comment_status}")
     except Exception as e:
-        logger.error("Error writing to output file %s: %s", output_filename, e)
+        logger.exception("Error writing to output file %s: %s", output_filename, e)
 
 
 if __name__ == "__main__":
