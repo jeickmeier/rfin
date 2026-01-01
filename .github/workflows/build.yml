@@ -8,6 +8,9 @@ on:
     types: [opened, synchronize, reopened]
 
 jobs:
+  # ============================================
+  # Rust CI (format, lint, test)
+  # ============================================
   rust-ci:
     name: Rust Build / Lint / Test
     runs-on: ubuntu-latest
@@ -16,7 +19,9 @@ jobs:
       # Reduce parallelism to avoid OOM during linking
       CARGO_BUILD_JOBS: 1
       CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_INCREMENTAL: 1
       RUSTFLAGS: "-C debuginfo=0 -C strip=symbols -C linker=cc -C link-arg=-fuse-ld=bfd"
+      PYO3_PYTHON: python3
 
     steps:
       - name: Checkout repository
@@ -37,27 +42,38 @@ jobs:
       - name: Show toolchain
         run: rustc -Vv
 
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+
       - name: Cargo fetch
         run: cargo fetch
 
       - name: Format check
         run: cargo fmt --all -- --check
 
-      - name: Clippy (core + statements)
-        run: cargo clippy -p finstack-core -p finstack-statements --lib --tests --all-features -- -D warnings
+      - name: Clippy (workspace)
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
-      - name: Clippy (valuations)
-        run: cargo clippy -p finstack-valuations --lib --tests --all-features -- -D warnings
-
-      - name: Clippy (portfolio + scenarios + io)
-        run: cargo clippy -p finstack-portfolio -p finstack-scenarios -p finstack-io --lib --tests --all-features -- -D warnings
+      - name: Check no doctest ignore
+        run: |
+          if rg -n '^[[:space:]]*```[^\n]*\bignore\b' --glob '**/*.rs' ; then
+            echo "ERROR: Found doctest code fences using 'ignore'."
+            echo "Use 'rust,no_run' for compile-only examples, 'rust' for runnable examples, or 'text' for non-Rust snippets."
+            exit 1
+          fi
 
       - name: Clean debug artifacts before tests
         run: cargo clean
 
-      - name: Run tests (release mode for smaller binaries)
-        run: cargo test --workspace --exclude finstack-py --features mc --lib --test '*'
+      - name: Run tests (nextest)
+        run: cargo nextest run --workspace --exclude finstack-py --features mc,test-utils --lib --test '*' --no-fail-fast
 
+      - name: Run doc tests
+        run: cargo test --workspace --exclude finstack-py --doc --features mc
+
+  # ============================================
+  # Semver checks for API stability
+  # ============================================
   semver-checks:
     name: Semver Checks (finstack-core)
     runs-on: ubuntu-latest
@@ -93,14 +109,18 @@ jobs:
           git fetch origin master --tags
           cargo semver-checks check-release -p finstack-core --baseline-rev origin/master
 
+  # ============================================
+  # Python CI (format, lint, test)
+  # ============================================
   python-ci:
-    name: Python Bindings Test
+    name: Python Bindings
     runs-on: ubuntu-latest
-    needs: rust-ci  # Run after Rust CI passes to catch Rust issues first
+    needs: rust-ci
 
     env:
       CARGO_BUILD_JOBS: 1
       CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_INCREMENTAL: 1
       RUSTFLAGS: "-C debuginfo=0 -C strip=symbols"
 
     steps:
@@ -134,7 +154,17 @@ jobs:
       - name: Install Python dependencies
         run: |
           source .venv/bin/activate
-          uv pip install maturin pytest
+          uv pip install maturin pytest ruff
+
+      - name: Python format check
+        run: |
+          source .venv/bin/activate
+          ruff format --check .
+
+      - name: Python lint
+        run: |
+          source .venv/bin/activate
+          ruff check .
 
       - name: Build Python bindings
         run: |
@@ -148,14 +178,18 @@ jobs:
           cd finstack-py
           pytest tests -v
 
+  # ============================================
+  # WASM CI (format, lint, build, test)
+  # ============================================
   wasm-ci:
-    name: WASM Bindings Test
+    name: WASM Bindings
     runs-on: ubuntu-latest
-    needs: rust-ci  # Run after Rust CI passes to catch Rust issues first
+    needs: rust-ci
 
     env:
       CARGO_BUILD_JOBS: 1
       CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_INCREMENTAL: 1
       RUSTFLAGS: "-C debuginfo=0"
 
     steps:
@@ -184,31 +218,81 @@ jobs:
       - name: Install wasm-pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
-      - name: Build WASM package
-        run: |
-          cd finstack-wasm
-          wasm-pack build --target web
-
       - name: Install npm dependencies
         run: |
           cd finstack-wasm
           npm ci
+
+      - name: WASM format check
+        run: |
+          cd finstack-wasm
+          npm run format:check
+
+      - name: WASM lint
+        run: |
+          cd finstack-wasm
+          npm run lint
+
+      - name: Build WASM package
+        run: |
+          cd finstack-wasm
+          wasm-pack build --target web
 
       - name: Run WASM tests
         run: |
           cd finstack-wasm
           npm run test
 
+  # ============================================
+  # UI CI (format, lint, test)
+  # ============================================
+  ui-ci:
+    name: UI
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: finstack-ui/package-lock.json
+
+      - name: Install npm dependencies
+        run: |
+          cd finstack-ui
+          npm ci
+
+      - name: UI format check
+        run: |
+          cd finstack-ui
+          npm run format
+
+      - name: UI lint
+        run: |
+          cd finstack-ui
+          npm run lint
+
+      - name: Run UI tests
+        run: |
+          cd finstack-ui
+          npm run test -- run
+
+  # ============================================
+  # Benchmark baseline (master only)
+  # ============================================
   benchmark:
     name: Benchmark Baseline
     runs-on: ubuntu-latest
-    # Only run on pushes to master, not on PRs (to save CI time)
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     needs: rust-ci
 
     env:
       CARGO_BUILD_JOBS: 2
-      RUSTFLAGS: "-C debuginfo=1"  # Keep some debug info for profiling
+      RUSTFLAGS: "-C debuginfo=1"
 
     steps:
       - name: Checkout repository
@@ -248,10 +332,12 @@ jobs:
           path: target/criterion/
           retention-days: 30
 
+  # ============================================
+  # Benchmark regression check (PRs only)
+  # ============================================
   benchmark-compare:
     name: Benchmark Regression Check
     runs-on: ubuntu-latest
-    # Only run on PRs to compare against baseline
     if: github.event_name == 'pull_request'
     needs: rust-ci
 
