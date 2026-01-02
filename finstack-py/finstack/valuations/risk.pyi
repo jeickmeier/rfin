@@ -2,7 +2,7 @@
 
 from typing import List, Optional, Union, Dict, Any, Tuple, Sequence
 from datetime import date
-from ...core.market_data.context import MarketContext
+from ..core.market_data.context import MarketContext
 from .instruments import Bond  # Use a representative instrument for typing if needed
 from .common import InstrumentType
 
