@@ -1,3 +1,0 @@
----
-trigger: model_decision
----

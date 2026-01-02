@@ -1,1 +1,0 @@
-Do a market standards review of the attached tests. Look for any tests that are incomplete, have too high of tolerances or are testing for the wrong things or testing for incorrect math/algorithm/results.

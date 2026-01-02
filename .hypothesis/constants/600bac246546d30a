@@ -1,4 +1,0 @@
-# file: /Users/joneickmeier/projects/rfin/finstack-py/finstack/valuations/__init__.py
-# hypothesis_version: 6.148.8
-
-[0.0, 1e-12, 'AmortizationType', 'CashFlowSchedule', 'DURATION_MOD', 'MetricId', 'ValuationResult', 'YTM', '_', 'cashflow', 'duration_mod', 'instruments', 'irs', 'linear', 'metrics', 'num_flows', 'present_value', 'pricer', 'results', 'ytm']
