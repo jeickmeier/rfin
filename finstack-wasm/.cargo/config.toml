@@ -2,6 +2,7 @@
 target = "wasm32-unknown-unknown"
 
 [target.wasm32-unknown-unknown]
+linker = "rust-lld"
 rustflags = [
     "--cfg", "getrandom_backend=\"wasm_js\"",
 ]
