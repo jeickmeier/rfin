@@ -19,6 +19,7 @@ pub(crate) mod builder;
 pub(crate) mod error;
 pub(crate) mod evaluator;
 pub(crate) mod extensions;
+pub(crate) mod forecast;
 pub(crate) mod registry;
 pub(crate) mod types;
 pub(crate) mod utils;
@@ -56,6 +57,8 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     promote_exports(&module, "registry", &registry_exports)?;
     let analysis_exports = analysis::register(py, &module)?;
     promote_exports(&module, "analysis", &analysis_exports)?;
+    let forecast_exports = forecast::register(py, &module)?;
+    promote_exports(&module, "forecast", &forecast_exports)?;
 
     // Collect all exports
     let mut all_exports = Vec::new();
@@ -66,6 +69,7 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     all_exports.extend(extensions_exports);
     all_exports.extend(registry_exports);
     all_exports.extend(analysis_exports);
+    all_exports.extend(forecast_exports);
 
     // Set __all__ for the module
     let all_list = PyList::new(py, &all_exports)?;

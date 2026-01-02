@@ -2,6 +2,7 @@
 
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::py_to_date;
+use crate::portfolio::book::{extract_book, extract_book_id};
 use crate::portfolio::error::portfolio_to_py;
 use crate::portfolio::portfolio::PyPortfolio;
 use crate::portfolio::types::{extract_entity, extract_position};
@@ -202,6 +203,68 @@ impl PyPortfolioBuilder {
         Err(PyTypeError::new_err(
             "Expected Position or list of positions",
         ))
+    }
+
+    #[pyo3(text_signature = "($self, book_or_books)")]
+    /// Add book or books to the portfolio hierarchy.
+    ///
+    /// Accepts either a single Book or a list of books.
+    ///
+    /// Args:
+    ///     book_or_books: Book or list of books to add.
+    ///
+    /// Returns:
+    ///     PortfolioBuilder: Self for chaining.
+    fn book<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        book_or_books: &Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        // Try to extract as single book first
+        if let Ok(book) = extract_book(book_or_books) {
+            let temp = std::mem::replace(&mut slf.inner, PortfolioBuilder::new(""));
+            slf.inner = temp.book(book);
+            return Ok(slf);
+        }
+
+        // Try as list of books
+        if let Ok(list) = book_or_books.downcast::<PyList>() {
+            let mut books = Vec::new();
+            for item in list.iter() {
+                books.push(extract_book(&item)?);
+            }
+            let temp = std::mem::replace(&mut slf.inner, PortfolioBuilder::new(""));
+            slf.inner = temp.books(books);
+            return Ok(slf);
+        }
+
+        Err(PyTypeError::new_err("Expected Book or list of books"))
+    }
+
+    #[pyo3(text_signature = "($self, position_id, book_id)")]
+    /// Assign a position to a book.
+    ///
+    /// This updates both the position's `book_id` and the book's `position_ids` list.
+    ///
+    /// Args:
+    ///     position_id: Position identifier.
+    ///     book_id: Book identifier (string or BookId).
+    ///
+    /// Returns:
+    ///     PortfolioBuilder: Self for chaining.
+    ///
+    /// Raises:
+    ///     ValueError: If the position or book doesn't exist.
+    fn add_position_to_book<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        position_id: String,
+        book_id: &Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let book_id = extract_book_id(book_id)?;
+        let temp = std::mem::replace(&mut slf.inner, PortfolioBuilder::new(""));
+        slf.inner = temp
+            .add_position_to_book(position_id, book_id)
+            .map_err(portfolio_to_py)?;
+        Ok(slf)
     }
 
     #[pyo3(text_signature = "($self, key, value)")]

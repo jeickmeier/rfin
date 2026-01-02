@@ -3,7 +3,7 @@
 from typing import Dict, List, Any, Optional
 from datetime import date
 from finstack.core.currency import Currency
-from .types import Entity, Position
+from .types import Book, Entity, Position
 
 class Portfolio:
     """A portfolio of positions across multiple entities with aggregation support.
@@ -221,6 +221,11 @@ class Portfolio:
     @property
     def positions(self) -> List[Position]:
         """Get the portfolio positions."""
+        ...
+
+    @property
+    def books(self) -> Dict[str, Book]:
+        """Get the portfolio books (hierarchical organization)."""
         ...
 
     @property

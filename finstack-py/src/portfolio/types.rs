@@ -2,6 +2,7 @@
 
 use crate::core::currency::PyCurrency;
 use crate::core::money::PyMoney;
+use crate::portfolio::book::extract_book_id;
 use crate::portfolio::error::portfolio_to_py;
 use crate::valuations::instruments::extract_instrument;
 use finstack_portfolio::{Entity, Position, PositionUnit};
@@ -371,6 +372,19 @@ impl PyPosition {
         Self::new(self.inner.clone().with_tag(key, value))
     }
 
+    #[pyo3(text_signature = "($self, book_id)")]
+    /// Assign this position to a book (builder pattern).
+    ///
+    /// Args:
+    ///     book_id: Book identifier (string or BookId).
+    ///
+    /// Returns:
+    ///     Position: Position with updated book assignment.
+    fn with_book(&self, book_id: &Bound<'_, PyAny>) -> PyResult<Self> {
+        let book_id = extract_book_id(book_id)?;
+        Ok(Self::new(self.inner.clone().with_book(book_id)))
+    }
+
     #[pyo3(text_signature = "($self, tags)")]
     /// Add multiple tags to the position.
     fn with_tags(&self, tags: &Bound<'_, PyAny>) -> PyResult<Self> {
@@ -435,6 +449,12 @@ impl PyPosition {
     /// Get the instrument identifier.
     fn instrument_id(&self) -> String {
         self.inner.instrument_id.clone()
+    }
+
+    #[getter]
+    /// Get the book identifier (None if unassigned).
+    fn book_id(&self) -> Option<String> {
+        self.inner.book_id.as_ref().map(|id| id.to_string())
     }
 
     #[getter]

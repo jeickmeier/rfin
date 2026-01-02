@@ -48,6 +48,11 @@ This cookbook provides end-to-end examples demonstrating how to use Finstack for
 - **24_multi_curve_framework.py** - Post-2008 multi-curve discount/forward setup
 - **25_var_calculation.py** - Historical and parametric VaR with confidence intervals
 
+### Utilities (Examples 26-27)
+
+- **26_portfolio_books.py** - Book hierarchy and recursive aggregation by book
+- **27_statements_forecast.py** - Direct forecasting via `statements.apply_forecast`
+
 ---
 
 ## User Personas Covered
@@ -356,5 +361,5 @@ For questions or issues:
 ---
 
 **Last Updated**: January 2025
-**Examples Count**: 25
+**Examples Count**: 27
 **Total Lines**: ~10,000+

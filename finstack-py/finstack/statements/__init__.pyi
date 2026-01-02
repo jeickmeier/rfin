@@ -80,6 +80,7 @@ from .analysis import (
     ScenarioResults,
     ScenarioDiff,
 )
+from .forecast import apply_forecast
 
 __all__ = [
     # Types
@@ -149,4 +150,6 @@ __all__ = [
     "ScenarioSet",
     "ScenarioResults",
     "ScenarioDiff",
+    # Forecast helpers
+    "apply_forecast",
 ]

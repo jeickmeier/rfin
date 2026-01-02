@@ -4,6 +4,7 @@
 //! valuation, and metrics calculation.
 
 pub(crate) mod attribution;
+pub(crate) mod book;
 pub(crate) mod builder;
 pub(crate) mod cashflows;
 pub(crate) mod dataframe;
@@ -40,6 +41,9 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     // Register types
     let type_exports = types::register(py, &module)?;
 
+    // Register books
+    let book_exports = book::register(py, &module)?;
+
     // Register portfolio and builder
     let portfolio_exports = portfolio::register(py, &module)?;
     let builder_exports = builder::register(py, &module)?;
@@ -74,6 +78,7 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     // Collect all exports
     let mut all_exports = Vec::new();
     all_exports.extend(type_exports);
+    all_exports.extend(book_exports);
     all_exports.extend(portfolio_exports);
     all_exports.extend(builder_exports);
     all_exports.extend(valuation_exports);

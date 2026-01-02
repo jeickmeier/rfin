@@ -5,7 +5,7 @@ use crate::portfolio::error::portfolio_to_py;
 use crate::portfolio::portfolio::extract_portfolio;
 use crate::portfolio::types::PyPosition;
 use crate::portfolio::valuation::extract_portfolio_valuation;
-use finstack_portfolio::grouping::{aggregate_by_attribute, group_by_attribute};
+use finstack_portfolio::grouping::{aggregate_by_attribute, aggregate_by_book, group_by_attribute};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyList, PyModule};
 use pyo3::Bound;
@@ -13,7 +13,7 @@ use pyo3::Bound;
 /// Group portfolio positions by an attribute.
 ///
 /// Returns a dictionary mapping attribute values to lists of positions.
-/// The attribute key must exist in position tags for positions to be included.
+/// Positions missing the requested attribute are placed into the `_untagged` bucket.
 ///
 /// Args:
 ///     portfolio: Portfolio to group.
@@ -54,7 +54,7 @@ fn py_group_by_attribute(
 /// Aggregate portfolio valuation by an attribute.
 ///
 /// Sums position values within each attribute group. Only positions with the
-/// specified attribute key in their tags are included. Values are converted
+/// specified attribute key in their tags are included (otherwise `_untagged`). Values are converted
 /// to the portfolio base currency before aggregation.
 ///
 /// Args:
@@ -100,6 +100,43 @@ fn py_aggregate_by_attribute(
     Ok(dict.into())
 }
 
+/// Aggregate portfolio valuation by book hierarchy.
+///
+/// Computes total value for each book by summing direct position values plus
+/// recursively aggregated values from child books.
+///
+/// Args:
+///     valuation: Portfolio valuation results.
+///     portfolio: Portfolio containing books and positions.
+///
+/// Returns:
+///     dict[str, Money]: Mapping of book IDs to aggregated amounts (base currency).
+///
+/// Raises:
+///     RuntimeError: If aggregation fails.
+#[pyfunction]
+fn py_aggregate_by_book(
+    valuation: &Bound<'_, PyAny>,
+    portfolio: &Bound<'_, PyAny>,
+    py: Python<'_>,
+) -> PyResult<Py<PyAny>> {
+    let valuation_inner = extract_portfolio_valuation(valuation)?;
+    let portfolio_inner = extract_portfolio(portfolio)?;
+
+    let aggregated = aggregate_by_book(
+        &valuation_inner,
+        &portfolio_inner.books,
+        portfolio_inner.base_ccy,
+    )
+    .map_err(portfolio_to_py)?;
+
+    let dict = PyDict::new(py);
+    for (book_id, money) in aggregated {
+        dict.set_item(book_id.as_str(), PyMoney::new(money))?;
+    }
+    Ok(dict.into())
+}
+
 /// Register grouping module exports.
 pub(crate) fn register<'py>(
     _py: Python<'py>,
@@ -111,8 +148,12 @@ pub(crate) fn register<'py>(
     let wrapped_agg = wrap_pyfunction!(py_aggregate_by_attribute, parent)?;
     parent.add("aggregate_by_attribute", wrapped_agg)?;
 
+    let wrapped_book = wrap_pyfunction!(py_aggregate_by_book, parent)?;
+    parent.add("aggregate_by_book", wrapped_book)?;
+
     Ok(vec![
         "group_by_attribute".to_string(),
         "aggregate_by_attribute".to_string(),
+        "aggregate_by_book".to_string(),
     ])
 }

@@ -2,6 +2,7 @@
 
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::portfolio::book::PyBook;
 use crate::portfolio::error::portfolio_to_py;
 use crate::portfolio::types::{PyEntity, PyPosition};
 use finstack_portfolio::Portfolio;
@@ -201,6 +202,16 @@ impl PyPortfolio {
             .map(|p| PyPosition::new(p.clone()))
             .collect();
         Ok(PyList::new(py, positions)?.into())
+    }
+
+    #[getter]
+    /// Get the portfolio books (hierarchical organization).
+    fn books(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let dict = PyDict::new(py);
+        for (id, book) in &self.inner.books {
+            dict.set_item(id.as_str(), PyBook::new(book.clone()))?;
+        }
+        Ok(dict.into())
     }
 
     #[getter]

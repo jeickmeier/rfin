@@ -248,7 +248,7 @@ examples:
 
 stubs:
 	@echo "(re)generating Python stub files …"
-	bash ./scripts/generate-stubs.sh
+	@echo "Type stubs (.pyi) are manually maintained; nothing to generate."
 	@echo "Stub generation complete."
 
 list:

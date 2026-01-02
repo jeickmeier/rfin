@@ -5,7 +5,7 @@ management, valuation aggregation, metrics calculation, attribute-based grouping
 P&L attribution, margin aggregation, and DataFrame exports for analysis.
 """
 
-from .types import Entity, PositionUnit, Position, DUMMY_ENTITY_ID
+from .types import Book, BookId, Entity, PositionUnit, Position, DUMMY_ENTITY_ID
 from .portfolio import Portfolio
 from .builder import PortfolioBuilder
 from .valuation import (
@@ -17,7 +17,7 @@ from .valuation import (
 )
 from .metrics import AggregatedMetric, PortfolioMetrics, aggregate_metrics, is_summable
 from .results import PortfolioResults
-from .grouping import group_by_attribute, aggregate_by_attribute
+from .grouping import group_by_attribute, aggregate_by_attribute, aggregate_by_book
 from .attribution import PortfolioAttribution, attribute_portfolio_pnl
 from .cashflows import (
     PortfolioCashflows,
@@ -47,6 +47,8 @@ try:
 
     __all__ = [
         "Entity",
+        "BookId",
+        "Book",
         "PositionUnit",
         "Position",
         "DUMMY_ENTITY_ID",
@@ -64,6 +66,7 @@ try:
         "PortfolioResults",
         "group_by_attribute",
         "aggregate_by_attribute",
+        "aggregate_by_book",
         "PortfolioAttribution",
         "attribute_portfolio_pnl",
         "PortfolioCashflows",
@@ -87,6 +90,8 @@ try:
 except ImportError:
     __all__ = [
         "Entity",
+        "BookId",
+        "Book",
         "PositionUnit",
         "Position",
         "DUMMY_ENTITY_ID",
@@ -104,6 +109,7 @@ except ImportError:
         "PortfolioResults",
         "group_by_attribute",
         "aggregate_by_attribute",
+        "aggregate_by_book",
         "PortfolioAttribution",
         "attribute_portfolio_pnl",
         "PortfolioCashflows",

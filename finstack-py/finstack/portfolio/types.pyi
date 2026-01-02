@@ -1,11 +1,46 @@
 """Portfolio core types."""
 
-from typing import Dict, Any, Optional, Mapping, Iterable, Tuple
+from typing import Dict, Any, Optional, Mapping, Iterable, Tuple, List
 from finstack.core.currency import Currency
 from finstack.core.money import Money
 
 DUMMY_ENTITY_ID: str
 """Constant for the dummy entity used for standalone instruments ('_standalone')."""
+
+class BookId:
+    """Book identifier."""
+
+    def __init__(self, id: str) -> None: ...
+    @property
+    def id(self) -> str:
+        """Get the identifier as a string."""
+        ...
+
+    def __repr__(self) -> str: ...
+    def __str__(self) -> str: ...
+
+class Book:
+    """A book in the portfolio hierarchy."""
+
+    def __init__(
+        self, id: str | BookId, name: Optional[str] = None, parent_id: Optional[str | BookId] = None
+    ) -> None: ...
+    @property
+    def id(self) -> str: ...
+    @property
+    def name(self) -> Optional[str]: ...
+    @property
+    def parent_id(self) -> Optional[str]: ...
+    @property
+    def position_ids(self) -> List[str]: ...
+    @property
+    def child_book_ids(self) -> List[str]: ...
+    @property
+    def tags(self) -> Dict[str, str]: ...
+    @property
+    def meta(self) -> Dict[str, Any]: ...
+    def __repr__(self) -> str: ...
+    def __str__(self) -> str: ...
 
 class Entity:
     """An entity that can hold positions.
@@ -232,6 +267,10 @@ class Position:
         """Add a tag to the position."""
         ...
 
+    def with_book(self, book_id: str | BookId) -> "Position":
+        """Assign this position to a book (builder pattern)."""
+        ...
+
     def with_tags(self, tags: Mapping[str, str] | Iterable[Tuple[str, str]]) -> "Position":
         """Add multiple tags to the position."""
         ...
@@ -257,6 +296,11 @@ class Position:
     @property
     def instrument_id(self) -> str:
         """Instrument identifier."""
+        ...
+
+    @property
+    def book_id(self) -> Optional[str]:
+        """Book identifier (None if unassigned)."""
         ...
 
     @property

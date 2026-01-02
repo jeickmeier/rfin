@@ -1,7 +1,7 @@
 """Portfolio builder."""
 
 from typing import Any, Union, List
-from .types import Entity, Position
+from .types import Book, BookId, Entity, Position
 from .portfolio import Portfolio
 
 class PortfolioBuilder:
@@ -151,6 +151,14 @@ class PortfolioBuilder:
             >>> position = Position("POS_1", "ENTITY_A", "EQ-ACME", equity, 1.0, PositionUnit.UNITS)
             >>> builder = PortfolioBuilder("FUND_A").position(position)
         """
+        ...
+
+    def book(self, book_or_books: Union[Book, List[Book]]) -> "PortfolioBuilder":
+        """Add book or books to the portfolio hierarchy."""
+        ...
+
+    def add_position_to_book(self, position_id: str, book_id: str | BookId) -> "PortfolioBuilder":
+        """Assign a position to a book."""
         ...
 
     def tag(self, key: str, value: str) -> "PortfolioBuilder":

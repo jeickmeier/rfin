@@ -11,7 +11,8 @@ def group_by_attribute(portfolio: Portfolio, attribute_key: str) -> Dict[str, Li
 """Group portfolio positions by an attribute tag.
 
 Groups all positions in a portfolio by the value of a specified attribute
-tag. Positions without the tag are excluded from the result. This is useful
+tag. Positions without the tag are placed in the special ``"_untagged"`` bucket.
+This is useful
 for organizing positions by sector, rating, currency, or any custom attribute.
 
 Parameters
@@ -20,7 +21,7 @@ portfolio : Portfolio
     Portfolio containing positions to group.
 attribute_key : str
     Tag key to group by (e.g., "sector", "rating", "currency", "strategy").
-    Must exist in position.tags for positions to be included.
+    Positions without the tag are placed in ``"_untagged"``.
 
 Returns
 -------
@@ -55,8 +56,7 @@ Group by rating:
 
 Notes
 -----
-- Only positions with the specified tag are included
-- Positions without the tag are excluded (no error)
+- Positions without the tag are placed in ``"_untagged"`` (no error)
 - Empty groups are not included in the result
 - Useful for filtering and organizing positions
 
@@ -88,7 +88,7 @@ portfolio : Portfolio
     Portfolio containing positions. Used to access position tags.
 attribute_key : str
     Tag key to group by (e.g., "sector", "rating", "currency").
-    Must exist in position.tags for positions to be included.
+    Positions without the tag are placed in ``"_untagged"``.
 
 Returns
 -------
@@ -124,7 +124,7 @@ Aggregate by rating:
 
 Notes
 -----
-- Only positions with the specified tag are included
+- Positions without the tag are placed in ``"_untagged"`` (no error)
 - Values are converted to portfolio base currency
 - Empty groups are not included in the result
 - Useful for risk reporting and portfolio analysis
@@ -134,4 +134,15 @@ See Also
 :func:`group_by_attribute`: Group positions by attribute
 :func:`value_portfolio`: Portfolio valuation
 :class:`PortfolioValuation`: Valuation results
+"""
+
+def aggregate_by_book(
+    valuation: PortfolioValuation,
+    portfolio: Portfolio,
+) -> Dict[str, Money]: ...
+
+"""Aggregate portfolio valuation by book hierarchy.
+
+Computes total value for each book by summing direct position values plus
+recursively aggregated values from child books.
 """
