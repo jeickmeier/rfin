@@ -345,6 +345,18 @@ impl JsWaterfallDistribution {
         serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
     }
 
+    /// Payment date.
+    #[wasm_bindgen(getter, js_name = paymentDate)]
+    pub fn payment_date(&self) -> JsDate {
+        JsDate::from_core(self.inner.payment_date)
+    }
+
+    /// Total available cash at start of distribution.
+    #[wasm_bindgen(getter, js_name = totalAvailable)]
+    pub fn total_available(&self) -> JsMoney {
+        JsMoney::from_inner(self.inner.total_available)
+    }
+
     /// Tier allocations as [tier_id, amount] tuples.
     #[wasm_bindgen(getter, js_name = tierAllocations)]
     pub fn tier_allocations(&self) -> js_sys::Array {
@@ -358,6 +370,47 @@ impl JsWaterfallDistribution {
                 arr
             })
             .collect()
+    }
+
+    /// Number of payment records in this distribution.
+    #[wasm_bindgen(getter, js_name = paymentRecordCount)]
+    pub fn payment_record_count(&self) -> usize {
+        self.inner.payment_records.len()
+    }
+
+    /// Coverage test results as [test_name, value, passed] tuples.
+    #[wasm_bindgen(getter, js_name = coverageTests)]
+    pub fn coverage_tests(&self) -> js_sys::Array {
+        self.inner
+            .coverage_tests
+            .iter()
+            .map(|(name, value, passed)| {
+                let arr = js_sys::Array::new();
+                arr.push(&JsValue::from_str(name));
+                arr.push(&JsValue::from_f64(*value));
+                arr.push(&JsValue::from_bool(*passed));
+                arr
+            })
+            .collect()
+    }
+
+    /// Get all coverage test names.
+    #[wasm_bindgen(getter, js_name = coverageTestNames)]
+    pub fn coverage_test_names(&self) -> js_sys::Array {
+        self.inner
+            .coverage_tests
+            .iter()
+            .map(|(name, _, _)| JsValue::from_str(name))
+            .collect()
+    }
+
+    /// Check if all coverage tests passed.
+    #[wasm_bindgen(getter, js_name = allCoverageTestsPassed)]
+    pub fn all_coverage_tests_passed(&self) -> bool {
+        self.inner
+            .coverage_tests
+            .iter()
+            .all(|(_, _, passed)| *passed)
     }
 }
 

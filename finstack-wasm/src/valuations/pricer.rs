@@ -3,12 +3,13 @@ use crate::core::error::core_to_js;
 use crate::core::error::js_error;
 use crate::core::market_data::context::JsMarketContext;
 use crate::valuations::instruments::{
-    AsianOption as JsAsianOption, Autocallable as JsAutocallable, BarrierOption as JsBarrierOption,
-    BasisSwap as JsBasisSwap, Basket as JsBasket, Bond as JsBond, CDSIndex as JsCDSIndex,
-    CdsOption as JsCdsOption, CdsTranche as JsCdsTranche, CliquetOption as JsCliquetOption,
-    CmsOption as JsCmsOption, ConvertibleBond as JsConvertibleBond,
-    CreditDefaultSwap as JsCreditDefaultSwap, Deposit as JsDeposit, Equity as JsEquity,
-    EquityOption as JsEquityOption, EquityTotalReturnSwap as JsEquityTotalReturnSwap,
+    extract_instrument, AsianOption as JsAsianOption, Autocallable as JsAutocallable,
+    BarrierOption as JsBarrierOption, BasisSwap as JsBasisSwap, Basket as JsBasket, Bond as JsBond,
+    CDSIndex as JsCDSIndex, CdsOption as JsCdsOption, CdsTranche as JsCdsTranche,
+    CliquetOption as JsCliquetOption, CmsOption as JsCmsOption,
+    ConvertibleBond as JsConvertibleBond, CreditDefaultSwap as JsCreditDefaultSwap,
+    Deposit as JsDeposit, Equity as JsEquity, EquityOption as JsEquityOption,
+    EquityTotalReturnSwap as JsEquityTotalReturnSwap,
     FiIndexTotalReturnSwap as JsFiIndexTotalReturnSwap,
     ForwardRateAgreement as JsForwardRateAgreement, FxBarrierOption as JsFxBarrierOption,
     FxOption as JsFxOption, FxSpot as JsFxSpot, FxSwap as JsFxSwap,
@@ -164,6 +165,40 @@ impl JsPricerRegistry {
     #[wasm_bindgen(constructor)]
     pub fn new_empty() -> JsPricerRegistry {
         JsPricerRegistry::new(PricerRegistry::new())
+    }
+
+    /// Price any supported instrument wrapper by dynamic dispatch.
+    ///
+    /// This is a catch-all for instruments that don't have a dedicated `priceXxx` method.
+    /// The instrument must be a `finstack-wasm` wrapper (e.g. `Bond`, `Swaption`, etc.).
+    ///
+    /// @param {any} instrument - A finstack-wasm instrument instance
+    /// @param {string} model - Pricing model key ("discounting", "black76", "monte_carlo_gbm", ...)
+    /// @param {MarketContext} market - Market data context
+    /// @param {FsDate} asOf - Valuation date
+    /// @param {PricingRequest?} opts - Optional pricing configuration for risk metrics
+    /// @returns {ValuationResult} Pricing result
+    /// @throws {Error} If the instrument type is unsupported or pricing fails
+    #[wasm_bindgen(js_name = priceInstrument)]
+    pub fn price_instrument(
+        &self,
+        instrument: &JsValue,
+        model: &str,
+        market: &JsMarketContext,
+        as_of: &JsDate,
+        opts: Option<JsPricingRequest>,
+    ) -> Result<JsValuationResult, JsValue> {
+        let model_key = parse_model_key(model)?;
+        let instrument = extract_instrument(instrument)?;
+        let metrics = opts.and_then(|o| o.metrics);
+        price_with_optional_metrics(
+            &self.inner,
+            instrument.as_ref(),
+            model_key,
+            market,
+            metrics,
+            as_of,
+        )
     }
 
     /// Price a bond instrument using the specified model and market data.

@@ -45,10 +45,14 @@ pub use core::expr::{
     JsFunction as Function, JsUnaryOp as UnaryOp,
 };
 pub use core::market_data::{
-    BaseCorrelationCurve, CreditIndexData, CurveKind, DiscountCurve, DividendEvent,
+    atm_moneyness as atmMoneyness, default_vol_expiry as defaultVolExpiry,
+    measureBucketedDiscountShift, measureCorrelationShift, measureDiscountCurveShift,
+    measureFxShift, measureHazardCurveShift, measureInflationCurveShift, measureScalarShift,
+    measureVolSurfaceShift, standard_tenors as standardTenors, BaseCorrelationCurve, BumpMode,
+    BumpSpec, BumpType, BumpUnits, CreditIndexData, CurveKind, DiscountCurve, DividendEvent,
     DividendSchedule, DividendScheduleBuilder, ForwardCurve, FxConfig, FxConversionPolicy,
-    FxMatrix, FxRateResult, HazardCurve, InflationCurve, MarketContext, MarketScalar,
-    ScalarTimeSeries, SeriesInterpolation, VolSurface,
+    FxMatrix, FxRateResult, HazardCurve, InflationCurve, MarketBump, MarketContext, MarketScalar,
+    ScalarTimeSeries, SeriesInterpolation, TenorSamplingMethod, VolSurface,
 };
 pub use core::math::{
     // Integration
@@ -208,21 +212,41 @@ pub use valuations::margin::{
     JsVmResult as VmResult,
 };
 
+// Market conventions registry
+pub use valuations::conventions::{
+    JsCdsConventionKey as CdsConventionKey, JsCdsConventions as CdsConventions,
+    JsCdsDocClause as CdsDocClause, JsConventionRegistry as ConventionRegistry,
+    JsInflationSwapConventions as InflationSwapConventions,
+    JsIrFutureConventions as IrFutureConventions, JsOptionConventions as OptionConventions,
+    JsRateIndexConventions as RateIndexConventions, JsRateIndexKind as RateIndexKind,
+    JsSwaptionConventions as SwaptionConventions,
+};
+
 pub use genui::*;
 
 // Statements exports
 pub use statements::{
-    JsAmountOrScalar as AmountOrScalar, JsCapitalStructureSpec as CapitalStructureSpec,
+    JsAdjustment as Adjustment, JsAmountOrScalar as AmountOrScalar,
+    JsAppliedAdjustment as AppliedAdjustment, JsCapitalStructureSpec as CapitalStructureSpec,
     JsCorkscrewExtension as CorkscrewExtension,
     JsCreditScorecardExtension as CreditScorecardExtension,
-    JsDebtInstrumentSpec as DebtInstrumentSpec, JsEvaluator as Evaluator,
-    JsExtensionMetadata as ExtensionMetadata, JsExtensionRegistry as ExtensionRegistry,
-    JsExtensionResult as ExtensionResult, JsExtensionStatus as ExtensionStatus,
-    JsFinancialModelSpec as FinancialModelSpec, JsForecastMethod as ForecastMethod,
-    JsForecastSpec as ForecastSpec, JsMetricDefinition as MetricDefinition,
-    JsMetricRegistry as StatementsMetricRegistry, JsModelBuilder as ModelBuilder,
-    JsNodeSpec as NodeSpec, JsNodeType as NodeType, JsRegistry as Registry, JsResults as Results,
+    JsDebtInstrumentSpec as DebtInstrumentSpec, JsDependencyTree as DependencyTree,
+    JsEvaluator as Evaluator, JsExtensionMetadata as ExtensionMetadata,
+    JsExtensionRegistry as ExtensionRegistry, JsExtensionResult as ExtensionResult,
+    JsExtensionStatus as ExtensionStatus, JsFinancialModelSpec as FinancialModelSpec,
+    JsForecastMethod as ForecastMethod, JsForecastSpec as ForecastSpec,
+    JsMetricDefinition as MetricDefinition, JsMetricRegistry as StatementsMetricRegistry,
+    JsModelBuilder as ModelBuilder, JsNodeSpec as NodeSpec, JsNodeType as NodeType,
+    JsNormalizationConfig as NormalizationConfig, JsNormalizationEngine as NormalizationEngine,
+    JsNormalizationResult as NormalizationResult, JsRegistry as Registry, JsResults as Results,
     JsResultsMeta as ResultsMeta, JsSeasonalMode as SeasonalMode, JsUnitType as UnitType,
+};
+
+// Statements analysis functions
+pub use statements::{
+    all_dependencies as allDependencies, dependency_tree as dependencyTree, dependents,
+    direct_dependencies as directDependencies,
+    render_dependency_tree_ascii as renderDependencyTreeAscii,
 };
 
 // Scenarios exports

@@ -63,6 +63,8 @@ class RustAPIExtractor:
             items_str = brace_match.group(1)
             for raw_item in items_str.split(","):
                 item_clean = raw_item.strip()
+                if not item_clean:
+                    continue
                 # Handle "Item as Alias"
                 if " as " in item_clean:
                     alias = item_clean.split(" as ")[1].strip()
@@ -86,8 +88,21 @@ class RustAPIExtractor:
         exports = ModuleExports(modules=[], types=[], functions=[], re_exports={})
 
         lines = content.split("\n")
-        for raw_line in lines:
-            line = raw_line.strip()
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+
+            # Coalesce multi-line `pub use foo::{ ... }` blocks onto one logical line
+            if line.startswith("pub use ") and "{" in line and "}" not in line:
+                combined = [line]
+                i += 1
+                while i < len(lines):
+                    next_line = lines[i].strip()
+                    combined.append(next_line)
+                    if "}" in next_line:
+                        break
+                    i += 1
+                line = " ".join(combined)
 
             # Look for pub mod (public modules)
             if line.startswith("pub mod ") and not line.startswith("pub(crate) mod "):
@@ -146,6 +161,8 @@ class RustAPIExtractor:
                 if match and not match.group(1).startswith("_"):
                     exports.functions.append(match.group(1))
 
+            i += 1
+
         return exports
 
     def extract_module_exports(self, mod_file: Path) -> ModuleExports:
@@ -154,8 +171,21 @@ class RustAPIExtractor:
         exports = ModuleExports(modules=[], types=[], functions=[], re_exports={})
 
         lines = content.split("\n")
-        for raw_line in lines:
-            line = raw_line.strip()
+        i = 0
+        while i < len(lines):
+            line = lines[i].strip()
+
+            # Coalesce multi-line `pub use foo::{ ... }` blocks onto one logical line
+            if line.startswith("pub use ") and "{" in line and "}" not in line:
+                combined = [line]
+                i += 1
+                while i < len(lines):
+                    next_line = lines[i].strip()
+                    combined.append(next_line)
+                    if "}" in next_line:
+                        break
+                    i += 1
+                line = " ".join(combined)
 
             # Look for pub mod (public submodules)
             if line.startswith("pub mod ") and not line.startswith("pub(crate) mod "):
@@ -210,6 +240,8 @@ class RustAPIExtractor:
                 match = re.search(r"pub\s+(?:async\s+)?fn\s+(\w+)", line)
                 if match and not match.group(1).startswith("_"):
                     exports.functions.append(match.group(1))
+
+            i += 1
 
         return exports
 

@@ -143,28 +143,8 @@ pub fn calculate_npv_wasm(cash_flows: Array, discount_rate: f64) -> Result<f64, 
         flows.push((core_date, amount));
     }
 
-    // Convert f64 flows to Money (using arbitrary currency for calculation)
-    let money_flows: Vec<(finstack_core::dates::Date, finstack_core::money::Money)> = flows
-        .into_iter()
-        .map(|(d, a)| {
-            (
-                d,
-                finstack_core::money::Money::new(a, finstack_core::currency::Currency::USD),
-            )
-        })
-        .collect();
-
-    // Default base date to first flow date if available, else today (arbitrary)
-    let base_date = money_flows.first().map(|(d, _)| *d).unwrap_or_else(|| {
-        finstack_core::dates::Date::from_calendar_date(2000, time::Month::January, 1).unwrap()
-    });
-
-    // Use Act365F as default day count for simple scalar NPV
-    let dc = finstack_core::dates::DayCount::Act365F;
-
-    // Use the core NPV function
-    finstack_core::cashflow::npv_constant(&money_flows, discount_rate, base_date, dc)
-        .map(|m| m.amount())
+    // Delegate defaults + calculation to core library
+    finstack_core::cashflow::npv_amounts(&flows, discount_rate, None, None)
         .map_err(|e| JsValue::from_str(&format!("NPV calculation failed: {}", e)))
 }
 

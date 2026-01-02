@@ -164,9 +164,29 @@ pub(crate) fn extract_instrument(value: &JsValue) -> Result<Box<dyn Instrument>,
                 .unwrap_or(false);
 
             if is_instance {
-                // Safe because we've verified the type via constructor name check
-                // JsValue and wasm_bindgen structs are both pointer-sized, so we can cast
-                let inst: &$js_type = unsafe { &*(value as *const JsValue as *const $js_type) };
+                // wasm-bindgen stores the pointer to the Rust object in a property
+                // on the JS object. In recent versions it's "__wbg_ptr".
+                let ptr_val = Reflect::get(value, &JsValue::from_str("__wbg_ptr"))
+                    .or_else(|_| Reflect::get(value, &JsValue::from_str("ptr")))
+                    .map_err(|_| JsValue::from_str("Could not find Rust pointer"))?;
+
+                let ptr_f64 = ptr_val
+                    .as_f64()
+                    .ok_or_else(|| JsValue::from_str("Pointer is not a number"))?;
+                let ptr = ptr_f64 as usize as *const $js_type;
+
+                if ptr.is_null() {
+                    return Err(JsValue::from_str("Rust pointer is null"));
+                }
+
+                // Check alignment and sanity. Pointers to these structs should be at least
+                // aligned for the struct and not in the first page of memory (0x1000).
+                if (ptr as usize) < 0x1000 || (ptr as usize) % std::mem::align_of::<$js_type>() != 0
+                {
+                    return Err(JsValue::from_str("Rust pointer is invalid or misaligned"));
+                }
+
+                let inst: &$js_type = unsafe { &*ptr };
                 return Ok(Box::new(inst.inner()));
             }
         }};

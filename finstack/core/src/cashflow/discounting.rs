@@ -297,6 +297,51 @@ pub fn npv_constant(
     npv(&curve, base_date, Some(day_count), cash_flows)
 }
 
+/// Compute NPV of dated scalar cashflows using a flat annual discount rate.
+///
+/// This is a convenience helper for performance analytics and bindings that work in
+/// scalar amounts (e.g. `[(date, f64)]`) rather than typed [`Money`] cashflows.
+///
+/// The discounting convention matches [`npv_constant`]:
+/// - `discount_rate` is an annually-compounded rate expressed as a decimal (0.05 = 5%)
+/// - Internally this is converted to continuous compounding via `ln(1 + r)` for stability.
+///
+/// Defaults (when the optional arguments are `None`):
+/// - `base_date`: first cashflow date
+/// - `day_count`: [`DayCount::Act365F`]
+///
+/// # Errors
+/// - [`InputError::TooFewPoints`](crate::error::InputError::TooFewPoints) when `cash_flows` is empty
+/// - Day count year-fraction calculation failures
+pub fn npv_amounts(
+    cash_flows: &[(Date, f64)],
+    discount_rate: f64,
+    base_date: Option<Date>,
+    day_count: Option<DayCount>,
+) -> crate::Result<f64> {
+    if cash_flows.is_empty() {
+        return Err(crate::Error::from(crate::error::InputError::TooFewPoints));
+    }
+
+    let base = base_date.unwrap_or_else(|| cash_flows[0].0);
+    let dc = day_count.unwrap_or(DayCount::Act365F);
+
+    // Convert annually compounded rate to continuously compounded rate:
+    // FlatCurve expects continuously compounded rates: r_cont = ln(1 + r_annual)
+    if !discount_rate.is_finite() || (1.0 + discount_rate) <= 0.0 {
+        return Err(crate::Error::from(crate::error::InputError::Invalid));
+    }
+    let continuous_rate = (1.0 + discount_rate).ln();
+
+    let mut pv = 0.0;
+    for (date, amount) in cash_flows {
+        let t = dc.signed_year_fraction(base, *date, crate::dates::DayCountCtx::default())?;
+        pv += amount * (-continuous_rate * t).exp();
+    }
+
+    Ok(pv)
+}
+
 /// Compute NPV of dated `Money` flows using a discount curve.
 ///
 /// Discounts each cashflow to the base date using the provided curve.
@@ -409,6 +454,35 @@ mod tests {
         // NPV should be positive (profitable at 5% discount rate)
         // Approximately: -100000 + 110000/(1.05) ≈ 4761.90
         assert!(npv_5pct.amount() > 4700.0 && npv_5pct.amount() < 4800.0);
+    }
+
+    #[test]
+    fn test_npv_amounts_matches_money_npv_constant() {
+        let dates = [
+            create_date(2024, Month::January, 1).expect("Valid test date"),
+            create_date(2025, Month::January, 1).expect("Valid test date"),
+        ];
+        let amounts = [-100000.0, 110000.0];
+
+        let amount_flows = vec![(dates[0], amounts[0]), (dates[1], amounts[1])];
+        let money_flows = vec![
+            (dates[0], Money::new(amounts[0], Currency::USD)),
+            (dates[1], Money::new(amounts[1], Currency::USD)),
+        ];
+
+        let pv_amounts =
+            npv_amounts(&amount_flows, 0.05, None, None).expect("npv_amounts should succeed");
+
+        let pv_money = npv_constant(&money_flows, 0.05, dates[0], DayCount::Act365F)
+            .expect("npv_constant should succeed")
+            .amount();
+
+        assert!(
+            (pv_amounts - pv_money).abs() < 1e-10,
+            "npv_amounts should match npv_constant: {} vs {}",
+            pv_amounts,
+            pv_money
+        );
     }
 
     #[test]

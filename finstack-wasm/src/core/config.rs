@@ -124,6 +124,82 @@ impl JsFinstackConfig {
         self.inner.extensions.insert(key.to_string(), json_value);
         Ok(())
     }
+
+    /// Serialize the configuration to a JSON string.
+    ///
+    /// Converts the entire configuration (rounding policies, tolerances, extensions)
+    /// to a JSON representation for storage or transmission.
+    ///
+    /// # Returns
+    /// JSON string representation of the configuration.
+    ///
+    /// # Example
+    /// ```javascript
+    /// const config = new FinstackConfig();
+    /// config.setRoundingMode(RoundingMode.Bankers);
+    /// const json = config.toJson();
+    /// // Later: const restored = FinstackConfig.fromJson(json);
+    /// ```
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<String, JsValue> {
+        serde_json::to_string_pretty(&self.inner)
+            .map_err(|e| JsValue::from_str(&format!("Failed to serialize config: {}", e)))
+    }
+
+    /// Build a `FinstackConfig` from a JSON string.
+    ///
+    /// Deserializes a JSON string representation (created by `toJson()`) back into
+    /// a fully functional configuration object.
+    ///
+    /// # Arguments
+    /// * `json_str` - JSON string containing serialized configuration
+    ///
+    /// # Returns
+    /// A new `FinstackConfig` instance with all settings restored.
+    ///
+    /// # Errors
+    /// Returns an error if the JSON is invalid or cannot be deserialized.
+    ///
+    /// # Example
+    /// ```javascript
+    /// const json = '{"rounding": {"mode": "bankers"}, ...}';
+    /// const config = FinstackConfig.fromJson(json);
+    /// ```
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(json_str: &str) -> Result<JsFinstackConfig, JsValue> {
+        let inner: FinstackConfig = serde_json::from_str(json_str)
+            .map_err(|e| JsValue::from_str(&format!("Failed to parse config JSON: {}", e)))?;
+        Ok(JsFinstackConfig { inner })
+    }
+
+    /// Export the configuration as a serializable JavaScript object.
+    ///
+    /// Returns a structured JavaScript object (via serde-wasm-bindgen) that can
+    /// be directly manipulated in JavaScript or serialized as needed.
+    ///
+    /// # Returns
+    /// JavaScript object representation of the configuration.
+    #[wasm_bindgen(js_name = toState)]
+    pub fn to_state(&self) -> Result<JsValue, JsValue> {
+        serde_wasm_bindgen::to_value(&self.inner)
+            .map_err(|e| JsValue::from_str(&format!("Failed to convert config to state: {}", e)))
+    }
+
+    /// Build a `FinstackConfig` from a JavaScript object.
+    ///
+    /// Accepts a structured JavaScript object and converts it to a configuration.
+    ///
+    /// # Arguments
+    /// * `value` - JavaScript object containing configuration data
+    ///
+    /// # Returns
+    /// A new `FinstackConfig` instance.
+    #[wasm_bindgen(js_name = fromState)]
+    pub fn from_state(value: JsValue) -> Result<JsFinstackConfig, JsValue> {
+        let inner: FinstackConfig = serde_wasm_bindgen::from_value(value)
+            .map_err(|e| JsValue::from_str(&format!("Failed to parse config state: {}", e)))?;
+        Ok(JsFinstackConfig { inner })
+    }
 }
 
 impl JsFinstackConfig {

@@ -63,7 +63,6 @@ class MaxYieldWithCccLimitResult(TypedDict):
     current_weights: dict[str, float]
     weight_deltas: dict[str, float]
 
-
 def optimize_max_yield_with_ccc_limit(
     portfolio: Portfolio,
     market_context: MarketContext,
@@ -71,7 +70,6 @@ def optimize_max_yield_with_ccc_limit(
     strict_risk: bool = False,
     config: FinstackConfig | None = None,
 ) -> MaxYieldWithCccLimitResult: ...
-
 
 # Scenario integration (if available)
 try:

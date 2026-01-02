@@ -1156,10 +1156,6 @@ fn test_risky_annuity_vs_isda_reference() {
         "CREDIT",
     );
 
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
-
     let mut cds = CreditDefaultSwap::buy_protection(
         "ISDA_REF_ANNUITY",
         Money::new(isda_reference::NOTIONAL, Currency::USD),
@@ -1172,11 +1168,10 @@ fn test_risky_annuity_vs_isda_reference() {
     .expect("CDS construction should succeed");
     cds.protection.recovery_rate = isda_reference::RECOVERY;
 
-    let result = cds
-        .price_with_metrics(&market, as_of, &[MetricId::RiskyPv01])
-        .unwrap();
-
-    let risky_annuity = *result.measures.get("risky_annuity").unwrap();
+    let pricer = CDSPricer::new();
+    let risky_annuity = pricer
+        .risky_annuity(&cds, &disc, &hazard, as_of)
+        .expect("Risky annuity calculation should succeed");
 
     // Risky annuity should match ISDA reference within 5%
     let rel_error =

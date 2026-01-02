@@ -38,6 +38,7 @@ fn create_curve_from_dfs(
 ) -> DiscountCurve {
     DiscountCurve::builder(curve_id)
         .base_date(base_date)
+        .day_count(DayCount::Thirty360) // Use 30/360 for exact year integer parity
         .knots(knots)
         .build()
         .unwrap()
@@ -50,6 +51,7 @@ fn create_flat_curve(base_date: time::Date, rate: f64, curve_id: &str) -> Discou
 
     DiscountCurve::builder(curve_id)
         .base_date(base_date)
+        .day_count(DayCount::Thirty360) // Use 30/360 for exact year integer parity
         .knots(dfs)
         .build()
         .unwrap()
@@ -127,7 +129,7 @@ fn quantlib_parity_par_bond() {
         .cashflow_spec(CashflowSpec::fixed(
             coupon_rate,
             finstack_core::dates::Tenor::annual(), // Annual payments for exact QuantLib parity
-            DayCount::Act365F,
+            DayCount::Thirty360,
         ))
         .discount_curve_id("PAR".into())
         .credit_curve_id_opt(None)
@@ -136,9 +138,13 @@ fn quantlib_parity_par_bond() {
         .build()
         .unwrap();
 
-    // 5% flat curve: DF(1Y) = 0.9524, DF(2Y) = 0.9070 (implies ~5% rate)
-    // QuantLib calculation: PV = 5 * 0.9524 + 105 * 0.9070 = 4.762 + 95.235 = 100.00
-    let curve = create_curve_from_dfs(base, vec![(0.0, 1.0), (1.0, 0.9524), (2.0, 0.9070)], "PAR");
+    // 5% flat curve: DF(1Y) = 0.952381, DF(2Y) = 0.907029 (implies exactly 5% rate)
+    // QuantLib calculation: PV = 5 * 0.952381 + 105 * 0.907029 = 4.7619 + 95.2381 = 100.00
+    let curve = create_curve_from_dfs(
+        base,
+        vec![(0.0, 1.0), (1.0, 0.95238095), (2.0, 0.90702948)],
+        "PAR",
+    );
     let market = create_market_with_curve(curve);
 
     let pv = bond.value(&market, base).unwrap();

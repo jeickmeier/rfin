@@ -155,6 +155,57 @@ impl JsMarketContext {
         Ok(JsMarketContext::from_owned(ctx))
     }
 
+    /// Serialize the context to a JSON string.
+    ///
+    /// Converts the entire market context (curves, surfaces, FX, etc.) to a JSON
+    /// representation that can be stored, transmitted, or used for debugging.
+    ///
+    /// # Returns
+    /// JSON string representation of the market context.
+    ///
+    /// # Example
+    /// ```javascript
+    /// const ctx = new MarketContext();
+    /// ctx.insertDiscount(curve);
+    /// const json = ctx.toJson();
+    /// console.log(json);
+    /// // Later: const restored = MarketContext.fromJson(json);
+    /// ```
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<String, JsValue> {
+        let state: MarketContextState = (&self.inner).into();
+        serde_json::to_string_pretty(&state).map_err(|e| js_error(e.to_string()))
+    }
+
+    /// Build a `MarketContext` from a JSON string.
+    ///
+    /// Deserializes a JSON string representation (created by `toJson()`) back into
+    /// a fully functional MarketContext. This enables round-trip serialization.
+    ///
+    /// # Arguments
+    /// * `json_str` - JSON string containing serialized market context state
+    ///
+    /// # Returns
+    /// A new `MarketContext` instance with all data restored.
+    ///
+    /// # Errors
+    /// Returns an error if the JSON is invalid or cannot be deserialized.
+    ///
+    /// # Example
+    /// ```javascript
+    /// const json = '{"discount_curves": [...], "forward_curves": [...]}';
+    /// const ctx = MarketContext.fromJson(json);
+    /// const curve = ctx.discount("USD");
+    /// ```
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(json_str: &str) -> Result<JsMarketContext, JsValue> {
+        let state: MarketContextState =
+            serde_json::from_str(json_str).map_err(|e| js_error(e.to_string()))?;
+        let ctx = MarketContext::try_from(state)
+            .map_err(|e| JsValue::from_str(&format!("Failed to build MarketContext: {e}")))?;
+        Ok(JsMarketContext::from_owned(ctx))
+    }
+
     #[wasm_bindgen(js_name = insertDiscount)]
     pub fn insert_discount(&mut self, curve: &JsDiscountCurve) {
         self.inner =

@@ -35,6 +35,34 @@ impl JsTenor {
         JsTenor::from_months(months)
     }
 
+    /// Check if a tenor string is valid without throwing an error.
+    ///
+    /// # Arguments
+    /// * `code` - Tenor code (e.g., "3M", "1Y", "6M", "1W", "30D")
+    ///
+    /// # Returns
+    /// `true` if the string can be parsed as a valid tenor, `false` otherwise.
+    #[wasm_bindgen(js_name = isValid)]
+    pub fn is_valid(code: &str) -> bool {
+        use std::str::FromStr;
+        Tenor::from_str(code).is_ok()
+    }
+
+    /// Parse a tenor from a string code.
+    ///
+    /// # Arguments
+    /// * `code` - Tenor code (e.g., "3M", "1Y", "6M", "1W", "30D")
+    ///
+    /// # Returns
+    /// Parsed tenor or error.
+    #[wasm_bindgen(js_name = parse)]
+    pub fn parse(code: &str) -> Result<JsTenor, JsValue> {
+        use std::str::FromStr;
+        Tenor::from_str(code)
+            .map(Self::from_inner)
+            .map_err(|e| js_error(e.to_string()))
+    }
+
     #[wasm_bindgen(js_name = fromMonths)]
     pub fn from_months(months: u8) -> Result<JsTenor, JsValue> {
         if months == 0 {
@@ -310,6 +338,18 @@ impl JsDayCount {
     #[wasm_bindgen(constructor)]
     pub fn new_from_name(name: &str) -> Result<JsDayCount, JsValue> {
         JsDayCount::from_name(name)
+    }
+
+    /// Check if a day count name is valid without throwing an error.
+    ///
+    /// # Arguments
+    /// * `name` - Day count name (e.g., "act_360", "act_365f", "thirty_360", "act_act")
+    ///
+    /// # Returns
+    /// `true` if the string can be parsed as a valid day count, `false` otherwise.
+    #[wasm_bindgen(js_name = isValid)]
+    pub fn is_valid(name: &str) -> bool {
+        DayCount::parse_from_string(name).is_ok()
     }
 
     #[wasm_bindgen(js_name = act360)]

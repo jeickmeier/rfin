@@ -56,10 +56,59 @@ impl JsCalibrationReport {
         self.inner.rmse
     }
 
+    /// Whether validation checks passed after calibration.
+    #[wasm_bindgen(getter, js_name = validationPassed)]
+    pub fn validation_passed(&self) -> bool {
+        self.inner.validation_passed
+    }
+
+    /// Validation error details if validation failed.
+    #[wasm_bindgen(getter, js_name = validationError)]
+    pub fn validation_error(&self) -> Option<String> {
+        self.inner.validation_error.clone()
+    }
+
     /// Convergence reason message.
     #[wasm_bindgen(getter, js_name = convergenceReason)]
     pub fn convergence_reason(&self) -> String {
         self.inner.convergence_reason.clone()
+    }
+
+    /// Number of residuals in the report.
+    #[wasm_bindgen(getter, js_name = residualCount)]
+    pub fn residual_count(&self) -> usize {
+        self.inner.residuals.len()
+    }
+
+    /// Get all residuals as an array of [instrument_id, residual] tuples.
+    #[wasm_bindgen(getter)]
+    pub fn residuals(&self) -> js_sys::Array {
+        self.inner
+            .residuals
+            .iter()
+            .map(|(id, residual)| {
+                let arr = js_sys::Array::new();
+                arr.push(&JsValue::from_str(id));
+                arr.push(&JsValue::from_f64(*residual));
+                arr
+            })
+            .collect()
+    }
+
+    /// Get all residual instrument IDs.
+    #[wasm_bindgen(getter, js_name = residualIds)]
+    pub fn residual_ids(&self) -> js_sys::Array {
+        self.inner
+            .residuals
+            .keys()
+            .map(|id| JsValue::from_str(id))
+            .collect()
+    }
+
+    /// Model/methodology version used for this calibration (if set).
+    #[wasm_bindgen(getter, js_name = modelVersion)]
+    pub fn model_version(&self) -> Option<String> {
+        self.inner.model_version.clone()
     }
 
     /// Optional explanation trace if explain=true was passed.

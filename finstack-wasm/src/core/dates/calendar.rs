@@ -48,6 +48,18 @@ pub fn business_day_convention_from_name(name: &str) -> Result<JsBusinessDayConv
     BusinessDayConvention::parse_from_string(name).map(Into::into)
 }
 
+/// Check if a business day convention name is valid without throwing an error.
+///
+/// # Arguments
+/// * `name` - Convention name (e.g., "following", "modified_following", "unadjusted")
+///
+/// # Returns
+/// `true` if the string can be parsed as a valid convention, `false` otherwise.
+#[wasm_bindgen(js_name = isValidBusinessDayConvention)]
+pub fn is_valid_business_day_convention(name: &str) -> bool {
+    BusinessDayConvention::parse_from_string(name).is_ok()
+}
+
 #[wasm_bindgen(js_name = businessDayConventionName)]
 pub fn business_day_convention_name(value: JsBusinessDayConvention) -> String {
     match value {
@@ -58,6 +70,21 @@ pub fn business_day_convention_name(value: JsBusinessDayConvention) -> String {
         JsBusinessDayConvention::ModifiedPreceding => "modified_preceding",
     }
     .to_string()
+}
+
+/// Get all available business day convention names.
+///
+/// # Returns
+/// Array of valid convention name strings.
+#[wasm_bindgen(js_name = allBusinessDayConventions)]
+pub fn all_business_day_conventions() -> Vec<String> {
+    vec![
+        "unadjusted".to_string(),
+        "following".to_string(),
+        "modified_following".to_string(),
+        "preceding".to_string(),
+        "modified_preceding".to_string(),
+    ]
 }
 
 #[wasm_bindgen(js_name = Calendar)]

@@ -163,4 +163,8 @@ impl JsFinancialModelSpec {
     pub(crate) fn new(inner: FinancialModelSpec) -> Self {
         Self { inner }
     }
+
+    pub(crate) fn inner(&self) -> &FinancialModelSpec {
+        &self.inner
+    }
 }

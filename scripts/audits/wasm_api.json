@@ -275,6 +275,22 @@
             {
               "name": "set_extension",
               "js_name": "setExtension"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_state",
+              "js_name": "toState"
+            },
+            {
+              "name": "from_state",
+              "js_name": "fromState"
             }
           ]
         },
@@ -420,12 +436,13 @@
             {
               "name": "convert_atm_volatility_js",
               "js_name": "convertAtmVolatility"
-            },
-            {
-              "name": "convert_volatility_js",
-              "js_name": "convertVolatility"
             }
           ]
+        },
+        "core": {
+          "path": "core/mod.rs",
+          "classes": [],
+          "functions": []
         },
         "core.expr": {
           "path": "core/expr.rs",
@@ -660,6 +677,14 @@
               "js_name": "new"
             },
             {
+              "name": "is_valid",
+              "js_name": "isValid"
+            },
+            {
+              "name": "parse",
+              "js_name": "parse"
+            },
+            {
               "name": "from_months",
               "js_name": "fromMonths"
             },
@@ -736,12 +761,20 @@
               "js_name": "clearCalendar"
             },
             {
-              "name": "set_frequency",
+              "name": "set_tenor",
               "js_name": "setTenor"
             },
             {
-              "name": "clear_frequency",
+              "name": "set_frequency",
+              "js_name": "setFrequency"
+            },
+            {
+              "name": "clear_tenor",
               "js_name": "clearTenor"
+            },
+            {
+              "name": "clear_frequency",
+              "js_name": "clearFrequency"
             },
             {
               "name": "set_bus_basis",
@@ -808,6 +841,10 @@
               "js_name": "new_from_name"
             },
             {
+              "name": "is_valid",
+              "js_name": "isValid"
+            },
+            {
               "name": "act_360",
               "js_name": "act360"
             },
@@ -850,6 +887,91 @@
             {
               "name": "year_fraction",
               "js_name": "yearFraction"
+            }
+          ]
+        },
+        "core.dates.frequency": {
+          "path": "core/dates/frequency.rs",
+          "classes": [
+            {
+              "name": "Frequency",
+              "js_name": "Frequency",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "from_months",
+              "js_name": "fromMonths"
+            },
+            {
+              "name": "from_days",
+              "js_name": "fromDays"
+            },
+            {
+              "name": "from_payments_per_year",
+              "js_name": "fromPaymentsPerYear"
+            },
+            {
+              "name": "annual",
+              "js_name": "annual"
+            },
+            {
+              "name": "semi_annual",
+              "js_name": "semiAnnual"
+            },
+            {
+              "name": "quarterly",
+              "js_name": "quarterly"
+            },
+            {
+              "name": "monthly",
+              "js_name": "monthly"
+            },
+            {
+              "name": "bi_monthly",
+              "js_name": "biMonthly"
+            },
+            {
+              "name": "bi_weekly",
+              "js_name": "biWeekly"
+            },
+            {
+              "name": "weekly",
+              "js_name": "weekly"
+            },
+            {
+              "name": "daily",
+              "js_name": "daily"
+            },
+            {
+              "name": "months",
+              "js_name": "months"
+            },
+            {
+              "name": "days",
+              "js_name": "days"
+            },
+            {
+              "name": "to_tenor",
+              "js_name": "toTenor"
+            },
+            {
+              "name": "from_tenor",
+              "js_name": "fromTenor"
+            },
+            {
+              "name": "to_string_js",
+              "js_name": "toString"
             }
           ]
         },
@@ -905,6 +1027,11 @@
               "js_name": "addWeekdays"
             }
           ]
+        },
+        "core.dates": {
+          "path": "core/dates/mod.rs",
+          "classes": [],
+          "functions": []
         },
         "core.dates.schedule": {
           "path": "core/dates/schedule.rs",
@@ -1270,8 +1397,16 @@
               "js_name": "businessDayConventionFromName"
             },
             {
+              "name": "is_valid_business_day_convention",
+              "js_name": "isValidBusinessDayConvention"
+            },
+            {
               "name": "business_day_convention_name",
               "js_name": "businessDayConventionName"
+            },
+            {
+              "name": "all_business_day_conventions",
+              "js_name": "allBusinessDayConventions"
             },
             {
               "name": "new",
@@ -1405,6 +1540,136 @@
               "js_name": "valueUnchecked"
             }
           ]
+        },
+        "core.market_data.bumps": {
+          "path": "core/market_data/bumps.rs",
+          "classes": [
+            {
+              "name": "BumpType",
+              "js_name": "BumpType",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "BumpSpec",
+              "js_name": "BumpSpec",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "MarketBump",
+              "js_name": "MarketBump",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "parallel",
+              "js_name": "parallel"
+            },
+            {
+              "name": "parallel",
+              "js_name": "parallel"
+            },
+            {
+              "name": "triangular_key_rate",
+              "js_name": "triangularKeyRate"
+            },
+            {
+              "name": "is_triangular_key_rate",
+              "js_name": "isTriangularKeyRate"
+            },
+            {
+              "name": "target_bucket",
+              "js_name": "targetBucket"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "parallel_bp",
+              "js_name": "parallelBp"
+            },
+            {
+              "name": "triangular_key_rate_bp",
+              "js_name": "triangularKeyRateBp"
+            },
+            {
+              "name": "multiplier",
+              "js_name": "multiplier"
+            },
+            {
+              "name": "inflation_shift_pct",
+              "js_name": "inflationShiftPct"
+            },
+            {
+              "name": "correlation_shift_pct",
+              "js_name": "correlationShiftPct"
+            },
+            {
+              "name": "mode",
+              "js_name": "mode"
+            },
+            {
+              "name": "units",
+              "js_name": "units"
+            },
+            {
+              "name": "value",
+              "js_name": "value"
+            },
+            {
+              "name": "bump_type",
+              "js_name": "bumpType"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "curve",
+              "js_name": "curve"
+            },
+            {
+              "name": "fx_pct",
+              "js_name": "fxPct"
+            },
+            {
+              "name": "vol_bucket_pct",
+              "js_name": "volBucketPct"
+            },
+            {
+              "name": "base_corr_bucket_pts",
+              "js_name": "baseCorrBucketPts"
+            },
+            {
+              "name": "kind",
+              "js_name": "kind"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_state",
+              "js_name": "toState"
+            }
+          ]
+        },
+        "core.market_data": {
+          "path": "core/market_data/mod.rs",
+          "classes": [],
+          "functions": []
         },
         "core.market_data.interp": {
           "path": "core/market_data/interp.rs",
@@ -1690,10 +1955,83 @@
             {
               "name": "clear_cache",
               "js_name": "clearCache"
+            }
+          ]
+        },
+        "core.market_data.diff": {
+          "path": "core/market_data/diff.rs",
+          "classes": [
+            {
+              "name": "TenorSamplingMethod",
+              "js_name": "TenorSamplingMethod",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "standard",
+              "js_name": "standard"
             },
             {
-              "name": "clear_expired",
-              "js_name": "clearExpired"
+              "name": "standard",
+              "js_name": "standard"
+            },
+            {
+              "name": "dynamic",
+              "js_name": "dynamic"
+            },
+            {
+              "name": "custom",
+              "js_name": "custom"
+            },
+            {
+              "name": "default_method",
+              "js_name": "default"
+            },
+            {
+              "name": "standard_tenors",
+              "js_name": "standardTenors"
+            },
+            {
+              "name": "atm_moneyness",
+              "js_name": "atmMoneyness"
+            },
+            {
+              "name": "default_vol_expiry",
+              "js_name": "defaultVolExpiry"
+            },
+            {
+              "name": "js_measure_discount_curve_shift",
+              "js_name": "measureDiscountCurveShift"
+            },
+            {
+              "name": "js_measure_bucketed_discount_shift",
+              "js_name": "measureBucketedDiscountShift"
+            },
+            {
+              "name": "js_measure_hazard_curve_shift",
+              "js_name": "measureHazardCurveShift"
+            },
+            {
+              "name": "js_measure_inflation_curve_shift",
+              "js_name": "measureInflationCurveShift"
+            },
+            {
+              "name": "js_measure_correlation_shift",
+              "js_name": "measureCorrelationShift"
+            },
+            {
+              "name": "js_measure_vol_surface_shift",
+              "js_name": "measureVolSurfaceShift"
+            },
+            {
+              "name": "js_measure_fx_shift",
+              "js_name": "measureFxShift"
+            },
+            {
+              "name": "js_measure_scalar_shift",
+              "js_name": "measureScalarShift"
             }
           ]
         },
@@ -1832,6 +2170,14 @@
             {
               "name": "from_state",
               "js_name": "fromState"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
             },
             {
               "name": "insert_discount",
@@ -2291,6 +2637,48 @@
             }
           ]
         },
+        "core.cashflow": {
+          "path": "core/cashflow/mod.rs",
+          "classes": [],
+          "functions": []
+        },
+        "core.math.random": {
+          "path": "core/math/random.rs",
+          "classes": [
+            {
+              "name": "Rng",
+              "js_name": "Rng",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "with_stream",
+              "js_name": "withStream"
+            },
+            {
+              "name": "uniform_array",
+              "js_name": "uniformArray"
+            },
+            {
+              "name": "normal_array",
+              "js_name": "normalArray"
+            },
+            {
+              "name": "clone_rng",
+              "js_name": "clone"
+            },
+            {
+              "name": "box_muller_transform_js",
+              "js_name": "boxMullerTransform"
+            }
+          ]
+        },
         "core.math.solver": {
           "path": "core/math/solver.rs",
           "classes": [
@@ -2390,6 +2778,165 @@
             }
           ]
         },
+        "core.math.summation": {
+          "path": "core/math/summation.rs",
+          "classes": [
+            {
+              "name": "NeumaierAccumulator",
+              "js_name": "SumAccumulator",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "kahan_sum_js",
+              "js_name": "kahanSum"
+            },
+            {
+              "name": "neumaier_sum_js",
+              "js_name": "neumaierSum"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "add_all",
+              "js_name": "addAll"
+            }
+          ]
+        },
+        "core.math": {
+          "path": "core/math/mod.rs",
+          "classes": [],
+          "functions": []
+        },
+        "core.math.special_functions": {
+          "path": "core/math/special_functions.rs",
+          "classes": [],
+          "functions": [
+            {
+              "name": "norm_cdf_js",
+              "js_name": "normCdf"
+            },
+            {
+              "name": "norm_pdf_js",
+              "js_name": "normPdf"
+            },
+            {
+              "name": "norm_inv_cdf_js",
+              "js_name": "normInvCdf"
+            },
+            {
+              "name": "erf_js",
+              "js_name": "erf"
+            },
+            {
+              "name": "student_t_cdf_js",
+              "js_name": "studentTCdf"
+            },
+            {
+              "name": "student_t_inv_cdf_js",
+              "js_name": "studentTInvCdf"
+            }
+          ]
+        },
+        "core.math.stats": {
+          "path": "core/math/stats.rs",
+          "classes": [],
+          "functions": [
+            {
+              "name": "mean_js",
+              "js_name": "mean"
+            },
+            {
+              "name": "variance_js",
+              "js_name": "variance"
+            },
+            {
+              "name": "covariance_js",
+              "js_name": "covariance"
+            },
+            {
+              "name": "correlation_js",
+              "js_name": "correlation"
+            }
+          ]
+        },
+        "core.math.probability": {
+          "path": "core/math/probability.rs",
+          "classes": [
+            {
+              "name": "CorrelatedBernoulli",
+              "js_name": "CorrelatedBernoulliDist",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "joint_probabilities_js",
+              "js_name": "jointProbabilities"
+            },
+            {
+              "name": "correlation_bounds_js",
+              "js_name": "correlationBounds"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "sample_from_uniform",
+              "js_name": "sampleFromUniform"
+            },
+            {
+              "name": "p1",
+              "js_name": "p1"
+            },
+            {
+              "name": "p2",
+              "js_name": "p2"
+            },
+            {
+              "name": "correlation",
+              "js_name": "correlation"
+            },
+            {
+              "name": "joint_p11",
+              "js_name": "jointP11"
+            },
+            {
+              "name": "joint_p10",
+              "js_name": "jointP10"
+            },
+            {
+              "name": "joint_p01",
+              "js_name": "jointP01"
+            },
+            {
+              "name": "joint_p00",
+              "js_name": "jointP00"
+            },
+            {
+              "name": "joint_probabilities",
+              "js_name": "jointProbabilities"
+            },
+            {
+              "name": "conditional_p2_given_x1",
+              "js_name": "conditionalP2GivenX1"
+            },
+            {
+              "name": "conditional_p1_given_x2",
+              "js_name": "conditionalP1GivenX2"
+            }
+          ]
+        },
         "core.math.distributions": {
           "path": "core/math/distributions.rs",
           "classes": [],
@@ -2405,6 +2952,46 @@
             {
               "name": "log_factorial_js",
               "js_name": "logFactorial"
+            },
+            {
+              "name": "binomial_distribution_js",
+              "js_name": "binomialDistribution"
+            },
+            {
+              "name": "chi_squared_pdf_js",
+              "js_name": "chiSquaredPdf"
+            },
+            {
+              "name": "chi_squared_cdf_js",
+              "js_name": "chiSquaredCdf"
+            },
+            {
+              "name": "chi_squared_quantile_js",
+              "js_name": "chiSquaredQuantile"
+            },
+            {
+              "name": "lognormal_pdf_js",
+              "js_name": "lognormalPdf"
+            },
+            {
+              "name": "lognormal_cdf_js",
+              "js_name": "lognormalCdf"
+            },
+            {
+              "name": "lognormal_quantile_js",
+              "js_name": "lognormalQuantile"
+            },
+            {
+              "name": "exponential_pdf_js",
+              "js_name": "exponentialPdf"
+            },
+            {
+              "name": "exponential_cdf_js",
+              "js_name": "exponentialCdf"
+            },
+            {
+              "name": "exponential_quantile_js",
+              "js_name": "exponentialQuantile"
             }
           ]
         },
@@ -2485,8 +3072,35 @@
             }
           ]
         },
+        "core.math.linalg": {
+          "path": "core/math/linalg.rs",
+          "classes": [],
+          "functions": [
+            {
+              "name": "cholesky_decomposition_js",
+              "js_name": "choleskyDecomposition"
+            },
+            {
+              "name": "apply_correlation_js",
+              "js_name": "applyCorrelation"
+            },
+            {
+              "name": "build_correlation_matrix_js",
+              "js_name": "buildCorrelationMatrix"
+            },
+            {
+              "name": "validate_correlation_matrix_js",
+              "js_name": "validateCorrelationMatrix"
+            }
+          ]
+        },
         "core.common.labels": {
           "path": "core/common/labels.rs",
+          "classes": [],
+          "functions": []
+        },
+        "core.common": {
+          "path": "core/common/mod.rs",
           "classes": [],
           "functions": []
         },
@@ -2515,6 +3129,7 @@
         "DayCountContext",
         "DayCountContextState",
         "DayCount",
+        "Frequency",
         "FsDate",
         "StubKind",
         "ScheduleBuilder",
@@ -2526,6 +3141,9 @@
         "PeriodPlan",
         "Calendar",
         "VolSurface",
+        "BumpType",
+        "BumpSpec",
+        "MarketBump",
         "InterpStyle",
         "ExtrapolationPolicy",
         "SeriesInterpolation",
@@ -2535,6 +3153,7 @@
         "FxConfig",
         "FxRateResult",
         "FxMatrix",
+        "TenorSamplingMethod",
         "DividendEvent",
         "DividendSchedule",
         "DividendScheduleBuilder",
@@ -2548,8 +3167,11 @@
         "VolatilityIndexCurve",
         "CFKind",
         "CashFlow",
+        "Rng",
         "NewtonSolver",
         "BrentSolver",
+        "SumAccumulator",
+        "CorrelatedBernoulliDist",
         "GaussHermiteQuadrature"
       ],
       "functions": [
@@ -2606,6 +3228,10 @@
         "outputScale",
         "setOutputScale",
         "setExtension",
+        "toJson",
+        "fromJson",
+        "toState",
+        "fromState",
         "trace_type",
         "traceType",
         "entryCount",
@@ -2617,7 +3243,6 @@
         "lognormal",
         "shiftedLognormal",
         "convertAtmVolatility",
-        "convertVolatility",
         "column",
         "column",
         "literal",
@@ -2655,6 +3280,8 @@
         "all",
         "new",
         "new",
+        "isValid",
+        "parse",
         "fromMonths",
         "fromDays",
         "fromPaymentsPerYear",
@@ -2675,7 +3302,9 @@
         "setCalendarCode",
         "clearCalendar",
         "setTenor",
+        "setFrequency",
         "clearTenor",
+        "clearFrequency",
         "setBusBasis",
         "clearBusBasis",
         "calendarCode",
@@ -2692,6 +3321,7 @@
         "fromJson",
         "new_from_name",
         "new_from_name",
+        "isValid",
         "act360",
         "act365f",
         "act365l",
@@ -2703,6 +3333,24 @@
         "fromName",
         "name",
         "yearFraction",
+        "new",
+        "new",
+        "fromMonths",
+        "fromDays",
+        "fromPaymentsPerYear",
+        "annual",
+        "semiAnnual",
+        "quarterly",
+        "monthly",
+        "biMonthly",
+        "biWeekly",
+        "weekly",
+        "daily",
+        "months",
+        "days",
+        "toTenor",
+        "fromTenor",
+        "toString",
         "new",
         "year",
         "month",
@@ -2784,7 +3432,9 @@
         "buildPeriods",
         "buildFiscalPeriods",
         "businessDayConventionFromName",
+        "isValidBusinessDayConvention",
         "businessDayConventionName",
+        "allBusinessDayConventions",
         "new",
         "new",
         "code",
@@ -2813,6 +3463,31 @@
         "valueChecked",
         "valueClamped",
         "valueUnchecked",
+        "parallel",
+        "parallel",
+        "triangularKeyRate",
+        "isTriangularKeyRate",
+        "targetBucket",
+        "new",
+        "parallelBp",
+        "triangularKeyRateBp",
+        "multiplier",
+        "inflationShiftPct",
+        "correlationShiftPct",
+        "mode",
+        "units",
+        "value",
+        "bumpType",
+        "toJson",
+        "fromJson",
+        "curve",
+        "fxPct",
+        "volBucketPct",
+        "baseCorrBucketPts",
+        "kind",
+        "toJson",
+        "fromJson",
+        "toState",
         "linear",
         "Linear",
         "LogLinear",
@@ -2866,7 +3541,22 @@
         "rate",
         "cacheStats",
         "clearCache",
-        "clearExpired",
+        "standard",
+        "standard",
+        "dynamic",
+        "custom",
+        "default",
+        "standardTenors",
+        "atmMoneyness",
+        "defaultVolExpiry",
+        "measureDiscountCurveShift",
+        "measureBucketedDiscountShift",
+        "measureHazardCurveShift",
+        "measureInflationCurveShift",
+        "measureCorrelationShift",
+        "measureVolSurfaceShift",
+        "measureFxShift",
+        "measureScalarShift",
         "date",
         "date",
         "kind",
@@ -2892,6 +3582,8 @@
         "clone",
         "toState",
         "fromState",
+        "toJson",
+        "fromJson",
         "insertDiscount",
         "insertForward",
         "insertHazard",
@@ -2990,6 +3682,12 @@
         "accrualFactor",
         "toTuple",
         "new",
+        "withStream",
+        "uniformArray",
+        "normalArray",
+        "clone",
+        "boxMullerTransform",
+        "new",
         "tolerance",
         "set_tolerance",
         "maxIterations",
@@ -3009,9 +3707,48 @@
         "initialBracketSize",
         "solve",
         "toString",
+        "kahanSum",
+        "neumaierSum",
+        "new",
+        "new",
+        "addAll",
+        "normCdf",
+        "normPdf",
+        "normInvCdf",
+        "erf",
+        "studentTCdf",
+        "studentTInvCdf",
+        "mean",
+        "variance",
+        "covariance",
+        "correlation",
+        "jointProbabilities",
+        "correlationBounds",
+        "new",
+        "sampleFromUniform",
+        "p1",
+        "p2",
+        "correlation",
+        "jointP11",
+        "jointP10",
+        "jointP01",
+        "jointP00",
+        "jointProbabilities",
+        "conditionalP2GivenX1",
+        "conditionalP1GivenX2",
         "binomialProbability",
         "logBinomialCoefficient",
         "logFactorial",
+        "binomialDistribution",
+        "chiSquaredPdf",
+        "chiSquaredCdf",
+        "chiSquaredQuantile",
+        "lognormalPdf",
+        "lognormalCdf",
+        "lognormalQuantile",
+        "exponentialPdf",
+        "exponentialCdf",
+        "exponentialQuantile",
         "new",
         "order5",
         "order7",
@@ -3027,7 +3764,11 @@
         "gaussLegendreIntegrate",
         "gaussLegendreIntegrateComposite",
         "gaussLegendreIntegrateAdaptive",
-        "trapezoidalRule"
+        "trapezoidalRule",
+        "choleskyDecomposition",
+        "applyCorrelation",
+        "buildCorrelationMatrix",
+        "validateCorrelationMatrix"
       ]
     },
     "valuations": {
@@ -3747,6 +4488,10 @@
               "js_name": "new_empty"
             },
             {
+              "name": "price_instrument",
+              "js_name": "priceInstrument"
+            },
+            {
               "name": "price_bond",
               "js_name": "priceBond"
             },
@@ -3899,6 +4644,11 @@
               "js_name": "createStandardRegistry"
             }
           ]
+        },
+        "valuations": {
+          "path": "valuations/mod.rs",
+          "classes": [],
+          "functions": []
         },
         "valuations.performance": {
           "path": "valuations/performance.rs",
@@ -4123,6 +4873,393 @@
             }
           ]
         },
+        "valuations.conventions": {
+          "path": "valuations/conventions.rs",
+          "classes": [
+            {
+              "name": "CdsDocClause",
+              "js_name": "CdsDocClause",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "RateIndexKind",
+              "js_name": "RateIndexKind",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "CdsConventionKey",
+              "js_name": "CdsConventionKey",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "RateIndexConventions",
+              "js_name": "RateIndexConventions",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "CdsConventions",
+              "js_name": "CdsConventions",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "SwaptionConventions",
+              "js_name": "SwaptionConventions",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "InflationSwapConventions",
+              "js_name": "InflationSwapConventions",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "OptionConventions",
+              "js_name": "OptionConventions",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "IrFutureConventions",
+              "js_name": "IrFutureConventions",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "ConventionRegistry",
+              "js_name": "ConventionRegistry",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "cr14",
+              "js_name": "cr14"
+            },
+            {
+              "name": "cr14",
+              "js_name": "CR14"
+            },
+            {
+              "name": "mr14",
+              "js_name": "MR14"
+            },
+            {
+              "name": "mm14",
+              "js_name": "MM14"
+            },
+            {
+              "name": "xr14",
+              "js_name": "XR14"
+            },
+            {
+              "name": "isda_na",
+              "js_name": "ISDA_NA"
+            },
+            {
+              "name": "isda_eu",
+              "js_name": "ISDA_EU"
+            },
+            {
+              "name": "isda_as",
+              "js_name": "ISDA_AS"
+            },
+            {
+              "name": "isda_au",
+              "js_name": "ISDA_AU"
+            },
+            {
+              "name": "isda_nz",
+              "js_name": "ISDA_NZ"
+            },
+            {
+              "name": "custom",
+              "js_name": "CUSTOM"
+            },
+            {
+              "name": "from_name",
+              "js_name": "fromName"
+            },
+            {
+              "name": "name",
+              "js_name": "name"
+            },
+            {
+              "name": "overnight_rfr",
+              "js_name": "overnight_rfr"
+            },
+            {
+              "name": "overnight_rfr",
+              "js_name": "OVERNIGHT_RFR"
+            },
+            {
+              "name": "term",
+              "js_name": "TERM"
+            },
+            {
+              "name": "name",
+              "js_name": "name"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "currency",
+              "js_name": "currency"
+            },
+            {
+              "name": "doc_clause",
+              "js_name": "docClause"
+            },
+            {
+              "name": "currency",
+              "js_name": "currency"
+            },
+            {
+              "name": "currency",
+              "js_name": "currency"
+            },
+            {
+              "name": "kind",
+              "js_name": "kind"
+            },
+            {
+              "name": "tenor",
+              "js_name": "tenor"
+            },
+            {
+              "name": "day_count",
+              "js_name": "dayCount"
+            },
+            {
+              "name": "default_payment_frequency",
+              "js_name": "defaultPaymentFrequency"
+            },
+            {
+              "name": "default_payment_delay_days",
+              "js_name": "defaultPaymentDelayDays"
+            },
+            {
+              "name": "default_reset_lag_days",
+              "js_name": "defaultResetLagDays"
+            },
+            {
+              "name": "market_calendar_id",
+              "js_name": "marketCalendarId"
+            },
+            {
+              "name": "market_settlement_days",
+              "js_name": "marketSettlementDays"
+            },
+            {
+              "name": "market_business_day_convention",
+              "js_name": "marketBusinessDayConvention"
+            },
+            {
+              "name": "default_fixed_leg_day_count",
+              "js_name": "defaultFixedLegDayCount"
+            },
+            {
+              "name": "default_fixed_leg_frequency",
+              "js_name": "defaultFixedLegFrequency"
+            },
+            {
+              "name": "calendar_id",
+              "js_name": "calendar_id"
+            },
+            {
+              "name": "calendar_id",
+              "js_name": "calendarId"
+            },
+            {
+              "name": "day_count",
+              "js_name": "dayCount"
+            },
+            {
+              "name": "business_day_convention",
+              "js_name": "businessDayConvention"
+            },
+            {
+              "name": "settlement_days",
+              "js_name": "settlementDays"
+            },
+            {
+              "name": "payment_frequency",
+              "js_name": "paymentFrequency"
+            },
+            {
+              "name": "calendar_id",
+              "js_name": "calendar_id"
+            },
+            {
+              "name": "calendar_id",
+              "js_name": "calendarId"
+            },
+            {
+              "name": "settlement_days",
+              "js_name": "settlementDays"
+            },
+            {
+              "name": "business_day_convention",
+              "js_name": "businessDayConvention"
+            },
+            {
+              "name": "fixed_leg_frequency",
+              "js_name": "fixedLegFrequency"
+            },
+            {
+              "name": "fixed_leg_day_count",
+              "js_name": "fixedLegDayCount"
+            },
+            {
+              "name": "float_leg_index",
+              "js_name": "floatLegIndex"
+            },
+            {
+              "name": "calendar_id",
+              "js_name": "calendar_id"
+            },
+            {
+              "name": "calendar_id",
+              "js_name": "calendarId"
+            },
+            {
+              "name": "settlement_days",
+              "js_name": "settlementDays"
+            },
+            {
+              "name": "business_day_convention",
+              "js_name": "businessDayConvention"
+            },
+            {
+              "name": "day_count",
+              "js_name": "dayCount"
+            },
+            {
+              "name": "inflation_lag",
+              "js_name": "inflationLag"
+            },
+            {
+              "name": "calendar_id",
+              "js_name": "calendar_id"
+            },
+            {
+              "name": "calendar_id",
+              "js_name": "calendarId"
+            },
+            {
+              "name": "settlement_days",
+              "js_name": "settlementDays"
+            },
+            {
+              "name": "business_day_convention",
+              "js_name": "businessDayConvention"
+            },
+            {
+              "name": "index_id",
+              "js_name": "index_id"
+            },
+            {
+              "name": "index_id",
+              "js_name": "indexId"
+            },
+            {
+              "name": "calendar_id",
+              "js_name": "calendarId"
+            },
+            {
+              "name": "settlement_days",
+              "js_name": "settlementDays"
+            },
+            {
+              "name": "delivery_months",
+              "js_name": "deliveryMonths"
+            },
+            {
+              "name": "face_value",
+              "js_name": "faceValue"
+            },
+            {
+              "name": "tick_size",
+              "js_name": "tickSize"
+            },
+            {
+              "name": "tick_value",
+              "js_name": "tickValue"
+            },
+            {
+              "name": "convexity_adjustment",
+              "js_name": "convexityAdjustment"
+            },
+            {
+              "name": "global_instance",
+              "js_name": "global_instance"
+            },
+            {
+              "name": "global_instance",
+              "js_name": "globalInstance"
+            },
+            {
+              "name": "require_rate_index",
+              "js_name": "requireRateIndex"
+            },
+            {
+              "name": "require_cds",
+              "js_name": "requireCds"
+            },
+            {
+              "name": "require_swaption",
+              "js_name": "requireSwaption"
+            },
+            {
+              "name": "require_inflation_swap",
+              "js_name": "requireInflationSwap"
+            },
+            {
+              "name": "require_option",
+              "js_name": "requireOption"
+            },
+            {
+              "name": "require_ir_future",
+              "js_name": "requireIrFuture"
+            },
+            {
+              "name": "has_rate_index",
+              "js_name": "hasRateIndex"
+            },
+            {
+              "name": "has_cds",
+              "js_name": "hasCds"
+            },
+            {
+              "name": "has_swaption",
+              "js_name": "hasSwaption"
+            },
+            {
+              "name": "has_inflation_swap",
+              "js_name": "hasInflationSwap"
+            },
+            {
+              "name": "has_option",
+              "js_name": "hasOption"
+            },
+            {
+              "name": "has_ir_future",
+              "js_name": "hasIrFuture"
+            }
+          ]
+        },
         "valuations.attribution": {
           "path": "valuations/attribution.rs",
           "classes": [
@@ -4270,6 +5407,11 @@
               "js_name": "availableMetrics"
             }
           ]
+        },
+        "valuations.metrics": {
+          "path": "valuations/metrics/mod.rs",
+          "classes": [],
+          "functions": []
         },
         "valuations.metrics.ids": {
           "path": "valuations/metrics/ids.rs",
@@ -4593,6 +5735,12 @@
               "properties": []
             },
             {
+              "name": "CdsTrancheQuote",
+              "js_name": "CdsTrancheQuote",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "VolQuote",
               "js_name": "VolQuote",
               "methods": [],
@@ -4651,6 +5799,34 @@
             {
               "name": "cds_par_spread",
               "js_name": "cdsParSpread"
+            },
+            {
+              "name": "to_market_quote",
+              "js_name": "toMarketQuote"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJSON"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJSON"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "id",
+              "js_name": "id"
+            },
+            {
+              "name": "bump_spread_decimal",
+              "js_name": "bumpSpreadDecimal"
+            },
+            {
+              "name": "bump_spread_bp",
+              "js_name": "bumpSpreadBp"
             },
             {
               "name": "to_market_quote",
@@ -4732,6 +5908,36 @@
               "properties": []
             },
             {
+              "name": "CalibrationMethod",
+              "js_name": "CalibrationMethod",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "ResidualWeightingScheme",
+              "js_name": "ResidualWeightingScheme",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "RateBounds",
+              "js_name": "RateBounds",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "RateBoundsPolicy",
+              "js_name": "RateBoundsPolicy",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "ValidationMode",
+              "js_name": "ValidationMode",
+              "methods": [],
+              "properties": []
+            },
+            {
               "name": "CalibrationConfig",
               "js_name": "CalibrationConfig",
               "methods": [],
@@ -4760,12 +5966,152 @@
               "js_name": "name"
             },
             {
+              "name": "bootstrap",
+              "js_name": "bootstrap"
+            },
+            {
+              "name": "bootstrap",
+              "js_name": "Bootstrap"
+            },
+            {
+              "name": "global_solve",
+              "js_name": "GlobalSolve"
+            },
+            {
+              "name": "from_name",
+              "js_name": "fromName"
+            },
+            {
+              "name": "name",
+              "js_name": "name"
+            },
+            {
+              "name": "is_global_solve",
+              "js_name": "isGlobalSolve"
+            },
+            {
+              "name": "equal",
+              "js_name": "equal"
+            },
+            {
+              "name": "equal",
+              "js_name": "Equal"
+            },
+            {
+              "name": "linear_time",
+              "js_name": "LinearTime"
+            },
+            {
+              "name": "sqrt_time",
+              "js_name": "SqrtTime"
+            },
+            {
+              "name": "inverse_duration",
+              "js_name": "InverseDuration"
+            },
+            {
+              "name": "from_name",
+              "js_name": "fromName"
+            },
+            {
+              "name": "name",
+              "js_name": "name"
+            },
+            {
               "name": "new",
               "js_name": "new"
             },
             {
               "name": "new",
               "js_name": "new"
+            },
+            {
+              "name": "default_bounds",
+              "js_name": "default"
+            },
+            {
+              "name": "for_currency",
+              "js_name": "forCurrency"
+            },
+            {
+              "name": "emerging_markets",
+              "js_name": "emergingMarkets"
+            },
+            {
+              "name": "negative_rate_environment",
+              "js_name": "negativeRateEnvironment"
+            },
+            {
+              "name": "stress_test",
+              "js_name": "stressTest"
+            },
+            {
+              "name": "min_rate",
+              "js_name": "minRate"
+            },
+            {
+              "name": "max_rate",
+              "js_name": "maxRate"
+            },
+            {
+              "name": "auto_currency",
+              "js_name": "auto_currency"
+            },
+            {
+              "name": "auto_currency",
+              "js_name": "AutoCurrency"
+            },
+            {
+              "name": "explicit",
+              "js_name": "Explicit"
+            },
+            {
+              "name": "from_name",
+              "js_name": "fromName"
+            },
+            {
+              "name": "name",
+              "js_name": "name"
+            },
+            {
+              "name": "warn",
+              "js_name": "warn"
+            },
+            {
+              "name": "warn",
+              "js_name": "Warn"
+            },
+            {
+              "name": "error",
+              "js_name": "Error"
+            },
+            {
+              "name": "from_name",
+              "js_name": "fromName"
+            },
+            {
+              "name": "name",
+              "js_name": "name"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "conservative",
+              "js_name": "conservative"
+            },
+            {
+              "name": "aggressive",
+              "js_name": "aggressive"
+            },
+            {
+              "name": "fast",
+              "js_name": "fast"
             },
             {
               "name": "tolerance",
@@ -4808,159 +6154,44 @@
               "js_name": "withSolverKind"
             },
             {
+              "name": "with_calibration_method",
+              "js_name": "withCalibrationMethod"
+            },
+            {
+              "name": "with_rate_bounds",
+              "js_name": "withRateBounds"
+            },
+            {
+              "name": "with_rate_bounds_for_currency",
+              "js_name": "withRateBoundsForCurrency"
+            },
+            {
+              "name": "with_validation_mode",
+              "js_name": "withValidationMode"
+            },
+            {
+              "name": "calibration_method",
+              "js_name": "calibrationMethod"
+            },
+            {
+              "name": "validation_mode",
+              "js_name": "validationMode"
+            },
+            {
+              "name": "rate_bounds",
+              "js_name": "rateBounds"
+            },
+            {
+              "name": "rate_bounds_policy",
+              "js_name": "rateBoundsPolicy"
+            },
+            {
               "name": "from_json",
               "js_name": "fromJSON"
             },
             {
               "name": "to_json",
               "js_name": "toJSON"
-            }
-          ]
-        },
-        "valuations.calibration.methods": {
-          "path": "valuations/calibration/methods.rs",
-          "classes": [
-            {
-              "name": "DiscountCurveCalibrator",
-              "js_name": "DiscountCurveCalibrator",
-              "methods": [],
-              "properties": []
-            },
-            {
-              "name": "ForwardCurveCalibrator",
-              "js_name": "ForwardCurveCalibrator",
-              "methods": [],
-              "properties": []
-            },
-            {
-              "name": "HazardCurveCalibrator",
-              "js_name": "HazardCurveCalibrator",
-              "methods": [],
-              "properties": []
-            },
-            {
-              "name": "InflationCurveCalibrator",
-              "js_name": "InflationCurveCalibrator",
-              "methods": [],
-              "properties": []
-            },
-            {
-              "name": "VolSurfaceCalibrator",
-              "js_name": "VolSurfaceCalibrator",
-              "methods": [],
-              "properties": []
-            },
-            {
-              "name": "BaseCorrelationCalibrator",
-              "js_name": "BaseCorrelationCalibrator",
-              "methods": [],
-              "properties": []
-            }
-          ],
-          "functions": [
-            {
-              "name": "new",
-              "js_name": "new"
-            },
-            {
-              "name": "with_finstack_config",
-              "js_name": "withFinstackConfig"
-            },
-            {
-              "name": "calibrate",
-              "js_name": "calibrate"
-            },
-            {
-              "name": "new",
-              "js_name": "new"
-            },
-            {
-              "name": "new",
-              "js_name": "new"
-            },
-            {
-              "name": "with_finstack_config",
-              "js_name": "withFinstackConfig"
-            },
-            {
-              "name": "calibrate",
-              "js_name": "calibrate"
-            },
-            {
-              "name": "new",
-              "js_name": "new"
-            },
-            {
-              "name": "new",
-              "js_name": "new"
-            },
-            {
-              "name": "with_finstack_config",
-              "js_name": "withFinstackConfig"
-            },
-            {
-              "name": "calibrate",
-              "js_name": "calibrate"
-            },
-            {
-              "name": "new",
-              "js_name": "new"
-            },
-            {
-              "name": "new",
-              "js_name": "new"
-            },
-            {
-              "name": "with_finstack_config",
-              "js_name": "withFinstackConfig"
-            },
-            {
-              "name": "calibrate",
-              "js_name": "calibrate"
-            },
-            {
-              "name": "new",
-              "js_name": "new"
-            },
-            {
-              "name": "new",
-              "js_name": "new"
-            },
-            {
-              "name": "with_base_date",
-              "js_name": "withBaseDate"
-            },
-            {
-              "name": "with_finstack_config",
-              "js_name": "withFinstackConfig"
-            },
-            {
-              "name": "with_discount_id",
-              "js_name": "withDiscountId"
-            },
-            {
-              "name": "calibrate",
-              "js_name": "calibrate"
-            },
-            {
-              "name": "new",
-              "js_name": "new"
-            },
-            {
-              "name": "with_finstack_config",
-              "js_name": "withFinstackConfig"
-            },
-            {
-              "name": "with_discount_curve_id",
-              "js_name": "withDiscountCurveId"
-            },
-            {
-              "name": "with_detachment_points",
-              "js_name": "withDetachmentPoints"
-            },
-            {
-              "name": "calibrate",
-              "js_name": "calibrate"
             }
           ]
         },
@@ -5000,8 +6231,32 @@
               "js_name": "rmse"
             },
             {
+              "name": "validation_passed",
+              "js_name": "validationPassed"
+            },
+            {
+              "name": "validation_error",
+              "js_name": "validationError"
+            },
+            {
               "name": "convergence_reason",
               "js_name": "convergenceReason"
+            },
+            {
+              "name": "residual_count",
+              "js_name": "residualCount"
+            },
+            {
+              "name": "residuals",
+              "js_name": "residuals"
+            },
+            {
+              "name": "residual_ids",
+              "js_name": "residualIds"
+            },
+            {
+              "name": "model_version",
+              "js_name": "modelVersion"
             },
             {
               "name": "explanation",
@@ -5028,6 +6283,11 @@
               "js_name": "getMetadata"
             }
           ]
+        },
+        "valuations.calibration": {
+          "path": "valuations/calibration/mod.rs",
+          "classes": [],
+          "functions": []
         },
         "valuations.calibration.validation": {
           "path": "valuations/calibration/validation.rs",
@@ -5185,6 +6445,11 @@
             }
           ]
         },
+        "valuations.cashflow": {
+          "path": "valuations/cashflow/mod.rs",
+          "classes": [],
+          "functions": []
+        },
         "valuations.cashflow.builder": {
           "path": "valuations/cashflow/builder.rs",
           "classes": [
@@ -5337,6 +6602,11 @@
               "js_name": "length"
             }
           ]
+        },
+        "valuations.common": {
+          "path": "valuations/common/mod.rs",
+          "classes": [],
+          "functions": []
         },
         "valuations.common.parse": {
           "path": "valuations/common/parse.rs",
@@ -5653,6 +6923,11 @@
               "js_name": "correlationMatrix"
             }
           ]
+        },
+        "valuations.common.mc": {
+          "path": "valuations/common/mc/mod.rs",
+          "classes": [],
+          "functions": []
         },
         "valuations.common.mc.result": {
           "path": "valuations/common/mc/result.rs",
@@ -6536,6 +7811,69 @@
             }
           ]
         },
+        "valuations.instruments.fx_variance_swap": {
+          "path": "valuations/instruments/fx_variance_swap.rs",
+          "classes": [
+            {
+              "name": "VarianceSwapSide",
+              "js_name": "VarianceSwapSide",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "FxVarianceSwap",
+              "js_name": "FxVarianceSwap",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "pay",
+              "js_name": "pay"
+            },
+            {
+              "name": "pay",
+              "js_name": "Pay"
+            },
+            {
+              "name": "receive",
+              "js_name": "Receive"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "id",
+              "js_name": "id"
+            },
+            {
+              "name": "strike_variance",
+              "js_name": "strikeVariance"
+            },
+            {
+              "name": "notional",
+              "js_name": "notional"
+            },
+            {
+              "name": "strike_vol",
+              "js_name": "strikeVol"
+            },
+            {
+              "name": "annualization_factor",
+              "js_name": "annualizationFactor"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJSON"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJSON"
+            }
+          ]
+        },
         "valuations.instruments.swaption": {
           "path": "valuations/instruments/swaption.rs",
           "classes": [
@@ -6666,6 +8004,67 @@
             }
           ]
         },
+        "valuations.instruments.fx_forward": {
+          "path": "valuations/instruments/fx_forward.rs",
+          "classes": [
+            {
+              "name": "FxForward",
+              "js_name": "FxForward",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "id",
+              "js_name": "id"
+            },
+            {
+              "name": "base_currency",
+              "js_name": "baseCurrency"
+            },
+            {
+              "name": "quote_currency",
+              "js_name": "quoteCurrency"
+            },
+            {
+              "name": "notional",
+              "js_name": "notional"
+            },
+            {
+              "name": "contract_rate",
+              "js_name": "contractRate"
+            },
+            {
+              "name": "set_contract_rate",
+              "js_name": "setContractRate"
+            },
+            {
+              "name": "set_spot_rate",
+              "js_name": "setSpotRate"
+            },
+            {
+              "name": "set_forward_points",
+              "js_name": "setForwardPoints"
+            },
+            {
+              "name": "market_forward_rate",
+              "js_name": "marketForwardRate"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJSON"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJSON"
+            }
+          ]
+        },
         "valuations.instruments.cms_option": {
           "path": "valuations/instruments/cms_option.rs",
           "classes": [
@@ -6745,6 +8144,67 @@
             {
               "name": "clone_js",
               "js_name": "clone"
+            }
+          ]
+        },
+        "valuations.instruments.ndf": {
+          "path": "valuations/instruments/ndf.rs",
+          "classes": [
+            {
+              "name": "Ndf",
+              "js_name": "Ndf",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "id",
+              "js_name": "id"
+            },
+            {
+              "name": "base_currency",
+              "js_name": "baseCurrency"
+            },
+            {
+              "name": "settlement_currency",
+              "js_name": "settlementCurrency"
+            },
+            {
+              "name": "contract_rate",
+              "js_name": "contractRate"
+            },
+            {
+              "name": "fixing_rate",
+              "js_name": "fixingRate"
+            },
+            {
+              "name": "is_fixed",
+              "js_name": "isFixed"
+            },
+            {
+              "name": "set_fixing_rate",
+              "js_name": "setFixingRate"
+            },
+            {
+              "name": "set_spot_rate",
+              "js_name": "setSpotRate"
+            },
+            {
+              "name": "set_foreign_curve_id",
+              "js_name": "setForeignCurveId"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJSON"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJSON"
             }
           ]
         },
@@ -7108,6 +8568,11 @@
             }
           ]
         },
+        "valuations.instruments": {
+          "path": "valuations/instruments/mod.rs",
+          "classes": [],
+          "functions": []
+        },
         "valuations.instruments.vol_index_option": {
           "path": "valuations/instruments/vol_index_option.rs",
           "classes": [
@@ -7194,6 +8659,121 @@
             }
           ]
         },
+        "valuations.instruments.xccy_swap": {
+          "path": "valuations/instruments/xccy_swap.rs",
+          "classes": [
+            {
+              "name": "NotionalExchange",
+              "js_name": "NotionalExchange",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "LegSide",
+              "js_name": "LegSide",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "XccySwapLeg",
+              "js_name": "XccySwapLeg",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "XccySwap",
+              "js_name": "XccySwap",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "none",
+              "js_name": "none"
+            },
+            {
+              "name": "none",
+              "js_name": "None"
+            },
+            {
+              "name": "final_only",
+              "js_name": "Final"
+            },
+            {
+              "name": "initial_and_final",
+              "js_name": "InitialAndFinal"
+            },
+            {
+              "name": "receive",
+              "js_name": "receive"
+            },
+            {
+              "name": "receive",
+              "js_name": "Receive"
+            },
+            {
+              "name": "pay",
+              "js_name": "Pay"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "currency",
+              "js_name": "currency"
+            },
+            {
+              "name": "notional",
+              "js_name": "notional"
+            },
+            {
+              "name": "spread",
+              "js_name": "spread"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "id",
+              "js_name": "id"
+            },
+            {
+              "name": "start_date",
+              "js_name": "startDate"
+            },
+            {
+              "name": "maturity_date",
+              "js_name": "maturityDate"
+            },
+            {
+              "name": "reporting_currency",
+              "js_name": "reportingCurrency"
+            },
+            {
+              "name": "instrument_type",
+              "js_name": "instrumentType"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJSON"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJSON"
+            },
+            {
+              "name": "to_string_js",
+              "js_name": "toString"
+            },
+            {
+              "name": "clone_js",
+              "js_name": "clone"
+            }
+          ]
+        },
         "valuations.instruments.irs": {
           "path": "valuations/instruments/irs.rs",
           "classes": [
@@ -7248,6 +8828,200 @@
             {
               "name": "instrument_type",
               "js_name": "instrumentType"
+            },
+            {
+              "name": "to_string_js",
+              "js_name": "toString"
+            },
+            {
+              "name": "clone_js",
+              "js_name": "clone"
+            }
+          ]
+        },
+        "valuations.instruments.equity_index_future": {
+          "path": "valuations/instruments/equity_index_future.rs",
+          "classes": [
+            {
+              "name": "EquityFutureSpecs",
+              "js_name": "EquityFutureSpecs",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "EquityIndexFuture",
+              "js_name": "EquityIndexFuture",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "sp500_emini",
+              "js_name": "sp500Emini"
+            },
+            {
+              "name": "nasdaq100_emini",
+              "js_name": "nasdaq100Emini"
+            },
+            {
+              "name": "sp500_micro_emini",
+              "js_name": "sp500MicroEmini"
+            },
+            {
+              "name": "euro_stoxx_50",
+              "js_name": "euroStoxx50"
+            },
+            {
+              "name": "ftse_100",
+              "js_name": "ftse100"
+            },
+            {
+              "name": "nikkei_225",
+              "js_name": "nikkei225"
+            },
+            {
+              "name": "multiplier",
+              "js_name": "multiplier"
+            },
+            {
+              "name": "tick_size",
+              "js_name": "tickSize"
+            },
+            {
+              "name": "tick_value",
+              "js_name": "tickValue"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "id",
+              "js_name": "id"
+            },
+            {
+              "name": "index_ticker",
+              "js_name": "indexTicker"
+            },
+            {
+              "name": "quantity",
+              "js_name": "quantity"
+            },
+            {
+              "name": "entry_price",
+              "js_name": "entryPrice"
+            },
+            {
+              "name": "quoted_price",
+              "js_name": "quotedPrice"
+            },
+            {
+              "name": "set_entry_price",
+              "js_name": "setEntryPrice"
+            },
+            {
+              "name": "set_quoted_price",
+              "js_name": "setQuotedPrice"
+            },
+            {
+              "name": "notional_value",
+              "js_name": "notionalValue"
+            },
+            {
+              "name": "fair_forward",
+              "js_name": "fairForward"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJSON"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJSON"
+            }
+          ]
+        },
+        "valuations.instruments.real_estate": {
+          "path": "valuations/instruments/real_estate.rs",
+          "classes": [
+            {
+              "name": "RealEstateValuationMethod",
+              "js_name": "RealEstateValuationMethod",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "RealEstateAsset",
+              "js_name": "RealEstateAsset",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "dcf",
+              "js_name": "dcf"
+            },
+            {
+              "name": "dcf",
+              "js_name": "Dcf"
+            },
+            {
+              "name": "direct_cap",
+              "js_name": "DirectCap"
+            },
+            {
+              "name": "is_dcf",
+              "js_name": "isDcf"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "id",
+              "js_name": "id"
+            },
+            {
+              "name": "currency",
+              "js_name": "currency"
+            },
+            {
+              "name": "valuation_date",
+              "js_name": "valuationDate"
+            },
+            {
+              "name": "discount_rate",
+              "js_name": "discountRate"
+            },
+            {
+              "name": "cap_rate",
+              "js_name": "capRate"
+            },
+            {
+              "name": "stabilized_noi",
+              "js_name": "stabilizedNoi"
+            },
+            {
+              "name": "appraisal_value",
+              "js_name": "appraisalValue"
+            },
+            {
+              "name": "set_appraisal_value",
+              "js_name": "setAppraisalValue"
+            },
+            {
+              "name": "instrument_type",
+              "js_name": "instrumentType"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJSON"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJSON"
             },
             {
               "name": "to_string_js",
@@ -8174,6 +9948,281 @@
             }
           ]
         },
+        "valuations.instruments.yoy_inflation_swap": {
+          "path": "valuations/instruments/yoy_inflation_swap.rs",
+          "classes": [
+            {
+              "name": "PayReceiveInflation",
+              "js_name": "PayReceiveInflation",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "YoYInflationSwap",
+              "js_name": "YoYInflationSwap",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "pay_fixed",
+              "js_name": "pay_fixed"
+            },
+            {
+              "name": "pay_fixed",
+              "js_name": "PayFixed"
+            },
+            {
+              "name": "receive_fixed",
+              "js_name": "ReceiveFixed"
+            },
+            {
+              "name": "is_pay_fixed",
+              "js_name": "isPayFixed"
+            },
+            {
+              "name": "to_string_js",
+              "js_name": "toString"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "id",
+              "js_name": "id"
+            },
+            {
+              "name": "notional",
+              "js_name": "notional"
+            },
+            {
+              "name": "fixed_rate",
+              "js_name": "fixedRate"
+            },
+            {
+              "name": "start_date",
+              "js_name": "startDate"
+            },
+            {
+              "name": "maturity",
+              "js_name": "maturity"
+            },
+            {
+              "name": "instrument_type",
+              "js_name": "instrumentType"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJSON"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJSON"
+            },
+            {
+              "name": "to_string_js",
+              "js_name": "toString"
+            },
+            {
+              "name": "clone_js",
+              "js_name": "clone"
+            }
+          ]
+        },
+        "valuations.instruments.inflation_cap_floor": {
+          "path": "valuations/instruments/inflation_cap_floor.rs",
+          "classes": [
+            {
+              "name": "InflationCapFloorType",
+              "js_name": "InflationCapFloorType",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "InflationCapFloor",
+              "js_name": "InflationCapFloor",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "cap",
+              "js_name": "cap"
+            },
+            {
+              "name": "cap",
+              "js_name": "Cap"
+            },
+            {
+              "name": "floor",
+              "js_name": "Floor"
+            },
+            {
+              "name": "caplet",
+              "js_name": "Caplet"
+            },
+            {
+              "name": "floorlet",
+              "js_name": "Floorlet"
+            },
+            {
+              "name": "is_cap",
+              "js_name": "isCap"
+            },
+            {
+              "name": "to_string_js",
+              "js_name": "toString"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "id",
+              "js_name": "id"
+            },
+            {
+              "name": "notional",
+              "js_name": "notional"
+            },
+            {
+              "name": "strike_rate",
+              "js_name": "strikeRate"
+            },
+            {
+              "name": "start_date",
+              "js_name": "startDate"
+            },
+            {
+              "name": "end_date",
+              "js_name": "endDate"
+            },
+            {
+              "name": "is_cap",
+              "js_name": "isCap"
+            },
+            {
+              "name": "instrument_type",
+              "js_name": "instrumentType"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJSON"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJSON"
+            },
+            {
+              "name": "to_string_js",
+              "js_name": "toString"
+            },
+            {
+              "name": "clone_js",
+              "js_name": "clone"
+            }
+          ]
+        },
+        "valuations.instruments.bond_future": {
+          "path": "valuations/instruments/bond_future.rs",
+          "classes": [
+            {
+              "name": "FuturePosition",
+              "js_name": "FuturePosition",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "BondFutureSpecs",
+              "js_name": "BondFutureSpecs",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "BondFuture",
+              "js_name": "BondFuture",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "long",
+              "js_name": "long"
+            },
+            {
+              "name": "long",
+              "js_name": "Long"
+            },
+            {
+              "name": "short",
+              "js_name": "Short"
+            },
+            {
+              "name": "is_long",
+              "js_name": "isLong"
+            },
+            {
+              "name": "ust_10y",
+              "js_name": "ust_10y"
+            },
+            {
+              "name": "ust_10y",
+              "js_name": "ust10y"
+            },
+            {
+              "name": "ust_5y",
+              "js_name": "ust5y"
+            },
+            {
+              "name": "ust_2y",
+              "js_name": "ust2y"
+            },
+            {
+              "name": "contract_size",
+              "js_name": "contractSize"
+            },
+            {
+              "name": "tick_size",
+              "js_name": "tickSize"
+            },
+            {
+              "name": "tick_value",
+              "js_name": "tickValue"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "id",
+              "js_name": "id"
+            },
+            {
+              "name": "quoted_price",
+              "js_name": "quotedPrice"
+            },
+            {
+              "name": "notional",
+              "js_name": "notional"
+            },
+            {
+              "name": "ctd_bond_id",
+              "js_name": "ctdBondId"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJSON"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJSON"
+            }
+          ]
+        },
         "valuations.instruments.commodity_forward": {
           "path": "valuations/instruments/commodity_forward.rs",
           "classes": [
@@ -8255,6 +10304,59 @@
             }
           ]
         },
+        "valuations.instruments.commodity_option": {
+          "path": "valuations/instruments/commodity_option.rs",
+          "classes": [
+            {
+              "name": "CommodityOption",
+              "js_name": "CommodityOption",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "id",
+              "js_name": "id"
+            },
+            {
+              "name": "strike",
+              "js_name": "strike"
+            },
+            {
+              "name": "ticker",
+              "js_name": "ticker"
+            },
+            {
+              "name": "commodity_type",
+              "js_name": "commodityType"
+            },
+            {
+              "name": "quantity",
+              "js_name": "quantity"
+            },
+            {
+              "name": "set_quoted_forward",
+              "js_name": "setQuotedForward"
+            },
+            {
+              "name": "set_settlement",
+              "js_name": "setSettlement"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJSON"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJSON"
+            }
+          ]
+        },
         "valuations.instruments.cds_option": {
           "path": "valuations/instruments/cds_option.rs",
           "classes": [
@@ -8305,6 +10407,125 @@
             {
               "name": "clone_js",
               "js_name": "clone"
+            }
+          ]
+        },
+        "valuations.instruments.structured_credit": {
+          "path": "valuations/instruments/structured_credit/mod.rs",
+          "classes": [
+            {
+              "name": "Basket",
+              "js_name": "Basket",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "StructuredCredit",
+              "js_name": "StructuredCredit",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "TrancheStructure",
+              "js_name": "TrancheStructure",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "Pool",
+              "js_name": "Pool",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "from_json",
+              "js_name": "from_json"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "instrument_id",
+              "js_name": "instrumentId"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "instrument_type",
+              "js_name": "instrumentType"
+            },
+            {
+              "name": "to_string_js",
+              "js_name": "toString"
+            },
+            {
+              "name": "clone_js",
+              "js_name": "clone"
+            },
+            {
+              "name": "from_json",
+              "js_name": "from_json"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "instrument_id",
+              "js_name": "instrumentId"
+            },
+            {
+              "name": "deal_type",
+              "js_name": "dealType"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "instrument_type",
+              "js_name": "instrumentType"
+            },
+            {
+              "name": "to_string_js",
+              "js_name": "toString"
+            },
+            {
+              "name": "clone_js",
+              "js_name": "clone"
+            },
+            {
+              "name": "tranche_count",
+              "js_name": "trancheCount"
+            },
+            {
+              "name": "from_json",
+              "js_name": "from_json"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "from_json",
+              "js_name": "from_json"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
             }
           ]
         },
@@ -8452,12 +10673,439 @@
               "js_name": "toJson"
             },
             {
+              "name": "payment_date",
+              "js_name": "paymentDate"
+            },
+            {
+              "name": "total_available",
+              "js_name": "totalAvailable"
+            },
+            {
               "name": "tier_allocations",
               "js_name": "tierAllocations"
             },
             {
+              "name": "payment_record_count",
+              "js_name": "paymentRecordCount"
+            },
+            {
+              "name": "coverage_tests",
+              "js_name": "coverageTests"
+            },
+            {
+              "name": "coverage_test_names",
+              "js_name": "coverageTestNames"
+            },
+            {
+              "name": "all_coverage_tests_passed",
+              "js_name": "allCoverageTestsPassed"
+            },
+            {
               "name": "execute_waterfall_js",
               "js_name": "executeWaterfall"
+            }
+          ]
+        },
+        "valuations.margin.enums": {
+          "path": "valuations/margin/enums.rs",
+          "classes": [
+            {
+              "name": "MarginTenor",
+              "js_name": "MarginTenor",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "ImMethodology",
+              "js_name": "ImMethodology",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "ClearingStatus",
+              "js_name": "ClearingStatus",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "daily",
+              "js_name": "daily"
+            },
+            {
+              "name": "daily",
+              "js_name": "Daily"
+            },
+            {
+              "name": "weekly",
+              "js_name": "Weekly"
+            },
+            {
+              "name": "monthly",
+              "js_name": "Monthly"
+            },
+            {
+              "name": "on_demand",
+              "js_name": "OnDemand"
+            },
+            {
+              "name": "is_daily",
+              "js_name": "isDaily"
+            },
+            {
+              "name": "to_string_js",
+              "js_name": "toString"
+            },
+            {
+              "name": "simm",
+              "js_name": "Simm"
+            },
+            {
+              "name": "schedule",
+              "js_name": "Schedule"
+            },
+            {
+              "name": "haircut",
+              "js_name": "Haircut"
+            },
+            {
+              "name": "internal_model",
+              "js_name": "InternalModel"
+            },
+            {
+              "name": "clearing_house",
+              "js_name": "ClearingHouse"
+            },
+            {
+              "name": "is_simm",
+              "js_name": "isSimm"
+            },
+            {
+              "name": "to_string_js",
+              "js_name": "toString"
+            },
+            {
+              "name": "bilateral",
+              "js_name": "bilateral"
+            },
+            {
+              "name": "bilateral",
+              "js_name": "Bilateral"
+            },
+            {
+              "name": "cleared",
+              "js_name": "Cleared"
+            },
+            {
+              "name": "is_bilateral",
+              "js_name": "isBilateral"
+            },
+            {
+              "name": "is_cleared",
+              "js_name": "isCleared"
+            },
+            {
+              "name": "ccp",
+              "js_name": "ccp"
+            },
+            {
+              "name": "to_string_js",
+              "js_name": "toString"
+            }
+          ]
+        },
+        "valuations.margin": {
+          "path": "valuations/margin/mod.rs",
+          "classes": [],
+          "functions": []
+        },
+        "valuations.margin.csa": {
+          "path": "valuations/margin/csa.rs",
+          "classes": [
+            {
+              "name": "CsaSpec",
+              "js_name": "CsaSpec",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "usd_regulatory",
+              "js_name": "usdRegulatory"
+            },
+            {
+              "name": "eur_regulatory",
+              "js_name": "eurRegulatory"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "id",
+              "js_name": "id"
+            },
+            {
+              "name": "base_currency",
+              "js_name": "baseCurrency"
+            },
+            {
+              "name": "vm_params",
+              "js_name": "vmParams"
+            },
+            {
+              "name": "im_params",
+              "js_name": "imParams"
+            },
+            {
+              "name": "call_timing",
+              "js_name": "callTiming"
+            },
+            {
+              "name": "collateral_curve_id",
+              "js_name": "collateralCurveId"
+            },
+            {
+              "name": "requires_im",
+              "js_name": "requiresIm"
+            },
+            {
+              "name": "vm_threshold",
+              "js_name": "vmThreshold"
+            },
+            {
+              "name": "im_threshold",
+              "js_name": "imThreshold"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJSON"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJSON"
+            }
+          ]
+        },
+        "valuations.margin.calculator": {
+          "path": "valuations/margin/calculator.rs",
+          "classes": [
+            {
+              "name": "VmResult",
+              "js_name": "VmResult",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "VmCalculator",
+              "js_name": "VmCalculator",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "date",
+              "js_name": "date"
+            },
+            {
+              "name": "date",
+              "js_name": "date"
+            },
+            {
+              "name": "gross_exposure",
+              "js_name": "grossExposure"
+            },
+            {
+              "name": "net_exposure",
+              "js_name": "netExposure"
+            },
+            {
+              "name": "delivery_amount",
+              "js_name": "deliveryAmount"
+            },
+            {
+              "name": "return_amount",
+              "js_name": "returnAmount"
+            },
+            {
+              "name": "settlement_date",
+              "js_name": "settlementDate"
+            },
+            {
+              "name": "net_margin",
+              "js_name": "netMargin"
+            },
+            {
+              "name": "requires_call",
+              "js_name": "requiresCall"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "margin_call_dates",
+              "js_name": "marginCallDates"
+            }
+          ]
+        },
+        "valuations.margin.parameters": {
+          "path": "valuations/margin/parameters.rs",
+          "classes": [
+            {
+              "name": "MarginCallTiming",
+              "js_name": "MarginCallTiming",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "VmParameters",
+              "js_name": "VmParameters",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "ImParameters",
+              "js_name": "ImParameters",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "regulatory_standard",
+              "js_name": "regulatoryStandard"
+            },
+            {
+              "name": "notification_deadline_hours",
+              "js_name": "notificationDeadlineHours"
+            },
+            {
+              "name": "response_deadline_hours",
+              "js_name": "responseDeadlineHours"
+            },
+            {
+              "name": "dispute_resolution_days",
+              "js_name": "disputeResolutionDays"
+            },
+            {
+              "name": "delivery_grace_days",
+              "js_name": "deliveryGraceDays"
+            },
+            {
+              "name": "regulatory_standard",
+              "js_name": "regulatory_standard"
+            },
+            {
+              "name": "regulatory_standard",
+              "js_name": "regulatoryStandard"
+            },
+            {
+              "name": "with_threshold",
+              "js_name": "withThreshold"
+            },
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "threshold",
+              "js_name": "threshold"
+            },
+            {
+              "name": "mta",
+              "js_name": "mta"
+            },
+            {
+              "name": "rounding",
+              "js_name": "rounding"
+            },
+            {
+              "name": "independent_amount",
+              "js_name": "independentAmount"
+            },
+            {
+              "name": "frequency",
+              "js_name": "frequency"
+            },
+            {
+              "name": "settlement_lag",
+              "js_name": "settlementLag"
+            },
+            {
+              "name": "calculate_margin_call",
+              "js_name": "calculateMarginCall"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJSON"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJSON"
+            },
+            {
+              "name": "simm_standard",
+              "js_name": "simm_standard"
+            },
+            {
+              "name": "simm_standard",
+              "js_name": "simmStandard"
+            },
+            {
+              "name": "schedule_based",
+              "js_name": "scheduleBased"
+            },
+            {
+              "name": "cleared",
+              "js_name": "cleared"
+            },
+            {
+              "name": "repo_haircut",
+              "js_name": "repoHaircut"
+            },
+            {
+              "name": "methodology",
+              "js_name": "methodology"
+            },
+            {
+              "name": "mpor_days",
+              "js_name": "mporDays"
+            },
+            {
+              "name": "threshold",
+              "js_name": "threshold"
+            },
+            {
+              "name": "mta",
+              "js_name": "mta"
+            },
+            {
+              "name": "segregated",
+              "js_name": "segregated"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJSON"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJSON"
             }
           ]
         }
@@ -8479,6 +11127,16 @@
         "RiskFactorShift",
         "MarketScenario",
         "MarketHistory",
+        "CdsDocClause",
+        "RateIndexKind",
+        "CdsConventionKey",
+        "RateIndexConventions",
+        "CdsConventions",
+        "SwaptionConventions",
+        "InflationSwapConventions",
+        "OptionConventions",
+        "IrFutureConventions",
+        "ConventionRegistry",
         "AttributionMethod",
         "AttributionMeta",
         "RatesCurvesAttribution",
@@ -8490,17 +11148,17 @@
         "SABRCalibrationDerivatives",
         "RatesQuote",
         "CreditQuote",
+        "CdsTrancheQuote",
         "VolQuote",
         "InflationQuote",
         "MarketQuote",
         "SolverKind",
+        "CalibrationMethod",
+        "ResidualWeightingScheme",
+        "RateBounds",
+        "RateBoundsPolicy",
+        "ValidationMode",
         "CalibrationConfig",
-        "DiscountCurveCalibrator",
-        "ForwardCurveCalibrator",
-        "HazardCurveCalibrator",
-        "InflationCurveCalibrator",
-        "VolSurfaceCalibrator",
-        "BaseCorrelationCalibrator",
         "CalibrationReport",
         "ValidationConfig",
         "AmortizationSpec",
@@ -8542,10 +11200,14 @@
         "LookbackOption",
         "BasisSwapLeg",
         "BasisSwap",
+        "VarianceSwapSide",
+        "FxVarianceSwap",
         "Swaption",
         "Deposit",
+        "FxForward",
         "CmsOption",
         "VolatilityIndexFuture",
+        "Ndf",
         "AgencyMbsPassthrough",
         "AgencyTba",
         "DollarRoll",
@@ -8557,7 +11219,15 @@
         "ConvertibleBond",
         "VolatilityIndexOption",
         "QuantoOption",
+        "NotionalExchange",
+        "LegSide",
+        "XccySwapLeg",
+        "XccySwap",
         "InterestRateSwap",
+        "EquityFutureSpecs",
+        "EquityIndexFuture",
+        "RealEstateValuationMethod",
+        "RealEstateAsset",
         "Bond",
         "InflationSwap",
         "BarrierOption",
@@ -8574,13 +11244,34 @@
         "FxBarrierOption",
         "PrivateMarketsFund",
         "CreditDefaultSwap",
+        "PayReceiveInflation",
+        "YoYInflationSwap",
+        "InflationCapFloorType",
+        "InflationCapFloor",
+        "FuturePosition",
+        "BondFutureSpecs",
+        "BondFuture",
         "CommodityForward",
+        "CommodityOption",
         "CdsOption",
+        "Basket",
+        "StructuredCredit",
+        "TrancheStructure",
+        "Pool",
         "WaterfallTier",
         "WaterfallEngine",
         "CoverageTrigger",
         "CoverageTestRules",
-        "WaterfallDistribution"
+        "WaterfallDistribution",
+        "MarginTenor",
+        "ImMethodology",
+        "ClearingStatus",
+        "CsaSpec",
+        "VmResult",
+        "VmCalculator",
+        "MarginCallTiming",
+        "VmParameters",
+        "ImParameters"
       ],
       "functions": [
         "max_debt_to_ebitda",
@@ -8625,6 +11316,7 @@
         "new",
         "withMetrics",
         "new_empty",
+        "priceInstrument",
         "priceBond",
         "priceDeposit",
         "priceInterestRateSwap",
@@ -8705,6 +11397,86 @@
         "calculateVar",
         "krdDv01Ladder",
         "cs01Ladder",
+        "cr14",
+        "CR14",
+        "MR14",
+        "MM14",
+        "XR14",
+        "ISDA_NA",
+        "ISDA_EU",
+        "ISDA_AS",
+        "ISDA_AU",
+        "ISDA_NZ",
+        "CUSTOM",
+        "fromName",
+        "name",
+        "overnight_rfr",
+        "OVERNIGHT_RFR",
+        "TERM",
+        "name",
+        "new",
+        "new",
+        "currency",
+        "docClause",
+        "currency",
+        "currency",
+        "kind",
+        "tenor",
+        "dayCount",
+        "defaultPaymentFrequency",
+        "defaultPaymentDelayDays",
+        "defaultResetLagDays",
+        "marketCalendarId",
+        "marketSettlementDays",
+        "marketBusinessDayConvention",
+        "defaultFixedLegDayCount",
+        "defaultFixedLegFrequency",
+        "calendar_id",
+        "calendarId",
+        "dayCount",
+        "businessDayConvention",
+        "settlementDays",
+        "paymentFrequency",
+        "calendar_id",
+        "calendarId",
+        "settlementDays",
+        "businessDayConvention",
+        "fixedLegFrequency",
+        "fixedLegDayCount",
+        "floatLegIndex",
+        "calendar_id",
+        "calendarId",
+        "settlementDays",
+        "businessDayConvention",
+        "dayCount",
+        "inflationLag",
+        "calendar_id",
+        "calendarId",
+        "settlementDays",
+        "businessDayConvention",
+        "index_id",
+        "indexId",
+        "calendarId",
+        "settlementDays",
+        "deliveryMonths",
+        "faceValue",
+        "tickSize",
+        "tickValue",
+        "convexityAdjustment",
+        "global_instance",
+        "globalInstance",
+        "requireRateIndex",
+        "requireCds",
+        "requireSwaption",
+        "requireInflationSwap",
+        "requireOption",
+        "requireIrFuture",
+        "hasRateIndex",
+        "hasCds",
+        "hasSwaption",
+        "hasInflationSwap",
+        "hasOption",
+        "hasIrFuture",
         "parallel",
         "waterfall",
         "metricsBased",
@@ -8811,6 +11583,13 @@
         "toMarketQuote",
         "fromJSON",
         "toJSON",
+        "new",
+        "id",
+        "bumpSpreadDecimal",
+        "bumpSpreadBp",
+        "toMarketQuote",
+        "fromJSON",
+        "toJSON",
         "swaption_vol",
         "swaptionVol",
         "toMarketQuote",
@@ -8830,8 +11609,43 @@
         "Brent",
         "fromName",
         "name",
+        "bootstrap",
+        "Bootstrap",
+        "GlobalSolve",
+        "fromName",
+        "name",
+        "isGlobalSolve",
+        "equal",
+        "Equal",
+        "LinearTime",
+        "SqrtTime",
+        "InverseDuration",
+        "fromName",
+        "name",
         "new",
         "new",
+        "default",
+        "forCurrency",
+        "emergingMarkets",
+        "negativeRateEnvironment",
+        "stressTest",
+        "minRate",
+        "maxRate",
+        "auto_currency",
+        "AutoCurrency",
+        "Explicit",
+        "fromName",
+        "name",
+        "warn",
+        "Warn",
+        "Error",
+        "fromName",
+        "name",
+        "new",
+        "new",
+        "conservative",
+        "aggressive",
+        "fast",
         "tolerance",
         "maxIterations",
         "useParallel",
@@ -8842,41 +11656,29 @@
         "withParallel",
         "withVerbose",
         "withSolverKind",
+        "withCalibrationMethod",
+        "withRateBounds",
+        "withRateBoundsForCurrency",
+        "withValidationMode",
+        "calibrationMethod",
+        "validationMode",
+        "rateBounds",
+        "rateBoundsPolicy",
         "fromJSON",
         "toJSON",
-        "new",
-        "withFinstackConfig",
-        "calibrate",
-        "new",
-        "new",
-        "withFinstackConfig",
-        "calibrate",
-        "new",
-        "new",
-        "withFinstackConfig",
-        "calibrate",
-        "new",
-        "new",
-        "withFinstackConfig",
-        "calibrate",
-        "new",
-        "new",
-        "withBaseDate",
-        "withFinstackConfig",
-        "withDiscountId",
-        "calibrate",
-        "new",
-        "withFinstackConfig",
-        "withDiscountCurveId",
-        "withDetachmentPoints",
-        "calibrate",
         "success",
         "success",
         "iterations",
         "objectiveValue",
         "maxResidual",
         "rmse",
+        "validationPassed",
+        "validationError",
         "convergenceReason",
+        "residualCount",
+        "residuals",
+        "residualIds",
+        "modelVersion",
         "explanation",
         "explainJson",
         "fromJSON",
@@ -9157,6 +11959,17 @@
         "instrumentType",
         "toString",
         "clone",
+        "pay",
+        "Pay",
+        "Receive",
+        "new",
+        "id",
+        "strikeVariance",
+        "notional",
+        "strikeVol",
+        "annualizationFactor",
+        "fromJSON",
+        "toJSON",
         "payer",
         "payer",
         "receiver",
@@ -9183,6 +11996,18 @@
         "instrumentType",
         "toString",
         "clone",
+        "new",
+        "id",
+        "baseCurrency",
+        "quoteCurrency",
+        "notional",
+        "contractRate",
+        "setContractRate",
+        "setSpotRate",
+        "setForwardPoints",
+        "marketForwardRate",
+        "fromJSON",
+        "toJSON",
         "from_json",
         "fromJson",
         "instrumentId",
@@ -9197,6 +12022,18 @@
         "instrumentType",
         "toString",
         "clone",
+        "new",
+        "id",
+        "baseCurrency",
+        "settlementCurrency",
+        "contractRate",
+        "fixingRate",
+        "isFixed",
+        "setFixingRate",
+        "setSpotRate",
+        "setForeignCurveId",
+        "fromJSON",
+        "toJSON",
         "new",
         "example",
         "instrumentId",
@@ -9285,6 +12122,27 @@
         "instrumentType",
         "toString",
         "clone",
+        "none",
+        "None",
+        "Final",
+        "InitialAndFinal",
+        "receive",
+        "Receive",
+        "Pay",
+        "new",
+        "currency",
+        "notional",
+        "spread",
+        "new",
+        "id",
+        "startDate",
+        "maturityDate",
+        "reportingCurrency",
+        "instrumentType",
+        "fromJSON",
+        "toJSON",
+        "toString",
+        "clone",
         "new",
         "new",
         "instrumentId",
@@ -9296,6 +12154,45 @@
         "discountCurve",
         "forwardCurve",
         "instrumentType",
+        "toString",
+        "clone",
+        "sp500Emini",
+        "nasdaq100Emini",
+        "sp500MicroEmini",
+        "euroStoxx50",
+        "ftse100",
+        "nikkei225",
+        "multiplier",
+        "tickSize",
+        "tickValue",
+        "new",
+        "id",
+        "indexTicker",
+        "quantity",
+        "entryPrice",
+        "quotedPrice",
+        "setEntryPrice",
+        "setQuotedPrice",
+        "notionalValue",
+        "fairForward",
+        "fromJSON",
+        "toJSON",
+        "dcf",
+        "Dcf",
+        "DirectCap",
+        "isDcf",
+        "new",
+        "id",
+        "currency",
+        "valuationDate",
+        "discountRate",
+        "capRate",
+        "stabilizedNoi",
+        "appraisalValue",
+        "setAppraisalValue",
+        "instrumentType",
+        "fromJSON",
+        "toJSON",
         "toString",
         "clone",
         "builder",
@@ -9480,6 +12377,59 @@
         "instrumentType",
         "toString",
         "clone",
+        "pay_fixed",
+        "PayFixed",
+        "ReceiveFixed",
+        "isPayFixed",
+        "toString",
+        "new",
+        "id",
+        "notional",
+        "fixedRate",
+        "startDate",
+        "maturity",
+        "instrumentType",
+        "fromJSON",
+        "toJSON",
+        "toString",
+        "clone",
+        "cap",
+        "Cap",
+        "Floor",
+        "Caplet",
+        "Floorlet",
+        "isCap",
+        "toString",
+        "new",
+        "id",
+        "notional",
+        "strikeRate",
+        "startDate",
+        "endDate",
+        "isCap",
+        "instrumentType",
+        "fromJSON",
+        "toJSON",
+        "toString",
+        "clone",
+        "long",
+        "Long",
+        "Short",
+        "isLong",
+        "ust_10y",
+        "ust10y",
+        "ust5y",
+        "ust2y",
+        "contractSize",
+        "tickSize",
+        "tickValue",
+        "new",
+        "id",
+        "quotedPrice",
+        "notional",
+        "ctdBondId",
+        "fromJSON",
+        "toJSON",
         "new",
         "instrumentId",
         "commodityType",
@@ -9498,6 +12448,16 @@
         "toString",
         "clone",
         "new",
+        "id",
+        "strike",
+        "ticker",
+        "commodityType",
+        "quantity",
+        "setQuotedForward",
+        "setSettlement",
+        "fromJSON",
+        "toJSON",
+        "new",
         "new",
         "instrumentId",
         "notional",
@@ -9507,6 +12467,28 @@
         "instrumentType",
         "toString",
         "clone",
+        "from_json",
+        "fromJson",
+        "instrumentId",
+        "toJson",
+        "instrumentType",
+        "toString",
+        "clone",
+        "from_json",
+        "fromJson",
+        "instrumentId",
+        "dealType",
+        "toJson",
+        "instrumentType",
+        "toString",
+        "clone",
+        "trancheCount",
+        "from_json",
+        "fromJson",
+        "toJson",
+        "from_json",
+        "fromJson",
+        "toJson",
         "from_json",
         "fromJson",
         "toJson",
@@ -9534,12 +12516,214 @@
         "toJson",
         "to_json",
         "toJson",
+        "paymentDate",
+        "totalAvailable",
         "tierAllocations",
-        "executeWaterfall"
+        "paymentRecordCount",
+        "coverageTests",
+        "coverageTestNames",
+        "allCoverageTestsPassed",
+        "executeWaterfall",
+        "daily",
+        "Daily",
+        "Weekly",
+        "Monthly",
+        "OnDemand",
+        "isDaily",
+        "toString",
+        "Simm",
+        "Schedule",
+        "Haircut",
+        "InternalModel",
+        "ClearingHouse",
+        "isSimm",
+        "toString",
+        "bilateral",
+        "Bilateral",
+        "Cleared",
+        "isBilateral",
+        "isCleared",
+        "ccp",
+        "toString",
+        "usdRegulatory",
+        "eurRegulatory",
+        "new",
+        "id",
+        "baseCurrency",
+        "vmParams",
+        "imParams",
+        "callTiming",
+        "collateralCurveId",
+        "requiresIm",
+        "vmThreshold",
+        "imThreshold",
+        "fromJSON",
+        "toJSON",
+        "date",
+        "date",
+        "grossExposure",
+        "netExposure",
+        "deliveryAmount",
+        "returnAmount",
+        "settlementDate",
+        "netMargin",
+        "requiresCall",
+        "new",
+        "new",
+        "marginCallDates",
+        "new",
+        "new",
+        "regulatoryStandard",
+        "notificationDeadlineHours",
+        "responseDeadlineHours",
+        "disputeResolutionDays",
+        "deliveryGraceDays",
+        "regulatory_standard",
+        "regulatoryStandard",
+        "withThreshold",
+        "new",
+        "threshold",
+        "mta",
+        "rounding",
+        "independentAmount",
+        "frequency",
+        "settlementLag",
+        "calculateMarginCall",
+        "fromJSON",
+        "toJSON",
+        "simm_standard",
+        "simmStandard",
+        "scheduleBased",
+        "cleared",
+        "repoHaircut",
+        "methodology",
+        "mporDays",
+        "threshold",
+        "mta",
+        "segregated",
+        "fromJSON",
+        "toJSON"
       ]
     },
     "statements": {
       "modules": {
+        "statements.adjustments": {
+          "path": "statements/adjustments.rs",
+          "classes": [
+            {
+              "name": "NormalizationConfig",
+              "js_name": "NormalizationConfig",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "Adjustment",
+              "js_name": "Adjustment",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "AppliedAdjustment",
+              "js_name": "AppliedAdjustment",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "NormalizationResult",
+              "js_name": "NormalizationResult",
+              "methods": [],
+              "properties": []
+            },
+            {
+              "name": "NormalizationEngine",
+              "js_name": "NormalizationEngine",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "new",
+              "js_name": "new"
+            },
+            {
+              "name": "add_adjustment",
+              "js_name": "addAdjustment"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "fixed",
+              "js_name": "fixed"
+            },
+            {
+              "name": "percentage",
+              "js_name": "percentage"
+            },
+            {
+              "name": "with_cap",
+              "js_name": "withCap"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "from_json",
+              "js_name": "fromJson"
+            },
+            {
+              "name": "name",
+              "js_name": "name"
+            },
+            {
+              "name": "name",
+              "js_name": "name"
+            },
+            {
+              "name": "raw_amount",
+              "js_name": "rawAmount"
+            },
+            {
+              "name": "capped_amount",
+              "js_name": "cappedAmount"
+            },
+            {
+              "name": "is_capped",
+              "js_name": "isCapped"
+            },
+            {
+              "name": "period",
+              "js_name": "period"
+            },
+            {
+              "name": "period",
+              "js_name": "period"
+            },
+            {
+              "name": "base_value",
+              "js_name": "baseValue"
+            },
+            {
+              "name": "final_value",
+              "js_name": "finalValue"
+            },
+            {
+              "name": "adjustments",
+              "js_name": "adjustments"
+            },
+            {
+              "name": "normalize",
+              "js_name": "normalize"
+            }
+          ]
+        },
         "statements.registry": {
           "path": "statements/registry.rs",
           "classes": [
@@ -10061,6 +13245,71 @@
             }
           ]
         },
+        "statements.analysis": {
+          "path": "statements/analysis.rs",
+          "classes": [
+            {
+              "name": "DependencyTree",
+              "js_name": "DependencyTree",
+              "methods": [],
+              "properties": []
+            }
+          ],
+          "functions": [
+            {
+              "name": "node_id",
+              "js_name": "node_id"
+            },
+            {
+              "name": "node_id",
+              "js_name": "nodeId"
+            },
+            {
+              "name": "formula",
+              "js_name": "formula"
+            },
+            {
+              "name": "children",
+              "js_name": "children"
+            },
+            {
+              "name": "depth",
+              "js_name": "depth"
+            },
+            {
+              "name": "node_count",
+              "js_name": "nodeCount"
+            },
+            {
+              "name": "to_ascii",
+              "js_name": "toAscii"
+            },
+            {
+              "name": "to_json",
+              "js_name": "toJson"
+            },
+            {
+              "name": "direct_dependencies",
+              "js_name": "directDependencies"
+            },
+            {
+              "name": "all_dependencies",
+              "js_name": "allDependencies"
+            },
+            {
+              "name": "dependency_tree",
+              "js_name": "dependencyTree"
+            },
+            {
+              "name": "dependents",
+              "js_name": "dependents"
+            },
+            {
+              "name": "render_dependency_tree_ascii",
+              "js_name": "renderDependencyTreeAscii"
+            }
+          ]
+        },
         "statements.evaluator": {
           "path": "statements/evaluator.rs",
           "classes": [
@@ -10450,6 +13699,11 @@
               "js_name": "evaluateWithMarketContext"
             }
           ]
+        },
+        "statements": {
+          "path": "statements/mod.rs",
+          "classes": [],
+          "functions": []
         },
         "statements.extensions": {
           "path": "statements/extensions.rs",
@@ -11464,6 +14718,11 @@
             }
           ]
         },
+        "statements.types": {
+          "path": "statements/types/mod.rs",
+          "classes": [],
+          "functions": []
+        },
         "statements.types.node": {
           "path": "statements/types/node.rs",
           "classes": [
@@ -12080,10 +15339,16 @@
         }
       },
       "classes": [
+        "NormalizationConfig",
+        "Adjustment",
+        "AppliedAdjustment",
+        "NormalizationResult",
+        "NormalizationEngine",
         "UnitType",
         "MetricDefinition",
         "MetricRegistry",
         "Registry",
+        "DependencyTree",
         "ResultsMeta",
         "Results",
         "Evaluator",
@@ -12105,6 +15370,26 @@
         "FinancialModelSpec"
       ],
       "functions": [
+        "new",
+        "addAdjustment",
+        "toJson",
+        "fromJson",
+        "fixed",
+        "percentage",
+        "withCap",
+        "toJson",
+        "fromJson",
+        "name",
+        "name",
+        "rawAmount",
+        "cappedAmount",
+        "isCapped",
+        "period",
+        "period",
+        "baseValue",
+        "finalValue",
+        "adjustments",
+        "normalize",
         "CURRENCY",
         "PERCENTAGE",
         "RATIO",
@@ -12132,6 +15417,19 @@
         "hasMetric",
         "metricCount",
         "toString",
+        "node_id",
+        "nodeId",
+        "formula",
+        "children",
+        "depth",
+        "nodeCount",
+        "toAscii",
+        "toJson",
+        "directDependencies",
+        "allDependencies",
+        "dependencyTree",
+        "dependents",
+        "renderDependencyTreeAscii",
         "eval_time_ms",
         "evalTimeMs",
         "numNodes",
@@ -13384,6 +16682,11 @@
               "js_name": "toString"
             }
           ]
+        },
+        "scenarios": {
+          "path": "scenarios/mod.rs",
+          "classes": [],
+          "functions": []
         },
         "scenarios.reports": {
           "path": "scenarios/reports.rs",
@@ -15668,6 +18971,11 @@
               "js_name": "toJSON"
             }
           ]
+        },
+        "portfolio": {
+          "path": "portfolio/mod.rs",
+          "classes": [],
+          "functions": []
         },
         "portfolio.builder": {
           "path": "portfolio/builder.rs",

@@ -1,0 +1,37 @@
+{
+  "test_cases": {
+    "money_arithmetic": {
+      "inputs": {
+        "m1": { "amount": 100.5, "currency": "USD" },
+        "m2": { "amount": 20.25, "currency": "USD" }
+      },
+      "expected": {
+        "add": { "amount": 120.75, "currency": "USD" },
+        "subtract": { "amount": 80.25, "currency": "USD" },
+        "multiply_2": { "amount": 201.0, "currency": "USD" },
+        "divide_2": { "amount": 50.25, "currency": "USD" }
+      }
+    },
+    "day_count_act360": {
+      "inputs": {
+        "start_date": "2024-01-01",
+        "end_date": "2024-07-01"
+      },
+      "expected": {
+        "year_fraction": 0.5055555555555555,
+        "tolerance": 1e-12
+      }
+    },
+    "period_building": {
+      "inputs": {
+        "spec": "2024Q1..Q2",
+        "actuals_until": "2024Q1"
+      },
+      "expected": {
+        "total_periods": 2,
+        "period_ids": ["2024Q1", "2024Q2"],
+        "is_actual": [true, false]
+      }
+    }
+  }
+}

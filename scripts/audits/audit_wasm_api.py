@@ -64,7 +64,7 @@ class WasmAPIExtractor:
         """Initialize the extractor with the source root directory."""
         self.src_root = src_root
 
-    def extract_from_rust_file(self, rust_file: Path) -> ModuleInfo:
+    def extract_from_rust_file(self, rust_file: Path, module_name: str | None = None) -> ModuleInfo:
         """Extract API info from a Rust file with wasm-bindgen bindings.
 
         Looks for:
@@ -73,7 +73,7 @@ class WasmAPIExtractor:
         - #[wasm_bindgen] functions
         """
         content = rust_file.read_text()
-        module_name = rust_file.stem
+        resolved_module_name = module_name if module_name else rust_file.stem
 
         classes = []
         functions = []
@@ -107,7 +107,10 @@ class WasmAPIExtractor:
             i += 1
 
         return ModuleInfo(
-            name=module_name, path=str(rust_file.relative_to(self.src_root)), classes=classes, functions=functions
+            name=resolved_module_name,
+            path=str(rust_file.relative_to(self.src_root)),
+            classes=classes,
+            functions=functions,
         )
 
     def _extract_js_name(self, decorator_line: str) -> str:
@@ -283,11 +286,15 @@ class WasmAPIExtractor:
         api_tree = {"modules": {}, "classes": [], "functions": []}
 
         for rust_file in directory.glob("*.rs"):
-            if rust_file.name in ["mod.rs", "wrapper.rs"]:
+            if rust_file.name in ["wrapper.rs"]:
                 continue
 
-            module_info = self.extract_from_rust_file(rust_file)
-            module_name = f"{module_prefix}.{module_info.name}" if module_prefix else module_info.name
+            is_mod_rs = rust_file.name == "mod.rs"
+            module_name = (
+                module_prefix if is_mod_rs else f"{module_prefix}.{rust_file.stem}" if module_prefix else rust_file.stem
+            )
+
+            module_info = self.extract_from_rust_file(rust_file, module_name=module_name)
 
             api_tree["modules"][module_name] = {
                 "path": module_info.path,

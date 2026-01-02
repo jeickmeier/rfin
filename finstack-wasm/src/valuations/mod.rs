@@ -2,6 +2,7 @@ pub mod attribution;
 pub mod calibration;
 pub mod cashflow;
 pub mod common;
+pub mod conventions;
 pub mod covenants;
 pub mod dataframe;
 pub mod instruments;
