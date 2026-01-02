@@ -17,12 +17,12 @@ class AmortizationSpec:
     """
 
     @classmethod
-    def none(cls) -> AmortizationSpec:
+    def none(cls) -> "AmortizationSpec":
         """No amortization: principal remains until redemption."""
         ...
 
     @classmethod
-    def linear_to(cls, final_notional: Money) -> AmortizationSpec:
+    def linear_to(cls, final_notional: Money) -> "AmortizationSpec":
         """Linear amortization to final notional.
 
         Args:
@@ -34,7 +34,7 @@ class AmortizationSpec:
     def step_remaining(
         cls,
         schedule: List[Tuple[date | str, Money]],
-    ) -> AmortizationSpec:
+    ) -> "AmortizationSpec":
         """Step amortization with remaining notional.
 
         Args:
@@ -43,7 +43,7 @@ class AmortizationSpec:
         ...
 
     @classmethod
-    def percent_per_period(cls, pct: float) -> AmortizationSpec:
+    def percent_per_period(cls, pct: float) -> "AmortizationSpec":
         """Percentage amortization per period.
 
         Args:
@@ -55,7 +55,7 @@ class AmortizationSpec:
     def custom_principal(
         cls,
         items: List[Tuple[date | str, Money]],
-    ) -> AmortizationSpec:
+    ) -> "AmortizationSpec":
         """Custom principal amortization.
 
         Args:
@@ -69,11 +69,11 @@ class CouponType:
     """Coupon split type (cash, PIK, split) mirroring valuations builder."""
 
     # Class attributes
-    CASH: CouponType
-    PIK: CouponType
+    CASH: "CouponType"
+    PIK: "CouponType"
 
     @classmethod
-    def split(cls, cash_pct: float, pik_pct: float) -> CouponType:
+    def split(cls, cash_pct: float, pik_pct: float) -> "CouponType":
         """Create a split coupon type with percentage weights summing to ~1.0."""
         ...
 
@@ -100,22 +100,22 @@ class ScheduleParams:
         ...
 
     @classmethod
-    def quarterly_act360(cls) -> ScheduleParams:
+    def quarterly_act360(cls) -> "ScheduleParams":
         """Quarterly payments with Act/360 day count."""
         ...
 
     @classmethod
-    def semiannual_30360(cls) -> ScheduleParams:
+    def semiannual_30360(cls) -> "ScheduleParams":
         """Semi-annual payments with 30/360 day count."""
         ...
 
     @classmethod
-    def annual_actact(cls) -> ScheduleParams:
+    def annual_actact(cls) -> "ScheduleParams":
         """Annual payments with Act/Act day count."""
         ...
 
     @classmethod
-    def usd_standard(cls) -> ScheduleParams:
+    def usd_standard(cls) -> "ScheduleParams":
         """USD market standard: quarterly, Act/360, Modified Following, USD calendar.
 
         Returns:
@@ -124,7 +124,7 @@ class ScheduleParams:
         ...
 
     @classmethod
-    def eur_standard(cls) -> ScheduleParams:
+    def eur_standard(cls) -> "ScheduleParams":
         """EUR market standard: semi-annual, 30/360, Modified Following, EUR calendar.
 
         Returns:
@@ -133,7 +133,7 @@ class ScheduleParams:
         ...
 
     @classmethod
-    def gbp_standard(cls) -> ScheduleParams:
+    def gbp_standard(cls) -> "ScheduleParams":
         """GBP market standard: semi-annual, Act/365, Modified Following, GBP calendar.
 
         Returns:
@@ -142,7 +142,7 @@ class ScheduleParams:
         ...
 
     @classmethod
-    def jpy_standard(cls) -> ScheduleParams:
+    def jpy_standard(cls) -> "ScheduleParams":
         """JPY market standard: semi-annual, Act/365, Modified Following, JPY calendar.
 
         Returns:
@@ -159,7 +159,7 @@ class FixedCouponSpec:
         rate: float,
         schedule: ScheduleParams,
         coupon_type: Optional[CouponType] = None,
-    ) -> FixedCouponSpec:
+    ) -> "FixedCouponSpec":
         """Create fixed coupon specification.
 
         Args:
@@ -180,7 +180,7 @@ class FloatCouponParams:
         *,
         gearing: float = 1.0,
         reset_lag_days: int = 2,
-    ) -> FloatCouponParams:
+    ) -> "FloatCouponParams":
         """Create floating coupon parameters.
 
         Args:
@@ -200,7 +200,7 @@ class FloatingCouponSpec:
         params: FloatCouponParams,
         schedule: ScheduleParams,
         coupon_type: Optional[CouponType] = None,
-    ) -> FloatingCouponSpec:
+    ) -> "FloatingCouponSpec":
         """Create floating coupon specification.
 
         Args:
@@ -214,7 +214,7 @@ class CashflowBuilder:
     """Python wrapper for the composable valuations CashflowBuilder."""
 
     @classmethod
-    def new(cls) -> CashflowBuilder:
+    def new(cls) -> "CashflowBuilder":
         """Create a new cashflow builder."""
         ...
 

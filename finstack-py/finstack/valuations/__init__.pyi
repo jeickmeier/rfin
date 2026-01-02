@@ -7,6 +7,8 @@ from . import pricer
 from . import metrics
 from . import instruments
 from . import calibration
+from . import risk
+from . import attribution
 from . import performance
 from . import lsmc
 from . import conventions
@@ -164,6 +166,12 @@ __all__ = [
     "bump_hazard_spreads",
     "bump_hazard_shift",
     "bump_inflation_rates",
+    # Risk
+    "risk",
+    # Attribution
+    "attribution",
+    # Cashflow
+    "cashflow",
     # Instruments (imported from submodule)
     # Calibration (imported from submodule)
     # Cashflow (imported from submodule)

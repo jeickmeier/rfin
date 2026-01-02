@@ -459,7 +459,6 @@ class MarketContext:
         """
         ...
 
-    @property
     def is_empty(self) -> bool:
         """Check if the context is empty.
 
@@ -470,7 +469,6 @@ class MarketContext:
         """
         ...
 
-    @property
     def total_objects(self) -> int:
         """Get total number of objects.
 
@@ -481,7 +479,6 @@ class MarketContext:
         """
         ...
 
-    @property
     def has_fx(self) -> bool:
         """Check if FX data is present.
 
