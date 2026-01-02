@@ -88,3 +88,4 @@ finstack-py/examples/outputs/
 .zenflow/
 .cursor/
 .agent/
+.codex/
