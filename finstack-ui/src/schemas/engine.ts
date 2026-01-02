@@ -47,7 +47,7 @@ export const ValuationResultWireSchema: z.ZodType<ValuationResultWire> = z
     present_value: z.number(),
     currency: z.string().length(3, "ISO 4217 currency code required"),
     as_of: isoDate,
-    metrics: z.record(z.number()).default({}),
+    metrics: z.record(z.string(), z.number()).default({}),
   })
   .passthrough();
 

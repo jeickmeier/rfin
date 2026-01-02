@@ -4,7 +4,7 @@ Provides various day count conventions for calculating year fractions
 between dates, essential for interest calculations.
 """
 
-from typing import Optional, Union
+from typing import ClassVar, Optional, Union
 from datetime import date
 from .calendar import Calendar
 from .schedule import Frequency
@@ -20,6 +20,16 @@ class DayCount:
     - THIRTY_360_EU: European 30/360
     - THIRTY_360_ISDA: ISDA 30/360
     """
+
+    # Common conventions (enum-like class attributes in the runtime bindings)
+    ACT_360: ClassVar["DayCount"]
+    ACT_365: ClassVar["DayCount"]
+    ACT_365F: ClassVar["DayCount"]
+    ACT_ACT: ClassVar["DayCount"]
+    BUS_252: ClassVar["DayCount"]
+    THIRTY_360: ClassVar["DayCount"]
+    THIRTY_360_EU: ClassVar["DayCount"]
+    THIRTY_360_ISDA: ClassVar["DayCount"]
 
     @classmethod
     def from_name(cls, name: str) -> DayCount:
@@ -72,10 +82,12 @@ class DayCount:
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
 
-# Day count constants
+# Day count constants (kept for backwards compatibility with older examples/stubs)
 ACT_360: DayCount
 ACT_365: DayCount
+ACT_365F: DayCount
 ACT_ACT: DayCount
+BUS_252: DayCount
 THIRTY_360: DayCount
 THIRTY_360_EU: DayCount
 THIRTY_360_ISDA: DayCount

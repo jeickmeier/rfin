@@ -1,27 +1,28 @@
 """Waterfall type bindings."""
 
+from enum import Enum
 from typing import Optional, List
 
-class PaymentPriority:
+class PaymentPriority(Enum):
     """Payment priority levels in the waterfall.
 
     Attributes:
-        Fees (int): Fees (commitment fees, facility fees, etc.)
-        Interest (int): Cash interest payments
-        Amortization (int): Scheduled amortization
-        MandatoryPrepayment (int): Mandatory prepayments
-        VoluntaryPrepayment (int): Voluntary prepayments
-        Sweep (int): Excess cash flow sweep
-        Equity (int): Equity distributions
+        Fees: Fees (commitment fees, facility fees, etc.)
+        Interest: Cash interest payments
+        Amortization: Scheduled amortization
+        MandatoryPrepayment: Mandatory prepayments
+        VoluntaryPrepayment: Voluntary prepayments
+        Sweep: Excess cash flow sweep
+        Equity: Equity distributions
     """
 
-    Fees: int
-    Interest: int
-    Amortization: int
-    MandatoryPrepayment: int
-    VoluntaryPrepayment: int
-    Sweep: int
-    Equity: int
+    Fees = "fees"
+    Interest = "interest"
+    Amortization = "amortization"
+    MandatoryPrepayment = "mandatory_prepayment"
+    VoluntaryPrepayment = "voluntary_prepayment"
+    Sweep = "sweep"
+    Equity = "equity"
 
 class EcfSweepSpec:
     """Excess Cash Flow (ECF) sweep specification.

@@ -38,6 +38,10 @@ export default [
       ...tseslint.configs.recommended.rules,
       ...reactPlugin.configs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
+      // We don't currently ship React Compiler output and use libraries (e.g. TanStack Table)
+      // that intentionally return non-memoizable functions. Keep this rule off to avoid
+      // noisy warnings in normal development.
+      "react-hooks/incompatible-library": "off",
       "@typescript-eslint/no-unused-vars": [
         "error",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
@@ -71,6 +75,7 @@ export default [
     rules: {
       ...reactPlugin.configs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
+      "react-hooks/incompatible-library": "off",
       "no-console": ["warn", { allow: ["warn", "error"] }],
       "no-debugger": "error",
     },

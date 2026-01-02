@@ -70,6 +70,11 @@ export default defineConfig(({ mode }) => {
     },
     worker: {
       format: "es",
+      rollupOptions: {
+        // Vite builds workers as separate rollup bundles; ensure we don't
+        // try to resolve/bundle finstack-wasm into the worker output.
+        external: ["finstack-wasm"],
+      },
     },
     build: {
       lib: {

@@ -153,7 +153,13 @@ class ScheduleParams:
 class FixedCouponSpec:
     """Fixed coupon specification."""
 
-    def __init__(self, rate: float, schedule: ScheduleParams, coupon_type: Optional[CouponType] = None) -> None:
+    @classmethod
+    def new(
+        cls,
+        rate: float,
+        schedule: ScheduleParams,
+        coupon_type: Optional[CouponType] = None,
+    ) -> FixedCouponSpec:
         """Create fixed coupon specification.
 
         Args:
@@ -166,7 +172,15 @@ class FixedCouponSpec:
 class FloatCouponParams:
     """Floating coupon parameters and spec."""
 
-    def __init__(self, index_id: str, margin_bp: float, *, gearing: float = 1.0, reset_lag_days: int = 2) -> None:
+    @classmethod
+    def new(
+        cls,
+        index_id: str,
+        margin_bp: float,
+        *,
+        gearing: float = 1.0,
+        reset_lag_days: int = 2,
+    ) -> FloatCouponParams:
         """Create floating coupon parameters.
 
         Args:
@@ -180,9 +194,13 @@ class FloatCouponParams:
 class FloatingCouponSpec:
     """Floating coupon specification."""
 
-    def __init__(
-        self, params: FloatCouponParams, schedule: ScheduleParams, coupon_type: Optional[CouponType] = None
-    ) -> None:
+    @classmethod
+    def new(
+        cls,
+        params: FloatCouponParams,
+        schedule: ScheduleParams,
+        coupon_type: Optional[CouponType] = None,
+    ) -> FloatingCouponSpec:
         """Create floating coupon specification.
 
         Args:
@@ -195,7 +213,8 @@ class FloatingCouponSpec:
 class CashflowBuilder:
     """Python wrapper for the composable valuations CashflowBuilder."""
 
-    def __init__(self) -> None:
+    @classmethod
+    def new(cls) -> CashflowBuilder:
         """Create a new cashflow builder."""
         ...
 
@@ -247,7 +266,7 @@ class CashflowBuilder:
         ...
 
     def fixed_stepup(
-        self, steps: List[Tuple[date, float]], schedule: ScheduleParams, default_split: CouponType
+        self, steps: List[Tuple[date | str, float]], schedule: ScheduleParams, default_split: CouponType
     ) -> CashflowBuilder:
         """Fixed step-up program with boundaries steps=[(end_date, rate), ...].
 
@@ -261,7 +280,7 @@ class CashflowBuilder:
         """
         ...
 
-    def payment_split_program(self, steps: List[Tuple[date, CouponType]]) -> CashflowBuilder:
+    def payment_split_program(self, steps: List[Tuple[date | str, CouponType]]) -> CashflowBuilder:
         """Payment split program (end_date, split) where split is CouponType.
 
         Args:
@@ -272,25 +291,17 @@ class CashflowBuilder:
         """
         ...
 
-    def build(self) -> CashFlowSchedule:
-        """Build the cashflow schedule.
-
-        Returns:
-            CashFlowSchedule: Built cashflow schedule
-        """
-        ...
-
-    def build_with_curves(self, market: MarketContext) -> CashFlowSchedule:
+    def build_with_curves(self, market: Optional[MarketContext] = None) -> CashFlowSchedule:
         """Build the cashflow schedule with market curves for floating rate computation.
 
         When a market context is provided, floating rate coupons include the forward rate
         from the curve: coupon = outstanding * (forward_rate * gearing + margin_bp * 1e-4) * year_fraction
 
-        Without curves (or using build()), only the margin is used:
+        Without curves (or using build_with_curves(None)), only the margin is used:
         coupon = outstanding * (margin_bp * 1e-4 * gearing) * year_fraction
 
         Args:
-            market: Market context with curves
+            market: Optional market context with curves
 
         Returns:
             CashFlowSchedule: Built cashflow schedule with forward rates

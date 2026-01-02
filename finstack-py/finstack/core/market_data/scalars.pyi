@@ -116,8 +116,12 @@ class MarketScalar:
         """
         ...
 
+    @property
     def value(self) -> Union[float, "Money"]:
         """Get the scalar value.
+
+        This is exposed as a property in the Python bindings, so you access it
+        as ``scalar.value`` (not ``scalar.value()``).
 
         Returns
         -------

@@ -70,7 +70,6 @@ module.exports = {
     },
   },
   plugins: [
-    require("tailwindcss-animate"),
     plugin(function ({ addVariant }) {
       addVariant("hocus", ["&:hover", "&:focus"]);
     }),

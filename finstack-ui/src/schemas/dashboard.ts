@@ -32,7 +32,7 @@ export type DataBindings = z.infer<typeof DataBindingsSchema>;
 export const ComponentInstanceSchema = z.object({
   id: z.string().uuid(),
   type: z.string().min(1, "component type is required"),
-  props: z.record(z.unknown()).default({}),
+  props: z.record(z.string(), z.unknown()).default({}),
   mode: ComponentModeSchema.default("viewer"),
 });
 export type ComponentInstance = z.infer<typeof ComponentInstanceSchema>;

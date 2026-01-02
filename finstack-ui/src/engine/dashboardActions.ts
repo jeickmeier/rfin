@@ -25,7 +25,7 @@ const AddComponentActionSchema = z.object({
 const UpdateComponentActionSchema = z.object({
   kind: z.literal("update_component"),
   id: z.string().uuid(),
-  props: z.record(z.unknown()).optional(),
+  props: z.record(z.string(), z.unknown()).optional(),
   mode: ComponentModeSchema.optional(),
 });
 

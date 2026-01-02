@@ -323,6 +323,7 @@ ignore_missing_imports = true
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
 include = ["finstack-py/finstack"]
+reportMissingModuleSource = "none"
 
 #######################
 # Bandit Configuration (Security)

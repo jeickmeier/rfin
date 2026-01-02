@@ -1,6 +1,7 @@
 """Valuations cash-flow builder exposing complex coupon windows, PIK splits, and amortization."""
 
 from .builder import (
+    AmortizationSpec,
     CouponType,
     ScheduleParams,
     FixedCouponSpec,
@@ -15,6 +16,7 @@ from .builder import (
 )
 
 __all__ = [
+    "AmortizationSpec",
     "CouponType",
     "ScheduleParams",
     "FixedCouponSpec",

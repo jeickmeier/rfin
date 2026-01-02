@@ -64,6 +64,7 @@ from . import valuations
 from . import statements
 from . import scenarios
 from . import portfolio
+from .core import dates as dates
 
 # ---------------------------------------------------------------------------
 # IDE-friendly top-level re-exports

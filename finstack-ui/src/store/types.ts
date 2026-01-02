@@ -17,9 +17,9 @@ export type EngineState = z.infer<typeof EngineStateSchema>;
 
 export const UIStateSchema = z.object({
   activeView: z.string().optional(),
-  panelState: z.record(z.unknown()).default({}),
-  selections: z.record(z.unknown()).default({}),
-  filters: z.record(z.unknown()).default({}),
+  panelState: z.record(z.string(), z.unknown()).default({}),
+  selections: z.record(z.string(), z.unknown()).default({}),
+  filters: z.record(z.string(), z.unknown()).default({}),
 });
 
 export type UIState = z.infer<typeof UIStateSchema>;
