@@ -10,6 +10,8 @@ from . import calibration
 from . import performance
 from . import lsmc
 from . import conventions
+from . import margin
+from . import market
 from . import bumps
 
 # Import common types that are re-exported at the valuations level
@@ -49,6 +51,32 @@ from .conventions import (
     OptionConventions,
     IrFutureConventions,
     ConventionRegistry,
+)
+
+# Margin exports
+from .margin import (
+    MarginTenor,
+    ImMethodology,
+    MarginCallTiming,
+    VmParameters,
+    ImParameters,
+    EligibleCollateralSchedule,
+    CsaSpec,
+)
+
+# Market builder exports
+from .market import (
+    QuoteId,
+    Pillar,
+    BuildCtx,
+    BuiltInstrument,
+    RateQuote,
+    CdsQuote,
+    CdsTrancheQuote,
+    CdsTrancheBuildOverrides,
+    build_rate_instrument,
+    build_cds_instrument,
+    build_cds_tranche_instrument,
 )
 
 # Bumps exports
@@ -110,6 +138,26 @@ __all__ = [
     "OptionConventions",
     "IrFutureConventions",
     "ConventionRegistry",
+    # Margin
+    "MarginTenor",
+    "ImMethodology",
+    "MarginCallTiming",
+    "VmParameters",
+    "ImParameters",
+    "EligibleCollateralSchedule",
+    "CsaSpec",
+    # Market builders
+    "QuoteId",
+    "Pillar",
+    "BuildCtx",
+    "BuiltInstrument",
+    "RateQuote",
+    "CdsQuote",
+    "CdsTrancheQuote",
+    "CdsTrancheBuildOverrides",
+    "build_rate_instrument",
+    "build_cds_instrument",
+    "build_cds_tranche_instrument",
     # Bumps
     "BumpRequest",
     "bump_discount_curve_synthetic",

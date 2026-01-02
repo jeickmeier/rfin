@@ -48,10 +48,13 @@ This cookbook provides end-to-end examples demonstrating how to use Finstack for
 - **24_multi_curve_framework.py** - Post-2008 multi-curve discount/forward setup
 - **25_var_calculation.py** - Historical and parametric VaR with confidence intervals
 
-### Utilities (Examples 26-27)
+### Utilities (Examples 26-30)
 
 - **26_portfolio_books.py** - Book hierarchy and recursive aggregation by book
 - **27_statements_forecast.py** - Direct forecasting via `statements.apply_forecast`
+- **28_statements_dsl_helpers.py** - Parse/compile statement DSL formulas (AST + Expr)
+- **29_valuations_market_builders.py** - Build calibration-ready instruments from market quotes
+- **30_valuations_margin_types.py** - CSA/VM/IM margin types (valuations layer)
 
 ---
 
@@ -360,6 +363,6 @@ For questions or issues:
 
 ---
 
-**Last Updated**: January 2025
-**Examples Count**: 27
+**Last Updated**: January 2026
+**Examples Count**: 30
 **Total Lines**: ~10,000+

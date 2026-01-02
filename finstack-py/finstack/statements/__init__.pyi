@@ -81,6 +81,7 @@ from .analysis import (
     ScenarioDiff,
 )
 from .forecast import apply_forecast
+from .dsl import StmtExpr, parse_formula, compile_formula, parse_and_compile
 
 __all__ = [
     # Types
@@ -152,4 +153,9 @@ __all__ = [
     "ScenarioDiff",
     # Forecast helpers
     "apply_forecast",
+    # DSL helpers
+    "StmtExpr",
+    "parse_formula",
+    "compile_formula",
+    "parse_and_compile",
 ]

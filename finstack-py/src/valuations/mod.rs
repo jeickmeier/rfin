@@ -8,6 +8,8 @@ pub(crate) mod covenants;
 pub(crate) mod dataframe;
 pub(crate) mod instruments;
 pub(crate) mod lsmc;
+pub(crate) mod margin;
+pub(crate) mod market;
 pub(crate) mod metrics;
 pub(crate) mod performance;
 pub(crate) mod pricer;
@@ -89,6 +91,16 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     let conventions_exports = conventions::register(py, &module)?;
     exports.extend(conventions_exports.iter().copied());
     promote_exports(&module, "conventions", &conventions_exports)?;
+
+    // Register margin module
+    let margin_exports = margin::register(py, &module)?;
+    exports.extend(margin_exports.iter().copied());
+    promote_exports(&module, "margin", &margin_exports)?;
+
+    // Register market module (quote->instrument builders)
+    let market_exports = market::register(py, &module)?;
+    exports.extend(market_exports.iter().copied());
+    promote_exports(&module, "market", &market_exports)?;
 
     // Register bumps module
     let bumps_exports = bumps::register(py, &module)?;

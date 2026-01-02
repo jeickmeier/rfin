@@ -125,6 +125,14 @@ macro_rules! try_extract {
 
 /// Downcast a Python instrument wrapper into a core instrument reference.
 pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<InstrumentHandle> {
+    // Generic instruments produced by `finstack.valuations.market` builders.
+    if let Ok(obj) = value.extract::<PyRef<crate::valuations::market::PyBuiltInstrument>>() {
+        return Ok(InstrumentHandle {
+            instrument: obj.inner.clone_box(),
+            instrument_type: obj.inner.key(),
+        });
+    }
+
     try_extract!(
         value,
         PyAgencyMbsPassthrough,
