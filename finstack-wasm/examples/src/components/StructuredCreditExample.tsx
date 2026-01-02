@@ -352,13 +352,7 @@ export const StructuredCreditExample: React.FC = () => {
         }
         if (clo) {
           try {
-            const cloResult = registry.priceStructuredCredit(
-              clo,
-              'discounting',
-              market,
-              asOf,
-              null
-            );
+            const cloResult = registry.priceInstrument(clo, 'discounting', market, asOf, null);
             results.push({
               name: 'CLO 2024-1',
               type: 'Collateralized Loan Obligation',
@@ -614,7 +608,7 @@ export const StructuredCreditExample: React.FC = () => {
           throw err;
         }
         try {
-          const absResult = registry.priceStructuredCredit(abs, 'discounting', market, asOf, null);
+          const absResult = registry.priceInstrument(abs, 'discounting', market, asOf, null);
           results.push({
             name: 'ABS Auto 2024-1',
             type: 'Asset-Backed Securities',
@@ -894,13 +888,7 @@ export const StructuredCreditExample: React.FC = () => {
           throw err;
         }
         try {
-          const rmbsResult = registry.priceStructuredCredit(
-            rmbs,
-            'discounting',
-            market,
-            asOf,
-            null
-          );
+          const rmbsResult = registry.priceInstrument(rmbs, 'discounting', market, asOf, null);
           results.push({
             name: 'RMBS Prime 2024-1',
             type: 'Residential Mortgage-Backed Securities',
@@ -1180,13 +1168,7 @@ export const StructuredCreditExample: React.FC = () => {
           throw err;
         }
         try {
-          const cmbsResult = registry.priceStructuredCredit(
-            cmbs,
-            'discounting',
-            market,
-            asOf,
-            null
-          );
+          const cmbsResult = registry.priceInstrument(cmbs, 'discounting', market, asOf, null);
           results.push({
             name: 'CMBS Multifamily 2024-1',
             type: 'Commercial Mortgage-Backed Securities',

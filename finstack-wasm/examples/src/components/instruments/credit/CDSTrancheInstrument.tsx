@@ -89,7 +89,7 @@ export const CDSTrancheInstrument: React.FC<CDSTrancheInstrumentProps> = ({
         null
       );
 
-      const trancheResult = registry.priceCdsTranche(tranche, 'discounting', market, asOf, null);
+      const trancheResult = registry.priceInstrument(tranche, 'discounting', market, asOf, null);
 
       const result: InstrumentRow = {
         name: `${formState.indexFamily} Tranche (${formState.attachmentPoint}-${formState.detachmentPoint}%)`,
@@ -151,7 +151,7 @@ export const CDSTrancheInstrument: React.FC<CDSTrancheInstrumentProps> = ({
               trancheData.frequency,
               null
             );
-            const trancheResult = registry.priceCdsTranche(
+            const trancheResult = registry.priceInstrument(
               tranche,
               'discounting',
               market,

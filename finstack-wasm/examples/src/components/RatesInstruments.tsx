@@ -152,7 +152,7 @@ export const RatesInstrumentsExample: React.FC<RatesInstrumentsProps> = (props) 
           );
           const swapOpts = new PricingRequest().withMetrics(['dv01', 'annuity', 'par_rate']);
           try {
-            const swapResult = registry.priceInterestRateSwap(
+            const swapResult = registry.priceInstrument(
               swap,
               'discounting',
               market,
@@ -206,13 +206,7 @@ export const RatesInstrumentsExample: React.FC<RatesInstrumentsProps> = (props) 
           );
           const fraOpts = new PricingRequest().withMetrics(['par_rate']);
           try {
-            const fraResult = registry.priceForwardRateAgreement(
-              fra,
-              'discounting',
-              market,
-              asOf,
-              fraOpts
-            );
+            const fraResult = registry.priceInstrument(fra, 'discounting', market, asOf, fraOpts);
             results.push({
               name: '3x6 FRA',
               type: 'ForwardRateAgreement',
@@ -285,7 +279,7 @@ export const RatesInstrumentsExample: React.FC<RatesInstrumentsProps> = (props) 
                   null
                 );
           try {
-            const swaptionResult = registry.priceSwaption(
+            const swaptionResult = registry.priceInstrument(
               swaption,
               'discounting',
               market,
@@ -349,7 +343,7 @@ export const RatesInstrumentsExample: React.FC<RatesInstrumentsProps> = (props) 
                   capFloorData.dayCount === 'act360' ? DayCount.act360() : DayCount.thirty360()
                 );
           try {
-            const capFloorResult = registry.priceInterestRateOption(
+            const capFloorResult = registry.priceInstrument(
               capFloor,
               'discounting',
               market,
@@ -406,7 +400,7 @@ export const RatesInstrumentsExample: React.FC<RatesInstrumentsProps> = (props) 
             futureData.dayCount === 'act360' ? DayCount.act360() : DayCount.thirty360()
           );
           try {
-            const futureResult = registry.priceInterestRateFuture(
+            const futureResult = registry.priceInstrument(
               future,
               'discounting',
               market,

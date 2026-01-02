@@ -120,7 +120,7 @@ export const FxInstrumentsExample: React.FC<FxInstrumentsProps> = (props) => {
             spot.rate,
             notional
           );
-          const spotResult = registry.priceFxSpot(fxSpot, 'discounting', market, asOf);
+          const spotResult = registry.priceInstrument(fxSpot, 'discounting', market, asOf);
           results.push({
             name: `${spot.baseCurrency}/${spot.quoteCurrency} Spot`,
             type: 'FxSpot',
@@ -166,7 +166,7 @@ export const FxInstrumentsExample: React.FC<FxInstrumentsProps> = (props) => {
 
           const isCall = opt.optionType === 'call';
           const optReq = isCall ? new PricingRequest().withMetrics(['delta']) : null;
-          const optResult = registry.priceFxOption(option, 'discounting', market, asOf, optReq);
+          const optResult = registry.priceInstrument(option, 'discounting', market, asOf, optReq);
 
           const tenorMonths =
             (opt.expiryDate.year - valuationDate.year) * 12 +
@@ -209,7 +209,7 @@ export const FxInstrumentsExample: React.FC<FxInstrumentsProps> = (props) => {
             swap.nearRate,
             swap.farRate
           );
-          const swapResult = registry.priceFxSwap(fxSwap, 'discounting', market, asOf);
+          const swapResult = registry.priceInstrument(fxSwap, 'discounting', market, asOf);
 
           const tenorMonths =
             (swap.farDate.year - swap.nearDate.year) * 12 +

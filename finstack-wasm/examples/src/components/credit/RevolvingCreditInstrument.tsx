@@ -73,13 +73,7 @@ export const RevolvingCreditInstrument: React.FC<RevolvingCreditInstrumentProps>
       });
 
       const revolvingCredit = RevolvingCredit.fromJson(revolvingCreditJson);
-      const rcResult = registry.priceRevolvingCredit(
-        revolvingCredit,
-        'discounting',
-        market,
-        asOf,
-        null
-      );
+      const rcResult = registry.priceInstrument(revolvingCredit, 'discounting', market, asOf, null);
       const utilization = (formState.drawnAmount / formState.commitmentAmount) * 100;
 
       const result: InstrumentRow = {
@@ -144,7 +138,7 @@ export const RevolvingCreditInstrument: React.FC<RevolvingCreditInstrumentProps>
               attributes: { tags: [], meta: {} },
             });
             const revolvingCredit = RevolvingCredit.fromJson(revolvingCreditJson);
-            const rcResult = registry.priceRevolvingCredit(
+            const rcResult = registry.priceInstrument(
               revolvingCredit,
               'discounting',
               market,

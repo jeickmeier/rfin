@@ -2,25 +2,7 @@ use crate::core::dates::date::JsDate;
 use crate::core::error::core_to_js;
 use crate::core::error::js_error;
 use crate::core::market_data::context::JsMarketContext;
-use crate::valuations::instruments::{
-    extract_instrument, AsianOption as JsAsianOption, Autocallable as JsAutocallable,
-    BarrierOption as JsBarrierOption, BasisSwap as JsBasisSwap, Basket as JsBasket, Bond as JsBond,
-    CDSIndex as JsCDSIndex, CdsOption as JsCdsOption, CdsTranche as JsCdsTranche,
-    CliquetOption as JsCliquetOption, CmsOption as JsCmsOption,
-    ConvertibleBond as JsConvertibleBond, CreditDefaultSwap as JsCreditDefaultSwap,
-    Deposit as JsDeposit, Equity as JsEquity, EquityOption as JsEquityOption,
-    EquityTotalReturnSwap as JsEquityTotalReturnSwap,
-    FiIndexTotalReturnSwap as JsFiIndexTotalReturnSwap,
-    ForwardRateAgreement as JsForwardRateAgreement, FxBarrierOption as JsFxBarrierOption,
-    FxOption as JsFxOption, FxSpot as JsFxSpot, FxSwap as JsFxSwap,
-    InflationLinkedBond as JsInflationLinkedBond, InflationSwap as JsInflationSwap,
-    InstrumentWrapper, InterestRateFuture as JsInterestRateFuture,
-    InterestRateOption as JsInterestRateOption, InterestRateSwap as JsInterestRateSwap,
-    LookbackOption as JsLookbackOption, PrivateMarketsFund as JsPrivateMarketsFund,
-    QuantoOption as JsQuantoOption, RangeAccrual as JsRangeAccrual, Repo as JsRepo,
-    RevolvingCredit as JsRevolvingCredit, StructuredCredit as JsStructuredCredit,
-    Swaption as JsSwaption, VarianceSwap as JsVarianceSwap,
-};
+use crate::valuations::instruments::extract_instrument;
 use crate::valuations::results::JsValuationResult;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
@@ -85,7 +67,7 @@ fn price_with_optional_metrics(
 /// ```javascript
 /// // Price with metrics
 /// const opts = new PricingRequest().withMetrics(["dv01", "duration_mod", "ytm"]);
-/// const result = registry.priceBond(bond, "discounting", market, opts);
+/// const result = registry.priceInstrument(bond, "discounting", market, asOf, opts);
 ///
 /// // Access computed metrics
 /// console.log(`DV01: ${result.metric("dv01")}`);
@@ -111,7 +93,7 @@ impl JsPricingRequest {
     /// @example
     /// ```javascript
     /// const opts = new PricingRequest();
-    /// const result = registry.priceBond(bond, "discounting", market, opts);
+    /// const result = registry.priceInstrument(bond, "discounting", market, asOf, opts);
     /// // result.presentValue is available, but no metrics
     /// ```
     #[wasm_bindgen(constructor)]
@@ -128,7 +110,7 @@ impl JsPricingRequest {
     /// ```javascript
     /// const opts = new PricingRequest()
     ///   .withMetrics(["clean_price", "accrued", "ytm", "dv01", "z_spread"]);
-    /// const result = registry.priceBond(bond, "discounting", market, opts);
+    /// const result = registry.priceInstrument(bond, "discounting", market, asOf, opts);
     /// ```
     #[wasm_bindgen(js_name = withMetrics)]
     pub fn with_metrics(mut self, metrics: js_sys::Array) -> Self {
@@ -167,18 +149,78 @@ impl JsPricerRegistry {
         JsPricerRegistry::new(PricerRegistry::new())
     }
 
-    /// Price any supported instrument wrapper by dynamic dispatch.
+    /// Price any supported instrument using dynamic dispatch.
     ///
-    /// This is a catch-all for instruments that don't have a dedicated `priceXxx` method.
-    /// The instrument must be a `finstack-wasm` wrapper (e.g. `Bond`, `Swaption`, etc.).
+    /// This is the primary API for pricing all instruments in finstack-wasm. The instrument
+    /// must be a valid finstack-wasm wrapper type (e.g., `Bond`, `InterestRateSwap`, `EquityOption`).
+    ///
+    /// ## Supported Instruments
+    ///
+    /// **Fixed Income**: Bond, Deposit, Repo, InflationLinkedBond, ConvertibleBond, TermLoan
+    ///
+    /// **Interest Rate Derivatives**: InterestRateSwap, BasisSwap, ForwardRateAgreement,
+    /// Swaption, InterestRateOption (caps/floors), InterestRateFuture, RangeAccrual, CmsOption,
+    /// XccySwap, InflationSwap, YoYInflationSwap, InflationCapFloor
+    ///
+    /// **FX**: FxSpot, FxOption, FxSwap, FxForward, FxBarrierOption, FxVarianceSwap, Ndf
+    ///
+    /// **Equity**: Equity, EquityOption, BarrierOption, AsianOption, LookbackOption,
+    /// CliquetOption, QuantoOption, VarianceSwap, Autocallable, EquityIndexFuture,
+    /// EquityTotalReturnSwap
+    ///
+    /// **Credit**: CreditDefaultSwap, CDSIndex, CdsTranche, CdsOption
+    ///
+    /// **Structured Products**: StructuredCredit, Basket, PrivateMarketsFund, RevolvingCredit
+    ///
+    /// **Agency MBS**: AgencyMbsPassthrough, AgencyTba, DollarRoll, AgencyCmo
+    ///
+    /// **Commodities**: CommodityForward, CommoditySwap, CommodityOption
+    ///
+    /// **Real Assets**: RealEstateAsset
+    ///
+    /// ## Pricing Models
+    ///
+    /// Common model keys:
+    /// - `"discounting"` - Standard discounted cash flow (bonds, swaps, deposits)
+    /// - `"black76"` - Black-76 model (swaptions, caps/floors, FX options)
+    /// - `"black_scholes"` - Black-Scholes model (equity options)
+    /// - `"monte_carlo_gbm"` - Monte Carlo with GBM (exotic options, autocallables)
+    /// - `"hazard_rate"` - Hazard rate model (CDS, credit derivatives)
+    /// - `"tree"` - Binomial/trinomial trees (convertibles, American options)
     ///
     /// @param {any} instrument - A finstack-wasm instrument instance
-    /// @param {string} model - Pricing model key ("discounting", "black76", "monte_carlo_gbm", ...)
-    /// @param {MarketContext} market - Market data context
+    /// @param {string} model - Pricing model key
+    /// @param {MarketContext} market - Market data context with curves, surfaces, and scalars
     /// @param {FsDate} asOf - Valuation date
     /// @param {PricingRequest?} opts - Optional pricing configuration for risk metrics
-    /// @returns {ValuationResult} Pricing result
-    /// @throws {Error} If the instrument type is unsupported or pricing fails
+    /// @returns {ValuationResult} Pricing result with present value and optional metrics
+    /// @throws {Error} If the instrument type is unsupported, model is invalid, or required market data is missing
+    ///
+    /// @example
+    /// ```javascript
+    /// import { createStandardRegistry, Bond, InterestRateSwap, EquityOption, MarketContext, FsDate, Money, PricingRequest } from 'finstack-wasm';
+    ///
+    /// const registry = createStandardRegistry();
+    /// const market = new MarketContext();
+    /// market.insertDiscount(discountCurve);
+    /// const asOf = new FsDate(2024, 1, 2);
+    ///
+    /// // Price a bond
+    /// const bond = Bond.fixedSemiannual("bond1", Money.of(1000000, "USD"), 0.05, issue, maturity, "USD-OIS");
+    /// const bondResult = registry.priceInstrument(bond, "discounting", market, asOf);
+    /// console.log(`Bond PV: ${bondResult.presentValue.format()}`);
+    ///
+    /// // Price a swap with metrics
+    /// const swap = new InterestRateSwap(...);
+    /// const opts = new PricingRequest().withMetrics(["dv01", "annuity", "par_rate"]);
+    /// const swapResult = registry.priceInstrument(swap, "discounting", market, asOf, opts);
+    /// console.log(`Swap DV01: ${swapResult.metric("dv01")}`);
+    ///
+    /// // Price an equity option
+    /// const option = new EquityOption(...);
+    /// const optResult = registry.priceInstrument(option, "black_scholes", market, asOf);
+    /// console.log(`Option PV: ${optResult.presentValue.format()}`);
+    /// ```
     #[wasm_bindgen(js_name = priceInstrument)]
     pub fn price_instrument(
         &self,
@@ -200,617 +242,6 @@ impl JsPricerRegistry {
             as_of,
         )
     }
-
-    /// Price a bond instrument using the specified model and market data.
-    ///
-    /// @param {Bond} bond - Bond instrument created via Bond constructors
-    /// @param {string} model - Pricing model key ("discounting", "tree", etc.)
-    /// @param {MarketContext} market - Market data context with curves and scalars
-    /// @param {PricingRequest?} opts - Optional pricing configuration for risk metrics
-    /// @returns {ValuationResult} Pricing result with present value and metadata
-    /// @throws {Error} If the model is unsupported or required market data is missing
-    ///
-    /// @example
-    /// ```javascript
-    /// const registry = createStandardRegistry();
-    /// const bond = Bond.fixedSemiannual("bond1", notional, 0.05, issue, maturity, "USD-OIS");
-    /// const market = new MarketContext();
-    /// market.insertDiscount(discountCurve);
-    ///
-    /// // Price without metrics
-    /// const result = registry.priceBond(bond, "discounting", market);
-    /// console.log(result.presentValue.format());  // "USD 1,023,456.78"
-    ///
-    /// // Price with metrics
-    /// const opts = new PricingRequest().withMetrics(["dv01", "ytm", "duration_mod"]);
-    /// const resultWithMetrics = registry.priceBond(bond, "discounting", market, opts);
-    /// console.log(`DV01: ${resultWithMetrics.metric("dv01")}`);
-    /// ```
-    #[wasm_bindgen(js_name = priceBond)]
-    pub fn price_bond(
-        &self,
-        bond: &JsBond,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = bond.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceDeposit)]
-    pub fn price_deposit(
-        &self,
-        deposit: &JsDeposit,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = deposit.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceInterestRateSwap)]
-    pub fn price_interest_rate_swap(
-        &self,
-        swap: &JsInterestRateSwap,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = swap.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceRangeAccrual)]
-    pub fn price_range_accrual(
-        &self,
-        range_accrual: &JsRangeAccrual,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = range_accrual.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceForwardRateAgreement)]
-    pub fn price_forward_rate_agreement(
-        &self,
-        fra: &JsForwardRateAgreement,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = fra.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceSwaption)]
-    pub fn price_swaption(
-        &self,
-        swaption: &JsSwaption,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = swaption.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceCmsOption)]
-    pub fn price_cms_option(
-        &self,
-        cms_option: &JsCmsOption,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = cms_option.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceBasisSwap)]
-    pub fn price_basis_swap(
-        &self,
-        swap: &JsBasisSwap,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = swap.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceInterestRateOption)]
-    pub fn price_interest_rate_option(
-        &self,
-        option: &JsInterestRateOption,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = option.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceInterestRateFuture)]
-    pub fn price_interest_rate_future(
-        &self,
-        future: &JsInterestRateFuture,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = future.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceFxSpot)]
-    pub fn price_fx_spot(
-        &self,
-        fx_spot: &JsFxSpot,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = fx_spot.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceFxOption)]
-    pub fn price_fx_option(
-        &self,
-        fx_option: &JsFxOption,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = fx_option.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceFxBarrierOption)]
-    pub fn price_fx_barrier_option(
-        &self,
-        fx_barrier_option: &JsFxBarrierOption,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = fx_barrier_option.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceQuantoOption)]
-    pub fn price_quanto_option(
-        &self,
-        quanto_option: &JsQuantoOption,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = quanto_option.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceFxSwap)]
-    pub fn price_fx_swap(
-        &self,
-        fx_swap: &JsFxSwap,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = fx_swap.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceCreditDefaultSwap)]
-    pub fn price_credit_default_swap(
-        &self,
-        cds: &JsCreditDefaultSwap,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = cds.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceCDSIndex)]
-    pub fn price_cds_index(
-        &self,
-        index: &JsCDSIndex,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = index.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceCdsTranche)]
-    pub fn price_cds_tranche(
-        &self,
-        tranche: &JsCdsTranche,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = tranche.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceCdsOption)]
-    pub fn price_cds_option(
-        &self,
-        option: &JsCdsOption,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = option.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceEquity)]
-    pub fn price_equity(
-        &self,
-        equity: &JsEquity,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = equity.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceEquityOption)]
-    pub fn price_equity_option(
-        &self,
-        option: &JsEquityOption,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = option.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceBarrierOption)]
-    pub fn price_barrier_option(
-        &self,
-        option: &JsBarrierOption,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = option.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceAsianOption)]
-    pub fn price_asian_option(
-        &self,
-        option: &JsAsianOption,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = option.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceLookbackOption)]
-    pub fn price_lookback_option(
-        &self,
-        option: &JsLookbackOption,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = option.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceCliquetOption)]
-    pub fn price_cliquet_option(
-        &self,
-        option: &JsCliquetOption,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = option.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceRepo)]
-    pub fn price_repo(
-        &self,
-        repo: &JsRepo,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = repo.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceInflationLinkedBond)]
-    pub fn price_inflation_linked_bond(
-        &self,
-        bond: &JsInflationLinkedBond,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = bond.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceInflationSwap)]
-    pub fn price_inflation_swap(
-        &self,
-        swap: &JsInflationSwap,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = swap.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceVarianceSwap)]
-    pub fn price_variance_swap(
-        &self,
-        swap: &JsVarianceSwap,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = swap.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceConvertibleBond)]
-    pub fn price_convertible_bond(
-        &self,
-        bond: &JsConvertibleBond,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = bond.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceEquityTotalReturnSwap)]
-    pub fn price_equity_total_return_swap(
-        &self,
-        trs: &JsEquityTotalReturnSwap,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = trs.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceFiIndexTotalReturnSwap)]
-    pub fn price_fi_index_total_return_swap(
-        &self,
-        trs: &JsFiIndexTotalReturnSwap,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = trs.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    // Structured Products - JSON-based
-    #[wasm_bindgen(js_name = priceStructuredCredit)]
-    pub fn price_structured_credit(
-        &self,
-        sc: &JsStructuredCredit,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = sc.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = priceBasket)]
-    pub fn price_basket(
-        &self,
-        basket: &JsBasket,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = basket.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    #[wasm_bindgen(js_name = pricePrivateMarketsFund)]
-    pub fn price_private_markets_fund(
-        &self,
-        fund: &JsPrivateMarketsFund,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = fund.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    /// Price an autocallable structured product using the specified model and market data.
-    ///
-    /// @param {Autocallable} autocallable - Autocallable instrument created via fromJson
-    /// @param {string} model - Pricing model key ("monte_carlo_gbm", etc.)
-    /// @param {MarketContext} market - Market data context with curves and scalars
-    /// @param {PricingRequest?} opts - Optional pricing configuration for risk metrics
-    /// @returns {ValuationResult} Pricing result with present value and metadata
-    /// @throws {Error} If the model is unsupported or required market data is missing
-    #[wasm_bindgen(js_name = priceAutocallable)]
-    pub fn price_autocallable(
-        &self,
-        autocallable: &JsAutocallable,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = autocallable.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
-
-    /// Price a revolving credit facility using the specified model and market data.
-    ///
-    /// @param {RevolvingCredit} facility - Revolving credit facility created via fromJson
-    /// @param {string} model - Pricing model key ("discounting", "monte_carlo_gbm", etc.)
-    /// @param {MarketContext} market - Market data context with curves and scalars
-    /// @param {PricingRequest?} opts - Optional pricing configuration for risk metrics
-    /// @returns {ValuationResult} Pricing result with present value and metadata
-    /// @throws {Error} If the model is unsupported or required market data is missing
-    ///
-    /// @example
-    /// ```javascript
-    /// const registry = createStandardRegistry();
-    /// const facility = RevolvingCredit.fromJson(facilityJson);
-    /// const market = new MarketContext();
-    /// market.insertDiscount(discountCurve);
-    ///
-    /// // Price with deterministic spec
-    /// const result = registry.priceRevolvingCredit(facility, "discounting", market);
-    ///
-    /// // Price with stochastic spec (requires monte_carlo_gbm)
-    /// const mcResult = registry.priceRevolvingCredit(facility, "monte_carlo_gbm", market);
-    /// ```
-    #[wasm_bindgen(js_name = priceRevolvingCredit)]
-    pub fn price_revolving_credit(
-        &self,
-        facility: &JsRevolvingCredit,
-        model: &str,
-        market: &JsMarketContext,
-        as_of: &JsDate,
-        opts: Option<JsPricingRequest>,
-    ) -> Result<JsValuationResult, JsValue> {
-        let model_key = parse_model_key(model)?;
-        let instrument = facility.inner();
-        let metrics = opts.and_then(|o| o.metrics);
-        price_with_optional_metrics(&self.inner, &instrument, model_key, market, metrics, as_of)
-    }
 }
 
 /// Create a pricing registry populated with all standard finstack pricers.
@@ -824,30 +255,24 @@ impl JsPricerRegistry {
 ///
 /// @example
 /// ```javascript
-/// import { createStandardRegistry, Bond, Money, MarketContext, DiscountCurve, Date } from 'finstack-wasm';
+/// import { createStandardRegistry, Bond, InterestRateSwap, MarketContext, FsDate, Money, PricingRequest } from 'finstack-wasm';
 ///
 /// const registry = createStandardRegistry();
 ///
 /// // Create market data
-/// const baseDate = new Date(2024, 1, 2);
-/// const curve = new DiscountCurve("USD-OIS", baseDate, ...);
+/// const asOf = new FsDate(2024, 1, 2);
+/// const curve = new DiscountCurve("USD-OIS", asOf, ...);
 /// const market = new MarketContext();
 /// market.insertDiscount(curve);
 ///
-/// // Price instruments
-/// const bond = Bond.fixedSemiannual(...);
-/// const bondResult = registry.priceBond(bond, "discounting", market);
+/// // Price a bond
+/// const bond = Bond.fixedSemiannual("bond1", Money.of(1000000, "USD"), 0.05, issue, maturity, "USD-OIS");
+/// const bondResult = registry.priceInstrument(bond, "discounting", market, asOf);
 ///
-/// const swap = new InterestRateSwap(
-///   'swap_1', notional, rate, start, end,
-///   'USD-OIS', 'USD-SOFR-3M', 'receive_fixed', null, DayCount.thirty360(), null, DayCount.act360(), null, null, null, 2
-/// );
-/// const swapResult = registry.priceInterestRateSwapWithMetrics(
-///   swap,
-///   "discounting",
-///   market,
-///   ["dv01", "annuity", "par_rate"]
-/// );
+/// // Price a swap with metrics
+/// const swap = new InterestRateSwap(...);
+/// const opts = new PricingRequest().withMetrics(["dv01", "annuity", "par_rate"]);
+/// const swapResult = registry.priceInstrument(swap, "discounting", market, asOf, opts);
 ///
 /// console.log(`Bond PV: ${bondResult.presentValue.format()}`);
 /// console.log(`Swap PV: ${swapResult.presentValue.format()}`);

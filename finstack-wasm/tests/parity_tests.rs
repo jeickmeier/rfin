@@ -212,10 +212,11 @@ fn test_pricer_registry_price_instrument_exists() {
     let as_of = FsDate::new(2024, 1, 1).expect("Valid date");
 
     let bond = Bond::fixed_semiannual("bond1", &notional, 0.05, &issue, &maturity, "USD-OIS", None);
+    let bond_js: JsValue = bond.into();
     let market = MarketContext::new();
 
     // the dynamic dispatch path works (it should return a pricing error).
-    let result = registry.price_bond(&bond, "discounting", &market, &as_of, None);
+    let result = registry.price_instrument(&bond_js, "discounting", &market, &as_of, None);
 
     assert!(
         result.is_err(),

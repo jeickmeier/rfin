@@ -106,7 +106,7 @@ export const StructuredProductsExample: React.FC<StructuredProductsProps> = (pro
               },
             });
             const basket = Basket.fromJson(basketJson);
-            const result = registry.priceBasket(basket, 'discounting', marketCtx, asOf, null);
+            const result = registry.priceInstrument(basket, 'discounting', marketCtx, asOf, null);
 
             results.push({
               name: 'Tech Stock Basket',
@@ -134,13 +134,7 @@ export const StructuredProductsExample: React.FC<StructuredProductsProps> = (pro
               })),
             });
             const fund = PrivateMarketsFund.fromJson(fundJson);
-            const result = registry.pricePrivateMarketsFund(
-              fund,
-              'discounting',
-              marketCtx,
-              asOf,
-              null
-            );
+            const result = registry.priceInstrument(fund, 'discounting', marketCtx, asOf, null);
 
             // Find preferred IRR from spec
             const prefIrr = fundData.spec.tranches.find(
@@ -197,7 +191,7 @@ export const StructuredProductsExample: React.FC<StructuredProductsProps> = (pro
               attributes: { tags: [], meta: {} },
             });
             const autocallable = Autocallable.fromJson(autocallableJson);
-            const result = registry.priceAutocallable(
+            const result = registry.priceInstrument(
               autocallable,
               'monte_carlo_gbm',
               marketCtx,

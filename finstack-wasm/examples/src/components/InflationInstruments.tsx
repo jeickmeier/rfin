@@ -114,7 +114,7 @@ export const InflationInstrumentsExample: React.FC<InflationInstrumentsProps> = 
             null,
             null
           );
-          const ilbResult = registry.priceInflationLinkedBond(ilb, 'discounting', market, asOf);
+          const ilbResult = registry.priceInstrument(ilb, 'discounting', market, asOf);
           results.push({
             name: `US TIPS ${bond.maturityDate.year}`,
             type: 'InflationLinkedBond',
@@ -145,7 +145,7 @@ export const InflationInstrumentsExample: React.FC<InflationInstrumentsProps> = 
             swap.direction,
             swap.dayCount
           );
-          const swapResult = registry.priceInflationSwap(infSwap, 'discounting', market, asOf);
+          const swapResult = registry.priceInstrument(infSwap, 'discounting', market, asOf);
           results.push({
             name: `ZC Inflation Swap (${tenorYears}Y)`,
             type: 'InflationSwap',

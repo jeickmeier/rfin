@@ -125,7 +125,7 @@ export const ExoticRatesDerivativesExample: React.FC<ExoticRatesDerivativesProps
               attributes: { tags: [], meta: {} },
             });
             const cmsOption = CmsOption.fromJson(cmsJson);
-            const result = registry.priceCmsOption(
+            const result = registry.priceInstrument(
               cmsOption,
               'monte_carlo_hull_white_1f',
               marketCtx,
@@ -165,7 +165,7 @@ export const ExoticRatesDerivativesExample: React.FC<ExoticRatesDerivativesProps
               attributes: { tags: [], meta: {} },
             });
             const rangeAccrual = RangeAccrual.fromJson(rangeAccrualJson);
-            const result = registry.priceRangeAccrual(
+            const result = registry.priceInstrument(
               rangeAccrual,
               'monte_carlo_gbm',
               marketCtx,

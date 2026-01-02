@@ -103,7 +103,7 @@ export const EquityInstrumentsExample: React.FC<EquityInstrumentsProps> = (props
 
         for (const pos of positions) {
           const equity = new Equity(pos.id, pos.ticker, usd, pos.quantity, pos.costBasis);
-          const equityResult = registry.priceEquity(equity, 'discounting', market, asOf);
+          const equityResult = registry.priceInstrument(equity, 'discounting', market, asOf);
           results.push({
             name: `${pos.ticker} Stock (${pos.quantity} shares)`,
             type: 'Equity',
@@ -141,7 +141,7 @@ export const EquityInstrumentsExample: React.FC<EquityInstrumentsProps> = (props
 
           const isCall = opt.optionType === 'call';
           const opts = isCall ? new PricingRequest().withMetrics(['delta', 'gamma']) : null;
-          const optResult = registry.priceEquityOption(option, 'discounting', market, asOf, opts);
+          const optResult = registry.priceInstrument(option, 'discounting', market, asOf, opts);
 
           const tenorDesc =
             opt.expiryDate.month === 12 ? '1Y' : `${opt.expiryDate.month - valuationDate.month}M`;

@@ -103,7 +103,7 @@ export const CDSOptionInstrument: React.FC<CDSOptionInstrumentProps> = ({
         null
       );
 
-      const optionResult = registry.priceCdsOption(option, 'discounting', market, asOf, null);
+      const optionResult = registry.priceInstrument(option, 'discounting', market, asOf, null);
 
       const result: InstrumentRow = {
         name: `CDS ${formState.optionType.charAt(0).toUpperCase() + formState.optionType.slice(1)} @ ${formState.strikeBps}bp`,
@@ -166,7 +166,13 @@ export const CDSOptionInstrument: React.FC<CDSOptionInstrumentProps> = ({
               optionData.knockedOut,
               null
             );
-            const optionResult = registry.priceCdsOption(option, 'discounting', market, asOf, null);
+            const optionResult = registry.priceInstrument(
+              option,
+              'discounting',
+              market,
+              asOf,
+              null
+            );
             results.push({
               name: `CDS ${optionData.optionType.charAt(0).toUpperCase() + optionData.optionType.slice(1)} @ ${optionData.strikeBps}bp`,
               type: 'CdsOption',

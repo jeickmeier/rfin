@@ -71,13 +71,7 @@ export const CreditCalibrationExample: React.FC = () => {
 
         try {
           const request = new PricingRequest().withMetrics(['par_spread', 'pv01']);
-          const result = registry.priceCreditDefaultSwap(
-            cds,
-            'discounting',
-            newMarket,
-            newAsOf,
-            request
-          );
+          const result = registry.priceInstrument(cds, 'discounting', newMarket, newAsOf, request);
 
           results.push({
             name: `${tenor}Y CDS`,

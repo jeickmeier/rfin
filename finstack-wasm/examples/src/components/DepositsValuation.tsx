@@ -107,7 +107,7 @@ export const DepositValuationExample: React.FC<DepositValuationProps> = (props) 
         );
 
         const registry = createStandardRegistry();
-        const result = registry.priceDeposit(depositInst, 'discounting', market, valDate, null);
+        const result = registry.priceInstrument(depositInst, 'discounting', market, valDate, null);
 
         const presentValue = result.presentValue.amount;
 

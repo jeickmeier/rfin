@@ -75,7 +75,7 @@ export const CDSInstrument: React.FC<CDSInstrumentProps> = ({ cdsSwaps, market, 
             );
 
       const cdsOpts = new PricingRequest().withMetrics(['par_spread', 'pv01']);
-      const cdsResult = registry.priceCreditDefaultSwap(cds, 'discounting', market, asOf, cdsOpts);
+      const cdsResult = registry.priceInstrument(cds, 'discounting', market, asOf, cdsOpts);
 
       const result: InstrumentRow = {
         name: `${formState.tenorYears}Y CDS`,
@@ -154,13 +154,7 @@ export const CDSInstrument: React.FC<CDSInstrumentProps> = ({ cdsSwaps, market, 
 
           const cdsOpts = new PricingRequest().withMetrics(['par_spread', 'pv01']);
           try {
-            const cdsResult = registry.priceCreditDefaultSwap(
-              cds,
-              'discounting',
-              market,
-              asOf,
-              cdsOpts
-            );
+            const cdsResult = registry.priceInstrument(cds, 'discounting', market, asOf, cdsOpts);
             const tenorYears = cdsData.maturityDate.year - cdsData.effectiveDate.year;
             results.push({
               name: `${tenorYears}Y CDS`,

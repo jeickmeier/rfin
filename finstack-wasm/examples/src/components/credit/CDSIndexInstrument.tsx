@@ -77,7 +77,7 @@ export const CDSIndexInstrument: React.FC<CDSIndexInstrumentProps> = ({
       );
 
       const indexOpts = new PricingRequest().withMetrics(['par_spread']);
-      const indexResult = registry.priceCDSIndex(index, 'discounting', market, asOf, indexOpts);
+      const indexResult = registry.priceInstrument(index, 'discounting', market, asOf, indexOpts);
 
       const result: InstrumentRow = {
         name: `${formState.indexFamily} S${formState.series} V${formState.version}`,
@@ -150,7 +150,7 @@ export const CDSIndexInstrument: React.FC<CDSIndexInstrumentProps> = ({
 
           const indexOpts = new PricingRequest().withMetrics(['par_spread']);
           try {
-            const indexResult = registry.priceCDSIndex(
+            const indexResult = registry.priceInstrument(
               index,
               'discounting',
               market,

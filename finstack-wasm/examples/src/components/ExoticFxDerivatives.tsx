@@ -135,7 +135,7 @@ export const ExoticFxDerivativesExample: React.FC<ExoticFxDerivativesProps> = (p
               attributes: { tags: [], meta: {} },
             });
             const fxBarrierOption = FxBarrierOption.fromJson(fxBarrierJson);
-            const result = registry.priceFxBarrierOption(
+            const result = registry.priceInstrument(
               fxBarrierOption,
               'monte_carlo_gbm',
               marketCtx,
@@ -187,7 +187,7 @@ export const ExoticFxDerivativesExample: React.FC<ExoticFxDerivativesProps> = (p
               attributes: { tags: [], meta: {} },
             });
             const quantoOption = QuantoOption.fromJson(quantoJson);
-            const result = registry.priceQuantoOption(
+            const result = registry.priceInstrument(
               quantoOption,
               'monte_carlo_gbm',
               marketCtx,

@@ -112,7 +112,7 @@ export const ExoticEquityOptionsExample: React.FC<ExoticEquityOptionsProps> = (p
               opt.useGobetMiri ?? false
             );
             const pricingOpts = new PricingRequest().withMetrics(['delta', 'gamma']);
-            const result = registry.priceBarrierOption(
+            const result = registry.priceInstrument(
               barrierOption,
               'monte_carlo_gbm',
               marketCtx,
@@ -156,7 +156,7 @@ export const ExoticEquityOptionsExample: React.FC<ExoticEquityOptionsProps> = (p
               opt.optionType,
               opt.divYieldId
             );
-            const result = registry.priceAsianOption(
+            const result = registry.priceInstrument(
               asianOption,
               'monte_carlo_gbm',
               marketCtx,
@@ -197,7 +197,7 @@ export const ExoticEquityOptionsExample: React.FC<ExoticEquityOptionsProps> = (p
               attributes: { tags: [], meta: {} },
             });
             const lookbackOption = LookbackOption.fromJson(lookbackJson);
-            const result = registry.priceLookbackOption(
+            const result = registry.priceInstrument(
               lookbackOption,
               'monte_carlo_gbm',
               marketCtx,
@@ -237,7 +237,7 @@ export const ExoticEquityOptionsExample: React.FC<ExoticEquityOptionsProps> = (p
               attributes: { tags: [], meta: {} },
             });
             const cliquetOption = CliquetOption.fromJson(cliquetJson);
-            const result = registry.priceCliquetOption(
+            const result = registry.priceInstrument(
               cliquetOption,
               'monte_carlo_gbm',
               marketCtx,

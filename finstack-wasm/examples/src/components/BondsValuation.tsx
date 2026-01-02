@@ -110,7 +110,7 @@ export const BondsValuationExample: React.FC<BondsValuationProps> = (props) => {
 
         const evaluateBond = (bond: Bond, bondName: string): BondRow => {
           const opts = new PricingRequest().withMetrics(metricKeys);
-          const result = registry.priceBond(bond, 'discounting', market, valDate, opts);
+          const result = registry.priceInstrument(bond, 'discounting', market, valDate, opts);
 
           // Extract primitives immediately to avoid GC issues
           const presentValue = result.presentValue.amount;
