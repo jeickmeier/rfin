@@ -97,70 +97,70 @@ class ForwardRateAgreement:
         day_count: Optional[DayCount] = None,
         reset_lag: int = 2,
         pay_fixed: bool = True,
-    ) -> "ForwardRateAgreement": ...
-    """Create a standard FRA referencing discount and forward curves.
+    ) -> "ForwardRateAgreement":
+        """Create a standard FRA referencing discount and forward curves.
 
-    Parameters
-    ----------
-    instrument_id : str
-        Unique identifier for the FRA (e.g., "FRA-3M6M").
-    notional : Money
-        Notional principal amount. The currency determines curve currency
-        requirements.
-    fixed_rate : float
-        Fixed rate agreed at trade date, as a decimal (e.g., 0.035 for 3.5%).
-        This rate is compared to the floating rate on fixing_date.
-    fixing_date : date
-        Date when the floating rate is observed and the FRA is settled.
-        Typically 2 business days before start_date (reset_lag).
-    start_date : date
-        Start date of the interest rate period. The floating rate applies
-        from this date.
-    end_date : date
-        End date of the interest rate period. Must be after start_date.
-        The period length determines the interest calculation.
-    discount_curve : str
-        Discount curve identifier in MarketContext for present value calculations.
-    forward_curve : str
-        Forward curve identifier for projecting the floating rate on fixing_date.
-    day_count : DayCount, optional
-        Day-count convention for the interest period (default: ACT/360 for
-        most money-market conventions).
-    reset_lag : int, optional
-        Number of days between fixing_date and start_date (default: 2 for T+2).
-    pay_fixed : bool, optional
-        If True (default), the holder pays fixed and receives floating.
-        If False, the holder receives fixed and pays floating.
+        Parameters
+        ----------
+        instrument_id : str
+            Unique identifier for the FRA (e.g., "FRA-3M6M").
+        notional : Money
+            Notional principal amount. The currency determines curve currency
+            requirements.
+        fixed_rate : float
+            Fixed rate agreed at trade date, as a decimal (e.g., 0.035 for 3.5%).
+            This rate is compared to the floating rate on fixing_date.
+        fixing_date : date
+            Date when the floating rate is observed and the FRA is settled.
+            Typically 2 business days before start_date (reset_lag).
+        start_date : date
+            Start date of the interest rate period. The floating rate applies
+            from this date.
+        end_date : date
+            End date of the interest rate period. Must be after start_date.
+            The period length determines the interest calculation.
+        discount_curve : str
+            Discount curve identifier in MarketContext for present value calculations.
+        forward_curve : str
+            Forward curve identifier for projecting the floating rate on fixing_date.
+        day_count : DayCount, optional
+            Day-count convention for the interest period (default: ACT/360 for
+            most money-market conventions).
+        reset_lag : int, optional
+            Number of days between fixing_date and start_date (default: 2 for T+2).
+        pay_fixed : bool, optional
+            If True (default), the holder pays fixed and receives floating.
+            If False, the holder receives fixed and pays floating.
 
-    Returns
-    -------
-    ForwardRateAgreement
-        Configured FRA ready for pricing.
+        Returns
+        -------
+        ForwardRateAgreement
+            Configured FRA ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If dates are invalid (end_date <= start_date, fixing_date > start_date),
-        if fixed_rate is negative, or if notional is invalid.
+        Raises
+        ------
+        ValueError
+            If dates are invalid (end_date <= start_date, fixing_date > start_date),
+            if fixed_rate is negative, or if notional is invalid.
 
-    Examples
-    --------
-        >>> from finstack import Money, Currency
-        >>> from datetime import date
-        >>> 
-        >>> fra = ForwardRateAgreement.create(
-        ...     "FRA-3M6M",
-        ...     Money(10_000_000, Currency("USD")),
-        ...     0.035,  # 3.5% fixed
-        ...     date(2024, 6, 1),   # Fixing in 3 months
-        ...     date(2024, 9, 1),   # Period starts in 6 months
-        ...     date(2024, 12, 1),  # Period ends in 9 months (3M period)
-        ...     discount_curve="USD",
-        ...     forward_curve="USD-LIBOR-3M"
-        ... )
-        >>> fra.fixed_rate
-        0.035
-    """
+        Examples
+        --------
+            >>> from finstack import Money, Currency
+            >>> from datetime import date
+            >>> fra = ForwardRateAgreement.create(
+            ...     "FRA-3M6M",
+            ...     Money(10_000_000, Currency("USD")),
+            ...     0.035,  # 3.5% fixed
+            ...     date(2024, 6, 1),  # Fixing in 3 months
+            ...     date(2024, 9, 1),  # Period starts in 6 months
+            ...     date(2024, 12, 1),  # Period ends in 9 months (3M period)
+            ...     discount_curve="USD",
+            ...     forward_curve="USD-LIBOR-3M",
+            ... )
+            >>> fra.fixed_rate
+            0.035
+        """
+        ...
 
     @property
     def instrument_id(self) -> str: ...

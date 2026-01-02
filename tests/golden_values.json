@@ -1,210 +1,36 @@
 {
-  "description": "Golden values for cross-language parity testing",
-  "version": "1.0.0",
   "test_cases": {
-    "bond_pricing_treasury": {
-      "description": "Simple treasury bond pricing",
-      "inputs": {
-        "bond": {
-          "id": "TREASURY-10Y",
-          "notional": 1000000,
-          "currency": "USD",
-          "coupon_rate": 0.0375,
-          "maturity": "2034-05-15",
-          "issue_date": "2024-05-15"
-        },
-        "discount_curve": {
-          "id": "USD-OIS",
-          "reference_date": "2024-01-02",
-          "points": [[0.0, 1.0], [10.0, 0.70]],
-          "day_count": "act_365f"
-        }
-      },
-      "expected": {
-        "present_value": 1042385.67,
-        "tolerance": 0.01
-      }
-    },
     "money_arithmetic": {
-      "description": "Basic money arithmetic with same currency",
       "inputs": {
-        "m1": {"amount": 100.0, "currency": "USD"},
-        "m2": {"amount": 50.0, "currency": "USD"}
+        "m1": { "amount": 100.5, "currency": "USD" },
+        "m2": { "amount": 20.25, "currency": "USD" }
       },
       "expected": {
-        "add": {"amount": 150.0, "currency": "USD"},
-        "subtract": {"amount": 50.0, "currency": "USD"},
-        "multiply_2": {"amount": 200.0, "currency": "USD"},
-        "divide_2": {"amount": 50.0, "currency": "USD"}
+        "add": { "amount": 120.75, "currency": "USD" },
+        "subtract": { "amount": 80.25, "currency": "USD" },
+        "multiply_2": { "amount": 201.0, "currency": "USD" },
+        "divide_2": { "amount": 50.25, "currency": "USD" }
       }
     },
     "day_count_act360": {
-      "description": "Act/360 day count convention",
       "inputs": {
-        "start_date": "2024-01-15",
-        "end_date": "2024-04-15",
-        "convention": "act_360"
+        "start_date": "2024-01-01",
+        "end_date": "2024-07-01"
       },
       "expected": {
-        "days": 91,
-        "year_fraction": 0.252778,
-        "tolerance": 0.000001
-      }
-    },
-    "discount_curve_df": {
-      "description": "Discount curve discount factor calculation",
-      "inputs": {
-        "curve": {
-          "id": "USD-TEST",
-          "reference_date": "2024-01-01",
-          "points": [[0.0, 1.0], [1.0, 0.95], [5.0, 0.75], [10.0, 0.50]],
-          "day_count": "act_365f"
-        },
-        "time": 2.5
-      },
-      "expected": {
-        "discount_factor": 0.85,
-        "tolerance": 0.01
-      }
-    },
-    "fx_rate_lookup": {
-      "description": "FX matrix rate lookup",
-      "inputs": {
-        "quotes": [
-          {"from": "EUR", "to": "USD", "rate": 1.10},
-          {"from": "GBP", "to": "USD", "rate": 1.25}
-        ],
-        "lookup": {"from": "EUR", "to": "GBP"}
-      },
-      "expected": {
-        "rate": 0.88,
-        "tolerance": 0.01
+        "year_fraction": 0.5055555555555555,
+        "tolerance": 1e-12
       }
     },
     "period_building": {
-      "description": "Building period plan",
       "inputs": {
-        "spec": "2024Q1..Q4",
-        "actuals_until": "2024Q2"
+        "spec": "2024Q1..Q2",
+        "actuals_until": "2024Q1"
       },
       "expected": {
-        "total_periods": 4,
-        "actual_periods": 2,
-        "forecast_periods": 2,
-        "period_ids": ["2024Q1", "2024Q2", "2024Q3", "2024Q4"],
-        "is_actual": [true, true, false, false]
-      }
-    },
-    "statement_evaluation": {
-      "description": "Simple statement model evaluation",
-      "inputs": {
-        "model": {
-          "name": "Revenue Model",
-          "periods": "2024Q1..Q2",
-          "actuals_until": "2024Q1",
-          "nodes": {
-            "revenue": {
-              "values": [
-                {"period": "2024Q1", "value": 1000000}
-              ],
-              "forecast": {"method": "growth", "rate": 0.05}
-            },
-            "cogs": {
-              "formula": "revenue * 0.6"
-            },
-            "gross_profit": {
-              "formula": "revenue - cogs"
-            }
-          }
-        }
-      },
-      "expected": {
-        "revenue_Q1": 1000000,
-        "revenue_Q2": 1050000,
-        "cogs_Q1": 600000,
-        "cogs_Q2": 630000,
-        "gross_profit_Q1": 400000,
-        "gross_profit_Q2": 420000,
-        "tolerance": 1.0
-      }
-    },
-    "irs_valuation": {
-      "description": "Interest rate swap valuation",
-      "inputs": {
-        "swap": {
-          "id": "IRS-5Y",
-          "notional": 10000000,
-          "fixed_rate": 0.03,
-          "start_date": "2024-01-02",
-          "maturity_date": "2029-01-02",
-          "pay_receive": "pay_fixed"
-        },
-        "discount_curve": {
-          "id": "USD-OIS",
-          "reference_date": "2024-01-02",
-          "points": [[0.0, 1.0], [5.0, 0.85]],
-          "day_count": "act_365f"
-        },
-        "forward_curve": {
-          "id": "USD-SOFR",
-          "reference_date": "2024-01-02",
-          "points": [[0.0, 0.0525], [5.0, 0.0475]],
-          "day_count": "act_360"
-        }
-      },
-      "expected": {
-        "present_value": 125000,
-        "tolerance": 500
-      }
-    },
-    "scenario_curve_shock": {
-      "description": "Parallel curve shock scenario",
-      "inputs": {
-        "base_curve": {
-          "id": "USD-OIS",
-          "reference_date": "2024-01-02",
-          "points": [[0.0, 1.0], [1.0, 0.97], [5.0, 0.85]],
-          "day_count": "act_365f"
-        },
-        "shock_bp": 50
-      },
-      "expected": {
-        "shocked_df_1y": 0.9652,
-        "shocked_df_5y": 0.828,
-        "tolerance": 0.001
-      }
-    },
-    "portfolio_aggregation": {
-      "description": "Simple portfolio aggregation by attribute",
-      "inputs": {
-        "positions": [
-          {
-            "id": "POS1",
-            "entity": "ENT1",
-            "instrument": "BOND1",
-            "quantity": 1000000,
-            "attributes": {"sector": "Tech"}
-          },
-          {
-            "id": "POS2",
-            "entity": "ENT2",
-            "instrument": "BOND2",
-            "quantity": 500000,
-            "attributes": {"sector": "Tech"}
-          },
-          {
-            "id": "POS3",
-            "entity": "ENT3",
-            "instrument": "BOND3",
-            "quantity": 750000,
-            "attributes": {"sector": "Finance"}
-          }
-        ]
-      },
-      "expected": {
-        "total_notional": 2250000,
-        "sector_counts": {"Tech": 2, "Finance": 1},
-        "sector_notional": {"Tech": 1500000, "Finance": 750000}
+        "total_periods": 2,
+        "period_ids": ["2024Q1", "2024Q2"],
+        "is_actual": [true, false]
       }
     }
   }

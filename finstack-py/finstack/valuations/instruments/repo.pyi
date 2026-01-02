@@ -91,61 +91,62 @@ class Repo:
         business_day_convention: Optional[BusinessDayConvention] = None,
         calendar: Optional[str] = None,
         triparty: bool = False,
-    ) -> "Repo": ...
-    """Create a repo.
+    ) -> "Repo":
+        """Create a repo.
 
-    Parameters
-    ----------
-    instrument_id : str
-        Unique identifier for the repo (e.g., "REPO-UST-5Y").
-    cash_amount : Money
-        Cash lent (repo proceeds). Currency determines curve currency.
-    collateral : RepoCollateral
-        Collateral specification (instrument, quantity, market value).
-    repo_rate : float
-        Repo rate as a decimal (e.g., 0.03 for 3%). This is the funding cost.
-    start_date : date
-        Repo start date (cash lent, collateral delivered).
-    maturity : date
-        Repo maturity date (cash repaid, collateral returned). Must be after start_date.
-    discount_curve : str
-        Discount curve identifier in MarketContext.
-    repo_type : str, optional
-        Repo type: "term" (default, fixed maturity) or "open" (overnight, rolling).
-    haircut : float, optional
-        Haircut percentage (default: 0.0). Provides margin protection (e.g., 0.02 = 2%).
-    day_count : DayCount, optional
-        Day-count convention (default: ACT/360 for money market).
-    business_day_convention : BusinessDayConvention, optional
-        Business day convention for maturity date adjustment.
-    calendar : str, optional
-        Holiday calendar identifier.
-    triparty : bool, optional
-        If True, uses triparty repo structure (default: False).
+        Parameters
+        ----------
+        instrument_id : str
+            Unique identifier for the repo (e.g., "REPO-UST-5Y").
+        cash_amount : Money
+            Cash lent (repo proceeds). Currency determines curve currency.
+        collateral : RepoCollateral
+            Collateral specification (instrument, quantity, market value).
+        repo_rate : float
+            Repo rate as a decimal (e.g., 0.03 for 3%). This is the funding cost.
+        start_date : date
+            Repo start date (cash lent, collateral delivered).
+        maturity : date
+            Repo maturity date (cash repaid, collateral returned). Must be after start_date.
+        discount_curve : str
+            Discount curve identifier in MarketContext.
+        repo_type : str, optional
+            Repo type: "term" (default, fixed maturity) or "open" (overnight, rolling).
+        haircut : float, optional
+            Haircut percentage (default: 0.0). Provides margin protection (e.g., 0.02 = 2%).
+        day_count : DayCount, optional
+            Day-count convention (default: ACT/360 for money market).
+        business_day_convention : BusinessDayConvention, optional
+            Business day convention for maturity date adjustment.
+        calendar : str, optional
+            Holiday calendar identifier.
+        triparty : bool, optional
+            If True, uses triparty repo structure (default: False).
 
-    Returns
-    -------
-    Repo
-        Configured repo ready for pricing.
+        Returns
+        -------
+        Repo
+            Configured repo ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If parameters are invalid (maturity <= start_date, repo_rate < 0,
-        etc.) or if required market data is missing.
+        Raises
+        ------
+        ValueError
+            If parameters are invalid (maturity <= start_date, repo_rate < 0,
+            etc.) or if required market data is missing.
 
-    Examples
-    --------
-        >>> repo = Repo.create(
-        ...     "REPO-UST-5Y",
-        ...     Money(1_000_000, Currency("USD")),
-        ...     collateral,
-        ...     0.03,  # 3% repo rate
-        ...     date(2024, 1, 1),
-        ...     date(2024, 1, 8),
-        ...     discount_curve="USD"
-        ... )
-    """
+        Examples
+        --------
+            >>> repo = Repo.create(
+            ...     "REPO-UST-5Y",
+            ...     Money(1_000_000, Currency("USD")),
+            ...     collateral,
+            ...     0.03,  # 3% repo rate
+            ...     date(2024, 1, 1),
+            ...     date(2024, 1, 8),
+            ...     discount_curve="USD",
+            ... )
+        """
+        ...
 
     @property
     def instrument_id(self) -> str: ...

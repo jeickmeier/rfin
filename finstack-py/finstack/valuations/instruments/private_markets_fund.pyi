@@ -69,33 +69,34 @@ class PrivateMarketsFund:
     """
 
     @classmethod
-    def from_json(cls, data: Union[str, Dict[str, Any]]) -> "PrivateMarketsFund": ...
-    """Create a private markets fund from JSON string or dictionary.
+    def from_json(cls, data: Union[str, Dict[str, Any]]) -> "PrivateMarketsFund":
+        """Create a private markets fund from JSON string or dictionary.
 
-    Parameters
-    ----------
-    data : str or Dict[str, Any]
-        JSON string or dictionary containing fund specification. Must include
-        instrument_id, currency, and cashflow schedules (commitments, calls,
-        distributions).
+        Parameters
+        ----------
+        data : str or Dict[str, Any]
+            JSON string or dictionary containing fund specification. Must include
+            instrument_id, currency, and cashflow schedules (commitments, calls,
+            distributions).
 
-    Returns
-    -------
-    PrivateMarketsFund
-        Configured private markets fund ready for analysis.
+        Returns
+        -------
+        PrivateMarketsFund
+            Configured private markets fund ready for analysis.
 
-    Raises
-    ------
-    ValueError
-        If JSON is invalid or required fields are missing.
+        Raises
+        ------
+        ValueError
+            If JSON is invalid or required fields are missing.
 
-    Examples
-    --------
-        >>> fund = PrivateMarketsFund.from_json(json_data)
-        >>> cashflows = fund.lp_cashflows()
-        >>> for date, amount in cashflows:
-        ...     print(f"{date}: {amount}")
-    """
+        Examples
+        --------
+            >>> fund = PrivateMarketsFund.from_json(json_data)
+            >>> cashflows = fund.lp_cashflows()
+            >>> for date, amount in cashflows:
+            ...     print(f"{date}: {amount}")
+        """
+        ...
 
     def to_json(self) -> str:
         """Serialize the fund to a JSON string."""

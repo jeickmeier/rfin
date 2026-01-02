@@ -59,56 +59,56 @@ class FxSpot:
         notional: Optional[Money] = None,
         bdc: Optional[BusinessDayConvention] = None,
         calendar: Optional[str] = None,
-    ) -> "FxSpot": ...
-    """Create an FX spot position with optional settlement overrides.
+    ) -> "FxSpot":
+        """Create an FX spot position with optional settlement overrides.
 
-    Parameters
-    ----------
-    instrument_id : str
-        Unique identifier for the FX spot (e.g., "FX-EURUSD-SPOT").
-    base_currency : Currency
-        Base currency of the FX pair (currency being sold).
-    quote_currency : Currency
-        Quote currency of the FX pair (currency being bought).
-    settlement : date, optional
-        Settlement date. If None, calculated from trade date + settlement_lag.
-    settlement_lag_days : int, optional
-        Number of business days between trade and settlement (default: 2 for T+2).
-    spot_rate : float, optional
-        Spot exchange rate (how many quote_currency per base_currency).
-        If None, rate is retrieved from MarketContext.
-    notional : Money, optional
-        Notional amount in base currency. If None, uses a unit notional.
-    bdc : BusinessDayConvention, optional
-        Business day convention for settlement date adjustment.
-    calendar : str, optional
-        Holiday calendar identifier for business day calculations.
+        Parameters
+        ----------
+        instrument_id : str
+            Unique identifier for the FX spot (e.g., "FX-EURUSD-SPOT").
+        base_currency : Currency
+            Base currency of the FX pair (currency being sold).
+        quote_currency : Currency
+            Quote currency of the FX pair (currency being bought).
+        settlement : date, optional
+            Settlement date. If None, calculated from trade date + settlement_lag.
+        settlement_lag_days : int, optional
+            Number of business days between trade and settlement (default: 2 for T+2).
+        spot_rate : float, optional
+            Spot exchange rate (how many quote_currency per base_currency).
+            If None, rate is retrieved from MarketContext.
+        notional : Money, optional
+            Notional amount in base currency. If None, uses a unit notional.
+        bdc : BusinessDayConvention, optional
+            Business day convention for settlement date adjustment.
+        calendar : str, optional
+            Holiday calendar identifier for business day calculations.
 
-    Returns
-    -------
-    FxSpot
-        Configured FX spot transaction ready for pricing.
+        Returns
+        -------
+        FxSpot
+            Configured FX spot transaction ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If currencies are the same, if spot_rate is <= 0, or if dates
-        are invalid.
+        Raises
+        ------
+        ValueError
+            If currencies are the same, if spot_rate is <= 0, or if dates
+            are invalid.
 
-    Examples
-    --------
-        >>> from finstack import Currency, Money
-        >>> 
-        >>> fx_spot = FxSpot.create(
-        ...     "FX-EURUSD",
-        ...     Currency("EUR"),
-        ...     Currency("USD"),
-        ...     notional=Money(1_000_000, Currency("EUR")),
-        ...     spot_rate=1.10
-        ... )
-        >>> fx_spot.pair_name
-        'EURUSD'
-    """
+        Examples
+        --------
+            >>> from finstack import Currency, Money
+            >>> fx_spot = FxSpot.create(
+            ...     "FX-EURUSD",
+            ...     Currency("EUR"),
+            ...     Currency("USD"),
+            ...     notional=Money(1_000_000, Currency("EUR")),
+            ...     spot_rate=1.10,
+            ... )
+            >>> fx_spot.pair_name
+            'EURUSD'
+        """
+        ...
 
     @property
     def instrument_id(self) -> str: ...
@@ -226,55 +226,55 @@ class FxOption:
         expiry: date,
         notional: Money,
         vol_surface: str,
-    ) -> "FxOption": ...
-    """Create a European call option with explicit volatility surface.
+    ) -> "FxOption":
+        """Create a European call option with explicit volatility surface.
 
-    A call option gives the holder the right to buy base_currency (sell
-    quote_currency) at the strike rate. The option can only be exercised
-    at expiry (European style).
+        A call option gives the holder the right to buy base_currency (sell
+        quote_currency) at the strike rate. The option can only be exercised
+        at expiry (European style).
 
-    Parameters
-    ----------
-    instrument_id : str
-        Unique identifier for the option (e.g., "FX-OPT-EURUSD-CALL").
-    base_currency : Currency
-        Base currency of the FX pair (currency being bought if exercised).
-    quote_currency : Currency
-        Quote currency of the FX pair (currency being sold if exercised).
-    strike : float
-        Strike exchange rate (quote_currency per base_currency). Must be > 0.
-    expiry : date
-        Option expiration date (European exercise only).
-    notional : Money
-        Notional amount in base currency.
-    vol_surface : str
-        Volatility surface identifier in MarketContext for FX option pricing.
+        Parameters
+        ----------
+        instrument_id : str
+            Unique identifier for the option (e.g., "FX-OPT-EURUSD-CALL").
+        base_currency : Currency
+            Base currency of the FX pair (currency being bought if exercised).
+        quote_currency : Currency
+            Quote currency of the FX pair (currency being sold if exercised).
+        strike : float
+            Strike exchange rate (quote_currency per base_currency). Must be > 0.
+        expiry : date
+            Option expiration date (European exercise only).
+        notional : Money
+            Notional amount in base currency.
+        vol_surface : str
+            Volatility surface identifier in MarketContext for FX option pricing.
 
-    Returns
-    -------
-    FxOption
-        Configured European FX call option ready for pricing.
+        Returns
+        -------
+        FxOption
+            Configured European FX call option ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If strike <= 0, if expiry is invalid, or if currencies are the same.
+        Raises
+        ------
+        ValueError
+            If strike <= 0, if expiry is invalid, or if currencies are the same.
 
-    Examples
-    --------
-        >>> from finstack import Currency, Money
-        >>> from datetime import date
-        >>> 
-        >>> option = FxOption.european_call(
-        ...     "FX-OPT-EURUSD",
-        ...     Currency("EUR"),
-        ...     Currency("USD"),
-        ...     strike=1.10,
-        ...     expiry=date(2024, 12, 20),
-        ...     notional=Money(1_000_000, Currency("EUR")),
-        ...     vol_surface="EURUSD-VOL"
-        ... )
-    """
+        Examples
+        --------
+            >>> from finstack import Currency, Money
+            >>> from datetime import date
+            >>> option = FxOption.european_call(
+            ...     "FX-OPT-EURUSD",
+            ...     Currency("EUR"),
+            ...     Currency("USD"),
+            ...     strike=1.10,
+            ...     expiry=date(2024, 12, 20),
+            ...     notional=Money(1_000_000, Currency("EUR")),
+            ...     vol_surface="EURUSD-VOL",
+            ... )
+        """
+        ...
 
     @classmethod
     def european_put(
@@ -286,52 +286,53 @@ class FxOption:
         expiry: date,
         notional: Money,
         vol_surface: str,
-    ) -> "FxOption": ...
-    """Create a European put option with explicit volatility surface.
+    ) -> "FxOption":
+        """Create a European put option with explicit volatility surface.
 
-    A put option gives the holder the right to sell base_currency (buy
-    quote_currency) at the strike rate. The option can only be exercised
-    at expiry (European style).
+        A put option gives the holder the right to sell base_currency (buy
+        quote_currency) at the strike rate. The option can only be exercised
+        at expiry (European style).
 
-    Parameters
-    ----------
-    instrument_id : str
-        Unique identifier for the option.
-    base_currency : Currency
-        Base currency of the FX pair (currency being sold if exercised).
-    quote_currency : Currency
-        Quote currency of the FX pair (currency being bought if exercised).
-    strike : float
-        Strike exchange rate (quote_currency per base_currency). Must be > 0.
-    expiry : date
-        Option expiration date (European exercise only).
-    notional : Money
-        Notional amount in base currency.
-    vol_surface : str
-        Volatility surface identifier in MarketContext.
+        Parameters
+        ----------
+        instrument_id : str
+            Unique identifier for the option.
+        base_currency : Currency
+            Base currency of the FX pair (currency being sold if exercised).
+        quote_currency : Currency
+            Quote currency of the FX pair (currency being bought if exercised).
+        strike : float
+            Strike exchange rate (quote_currency per base_currency). Must be > 0.
+        expiry : date
+            Option expiration date (European exercise only).
+        notional : Money
+            Notional amount in base currency.
+        vol_surface : str
+            Volatility surface identifier in MarketContext.
 
-    Returns
-    -------
-    FxOption
-        Configured European FX put option ready for pricing.
+        Returns
+        -------
+        FxOption
+            Configured European FX put option ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If parameters are invalid.
+        Raises
+        ------
+        ValueError
+            If parameters are invalid.
 
-    Examples
-    --------
-        >>> option = FxOption.european_put(
-        ...     "FX-OPT-EURUSD-PUT",
-        ...     Currency("EUR"),
-        ...     Currency("USD"),
-        ...     strike=1.10,
-        ...     expiry=date(2024, 12, 20),
-        ...     notional=Money(1_000_000, Currency("EUR")),
-        ...     vol_surface="EURUSD-VOL"
-        ... )
-    """
+        Examples
+        --------
+            >>> option = FxOption.european_put(
+            ...     "FX-OPT-EURUSD-PUT",
+            ...     Currency("EUR"),
+            ...     Currency("USD"),
+            ...     strike=1.10,
+            ...     expiry=date(2024, 12, 20),
+            ...     notional=Money(1_000_000, Currency("EUR")),
+            ...     vol_surface="EURUSD-VOL",
+            ... )
+        """
+        ...
 
     @classmethod
     def builder(
@@ -347,69 +348,70 @@ class FxOption:
         vol_surface: str,
         *,
         settlement: Optional[str] = "cash",
-    ) -> "FxOption": ...
-    """Create an FX option with explicit domestic/foreign curves and vol surface.
+    ) -> "FxOption":
+        """Create an FX option with explicit domestic/foreign curves and vol surface.
 
-    Builder method for creating FX options with full control over market data
-    dependencies. Use this when you need to specify exact curve identifiers
-    or customize settlement.
+        Builder method for creating FX options with full control over market data
+        dependencies. Use this when you need to specify exact curve identifiers
+        or customize settlement.
 
-    Parameters
-    ----------
-    instrument_id : str
-        Unique identifier for the option.
-    base_currency : Currency
-        Base currency of the FX pair.
-    quote_currency : Currency
-        Quote currency of the FX pair.
-    strike : float
-        Strike exchange rate (quote_currency per base_currency). Must be > 0.
-    expiry : date
-        Option expiration date.
-    notional : Money
-        Notional amount in base currency.
-    domestic_curve : str
-        Domestic (quote currency) discount curve identifier in MarketContext.
-    foreign_curve : str
-        Foreign (base currency) discount curve identifier in MarketContext.
-    vol_surface : str
-        Volatility surface identifier in MarketContext.
-    settlement : str, optional
-        Settlement type: "cash" (default, cash settlement) or "physical"
-        (physical currency exchange).
+        Parameters
+        ----------
+        instrument_id : str
+            Unique identifier for the option.
+        base_currency : Currency
+            Base currency of the FX pair.
+        quote_currency : Currency
+            Quote currency of the FX pair.
+        strike : float
+            Strike exchange rate (quote_currency per base_currency). Must be > 0.
+        expiry : date
+            Option expiration date.
+        notional : Money
+            Notional amount in base currency.
+        domestic_curve : str
+            Domestic (quote currency) discount curve identifier in MarketContext.
+        foreign_curve : str
+            Foreign (base currency) discount curve identifier in MarketContext.
+        vol_surface : str
+            Volatility surface identifier in MarketContext.
+        settlement : str, optional
+            Settlement type: "cash" (default, cash settlement) or "physical"
+            (physical currency exchange).
 
-    Returns
-    -------
-    FxOption
-        Configured FX option with explicit market data dependencies.
+        Returns
+        -------
+        FxOption
+            Configured FX option with explicit market data dependencies.
 
-    Raises
-    ------
-    ValueError
-        If parameters are invalid.
+        Raises
+        ------
+        ValueError
+            If parameters are invalid.
 
-    Examples
-    --------
-        >>> option = FxOption.builder(
-        ...     "FX-OPT-EURUSD",
-        ...     Currency("EUR"),
-        ...     Currency("USD"),
-        ...     strike=1.10,
-        ...     expiry=date(2024, 12, 20),
-        ...     notional=Money(1_000_000, Currency("EUR")),
-        ...     domestic_curve="USD",  # USD is domestic
-        ...     foreign_curve="EUR",   # EUR is foreign
-        ...     vol_surface="EURUSD-VOL"
-        ... )
+        Examples
+        --------
+            >>> option = FxOption.builder(
+            ...     "FX-OPT-EURUSD",
+            ...     Currency("EUR"),
+            ...     Currency("USD"),
+            ...     strike=1.10,
+            ...     expiry=date(2024, 12, 20),
+            ...     notional=Money(1_000_000, Currency("EUR")),
+            ...     domestic_curve="USD",  # USD is domestic
+            ...     foreign_curve="EUR",  # EUR is foreign
+            ...     vol_surface="EURUSD-VOL",
+            ... )
 
-    Notes
-    -----
-    - Domestic curve is for the quote currency (USD in EUR/USD)
-    - Foreign curve is for the base currency (EUR in EUR/USD)
-    - Garman-Kohlhagen model uses both curves for pricing
-    - Cash settlement pays the option's intrinsic value
-    - Physical settlement exchanges currencies at strike rate
-    """
+        Notes
+        -----
+        - Domestic curve is for the quote currency (USD in EUR/USD)
+        - Foreign curve is for the base currency (EUR in EUR/USD)
+        - Garman-Kohlhagen model uses both curves for pricing
+        - Cash settlement pays the option's intrinsic value
+        - Physical settlement exchanges currencies at strike rate
+        """
+        ...
 
     @property
     def instrument_id(self) -> str: ...
@@ -533,63 +535,63 @@ class FxSwap:
         *,
         near_rate: Optional[float] = None,
         far_rate: Optional[float] = None,
-    ) -> "FxSwap": ...
-    """Create an FX swap specifying near/far legs and associated curves.
+    ) -> "FxSwap":
+        """Create an FX swap specifying near/far legs and associated curves.
 
-    Parameters
-    ----------
-    instrument_id : str
-        Unique identifier for the FX swap (e.g., "FX-SWAP-EURUSD-6M").
-    base_currency : Currency
-        Base currency of the FX pair (currency exchanged on near_date).
-    quote_currency : Currency
-        Quote currency of the FX pair (currency received on near_date).
-    notional : Money
-        Notional amount in base currency.
-    near_date : date
-        Near leg settlement date (spot date, typically T+2).
-    far_date : date
-        Far leg settlement date (forward date, reverses the near leg).
-        Must be after near_date.
-    domestic_curve : str
-        Domestic (quote currency) discount curve identifier in MarketContext.
-    foreign_curve : str
-        Foreign (base currency) discount curve identifier in MarketContext.
-    near_rate : float, optional
-        Near leg (spot) exchange rate. If None, retrieved from MarketContext.
-    far_rate : float, optional
-        Far leg (forward) exchange rate. If None, calculated from curves
-        and spot rate using interest rate parity.
+        Parameters
+        ----------
+        instrument_id : str
+            Unique identifier for the FX swap (e.g., "FX-SWAP-EURUSD-6M").
+        base_currency : Currency
+            Base currency of the FX pair (currency exchanged on near_date).
+        quote_currency : Currency
+            Quote currency of the FX pair (currency received on near_date).
+        notional : Money
+            Notional amount in base currency.
+        near_date : date
+            Near leg settlement date (spot date, typically T+2).
+        far_date : date
+            Far leg settlement date (forward date, reverses the near leg).
+            Must be after near_date.
+        domestic_curve : str
+            Domestic (quote currency) discount curve identifier in MarketContext.
+        foreign_curve : str
+            Foreign (base currency) discount curve identifier in MarketContext.
+        near_rate : float, optional
+            Near leg (spot) exchange rate. If None, retrieved from MarketContext.
+        far_rate : float, optional
+            Far leg (forward) exchange rate. If None, calculated from curves
+            and spot rate using interest rate parity.
 
-    Returns
-    -------
-    FxSwap
-        Configured FX swap ready for pricing.
+        Returns
+        -------
+        FxSwap
+            Configured FX swap ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If dates are invalid (far_date <= near_date), if rates are <= 0,
-        or if currencies are the same.
+        Raises
+        ------
+        ValueError
+            If dates are invalid (far_date <= near_date), if rates are <= 0,
+            or if currencies are the same.
 
-    Examples
-    --------
-        >>> from finstack import Currency, Money
-        >>> from datetime import date
-        >>> 
-        >>> fx_swap = FxSwap.create(
-        ...     "FX-SWAP-EURUSD-6M",
-        ...     Currency("EUR"),
-        ...     Currency("USD"),
-        ...     Money(1_000_000, Currency("EUR")),
-        ...     near_date=date(2024, 1, 3),
-        ...     far_date=date(2024, 7, 3),
-        ...     domestic_curve="USD",
-        ...     foreign_curve="EUR",
-        ...     near_rate=1.10,
-        ...     far_rate=1.12,
-        ... )
-    """
+        Examples
+        --------
+            >>> from finstack import Currency, Money
+            >>> from datetime import date
+            >>> fx_swap = FxSwap.create(
+            ...     "FX-SWAP-EURUSD-6M",
+            ...     Currency("EUR"),
+            ...     Currency("USD"),
+            ...     Money(1_000_000, Currency("EUR")),
+            ...     near_date=date(2024, 1, 3),
+            ...     far_date=date(2024, 7, 3),
+            ...     domestic_curve="USD",
+            ...     foreign_curve="EUR",
+            ...     near_rate=1.10,
+            ...     far_rate=1.12,
+            ... )
+        """
+        ...
 
     @property
     def instrument_id(self) -> str: ...

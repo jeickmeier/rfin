@@ -105,72 +105,72 @@ class InterestRateOption:
         *,
         payments_per_year: int = 4,
         day_count: Optional[DayCount] = None,
-    ) -> "InterestRateOption": ...
-    """Create a standard interest-rate cap.
+    ) -> "InterestRateOption":
+        """Create a standard interest-rate cap.
 
-    A cap provides protection against rising interest rates. It pays the
-    holder when the floating rate exceeds the strike rate. The cap consists
-    of multiple caplets, one for each reset period between start_date and
-    end_date.
+        A cap provides protection against rising interest rates. It pays the
+        holder when the floating rate exceeds the strike rate. The cap consists
+        of multiple caplets, one for each reset period between start_date and
+        end_date.
 
-    Parameters
-    ----------
-    instrument_id : str
-        Unique identifier for the cap (e.g., "CAP-5Y-3PCT").
-    notional : Money
-        Notional principal amount. The currency determines curve currency
-        requirements.
-    strike : float
-        Cap rate (strike) as a decimal (e.g., 0.03 for 3%). The cap pays
-        when the floating rate exceeds this level.
-    start_date : date
-        First reset date of the cap (first caplet start).
-    end_date : date
-        Last reset date of the cap (last caplet end). Must be after start_date.
-    discount_curve : str
-        Discount curve identifier in MarketContext for present value calculations.
-    forward_curve : str
-        Forward curve identifier for projecting floating rates.
-    vol_surface : str
-        Volatility surface identifier for caplet pricing. The surface must
-        cover the cap's reset periods.
-    payments_per_year : int, optional
-        Number of reset periods per year (default: 4 for quarterly). Common
-        values: 2 (semi-annual), 4 (quarterly), 12 (monthly).
-    day_count : DayCount, optional
-        Day-count convention for reset periods. Defaults to ACT/360 for
-        most floating-rate conventions.
+        Parameters
+        ----------
+        instrument_id : str
+            Unique identifier for the cap (e.g., "CAP-5Y-3PCT").
+        notional : Money
+            Notional principal amount. The currency determines curve currency
+            requirements.
+        strike : float
+            Cap rate (strike) as a decimal (e.g., 0.03 for 3%). The cap pays
+            when the floating rate exceeds this level.
+        start_date : date
+            First reset date of the cap (first caplet start).
+        end_date : date
+            Last reset date of the cap (last caplet end). Must be after start_date.
+        discount_curve : str
+            Discount curve identifier in MarketContext for present value calculations.
+        forward_curve : str
+            Forward curve identifier for projecting floating rates.
+        vol_surface : str
+            Volatility surface identifier for caplet pricing. The surface must
+            cover the cap's reset periods.
+        payments_per_year : int, optional
+            Number of reset periods per year (default: 4 for quarterly). Common
+            values: 2 (semi-annual), 4 (quarterly), 12 (monthly).
+        day_count : DayCount, optional
+            Day-count convention for reset periods. Defaults to ACT/360 for
+            most floating-rate conventions.
 
-    Returns
-    -------
-    InterestRateOption
-        Configured interest rate cap ready for pricing.
+        Returns
+        -------
+        InterestRateOption
+            Configured interest rate cap ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If dates are invalid (end_date <= start_date), if strike is negative,
-        if payments_per_year is <= 0, or if notional is invalid.
+        Raises
+        ------
+        ValueError
+            If dates are invalid (end_date <= start_date), if strike is negative,
+            if payments_per_year is <= 0, or if notional is invalid.
 
-    Examples
-    --------
-        >>> from finstack import Money, Currency
-        >>> from datetime import date
-        >>> 
-        >>> cap = InterestRateOption.cap(
-        ...     "CAP-5Y",
-        ...     Money(10_000_000, Currency("USD")),
-        ...     0.03,  # 3% cap
-        ...     date(2024, 1, 1),
-        ...     date(2029, 1, 1),  # 5-year cap
-        ...     discount_curve="USD",
-        ...     forward_curve="USD-LIBOR-3M",
-        ...     vol_surface="USD-CAP-VOL",
-        ...     payments_per_year=4  # Quarterly resets
-        ... )
-        >>> cap.strike
-        0.03
-    """
+        Examples
+        --------
+            >>> from finstack import Money, Currency
+            >>> from datetime import date
+            >>> cap = InterestRateOption.cap(
+            ...     "CAP-5Y",
+            ...     Money(10_000_000, Currency("USD")),
+            ...     0.03,  # 3% cap
+            ...     date(2024, 1, 1),
+            ...     date(2029, 1, 1),  # 5-year cap
+            ...     discount_curve="USD",
+            ...     forward_curve="USD-LIBOR-3M",
+            ...     vol_surface="USD-CAP-VOL",
+            ...     payments_per_year=4,  # Quarterly resets
+            ... )
+            >>> cap.strike
+            0.03
+        """
+        ...
 
     @classmethod
     def floor(
@@ -186,60 +186,61 @@ class InterestRateOption:
         *,
         payments_per_year: int = 4,
         day_count: Optional[DayCount] = None,
-    ) -> "InterestRateOption": ...
-    """Create a standard interest-rate floor.
+    ) -> "InterestRateOption":
+        """Create a standard interest-rate floor.
 
-    A floor provides protection against falling interest rates. It pays the
-    holder when the floating rate falls below the strike rate. The floor
-    consists of multiple floorlets, one for each reset period.
+        A floor provides protection against falling interest rates. It pays the
+        holder when the floating rate falls below the strike rate. The floor
+        consists of multiple floorlets, one for each reset period.
 
-    Parameters
-    ----------
-    instrument_id : str
-        Unique identifier for the floor (e.g., "FLOOR-5Y-2PCT").
-    notional : Money
-        Notional principal amount.
-    strike : float
-        Floor rate (strike) as a decimal (e.g., 0.02 for 2%). The floor pays
-        when the floating rate falls below this level.
-    start_date : date
-        First reset date of the floor (first floorlet start).
-    end_date : date
-        Last reset date of the floor (last floorlet end). Must be after start_date.
-    discount_curve : str
-        Discount curve identifier in MarketContext.
-    forward_curve : str
-        Forward curve identifier for projecting floating rates.
-    vol_surface : str
-        Volatility surface identifier for floorlet pricing.
-    payments_per_year : int, optional
-        Number of reset periods per year (default: 4 for quarterly).
-    day_count : DayCount, optional
-        Day-count convention for reset periods. Defaults to ACT/360.
+        Parameters
+        ----------
+        instrument_id : str
+            Unique identifier for the floor (e.g., "FLOOR-5Y-2PCT").
+        notional : Money
+            Notional principal amount.
+        strike : float
+            Floor rate (strike) as a decimal (e.g., 0.02 for 2%). The floor pays
+            when the floating rate falls below this level.
+        start_date : date
+            First reset date of the floor (first floorlet start).
+        end_date : date
+            Last reset date of the floor (last floorlet end). Must be after start_date.
+        discount_curve : str
+            Discount curve identifier in MarketContext.
+        forward_curve : str
+            Forward curve identifier for projecting floating rates.
+        vol_surface : str
+            Volatility surface identifier for floorlet pricing.
+        payments_per_year : int, optional
+            Number of reset periods per year (default: 4 for quarterly).
+        day_count : DayCount, optional
+            Day-count convention for reset periods. Defaults to ACT/360.
 
-    Returns
-    -------
-    InterestRateOption
-        Configured interest rate floor ready for pricing.
+        Returns
+        -------
+        InterestRateOption
+            Configured interest rate floor ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If parameters are invalid.
+        Raises
+        ------
+        ValueError
+            If parameters are invalid.
 
-    Examples
-    --------
-        >>> floor = InterestRateOption.floor(
-        ...     "FLOOR-5Y",
-        ...     Money(10_000_000, Currency("USD")),
-        ...     0.02,  # 2% floor
-        ...     date(2024, 1, 1),
-        ...     date(2029, 1, 1),
-        ...     discount_curve="USD",
-        ...     forward_curve="USD-LIBOR-3M",
-        ...     vol_surface="USD-FLOOR-VOL"
-        ... )
-    """
+        Examples
+        --------
+            >>> floor = InterestRateOption.floor(
+            ...     "FLOOR-5Y",
+            ...     Money(10_000_000, Currency("USD")),
+            ...     0.02,  # 2% floor
+            ...     date(2024, 1, 1),
+            ...     date(2029, 1, 1),
+            ...     discount_curve="USD",
+            ...     forward_curve="USD-LIBOR-3M",
+            ...     vol_surface="USD-FLOOR-VOL",
+            ... )
+        """
+        ...
 
     @property
     def instrument_id(self) -> str: ...

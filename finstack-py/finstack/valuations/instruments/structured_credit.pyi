@@ -139,32 +139,33 @@ class StructuredCredit:
     """
 
     @classmethod
-    def from_json(cls, data: Union[str, Dict[str, Any]]) -> "StructuredCredit": ...
-    """Parse a JSON payload into a structured credit instrument.
+    def from_json(cls, data: Union[str, Dict[str, Any]]) -> "StructuredCredit":
+        """Parse a JSON payload into a structured credit instrument.
 
-    Parameters
-    ----------
-    data : str or Dict[str, Any]
-        JSON string or dictionary containing structured credit definition.
-        Must include deal_type, tranches, and collateral pool specifications.
+        Parameters
+        ----------
+        data : str or Dict[str, Any]
+            JSON string or dictionary containing structured credit definition.
+            Must include deal_type, tranches, and collateral pool specifications.
 
-    Returns
-    -------
-    StructuredCredit
-        Configured structured credit instrument ready for pricing.
+        Returns
+        -------
+        StructuredCredit
+            Configured structured credit instrument ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If JSON is invalid or required fields are missing.
+        Raises
+        ------
+        ValueError
+            If JSON is invalid or required fields are missing.
 
-    Examples
-    --------
-        >>> json_str = '{"deal_type": "CLO", "tranches": [...]}'
-        >>> structured_credit = StructuredCredit.from_json(json_str)
-        >>> structured_credit.deal_type
-        'CLO'
-    """
+        Examples
+        --------
+            >>> json_str = '{"deal_type": "CLO", "tranches": [...]}'
+            >>> structured_credit = StructuredCredit.from_json(json_str)
+            >>> structured_credit.deal_type
+            'CLO'
+        """
+        ...
 
     def to_json(self) -> str:
         """Serialize the structured credit definition back to JSON."""

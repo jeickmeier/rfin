@@ -28,7 +28,7 @@ from .quote import (
     RatesQuote,
     VolQuote,
 )
-from finstack.core.market_data import MarketContext
+from finstack.core.market_data.context import MarketContext
 from typing import Any
 
 CALIBRATION_SCHEMA: str

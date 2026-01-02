@@ -22,6 +22,7 @@ __all__ = tuple(
     )
 )
 
+_name: str = ""
 for _name in __all__:
     if hasattr(_finstack, _name):
         globals()[_name] = getattr(_finstack, _name)

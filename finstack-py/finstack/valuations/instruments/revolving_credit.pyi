@@ -59,34 +59,35 @@ class RevolvingCredit:
     """
 
     @classmethod
-    def from_json(cls, json_str: str) -> "RevolvingCredit": ...
-    """Create a revolving credit facility from a JSON string specification.
+    def from_json(cls, json_str: str) -> "RevolvingCredit":
+        """Create a revolving credit facility from a JSON string specification.
 
-    Parameters
-    ----------
-    json_str : str
-        JSON string containing revolving credit specification. Must include
-        instrument_id, commitment_amount, drawn_amount, commitment_date,
-        maturity_date, and discount_curve.
+        Parameters
+        ----------
+        json_str : str
+            JSON string containing revolving credit specification. Must include
+            instrument_id, commitment_amount, drawn_amount, commitment_date,
+            maturity_date, and discount_curve.
 
-    Returns
-    -------
-    RevolvingCredit
-        Configured revolving credit ready for pricing.
+        Returns
+        -------
+        RevolvingCredit
+            Configured revolving credit ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If JSON is invalid or required fields are missing.
+        Raises
+        ------
+        ValueError
+            If JSON is invalid or required fields are missing.
 
-    Examples
-    --------
-        >>> revolver = RevolvingCredit.from_json(json_str)
-        >>> revolver.commitment_amount
-        Money(50000000, Currency("USD"))
-        >>> revolver.utilization_rate()
-        0.4
-    """
+        Examples
+        --------
+            >>> revolver = RevolvingCredit.from_json(json_str)
+            >>> revolver.commitment_amount
+            Money(50000000, Currency("USD"))
+            >>> revolver.utilization_rate()
+            0.4
+        """
+        ...
 
     def to_json(self) -> str:
         """Serialize the revolving credit facility to a JSON string."""

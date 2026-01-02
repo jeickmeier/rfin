@@ -13,21 +13,18 @@ Examples:
 
 from __future__ import annotations
 
-from typing import Union
+from typing import TYPE_CHECKING, Union
 
 # Import the Rust Expr types
-try:
-    from finstack.finstack.core.expr import BinOp, Expr, Function, UnaryOp
-except ImportError:
-    # Fallback imports for different module structures
+if TYPE_CHECKING:
+    # Use the public (stubbed) import paths for best IDE support.
+    from finstack.core.expr import BinOp, Expr, Function, UnaryOp
+else:
+    # Runtime: prefer the compiled extension, fall back to the hybrid module.
     try:
+        from finstack.finstack.core.expr import BinOp, Expr, Function, UnaryOp
+    except ImportError:  # pragma: no cover - fallback for alternate layouts
         from finstack.core.expr import BinOp, Expr, Function, UnaryOp
-    except ImportError:
-        # For type checking
-        BinOp = None
-        Expr = None
-        Function = None
-        UnaryOp = None
 
 # Type alias for values that can be converted to expressions
 ExprLike = Union["ExprWrapper", "Expr", float, int]
@@ -68,7 +65,7 @@ class ExprWrapper:
         """Return the representation of the underlying expression."""
         return repr(self._expr)
 
-    __hash__ = None
+    __hash__ = None  # type: ignore[assignment]
 
     def _ensure_expr(self, other: ExprLike) -> Expr:
         """Convert a value to an Expr if needed."""

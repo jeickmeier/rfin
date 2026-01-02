@@ -53,110 +53,111 @@ class MetricId:
     """
 
     @classmethod
-    def from_name(cls, name: str) -> MetricId: ...
-    """Parse a metric identifier, falling back to a custom metric when unknown.
+    def from_name(cls, name: str) -> MetricId:
+        """Parse a metric identifier, falling back to a custom metric when unknown.
 
-    Creates a MetricId from a string name. If the name matches a standard
-    metric, returns the standard identifier. Otherwise, creates a custom
-    metric identifier.
+        Creates a MetricId from a string name. If the name matches a standard
+        metric, returns the standard identifier. Otherwise, creates a custom
+        metric identifier.
 
-    Parameters
-    ----------
-    name : str
-        Metric label in snake_case (e.g., "pv", "dv01", "ytm", "z_spread").
-        Common metrics:
-        - Risk: "dv01", "cs01", "theta", "bucketed_dv01", "bucketed_cs01"
-        - Yield: "ytm", "ytw", "yield"
-        - Spread: "z_spread", "oas", "i_spread", "discount_margin", "asw_spread"
-        - Pricing: "clean_price", "dirty_price", "accrued_interest"
-        - Duration: "duration_modified", "duration_macaulay", "convexity"
-        - Greeks: "delta", "gamma", "vega", "rho"
+        Parameters
+        ----------
+        name : str
+            Metric label in snake_case (e.g., "pv", "dv01", "ytm", "z_spread").
+            Common metrics:
+            - Risk: "dv01", "cs01", "theta", "bucketed_dv01", "bucketed_cs01"
+            - Yield: "ytm", "ytw", "yield"
+            - Spread: "z_spread", "oas", "i_spread", "discount_margin", "asw_spread"
+            - Pricing: "clean_price", "dirty_price", "accrued_interest"
+            - Duration: "duration_modified", "duration_macaulay", "convexity"
+            - Greeks: "delta", "gamma", "vega", "rho"
 
-    Returns
-    -------
-    MetricId
-        Metric identifier corresponding to the name. If name is not a
-        standard metric, creates a custom metric identifier.
+        Returns
+        -------
+        MetricId
+            Metric identifier corresponding to the name. If name is not a
+            standard metric, creates a custom metric identifier.
 
-    Raises
-    ------
-    ValueError
-        If name is empty or invalid.
+        Raises
+        ------
+        ValueError
+            If name is empty or invalid.
 
-    Examples
-    --------
-        >>> dv01 = MetricId.from_name("dv01")
-        >>> print(dv01.name)
-        'dv01'
-        >>> 
-        >>> ytm = MetricId.from_name("ytm")
-        >>> print(ytm.name)
-        'ytm'
-        >>> 
-        >>> # Custom metric
-        >>> custom = MetricId.from_name("my_custom_metric")
-        >>> print(custom.name)
-        'my_custom_metric'
-    """
+        Examples
+        --------
+            >>> dv01 = MetricId.from_name("dv01")
+            >>> print(dv01.name)
+            'dv01'
+            >>> ytm = MetricId.from_name("ytm")
+            >>> print(ytm.name)
+            'ytm'
+            >>> # Custom metric
+            >>> custom = MetricId.from_name("my_custom_metric")
+            >>> print(custom.name)
+            'my_custom_metric'
+        """
+        ...
 
     @property
-    def name(self) -> str: ...
-    """Snake-case name of the metric.
+    def name(self) -> str:
+        """Snake-case name of the metric.
 
-    Returns
-    -------
-    str
-        Metric label in snake_case format (e.g., "dv01", "z_spread", "ytm").
-        Suitable for use as dictionary keys in ValuationResult.measures.
+        Returns
+        -------
+        str
+            Metric label in snake_case format (e.g., "dv01", "z_spread", "ytm").
+            Suitable for use as dictionary keys in ValuationResult.measures.
 
-    Examples
-    --------
-        >>> from finstack.valuations.metrics import MetricId
-        >>> metric = MetricId.from_name("dv01")
-        >>> metric.name
-        'dv01'
-    """
+        Examples
+        --------
+            >>> from finstack.valuations.metrics import MetricId
+            >>> metric = MetricId.from_name("dv01")
+            >>> metric.name
+            'dv01'
+        """
+        ...
 
     @classmethod
-    def standard_names(cls) -> List[str]: ...
-    """List of all standard metric identifiers bundled with finstack.
+    def standard_names(cls) -> List[str]:
+        """List of all standard metric identifiers bundled with finstack.
 
-    Returns a comprehensive list of all built-in metric identifiers available
-    in finstack. This includes risk metrics, yield metrics, spread metrics,
-    pricing metrics, duration metrics, and options Greeks.
+        Returns a comprehensive list of all built-in metric identifiers available
+        in finstack. This includes risk metrics, yield metrics, spread metrics,
+        pricing metrics, duration metrics, and options Greeks.
 
-    Returns
-    -------
-    List[str]
-        List of all standard metric names in snake_case format. Includes:
-        - Risk: "dv01", "cs01", "theta", "bucketed_dv01", "bucketed_cs01", "pv01"
-        - Yield: "ytm", "ytw"
-        - Spread: "z_spread", "oas", "i_spread", "discount_margin", "asw_spread"
-        - Pricing: "clean_price", "dirty_price", "accrued_interest", "accrued"
-        - Duration: "duration_modified", "duration_macaulay", "convexity"
-        - Greeks: "delta", "gamma", "vega", "rho", "foreign_rho"
-        - Credit: "par_spread", "risky_pv01", "protection_leg_pv", "premium_leg_pv"
-        - Options: "implied_vol", "vanna", "volga", "veta", "charm", "color", "speed"
-        - And many more...
+        Returns
+        -------
+        List[str]
+            List of all standard metric names in snake_case format. Includes:
+            - Risk: "dv01", "cs01", "theta", "bucketed_dv01", "bucketed_cs01", "pv01"
+            - Yield: "ytm", "ytw"
+            - Spread: "z_spread", "oas", "i_spread", "discount_margin", "asw_spread"
+            - Pricing: "clean_price", "dirty_price", "accrued_interest", "accrued"
+            - Duration: "duration_modified", "duration_macaulay", "convexity"
+            - Greeks: "delta", "gamma", "vega", "rho", "foreign_rho"
+            - Credit: "par_spread", "risky_pv01", "protection_leg_pv", "premium_leg_pv"
+            - Options: "implied_vol", "vanna", "volga", "veta", "charm", "color", "speed"
+            - And many more...
 
-    Examples
-    --------
-        >>> from finstack.valuations.metrics import MetricId
-        >>> standard = MetricId.standard_names()
-        >>> ("dv01" in standard, "cs01" in standard, "ytm" in standard)
-        (True, True, True)
+        Examples
+        --------
+            >>> from finstack.valuations.metrics import MetricId
+            >>> standard = MetricId.standard_names()
+            >>> ("dv01" in standard, "cs01" in standard, "ytm" in standard)
+            (True, True, True)
 
-    Notes
-    -----
-    - Standard metrics are available for all supported instrument types
-    - Metric availability may vary by instrument (use MetricRegistry to check)
-    - Custom metrics are not included in this list
-    - Metric names are stable and suitable for serialization
+        Notes
+        -----
+        - Standard metrics are available for all supported instrument types
+        - Metric availability may vary by instrument (use MetricRegistry to check)
+        - Custom metrics are not included in this list
+        - Metric names are stable and suitable for serialization
 
-    See Also
-    --------
-    :class:`MetricRegistry`: Check which metrics are available for specific instruments
-    """
+        See Also
+        --------
+        :class:`MetricRegistry`: Check which metrics are available for specific instruments
+        """
+        ...
 
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
@@ -216,235 +217,228 @@ class MetricRegistry:
     :meth:`PricerRegistry.price_with_metrics`: Request metrics during pricing
     """
 
-    def __init__(self) -> None: ...
-    """Create an empty registry instance.
+    def __init__(self) -> None:
+        """Create an empty registry instance.
 
-    Creates a new MetricRegistry without any pre-registered metrics.
-    Use this for custom metric registrations or testing.
+        Creates a new MetricRegistry without any pre-registered metrics.
+        Use this for custom metric registrations or testing.
 
-    Returns
-    -------
-    MetricRegistry
-        Empty registry ready for custom metric registration.
+        Returns
+        -------
+        MetricRegistry
+            Empty registry ready for custom metric registration.
 
-    Examples
-    --------
-        >>> custom = MetricRegistry()
-        >>> print(len(custom.available_metrics()))
-        0
-        >>> 
-        >>> # Register custom metrics here...
-    """
+        Examples
+        --------
+            >>> custom = MetricRegistry()
+            >>> print(len(custom.available_metrics()))
+            0
+            >>> # Register custom metrics here...
+        """
+        ...
 
     @classmethod
-    def standard(cls) -> MetricRegistry: ...
-    """Create a registry populated with all finstack standard metrics.
+    def standard(cls) -> MetricRegistry:
+        """Create a registry populated with all finstack standard metrics.
 
-    Returns a MetricRegistry pre-populated with all standard finstack metrics
-    and their applicability filters. This is the registry used by default in
-    PricerRegistry.
+        Returns a MetricRegistry pre-populated with all standard finstack metrics
+        and their applicability filters. This is the registry used by default in
+        PricerRegistry.
 
-    Returns
-    -------
-    MetricRegistry
-        Registry containing the complete default metric set, including:
-        - Risk metrics (DV01, CS01, Theta, etc.)
-        - Yield metrics (YTM, YTW)
-        - Spread metrics (Z-spread, OAS, I-spread, etc.)
-        - Pricing metrics (clean price, dirty price, accrued)
-        - Duration metrics (modified duration, Macaulay duration, convexity)
-        - Options Greeks (Delta, Gamma, Vega, Rho, etc.)
-        - Credit metrics (par spread, risky PV01, etc.)
+        Returns
+        -------
+        MetricRegistry
+            Registry containing the complete default metric set, including:
+            - Risk metrics (DV01, CS01, Theta, etc.)
+            - Yield metrics (YTM, YTW)
+            - Spread metrics (Z-spread, OAS, I-spread, etc.)
+            - Pricing metrics (clean price, dirty price, accrued)
+            - Duration metrics (modified duration, Macaulay duration, convexity)
+            - Options Greeks (Delta, Gamma, Vega, Rho, etc.)
+            - Credit metrics (par spread, risky PV01, etc.)
 
-    Examples
-    --------
-        >>> registry = MetricRegistry.standard()
-        >>> print(registry.has_metric("dv01"))
-        True
-        >>> print(registry.has_metric("ytm"))
-        True
-        >>> print(registry.has_metric("delta"))
-        True
-        >>> 
-        >>> # Get all available metrics
-        >>> all_metrics = registry.available_metrics()
-        >>> print(len(all_metrics))
-        50+
+        Examples
+        --------
+            >>> registry = MetricRegistry.standard()
+            >>> print(registry.has_metric("dv01"))
+            True
+            >>> print(registry.has_metric("ytm"))
+            True
+            >>> print(registry.has_metric("delta"))
+            True
+            >>> # Get all available metrics
+            >>> all_metrics = registry.available_metrics()
+            >>> print(len(all_metrics))
+            50+
 
-    Notes
-    -----
-    - Standard registry is sufficient for most use cases
-    - Metrics are registered with instrument type filters
-    - Use metrics_for_instrument() to see which metrics apply to your instrument
-    """
+        Notes
+        -----
+        - Standard registry is sufficient for most use cases
+        - Metrics are registered with instrument type filters
+        - Use metrics_for_instrument() to see which metrics apply to your instrument
+        """
+        ...
 
-    def available_metrics(self) -> List[MetricId]: ...
-    """All metric identifiers currently registered.
+    def available_metrics(self) -> List[MetricId]:
+        """All metric identifiers currently registered.
 
-    Returns a list of all metrics registered in this registry, regardless
-    of instrument type applicability.
+        Returns a list of all metrics registered in this registry, regardless
+        of instrument type applicability.
 
-    Returns
-    -------
-    List[MetricId]
-        List of all registered metric identifiers. For standard registry,
-        this includes all built-in finstack metrics.
+        Returns
+        -------
+        List[MetricId]
+            List of all registered metric identifiers. For standard registry,
+            this includes all built-in finstack metrics.
 
-    Examples
-    --------
-        >>> registry = MetricRegistry.standard()
-        >>> metrics = registry.available_metrics()
-        >>> print(len(metrics))
-        50+
-        >>> 
-        >>> # Get metric names
-        >>> names = [m.name for m in metrics]
-        >>> print("dv01" in names)
-        True
-    """
+        Examples
+        --------
+            >>> registry = MetricRegistry.standard()
+            >>> metrics = registry.available_metrics()
+            >>> print(len(metrics))
+            50+
+            >>> # Get metric names
+            >>> names = [m.name for m in metrics]
+            >>> print("dv01" in names)
+            True
+        """
+        ...
 
-    def metrics_for_instrument(self, instrument_type: Union[InstrumentType, str]) -> List[MetricId]: ...
-    """Metrics applicable to the supplied instrument type.
+    def metrics_for_instrument(self, instrument_type: Union[InstrumentType, str]) -> List[MetricId]:
+        """Metrics applicable to the supplied instrument type.
 
-    Returns a filtered list of metrics that can be computed for the specified
-    instrument type. This is useful for discovering which metrics are available
-    for your instrument.
+        Returns a filtered list of metrics that can be computed for the specified
+        instrument type. This is useful for discovering which metrics are available
+        for your instrument.
 
-    Parameters
-    ----------
-    instrument_type : InstrumentType or str
-        Instrument type enumeration (e.g., InstrumentType.BOND) or string
-        label (e.g., "bond", "InterestRateSwap").
+        Parameters
+        ----------
+        instrument_type : InstrumentType or str
+            Instrument type enumeration (e.g., InstrumentType.BOND) or string
+            label (e.g., "bond", "InterestRateSwap").
 
-    Returns
-    -------
-    List[MetricId]
-        List of metrics that can be computed for the instrument type.
-        Empty list if no metrics are applicable.
+        Returns
+        -------
+        List[MetricId]
+            List of metrics that can be computed for the instrument type.
+            Empty list if no metrics are applicable.
 
-    Raises
-    ------
-    ValueError
-        If the instrument type cannot be parsed.
+        Raises
+        ------
+        ValueError
+            If the instrument type cannot be parsed.
 
-    Examples
-    --------
-        >>> from finstack.valuations.common import InstrumentType
-        >>> 
-        >>> registry = MetricRegistry.standard()
-        >>> 
-        >>> # Get metrics for bonds
-        >>> bond_metrics = registry.metrics_for_instrument(InstrumentType.BOND)
-        >>> print([m.name for m in bond_metrics])
-        ['pv', 'dv01', 'cs01', 'ytm', 'ytw', 'clean_price', 'dirty_price', ...]
-        >>> 
-        >>> # Get metrics for equity options
-        >>> option_metrics = registry.metrics_for_instrument(InstrumentType.EQUITY_OPTION)
-        >>> print([m.name for m in option_metrics])
-        ['pv', 'delta', 'gamma', 'vega', 'theta', 'rho', 'implied_vol', ...]
-        >>> 
-        >>> # Get metrics for swaps
-        >>> swap_metrics = registry.metrics_for_instrument("InterestRateSwap")
-        >>> print([m.name for m in swap_metrics])
-        ['pv', 'dv01', 'annuity', 'par_rate', 'pv_fixed', 'pv_float', ...]
+        Examples
+        --------
+            >>> from finstack.valuations.common import InstrumentType
+            >>> registry = MetricRegistry.standard()
+            >>> # Get metrics for bonds
+            >>> bond_metrics = registry.metrics_for_instrument(InstrumentType.BOND)
+            >>> print([m.name for m in bond_metrics])
+            ['pv', 'dv01', 'cs01', 'ytm', 'ytw', 'clean_price', 'dirty_price', ...]
+            >>> # Get metrics for equity options
+            >>> option_metrics = registry.metrics_for_instrument(InstrumentType.EQUITY_OPTION)
+            >>> print([m.name for m in option_metrics])
+            ['pv', 'delta', 'gamma', 'vega', 'theta', 'rho', 'implied_vol', ...]
+            >>> # Get metrics for interest-rate swaps
+            >>> swap_metrics = registry.metrics_for_instrument(InstrumentType.IRS)
+            >>> print([m.name for m in swap_metrics])
+            ['pv', 'dv01', 'annuity', 'par_rate', 'pv_fixed', 'pv_float', ...]
 
-    Notes
-    -----
-    - Returns only metrics that are applicable to the instrument type
-    - Some metrics (e.g., "pv", "theta") apply to all instruments
-    - Instrument-specific metrics (e.g., "ytm" for bonds, "delta" for options)
-      are filtered appropriately
-    """
+        Notes
+        -----
+        - Returns only metrics that are applicable to the instrument type
+        - Some metrics (e.g., "pv", "theta") apply to all instruments
+        - Instrument-specific metrics (e.g., "ytm" for bonds, "delta" for options)
+          are filtered appropriately
+        """
+        ...
 
-    def is_applicable(self, metric: Union[MetricId, str], instrument_type: Union[InstrumentType, str]) -> bool: ...
-    """Test whether metric applies to the provided instrument type.
+    def is_applicable(self, metric: Union[MetricId, str], instrument_type: Union[InstrumentType, str]) -> bool:
+        """Test whether metric applies to the provided instrument type.
 
-    Checks if a specific metric can be computed for a given instrument type.
-    Useful for validating metric requests before calling price_with_metrics().
+        Checks if a specific metric can be computed for a given instrument type.
+        Useful for validating metric requests before calling price_with_metrics().
 
-    Parameters
-    ----------
-    metric : MetricId or str
-        Metric identifier or snake_case name (e.g., "dv01", "ytm", "delta").
-    instrument_type : InstrumentType or str
-        Instrument type enumeration or string label.
+        Parameters
+        ----------
+        metric : MetricId or str
+            Metric identifier or snake_case name (e.g., "dv01", "ytm", "delta").
+        instrument_type : InstrumentType or str
+            Instrument type enumeration or string label.
 
-    Returns
-    -------
-    bool
-        True if the metric can be computed for the instrument type,
-        False otherwise.
+        Returns
+        -------
+        bool
+            True if the metric can be computed for the instrument type,
+            False otherwise.
 
-    Raises
-    ------
-    ValueError
-        If the metric or instrument type cannot be parsed.
+        Raises
+        ------
+        ValueError
+            If the metric or instrument type cannot be parsed.
 
-    Examples
-    --------
-        >>> from finstack.valuations.common import InstrumentType
-        >>> 
-        >>> registry = MetricRegistry.standard()
-        >>> 
-        >>> # DV01 applies to bonds
-        >>> print(registry.is_applicable("dv01", InstrumentType.BOND))
-        True
-        >>> 
-        >>> # YTM applies to bonds
-        >>> print(registry.is_applicable("ytm", InstrumentType.BOND))
-        True
-        >>> 
-        >>> # Delta applies to options, not bonds
-        >>> print(registry.is_applicable("delta", InstrumentType.EQUITY_OPTION))
-        True
-        >>> print(registry.is_applicable("delta", InstrumentType.BOND))
-        False
-        >>> 
-        >>> # Theta applies to all instruments
-        >>> print(registry.is_applicable("theta", InstrumentType.BOND))
-        True
-        >>> print(registry.is_applicable("theta", InstrumentType.EQUITY_OPTION))
-        True
+        Examples
+        --------
+            >>> from finstack.valuations.common import InstrumentType
+            >>> registry = MetricRegistry.standard()
+            >>> # DV01 applies to bonds
+            >>> print(registry.is_applicable("dv01", InstrumentType.BOND))
+            True
+            >>> # YTM applies to bonds
+            >>> print(registry.is_applicable("ytm", InstrumentType.BOND))
+            True
+            >>> # Delta applies to options, not bonds
+            >>> print(registry.is_applicable("delta", InstrumentType.EQUITY_OPTION))
+            True
+            >>> print(registry.is_applicable("delta", InstrumentType.BOND))
+            False
+            >>> # Theta applies to all instruments
+            >>> print(registry.is_applicable("theta", InstrumentType.BOND))
+            True
+            >>> print(registry.is_applicable("theta", InstrumentType.EQUITY_OPTION))
+            True
 
-    Notes
-    -----
-    - Universal metrics (e.g., "pv", "theta") return True for all instruments
-    - Instrument-specific metrics return True only for supported types
-    - Use this to validate metric requests before pricing
-    """
+        Notes
+        -----
+        - Universal metrics (e.g., "pv", "theta") return True for all instruments
+        - Instrument-specific metrics return True only for supported types
+        - Use this to validate metric requests before pricing
+        """
+        ...
 
-    def has_metric(self, metric: Union[MetricId, str]) -> bool: ...
-    """Determine whether the registry contains metric.
+    def has_metric(self, metric: Union[MetricId, str]) -> bool:
+        """Determine whether the registry contains metric.
 
-    Checks if a metric is registered in the registry, regardless of
-    instrument type applicability.
+        Checks if a metric is registered in the registry, regardless of
+        instrument type applicability.
 
-    Parameters
-    ----------
-    metric : MetricId or str
-        Metric identifier or snake_case name (e.g., "dv01", "ytm").
+        Parameters
+        ----------
+        metric : MetricId or str
+            Metric identifier or snake_case name (e.g., "dv01", "ytm").
 
-    Returns
-    -------
-    bool
-        True if the metric is registered, False otherwise.
+        Returns
+        -------
+        bool
+            True if the metric is registered, False otherwise.
 
-    Raises
-    ------
-    ValueError
-        If the metric name cannot be parsed.
+        Raises
+        ------
+        ValueError
+            If the metric name cannot be parsed.
 
-    Examples
-    --------
-        >>> registry = MetricRegistry.standard()
-        >>> 
-        >>> print(registry.has_metric("dv01"))
-        True
-        >>> print(registry.has_metric("ytm"))
-        True
-        >>> print(registry.has_metric("custom_metric"))
-        False
-    """
+        Examples
+        --------
+            >>> registry = MetricRegistry.standard()
+            >>> print(registry.has_metric("dv01"))
+            True
+            >>> print(registry.has_metric("ytm"))
+            True
+            >>> print(registry.has_metric("custom_metric"))
+            False
+        """
+        ...
 
     def clone(self) -> MetricRegistry:
         """Clone the registry for experimentation without mutating the original.

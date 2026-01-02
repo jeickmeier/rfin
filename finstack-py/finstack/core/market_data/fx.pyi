@@ -20,29 +20,31 @@ class FxConversionPolicy:
     CUSTOM: "FxConversionPolicy"
 
     @classmethod
-    def from_name(cls, name: str) -> FxConversionPolicy: ...
-    """Create from string name.
-    
-    Parameters
-    ----------
-    name : str
-        Policy name (case-insensitive).
-        
-    Returns
-    -------
-    FxConversionPolicy
-        Policy instance.
-    """
+    def from_name(cls, name: str) -> FxConversionPolicy:
+        """Create from string name.
+
+        Parameters
+        ----------
+        name : str
+            Policy name (case-insensitive).
+
+        Returns
+        -------
+        FxConversionPolicy
+            Policy instance.
+        """
+        ...
 
     @property
-    def name(self) -> str: ...
-    """Get the policy name.
-    
-    Returns
-    -------
-    str
-        Human-readable policy name.
-    """
+    def name(self) -> str:
+        """Get the policy name.
+
+        Returns
+        -------
+        str
+            Human-readable policy name.
+        """
+        ...
 
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
@@ -102,34 +104,37 @@ class FxConfig:
         cache_capacity: Optional[int] = None,
     ) -> None: ...
     @property
-    def pivot_currency(self) -> Currency: ...
-    """Get the pivot currency.
-    
-    Returns
-    -------
-    Currency
-        Pivot currency.
-    """
+    def pivot_currency(self) -> Currency:
+        """Get the pivot currency.
+
+        Returns
+        -------
+        Currency
+            Pivot currency.
+        """
+        ...
 
     @property
-    def enable_triangulation(self) -> bool: ...
-    """Check if triangulation is enabled.
-    
-    Returns
-    -------
-    bool
-        True if triangulation is enabled.
-    """
+    def enable_triangulation(self) -> bool:
+        """Check if triangulation is enabled.
+
+        Returns
+        -------
+        bool
+            True if triangulation is enabled.
+        """
+        ...
 
     @property
-    def cache_capacity(self) -> int: ...
-    """Get the cache capacity.
-    
-    Returns
-    -------
-    int
-        Cache capacity.
-    """
+    def cache_capacity(self) -> int:
+        """Get the cache capacity.
+
+        Returns
+        -------
+        int
+            Cache capacity.
+        """
+        ...
 
     def __repr__(self) -> str: ...
 
@@ -208,27 +213,29 @@ class FxMatrix:
         from_currency: Currency,
         to_currency: Currency,
         rate: float,
-    ) -> None: ...
-    """Set a direct FX rate.
-    
-    Parameters
-    ----------
-    from_currency : Currency
-        Source currency.
-    to_currency : Currency
-        Target currency.
-    rate : float
-        Exchange rate.
-    """
+    ) -> None:
+        """Set a direct FX rate.
 
-    def set_quotes(self, quotes: List[Tuple[Currency, Currency, float]]) -> None: ...
-    """Set multiple FX rates.
-    
-    Parameters
-    ----------
-    quotes : List[Tuple[Currency, Currency, float]]
-        List of (from, to, rate) tuples.
-    """
+        Parameters
+        ----------
+        from_currency : Currency
+            Source currency.
+        to_currency : Currency
+            Target currency.
+        rate : float
+            Exchange rate.
+        """
+        ...
+
+    def set_quotes(self, quotes: List[Tuple[Currency, Currency, float]]) -> None:
+        """Set multiple FX rates.
+
+        Parameters
+        ----------
+        quotes : List[Tuple[Currency, Currency, float]]
+            List of (from, to, rate) tuples.
+        """
+        ...
 
     def rate(
         self,
@@ -236,54 +243,56 @@ class FxMatrix:
         to_currency: Currency,
         on: Union[str, date],
         policy: Optional[Union[str, FxConversionPolicy]] = None,
-    ) -> FxRateResult: ...
-    """Evaluate the FX rate between two currencies on a given date.
-    
-    Returns the exchange rate to convert from_currency to to_currency. If a
-    direct quote exists, it is used. Otherwise, if triangulation is enabled,
-    the rate is computed via the pivot currency. The result includes a flag
-    indicating whether triangulation was used.
-    
-    Parameters
-    ----------
-    from_currency : Currency
-        Source currency (base currency of the rate).
-    to_currency : Currency
-        Target currency (quote currency of the rate).
-    on : str or date
-        Valuation date. Currently used for policy selection; actual rates
-        are spot rates stored in the matrix.
-    policy : str or FxConversionPolicy, optional
-        FX conversion policy for cashflow timing. Defaults to cashflow_date.
-        See :class:`FxConversionPolicy` for available policies.
-        
-    Returns
-    -------
-    FxRateResult
-        Result containing:
-        - rate: The exchange rate (how many to_currency per from_currency)
-        - triangulated: True if the rate was computed via triangulation
-        
-    Raises
-    ------
-    ValueError
-        If no direct quote exists and triangulation is disabled or fails.
+    ) -> FxRateResult:
+        """Evaluate the FX rate between two currencies on a given date.
 
-    Notes
-    -----
-    - Rates are stored as spot rates (date-agnostic)
-    - The 'on' parameter is used for policy selection, not rate lookup
-    - Inverse rates are automatically available (querying USD/EUR when EUR/USD exists)
-    - Triangulation requires both currencies to have quotes against the pivot
-    - Use :meth:`cache_stats` to monitor cache usage
-        
-    See Also
-    --------
-    :class:`FxRateResult`: Result structure with triangulation flag
-    :class:`FxConversionPolicy`: Cashflow timing policies
-    """
+        Returns the exchange rate to convert from_currency to to_currency. If a
+        direct quote exists, it is used. Otherwise, if triangulation is enabled,
+        the rate is computed via the pivot currency. The result includes a flag
+        indicating whether triangulation was used.
 
-    def cache_stats(self) -> int: ...
-    """Get cache statistics as (stored_quotes, reserved_capacity)."""
+        Parameters
+        ----------
+        from_currency : Currency
+            Source currency (base currency of the rate).
+        to_currency : Currency
+            Target currency (quote currency of the rate).
+        on : str or date
+            Valuation date. Currently used for policy selection; actual rates
+            are spot rates stored in the matrix.
+        policy : str or FxConversionPolicy, optional
+            FX conversion policy for cashflow timing. Defaults to cashflow_date.
+            See :class:`FxConversionPolicy` for available policies.
+
+        Returns
+        -------
+        FxRateResult
+            Result containing:
+            - rate: The exchange rate (how many to_currency per from_currency)
+            - triangulated: True if the rate was computed via triangulation
+
+        Raises
+        ------
+        ValueError
+            If no direct quote exists and triangulation is disabled or fails.
+
+        Notes
+        -----
+        - Rates are stored as spot rates (date-agnostic)
+        - The 'on' parameter is used for policy selection, not rate lookup
+        - Inverse rates are automatically available (querying USD/EUR when EUR/USD exists)
+        - Triangulation requires both currencies to have quotes against the pivot
+        - Use :meth:`cache_stats` to monitor cache usage
+
+        See Also
+        --------
+        :class:`FxRateResult`: Result structure with triangulation flag
+        :class:`FxConversionPolicy`: Cashflow timing policies
+        """
+        ...
+
+    def cache_stats(self) -> int:
+        """Get cache statistics as (stored_quotes, reserved_capacity)."""
+        ...
 
     def __repr__(self) -> str: ...

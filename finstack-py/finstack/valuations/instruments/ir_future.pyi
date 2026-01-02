@@ -72,72 +72,73 @@ class InterestRateFuture:
         tick_value: Optional[float] = None,
         delivery_months: int = 3,
         convexity_adjustment: Optional[float] = None,
-    ) -> "InterestRateFuture": ...
-    """Create an interest rate future.
+    ) -> "InterestRateFuture":
+        """Create an interest rate future.
 
-    Parameters
-    ----------
-    instrument_id : str
-        Unique identifier for the future (e.g., "IR-FUTURE-DEC24").
-    notional : Money
-        Notional amount. Currency determines curve currency requirements.
-    quoted_price : float
-        Quoted futures price (typically 100 - rate, e.g., 96.50 for 3.5%).
-        Must be in range [0, 100].
-    expiry : date
-        Future expiration date (last trading day).
-    fixing_date : date
-        Date when the underlying rate is fixed (typically expiry + 1 day).
-    period_start : date
-        Start date of the interest rate period.
-    period_end : date
-        End date of the interest rate period. Must be after period_start.
-    discount_curve : str
-        Discount curve identifier in MarketContext.
-    forward_curve : str
-        Forward curve identifier for the underlying rate.
-    position : str, optional
-        Position direction: "long" (default, benefit from rate increase) or
-        "short" (benefit from rate decrease).
-    day_count : DayCount, optional
-        Day-count convention for the interest period (default: ACT/360).
-    face_value : float, optional
-        Contract face value (default: 1,000,000 for standard contracts).
-    tick_size : float, optional
-        Minimum price movement (default: 0.0025 = 1 basis point).
-    tick_value : float, optional
-        Dollar value per tick. If None, calculated from face_value and tick_size.
-    delivery_months : int, optional
-        Number of months in the delivery period (default: 3 for quarterly).
-    convexity_adjustment : float, optional
-        Convexity adjustment for futures vs forward rate (typically negative).
-        If None, calculated automatically.
+        Parameters
+        ----------
+        instrument_id : str
+            Unique identifier for the future (e.g., "IR-FUTURE-DEC24").
+        notional : Money
+            Notional amount. Currency determines curve currency requirements.
+        quoted_price : float
+            Quoted futures price (typically 100 - rate, e.g., 96.50 for 3.5%).
+            Must be in range [0, 100].
+        expiry : date
+            Future expiration date (last trading day).
+        fixing_date : date
+            Date when the underlying rate is fixed (typically expiry + 1 day).
+        period_start : date
+            Start date of the interest rate period.
+        period_end : date
+            End date of the interest rate period. Must be after period_start.
+        discount_curve : str
+            Discount curve identifier in MarketContext.
+        forward_curve : str
+            Forward curve identifier for the underlying rate.
+        position : str, optional
+            Position direction: "long" (default, benefit from rate increase) or
+            "short" (benefit from rate decrease).
+        day_count : DayCount, optional
+            Day-count convention for the interest period (default: ACT/360).
+        face_value : float, optional
+            Contract face value (default: 1,000,000 for standard contracts).
+        tick_size : float, optional
+            Minimum price movement (default: 0.0025 = 1 basis point).
+        tick_value : float, optional
+            Dollar value per tick. If None, calculated from face_value and tick_size.
+        delivery_months : int, optional
+            Number of months in the delivery period (default: 3 for quarterly).
+        convexity_adjustment : float, optional
+            Convexity adjustment for futures vs forward rate (typically negative).
+            If None, calculated automatically.
 
-    Returns
-    -------
-    InterestRateFuture
-        Configured interest rate future ready for pricing.
+        Returns
+        -------
+        InterestRateFuture
+            Configured interest rate future ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If dates are invalid, if quoted_price is not in [0, 100], or if
-        required curves are not found in MarketContext.
+        Raises
+        ------
+        ValueError
+            If dates are invalid, if quoted_price is not in [0, 100], or if
+            required curves are not found in MarketContext.
 
-    Examples
-    --------
-        >>> future = InterestRateFuture.create(
-        ...     "IR-FUTURE-DEC24",
-        ...     Money(1_000_000, Currency("USD")),
-        ...     96.50,  # 3.5% implied rate
-        ...     date(2024, 12, 15),
-        ...     date(2024, 12, 16),
-        ...     date(2024, 12, 18),
-        ...     date(2025, 3, 18),
-        ...     discount_curve="USD",
-        ...     forward_curve="USD-LIBOR-3M"
-        ... )
-    """
+        Examples
+        --------
+            >>> future = InterestRateFuture.create(
+            ...     "IR-FUTURE-DEC24",
+            ...     Money(1_000_000, Currency("USD")),
+            ...     96.50,  # 3.5% implied rate
+            ...     date(2024, 12, 15),
+            ...     date(2024, 12, 16),
+            ...     date(2024, 12, 18),
+            ...     date(2025, 3, 18),
+            ...     discount_curve="USD",
+            ...     forward_curve="USD-LIBOR-3M",
+            ... )
+        """
+        ...
 
     @property
     def instrument_id(self) -> str: ...

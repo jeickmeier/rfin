@@ -59,87 +59,93 @@ class Currency:
 
     def __init__(self, code: str) -> None: ...
     @classmethod
-    def from_numeric(cls, numeric: int) -> Currency: ...
-    """Construct a Currency from an ISO-4217 numeric code.
-    
-    Parameters
-    ----------
-    numeric : int
-        ISO-4217 numeric currency code (e.g., 840 for USD, 978 for EUR).
-        
-    Returns
-    -------
-    Currency
-        Currency instance associated with the numeric code.
-        
-    Raises
-    ------
-    ValueError
-        If the numeric code is not recognized as a valid ISO-4217 code.
-        
-    Examples
-    --------
-        >>> Currency.from_numeric(840)  # USD
-        Currency("USD")
-        >>> Currency.from_numeric(978)  # EUR
-        Currency("EUR")
-        >>> Currency.from_numeric(392)  # JPY
-        Currency("JPY")
-    """
+    def from_numeric(cls, numeric: int) -> Currency:
+        """Construct a Currency from an ISO-4217 numeric code.
+
+        Parameters
+        ----------
+        numeric : int
+            ISO-4217 numeric currency code (e.g., 840 for USD, 978 for EUR).
+
+        Returns
+        -------
+        Currency
+            Currency instance associated with the numeric code.
+
+        Raises
+        ------
+        ValueError
+            If the numeric code is not recognized as a valid ISO-4217 code.
+
+        Examples
+        --------
+            >>> Currency.from_numeric(840)  # USD
+            Currency("USD")
+            >>> Currency.from_numeric(978)  # EUR
+            Currency("EUR")
+            >>> Currency.from_numeric(392)  # JPY
+            Currency("JPY")
+        """
+        ...
 
     @property
-    def code(self) -> str: ...
-    """Three-letter currency code (always upper-case).
-    
-    Returns
-    -------
-    str
-        Upper-case ISO code (e.g. "USD").
-    """
+    def code(self) -> str:
+        """Three-letter currency code (always upper-case).
+
+        Returns
+        -------
+        str
+            Upper-case ISO code (e.g. "USD").
+        """
+        ...
 
     @property
-    def numeric(self) -> int: ...
-    """ISO numeric currency code.
-    
-    Returns
-    -------
-    int
-        Numeric ISO identifier (e.g. 840 for USD).
-    """
+    def numeric(self) -> int:
+        """ISO numeric currency code.
+
+        Returns
+        -------
+        int
+            Numeric ISO identifier (e.g. 840 for USD).
+        """
+        ...
 
     @property
-    def decimals(self) -> int: ...
-    """Number of decimal places for this currency.
-    
-    Returns
-    -------
-    int
-        Decimal places (e.g. 2 for USD, 0 for JPY).
-    """
+    def decimals(self) -> int:
+        """Number of decimal places for this currency.
 
-    def to_tuple(self) -> Tuple[str, int, int]: ...
-    """Convert to (code, numeric, decimals) tuple.
-    
-    Returns
-    -------
-    Tuple[str, int, int]
-        (code, numeric, decimals) representation.
-    """
+        Returns
+        -------
+        int
+            Decimal places (e.g. 2 for USD, 0 for JPY).
+        """
+        ...
+
+    def to_tuple(self) -> Tuple[str, int, int]:
+        """Convert to (code, numeric, decimals) tuple.
+
+        Returns
+        -------
+        Tuple[str, int, int]
+            (code, numeric, decimals) representation.
+        """
+        ...
 
     @classmethod
-    def all(cls) -> List[Currency]: ...
-    """Get all available ISO-4217 currencies.
-    
-    Returns
-    -------
-    List[Currency]
-        List of all supported currencies, ordered by code.
-        
-    Examples
-    --------
-        >>> len(Currency.all()) > 100
-        True
-    """
+    def all(cls) -> List[Currency]:
+        """Get all available ISO-4217 currencies.
+
+        Returns
+        -------
+        List[Currency]
+            List of all supported currencies, ordered by code.
+
+        Examples
+        --------
+            >>> len(Currency.all()) > 100
+            True
+        """
+        ...
 
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...

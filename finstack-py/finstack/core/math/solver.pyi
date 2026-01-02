@@ -48,99 +48,105 @@ class NewtonSolver:
         fd_step: Optional[float] = None,
     ) -> None: ...
     @property
-    def tolerance(self) -> float: ...
-    """Get the convergence tolerance.
+    def tolerance(self) -> float:
+        """Get the convergence tolerance.
 
-    Returns
-    -------
-    float
-        Tolerance.
-    """
+        Returns
+        -------
+        float
+            Tolerance.
+        """
+        ...
 
-    def set_tolerance(self, value: float) -> None: ...
-    """Set the convergence tolerance.
+    def set_tolerance(self, value: float) -> None:
+        """Set the convergence tolerance.
 
-    Parameters
-    ----------
-    value : float
-        New tolerance.
-    """
-
-    @property
-    def max_iterations(self) -> int: ...
-    """Get the maximum iterations.
-
-    Returns
-    -------
-    int
-        Maximum iterations.
-    """
-
-    def set_max_iterations(self, value: int) -> None: ...
-    """Set the maximum iterations.
-
-    Parameters
-    ----------
-    value : int
-        New maximum iterations.
-    """
+        Parameters
+        ----------
+        value : float
+            New tolerance.
+        """
+        ...
 
     @property
-    def fd_step(self) -> float: ...
-    """Get the finite difference step.
+    def max_iterations(self) -> int:
+        """Get the maximum iterations.
 
-    Returns
-    -------
-    float
-        FD step size.
-    """
+        Returns
+        -------
+        int
+            Maximum iterations.
+        """
+        ...
 
-    def set_fd_step(self, value: float) -> None: ...
-    """Set the finite difference step.
+    def set_max_iterations(self, value: int) -> None:
+        """Set the maximum iterations.
 
-    Parameters
-    ----------
-    value : float
-        New FD step size.
-    """
+        Parameters
+        ----------
+        value : int
+            New maximum iterations.
+        """
+        ...
 
-    def solve(self, func: Callable[[float], float], initial_guess: float) -> float: ...
-    """Solve for root using Newton's method.
+    @property
+    def fd_step(self) -> float:
+        """Get the finite difference step.
 
-    Finds the root of a function f(x) = 0 using Newton-Raphson iteration.
-    The method uses the derivative (computed via finite differences) to
-    converge to the root.
+        Returns
+        -------
+        float
+            FD step size.
+        """
+        ...
 
-    Parameters
-    ----------
-    func : Callable[[float], float]
-        Function to find root of. Must be differentiable and return
-        f(x) where we want to find x such that f(x) = 0.
-    initial_guess : float
-        Initial guess for the root. Should be close to the actual root
-        for best convergence.
+    def set_fd_step(self, value: float) -> None:
+        """Set the finite difference step.
 
-    Returns
-    -------
-    float
-        Root value where func(root) ≈ 0 (within tolerance).
+        Parameters
+        ----------
+        value : float
+            New FD step size.
+        """
+        ...
 
-    Raises
-    ------
-    ValueError
-        If convergence fails (max_iterations exceeded, derivative is zero,
-        or function is not converging).
+    def solve(self, func: Callable[[float], float], initial_guess: float) -> float:
+        """Solve for root using Newton's method.
 
-    Examples
-    --------
-        >>> def f(x):
-        ...     return x**2 - 4.0  # Find sqrt(4) = 2
-        >>> 
-        >>> solver = NewtonSolver(tolerance=1e-8)
-        >>> root = solver.solve(f, initial_guess=1.5)
-        >>> print(f"Root: {root:.6f}")
-        Root: 2.000000
-    """
+        Finds the root of a function f(x) = 0 using Newton-Raphson iteration.
+        The method uses the derivative (computed via finite differences) to
+        converge to the root.
+
+        Parameters
+        ----------
+        func : Callable[[float], float]
+            Function to find root of. Must be differentiable and return
+            f(x) where we want to find x such that f(x) = 0.
+        initial_guess : float
+            Initial guess for the root. Should be close to the actual root
+            for best convergence.
+
+        Returns
+        -------
+        float
+            Root value where func(root) ≈ 0 (within tolerance).
+
+        Raises
+        ------
+        ValueError
+            If convergence fails (max_iterations exceeded, derivative is zero,
+            or function is not converging).
+
+        Examples
+        --------
+            >>> def f(x):
+            ...     return x**2 - 4.0  # Find sqrt(4) = 2
+            >>> solver = NewtonSolver(tolerance=1e-8)
+            >>> root = solver.solve(f, initial_guess=1.5)
+            >>> print(f"Root: {root:.6f}")
+            Root: 2.000000
+        """
+        ...
 
     def __repr__(self) -> str: ...
 
@@ -193,117 +199,125 @@ class BrentSolver:
         initial_bracket_size: Optional[float] = None,
     ) -> None: ...
     @property
-    def tolerance(self) -> float: ...
-    """Get the convergence tolerance.
+    def tolerance(self) -> float:
+        """Get the convergence tolerance.
 
-    Returns
-    -------
-    float
-        Tolerance.
-    """
+        Returns
+        -------
+        float
+            Tolerance.
+        """
+        ...
 
-    def set_tolerance(self, value: float) -> None: ...
-    """Set the convergence tolerance.
+    def set_tolerance(self, value: float) -> None:
+        """Set the convergence tolerance.
 
-    Parameters
-    ----------
-    value : float
-        New tolerance.
-    """
-
-    @property
-    def max_iterations(self) -> int: ...
-    """Get the maximum iterations.
-
-    Returns
-    -------
-    int
-        Maximum iterations.
-    """
-
-    def set_max_iterations(self, value: int) -> None: ...
-    """Set the maximum iterations.
-
-    Parameters
-    ----------
-    value : int
-        New maximum iterations.
-    """
+        Parameters
+        ----------
+        value : float
+            New tolerance.
+        """
+        ...
 
     @property
-    def bracket_expansion(self) -> float: ...
-    """Get the bracket expansion factor.
+    def max_iterations(self) -> int:
+        """Get the maximum iterations.
 
-    Returns
-    -------
-    float
-        Bracket expansion factor.
-    """
+        Returns
+        -------
+        int
+            Maximum iterations.
+        """
+        ...
 
-    def set_bracket_expansion(self, value: float) -> None: ...
-    """Set the bracket expansion factor.
+    def set_max_iterations(self, value: int) -> None:
+        """Set the maximum iterations.
 
-    Parameters
-    ----------
-    value : float
-        New bracket expansion factor.
-    """
+        Parameters
+        ----------
+        value : int
+            New maximum iterations.
+        """
+        ...
 
     @property
-    def initial_bracket_size(self) -> Optional[float]: ...
-    """Get the initial bracket size.
+    def bracket_expansion(self) -> float:
+        """Get the bracket expansion factor.
 
-    Returns
-    -------
-    float or None
-        Initial bracket size.
-    """
+        Returns
+        -------
+        float
+            Bracket expansion factor.
+        """
+        ...
 
-    def set_initial_bracket_size(self, value: Optional[float]) -> None: ...
-    """Set the initial bracket size.
+    def set_bracket_expansion(self, value: float) -> None:
+        """Set the bracket expansion factor.
 
-    Parameters
-    ----------
-    value : float or None
-        New initial bracket size.
-    """
+        Parameters
+        ----------
+        value : float
+            New bracket expansion factor.
+        """
+        ...
 
-    def solve(self, func: Callable[[float], float], initial_guess: float) -> float: ...
-    """Solve for root using Brent's method.
+    @property
+    def initial_bracket_size(self) -> Optional[float]:
+        """Get the initial bracket size.
 
-    Finds the root of a function f(x) = 0 using Brent's algorithm, which
-    combines bisection, secant, and inverse quadratic interpolation. The
-    method automatically brackets the root and is robust to non-smooth functions.
+        Returns
+        -------
+        float or None
+            Initial bracket size.
+        """
+        ...
 
-    Parameters
-    ----------
-    func : Callable[[float], float]
-        Function to find root of. Returns f(x) where we want to find x
-        such that f(x) = 0. The function should be continuous.
-    initial_guess : float
-        Initial guess for the root. The solver will expand around this
-        guess to find a bracket [a, b] where f(a) and f(b) have opposite signs.
+    def set_initial_bracket_size(self, value: Optional[float]) -> None:
+        """Set the initial bracket size.
 
-    Returns
-    -------
-    float
-        Root value where func(root) ≈ 0 (within tolerance).
+        Parameters
+        ----------
+        value : float or None
+            New initial bracket size.
+        """
+        ...
 
-    Raises
-    ------
-    ValueError
-        If convergence fails (unable to bracket root, max_iterations exceeded,
-        or function has no root in the searchable range).
+    def solve(self, func: Callable[[float], float], initial_guess: float) -> float:
+        """Solve for root using Brent's method.
 
-    Examples
-    --------
-        >>> def f(x):
-        ...     return x**3 - 8.0  # Find cube root of 8 = 2
-        >>> 
-        >>> solver = BrentSolver(tolerance=1e-8)
-        >>> root = solver.solve(f, initial_guess=1.0)
-        >>> print(f"Root: {root:.6f}")
-        Root: 2.000000
-    """
+        Finds the root of a function f(x) = 0 using Brent's algorithm, which
+        combines bisection, secant, and inverse quadratic interpolation. The
+        method automatically brackets the root and is robust to non-smooth functions.
+
+        Parameters
+        ----------
+        func : Callable[[float], float]
+            Function to find root of. Returns f(x) where we want to find x
+            such that f(x) = 0. The function should be continuous.
+        initial_guess : float
+            Initial guess for the root. The solver will expand around this
+            guess to find a bracket [a, b] where f(a) and f(b) have opposite signs.
+
+        Returns
+        -------
+        float
+            Root value where func(root) ≈ 0 (within tolerance).
+
+        Raises
+        ------
+        ValueError
+            If convergence fails (unable to bracket root, max_iterations exceeded,
+            or function has no root in the searchable range).
+
+        Examples
+        --------
+            >>> def f(x):
+            ...     return x**3 - 8.0  # Find cube root of 8 = 2
+            >>> solver = BrentSolver(tolerance=1e-8)
+            >>> root = solver.solve(f, initial_guess=1.0)
+            >>> print(f"Root: {root:.6f}")
+            Root: 2.000000
+        """
+        ...
 
     def __repr__(self) -> str: ...

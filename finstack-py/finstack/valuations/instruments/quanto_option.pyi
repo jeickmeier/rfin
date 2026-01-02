@@ -77,72 +77,73 @@ class QuantoOption:
         div_yield_id: Optional[str] = None,
         fx_rate_id: Optional[str] = None,
         fx_vol_id: Optional[str] = None,
-    ) -> "QuantoOption": ...
-    """Create a quanto option.
+    ) -> "QuantoOption":
+        """Create a quanto option.
 
-    Parameters
-    ----------
-    instrument_id : str
-        Unique identifier for the option.
-    ticker : str
-        Underlying equity ticker symbol (foreign asset).
-    equity_strike : float
-        Strike price in foreign currency. Must be > 0.
-    option_type : str
-        Option type: "call" or "put".
-    expiry : date
-        Option expiration date.
-    notional : Money
-        Notional amount in domestic currency.
-    domestic_currency : Currency
-        Currency for payoff (e.g., Currency("USD")).
-    foreign_currency : Currency
-        Currency of underlying asset (e.g., Currency("JPY")).
-    correlation : float
-        Correlation between equity returns and FX returns (typically -0.2 to -0.5).
-    discount_curve : str
-        Domestic discount curve identifier in MarketContext.
-    foreign_discount_curve : str
-        Foreign discount curve identifier in MarketContext.
-    spot_id : str
-        Equity spot price identifier in MarketContext.
-    vol_surface : str
-        Equity volatility surface identifier in MarketContext.
-    div_yield_id : str, optional
-        Dividend yield identifier in MarketContext.
-    fx_rate_id : str, optional
-        FX rate identifier in MarketContext (default: uses currency pair).
-    fx_vol_id : str, optional
-        FX volatility identifier for quanto adjustment.
+        Parameters
+        ----------
+        instrument_id : str
+            Unique identifier for the option.
+        ticker : str
+            Underlying equity ticker symbol (foreign asset).
+        equity_strike : float
+            Strike price in foreign currency. Must be > 0.
+        option_type : str
+            Option type: "call" or "put".
+        expiry : date
+            Option expiration date.
+        notional : Money
+            Notional amount in domestic currency.
+        domestic_currency : Currency
+            Currency for payoff (e.g., Currency("USD")).
+        foreign_currency : Currency
+            Currency of underlying asset (e.g., Currency("JPY")).
+        correlation : float
+            Correlation between equity returns and FX returns (typically -0.2 to -0.5).
+        discount_curve : str
+            Domestic discount curve identifier in MarketContext.
+        foreign_discount_curve : str
+            Foreign discount curve identifier in MarketContext.
+        spot_id : str
+            Equity spot price identifier in MarketContext.
+        vol_surface : str
+            Equity volatility surface identifier in MarketContext.
+        div_yield_id : str, optional
+            Dividend yield identifier in MarketContext.
+        fx_rate_id : str, optional
+            FX rate identifier in MarketContext (default: uses currency pair).
+        fx_vol_id : str, optional
+            FX volatility identifier for quanto adjustment.
 
-    Returns
-    -------
-    QuantoOption
-        Configured quanto option ready for pricing.
+        Returns
+        -------
+        QuantoOption
+            Configured quanto option ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If parameters are invalid or if required market data is missing.
+        Raises
+        ------
+        ValueError
+            If parameters are invalid or if required market data is missing.
 
-    Examples
-    --------
-        >>> option = QuantoOption.builder(
-        ...     "QUANTO-NIKKEI",
-        ...     "NIKKEI",
-        ...     30000.0,
-        ...     "call",
-        ...     date(2024, 12, 20),
-        ...     Money(1_000_000, Currency("USD")),
-        ...     Currency("USD"),
-        ...     Currency("JPY"),
-        ...     -0.3,
-        ...     discount_curve="USD",
-        ...     foreign_discount_curve="JPY",
-        ...     spot_id="NIKKEI",
-        ...     vol_surface="NIKKEI-VOL"
-        ... )
-    """
+        Examples
+        --------
+            >>> option = QuantoOption.builder(
+            ...     "QUANTO-NIKKEI",
+            ...     "NIKKEI",
+            ...     30000.0,
+            ...     "call",
+            ...     date(2024, 12, 20),
+            ...     Money(1_000_000, Currency("USD")),
+            ...     Currency("USD"),
+            ...     Currency("JPY"),
+            ...     -0.3,
+            ...     discount_curve="USD",
+            ...     foreign_discount_curve="JPY",
+            ...     spot_id="NIKKEI",
+            ...     vol_surface="NIKKEI-VOL",
+            ... )
+        """
+        ...
 
     @property
     def instrument_id(self) -> str: ...

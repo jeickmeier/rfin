@@ -19,29 +19,31 @@ class SeriesInterpolation:
     """
 
     @classmethod
-    def from_name(cls, name: str) -> SeriesInterpolation: ...
-    """Create from string name.
-    
-    Parameters
-    ----------
-    name : str
-        Method name (case-insensitive).
-        
-    Returns
-    -------
-    SeriesInterpolation
-        Interpolation method instance.
-    """
+    def from_name(cls, name: str) -> SeriesInterpolation:
+        """Create from string name.
+
+        Parameters
+        ----------
+        name : str
+            Method name (case-insensitive).
+
+        Returns
+        -------
+        SeriesInterpolation
+            Interpolation method instance.
+        """
+        ...
 
     @property
-    def name(self) -> str: ...
-    """Get the method name.
-    
-    Returns
-    -------
-    str
-        Human-readable method name.
-    """
+    def name(self) -> str:
+        """Get the method name.
+
+        Returns
+        -------
+        str
+            Human-readable method name.
+        """
+        ...
 
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
@@ -61,63 +63,68 @@ class MarketScalar:
     """
 
     @classmethod
-    def unitless(cls, value: float) -> MarketScalar: ...
-    """Create a unitless scalar.
-    
-    Parameters
-    ----------
-    value : float
-        Unitless value.
-        
-    Returns
-    -------
-    MarketScalar
-        Unitless scalar.
-    """
+    def unitless(cls, value: float) -> MarketScalar:
+        """Create a unitless scalar.
+
+        Parameters
+        ----------
+        value : float
+            Unitless value.
+
+        Returns
+        -------
+        MarketScalar
+            Unitless scalar.
+        """
+        ...
 
     @classmethod
-    def price(cls, money: "Money") -> MarketScalar: ...
-    """Create a price scalar.
-    
-    Parameters
-    ----------
-    money : Money
-        Money amount.
-        
-    Returns
-    -------
-    MarketScalar
-        Price scalar.
-    """
+    def price(cls, money: "Money") -> MarketScalar:
+        """Create a price scalar.
+
+        Parameters
+        ----------
+        money : Money
+            Money amount.
+
+        Returns
+        -------
+        MarketScalar
+            Price scalar.
+        """
+        ...
 
     @property
-    def is_unitless(self) -> bool: ...
-    """Check if this is a unitless scalar.
-    
-    Returns
-    -------
-    bool
-        True if unitless.
-    """
+    def is_unitless(self) -> bool:
+        """Check if this is a unitless scalar.
+
+        Returns
+        -------
+        bool
+            True if unitless.
+        """
+        ...
 
     @property
-    def is_price(self) -> bool: ...
-    """Check if this is a price scalar.
-    
-    Returns
-    -------
-    bool
-        True if price.
-    """
+    def is_price(self) -> bool:
+        """Check if this is a price scalar.
 
-    def value(self) -> Union[float, "Money"]: ...
-    """Get the scalar value.
-    
-    Returns
-    -------
-    float or Money
-        Scalar value.
-    """
+        Returns
+        -------
+        bool
+            True if price.
+        """
+        ...
+
+    def value(self) -> Union[float, "Money"]:
+        """Get the scalar value.
+
+        Returns
+        -------
+        float or Money
+            Scalar value.
+        """
+        ...
 
     def __repr__(self) -> str: ...
 
@@ -143,71 +150,77 @@ class ScalarTimeSeries:
         currency: Optional[Currency] = None,
         interpolation: Optional[SeriesInterpolation] = None,
     ) -> None: ...
-    def set_interpolation(self, interpolation: SeriesInterpolation) -> None: ...
-    """Set the interpolation method.
-    
-    Parameters
-    ----------
-    interpolation : SeriesInterpolation
-        New interpolation method.
-    """
+    def set_interpolation(self, interpolation: SeriesInterpolation) -> None:
+        """Set the interpolation method.
+
+        Parameters
+        ----------
+        interpolation : SeriesInterpolation
+            New interpolation method.
+        """
+        ...
 
     @property
-    def id(self) -> str: ...
-    """Get the series identifier.
-    
-    Returns
-    -------
-    str
-        Series ID.
-    """
+    def id(self) -> str:
+        """Get the series identifier.
+
+        Returns
+        -------
+        str
+            Series ID.
+        """
+        ...
 
     @property
-    def currency(self) -> Optional[Currency]: ...
-    """Get the currency.
-    
-    Returns
-    -------
-    Currency or None
-        Currency if set.
-    """
+    def currency(self) -> Optional[Currency]:
+        """Get the currency.
+
+        Returns
+        -------
+        Currency or None
+            Currency if set.
+        """
+        ...
 
     @property
-    def interpolation(self) -> SeriesInterpolation: ...
-    """Get the interpolation method.
-    
-    Returns
-    -------
-    SeriesInterpolation
-        Interpolation method.
-    """
+    def interpolation(self) -> SeriesInterpolation:
+        """Get the interpolation method.
 
-    def value_on(self, date: Union[str, date]) -> float: ...
-    """Get value on a specific date.
-    
-    Parameters
-    ----------
-    date : str or date
-        Target date.
-        
-    Returns
-    -------
-    float
-        Interpolated value.
-    """
+        Returns
+        -------
+        SeriesInterpolation
+            Interpolation method.
+        """
+        ...
 
-    def values_on(self, dates: List[Union[str, date]]) -> List[float]: ...
-    """Get values on multiple dates.
-    
-    Parameters
-    ----------
-    dates : List[str or date]
-        Target dates.
-        
-    Returns
-    -------
-    List[float]
-        Interpolated values.
-    """
+    def value_on(self, date: Union[str, date]) -> float:
+        """Get value on a specific date.
+
+        Parameters
+        ----------
+        date : str or date
+            Target date.
+
+        Returns
+        -------
+        float
+            Interpolated value.
+        """
+        ...
+
+    def values_on(self, dates: List[Union[str, date]]) -> List[float]:
+        """Get values on multiple dates.
+
+        Parameters
+        ----------
+        dates : List[str or date]
+            Target dates.
+
+        Returns
+        -------
+        List[float]
+            Interpolated values.
+        """
+        ...
 
     def __repr__(self) -> str: ...

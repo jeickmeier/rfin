@@ -4,7 +4,7 @@ Provides basic cashflow types and classification enums
 for financial instrument modeling.
 """
 
-from typing import Optional, Union, ClassVar
+from typing import ClassVar, Optional, Tuple, Union
 import datetime
 from datetime import date
 from ..money import Money
@@ -61,29 +61,31 @@ class CFKind:
     COLLATERAL_SUBSTITUTION_OUT: ClassVar["CFKind"]
 
     @classmethod
-    def from_name(cls, name: str) -> CFKind: ...
-    """Create from string name.
-    
-    Parameters
-    ----------
-    name : str
-        Kind name (case-insensitive).
-        
-    Returns
-    -------
-    CFKind
-        Cashflow kind instance.
-    """
+    def from_name(cls, name: str) -> CFKind:
+        """Create from string name.
+
+        Parameters
+        ----------
+        name : str
+            Kind name (case-insensitive).
+
+        Returns
+        -------
+        CFKind
+            Cashflow kind instance.
+        """
+        ...
 
     @property
-    def name(self) -> str: ...
-    """Get the kind name.
-    
-    Returns
-    -------
-    str
-        Human-readable kind name.
-    """
+    def name(self) -> str:
+        """Get the kind name.
+
+        Returns
+        -------
+        str
+            Human-readable kind name.
+        """
+        ...
 
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
@@ -128,79 +130,87 @@ class CashFlow:
     :class:`Money`: Currency-safe monetary amounts
     """
 
-    def validate(self) -> None: ...
-    """Validate cashflow amount and fields.
-    
-    Raises
-    ------
-    ValueError
-        If the cashflow amount is zero.
-    """
+    def validate(self) -> None:
+        """Validate cashflow amount and fields.
+
+        Raises
+        ------
+        ValueError
+            If the cashflow amount is zero.
+        """
+        ...
 
     @property
-    def kind(self) -> CFKind: ...
-    """Get the cashflow kind.
-    
-    Returns
-    -------
-    CFKind
-        Cashflow kind.
-    """
+    def kind(self) -> CFKind:
+        """Get the cashflow kind.
 
-    def date(self) -> datetime.date: ...
-    """Get the cashflow date.
-    
-    Returns
-    -------
-    date
-        Cashflow date.
-    """
+        Returns
+        -------
+        CFKind
+            Cashflow kind.
+        """
+        ...
 
-    def reset_date(self) -> Optional[datetime.date]: ...
-    """Get the reset date.
-    
-    Returns
-    -------
-    date or None
-        Reset date if applicable.
-    """
+    def date(self) -> datetime.date:
+        """Get the cashflow date.
 
-    @property
-    def amount(self) -> Money: ...
-    """Get the cashflow amount.
-    
-    Returns
-    -------
-    Money
-        Cashflow amount.
-    """
+        Returns
+        -------
+        date
+            Cashflow date.
+        """
+        ...
+
+    def reset_date(self) -> Optional[datetime.date]:
+        """Get the reset date.
+
+        Returns
+        -------
+        date or None
+            Reset date if applicable.
+        """
+        ...
 
     @property
-    def accrual_factor(self) -> float: ...
-    """Get the accrual factor.
-    
-    Returns
-    -------
-    float
-        Accrual factor.
-    """
+    def amount(self) -> Money:
+        """Get the cashflow amount.
 
-    def set_accrual_factor(self, value: float) -> None: ...
-    """Set the accrual factor.
-    
-    Parameters
-    ----------
-    value : float
-        New accrual factor.
-    """
+        Returns
+        -------
+        Money
+            Cashflow amount.
+        """
+        ...
 
-    def to_tuple(self) -> Tuple[datetime.date, Money, CFKind, float, Optional[datetime.date]]: ...
-    """Convert to tuple representation.
-    
-    Returns
-    -------
-    Tuple[datetime.date, Money, CFKind, float, Optional[datetime.date]]
-        (payment_date, amount, kind, accrual_factor, reset_date).
-    """
+    @property
+    def accrual_factor(self) -> float:
+        """Get the accrual factor.
+
+        Returns
+        -------
+        float
+            Accrual factor.
+        """
+        ...
+
+    def set_accrual_factor(self, value: float) -> None:
+        """Set the accrual factor.
+
+        Parameters
+        ----------
+        value : float
+            New accrual factor.
+        """
+        ...
+
+    def to_tuple(self) -> Tuple[datetime.date, Money, CFKind, float, Optional[datetime.date]]:
+        """Convert to tuple representation.
+
+        Returns
+        -------
+        Tuple[datetime.date, Money, CFKind, float, Optional[datetime.date]]
+            (payment_date, amount, kind, accrual_factor, reset_date).
+        """
+        ...
 
     def __repr__(self) -> str: ...

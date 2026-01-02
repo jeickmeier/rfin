@@ -51,26 +51,18 @@ Examples:
 from __future__ import annotations
 
 import re
+from typing import TYPE_CHECKING
 
 from finstack import Currency
 
-# Import the Rust types
-try:
-    from finstack.finstack.scenarios import CurveKind, OperationSpec, ScenarioSpec, VolSurfaceKind
-except ImportError:
+if TYPE_CHECKING:
+    from finstack.scenarios import CurveKind, OperationSpec, ScenarioSpec, VolSurfaceKind
+else:
+    # Runtime: prefer compiled extension, fall back to hybrid module.
     try:
-        from finstack.scenarios import (
-            CurveKind,
-            OperationSpec,
-            ScenarioSpec,
-            VolSurfaceKind,
-        )
-    except ImportError:
-        # For type checking
-        CurveKind = None
-        OperationSpec = None
-        ScenarioSpec = None
-        VolSurfaceKind = None
+        from finstack.finstack.scenarios import CurveKind, OperationSpec, ScenarioSpec, VolSurfaceKind
+    except ImportError:  # pragma: no cover - alternate layouts
+        from finstack.scenarios import CurveKind, OperationSpec, ScenarioSpec, VolSurfaceKind
 
 
 class DSLParseError(Exception):
@@ -190,7 +182,7 @@ class DSLParser:
         curve_kinds = {
             "discount": CurveKind.Discount,
             "forward": CurveKind.Forecast,  # 'forward' in DSL maps to Forecast curve kind
-            "hazard": CurveKind.ParCDS,  # 'hazard' in DSL maps to ParCDS curve kind
+            "hazard": CurveKind.ParCDS,
             "inflation": CurveKind.Inflation,
         }
 
@@ -272,9 +264,7 @@ class DSLParser:
         pct_match = self._PCT_PATTERN.search(value_str)
         if pct_match:
             pct_value = float(pct_match.group(1))
-            base = Currency(base_ccy) if Currency is not None else base_ccy
-            quote = Currency(quote_ccy) if Currency is not None else quote_ccy
-            return OperationSpec.market_fx_pct(base, quote, pct_value)
+            return OperationSpec.market_fx_pct(Currency(base_ccy), Currency(quote_ccy), pct_value)
 
         raise DSLParseError(f"Invalid shift syntax: could not parse percentage in '{original_line}'")
 

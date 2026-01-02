@@ -68,39 +68,37 @@ class Basket:
     """
 
     @classmethod
-    def from_json(cls, data: Union[str, Dict[str, Any]]) -> "Basket": ...
-    """Parse a basket definition from a JSON string or dictionary.
+    def from_json(cls, data: Union[str, Dict[str, Any]]) -> "Basket":
+        """Parse a basket definition from a JSON string or dictionary.
 
-    Parameters
-    ----------
-    data : str or Dict[str, Any]
-        JSON string or dictionary containing basket definition.
-        Must include underlyings, weights, and payoff_type.
+        Parameters
+        ----------
+        data : str or Dict[str, Any]
+            JSON string or dictionary containing basket definition.
+            Must include underlyings, weights, and payoff_type.
 
-    Returns
-    -------
-    Basket
-        Configured basket instrument ready for pricing.
+        Returns
+        -------
+        Basket
+            Configured basket instrument ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If JSON is invalid or required fields are missing.
+        Raises
+        ------
+        ValueError
+            If JSON is invalid or required fields are missing.
 
-    Examples
-    --------
-        >>> import json
-        >>> json_data = {
-        ...     "id": "BASKET-2",
-        ...     "constituents": [
-        ...         {"ticker": "AAPL", "weight": 0.5},
-        ...         {"ticker": "MSFT", "weight": 0.5}
-        ...     ],
-        ...     "currency": "USD"
-        ... }
-        >>> json_str = json.dumps(json_data)
-        >>> basket = Basket.from_json(json_str)
-    """
+        Examples
+        --------
+            >>> import json
+            >>> json_data = {
+            ...     "id": "BASKET-2",
+            ...     "constituents": [{"ticker": "AAPL", "weight": 0.5}, {"ticker": "MSFT", "weight": 0.5}],
+            ...     "currency": "USD",
+            ... }
+            >>> json_str = json.dumps(json_data)
+            >>> basket = Basket.from_json(json_str)
+        """
+        ...
 
     def to_json(self) -> str:
         """Serialize the basket definition to a JSON string."""

@@ -68,6 +68,13 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
+      - id: pyright
+        name: Python typecheck (pyright)
+        entry: uv run pyright
+        language: system
+        types: [python]
+        pass_filenames: false
+        stages: [pre-push]
 
   # ============================================
   # TypeScript/JavaScript (WASM bindings)

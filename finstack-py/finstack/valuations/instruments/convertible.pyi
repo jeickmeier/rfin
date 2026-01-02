@@ -120,59 +120,60 @@ class ConvertibleBond:
         put_schedule: Optional[List[Tuple[date, float]]] = None,
         fixed_coupon: Optional[FixedCouponSpec] = None,
         floating_coupon: Optional[FloatingCouponSpec] = None,
-    ) -> "ConvertibleBond": ...
-    """Create a convertible bond.
+    ) -> "ConvertibleBond":
+        """Create a convertible bond.
 
-    Parameters
-    ----------
-    instrument_id : str
-        Unique identifier for the convertible (e.g., "CONVERTIBLE-CORP-A").
-    notional : Money
-        Bond principal amount. Currency determines curve currency.
-    issue : date
-        Bond issue date.
-    maturity : date
-        Bond maturity date. Must be after issue.
-    discount_curve : str
-        Discount curve identifier in MarketContext.
-    conversion : ConversionSpec
-        Conversion specification (policy, ratio, anti-dilution, etc.).
-    underlying_equity_id : str, optional
-        Underlying equity identifier in MarketContext (default: uses ticker from conversion).
-    call_schedule : List[Tuple[date, float]], optional
-        Call schedule: list of (date, call_price) tuples. Issuer can call
-        the bond at these dates/prices.
-    put_schedule : List[Tuple[date, float]], optional
-        Put schedule: list of (date, put_price) tuples. Holder can put
-        the bond back at these dates/prices.
-    fixed_coupon : FixedCouponSpec, optional
-        Fixed coupon specification (rate, frequency, day count).
-    floating_coupon : FloatingCouponSpec, optional
-        Floating coupon specification (forward curve, margin, etc.).
-        Either fixed_coupon or floating_coupon must be provided.
+        Parameters
+        ----------
+        instrument_id : str
+            Unique identifier for the convertible (e.g., "CONVERTIBLE-CORP-A").
+        notional : Money
+            Bond principal amount. Currency determines curve currency.
+        issue : date
+            Bond issue date.
+        maturity : date
+            Bond maturity date. Must be after issue.
+        discount_curve : str
+            Discount curve identifier in MarketContext.
+        conversion : ConversionSpec
+            Conversion specification (policy, ratio, anti-dilution, etc.).
+        underlying_equity_id : str, optional
+            Underlying equity identifier in MarketContext (default: uses ticker from conversion).
+        call_schedule : List[Tuple[date, float]], optional
+            Call schedule: list of (date, call_price) tuples. Issuer can call
+            the bond at these dates/prices.
+        put_schedule : List[Tuple[date, float]], optional
+            Put schedule: list of (date, put_price) tuples. Holder can put
+            the bond back at these dates/prices.
+        fixed_coupon : FixedCouponSpec, optional
+            Fixed coupon specification (rate, frequency, day count).
+        floating_coupon : FloatingCouponSpec, optional
+            Floating coupon specification (forward curve, margin, etc.).
+            Either fixed_coupon or floating_coupon must be provided.
 
-    Returns
-    -------
-    ConvertibleBond
-        Configured convertible bond ready for pricing.
+        Returns
+        -------
+        ConvertibleBond
+            Configured convertible bond ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If parameters are invalid (maturity <= issue, no coupon spec, etc.)
-        or if required market data is missing.
+        Raises
+        ------
+        ValueError
+            If parameters are invalid (maturity <= issue, no coupon spec, etc.)
+            or if required market data is missing.
 
-    Examples
-    --------
-        >>> convertible = ConvertibleBond.create(
-        ...     "CONVERTIBLE-CORP-A",
-        ...     Money(10_000_000, Currency("USD")),
-        ...     date(2024, 1, 1),
-        ...     date(2029, 1, 1),
-        ...     discount_curve="USD",
-        ...     conversion=conversion
-        ... )
-    """
+        Examples
+        --------
+            >>> convertible = ConvertibleBond.create(
+            ...     "CONVERTIBLE-CORP-A",
+            ...     Money(10_000_000, Currency("USD")),
+            ...     date(2024, 1, 1),
+            ...     date(2029, 1, 1),
+            ...     discount_curve="USD",
+            ...     conversion=conversion,
+            ... )
+        """
+        ...
 
     @property
     def instrument_id(self) -> str: ...

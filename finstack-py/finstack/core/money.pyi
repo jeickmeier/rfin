@@ -62,120 +62,130 @@ class Money:
 
     def __init__(self, amount: float, currency: Union[str, Currency]) -> None: ...
     @classmethod
-    def from_config(cls, amount: float, currency: Union[str, Currency], config: "FinstackConfig") -> Money: ...
-    """Construct a money value using a configuration for ingest rounding.
-    
-    Parameters
-    ----------
-    amount : float
-        Raw monetary value.
-    currency : Currency or str
-        Currency identifier.
-    config : FinstackConfig
-        Configuration controlling ingest rounding/scale.
-        
-    Returns
-    -------
-    Money
-        Money instance respecting custom ingest rules.
-        
-    Examples
-    --------
-        >>> from finstack.core.config import FinstackConfig
-        >>> from finstack.core.money import Money
-        >>> cfg = FinstackConfig()
-        >>> cfg.set_ingest_scale("JPY", 4)
-        >>> Money.from_config(123.4567, "JPY", cfg).amount
-        123.4567
-    """
+    def from_config(cls, amount: float, currency: Union[str, Currency], config: "FinstackConfig") -> Money:
+        """Construct a money value using a configuration for ingest rounding.
+
+        Parameters
+        ----------
+        amount : float
+            Raw monetary value.
+        currency : Currency or str
+            Currency identifier.
+        config : FinstackConfig
+            Configuration controlling ingest rounding/scale.
+
+        Returns
+        -------
+        Money
+            Money instance respecting custom ingest rules.
+
+        Examples
+        --------
+            >>> from finstack.core.config import FinstackConfig
+            >>> from finstack.core.money import Money
+            >>> cfg = FinstackConfig()
+            >>> cfg.set_ingest_scale("JPY", 4)
+            >>> Money.from_config(123.4567, "JPY", cfg).amount
+            123.4567
+        """
+        ...
 
     @classmethod
-    def zero(cls, currency: Union[str, Currency]) -> Money: ...
-    """Create a zero amount in the specified currency.
-    
-    Parameters
-    ----------
-    currency : Currency or str
-        Currency for the zero amount.
-        
-    Returns
-    -------
-    Money
-        Zero amount in the specified currency.
-    """
+    def zero(cls, currency: Union[str, Currency]) -> Money:
+        """Create a zero amount in the specified currency.
+
+        Parameters
+        ----------
+        currency : Currency or str
+            Currency for the zero amount.
+
+        Returns
+        -------
+        Money
+            Zero amount in the specified currency.
+        """
+        ...
 
     @classmethod
-    def from_tuple(cls, value: Tuple[float, Currency]) -> Money: ...
-    """Construct from a (amount, currency) tuple.
-    
-    Parameters
-    ----------
-    value : Tuple[float, Currency]
-        (amount, currency) tuple.
-        
-    Returns
-    -------
-    Money
-        Money instance from tuple representation.
-    """
+    def from_tuple(cls, value: Tuple[float, Currency]) -> Money:
+        """Construct from a (amount, currency) tuple.
+
+        Parameters
+        ----------
+        value : Tuple[float, Currency]
+            (amount, currency) tuple.
+
+        Returns
+        -------
+        Money
+            Money instance from tuple representation.
+        """
+        ...
 
     @property
-    def amount(self) -> float: ...
-    """Get the numeric amount.
-    
-    Returns
-    -------
-    float
-        Scalar value in the currency's minor units.
-    """
+    def amount(self) -> float:
+        """Get the numeric amount.
+
+        Returns
+        -------
+        float
+            Scalar value in the currency's minor units.
+        """
+        ...
 
     @property
-    def currency(self) -> Currency: ...
-    """Get the currency.
-    
-    Returns
-    -------
-    Currency
-        Currency instance.
-    """
+    def currency(self) -> Currency:
+        """Get the currency.
 
-    def to_tuple(self) -> Tuple[float, Currency]: ...
-    """Convert to (amount, currency) tuple.
-    
-    Returns
-    -------
-    Tuple[float, Currency]
-        Tuple representation.
-    """
+        Returns
+        -------
+        Currency
+            Currency instance.
+        """
+        ...
 
-    def format(self) -> str: ...
-    """Format as a human-readable string.
-    
-    Returns
-    -------
-    str
-        Formatted string (e.g. "USD 125.50").
-    """
+    def to_tuple(self) -> Tuple[float, Currency]:
+        """Convert to (amount, currency) tuple.
 
-    def format_with_config(self, config: "FinstackConfig") -> str: ...
-    """Format using custom configuration.
-    
-    Parameters
-    ----------
-    config : FinstackConfig
-        Configuration for formatting rules.
-        
-    Returns
-    -------
-    str
-        Formatted string respecting config rules.
-    """
+        Returns
+        -------
+        Tuple[float, Currency]
+            Tuple representation.
+        """
+        ...
 
-    def format_custom(self, decimals: int, show_currency: bool = True) -> str: ...
-    """Format with explicit decimal places and optional currency code."""
+    def format(self) -> str:
+        """Format as a human-readable string.
 
-    def format_with_separators(self, decimals: int) -> str: ...
-    """Format with thousands separators and explicit decimal places."""
+        Returns
+        -------
+        str
+            Formatted string (e.g. "USD 125.50").
+        """
+        ...
+
+    def format_with_config(self, config: "FinstackConfig") -> str:
+        """Format using custom configuration.
+
+        Parameters
+        ----------
+        config : FinstackConfig
+            Configuration for formatting rules.
+
+        Returns
+        -------
+        str
+            Formatted string respecting config rules.
+        """
+        ...
+
+    def format_custom(self, decimals: int, show_currency: bool = True) -> str:
+        """Format with explicit decimal places and optional currency code."""
+        ...
+
+    def format_with_separators(self, decimals: int) -> str:
+        """Format with thousands separators and explicit decimal places."""
+        ...
 
     def convert(
         self,
@@ -183,66 +193,69 @@ class Money:
         on: "date",
         fx_matrix: FxMatrix,
         policy: Optional[Union[str, FxConversionPolicy]] = None,
-    ) -> Money: ...
-    """Convert this amount into another currency using an FX matrix.
+    ) -> Money:
+        """Convert this amount into another currency using an FX matrix.
 
-    Parameters
-    ----------
-    to_currency : str or Currency
-        Target currency.
-    on : date
-        Valuation date for the conversion.
-    fx_matrix : FxMatrix
-        FX source used to obtain rates.
-    policy : FxConversionPolicy or str, optional
-        Conversion timing policy (defaults to cashflow_date).
-    """
+        Parameters
+        ----------
+        to_currency : str or Currency
+            Target currency.
+        on : date
+            Valuation date for the conversion.
+        fx_matrix : FxMatrix
+            FX source used to obtain rates.
+        policy : FxConversionPolicy or str, optional
+            Conversion timing policy (defaults to cashflow_date).
+        """
+        ...
 
-    def checked_add(self, other: Money) -> Money: ...
-    """Add another money amount with explicit currency checking.
-    
-    This method performs addition with explicit error handling. For most use
-    cases, the ``+`` operator is preferred, which calls this method internally.
-    
-    Parameters
-    ----------
-    other : Money
-        Money amount to add. Must have the same currency as this instance.
-        
-    Returns
-    -------
-    Money
-        Sum of the two amounts in the same currency.
-        
-    Raises
-    ------
-    ValueError
-        If currencies don't match. The error message will indicate which
-        currencies were involved.
-    """
+    def checked_add(self, other: Money) -> Money:
+        """Add another money amount with explicit currency checking.
 
-    def checked_sub(self, other: Money) -> Money: ...
-    """Subtract another money amount with explicit currency checking.
-    
-    This method performs subtraction with explicit error handling. For most use
-    cases, the ``-`` operator is preferred, which calls this method internally.
-    
-    Parameters
-    ----------
-    other : Money
-        Money amount to subtract. Must have the same currency as this instance.
-        
-    Returns
-    -------
-    Money
-        Difference of the two amounts in the same currency.
-        
-    Raises
-    ------
-    ValueError
-        If currencies don't match. The error message will indicate which
-        currencies were involved.
-    """
+        This method performs addition with explicit error handling. For most use
+        cases, the ``+`` operator is preferred, which calls this method internally.
+
+        Parameters
+        ----------
+        other : Money
+            Money amount to add. Must have the same currency as this instance.
+
+        Returns
+        -------
+        Money
+            Sum of the two amounts in the same currency.
+
+        Raises
+        ------
+        ValueError
+            If currencies don't match. The error message will indicate which
+            currencies were involved.
+        """
+        ...
+
+    def checked_sub(self, other: Money) -> Money:
+        """Subtract another money amount with explicit currency checking.
+
+        This method performs subtraction with explicit error handling. For most use
+        cases, the ``-`` operator is preferred, which calls this method internally.
+
+        Parameters
+        ----------
+        other : Money
+            Money amount to subtract. Must have the same currency as this instance.
+
+        Returns
+        -------
+        Money
+            Difference of the two amounts in the same currency.
+
+        Raises
+        ------
+        ValueError
+            If currencies don't match. The error message will indicate which
+            currencies were involved.
+        """
+        ...
 
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...

@@ -81,15 +81,18 @@ class Tenor:
     @staticmethod
     def one_year() -> "Tenor": ...
     @property
-    def count(self) -> int: ...
-    """Unit count (e.g., 3 for ``3M``)."""
+    def count(self) -> int:
+        """Unit count (e.g., 3 for ``3M``)."""
+        ...
 
     @property
-    def unit(self) -> TenorUnit: ...
-    """Tenor unit."""
+    def unit(self) -> TenorUnit:
+        """Tenor unit."""
+        ...
 
-    def to_years_simple(self) -> float: ...
-    """Convert tenor to a simple year fraction (approximate)."""
+    def to_years_simple(self) -> float:
+        """Convert tenor to a simple year fraction (approximate)."""
+        ...
 
     def add_to_date(
         self,
@@ -97,8 +100,9 @@ class Tenor:
         *,
         calendar: Optional[Calendar] = None,
         convention: Optional[BusinessDayConvention] = None,
-    ) -> date: ...
-    """Add the tenor to a date, optionally applying a business-day convention."""
+    ) -> date:
+        """Add the tenor to a date, optionally applying a business-day convention."""
+        ...
 
     def to_years_with_context(
         self,
@@ -107,8 +111,9 @@ class Tenor:
         calendar: Optional[Calendar] = None,
         convention: Optional[BusinessDayConvention] = None,
         day_count: DayCount,
-    ) -> float: ...
-    """Compute year fraction using calendar adjustment and day-count."""
+    ) -> float:
+        """Compute year fraction using calendar adjustment and day-count."""
+        ...
 
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...

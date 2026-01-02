@@ -91,60 +91,61 @@ class VarianceSwap:
         realized_method: Optional[RealizedVarianceMethod] = None,
         side: Optional[Union[VarianceDirection, str]] = None,
         day_count: Optional[DayCount] = None,
-    ) -> "VarianceSwap": ...
-    """Create a variance swap.
+    ) -> "VarianceSwap":
+        """Create a variance swap.
 
-    Parameters
-    ----------
-    instrument_id : str
-        Unique identifier for the swap (e.g., "VAR-SWAP-SPX").
-    underlying_id : str
-        Underlying asset identifier (e.g., "SPX", "AAPL").
-    notional : Money
-        Variance notional (typically in variance points, not currency).
-    strike_variance : float
-        Strike variance rate (volatility squared, e.g., 0.04 for 20% vol).
-    start_date : date
-        Swap start date (first observation date).
-    maturity : date
-        Swap maturity date (last observation date). Must be after start_date.
-    discount_curve : str
-        Discount curve identifier in MarketContext.
-    observation_frequency : Frequency
-        Frequency of price observations (e.g., Frequency.DAILY, Frequency.WEEKLY).
-    realized_method : RealizedVarianceMethod, optional
-        Method for calculating realized variance (default: CLOSE_TO_CLOSE).
-    side : VarianceDirection or str, optional
-        Swap side: RECEIVE (receive realized, pay strike) or PAY (pay realized,
-        receive strike). Default: RECEIVE.
-    day_count : DayCount, optional
-        Day-count convention for time calculations.
+        Parameters
+        ----------
+        instrument_id : str
+            Unique identifier for the swap (e.g., "VAR-SWAP-SPX").
+        underlying_id : str
+            Underlying asset identifier (e.g., "SPX", "AAPL").
+        notional : Money
+            Variance notional (typically in variance points, not currency).
+        strike_variance : float
+            Strike variance rate (volatility squared, e.g., 0.04 for 20% vol).
+        start_date : date
+            Swap start date (first observation date).
+        maturity : date
+            Swap maturity date (last observation date). Must be after start_date.
+        discount_curve : str
+            Discount curve identifier in MarketContext.
+        observation_frequency : Frequency
+            Frequency of price observations (e.g., Frequency.DAILY, Frequency.WEEKLY).
+        realized_method : RealizedVarianceMethod, optional
+            Method for calculating realized variance (default: CLOSE_TO_CLOSE).
+        side : VarianceDirection or str, optional
+            Swap side: RECEIVE (receive realized, pay strike) or PAY (pay realized,
+            receive strike). Default: RECEIVE.
+        day_count : DayCount, optional
+            Day-count convention for time calculations.
 
-    Returns
-    -------
-    VarianceSwap
-        Configured variance swap ready for pricing.
+        Returns
+        -------
+        VarianceSwap
+            Configured variance swap ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If parameters are invalid (maturity <= start_date, strike_variance < 0,
-        etc.) or if required market data is missing.
+        Raises
+        ------
+        ValueError
+            If parameters are invalid (maturity <= start_date, strike_variance < 0,
+            etc.) or if required market data is missing.
 
-    Examples
-    --------
-        >>> from finstack.core.dates.schedule import Frequency
-        >>> swap = VarianceSwap.create(
-        ...     "VAR-SWAP-SPX",
-        ...     "SPX",
-        ...     Money(1_000_000, Currency("USD")),
-        ...     0.04,  # 20% vol squared
-        ...     date(2024, 1, 1),
-        ...     date(2024, 12, 31),
-        ...     discount_curve="USD",
-        ...     observation_frequency=Frequency.DAILY
-        ... )
-    """
+        Examples
+        --------
+            >>> from finstack.core.dates.schedule import Frequency
+            >>> swap = VarianceSwap.create(
+            ...     "VAR-SWAP-SPX",
+            ...     "SPX",
+            ...     Money(1_000_000, Currency("USD")),
+            ...     0.04,  # 20% vol squared
+            ...     date(2024, 1, 1),
+            ...     date(2024, 12, 31),
+            ...     discount_curve="USD",
+            ...     observation_frequency=Frequency.DAILY,
+            ... )
+        """
+        ...
 
     @property
     def instrument_id(self) -> str: ...

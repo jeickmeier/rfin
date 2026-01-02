@@ -97,55 +97,55 @@ class InterestRateSwap:
         fixed_rate: float,
         start: date,
         end: date,
-    ) -> "InterestRateSwap": ...
-    """Create a USD SOFR swap where the caller pays fixed and receives floating.
+    ) -> "InterestRateSwap":
+        """Create a USD SOFR swap where the caller pays fixed and receives floating.
 
-    Factory method for creating a standard USD interest rate swap using SOFR
-    conventions: quarterly floating payments, semi-annual fixed payments,
-    30/360 day count, and Following business day convention.
+        Factory method for creating a standard USD interest rate swap using SOFR
+        conventions: quarterly floating payments, semi-annual fixed payments,
+        30/360 day count, and Following business day convention.
 
-    Parameters
-    ----------
-    instrument_id : str
-        Unique identifier for the swap (e.g., "SWAP-001", "IRS-5Y").
-    notional : Money
-        Notional principal amount. Must be in USD for this factory method.
-    fixed_rate : float
-        Fixed rate paid by the caller, as a decimal (e.g., 0.035 for 3.5%).
-        This is typically the par swap rate at inception.
-    start : date
-        Swap start date (first accrual date).
-    end : date
-        Swap end date (last payment date). Must be after start date.
+        Parameters
+        ----------
+        instrument_id : str
+            Unique identifier for the swap (e.g., "SWAP-001", "IRS-5Y").
+        notional : Money
+            Notional principal amount. Must be in USD for this factory method.
+        fixed_rate : float
+            Fixed rate paid by the caller, as a decimal (e.g., 0.035 for 3.5%).
+            This is typically the par swap rate at inception.
+        start : date
+            Swap start date (first accrual date).
+        end : date
+            Swap end date (last payment date). Must be after start date.
 
-    Returns
-    -------
-    InterestRateSwap
-        Configured swap where the caller pays fixed and receives floating.
+        Returns
+        -------
+        InterestRateSwap
+            Configured swap where the caller pays fixed and receives floating.
 
-    Raises
-    ------
-    ValueError
-        If dates are invalid (end <= start), if fixed_rate is negative,
-        or if notional currency is not USD.
+        Raises
+        ------
+        ValueError
+            If dates are invalid (end <= start), if fixed_rate is negative,
+            or if notional currency is not USD.
 
-    Examples
-    --------
-        >>> from finstack import Money, Currency
-        >>> from datetime import date
-        >>> 
-        >>> swap = InterestRateSwap.usd_pay_fixed(
-        ...     "SWAP-5Y",
-        ...     Money(10_000_000, Currency("USD")),
-        ...     0.035,  # 3.5% fixed rate
-        ...     date(2024, 1, 1),
-        ...     date(2029, 1, 1)  # 5-year swap
-        ... )
-        >>> swap.fixed_rate
-        0.035
-        >>> swap.side
-        PayReceive.PAY_FIXED
-    """
+        Examples
+        --------
+            >>> from finstack import Money, Currency
+            >>> from datetime import date
+            >>> swap = InterestRateSwap.usd_pay_fixed(
+            ...     "SWAP-5Y",
+            ...     Money(10_000_000, Currency("USD")),
+            ...     0.035,  # 3.5% fixed rate
+            ...     date(2024, 1, 1),
+            ...     date(2029, 1, 1),  # 5-year swap
+            ... )
+            >>> swap.fixed_rate
+            0.035
+            >>> swap.side
+            PayReceive.PAY_FIXED
+        """
+        ...
 
     @classmethod
     def usd_receive_fixed(

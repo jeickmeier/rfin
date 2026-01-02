@@ -7,113 +7,113 @@ financial market dates.
 from typing import Union
 from datetime import date
 
-def next_imm(date: Union[str, date]) -> date: ...
+def next_imm(date: Union[str, date]) -> date:
+    """Get the next IMM date after the given date.
 
-"""Get the next IMM date after the given date.
+    Parameters
+    ----------
+    date : str or date
+        Base date.
 
-Parameters
-----------
-date : str or date
-    Base date.
+    Returns
+    -------
+    date
+        Next IMM date (third Wednesday of March, June, September, or December).
+    """
+    ...
 
-Returns
--------
-date
-    Next IMM date (third Wednesday of March, June, September, or December).
-"""
+def next_cds_date(date: Union[str, date]) -> date:
+    """Get the next CDS date after the given date.
 
-def next_cds_date(date: Union[str, date]) -> date: ...
+    Parameters
+    ----------
+    date : str or date
+        Base date.
 
-"""Get the next CDS date after the given date.
+    Returns
+    -------
+    date
+        Next CDS date (20th of March, June, September, or December).
+    """
+    ...
 
-Parameters
-----------
-date : str or date
-    Base date.
+def next_imm_option_expiry(date: Union[str, date]) -> date:
+    """Get the next IMM option expiry date.
 
-Returns
--------
-date
-    Next CDS date (20th of March, June, September, or December).
-"""
+    Parameters
+    ----------
+    date : str or date
+        Base date.
 
-def next_imm_option_expiry(date: Union[str, date]) -> date: ...
+    Returns
+    -------
+    date
+        Next IMM option expiry date.
+    """
+    ...
 
-"""Get the next IMM option expiry date.
+def imm_option_expiry(year: int, month: int) -> date:
+    """Get the IMM option expiry for a specific year/month.
 
-Parameters
-----------
-date : str or date
-    Base date.
+    Parameters
+    ----------
+    year : int
+        Calendar year.
+    month : int
+        Month (1-12).
 
-Returns
--------
-date
-    Next IMM option expiry date.
-"""
+    Returns
+    -------
+    date
+        IMM option expiry date.
+    """
+    ...
 
-def imm_option_expiry(year: int, month: int) -> date: ...
+def next_equity_option_expiry(date: Union[str, date]) -> date:
+    """Get the next equity option expiry date.
 
-"""Get the IMM option expiry for a specific year/month.
+    Parameters
+    ----------
+    date : str or date
+        Base date.
 
-Parameters
-----------
-year : int
-    Calendar year.
-month : int
-    Month (1-12).
+    Returns
+    -------
+    date
+        Next equity option expiry date (third Friday of the month).
+    """
+    ...
 
-Returns
--------
-date
-    IMM option expiry date.
-"""
+def third_friday(year: int, month: int) -> date:
+    """Get the third Friday of a month.
 
-def next_equity_option_expiry(date: Union[str, date]) -> date: ...
+    Parameters
+    ----------
+    year : int
+        Calendar year.
+    month : int
+        Month (1-12).
 
-"""Get the next equity option expiry date.
+    Returns
+    -------
+    date
+        Third Friday of the month.
+    """
+    ...
 
-Parameters
-----------
-date : str or date
-    Base date.
+def third_wednesday(year: int, month: int) -> date:
+    """Get the third Wednesday of a month.
 
-Returns
--------
-date
-    Next equity option expiry date (third Friday of the month).
-"""
+    Parameters
+    ----------
+    year : int
+        Calendar year.
+    month : int
+        Month (1-12).
 
-def third_friday(year: int, month: int) -> date: ...
-
-"""Get the third Friday of a month.
-
-Parameters
-----------
-year : int
-    Calendar year.
-month : int
-    Month (1-12).
-
-Returns
--------
-date
-    Third Friday of the month.
-"""
-
-def third_wednesday(year: int, month: int) -> date: ...
-
-"""Get the third Wednesday of a month.
-
-Parameters
-----------
-year : int
-    Calendar year.
-month : int
-    Month (1-12).
-
-Returns
--------
-date
-    Third Wednesday of the month.
-"""
+    Returns
+    -------
+    date
+        Third Wednesday of the month.
+    """
+    ...

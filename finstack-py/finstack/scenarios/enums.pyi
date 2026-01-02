@@ -15,7 +15,7 @@ class CurveKind:
     # Class attributes
     Discount: ClassVar[CurveKind]
     Forecast: ClassVar[CurveKind]
-    Hazard: ClassVar[CurveKind]
+    ParCDS: ClassVar[CurveKind]
     Inflation: ClassVar[CurveKind]
 
     def __repr__(self) -> str: ...

@@ -68,64 +68,65 @@ class CliquetOption:
         global_cap: float = 0.0,
         global_floor: float = 0.0,
         div_yield_id: Optional[str] = None,
-    ) -> "CliquetOption": ...
-    """Create a cliquet option.
+    ) -> "CliquetOption":
+        """Create a cliquet option.
 
-    Parameters
-    ----------
-    instrument_id : str
-        Unique identifier for the option.
-    underlying_ticker : str
-        Underlying equity ticker symbol.
-    reset_dates : List[date]
-        Dates when returns are calculated and locked. Must be in ascending order.
-    maturity : date
-        Option maturity date (should be >= last reset date).
-    notional : Money
-        Notional amount.
-    discount_curve : str
-        Discount curve identifier in MarketContext.
-    vol_surface : str
-        Volatility surface identifier in MarketContext.
-    spot_id : str
-        Spot price identifier in MarketContext.
-    local_cap : float, optional
-        Local cap per period (default: 0.0 = no cap). E.g., 0.10 for 10% cap.
-    local_floor : float, optional
-        Local floor per period (default: 0.0 = no floor). E.g., -0.05 for -5% floor.
-    global_cap : float, optional
-        Global cap on total return (default: 0.0 = no cap). E.g., 0.30 for 30% cap.
-    global_floor : float, optional
-        Global floor on total return (default: 0.0 = no floor). E.g., 0.0 for 0% floor.
-    div_yield_id : str, optional
-        Dividend yield identifier in MarketContext.
+        Parameters
+        ----------
+        instrument_id : str
+            Unique identifier for the option.
+        underlying_ticker : str
+            Underlying equity ticker symbol.
+        reset_dates : List[date]
+            Dates when returns are calculated and locked. Must be in ascending order.
+        maturity : date
+            Option maturity date (should be >= last reset date).
+        notional : Money
+            Notional amount.
+        discount_curve : str
+            Discount curve identifier in MarketContext.
+        vol_surface : str
+            Volatility surface identifier in MarketContext.
+        spot_id : str
+            Spot price identifier in MarketContext.
+        local_cap : float, optional
+            Local cap per period (default: 0.0 = no cap). E.g., 0.10 for 10% cap.
+        local_floor : float, optional
+            Local floor per period (default: 0.0 = no floor). E.g., -0.05 for -5% floor.
+        global_cap : float, optional
+            Global cap on total return (default: 0.0 = no cap). E.g., 0.30 for 30% cap.
+        global_floor : float, optional
+            Global floor on total return (default: 0.0 = no floor). E.g., 0.0 for 0% floor.
+        div_yield_id : str, optional
+            Dividend yield identifier in MarketContext.
 
-    Returns
-    -------
-    CliquetOption
-        Configured cliquet option ready for pricing.
+        Returns
+        -------
+        CliquetOption
+            Configured cliquet option ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If parameters are invalid (reset_dates out of order, maturity < last reset,
-        etc.) or if required market data is missing.
+        Raises
+        ------
+        ValueError
+            If parameters are invalid (reset_dates out of order, maturity < last reset,
+            etc.) or if required market data is missing.
 
-    Examples
-    --------
-        >>> option = CliquetOption.builder(
-        ...     "CLIQUET-SPX",
-        ...     "SPX",
-        ...     reset_dates,
-        ...     date(2024, 12, 31),
-        ...     Money(1_000_000, Currency("USD")),
-        ...     discount_curve="USD",
-        ...     vol_surface="SPX-VOL",
-        ...     spot_id="SPX",
-        ...     local_cap=0.10,
-        ...     global_cap=0.30
-        ... )
-    """
+        Examples
+        --------
+            >>> option = CliquetOption.builder(
+            ...     "CLIQUET-SPX",
+            ...     "SPX",
+            ...     reset_dates,
+            ...     date(2024, 12, 31),
+            ...     Money(1_000_000, Currency("USD")),
+            ...     discount_curve="USD",
+            ...     vol_surface="SPX-VOL",
+            ...     spot_id="SPX",
+            ...     local_cap=0.10,
+            ...     global_cap=0.30,
+            ... )
+        """
+        ...
 
     @property
     def instrument_id(self) -> str: ...

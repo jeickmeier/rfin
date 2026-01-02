@@ -397,7 +397,11 @@ impl PyPeriodPlan {
 /// >>> plan = build_periods("2024Q1..Q4", actuals_until="2024Q2")
 /// >>> [p.id.code for p in plan.periods]
 /// ['2024Q1', '2024Q2', '2024Q3', '2024Q4']
-#[pyfunction(name = "build_periods", text_signature = "(range, actuals_until=None)")]
+#[pyfunction(
+    name = "build_periods",
+    signature = (range, actuals_until=None),
+    text_signature = "(range, actuals_until=None)"
+)]
 fn build_periods_py(range: &str, actuals_until: Option<&str>) -> PyResult<PyPeriodPlan> {
     let plan = build_periods(range, actuals_until).map_err(core_to_py)?;
     Ok(PyPeriodPlan::new(plan.periods))
@@ -405,6 +409,7 @@ fn build_periods_py(range: &str, actuals_until: Option<&str>) -> PyResult<PyPeri
 
 #[pyfunction(
     name = "build_fiscal_periods",
+    signature = (range, config, actuals_until=None),
     text_signature = "(range, config, actuals_until=None)"
 )]
 /// Build fiscal periods using a `FiscalConfig` (e.g. ``FiscalConfig.US_FEDERAL``).

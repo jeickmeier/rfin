@@ -207,92 +207,92 @@ def value_portfolio(
     portfolio: Portfolio,
     market_context: MarketContext,
     config: Optional[FinstackConfig] = None,
-) -> PortfolioValuation: ...
+) -> PortfolioValuation:
+    """Value a complete portfolio with multi-currency aggregation.
 
-"""Value a complete portfolio with multi-currency aggregation.
+    This function values all positions in a portfolio, aggregates by entity,
+    and converts all values to the portfolio's base currency using explicit
+    FX conversion policies. It computes both position-level and entity-level
+    valuations with risk metrics.
 
-This function values all positions in a portfolio, aggregates by entity,
-and converts all values to the portfolio's base currency using explicit
-FX conversion policies. It computes both position-level and entity-level
-valuations with risk metrics.
+    Parameters
+    ----------
+    portfolio : Portfolio
+        Portfolio containing positions, entities, and base currency.
+        All positions must reference valid entities and instruments.
+    market_context : MarketContext
+        Market data context with curves, surfaces, FX rates, and spot prices.
+        Must contain all market data required by portfolio instruments.
+    config : FinstackConfig, optional
+        Finstack configuration for rounding, numeric mode, and FX policies.
+        If None, uses default configuration.
 
-Parameters
-----------
-portfolio : Portfolio
-    Portfolio containing positions, entities, and base currency.
-    All positions must reference valid entities and instruments.
-market_context : MarketContext
-    Market data context with curves, surfaces, FX rates, and spot prices.
-    Must contain all market data required by portfolio instruments.
-config : FinstackConfig, optional
-    Finstack configuration for rounding, numeric mode, and FX policies.
-    If None, uses default configuration.
+    Returns
+    -------
+    PortfolioValuation
+        Complete valuation results including:
+        - position_values: Per-position valuations (native and base currency)
+        - by_entity: Aggregated values by entity (base currency)
+        - total_base_ccy: Grand total in base currency
 
-Returns
--------
-PortfolioValuation
-    Complete valuation results including:
-    - position_values: Per-position valuations (native and base currency)
-    - by_entity: Aggregated values by entity (base currency)
-    - total_base_ccy: Grand total in base currency
+    Raises
+    ------
+    ValueError
+        If portfolio structure is invalid (missing entities, invalid references).
+    RuntimeError
+        If valuation fails (missing market data, pricing errors, FX conversion
+        failures).
 
-Raises
-------
-ValueError
-    If portfolio structure is invalid (missing entities, invalid references).
-RuntimeError
-    If valuation fails (missing market data, pricing errors, FX conversion
-    failures).
+    Examples
+    --------
+    Value a simple equity portfolio:
 
-Examples
---------
-Value a simple equity portfolio:
+        >>> from datetime import date
+        >>> from finstack.core.currency import Currency
+        >>> from finstack.core.market_data.context import MarketContext
+        >>> from finstack.portfolio import (
+        ...     PortfolioBuilder,
+        ...     Entity,
+        ...     Position,
+        ...     PositionUnit,
+        ...     value_portfolio,
+        ... )
+        >>> from finstack.valuations.instruments import Equity
+        >>> entity = Entity("ACME")
+        >>> equity = Equity.create("EQ-ACME", ticker="ACME", currency=Currency("USD"), price=120.0)
+        >>> position = Position("POS-1", entity.id, equity.instrument_id, equity, 100.0, PositionUnit.UNITS)
+        >>> portfolio = (
+        ...     PortfolioBuilder("FUND_A")
+        ...     .base_ccy(Currency("USD"))
+        ...     .as_of(date(2025, 1, 1))
+        ...     .entity(entity)
+        ...     .position(position)
+        ...     .build()
+        ... )
+        >>> valuation = value_portfolio(portfolio, MarketContext())
+        >>> print(valuation.total_base_ccy.amount)
+        12000.0
+        >>> valuation.get_entity_value("ACME").amount
+        12000.0
+        >>> valuation.get_position_value("POS-1").value_native.amount
+        12000.0
 
-    >>> from datetime import date
-    >>> from finstack.core.currency import Currency
-    >>> from finstack.core.market_data.context import MarketContext
-    >>> from finstack.portfolio import (
-    ...     PortfolioBuilder,
-    ...     Entity,
-    ...     Position,
-    ...     PositionUnit,
-    ...     value_portfolio,
-    ... )
-    >>> from finstack.valuations.instruments import Equity
-    >>> entity = Entity("ACME")
-    >>> equity = Equity.create("EQ-ACME", ticker="ACME", currency=Currency("USD"), price=120.0)
-    >>> position = Position("POS-1", entity.id, equity.instrument_id, equity, 100.0, PositionUnit.UNITS)
-    >>> portfolio = (
-    ...     PortfolioBuilder("FUND_A")
-    ...     .base_ccy(Currency("USD"))
-    ...     .as_of(date(2025, 1, 1))
-    ...     .entity(entity)
-    ...     .position(position)
-    ...     .build()
-    ... )
-    >>> valuation = value_portfolio(portfolio, MarketContext())
-    >>> print(valuation.total_base_ccy.amount)
-    12000.0
-    >>> valuation.get_entity_value("ACME").amount
-    12000.0
-    >>> valuation.get_position_value("POS-1").value_native.amount
-    12000.0
+    Notes
+    -----
+    - All positions are valued using their native currency
+    - Values are converted to base currency using FX rates from MarketContext
+    - Entity aggregation sums all position values for that entity
+    - Total is the sum of all entity values in base currency
+    - Risk metrics are computed per-position and can be aggregated separately
 
-Notes
------
-- All positions are valued using their native currency
-- Values are converted to base currency using FX rates from MarketContext
-- Entity aggregation sums all position values for that entity
-- Total is the sum of all entity values in base currency
-- Risk metrics are computed per-position and can be aggregated separately
-
-See Also
---------
-:class:`Portfolio`: Portfolio structure
-:class:`PortfolioValuation`: Valuation results
-:class:`PositionValue`: Individual position valuation
-:class:`MarketContext`: Market data container
-"""
+    See Also
+    --------
+    :class:`Portfolio`: Portfolio structure
+    :class:`PortfolioValuation`: Valuation results
+    :class:`PositionValue`: Individual position valuation
+    :class:`MarketContext`: Market data container
+    """
+    ...
 
 def value_portfolio_with_options(
     portfolio: Portfolio,

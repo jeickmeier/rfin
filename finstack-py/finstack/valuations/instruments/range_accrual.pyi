@@ -74,61 +74,62 @@ class RangeAccrual:
         vol_surface: str,
         *,
         div_yield_id: Optional[str] = None,
-    ) -> "RangeAccrual": ...
-    """Create a range accrual instrument.
+    ) -> "RangeAccrual":
+        """Create a range accrual instrument.
 
-    Parameters
-    ----------
-    instrument_id : str
-        Unique identifier for the instrument (e.g., "RANGE-ACCRUAL-SPX").
-    ticker : str
-        Underlying equity ticker symbol.
-    observation_dates : List[date]
-        Dates when underlying price is observed to determine if in range.
-        Must be in ascending order.
-    lower_bound : float
-        Lower bound of the range. Must be > 0 and < upper_bound.
-    upper_bound : float
-        Upper bound of the range. Must be > lower_bound.
-    coupon_rate : float
-        Coupon rate as a decimal (e.g., 0.08 for 8%). Paid when price is in range.
-    notional : Money
-        Notional principal amount.
-    discount_curve : str
-        Discount curve identifier in MarketContext.
-    spot_id : str
-        Spot price identifier in MarketContext.
-    vol_surface : str
-        Volatility surface identifier in MarketContext.
-    div_yield_id : str, optional
-        Dividend yield identifier in MarketContext.
+        Parameters
+        ----------
+        instrument_id : str
+            Unique identifier for the instrument (e.g., "RANGE-ACCRUAL-SPX").
+        ticker : str
+            Underlying equity ticker symbol.
+        observation_dates : List[date]
+            Dates when underlying price is observed to determine if in range.
+            Must be in ascending order.
+        lower_bound : float
+            Lower bound of the range. Must be > 0 and < upper_bound.
+        upper_bound : float
+            Upper bound of the range. Must be > lower_bound.
+        coupon_rate : float
+            Coupon rate as a decimal (e.g., 0.08 for 8%). Paid when price is in range.
+        notional : Money
+            Notional principal amount.
+        discount_curve : str
+            Discount curve identifier in MarketContext.
+        spot_id : str
+            Spot price identifier in MarketContext.
+        vol_surface : str
+            Volatility surface identifier in MarketContext.
+        div_yield_id : str, optional
+            Dividend yield identifier in MarketContext.
 
-    Returns
-    -------
-    RangeAccrual
-        Configured range accrual ready for pricing.
+        Returns
+        -------
+        RangeAccrual
+            Configured range accrual ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If parameters are invalid (upper_bound <= lower_bound, observation_dates
-        out of order, etc.) or if required market data is missing.
+        Raises
+        ------
+        ValueError
+            If parameters are invalid (upper_bound <= lower_bound, observation_dates
+            out of order, etc.) or if required market data is missing.
 
-    Examples
-    --------
-        >>> range_accrual = RangeAccrual.builder(
-        ...     "RANGE-ACCRUAL-SPX",
-        ...     "SPX",
-        ...     observation_dates,
-        ...     lower_bound=4000.0,
-        ...     upper_bound=4500.0,
-        ...     coupon_rate=0.08,
-        ...     notional=Money(1_000_000, Currency("USD")),
-        ...     discount_curve="USD",
-        ...     spot_id="SPX",
-        ...     vol_surface="SPX-VOL"
-        ... )
-    """
+        Examples
+        --------
+            >>> range_accrual = RangeAccrual.builder(
+            ...     "RANGE-ACCRUAL-SPX",
+            ...     "SPX",
+            ...     observation_dates,
+            ...     lower_bound=4000.0,
+            ...     upper_bound=4500.0,
+            ...     coupon_rate=0.08,
+            ...     notional=Money(1_000_000, Currency("USD")),
+            ...     discount_curve="USD",
+            ...     spot_id="SPX",
+            ...     vol_surface="SPX-VOL",
+            ... )
+        """
+        ...
 
     @property
     def instrument_id(self) -> str: ...

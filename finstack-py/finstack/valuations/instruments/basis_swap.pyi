@@ -85,55 +85,56 @@ class BasisSwap:
         *,
         calendar: Optional[str] = None,
         stub: Optional[str] = "none",
-    ) -> "BasisSwap": ...
-    """Create a floating-for-floating basis swap with two legs.
+    ) -> "BasisSwap":
+        """Create a floating-for-floating basis swap with two legs.
 
-    Parameters
-    ----------
-    instrument_id : str
-        Unique identifier for the basis swap (e.g., "BASIS-LIBOR-SOFR").
-    notional : Money
-        Notional principal amount. Currency determines curve currency requirements.
-    start_date : date
-        Swap start date (first accrual date).
-    maturity : date
-        Swap maturity date (last payment date). Must be after start_date.
-    primary_leg : BasisSwapLeg
-        Primary leg specification (forward curve, frequency, spread).
-        Typically pays the higher floating rate.
-    reference_leg : BasisSwapLeg
-        Reference leg specification (forward curve, frequency, spread).
-        Typically pays the lower floating rate plus basis spread.
-    discount_curve : str
-        Discount curve identifier in MarketContext for present value calculations.
-    calendar : str, optional
-        Holiday calendar identifier for payment date adjustments.
-    stub : str, optional
-        Stub period handling: "none" (default), "short_first", "short_last".
+        Parameters
+        ----------
+        instrument_id : str
+            Unique identifier for the basis swap (e.g., "BASIS-LIBOR-SOFR").
+        notional : Money
+            Notional principal amount. Currency determines curve currency requirements.
+        start_date : date
+            Swap start date (first accrual date).
+        maturity : date
+            Swap maturity date (last payment date). Must be after start_date.
+        primary_leg : BasisSwapLeg
+            Primary leg specification (forward curve, frequency, spread).
+            Typically pays the higher floating rate.
+        reference_leg : BasisSwapLeg
+            Reference leg specification (forward curve, frequency, spread).
+            Typically pays the lower floating rate plus basis spread.
+        discount_curve : str
+            Discount curve identifier in MarketContext for present value calculations.
+        calendar : str, optional
+            Holiday calendar identifier for payment date adjustments.
+        stub : str, optional
+            Stub period handling: "none" (default), "short_first", "short_last".
 
-    Returns
-    -------
-    BasisSwap
-        Configured basis swap ready for pricing.
+        Returns
+        -------
+        BasisSwap
+            Configured basis swap ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If dates are invalid (maturity <= start_date), if notional is invalid,
-        or if forward curves are not found in MarketContext.
+        Raises
+        ------
+        ValueError
+            If dates are invalid (maturity <= start_date), if notional is invalid,
+            or if forward curves are not found in MarketContext.
 
-    Examples
-    --------
-        >>> basis_swap = BasisSwap.create(
-        ...     "BASIS-3M-6M",
-        ...     Money(10_000_000, Currency("USD")),
-        ...     date(2024, 1, 1),
-        ...     date(2029, 1, 1),
-        ...     primary_leg,
-        ...     reference_leg,
-        ...     discount_curve="USD"
-        ... )
-    """
+        Examples
+        --------
+            >>> basis_swap = BasisSwap.create(
+            ...     "BASIS-3M-6M",
+            ...     Money(10_000_000, Currency("USD")),
+            ...     date(2024, 1, 1),
+            ...     date(2029, 1, 1),
+            ...     primary_leg,
+            ...     reference_leg,
+            ...     discount_curve="USD",
+            ... )
+        """
+        ...
 
     @property
     def instrument_id(self) -> str: ...

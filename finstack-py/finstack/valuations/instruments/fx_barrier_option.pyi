@@ -75,57 +75,58 @@ class FxBarrierOption:
         fx_vol_surface: str,
         *,
         use_gobet_miri: Optional[bool] = False,
-    ) -> "FxBarrierOption": ...
-    """Create an FX barrier option.
+    ) -> "FxBarrierOption":
+        """Create an FX barrier option.
 
-    Parameters
-    ----------
-    instrument_id : str
-        Unique identifier for the option.
-    strike : float
-        Strike exchange rate (quote_currency per base_currency). Must be > 0.
-    barrier : float
-        Barrier exchange rate. Must be > 0 and typically different from strike.
-    option_type : str
-        Option type: "call" or "put".
-    barrier_type : str
-        Barrier type: "up_and_out", "up_and_in", "down_and_out", "down_and_in".
-    expiry : date
-        Option expiration date.
-    notional : Money
-        Notional amount in domestic currency.
-    domestic_currency : Currency
-        Domestic currency (currency for payoff).
-    foreign_currency : Currency
-        Foreign currency (base currency of FX pair).
-    discount_curve : str
-        Domestic discount curve identifier in MarketContext.
-    foreign_discount_curve : str
-        Foreign discount curve identifier in MarketContext.
-    fx_spot_id : str
-        FX spot rate identifier in MarketContext.
-    fx_vol_surface : str
-        FX volatility surface identifier in MarketContext.
-    use_gobet_miri : bool, optional
-        Use Gobet-Miri approximation for barrier pricing (default: False).
+        Parameters
+        ----------
+        instrument_id : str
+            Unique identifier for the option.
+        strike : float
+            Strike exchange rate (quote_currency per base_currency). Must be > 0.
+        barrier : float
+            Barrier exchange rate. Must be > 0 and typically different from strike.
+        option_type : str
+            Option type: "call" or "put".
+        barrier_type : str
+            Barrier type: "up_and_out", "up_and_in", "down_and_out", "down_and_in".
+        expiry : date
+            Option expiration date.
+        notional : Money
+            Notional amount in domestic currency.
+        domestic_currency : Currency
+            Domestic currency (currency for payoff).
+        foreign_currency : Currency
+            Foreign currency (base currency of FX pair).
+        discount_curve : str
+            Domestic discount curve identifier in MarketContext.
+        foreign_discount_curve : str
+            Foreign discount curve identifier in MarketContext.
+        fx_spot_id : str
+            FX spot rate identifier in MarketContext.
+        fx_vol_surface : str
+            FX volatility surface identifier in MarketContext.
+        use_gobet_miri : bool, optional
+            Use Gobet-Miri approximation for barrier pricing (default: False).
 
-    Returns
-    -------
-    FxBarrierOption
-        Configured FX barrier option ready for pricing.
+        Returns
+        -------
+        FxBarrierOption
+            Configured FX barrier option ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If parameters are invalid or if required market data is missing.
+        Raises
+        ------
+        ValueError
+            If parameters are invalid or if required market data is missing.
 
-    Examples
-    --------
-        >>> # Note: This example constructs the option but requires MarketContext
-        >>> # with discount curves, FX spot, and FX vol surface to actually price.
-        >>> # The construction itself may fail validation without proper setup.
-        >>> # For a working example, see the class-level docstring above.
-    """
+        Examples
+        --------
+            >>> # Note: This example constructs the option but requires MarketContext
+            >>> # with discount curves, FX spot, and FX vol surface to actually price.
+            >>> # The construction itself may fail validation without proper setup.
+            >>> # For a working example, see the class-level docstring above.
+        """
+        ...
 
     @property
     def instrument_id(self) -> str: ...

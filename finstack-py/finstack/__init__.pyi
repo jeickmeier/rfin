@@ -65,6 +65,37 @@ from . import statements
 from . import scenarios
 from . import portfolio
 
-# Re-export all public symbols from the compiled extension
-# The actual __all__ is determined at runtime from the compiled module
+# ---------------------------------------------------------------------------
+# IDE-friendly top-level re-exports
+# ---------------------------------------------------------------------------
+#
+# At runtime, `finstack/__init__.py` dynamically re-exports symbols from the
+# compiled extension module. Pylance/pyright works best when the public API is
+# explicitly re-exported here as well.
+#
+# Keep this list small and high-signal: common primitives and convenience
+# helpers that are showcased in docs/examples.
+
+from .core.currency import Currency as Currency
+from .core.money import Money as Money
+from .core.market_data.term_structures import DiscountCurve as DiscountCurve
+
+from .core.dates.calendar import (
+    BusinessDayConvention as BusinessDayConvention,
+    Calendar as Calendar,
+    adjust as adjust,
+    available_calendar_codes as available_calendar_codes,
+    available_calendars as available_calendars,
+    get_calendar as get_calendar,
+)
+from .core.dates.periods import (
+    FiscalConfig as FiscalConfig,
+    Period as Period,
+    PeriodId as PeriodId,
+    PeriodPlan as PeriodPlan,
+    build_fiscal_periods as build_fiscal_periods,
+    build_periods as build_periods,
+)
+from .core.dates.utils import add_months as add_months
+
 __all__: list[str]

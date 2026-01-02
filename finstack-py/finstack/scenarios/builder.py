@@ -19,31 +19,16 @@ Examples:
 
 from __future__ import annotations
 
-# Import the Rust types
-try:
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    # Use public import paths for best IDE support.
     from finstack import Currency
-    from finstack.scenarios import (
-        CurveKind,
-        OperationSpec,
-        ScenarioSpec,
-        VolSurfaceKind,
-    )
-except ImportError:
-    try:
-        from finstack import Currency
-        from finstack.scenarios import (
-            CurveKind,
-            OperationSpec,
-            ScenarioSpec,
-            VolSurfaceKind,
-        )
-    except ImportError:
-        # For type checking
-        Currency = None
-        CurveKind = None
-        OperationSpec = None
-        ScenarioSpec = None
-        VolSurfaceKind = None
+    from finstack.scenarios import CurveKind, OperationSpec, ScenarioSpec, VolSurfaceKind
+else:
+    # Runtime: these imports are expected to succeed when the package is installed.
+    from finstack import Currency
+    from finstack.scenarios import CurveKind, OperationSpec, ScenarioSpec, VolSurfaceKind
 
 
 class ScenarioBuilder:
@@ -253,9 +238,7 @@ class ScenarioBuilder:
         ScenarioBuilder
             Self for method chaining.
         """
-        base = Currency(base_ccy) if Currency is not None else base_ccy
-        quote = Currency(quote_ccy) if Currency is not None else quote_ccy
-        self._operations.append(OperationSpec.market_fx_pct(base, quote, pct_shift))
+        self._operations.append(OperationSpec.market_fx_pct(Currency(base_ccy), Currency(quote_ccy), pct_shift))
         return self
 
     # Volatility operations

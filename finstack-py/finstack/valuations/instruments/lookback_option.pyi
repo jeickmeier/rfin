@@ -76,59 +76,60 @@ class LookbackOption:
         vol_surface: str,
         *,
         div_yield_id: Optional[str] = None,
-    ) -> "LookbackOption": ...
-    """Create a lookback option.
+    ) -> "LookbackOption":
+        """Create a lookback option.
 
-    Parameters
-    ----------
-    instrument_id : str
-        Unique identifier for the option.
-    ticker : str
-        Underlying equity ticker symbol.
-    strike : float, optional
-        Strike price for fixed_strike type. None for floating_strike type.
-    option_type : str
-        Option type: "call" or "put".
-    lookback_type : str
-        Lookback type: "fixed_strike" or "floating_strike".
-    expiry : date
-        Option expiration date.
-    notional : Money
-        Notional amount.
-    discount_curve : str
-        Discount curve identifier in MarketContext.
-    spot_id : str
-        Spot price identifier in MarketContext.
-    vol_surface : str
-        Volatility surface identifier in MarketContext.
-    div_yield_id : str, optional
-        Dividend yield identifier in MarketContext.
+        Parameters
+        ----------
+        instrument_id : str
+            Unique identifier for the option.
+        ticker : str
+            Underlying equity ticker symbol.
+        strike : float, optional
+            Strike price for fixed_strike type. None for floating_strike type.
+        option_type : str
+            Option type: "call" or "put".
+        lookback_type : str
+            Lookback type: "fixed_strike" or "floating_strike".
+        expiry : date
+            Option expiration date.
+        notional : Money
+            Notional amount.
+        discount_curve : str
+            Discount curve identifier in MarketContext.
+        spot_id : str
+            Spot price identifier in MarketContext.
+        vol_surface : str
+            Volatility surface identifier in MarketContext.
+        div_yield_id : str, optional
+            Dividend yield identifier in MarketContext.
 
-    Returns
-    -------
-    LookbackOption
-        Configured lookback option ready for pricing.
+        Returns
+        -------
+        LookbackOption
+            Configured lookback option ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If parameters are invalid or if required market data is missing.
+        Raises
+        ------
+        ValueError
+            If parameters are invalid or if required market data is missing.
 
-    Examples
-    --------
-        >>> option = LookbackOption.builder(
-        ...     "LOOKBACK-AAPL",
-        ...     "AAPL",
-        ...     strike=None,
-        ...     option_type="call",
-        ...     lookback_type="floating_strike",
-        ...     expiry=date(2024, 12, 20),
-        ...     notional=Money(100_000, Currency("USD")),
-        ...     discount_curve="USD",
-        ...     spot_id="AAPL",
-        ...     vol_surface="AAPL-VOL"
-        ... )
-    """
+        Examples
+        --------
+            >>> option = LookbackOption.builder(
+            ...     "LOOKBACK-AAPL",
+            ...     "AAPL",
+            ...     strike=None,
+            ...     option_type="call",
+            ...     lookback_type="floating_strike",
+            ...     expiry=date(2024, 12, 20),
+            ...     notional=Money(100_000, Currency("USD")),
+            ...     discount_curve="USD",
+            ...     spot_id="AAPL",
+            ...     vol_surface="AAPL-VOL",
+            ... )
+        """
+        ...
 
     @property
     def instrument_id(self) -> str: ...

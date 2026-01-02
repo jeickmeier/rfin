@@ -77,140 +77,148 @@ class VolSurface:
         grid: List[List[float]],
     ) -> None: ...
     @property
-    def id(self) -> str: ...
-    """Get the surface identifier.
-    
-    Returns
-    -------
-    str
-        Surface ID.
-    """
+    def id(self) -> str:
+        """Get the surface identifier.
+
+        Returns
+        -------
+        str
+            Surface ID.
+        """
+        ...
 
     @property
-    def expiries(self) -> List[float]: ...
-    """Get the expiry times.
-    
-    Returns
-    -------
-    List[float]
-        Expiry times in years.
-    """
+    def expiries(self) -> List[float]:
+        """Get the expiry times.
+
+        Returns
+        -------
+        List[float]
+            Expiry times in years.
+        """
+        ...
 
     @property
-    def strikes(self) -> List[float]: ...
-    """Get the strike prices.
-    
-    Returns
-    -------
-    List[float]
-        Strike prices.
-    """
+    def strikes(self) -> List[float]:
+        """Get the strike prices.
+
+        Returns
+        -------
+        List[float]
+            Strike prices.
+        """
+        ...
 
     @property
-    def grid_shape(self) -> Tuple[int, int]: ...
-    """Get the grid shape.
-    
-    Returns
-    -------
-    Tuple[int, int]
-        (n_expiries, n_strikes) shape.
-    """
+    def grid_shape(self) -> Tuple[int, int]:
+        """Get the grid shape.
 
-    def value(self, expiry: float, strike: float) -> float: ...
-    """Get interpolated volatility at a specific expiry and strike with flat extrapolation.
-    
-    Performs bilinear interpolation between grid points. If the query point
-    is outside the grid boundaries, coordinates are clamped to the grid bounds
-    (flat extrapolation). This method never raises and is safe for all inputs.
-    
-    Use :meth:`value_checked` for explicit error handling on out-of-bounds,
-    or :meth:`value_unchecked` when bounds are guaranteed by the caller.
-    
-    Parameters
-    ----------
-    expiry : float
-        Time to expiration in years. Clamped to [min_expiry, max_expiry] if out of bounds.
-    strike : float
-        Strike value. Clamped to [min_strike, max_strike] if out of bounds.
-        
-    Returns
-    -------
-    float
-        Interpolated volatility (as a decimal, e.g., 0.20 for 20%).
-        
-    Examples
-    --------
-        >>> vol = vol_surface.value(0.5, 1.0)  # 6M, ATM
-        >>> vol = vol_surface.value(0.75, 1.05)  # Interpolated
-        >>> vol = vol_surface.value(10.0, 1.0)  # Clamped to max expiry
-    """
+        Returns
+        -------
+        Tuple[int, int]
+            (n_expiries, n_strikes) shape.
+        """
+        ...
 
-    def value_checked(self, expiry: float, strike: float) -> float: ...
-    """Get volatility with strict bounds checking.
-    
-    Raises an error if the query point is outside the grid boundaries.
-    Use this when you want explicit error handling for out-of-bounds queries.
-    
-    Parameters
-    ----------
-    expiry : float
-        Time to expiration in years. Must be within [min_expiry, max_expiry].
-    strike : float
-        Strike value. Must be within [min_strike, max_strike].
-        
-    Returns
-    -------
-    float
-        Interpolated volatility (as a decimal).
-        
-    Raises
-    ------
-    ValueError
-        If expiry or strike is outside the grid boundaries. The error message
-        indicates which dimension is out of bounds and the valid range.
-    """
+    def value(self, expiry: float, strike: float) -> float:
+        """Get interpolated volatility at a specific expiry and strike with flat extrapolation.
 
-    def value_clamped(self, expiry: float, strike: float) -> float: ...
-    """Get volatility with clamping to grid boundaries.
-    
-    Alias for :meth:`value` - both use flat extrapolation (clamping to edge values).
-    
-    Parameters
-    ----------
-    expiry : float
-        Time to expiration in years. Clamped to [min_expiry, max_expiry].
-    strike : float
-        Strike value. Clamped to [min_strike, max_strike].
-        
-    Returns
-    -------
-    float
-        Interpolated volatility using clamped coordinates.
-    """
+        Performs bilinear interpolation between grid points. If the query point
+        is outside the grid boundaries, coordinates are clamped to the grid bounds
+        (flat extrapolation). This method never raises and is safe for all inputs.
 
-    def value_unchecked(self, expiry: float, strike: float) -> float: ...
-    """Get volatility without bounds checking.
-    
-    Panics if the query point is outside the grid boundaries. Use only when
-    bounds are guaranteed by the caller for maximum performance.
-    
-    Parameters
-    ----------
-    expiry : float
-        Time to expiration in years. Must be within [min_expiry, max_expiry].
-    strike : float
-        Strike value. Must be within [min_strike, max_strike].
-        
-    Returns
-    -------
-    float
-        Interpolated volatility (as a decimal).
-        
-    Raises
-    ------
-    RuntimeError
-        If expiry or strike is outside the grid boundaries (panic from Rust).
-    """
+        Use :meth:`value_checked` for explicit error handling on out-of-bounds,
+        or :meth:`value_unchecked` when bounds are guaranteed by the caller.
+
+        Parameters
+        ----------
+        expiry : float
+            Time to expiration in years. Clamped to [min_expiry, max_expiry] if out of bounds.
+        strike : float
+            Strike value. Clamped to [min_strike, max_strike] if out of bounds.
+
+        Returns
+        -------
+        float
+            Interpolated volatility (as a decimal, e.g., 0.20 for 20%).
+
+        Examples
+        --------
+            >>> vol = vol_surface.value(0.5, 1.0)  # 6M, ATM
+            >>> vol = vol_surface.value(0.75, 1.05)  # Interpolated
+            >>> vol = vol_surface.value(10.0, 1.0)  # Clamped to max expiry
+        """
+        ...
+
+    def value_checked(self, expiry: float, strike: float) -> float:
+        """Get volatility with strict bounds checking.
+
+        Raises an error if the query point is outside the grid boundaries.
+        Use this when you want explicit error handling for out-of-bounds queries.
+
+        Parameters
+        ----------
+        expiry : float
+            Time to expiration in years. Must be within [min_expiry, max_expiry].
+        strike : float
+            Strike value. Must be within [min_strike, max_strike].
+
+        Returns
+        -------
+        float
+            Interpolated volatility (as a decimal).
+
+        Raises
+        ------
+        ValueError
+            If expiry or strike is outside the grid boundaries. The error message
+            indicates which dimension is out of bounds and the valid range.
+        """
+        ...
+
+    def value_clamped(self, expiry: float, strike: float) -> float:
+        """Get volatility with clamping to grid boundaries.
+
+        Alias for :meth:`value` - both use flat extrapolation (clamping to edge values).
+
+        Parameters
+        ----------
+        expiry : float
+            Time to expiration in years. Clamped to [min_expiry, max_expiry].
+        strike : float
+            Strike value. Clamped to [min_strike, max_strike].
+
+        Returns
+        -------
+        float
+            Interpolated volatility using clamped coordinates.
+        """
+        ...
+
+    def value_unchecked(self, expiry: float, strike: float) -> float:
+        """Get volatility without bounds checking.
+
+        Panics if the query point is outside the grid boundaries. Use only when
+        bounds are guaranteed by the caller for maximum performance.
+
+        Parameters
+        ----------
+        expiry : float
+            Time to expiration in years. Must be within [min_expiry, max_expiry].
+        strike : float
+            Strike value. Must be within [min_strike, max_strike].
+
+        Returns
+        -------
+        float
+            Interpolated volatility (as a decimal).
+
+        Raises
+        ------
+        RuntimeError
+            If expiry or strike is outside the grid boundaries (panic from Rust).
+        """
+        ...
 
     def bump_point(self, expiry: float, strike: float, bump_pct: float) -> "VolSurface":
         """Return a new surface with a single point bumped.

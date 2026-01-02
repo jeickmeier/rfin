@@ -65,61 +65,62 @@ class InflationSwap:
         inflation_index_id: Optional[str] = None,
         lag_override: Optional[str] = None,
         inflation_curve: Optional[str] = None,
-    ) -> "InflationSwap": ...
-    """Create an inflation swap fixing against the supplied inflation index.
+    ) -> "InflationSwap":
+        """Create an inflation swap fixing against the supplied inflation index.
 
-    Parameters
-    ----------
-    instrument_id : str
-        Unique identifier for the swap (e.g., "INFLATION-SWAP-5Y").
-    notional : Money
-        Notional principal amount. Currency determines curve currency requirements.
-    fixed_rate : float
-        Fixed rate as a decimal (e.g., 0.025 for 2.5%). This is the break-even
-        inflation rate. The swap has zero value if realized inflation equals this rate.
-    start_date : date
-        Swap start date (inflation measurement start).
-    maturity : date
-        Swap maturity date (payment date). Must be after start_date.
-    discount_curve : str
-        Discount curve identifier in MarketContext for present value calculations.
-    inflation_index : str, optional
-        Inflation index identifier (deprecated, use inflation_index_id).
-    side : str, optional
-        Swap side: "pay_fixed" (default, pay fixed, receive inflation) or
-        "receive_fixed" (receive fixed, pay inflation).
-    day_count : str, optional
-        Day-count convention (default: "act_act").
-    inflation_index_id : str, optional
-        Inflation index identifier in MarketContext (e.g., "US-CPI").
-    lag_override : str, optional
-        Inflation lag override (e.g., "3M" for 3-month lag).
-    inflation_curve : str, optional
-        Inflation curve identifier in MarketContext. If None, uses inflation_index_id.
+        Parameters
+        ----------
+        instrument_id : str
+            Unique identifier for the swap (e.g., "INFLATION-SWAP-5Y").
+        notional : Money
+            Notional principal amount. Currency determines curve currency requirements.
+        fixed_rate : float
+            Fixed rate as a decimal (e.g., 0.025 for 2.5%). This is the break-even
+            inflation rate. The swap has zero value if realized inflation equals this rate.
+        start_date : date
+            Swap start date (inflation measurement start).
+        maturity : date
+            Swap maturity date (payment date). Must be after start_date.
+        discount_curve : str
+            Discount curve identifier in MarketContext for present value calculations.
+        inflation_index : str, optional
+            Inflation index identifier (deprecated, use inflation_index_id).
+        side : str, optional
+            Swap side: "pay_fixed" (default, pay fixed, receive inflation) or
+            "receive_fixed" (receive fixed, pay inflation).
+        day_count : str, optional
+            Day-count convention (default: "act_act").
+        inflation_index_id : str, optional
+            Inflation index identifier in MarketContext (e.g., "US-CPI").
+        lag_override : str, optional
+            Inflation lag override (e.g., "3M" for 3-month lag).
+        inflation_curve : str, optional
+            Inflation curve identifier in MarketContext. If None, uses inflation_index_id.
 
-    Returns
-    -------
-    InflationSwap
-        Configured inflation swap ready for pricing.
+        Returns
+        -------
+        InflationSwap
+            Configured inflation swap ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If dates are invalid (maturity <= start_date), if fixed_rate is negative,
-        or if required curves are not found in MarketContext.
+        Raises
+        ------
+        ValueError
+            If dates are invalid (maturity <= start_date), if fixed_rate is negative,
+            or if required curves are not found in MarketContext.
 
-    Examples
-    --------
-        >>> inflation_swap = InflationSwap.create(
-        ...     "INFLATION-SWAP-5Y",
-        ...     Money(10_000_000, Currency("USD")),
-        ...     0.025,  # 2.5% fixed
-        ...     date(2024, 1, 1),
-        ...     date(2029, 1, 1),
-        ...     discount_curve="USD",
-        ...     inflation_curve="US-CPI"
-        ... )
-    """
+        Examples
+        --------
+            >>> inflation_swap = InflationSwap.create(
+            ...     "INFLATION-SWAP-5Y",
+            ...     Money(10_000_000, Currency("USD")),
+            ...     0.025,  # 2.5% fixed
+            ...     date(2024, 1, 1),
+            ...     date(2029, 1, 1),
+            ...     discount_curve="USD",
+            ...     inflation_curve="US-CPI",
+            ... )
+        """
+        ...
 
     @property
     def instrument_id(self) -> str: ...

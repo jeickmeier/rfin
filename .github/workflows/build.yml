@@ -154,7 +154,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           source .venv/bin/activate
-          uv pip install maturin pytest ruff
+          uv pip install maturin pytest ruff mypy pyright
 
       - name: Python format check
         run: |
@@ -166,11 +166,21 @@ jobs:
           source .venv/bin/activate
           ruff check .
 
+      - name: Pyright (type checking)
+        run: |
+          source .venv/bin/activate
+          pyright
+
       - name: Build Python bindings
         run: |
           source .venv/bin/activate
           cd finstack-py
           maturin develop --release
+
+      - name: Pyright verifytypes (published API)
+        run: |
+          source .venv/bin/activate
+          pyright --verifytypes finstack --ignoreexternal
 
       - name: Run Python tests
         run: |

@@ -97,128 +97,136 @@ class DiscountCurve:
         require_monotonic: bool = True,
     ) -> None: ...
     @property
-    def id(self) -> str: ...
-    """Get the curve identifier.
-    
-    Returns
-    -------
-    str
-        Curve ID.
-    """
+    def id(self) -> str:
+        """Get the curve identifier.
 
-    def base_date(self) -> date: ...
-    """Get the base date.
-    
-    Returns
-    -------
-    date
-        Base date (t=0).
-    """
+        Returns
+        -------
+        str
+            Curve ID.
+        """
+        ...
 
-    @property
-    def day_count(self) -> DayCount: ...
-    """Get the day count convention.
-    
-    Returns
-    -------
-    DayCount
-        Day count convention.
-    """
+    def base_date(self) -> date:
+        """Get the base date.
+
+        Returns
+        -------
+        date
+            Base date (t=0).
+        """
+        ...
 
     @property
-    def points(self) -> List[Tuple[float, float]]: ...
-    """Get the knot points.
-    
-    Returns
-    -------
-    List[Tuple[float, float]]
-        (time, discount_factor) pairs.
-    """
+    def day_count(self) -> DayCount:
+        """Get the day count convention.
 
-    def df(self, t: float) -> float: ...
-    """Get the discount factor at a given time.
-    
-    The discount factor represents the present value of $1 received at time t.
-    It is interpolated from the curve's knot points using the configured
-    interpolation method.
-    
-    Parameters
-    ----------
-    t : float
-        Time in years from the base_date. Must be >= 0.
-        
-    Returns
-    -------
-    float
-        Discount factor in the range (0, 1]. For t=0, returns 1.0.
-        For times beyond the curve's range, extrapolation policy applies.
-        
-    Raises
-    ------
-    ValueError
-        If t < 0 or if extrapolation fails.
-    """
+        Returns
+        -------
+        DayCount
+            Day count convention.
+        """
+        ...
 
-    def zero(self, t: float) -> float: ...
-    """Get the continuously compounded zero rate at a given time.
-    
-    The zero rate is the interest rate for a zero-coupon bond maturing at
-    time t. It is derived from the discount factor: r(t) = -ln(DF(t)) / t.
-    
-    Parameters
-    ----------
-    t : float
-        Time in years from the base_date. Must be > 0.
-        
-    Returns
-    -------
-    float
-        Continuously compounded zero rate (as a decimal, e.g., 0.05 for 5%).
-        
-    Raises
-    ------
-    ValueError
-        If t <= 0 or if the discount factor is invalid.
-    """
+    @property
+    def points(self) -> List[Tuple[float, float]]:
+        """Get the knot points.
 
-    def forward(self, t1: float, t2: float) -> float: ...
-    """Get the continuously compounded forward rate between two times.
-    
-    The forward rate is the interest rate agreed today for borrowing/lending
-    from time t1 to t2. It is derived from discount factors:
-    F(t1, t2) = (ln(DF(t1)) - ln(DF(t2))) / (t2 - t1).
-    
-    Parameters
-    ----------
-    t1 : float
-        Start time in years from base_date. Must be >= 0.
-    t2 : float
-        End time in years from base_date. Must be > t1.
-        
-    Returns
-    -------
-    float
-        Continuously compounded forward rate (as a decimal, e.g., 0.025 for 2.5%).
-        
-    Raises
-    ------
-    ValueError
-        If t1 < 0, t2 <= t1, or if discount factors are invalid.
-    """
+        Returns
+        -------
+        List[Tuple[float, float]]
+            (time, discount_factor) pairs.
+        """
+        ...
 
-    def df_on_date(self, date: Union[str, date]) -> float: ...
-    """Get discount factor on a specific date.
-    
-    Parameters
-    ----------
-    date : str or date
-        Target date.
-        
-    Returns
-    -------
-    float
-        Discount factor.
-    """
+    def df(self, t: float) -> float:
+        """Get the discount factor at a given time.
+
+        The discount factor represents the present value of $1 received at time t.
+        It is interpolated from the curve's knot points using the configured
+        interpolation method.
+
+        Parameters
+        ----------
+        t : float
+            Time in years from the base_date. Must be >= 0.
+
+        Returns
+        -------
+        float
+            Discount factor in the range (0, 1]. For t=0, returns 1.0.
+            For times beyond the curve's range, extrapolation policy applies.
+
+        Raises
+        ------
+        ValueError
+            If t < 0 or if extrapolation fails.
+        """
+        ...
+
+    def zero(self, t: float) -> float:
+        """Get the continuously compounded zero rate at a given time.
+
+        The zero rate is the interest rate for a zero-coupon bond maturing at
+        time t. It is derived from the discount factor: r(t) = -ln(DF(t)) / t.
+
+        Parameters
+        ----------
+        t : float
+            Time in years from the base_date. Must be > 0.
+
+        Returns
+        -------
+        float
+            Continuously compounded zero rate (as a decimal, e.g., 0.05 for 5%).
+
+        Raises
+        ------
+        ValueError
+            If t <= 0 or if the discount factor is invalid.
+        """
+        ...
+
+    def forward(self, t1: float, t2: float) -> float:
+        """Get the continuously compounded forward rate between two times.
+
+        The forward rate is the interest rate agreed today for borrowing/lending
+        from time t1 to t2. It is derived from discount factors:
+        F(t1, t2) = (ln(DF(t1)) - ln(DF(t2))) / (t2 - t1).
+
+        Parameters
+        ----------
+        t1 : float
+            Start time in years from base_date. Must be >= 0.
+        t2 : float
+            End time in years from base_date. Must be > t1.
+
+        Returns
+        -------
+        float
+            Continuously compounded forward rate (as a decimal, e.g., 0.025 for 2.5%).
+
+        Raises
+        ------
+        ValueError
+            If t1 < 0, t2 <= t1, or if discount factors are invalid.
+        """
+        ...
+
+    def df_on_date(self, date: Union[str, date]) -> float:
+        """Get discount factor on a specific date.
+
+        Parameters
+        ----------
+        date : str or date
+            Target date.
+
+        Returns
+        -------
+        float
+            Discount factor.
+        """
+        ...
 
     def npv(
         self,
@@ -338,100 +346,109 @@ class ForwardCurve:
         interp: Optional[Union[str, InterpStyle]] = None,
     ) -> None: ...
     @property
-    def id(self) -> str: ...
-    """Get the curve identifier.
-    
-    Returns
-    -------
-    str
-        Curve ID.
-    """
+    def id(self) -> str:
+        """Get the curve identifier.
+
+        Returns
+        -------
+        str
+            Curve ID.
+        """
+        ...
 
     @property
-    def tenor_years(self) -> float: ...
-    """Get the tenor in years.
-    
-    Returns
-    -------
-    float
-        Tenor in years.
-    """
+    def tenor_years(self) -> float:
+        """Get the tenor in years.
 
-    def base_date(self) -> date: ...
-    """Get the base date.
-    
-    Returns
-    -------
-    date
-        Base date.
-    """
+        Returns
+        -------
+        float
+            Tenor in years.
+        """
+        ...
 
-    @property
-    def day_count(self) -> DayCount: ...
-    """Get the day count convention.
-    
-    Returns
-    -------
-    DayCount
-        Day count convention.
-    """
+    def base_date(self) -> date:
+        """Get the base date.
+
+        Returns
+        -------
+        date
+            Base date.
+        """
+        ...
 
     @property
-    def reset_lag(self) -> int: ...
-    """Get the reset lag in days.
-    
-    Returns
-    -------
-    int
-        Reset lag in days.
-    """
+    def day_count(self) -> DayCount:
+        """Get the day count convention.
+
+        Returns
+        -------
+        DayCount
+            Day count convention.
+        """
+        ...
 
     @property
-    def points(self) -> List[Tuple[float, float]]: ...
-    """Get the knot points.
-    
-    Returns
-    -------
-    List[Tuple[float, float]]
-        (time, rate) pairs.
-    """
+    def reset_lag(self) -> int:
+        """Get the reset lag in days.
 
-    def rate(self, t: float) -> float: ...
-    """Get the forward rate at a given time.
-    
-    Returns the forward rate for the curve's tenor starting at time t.
-    The rate is interpolated from the curve's knot points using the configured
-    interpolation method.
-    
-    Parameters
-    ----------
-    t : float
-        Time in years from the base_date when the forward period starts.
-        Must be >= 0.
-        
-    Returns
-    -------
-    float
-        Forward rate as a decimal (e.g., 0.05 for 5%). The rate applies to
-        the curve's tenor period starting at time t.
-        
-    Raises
-    ------
-    ValueError
-        If t < 0 or if extrapolation fails.
-    """
+        Returns
+        -------
+        int
+            Reset lag in days.
+        """
+        ...
 
-    def df(self, t: float) -> float: ...
-    """Implied projection discount factor from 0 to ``t`` (years).
+    @property
+    def points(self) -> List[Tuple[float, float]]:
+        """Get the knot points.
 
-    Notes
-    -----
-    This is a *projection DF* implied by chaining the forward curve's simple rates;
-    it is not a PV discount curve.
-    """
+        Returns
+        -------
+        List[Tuple[float, float]]
+            (time, rate) pairs.
+        """
+        ...
 
-    def df_on_date(self, date: Union[str, date]) -> float: ...
-    """Implied projection discount factor on a calendar date using the curve's day-count."""
+    def rate(self, t: float) -> float:
+        """Get the forward rate at a given time.
+
+        Returns the forward rate for the curve's tenor starting at time t.
+        The rate is interpolated from the curve's knot points using the configured
+        interpolation method.
+
+        Parameters
+        ----------
+        t : float
+            Time in years from the base_date when the forward period starts.
+            Must be >= 0.
+
+        Returns
+        -------
+        float
+            Forward rate as a decimal (e.g., 0.05 for 5%). The rate applies to
+            the curve's tenor period starting at time t.
+
+        Raises
+        ------
+        ValueError
+            If t < 0 or if extrapolation fails.
+        """
+        ...
+
+    def df(self, t: float) -> float:
+        """Implied projection discount factor from 0 to ``t`` (years).
+
+        Notes
+        -----
+        This is a *projection DF* implied by chaining the forward curve's simple rates;
+        it is not a PV discount curve.
+        """
+        ...
+
+    def df_on_date(self, date: Union[str, date]) -> float:
+        """Implied projection discount factor on a calendar date using the curve's day-count."""
+        ...
 
     def __repr__(self) -> str: ...
 
@@ -526,122 +543,130 @@ class HazardCurve:
         par_points: Optional[List[Tuple[float, float]]] = None,
     ) -> None: ...
     @property
-    def id(self) -> str: ...
-    """Get the curve identifier.
-    
-    Returns
-    -------
-    str
-        Curve ID.
-    """
+    def id(self) -> str:
+        """Get the curve identifier.
 
-    def base_date(self) -> date: ...
-    """Get the base date.
-    
-    Returns
-    -------
-    date
-        Base date.
-    """
+        Returns
+        -------
+        str
+            Curve ID.
+        """
+        ...
 
-    @property
-    def recovery_rate(self) -> float: ...
-    """Get the recovery rate.
-    
-    Returns
-    -------
-    float
-        Recovery rate.
-    """
+    def base_date(self) -> date:
+        """Get the base date.
+
+        Returns
+        -------
+        date
+            Base date.
+        """
+        ...
 
     @property
-    def day_count(self) -> DayCount: ...
-    """Get the day count convention.
-    
-    Returns
-    -------
-    DayCount
-        Day count convention.
-    """
+    def recovery_rate(self) -> float:
+        """Get the recovery rate.
+
+        Returns
+        -------
+        float
+            Recovery rate.
+        """
+        ...
 
     @property
-    def points(self) -> List[Tuple[float, float]]: ...
-    """Get the knot points.
-    
-    Returns
-    -------
-    List[Tuple[float, float]]
-        (time, hazard_rate) pairs.
-    """
+    def day_count(self) -> DayCount:
+        """Get the day count convention.
+
+        Returns
+        -------
+        DayCount
+            Day count convention.
+        """
+        ...
 
     @property
-    def par_spreads(self) -> List[Tuple[float, float]]: ...
-    """Get the par spread points.
-    
-    Returns
-    -------
-    List[Tuple[float, float]]
-        (time, spread) pairs.
-    """
+    def points(self) -> List[Tuple[float, float]]:
+        """Get the knot points.
 
-    def survival(self, t: float) -> float: ...
-    """Get the survival probability (probability of no default) at time t.
-    
-    The survival probability is the probability that the credit entity has
-    not defaulted by time t. It is derived from the hazard rate curve via
-    integration: S(t) = exp(-∫₀ᵗ h(s) ds).
-    
-    Parameters
-    ----------
-    t : float
-        Time in years from the base_date. Must be >= 0.
-        
-    Returns
-    -------
-    float
-        Survival probability in the range [0, 1]. For t=0, returns 1.0.
-        Decreases with time as default risk accumulates.
-        
-    Raises
-    ------
-    ValueError
-        If t < 0 or if the hazard rate integration fails.
-        
-    Examples
-    --------
-    """
+        Returns
+        -------
+        List[Tuple[float, float]]
+            (time, hazard_rate) pairs.
+        """
+        ...
 
-    def default_prob(self, t1: float, t2: float) -> float: ...
-    """Get the probability of default occurring between times t1 and t2.
-    
-    Calculates the probability that default occurs in the interval [t1, t2],
-    conditional on survival until t1. This is used for CDS pricing to
-    determine protection leg cashflows.
-    
-    The formula is: P(default in [t1, t2]) = S(t1) - S(t2), where S(t)
-    is the survival probability.
-    
-    Parameters
-    ----------
-    t1 : float
-        Start time in years from base_date. Must be >= 0.
-    t2 : float
-        End time in years from base_date. Must be > t1.
-        
-    Returns
-    -------
-    float
-        Default probability in the range [0, 1]. Represents the probability
-        of default occurring between t1 and t2.
-        
-    Raises
-    ------
-    ValueError
-        If t1 < 0, t2 <= t1, or if survival probability calculation fails.
-        
-    Examples
-    --------
-    """
+    @property
+    def par_spreads(self) -> List[Tuple[float, float]]:
+        """Get the par spread points.
+
+        Returns
+        -------
+        List[Tuple[float, float]]
+            (time, spread) pairs.
+        """
+        ...
+
+    def survival(self, t: float) -> float:
+        """Get the survival probability (probability of no default) at time t.
+
+        The survival probability is the probability that the credit entity has
+        not defaulted by time t. It is derived from the hazard rate curve via
+        integration: S(t) = exp(-∫₀ᵗ h(s) ds).
+
+        Parameters
+        ----------
+        t : float
+            Time in years from the base_date. Must be >= 0.
+
+        Returns
+        -------
+        float
+            Survival probability in the range [0, 1]. For t=0, returns 1.0.
+            Decreases with time as default risk accumulates.
+
+        Raises
+        ------
+        ValueError
+            If t < 0 or if the hazard rate integration fails.
+
+        Examples
+        --------
+        """
+        ...
+
+    def default_prob(self, t1: float, t2: float) -> float:
+        """Get the probability of default occurring between times t1 and t2.
+
+        Calculates the probability that default occurs in the interval [t1, t2],
+        conditional on survival until t1. This is used for CDS pricing to
+        determine protection leg cashflows.
+
+        The formula is: P(default in [t1, t2]) = S(t1) - S(t2), where S(t)
+        is the survival probability.
+
+        Parameters
+        ----------
+        t1 : float
+            Start time in years from base_date. Must be >= 0.
+        t2 : float
+            End time in years from base_date. Must be > t1.
+
+        Returns
+        -------
+        float
+            Default probability in the range [0, 1]. Represents the probability
+            of default occurring between t1 and t2.
+
+        Raises
+        ------
+        ValueError
+            If t1 < 0, t2 <= t1, or if survival probability calculation fails.
+
+        Examples
+        --------
+        """
+        ...
 
     def __repr__(self) -> str: ...
 
@@ -714,84 +739,89 @@ class InflationCurve:
         interp: Optional[Union[str, InterpStyle]] = None,
     ) -> None: ...
     @property
-    def id(self) -> str: ...
-    """Get the curve identifier.
-    
-    Returns
-    -------
-    str
-        Curve ID.
-    """
+    def id(self) -> str:
+        """Get the curve identifier.
+
+        Returns
+        -------
+        str
+            Curve ID.
+        """
+        ...
 
     @property
-    def base_cpi(self) -> float: ...
-    """Get the base CPI level.
-    
-    Returns
-    -------
-    float
-        Base CPI level.
-    """
+    def base_cpi(self) -> float:
+        """Get the base CPI level.
+
+        Returns
+        -------
+        float
+            Base CPI level.
+        """
+        ...
 
     @property
-    def points(self) -> List[Tuple[float, float]]: ...
-    """Get the knot points.
-    
-    Returns
-    -------
-    List[Tuple[float, float]]
-        (time, cpi_level) pairs.
-    """
+    def points(self) -> List[Tuple[float, float]]:
+        """Get the knot points.
 
-    def cpi(self, t: float) -> float: ...
-    """Get the CPI level at a given time.
-    
-    Returns the interpolated CPI index value at time t. The value is
-    interpolated from the curve's knot points using the configured
-    interpolation method.
-    
-    Parameters
-    ----------
-    t : float
-        Time in years from the base date. Must be >= 0.
-        
-    Returns
-    -------
-    float
-        CPI index level (absolute value, not a ratio). For t=0, returns
-        base_cpi. For times beyond the curve's range, extrapolation applies.
-        
-    Raises
-    ------
-    ValueError
-        If t < 0 or if extrapolation fails.
-    """
+        Returns
+        -------
+        List[Tuple[float, float]]
+            (time, cpi_level) pairs.
+        """
+        ...
 
-    def inflation_rate(self, t1: float, t2: float) -> float: ...
-    """Get the annualized inflation rate between two times.
-    
-    Calculates the continuously compounded annualized inflation rate from
-    time t1 to t2 based on the CPI levels at those times. The formula is:
-    rate = (ln(CPI(t2)) - ln(CPI(t1))) / (t2 - t1).
-    
-    Parameters
-    ----------
-    t1 : float
-        Start time in years from base date. Must be >= 0.
-    t2 : float
-        End time in years from base date. Must be > t1.
-        
-    Returns
-    -------
-    float
-        Annualized inflation rate as a decimal (e.g., 0.02 for 2% inflation).
-        The rate is continuously compounded.
-        
-    Raises
-    ------
-    ValueError
-        If t1 < 0, t2 <= t1, or if CPI levels are invalid.
-    """
+    def cpi(self, t: float) -> float:
+        """Get the CPI level at a given time.
+
+        Returns the interpolated CPI index value at time t. The value is
+        interpolated from the curve's knot points using the configured
+        interpolation method.
+
+        Parameters
+        ----------
+        t : float
+            Time in years from the base date. Must be >= 0.
+
+        Returns
+        -------
+        float
+            CPI index level (absolute value, not a ratio). For t=0, returns
+            base_cpi. For times beyond the curve's range, extrapolation applies.
+
+        Raises
+        ------
+        ValueError
+            If t < 0 or if extrapolation fails.
+        """
+        ...
+
+    def inflation_rate(self, t1: float, t2: float) -> float:
+        """Get the annualized inflation rate between two times.
+
+        Calculates the continuously compounded annualized inflation rate from
+        time t1 to t2 based on the CPI levels at those times. The formula is:
+        rate = (ln(CPI(t2)) - ln(CPI(t1))) / (t2 - t1).
+
+        Parameters
+        ----------
+        t1 : float
+            Start time in years from base date. Must be >= 0.
+        t2 : float
+            End time in years from base date. Must be > t1.
+
+        Returns
+        -------
+        float
+            Annualized inflation rate as a decimal (e.g., 0.02 for 2% inflation).
+            The rate is continuously compounded.
+
+        Raises
+        ------
+        ValueError
+            If t1 < 0, t2 <= t1, or if CPI levels are invalid.
+        """
+        ...
 
     def __repr__(self) -> str: ...
 
@@ -808,38 +838,41 @@ class BaseCorrelationCurve:
 
     def __init__(self, id: str, points: List[Tuple[float, float]]) -> None: ...
     @property
-    def id(self) -> str: ...
-    """Get the curve identifier.
-    
-    Returns
-    -------
-    str
-        Curve ID.
-    """
+    def id(self) -> str:
+        """Get the curve identifier.
+
+        Returns
+        -------
+        str
+            Curve ID.
+        """
+        ...
 
     @property
-    def points(self) -> List[Tuple[float, float]]: ...
-    """Get the knot points.
-    
-    Returns
-    -------
-    List[Tuple[float, float]]
-        (detachment, correlation) pairs.
-    """
+    def points(self) -> List[Tuple[float, float]]:
+        """Get the knot points.
 
-    def correlation(self, detachment_pct: float) -> float: ...
-    """Get correlation at detachment percentage.
-    
-    Parameters
-    ----------
-    detachment_pct : float
-        Detachment percentage.
-        
-    Returns
-    -------
-    float
-        Base correlation.
-    """
+        Returns
+        -------
+        List[Tuple[float, float]]
+            (detachment, correlation) pairs.
+        """
+        ...
+
+    def correlation(self, detachment_pct: float) -> float:
+        """Get correlation at detachment percentage.
+
+        Parameters
+        ----------
+        detachment_pct : float
+            Detachment percentage.
+
+        Returns
+        -------
+        float
+            Base correlation.
+        """
+        ...
 
     def __repr__(self) -> str: ...
 
@@ -869,76 +902,83 @@ class CreditIndexData:
         issuer_curves: Optional[Dict[str, HazardCurve]] = None,
     ) -> None: ...
     @property
-    def num_constituents(self) -> int: ...
-    """Get the number of constituents.
-    
-    Returns
-    -------
-    int
-        Number of constituents.
-    """
+    def num_constituents(self) -> int:
+        """Get the number of constituents.
+
+        Returns
+        -------
+        int
+            Number of constituents.
+        """
+        ...
 
     @property
-    def recovery_rate(self) -> float: ...
-    """Get the recovery rate.
-    
-    Returns
-    -------
-    float
-        Recovery rate.
-    """
+    def recovery_rate(self) -> float:
+        """Get the recovery rate.
+
+        Returns
+        -------
+        float
+            Recovery rate.
+        """
+        ...
 
     @property
-    def index_curve(self) -> HazardCurve: ...
-    """Get the index curve.
-    
-    Returns
-    -------
-    HazardCurve
-        Index hazard curve.
-    """
+    def index_curve(self) -> HazardCurve:
+        """Get the index curve.
+
+        Returns
+        -------
+        HazardCurve
+            Index hazard curve.
+        """
+        ...
 
     @property
-    def base_correlation_curve(self) -> BaseCorrelationCurve: ...
-    """Get the base correlation curve.
-    
-    Returns
-    -------
-    BaseCorrelationCurve
-        Base correlation curve.
-    """
+    def base_correlation_curve(self) -> BaseCorrelationCurve:
+        """Get the base correlation curve.
+
+        Returns
+        -------
+        BaseCorrelationCurve
+            Base correlation curve.
+        """
+        ...
 
     @property
-    def has_issuer_curves(self) -> bool: ...
-    """Check if issuer curves are present.
-    
-    Returns
-    -------
-    bool
-        True if issuer curves are available.
-    """
+    def has_issuer_curves(self) -> bool:
+        """Check if issuer curves are present.
 
-    def issuer_ids(self) -> List[str]: ...
-    """Get issuer identifiers.
-    
-    Returns
-    -------
-    List[str]
-        List of issuer IDs.
-    """
+        Returns
+        -------
+        bool
+            True if issuer curves are available.
+        """
+        ...
 
-    def issuer_curve(self, issuer_id: str) -> Optional[HazardCurve]: ...
-    """Get an issuer curve.
-    
-    Parameters
-    ----------
-    issuer_id : str
-        Issuer identifier.
-        
-    Returns
-    -------
-    HazardCurve or None
-        Issuer curve if found.
-    """
+    def issuer_ids(self) -> List[str]:
+        """Get issuer identifiers.
+
+        Returns
+        -------
+        List[str]
+            List of issuer IDs.
+        """
+        ...
+
+    def issuer_curve(self, issuer_id: str) -> Optional[HazardCurve]:
+        """Get an issuer curve.
+
+        Parameters
+        ----------
+        issuer_id : str
+            Issuer identifier.
+
+        Returns
+        -------
+        HazardCurve or None
+            Issuer curve if found.
+        """
+        ...
 
     def __repr__(self) -> str: ...

@@ -38,6 +38,7 @@ dev-dependencies = [
     "pytest-benchmark>=5.2.3",
     "hypothesis>=6.122.4",
     "mypy>=1.19.0",
+    "pyright>=1.1.400",
     "ruff>=0.14.8",
     "flake8>=7.3.0",
     "flake8-cognitive-complexity>=0.1.0",
@@ -206,6 +207,7 @@ ignore = [
 "finstack-py/tests/**/*.py" = ["S101", "S110", "S102", "C901", "PLR0915"]  # Allow assert, try-except-pass, exec, complexity in test files
 "finstack-py/finstack/statements/__init__.py" = ["F821"]  # Dynamic imports from Rust
 "benches/**/*.py" = ["PLR0915"]  # Allow too many statements in benchmark files
+"finstack-py/benches/**/*.py" = ["PLR0915"]  # Allow too many statements in benchmark files
 "scripts/**/*.py" = ["T201", "C901", "PLR0915", "PERF401", "ANN", "BLE001", "S112", "PTH", "G004", "TRY401"]  # Allow print, complexity, annotations, etc. in scripts
 "finstack-py/examples/**/*.py" = [
     "D100", "D101", "D103", "D205",  # Missing docstrings - examples are self-documenting
@@ -312,6 +314,15 @@ exclude = [
 [[tool.mypy.overrides]]
 module = ["pandas.*", "pandas.api.types", "requests.*", "numpy.*", "asteval.*"]
 ignore_missing_imports = true
+
+#######################
+# Pyright (Pylance)
+#######################
+
+[tool.pyright]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
+include = ["finstack-py/finstack"]
 
 #######################
 # Bandit Configuration (Security)

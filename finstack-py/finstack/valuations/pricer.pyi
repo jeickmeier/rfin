@@ -65,62 +65,63 @@ class PricerRegistry:
         model: Any,
         market: MarketContext,
         as_of: Optional[dt.date] = None,
-    ) -> ValuationResult: ...
-    """Price an instrument using the specified model and market data.
+    ) -> ValuationResult:
+        """Price an instrument using the specified model and market data.
 
-    This is the primary method for instrument valuation. It dispatches the
-    (instrument, model) pair to the appropriate pricer and returns a
-    ValuationResult containing present value, currency, and metadata.
+        This is the primary method for instrument valuation. It dispatches the
+        (instrument, model) pair to the appropriate pricer and returns a
+        ValuationResult containing present value, currency, and metadata.
 
-    Parameters
-    ----------
-    instrument
-        Instrument instance created from finstack.valuations.instruments
-        (e.g., Bond, InterestRateSwap, EquityOption). The instrument type
-        determines which pricers are available.
-    model : str
-        Pricing model identifier. Common models:
-        - "discounting": Standard discount curve pricing
-        - "credit": Credit-adjusted pricing (requires hazard curve)
-        - Model-specific names for options, structured products, etc.
-    market : MarketContext
-        Market data container with all required curves, surfaces, and FX
-        rates. Must contain the curves referenced by the instrument
-        (e.g., discount_curve, forward_curve).
+        Parameters
+        ----------
+        instrument
+            Instrument instance created from finstack.valuations.instruments
+            (e.g., Bond, InterestRateSwap, EquityOption). The instrument type
+            determines which pricers are available.
+        model : str
+            Pricing model identifier. Common models:
+            - "discounting": Standard discount curve pricing
+            - "credit": Credit-adjusted pricing (requires hazard curve)
+            - Model-specific names for options, structured products, etc.
+        market : MarketContext
+            Market data container with all required curves, surfaces, and FX
+            rates. Must contain the curves referenced by the instrument
+            (e.g., discount_curve, forward_curve).
 
-    Returns
-    -------
-    ValuationResult
-        Result envelope containing:
-        - present_value: Present value as Money
-        - currency: Result currency
-        - metrics: Dictionary of computed metrics (if any)
-        - explanation: Explainability tree (if enabled)
+        Returns
+        -------
+        ValuationResult
+            Result envelope containing:
+            - present_value: Present value as Money
+            - currency: Result currency
+            - metrics: Dictionary of computed metrics (if any)
+            - explanation: Explainability tree (if enabled)
 
-    Raises
-    ------
-    ValueError
-        If the instrument type is not recognized, if the model is not
-        available for the instrument, or if required market data is missing
-        from the MarketContext.
-    RuntimeError
-        If pricing fails in the underlying engine (e.g., numerical issues,
-        invalid parameters).
+        Raises
+        ------
+        ValueError
+            If the instrument type is not recognized, if the model is not
+            available for the instrument, or if required market data is missing
+            from the MarketContext.
+        RuntimeError
+            If pricing fails in the underlying engine (e.g., numerical issues,
+            invalid parameters).
 
-    Notes
-    -----
-    - The instrument must be fully constructed before pricing
-    - MarketContext must contain all curves referenced by the instrument
-    - Model names are case-insensitive (e.g., "Discounting" = "discounting")
-    - Use :meth:`price_with_metrics` to compute risk metrics in one call
-    - Results are deterministic and reproducible with the same inputs
+        Notes
+        -----
+        - The instrument must be fully constructed before pricing
+        - MarketContext must contain all curves referenced by the instrument
+        - Model names are case-insensitive (e.g., "Discounting" = "discounting")
+        - Use :meth:`price_with_metrics` to compute risk metrics in one call
+        - Results are deterministic and reproducible with the same inputs
 
-    See Also
-    --------
-    :meth:`price_with_metrics`: Price with risk metrics
-    :meth:`price_batch`: Batch pricing for multiple instruments
-    :class:`ValuationResult`: Result structure
-    """
+        See Also
+        --------
+        :meth:`price_with_metrics`: Price with risk metrics
+        :meth:`price_batch`: Batch pricing for multiple instruments
+        :class:`ValuationResult`: Result structure
+        """
+        ...
 
     def price_batch(
         self,
@@ -149,72 +150,73 @@ class PricerRegistry:
         market: MarketContext,
         metrics: List[Any],
         as_of: Optional[dt.date] = None,
-    ) -> ValuationResult: ...
-    """Price an instrument and compute the requested risk and return metrics.
+    ) -> ValuationResult:
+        """Price an instrument and compute the requested risk and return metrics.
 
-    This method prices the instrument and computes all requested metrics in
-    a single call, which is more efficient than separate pricing and metric
-    calculations. The result includes both present value and all requested
-    metrics in the measures dictionary.
+        This method prices the instrument and computes all requested metrics in
+        a single call, which is more efficient than separate pricing and metric
+        calculations. The result includes both present value and all requested
+        metrics in the measures dictionary.
 
-    Parameters
-    ----------
-    instrument
-        Instrument instance created from finstack.valuations.instruments
-        (e.g., Bond, InterestRateSwap, EquityOption).
-    model : str
-        Pricing model identifier (e.g., "discounting", "credit", "black_scholes").
-    market : MarketContext
-        Market data container with all required curves, surfaces, and FX rates.
-    metrics : List[Any]
-        List of metric identifiers to compute. Can be:
-        - MetricId instances: MetricId.from_name("dv01")
-        - Strings: "dv01", "cs01", "ytm", "z_spread"
-        - Mixed list of both
+        Parameters
+        ----------
+        instrument
+            Instrument instance created from finstack.valuations.instruments
+            (e.g., Bond, InterestRateSwap, EquityOption).
+        model : str
+            Pricing model identifier (e.g., "discounting", "credit", "black_scholes").
+        market : MarketContext
+            Market data container with all required curves, surfaces, and FX rates.
+        metrics : List[Any]
+            List of metric identifiers to compute. Can be:
+            - MetricId instances: MetricId.from_name("dv01")
+            - Strings: "dv01", "cs01", "ytm", "z_spread"
+            - Mixed list of both
 
-    Returns
-    -------
-    ValuationResult
-        Result envelope containing:
-        - value: Present value as Money
-        - measures: Dictionary of computed metrics (keyed by metric name)
-        - meta: Calculation metadata
-        - covenants: Optional covenant reports
+        Returns
+        -------
+        ValuationResult
+            Result envelope containing:
+            - value: Present value as Money
+            - measures: Dictionary of computed metrics (keyed by metric name)
+            - meta: Calculation metadata
+            - covenants: Optional covenant reports
 
-    Raises
-    ------
-    ValueError
-        If any metric identifier is invalid or not applicable to the
-        instrument type. Use MetricRegistry.is_applicable() to check first.
-    RuntimeError
-        If pricing fails or if metric calculation encounters an error
-        (e.g., missing market data, numerical issues).
+        Raises
+        ------
+        ValueError
+            If any metric identifier is invalid or not applicable to the
+            instrument type. Use MetricRegistry.is_applicable() to check first.
+        RuntimeError
+            If pricing fails or if metric calculation encounters an error
+            (e.g., missing market data, numerical issues).
 
-    Notes
-    -----
-    - Metrics are computed in a single pass for efficiency
-    - Missing metrics are simply absent from measures (no error)
-    - Metric availability depends on instrument type
-    - Use MetricRegistry to discover available metrics
-    - Metric units vary by type (dollars for DV01/CS01, decimals for yield/spread)
+        Notes
+        -----
+        - Metrics are computed in a single pass for efficiency
+        - Missing metrics are simply absent from measures (no error)
+        - Metric availability depends on instrument type
+        - Use MetricRegistry to discover available metrics
+        - Metric units vary by type (dollars for DV01/CS01, decimals for yield/spread)
 
-    Common Metrics:
-    - **Risk**: "dv01" (dollar value of 1bp), "cs01" (credit spread sensitivity),
-      "theta" (time decay), "bucketed_dv01" (key-rate risk)
-    - **Yield**: "ytm" (yield to maturity), "ytw" (yield to worst)
-    - **Spread**: "z_spread" (Z-spread), "oas" (option-adjusted spread),
-      "i_spread" (I-spread), "asw_spread" (asset swap spread)
-    - **Pricing**: "clean_price", "dirty_price", "accrued_interest"
-    - **Duration**: "duration_modified", "duration_macaulay", "convexity"
-    - **Greeks**: "delta", "gamma", "vega", "theta", "rho"
+        Common Metrics:
+        - **Risk**: "dv01" (dollar value of 1bp), "cs01" (credit spread sensitivity),
+          "theta" (time decay), "bucketed_dv01" (key-rate risk)
+        - **Yield**: "ytm" (yield to maturity), "ytw" (yield to worst)
+        - **Spread**: "z_spread" (Z-spread), "oas" (option-adjusted spread),
+          "i_spread" (I-spread), "asw_spread" (asset swap spread)
+        - **Pricing**: "clean_price", "dirty_price", "accrued_interest"
+        - **Duration**: "duration_modified", "duration_macaulay", "convexity"
+        - **Greeks**: "delta", "gamma", "vega", "theta", "rho"
 
-    See Also
-    --------
-    :meth:`price`: Price without metrics (faster if metrics not needed)
-    :class:`MetricId`: Metric identifiers
-    :class:`MetricRegistry`: Check metric availability
-    :class:`ValuationResult`: Result structure with measures
-    """
+        See Also
+        --------
+        :meth:`price`: Price without metrics (faster if metrics not needed)
+        :class:`MetricId`: Metric identifiers
+        :class:`MetricRegistry`: Check metric availability
+        :class:`ValuationResult`: Result structure with measures
+        """
+        ...
 
     def asw_forward(
         self,
@@ -223,65 +225,66 @@ class PricerRegistry:
         forward_curve: str,
         float_margin_bp: float,
         dirty_price_ccy: Optional[float] = None,
-    ) -> Tuple[float, float]: ...
-    """Compute par and market asset swap spreads using a forward curve.
+    ) -> Tuple[float, float]:
+        """Compute par and market asset swap spreads using a forward curve.
 
-    Calculates both par ASW spread (at par price) and market ASW spread
-    (at market price) for a bond. The ASW spread is the spread on the
-    floating leg of an asset swap that makes the swap have zero value.
+        Calculates both par ASW spread (at par price) and market ASW spread
+        (at market price) for a bond. The ASW spread is the spread on the
+        floating leg of an asset swap that makes the swap have zero value.
 
-    Asset swap spreads are used to compare fixed-rate bonds to floating-rate
-    funding alternatives and to measure relative value.
+        Asset swap spreads are used to compare fixed-rate bonds to floating-rate
+        funding alternatives and to measure relative value.
 
-    Parameters
-    ----------
-    bond
-        Bond instrument (must support floating-rate specification via
-        forward_curve and float_margin_bp).
-    market : MarketContext
-        Market data container providing discount curves. Must contain the
-        discount curve referenced by the bond.
-    forward_curve : str
-        Forward curve identifier in MarketContext for the floating leg.
-        Typically a 3-month or 6-month rate (e.g., "USD-LIBOR-3M").
-    float_margin_bp : float
-        Floating margin in basis points added to the forward rate for
-        each reset period (e.g., 25.0 for 25bp).
-    dirty_price_ccy : float, optional
-        Dirty market price in currency units (e.g., 1,015,000 for $1M
-        bond at 101.5%). This is required to compute the market ASW leg.
-        To compute market ASW at par, pass bond.notional.amount.
+        Parameters
+        ----------
+        bond
+            Bond instrument (must support floating-rate specification via
+            forward_curve and float_margin_bp).
+        market : MarketContext
+            Market data container providing discount curves. Must contain the
+            discount curve referenced by the bond.
+        forward_curve : str
+            Forward curve identifier in MarketContext for the floating leg.
+            Typically a 3-month or 6-month rate (e.g., "USD-LIBOR-3M").
+        float_margin_bp : float
+            Floating margin in basis points added to the forward rate for
+            each reset period (e.g., 25.0 for 25bp).
+        dirty_price_ccy : float, optional
+            Dirty market price in currency units (e.g., 1,015,000 for $1M
+            bond at 101.5%). This is required to compute the market ASW leg.
+            To compute market ASW at par, pass bond.notional.amount.
 
-    Returns
-    -------
-    Tuple[float, float]
-        Tuple of (par_asw_spread_bp, market_asw_spread_bp) in basis points.
+        Returns
+        -------
+        Tuple[float, float]
+            Tuple of (par_asw_spread_bp, market_asw_spread_bp) in basis points.
 
-    Raises
-    ------
-    TypeError
-        If bond is not a bond instrument or doesn't support floating-rate spec.
-    ValueError
-        If dirty_price_ccy is None, if forward_curve is not found in MarketContext,
-        or if bond doesn't have required floating-rate configuration.
-    RuntimeError
-        If the underlying ASW calculation fails (e.g., numerical issues).
+        Raises
+        ------
+        TypeError
+            If bond is not a bond instrument or doesn't support floating-rate spec.
+        ValueError
+            If dirty_price_ccy is None, if forward_curve is not found in MarketContext,
+            or if bond doesn't have required floating-rate configuration.
+        RuntimeError
+            If the underlying ASW calculation fails (e.g., numerical issues).
 
-    Notes
-    -----
-    - Par ASW: Spread when bond is priced at par (100%)
-    - Market ASW: Spread at actual market price (wider if bond trades above par)
-    - ASW spread = bond yield - swap rate + funding cost
-    - Requires forward curve for floating leg projection
-    - Float margin is added to forward rate for each reset period
-    - Market ASW > Par ASW when bond trades above par (premium)
+        Notes
+        -----
+        - Par ASW: Spread when bond is priced at par (100%)
+        - Market ASW: Spread at actual market price (wider if bond trades above par)
+        - ASW spread = bond yield - swap rate + funding cost
+        - Requires forward curve for floating leg projection
+        - Float margin is added to forward rate for each reset period
+        - Market ASW > Par ASW when bond trades above par (premium)
 
-    See Also
-    --------
-    :meth:`price_with_metrics`: Request "asw_spread" metric during pricing
-    :class:`Bond`: Bond instruments with floating-rate specs
-    :class:`ForwardCurve`: Forward rate curves
-    """
+        See Also
+        --------
+        :meth:`price_with_metrics`: Request "asw_spread" metric during pricing
+        :class:`Bond`: Bond instruments with floating-rate specs
+        :class:`ForwardCurve`: Forward rate curves
+        """
+        ...
 
     def key(self, instrument: Any, model: Any) -> PricerKey:
         """Convenience accessor returning the internal dispatch key.

@@ -58,9 +58,16 @@ def example_1_basic_pl_model() -> None:
 
     model = builder.build()
 
+    print(f"Model ID: {model.id}")
+    print(f"Periods: {len(model.periods)} total")
+    print(f"Nodes: {len(list(model.nodes.keys()))} total")
+    print()
+
     # Show period breakdown
-    for _period in model.periods:
-        pass
+    print("Period Breakdown:")
+    for period in model.periods:
+        period_type = "Actual  " if period.is_actual else "Forecast"
+        print(f"  {period.id} | {period_type} | {period.start} to {period.end}")
 
 
 def example_2_model_evaluation() -> None:
@@ -99,11 +106,22 @@ def example_2_model_evaluation() -> None:
 
     # Evaluate the model
     evaluator = Evaluator.new()
-    evaluator.evaluate(model)
+    results = evaluator.evaluate(model)
 
     # Display results
-    for _period in model.periods:
-        pass
+    print(f"Evaluation completed in {results.meta.eval_time_ms}ms")
+    print(f"Nodes evaluated: {results.meta.num_nodes}")
+    print(f"Periods evaluated: {results.meta.num_periods}")
+
+    print("\nResults by Period:")
+    for period in model.periods:
+        print(f"\n{period.id} ({'Actual' if period.is_actual else 'Forecast'}):")
+        print(f"  Revenue:        ${results.get('revenue', period.id):,.0f}")
+        print(f"  COGS:           ${results.get('cogs', period.id):,.0f}")
+        print(f"  Gross Profit:   ${results.get('gross_profit', period.id):,.0f}")
+        print(f"  OpEx:           ${results.get('opex', period.id):,.0f}")
+        print(f"  EBITDA:         ${results.get('ebitda', period.id):,.0f}")
+        print(f"  EBITDA Margin:  {results.get('ebitda_margin', period.id):.1%}")
 
 
 def example_3_metric_registry() -> None:

@@ -73,73 +73,74 @@ class Autocallable:
         vol_surface: str,
         *,
         div_yield_id: Optional[str] = None,
-    ) -> "Autocallable": ...
-    """Create an autocallable structured product.
+    ) -> "Autocallable":
+        """Create an autocallable structured product.
 
-    Parameters
-    ----------
-    instrument_id : str
-        Unique identifier for the product (e.g., "AUTOCALLABLE-SPX").
-    ticker : str
-        Underlying equity ticker symbol.
-    observation_dates : List[date]
-        Dates when autocall barriers are checked. Must match autocall_barriers
-        and coupons lengths.
-    autocall_barriers : List[float]
-        Barrier levels for each observation date (as fraction of initial price,
-        e.g., 1.0 for 100%).
-    coupons : List[float]
-        Cumulative coupon rates for each observation date (as decimals,
-        e.g., [0.08, 0.16, 0.24, 0.32] for 8%, 16%, 24%, 32%).
-    final_barrier : float
-        Final barrier level for final payoff (as fraction of initial price).
-    final_payoff_type : str or Dict[str, Any]
-        Final payoff type: "put" (downside protection), "call" (upside),
-        or custom payoff specification.
-    participation_rate : float
-        Participation rate for final payoff (e.g., 1.0 for 100%).
-    cap_level : float
-        Cap level for final payoff (as fraction of initial, e.g., 1.30 for 130%).
-    notional : Money
-        Notional principal amount.
-    discount_curve : str
-        Discount curve identifier in MarketContext.
-    spot_id : str
-        Spot price identifier in MarketContext.
-    vol_surface : str
-        Volatility surface identifier in MarketContext.
-    div_yield_id : str, optional
-        Dividend yield identifier in MarketContext.
+        Parameters
+        ----------
+        instrument_id : str
+            Unique identifier for the product (e.g., "AUTOCALLABLE-SPX").
+        ticker : str
+            Underlying equity ticker symbol.
+        observation_dates : List[date]
+            Dates when autocall barriers are checked. Must match autocall_barriers
+            and coupons lengths.
+        autocall_barriers : List[float]
+            Barrier levels for each observation date (as fraction of initial price,
+            e.g., 1.0 for 100%).
+        coupons : List[float]
+            Cumulative coupon rates for each observation date (as decimals,
+            e.g., [0.08, 0.16, 0.24, 0.32] for 8%, 16%, 24%, 32%).
+        final_barrier : float
+            Final barrier level for final payoff (as fraction of initial price).
+        final_payoff_type : str or Dict[str, Any]
+            Final payoff type: "put" (downside protection), "call" (upside),
+            or custom payoff specification.
+        participation_rate : float
+            Participation rate for final payoff (e.g., 1.0 for 100%).
+        cap_level : float
+            Cap level for final payoff (as fraction of initial, e.g., 1.30 for 130%).
+        notional : Money
+            Notional principal amount.
+        discount_curve : str
+            Discount curve identifier in MarketContext.
+        spot_id : str
+            Spot price identifier in MarketContext.
+        vol_surface : str
+            Volatility surface identifier in MarketContext.
+        div_yield_id : str, optional
+            Dividend yield identifier in MarketContext.
 
-    Returns
-    -------
-    Autocallable
-        Configured autocallable ready for pricing.
+        Returns
+        -------
+        Autocallable
+            Configured autocallable ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If parameters are invalid (list length mismatches, etc.) or if
-        required market data is missing.
+        Raises
+        ------
+        ValueError
+            If parameters are invalid (list length mismatches, etc.) or if
+            required market data is missing.
 
-    Examples
-    --------
-        >>> autocallable = Autocallable.builder(
-        ...     "AUTOCALLABLE-SPX",
-        ...     "SPX",
-        ...     observation_dates,
-        ...     autocall_barriers,
-        ...     coupons,
-        ...     final_barrier=0.70,
-        ...     final_payoff_type="put",
-        ...     participation_rate=1.0,
-        ...     cap_level=1.30,
-        ...     notional=Money(1_000_000, Currency("USD")),
-        ...     discount_curve="USD",
-        ...     spot_id="SPX",
-        ...     vol_surface="SPX-VOL"
-        ... )
-    """
+        Examples
+        --------
+            >>> autocallable = Autocallable.builder(
+            ...     "AUTOCALLABLE-SPX",
+            ...     "SPX",
+            ...     observation_dates,
+            ...     autocall_barriers,
+            ...     coupons,
+            ...     final_barrier=0.70,
+            ...     final_payoff_type="put",
+            ...     participation_rate=1.0,
+            ...     cap_level=1.30,
+            ...     notional=Money(1_000_000, Currency("USD")),
+            ...     discount_curve="USD",
+            ...     spot_id="SPX",
+            ...     vol_surface="SPX-VOL",
+            ... )
+        """
+        ...
 
     @property
     def instrument_id(self) -> str: ...

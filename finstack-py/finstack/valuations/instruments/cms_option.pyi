@@ -67,62 +67,63 @@ class CmsOption:
         swap_fixed_freq: Optional[Frequency] = None,
         swap_float_freq: Optional[Frequency] = None,
         swap_day_count: Optional[DayCount] = None,
-    ) -> "CmsOption": ...
-    """Create a CMS option.
+    ) -> "CmsOption":
+        """Create a CMS option.
 
-    Parameters
-    ----------
-    instrument_id : str
-        Unique identifier for the option (e.g., "CMS-CAP-10Y").
-    strike_rate : float
-        Strike rate as a decimal (e.g., 0.035 for 3.5%).
-    cms_tenor : float
-        CMS tenor in years (e.g., 10.0 for 10-year swap rate).
-    fixing_dates : List[date]
-        Dates when CMS rates are observed. Must match accrual_fractions length.
-    accrual_fractions : List[float]
-        Accrual fractions for each period (e.g., [0.25, 0.25, 0.25] for quarterly).
-    option_type : str
-        Option type: "call" (cap) or "put" (floor).
-    notional : Money
-        Notional principal amount.
-    discount_curve : str
-        Discount curve identifier in MarketContext.
-    vol_surface : str, optional
-        Volatility surface identifier for CMS option pricing.
-    payment_dates : List[date], optional
-        Payment dates (default: fixing_dates).
-    swap_fixed_freq : Frequency, optional
-        Fixed leg frequency of underlying swap (default: semi-annual).
-    swap_float_freq : Frequency, optional
-        Floating leg frequency of underlying swap (default: quarterly).
-    swap_day_count : DayCount, optional
-        Day-count convention for underlying swap (default: 30/360).
+        Parameters
+        ----------
+        instrument_id : str
+            Unique identifier for the option (e.g., "CMS-CAP-10Y").
+        strike_rate : float
+            Strike rate as a decimal (e.g., 0.035 for 3.5%).
+        cms_tenor : float
+            CMS tenor in years (e.g., 10.0 for 10-year swap rate).
+        fixing_dates : List[date]
+            Dates when CMS rates are observed. Must match accrual_fractions length.
+        accrual_fractions : List[float]
+            Accrual fractions for each period (e.g., [0.25, 0.25, 0.25] for quarterly).
+        option_type : str
+            Option type: "call" (cap) or "put" (floor).
+        notional : Money
+            Notional principal amount.
+        discount_curve : str
+            Discount curve identifier in MarketContext.
+        vol_surface : str, optional
+            Volatility surface identifier for CMS option pricing.
+        payment_dates : List[date], optional
+            Payment dates (default: fixing_dates).
+        swap_fixed_freq : Frequency, optional
+            Fixed leg frequency of underlying swap (default: semi-annual).
+        swap_float_freq : Frequency, optional
+            Floating leg frequency of underlying swap (default: quarterly).
+        swap_day_count : DayCount, optional
+            Day-count convention for underlying swap (default: 30/360).
 
-    Returns
-    -------
-    CmsOption
-        Configured CMS option ready for pricing.
+        Returns
+        -------
+        CmsOption
+            Configured CMS option ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If parameters are invalid (fixing_dates/accrual_fractions mismatch, etc.)
-        or if required market data is missing.
+        Raises
+        ------
+        ValueError
+            If parameters are invalid (fixing_dates/accrual_fractions mismatch, etc.)
+            or if required market data is missing.
 
-    Examples
-    --------
-        >>> option = CmsOption.builder(
-        ...     "CMS-CAP-10Y",
-        ...     0.035,  # 3.5% strike
-        ...     10.0,  # 10-year CMS
-        ...     fixing_dates,
-        ...     accrual_fractions,
-        ...     "call",
-        ...     Money(10_000_000, Currency("USD")),
-        ...     discount_curve="USD"
-        ... )
-    """
+        Examples
+        --------
+            >>> option = CmsOption.builder(
+            ...     "CMS-CAP-10Y",
+            ...     0.035,  # 3.5% strike
+            ...     10.0,  # 10-year CMS
+            ...     fixing_dates,
+            ...     accrual_fractions,
+            ...     "call",
+            ...     Money(10_000_000, Currency("USD")),
+            ...     discount_curve="USD",
+            ... )
+        """
+        ...
 
     @property
     def instrument_id(self) -> str: ...

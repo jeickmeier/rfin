@@ -57,31 +57,32 @@ class TermLoan:
     """
 
     @classmethod
-    def from_json(cls, json_str: str) -> "TermLoan": ...
-    """Create a term loan from a JSON string specification.
+    def from_json(cls, json_str: str) -> "TermLoan":
+        """Create a term loan from a JSON string specification.
 
-    Parameters
-    ----------
-    json_str : str
-        JSON string containing term loan specification. Must include
-        instrument_id, notional_limit, issue, maturity, and discount_curve.
+        Parameters
+        ----------
+        json_str : str
+            JSON string containing term loan specification. Must include
+            instrument_id, notional_limit, issue, maturity, and discount_curve.
 
-    Returns
-    -------
-    TermLoan
-        Configured term loan ready for pricing.
+        Returns
+        -------
+        TermLoan
+            Configured term loan ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If JSON is invalid or required fields are missing.
+        Raises
+        ------
+        ValueError
+            If JSON is invalid or required fields are missing.
 
-    Examples
-    --------
-        >>> term_loan = TermLoan.from_json(json_str)
-        >>> term_loan.notional_limit
-        Money(10000000, Currency("USD"))
-    """
+        Examples
+        --------
+            >>> term_loan = TermLoan.from_json(json_str)
+            >>> term_loan.notional_limit
+            Money(10000000, Currency("USD"))
+        """
+        ...
 
     def to_json(self) -> str:
         """Serialize the term loan to a JSON string."""

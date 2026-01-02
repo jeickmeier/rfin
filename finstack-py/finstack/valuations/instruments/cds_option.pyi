@@ -67,62 +67,63 @@ class CdsOption:
         underlying_is_index: Optional[bool] = False,
         index_factor: Optional[float] = None,
         forward_adjust_bp: Optional[float] = 0.0,
-    ) -> "CdsOption": ...
-    """Create a CDS option referencing a standard CDS contract.
+    ) -> "CdsOption":
+        """Create a CDS option referencing a standard CDS contract.
 
-    Parameters
-    ----------
-    instrument_id : str
-        Unique identifier for the option (e.g., "CDS-OPT-CORP-A").
-    notional : Money
-        Notional principal amount.
-    strike_spread_bp : float
-        Strike CDS spread in basis points (e.g., 150.0 for 150bp).
-    expiry : date
-        Option expiration date.
-    cds_maturity : date
-        Maturity date of the underlying CDS if exercised. Must be after expiry.
-    discount_curve : str
-        Discount curve identifier in MarketContext.
-    credit_curve : str
-        Credit curve identifier in MarketContext.
-    vol_surface : str
-        Volatility surface identifier for CDS option pricing.
-    option_type : str, optional
-        Option type: "call" (default, right to buy protection) or "put"
-        (right to sell protection).
-    recovery_rate : float, optional
-        Recovery rate (default: 0.40).
-    underlying_is_index : bool, optional
-        If True, underlying is a CDS index (default: False, single-name).
-    index_factor : float, optional
-        Index factor if underlying is an index (default: 1.0).
-    forward_adjust_bp : float, optional
-        Forward spread adjustment in basis points (default: 0.0).
+        Parameters
+        ----------
+        instrument_id : str
+            Unique identifier for the option (e.g., "CDS-OPT-CORP-A").
+        notional : Money
+            Notional principal amount.
+        strike_spread_bp : float
+            Strike CDS spread in basis points (e.g., 150.0 for 150bp).
+        expiry : date
+            Option expiration date.
+        cds_maturity : date
+            Maturity date of the underlying CDS if exercised. Must be after expiry.
+        discount_curve : str
+            Discount curve identifier in MarketContext.
+        credit_curve : str
+            Credit curve identifier in MarketContext.
+        vol_surface : str
+            Volatility surface identifier for CDS option pricing.
+        option_type : str, optional
+            Option type: "call" (default, right to buy protection) or "put"
+            (right to sell protection).
+        recovery_rate : float, optional
+            Recovery rate (default: 0.40).
+        underlying_is_index : bool, optional
+            If True, underlying is a CDS index (default: False, single-name).
+        index_factor : float, optional
+            Index factor if underlying is an index (default: 1.0).
+        forward_adjust_bp : float, optional
+            Forward spread adjustment in basis points (default: 0.0).
 
-    Returns
-    -------
-    CdsOption
-        Configured CDS option ready for pricing.
+        Returns
+        -------
+        CdsOption
+            Configured CDS option ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If parameters are invalid or if required market data is missing.
+        Raises
+        ------
+        ValueError
+            If parameters are invalid or if required market data is missing.
 
-    Examples
-    --------
-        >>> cds_option = CdsOption.create(
-        ...     "CDS-OPT-CORP-A",
-        ...     Money(10_000_000, Currency("USD")),
-        ...     150.0,  # 150bp strike
-        ...     date(2024, 12, 20),
-        ...     date(2029, 1, 1),
-        ...     discount_curve="USD",
-        ...     credit_curve="CORP-A-HAZARD",
-        ...     vol_surface="CDS-VOL"
-        ... )
-    """
+        Examples
+        --------
+            >>> cds_option = CdsOption.create(
+            ...     "CDS-OPT-CORP-A",
+            ...     Money(10_000_000, Currency("USD")),
+            ...     150.0,  # 150bp strike
+            ...     date(2024, 12, 20),
+            ...     date(2029, 1, 1),
+            ...     discount_curve="USD",
+            ...     credit_curve="CORP-A-HAZARD",
+            ...     vol_surface="CDS-VOL",
+            ... )
+        """
+        ...
 
     @property
     def instrument_id(self) -> str: ...

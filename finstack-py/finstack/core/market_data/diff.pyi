@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Iterable, Sequence
 
 from ..currency import Currency
-from ..dates import Date
 from .context import MarketContext
 
 class TenorSamplingMethod:
@@ -60,8 +60,8 @@ def measure_fx_shift(
     quote_currency: Currency,
     market_t0: MarketContext,
     market_t1: MarketContext,
-    as_of_t0: Date,
-    as_of_t1: Date,
+    as_of_t0: date,
+    as_of_t1: date,
 ) -> float: ...
 def measure_scalar_shift(
     scalar_id: str,

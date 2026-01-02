@@ -107,76 +107,76 @@ class Swaption:
         vol_surface: str,
         exercise: Optional[str] = "european",
         settlement: Optional[str] = "physical",
-    ) -> "Swaption": ...
-    """Create a payer swaption (option to pay fixed on underlying swap).
+    ) -> "Swaption":
+        """Create a payer swaption (option to pay fixed on underlying swap).
 
-    A payer swaption gives the holder the right to enter into a swap where
-    they pay the fixed rate (strike) and receive floating. This is equivalent
-    to a call option on the fixed rate (or put on the floating rate).
+        A payer swaption gives the holder the right to enter into a swap where
+        they pay the fixed rate (strike) and receive floating. This is equivalent
+        to a call option on the fixed rate (or put on the floating rate).
 
-    Parameters
-    ----------
-    instrument_id : str
-        Unique identifier for the swaption (e.g., "SWAPTION-5Y10Y").
-    notional : Money
-        Notional principal of the underlying swap. Currency determines curve
-        currency requirements.
-    strike : float
-        Fixed rate (strike) of the underlying swap, as a decimal (e.g., 0.035
-        for 3.5%). This is the rate the holder would pay if exercised.
-    expiry : date
-        Swaption expiration date. The option can be exercised on or before
-        this date (depending on exercise style).
-    swap_start : date
-        Start date of the underlying swap if exercised. Typically equals or
-        follows expiry (forward-starting swap).
-    swap_end : date
-        End date of the underlying swap. The swap tenor is swap_end - swap_start.
-    discount_curve : str
-        Discount curve identifier in MarketContext for present value calculations.
-    forward_curve : str
-        Forward curve identifier for the floating leg of the underlying swap.
-    vol_surface : str
-        Volatility surface identifier for swaption pricing. The surface must
-        cover the swaption's expiry and the underlying swap's tenor.
-    exercise : str, optional
-        Exercise style: "european" (exercise only at expiry, default) or
-        "bermudan" (exercise on multiple dates). American exercise not typically
-        supported for swaptions.
-    settlement : str, optional
-        Settlement type: "physical" (enter the swap, default) or "cash"
-        (cash settlement based on swap value). Physical is standard.
+        Parameters
+        ----------
+        instrument_id : str
+            Unique identifier for the swaption (e.g., "SWAPTION-5Y10Y").
+        notional : Money
+            Notional principal of the underlying swap. Currency determines curve
+            currency requirements.
+        strike : float
+            Fixed rate (strike) of the underlying swap, as a decimal (e.g., 0.035
+            for 3.5%). This is the rate the holder would pay if exercised.
+        expiry : date
+            Swaption expiration date. The option can be exercised on or before
+            this date (depending on exercise style).
+        swap_start : date
+            Start date of the underlying swap if exercised. Typically equals or
+            follows expiry (forward-starting swap).
+        swap_end : date
+            End date of the underlying swap. The swap tenor is swap_end - swap_start.
+        discount_curve : str
+            Discount curve identifier in MarketContext for present value calculations.
+        forward_curve : str
+            Forward curve identifier for the floating leg of the underlying swap.
+        vol_surface : str
+            Volatility surface identifier for swaption pricing. The surface must
+            cover the swaption's expiry and the underlying swap's tenor.
+        exercise : str, optional
+            Exercise style: "european" (exercise only at expiry, default) or
+            "bermudan" (exercise on multiple dates). American exercise not typically
+            supported for swaptions.
+        settlement : str, optional
+            Settlement type: "physical" (enter the swap, default) or "cash"
+            (cash settlement based on swap value). Physical is standard.
 
-    Returns
-    -------
-    Swaption
-        Configured payer swaption ready for pricing.
+        Returns
+        -------
+        Swaption
+            Configured payer swaption ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If dates are invalid (swap_end <= swap_start, expiry > swap_start),
-        if strike is negative, or if notional is invalid.
+        Raises
+        ------
+        ValueError
+            If dates are invalid (swap_end <= swap_start, expiry > swap_start),
+            if strike is negative, or if notional is invalid.
 
-    Examples
-    --------
-        >>> from finstack import Money, Currency
-        >>> from datetime import date
-        >>> 
-        >>> swaption = Swaption.payer(
-        ...     "SWAPTION-5Y10Y",
-        ...     Money(10_000_000, Currency("USD")),
-        ...     0.035,  # 3.5% strike
-        ...     date(2024, 12, 20),  # Expiry in 1 year
-        ...     date(2025, 1, 1),    # Swap starts in 1 year
-        ...     date(2035, 1, 1),    # Swap ends in 11 years (10Y swap)
-        ...     discount_curve="USD",
-        ...     forward_curve="USD-LIBOR-3M",
-        ...     vol_surface="USD-SWAPTION-VOL"
-        ... )
-        >>> swaption.option_type
-        'payer'
-    """
+        Examples
+        --------
+            >>> from finstack import Money, Currency
+            >>> from datetime import date
+            >>> swaption = Swaption.payer(
+            ...     "SWAPTION-5Y10Y",
+            ...     Money(10_000_000, Currency("USD")),
+            ...     0.035,  # 3.5% strike
+            ...     date(2024, 12, 20),  # Expiry in 1 year
+            ...     date(2025, 1, 1),  # Swap starts in 1 year
+            ...     date(2035, 1, 1),  # Swap ends in 11 years (10Y swap)
+            ...     discount_curve="USD",
+            ...     forward_curve="USD-LIBOR-3M",
+            ...     vol_surface="USD-SWAPTION-VOL",
+            ... )
+            >>> swaption.option_type
+            'payer'
+        """
+        ...
 
     @classmethod
     def receiver(
@@ -192,63 +192,64 @@ class Swaption:
         vol_surface: str,
         exercise: Optional[str] = "european",
         settlement: Optional[str] = "physical",
-    ) -> "Swaption": ...
-    """Create a receiver swaption (option to receive fixed on underlying swap).
+    ) -> "Swaption":
+        """Create a receiver swaption (option to receive fixed on underlying swap).
 
-    A receiver swaption gives the holder the right to enter into a swap where
-    they receive the fixed rate (strike) and pay floating. This is equivalent
-    to a put option on the fixed rate (or call on the floating rate).
+        A receiver swaption gives the holder the right to enter into a swap where
+        they receive the fixed rate (strike) and pay floating. This is equivalent
+        to a put option on the fixed rate (or call on the floating rate).
 
-    Parameters
-    ----------
-    instrument_id : str
-        Unique identifier for the swaption.
-    notional : Money
-        Notional principal of the underlying swap.
-    strike : float
-        Fixed rate (strike) of the underlying swap, as a decimal. This is the
-        rate the holder would receive if exercised.
-    expiry : date
-        Swaption expiration date.
-    swap_start : date
-        Start date of the underlying swap if exercised.
-    swap_end : date
-        End date of the underlying swap.
-    discount_curve : str
-        Discount curve identifier in MarketContext.
-    forward_curve : str
-        Forward curve identifier for the floating leg.
-    vol_surface : str
-        Volatility surface identifier for swaption pricing.
-    exercise : str, optional
-        Exercise style: "european" (default) or "bermudan".
-    settlement : str, optional
-        Settlement type: "physical" (default) or "cash".
+        Parameters
+        ----------
+        instrument_id : str
+            Unique identifier for the swaption.
+        notional : Money
+            Notional principal of the underlying swap.
+        strike : float
+            Fixed rate (strike) of the underlying swap, as a decimal. This is the
+            rate the holder would receive if exercised.
+        expiry : date
+            Swaption expiration date.
+        swap_start : date
+            Start date of the underlying swap if exercised.
+        swap_end : date
+            End date of the underlying swap.
+        discount_curve : str
+            Discount curve identifier in MarketContext.
+        forward_curve : str
+            Forward curve identifier for the floating leg.
+        vol_surface : str
+            Volatility surface identifier for swaption pricing.
+        exercise : str, optional
+            Exercise style: "european" (default) or "bermudan".
+        settlement : str, optional
+            Settlement type: "physical" (default) or "cash".
 
-    Returns
-    -------
-    Swaption
-        Configured receiver swaption ready for pricing.
+        Returns
+        -------
+        Swaption
+            Configured receiver swaption ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If parameters are invalid.
+        Raises
+        ------
+        ValueError
+            If parameters are invalid.
 
-    Examples
-    --------
-        >>> swaption = Swaption.receiver(
-        ...     "SWAPTION-REC-5Y10Y",
-        ...     Money(10_000_000, Currency("USD")),
-        ...     0.035,
-        ...     date(2024, 12, 20),
-        ...     date(2025, 1, 1),
-        ...     date(2035, 1, 1),
-        ...     discount_curve="USD",
-        ...     forward_curve="USD-LIBOR-3M",
-        ...     vol_surface="USD-SWAPTION-VOL"
-        ... )
-    """
+        Examples
+        --------
+            >>> swaption = Swaption.receiver(
+            ...     "SWAPTION-REC-5Y10Y",
+            ...     Money(10_000_000, Currency("USD")),
+            ...     0.035,
+            ...     date(2024, 12, 20),
+            ...     date(2025, 1, 1),
+            ...     date(2035, 1, 1),
+            ...     discount_curve="USD",
+            ...     forward_curve="USD-LIBOR-3M",
+            ...     vol_surface="USD-SWAPTION-VOL",
+            ... )
+        """
+        ...
 
     @property
     def instrument_id(self) -> str: ...

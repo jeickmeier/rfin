@@ -1,4 +1,4 @@
-.PHONY: help setup-python build build-prod test-rust test-rust-slow test-rust-doc test-python doc clean fmt lint fmt-check lint-check stubs list coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test install-nextest book-build book-serve book-clean book-watch install-mdbook bench-perf bench-baseline bench-flamegraph bench-compare install-bloat size-wasm size-py size-core size-all check-schemas pre-commit-install pre-commit-run pre-commit-update test-and-fix test-fix-rust test-fix-python test-fix-wasm test-fix-ui format-code
+.PHONY: help setup-python build build-prod test-rust test-rust-slow test-rust-doc test-python typecheck-python verifytypes-python stubtest-python doc clean fmt lint fmt-check lint-check stubs list coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test install-nextest book-build book-serve book-clean book-watch install-mdbook bench-perf bench-baseline bench-flamegraph bench-compare install-bloat size-wasm size-py size-core size-all check-schemas pre-commit-install pre-commit-run pre-commit-update test-and-fix test-fix-rust test-fix-python test-fix-wasm test-fix-ui format-code
 
 help:
 	@echo "Builds:"
@@ -32,6 +32,9 @@ help:
 	@echo "  test-rust-slow 				- Run all Rust tests incl. slow (cargo-nextest)"
 	@echo "  test-rust-doc  				- Run Rust documentation tests only"
 	@echo "  test-python     				- Run Python tests in finstack-py"
+	@echo "  typecheck-python				- Run pyright type checking (stubs + Python)"
+	@echo "  verifytypes-python				- Run pyright --verifytypes for published API"
+	@echo "  stubtest-python				- Compare runtime bindings vs stubs (mypy stubtest)"
 	@echo "  test-wasm       				- Run WASM tests in finstack-wasm"
 	@echo "  test-and-fix  				- Run all tests and auto-fix issues"
 	@echo "  test-fix-rust  				- Run Rust tests and auto-fix issues"
@@ -115,6 +118,23 @@ test-rust-doc: check-no-doctest-ignore
 test-python:
 	@command -v uv >/dev/null 2>&1 || { echo "uv is required for Python tests (https://github.com/astral-sh/uv)."; exit 1; }
 	cd finstack-py && uv run pytest tests -v
+
+typecheck-python:
+	@command -v uv >/dev/null 2>&1 || { echo "uv is required for Python typechecking (https://github.com/astral-sh/uv)."; exit 1; }
+	uv run pyright
+
+verifytypes-python:
+	@command -v uv >/dev/null 2>&1 || { echo "uv is required for Python typechecking (https://github.com/astral-sh/uv)."; exit 1; }
+	# Requires the compiled extension to be installed (e.g. `make python-dev`)
+	uv run pyright --verifytypes finstack --ignoreexternal
+
+stubtest-python:
+	@command -v uv >/dev/null 2>&1 || { echo "uv is required for stub testing (https://github.com/astral-sh/uv)."; exit 1; }
+	@echo "NOTE: mypy stubtest is currently not enforced for PyO3 extension modules."
+	@echo "Use \`make verifytypes-python\` (pyright --verifytypes) for CI-grade type verification."
+	@echo "If you want to experiment locally, run:"
+	@echo "  uv run python -m mypy.stubtest finstack --ignore-missing-stub --allowlist finstack-py/tests/stubtest_allowlist.txt"
+	@true
 
 test-wasm:
 	cd finstack-wasm && npm run test

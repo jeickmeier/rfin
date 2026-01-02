@@ -97,97 +97,102 @@ class BumpSpec:
         bump_type: BumpType | None = ...,
     ) -> None: ...
     @staticmethod
-    def parallel_bp(bump_bp: float) -> BumpSpec: ...
-    """Create a parallel bump in basis points (additive mode).
+    def parallel_bp(bump_bp: float) -> BumpSpec:
+        """Create a parallel bump in basis points (additive mode).
 
-    This is the most common bump type for interest rate scenarios. Shifts
-    the entire curve by the specified number of basis points.
+        This is the most common bump type for interest rate scenarios. Shifts
+        the entire curve by the specified number of basis points.
 
-    Parameters
-    ----------
-    bump_bp : float
-        Bump magnitude in basis points (e.g., 10.0 for 10bp).
+        Parameters
+        ----------
+        bump_bp : float
+            Bump magnitude in basis points (e.g., 10.0 for 10bp).
 
-    Returns
-    -------
-    BumpSpec
-        Specification for a parallel additive bump in basis points.
+        Returns
+        -------
+        BumpSpec
+            Specification for a parallel additive bump in basis points.
 
-    """
+        """
+        ...
     @staticmethod
     def triangular_key_rate_bp(
         prev_bucket: float, target_bucket: float, next_bucket: float, bump_bp: float
-    ) -> BumpSpec: ...
-    """Create a triangular key-rate bump in basis points at a specific tenor.
+    ) -> BumpSpec:
+        """Create a triangular key-rate bump in basis points at a specific tenor.
 
-    Triangular key-rate bumps affect only the specified tenor point on the curve,
-    with the impact tapering off to zero at the neighboring buckets. Used for DV01
-    calculations and partial duration analysis. This is the market-standard implementation
-    (per Tuckman/Fabozzi) where the triangular weight is defined by the bucket grid.
+        Triangular key-rate bumps affect only the specified tenor point on the curve,
+        with the impact tapering off to zero at the neighboring buckets. Used for DV01
+        calculations and partial duration analysis. This is the market-standard implementation
+        (per Tuckman/Fabozzi) where the triangular weight is defined by the bucket grid.
 
-    Parameters
-    ----------
-    prev_bucket : float
-        Previous bucket time in years (use 0.0 for first bucket).
-    target_bucket : float
-        Target bucket time in years (peak of the triangle, e.g., 5.0 for 5-year).
-    next_bucket : float
-        Next bucket time in years (use float('inf') for last bucket).
-    bump_bp : float
-        Bump magnitude in basis points at the key rate point.
+        Parameters
+        ----------
+        prev_bucket : float
+            Previous bucket time in years (use 0.0 for first bucket).
+        target_bucket : float
+            Target bucket time in years (peak of the triangle, e.g., 5.0 for 5-year).
+        next_bucket : float
+            Next bucket time in years (use float('inf') for last bucket).
+        bump_bp : float
+            Bump magnitude in basis points at the key rate point.
 
-    Returns
-    -------
-    BumpSpec
-        Specification for a triangular key-rate bump.
+        Returns
+        -------
+        BumpSpec
+            Specification for a triangular key-rate bump.
 
-    """
+        """
+        ...
     @staticmethod
-    def multiplier(factor: float) -> BumpSpec: ...
-    """Create a multiplicative bump by a factor.
+    def multiplier(factor: float) -> BumpSpec:
+        """Create a multiplicative bump by a factor.
 
-    Multiplies the current value by the factor. For example, factor=1.1
-    represents a 10% increase. Commonly used for volatility surfaces.
+        Multiplies the current value by the factor. For example, factor=1.1
+        represents a 10% increase. Commonly used for volatility surfaces.
 
-    Parameters
-    ----------
-    factor : float
-        Multiplicative factor (e.g., 1.1 for 10% increase, 0.9 for 10% decrease).
+        Parameters
+        ----------
+        factor : float
+            Multiplicative factor (e.g., 1.1 for 10% increase, 0.9 for 10% decrease).
 
-    Returns
-    -------
-    BumpSpec
-        Specification for a multiplicative bump.
+        Returns
+        -------
+        BumpSpec
+            Specification for a multiplicative bump.
 
-    """
+        """
+        ...
     @staticmethod
-    def inflation_shift_pct(bump_pct: float) -> BumpSpec: ...
-    """Create an inflation curve shift in percentage points.
+    def inflation_shift_pct(bump_pct: float) -> BumpSpec:
+        """Create an inflation curve shift in percentage points.
 
-    Parameters
-    ----------
-    bump_pct : float
-        Inflation shift in percentage points (e.g., 0.5 for 0.5%).
+        Parameters
+        ----------
+        bump_pct : float
+            Inflation shift in percentage points (e.g., 0.5 for 0.5%).
 
-    Returns
-    -------
-    BumpSpec
-        Specification for an inflation shift.
-    """
+        Returns
+        -------
+        BumpSpec
+            Specification for an inflation shift.
+        """
+        ...
     @staticmethod
-    def correlation_shift_pct(bump_pct: float) -> BumpSpec: ...
-    """Create a correlation shift in percentage points.
+    def correlation_shift_pct(bump_pct: float) -> BumpSpec:
+        """Create a correlation shift in percentage points.
 
-    Parameters
-    ----------
-    bump_pct : float
-        Correlation shift in percentage points (e.g., 5.0 for 5%).
+        Parameters
+        ----------
+        bump_pct : float
+            Correlation shift in percentage points (e.g., 5.0 for 5%).
 
-    Returns
-    -------
-    BumpSpec
-        Specification for a correlation shift.
-    """
+        Returns
+        -------
+        BumpSpec
+            Specification for a correlation shift.
+        """
+        ...
     @property
     def mode(self) -> BumpMode: ...
     @property
@@ -236,26 +241,27 @@ class MarketBump:
     """
 
     @classmethod
-    def curve(cls, curve_id: CurveId, spec: BumpSpec) -> MarketBump: ...
-    """Create a bump for an interest rate or credit curve.
+    def curve(cls, curve_id: CurveId, spec: BumpSpec) -> MarketBump:
+        """Create a bump for an interest rate or credit curve.
 
-    Applies the specified bump to a discount, forward, hazard, or inflation
-    curve identified by curve_id. The bump type (parallel or key-rate)
-    determines how the shift is applied across the curve.
+        Applies the specified bump to a discount, forward, hazard, or inflation
+        curve identified by curve_id. The bump type (parallel or key-rate)
+        determines how the shift is applied across the curve.
 
-    Parameters
-    ----------
-    curve_id : CurveId
-        Identifier of the curve to bump (e.g., "USD", "EUR-LIBOR-3M").
-    spec : BumpSpec
-        Bump specification defining mode, units, magnitude, and type.
+        Parameters
+        ----------
+        curve_id : CurveId
+            Identifier of the curve to bump (e.g., "USD", "EUR-LIBOR-3M").
+        spec : BumpSpec
+            Bump specification defining mode, units, magnitude, and type.
 
-    Returns
-    -------
-    MarketBump
-        Bump specification for the curve.
+        Returns
+        -------
+        MarketBump
+            Bump specification for the curve.
 
-    """
+        """
+        ...
     @classmethod
     def fx_pct(
         cls,
@@ -263,30 +269,31 @@ class MarketBump:
         quote_currency: Currency,
         pct: float,
         as_of: date,
-    ) -> MarketBump: ...
-    """Create a percentage shift for an FX rate pair.
+    ) -> MarketBump:
+        """Create a percentage shift for an FX rate pair.
 
-    Shifts the FX rate between base_currency and quote_currency by the
-    specified percentage. Positive values represent appreciation of the
-    base currency relative to the quote currency.
+        Shifts the FX rate between base_currency and quote_currency by the
+        specified percentage. Positive values represent appreciation of the
+        base currency relative to the quote currency.
 
-    Parameters
-    ----------
-    base_currency : Currency
-        Base currency of the FX pair (e.g., EUR for EUR/USD).
-    quote_currency : Currency
-        Quote currency of the FX pair (e.g., USD for EUR/USD).
-    pct : float
-        Percentage shift (e.g., 2.0 for 2% appreciation).
-    as_of : date
-        Date for which the FX shift applies.
+        Parameters
+        ----------
+        base_currency : Currency
+            Base currency of the FX pair (e.g., EUR for EUR/USD).
+        quote_currency : Currency
+            Quote currency of the FX pair (e.g., USD for EUR/USD).
+        pct : float
+            Percentage shift (e.g., 2.0 for 2% appreciation).
+        as_of : date
+            Date for which the FX shift applies.
 
-    Returns
-    -------
-    MarketBump
-        Bump specification for the FX rate.
+        Returns
+        -------
+        MarketBump
+            Bump specification for the FX rate.
 
-    """
+        """
+        ...
     @classmethod
     def vol_bucket_pct(
         cls,
@@ -294,64 +301,60 @@ class MarketBump:
         pct: float,
         expiries: Sequence[float] | None = ...,
         strikes: Sequence[float] | None = ...,
-    ) -> MarketBump: ...
-    """Create a percentage shift for a volatility surface bucket.
+    ) -> MarketBump:
+        """Create a percentage shift for a volatility surface bucket.
 
-    Shifts volatility values on a surface by the specified percentage.
-    If expiries and/or strikes are provided, only those buckets are shifted;
-    otherwise, the entire surface is shifted.
+        Shifts volatility values on a surface by the specified percentage.
+        If expiries and/or strikes are provided, only those buckets are shifted;
+        otherwise, the entire surface is shifted.
 
-    Parameters
-    ----------
-    surface_id : CurveId
-        Identifier of the volatility surface (e.g., "SPX", "EURUSD").
-    pct : float
-        Percentage shift (e.g., 5.0 for 5% vol increase).
-    expiries : Sequence[float], optional
-        Specific expiries (in years) to shift. If None, all expiries.
-    strikes : Sequence[float], optional
-        Specific strikes (as moneyness or absolute) to shift. If None, all strikes.
+        Parameters
+        ----------
+        surface_id : CurveId
+            Identifier of the volatility surface (e.g., "SPX", "EURUSD").
+        pct : float
+            Percentage shift (e.g., 5.0 for 5% vol increase).
+        expiries : Sequence[float], optional
+            Specific expiries (in years) to shift. If None, all expiries.
+        strikes : Sequence[float], optional
+            Specific strikes (as moneyness or absolute) to shift. If None, all strikes.
 
-    Returns
-    -------
-    MarketBump
-        Bump specification for the volatility surface.
+        Returns
+        -------
+        MarketBump
+            Bump specification for the volatility surface.
 
-        >>> 
-        >>> # Shift specific bucket
-        >>> bump = MarketBump.vol_bucket_pct(
-        ...     CurveId("SPX"),
-        ...     5.0,
-        ...     expiries=[0.25, 0.5],
-        ...     strikes=[0.9, 1.0, 1.1]
-        ... )
-    """
+            >>> # Shift specific bucket
+            >>> bump = MarketBump.vol_bucket_pct(CurveId("SPX"), 5.0, expiries=[0.25, 0.5], strikes=[0.9, 1.0, 1.1])
+        """
+        ...
     @classmethod
     def base_corr_bucket_pts(
         cls,
         surface_id: CurveId,
         points: float,
         detachments: Sequence[float] | None = ...,
-    ) -> MarketBump: ...
-    """Create a basis points shift for a base correlation surface.
+    ) -> MarketBump:
+        """Create a basis points shift for a base correlation surface.
 
-    Shifts base correlation values by the specified number of basis points.
-    Used for structured credit products (CDO, CLO).
+        Shifts base correlation values by the specified number of basis points.
+        Used for structured credit products (CDO, CLO).
 
-    Parameters
-    ----------
-    surface_id : CurveId
-        Identifier of the base correlation surface.
-    points : float
-        Shift in basis points (e.g., 50.0 for 50bp).
-    detachments : Sequence[float], optional
-        Specific detachment points to shift. If None, all detachments.
+        Parameters
+        ----------
+        surface_id : CurveId
+            Identifier of the base correlation surface.
+        points : float
+            Shift in basis points (e.g., 50.0 for 50bp).
+        detachments : Sequence[float], optional
+            Specific detachment points to shift. If None, all detachments.
 
-    Returns
-    -------
-    MarketBump
-        Bump specification for the base correlation surface.
-    """
+        Returns
+        -------
+        MarketBump
+            Bump specification for the base correlation surface.
+        """
+        ...
     @property
     def kind(self) -> Literal["curve", "fx_pct", "vol_bucket_pct", "base_corr_bucket_pts"]: ...
 

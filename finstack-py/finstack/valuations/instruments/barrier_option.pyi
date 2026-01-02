@@ -82,64 +82,65 @@ class BarrierOption:
         *,
         div_yield_id: Optional[str] = None,
         use_gobet_miri: Optional[bool] = False,
-    ) -> "BarrierOption": ...
-    """Create a barrier option.
+    ) -> "BarrierOption":
+        """Create a barrier option.
 
-    Parameters
-    ----------
-    instrument_id : str
-        Unique identifier for the option.
-    ticker : str
-        Underlying equity ticker symbol.
-    strike : float
-        Strike price. Must be > 0.
-    barrier : float
-        Barrier level. Must be > 0 and typically different from strike.
-    option_type : str
-        Option type: "call" or "put".
-    barrier_type : str
-        Barrier type: "up_and_out", "up_and_in", "down_and_out", "down_and_in".
-    expiry : date
-        Option expiration date.
-    notional : Money
-        Notional amount.
-    discount_curve : str
-        Discount curve identifier in MarketContext.
-    spot_id : str
-        Spot price identifier in MarketContext.
-    vol_surface : str
-        Volatility surface identifier in MarketContext.
-    div_yield_id : str, optional
-        Dividend yield identifier in MarketContext.
-    use_gobet_miri : bool, optional
-        Use Gobet-Miri approximation for barrier pricing (default: False).
+        Parameters
+        ----------
+        instrument_id : str
+            Unique identifier for the option.
+        ticker : str
+            Underlying equity ticker symbol.
+        strike : float
+            Strike price. Must be > 0.
+        barrier : float
+            Barrier level. Must be > 0 and typically different from strike.
+        option_type : str
+            Option type: "call" or "put".
+        barrier_type : str
+            Barrier type: "up_and_out", "up_and_in", "down_and_out", "down_and_in".
+        expiry : date
+            Option expiration date.
+        notional : Money
+            Notional amount.
+        discount_curve : str
+            Discount curve identifier in MarketContext.
+        spot_id : str
+            Spot price identifier in MarketContext.
+        vol_surface : str
+            Volatility surface identifier in MarketContext.
+        div_yield_id : str, optional
+            Dividend yield identifier in MarketContext.
+        use_gobet_miri : bool, optional
+            Use Gobet-Miri approximation for barrier pricing (default: False).
 
-    Returns
-    -------
-    BarrierOption
-        Configured barrier option ready for pricing.
+        Returns
+        -------
+        BarrierOption
+            Configured barrier option ready for pricing.
 
-    Raises
-    ------
-    ValueError
-        If parameters are invalid or if required market data is missing.
+        Raises
+        ------
+        ValueError
+            If parameters are invalid or if required market data is missing.
 
-    Examples
-    --------
-        >>> option = BarrierOption.builder(
-        ...     "BARRIER-AAPL",
-        ...     "AAPL",
-        ...     strike=150.0,
-        ...     barrier=140.0,
-        ...     option_type="call",
-        ...     barrier_type="down_and_out",
-        ...     expiry=date(2024, 12, 20),
-        ...     notional=Money(100_000, Currency("USD")),
-        ...     discount_curve="USD",
-        ...     spot_id="AAPL",
-        ...     vol_surface="AAPL-VOL"
-        ... )
-    """
+        Examples
+        --------
+            >>> option = BarrierOption.builder(
+            ...     "BARRIER-AAPL",
+            ...     "AAPL",
+            ...     strike=150.0,
+            ...     barrier=140.0,
+            ...     option_type="call",
+            ...     barrier_type="down_and_out",
+            ...     expiry=date(2024, 12, 20),
+            ...     notional=Money(100_000, Currency("USD")),
+            ...     discount_curve="USD",
+            ...     spot_id="AAPL",
+            ...     vol_surface="AAPL-VOL",
+            ... )
+        """
+        ...
 
     @property
     def instrument_id(self) -> str: ...
