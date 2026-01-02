@@ -155,7 +155,7 @@ python-dev: ## Install dependencies and build bindings
 
 .PHONY: test-python
 test-python: ## Run Python tests
-	@cd finstack-py && $(call py_run,pytest tests -v)
+	@$(call py_run,pytest -v)
 
 .PHONY: fmt-python
 fmt-python:
@@ -295,7 +295,7 @@ coverage-rust:
 
 coverage-python:
 	@printf "Running Python code coverage...\n"
-	@cd finstack-py && $(call py_run,pytest --cov=finstack --cov-report=html tests)
+	@$(call py_run,pytest --cov=finstack --cov-report=html)
 
 coverage-ui:
 	@printf "Running UI code coverage...\n"

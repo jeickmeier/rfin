@@ -194,7 +194,6 @@ fn test_future_date_before_base_date() {
 }
 
 #[test]
-#[should_panic(expected = "t2 must be after t1")]
 fn test_inverted_period_dates() {
     let (as_of, _, _) = standard_dates();
     let start = date!(2024 - 10 - 01);
@@ -211,8 +210,15 @@ fn test_inverted_period_dates() {
     );
     let market = build_standard_market(as_of, 0.05);
 
-    // Should panic with invalid date range (in forward curve)
-    let _ = future.npv(&market);
+    // Should return InvalidDateRange error
+    let result = future.npv(&market);
+
+    use finstack_core::{Error, InputError};
+    assert!(
+        matches!(result, Err(Error::Input(InputError::InvalidDateRange))),
+        "Expected InvalidDateRange error, got {:?}",
+        result
+    );
 }
 
 #[test]
