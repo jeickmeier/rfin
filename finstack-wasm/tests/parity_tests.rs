@@ -215,8 +215,7 @@ fn test_pricer_registry_price_instrument_exists() {
     let market = MarketContext::new();
 
     // the dynamic dispatch path works (it should return a pricing error).
-    let instrument: JsValue = bond.into();
-    let result = registry.price_instrument(&instrument, "discounting", &market, &as_of, None);
+    let result = registry.price_bond(&bond, "discounting", &market, &as_of, None);
 
     assert!(
         result.is_err(),

@@ -25,6 +25,7 @@ if "Currency" not in globals():
 ```
 
 **Problems:**
+
 - Only supports 4 currencies vs 170+ in Rust
 - Missing methods and properties
 - Creates inconsistent API
@@ -39,6 +40,7 @@ class Money:
 ```
 
 **Problems:**
+
 - No formatting support
 - Missing currency conversion
 - No configuration support
@@ -46,6 +48,7 @@ class Money:
 ### 3. DayCount Shim (lines 127-147)
 
 **Problems:**
+
 - Simplified calculation logic
 - Missing calendar integration
 - Different behavior from Rust version
@@ -208,6 +211,7 @@ def test_helpful_import_error():
 ## Rollback Plan
 
 If removal causes too many issues:
+
 1. Reintroduce shims with clear "development only" labeling
 2. Create separate `finstack-mock` package for testing
 3. Provide better installation documentation

@@ -41,6 +41,10 @@ impl MetricCalculator for FraParRateCalculator {
             )?
             .max(t_start);
 
+        if (t_end - t_start).abs() < 1e-12 {
+            return Ok(0.0);
+        }
+
         Ok(fwd.rate_period(t_start, t_end))
     }
 }

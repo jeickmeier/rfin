@@ -503,13 +503,10 @@ impl CDSPricer {
             premium_pv += spread * accrual * sp * df;
 
             if self.config.include_accrual {
-                premium_pv += self.calculate_accrual_on_default(
-                    spread,
-                    self.year_fraction(base_date, start_date, cds.premium.dc)?,
-                    t_end,
-                    disc,
-                    surv,
-                )?;
+                let t_start =
+                    self.year_fraction(base_date, base_date.max(start_date), cds.premium.dc)?;
+                premium_pv +=
+                    self.calculate_accrual_on_default(spread, t_start, t_end, disc, surv)?;
             }
         }
 
@@ -995,7 +992,12 @@ impl CDSPricer {
             for i in 0..schedule.len() - 1 {
                 let start_date = schedule[i];
                 let end_date = schedule[i + 1];
-                let t_start = self.year_fraction(base_date, start_date, cds.premium.dc)?;
+
+                // Skip periods that have already ended before as_of
+                if end_date <= as_of {
+                    continue;
+                }
+
                 let t_end = self.year_fraction(base_date, end_date, cds.premium.dc)?;
                 let accrual = self.year_fraction(start_date, end_date, cds.premium.dc)?;
                 let sp = surv.sp(t_end);
@@ -1004,6 +1006,8 @@ impl CDSPricer {
                 // coupon part per unit spread
                 ann += unit_spread * accrual * sp * df;
                 // AoD part per unit spread in this period
+                let t_start =
+                    self.year_fraction(base_date, base_date.max(start_date), cds.premium.dc)?;
                 ann +=
                     self.calculate_accrual_on_default(unit_spread, t_start, t_end, disc, surv)?;
             }
@@ -1040,13 +1044,20 @@ impl CDSPricer {
         for i in 0..schedule.len() - 1 {
             let start_date = schedule[i];
             let end_date = schedule[i + 1];
-            let t_start = self.year_fraction(base_date, start_date, cds.premium.dc)?;
+
+            // Skip periods that have already ended before as_of
+            if end_date <= as_of {
+                continue;
+            }
+
             let t_end = self.year_fraction(base_date, end_date, cds.premium.dc)?;
             let accrual = self.year_fraction(start_date, end_date, cds.premium.dc)?;
             let sp = surv.sp(t_end);
             let df = disc.df(t_end);
             per_bp_pv += ONE_BASIS_POINT * accrual * sp * df;
             if self.config.include_accrual {
+                let t_start =
+                    self.year_fraction(base_date, base_date.max(start_date), cds.premium.dc)?;
                 per_bp_pv +=
                     self.calculate_accrual_on_default(ONE_BASIS_POINT, t_start, t_end, disc, surv)?;
             }
@@ -1072,6 +1083,12 @@ impl CDSPricer {
         for i in 0..schedule.len() - 1 {
             let start_date = schedule[i];
             let end_date = schedule[i + 1];
+
+            // Skip periods that have already ended before as_of
+            if end_date <= as_of {
+                continue;
+            }
+
             let t_end = self.year_fraction(base_date, end_date, cds.premium.dc)?;
             let accrual = self.year_fraction(start_date, end_date, cds.premium.dc)?;
             let sp = surv.sp(t_end);

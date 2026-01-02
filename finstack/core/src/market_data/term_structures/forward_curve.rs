@@ -258,7 +258,7 @@ impl ForwardCurve {
     /// Average rate over `[t1, t2]`.
     #[inline]
     pub fn rate_period(&self, t1: f64, t2: f64) -> f64 {
-        debug_assert!(t2 > t1, "t2 must be after t1");
+        debug_assert!(t2 >= t1, "t2 must not be before t1");
         // Market-standard interpretation: average forward over the interval.
         //
         // We approximate the integral average of the interpolated forward curve:
@@ -267,7 +267,7 @@ impl ForwardCurve {
         // Use fixed-segment Simpson's rule for determinism (no adaptive stepping).
         // This is materially better than endpoint averaging for curved/interpolated shapes.
         let dt = t2 - t1;
-        if dt <= 0.0 {
+        if dt <= 1e-12 {
             return self.rate(t1);
         }
 

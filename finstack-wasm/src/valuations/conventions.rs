@@ -523,24 +523,21 @@ impl JsIrFutureConventions {
 
 /// Global registry of market conventions.
 #[wasm_bindgen(js_name = ConventionRegistry)]
-pub struct JsConventionRegistry {
-    inner: &'static ConventionRegistry,
-}
+pub struct JsConventionRegistry;
 
 #[wasm_bindgen(js_class = ConventionRegistry)]
 impl JsConventionRegistry {
     /// Get the global convention registry instance.
     #[wasm_bindgen(js_name = globalInstance)]
     pub fn global_instance() -> Result<JsConventionRegistry, JsValue> {
-        ConventionRegistry::try_global()
-            .map(|inner| JsConventionRegistry { inner })
-            .map_err(|e| js_error(e.to_string()))
+        Ok(JsConventionRegistry)
     }
 
     /// Look up conventions for a rate index.
     #[wasm_bindgen(js_name = requireRateIndex)]
     pub fn require_rate_index(&self, index_id: &str) -> Result<JsRateIndexConventions, JsValue> {
-        self.inner
+        ConventionRegistry::try_global()
+            .map_err(|e| js_error(e.to_string()))?
             .require_rate_index(&IndexId::new(index_id))
             .map(|conv| JsRateIndexConventions {
                 inner: conv.clone(),
@@ -551,7 +548,8 @@ impl JsConventionRegistry {
     /// Look up conventions for a CDS.
     #[wasm_bindgen(js_name = requireCds)]
     pub fn require_cds(&self, key: &JsCdsConventionKey) -> Result<JsCdsConventions, JsValue> {
-        self.inner
+        ConventionRegistry::try_global()
+            .map_err(|e| js_error(e.to_string()))?
             .require_cds(&key.inner)
             .map(|conv| JsCdsConventions {
                 inner: conv.clone(),
@@ -562,7 +560,8 @@ impl JsConventionRegistry {
     /// Look up conventions for a swaption.
     #[wasm_bindgen(js_name = requireSwaption)]
     pub fn require_swaption(&self, convention_id: &str) -> Result<JsSwaptionConventions, JsValue> {
-        self.inner
+        ConventionRegistry::try_global()
+            .map_err(|e| js_error(e.to_string()))?
             .require_swaption(&SwaptionConventionId::new(convention_id))
             .map(|conv| JsSwaptionConventions {
                 inner: conv.clone(),
@@ -576,7 +575,8 @@ impl JsConventionRegistry {
         &self,
         convention_id: &str,
     ) -> Result<JsInflationSwapConventions, JsValue> {
-        self.inner
+        ConventionRegistry::try_global()
+            .map_err(|e| js_error(e.to_string()))?
             .require_inflation_swap(&InflationSwapConventionId::new(convention_id))
             .map(|conv| JsInflationSwapConventions {
                 inner: conv.clone(),
@@ -587,7 +587,8 @@ impl JsConventionRegistry {
     /// Look up conventions for an option.
     #[wasm_bindgen(js_name = requireOption)]
     pub fn require_option(&self, convention_id: &str) -> Result<JsOptionConventions, JsValue> {
-        self.inner
+        ConventionRegistry::try_global()
+            .map_err(|e| js_error(e.to_string()))?
             .require_option(&OptionConventionId::new(convention_id))
             .map(|conv| JsOptionConventions {
                 inner: conv.clone(),
@@ -598,7 +599,8 @@ impl JsConventionRegistry {
     /// Look up conventions for an IR future contract.
     #[wasm_bindgen(js_name = requireIrFuture)]
     pub fn require_ir_future(&self, contract_id: &str) -> Result<JsIrFutureConventions, JsValue> {
-        self.inner
+        ConventionRegistry::try_global()
+            .map_err(|e| js_error(e.to_string()))?
             .require_ir_future(&IrFutureContractId::new(contract_id))
             .map(|conv| JsIrFutureConventions {
                 inner: conv.clone(),
@@ -613,46 +615,60 @@ impl JsConventionRegistry {
     /// Check if a rate index exists in the registry.
     #[wasm_bindgen(js_name = hasRateIndex)]
     pub fn has_rate_index(&self, index_id: &str) -> bool {
-        self.inner
-            .require_rate_index(&IndexId::new(index_id))
-            .is_ok()
+        ConventionRegistry::try_global()
+            .map(|r| r.require_rate_index(&IndexId::new(index_id)).is_ok())
+            .unwrap_or(false)
     }
 
     /// Check if a CDS convention exists in the registry.
     #[wasm_bindgen(js_name = hasCds)]
     pub fn has_cds(&self, key: &JsCdsConventionKey) -> bool {
-        self.inner.require_cds(&key.inner).is_ok()
+        ConventionRegistry::try_global()
+            .map(|r| r.require_cds(&key.inner).is_ok())
+            .unwrap_or(false)
     }
 
     /// Check if a swaption convention exists in the registry.
     #[wasm_bindgen(js_name = hasSwaption)]
     pub fn has_swaption(&self, convention_id: &str) -> bool {
-        self.inner
-            .require_swaption(&SwaptionConventionId::new(convention_id))
-            .is_ok()
+        ConventionRegistry::try_global()
+            .map(|r| {
+                r.require_swaption(&SwaptionConventionId::new(convention_id))
+                    .is_ok()
+            })
+            .unwrap_or(false)
     }
 
     /// Check if an inflation swap convention exists in the registry.
     #[wasm_bindgen(js_name = hasInflationSwap)]
     pub fn has_inflation_swap(&self, convention_id: &str) -> bool {
-        self.inner
-            .require_inflation_swap(&InflationSwapConventionId::new(convention_id))
-            .is_ok()
+        ConventionRegistry::try_global()
+            .map(|r| {
+                r.require_inflation_swap(&InflationSwapConventionId::new(convention_id))
+                    .is_ok()
+            })
+            .unwrap_or(false)
     }
 
     /// Check if an option convention exists in the registry.
     #[wasm_bindgen(js_name = hasOption)]
     pub fn has_option(&self, convention_id: &str) -> bool {
-        self.inner
-            .require_option(&OptionConventionId::new(convention_id))
-            .is_ok()
+        ConventionRegistry::try_global()
+            .map(|r| {
+                r.require_option(&OptionConventionId::new(convention_id))
+                    .is_ok()
+            })
+            .unwrap_or(false)
     }
 
     /// Check if an IR future convention exists in the registry.
     #[wasm_bindgen(js_name = hasIrFuture)]
     pub fn has_ir_future(&self, contract_id: &str) -> bool {
-        self.inner
-            .require_ir_future(&IrFutureContractId::new(contract_id))
-            .is_ok()
+        ConventionRegistry::try_global()
+            .map(|r| {
+                r.require_ir_future(&IrFutureContractId::new(contract_id))
+                    .is_ok()
+            })
+            .unwrap_or(false)
     }
 }

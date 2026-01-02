@@ -764,6 +764,91 @@ export class MarketContext {
   hasFx(): boolean;
 }
 
+export class AttributionMethod {
+  /**
+   * Create parallel attribution method.
+   *
+   * Independent factor isolation (may not sum due to cross-effects).
+   */
+  constructor();
+
+  /**
+   * Create waterfall attribution method with custom factor order.
+   *
+   * Sequential application (guarantees sum = total, order matters).
+   *
+   * @param factors - Array of factor names: "carry", "rates_curves", "credit_curves",
+   *                  "inflation_curves", "correlations", "fx", "volatility",
+   *                  "model_parameters", "market_scalars"
+   */
+  static waterfall(factors: string[]): AttributionMethod;
+
+  /**
+   * Create metrics-based attribution method.
+   *
+   * Fast linear approximation using existing metrics.
+   */
+  static metricsBased(): AttributionMethod;
+
+  toString(): string;
+}
+
+export class PnlAttribution {
+  readonly totalPnl: Money;
+  readonly carry: Money;
+  readonly ratesCurvesPnl: Money;
+  readonly creditCurvesPnl: Money;
+  readonly inflationCurvesPnl: Money;
+  readonly correlationsPnl: Money;
+  readonly fxPnl: Money;
+  readonly volPnl: Money;
+  readonly modelParamsPnl: Money;
+  readonly marketScalarsPnl: Money;
+  readonly residual: Money;
+
+  readonly ratesDetail?: any;
+  readonly creditDetail?: any;
+  readonly inflationDetail?: any;
+  readonly correlationsDetail?: any;
+  readonly fxDetail?: any;
+  readonly volDetail?: any;
+  readonly scalarsDetail?: any;
+
+  toCsv(): string;
+  explain(): string;
+}
+
+export class PortfolioAttribution {
+  readonly totalPnl: Money;
+  readonly carry: Money;
+  readonly ratesCurvesPnl: Money;
+  readonly creditCurvesPnl: Money;
+  readonly inflationCurvesPnl: Money;
+  readonly correlationsPnl: Money;
+  readonly fxPnl: Money;
+  readonly volPnl: Money;
+  readonly modelParamsPnl: Money;
+  readonly marketScalarsPnl: Money;
+  readonly residual: Money;
+
+  readonly fxTranslationPnl: Money;
+  readonly byPosition: Record<string, PnlAttribution>;
+
+  toCsv(): string;
+  positionDetailToCsv(): string;
+  explain(): string;
+}
+
+export function attributePortfolioPnl(
+  portfolio: Portfolio,
+  marketT0: MarketContext,
+  marketT1: MarketContext,
+  asOfT0: Date,
+  asOfT1: Date,
+  method: AttributionMethod,
+  config?: FinstackConfig
+): PortfolioAttribution;
+
 export class FiscalConfig {
   static calendarYear(): FiscalConfig;
   static usFederal(): FiscalConfig;

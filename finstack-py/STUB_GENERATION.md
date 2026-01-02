@@ -64,5 +64,6 @@ These checks are intended to run in CI and locally:
 - **mypy stubtest**: compares runtime objects against stubs to catch drift.
 
 See also:
+
 - `finstack-py/tests/test_doc_examples.py` (runs `>>>` examples extracted from `.pyi` docstrings)
 - `finstack-py/tests/parity/` (behavior parity tests)

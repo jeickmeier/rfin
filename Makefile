@@ -1,495 +1,447 @@
-.PHONY: help setup-python build build-prod test-rust test-rust-slow test-rust-doc test-python typecheck-python verifytypes-python stubtest-python doc clean fmt lint fmt-check lint-check stubs list coverage coverage-html coverage-open coverage-lcov wasm-examples-dev examples ci_test install-nextest book-build book-serve book-clean book-watch install-mdbook bench-perf bench-baseline bench-flamegraph bench-compare install-bloat size-wasm size-py size-core size-all check-schemas pre-commit-install pre-commit-run pre-commit-update test-and-fix test-fix-rust test-fix-python test-fix-wasm test-fix-ui format-code
+# RFin Development Makefile
+# -------------------------
+# A developer-friendly entry point for building, testing, and linting the RFin project.
 
-help:
-	@echo "Builds:"
-	@echo "  build         				- Build all crates"
-	@echo "  build-prod    				- Build all crates optimized without debug info"
-	@echo "  python-dev    				- Build Python bindings in development mode"
-	@echo "  wasm-build    				- Build WASM package"
-	@echo "  examples       				- Run all Rust examples"
-	@echo ""
-	@echo "Formatting:"
-	@echo "  fmt           				- Format all code (Rust, Python, WASM, UI)"
-	@echo "  fmt-rust       				- Format Rust code"
-	@echo "  fmt-python     				- Format Python code"
-	@echo "  fmt-wasm       				- Format WASM code"
-	@echo "  fmt-ui         				- Format UI code"
-	@echo "  fmt-check      				- Check formatting without fixing"
-	@echo "  format-code    				- Run comprehensive formatting script"
-	@echo ""
-	@echo "Linting:"
-	@echo "  lint-rust      				- Run Rust linters"
-	@echo "  lint-python    				- Run Python linters"
-	@echo "  lint-wasm      				- Run WASM linters"
-	@echo ""
-	@echo "Linting fixes:"
-	@echo "  lint-rust-fix      				- Run Rust linters fixes"
-	@echo "  lint-python-fix   				- Run Python linters fixes"
-	@echo "  lint-wasm-fix      				- Run WASM linters fixes"
-	@echo ""
-	@echo "Testing:"
-	@echo "  test-rust      				- Run Rust tests (cargo-nextest)"
-	@echo "  test-rust-slow 				- Run all Rust tests incl. slow (cargo-nextest)"
-	@echo "  test-rust-doc  				- Run Rust documentation tests only"
-	@echo "  test-python     				- Run Python tests in finstack-py"
-	@echo "  typecheck-python				- Run pyright type checking (stubs + Python)"
-	@echo "  verifytypes-python				- Run pyright --verifytypes for published API"
-	@echo "  stubtest-python				- Compare runtime bindings vs stubs (mypy stubtest)"
-	@echo "  test-wasm       				- Run WASM tests in finstack-wasm"
-	@echo "  test-and-fix  				- Run all tests and auto-fix issues"
-	@echo "  test-fix-rust  				- Run Rust tests and auto-fix issues"
-	@echo "  test-fix-python				- Run Python tests and auto-fix issues"
-	@echo "  test-fix-wasm   				- Run WASM tests and auto-fix issues"
-	@echo "  test-fix-ui     				- Run UI tests and auto-fix issues"
-	@echo ""
-	@echo "Benchmarking & Profiling:"
-	@echo "  bench-perf         				- Run all benchmarks with optimized profile"
-	@echo "  bench-baseline     				- Save benchmark baseline for comparison"
-	@echo "  bench-compare      				- Compare benchmarks against baseline"
-	@echo "  bench-flamegraph   				- Generate CPU flamegraph for MC pricing"
-	@echo ""
-	@echo "Binary Size Analysis:"
-	@echo "  install-bloat      				- Install cargo-bloat tool for size analysis"
-	@echo "  size-wasm          				- Analyze WASM binary size by crate"
-	@echo "  size-py            				- Analyze Python bindings binary size by crate"
-	@echo "  size-core          				- Show finstack-core contribution in binaries"
-	@echo "  size-all           				- Analyze all binaries (WASM, Python)"
-	@echo ""
-	@echo "Documentation:"
-	@echo "  doc            				- Generate rustdoc documentation (workspace crates only, no deps)"
-	@echo "  book-build     				- Build mdBook documentation"
-	@echo "  book-serve     				- Build and serve mdBook with live reload"
-	@echo "  book-watch     				- Watch and rebuild mdBook on changes"
-	@echo "  book-clean     				- Clean mdBook build artifacts"
-	@echo ""
-	@echo "Schema Validation:"
-	@echo "  check-schemas  				- Verify JSON schemas match Rust types"
-	@echo ""
-	@echo "Pre-commit:"
-	@echo "  pre-commit-install 			- Install pre-commit hooks"
-	@echo "  pre-commit-run    			- Run pre-commit on all files"
-	@echo "  pre-commit-update 			- Update pre-commit hooks to latest versions"
-	@echo ""
-	@echo "Other:"
-	@echo "  clean          				- Clean build artifacts"
-	@echo "  setup-python  				- Set up Python development environment with uv"
-	@echo "  list           				- Generate Rust/Python/WASM API parity report"
-	@echo "  install-nextest  				- Install cargo-nextest (test runner)"
-	@echo "  install-mdbook  				- Install mdBook (documentation builder)"
-	@echo "  ci_test       				- Run all CI checks locally (mirrors GitHub Actions)"
+# --- Configuration & Macros ---
 
-setup-python:
-	@echo "Setting up Python development environment..."
-	uv venv
-	@echo "Virtual environment created. Now run:"
-	@echo "  source .venv/bin/activate"
-	@echo "  make python-dev"
+.DEFAULT_GOAL := help
+SHELL := /bin/bash
 
-build:
+# Detect Python environment
+VENV := .venv
+VENV_PATH := $(CURDIR)/$(VENV)
+PYTHON_ACTIVATE := [ -f $(VENV_PATH)/bin/activate ] && . $(VENV_PATH)/bin/activate
+UV := $(shell command -v uv 2> /dev/null)
+
+# Macro to run python commands consistently
+# Use: $(call py_run,ruff format .)
+define py_run
+if [ -d "$(VENV_PATH)" ]; then \
+	$(PYTHON_ACTIVATE) && $(1); \
+elif [ -n "$(UV)" ]; then \
+	uv run $(1); \
+else \
+	$(1); \
+fi
+endef
+
+# --- Help ---
+
+.PHONY: help
+help: ## Display this help message
+
+	@printf "\n███████╗██╗███╗░░██╗░██████╗████████╗░█████╗░░█████╗░██╗░░██╗"
+	@printf "\n██╔════╝██║████╗░██║██╔════╝╚══██╔══╝██╔══██╗██╔══██╗██║░██╔╝"
+	@printf "\n█████╗░░██║██╔██╗██║╚█████╗░░░░██║░░░███████║██║░░╚═╝█████═╝░"
+	@printf "\n██╔══╝░░██║██║╚████║░╚═══██╗░░░██║░░░██╔══██║██║░░██╗██╔═██╗░"
+	@printf "\n██║░░░░░██║██║░╚███║██████╔╝░░░██║░░░██║░░██║╚█████╔╝██║░╚██╗"
+	@printf "\n╚═╝░░░░░╚═╝╚═╝░░╚══╝╚═════╝░░░░╚═╝░░░╚═╝░░╚═╝░╚════╝░╚═╝░░╚═╝"
+	@printf "\n\nRFin Development Makefile\n"
+	@printf "Usage: make [target]\n\n"
+	@printf "Main Targets:\n"
+	@printf "  \033[36mbuild\033[0m               Build all core Rust crates\n"
+	@printf "  \033[36mtest\033[0m                Run all tests across the project\n"
+	@printf "  \033[36mfmt\033[0m                 Format all codebases\n"
+	@printf "  \033[36mlint\033[0m                Check for linting issues (without fixing)\n"
+	@printf "  \033[36mci-test\033[0m             Run all checks as they would run in CI\n\n"
+	@printf "Component Specifics:\n"
+	@printf "  \033[36mtest-rust\033[0m           Run Rust tests (cargo-nextest)\n"
+	@printf "  \033[36mtest-python\033[0m         Run Python tests\n"
+	@printf "  \033[36mexamples-python\033[0m     Run all Python examples (scripts & notebooks)\n"
+	@printf "  \033[36mtest-wasm\033[0m           Run WASM package tests\n"
+	@printf "  \033[36mtest-ui\033[0m             Run UI component tests\n\n"
+	@printf "Setup & Maintenance:\n"
+	@printf "  \033[36msetup-python\033[0m        Initialize Python environment with uv\n"
+	@printf "  \033[36mpython-dev\033[0m          Install Python deps and build bindings\n"
+	@printf "  \033[36mtest-and-fix\033[0m        Run all tests and attempt auto-fixes\n"
+	@printf "  \033[36mclean\033[0m               Remove build artifacts and virtualenvs\n\n"
+	@printf "Documentation:\n"
+	@printf "  \033[36mdoc\033[0m                 Generate Rust documentation\n"
+	@printf "  \033[36mbook-serve\033[0m          Serve mdBook with live reload\n\n"
+	@printf "Development & Tooling:\n"
+	@printf "  \033[36mdev-ui\033[0m              Start UI development server (Vite)\n"
+	@printf "  \033[36mgenerate-bindings\033[0m   Export TypeScript types from Rust\n"
+	@printf "  \033[36mexamples-python-scripts\033[0m   Run Python example scripts\n"
+	@printf "  \033[36mexamples-python-notebooks\033[0m Run Python example notebooks\n"
+	@printf "  \033[36mcheck-env\033[0m           Verify development environment\n"
+	@printf "  \033[36mupdate\033[0m              Update all dependencies (Rust, Python, JS)\n"
+	@printf "  \033[36maudit\033[0m               Run security audits on all components\n\n"
+	@printf "Analysis & Coverage:\n"
+	@printf "  \033[36mcoverage\033[0m            Run coverage for all components\n"
+	@printf "  \033[36mcoverage-rust\033[0m       Run Rust code coverage\n"
+	@printf "  \033[36mcoverage-python\033[0m     Run Python code coverage\n"
+	@printf "  \033[36mcoverage-ui\033[0m         Run UI code coverage\n"
+	@printf "  \033[36mlist\033[0m                Generate API parity report\n"
+	@printf "  \033[36msize-all\033[0m            Analyze binary sizes\n\n"
+	@printf "Run 'make list' for API parity reports or 'make size-all' for binary analysis.\n"
+
+# --- Primary Targets ---
+
+.PHONY: all
+all: build test lint ## Build, test, and lint everything
+
+.PHONY: build
+build: ## Build all crates (excluding python/wasm)
 	CARGO_INCREMENTAL=1 cargo build --workspace --exclude finstack-py --exclude finstack-wasm
 
-build-prod:
+.PHONY: build-prod
+build-prod: ## Build all crates optimized without debug info
 	CARGO_INCREMENTAL=1 RUSTFLAGS="-C debuginfo=0" cargo build --workspace --exclude finstack-py --exclude finstack-wasm --release
 
-test:
-	make test-rust
-	make test-rust-doc
-	make test-python
-	make test-wasm
-	make test-ui
+.PHONY: test
+test: test-rust test-rust-doc test-python test-wasm test-ui ## Run all tests across all components
 
+.PHONY: fmt
+fmt: ## Format all code (Rust, Python, WASM, UI, MD)
+	./scripts/format-code
+
+.PHONY: lint
+lint: ## Check all code for linting issues
+	./scripts/format-code --check-only
+
+# --- Component: Rust ---
+
+.PHONY: test-rust
 test-rust: install-nextest
 	CARGO_INCREMENTAL=1 cargo nextest run --workspace --exclude finstack-py --features mc,test-utils --lib --test '*' --no-fail-fast
 
+.PHONY: test-rust-slow
 test-rust-slow: install-nextest
 	CARGO_INCREMENTAL=1 cargo nextest run --workspace --exclude finstack-py --features mc,slow,test-utils --lib --test '*'
 
-check-no-doctest-ignore:
-	@set -e; \
-	if rg -n '^[[:space:]]*```[^\n]*\bignore\b' --glob '**/*.rs' ; then \
-		echo "ERROR: Found doctest code fences using 'ignore'."; \
-		echo "Use 'rust,no_run' for compile-only examples, 'rust' for runnable examples, or 'text' for non-Rust snippets."; \
-		exit 1; \
-	fi
-
+.PHONY: test-rust-doc
 test-rust-doc: check-no-doctest-ignore
 	CARGO_INCREMENTAL=1 cargo test --workspace --exclude finstack-py --doc --features mc
 
-test-python:
-	@command -v uv >/dev/null 2>&1 || { echo "uv is required for Python tests (https://github.com/astral-sh/uv)."; exit 1; }
-	cd finstack-py && uv run pytest tests -v
+.PHONY: fmt-rust
+fmt-rust:
+	./scripts/format-code --rust-only
 
+.PHONY: lint-rust
+lint-rust:
+	./scripts/format-code --rust-only --check-only
+
+.PHONY: lint-rust-fix
+lint-rust-fix:
+	./scripts/format-code --rust-only
+
+.PHONY: check-no-doctest-ignore
+check-no-doctest-ignore:
+	@set -e; \
+	if rg -n '^[[:space:]]*```[^\n]*\bignore\b' --glob '**/*.rs' ; then \
+		printf "ERROR: Found doctest code fences using 'ignore'.\n"; \
+		printf "Use 'rust,no_run' for compile-only examples, 'rust' for runnable examples, or 'text' for non-Rust snippets.\n"; \
+		exit 1; \
+	fi
+
+.PHONY: examples
+examples: ## Run all Rust examples with nice categorization
+	@./scripts/run-examples.sh
+
+# --- Component: Python ---
+
+.PHONY: setup-python
+setup-python: ## Initialize Python environment
+	@printf "Setting up Python development environment...\n"
+	uv venv
+	@printf "Virtual environment created. Now run: source .venv/bin/activate && make python-dev\n"
+
+.PHONY: python-dev
+python-dev: ## Install dependencies and build bindings
+	@if [ ! -d "$(VENV)" ]; then uv venv; fi
+	@printf "Installing Python dependencies and building extension...\n"
+	@$(call py_run,uv pip install maturin pytest pytest-benchmark black mypy ruff ipython jupyter)
+	@cd finstack-py && $(call py_run,python -m maturin develop --profile release-perf)
+
+.PHONY: test-python
+test-python: ## Run Python tests
+	@cd finstack-py && $(call py_run,pytest tests -v)
+
+.PHONY: fmt-python
+fmt-python:
+	./scripts/format-code --python-only
+
+.PHONY: lint-python
+lint-python:
+	./scripts/format-code --python-only --check-only
+
+.PHONY: lint-python-fix
+lint-python-fix:
+	./scripts/format-code --python-only
+
+.PHONY: typecheck-python
 typecheck-python:
-	@command -v uv >/dev/null 2>&1 || { echo "uv is required for Python typechecking (https://github.com/astral-sh/uv)."; exit 1; }
-	uv run pyright
+	@$(call py_run,pyright)
 
+.PHONY: verifytypes-python
 verifytypes-python:
-	@command -v uv >/dev/null 2>&1 || { echo "uv is required for Python typechecking (https://github.com/astral-sh/uv)."; exit 1; }
-	# Requires the compiled extension to be installed (e.g. `make python-dev`)
-	uv run pyright --verifytypes finstack --ignoreexternal
+	@$(call py_run,pyright --verifytypes finstack --ignoreexternal)
 
+.PHONY: stubtest-python
 stubtest-python:
-	@command -v uv >/dev/null 2>&1 || { echo "uv is required for stub testing (https://github.com/astral-sh/uv)."; exit 1; }
-	@echo "NOTE: mypy stubtest is currently not enforced for PyO3 extension modules."
-	@echo "Use \`make verifytypes-python\` (pyright --verifytypes) for CI-grade type verification."
-	@echo "If you want to experiment locally, run:"
-	@echo "  uv run python -m mypy.stubtest finstack --ignore-missing-stub --allowlist finstack-py/tests/stubtest_allowlist.txt"
-	@true
+	@printf "Use 'make verifytypes-python' for CI-grade type verification.\n"
+	@printf "Local: uv run python -m mypy.stubtest finstack --ignore-missing-stub --allowlist finstack-py/tests/stubtest_allowlist.txt\n"
 
+.PHONY: stubs
+stubs:
+	@printf "Python stubs (.pyi) are manually maintained in finstack-py/finstack/.\n"
+
+.PHONY: examples-python examples-python-scripts examples-python-notebooks
+examples-python: examples-python-scripts examples-python-notebooks ## Run all Python examples
+
+examples-python-scripts: ## Run all Python example scripts
+	@printf "Running Python example scripts...\n"
+	@$(call py_run,python finstack-py/examples/scripts/run_all_examples.py)
+
+examples-python-notebooks: ## Run all Python example notebooks
+	@printf "Running Python example notebooks...\n"
+	@$(call py_run,python finstack-py/examples/notebooks/run_all_notebooks.py)
+
+# --- Component: WASM & UI ---
+
+.PHONY: wasm-build
+wasm-build: ## Build WASM package
+	cd finstack-wasm && wasm-pack build --target web
+
+.PHONY: wasm-examples-dev
+wasm-examples-dev: wasm-build
+	cd finstack-wasm && npm run examples:install && npm run examples:dev
+
+.PHONY: test-wasm
 test-wasm:
 	cd finstack-wasm && npm run test
 
+.PHONY: fmt-wasm
+fmt-wasm:
+	./scripts/format-code --wasm-only
+
+.PHONY: lint-wasm
+lint-wasm:
+	./scripts/format-code --wasm-only --check-only
+
+.PHONY: lint-wasm-fix
+lint-wasm-fix:
+	./scripts/format-code --wasm-only
+
+.PHONY: test-ui
 test-ui:
 	cd finstack-ui && npm run test -- run
 
+.PHONY: dev-ui
+dev-ui: ## Start UI development server
+	cd finstack-ui && npm run dev
+
+.PHONY: generate-bindings
+generate-bindings: ## Export TypeScript types from Rust
+	@printf "Generating TypeScript bindings...\n"
+	cargo run -p finstack-wasm --bin ts_export --features ts_export
+
+.PHONY: test-ui-coverage
 test-ui-coverage:
 	cd finstack-ui && npm run test:coverage
 
-fmt:
-	make fmt-rust
-	make fmt-python
-	make fmt-wasm
-	make fmt-ui
-
-fmt-rust:
-	cargo fmt --all
-
-fmt-python:
-	@if command -v uv >/dev/null 2>&1; then \
-		if [ -f .venv/bin/activate ]; then \
-			. .venv/bin/activate && ruff format .; \
-		else \
-			uv run ruff format .; \
-		fi \
-	fi
-
-fmt-wasm:
-	cd finstack-wasm && npm run format .
-
+.PHONY: fmt-ui
 fmt-ui:
-	cd finstack-ui && npm run format:fix .
+	./scripts/format-code --ui-only
 
-lint:
-	make lint-rust
-	make lint-python
-	make lint-wasm
-	make lint-ui
-
-lint-rust:
-	PYO3_PYTHON=python3 CARGO_INCREMENTAL=1 cargo clippy --workspace --all-targets --all-features -- -D warnings
-
-lint-python:
-	@if command -v uv >/dev/null 2>&1; then \
-		if [ -f .venv/bin/activate ]; then \
-			. .venv/bin/activate && ruff check .; \
-		else \
-			uv run ruff check .; \
-		fi \
-	fi
-
-lint-python-fix:
-	@if command -v uv >/dev/null 2>&1; then \
-		if [ -f .venv/bin/activate ]; then \
-			. .venv/bin/activate && ruff format . && ruff check . --fix --unsafe-fixes; \
-		else \
-			uv run ruff format . && uv run ruff check . --fix --unsafe-fixes; \
-		fi \
-	fi
-
-lint-wasm:
-	cd finstack-wasm && npm run lint
-
+.PHONY: lint-ui
 lint-ui:
-	cd finstack-ui && npm run lint
+	./scripts/format-code --ui-only --check-only
 
-lint-wasm-fix:
-	cd finstack-wasm && npm run lint:fix
-
+.PHONY: lint-ui-fix
 lint-ui-fix:
-	cd finstack-ui && npm run lint:fix
+	./scripts/format-code --ui-only
 
-clean:
+# --- Documentation ---
+
+.PHONY: doc
+doc: ## Generate and open rustdoc
+	CARGO_INCREMENTAL=1 cargo doc --workspace --exclude finstack-py --exclude finstack-wasm --no-deps --all-features --open
+
+.PHONY: book-build
+book-build: install-mdbook
+	cd book && mdbook build
+
+.PHONY: book-serve
+book-serve: install-mdbook
+	@printf "Documentation will be available at http://localhost:3000\n"
+	cd book && mdbook serve --open
+
+.PHONY: book-watch
+book-watch: install-mdbook
+	cd book && mdbook watch
+
+.PHONY: book-clean
+book-clean:
+	rm -rf book/book
+
+# --- Analysis & Quality ---
+
+.PHONY: list
+list: ## Generate API parity report
+	@printf "Generating API parity report...\n"
+	@$(call py_run,python scripts/audits/audit_rust_api.py)
+	@$(call py_run,python scripts/audits/audit_python_api.py)
+	@$(call py_run,python scripts/audits/audit_wasm_api.py)
+	@$(call py_run,python scripts/audits/compare_apis.py)
+	@printf "Done: PARITY_AUDIT.md\n"
+
+.PHONY: coverage coverage-rust coverage-python coverage-ui coverage-html coverage-open coverage-lcov
+coverage: coverage-rust coverage-python coverage-ui ## Run all coverage reports
+
+coverage-rust:
+	@printf "Running Rust code coverage...\n"
+	CARGO_INCREMENTAL=1 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --ignore-filename-regex '(tests?/|target/|\.cargo/|.*finstack-py/.*|.*finstack-wasm/.*)'
+
+coverage-python:
+	@printf "Running Python code coverage...\n"
+	@cd finstack-py && $(call py_run,pytest --cov=finstack --cov-report=html tests)
+
+coverage-ui:
+	@printf "Running UI code coverage...\n"
+	cd finstack-ui && npm run test:coverage
+
+coverage-html:
+	CARGO_INCREMENTAL=1 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --html --ignore-filename-regex '(tests?/|target/|\.cargo/|.*finstack-py/.*|.*finstack-wasm/.*)'
+
+coverage-open:
+	CARGO_INCREMENTAL=1 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --html --open --ignore-filename-regex '(tests?/|target/|\.cargo/|.*finstack-py/.*|.*finstack-wasm/.*)'
+
+coverage-lcov:
+	CARGO_INCREMENTAL=1 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --lcov --output-path coverage.lcov --ignore-filename-regex '(tests?/|target/|\.cargo/|.*finstack-py/.*|.*finstack-wasm/.*)'
+
+.PHONY: check-schemas
+check-schemas: ## Verify JSON schemas match Rust types
+	cargo nextest run -p finstack-valuations schema_parity --no-fail-fast
+	cargo test -p finstack-valuations test_instrument_schema_enum_parity --no-fail-fast
+
+.PHONY: check-dups
+check-dups:
+	npx jscpd --pattern "**/src/**/*.rs" --ignore "**/target/**,**/node_modules/**,**/tests/**"
+
+.PHONY: audit audit-rust audit-python audit-ui
+audit: audit-rust audit-python audit-ui ## Run security audits on all components
+audit-rust:
+	@printf "Auditing Rust dependencies...\n"
+	@command -v cargo-audit >/dev/null 2>&1 || { printf "cargo-audit not found. Install with: cargo install cargo-audit\n"; exit 1; }
+	cargo audit
+audit-python:
+	@printf "Auditing Python dependencies...\n"
+	@$(call py_run,bandit -r finstack-py -c pyproject.toml)
+audit-ui:
+	@printf "Auditing UI dependencies...\n"
+	cd finstack-ui && npm audit
+
+.PHONY: update update-rust update-python update-ui
+update: update-rust update-python update-ui ## Update all dependencies
+update-rust:
+	@printf "Updating Rust dependencies...\n"
+	cargo update
+update-python:
+	@printf "Updating Python dependencies...\n"
+	uv lock --upgrade
+update-ui:
+	@printf "Updating UI dependencies...\n"
+	cd finstack-ui && npm update
+
+.PHONY: check-env
+check-env: ## Verify development environment
+	@printf "Checking development environment...\n"
+	@command -v cargo >/dev/null 2>&1 && printf "✅ Rust (cargo) is installed\n" || printf "❌ Rust (cargo) is missing\n"
+	@command -v uv >/dev/null 2>&1 && printf "✅ uv (Python) is installed\n" || printf "❌ uv (Python) is missing\n"
+	@command -v node >/dev/null 2>&1 && printf "✅ Node.js is installed\n" || printf "❌ Node.js is missing\n"
+	@command -v npm >/dev/null 2>&1 && printf "✅ npm is installed\n" || printf "❌ npm is missing\n"
+	@command -v wasm-pack >/dev/null 2>&1 && printf "✅ wasm-pack is installed\n" || printf "❌ wasm-pack is missing\n"
+	@command -v mdbook >/dev/null 2>&1 && printf "✅ mdbook is installed\n" || printf "❌ mdbook is missing\n"
+	@command -v cargo-nextest >/dev/null 2>&1 && printf "✅ cargo-nextest is installed\n" || printf "❌ cargo-nextest is missing\n"
+
+# --- Benchmarking & Profiling ---
+
+.PHONY: bench-perf
+bench-perf:
+	cargo bench --profile bench
+
+.PHONY: bench-baseline
+bench-baseline:
+	cargo bench -- --save-baseline main
+
+.PHONY: bench-flamegraph
+bench-flamegraph:
+	@command -v flamegraph >/dev/null 2>&1 || { printf "Installing flamegraph...\n"; cargo install flamegraph; }
+	cargo flamegraph --bench mc_pricing --profile bench --features mc -- --bench
+
+.PHONY: bench-compare
+bench-compare:
+	cargo bench -- --baseline main
+
+# --- Binary Size Analysis ---
+
+.PHONY: size-wasm size-py size-core size-all
+size-wasm: install-bloat
+	cd finstack-wasm && wasm-pack build --target web --release
+	cargo bloat --release --crates -p finstack-wasm --target wasm32-unknown-unknown
+size-py: install-bloat
+	cd finstack-py && cargo build --release
+	cargo bloat --release --crates -p finstack-py
+size-core: install-bloat
+	@printf "finstack-core contribution in binaries:\n"
+	@$(MAKE) size-wasm 2>/dev/null | grep -E "(finstack-core|File|Compressed)" || true
+	@$(MAKE) size-py 2>/dev/null | grep -E "(finstack-core|File|Compressed)" || true
+size-all: size-wasm size-py
+
+# --- Automation & CI ---
+
+.PHONY: test-and-fix test-fix-rust test-fix-python test-fix-wasm test-fix-ui
+test-and-fix: ## Run all tests and auto-fix issues
+	./scripts/run-tests-and-fix
+test-fix-rust:
+	./scripts/run-tests-and-fix --rust-only
+test-fix-python:
+	./scripts/run-tests-and-fix --python-only
+test-fix-wasm:
+	./scripts/run-tests-and-fix --wasm-only
+test-fix-ui:
+	./scripts/run-tests-and-fix --ui-only
+
+.PHONY: ci-test
+ci-test: ## Run local CI checks
+	./scripts/run-tests-and-fix --skip-slow
+
+# --- Pre-commit ---
+
+.PHONY: pre-commit-install pre-commit-run pre-commit-update
+pre-commit-install:
+	@if [ ! -d "$(VENV)" ]; then uv venv; fi
+	@$(call py_run,uv pip install pre-commit && pre-commit install && pre-commit install --hook-type pre-push)
+
+pre-commit-run:
+	@$(call py_run,pre-commit run --all-files)
+
+pre-commit-update:
+	@$(call py_run,pre-commit autoupdate)
+
+# --- Tooling Installation ---
+
+.PHONY: install-nextest install-mdbook install-bloat
+install-nextest:
+	@command -v cargo-nextest >/dev/null 2>&1 || cargo install cargo-nextest --locked
+install-mdbook:
+	@command -v mdbook >/dev/null 2>&1 || cargo install mdbook
+install-bloat:
+	@command -v cargo-bloat >/dev/null 2>&1 || cargo install cargo-bloat --locked
+
+# --- Cleanup ---
+
+.PHONY: clean clean-cache
+clean: ## Remove build artifacts
 	cargo clean
-	rm -rf .venv
-	rm -rf finstack-wasm/pkg
-	rm -rf finstack-wasm/pkg-node
+	rm -rf $(VENV)
+	rm -rf finstack-wasm/pkg finstack-wasm/pkg-node
 	rm -rf book/book
 	find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
 	find . -name "*.egg-info" -type d -exec rm -rf {} + 2>/dev/null || true
 
-
-python-dev:
-	@if [ ! -d ".venv" ]; then \
-		echo "Virtual environment not found. Creating one..."; \
-		uv venv; \
-	fi
-	@echo "Installing Python dependencies and building extension..."
-	. .venv/bin/activate && \
-	uv pip install maturin pytest pytest-benchmark black mypy ruff ipython jupyter && \
-	cd finstack-py && \
-		CARGO_INCREMENTAL=1 python -m maturin develop --profile release-perf
-
-wasm-build:
-	cd finstack-wasm && wasm-pack build --target web
-
-wasm-examples-dev: wasm-build
-	cd finstack-wasm && \
-	npm run examples:install && \
-	npm run examples:dev
-
-examples:
-	@echo "════════════════════════════════════════════════════════════════"
-	@echo "🚀 Running all Rust examplesx"
-	@echo "════════════════════════════════════════════════════════════════"
-	@echo ""
-	@command -v jq >/dev/null 2>&1 || { echo "❌ jq is required but not installed. Install with: brew install jq"; exit 1; }
-	@example_list=$$(cargo metadata --format-version=1 --no-deps | jq -r '.packages[] | select(.name == "finstack") | .targets[] | select(.kind[] == "example") | .name'); \
-	last_category=""; \
-	for example in $$example_list; do \
-		category=""; \
-		if echo "$$example" | grep -q "^market_context"; then category="Core"; \
-		elif echo "$$example" | grep -q "portfolio"; then category="Portfolio"; \
-		elif echo "$$example" | grep -q "scenario"; then category="Scenarios"; \
-		elif echo "$$example" | grep -q "^statements\|^capital_structure\|^lbo_"; then category="Statements"; \
-		else category="Valuations"; fi; \
-		if [ "$$category" != "$$last_category" ]; then \
-			echo ""; \
-			echo "📋 $$category Examples"; \
-			echo "────────────────────────────────────────────────────────────────"; \
-			last_category="$$category"; \
-		fi; \
-		echo "Running $$example..."; \
-		CARGO_INCREMENTAL=1 cargo run --example $$example --all-features || exit 1; \
-		echo ""; \
-	done
-	@echo "════════════════════════════════════════════════════════════════"
-	@echo "🎉 All examples completed successfully!"
-	@echo "════════════════════════════════════════════════════════════════"
-
-stubs:
-	@echo "(re)generating Python stub files …"
-	@echo "Type stubs (.pyi) are manually maintained; nothing to generate."
-	@echo "Stub generation complete."
-
-list:
-	@command -v uv >/dev/null 2>&1 || { echo "uv is required for API audits (https://github.com/astral-sh/uv)."; exit 1; }
-	@echo "Extracting API surfaces (Rust/Python/WASM) and generating parity report..."
-	uv run python scripts/audits/audit_rust_api.py
-	uv run python scripts/audits/audit_python_api.py
-	uv run python scripts/audits/audit_wasm_api.py
-	uv run python scripts/audits/compare_apis.py
-	@echo "Done: PARITY_AUDIT.md"
-
-coverage:
-	@echo "Running code coverage (finstack Rust library only)..."
-	CARGO_INCREMENTAL=1 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --ignore-filename-regex '(tests?/|target/|\.cargo/|.*finstack-py/.*|.*finstack-wasm/.*)'
-
-coverage-html:
-	@echo "Generating HTML coverage report (finstack Rust library only)..."
-	CARGO_INCREMENTAL=1 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --html --ignore-filename-regex '(tests?/|target/|\.cargo/|.*finstack-py/.*|.*finstack-wasm/.*)'
-
-coverage-open:
-	@echo "Generating and opening HTML coverage report (finstack Rust library only)..."
-	CARGO_INCREMENTAL=1 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --html --open --ignore-filename-regex '(tests?/|target/|\.cargo/|.*finstack-py/.*|.*finstack-wasm/.*)'
-
-coverage-lcov:
-	@echo "Generating LCOV coverage report for CI (finstack Rust library only)..."
-	CARGO_INCREMENTAL=1 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --lcov --output-path coverage.lcov --ignore-filename-regex '(tests?/|target/|\.cargo/|.*finstack-py/.*|.*finstack-wasm/.*)'
-
-# Performance profiling targets
-bench-perf:
-	@echo "Running benchmarks with performance profile..."
-	cargo bench --profile bench
-
-bench-baseline:
-	@echo "Saving benchmark baseline..."
-	cargo bench -- --save-baseline main
-
-bench-flamegraph:
-	@echo "Generating flamegraph for MC pricing benchmark..."
-	@command -v flamegraph >/dev/null 2>&1 || { echo "Installing flamegraph..."; cargo install flamegraph; }
-	cargo flamegraph --bench mc_pricing --profile bench --features mc -- --bench
-
-bench-compare:
-	@echo "Comparing benchmarks against baseline..."
-	cargo bench -- --baseline main
-
-doc:
-	CARGO_INCREMENTAL=1 cargo doc --workspace --exclude finstack-py --exclude finstack-wasm --no-deps --all-features --open
-
-install-nextest:
-	@if command -v cargo-nextest >/dev/null 2>&1; then \
-		echo "cargo-nextest already installed"; \
-	else \
-		echo "Installing cargo-nextest..."; \
-		cargo install cargo-nextest --locked; \
-	fi
-
-install-mdbook:
-	@if command -v mdbook >/dev/null 2>&1; then \
-		echo "mdbook already installed"; \
-	else \
-		echo "Installing mdbook..."; \
-		cargo install mdbook; \
-	fi
-
-book-build: install-mdbook
-	@echo "Building mdBook documentation..."
-	cd book && mdbook build
-
-book-serve: install-mdbook
-	@echo "Building and serving mdBook with live reload..."
-	@echo "Documentation will be available at http://localhost:3000"
-	cd book && mdbook serve --open
-
-book-watch: install-mdbook
-	@echo "Watching for changes and rebuilding mdBook..."
-	cd book && mdbook watch
-
-book-clean:
-	@echo "Cleaning mdBook build artifacts..."
-	rm -rf book/book
-
-check-dups:
-	@echo "Checking for duplicate code..."
-	npx jscpd --pattern "**/src/**/*.rs" --ignore "**/target/**,**/node_modules/**,**/tests/**"
-
-# Binary size analysis targets
-install-bloat:
-	@if command -v cargo-bloat >/dev/null 2>&1; then \
-		echo "cargo-bloat already installed"; \
-	else \
-		echo "Installing cargo-bloat..."; \
-		cargo install cargo-bloat --locked; \
-	fi
-
-size-wasm: install-bloat
-	@echo "Analyzing WASM binary size..."
-	@echo "Building WASM binary first..."
-	cd finstack-wasm && wasm-pack build --target web --release
-	@echo ""
-	@echo "=== WASM Binary Size Analysis (by crate) ==="
-	cargo bloat --release --crates -p finstack-wasm --target wasm32-unknown-unknown
-	@echo ""
-	@echo "=== WASM Binary Size Analysis (by function) ==="
-	cargo bloat --release --functions -p finstack-wasm --target wasm32-unknown-unknown | head -50
-
-size-py: install-bloat
-	@echo "Analyzing Python bindings binary size..."
-	@echo "Building Python bindings first..."
-	cd finstack-py && cargo build --release
-	@echo ""
-	@echo "=== Python Bindings Binary Size Analysis (by crate) ==="
-	cargo bloat --release --crates -p finstack-py
-	@echo ""
-	@echo "=== Python Bindings Binary Size Analysis (by function) ==="
-	cargo bloat --release --functions -p finstack-py | head -50
-
-size-core: install-bloat
-	@echo "Analyzing finstack-core contribution in binaries..."
-	@echo "Note: Library crates (rlib) cannot be analyzed directly."
-	@echo "Showing finstack-core size contribution in binaries that use it..."
-	@echo ""
-	@echo "=== finstack-core in WASM binary ==="
-	@if [ -f finstack-wasm/target/wasm32-unknown-unknown/release/finstack_wasm.wasm ]; then \
-		cargo bloat --release --crates -p finstack-wasm --target wasm32-unknown-unknown | grep -E "(finstack-core|File|Compressed)" || echo "Build WASM first with: make size-wasm"; \
-	else \
-		echo "WASM not built. Building now..."; \
-		cd finstack-wasm && wasm-pack build --target web --release 2>/dev/null || true; \
-		cargo bloat --release --crates -p finstack-wasm --target wasm32-unknown-unknown 2>/dev/null | grep -E "(finstack-core|File|Compressed)" || echo "Could not analyze WASM"; \
-	fi
-	@echo ""
-	@echo "=== finstack-core in Python bindings ==="
-	@if [ -f finstack-py/target/release/libfinstack*.so ] || [ -f finstack-py/target/release/libfinstack*.dylib ] || [ -f finstack-py/target/release/finstack*.dll ]; then \
-		cargo bloat --release --crates -p finstack-py 2>/dev/null | grep -E "(finstack-core|File|Compressed)" || echo "Could not analyze Python bindings"; \
-	else \
-		echo "Python bindings not built. Building now..."; \
-		cd finstack-py && cargo build --release 2>/dev/null || true; \
-		cargo bloat --release --crates -p finstack-py 2>/dev/null | grep -E "(finstack-core|File|Compressed)" || echo "Could not analyze Python bindings"; \
-	fi
-
-size-all: size-wasm size-py
-	@echo ""
-	@echo "=== Summary: Binary sizes ==="
-	@echo "WASM binary:"
-	@ls -lh finstack-wasm/pkg/finstack_wasm_bg.wasm 2>/dev/null || echo "  (not built)"
-	@echo "Python bindings:"
-	@find finstack-py -name "*.so" -o -name "*.dylib" -o -name "*.dll" 2>/dev/null | xargs ls -lh 2>/dev/null || echo "  (not built)"
-	@echo ""
-	@echo "Note: Library crates (rlib) like finstack-core cannot be analyzed directly."
-	@echo "Use 'make size-core' to see finstack-core contribution in binaries."
-
-# Schema validation targets
-check-schemas: install-nextest
-	@echo "Verifying JSON schemas match Rust types..."
-	@echo ""
-	@echo "=== Running schema parity tests ==="
-	cargo nextest run -p finstack-valuations schema_parity --no-fail-fast
-	cargo test -p finstack-valuations test_instrument_schema_enum_parity --no-fail-fast
-	@echo ""
-	@echo "✅ All schema parity tests passed!"
-	@echo ""
-	@echo "Schemas verified:"
-	@echo "  - instruments (56 instrument types)"
-	@echo "  - attribution (9 factors, 3 methods)"
-	@echo "  - calibration (7 step kinds)"
-	@echo "  - cashflow/amortization (5 variants)"
-	@echo "  - margin (IM methodologies, call types, tenors)"
-
-# Pre-commit targets
-pre-commit-install:
-	@echo "Installing pre-commit hooks..."
-	@if [ ! -d ".venv" ]; then \
-		echo "Creating virtual environment..."; \
-		uv venv; \
-	fi
-	@. .venv/bin/activate && \
-		pip show pre-commit >/dev/null 2>&1 || uv pip install pre-commit && \
-		pre-commit install && \
-		pre-commit install --hook-type pre-push
-	@echo ""
-	@echo "✅ Pre-commit hooks installed!"
-	@echo "   - pre-commit: runs on every commit"
-	@echo "   - pre-push: runs cargo check before push"
-
-pre-commit-run:
-	@echo "Running pre-commit on all files..."
-	@. .venv/bin/activate && pre-commit run --all-files
-
-pre-commit-update:
-	@echo "Updating pre-commit hooks to latest versions..."
-	@. .venv/bin/activate && pre-commit autoupdate
-
-# Test and fix targets
-test-and-fix:
-	@echo "Running all tests and auto-fixing issues..."
-	./run-tests-and-fix
-
-test-fix-rust:
-	@echo "Running Rust tests and auto-fixing issues..."
-	./run-tests-and-fix --rust-only
-
-test-fix-python:
-	@echo "Running Python tests and auto-fixing issues..."
-	./run-tests-and-fix --python-only
-
-test-fix-wasm:
-	@echo "Running WASM tests and auto-fixing issues..."
-	./run-tests-and-fix --wasm-only
-
-test-fix-ui:
-	@echo "Running UI tests and auto-fixing issues..."
-	./run-tests-and-fix --ui-only
-
-# Comprehensive formatting targets
-format-code:
-	@echo "Running comprehensive code formatting..."
-	./scripts/format-code
-
-fmt-check:
-	@echo "Checking code formatting..."
-	./scripts/format-code --check-only
-
-lint-check:
-	@echo "Checking linting without fixing..."
-	./scripts/format-code --check-only
+clean-cache: ## Clear tool caches (ruff, mypy, pytest)
+	rm -rf .ruff_cache .mypy_cache .pytest_cache
+	rm -rf finstack-py/.ruff_cache finstack-py/.mypy_cache finstack-py/.pytest_cache
+	@printf "Caches cleared.\n"

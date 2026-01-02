@@ -239,7 +239,7 @@ pub use statements::{
     JsModelBuilder as ModelBuilder, JsNodeSpec as NodeSpec, JsNodeType as NodeType,
     JsNormalizationConfig as NormalizationConfig, JsNormalizationEngine as NormalizationEngine,
     JsNormalizationResult as NormalizationResult, JsRegistry as Registry, JsResults as Results,
-    JsResultsMeta as ResultsMeta, JsSeasonalMode as SeasonalMode, JsUnitType as UnitType,
+    JsResultsMeta as StatementsResultsMeta, JsSeasonalMode as SeasonalMode, JsUnitType as UnitType,
 };
 
 // Statements analysis functions

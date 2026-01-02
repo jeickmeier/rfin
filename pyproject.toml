@@ -45,6 +45,7 @@ dev-dependencies = [
     "flake8-pyproject>=1.2.4",
     "ipython>=9.8.0",
     "jupyter>=1.1.1",
+    "bandit>=1.8.2",
     "pre-commit>=4.0.1",
 ]
 

@@ -48,14 +48,16 @@
             "InternalRateOfReturn"
           ],
           "functions": [
+            "npv_amounts",
             "npv",
-            "npv_constant",
-            "npv_amounts"
+            "npv_constant"
           ],
           "modules": {},
           "re_exports": {
             "discounting": [
-              "npv_amounts"
+              "npv",
+              "npv_constant",
+              "Discountable"
             ],
             "primitives": [
               "CFKind",

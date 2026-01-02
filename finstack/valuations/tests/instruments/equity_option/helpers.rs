@@ -38,9 +38,12 @@ pub fn build_flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> 
         ]);
 
     // For zero or negative rates, the curve may be flat or increasing
-    // which requires allow_non_monotonic()
+    // which requires allow_non_monotonic() and a simpler interpolation style
+    // (MonotoneConvex enforces non-increasing DFs).
     if rate.abs() < 1e-10 || rate < 0.0 {
-        builder = builder.allow_non_monotonic();
+        builder = builder
+            .allow_non_monotonic()
+            .set_interp(finstack_core::math::interp::InterpStyle::LogLinear);
     }
 
     builder.build().unwrap()

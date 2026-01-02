@@ -46,8 +46,8 @@ fn create_discount_curve(base_date: Date) -> DiscountCurve {
 
 #[test]
 fn test_cds_par_spread_roundtrip_1y() {
-    let base = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-    let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
+    let base = Date::from_calendar_date(2025, Month::March, 20).unwrap();
+    let maturity = Date::from_calendar_date(2026, Month::March, 20).unwrap();
     let par_spread_bp = 100.0; // 100bp
 
     // Create CDS quote
@@ -125,20 +125,20 @@ fn test_cds_par_spread_roundtrip_1y() {
 
 #[test]
 fn test_cds_par_spread_roundtrip_multi_tenor() {
-    let base = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let base = Date::from_calendar_date(2025, Month::March, 20).unwrap();
 
     // Multiple tenors
     let tenors_and_spreads = vec![
         (
-            Date::from_calendar_date(2026, Month::January, 15).unwrap(),
+            Date::from_calendar_date(2026, Month::March, 20).unwrap(),
             80.0,
         ), // 1Y, 80bp
         (
-            Date::from_calendar_date(2028, Month::January, 15).unwrap(),
+            Date::from_calendar_date(2028, Month::March, 20).unwrap(),
             120.0,
         ), // 3Y, 120bp
         (
-            Date::from_calendar_date(2030, Month::January, 15).unwrap(),
+            Date::from_calendar_date(2030, Month::March, 20).unwrap(),
             150.0,
         ), // 5Y, 150bp
     ];
@@ -225,8 +225,8 @@ fn test_cds_par_spread_roundtrip_multi_tenor() {
 fn test_cds_par_spread_calculation_consistency() {
     // Test that calculating par spread from a hazard curve, then repricing
     // with that spread, gives NPV ≈ 0
-    let base = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-    let maturity = Date::from_calendar_date(2030, Month::January, 15).unwrap();
+    let base = Date::from_calendar_date(2025, Month::March, 20).unwrap();
+    let maturity = Date::from_calendar_date(2030, Month::March, 20).unwrap();
 
     let quotes = [CdsQuote::CdsParSpread {
         id: QuoteId::new("CDS-5Y"),
