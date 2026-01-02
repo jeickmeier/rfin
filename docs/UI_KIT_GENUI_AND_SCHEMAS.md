@@ -305,7 +305,7 @@ use ts_rs::TS;
 use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../packages/finstack-ui/src/schemas/generated/")]
+#[ts(export, export_to = "../../finstack-ui/src/schemas/generated/")]
 pub struct BondSpec {
     pub id: String,
     pub notional: MoneySpec,

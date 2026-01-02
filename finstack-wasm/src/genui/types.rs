@@ -28,7 +28,7 @@ use ts_rs::TS;
     feature = "ts_export",
     ts(
         export,
-        export_to = "../packages/finstack-ui/src/schemas/generated/CurvePointWire.ts"
+        export_to = "../finstack-ui/src/schemas/generated/CurvePointWire.ts"
     )
 )]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
@@ -47,7 +47,7 @@ pub struct CurvePointWire {
     feature = "ts_export",
     ts(
         export,
-        export_to = "../packages/finstack-ui/src/schemas/generated/DiscountCurveWire.ts"
+        export_to = "../finstack-ui/src/schemas/generated/DiscountCurveWire.ts"
     )
 )]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
@@ -66,7 +66,7 @@ pub struct DiscountCurveWire {
     feature = "ts_export",
     ts(
         export,
-        export_to = "../packages/finstack-ui/src/schemas/generated/MarketContextWire.ts"
+        export_to = "../finstack-ui/src/schemas/generated/MarketContextWire.ts"
     )
 )]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
@@ -82,10 +82,7 @@ pub struct MarketContextWire {
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(
     feature = "ts_export",
-    ts(
-        export,
-        export_to = "../packages/finstack-ui/src/schemas/generated/BondSpec.ts"
-    )
+    ts(export, export_to = "../finstack-ui/src/schemas/generated/BondSpec.ts")
 )]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
 pub struct BondSpec {
@@ -118,7 +115,7 @@ pub struct BondSpec {
     feature = "ts_export",
     ts(
         export,
-        export_to = "../packages/finstack-ui/src/schemas/generated/ValuationResultWire.ts"
+        export_to = "../finstack-ui/src/schemas/generated/ValuationResultWire.ts"
     )
 )]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
@@ -150,7 +147,7 @@ pub struct ValuationResultWire {
     feature = "ts_export",
     ts(
         export,
-        export_to = "../packages/finstack-ui/src/schemas/generated/NodeSpecWire.ts"
+        export_to = "../finstack-ui/src/schemas/generated/NodeSpecWire.ts"
     )
 )]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
@@ -180,7 +177,7 @@ pub struct NodeSpecWire {
     feature = "ts_export",
     ts(
         export,
-        export_to = "../packages/finstack-ui/src/schemas/generated/FinancialModelWire.ts"
+        export_to = "../finstack-ui/src/schemas/generated/FinancialModelWire.ts"
     )
 )]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
@@ -206,7 +203,7 @@ pub struct FinancialModelWire {
     feature = "ts_export",
     ts(
         export,
-        export_to = "../packages/finstack-ui/src/schemas/generated/StatementResultsWire.ts"
+        export_to = "../finstack-ui/src/schemas/generated/StatementResultsWire.ts"
     )
 )]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
@@ -225,7 +222,7 @@ pub struct StatementResultsWire {
     feature = "ts_export",
     ts(
         export,
-        export_to = "../packages/finstack-ui/src/schemas/generated/StatementResultsMetaWire.ts"
+        export_to = "../finstack-ui/src/schemas/generated/StatementResultsMetaWire.ts"
     )
 )]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
@@ -251,7 +248,7 @@ pub struct StatementResultsMetaWire {
     feature = "ts_export",
     ts(
         export,
-        export_to = "../packages/finstack-ui/src/schemas/generated/ScenarioSpecWire.ts"
+        export_to = "../finstack-ui/src/schemas/generated/ScenarioSpecWire.ts"
     )
 )]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
@@ -275,7 +272,7 @@ pub struct ScenarioSpecWire {
     feature = "ts_export",
     ts(
         export,
-        export_to = "../packages/finstack-ui/src/schemas/generated/ScenarioOperationWire.ts"
+        export_to = "../finstack-ui/src/schemas/generated/ScenarioOperationWire.ts"
     )
 )]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]
@@ -303,7 +300,7 @@ pub struct ScenarioOperationWire {
     feature = "ts_export",
     ts(
         export,
-        export_to = "../packages/finstack-ui/src/schemas/generated/ErrorWire.ts"
+        export_to = "../finstack-ui/src/schemas/generated/ErrorWire.ts"
     )
 )]
 #[cfg_attr(feature = "ts_export", ts(rename_all = "snake_case"))]

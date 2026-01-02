@@ -10,7 +10,7 @@
 
 ### Phase 1: Core Infrastructure (Weeks 1–2)
 
-- Initialize `packages/finstack-ui` with Vite/React/TS.
+- Initialize `finstack-ui` with Vite/React/TS.
 - Setup Tailwind + Shadcn.
 - **Implement Unified Finstack Engine Worker** with Handle-based architecture.
 - Implement Rust panic hooks for graceful error recovery.

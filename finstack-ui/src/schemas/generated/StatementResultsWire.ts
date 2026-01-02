@@ -5,11 +5,12 @@ import type { StatementResultsMetaWire } from "./StatementResultsMetaWire";
  * Wire type for statement evaluation results.
  */
 export type StatementResultsWire = {
-/**
- * Node values indexed by node_id -> period_id -> value.
- */
-values: { [key in string]?: { [key in string]?: number } },
-/**
- * Evaluation metadata.
- */
-meta: StatementResultsMetaWire, };
+  /**
+   * Node values indexed by node_id -> period_id -> value.
+   */
+  values: { [key in string]?: { [key in string]?: number } };
+  /**
+   * Evaluation metadata.
+   */
+  meta: StatementResultsMetaWire;
+};

@@ -265,7 +265,7 @@ export const generateFunctionSchema = (schema: z.ZodSchema) => {
 We adopt a **Domain-Driven** structure, moving away from generic Atomic Design to terms that match the financial domain.
 
 ```text
-packages/finstack-ui/
+finstack-ui/
 ├── src/
 │   ├── components/             # Generic UI Infrastructure
 │   │   ├── primitives/        # Financial input primitives

@@ -5,19 +5,20 @@ import type { ScenarioOperationWire } from "./ScenarioOperationWire";
  * Wire type for a scenario specification.
  */
 export type ScenarioSpecWire = {
-/**
- * Scenario identifier.
- */
-id: string,
-/**
- * Human-readable name.
- */
-name: string,
-/**
- * Optional description.
- */
-description: string | null,
-/**
- * Operations to apply.
- */
-operations: Array<ScenarioOperationWire>, };
+  /**
+   * Scenario identifier.
+   */
+  id: string;
+  /**
+   * Human-readable name.
+   */
+  name: string;
+  /**
+   * Optional description.
+   */
+  description: string | null;
+  /**
+   * Operations to apply.
+   */
+  operations: Array<ScenarioOperationWire>;
+};

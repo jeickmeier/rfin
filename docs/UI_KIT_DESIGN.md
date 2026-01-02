@@ -311,7 +311,7 @@ export const generateFunctionSchema = (schema: z.ZodSchema) => {
 We adopt a **Domain-Driven** structure, moving away from generic Atomic Design to terms that match the financial domain.
 
 ```text
-packages/finstack-ui/
+finstack-ui/
 ├── src/
 │   ├── components/             # Generic UI Infrastructure
 │   │   ├── primitives/        # Financial input primitives
@@ -2491,7 +2491,7 @@ use ts_rs::TS;
 use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../packages/finstack-ui/src/schemas/generated/")]
+#[ts(export, export_to = "../../finstack-ui/src/schemas/generated/")]
 pub struct BondSpec {
     pub id: String,
     pub notional: MoneySpec,
@@ -2510,7 +2510,7 @@ pub struct BondSpec {
 # build.rs or Makefile
 cargo test --features ts-export  # Generates .ts files
 
-# Output: packages/finstack-ui/src/schemas/generated/BondSpec.ts
+# Output: finstack-ui/src/schemas/generated/BondSpec.ts
 export interface BondSpec {
   id: string;
   notional: MoneySpec;
@@ -3059,7 +3059,7 @@ function ChartContainer({ chartType, ...props }) {
 For hitting `< 500KB gzipped`, consider splitting advanced features:
 
 ```text
-packages/
+.
 ├── finstack-ui/           # Core package (~300KB)
 │   └── src/
 │       ├── components/
@@ -3094,7 +3094,7 @@ packages/
 
 ### Phase 1: Core Infrastructure (Weeks 1-2)
 
-* Initialize `packages/finstack-ui` with Vite/React/TS.
+* Initialize `finstack-ui` with Vite/React/TS.
 * Setup Tailwind + Shadcn.
 * **Implement Unified Finstack Engine Worker** with Handle-based architecture.
 * Implement Rust panic hooks for graceful error recovery.

@@ -81,14 +81,14 @@ exclude_lines = [
 ]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["finstack-py/tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_functions = ["test_*"]
 python_classes = ["Test*"]
 
 # Pytest general options (migrated from pytest.ini)
 # Note: Coverage disabled for Rust extension modules (PyO3) - use Rust coverage tools instead
-addopts = "tests/"
+addopts = "finstack-py/tests/"
 
 # Custom markers used across the test-suite
 markers = [

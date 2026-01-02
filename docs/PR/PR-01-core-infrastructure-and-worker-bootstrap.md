@@ -2,7 +2,7 @@
 
 ## Summary
 
-Establish the `packages/finstack-ui` library with React/TypeScript, Tailwind + Shadcn UI, testing/tooling, and the initial WASM integration layer. Implement the unified Finstack engine worker, panic handling, `FinstackProvider`, and core hooks (`useFinstack`, `useFinstackEngine`) plus the initial set of financial input primitives required by later phases.
+Establish the `finstack-ui` library with React/TypeScript, Tailwind + Shadcn UI, testing/tooling, and the initial WASM integration layer. Implement the unified Finstack engine worker, panic handling, `FinstackProvider`, and core hooks (`useFinstack`, `useFinstackEngine`) plus the initial set of financial input primitives required by later phases.
 
 ## Background & Motivation
 
@@ -14,7 +14,7 @@ Establish the `packages/finstack-ui` library with React/TypeScript, Tailwind + S
 
 ### In Scope
 
-- Create `packages/finstack-ui` in the monorepo with:
+- Create `finstack-ui` in the monorepo with:
   - Vite library config (React + TS strict mode).
   - Tailwind CSS + `clsx` + `tailwind-merge` + Shadcn base primitives.
   - Basic `src` layout matching `UI_KIT_ARCHITECTURE.md` (components, hooks, store, workers, schemas, engine, utils).
@@ -43,7 +43,7 @@ Establish the `packages/finstack-ui` library with React/TypeScript, Tailwind + S
 
 ### 1. Project Structure & Tooling
 
-- Create `packages/finstack-ui/package.json` configured as a Vite library (ESM + type declarations) targeting React 19.
+- Create `finstack-ui/package.json` configured as a Vite library (ESM + type declarations) targeting React 19.
 - Enable TypeScript strict mode and path aliases for internal modules (`@finstack-ui/components`, `@finstack-ui/hooks`, etc.).
 - Configure Tailwind with a design-token-aware config consistent with `UI_KIT_DEVELOPMENT_AND_A11Y.md` and `UI_KIT_PERFORMANCE_AND_VIRTUALIZATION.md`.
 - Import Shadcn-generated primitives into `src/components/ui/` and wrap where necessary for consistent theming.
@@ -112,7 +112,7 @@ Establish the `packages/finstack-ui` library with React/TypeScript, Tailwind + S
   - `FinstackProvider` exposes `isReady` after WASM initialization.
   - `useFinstackEngine` returns a usable worker API and passes through a simple `priceInstrument` call (using mocked or lightweight WASM bindings).
 - Wire tests into the repo-wide `make test-rust` / JS test commands as appropriate.
-- Ensure basic linting (ESLint + TypeScript) is configured for `packages/finstack-ui`.
+- Ensure basic linting (ESLint + TypeScript) is configured for `finstack-ui`.
 
 ## Dependencies
 
@@ -121,7 +121,7 @@ Establish the `packages/finstack-ui` library with React/TypeScript, Tailwind + S
 
 ## Acceptance Criteria
 
-- `packages/finstack-ui` builds successfully via Vite in library mode.
+- `finstack-ui` builds successfully via Vite in library mode.
 - `FinstackProvider` and hooks can be used in a minimal example page to:
   - Initialize WASM.
   - Load a small `MarketContext` fixture.

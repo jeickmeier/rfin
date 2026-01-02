@@ -7,7 +7,7 @@ This document tracks the valuation parity fixtures used by market compliance tes
 - Rates: bond PV and IRS PV via `finstack/valuations/tests/golden/rates.json`
 - Credit/FX/Equity fixtures are staged but awaiting validated reference values
 
-Rates fixtures currently mirror the values in `tests/golden_values.json` until the
+Rates fixtures currently mirror the values in `../parity/golden_values.json` until the
 reference engine outputs are finalized.
 
 These cases are interpreted with standard USD conventions when the fixture does not

@@ -46,7 +46,7 @@ Deliver the first full vertical slice for **Basic Rates**, covering a narrow but
 
 ### 1. Domain Directory Structure (Valuations)
 
-- Under `packages/finstack-ui/src/domains/valuations/` add:
+- Under `finstack-ui/src/domains/valuations/` add:
   - `instruments/`
     - `BondPanel.tsx` (using generic descriptor-based system).
     - `InterestRateSwapPanel.tsx` (custom layout).

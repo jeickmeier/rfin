@@ -15,7 +15,7 @@ Introduce the Rust→TypeScript→Zod schema pipeline, define `DashboardDefiniti
 ### In Scope
 
 - Integrate `ts-rs` or `specta` in relevant Rust crates (`finstack-wasm` submodules) to auto-generate TypeScript types for engine-facing structures.
-- Create a `packages/finstack-ui/src/schemas/generated/` directory populated from Rust via `ts-rs`/`specta`.
+- Create a `finstack-ui/src/schemas/generated/` directory populated from Rust via `ts-rs`/`specta`.
 - Build Zod wrappers around generated TS types for runtime validation, including schema versioning for LLM-facing types.
 - Define and implement `DashboardDefinitionSchema v1` and supporting schemas:
   - `LayoutTemplateSchema` (Single, TwoColumn, Grid, TabSet, Report).
@@ -38,7 +38,7 @@ Introduce the Rust→TypeScript→Zod schema pipeline, define `DashboardDefiniti
 
 - In `finstack-wasm`, annotate selected structs with `TS`/`specta` macros, following examples in `UI_KIT_GENUI_AND_SCHEMAS.md`:
   - Start with a small set of types needed for rates instruments and market context (`BondSpec`, `MarketContextWire`, etc.).
-- Configure `export_to = "../../packages/finstack-ui/src/schemas/generated/"` so generated TS files land inside the UI package.
+- Configure `export_to = "../../finstack-ui/src/schemas/generated/"` so generated TS files land inside the UI package.
 - Ensure the generated TS types align exactly with Rust serde shapes (field names, optionality, enums).
 
 ### 2. Zod Wrappers & Versioning

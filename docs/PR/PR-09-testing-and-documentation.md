@@ -44,7 +44,7 @@ Establish comprehensive testing and documentation coverage for the UI Kit, inclu
 
 ### 3. Visual Regression Testing
 
-- Set up Storybook for `packages/finstack-ui`:
+- Set up Storybook for `finstack-ui`:
   - Stories for primitives, charts, tables, domain components, and complex dashboards.
   - Chromatic (or alternative) integration for snapshot-based visual regression.
 - Configure responsive viewports and themes (light/dark) in stories.

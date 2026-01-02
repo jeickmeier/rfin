@@ -356,7 +356,7 @@ Error: CircularDependency {
 
 **Golden Reference Files**:
 
-- `tests/golden/fx_spot_dates.json` - FX spot dates validated against ISDA, ECB, NYSE, Bank of England, JPX calendars
+- `finstack/valuations/tests/integration/golden/data/market_compliance/fx_spot_dates.json` - FX spot dates validated against ISDA, ECB, NYSE, Bank of England, JPX calendars
 - Comprehensive test cases with business day breakdowns
 - Legacy behavior documentation for comparison
 
@@ -393,7 +393,7 @@ Error: CircularDependency {
    - Cross-links between related APIs
 
 4. **Golden Test Documentation**
-   - `tests/golden/README.md` - Test case format, maintenance procedures
+   - `finstack/valuations/tests/integration/golden/README.md` - Test case format, maintenance procedures
    - Calendar source references (ECB, NYSE, Bank of England, JPX)
    - Common pitfalls and edge cases
 
