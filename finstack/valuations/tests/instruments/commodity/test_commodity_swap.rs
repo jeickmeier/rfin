@@ -3,6 +3,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Tenor, TenorUnit};
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
 use finstack_valuations::instruments::Attributes;
@@ -10,22 +11,24 @@ use time::Month;
 
 /// Helper to create a test market context.
 fn create_test_market() -> MarketContext {
-    use finstack_core::market_data::curves::{DiscountCurve, InterpolatedCurve};
-
-    let mut market = MarketContext::new();
-
     // Create a flat 5% discount curve for USD-OIS
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    let discount_curve = DiscountCurve::from_interpolated(
-        InterpolatedCurve::flat_rate(base_date, 0.05),
-        base_date,
-    );
-    market.insert_discount("USD-OIS", discount_curve.clone());
+    let discount_curve = DiscountCurve::builder("USD-OIS")
+        .base_date(base_date)
+        .knots([(0.0, 1.0), (5.0, (-0.05_f64 * 5.0).exp())])
+        .build()
+        .expect("discount curve should build");
 
     // Create a flat curve for the floating commodity index
-    market.insert_discount("NG-SPOT-AVG", discount_curve);
+    let floating_curve = DiscountCurve::builder("NG-SPOT-AVG")
+        .base_date(base_date)
+        .knots([(0.0, 1.0), (5.0, (-0.05_f64 * 5.0).exp())])
+        .build()
+        .expect("floating curve should build");
 
-    market
+    MarketContext::new()
+        .insert_discount(discount_curve)
+        .insert_discount(floating_curve)
 }
 
 #[test]
@@ -117,7 +120,9 @@ fn test_commodity_swap_payment_schedule() {
         .build()
         .expect("should build");
 
-    let schedule = swap.payment_schedule(as_of).expect("should generate schedule");
+    let schedule = swap
+        .payment_schedule(as_of)
+        .expect("should generate schedule");
 
     // Should have approximately 12 monthly payments
     assert!(

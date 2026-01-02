@@ -123,9 +123,8 @@ mod equity_option;
 mod equity_index_future;
 
 // NOTE: asian_option tests were orphaned and have numerical precision issues
-// TODO: Fix and re-enable:
-// #[path = "instruments/asian_option/test_pricer_analytical.rs"]
-// mod asian_option;
+#[path = "instruments/asian_option/test_pricer_analytical.rs"]
+mod asian_option;
 
 /// Lookback option tests
 #[path = "instruments/lookback_option/mod.rs"]
@@ -181,9 +180,8 @@ mod xccy_swap;
 
 // NOTE: instruments/commodity/ tests are orphaned and need API updates
 // They use deprecated `finstack_core::market_data::curves` imports
-// TODO: Fix and re-enable:
-// #[path = "instruments/commodity/mod.rs"]
-// mod commodity;
+#[path = "instruments/commodity/mod.rs"]
+mod commodity;
 
 /// Commodity option tests
 #[path = "instruments/commodity_option/mod.rs"]
@@ -272,9 +270,8 @@ mod forward_curve_dependency_completeness;
 mod forward_dependency_completeness;
 
 // NOTE: fx_dependency_completeness.rs uses private `providers` module
-// TODO: Fix and re-enable:
-// #[path = "instruments/fx_dependency_completeness.rs"]
-// mod fx_dependency_completeness;
+#[path = "instruments/fx_dependency_completeness.rs"]
+mod fx_dependency_completeness;
 
 // ============================================================================
 // Option Bounds Tests

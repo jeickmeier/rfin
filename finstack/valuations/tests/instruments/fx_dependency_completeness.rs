@@ -7,7 +7,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{DateExt, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
-use finstack_core::money::fx::{providers::SimpleFxProvider, FxMatrix};
+use finstack_core::money::fx::{FxMatrix, SimpleFxProvider};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::common::{FxPair, InstrumentDependencies};
@@ -53,9 +53,11 @@ fn test_fx_forward_dependencies_complete() {
         .build()
         .expect("FX forward construction should succeed");
 
-    let deps = InstrumentDependencies::from_instrument_json(&InstrumentJson::FxForward(forward.clone()));
+    let deps =
+        InstrumentDependencies::from_instrument_json(&InstrumentJson::FxForward(forward.clone()));
     assert!(
-        deps.fx_pairs.contains(&FxPair::new(Currency::EUR, Currency::USD)),
+        deps.fx_pairs
+            .contains(&FxPair::new(Currency::EUR, Currency::USD)),
         "FX forward should declare its FX pair dependency"
     );
 
@@ -89,7 +91,8 @@ fn test_missing_fx_matrix_fails() {
         .build()
         .expect("FX forward construction should succeed");
 
-    let deps = InstrumentDependencies::from_instrument_json(&InstrumentJson::FxForward(forward.clone()));
+    let deps =
+        InstrumentDependencies::from_instrument_json(&InstrumentJson::FxForward(forward.clone()));
     let mut market = MarketContext::new();
     for id in deps.curves.discount_curves {
         market = market.insert_discount(build_discount_curve(id.as_str(), 0.03));

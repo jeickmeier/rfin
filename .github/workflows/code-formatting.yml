@@ -50,6 +50,9 @@ jobs:
       PYO3_PYTHON: python3
       CHECK_ONLY: ${{ github.event.inputs.check_only || 'false' }}
 
+    outputs:
+      has_changes: ${{ steps.changes.outputs.has_changes }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -320,9 +323,9 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const formatResult = '${{ needs.format-code.result }}';
-            const checkResult = '${{ needs.check-formatting.result }}';
-            const hasChanges = '${{ needs.format-code.outputs.has_changes }}' === 'true';
+            const formatResult = "${{ needs['format-code'].result }}";
+            const checkResult = "${{ needs['check-formatting'].result }}";
+            const hasChanges = "${{ needs['format-code'].outputs.has_changes }}" === 'true';
 
             let status = '✅';
             let message = 'All code formatting checks passed!';

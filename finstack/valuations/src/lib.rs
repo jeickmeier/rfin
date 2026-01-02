@@ -313,7 +313,10 @@ pub mod results;
 pub(crate) mod schema;
 
 /// Test utilities for building market contexts, dates, and test fixtures.
-#[cfg(any(test, feature = "test-utils"))]
+///
+/// This module is intentionally **not** part of the stable public API surface; it exists to
+/// support the crate's own integration tests and benches.
+#[doc(hidden)]
 pub mod test_utils;
 
 // Export macros before instruments module

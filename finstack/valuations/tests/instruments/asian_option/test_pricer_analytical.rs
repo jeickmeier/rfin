@@ -6,21 +6,34 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
+use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::exotics::asian_option::{AsianOption, AveragingMethod};
 use finstack_valuations::instruments::common::models::closed_form::asian::{
     geometric_asian_call, geometric_asian_put,
 };
+use finstack_valuations::instruments::exotics::asian_option::{AsianOption, AveragingMethod};
 use finstack_valuations::instruments::OptionType;
 use finstack_valuations::pricer::Pricer;
-use finstack_valuations::test_utils::{date, flat_discount_with_tenor, flat_vol_surface};
+use finstack_valuations::test_utils::{date, flat_vol_surface};
 
 fn market(as_of: Date, spot: f64, vol: f64, rate: f64, div_yield: f64) -> MarketContext {
     let expiries = [0.25, 0.5, 1.0, 2.0];
     let strikes = [80.0, 90.0, 100.0, 110.0, 120.0];
+
+    // Use a discount curve representation consistent with constant continuously-compounded `rate`
+    // so the closed-form comparisons remain stable across interpolation styles.
+    let discount = DiscountCurve::builder("USD-OIS")
+        .base_date(as_of)
+        .day_count(DayCount::Act365F)
+        .knots([(0.0, 1.0), (5.0, (-rate * 5.0).exp())])
+        .set_interp(InterpStyle::LogLinear)
+        .build()
+        .expect("test discount curve should build");
+
     MarketContext::new()
-        .insert_discount(flat_discount_with_tenor("USD-OIS", as_of, rate, 5.0))
+        .insert_discount(discount)
         .insert_surface(flat_vol_surface("SPX-VOL", &expiries, &strikes, vol))
         .insert_price("SPX-SPOT", MarketScalar::Unitless(spot))
         .insert_price("SPX-DIV", MarketScalar::Unitless(div_yield))
@@ -102,10 +115,27 @@ fn geometric_analytical_matches_closed_form_unseasoned() -> finstack_core::Resul
     let res = pricer.price_dyn(&asian, &mkt, as_of)?;
     let pv = res.value.amount();
 
-    let t = DayCount::Act365F.year_fraction(as_of, expiry, DayCountCtx::default())?;
-    let expected = geometric_asian_call(spot, strike, t, rate, div_yield, vol, fixing_dates.len());
+    // Match the pricer’s `collect_black_scholes_inputs` logic without relying on crate-private APIs.
+    let disc_curve = mkt.get_discount(asian.discount_curve_id.as_str())?;
+    let t_vol = asian
+        .day_count
+        .year_fraction(as_of, expiry, DayCountCtx::default())?;
+    let t_disc = disc_curve
+        .day_count()
+        .year_fraction(as_of, expiry, DayCountCtx::default())?;
+    let r = disc_curve.zero(t_disc);
+    let sigma = mkt
+        .surface(asian.vol_surface_id.as_str())?
+        .value_clamped(t_vol, asian.strike.amount());
+    let q = match mkt.price("SPX-DIV")? {
+        MarketScalar::Unitless(v) => *v,
+        MarketScalar::Price(_) => 0.0,
+    };
+    let expected = geometric_asian_call(spot, strike, t_vol, r, q, sigma, fixing_dates.len());
 
-    assert!((pv - expected).abs() < 1e-10);
+    // `Money` applies currency-scale rounding; compare at the same rounded scale.
+    let expected_money = Money::new(expected, Currency::USD).amount();
+    assert!((pv - expected_money).abs() < 1e-12);
     Ok(())
 }
 
@@ -160,7 +190,9 @@ fn geometric_analytical_errors_when_seasoned_and_not_expired() -> finstack_core:
     let err = pricer
         .price_dyn(&asian, &mkt, as_of)
         .expect_err("seasoned geometric analytical should error");
-    assert!(err.to_string().contains("Seasoned Geometric Asian not supported"));
+    assert!(err
+        .to_string()
+        .contains("Seasoned Geometric Asian not supported"));
     Ok(())
 }
 
@@ -203,10 +235,17 @@ fn tw_arithmetic_all_fixings_in_past_discounts_deterministic_payoff() -> finstac
     let sum: f64 = [102.0, 101.0, 103.0, 104.0, 100.0, 105.0].iter().sum();
     let avg = sum / fixing_dates.len() as f64;
     let payoff = (avg - 100.0).max(0.0);
-    let t = DayCount::Act365F.year_fraction(as_of, expiry, DayCountCtx::default())?;
-    let df = (-rate * t).exp();
+    // Match the pricer's deterministic branch: DF uses `disc_curve.df(t_vol)` where
+    // `t_vol` is computed using the instrument's day count basis.
+    let disc_curve = mkt.get_discount(asian.discount_curve_id.as_str())?;
+    let t_vol = asian
+        .day_count
+        .year_fraction(as_of, expiry, DayCountCtx::default())?;
+    let df = disc_curve.df(t_vol);
 
-    assert!((pv - payoff * df).abs() < 1e-10);
+    let expected = payoff * df;
+    let expected_money = Money::new(expected, Currency::USD).amount();
+    assert!((pv - expected_money).abs() < 1e-12);
     Ok(())
 }
 
@@ -284,8 +323,23 @@ fn geometric_closed_form_put_matches_helper() -> finstack_core::Result<()> {
     let pricer = AsianOptionAnalyticalGeometricPricer::new();
     let pv = pricer.price_dyn(&asian, &mkt, as_of)?.value.amount();
 
-    let t = DayCount::Act365F.year_fraction(as_of, expiry, DayCountCtx::default())?;
-    let expected = geometric_asian_put(spot, strike, t, rate, div_yield, vol, fixing_dates.len());
-    assert!((pv - expected).abs() < 1e-10);
+    let disc_curve = mkt.get_discount(asian.discount_curve_id.as_str())?;
+    let t_vol = asian
+        .day_count
+        .year_fraction(as_of, expiry, DayCountCtx::default())?;
+    let t_disc = disc_curve
+        .day_count()
+        .year_fraction(as_of, expiry, DayCountCtx::default())?;
+    let r = disc_curve.zero(t_disc);
+    let sigma = mkt
+        .surface(asian.vol_surface_id.as_str())?
+        .value_clamped(t_vol, asian.strike.amount());
+    let q = match mkt.price("SPX-DIV")? {
+        MarketScalar::Unitless(v) => *v,
+        MarketScalar::Price(_) => 0.0,
+    };
+    let expected = geometric_asian_put(spot, strike, t_vol, r, q, sigma, fixing_dates.len());
+    let expected_money = Money::new(expected, Currency::USD).amount();
+    assert!((pv - expected_money).abs() < 1e-12);
     Ok(())
 }

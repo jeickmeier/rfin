@@ -3,6 +3,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_forward::CommodityForward;
 use finstack_valuations::instruments::Attributes;
@@ -10,22 +11,24 @@ use time::Month;
 
 /// Helper to create a test discount curve.
 fn create_test_market() -> MarketContext {
-    use finstack_core::market_data::curves::{DiscountCurve, InterpolatedCurve};
-
-    let mut market = MarketContext::new();
-
     // Create a flat 5% discount curve for USD-OIS
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-    let discount_curve = DiscountCurve::from_interpolated(
-        InterpolatedCurve::flat_rate(base_date, 0.05),
-        base_date,
-    );
-    market.insert_discount("USD-OIS", discount_curve.clone());
+    let discount_curve = DiscountCurve::builder("USD-OIS")
+        .base_date(base_date)
+        .knots([(0.0, 1.0), (5.0, (-0.05_f64 * 5.0).exp())])
+        .build()
+        .expect("discount curve should build");
 
     // Create a flat curve for forward prices (using same curve structure)
-    market.insert_discount("WTI-FORWARD", discount_curve);
+    let forward_curve = DiscountCurve::builder("WTI-FORWARD")
+        .base_date(base_date)
+        .knots([(0.0, 1.0), (5.0, (-0.05_f64 * 5.0).exp())])
+        .build()
+        .expect("forward curve should build");
 
-    market
+    MarketContext::new()
+        .insert_discount(discount_curve)
+        .insert_discount(forward_curve)
 }
 
 #[test]
@@ -54,7 +57,10 @@ fn test_commodity_forward_pricing_with_quoted_price() {
 
     // Verify basic properties
     assert_eq!(npv.currency(), Currency::USD);
-    assert!(npv.amount() > 0.0, "NPV should be positive for a long forward");
+    assert!(
+        npv.amount() > 0.0,
+        "NPV should be positive for a long forward"
+    );
 
     // The forward value should be roughly F * Q * M * DF
     // With F=75, Q=1000, M=1, and some discount factor < 1
@@ -126,7 +132,9 @@ fn test_commodity_forward_forward_price_from_curve() {
         .build()
         .expect("should build");
 
-    let price = forward.forward_price(&market, as_of).expect("should get price");
+    let price = forward
+        .forward_price(&market, as_of)
+        .expect("should get price");
 
     // Without quoted price, should interpolate from curve
     assert!(price > 0.0);

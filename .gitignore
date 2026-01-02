@@ -16,8 +16,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -65,6 +65,7 @@ htmlcov/
 **/coverage/
 **/docs/_build/
 .hypothesis/
+.hypothesis/constants/
 
 # mypy
 .mypy_cache/
