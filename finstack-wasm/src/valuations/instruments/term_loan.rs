@@ -1,6 +1,7 @@
 use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
+use crate::utils::json::to_js_value;
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::fixed_income::term_loan::TermLoan;
 use finstack_valuations::pricer::InstrumentType;
@@ -50,12 +51,21 @@ impl JsTermLoan {
             .map_err(|e| js_error(e.to_string()))
     }
 
+    /// Serialize the term loan to a JavaScript object.
+    ///
+    /// # Returns
+    /// JavaScript object representation of the term loan
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
+    }
+
     /// Serialize the term loan to a JSON string.
     ///
     /// # Returns
-    /// JSON representation of the term loan
-    #[wasm_bindgen(js_name = toJson)]
-    pub fn to_json(&self) -> Result<String, JsValue> {
+    /// JSON string representation of the term loan
+    #[wasm_bindgen(js_name = toJsonString)]
+    pub fn to_json_string(&self) -> Result<String, JsValue> {
         serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
     }
 

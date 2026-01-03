@@ -245,9 +245,15 @@ impl JsBumpSpec {
         }
     }
 
-    /// Serialize the bump spec to a JSON string.
+    /// Serialize the bump spec to a JavaScript object.
     #[wasm_bindgen(js_name = toJson)]
-    pub fn to_json(&self) -> Result<String, JsValue> {
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
+    }
+
+    /// Serialize the bump spec to a JSON string.
+    #[wasm_bindgen(js_name = toJsonString)]
+    pub fn to_json_string(&self) -> Result<String, JsValue> {
         serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
     }
 
@@ -365,9 +371,15 @@ impl JsMarketBump {
         }
     }
 
-    /// Serialize the market bump to a JSON string.
+    /// Serialize the market bump to a JavaScript object.
     #[wasm_bindgen(js_name = toJson)]
-    pub fn to_json(&self) -> Result<String, JsValue> {
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
+    }
+
+    /// Serialize the market bump to a JSON string.
+    #[wasm_bindgen(js_name = toJsonString)]
+    pub fn to_json_string(&self) -> Result<String, JsValue> {
         serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
     }
 
@@ -377,11 +389,5 @@ impl JsMarketBump {
         let inner: MarketBump =
             serde_json::from_str(json_str).map_err(|e| js_error(e.to_string()))?;
         Ok(JsMarketBump { inner })
-    }
-
-    /// Export the bump as a JavaScript object.
-    #[wasm_bindgen(js_name = toState)]
-    pub fn to_state(&self) -> Result<JsValue, JsValue> {
-        to_js_value(&self.inner)
     }
 }

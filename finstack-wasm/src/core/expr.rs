@@ -7,6 +7,7 @@
 //! - CompiledExpr evaluation against columnar data
 
 use crate::core::error::js_error;
+use crate::utils::json::to_js_value;
 use crate::valuations::results::JsResultsMeta;
 use finstack_core::expr::{
     BinOp, CompiledExpr as CoreCompiledExpr, EvalOpts, EvaluationResult, ExecutionPlan,
@@ -312,9 +313,15 @@ impl JsExpr {
         }
     }
 
-    /// Serialize to JSON (feature-compatible with Rust/Python bindings).
+    /// Serialize to JavaScript object.
     #[wasm_bindgen(js_name = toJson)]
-    pub fn to_json(&self) -> Result<String, JsValue> {
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
+    }
+
+    /// Serialize to JSON string (feature-compatible with Rust/Python bindings).
+    #[wasm_bindgen(js_name = toJsonString)]
+    pub fn to_json_string(&self) -> Result<String, JsValue> {
         serde_json::to_string(&self.inner).map_err(|e| js_error(e.to_string()))
     }
 

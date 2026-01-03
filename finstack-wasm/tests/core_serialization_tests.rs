@@ -14,7 +14,7 @@ fn daycount_context_state_roundtrip() {
     ctx.set_bus_basis(260);
 
     let state = ctx.to_state();
-    let json = state.to_json().unwrap();
+    let json = state.to_json_string().unwrap();
     let restored = DayCountContextState::from_json(&json).unwrap();
     let restored_ctx = restored.to_context();
 
@@ -45,7 +45,7 @@ fn schedule_spec_json_roundtrip() {
         false,
     );
 
-    let json = spec.to_json().unwrap();
+    let json = spec.to_json_string().unwrap();
     let restored = ScheduleSpec::from_json(&json).unwrap();
     let schedule = restored.build().unwrap();
     assert_eq!(schedule.length(), 4);

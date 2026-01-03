@@ -4,6 +4,7 @@
 
 use crate::core::error::js_error;
 use crate::statements::types::JsFinancialModelSpec;
+use crate::utils::json::to_js_value;
 use finstack_statements::analysis::{DependencyTracer, DependencyTree};
 use finstack_statements::evaluator::DependencyGraph;
 use wasm_bindgen::prelude::*;
@@ -65,9 +66,15 @@ impl JsDependencyTree {
         self.inner.to_string_ascii()
     }
 
-    /// Serialize to JSON.
+    /// Serialize to JavaScript object.
     #[wasm_bindgen(js_name = toJson)]
-    pub fn to_json(&self) -> Result<String, JsValue> {
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
+    }
+
+    /// Serialize to JSON string.
+    #[wasm_bindgen(js_name = toJsonString)]
+    pub fn to_json_string(&self) -> Result<String, JsValue> {
         serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
     }
 }

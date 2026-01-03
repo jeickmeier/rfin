@@ -139,14 +139,28 @@ impl JsMarketContext {
         }
     }
 
-    /// Export the context as a serializable `MarketContextState`.
-    #[wasm_bindgen(js_name = toState)]
-    pub fn to_state(&self) -> Result<JsValue, JsValue> {
+    /// Export the context as a JavaScript object.
+    ///
+    /// Converts the entire market context (curves, surfaces, FX, etc.) to a JavaScript
+    /// object that can be manipulated in JavaScript or used for efficient roundtripping.
+    ///
+    /// # Returns
+    /// JavaScript object representation of the market context.
+    ///
+    /// # Example
+    /// ```javascript
+    /// const ctx = new MarketContext();
+    /// ctx.insertDiscount(curve);
+    /// const obj = ctx.toJson();
+    /// // Later: const restored = MarketContext.fromState(obj);
+    /// ```
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
         let state: MarketContextState = (&self.inner).into();
         to_js_value(&state)
     }
 
-    /// Build a `MarketContext` from a `MarketContextState`.
+    /// Build a `MarketContext` from a JavaScript object.
     #[wasm_bindgen(js_name = fromState)]
     pub fn from_state(value: JsValue) -> Result<JsMarketContext, JsValue> {
         let state: MarketContextState = from_js_value(value)?;
@@ -167,12 +181,12 @@ impl JsMarketContext {
     /// ```javascript
     /// const ctx = new MarketContext();
     /// ctx.insertDiscount(curve);
-    /// const json = ctx.toJson();
+    /// const json = ctx.toJsonString();
     /// console.log(json);
     /// // Later: const restored = MarketContext.fromJson(json);
     /// ```
-    #[wasm_bindgen(js_name = toJson)]
-    pub fn to_json(&self) -> Result<String, JsValue> {
+    #[wasm_bindgen(js_name = toJsonString)]
+    pub fn to_json_string(&self) -> Result<String, JsValue> {
         let state: MarketContextState = (&self.inner).into();
         serde_json::to_string_pretty(&state).map_err(|e| js_error(e.to_string()))
     }

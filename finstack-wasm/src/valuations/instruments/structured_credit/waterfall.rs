@@ -8,6 +8,7 @@ use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use crate::core::market_data::context::JsMarketContext;
 use crate::core::money::JsMoney;
+use crate::utils::json::to_js_value;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::structured_credit::waterfall::{
@@ -130,9 +131,15 @@ impl JsWaterfallTier {
             .map_err(|e| js_error(e.to_string()))
     }
 
-    /// Convert to JSON string.
+    /// Convert to JavaScript object.
     #[wasm_bindgen(js_name = toJson)]
-    pub fn to_json(&self) -> Result<String, JsValue> {
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
+    }
+
+    /// Convert to JSON string.
+    #[wasm_bindgen(js_name = toJsonString)]
+    pub fn to_json_string(&self) -> Result<String, JsValue> {
         serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
     }
 
@@ -274,7 +281,12 @@ impl JsWaterfall {
     }
 
     #[wasm_bindgen(js_name = toJson)]
-    pub fn to_json(&self) -> Result<String, JsValue> {
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
+    }
+
+    #[wasm_bindgen(js_name = toJsonString)]
+    pub fn to_json_string(&self) -> Result<String, JsValue> {
         serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
     }
 
@@ -303,7 +315,12 @@ impl JsCoverageTrigger {
     }
 
     #[wasm_bindgen(js_name = toJson)]
-    pub fn to_json(&self) -> Result<String, JsValue> {
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
+    }
+
+    #[wasm_bindgen(js_name = toJsonString)]
+    pub fn to_json_string(&self) -> Result<String, JsValue> {
         serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
     }
 }
@@ -325,7 +342,12 @@ impl JsCoverageTestRules {
     }
 
     #[wasm_bindgen(js_name = toJson)]
-    pub fn to_json(&self) -> Result<String, JsValue> {
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
+    }
+
+    #[wasm_bindgen(js_name = toJsonString)]
+    pub fn to_json_string(&self) -> Result<String, JsValue> {
         serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
     }
 }
@@ -339,9 +361,15 @@ pub struct JsWaterfallDistribution {
 
 #[wasm_bindgen(js_class = WaterfallDistribution)]
 impl JsWaterfallDistribution {
-    /// Convert to JSON string.
+    /// Convert to JavaScript object.
     #[wasm_bindgen(js_name = toJson)]
-    pub fn to_json(&self) -> Result<String, JsValue> {
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
+    }
+
+    /// Convert to JSON string.
+    #[wasm_bindgen(js_name = toJsonString)]
+    pub fn to_json_string(&self) -> Result<String, JsValue> {
         serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
     }
 

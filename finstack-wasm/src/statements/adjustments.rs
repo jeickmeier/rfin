@@ -4,7 +4,7 @@
 
 use crate::core::error::js_error;
 use crate::statements::evaluator::JsResults;
-use crate::utils::json::from_js_value;
+use crate::utils::json::{from_js_value, to_js_value};
 use finstack_core::dates::PeriodId;
 use finstack_statements::adjustments::engine::NormalizationEngine;
 use finstack_statements::adjustments::types::{
@@ -40,9 +40,15 @@ impl JsNormalizationConfig {
         self.inner.adjustments.push(adjustment.inner.clone());
     }
 
-    /// Serialize to JSON string.
+    /// Serialize to JavaScript object.
     #[wasm_bindgen(js_name = toJson)]
-    pub fn to_json(&self) -> Result<String, JsValue> {
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
+    }
+
+    /// Serialize to JSON string.
+    #[wasm_bindgen(js_name = toJsonString)]
+    pub fn to_json_string(&self) -> Result<String, JsValue> {
         serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
     }
 
@@ -114,9 +120,15 @@ impl JsAdjustment {
         }
     }
 
-    /// Serialize to JSON string.
+    /// Serialize to JavaScript object.
     #[wasm_bindgen(js_name = toJson)]
-    pub fn to_json(&self) -> Result<String, JsValue> {
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
+    }
+
+    /// Serialize to JSON string.
+    #[wasm_bindgen(js_name = toJsonString)]
+    pub fn to_json_string(&self) -> Result<String, JsValue> {
         serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
     }
 

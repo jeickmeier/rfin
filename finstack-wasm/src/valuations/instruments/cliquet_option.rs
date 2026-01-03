@@ -1,7 +1,7 @@
+use crate::utils::json::to_js_value;
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::equity::cliquet_option::CliquetOption;
 use finstack_valuations::pricer::InstrumentType;
-use serde_json;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = CliquetOption)]
@@ -36,7 +36,12 @@ impl JsCliquetOption {
     }
 
     #[wasm_bindgen(js_name = toJson)]
-    pub fn to_json(&self) -> Result<String, JsValue> {
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
+    }
+
+    #[wasm_bindgen(js_name = toJsonString)]
+    pub fn to_json_string(&self) -> Result<String, JsValue> {
         use crate::core::error::js_error;
         serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
     }
