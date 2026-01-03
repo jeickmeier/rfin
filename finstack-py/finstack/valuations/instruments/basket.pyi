@@ -60,11 +60,20 @@ class Basket:
     - Requires spot prices for all underlyings
     - Correlation between underlyings affects pricing
 
+    MarketContext Requirements
+    -------------------------
+    - Underlying spot prices: referenced by IDs in the JSON payload (required).
+    - Discount curve: referenced by ``discount_curve_id`` in the JSON payload when provided/used by the pricer.
+
     See Also
     --------
     :class:`Equity`: Single equity positions
     :class:`EquityOption`: Equity options
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
     """
 
     @classmethod

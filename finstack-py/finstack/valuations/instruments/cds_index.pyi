@@ -45,11 +45,28 @@ class CDSIndex:
     - Series and version identify the specific index iteration
     - Side determines protection buyer vs seller
 
+    Conventions
+    -----------
+    - ``fixed_coupon_bp`` is quoted in basis points (bp). Convert to decimal rate with ``fixed_coupon_bp / 10_000``.
+    - ``recovery_rate`` is a decimal fraction in [0, 1] when provided.
+    - Required market data is identified by string IDs (``discount_curve``, ``credit_curve``) and must be present
+      in ``MarketContext``.
+
+    MarketContext Requirements
+    -------------------------
+    - Discount curve: ``discount_curve`` (required).
+    - Credit/index curve: ``credit_curve`` (required).
+
     See Also
     --------
     :class:`CreditDefaultSwap`: Single-name CDS
     :class:`CdsTranche`: CDS index tranches
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - ISDA (2006) Definitions: see ``docs/REFERENCES.md#isda2006Definitions``.
+    - O'Kane (2008): see ``docs/REFERENCES.md#okane2008``.
     """
 
     @classmethod

@@ -12,9 +12,10 @@ class Swaption:
     specified fixed rate (strike) on or before the expiry date. The underlying
     swap starts at swap_start and ends at swap_end.
 
-    Swaptions are priced using Black or similar models, requiring discount
-    curves, forward curves, and volatility surfaces. They are among the most
-    liquid interest rate options and are used for hedging and speculation.
+    Swaptions are commonly priced using lognormal (Black-style) or normal
+    (Bachelier) models, requiring discount curves, forward curves, and
+    volatility surfaces. They are among the most liquid interest rate options
+    and are used for hedging and speculation.
 
     Examples
     --------
@@ -86,11 +87,31 @@ class Swaption:
     - Settlement: "physical" (enter swap) or "cash" (cash settlement)
     - The underlying swap is a standard fixed-for-floating interest rate swap
 
+    Conventions
+    -----------
+    - Rates are expressed as decimals (e.g., 0.035 for 3.5%).
+    - Exercise is specified by ``exercise`` ("european" or "bermudan"); settlement is specified by
+      ``settlement`` ("physical" or "cash").
+    - Required market data is identified by string IDs (``discount_curve``, ``forward_curve``, ``vol_surface``)
+      and must be present in ``MarketContext``.
+
+    MarketContext Requirements
+    -------------------------
+    - Discount curve: ``discount_curve`` (required).
+    - Forward curve: ``forward_curve`` (required).
+    - Volatility surface: ``vol_surface`` (required).
+
     See Also
     --------
     :class:`InterestRateSwap`: Underlying swap instrument
     :class:`InterestRateOption`: Interest rate caps/floors
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - Black (1976): see ``docs/REFERENCES.md#black1976``.
+    - Bachelier (1900): see ``docs/REFERENCES.md#bachelier1900``.
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
     """
 
     @classmethod

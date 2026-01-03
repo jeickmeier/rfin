@@ -50,11 +50,31 @@ class FxBarrierOption:
     - In options only pay if barrier is crossed
     - FX barrier options account for interest rate differentials
 
+    Conventions
+    -----------
+    - FX rates (``strike``/``barrier``) are quoted as ``domestic per foreign`` when used with
+      ``domestic_currency``/``foreign_currency`` (i.e., quote per base for the currency pair).
+    - Volatilities in surfaces are expected as decimals.
+    - Required market data is referenced by IDs (``discount_curve``, ``foreign_discount_curve``, ``fx_spot_id``,
+      ``fx_vol_surface``) and must be present in ``MarketContext``.
+
+    MarketContext Requirements
+    -------------------------
+    - Discount curves: ``discount_curve`` and ``foreign_discount_curve`` (required).
+    - FX spot: ``fx_spot_id`` (required).
+    - FX volatility surface: ``fx_vol_surface`` (required).
+
     See Also
     --------
     :class:`FxOption`: Standard FX options
     :class:`BarrierOption`: Equity barrier options
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - Garman & Kohlhagen (1983): see ``docs/REFERENCES.md#garmanKohlhagen1983``.
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
+    - Gobet (2009): see ``docs/REFERENCES.md#gobet2009BarrierMC``.
     """
 
     @classmethod

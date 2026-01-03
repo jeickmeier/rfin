@@ -78,11 +78,24 @@ class EquityOption:
     - Dividend yield can be specified for dividend-paying stocks
     - Use :meth:`builder` for American options or custom configurations
 
+    MarketContext Requirements
+    -------------------------
+    - Discount curve: ``discount_curve`` (required for pricing; provided explicitly via ``builder`` or by the pricer).
+    - Spot price: ``spot_id`` (required for pricing; provided explicitly via ``builder`` or by ticker/MarketContext conventions).
+    - Volatility surface: ``vol_surface`` (required for pricing; provided explicitly via ``builder`` or via pricing config).
+    - Dividend yield: ``div_yield_id`` (optional; used when provided).
+
     See Also
     --------
     :class:`Swaption`: Interest rate swaptions
     :class:`InterestRateOption`: Interest rate caps/floors
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - Black & Scholes (1973): see ``docs/REFERENCES.md#blackScholes1973``.
+    - Merton (1973): see ``docs/REFERENCES.md#merton1973``.
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
     """
 
     @classmethod

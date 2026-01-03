@@ -43,11 +43,29 @@ class CdsOption:
     - Underlying CDS maturity determines the protection period
     - Forward adjustment accounts for forward spread vs spot spread
 
+    Conventions
+    -----------
+    - ``strike_spread_bp`` and ``forward_adjust_bp`` are quoted in basis points (bp).
+    - ``recovery_rate`` is a decimal fraction in [0, 1].
+    - Required market data is identified by string IDs (``discount_curve``, ``credit_curve``, ``vol_surface``) and
+      must be present in ``MarketContext``.
+
+    MarketContext Requirements
+    -------------------------
+    - Discount curve: ``discount_curve`` (required).
+    - Credit/hazard curve: ``credit_curve`` (required).
+    - Volatility surface: ``vol_surface`` (required).
+
     See Also
     --------
     :class:`CreditDefaultSwap`: Single-name CDS
     :class:`CDSIndex`: CDS indices
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - O'Kane (2008): see ``docs/REFERENCES.md#okane2008``.
+    - ISDA (2006) Definitions: see ``docs/REFERENCES.md#isda2006Definitions``.
     """
 
     @classmethod

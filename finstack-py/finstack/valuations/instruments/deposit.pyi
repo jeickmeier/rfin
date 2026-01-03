@@ -88,11 +88,20 @@ class Deposit:
     - Standard money-market conventions: ACT/360 for USD, ACT/365 for GBP
     - Deposits are typically used for curve bootstrapping
 
+    MarketContext Requirements
+    -------------------------
+    - Discount curve: ``discount_curve`` (required for pricing; used when ``quote_rate`` is None and for discounting).
+
     See Also
     --------
     :class:`ForwardRateAgreement`: Forward rate agreements
     :class:`DiscountCurve`: Discount curves for pricing
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - Brigo & Mercurio (2006): see ``docs/REFERENCES.md#brigoMercurio2006``.
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
     """
 
     def __init__(

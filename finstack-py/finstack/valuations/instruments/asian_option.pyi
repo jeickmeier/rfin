@@ -65,11 +65,23 @@ class AsianOption:
     - Asian options are typically cheaper than standard options
     - Fixing dates should be evenly spaced for better pricing
 
+    MarketContext Requirements
+    -------------------------
+    - Discount curve: ``discount_curve`` (required).
+    - Spot price: ``spot_id`` (required).
+    - Volatility surface: ``vol_surface`` (required).
+    - Dividend yield: ``div_yield_id`` (optional; used when provided).
+
     See Also
     --------
     :class:`EquityOption`: Standard equity options
     :class:`BarrierOption`: Barrier options
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
+    - Gobet & Miri (2014): see ``docs/REFERENCES.md#gobetMiri2014AveragedDiffusions``.
     """
 
     @classmethod

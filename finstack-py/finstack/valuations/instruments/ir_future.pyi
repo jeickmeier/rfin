@@ -45,11 +45,21 @@ class InterestRateFuture:
     - Convexity adjustment accounts for futures vs forward rate differences
     - Position: "long" (default) or "short"
 
+    MarketContext Requirements
+    -------------------------
+    - Discount curve: ``discount_curve`` (required).
+    - Forward curve: ``forward_curve`` (required).
+
     See Also
     --------
     :class:`ForwardRateAgreement`: Forward rate agreements
     :class:`InterestRateSwap`: Interest rate swaps
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
+    - Brigo & Mercurio (2006): see ``docs/REFERENCES.md#brigoMercurio2006``.
     """
 
     @classmethod

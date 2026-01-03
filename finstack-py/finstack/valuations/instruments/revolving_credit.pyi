@@ -51,11 +51,21 @@ class RevolvingCredit:
     - Commitment fees are paid on undrawn amounts
     - Interest is paid on drawn amounts
 
+    MarketContext Requirements
+    -------------------------
+    - Discount curve: referenced by ``discount_curve_id`` in the JSON payload (required for pricing).
+    - Optional hazard/credit curve: ``hazard_curve`` (used when set / when credit-sensitive pricing is selected).
+
     See Also
     --------
     :class:`TermLoan`: Term loans
     :class:`Bond`: Bonds
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
+    - O'Kane (2008): see ``docs/REFERENCES.md#okane2008``.
     """
 
     @classmethod

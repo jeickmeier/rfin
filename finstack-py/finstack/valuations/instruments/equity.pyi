@@ -35,11 +35,20 @@ class Equity:
     - Dividend yield can be specified for total return calculations
     - Price can be provided directly or retrieved from MarketContext
 
+    MarketContext Requirements
+    -------------------------
+    - Spot price: ``price_id`` (required if ``price`` is not provided).
+    - Dividend yield: ``div_yield_id`` (optional; used when provided).
+
     See Also
     --------
     :class:`EquityOption`: Equity options
     :class:`EquityTotalReturnSwap`: Equity TRS
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
     """
 
     @classmethod

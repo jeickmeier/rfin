@@ -48,11 +48,22 @@ class Autocallable:
     - If not called, pays final payoff based on underlying performance
     - Final payoff can be put (downside protection) or call (upside participation)
 
+    MarketContext Requirements
+    -------------------------
+    - Discount curve: ``discount_curve`` (required).
+    - Spot price: ``spot_id`` (required).
+    - Volatility surface: ``vol_surface`` (required).
+    - Dividend yield: ``div_yield_id`` (optional; used when provided).
+
     See Also
     --------
     :class:`Bond`: Standard bonds
     :class:`RangeAccrual`: Range accrual notes
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
     """
 
     @classmethod

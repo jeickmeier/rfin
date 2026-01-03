@@ -144,11 +144,23 @@ class EquityTotalReturnSwap:
     - Financing leg pays/receives floating rate + spread
     - Settlement occurs on schedule dates (typically quarterly)
 
+    MarketContext Requirements
+    -------------------------
+    - Underlying spot: ``underlying.spot_id`` (required).
+    - Dividend yield: ``underlying.div_yield_id`` (optional; used when provided).
+    - Discount curve: ``financing.discount_curve`` (required).
+    - Forward curve: ``financing.forward_curve`` (required).
+
     See Also
     --------
     :class:`FiIndexTotalReturnSwap`: Fixed-income index TRS
     :class:`EquityOption`: Equity options
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - ISDA (2006) Definitions: see ``docs/REFERENCES.md#isda2006Definitions``.
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
     """
 
     @classmethod
@@ -281,11 +293,23 @@ class FiIndexTotalReturnSwap:
     - Financing leg pays/receives floating rate + spread
     - Settlement occurs on schedule dates
 
+    MarketContext Requirements
+    -------------------------
+    - Underlying index/metrics: referenced by IDs in ``underlying`` (e.g., ``yield_id``, ``duration_id``, ``convexity_id``)
+      when provided.
+    - Discount curve: ``financing.discount_curve`` (required).
+    - Forward curve: ``financing.forward_curve`` (required).
+
     See Also
     --------
     :class:`EquityTotalReturnSwap`: Equity TRS
     :class:`Bond`: Individual bonds
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - ISDA (2006) Definitions: see ``docs/REFERENCES.md#isda2006Definitions``.
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
     """
 
     @classmethod

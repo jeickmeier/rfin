@@ -69,11 +69,21 @@ class VarianceSwap:
     - Observation frequency determines how often prices are sampled
     - Realized method determines variance calculation formula
 
+    MarketContext Requirements
+    -------------------------
+    - Discount curve: ``discount_curve`` (required).
+    - Underlying price observations: referenced by ``underlying_id`` (required).
+
     See Also
     --------
     :class:`EquityOption`: Equity options (implied volatility)
     :class:`VolSurface`: Volatility surfaces
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - Demeterfi et al. (1999): see ``docs/REFERENCES.md#demeterfiVarianceSwaps1999``.
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
     """
 
     @classmethod

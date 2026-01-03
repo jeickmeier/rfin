@@ -98,11 +98,22 @@ class ConvertibleBond:
     - Conversion ratio determines shares per bond
     - Anti-dilution and dividend adjustments protect conversion value
 
+    MarketContext Requirements
+    -------------------------
+    - Discount curve: ``discount_curve`` (required).
+    - Underlying equity spot: ``underlying_equity_id`` (required by equity-linked pricing paths when provided/used).
+    - Volatility surface: required by equity-linked pricing paths when used by the selected pricer/model.
+
     See Also
     --------
     :class:`Bond`: Standard bonds
     :class:`EquityOption`: Equity options
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
+    - Black & Scholes (1973): see ``docs/REFERENCES.md#blackScholes1973``.
     """
 
     @classmethod

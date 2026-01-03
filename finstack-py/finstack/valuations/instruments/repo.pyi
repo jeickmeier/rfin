@@ -67,11 +67,21 @@ class Repo:
     - Repo type: "term" (fixed maturity) or "open" (overnight, rolling)
     - Triparty repos use a third-party custodian
 
+    MarketContext Requirements
+    -------------------------
+    - Discount curve: ``discount_curve`` (required).
+    - Collateral market value: ``collateral.market_value_id`` (required).
+
     See Also
     --------
     :class:`Deposit`: Unsecured deposits
     :class:`Bond`: Bond collateral
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
+    - Brigo & Mercurio (2006): see ``docs/REFERENCES.md#brigoMercurio2006``.
     """
 
     @classmethod

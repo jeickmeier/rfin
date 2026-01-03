@@ -84,11 +84,30 @@ class CreditDefaultSwap:
     - Premium leg pays spread quarterly (standard convention)
     - Protection leg pays (1 - recovery_rate) * notional on default
 
+    Conventions
+    -----------
+    - ``spread_bp`` is quoted in basis points (bp). Convert to decimal rate with ``spread_bp / 10_000``.
+    - ``recovery_rate`` is a decimal fraction in [0, 1].
+    - Required market data is identified by string IDs (``discount_curve``, ``credit_curve``) and must be present
+      in ``MarketContext``.
+    - The concrete schedule/roll conventions are determined by the runtime implementation and the inputs
+      provided (e.g., dates and settlement_delay).
+
+    MarketContext Requirements
+    -------------------------
+    - Discount curve: ``discount_curve`` (required).
+    - Credit/hazard curve: ``credit_curve`` (required).
+
     See Also
     --------
     :class:`HazardCurve`: Credit curve for default probability
     :class:`Bond`: Bonds with credit risk
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - ISDA (2006) Definitions: see ``docs/REFERENCES.md#isda2006Definitions``.
+    - O'Kane (2008): see ``docs/REFERENCES.md#okane2008``.
     """
 
     @classmethod

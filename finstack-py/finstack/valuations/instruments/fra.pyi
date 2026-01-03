@@ -75,11 +75,22 @@ class ForwardRateAgreement:
     - The period is from start_date to end_date
     - pay_fixed=True means paying fixed, receiving floating
 
+    MarketContext Requirements
+    -------------------------
+    - Discount curve: ``discount_curve`` (required).
+    - Forward curve: ``forward_curve`` (required).
+
     See Also
     --------
     :class:`InterestRateSwap`: Multi-period interest rate swaps
     :class:`Deposit`: Money-market deposits
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - ISDA (2006) Definitions: see ``docs/REFERENCES.md#isda2006Definitions``.
+    - Brigo & Mercurio (2006): see ``docs/REFERENCES.md#brigoMercurio2006``.
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
     """
 
     @classmethod

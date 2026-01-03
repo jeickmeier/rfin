@@ -39,11 +39,25 @@ class FxSpot:
     - Notional is in base currency
     - Business day convention applies to settlement date
 
+    Conventions
+    -----------
+    - FX rates are quoted as ``quote_currency per base_currency`` (e.g., EUR/USD = 1.10 means 1 EUR = 1.10 USD).
+    - Settlement lag is expressed in business days; calendar/BDC parameters control settlement date adjustment.
+    - Market FX is sourced from ``MarketContext`` (via ``FxMatrix``) when an explicit ``spot_rate`` is not provided.
+
+    MarketContext Requirements
+    -------------------------
+    - FX rates: ``FxMatrix`` in ``MarketContext`` (required when ``spot_rate`` is not provided).
+
     See Also
     --------
     :class:`FxSwap`: FX swaps for forward exchange
     :class:`FxOption`: FX options for optional exchange
     :class:`FxMatrix`: FX rate matrix
+
+    Sources
+    -------
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
     """
 
     @classmethod
@@ -209,11 +223,29 @@ class FxOption:
     - Settlement can be "cash" (default) or "physical"
     - Garman-Kohlhagen model accounts for both interest rate differentials
 
+    Conventions
+    -----------
+    - Strike is quoted as ``quote_currency per base_currency``.
+    - Volatilities in surfaces are expected as decimals.
+    - Domestic/foreign curves correspond to quote/base currency respectively (see builder notes).
+    - Settlement is specified by ``settlement`` ("cash" or "physical").
+
+    MarketContext Requirements
+    -------------------------
+    - Discount curves: ``domestic_curve`` and ``foreign_curve`` (required by ``builder`` / pricing models).
+    - Volatility surface: ``vol_surface`` (required).
+    - FX spot: ``FxMatrix`` in ``MarketContext`` (required unless provided via alternate pricing configuration).
+
     See Also
     --------
     :class:`FxSpot`: FX spot transactions
     :class:`FxSwap`: FX swaps
     :class:`EquityOption`: Equity options
+
+    Sources
+    -------
+    - Garman & Kohlhagen (1983): see ``docs/REFERENCES.md#garmanKohlhagen1983``.
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
     """
 
     @classmethod
@@ -514,11 +546,26 @@ class FxSwap:
     - Forward rate can be provided or derived from curves and spot rate
     - The swap effectively creates a synthetic deposit/loan in one currency
 
+    Conventions
+    -----------
+    - FX rates are quoted as ``quote_currency per base_currency``.
+    - Domestic/foreign curves correspond to quote/base currency respectively.
+    - If ``near_rate``/``far_rate`` are omitted, the runtime derives rates using market FX and/or curve inputs.
+
+    MarketContext Requirements
+    -------------------------
+    - Discount curves: ``domestic_curve`` and ``foreign_curve`` (required).
+    - FX spot: ``FxMatrix`` in ``MarketContext`` (required when deriving rates).
+
     See Also
     --------
     :class:`FxSpot`: FX spot transactions
     :class:`FxOption`: FX options
     :class:`ForwardRateAgreement`: Interest rate FRAs
+
+    Sources
+    -------
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
     """
 
     @classmethod

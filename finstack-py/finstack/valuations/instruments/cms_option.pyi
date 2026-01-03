@@ -43,11 +43,28 @@ class CmsOption:
     - Each fixing date creates a separate CMS option (caplet/floorlet)
     - Convexity adjustment accounts for CMS vs forward rate differences
 
+    Conventions
+    -----------
+    - Rates are expressed as decimals (e.g., 0.035 for 3.5%).
+    - ``cms_tenor`` is expressed in years.
+    - ``accrual_fractions`` are year fractions for each fixing period (must align with ``fixing_dates``).
+    - If ``vol_surface`` is provided, it must be present in ``MarketContext`` and quoted in decimal volatility.
+
+    MarketContext Requirements
+    -------------------------
+    - Discount curve: ``discount_curve`` (required).
+    - Volatility surface: ``vol_surface`` (optional; required by pricing models that use it).
+
     See Also
     --------
     :class:`Swaption`: Swaptions
     :class:`InterestRateOption`: Interest rate caps/floors
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - Brigo & Mercurio (2006): see ``docs/REFERENCES.md#brigoMercurio2006``.
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
     """
 
     @classmethod

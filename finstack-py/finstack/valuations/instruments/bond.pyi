@@ -109,11 +109,22 @@ class Bond:
     - Credit-sensitive pricing requires a hazard curve in MarketContext
     - Bond cashflows are generated based on the payment schedule
 
+    MarketContext Requirements
+    -------------------------
+    - Discount curve: ``discount_curve`` (required).
+    - Forward curve: ``forward_curve`` (required for floating-rate bonds).
+    - Hazard/credit curve: ``hazard_curve`` (required for credit-sensitive pricing, when set).
+
     See Also
     --------
     :class:`InterestRateSwap`: Interest rate swap instruments
     :class:`PricerRegistry`: Pricing entry point
     :class:`MarketContext`: Market data container
+
+    Sources
+    -------
+    - ISDA day count conventions: see ``docs/REFERENCES.md#isdaDayCount``.
+    - ISDA (2006) Definitions: see ``docs/REFERENCES.md#isda2006Definitions``.
     """
 
     @classmethod
@@ -170,6 +181,10 @@ class Bond:
             0.045
             >>> bond.maturity
             datetime.date(2028, 1, 1)
+
+        Sources
+        -------
+        - ISDA day count conventions: see ``docs/REFERENCES.md#isdaDayCount``.
         """
         ...
 

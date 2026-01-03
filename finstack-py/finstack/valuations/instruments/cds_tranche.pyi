@@ -46,11 +46,31 @@ class CdsTranche:
     - Senior tranches (e.g., 15-30%) have lower risk
     - Running coupon is paid on remaining notional
 
+    Conventions
+    -----------
+    - ``attach_pct`` and ``detach_pct`` are expressed in percent points (e.g., 3.0 means 3% subordination).
+    - ``running_coupon_bp`` is quoted in basis points (bp).
+    - Required market data is identified by string IDs (``discount_curve``, ``credit_index_curve``) and must be
+      present in ``MarketContext``.
+    - The exact tranche pricing model is selected by the runtime/pricer; inputs such as ``payments_per_year``,
+      ``day_count``, and calendar/BDC parameters control the cashflow schedule.
+
+    MarketContext Requirements
+    -------------------------
+    - Discount curve: ``discount_curve`` (required).
+    - Credit index curve: ``credit_index_curve`` (required).
+
     See Also
     --------
     :class:`CDSIndex`: CDS indices
     :class:`CreditDefaultSwap`: Single-name CDS
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - Li (2000): see ``docs/REFERENCES.md#liGaussianCopula2000``.
+    - O'Kane (2008): see ``docs/REFERENCES.md#okane2008``.
+    - ISDA (2006) Definitions: see ``docs/REFERENCES.md#isda2006Definitions``.
     """
 
     @classmethod

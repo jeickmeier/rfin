@@ -58,11 +58,23 @@ class BarrierOption:
     - In options only pay if barrier is crossed
     - Barrier options are typically cheaper than standard options
 
+    MarketContext Requirements
+    -------------------------
+    - Discount curve: ``discount_curve`` (required).
+    - Spot price: ``spot_id`` (required).
+    - Volatility surface: ``vol_surface`` (required).
+    - Dividend yield: ``div_yield_id`` (optional; used when provided).
+
     See Also
     --------
     :class:`EquityOption`: Standard equity options
     :class:`AsianOption`: Asian options
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
+    - Gobet (2009): see ``docs/REFERENCES.md#gobet2009BarrierMC``.
     """
 
     @classmethod

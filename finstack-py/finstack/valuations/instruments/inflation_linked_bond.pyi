@@ -75,11 +75,21 @@ class InflationLinkedBond:
     - Deflation protection ensures principal doesn't fall below par
     - Coupon payments are adjusted by inflation between payment dates
 
+    MarketContext Requirements
+    -------------------------
+    - Discount curve: ``discount_curve`` (required).
+    - Inflation curve: ``inflation_curve`` (required).
+
     See Also
     --------
     :class:`Bond`: Standard fixed-rate bonds
     :class:`InflationCurve`: CPI curves for inflation projections
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - Brigo & Mercurio (2006): see ``docs/REFERENCES.md#brigoMercurio2006``.
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
     """
 
     @classmethod

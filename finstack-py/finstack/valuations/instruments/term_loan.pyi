@@ -49,11 +49,20 @@ class TermLoan:
     - Prepayment options affect cashflow timing
     - Typically defined via JSON for complex structures
 
+    MarketContext Requirements
+    -------------------------
+    - Discount curve: referenced by ``discount_curve_id`` in the JSON payload (required for pricing).
+    - Optional credit curve: referenced by the JSON payload when provided/used.
+
     See Also
     --------
     :class:`RevolvingCredit`: Revolving credit facilities
     :class:`Bond`: Bonds
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
     """
 
     @classmethod

@@ -50,11 +50,31 @@ class QuantoOption:
     - Quanto adjustment compensates for FX risk elimination
     - Negative correlation typically increases quanto option value
 
+    Conventions
+    -----------
+    - ``correlation`` is the (model) correlation between equity returns and FX returns used for the quanto
+      adjustment.
+    - Rates/volatilities referenced via curves/surfaces are expected as decimals.
+    - Required market data is referenced by IDs (``discount_curve``, ``foreign_discount_curve``, ``spot_id``,
+      ``vol_surface`` and optional FX IDs) and must be present in ``MarketContext``.
+
+    MarketContext Requirements
+    -------------------------
+    - Discount curves: ``discount_curve`` and ``foreign_discount_curve`` (required).
+    - Equity spot: ``spot_id`` (required).
+    - Equity volatility surface: ``vol_surface`` (required).
+    - Optional FX inputs: ``fx_rate_id`` / ``fx_vol_id`` (used when provided by the model).
+
     See Also
     --------
     :class:`EquityOption`: Standard equity options
     :class:`FxOption`: FX options
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
+    - Garman & Kohlhagen (1983): see ``docs/REFERENCES.md#garmanKohlhagen1983``.
     """
 
     @classmethod

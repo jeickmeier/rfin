@@ -61,11 +61,20 @@ class PrivateMarketsFund:
     - Can include management fees and carried interest
     - NAV (net asset value) tracking for fund valuation
 
+    MarketContext Requirements
+    -------------------------
+    - None required for parsing/LP cashflow generation from the JSON itself.
+    - Pricing/valuation paths may reference market data via IDs embedded in the JSON payload when applicable.
+
     See Also
     --------
     :class:`Bond`: Bonds
     :class:`TermLoan`: Term loans
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - Damodaran (valuation / DCF context): see ``docs/REFERENCES.md#damodaranInvestmentValuation``.
     """
 
     @classmethod

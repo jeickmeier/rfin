@@ -84,11 +84,31 @@ class InterestRateOption:
     - Caps provide protection when rates rise above strike
     - Floors provide protection when rates fall below strike
 
+    Conventions
+    -----------
+    - Rates are expressed as decimals (e.g., 0.03 for 3%).
+    - ``strike`` is a rate level (not bps). Volatilities in surfaces are expected as decimals.
+    - Reset/payment schedule is controlled by ``payments_per_year``; if ``day_count`` is omitted, the
+      runtime defaults apply (docstring describes the intended convention but the exact default is set in Rust).
+    - Required market data is identified by string IDs (``discount_curve``, ``forward_curve``, ``vol_surface``)
+      and must be present in ``MarketContext``.
+
+    MarketContext Requirements
+    -------------------------
+    - Discount curve: ``discount_curve`` (required).
+    - Forward curve: ``forward_curve`` (required).
+    - Volatility surface: ``vol_surface`` (required).
+
     See Also
     --------
     :class:`Swaption`: Interest rate swaptions
     :class:`InterestRateSwap`: Underlying floating-rate swaps
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - Black (1976): see ``docs/REFERENCES.md#black1976``.
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
     """
 
     @classmethod

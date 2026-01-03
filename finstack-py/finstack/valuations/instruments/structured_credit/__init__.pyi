@@ -132,11 +132,30 @@ class StructuredCredit:
     - Waterfall payment structure determines cashflow distribution
     - Requires collateral pool and payment rules
 
+    Conventions
+    -----------
+    - Structured credit definitions are provided as JSON; many conventions (day count, coupon specs,
+      payment frequency, reinvestment rules) are encoded in the payload fields.
+    - Monetary amounts are specified with explicit currency; rates (e.g., coupon rates) are expressed as decimals
+      unless the JSON schema explicitly uses bp-style fields.
+    - Required market data is referenced via IDs in the JSON (e.g., ``discount_curve_id``) and must be present in
+      ``MarketContext`` for pricing.
+
+    MarketContext Requirements
+    -------------------------
+    - Discount curve: referenced by ``discount_curve_id`` in the JSON payload (required for pricing).
+    - Any additional market data referenced in the JSON (curves/indices/scalars) must be present in ``MarketContext``.
+
     See Also
     --------
     :class:`CdsTranche`: CDS tranches
     :class:`Bond`: Standard bonds
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - Li (2000): see ``docs/REFERENCES.md#liGaussianCopula2000``.
+    - O'Kane (2008): see ``docs/REFERENCES.md#okane2008``.
     """
 
     @classmethod

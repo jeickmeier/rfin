@@ -65,11 +65,21 @@ class BasisSwap:
     - Basis spread compensates for differences in credit risk, liquidity, etc.
     - Both legs use floating rates (no fixed leg)
 
+    MarketContext Requirements
+    -------------------------
+    - Discount curve: ``discount_curve`` (required).
+    - Forward curves: ``primary_leg.forward_curve`` and ``reference_leg.forward_curve`` (required).
+
     See Also
     --------
     :class:`InterestRateSwap`: Fixed-for-floating swaps
     :class:`ForwardCurve`: Forward rate curves
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - ISDA (2006) Definitions: see ``docs/REFERENCES.md#isda2006Definitions``.
+    - Brigo & Mercurio (2006): see ``docs/REFERENCES.md#brigoMercurio2006``.
     """
 
     @classmethod

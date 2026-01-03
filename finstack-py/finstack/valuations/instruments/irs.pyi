@@ -82,11 +82,22 @@ class InterestRateSwap:
     - Use :meth:`builder` for non-USD swaps or custom conventions
     - Par swap rate can be calculated by solving for fixed_rate = 0 PV
 
+    MarketContext Requirements
+    -------------------------
+    - Discount curve: ``discount_curve`` (required).
+    - Forward curve: ``forward_curve`` (required for the floating leg).
+
     See Also
     --------
     :class:`Bond`: Fixed-income bond instruments
     :class:`PricerRegistry`: Pricing entry point
     :class:`MarketContext`: Market data container
+
+    Sources
+    -------
+    - ISDA (2006) Definitions: see ``docs/REFERENCES.md#isda2006Definitions``.
+    - Brigo & Mercurio (2006): see ``docs/REFERENCES.md#brigoMercurio2006``.
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
     """
 
     @classmethod

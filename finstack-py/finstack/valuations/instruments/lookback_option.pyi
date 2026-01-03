@@ -54,11 +54,22 @@ class LookbackOption:
     - Lookback options are more expensive than standard options
     - Path-dependent pricing requires more complex models
 
+    MarketContext Requirements
+    -------------------------
+    - Discount curve: ``discount_curve`` (required).
+    - Spot price: ``spot_id`` (required).
+    - Volatility surface: ``vol_surface`` (required).
+    - Dividend yield: ``div_yield_id`` (optional; used when provided).
+
     See Also
     --------
     :class:`EquityOption`: Standard equity options
     :class:`BarrierOption`: Barrier options
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
     """
 
     @classmethod

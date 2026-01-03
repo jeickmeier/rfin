@@ -59,5 +59,13 @@ def evaluate_dcf(
         ...     terminal_growth=0.03,  # 3% terminal growth
         ... )
         >>> print(result["equity_value"].amount)
+
+    MarketContext Requirements
+    -------------------------
+    - None. This helper evaluates a DCF from the provided ``FinancialModelSpec`` and scalar inputs.
+
+    Sources
+    -------
+    - Damodaran (DCF valuation): see ``docs/REFERENCES.md#damodaranInvestmentValuation``.
     """
     ...

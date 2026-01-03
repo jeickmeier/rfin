@@ -1,7 +1,16 @@
 """Statistical distribution bindings.
 
-Provides binomial, exponential, lognormal, chi-squared, gamma, and
-Student's t distributions with CDFs, PDFs, quantiles, and sampling.
+Provides binomial, exponential, lognormal, chi-squared, gamma, and Student's t
+utilities (CDFs, PDFs, quantiles, and deterministic sampling where available).
+
+Notes
+-----
+- Sampling helpers accept an explicit ``seed`` to support deterministic workflows.
+
+Sources
+-------
+- Abramowitz & Stegun (1964): see ``docs/REFERENCES.md#abramowitzStegun1964``.
+- Devroye (1986): see ``docs/REFERENCES.md#devroye1986``.
 """
 
 from typing import List

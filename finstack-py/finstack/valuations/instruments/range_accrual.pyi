@@ -52,11 +52,22 @@ class RangeAccrual:
     - Lower and upper bounds define the range
     - Higher coupon rates compensate for conditional payment risk
 
+    MarketContext Requirements
+    -------------------------
+    - Discount curve: ``discount_curve`` (required).
+    - Spot price: ``spot_id`` (required).
+    - Volatility surface: ``vol_surface`` (required).
+    - Dividend yield: ``div_yield_id`` (optional; used when provided).
+
     See Also
     --------
     :class:`Bond`: Standard bonds
     :class:`Autocallable`: Autocallable structured products
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
     """
 
     @classmethod

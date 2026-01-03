@@ -42,11 +42,21 @@ class InflationSwap:
     - Typically zero-coupon (all payments at maturity)
     - Side determines who pays fixed vs receives inflation
 
+    MarketContext Requirements
+    -------------------------
+    - Discount curve: ``discount_curve`` (required).
+    - Inflation curve/index: ``inflation_curve`` and/or ``inflation_index_id`` (required for CPI projection).
+
     See Also
     --------
     :class:`InflationLinkedBond`: Inflation-linked bonds
     :class:`InflationCurve`: CPI curves
     :class:`PricerRegistry`: Pricing entry point
+
+    Sources
+    -------
+    - Brigo & Mercurio (2006): see ``docs/REFERENCES.md#brigoMercurio2006``.
+    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
     """
 
     @classmethod
