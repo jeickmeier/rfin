@@ -226,7 +226,29 @@ fn test_bond_creation() {
     let issue = FsDate::new(2024, 1, 1).expect("Valid date");
     let maturity = FsDate::new(2025, 1, 1).expect("Valid date");
 
-    let bond = Bond::fixed_semiannual("bond1", &notional, 0.05, &issue, &maturity, "USD-OIS", None);
+    let bond = Bond::new(
+        "bond1",
+        &notional,
+        &issue,
+        &maturity,
+        "USD-OIS",
+        Some(0.05),
+        Some(Frequency::semi_annual()),
+        Some(DayCount::thirty_360()),
+        Some(BusinessDayConvention::ModifiedFollowing),
+        Some("usny".to_string()),
+        Some(StubKind::none()),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    .expect("Bond constructor should succeed");
     let _bond_js: JsValue = bond.into();
 }
 
@@ -251,7 +273,29 @@ fn test_pricer_registry_price_instrument_exists() {
     let maturity = FsDate::new(2025, 1, 1).expect("Valid date");
     let as_of = FsDate::new(2024, 6, 1).expect("Valid date");
 
-    let bond = Bond::fixed_semiannual("bond1", &notional, 0.05, &issue, &maturity, "USD-OIS", None);
+    let bond = Bond::new(
+        "bond1",
+        &notional,
+        &issue,
+        &maturity,
+        "USD-OIS",
+        Some(0.05),
+        Some(Frequency::semi_annual()),
+        Some(DayCount::thirty_360()),
+        Some(BusinessDayConvention::ModifiedFollowing),
+        Some("usny".to_string()),
+        Some(StubKind::none()),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    .expect("Bond constructor should succeed");
     let bond_js: JsValue = bond.into();
     let market = MarketContext::new();
 

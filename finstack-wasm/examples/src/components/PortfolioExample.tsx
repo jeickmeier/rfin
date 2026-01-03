@@ -60,13 +60,12 @@ export const PortfolioExample: React.FC<PortfolioExampleProps> = (props) => {
       // Create bonds
       const bondMap = new Map<string, finstack.Bond>();
       for (const bondData of bonds) {
-        const bond = finstack.Bond.fixedSemiannual(
+        const bond = new finstack.Bond(
           bondData.id,
           new finstack.Money(
             bondData.notional.amount,
             new finstack.Currency(bondData.notional.currency)
           ),
-          bondData.couponRate,
           new finstack.FsDate(
             bondData.issueDate.year,
             bondData.issueDate.month,
@@ -77,7 +76,17 @@ export const PortfolioExample: React.FC<PortfolioExampleProps> = (props) => {
             bondData.maturityDate.month,
             bondData.maturityDate.day
           ),
-          bondData.discountCurveId
+          bondData.discountCurveId,
+          bondData.couponRate,
+          finstack.Frequency.semiAnnual(),
+          finstack.DayCount.thirty360(),
+          finstack.BusinessDayConvention.ModifiedFollowing,
+          undefined,
+          finstack.StubKind.none(),
+          undefined,
+          undefined,
+          undefined,
+          undefined
         );
         bondMap.set(bondData.id, bond);
         addLog(`  Created bond: ${bondData.id}`);

@@ -122,18 +122,20 @@ export const EquityInstrumentsExample: React.FC<EquityInstrumentsProps> = (props
 
           const option =
             opt.optionType === 'call'
-              ? EquityOption.europeanCall(
+              ? new EquityOption(
                   opt.id,
                   opt.ticker,
                   opt.strike,
+                  'call',
                   expiryDate,
                   spotPrice,
                   opt.quantity
                 )
-              : EquityOption.europeanPut(
+              : new EquityOption(
                   opt.id,
                   opt.ticker,
                   opt.strike,
+                  'put',
                   expiryDate,
                   spotPrice,
                   opt.quantity

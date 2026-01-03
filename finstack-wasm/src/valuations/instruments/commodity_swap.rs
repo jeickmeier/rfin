@@ -2,6 +2,7 @@
 
 use crate::core::currency::JsCurrency;
 use crate::core::dates::date::JsDate;
+use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::{BusinessDayConvention, Tenor, TenorUnit};
 use finstack_core::types::{CurveId, InstrumentId};
@@ -172,6 +173,16 @@ impl JsCommoditySwap {
     #[wasm_bindgen(getter, js_name = discountCurveId)]
     pub fn discount_curve_id(&self) -> String {
         self.inner.discount_curve_id.as_str().to_string()
+    }
+
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(value: JsValue) -> Result<JsCommoditySwap, JsValue> {
+        from_js_value(value).map(JsCommoditySwap::from_inner)
+    }
+
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
     }
 
     #[wasm_bindgen(js_name = instrumentType)]

@@ -1,5 +1,6 @@
 use crate::core::dates::date::JsDate;
 use crate::core::money::JsMoney;
+use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::exotics::asian_option::{AsianOption, AveragingMethod};
@@ -233,6 +234,16 @@ impl JsAsianOption {
             .div_yield_id
             .as_ref()
             .map(|id| id.as_str().to_string())
+    }
+
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(value: JsValue) -> Result<JsAsianOption, JsValue> {
+        from_js_value(value).map(JsAsianOption::from_inner)
+    }
+
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
     }
 
     #[wasm_bindgen(js_name = instrumentType)]

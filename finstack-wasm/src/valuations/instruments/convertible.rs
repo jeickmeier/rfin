@@ -1,6 +1,7 @@
 use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
+use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::fixed_income::convertible::{
@@ -8,6 +9,7 @@ use finstack_valuations::instruments::fixed_income::convertible::{
     DividendAdjustment,
 };
 use finstack_valuations::pricer::InstrumentType;
+use js_sys::Array;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = ConversionPolicy)]
@@ -193,6 +195,42 @@ impl JsConvertibleBond {
     #[wasm_bindgen(getter, js_name = conversionPrice)]
     pub fn conversion_price(&self) -> Option<f64> {
         self.inner.conversion.price
+    }
+
+    /// Get a simple cashflow view for this convertible bond.
+    ///
+    /// Currently returns principal repayment at maturity (coupons are not modeled in the WASM wrapper).
+    #[wasm_bindgen(js_name = getCashflows)]
+    pub fn get_cashflows(
+        &self,
+        market: &crate::core::market_data::context::JsMarketContext,
+    ) -> Result<Array, JsValue> {
+        let disc = market
+            .inner()
+            .get_discount(self.inner.discount_curve_id.as_str())
+            .map_err(|e| js_error(e.to_string()))?;
+        let as_of = disc.base_date();
+
+        let result = Array::new();
+        if self.inner.maturity > as_of {
+            let entry = Array::new();
+            entry.push(&JsDate::from_core(self.inner.maturity).into());
+            entry.push(&JsMoney::from_inner(self.inner.notional).into());
+            entry.push(&JsValue::from_str("Principal"));
+            entry.push(&JsValue::NULL);
+            result.push(&entry);
+        }
+        Ok(result)
+    }
+
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(value: JsValue) -> Result<JsConvertibleBond, JsValue> {
+        from_js_value(value).map(JsConvertibleBond::from_inner)
+    }
+
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
     }
 
     #[wasm_bindgen(js_name = instrumentType)]

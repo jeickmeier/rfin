@@ -2,6 +2,7 @@ use crate::core::currency::JsCurrency;
 use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
+use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::fx::fx_option::{FxOption, FxOptionParams};
@@ -115,6 +116,16 @@ impl JsFxSpot {
     pub fn clone_js(&self) -> JsFxSpot {
         JsFxSpot::from_inner(self.inner.clone())
     }
+
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(value: JsValue) -> Result<JsFxSpot, JsValue> {
+        from_js_value(value).map(JsFxSpot::from_inner)
+    }
+
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
+    }
 }
 
 // ===========================
@@ -139,36 +150,47 @@ impl InstrumentWrapper for JsFxOption {
 
 #[wasm_bindgen(js_class = FxOption)]
 impl JsFxOption {
-    /// Create a European FX call option.
+    /// Create a European FX option.
     ///
     /// Conventions:
     /// - `strike` is quoted as `quote_currency` per 1 unit of `base_currency`.
+    /// - `option_type`: `"call"` or `"put"`.
     ///
     /// @param instrument_id - Unique identifier
     /// @param base_currency - Base (foreign) currency
     /// @param quote_currency - Quote (domestic) currency
     /// @param strike - Strike FX rate
+    /// @param option_type - `"call"` or `"put"`
     /// @param expiry - Expiry date
     /// @param notional - Notional (currency-tagged; typically in base currency)
     /// @param domestic_curve - Domestic (quote) discount curve ID
     /// @param foreign_curve - Foreign (base) discount curve ID
     /// @param vol_surface - Vol surface ID
     /// @returns A new `FxOption`
-    #[wasm_bindgen(js_name = europeanCall)]
     #[allow(clippy::too_many_arguments)]
-    pub fn european_call(
+    #[wasm_bindgen(constructor)]
+    pub fn new(
         instrument_id: &str,
         base_currency: &JsCurrency,
         quote_currency: &JsCurrency,
         strike: f64,
+        option_type: &str,
         expiry: &JsDate,
         notional: &JsMoney,
         domestic_curve: &str,
         foreign_curve: &str,
         vol_surface: &str,
-    ) -> JsFxOption {
+    ) -> Result<JsFxOption, JsValue> {
         use finstack_valuations::instruments::FxUnderlyingParams;
-        let option_params = FxOptionParams::european_call(strike, expiry.inner(), notional.inner());
+        let option_params = match option_type.to_lowercase().as_str() {
+            "call" => FxOptionParams::european_call(strike, expiry.inner(), notional.inner()),
+            "put" => FxOptionParams::european_put(strike, expiry.inner(), notional.inner()),
+            other => {
+                return Err(js_error(format!(
+                    "Invalid option_type '{other}'; expected 'call' or 'put'"
+                )));
+            }
+        };
         let underlying = FxUnderlyingParams::new(
             base_currency.inner(),
             quote_currency.inner(),
@@ -181,52 +203,17 @@ impl JsFxOption {
             &underlying,
             curve_id_from_str(vol_surface),
         );
-        JsFxOption::from_inner(option)
+        Ok(JsFxOption::from_inner(option))
     }
 
-    /// Create a European FX put option.
-    ///
-    /// Conventions:
-    /// - `strike` is quoted as `quote_currency` per 1 unit of `base_currency`.
-    ///
-    /// @param instrument_id - Unique identifier
-    /// @param base_currency - Base (foreign) currency
-    /// @param quote_currency - Quote (domestic) currency
-    /// @param strike - Strike FX rate
-    /// @param expiry - Expiry date
-    /// @param notional - Notional (currency-tagged; typically in base currency)
-    /// @param domestic_curve - Domestic (quote) discount curve ID
-    /// @param foreign_curve - Foreign (base) discount curve ID
-    /// @param vol_surface - Vol surface ID
-    /// @returns A new `FxOption`
-    #[wasm_bindgen(js_name = europeanPut)]
-    #[allow(clippy::too_many_arguments)]
-    pub fn european_put(
-        instrument_id: &str,
-        base_currency: &JsCurrency,
-        quote_currency: &JsCurrency,
-        strike: f64,
-        expiry: &JsDate,
-        notional: &JsMoney,
-        domestic_curve: &str,
-        foreign_curve: &str,
-        vol_surface: &str,
-    ) -> JsFxOption {
-        use finstack_valuations::instruments::FxUnderlyingParams;
-        let option_params = FxOptionParams::european_put(strike, expiry.inner(), notional.inner());
-        let underlying = FxUnderlyingParams::new(
-            base_currency.inner(),
-            quote_currency.inner(),
-            curve_id_from_str(domestic_curve),
-            curve_id_from_str(foreign_curve),
-        );
-        let option = FxOption::new(
-            instrument_id_from_str(instrument_id),
-            &option_params,
-            &underlying,
-            curve_id_from_str(vol_surface),
-        );
-        JsFxOption::from_inner(option)
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(value: JsValue) -> Result<JsFxOption, JsValue> {
+        from_js_value(value).map(JsFxOption::from_inner)
+    }
+
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
     }
 
     #[wasm_bindgen(getter, js_name = instrumentId)]
@@ -420,5 +407,15 @@ impl JsFxSwap {
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsFxSwap {
         JsFxSwap::from_inner(self.inner.clone())
+    }
+
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(value: JsValue) -> Result<JsFxSwap, JsValue> {
+        from_js_value(value).map(JsFxSwap::from_inner)
+    }
+
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
     }
 }

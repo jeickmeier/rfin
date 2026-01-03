@@ -1,4 +1,5 @@
 use crate::core::currency::JsCurrency;
+use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::equity::Equity;
 use finstack_valuations::pricer::InstrumentType;
@@ -78,6 +79,16 @@ impl JsEquity {
     #[wasm_bindgen(getter)]
     pub fn shares(&self) -> f64 {
         self.inner.effective_shares()
+    }
+
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(value: JsValue) -> Result<JsEquity, JsValue> {
+        from_js_value(value).map(JsEquity::from_inner)
+    }
+
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
     }
 
     #[wasm_bindgen(js_name = instrumentType)]

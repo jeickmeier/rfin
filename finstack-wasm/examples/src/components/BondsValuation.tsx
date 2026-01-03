@@ -161,59 +161,85 @@ export const BondsValuationExample: React.FC<BondsValuationProps> = (props) => {
           try {
             switch (bondData.bondType.type) {
               case 'fixed': {
-                bond = Bond.fixedSemiannual(
+                bond = new Bond(
                   bondData.id,
                   notional,
-                  bondData.bondType.couponRate,
                   issue,
                   maturity,
                   bondData.discountCurveId,
+                  bondData.bondType.couponRate,
+                  Frequency.semiAnnual(),
+                  DayCount.thirty360(),
+                  BusinessDayConvention.ModifiedFollowing,
+                  undefined,
+                  StubKind.none(),
+                  undefined,
+                  undefined,
+                  undefined,
                   bondData.quotedCleanPrice
                 );
                 row = evaluateBond(bond, bondData.name);
                 row.kind = 'Fixed Coupon';
                 row.couponLabel = `${(bondData.bondType.couponRate * 100).toFixed(2)}% semi-annual`;
                 row.notes = [
-                  'Constructed with Bond.fixedSemiannual helper',
+                  'Constructed with Bond constructor (fixed coupon)',
                   bondData.quotedCleanPrice ? `Quoted at ${bondData.quotedCleanPrice}% of par` : '',
                 ].filter(Boolean);
                 break;
               }
               case 'zero': {
-                bond = Bond.zeroCoupon(
+                bond = new Bond(
                   bondData.id,
                   notional,
                   issue,
                   maturity,
                   bondData.discountCurveId,
+                  null,
+                  null,
+                  null,
+                  null,
+                  undefined,
+                  StubKind.none(),
+                  undefined,
+                  undefined,
+                  undefined,
                   bondData.quotedCleanPrice
                 );
                 row = evaluateBond(bond, bondData.name);
                 row.kind = 'Zero Coupon';
                 row.couponLabel = '0.00% (discount)';
                 row.notes = [
-                  'Created via Bond.zeroCoupon',
+                  'Constructed with Bond constructor (no coupon)',
                   bondData.quotedCleanPrice ? `Quoted at ${bondData.quotedCleanPrice}% of par` : '',
                 ].filter(Boolean);
                 break;
               }
               case 'floating': {
-                bond = Bond.floating(
+                bond = new Bond(
                   bondData.id,
                   notional,
                   issue,
                   maturity,
                   bondData.discountCurveId,
+                  null,
+                  Frequency.quarterly(),
+                  DayCount.act360(),
+                  BusinessDayConvention.ModifiedFollowing,
+                  undefined,
+                  StubKind.none(),
+                  undefined,
+                  undefined,
+                  undefined,
+                  bondData.quotedCleanPrice,
                   bondData.bondType.forwardCurveId,
-                  bondData.bondType.marginBps,
-                  bondData.quotedCleanPrice
+                  bondData.bondType.marginBps
                 );
                 row = evaluateBond(bond, bondData.name);
                 row.kind = 'Floating Rate';
                 row.couponLabel = 'SOFR 3M';
                 row.marginLabel = `+${bondData.bondType.marginBps} bps`;
                 row.notes = [
-                  'Created via Bond.floating',
+                  'Constructed with Bond constructor (floating coupon)',
                   `Quarterly resets tied to ${bondData.bondType.forwardCurveId}`,
                   bondData.quotedCleanPrice ? `Quoted at ${bondData.quotedCleanPrice}% of par` : '',
                 ].filter(Boolean);
@@ -288,54 +314,61 @@ export const BondsValuationExample: React.FC<BondsValuationProps> = (props) => {
                   bondData.bondType.switchDate.month,
                   bondData.bondType.switchDate.day
                 );
-                bond = Bond.fixedToFloating(
+                bond = new Bond(
                   bondData.id,
                   notional,
-                  bondData.bondType.fixedRate,
-                  switchDate,
-                  bondData.bondType.forwardCurveId,
-                  bondData.bondType.marginBps,
                   issue,
                   maturity,
+                  bondData.discountCurveId,
+                  null,
                   Frequency.quarterly(),
                   DayCount.act360(),
-                  bondData.discountCurveId,
+                  BusinessDayConvention.ModifiedFollowing,
+                  undefined,
+                  StubKind.none(),
+                  undefined,
+                  undefined,
+                  undefined,
                   bondData.quotedCleanPrice,
-                  market
+                  bondData.bondType.forwardCurveId,
+                  bondData.bondType.marginBps
                 );
                 row = evaluateBond(bond, bondData.name);
                 row.kind = 'Fixed-to-Floating';
-                row.couponLabel = `${(bondData.bondType.fixedRate * 100).toFixed(2)}% → SOFR 3M + ${bondData.bondType.marginBps}bps`;
+                row.couponLabel = `SOFR 3M + ${bondData.bondType.marginBps}bps`;
                 row.notes = [
-                  'Created via Bond.fixedToFloating helper',
-                  `Fixed at ${(bondData.bondType.fixedRate * 100).toFixed(0)}% until ${bondData.bondType.switchDate.year}-${String(bondData.bondType.switchDate.month).padStart(2, '0')}-${String(bondData.bondType.switchDate.day).padStart(2, '0')}`,
-                  `Then floats at SOFR 3M + ${bondData.bondType.marginBps} bps (discount margin)`,
-                  'Cashflows show Fixed column, then Float column',
+                  'Fixed-to-floating helper removed; using floating-bond approximation',
+                  `Original switch date: ${bondData.bondType.switchDate.year}-${String(bondData.bondType.switchDate.month).padStart(2, '0')}-${String(bondData.bondType.switchDate.day).padStart(2, '0')}`,
+                  `Floating at SOFR 3M + ${bondData.bondType.marginBps} bps`,
                   bondData.quotedCleanPrice ? `Quoted at ${bondData.quotedCleanPrice}% of par` : '',
                 ].filter(Boolean);
+                void switchDate; // kept for UI display / notes
                 break;
               }
               case 'pikToggle': {
-                bond = Bond.pikToggle(
+                bond = new Bond(
                   bondData.id,
                   notional,
-                  bondData.bondType.couponRate,
-                  bondData.bondType.cashPct,
-                  bondData.bondType.pikPct,
                   issue,
                   maturity,
                   bondData.discountCurveId,
-                  bondData.quotedCleanPrice,
-                  market
+                  bondData.bondType.couponRate,
+                  Frequency.semiAnnual(),
+                  DayCount.thirty360(),
+                  BusinessDayConvention.ModifiedFollowing,
+                  undefined,
+                  StubKind.none(),
+                  undefined,
+                  undefined,
+                  undefined,
+                  bondData.quotedCleanPrice
                 );
                 row = evaluateBond(bond, bondData.name);
                 row.kind = 'PIK Toggle';
                 row.couponLabel = `${(bondData.bondType.couponRate * 100).toFixed(2)}% (${bondData.bondType.cashPct * 100}/${bondData.bondType.pikPct * 100} Cash/PIK)`;
                 row.notes = [
-                  'Created via Bond.pikToggle helper',
-                  `${bondData.bondType.cashPct * 100}% of each coupon paid in cash (Fixed column)`,
-                  `${bondData.bondType.pikPct * 100}% of each coupon capitalized into principal (PIK column)`,
-                  'Outstanding balance increases as PIK interest compounds',
+                  'PIK-toggle helper removed; using fixed-bond approximation',
+                  `Cash/PIK split (not modeled): ${bondData.bondType.cashPct * 100}% / ${bondData.bondType.pikPct * 100}%`,
                   bondData.quotedCleanPrice ? `Quoted at ${bondData.quotedCleanPrice}% of par` : '',
                 ].filter(Boolean);
                 break;

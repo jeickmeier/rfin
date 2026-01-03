@@ -1,5 +1,7 @@
 use crate::core::dates::date::JsDate;
+use crate::core::error::js_error;
 use crate::core::money::JsMoney;
+use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::equity::equity_option::EquityOption;
 use finstack_valuations::pricer::InstrumentType;
@@ -23,89 +25,89 @@ impl InstrumentWrapper for JsEquityOption {
 
 #[wasm_bindgen(js_class = EquityOption)]
 impl JsEquityOption {
-    /// Create a European equity call option.
+    /// Create a European equity option.
     ///
     /// Conventions:
     /// - `strike` is an **absolute price level** (not bps/percent).
     /// - The strike currency is assumed to be the same currency as `notional`.
     /// - `contract_size` defaults to `1.0` if omitted.
+    /// - `option_type`: `"call"` or `"put"`.
     ///
     /// @param instrument_id - Unique identifier
     /// @param ticker - Underlying ticker/symbol (used to look up spot/dividends/vol in `MarketContext`)
     /// @param strike - Strike price (absolute)
+    /// @param option_type - `"call"` or `"put"`
     /// @param expiry - Expiry date
     /// @param notional - Option notional (currency-tagged)
     /// @param contract_size - Optional contract size multiplier (default 1.0)
     /// @returns A new `EquityOption`
+    /// @throws {Error} If `option_type` is invalid
     ///
     /// @example
     /// ```javascript
     /// import init, { EquityOption, Money, FsDate } from "finstack-wasm";
     ///
     /// await init();
-    /// const opt = EquityOption.europeanCall(
+    /// const opt = new EquityOption(
     ///   "eqopt_1",
     ///   "AAPL",
     ///   200.0,
+    ///   "call",
     ///   new FsDate(2025, 6, 21),
     ///   Money.fromCode(1_000_000, "USD"),
     ///   100
     /// );
     /// ```
-    #[wasm_bindgen(js_name = europeanCall)]
-    pub fn european_call(
+    #[wasm_bindgen(constructor)]
+    pub fn new(
         instrument_id: &str,
         ticker: &str,
         strike: f64,
+        option_type: &str,
         expiry: &JsDate,
         notional: &JsMoney,
         contract_size: Option<f64>,
-    ) -> JsEquityOption {
-        let option = EquityOption::european_call(
-            instrument_id.to_string(),
-            ticker,
-            strike,
-            expiry.inner(),
-            notional.inner(),
-            contract_size.unwrap_or(1.0),
-        )
-        .expect("EquityOption::european_call should succeed with valid parameters");
-        JsEquityOption::from_inner(option)
+    ) -> Result<JsEquityOption, JsValue> {
+        let cs = contract_size.unwrap_or(1.0);
+        let option = match option_type.to_lowercase().as_str() {
+            "call" => EquityOption::european_call(
+                instrument_id.to_string(),
+                ticker,
+                strike,
+                expiry.inner(),
+                notional.inner(),
+                cs,
+            ),
+            "put" => EquityOption::european_put(
+                instrument_id.to_string(),
+                ticker,
+                strike,
+                expiry.inner(),
+                notional.inner(),
+                cs,
+            ),
+            other => {
+                return Err(js_error(format!(
+                    "Invalid option_type '{other}'; expected 'call' or 'put'"
+                )));
+            }
+        }
+        .map(JsEquityOption::from_inner)
+        .map_err(|e| js_error(e.to_string()))?;
+
+        Ok(option)
     }
 
-    /// Create a European equity put option.
-    ///
-    /// Conventions:
-    /// - `strike` is an **absolute price level**.
-    /// - The strike currency is assumed to be the same currency as `notional`.
-    /// - `contract_size` defaults to `1.0` if omitted.
-    ///
-    /// @param instrument_id - Unique identifier
-    /// @param ticker - Underlying ticker/symbol
-    /// @param strike - Strike price (absolute)
-    /// @param expiry - Expiry date
-    /// @param notional - Option notional (currency-tagged)
-    /// @param contract_size - Optional contract size multiplier (default 1.0)
-    /// @returns A new `EquityOption`
-    #[wasm_bindgen(js_name = europeanPut)]
-    pub fn european_put(
-        instrument_id: &str,
-        ticker: &str,
-        strike: f64,
-        expiry: &JsDate,
-        notional: &JsMoney,
-        contract_size: Option<f64>,
-    ) -> JsEquityOption {
-        let option = EquityOption::european_put(
-            instrument_id.to_string(),
-            ticker,
-            strike,
-            expiry.inner(),
-            notional.inner(),
-            contract_size.unwrap_or(1.0),
-        )
-        .expect("EquityOption::european_put should succeed with valid parameters");
-        JsEquityOption::from_inner(option)
+    /// Parse an equity option from a JSON value (as produced by `toJson`).
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(value: JsValue) -> Result<JsEquityOption, JsValue> {
+        from_js_value(value).map(JsEquityOption::from_inner)
+    }
+
+    /// Serialize this equity option to a JSON value.
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
     }
 
     #[wasm_bindgen(getter, js_name = instrumentId)]

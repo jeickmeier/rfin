@@ -2,12 +2,14 @@ use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::JsDayCount;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
+use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_valuations::pricer::InstrumentType;
+use js_sys::Array;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = CdsTranche)]
@@ -104,6 +106,87 @@ impl JsCdsTranche {
             .build()
             .map(JsCdsTranche::from_inner)
             .map_err(|e| js_error(e.to_string()))
+    }
+
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(value: JsValue) -> Result<JsCdsTranche, JsValue> {
+        from_js_value(value).map(JsCdsTranche::from_inner)
+    }
+
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
+    }
+
+    /// Get premium-leg cashflows for this CDS tranche.
+    ///
+    /// Returns an array of cashflow tuples: [date, amount, kind, outstanding_balance]
+    #[wasm_bindgen(js_name = getCashflows)]
+    pub fn get_cashflows(
+        &self,
+        market: &crate::core::market_data::context::JsMarketContext,
+    ) -> Result<Array, JsValue> {
+        use crate::core::dates::date::JsDate;
+        use finstack_core::dates::{DayCountCtx, StubKind};
+        use finstack_valuations::cashflow::builder::build_dates;
+
+        let disc = market
+            .inner()
+            .get_discount(self.inner.discount_curve_id.as_str())
+            .map_err(|e| js_error(e.to_string()))?;
+        let as_of = disc.base_date();
+
+        let start = self.inner.effective_date.unwrap_or(as_of);
+        let sched = build_dates(
+            start,
+            self.inner.maturity,
+            self.inner.payment_frequency,
+            StubKind::None,
+            self.inner.business_day_convention,
+            self.inner.calendar_id.as_deref(),
+        )
+        .map_err(|e| js_error(e.to_string()))?;
+
+        let dates = sched.dates;
+        if dates.len() < 2 {
+            return Ok(Array::new());
+        }
+
+        let spread_decimal = self.inner.running_coupon_bp / 10000.0;
+        let sign = match self.inner.side {
+            TrancheSide::BuyProtection => -1.0,
+            TrancheSide::SellProtection => 1.0,
+        };
+
+        let result = Array::new();
+        let mut prev = dates[0];
+        for &d in &dates[1..] {
+            if d <= as_of {
+                prev = d;
+                continue;
+            }
+            let year_frac = self
+                .inner
+                .day_count
+                .year_fraction(prev, d, DayCountCtx::default())
+                .map_err(|e| js_error(e.to_string()))?;
+            let amount = sign * self.inner.notional.amount() * spread_decimal * year_frac;
+            let entry = Array::new();
+            entry.push(&JsDate::from_core(d).into());
+            entry.push(
+                &JsMoney::from_inner(finstack_core::money::Money::new(
+                    amount,
+                    self.inner.notional.currency(),
+                ))
+                .into(),
+            );
+            entry.push(&JsValue::from_str("Premium"));
+            entry.push(&JsValue::NULL);
+            result.push(&entry);
+            prev = d;
+        }
+
+        Ok(result)
     }
 
     #[wasm_bindgen(getter, js_name = instrumentId)]

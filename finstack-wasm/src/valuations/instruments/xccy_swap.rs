@@ -14,6 +14,7 @@ use finstack_valuations::instruments::rates::xccy_swap::{
     LegSide, NotionalExchange, XccySwap, XccySwapLeg,
 };
 use finstack_valuations::pricer::InstrumentType;
+use js_sys::Array;
 use wasm_bindgen::prelude::*;
 
 /// Notional exchange convention for XCCY swaps.
@@ -250,15 +251,160 @@ impl JsXccySwap {
     }
 
     /// Create from JSON representation.
-    #[wasm_bindgen(js_name = fromJSON)]
+    #[wasm_bindgen(js_name = fromJson)]
     pub fn from_json(value: JsValue) -> Result<JsXccySwap, JsValue> {
         from_js_value(value).map(|inner| JsXccySwap { inner })
     }
 
     /// Convert to JSON representation.
-    #[wasm_bindgen(js_name = toJSON)]
+    #[wasm_bindgen(js_name = toJson)]
     pub fn to_json(&self) -> Result<JsValue, JsValue> {
         to_js_value(&self.inner)
+    }
+
+    /// Get projected cashflows for this XCCY swap (both legs, leg currencies).
+    ///
+    /// Returns an array of cashflow tuples: [date, amount, kind, outstanding_balance]
+    #[wasm_bindgen(js_name = getCashflows)]
+    pub fn get_cashflows(&self, market: &JsMarketContext) -> Result<Array, JsValue> {
+        use finstack_core::dates::{CalendarRegistry, DateExt, DayCountCtx};
+        use finstack_valuations::cashflow::builder::build_dates;
+
+        // Use leg1 discount curve base date as the projection / filter anchor.
+        let disc = market
+            .inner()
+            .get_discount(self.inner.leg1.discount_curve_id.as_str())
+            .map_err(|e| js_error(e.to_string()))?;
+        let as_of = disc.base_date();
+
+        let result = Array::new();
+
+        for (leg_label, leg) in [("Leg1", &self.inner.leg1), ("Leg2", &self.inner.leg2)] {
+            // Resolve calendar (if any)
+            let cal = leg
+                .calendar_id
+                .as_deref()
+                .and_then(|id| CalendarRegistry::global().resolve_str(id));
+
+            // Principal exchanges
+            let principal_sign = match leg.side {
+                LegSide::Receive => (-1.0, 1.0), // pay at start, receive at end
+                LegSide::Pay => (1.0, -1.0),
+            };
+
+            if matches!(
+                self.inner.notional_exchange,
+                NotionalExchange::InitialAndFinal
+            ) && self.inner.start_date > as_of
+            {
+                let entry = Array::new();
+                entry.push(&JsDate::from_core(self.inner.start_date).into());
+                entry.push(
+                    &JsMoney::from_inner(finstack_core::money::Money::new(
+                        principal_sign.0 * leg.notional.amount(),
+                        leg.currency,
+                    ))
+                    .into(),
+                );
+                entry.push(&JsValue::from_str(&format!("{leg_label}:Principal")));
+                entry.push(&JsValue::NULL);
+                result.push(&entry);
+            }
+
+            if matches!(
+                self.inner.notional_exchange,
+                NotionalExchange::Final | NotionalExchange::InitialAndFinal
+            ) && self.inner.maturity_date > as_of
+            {
+                let entry = Array::new();
+                entry.push(&JsDate::from_core(self.inner.maturity_date).into());
+                entry.push(
+                    &JsMoney::from_inner(finstack_core::money::Money::new(
+                        principal_sign.1 * leg.notional.amount(),
+                        leg.currency,
+                    ))
+                    .into(),
+                );
+                entry.push(&JsValue::from_str(&format!("{leg_label}:Principal")));
+                entry.push(&JsValue::NULL);
+                result.push(&entry);
+            }
+
+            // Floating coupons
+            let sched = build_dates(
+                self.inner.start_date,
+                self.inner.maturity_date,
+                leg.frequency,
+                self.inner.stub_kind,
+                leg.bdc,
+                leg.calendar_id.as_deref(),
+            )
+            .map_err(|e| js_error(e.to_string()))?;
+
+            let dates = sched.dates;
+            if dates.len() < 2 {
+                continue;
+            }
+
+            let fwd = market
+                .inner()
+                .get_forward(leg.forward_curve_id.as_str())
+                .map_err(|e| js_error(e.to_string()))?;
+            let fwd_dc = fwd.day_count();
+            let fwd_base = fwd.base_date();
+
+            let coupon_sign = match leg.side {
+                LegSide::Receive => 1.0,
+                LegSide::Pay => -1.0,
+            };
+
+            for i in 1..dates.len() {
+                let period_start = dates[i - 1];
+                let period_end = dates[i];
+
+                let payment_date = if leg.payment_lag_days == 0 {
+                    period_end
+                } else if let Some(cal) = cal {
+                    period_end
+                        .add_business_days(leg.payment_lag_days, cal)
+                        .map_err(|e| js_error(e.to_string()))?
+                } else {
+                    period_end + time::Duration::days(leg.payment_lag_days as i64)
+                };
+
+                if payment_date <= as_of {
+                    continue;
+                }
+
+                let t_start = fwd_dc
+                    .year_fraction(fwd_base, period_start, DayCountCtx::default())
+                    .map_err(|e| js_error(e.to_string()))?;
+                let t_end = fwd_dc
+                    .year_fraction(fwd_base, period_end, DayCountCtx::default())
+                    .map_err(|e| js_error(e.to_string()))?;
+                let forward_rate = fwd.rate_period(t_start, t_end);
+
+                let accrual = leg
+                    .day_count
+                    .year_fraction(period_start, period_end, DayCountCtx::default())
+                    .map_err(|e| js_error(e.to_string()))?;
+
+                let amount =
+                    coupon_sign * leg.notional.amount() * (forward_rate + leg.spread) * accrual;
+
+                let entry = Array::new();
+                entry.push(&JsDate::from_core(payment_date).into());
+                entry.push(
+                    &JsMoney::from_inner(finstack_core::money::Money::new(amount, leg.currency))
+                        .into(),
+                );
+                entry.push(&JsValue::from_str(&format!("{leg_label}:Coupon")));
+                entry.push(&JsValue::NULL);
+                result.push(&entry);
+            }
+        }
+
+        Ok(result)
     }
 
     #[wasm_bindgen(js_name = toString)]

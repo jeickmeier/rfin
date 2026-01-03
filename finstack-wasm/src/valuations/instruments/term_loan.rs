@@ -5,6 +5,7 @@ use crate::utils::json::to_js_value;
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::fixed_income::term_loan::TermLoan;
 use finstack_valuations::pricer::InstrumentType;
+use js_sys::Array;
 use wasm_bindgen::prelude::*;
 
 /// Term loan instrument with DDTL (Delayed Draw Term Loan) support.
@@ -58,6 +59,46 @@ impl JsTermLoan {
     #[wasm_bindgen(js_name = toJson)]
     pub fn to_json(&self) -> Result<JsValue, JsValue> {
         to_js_value(&self.inner)
+    }
+
+    /// Get cashflows for this term loan.
+    ///
+    /// Returns an array of cashflow tuples: [date, amount, kind, outstanding_balance]
+    #[wasm_bindgen(js_name = getCashflows)]
+    pub fn get_cashflows(
+        &self,
+        market: &crate::core::market_data::context::JsMarketContext,
+    ) -> Result<Array, JsValue> {
+        use finstack_valuations::cashflow::CashflowProvider;
+
+        let disc = market
+            .inner()
+            .get_discount(self.inner.discount_curve_id.as_str())
+            .map_err(|e| js_error(e.to_string()))?;
+        let as_of = disc.base_date();
+
+        let sched = self
+            .inner
+            .build_full_schedule(market.inner(), as_of)
+            .map_err(|e| js_error(e.to_string()))?;
+        let outstanding_path = sched
+            .outstanding_path_per_flow()
+            .map_err(|e| js_error(e.to_string()))?;
+
+        let result = Array::new();
+        for (idx, cf) in sched.flows.iter().enumerate() {
+            let entry = Array::new();
+            entry.push(&JsDate::from_core(cf.date).into());
+            entry.push(&JsMoney::from_inner(cf.amount).into());
+            entry.push(&JsValue::from_str(&format!("{:?}", cf.kind)));
+            let outstanding = outstanding_path
+                .get(idx)
+                .map(|(_, m)| m.amount())
+                .unwrap_or(0.0);
+            entry.push(&JsValue::from_f64(outstanding));
+            result.push(&entry);
+        }
+        Ok(result)
     }
 
     /// Serialize the term loan to a JSON string.

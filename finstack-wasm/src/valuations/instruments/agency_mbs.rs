@@ -8,6 +8,7 @@
 
 use crate::core::currency::JsCurrency;
 use crate::core::dates::date::JsDate;
+use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::DayCount;
 use finstack_core::money::Money;
@@ -128,12 +129,6 @@ impl JsAgencyMbsPassthrough {
         Ok(JsAgencyMbsPassthrough::from_inner(mbs))
     }
 
-    /// Create an example MBS for testing.
-    #[wasm_bindgen(js_name = example)]
-    pub fn example() -> JsAgencyMbsPassthrough {
-        JsAgencyMbsPassthrough::from_inner(AgencyMbsPassthrough::example())
-    }
-
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
         self.inner.id.as_str().to_string()
@@ -196,6 +191,16 @@ impl JsAgencyMbsPassthrough {
     #[wasm_bindgen(getter, js_name = discountCurveId)]
     pub fn discount_curve_id(&self) -> String {
         self.inner.discount_curve_id.as_str().to_string()
+    }
+
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(value: JsValue) -> Result<JsAgencyMbsPassthrough, JsValue> {
+        from_js_value(value).map(JsAgencyMbsPassthrough::from_inner)
+    }
+
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
     }
 }
 
@@ -291,12 +296,6 @@ impl JsAgencyTba {
         Ok(JsAgencyTba::from_inner(tba))
     }
 
-    /// Create an example TBA for testing.
-    #[wasm_bindgen(js_name = example)]
-    pub fn example() -> JsAgencyTba {
-        JsAgencyTba::from_inner(AgencyTba::example())
-    }
-
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
         self.inner.id.as_str().to_string()
@@ -348,6 +347,16 @@ impl JsAgencyTba {
     #[wasm_bindgen(getter, js_name = discountCurveId)]
     pub fn discount_curve_id(&self) -> String {
         self.inner.discount_curve_id.as_str().to_string()
+    }
+
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(value: JsValue) -> Result<JsAgencyTba, JsValue> {
+        from_js_value(value).map(JsAgencyTba::from_inner)
+    }
+
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
     }
 }
 
@@ -452,12 +461,6 @@ impl JsDollarRoll {
         Ok(JsDollarRoll::from_inner(roll))
     }
 
-    /// Create an example dollar roll for testing.
-    #[wasm_bindgen(js_name = example)]
-    pub fn example() -> JsDollarRoll {
-        JsDollarRoll::from_inner(DollarRoll::example())
-    }
-
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
         self.inner.id.as_str().to_string()
@@ -502,6 +505,16 @@ impl JsDollarRoll {
     #[wasm_bindgen(getter, js_name = discountCurveId)]
     pub fn discount_curve_id(&self) -> String {
         self.inner.discount_curve_id.as_str().to_string()
+    }
+
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(value: JsValue) -> Result<JsDollarRoll, JsValue> {
+        from_js_value(value).map(JsDollarRoll::from_inner)
+    }
+
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
     }
 }
 
@@ -634,6 +647,16 @@ impl JsCmoTranche {
     pub fn priority(&self) -> u32 {
         self.inner.priority
     }
+
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(value: JsValue) -> Result<JsCmoTranche, JsValue> {
+        from_js_value(value).map(|inner| JsCmoTranche { inner })
+    }
+
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
+    }
 }
 
 // =============================================================================
@@ -662,6 +685,16 @@ impl JsCmoWaterfall {
     #[wasm_bindgen(js_name = totalCurrentFace)]
     pub fn total_current_face(&self) -> f64 {
         self.inner.total_current_face().amount()
+    }
+
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(value: JsValue) -> Result<JsCmoWaterfall, JsValue> {
+        from_js_value(value).map(|inner| JsCmoWaterfall { inner })
+    }
+
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
     }
 }
 
@@ -748,12 +781,6 @@ impl JsAgencyCmo {
         Ok(JsAgencyCmo::from_inner(cmo))
     }
 
-    /// Create an example CMO for testing.
-    #[wasm_bindgen(js_name = example)]
-    pub fn example() -> JsAgencyCmo {
-        JsAgencyCmo::from_inner(AgencyCmo::example())
-    }
-
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
         self.inner.id.as_str().to_string()
@@ -786,5 +813,15 @@ impl JsAgencyCmo {
     #[wasm_bindgen(getter, js_name = discountCurveId)]
     pub fn discount_curve_id(&self) -> String {
         self.inner.discount_curve_id.as_str().to_string()
+    }
+
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(value: JsValue) -> Result<JsAgencyCmo, JsValue> {
+        from_js_value(value).map(JsAgencyCmo::from_inner)
+    }
+
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
     }
 }

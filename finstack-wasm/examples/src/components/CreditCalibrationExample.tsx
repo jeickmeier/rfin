@@ -58,7 +58,7 @@ export const CreditCalibrationExample: React.FC = () => {
         const notional = Money.fromCode(10_000_000, 'USD');
         const maturity = new FsDate(newAsOf.year + tenor, newAsOf.month, newAsOf.day);
 
-        const cds = CreditDefaultSwap.buyProtection(
+        const cds = new CreditDefaultSwap(
           `CDS_${tenor}Y`,
           notional,
           100, // 100 bps spread
@@ -66,6 +66,7 @@ export const CreditCalibrationExample: React.FC = () => {
           maturity,
           discountCurveId,
           hazardCurveId, // Use the actual hazard curve ID from calibration
+          'buy_protection',
           null
         );
 

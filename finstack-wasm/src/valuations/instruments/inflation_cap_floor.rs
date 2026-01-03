@@ -14,6 +14,7 @@ use finstack_valuations::instruments::rates::inflation_cap_floor::{
 };
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::pricer::InstrumentType;
+use js_sys::Array;
 use wasm_bindgen::prelude::*;
 
 /// Inflation option type.
@@ -202,15 +203,24 @@ impl JsInflationCapFloor {
     }
 
     /// Create from JSON representation.
-    #[wasm_bindgen(js_name = fromJSON)]
+    #[wasm_bindgen(js_name = fromJson)]
     pub fn from_json(value: JsValue) -> Result<JsInflationCapFloor, JsValue> {
         from_js_value(value).map(|inner| JsInflationCapFloor { inner })
     }
 
     /// Convert to JSON representation.
-    #[wasm_bindgen(js_name = toJSON)]
+    #[wasm_bindgen(js_name = toJson)]
     pub fn to_json(&self) -> Result<JsValue, JsValue> {
         to_js_value(&self.inner)
+    }
+
+    /// Get a cashflow view for this inflation cap/floor.
+    ///
+    /// Option payoffs depend on realized inflation; this returns an empty schedule placeholder
+    /// for API consistency.
+    #[wasm_bindgen(js_name = getCashflows)]
+    pub fn get_cashflows(&self) -> Array {
+        Array::new()
     }
 
     #[wasm_bindgen(js_name = toString)]

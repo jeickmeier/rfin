@@ -53,7 +53,7 @@ export const CDSInstrument: React.FC<CDSInstrumentProps> = ({ cdsSwaps, market, 
 
       const cds =
         formState.direction === 'buy_protection'
-          ? CreditDefaultSwap.buyProtection(
+          ? new CreditDefaultSwap(
               'interactive_cds',
               notional,
               formState.spreadBps,
@@ -61,9 +61,10 @@ export const CDSInstrument: React.FC<CDSInstrumentProps> = ({ cdsSwaps, market, 
               maturityDate,
               initialCds?.discountCurveId ?? 'USD-OIS',
               initialCds?.hazardCurveId ?? 'ACME-HZD',
+              'buy_protection',
               null
             )
-          : CreditDefaultSwap.sellProtection(
+          : new CreditDefaultSwap(
               'interactive_cds',
               notional,
               formState.spreadBps,
@@ -71,6 +72,7 @@ export const CDSInstrument: React.FC<CDSInstrumentProps> = ({ cdsSwaps, market, 
               maturityDate,
               initialCds?.discountCurveId ?? 'USD-OIS',
               initialCds?.hazardCurveId ?? 'ACME-HZD',
+              'sell_protection',
               null
             );
 
@@ -131,7 +133,7 @@ export const CDSInstrument: React.FC<CDSInstrumentProps> = ({ cdsSwaps, market, 
 
           const cds =
             cdsData.direction === 'buy_protection'
-              ? CreditDefaultSwap.buyProtection(
+              ? new CreditDefaultSwap(
                   cdsData.id,
                   notional,
                   cdsData.spreadBps,
@@ -139,9 +141,10 @@ export const CDSInstrument: React.FC<CDSInstrumentProps> = ({ cdsSwaps, market, 
                   maturityDate,
                   cdsData.discountCurveId,
                   cdsData.hazardCurveId,
+                  'buy_protection',
                   null
                 )
-              : CreditDefaultSwap.sellProtection(
+              : new CreditDefaultSwap(
                   cdsData.id,
                   notional,
                   cdsData.spreadBps,
@@ -149,6 +152,7 @@ export const CDSInstrument: React.FC<CDSInstrumentProps> = ({ cdsSwaps, market, 
                   maturityDate,
                   cdsData.discountCurveId,
                   cdsData.hazardCurveId,
+                  'sell_protection',
                   null
                 );
 

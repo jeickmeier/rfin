@@ -1,7 +1,10 @@
+use crate::core::dates::date::JsDate;
+use crate::core::money::JsMoney;
 use crate::utils::json::to_js_value;
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::rates::range_accrual::RangeAccrual;
 use finstack_valuations::pricer::InstrumentType;
+use js_sys::Array;
 use wasm_bindgen::prelude::*;
 
 /// Range accrual note (JSON-serializable).
@@ -47,6 +50,34 @@ impl JsRangeAccrual {
     #[wasm_bindgen(js_name = toJson)]
     pub fn to_json(&self) -> Result<JsValue, JsValue> {
         to_js_value(&self.inner)
+    }
+
+    /// Get a simple cashflow view for this range accrual.
+    ///
+    /// This returns a single placeholder cashflow at the payment date (or last observation date),
+    /// since the realized in-range fraction depends on the path of the underlying.
+    #[wasm_bindgen(js_name = getCashflows)]
+    pub fn get_cashflows(&self) -> Result<Array, JsValue> {
+        let pay_date = self
+            .inner
+            .payment_date
+            .unwrap_or_else(|| *self.inner.observation_dates.last().unwrap());
+
+        let entry = Array::new();
+        entry.push(&JsDate::from_core(pay_date).into());
+        entry.push(
+            &JsMoney::from_inner(finstack_core::money::Money::new(
+                0.0,
+                self.inner.notional.currency(),
+            ))
+            .into(),
+        );
+        entry.push(&JsValue::from_str("RangeAccrualPayoff"));
+        entry.push(&JsValue::NULL);
+
+        let result = Array::new();
+        result.push(&entry);
+        Ok(result)
     }
 
     /// Serialize this instrument to a pretty-printed JSON string.

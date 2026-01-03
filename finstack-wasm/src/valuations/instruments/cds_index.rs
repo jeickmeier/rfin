@@ -1,6 +1,7 @@
 use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
+use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
@@ -13,6 +14,7 @@ use finstack_valuations::instruments::credit_derivatives::cds_index::{
 };
 use finstack_valuations::instruments::CreditParams;
 use finstack_valuations::pricer::InstrumentType;
+use js_sys::Array;
 use rust_decimal::prelude::ToPrimitive;
 use wasm_bindgen::prelude::*;
 
@@ -111,6 +113,83 @@ impl JsCDSIndex {
         .map_err(js_error)?;
 
         Ok(JsCDSIndex::from_inner(index))
+    }
+
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(value: JsValue) -> Result<JsCDSIndex, JsValue> {
+        from_js_value(value).map(JsCDSIndex::from_inner)
+    }
+
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
+    }
+
+    /// Get premium-leg cashflows for this CDS index.
+    ///
+    /// Returns an array of cashflow tuples: [date, amount, kind, outstanding_balance]
+    #[wasm_bindgen(js_name = getCashflows)]
+    pub fn get_cashflows(
+        &self,
+        market: &crate::core::market_data::context::JsMarketContext,
+    ) -> Result<Array, JsValue> {
+        use crate::core::dates::date::JsDate;
+        use finstack_core::dates::DayCountCtx;
+        use finstack_valuations::cashflow::builder::build_dates;
+
+        let disc = market
+            .inner()
+            .get_discount(self.inner.premium.discount_curve_id.as_str())
+            .map_err(|e| js_error(e.to_string()))?;
+        let as_of = disc.base_date();
+
+        let sched = build_dates(
+            self.inner.premium.start,
+            self.inner.premium.end,
+            self.inner.premium.freq,
+            self.inner.premium.stub,
+            self.inner.premium.bdc,
+            self.inner.premium.calendar_id.as_deref(),
+        )
+        .map_err(|e| js_error(e.to_string()))?;
+
+        let dates = sched.dates;
+        if dates.len() < 2 {
+            return Ok(Array::new());
+        }
+
+        let spread_decimal = self.inner.premium.spread_bp.to_f64().unwrap_or(0.0) / 10000.0;
+
+        let result = Array::new();
+        let mut prev = dates[0];
+        for &d in &dates[1..] {
+            if d <= as_of {
+                prev = d;
+                continue;
+            }
+            let year_frac = self
+                .inner
+                .premium
+                .dc
+                .year_fraction(prev, d, DayCountCtx::default())
+                .map_err(|e| js_error(e.to_string()))?;
+            let amount = self.inner.notional.amount() * spread_decimal * year_frac;
+            let entry = Array::new();
+            entry.push(&JsDate::from_core(d).into());
+            entry.push(
+                &JsMoney::from_inner(finstack_core::money::Money::new(
+                    amount,
+                    self.inner.notional.currency(),
+                ))
+                .into(),
+            );
+            entry.push(&JsValue::from_str("Premium"));
+            entry.push(&JsValue::NULL);
+            result.push(&entry);
+            prev = d;
+        }
+
+        Ok(result)
     }
 
     #[wasm_bindgen(getter, js_name = instrumentId)]

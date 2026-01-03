@@ -1,5 +1,6 @@
 use crate::core::dates::date::JsDate;
 use crate::core::money::JsMoney;
+use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
@@ -28,16 +29,18 @@ impl InstrumentWrapper for JsSwaption {
 
 #[wasm_bindgen(js_class = Swaption)]
 impl JsSwaption {
-    /// Create a payer swaption (option to enter a payer swap).
+    /// Create a swaption.
     ///
     /// Conventions:
     /// - `strike` is a **decimal rate** (e.g. `0.035` for 3.5% strike).
     /// - `vol_surface` is a volatility surface ID (must exist in `MarketContext` when pricing).
     /// - `exercise` / `settlement` are parsed from strings; unsupported values will throw.
+    /// - `swaption_type`: `"payer"` or `"receiver"`.
     ///
     /// @param instrument_id - Unique identifier
     /// @param notional - Option notional (currency-tagged)
     /// @param strike - Strike swap rate (decimal)
+    /// @param swaption_type - `"payer"` or `"receiver"`
     /// @param expiry - Option expiry date
     /// @param swap_start - Underlying swap start date
     /// @param swap_end - Underlying swap end date
@@ -59,10 +62,11 @@ impl JsSwaption {
     /// import init, { Swaption, Money, FsDate } from "finstack-wasm";
     ///
     /// await init();
-    /// const swpt = Swaption.payer(
+    /// const swpt = new Swaption(
     ///   "swpt_1",
     ///   Money.fromCode(10_000_000, "USD"),
     ///   0.035,
+    ///   "payer",
     ///   new FsDate(2025, 1, 2),
     ///   new FsDate(2025, 1, 2),
     ///   new FsDate(2030, 1, 2),
@@ -78,12 +82,13 @@ impl JsSwaption {
     ///   "usny"
     /// );
     /// ```
-    #[wasm_bindgen(js_name = payer)]
     #[allow(clippy::too_many_arguments)]
-    pub fn payer(
+    #[wasm_bindgen(constructor)]
+    pub fn new(
         instrument_id: &str,
         notional: &JsMoney,
         strike: f64,
+        swaption_type: &str,
         expiry: &JsDate,
         swap_start: &JsDate,
         swap_end: &JsDate,
@@ -103,21 +108,45 @@ impl JsSwaption {
         let settlement_type =
             parse_optional_with_default(settlement, SwaptionSettlement::Physical)?;
 
-        let params = SwaptionParams::payer(
-            notional.inner(),
-            strike,
-            expiry.inner(),
-            swap_start.inner(),
-            swap_end.inner(),
-        );
+        let params = match swaption_type.to_lowercase().as_str() {
+            "payer" => SwaptionParams::payer(
+                notional.inner(),
+                strike,
+                expiry.inner(),
+                swap_start.inner(),
+                swap_end.inner(),
+            ),
+            "receiver" => SwaptionParams::receiver(
+                notional.inner(),
+                strike,
+                expiry.inner(),
+                swap_start.inner(),
+                swap_end.inner(),
+            ),
+            other => {
+                return Err(JsValue::from_str(&format!(
+                    "Invalid swaption_type '{other}'; expected 'payer' or 'receiver'"
+                )));
+            }
+        };
 
-        let mut swaption = Swaption::new_payer(
-            instrument_id_from_str(instrument_id),
-            &params,
-            curve_id_from_str(discount_curve),
-            curve_id_from_str(forward_curve),
-            vol_surface_id,
-        );
+        let mut swaption = match swaption_type.to_lowercase().as_str() {
+            "payer" => Swaption::new_payer(
+                instrument_id_from_str(instrument_id),
+                &params,
+                curve_id_from_str(discount_curve),
+                curve_id_from_str(forward_curve),
+                vol_surface_id,
+            ),
+            "receiver" => Swaption::new_receiver(
+                instrument_id_from_str(instrument_id),
+                &params,
+                curve_id_from_str(discount_curve),
+                curve_id_from_str(forward_curve),
+                vol_surface_id,
+            ),
+            _ => unreachable!("validated above"),
+        };
         swaption.exercise = exercise_style;
         swaption.settlement = settlement_type;
         if let Some(f) = fixed_frequency {
@@ -140,90 +169,16 @@ impl JsSwaption {
         Ok(JsSwaption::from_inner(swaption))
     }
 
-    /// Create a receiver swaption (option to enter a receiver swap).
-    ///
-    /// Conventions:
-    /// - `strike` is a **decimal rate**.
-    /// - `vol_surface` is a volatility surface ID (must exist in `MarketContext` when pricing).
-    ///
-    /// @param instrument_id - Unique identifier
-    /// @param notional - Option notional (currency-tagged)
-    /// @param strike - Strike swap rate (decimal)
-    /// @param expiry - Option expiry date
-    /// @param swap_start - Underlying swap start date
-    /// @param swap_end - Underlying swap end date
-    /// @param discount_curve - Discount curve ID
-    /// @param forward_curve - Forward curve ID
-    /// @param vol_surface - Vol surface ID
-    /// @param exercise - Optional exercise style
-    /// @param settlement - Optional settlement style
-    /// @param fixed_frequency - Optional fixed leg frequency
-    /// @param float_frequency - Optional float leg frequency
-    /// @param day_count - Optional day count for the underlying swap schedule
-    /// @param business_day_convention - Optional business day convention
-    /// @param calendar_id - Optional calendar code
-    /// @returns A new `Swaption`
-    /// @throws {Error} If inputs are invalid or parsing fails
-    #[wasm_bindgen(js_name = receiver)]
-    #[allow(clippy::too_many_arguments)]
-    pub fn receiver(
-        instrument_id: &str,
-        notional: &JsMoney,
-        strike: f64,
-        expiry: &JsDate,
-        swap_start: &JsDate,
-        swap_end: &JsDate,
-        discount_curve: &str,
-        forward_curve: &str,
-        vol_surface: &str,
-        exercise: Option<String>,
-        settlement: Option<String>,
-        fixed_frequency: Option<crate::core::dates::daycount::JsTenor>,
-        float_frequency: Option<crate::core::dates::daycount::JsTenor>,
-        day_count: Option<crate::core::dates::daycount::JsDayCount>,
-        business_day_convention: Option<crate::core::dates::calendar::JsBusinessDayConvention>,
-        calendar_id: Option<String>,
-    ) -> Result<JsSwaption, JsValue> {
-        let vol_surface_id = curve_id_from_str(vol_surface);
-        let exercise_style = parse_optional_with_default(exercise, SwaptionExercise::European)?;
-        let settlement_type =
-            parse_optional_with_default(settlement, SwaptionSettlement::Physical)?;
+    /// Parse a swaption from a JSON value (as produced by `toJson`).
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(value: JsValue) -> Result<JsSwaption, JsValue> {
+        from_js_value(value).map(JsSwaption::from_inner)
+    }
 
-        let params = SwaptionParams::receiver(
-            notional.inner(),
-            strike,
-            expiry.inner(),
-            swap_start.inner(),
-            swap_end.inner(),
-        );
-
-        let mut swaption = Swaption::new_receiver(
-            instrument_id_from_str(instrument_id),
-            &params,
-            curve_id_from_str(discount_curve),
-            curve_id_from_str(forward_curve),
-            vol_surface_id,
-        );
-        swaption.exercise = exercise_style;
-        swaption.settlement = settlement_type;
-        if let Some(f) = fixed_frequency {
-            swaption.fixed_freq = f.inner();
-        }
-        if let Some(f) = float_frequency {
-            swaption.float_freq = f.inner();
-        }
-        if let Some(dc) = day_count {
-            swaption.day_count = dc.inner();
-        }
-        if let Some(b) = business_day_convention {
-            let bdc: finstack_core::dates::BusinessDayConvention = b.into();
-            let _ = bdc;
-        }
-        if let Some(cal) = calendar_id {
-            let _ = cal;
-        }
-
-        Ok(JsSwaption::from_inner(swaption))
+    /// Serialize this swaption to a JSON value.
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
     }
 
     #[wasm_bindgen(getter, js_name = instrumentId)]

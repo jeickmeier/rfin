@@ -5,6 +5,7 @@ use crate::core::dates::frequency::JsFrequency;
 use crate::core::dates::schedule::JsStubKind;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
+use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::cashflow::JsAmortizationSpec;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
@@ -205,7 +206,7 @@ impl JsBond {
     /// ```
     #[wasm_bindgen(constructor)]
     #[allow(clippy::too_many_arguments)]
-    pub fn builder(
+    pub fn new(
         instrument_id: &str,
         notional: &JsMoney,
         issue: &JsDate,
@@ -329,365 +330,23 @@ impl JsBond {
             .map_err(|e| js_error(e.to_string()))
     }
 
-    /// Create a simple fixed-rate bond with semi-annual coupons.
+    /// Parse a bond from a JSON value (as produced by `toJson`).
     ///
-    /// Conventions:
-    /// - `coupon_rate` is a **decimal rate** (e.g. `0.05` for 5%).
-    /// - `quoted_clean_price` is a **clean price** in **percent of par** (e.g. `99.25`).
-    ///
-    /// @param instrument_id - Unique identifier
-    /// @param notional - Face amount (currency-tagged)
-    /// @param coupon_rate - Annual coupon rate (decimal)
-    /// @param issue - Issue date
-    /// @param maturity - Maturity date
-    /// @param discount_curve - Discount curve ID (must exist in `MarketContext` when pricing)
-    /// @param quoted_clean_price - Optional clean price override (percent of par)
+    /// @param value - JSON value matching the Bond schema
     /// @returns A new `Bond`
-    ///
-    /// @example
-    /// ```javascript
-    /// import init, { Bond, Money, FsDate } from "finstack-wasm";
-    ///
-    /// await init();
-    /// const bond = Bond.fixedSemiannual(
-    ///   "bond_1",
-    ///   Money.fromCode(1_000_000, "USD"),
-    ///   0.05,
-    ///   new FsDate(2024, 1, 2),
-    ///   new FsDate(2034, 1, 2),
-    ///   "USD-OIS",
-    ///   99.25
-    /// );
-    /// ```
-    #[wasm_bindgen(js_name = fixedSemiannual)]
-    #[allow(clippy::too_many_arguments)]
-    pub fn fixed_semiannual(
-        instrument_id: &str,
-        notional: &JsMoney,
-        coupon_rate: f64,
-        issue: &JsDate,
-        maturity: &JsDate,
-        discount_curve: &str,
-        quoted_clean_price: Option<f64>,
-    ) -> JsBond {
-        let mut bond = Bond::fixed(
-            instrument_id_from_str(instrument_id),
-            notional.inner(),
-            coupon_rate,
-            issue.inner(),
-            maturity.inner(),
-            curve_id_from_str(discount_curve),
-        )
-        .expect("Bond::fixed should succeed with valid parameters");
-        if let Some(price) = quoted_clean_price {
-            bond.pricing_overrides = PricingOverrides::default().with_clean_price(price);
-        }
-        JsBond::from_inner(bond)
+    /// @throws {Error} If deserialization fails
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(value: JsValue) -> Result<JsBond, JsValue> {
+        from_js_value(value).map(JsBond::from_inner)
     }
 
-    /// Create a US Treasury-style bond using the `USTreasury` convention.
+    /// Serialize this bond to a JSON value.
     ///
-    /// @param instrument_id - Unique identifier
-    /// @param notional - Face amount (currency-tagged)
-    /// @param coupon_rate - Annual coupon rate (decimal)
-    /// @param issue - Issue date
-    /// @param maturity - Maturity date
-    /// @param discount_curve - Discount curve ID
-    /// @param quoted_clean_price - Optional clean price override (percent of par)
-    /// @returns A new `Bond`
-    #[wasm_bindgen(js_name = treasury)]
-    pub fn treasury(
-        instrument_id: &str,
-        notional: &JsMoney,
-        coupon_rate: f64,
-        issue: &JsDate,
-        maturity: &JsDate,
-        discount_curve: &str,
-        quoted_clean_price: Option<f64>,
-    ) -> JsBond {
-        use finstack_valuations::instruments::BondConvention;
-        let mut bond = Bond::with_convention(
-            instrument_id_from_str(instrument_id),
-            notional.inner(),
-            coupon_rate,
-            issue.inner(),
-            maturity.inner(),
-            BondConvention::USTreasury,
-            discount_curve,
-        )
-        .expect("Bond::with_convention should succeed for US Treasury");
-        if let Some(price) = quoted_clean_price {
-            bond.pricing_overrides = PricingOverrides::default().with_clean_price(price);
-        }
-        JsBond::from_inner(bond)
-    }
-
-    /// Create a zero-coupon bond.
-    ///
-    /// @param instrument_id - Unique identifier
-    /// @param notional - Face amount (currency-tagged)
-    /// @param issue - Issue date
-    /// @param maturity - Maturity date
-    /// @param discount_curve - Discount curve ID
-    /// @param quoted_clean_price - Optional clean price override (percent of par)
-    /// @returns A new `Bond`
-    #[wasm_bindgen(js_name = zeroCoupon)]
-    pub fn zero_coupon(
-        instrument_id: &str,
-        notional: &JsMoney,
-        issue: &JsDate,
-        maturity: &JsDate,
-        discount_curve: &str,
-        quoted_clean_price: Option<f64>,
-    ) -> JsBond {
-        let mut bond = Bond::fixed(
-            instrument_id_from_str(instrument_id),
-            notional.inner(),
-            0.0, // Zero coupon
-            issue.inner(),
-            maturity.inner(),
-            curve_id_from_str(discount_curve),
-        )
-        .expect("Bond::fixed should succeed with valid parameters");
-        if let Some(price) = quoted_clean_price {
-            bond.pricing_overrides = PricingOverrides::default().with_clean_price(price);
-        }
-        JsBond::from_inner(bond)
-    }
-
-    /// Create a floating-rate bond with a single forward index and margin.
-    ///
-    /// Conventions:
-    /// - `margin_bp` is in **basis points** (e.g. `150.0` for +150bp).
-    /// - The underlying forward index is provided by `forward_curve` (curve ID).
-    ///
-    /// @param instrument_id - Unique identifier
-    /// @param notional - Face amount (currency-tagged)
-    /// @param issue - Issue date
-    /// @param maturity - Maturity date
-    /// @param discount_curve - Discount curve ID
-    /// @param forward_curve - Forward curve ID (e.g. `"USD-SOFR-3M"`)
-    /// @param margin_bp - Spread in basis points
-    /// @param quoted_clean_price - Optional clean price override (percent of par)
-    /// @returns A new `Bond`
-    /// @throws {Error} If construction fails due to invalid inputs
-    #[wasm_bindgen(js_name = floating)]
-    #[allow(clippy::too_many_arguments)]
-    pub fn floating(
-        instrument_id: &str,
-        notional: &JsMoney,
-        issue: &JsDate,
-        maturity: &JsDate,
-        discount_curve: &str,
-        forward_curve: &str,
-        margin_bp: f64,
-        quoted_clean_price: Option<f64>,
-    ) -> Result<JsBond, JsValue> {
-        use finstack_core::dates::{DayCount, Tenor};
-
-        let pricing_overrides = if let Some(price) = quoted_clean_price {
-            PricingOverrides::default().with_clean_price(price)
-        } else {
-            PricingOverrides::default()
-        };
-
-        let mut bond = Bond::floating(
-            instrument_id,
-            notional.inner(),
-            curve_id_from_str(forward_curve),
-            margin_bp,
-            issue.inner(),
-            maturity.inner(),
-            Tenor::quarterly(),
-            DayCount::Act360,
-            curve_id_from_str(discount_curve),
-        )
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
-        bond.pricing_overrides = pricing_overrides;
-        Ok(JsBond::from_inner(bond))
-    }
-
-    /// Create a bond with a split cash/PIK coupon.
-    ///
-    /// Conventions:
-    /// - `coupon_rate` is a **decimal rate**.
-    /// - `cash_pct` / `pik_pct` are fractions in **decimal** (typically sum to 1.0).
-    /// - Requires a `MarketContext` to build floating/curve-aware schedules.
-    ///
-    /// @param instrument_id - Unique identifier
-    /// @param notional - Face amount (currency-tagged)
-    /// @param coupon_rate - Annual coupon rate (decimal)
-    /// @param cash_pct - Fraction of coupon paid in cash (decimal)
-    /// @param pik_pct - Fraction of coupon paid in PIK (decimal)
-    /// @param issue - Issue date
-    /// @param maturity - Maturity date
-    /// @param discount_curve - Discount curve ID
-    /// @param quoted_clean_price - Optional clean price override (percent of par)
-    /// @param market - Market context (used to build schedule)
-    /// @returns A new `Bond`
-    /// @throws {Error} If schedule construction fails
-    ///
-    /// @example
-    /// ```javascript
-    /// import init, { Bond, Money, FsDate, MarketContext } from "finstack-wasm";
-    ///
-    /// await init();
-    /// const market = new MarketContext();
-    /// const bond = Bond.pikToggle(
-    ///   "pik_1",
-    ///   Money.fromCode(1_000_000, "USD"),
-    ///   0.12,
-    ///   0.5,
-    ///   0.5,
-    ///   new FsDate(2024, 1, 2),
-    ///   new FsDate(2029, 1, 2),
-    ///   "USD-OIS",
-    ///   null,
-    ///   market
-    /// );
-    /// ```
-    #[wasm_bindgen(js_name = pikToggle)]
-    #[allow(clippy::too_many_arguments)]
-    pub fn pik_toggle(
-        instrument_id: &str,
-        notional: &JsMoney,
-        coupon_rate: f64,
-        cash_pct: f64,
-        pik_pct: f64,
-        issue: &JsDate,
-        maturity: &JsDate,
-        discount_curve: &str,
-        quoted_clean_price: Option<f64>,
-        market: &crate::core::market_data::context::JsMarketContext,
-    ) -> Result<JsBond, JsValue> {
-        use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
-        use finstack_valuations::cashflow::builder::{
-            CashFlowSchedule, CouponType, FixedCouponSpec,
-        };
-
-        // Build cashflow schedule with PIK split
-        let custom_schedule = CashFlowSchedule::builder()
-            .principal(notional.inner(), issue.inner(), maturity.inner())
-            .fixed_cf(FixedCouponSpec {
-                coupon_type: CouponType::Split {
-                    cash_pct: rust_decimal::Decimal::from_f64_retain(cash_pct).unwrap_or_default(),
-                    pik_pct: rust_decimal::Decimal::from_f64_retain(pik_pct).unwrap_or_default(),
-                },
-                rate: rust_decimal::Decimal::from_f64_retain(coupon_rate).unwrap_or_default(),
-                freq: Tenor::semi_annual(),
-                dc: DayCount::Thirty360,
-                bdc: BusinessDayConvention::Following,
-                calendar_id: None,
-                stub: StubKind::None,
-            })
-            .build_with_curves(Some(market.inner()))
-            .map_err(|e| js_error(e.to_string()))?;
-
-        Bond::from_cashflows(
-            instrument_id_from_str(instrument_id),
-            custom_schedule,
-            curve_id_from_str(discount_curve),
-            quoted_clean_price,
-        )
-        .map(JsBond::from_inner)
-        .map_err(|e| js_error(e.to_string()))
-    }
-
-    /// Create a bond that switches from fixed to floating coupons on a given date.
-    ///
-    /// Conventions:
-    /// - `fixed_rate` is a **decimal rate**.
-    /// - `margin_bp` is in **basis points**.
-    /// - Requires a `MarketContext` to build the schedule.
-    ///
-    /// @param instrument_id - Unique identifier
-    /// @param notional - Face amount (currency-tagged)
-    /// @param fixed_rate - Fixed coupon rate before switch (decimal)
-    /// @param switch_date - Date where floating coupons begin
-    /// @param forward_curve - Forward curve ID for floating coupons
-    /// @param margin_bp - Floating spread in bps
-    /// @param issue - Issue date
-    /// @param maturity - Maturity date
-    /// @param frequency - Coupon frequency
-    /// @param day_count - Day count convention
-    /// @param discount_curve - Discount curve ID
-    /// @param quoted_clean_price - Optional clean price override (percent of par)
-    /// @param market - Market context (used to build schedule)
-    /// @returns A new `Bond`
-    /// @throws {Error} If schedule construction fails
-    #[wasm_bindgen(js_name = fixedToFloating)]
-    #[allow(clippy::too_many_arguments)]
-    pub fn fixed_to_floating(
-        instrument_id: &str,
-        notional: &JsMoney,
-        fixed_rate: f64,
-        switch_date: &JsDate,
-        forward_curve: &str,
-        margin_bp: f64,
-        issue: &JsDate,
-        maturity: &JsDate,
-        frequency: &JsFrequency,
-        day_count: &JsDayCount,
-        discount_curve: &str,
-        quoted_clean_price: Option<f64>,
-        market: &crate::core::market_data::context::JsMarketContext,
-    ) -> Result<JsBond, JsValue> {
-        use finstack_core::dates::{BusinessDayConvention, StubKind};
-        use finstack_valuations::cashflow::builder::{
-            CashFlowSchedule, CouponType, FloatCouponParams, ScheduleParams,
-        };
-
-        // Build cashflow schedule with fixed then floating windows
-        let mut b = CashFlowSchedule::builder();
-        let _ = b.principal(notional.inner(), issue.inner(), maturity.inner());
-
-        // Fixed window: issue to switch date
-        let _ = b.add_fixed_coupon_window(
-            issue.inner(),
-            switch_date.inner(),
-            fixed_rate,
-            ScheduleParams {
-                freq: frequency.inner(),
-                dc: day_count.inner(),
-                bdc: BusinessDayConvention::Following,
-                calendar_id: None,
-                stub: StubKind::None,
-            },
-            CouponType::Cash,
-        );
-
-        // Floating window: switch date to maturity
-        let _ = b.add_float_coupon_window(
-            switch_date.inner(),
-            maturity.inner(),
-            FloatCouponParams {
-                index_id: curve_id_from_str(forward_curve),
-                margin_bp: rust_decimal::Decimal::from_f64_retain(margin_bp).unwrap_or_default(),
-                gearing: rust_decimal::Decimal::ONE,
-                reset_lag_days: 2,
-            },
-            ScheduleParams {
-                freq: frequency.inner(),
-                dc: day_count.inner(),
-                bdc: BusinessDayConvention::Following,
-                calendar_id: None,
-                stub: StubKind::None,
-            },
-            CouponType::Cash,
-        );
-
-        let custom_schedule = b
-            .build_with_curves(Some(market.inner()))
-            .map_err(|e| js_error(e.to_string()))?;
-
-        Bond::from_cashflows(
-            instrument_id_from_str(instrument_id),
-            custom_schedule,
-            curve_id_from_str(discount_curve),
-            quoted_clean_price,
-        )
-        .map(JsBond::from_inner)
-        .map_err(|e| js_error(e.to_string()))
+    /// @returns JSON value
+    /// @throws {Error} If serialization fails
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
     }
 
     #[wasm_bindgen(getter, js_name = instrumentId)]

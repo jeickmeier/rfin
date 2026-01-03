@@ -1,5 +1,6 @@
 use crate::core::dates::date::JsDate;
 use crate::core::money::JsMoney;
+use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::{
     curve_id_from_str, instrument_id_from_str, parameters::JsBarrierType as JsMcBarrierType,
 };
@@ -74,7 +75,7 @@ impl JsBarrierOption {
     /// ```
     #[wasm_bindgen(constructor)]
     #[allow(clippy::too_many_arguments)]
-    pub fn builder(
+    pub fn new(
         instrument_id: &str,
         ticker: &str,
         strike: f64,
@@ -138,6 +139,16 @@ impl JsBarrierOption {
             .build()
             .map(JsBarrierOption::from_inner)
             .map_err(|e| js_error(e.to_string()))
+    }
+
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(value: JsValue) -> Result<JsBarrierOption, JsValue> {
+        from_js_value(value).map(JsBarrierOption::from_inner)
+    }
+
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
     }
 
     #[wasm_bindgen(getter, js_name = instrumentId)]

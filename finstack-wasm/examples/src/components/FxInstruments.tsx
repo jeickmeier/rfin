@@ -141,22 +141,24 @@ export const FxInstrumentsExample: React.FC<FxInstrumentsProps> = (props) => {
 
           const option =
             opt.optionType === 'call'
-              ? FxOption.europeanCall(
+              ? new FxOption(
                   opt.id,
                   baseCcy,
                   quoteCcy,
                   opt.strike,
+                  'call',
                   expiryDate,
                   notional,
                   opt.domesticCurveId,
                   opt.foreignCurveId,
                   opt.volSurfaceId
                 )
-              : FxOption.europeanPut(
+              : new FxOption(
                   opt.id,
                   baseCcy,
                   quoteCcy,
                   opt.strike,
+                  'put',
                   expiryDate,
                   notional,
                   opt.domesticCurveId,

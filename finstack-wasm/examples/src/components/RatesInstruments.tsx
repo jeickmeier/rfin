@@ -246,10 +246,11 @@ export const RatesInstrumentsExample: React.FC<RatesInstrumentsProps> = (props) 
 
           const swaption =
             swaptionData.optionType === 'payer'
-              ? Swaption.payer(
+              ? new Swaption(
                   swaptionData.id,
                   notional,
                   swaptionData.strike,
+                  'payer',
                   optionExpiry,
                   swapStart,
                   swapEnd,
@@ -262,10 +263,11 @@ export const RatesInstrumentsExample: React.FC<RatesInstrumentsProps> = (props) 
                   null,
                   null
                 )
-              : Swaption.receiver(
+              : new Swaption(
                   swaptionData.id,
                   notional,
                   swaptionData.strike,
+                  'receiver',
                   optionExpiry,
                   swapStart,
                   swapEnd,

@@ -2,6 +2,7 @@
 
 use crate::core::currency::JsCurrency;
 use crate::core::dates::date::JsDate;
+use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_forward::{
@@ -162,6 +163,16 @@ impl JsCommodityForward {
     #[wasm_bindgen(getter, js_name = contractMonth)]
     pub fn contract_month(&self) -> Option<String> {
         self.inner.contract_month.clone()
+    }
+
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(value: JsValue) -> Result<JsCommodityForward, JsValue> {
+        from_js_value(value).map(JsCommodityForward::from_inner)
+    }
+
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
     }
 
     #[wasm_bindgen(js_name = instrumentType)]

@@ -2,6 +2,7 @@ use crate::utils::json::to_js_value;
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::rates::cms_option::CmsOption;
 use finstack_valuations::pricer::InstrumentType;
+use js_sys::Array;
 use wasm_bindgen::prelude::*;
 
 /// CMS option (option on a swap rate) (JSON-serializable).
@@ -47,6 +48,15 @@ impl JsCmsOption {
     #[wasm_bindgen(js_name = toJson)]
     pub fn to_json(&self) -> Result<JsValue, JsValue> {
         to_js_value(&self.inner)
+    }
+
+    /// Get a cashflow view for this CMS option.
+    ///
+    /// Option payoffs are path-dependent on the underlying swap rate; this returns an empty
+    /// schedule placeholder for API consistency.
+    #[wasm_bindgen(js_name = getCashflows)]
+    pub fn get_cashflows(&self) -> Array {
+        Array::new()
     }
 
     /// Serialize this instrument to a pretty-printed JSON string.

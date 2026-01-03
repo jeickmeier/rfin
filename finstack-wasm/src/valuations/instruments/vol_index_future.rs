@@ -3,6 +3,7 @@
 use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
+use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
@@ -116,6 +117,16 @@ impl JsVolatilityIndexFuture {
     #[wasm_bindgen(getter, js_name = quotedPrice)]
     pub fn quoted_price(&self) -> f64 {
         self.inner.quoted_price
+    }
+
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(value: JsValue) -> Result<JsVolatilityIndexFuture, JsValue> {
+        from_js_value(value).map(JsVolatilityIndexFuture::from_inner)
+    }
+
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
     }
 
     #[wasm_bindgen(js_name = instrumentType)]

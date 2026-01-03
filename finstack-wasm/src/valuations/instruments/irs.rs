@@ -3,10 +3,12 @@ use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::{JsDayCount, JsTenor};
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
+use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::rates::irs::InterestRateSwap;
 use finstack_valuations::pricer::InstrumentType;
+use js_sys::Array;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = InterestRateSwap)]
@@ -160,6 +162,57 @@ impl JsInterestRateSwap {
             .build()
             .map_err(|e| js_error(e.to_string()))?;
         Ok(JsInterestRateSwap::from_inner(swap))
+    }
+
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(value: JsValue) -> Result<JsInterestRateSwap, JsValue> {
+        from_js_value(value).map(JsInterestRateSwap::from_inner)
+    }
+
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
+    }
+
+    /// Get cashflows for this swap (both legs).
+    ///
+    /// Returns an array of cashflow tuples: [date, amount, kind, outstanding_balance]
+    #[wasm_bindgen(js_name = getCashflows)]
+    pub fn get_cashflows(
+        &self,
+        market: &crate::core::market_data::context::JsMarketContext,
+    ) -> Result<Array, JsValue> {
+        use crate::core::money::JsMoney;
+        use finstack_valuations::cashflow::CashflowProvider;
+
+        let disc = market
+            .inner()
+            .get_discount(self.inner.fixed.discount_curve_id.as_str())
+            .map_err(|e| js_error(e.to_string()))?;
+        let as_of = disc.base_date();
+
+        let sched = self
+            .inner
+            .build_full_schedule(market.inner(), as_of)
+            .map_err(|e| js_error(e.to_string()))?;
+        let outstanding_path = sched
+            .outstanding_path_per_flow()
+            .map_err(|e| js_error(e.to_string()))?;
+
+        let result = Array::new();
+        for (idx, cf) in sched.flows.iter().enumerate() {
+            let entry = Array::new();
+            entry.push(&JsDate::from_core(cf.date).into());
+            entry.push(&JsMoney::from_inner(cf.amount).into());
+            entry.push(&JsValue::from_str(&format!("{:?}", cf.kind)));
+            let outstanding = outstanding_path
+                .get(idx)
+                .map(|(_, m)| m.amount())
+                .unwrap_or(0.0);
+            entry.push(&JsValue::from_f64(outstanding));
+            result.push(&entry);
+        }
+        Ok(result)
     }
 
     #[wasm_bindgen(getter, js_name = instrumentId)]

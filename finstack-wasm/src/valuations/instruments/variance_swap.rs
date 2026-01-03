@@ -2,6 +2,7 @@ use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::JsTenor;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
+use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
@@ -163,6 +164,16 @@ impl JsVarianceSwap {
     #[wasm_bindgen(getter, js_name = strikeVariance)]
     pub fn strike_variance(&self) -> f64 {
         self.inner.strike_variance
+    }
+
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(value: JsValue) -> Result<JsVarianceSwap, JsValue> {
+        from_js_value(value).map(JsVarianceSwap::from_inner)
+    }
+
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
     }
 
     #[wasm_bindgen(js_name = instrumentType)]

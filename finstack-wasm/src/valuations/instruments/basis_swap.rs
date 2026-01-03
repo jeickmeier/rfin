@@ -1,12 +1,14 @@
 use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
+use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_valuations::instruments::rates::basis_swap::{BasisSwap, BasisSwapLeg};
 use finstack_valuations::pricer::InstrumentType;
+use js_sys::Array;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = BasisSwapLeg)]
@@ -153,6 +155,111 @@ impl JsBasisSwap {
             .build()
             .map(JsBasisSwap::from_inner)
             .map_err(|e| js_error(e.to_string()))
+    }
+
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(value: JsValue) -> Result<JsBasisSwap, JsValue> {
+        from_js_value(value).map(JsBasisSwap::from_inner)
+    }
+
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
+    }
+
+    /// Get projected floating-leg cashflows for this basis swap.
+    ///
+    /// Returns an array of cashflow tuples: [date, amount, kind, outstanding_balance]
+    #[wasm_bindgen(js_name = getCashflows)]
+    pub fn get_cashflows(
+        &self,
+        market: &crate::core::market_data::context::JsMarketContext,
+    ) -> Result<Array, JsValue> {
+        use finstack_core::dates::DateExt;
+        use finstack_core::dates::DayCountCtx;
+
+        let disc = market
+            .inner()
+            .get_discount(self.inner.discount_curve_id.as_str())
+            .map_err(|e| js_error(e.to_string()))?;
+        let as_of = disc.base_date();
+
+        let result = Array::new();
+
+        for (leg_kind, sign, leg) in [
+            ("PrimaryFloat", 1.0, &self.inner.primary_leg),
+            ("ReferenceFloat", -1.0, &self.inner.reference_leg),
+        ] {
+            let schedule = self
+                .inner
+                .leg_schedule(leg)
+                .map_err(|e| js_error(e.to_string()))?;
+            if schedule.dates.len() < 2 {
+                continue;
+            }
+
+            let fwd = market
+                .inner()
+                .get_forward(leg.forward_curve_id.as_str())
+                .map_err(|e| js_error(e.to_string()))?;
+            let fwd_dc = fwd.day_count();
+            let fwd_base = fwd.base_date();
+
+            let cal = if let Some(id) = self.inner.calendar_id.as_deref() {
+                finstack_core::dates::CalendarRegistry::global().resolve_str(id)
+            } else {
+                None
+            };
+
+            for i in 1..schedule.dates.len() {
+                let period_start = schedule.dates[i - 1];
+                let period_end = schedule.dates[i];
+
+                let payment_date = if leg.payment_lag_days == 0 {
+                    period_end
+                } else if let Some(cal) = cal {
+                    period_end
+                        .add_business_days(leg.payment_lag_days, cal)
+                        .map_err(|e| js_error(e.to_string()))?
+                } else {
+                    period_end + time::Duration::days(leg.payment_lag_days as i64)
+                };
+
+                if payment_date <= as_of {
+                    continue;
+                }
+
+                let t_start = fwd_dc
+                    .year_fraction(fwd_base, period_start, DayCountCtx::default())
+                    .map_err(|e| js_error(e.to_string()))?;
+                let t_end = fwd_dc
+                    .year_fraction(fwd_base, period_end, DayCountCtx::default())
+                    .map_err(|e| js_error(e.to_string()))?;
+                let forward_rate = fwd.rate_period(t_start, t_end);
+
+                let accrual = leg
+                    .day_count
+                    .year_fraction(period_start, period_end, DayCountCtx::default())
+                    .map_err(|e| js_error(e.to_string()))?;
+
+                let coupon =
+                    sign * self.inner.notional.amount() * (forward_rate + leg.spread) * accrual;
+                let entry = Array::new();
+                entry.push(&JsDate::from_core(payment_date).into());
+                entry.push(
+                    &JsMoney::from_inner(finstack_core::money::Money::new(
+                        coupon,
+                        self.inner.notional.currency(),
+                    ))
+                    .into(),
+                );
+                entry.push(&JsValue::from_str(leg_kind));
+                entry.push(&JsValue::NULL);
+                result.push(&entry);
+            }
+        }
+
+        Ok(result)
     }
 
     #[wasm_bindgen(getter, js_name = instrumentId)]

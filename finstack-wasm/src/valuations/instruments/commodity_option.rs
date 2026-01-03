@@ -163,13 +163,13 @@ impl JsCommodityOption {
     }
 
     /// Create from JSON representation.
-    #[wasm_bindgen(js_name = fromJSON)]
+    #[wasm_bindgen(js_name = fromJson)]
     pub fn from_json(value: JsValue) -> Result<JsCommodityOption, JsValue> {
         from_js_value(value).map(|inner| JsCommodityOption { inner })
     }
 
     /// Convert to JSON representation.
-    #[wasm_bindgen(js_name = toJSON)]
+    #[wasm_bindgen(js_name = toJson)]
     pub fn to_json(&self) -> Result<JsValue, JsValue> {
         to_js_value(&self.inner)
     }
