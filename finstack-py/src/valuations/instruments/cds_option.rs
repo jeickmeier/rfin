@@ -10,6 +10,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use std::sync::Arc;
 
 const STANDARD_RECOVERY_SENIOR: f64 = 0.40;
 
@@ -38,12 +39,14 @@ fn parse_option_type(label: Option<&str>) -> PyResult<OptionType> {
 #[pyclass(module = "finstack.valuations.instruments", name = "CdsOption", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyCdsOption {
-    pub(crate) inner: CdsOption,
+    pub(crate) inner: Arc<CdsOption>,
 }
 
 impl PyCdsOption {
     pub(crate) fn new(inner: CdsOption) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

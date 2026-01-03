@@ -24,6 +24,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRef, PyRefMut};
 use std::fmt;
+use std::sync::Arc;
 
 use finstack_valuations::cashflow::builder::specs::{
     CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
@@ -33,12 +34,14 @@ use finstack_valuations::cashflow::builder::specs::{
 #[pyclass(module = "finstack.valuations.instruments", name = "Bond", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyBond {
-    pub(crate) inner: Bond,
+    pub(crate) inner: Arc<Bond>,
 }
 
 impl PyBond {
     pub(crate) fn new(inner: Bond) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

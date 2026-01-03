@@ -6,6 +6,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::Bound;
+use std::sync::Arc;
 
 /// Autocallable structured product instrument.
 #[pyclass(
@@ -15,12 +16,14 @@ use pyo3::Bound;
 )]
 #[derive(Clone, Debug)]
 pub struct PyAutocallable {
-    pub(crate) inner: Autocallable,
+    pub(crate) inner: Arc<Autocallable>,
 }
 
 impl PyAutocallable {
     pub(crate) fn new(inner: Autocallable) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

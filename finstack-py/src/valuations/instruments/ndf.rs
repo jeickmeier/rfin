@@ -14,6 +14,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRef, PyRefMut};
 use std::fmt;
+use std::sync::Arc;
 
 /// Non-Deliverable Forward (NDF) instrument.
 ///
@@ -58,12 +59,14 @@ use std::fmt;
 #[pyclass(module = "finstack.valuations.instruments", name = "Ndf", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyNdf {
-    pub(crate) inner: Ndf,
+    pub(crate) inner: Arc<Ndf>,
 }
 
 impl PyNdf {
     pub(crate) fn new(inner: Ndf) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

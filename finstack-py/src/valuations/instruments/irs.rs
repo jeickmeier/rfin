@@ -23,6 +23,7 @@ use pyo3::{
     Bound, Py, PyRef, PyRefMut,
 };
 use std::fmt;
+use std::sync::Arc;
 
 /// Pay/receive direction for swap fixed-leg cashflows.
 #[pyclass(
@@ -110,12 +111,14 @@ impl fmt::Display for PyPayReceive {
 )]
 #[derive(Clone, Debug)]
 pub struct PyInterestRateSwap {
-    pub(crate) inner: InterestRateSwap,
+    pub(crate) inner: Arc<InterestRateSwap>,
 }
 
 impl PyInterestRateSwap {
     pub(crate) fn new(inner: InterestRateSwap) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

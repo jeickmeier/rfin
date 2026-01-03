@@ -10,6 +10,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use std::sync::Arc;
 
 fn parse_frequency(label: Option<&str>) -> PyResult<Tenor> {
     crate::valuations::common::parse_frequency_label(label)
@@ -142,12 +143,14 @@ impl PyBasisSwapLeg {
 #[pyclass(module = "finstack.valuations.instruments", name = "BasisSwap", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyBasisSwap {
-    pub(crate) inner: BasisSwap,
+    pub(crate) inner: Arc<BasisSwap>,
 }
 
 impl PyBasisSwap {
     pub(crate) fn new(inner: BasisSwap) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

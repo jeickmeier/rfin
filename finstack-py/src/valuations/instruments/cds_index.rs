@@ -16,6 +16,7 @@ use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use rust_decimal::prelude::ToPrimitive;
 use std::fmt;
+use std::sync::Arc;
 
 const STANDARD_RECOVERY_SENIOR: f64 = 0.40;
 
@@ -39,12 +40,14 @@ const STANDARD_RECOVERY_SENIOR: f64 = 0.40;
 #[pyclass(module = "finstack.valuations.instruments", name = "CDSIndex", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyCdsIndex {
-    pub(crate) inner: CDSIndex,
+    pub(crate) inner: Arc<CDSIndex>,
 }
 
 impl PyCdsIndex {
     pub(crate) fn new(inner: CDSIndex) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

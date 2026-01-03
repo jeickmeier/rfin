@@ -9,6 +9,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use std::sync::Arc;
 
 /// Forward Rate Agreement binding exposing standard FRA parameters.
 ///
@@ -32,12 +33,14 @@ use std::fmt;
 )]
 #[derive(Clone, Debug)]
 pub struct PyForwardRateAgreement {
-    pub(crate) inner: ForwardRateAgreement,
+    pub(crate) inner: Arc<ForwardRateAgreement>,
 }
 
 impl PyForwardRateAgreement {
     pub(crate) fn new(inner: ForwardRateAgreement) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

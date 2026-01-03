@@ -8,11 +8,12 @@ from datetime import date
 
 from finstack.core.market_data import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve
+from finstack.valuations.instruments import Bond
 import pytest
 from pytest_benchmark.fixture import BenchmarkFixture
 
 from finstack import Money
-from finstack.valuations import Bond, create_standard_registry
+from finstack.valuations import create_standard_registry
 
 
 def create_market_data() -> MarketContext:
@@ -33,21 +34,17 @@ def create_market_data() -> MarketContext:
     ]
 
     base_date = date(2024, 1, 1)
-    curve = DiscountCurve(
-        id="USD.OIS",
-        base_date=base_date,
-        knots=knots,
-    )
+    curve = DiscountCurve("USD.OIS", base_date, knots)
 
     market = MarketContext()
-    market.insertDiscount(curve)
+    market.insert_discount(curve)
     return market
 
 
 def create_bond_portfolio(num_bonds: int = 1000) -> list[Bond]:
     """Create a portfolio of bonds with varying maturities and coupons."""
     bonds = []
-    notional = Money.fromCode(1_000_000, "USD")
+    notional = Money(1_000_000, "USD")
     issue_date = date(2024, 1, 1)
 
     # Create bonds with varying maturities (1-30 years) and coupons (2%-6%)
@@ -60,7 +57,7 @@ def create_bond_portfolio(num_bonds: int = 1000) -> list[Bond]:
         coupon = 0.02 + ((i % 40) / 100.0)
 
         bond_id = f"BOND{i:04d}"
-        bond = Bond.fixedSemiannual(
+        bond = Bond.fixed_semiannual(
             bond_id,
             notional,
             coupon,
@@ -77,7 +74,7 @@ class TestBondPricingBenchmarks:
     """Benchmarks for bond pricing operations."""
 
     def test_bench_price_1000_bonds(self, benchmark: BenchmarkFixture) -> None:
-        """Benchmark: Price 1000 bonds sequentially."""
+        """Benchmark (slow path): Price 1000 bonds sequentially (Python loop)."""
         market = create_market_data()
         bonds = create_bond_portfolio(1000)
         registry = create_standard_registry()
@@ -85,8 +82,8 @@ class TestBondPricingBenchmarks:
         def price_all_bonds() -> list[float]:
             results = []
             for bond in bonds:
-                result = registry.priceBond(bond, "discounting", market)
-                results.append(result.presentValue.amount)
+                result = registry.price(bond, "discounting", market)
+                results.append(result.value.amount)
             return results
 
         # Run benchmark
@@ -95,6 +92,20 @@ class TestBondPricingBenchmarks:
         # Verify we got 1000 results
         assert len(pvs) == 1000
         # Verify all PVs are non-zero
+        assert all(pv != 0.0 for pv in pvs)
+
+    def test_bench_price_batch(self, benchmark: BenchmarkFixture) -> None:
+        """Benchmark (fast path): Price 1000 bonds via a single batch call."""
+        market = create_market_data()
+        bonds = create_bond_portfolio(1000)
+        registry = create_standard_registry()
+
+        def price_batch() -> list[float]:
+            results = registry.price_batch(bonds, "discounting", market)
+            return [r.value.amount for r in results]
+
+        pvs = benchmark(price_batch)
+        assert len(pvs) == 1000
         assert all(pv != 0.0 for pv in pvs)
 
     def test_bench_price_with_metrics_100_bonds(self, benchmark: BenchmarkFixture) -> None:
@@ -109,11 +120,11 @@ class TestBondPricingBenchmarks:
         def price_with_metrics() -> list[dict[str, float | None]]:
             results = []
             for bond in bonds:
-                result = registry.priceBondWithMetrics(bond, "discounting", market, metrics)
+                result = registry.price_with_metrics(bond, "discounting", market, metrics)
                 results.append({
-                    "pv": result.presentValue.amount,
-                    "clean_price": result.metric("clean_price"),
-                    "dv01": result.metric("dv01"),
+                    "pv": result.value.amount,
+                    "clean_price": result.measures.get("clean_price"),
+                    "dv01": result.measures.get("dv01"),
                 })
             return results
 
@@ -127,7 +138,7 @@ class TestBondPricingBenchmarks:
 
     def test_bench_bond_construction(self, benchmark: BenchmarkFixture) -> None:
         """Benchmark: Bond construction overhead."""
-        notional = Money.fromCode(1_000_000, "USD")
+        notional = Money(1_000_000, "USD")
         issue_date = date(2024, 1, 1)
         maturity_date = date(2029, 1, 1)
 
@@ -135,7 +146,7 @@ class TestBondPricingBenchmarks:
             bonds = []
             for i in range(1000):
                 bond_id = f"BOND{i:04d}"
-                bond = Bond.fixedSemiannual(
+                bond = Bond.fixed_semiannual(
                     bond_id,
                     notional,
                     0.05,
@@ -153,11 +164,11 @@ class TestBondPricingBenchmarks:
     def test_bench_single_bond_pricing(self, benchmark: BenchmarkFixture) -> None:
         """Benchmark: Single bond pricing (baseline for understanding overhead)."""
         market = create_market_data()
-        notional = Money.fromCode(1_000_000, "USD")
+        notional = Money(1_000_000, "USD")
         issue_date = date(2024, 1, 1)
         maturity_date = date(2029, 1, 1)
 
-        bond = Bond.fixedSemiannual(
+        bond = Bond.fixed_semiannual(
             "BOND0001",
             notional,
             0.05,
@@ -168,8 +179,8 @@ class TestBondPricingBenchmarks:
         registry = create_standard_registry()
 
         def price_bond() -> float:
-            result = registry.priceBond(bond, "discounting", market)
-            return result.presentValue.amount
+            result = registry.price(bond, "discounting", market)
+            return result.value.amount
 
         # Run benchmark
         pv = benchmark(price_bond)

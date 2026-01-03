@@ -8,6 +8,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use std::sync::Arc;
 
 /// Equity option priced via Black–Scholes style models.
 ///
@@ -28,12 +29,14 @@ use std::fmt;
 )]
 #[derive(Clone, Debug)]
 pub struct PyEquityOption {
-    pub(crate) inner: EquityOption,
+    pub(crate) inner: Arc<EquityOption>,
 }
 
 impl PyEquityOption {
     pub(crate) fn new(inner: EquityOption) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

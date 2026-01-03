@@ -14,6 +14,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use std::sync::Arc;
 
 fn parse_option_type(label: Option<&str>) -> PyResult<OptionType> {
     match label {
@@ -77,12 +78,14 @@ fn parse_exercise_style(label: Option<&str>) -> PyResult<ExerciseStyle> {
 )]
 #[derive(Clone, Debug)]
 pub struct PyVolatilityIndexOption {
-    pub(crate) inner: VolatilityIndexOption,
+    pub(crate) inner: Arc<VolatilityIndexOption>,
 }
 
 impl PyVolatilityIndexOption {
     pub(crate) fn new(inner: VolatilityIndexOption) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

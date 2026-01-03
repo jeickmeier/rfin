@@ -437,7 +437,7 @@ fn bucketed_metric(
         .map_err(|e| PyValueError::new_err(format!("Pricing failed: {}", e)))?;
 
     let mut context = MetricContext::new(
-        Arc::from(inst.clone_box()),
+        inst.clone(),
         Arc::new(market.inner.clone()),
         as_of_date,
         base_value,

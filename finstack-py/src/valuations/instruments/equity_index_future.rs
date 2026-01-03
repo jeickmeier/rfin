@@ -14,6 +14,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRef, PyRefMut};
 use std::fmt;
+use std::sync::Arc;
 
 /// Position side (Long or Short) for futures contracts.
 #[pyclass(
@@ -223,12 +224,14 @@ impl PyEquityFutureSpecs {
 )]
 #[derive(Clone, Debug)]
 pub struct PyEquityIndexFuture {
-    pub(crate) inner: EquityIndexFuture,
+    pub(crate) inner: Arc<EquityIndexFuture>,
 }
 
 impl PyEquityIndexFuture {
     pub(crate) fn new(inner: EquityIndexFuture) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

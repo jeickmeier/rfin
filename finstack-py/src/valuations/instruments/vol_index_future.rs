@@ -14,6 +14,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use std::sync::Arc;
 
 fn parse_position(label: Option<&str>) -> PyResult<Position> {
     match label {
@@ -55,12 +56,14 @@ fn parse_position(label: Option<&str>) -> PyResult<Position> {
 )]
 #[derive(Clone, Debug)]
 pub struct PyVolatilityIndexFuture {
-    pub(crate) inner: VolatilityIndexFuture,
+    pub(crate) inner: Arc<VolatilityIndexFuture>,
 }
 
 impl PyVolatilityIndexFuture {
     pub(crate) fn new(inner: VolatilityIndexFuture) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

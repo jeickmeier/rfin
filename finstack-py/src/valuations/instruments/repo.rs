@@ -13,6 +13,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use std::sync::Arc;
 
 fn parse_repo_type(label: Option<&str>) -> PyResult<RepoType> {
     match label {
@@ -102,12 +103,14 @@ impl PyRepoCollateral {
 #[pyclass(module = "finstack.valuations.instruments", name = "Repo", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyRepo {
-    pub(crate) inner: Repo,
+    pub(crate) inner: Arc<Repo>,
 }
 
 impl PyRepo {
     pub(crate) fn new(inner: Repo) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

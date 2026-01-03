@@ -253,18 +253,14 @@ fn test_bond_creation() {
 }
 
 /// Test that the generic `priceInstrument` entrypoint exists and accepts a typed wrapper as `JsValue`.
-///
-/// Note: This test is ignored in WASM due to memory capacity overflow when creating the
-/// standard registry with all 50+ pricers. The registry works correctly in native Rust.
-/// See: https://github.com/ArkEcosystem/peers/issues/XXX for tracking.
 #[wasm_bindgen_test]
-#[ignore = "capacity overflow in WASM when creating standard registry with all pricers"]
 fn test_pricer_registry_price_instrument_exists() {
     use finstack_wasm::*;
     use wasm_bindgen::JsValue;
 
-    // Create the standard registry with all pricers
-    let registry = createStandardRegistry();
+    // Use a smaller, modular registry to avoid WASM memory blowups while still
+    // testing the dynamic dispatch entrypoint.
+    let registry = createRatesRegistry();
 
     // Create a simple bond
     let usd = Currency::new("USD").expect("Currency constructor should succeed");

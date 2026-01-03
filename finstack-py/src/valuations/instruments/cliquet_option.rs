@@ -6,6 +6,7 @@ use finstack_valuations::instruments::equity::cliquet_option::CliquetOption;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::Bound;
+use std::sync::Arc;
 
 /// Cliquet option instrument.
 #[pyclass(
@@ -15,12 +16,14 @@ use pyo3::Bound;
 )]
 #[derive(Clone, Debug)]
 pub struct PyCliquetOption {
-    pub(crate) inner: CliquetOption,
+    pub(crate) inner: Arc<CliquetOption>,
 }
 
 impl PyCliquetOption {
     pub(crate) fn new(inner: CliquetOption) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

@@ -17,6 +17,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRef, PyRefMut};
 use std::fmt;
+use std::sync::Arc;
 
 /// Cross-currency floating-for-floating swap.
 ///
@@ -66,12 +67,14 @@ use std::fmt;
 )]
 #[derive(Clone, Debug)]
 pub struct PyCrossCurrencySwap {
-    pub(crate) inner: XccySwap,
+    pub(crate) inner: Arc<XccySwap>,
 }
 
 impl PyCrossCurrencySwap {
     pub(crate) fn new(inner: XccySwap) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

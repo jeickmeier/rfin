@@ -14,6 +14,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use std::sync::Arc;
 
 /// FX spot instrument exchanging base currency for quote currency.
 ///
@@ -24,12 +25,14 @@ use std::fmt;
 #[pyclass(module = "finstack.valuations.instruments", name = "FxSpot", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyFxSpot {
-    pub(crate) inner: FxSpot,
+    pub(crate) inner: Arc<FxSpot>,
 }
 
 impl PyFxSpot {
     pub(crate) fn new(inner: FxSpot) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 
@@ -261,12 +264,14 @@ impl fmt::Display for PyFxSpot {
 #[pyclass(module = "finstack.valuations.instruments", name = "FxOption", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyFxOption {
-    pub(crate) inner: FxOption,
+    pub(crate) inner: Arc<FxOption>,
 }
 
 impl PyFxOption {
     pub(crate) fn new(inner: FxOption) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 
@@ -608,12 +613,14 @@ impl fmt::Display for PyFxOption {
 #[pyclass(module = "finstack.valuations.instruments", name = "FxSwap", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyFxSwap {
-    pub(crate) inner: FxSwap,
+    pub(crate) inner: Arc<FxSwap>,
 }
 
 impl PyFxSwap {
     pub(crate) fn new(inner: FxSwap) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

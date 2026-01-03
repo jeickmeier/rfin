@@ -104,19 +104,20 @@ use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::{Bound, PyRef};
+use std::sync::Arc;
 
 /// Borrowed reference to an instrument along with its dispatch key.
 pub(crate) struct InstrumentHandle {
-    pub instrument: Box<dyn Instrument>,
+    pub instrument: Arc<dyn Instrument>,
     pub instrument_type: InstrumentType,
 }
 
-// Macro to reduce boilerplate in instrument extraction
-macro_rules! try_extract {
+macro_rules! try_extract_arc {
     ($value:expr, $py_type:ty, $inst_type:expr) => {
         if let Ok(obj) = $value.extract::<PyRef<$py_type>>() {
+            let inst: Arc<dyn Instrument> = obj.inner.clone();
             return Ok(InstrumentHandle {
-                instrument: Box::new(obj.inner.clone()),
+                instrument: inst,
                 instrument_type: $inst_type,
             });
         }
@@ -128,101 +129,101 @@ pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<Ins
     // Generic instruments produced by `finstack.valuations.market` builders.
     if let Ok(obj) = value.extract::<PyRef<crate::valuations::market::PyBuiltInstrument>>() {
         return Ok(InstrumentHandle {
-            instrument: obj.inner.clone_box(),
+            instrument: Arc::from(obj.inner.clone_box()),
             instrument_type: obj.inner.key(),
         });
     }
 
-    try_extract!(
+    try_extract_arc!(
         value,
         PyAgencyMbsPassthrough,
         InstrumentType::AgencyMbsPassthrough
     );
-    try_extract!(value, PyAgencyTba, InstrumentType::AgencyTba);
-    try_extract!(value, PyDollarRoll, InstrumentType::DollarRoll);
-    try_extract!(value, PyAgencyCmo, InstrumentType::AgencyCmo);
-    try_extract!(value, PyBond, InstrumentType::Bond);
-    try_extract!(value, PyBondFuture, InstrumentType::BondFuture);
-    try_extract!(value, PyDeposit, InstrumentType::Deposit);
-    try_extract!(value, PyBasisSwap, InstrumentType::BasisSwap);
-    try_extract!(value, PyForwardRateAgreement, InstrumentType::FRA);
-    try_extract!(value, PyInterestRateOption, InstrumentType::CapFloor);
-    try_extract!(
+    try_extract_arc!(value, PyAgencyTba, InstrumentType::AgencyTba);
+    try_extract_arc!(value, PyDollarRoll, InstrumentType::DollarRoll);
+    try_extract_arc!(value, PyAgencyCmo, InstrumentType::AgencyCmo);
+    try_extract_arc!(value, PyBond, InstrumentType::Bond);
+    try_extract_arc!(value, PyBondFuture, InstrumentType::BondFuture);
+    try_extract_arc!(value, PyDeposit, InstrumentType::Deposit);
+    try_extract_arc!(value, PyBasisSwap, InstrumentType::BasisSwap);
+    try_extract_arc!(value, PyForwardRateAgreement, InstrumentType::FRA);
+    try_extract_arc!(value, PyInterestRateOption, InstrumentType::CapFloor);
+    try_extract_arc!(
         value,
         PyInterestRateFuture,
         InstrumentType::InterestRateFuture
     );
-    try_extract!(value, PyInterestRateSwap, InstrumentType::IRS);
-    try_extract!(value, PyFxSpot, InstrumentType::FxSpot);
-    try_extract!(value, PyFxOption, InstrumentType::FxOption);
-    try_extract!(value, PyFxSwap, InstrumentType::FxSwap);
-    try_extract!(value, PyNdf, InstrumentType::Ndf);
-    try_extract!(value, PyFxVarianceSwap, InstrumentType::FxVarianceSwap);
-    try_extract!(value, PyEquity, InstrumentType::Equity);
-    try_extract!(
+    try_extract_arc!(value, PyInterestRateSwap, InstrumentType::IRS);
+    try_extract_arc!(value, PyFxSpot, InstrumentType::FxSpot);
+    try_extract_arc!(value, PyFxOption, InstrumentType::FxOption);
+    try_extract_arc!(value, PyFxSwap, InstrumentType::FxSwap);
+    try_extract_arc!(value, PyNdf, InstrumentType::Ndf);
+    try_extract_arc!(value, PyFxVarianceSwap, InstrumentType::FxVarianceSwap);
+    try_extract_arc!(value, PyEquity, InstrumentType::Equity);
+    try_extract_arc!(
         value,
         PyEquityIndexFuture,
         InstrumentType::EquityIndexFuture
     );
-    try_extract!(value, PyEquityOption, InstrumentType::EquityOption);
-    try_extract!(value, PyConvertibleBond, InstrumentType::Convertible);
-    try_extract!(value, PySwaption, InstrumentType::Swaption);
-    try_extract!(
+    try_extract_arc!(value, PyEquityOption, InstrumentType::EquityOption);
+    try_extract_arc!(value, PyConvertibleBond, InstrumentType::Convertible);
+    try_extract_arc!(value, PySwaption, InstrumentType::Swaption);
+    try_extract_arc!(
         value,
         PyEquityTotalReturnSwap,
         InstrumentType::EquityTotalReturnSwap
     );
-    try_extract!(
+    try_extract_arc!(
         value,
         PyFiIndexTotalReturnSwap,
         InstrumentType::FIIndexTotalReturnSwap
     );
-    try_extract!(value, PyVarianceSwap, InstrumentType::VarianceSwap);
-    try_extract!(value, PyCreditDefaultSwap, InstrumentType::CDS);
-    try_extract!(value, PyCdsIndex, InstrumentType::CDSIndex);
-    try_extract!(value, PyCdsOption, InstrumentType::CDSOption);
-    try_extract!(value, PyCdsTranche, InstrumentType::CDSTranche);
-    try_extract!(value, PyCommodityForward, InstrumentType::CommodityForward);
-    try_extract!(value, PyCommodityOption, InstrumentType::CommodityOption);
-    try_extract!(value, PyCommoditySwap, InstrumentType::CommoditySwap);
-    try_extract!(value, PyRepo, InstrumentType::Repo);
-    try_extract!(
+    try_extract_arc!(value, PyVarianceSwap, InstrumentType::VarianceSwap);
+    try_extract_arc!(value, PyCreditDefaultSwap, InstrumentType::CDS);
+    try_extract_arc!(value, PyCdsIndex, InstrumentType::CDSIndex);
+    try_extract_arc!(value, PyCdsOption, InstrumentType::CDSOption);
+    try_extract_arc!(value, PyCdsTranche, InstrumentType::CDSTranche);
+    try_extract_arc!(value, PyCommodityForward, InstrumentType::CommodityForward);
+    try_extract_arc!(value, PyCommodityOption, InstrumentType::CommodityOption);
+    try_extract_arc!(value, PyCommoditySwap, InstrumentType::CommoditySwap);
+    try_extract_arc!(value, PyRepo, InstrumentType::Repo);
+    try_extract_arc!(
         value,
         PyInflationLinkedBond,
         InstrumentType::InflationLinkedBond
     );
-    try_extract!(value, PyInflationSwap, InstrumentType::InflationSwap);
-    try_extract!(
+    try_extract_arc!(value, PyInflationSwap, InstrumentType::InflationSwap);
+    try_extract_arc!(
         value,
         PyInflationCapFloor,
         InstrumentType::InflationCapFloor
     );
-    try_extract!(value, PyCrossCurrencySwap, InstrumentType::XccySwap);
-    try_extract!(value, PyStructuredCredit, InstrumentType::StructuredCredit);
-    try_extract!(
+    try_extract_arc!(value, PyCrossCurrencySwap, InstrumentType::XccySwap);
+    try_extract_arc!(value, PyStructuredCredit, InstrumentType::StructuredCredit);
+    try_extract_arc!(
         value,
         PyPrivateMarketsFund,
         InstrumentType::PrivateMarketsFund
     );
-    try_extract!(value, PyRealEstateAsset, InstrumentType::RealEstateAsset);
-    try_extract!(value, PyBasket, InstrumentType::Basket);
-    try_extract!(value, PyAsianOption, InstrumentType::AsianOption);
-    try_extract!(value, PyAutocallable, InstrumentType::Autocallable);
-    try_extract!(value, PyBarrierOption, InstrumentType::BarrierOption);
-    try_extract!(value, PyCliquetOption, InstrumentType::CliquetOption);
-    try_extract!(value, PyCmsOption, InstrumentType::CmsOption);
-    try_extract!(value, PyFxBarrierOption, InstrumentType::FxBarrierOption);
-    try_extract!(value, PyLookbackOption, InstrumentType::LookbackOption);
-    try_extract!(value, PyQuantoOption, InstrumentType::QuantoOption);
-    try_extract!(value, PyRangeAccrual, InstrumentType::RangeAccrual);
-    try_extract!(value, PyRevolvingCredit, InstrumentType::RevolvingCredit);
-    try_extract!(value, PyTermLoan, InstrumentType::TermLoan);
-    try_extract!(
+    try_extract_arc!(value, PyRealEstateAsset, InstrumentType::RealEstateAsset);
+    try_extract_arc!(value, PyBasket, InstrumentType::Basket);
+    try_extract_arc!(value, PyAsianOption, InstrumentType::AsianOption);
+    try_extract_arc!(value, PyAutocallable, InstrumentType::Autocallable);
+    try_extract_arc!(value, PyBarrierOption, InstrumentType::BarrierOption);
+    try_extract_arc!(value, PyCliquetOption, InstrumentType::CliquetOption);
+    try_extract_arc!(value, PyCmsOption, InstrumentType::CmsOption);
+    try_extract_arc!(value, PyFxBarrierOption, InstrumentType::FxBarrierOption);
+    try_extract_arc!(value, PyLookbackOption, InstrumentType::LookbackOption);
+    try_extract_arc!(value, PyQuantoOption, InstrumentType::QuantoOption);
+    try_extract_arc!(value, PyRangeAccrual, InstrumentType::RangeAccrual);
+    try_extract_arc!(value, PyRevolvingCredit, InstrumentType::RevolvingCredit);
+    try_extract_arc!(value, PyTermLoan, InstrumentType::TermLoan);
+    try_extract_arc!(
         value,
         PyVolatilityIndexFuture,
         InstrumentType::VolatilityIndexFuture
     );
-    try_extract!(
+    try_extract_arc!(
         value,
         PyVolatilityIndexOption,
         InstrumentType::VolatilityIndexOption

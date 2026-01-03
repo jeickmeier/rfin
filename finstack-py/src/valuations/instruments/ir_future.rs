@@ -13,6 +13,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use std::sync::Arc;
 
 fn parse_position(label: Option<&str>) -> PyResult<Position> {
     match label {
@@ -29,12 +30,14 @@ fn parse_position(label: Option<&str>) -> PyResult<Position> {
 )]
 #[derive(Clone, Debug)]
 pub struct PyInterestRateFuture {
-    pub(crate) inner: InterestRateFuture,
+    pub(crate) inner: Arc<InterestRateFuture>,
 }
 
 impl PyInterestRateFuture {
     pub(crate) fn new(inner: InterestRateFuture) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

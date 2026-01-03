@@ -15,6 +15,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::{Bound, Py, PyRef, PyRefMut};
 use std::fmt;
+use std::sync::Arc;
 
 /// Bond future contract instrument.
 ///
@@ -58,12 +59,14 @@ use std::fmt;
 )]
 #[derive(Clone, Debug)]
 pub struct PyBondFuture {
-    pub(crate) inner: BondFuture,
+    pub(crate) inner: Arc<BondFuture>,
 }
 
 impl PyBondFuture {
     pub(crate) fn new(inner: BondFuture) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

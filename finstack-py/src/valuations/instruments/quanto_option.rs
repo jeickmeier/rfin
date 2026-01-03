@@ -7,6 +7,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
+use std::sync::Arc;
 
 /// Quanto option instrument.
 #[pyclass(
@@ -16,12 +17,14 @@ use pyo3::Bound;
 )]
 #[derive(Clone, Debug)]
 pub struct PyQuantoOption {
-    pub(crate) inner: QuantoOption,
+    pub(crate) inner: Arc<QuantoOption>,
 }
 
 impl PyQuantoOption {
     pub(crate) fn new(inner: QuantoOption) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

@@ -5,6 +5,7 @@ use finstack_valuations::instruments::rates::range_accrual::RangeAccrual;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::Bound;
+use std::sync::Arc;
 
 /// Range accrual instrument.
 #[pyclass(
@@ -14,12 +15,14 @@ use pyo3::Bound;
 )]
 #[derive(Clone, Debug)]
 pub struct PyRangeAccrual {
-    pub(crate) inner: RangeAccrual,
+    pub(crate) inner: Arc<RangeAccrual>,
 }
 
 impl PyRangeAccrual {
     pub(crate) fn new(inner: RangeAccrual) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

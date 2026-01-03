@@ -20,6 +20,7 @@ use pyo3::Bound;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use std::fmt;
+use std::sync::Arc;
 
 fn parse_curve_id(label: &Bound<'_, PyAny>, context: &str) -> PyResult<String> {
     if let Ok(value) = label.extract::<&str>() {
@@ -283,12 +284,14 @@ impl PyIndexUnderlyingParams {
 )]
 #[derive(Clone, Debug)]
 pub struct PyEquityTotalReturnSwap {
-    pub(crate) inner: EquityTotalReturnSwap,
+    pub(crate) inner: Arc<EquityTotalReturnSwap>,
 }
 
 impl PyEquityTotalReturnSwap {
     pub(crate) fn new(inner: EquityTotalReturnSwap) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 
@@ -422,12 +425,14 @@ impl fmt::Display for PyEquityTotalReturnSwap {
 )]
 #[derive(Clone, Debug)]
 pub struct PyFiIndexTotalReturnSwap {
-    pub(crate) inner: FIIndexTotalReturnSwap,
+    pub(crate) inner: Arc<FIIndexTotalReturnSwap>,
 }
 
 impl PyFiIndexTotalReturnSwap {
     pub(crate) fn new(inner: FIIndexTotalReturnSwap) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

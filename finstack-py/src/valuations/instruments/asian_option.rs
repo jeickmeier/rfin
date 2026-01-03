@@ -7,6 +7,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::Bound;
+use std::sync::Arc;
 
 /// Averaging method for Asian options.
 #[pyclass(
@@ -81,12 +82,14 @@ impl PyAveragingMethod {
 )]
 #[derive(Clone, Debug)]
 pub struct PyAsianOption {
-    pub(crate) inner: AsianOption,
+    pub(crate) inner: Arc<AsianOption>,
 }
 
 impl PyAsianOption {
     pub(crate) fn new(inner: AsianOption) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

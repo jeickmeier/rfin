@@ -10,6 +10,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use std::sync::Arc;
 
 /// Revolving credit facility instrument with deterministic and stochastic pricing.
 ///
@@ -53,12 +54,14 @@ use std::fmt;
 )]
 #[derive(Clone, Debug)]
 pub struct PyRevolvingCredit {
-    pub(crate) inner: RevolvingCredit,
+    pub(crate) inner: Arc<RevolvingCredit>,
 }
 
 impl PyRevolvingCredit {
     pub(crate) fn new(inner: RevolvingCredit) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

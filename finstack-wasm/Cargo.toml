@@ -30,6 +30,7 @@ ts-rs = { version = "10", optional = true, features = ["serde-compat"] }
 # Month enum required by Date bindings
 time = { version = "0.3", default-features = false }
 rust_decimal = { version = "1.39" }
+web-sys = { version = "0.3.83", features = ["Window", "Performance", "console"] }
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"

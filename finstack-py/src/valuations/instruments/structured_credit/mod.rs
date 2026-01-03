@@ -8,6 +8,7 @@ use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyModule, PyType};
 use std::fmt;
+use std::sync::Arc;
 
 fn parse_structured_credit_json(value: &Bound<'_, PyAny>) -> PyResult<StructuredCredit> {
     if let Ok(json_str) = value.extract::<&str>() {
@@ -45,12 +46,14 @@ fn parse_structured_credit_json(value: &Bound<'_, PyAny>) -> PyResult<Structured
 )]
 #[derive(Clone, Debug)]
 pub struct PyStructuredCredit {
-    pub(crate) inner: StructuredCredit,
+    pub(crate) inner: Arc<StructuredCredit>,
 }
 
 impl PyStructuredCredit {
     pub(crate) fn new(inner: StructuredCredit) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

@@ -17,6 +17,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use std::sync::Arc;
 
 fn parse_call_put_schedule(
     calls: Option<Vec<(Bound<'_, PyAny>, f64)>>,
@@ -339,12 +340,14 @@ impl PyConversionSpec {
 )]
 #[derive(Clone, Debug)]
 pub struct PyConvertibleBond {
-    pub(crate) inner: ConvertibleBond,
+    pub(crate) inner: Arc<ConvertibleBond>,
 }
 
 impl PyConvertibleBond {
     pub(crate) fn new(inner: ConvertibleBond) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

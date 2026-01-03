@@ -9,6 +9,7 @@ use finstack_portfolio::valuation::{
     value_portfolio_with_options, PortfolioValuation, PortfolioValuationOptions, PositionValue,
 };
 use js_sys::Object;
+use std::cell::RefCell;
 use wasm_bindgen::prelude::*;
 
 /// Options controlling portfolio valuation behaviour.
@@ -167,6 +168,8 @@ impl JsPositionValue {
 #[wasm_bindgen]
 pub struct JsPortfolioValuation {
     pub(crate) inner: PortfolioValuation,
+    #[wasm_bindgen(skip)]
+    position_values_cache: RefCell<Option<JsValue>>,
 }
 
 #[wasm_bindgen]
@@ -178,6 +181,10 @@ impl JsPortfolioValuation {
     /// JavaScript object mapping position IDs to PositionValue instances
     #[wasm_bindgen(getter, js_name = positionValues)]
     pub fn position_values(&self) -> Result<JsValue, JsValue> {
+        if let Some(cached) = self.position_values_cache.borrow().as_ref() {
+            return Ok(cached.clone());
+        }
+
         let obj = Object::new();
         for (id, value) in &self.inner.position_values {
             let js_value = JsPositionValue::from_inner(value.clone());
@@ -187,7 +194,10 @@ impl JsPortfolioValuation {
                 &JsValue::from(js_value),
             )?;
         }
-        Ok(JsValue::from(obj))
+
+        let js_obj = JsValue::from(obj);
+        *self.position_values_cache.borrow_mut() = Some(js_obj.clone());
+        Ok(js_obj)
     }
 
     /// Get the total portfolio value in base currency.
@@ -265,7 +275,10 @@ impl JsPortfolioValuation {
     #[wasm_bindgen(js_name = fromJSON)]
     pub fn from_json(value: JsValue) -> Result<JsPortfolioValuation, JsValue> {
         serde_wasm_bindgen::from_value(value)
-            .map(|inner| JsPortfolioValuation { inner })
+            .map(|inner| JsPortfolioValuation {
+                inner,
+                position_values_cache: RefCell::new(None),
+            })
             .map_err(|e| {
                 JsValue::from_str(&format!("Failed to deserialize PortfolioValuation: {}", e))
             })
@@ -288,7 +301,10 @@ impl JsPortfolioValuation {
 
 impl JsPortfolioValuation {
     pub(crate) fn from_inner(inner: PortfolioValuation) -> Self {
-        Self { inner }
+        Self {
+            inner,
+            position_values_cache: RefCell::new(None),
+        }
     }
 }
 

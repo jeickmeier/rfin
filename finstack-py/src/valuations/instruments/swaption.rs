@@ -11,6 +11,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use std::sync::Arc;
 
 fn parse_settlement(label: Option<&str>) -> PyResult<SwaptionSettlement> {
     match label {
@@ -30,12 +31,14 @@ fn parse_exercise(label: Option<&str>) -> PyResult<SwaptionExercise> {
 #[pyclass(module = "finstack.valuations.instruments", name = "Swaption", frozen)]
 #[derive(Clone, Debug)]
 pub struct PySwaption {
-    pub(crate) inner: Swaption,
+    pub(crate) inner: Arc<Swaption>,
 }
 
 impl PySwaption {
     pub(crate) fn new(inner: Swaption) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

@@ -14,6 +14,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use std::sync::Arc;
 
 fn parse_indexation_method(label: Option<&str>) -> PyResult<IndexationMethod> {
     match label {
@@ -51,12 +52,14 @@ fn parse_deflation_protection(label: Option<&str>) -> PyResult<DeflationProtecti
 )]
 #[derive(Clone, Debug)]
 pub struct PyInflationLinkedBond {
-    pub(crate) inner: InflationLinkedBond,
+    pub(crate) inner: Arc<InflationLinkedBond>,
 }
 
 impl PyInflationLinkedBond {
     pub(crate) fn new(inner: InflationLinkedBond) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

@@ -26,6 +26,7 @@ use finstack_valuations::instruments::Attributes;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyModule, PyType};
+use std::sync::Arc;
 
 // =============================================================================
 // Agency Program Enum
@@ -235,12 +236,14 @@ impl PyCmoTrancheType {
 )]
 #[derive(Clone, Debug)]
 pub struct PyAgencyMbsPassthrough {
-    pub(crate) inner: AgencyMbsPassthrough,
+    pub(crate) inner: Arc<AgencyMbsPassthrough>,
 }
 
 impl PyAgencyMbsPassthrough {
     pub(crate) fn new(inner: AgencyMbsPassthrough) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 
@@ -481,12 +484,14 @@ impl PyAgencyMbsPassthrough {
 #[pyclass(module = "finstack.valuations.instruments", name = "AgencyTba", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyAgencyTba {
-    pub(crate) inner: AgencyTba,
+    pub(crate) inner: Arc<AgencyTba>,
 }
 
 impl PyAgencyTba {
     pub(crate) fn new(inner: AgencyTba) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 
@@ -673,12 +678,14 @@ impl PyAgencyTba {
 )]
 #[derive(Clone, Debug)]
 pub struct PyDollarRoll {
-    pub(crate) inner: DollarRoll,
+    pub(crate) inner: Arc<DollarRoll>,
 }
 
 impl PyDollarRoll {
     pub(crate) fn new(inner: DollarRoll) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 
@@ -848,7 +855,7 @@ impl PyDollarRoll {
 
     /// Get the drop (price difference between front and back month).
     fn drop_value(&self) -> f64 {
-        self.inner.drop()
+        self.inner.as_ref().drop()
     }
 
     /// Get the drop in 32nds.
@@ -866,7 +873,7 @@ impl PyDollarRoll {
         format!(
             "DollarRoll(id='{}', drop={:.3})",
             self.inner.id.as_str(),
-            self.inner.drop()
+            self.inner.as_ref().drop()
         )
     }
 }
@@ -1177,12 +1184,14 @@ impl PyCmoWaterfall {
 #[pyclass(module = "finstack.valuations.instruments", name = "AgencyCmo", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyAgencyCmo {
-    pub(crate) inner: AgencyCmo,
+    pub(crate) inner: Arc<AgencyCmo>,
 }
 
 impl PyAgencyCmo {
     pub(crate) fn new(inner: AgencyCmo) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

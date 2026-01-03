@@ -14,6 +14,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::{Bound, FromPyObject, PyRef};
 use std::fmt;
+use std::sync::Arc;
 
 fn method_label(method: RealizedVarMethod) -> &'static str {
     match method {
@@ -143,12 +144,14 @@ impl PyRealizedVarMethod {
 )]
 #[derive(Clone, Debug)]
 pub struct PyVarianceSwap {
-    pub(crate) inner: VarianceSwap,
+    pub(crate) inner: Arc<VarianceSwap>,
 }
 
 impl PyVarianceSwap {
     pub(crate) fn new(inner: VarianceSwap) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

@@ -7,6 +7,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
+use std::sync::Arc;
 
 /// Barrier type for barrier options.
 #[pyclass(
@@ -83,12 +84,14 @@ impl PyBarrierType {
 )]
 #[derive(Clone, Debug)]
 pub struct PyBarrierOption {
-    pub(crate) inner: BarrierOption,
+    pub(crate) inner: Arc<BarrierOption>,
 }
 
 impl PyBarrierOption {
     pub(crate) fn new(inner: BarrierOption) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

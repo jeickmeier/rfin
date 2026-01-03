@@ -10,6 +10,7 @@ use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRef};
 use rust_decimal::prelude::ToPrimitive;
 use std::fmt;
+use std::sync::Arc;
 
 /// Pay/receive indicator for CDS premium leg.
 ///
@@ -130,12 +131,14 @@ pub(crate) fn normalize_cds_side(name: &str) -> PyResult<PayReceive> {
 )]
 #[derive(Clone, Debug)]
 pub struct PyCreditDefaultSwap {
-    pub(crate) inner: CreditDefaultSwap,
+    pub(crate) inner: Arc<CreditDefaultSwap>,
 }
 
 impl PyCreditDefaultSwap {
     pub(crate) fn new(inner: CreditDefaultSwap) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

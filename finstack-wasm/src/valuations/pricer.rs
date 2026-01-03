@@ -6,7 +6,10 @@ use crate::valuations::instruments::extract_instrument;
 use crate::valuations::results::JsValuationResult;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
-use finstack_valuations::pricer::{create_standard_registry, ModelKey, PricerRegistry};
+use finstack_valuations::pricer::{
+    create_credit_registry, create_equity_registry, create_fx_registry, create_rates_registry,
+    create_standard_registry, ModelKey, PricerRegistry,
+};
 use std::str::FromStr;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
@@ -251,6 +254,11 @@ impl JsPricerRegistry {
 /// options, credit derivatives, etc.) using common models like discounting,
 /// Black-76, and hazard rate approaches.
 ///
+/// ⚠️ Note: In WebAssembly builds, creating the full standard registry may be
+/// memory intensive depending on the enabled feature set. If you hit memory
+/// issues, prefer the smaller registries like `createRatesRegistry()`,
+/// `createCreditRegistry()`, `createEquityRegistry()`, or `createFxRegistry()`.
+///
 /// @returns {PricerRegistry} Registry with all built-in pricing engines loaded
 ///
 /// @example
@@ -281,4 +289,31 @@ impl JsPricerRegistry {
 #[wasm_bindgen(js_name = createStandardRegistry)]
 pub fn create_standard_registry_js() -> JsPricerRegistry {
     JsPricerRegistry::new(create_standard_registry())
+}
+
+/// Create a pricing registry populated with *rates* pricers.
+///
+/// This is intended for memory-constrained environments (like WASM) where
+/// `createStandardRegistry()` may be too large.
+#[wasm_bindgen(js_name = createRatesRegistry)]
+pub fn create_rates_registry_js() -> JsPricerRegistry {
+    JsPricerRegistry::new(create_rates_registry())
+}
+
+/// Create a pricing registry populated with *credit* pricers.
+#[wasm_bindgen(js_name = createCreditRegistry)]
+pub fn create_credit_registry_js() -> JsPricerRegistry {
+    JsPricerRegistry::new(create_credit_registry())
+}
+
+/// Create a pricing registry populated with *equity* pricers.
+#[wasm_bindgen(js_name = createEquityRegistry)]
+pub fn create_equity_registry_js() -> JsPricerRegistry {
+    JsPricerRegistry::new(create_equity_registry())
+}
+
+/// Create a pricing registry populated with *FX* pricers.
+#[wasm_bindgen(js_name = createFxRegistry)]
+pub fn create_fx_registry_js() -> JsPricerRegistry {
+    JsPricerRegistry::new(create_fx_registry())
 }

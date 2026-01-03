@@ -10,6 +10,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use std::sync::Arc;
 
 fn parse_side(label: Option<&str>) -> PyResult<PayReceiveInflation> {
     match label {
@@ -39,12 +40,14 @@ fn parse_side(label: Option<&str>) -> PyResult<PayReceiveInflation> {
 )]
 #[derive(Clone, Debug)]
 pub struct PyInflationSwap {
-    pub(crate) inner: InflationSwap,
+    pub(crate) inner: Arc<InflationSwap>,
 }
 
 impl PyInflationSwap {
     pub(crate) fn new(inner: InflationSwap) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

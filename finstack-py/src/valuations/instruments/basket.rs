@@ -4,6 +4,7 @@ use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyModule, PyType};
 use std::fmt;
+use std::sync::Arc;
 
 fn parse_json(value: &Bound<'_, PyAny>) -> PyResult<Basket> {
     if let Ok(json_str) = value.extract::<&str>() {
@@ -31,12 +32,14 @@ fn parse_json(value: &Bound<'_, PyAny>) -> PyResult<Basket> {
 #[pyclass(module = "finstack.valuations.instruments", name = "Basket", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyBasket {
-    pub(crate) inner: Basket,
+    pub(crate) inner: Arc<Basket>,
 }
 
 impl PyBasket {
     pub(crate) fn new(inner: Basket) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

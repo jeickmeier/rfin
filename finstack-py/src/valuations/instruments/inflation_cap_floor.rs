@@ -19,6 +19,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRef, PyRefMut};
 use std::fmt;
+use std::sync::Arc;
 
 /// Year-on-year inflation cap or floor instrument.
 ///
@@ -57,12 +58,14 @@ use std::fmt;
 )]
 #[derive(Clone, Debug)]
 pub struct PyInflationCapFloor {
-    pub(crate) inner: InflationCapFloor,
+    pub(crate) inner: Arc<InflationCapFloor>,
 }
 
 impl PyInflationCapFloor {
     pub(crate) fn new(inner: InflationCapFloor) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

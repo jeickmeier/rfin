@@ -12,6 +12,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyType};
 use pyo3::{Bound, Py};
 use std::fmt;
+use std::sync::Arc;
 
 /// Commodity swap (fixed-for-floating commodity price exchange).
 ///
@@ -41,12 +42,14 @@ use std::fmt;
 )]
 #[derive(Clone, Debug)]
 pub struct PyCommoditySwap {
-    pub(crate) inner: CommoditySwap,
+    pub(crate) inner: Arc<CommoditySwap>,
 }
 
 impl PyCommoditySwap {
     pub(crate) fn new(inner: CommoditySwap) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

@@ -187,6 +187,9 @@ pub use valuations::performance::{
     calculate_npv_wasm as calculateNpv, irr_periodic_wasm as irrPeriodic, xirr_wasm as xirr,
 };
 pub use valuations::pricer::{
+    create_credit_registry_js as createCreditRegistry,
+    create_equity_registry_js as createEquityRegistry, create_fx_registry_js as createFxRegistry,
+    create_rates_registry_js as createRatesRegistry,
     create_standard_registry_js as createStandardRegistry, JsPricerRegistry as PricerRegistry,
 };
 pub use valuations::results::JsValuationResult as ValuationResult;

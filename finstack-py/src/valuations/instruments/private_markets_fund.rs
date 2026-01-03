@@ -9,6 +9,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use std::sync::Arc;
 
 fn parse_pmf_json(value: &Bound<'_, PyAny>) -> PyResult<PrivateMarketsFund> {
     if let Ok(json_str) = value.extract::<&str>() {
@@ -37,12 +38,14 @@ fn parse_pmf_json(value: &Bound<'_, PyAny>) -> PyResult<PrivateMarketsFund> {
 )]
 #[derive(Clone, Debug)]
 pub struct PyPrivateMarketsFund {
-    pub(crate) inner: PrivateMarketsFund,
+    pub(crate) inner: Arc<PrivateMarketsFund>,
 }
 
 impl PyPrivateMarketsFund {
     pub(crate) fn new(inner: PrivateMarketsFund) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

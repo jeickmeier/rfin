@@ -10,6 +10,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use std::sync::Arc;
 
 fn extract_day_count(dc: Option<Bound<'_, PyAny>>) -> PyResult<DayCount> {
     if let Some(bound) = dc {
@@ -41,12 +42,14 @@ fn extract_day_count(dc: Option<Bound<'_, PyAny>>) -> PyResult<DayCount> {
 )]
 #[derive(Clone, Debug)]
 pub struct PyInterestRateOption {
-    pub(crate) inner: InterestRateOption,
+    pub(crate) inner: Arc<InterestRateOption>,
 }
 
 impl PyInterestRateOption {
     pub(crate) fn new(inner: InterestRateOption) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

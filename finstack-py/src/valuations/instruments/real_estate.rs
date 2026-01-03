@@ -16,6 +16,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyType};
 use pyo3::{Bound, Py};
 use std::fmt;
+use std::sync::Arc;
 
 /// Real estate asset valuation instrument.
 ///
@@ -55,12 +56,14 @@ use std::fmt;
 )]
 #[derive(Clone, Debug)]
 pub struct PyRealEstateAsset {
-    pub(crate) inner: RealEstateAsset,
+    pub(crate) inner: Arc<RealEstateAsset>,
 }
 
 impl PyRealEstateAsset {
     pub(crate) fn new(inner: RealEstateAsset) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

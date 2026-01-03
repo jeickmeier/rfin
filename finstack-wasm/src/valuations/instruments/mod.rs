@@ -65,6 +65,7 @@ pub use agency_mbs::{
 use finstack_valuations::instruments::Instrument;
 use js_sys::Reflect;
 use wasm_bindgen::JsValue;
+use wasm_bindgen::__rt::WasmRefCell;
 
 pub use asian_option::{JsAsianOption as AsianOption, JsAveragingMethod as AveragingMethod};
 pub use autocallable::JsAutocallable as Autocallable;
@@ -149,13 +150,13 @@ pub use yoy_inflation_swap::{
 /// keeping bindings as thin passthroughs to the Rust implementations.
 ///
 /// Note: Since wasm_bindgen doesn't automatically implement `JsCast` for structs with private fields,
-/// we use `unchecked_ref` with runtime type checking via constructor name matching.
-/// This is safe because we verify the type before casting.
+/// we use runtime type checking via constructor name matching and then borrow the
+/// underlying Rust value via `WasmRefCell<T>`.
 #[allow(unsafe_code)]
 pub(crate) fn extract_instrument(value: &JsValue) -> Result<Box<dyn Instrument>, JsValue> {
     macro_rules! try_extract {
         ($js_type:ty, $js_name:expr) => {{
-            // Check if the value is an instance of the expected type by checking constructor name
+            // Check if the value is an instance of the expected type by checking constructor name.
             let is_instance = Reflect::get(value, &JsValue::from_str("constructor"))
                 .ok()
                 .and_then(|c| Reflect::get(&c, &JsValue::from_str("name")).ok())
@@ -164,8 +165,8 @@ pub(crate) fn extract_instrument(value: &JsValue) -> Result<Box<dyn Instrument>,
                 .unwrap_or(false);
 
             if is_instance {
-                // wasm-bindgen stores the pointer to the Rust object in a property
-                // on the JS object. In recent versions it's "__wbg_ptr".
+                // wasm-bindgen stores a pointer to a `WasmRefCell<T>` in `__wbg_ptr`.
+                // Borrow it, then call `inner()` on the borrowed Rust value.
                 let ptr_val = Reflect::get(value, &JsValue::from_str("__wbg_ptr"))
                     .or_else(|_| Reflect::get(value, &JsValue::from_str("ptr")))
                     .map_err(|_| JsValue::from_str("Could not find Rust pointer"))?;
@@ -173,21 +174,30 @@ pub(crate) fn extract_instrument(value: &JsValue) -> Result<Box<dyn Instrument>,
                 let ptr_f64 = ptr_val
                     .as_f64()
                     .ok_or_else(|| JsValue::from_str("Pointer is not a number"))?;
-                let ptr = ptr_f64 as usize as *const $js_type;
 
-                if ptr.is_null() {
+                // wasm32 pointers are u32; JS numbers can represent all u32 exactly.
+                if !ptr_f64.is_finite() || ptr_f64 < 0.0 || ptr_f64.fract() != 0.0 {
+                    return Err(JsValue::from_str("Rust pointer is not a valid u32"));
+                }
+                if ptr_f64 > (u32::MAX as f64) {
+                    return Err(JsValue::from_str("Rust pointer out of range"));
+                }
+
+                let ptr_u32 = ptr_f64 as u32;
+                let cell_ptr = ptr_u32 as usize as *const WasmRefCell<$js_type>;
+
+                if cell_ptr.is_null() {
                     return Err(JsValue::from_str("Rust pointer is null"));
                 }
-
-                // Check alignment and sanity. Pointers to these structs should be at least
-                // aligned for the struct and not in the first page of memory (0x1000).
-                if (ptr as usize) < 0x1000 || (ptr as usize) % std::mem::align_of::<$js_type>() != 0
-                {
-                    return Err(JsValue::from_str("Rust pointer is invalid or misaligned"));
+                // Avoid clearly-invalid pointers.
+                if (cell_ptr as usize) < 0x1000 {
+                    return Err(JsValue::from_str("Rust pointer is invalid"));
                 }
 
-                let inst: &$js_type = unsafe { &*ptr };
-                return Ok(Box::new(inst.inner()));
+                // SAFETY: `__wbg_ptr` points at a `WasmRefCell<T>` allocated by wasm-bindgen.
+                let cell = unsafe { &*cell_ptr };
+                let borrowed = cell.borrow();
+                return Ok(Box::new(borrowed.inner()));
             }
         }};
     }

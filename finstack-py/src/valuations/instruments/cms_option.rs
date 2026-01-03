@@ -10,17 +10,20 @@ use finstack_valuations::instruments::OptionType;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::{Bound, PyRef};
+use std::sync::Arc;
 
 /// CMS option instrument.
 #[pyclass(module = "finstack.valuations.instruments", name = "CmsOption", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyCmsOption {
-    pub(crate) inner: CmsOption,
+    pub(crate) inner: Arc<CmsOption>,
 }
 
 impl PyCmsOption {
     pub(crate) fn new(inner: CmsOption) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

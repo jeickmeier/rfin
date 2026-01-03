@@ -13,6 +13,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use std::sync::Arc;
 
 fn parse_tranche_side(label: Option<&str>) -> PyResult<TrancheSide> {
     match label {
@@ -45,12 +46,14 @@ fn parse_tranche_side(label: Option<&str>) -> PyResult<TrancheSide> {
 )]
 #[derive(Clone, Debug)]
 pub struct PyCdsTranche {
-    pub(crate) inner: CdsTranche,
+    pub(crate) inner: Arc<CdsTranche>,
 }
 
 impl PyCdsTranche {
     pub(crate) fn new(inner: CdsTranche) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

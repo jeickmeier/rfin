@@ -70,7 +70,7 @@ impl PyExecutionContext {
             for obj in list {
                 let bound = obj.bind(py);
                 let handle = extract_instrument(&bound)?;
-                rust_instruments.push(handle.instrument);
+                rust_instruments.push(handle.instrument.clone_box());
             }
             Ok(Some(rust_instruments))
         } else {

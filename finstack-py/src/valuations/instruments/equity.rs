@@ -8,6 +8,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use std::sync::Arc;
 
 /// Spot equity position with optional share count and price override.
 ///
@@ -24,12 +25,14 @@ use std::fmt;
 #[pyclass(module = "finstack.valuations.instruments", name = "Equity", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyEquity {
-    pub(crate) inner: Equity,
+    pub(crate) inner: Arc<Equity>,
 }
 
 impl PyEquity {
     pub(crate) fn new(inner: Equity) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

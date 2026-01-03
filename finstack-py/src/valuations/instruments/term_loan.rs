@@ -7,6 +7,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
+use std::sync::Arc;
 
 /// Term loan instrument with DDTL (Delayed Draw Term Loan) support.
 ///
@@ -46,12 +47,14 @@ use std::fmt;
 #[pyclass(module = "finstack.valuations.instruments", name = "TermLoan", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyTermLoan {
-    pub(crate) inner: TermLoan,
+    pub(crate) inner: Arc<TermLoan>,
 }
 
 impl PyTermLoan {
     pub(crate) fn new(inner: TermLoan) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

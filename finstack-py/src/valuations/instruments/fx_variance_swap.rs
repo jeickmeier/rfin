@@ -18,6 +18,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::{Bound, FromPyObject, Py, PyRef, PyRefMut};
 use std::fmt;
+use std::sync::Arc;
 
 /// Variance direction (pay or receive variance).
 #[pyclass(
@@ -215,12 +216,14 @@ impl<'py> FromPyObject<'py> for FxRealizedVarMethodArg {
 )]
 #[derive(Clone, Debug)]
 pub struct PyFxVarianceSwap {
-    pub(crate) inner: FxVarianceSwap,
+    pub(crate) inner: Arc<FxVarianceSwap>,
 }
 
 impl PyFxVarianceSwap {
     pub(crate) fn new(inner: FxVarianceSwap) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

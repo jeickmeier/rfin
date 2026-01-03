@@ -7,6 +7,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
+use std::sync::Arc;
 
 /// Lookback option type.
 #[pyclass(
@@ -75,12 +76,14 @@ impl PyLookbackType {
 )]
 #[derive(Clone, Debug)]
 pub struct PyLookbackOption {
-    pub(crate) inner: LookbackOption,
+    pub(crate) inner: Arc<LookbackOption>,
 }
 
 impl PyLookbackOption {
     pub(crate) fn new(inner: LookbackOption) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

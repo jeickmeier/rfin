@@ -13,6 +13,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyType};
 use pyo3::{Bound, Py};
 use std::fmt;
+use std::sync::Arc;
 
 /// Commodity forward or futures contract.
 ///
@@ -39,12 +40,14 @@ use std::fmt;
 )]
 #[derive(Clone, Debug)]
 pub struct PyCommodityForward {
-    pub(crate) inner: CommodityForward,
+    pub(crate) inner: Arc<CommodityForward>,
 }
 
 impl PyCommodityForward {
     pub(crate) fn new(inner: CommodityForward) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

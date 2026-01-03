@@ -15,6 +15,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyType};
 use pyo3::{Bound, Py};
 use std::fmt;
+use std::sync::Arc;
 
 /// Commodity option (call or put on commodity forward/spot).
 ///
@@ -46,12 +47,14 @@ use std::fmt;
 )]
 #[derive(Clone, Debug)]
 pub struct PyCommodityOption {
-    pub(crate) inner: CommodityOption,
+    pub(crate) inner: Arc<CommodityOption>,
 }
 
 impl PyCommodityOption {
     pub(crate) fn new(inner: CommodityOption) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 

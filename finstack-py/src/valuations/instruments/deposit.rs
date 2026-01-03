@@ -9,6 +9,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule};
 use pyo3::Bound;
 use std::fmt;
+use std::sync::Arc;
 
 /// Money-market deposit with simple interest accrual.
 ///
@@ -26,12 +27,14 @@ use std::fmt;
 #[pyclass(module = "finstack.valuations.instruments", name = "Deposit", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyDeposit {
-    pub(crate) inner: Deposit,
+    pub(crate) inner: Arc<Deposit>,
 }
 
 impl PyDeposit {
     pub(crate) fn new(inner: Deposit) -> Self {
-        Self { inner }
+        Self {
+            inner: Arc::new(inner),
+        }
     }
 }
 
