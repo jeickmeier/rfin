@@ -32,6 +32,20 @@ impl InstrumentWrapper for JsFxSpot {
 
 #[wasm_bindgen(js_class = FxSpot)]
 impl JsFxSpot {
+    /// Create an FX spot instrument.
+    ///
+    /// Conventions:
+    /// - `spot_rate` is quoted as `quote_currency` per 1 unit of `base_currency` (e.g. EURUSD = USD per EUR).
+    /// - If `notional` is provided, it represents the base-currency amount to exchange.
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param base_currency - Base (foreign) currency
+    /// @param quote_currency - Quote (domestic) currency
+    /// @param settlement - Optional settlement date
+    /// @param spot_rate - Optional spot rate override
+    /// @param notional - Optional notional (currency-tagged; should be in base currency)
+    /// @returns A new `FxSpot`
+    /// @throws {Error} If notional currency is inconsistent
     #[wasm_bindgen(constructor)]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -125,6 +139,21 @@ impl InstrumentWrapper for JsFxOption {
 
 #[wasm_bindgen(js_class = FxOption)]
 impl JsFxOption {
+    /// Create a European FX call option.
+    ///
+    /// Conventions:
+    /// - `strike` is quoted as `quote_currency` per 1 unit of `base_currency`.
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param base_currency - Base (foreign) currency
+    /// @param quote_currency - Quote (domestic) currency
+    /// @param strike - Strike FX rate
+    /// @param expiry - Expiry date
+    /// @param notional - Notional (currency-tagged; typically in base currency)
+    /// @param domestic_curve - Domestic (quote) discount curve ID
+    /// @param foreign_curve - Foreign (base) discount curve ID
+    /// @param vol_surface - Vol surface ID
+    /// @returns A new `FxOption`
     #[wasm_bindgen(js_name = europeanCall)]
     #[allow(clippy::too_many_arguments)]
     pub fn european_call(
@@ -155,6 +184,21 @@ impl JsFxOption {
         JsFxOption::from_inner(option)
     }
 
+    /// Create a European FX put option.
+    ///
+    /// Conventions:
+    /// - `strike` is quoted as `quote_currency` per 1 unit of `base_currency`.
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param base_currency - Base (foreign) currency
+    /// @param quote_currency - Quote (domestic) currency
+    /// @param strike - Strike FX rate
+    /// @param expiry - Expiry date
+    /// @param notional - Notional (currency-tagged; typically in base currency)
+    /// @param domestic_curve - Domestic (quote) discount curve ID
+    /// @param foreign_curve - Foreign (base) discount curve ID
+    /// @param vol_surface - Vol surface ID
+    /// @returns A new `FxOption`
     #[wasm_bindgen(js_name = europeanPut)]
     #[allow(clippy::too_many_arguments)]
     pub fn european_put(
@@ -256,6 +300,43 @@ impl InstrumentWrapper for JsFxSwap {
 
 #[wasm_bindgen(js_class = FxSwap)]
 impl JsFxSwap {
+    /// Create an FX swap (near + far exchange of currencies).
+    ///
+    /// Conventions:
+    /// - `near_rate` / `far_rate` are quoted as `quote_currency` per 1 unit of `base_currency`.
+    /// - `notional` is the base-currency notional amount.
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param base_currency - Base (foreign) currency
+    /// @param quote_currency - Quote (domestic) currency
+    /// @param notional - Base notional (currency-tagged)
+    /// @param near_date - Near leg settlement date
+    /// @param far_date - Far leg settlement date
+    /// @param domestic_curve - Domestic (quote) discount curve ID
+    /// @param foreign_curve - Foreign (base) discount curve ID
+    /// @param near_rate - Optional near rate override
+    /// @param far_rate - Optional far rate override
+    /// @returns A new `FxSwap`
+    /// @throws {Error} If dates are invalid or inputs inconsistent
+    ///
+    /// @example
+    /// ```javascript
+    /// import init, { FxSwap, Money, Currency, FsDate } from "finstack-wasm";
+    ///
+    /// await init();
+    /// const swap = new FxSwap(
+    ///   "eurusd_swap_1",
+    ///   new Currency("EUR"),
+    ///   new Currency("USD"),
+    ///   Money.fromCode(1_000_000, "EUR"),
+    ///   new FsDate(2024, 1, 4),
+    ///   new FsDate(2024, 4, 4),
+    ///   "USD-OIS",
+    ///   "EUR-OIS",
+    ///   1.10,
+    ///   1.102
+    /// );
+    /// ```
     #[wasm_bindgen(constructor)]
     #[allow(clippy::too_many_arguments)]
     pub fn new(

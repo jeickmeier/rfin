@@ -26,6 +26,37 @@ impl InstrumentWrapper for JsDeposit {
 
 #[wasm_bindgen(js_class = Deposit)]
 impl JsDeposit {
+    /// Create a money-market deposit accruing simple interest over a date range.
+    ///
+    /// Conventions:
+    /// - `quote_rate` is a **decimal rate** (e.g. `0.0475` for 4.75%).
+    /// - Accrual is computed using the provided `day_count`.
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param notional - Deposit notional (currency-tagged)
+    /// @param start - Start date (trade/settlement start)
+    /// @param end - End date (maturity)
+    /// @param day_count - Day count convention for accrual (e.g. `DayCount.act360()`)
+    /// @param discount_curve - Discount curve ID (must exist in `MarketContext` when pricing)
+    /// @param quote_rate - Optional quoted deposit rate (decimal). If omitted, some models may treat it as 0 or infer from curves.
+    /// @returns A new `Deposit`
+    /// @throws {Error} If inputs are invalid (e.g., start > end)
+    ///
+    /// @example
+    /// ```javascript
+    /// import init, { Deposit, Money, FsDate, DayCount } from "finstack-wasm";
+    ///
+    /// await init();
+    /// const dep = new Deposit(
+    ///   "dep_1",
+    ///   Money.fromCode(10_000_000, "USD"),
+    ///   new FsDate(2024, 1, 2),
+    ///   new FsDate(2024, 4, 2),
+    ///   DayCount.act360(),
+    ///   "USD-OIS",
+    ///   0.0475
+    /// );
+    /// ```
     #[wasm_bindgen(constructor)]
     pub fn new(
         instrument_id: &str,

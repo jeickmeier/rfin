@@ -27,6 +27,59 @@ impl InstrumentWrapper for JsInterestRateSwap {
 
 #[wasm_bindgen(js_class = InterestRateSwap)]
 impl JsInterestRateSwap {
+    /// Create a plain-vanilla fixed-for-floating interest rate swap.
+    ///
+    /// Conventions:
+    /// - `fixed_rate` is a **decimal rate** (e.g. `0.0325` for 3.25%).
+    /// - `side` controls pay/receive direction (parsed by the Rust `PayReceive` enum).
+    ///   Common values: `"pay_fixed"` or `"receive_fixed"`.
+    /// - Default fixed leg: semi-annual, 30/360.
+    /// - Default float leg: quarterly, Act/360, reset lag 2.
+    /// - Business day convention defaults to Modified Following.
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param notional - Swap notional (currency-tagged)
+    /// @param fixed_rate - Fixed leg rate (decimal)
+    /// @param start - Swap start date
+    /// @param end - Swap end/maturity date
+    /// @param discount_curve - Discount curve ID
+    /// @param forward_curve - Forward curve ID (e.g. `"USD-SOFR-3M"`)
+    /// @param side - Pay/receive direction (`"pay_fixed"` | `"receive_fixed"`)
+    /// @param fixed_frequency - Optional fixed leg frequency (Tenor)
+    /// @param fixed_day_count - Optional fixed leg day count
+    /// @param float_frequency - Optional float leg frequency (Tenor)
+    /// @param float_day_count - Optional float leg day count
+    /// @param business_day_convention - Optional business day convention
+    /// @param calendar_id - Optional calendar code (e.g. `"usny"`)
+    /// @param stub_kind - Optional stub rule
+    /// @param reset_lag_days - Optional reset lag (default 2)
+    /// @returns A new `InterestRateSwap`
+    /// @throws {Error} If `side` is invalid or inputs are inconsistent
+    ///
+    /// @example
+    /// ```javascript
+    /// import init, { InterestRateSwap, Money, FsDate, DayCount } from "finstack-wasm";
+    ///
+    /// await init();
+    /// const swap = new InterestRateSwap(
+    ///   "swap_1",
+    ///   Money.fromCode(10_000_000, "USD"),
+    ///   0.0325,
+    ///   new FsDate(2024, 1, 2),
+    ///   new FsDate(2029, 1, 2),
+    ///   "USD-OIS",
+    ///   "USD-SOFR-3M",
+    ///   "pay_fixed",
+    ///   null,
+    ///   DayCount.thirty360(),
+    ///   null,
+    ///   DayCount.act360(),
+    ///   null,
+    ///   "usny",
+    ///   null,
+    ///   2
+    /// );
+    /// ```
     #[wasm_bindgen(constructor)]
     #[allow(clippy::too_many_arguments)]
     pub fn new(

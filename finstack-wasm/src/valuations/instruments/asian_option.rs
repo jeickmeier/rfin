@@ -52,6 +52,48 @@ impl InstrumentWrapper for JsAsianOption {
 
 #[wasm_bindgen(js_class = AsianOption)]
 impl JsAsianOption {
+    /// Create an Asian option (average price option) on an equity underlying.
+    ///
+    /// Conventions:
+    /// - `strike` is an **absolute price level** (not percent/bps).
+    /// - `fixing_dates` must be ISO strings (`"YYYY-MM-DD"`).
+    /// - `option_type`: `"call"` or `"put"` (default `"call"`).
+    /// - `averaging_method`: `"arithmetic"` or `"geometric"` (default `"arithmetic"`).
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param ticker - Underlying ticker/symbol (used to look up spot/dividends/vol in `MarketContext`)
+    /// @param strike - Strike price (absolute)
+    /// @param expiry - Expiry date
+    /// @param fixing_dates - Array of ISO date strings (`"YYYY-MM-DD"`)
+    /// @param notional - Option notional (currency-tagged)
+    /// @param discount_curve - Discount curve ID
+    /// @param spot_id - Market scalar/price id for spot
+    /// @param vol_surface - Vol surface ID
+    /// @param averaging_method - Optional averaging method string
+    /// @param option_type - Optional option type string
+    /// @param div_yield_id - Optional dividend yield scalar/curve ID
+    /// @returns A new `AsianOption`
+    /// @throws {Error} If inputs are invalid (e.g., fixing dates not ISO)
+    ///
+    /// @example
+    /// ```javascript
+    /// import init, { AsianOption, Money, FsDate } from "finstack-wasm";
+    ///
+    /// await init();
+    /// const opt = new AsianOption(
+    ///   "asian_1",
+    ///   "AAPL",
+    ///   200.0,
+    ///   new FsDate(2025, 6, 21),
+    ///   ["2025-03-21", "2025-04-21", "2025-05-21"],
+    ///   Money.fromCode(1_000_000, "USD"),
+    ///   "USD-OIS",
+    ///   "AAPL-SPOT",
+    ///   "AAPL-VOL",
+    ///   "arithmetic",
+    ///   "call"
+    /// );
+    /// ```
     #[wasm_bindgen(constructor)]
     #[allow(clippy::too_many_arguments)]
     pub fn builder(

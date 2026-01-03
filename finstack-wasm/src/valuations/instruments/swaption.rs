@@ -28,6 +28,56 @@ impl InstrumentWrapper for JsSwaption {
 
 #[wasm_bindgen(js_class = Swaption)]
 impl JsSwaption {
+    /// Create a payer swaption (option to enter a payer swap).
+    ///
+    /// Conventions:
+    /// - `strike` is a **decimal rate** (e.g. `0.035` for 3.5% strike).
+    /// - `vol_surface` is a volatility surface ID (must exist in `MarketContext` when pricing).
+    /// - `exercise` / `settlement` are parsed from strings; unsupported values will throw.
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param notional - Option notional (currency-tagged)
+    /// @param strike - Strike swap rate (decimal)
+    /// @param expiry - Option expiry date
+    /// @param swap_start - Underlying swap start date
+    /// @param swap_end - Underlying swap end date
+    /// @param discount_curve - Discount curve ID
+    /// @param forward_curve - Forward curve ID
+    /// @param vol_surface - Vol surface ID
+    /// @param exercise - Optional exercise style (e.g. `"european"`)
+    /// @param settlement - Optional settlement style (e.g. `"physical"`, `"cash"`)
+    /// @param fixed_frequency - Optional fixed leg frequency
+    /// @param float_frequency - Optional float leg frequency
+    /// @param day_count - Optional day count for the underlying swap schedule
+    /// @param business_day_convention - Optional business day convention
+    /// @param calendar_id - Optional calendar code
+    /// @returns A new `Swaption`
+    /// @throws {Error} If inputs are invalid or parsing fails
+    ///
+    /// @example
+    /// ```javascript
+    /// import init, { Swaption, Money, FsDate } from "finstack-wasm";
+    ///
+    /// await init();
+    /// const swpt = Swaption.payer(
+    ///   "swpt_1",
+    ///   Money.fromCode(10_000_000, "USD"),
+    ///   0.035,
+    ///   new FsDate(2025, 1, 2),
+    ///   new FsDate(2025, 1, 2),
+    ///   new FsDate(2030, 1, 2),
+    ///   "USD-OIS",
+    ///   "USD-SOFR-3M",
+    ///   "USD-SWAPTION-VOL",
+    ///   "european",
+    ///   "physical",
+    ///   null,
+    ///   null,
+    ///   null,
+    ///   null,
+    ///   "usny"
+    /// );
+    /// ```
     #[wasm_bindgen(js_name = payer)]
     #[allow(clippy::too_many_arguments)]
     pub fn payer(
@@ -90,6 +140,30 @@ impl JsSwaption {
         Ok(JsSwaption::from_inner(swaption))
     }
 
+    /// Create a receiver swaption (option to enter a receiver swap).
+    ///
+    /// Conventions:
+    /// - `strike` is a **decimal rate**.
+    /// - `vol_surface` is a volatility surface ID (must exist in `MarketContext` when pricing).
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param notional - Option notional (currency-tagged)
+    /// @param strike - Strike swap rate (decimal)
+    /// @param expiry - Option expiry date
+    /// @param swap_start - Underlying swap start date
+    /// @param swap_end - Underlying swap end date
+    /// @param discount_curve - Discount curve ID
+    /// @param forward_curve - Forward curve ID
+    /// @param vol_surface - Vol surface ID
+    /// @param exercise - Optional exercise style
+    /// @param settlement - Optional settlement style
+    /// @param fixed_frequency - Optional fixed leg frequency
+    /// @param float_frequency - Optional float leg frequency
+    /// @param day_count - Optional day count for the underlying swap schedule
+    /// @param business_day_convention - Optional business day convention
+    /// @param calendar_id - Optional calendar code
+    /// @returns A new `Swaption`
+    /// @throws {Error} If inputs are invalid or parsing fails
     #[wasm_bindgen(js_name = receiver)]
     #[allow(clippy::too_many_arguments)]
     pub fn receiver(

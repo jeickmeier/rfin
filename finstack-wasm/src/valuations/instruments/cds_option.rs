@@ -28,6 +28,27 @@ impl InstrumentWrapper for JsCdsOption {
 
 #[wasm_bindgen(js_class = CdsOption)]
 impl JsCdsOption {
+    /// Create an option on a CDS spread (CDS option).
+    ///
+    /// Conventions:
+    /// - `strike_spread_bp` is in **basis points**.
+    /// - `recovery_rate` is in **decimal** (0..1).
+    /// - `option_type` defaults to `"call"` if omitted.
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param notional - Option notional (currency-tagged)
+    /// @param strike_spread_bp - Strike spread in bps
+    /// @param expiry - Option expiry date
+    /// @param cds_maturity - Underlying CDS maturity date
+    /// @param discount_curve - Discount curve ID
+    /// @param credit_curve - Credit/hazard curve ID
+    /// @param vol_surface - Vol surface ID
+    /// @param option_type - Optional `"call"`/`"put"`
+    /// @param recovery_rate - Optional recovery override (0..1)
+    /// @param underlying_is_index - Optional: treat underlying as index
+    /// @param index_factor - Optional index factor (if underlying is index)
+    /// @returns A new `CdsOption`
+    /// @throws {Error} If recovery is outside [0,1] or inputs invalid
     #[wasm_bindgen(constructor)]
     #[allow(clippy::too_many_arguments)]
     pub fn new(

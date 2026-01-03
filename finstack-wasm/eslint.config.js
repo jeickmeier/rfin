@@ -85,7 +85,7 @@ export default [
 
   // JavaScript/JSX files configuration
   {
-    files: ['**/*.{js,jsx}'],
+    files: ['**/*.{js,jsx,mjs,cjs}'],
     languageOptions: {
       ecmaVersion: 2020,
       sourceType: 'module',
@@ -168,6 +168,14 @@ export default [
   // Test files overrides (JavaScript)
   {
     files: ['**/*.test.{js,jsx}', '**/*.spec.{js,jsx}'],
+    rules: {
+      'no-console': 'off',
+    },
+  },
+
+  // Scripts directory (Node.js scripts)
+  {
+    files: ['scripts/**/*.{js,mjs,cjs}'],
     rules: {
       'no-console': 'off',
     },

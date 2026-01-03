@@ -3,12 +3,27 @@
   "version": "0.1.0",
   "type": "module",
   "description": "WebAssembly bindings for Finstack - high-performance financial computation library for bonds, derivatives, and portfolio analytics",
-  "main": "index.js",
-  "types": "index.d.ts",
+  "main": "./pkg/finstack_wasm.js",
+  "types": "./pkg/finstack_wasm.d.ts",
+  "files": [
+    "pkg/**",
+    "pkg-node/**",
+    "snippets/**"
+  ],
+  "exports": {
+    ".": {
+      "types": "./pkg/finstack_wasm.d.ts",
+      "default": "./pkg/finstack_wasm.js"
+    },
+    "./package.json": "./package.json",
+    "./pkg/finstack_wasm_bg.wasm": "./pkg/finstack_wasm_bg.wasm"
+  },
   "scripts": {
     "build": "wasm-pack build --target web --out-dir pkg",
     "build:node": "wasm-pack build --target nodejs --out-dir pkg-node",
     "build:optimized": "wasm-pack build --target web --out-dir pkg && npm run optimize",
+    "prepare": "npm run build",
+    "docs:check": "node scripts/check-dts-docs.mjs",
     "optimize": "command -v wasm-opt >/dev/null 2>&1 && wasm-opt -Oz -o pkg/finstack_wasm_bg.wasm pkg/finstack_wasm_bg.wasm || echo 'wasm-opt not found, skipping optimization'",
     "test": "wasm-pack test --chrome --headless",
     "lint": "eslint .",

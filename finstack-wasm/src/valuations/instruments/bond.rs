@@ -138,6 +138,71 @@ impl JsBond {
 
 #[wasm_bindgen(js_class = Bond)]
 impl JsBond {
+    /// Construct a bond with full control over schedule and coupon conventions.
+    ///
+    /// This constructor supports both **fixed-rate** and **floating-rate** bonds:
+    /// - If `forward_curve` is `null`/`undefined`, the bond is treated as **fixed-rate** and
+    ///   `coupon_rate` is used.
+    /// - If `forward_curve` is provided, the bond is treated as **floating-rate** and
+    ///   `float_margin_bp` / `float_gearing` / `float_reset_lag_days` are used.
+    ///
+    /// Conventions:
+    /// - `coupon_rate` is a **decimal rate** (e.g. `0.05` for 5%).
+    /// - `float_margin_bp` and `float_margin_bp`-style fields are in **basis points** (e.g. `120.0`).
+    /// - `quoted_clean_price` is a **clean price** in **percent of par** (e.g. `99.25`).
+    /// - `call_schedule` / `put_schedule` entries are **percent of par** (e.g. `100.0`).
+    ///
+    /// @param instrument_id - Unique identifier for this instrument
+    /// @param notional - Face amount (currency-tagged)
+    /// @param issue - Issue/settlement start date
+    /// @param maturity - Maturity date
+    /// @param discount_curve - Discount curve ID (must exist in `MarketContext` when pricing)
+    /// @param coupon_rate - Fixed coupon rate (decimal). Ignored for floating bonds
+    /// @param frequency - Coupon frequency (optional; defaults to semi-annual)
+    /// @param day_count - Day count convention for accrual (optional; fixed defaults to 30/360, float defaults to Act/360)
+    /// @param business_day_convention - Business day adjustment convention (optional)
+    /// @param calendar_id - Calendar registry code (optional, e.g. `"usny"`, `"gblo"`)
+    /// @param stub_kind - Stub rule (optional)
+    /// @param amortization - Optional amortization schedule
+    /// @param call_schedule - Optional call schedule (array of `[\"YYYY-MM-DD\", pricePct]` or `{date, pricePct}` objects)
+    /// @param put_schedule - Optional put schedule (array of `[\"YYYY-MM-DD\", pricePct]` or `{date, pricePct}` objects)
+    /// @param quoted_clean_price - Optional clean price override (percent of par)
+    /// @param forward_curve - Optional forward curve ID; when set the bond is floating-rate
+    /// @param float_margin_bp - Floating spread in **bps** (e.g. `150.0` for +150bp)
+    /// @param float_gearing - Floating gearing multiplier (default `1.0`)
+    /// @param float_reset_lag_days - Reset lag in business days (default `2`)
+    /// @param hazard_curve - Optional hazard/credit curve ID (for credit-risky bond pricing)
+    /// @returns A new `Bond` instance
+    /// @throws {Error} If inputs are invalid (e.g., malformed call schedule dates)
+    ///
+    /// @example
+    /// ```javascript
+    /// import init, { Bond, Money, FsDate } from "finstack-wasm";
+    ///
+    /// await init();
+    /// const notional = Money.fromCode(1_000_000, "USD");
+    /// const issue = new FsDate(2024, 1, 2);
+    /// const maturity = new FsDate(2034, 1, 2);
+    ///
+    /// // Fixed-rate bond with custom conventions
+    /// const bond = new Bond(
+    ///   "bond_1",
+    ///   notional,
+    ///   issue,
+    ///   maturity,
+    ///   "USD-OIS",
+    ///   0.05,     // 5% coupon (decimal)
+    ///   null,
+    ///   null,
+    ///   null,
+    ///   "usny",
+    ///   null,
+    ///   null,
+    ///   null,
+    ///   null,
+    ///   99.25
+    /// );
+    /// ```
     #[wasm_bindgen(constructor)]
     #[allow(clippy::too_many_arguments)]
     pub fn builder(
@@ -264,6 +329,36 @@ impl JsBond {
             .map_err(|e| js_error(e.to_string()))
     }
 
+    /// Create a simple fixed-rate bond with semi-annual coupons.
+    ///
+    /// Conventions:
+    /// - `coupon_rate` is a **decimal rate** (e.g. `0.05` for 5%).
+    /// - `quoted_clean_price` is a **clean price** in **percent of par** (e.g. `99.25`).
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param notional - Face amount (currency-tagged)
+    /// @param coupon_rate - Annual coupon rate (decimal)
+    /// @param issue - Issue date
+    /// @param maturity - Maturity date
+    /// @param discount_curve - Discount curve ID (must exist in `MarketContext` when pricing)
+    /// @param quoted_clean_price - Optional clean price override (percent of par)
+    /// @returns A new `Bond`
+    ///
+    /// @example
+    /// ```javascript
+    /// import init, { Bond, Money, FsDate } from "finstack-wasm";
+    ///
+    /// await init();
+    /// const bond = Bond.fixedSemiannual(
+    ///   "bond_1",
+    ///   Money.fromCode(1_000_000, "USD"),
+    ///   0.05,
+    ///   new FsDate(2024, 1, 2),
+    ///   new FsDate(2034, 1, 2),
+    ///   "USD-OIS",
+    ///   99.25
+    /// );
+    /// ```
     #[wasm_bindgen(js_name = fixedSemiannual)]
     #[allow(clippy::too_many_arguments)]
     pub fn fixed_semiannual(
@@ -290,6 +385,16 @@ impl JsBond {
         JsBond::from_inner(bond)
     }
 
+    /// Create a US Treasury-style bond using the `USTreasury` convention.
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param notional - Face amount (currency-tagged)
+    /// @param coupon_rate - Annual coupon rate (decimal)
+    /// @param issue - Issue date
+    /// @param maturity - Maturity date
+    /// @param discount_curve - Discount curve ID
+    /// @param quoted_clean_price - Optional clean price override (percent of par)
+    /// @returns A new `Bond`
     #[wasm_bindgen(js_name = treasury)]
     pub fn treasury(
         instrument_id: &str,
@@ -317,6 +422,15 @@ impl JsBond {
         JsBond::from_inner(bond)
     }
 
+    /// Create a zero-coupon bond.
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param notional - Face amount (currency-tagged)
+    /// @param issue - Issue date
+    /// @param maturity - Maturity date
+    /// @param discount_curve - Discount curve ID
+    /// @param quoted_clean_price - Optional clean price override (percent of par)
+    /// @returns A new `Bond`
     #[wasm_bindgen(js_name = zeroCoupon)]
     pub fn zero_coupon(
         instrument_id: &str,
@@ -341,6 +455,22 @@ impl JsBond {
         JsBond::from_inner(bond)
     }
 
+    /// Create a floating-rate bond with a single forward index and margin.
+    ///
+    /// Conventions:
+    /// - `margin_bp` is in **basis points** (e.g. `150.0` for +150bp).
+    /// - The underlying forward index is provided by `forward_curve` (curve ID).
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param notional - Face amount (currency-tagged)
+    /// @param issue - Issue date
+    /// @param maturity - Maturity date
+    /// @param discount_curve - Discount curve ID
+    /// @param forward_curve - Forward curve ID (e.g. `"USD-SOFR-3M"`)
+    /// @param margin_bp - Spread in basis points
+    /// @param quoted_clean_price - Optional clean price override (percent of par)
+    /// @returns A new `Bond`
+    /// @throws {Error} If construction fails due to invalid inputs
     #[wasm_bindgen(js_name = floating)]
     #[allow(clippy::too_many_arguments)]
     pub fn floating(
@@ -377,6 +507,45 @@ impl JsBond {
         Ok(JsBond::from_inner(bond))
     }
 
+    /// Create a bond with a split cash/PIK coupon.
+    ///
+    /// Conventions:
+    /// - `coupon_rate` is a **decimal rate**.
+    /// - `cash_pct` / `pik_pct` are fractions in **decimal** (typically sum to 1.0).
+    /// - Requires a `MarketContext` to build floating/curve-aware schedules.
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param notional - Face amount (currency-tagged)
+    /// @param coupon_rate - Annual coupon rate (decimal)
+    /// @param cash_pct - Fraction of coupon paid in cash (decimal)
+    /// @param pik_pct - Fraction of coupon paid in PIK (decimal)
+    /// @param issue - Issue date
+    /// @param maturity - Maturity date
+    /// @param discount_curve - Discount curve ID
+    /// @param quoted_clean_price - Optional clean price override (percent of par)
+    /// @param market - Market context (used to build schedule)
+    /// @returns A new `Bond`
+    /// @throws {Error} If schedule construction fails
+    ///
+    /// @example
+    /// ```javascript
+    /// import init, { Bond, Money, FsDate, MarketContext } from "finstack-wasm";
+    ///
+    /// await init();
+    /// const market = new MarketContext();
+    /// const bond = Bond.pikToggle(
+    ///   "pik_1",
+    ///   Money.fromCode(1_000_000, "USD"),
+    ///   0.12,
+    ///   0.5,
+    ///   0.5,
+    ///   new FsDate(2024, 1, 2),
+    ///   new FsDate(2029, 1, 2),
+    ///   "USD-OIS",
+    ///   null,
+    ///   market
+    /// );
+    /// ```
     #[wasm_bindgen(js_name = pikToggle)]
     #[allow(clippy::too_many_arguments)]
     pub fn pik_toggle(
@@ -424,6 +593,28 @@ impl JsBond {
         .map_err(|e| js_error(e.to_string()))
     }
 
+    /// Create a bond that switches from fixed to floating coupons on a given date.
+    ///
+    /// Conventions:
+    /// - `fixed_rate` is a **decimal rate**.
+    /// - `margin_bp` is in **basis points**.
+    /// - Requires a `MarketContext` to build the schedule.
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param notional - Face amount (currency-tagged)
+    /// @param fixed_rate - Fixed coupon rate before switch (decimal)
+    /// @param switch_date - Date where floating coupons begin
+    /// @param forward_curve - Forward curve ID for floating coupons
+    /// @param margin_bp - Floating spread in bps
+    /// @param issue - Issue date
+    /// @param maturity - Maturity date
+    /// @param frequency - Coupon frequency
+    /// @param day_count - Day count convention
+    /// @param discount_curve - Discount curve ID
+    /// @param quoted_clean_price - Optional clean price override (percent of par)
+    /// @param market - Market context (used to build schedule)
+    /// @returns A new `Bond`
+    /// @throws {Error} If schedule construction fails
     #[wasm_bindgen(js_name = fixedToFloating)]
     #[allow(clippy::too_many_arguments)]
     pub fn fixed_to_floating(

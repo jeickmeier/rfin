@@ -21,6 +21,12 @@ pub struct JsRepoCollateral {
 
 #[wasm_bindgen(js_class = RepoCollateral)]
 impl JsRepoCollateral {
+    /// Create a repo collateral specification.
+    ///
+    /// @param instrument_id - Identifier of the collateral instrument (e.g. CUSIP)
+    /// @param quantity - Quantity of collateral units
+    /// @param market_value_id - Market scalar/price id used to value the collateral
+    /// @returns A `RepoCollateral`
     #[wasm_bindgen(constructor)]
     pub fn new(instrument_id: &str, quantity: f64, market_value_id: &str) -> JsRepoCollateral {
         JsRepoCollateral {
@@ -52,6 +58,44 @@ impl InstrumentWrapper for JsRepo {
 
 #[wasm_bindgen(js_class = Repo)]
 impl JsRepo {
+    /// Create a repurchase agreement (repo).
+    ///
+    /// Conventions:
+    /// - `repo_rate` is a **decimal rate** (e.g. `0.05` for 5%).
+    /// - `haircut` is a fraction in **decimal** (e.g. `0.02` for 2%).
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param cash_amount - Cash amount exchanged (currency-tagged)
+    /// @param collateral - Collateral specification
+    /// @param repo_rate - Repo rate (decimal)
+    /// @param start_date - Start date
+    /// @param maturity - End/maturity date
+    /// @param discount_curve - Discount curve ID
+    /// @param repo_type - Optional repo type string (e.g. `"term"`)
+    /// @param haircut - Optional haircut (decimal)
+    /// @param day_count - Optional day count (defaults Act/360)
+    /// @param business_day_convention - Optional business day convention
+    /// @returns A new `Repo`
+    /// @throws {Error} If inputs are invalid or parsing fails
+    ///
+    /// @example
+    /// ```javascript
+    /// import init, { Repo, RepoCollateral, Money, FsDate } from "finstack-wasm";
+    ///
+    /// await init();
+    /// const collateral = new RepoCollateral("UST-10Y", 100.0, "UST-10Y-PRICE");
+    /// const repo = new Repo(
+    ///   "repo_1",
+    ///   Money.fromCode(10_000_000, "USD"),
+    ///   collateral,
+    ///   0.05,
+    ///   new FsDate(2024, 1, 2),
+    ///   new FsDate(2024, 2, 2),
+    ///   "USD-OIS",
+    ///   "term",
+    ///   0.02
+    /// );
+    /// ```
     #[wasm_bindgen(constructor)]
     #[allow(clippy::too_many_arguments)]
     pub fn new(

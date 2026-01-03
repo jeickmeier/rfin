@@ -1,3 +1,21 @@
+//! Valuation and risk APIs exposed to JS/TS.
+//!
+//! This module contains the WASM-facing wrappers around the Rust `finstack-valuations` crate:
+//! instruments, curve calibration, pricing registry, results envelopes, and risk tooling.
+//!
+//! The primary entry point for pricing is `createStandardRegistry()` / `PricerRegistry`.
+//!
+//! @example
+//! ```javascript
+//! import init, { createStandardRegistry, MarketContext, FsDate } from "finstack-wasm";
+//!
+//! await init();
+//! const registry = createStandardRegistry();
+//! const market = new MarketContext();
+//! const asOf = new FsDate(2024, 1, 2);
+//! // registry.priceInstrument(instrument, "discounting", market, asOf)
+//! ```
+
 pub mod attribution;
 pub mod calibration;
 pub mod cashflow;

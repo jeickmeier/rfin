@@ -72,6 +72,44 @@ impl InstrumentWrapper for JsVarianceSwap {
 
 #[wasm_bindgen(js_class = VarianceSwap)]
 impl JsVarianceSwap {
+    /// Create a variance swap.
+    ///
+    /// Conventions:
+    /// - `strike_variance` is the variance strike (non-negative).
+    /// - `observation_frequency` controls sampling frequency for realized variance.
+    /// - `side` defaults to receiving variance if omitted.
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param underlying_id - Underlying identifier (used to look up spot/returns)
+    /// @param notional - Notional (currency-tagged)
+    /// @param strike_variance - Strike variance (non-negative)
+    /// @param start_date - Observation start date
+    /// @param maturity - Observation end/maturity date
+    /// @param discount_curve - Discount curve ID
+    /// @param observation_frequency - Sampling frequency (Tenor)
+    /// @param realized_method - Optional realized variance method string
+    /// @param side - Optional pay/receive side string
+    /// @returns A new `VarianceSwap`
+    /// @throws {Error} If inputs are invalid
+    ///
+    /// @example
+    /// ```javascript
+    /// import init, { VarianceSwap, Money, FsDate, Tenor } from "finstack-wasm";
+    ///
+    /// await init();
+    /// const vs = new VarianceSwap(
+    ///   "vs_1",
+    ///   "AAPL",
+    ///   Money.fromCode(1_000_000, "USD"),
+    ///   0.04,
+    ///   new FsDate(2024, 1, 2),
+    ///   new FsDate(2025, 1, 2),
+    ///   "USD-OIS",
+    ///   Tenor.daily(),
+    ///   "close_to_close",
+    ///   "receive"
+    /// );
+    /// ```
     #[wasm_bindgen(constructor)]
     #[allow(clippy::too_many_arguments)]
     pub fn new(

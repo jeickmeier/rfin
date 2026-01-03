@@ -230,13 +230,13 @@ main() {
         fi
 
         run_formatter "WASM/TS formatting" \
-            "cd finstack-wasm && npm run format -- --check ." \
-            "cd finstack-wasm && npm run format:fix ." \
+            "npm run format -- --check ." \
+            "npm run format:fix ." \
             "finstack-wasm"
 
         run_formatter "WASM/TS linting" \
-            "cd finstack-wasm && npm run lint" \
-            "cd finstack-wasm && npm run lint:fix || true" \
+            "npm run lint" \
+            "npm run lint:fix || true" \
             "finstack-wasm"
     fi
 
@@ -254,13 +254,13 @@ main() {
         fi
 
         run_formatter "UI/TS formatting" \
-            "cd finstack-ui && npm run format -- --check \"**/*.{js,jsx,ts,tsx,json,md,css}\"" \
-            "cd finstack-ui && npm run format:fix \"**/*.{js,jsx,ts,tsx,json,md,css}\"" \
+            "npm run format -- --check \"**/*.{js,jsx,ts,tsx,json,md,css}\"" \
+            "npm run format:fix \"**/*.{js,jsx,ts,tsx,json,md,css}\"" \
             "finstack-ui"
 
         run_formatter "UI/TS linting" \
-            "cd finstack-ui && npm run lint" \
-            "cd finstack-ui && npm run lint:fix || true" \
+            "npm run lint" \
+            "npm run lint:fix || true" \
             "finstack-ui"
     fi
 

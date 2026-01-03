@@ -36,6 +36,28 @@ impl InstrumentWrapper for JsCDSIndex {
 
 #[wasm_bindgen(js_class = CDSIndex)]
 impl JsCDSIndex {
+    /// Create a standardized CDS index instrument.
+    ///
+    /// Conventions:
+    /// - `fixed_coupon_bp` is in **basis points** (e.g. `100.0` for 1%).
+    /// - `recovery_rate` is in **decimal** (e.g. `0.40`).
+    /// - `side` defaults to paying fixed (selling protection leg direction depends on model conventions).
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param index_name - Index name (e.g. `"CDX.NA.IG"`)
+    /// @param series - Series number
+    /// @param version - Version number
+    /// @param notional - Index notional (currency-tagged)
+    /// @param fixed_coupon_bp - Fixed coupon in basis points
+    /// @param start_date - Effective start date
+    /// @param maturity - Maturity date
+    /// @param discount_curve - Discount curve ID
+    /// @param credit_curve - Credit/hazard curve ID
+    /// @param side - Optional pay/receive side string
+    /// @param recovery_rate - Optional recovery rate override (0..1)
+    /// @param index_factor - Optional factor for index notionals
+    /// @returns A new `CDSIndex`
+    /// @throws {Error} If recovery is outside [0,1] or inputs invalid
     #[wasm_bindgen(constructor)]
     #[allow(clippy::too_many_arguments)]
     pub fn new(

@@ -30,6 +30,48 @@ impl InstrumentWrapper for JsBarrierOption {
 
 #[wasm_bindgen(js_class = BarrierOption)]
 impl JsBarrierOption {
+    /// Create a barrier option on an equity underlying.
+    ///
+    /// Conventions:
+    /// - `strike` and `barrier` are **absolute price levels**.
+    /// - `option_type`: `"call"` or `"put"`.
+    /// - `barrier_type`: `"UpAndOut"`, `"UpAndIn"`, `"DownAndOut"`, `"DownAndIn"` (case/underscore-insensitive).
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param ticker - Underlying ticker/symbol
+    /// @param strike - Strike price (absolute)
+    /// @param barrier - Barrier price (absolute)
+    /// @param option_type - `"call"` or `"put"`
+    /// @param barrier_type - Barrier type string
+    /// @param expiry - Expiry date
+    /// @param notional - Option notional (currency-tagged)
+    /// @param discount_curve - Discount curve ID
+    /// @param spot_id - Market scalar/price id for spot
+    /// @param vol_surface - Vol surface ID
+    /// @param div_yield_id - Optional dividend yield id
+    /// @param use_gobet_miri - Optional numerical method toggle
+    /// @returns A new `BarrierOption`
+    /// @throws {Error} If option/barrier type strings are invalid
+    ///
+    /// @example
+    /// ```javascript
+    /// import init, { BarrierOption, Money, FsDate } from "finstack-wasm";
+    ///
+    /// await init();
+    /// const opt = new BarrierOption(
+    ///   "barrier_1",
+    ///   "AAPL",
+    ///   200.0,
+    ///   250.0,
+    ///   "call",
+    ///   "up_and_out",
+    ///   new FsDate(2025, 6, 21),
+    ///   Money.fromCode(1_000_000, "USD"),
+    ///   "USD-OIS",
+    ///   "AAPL-SPOT",
+    ///   "AAPL-VOL"
+    /// );
+    /// ```
     #[wasm_bindgen(constructor)]
     #[allow(clippy::too_many_arguments)]
     pub fn builder(

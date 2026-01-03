@@ -19,6 +19,9 @@ fn extract_day_count(dc: Option<JsDayCount>) -> DayCount {
     dc.map(|d| d.inner()).unwrap_or(DayCount::Act360)
 }
 
+/// Interest rate option (cap or floor) on a floating index.
+///
+/// Use `InterestRateOption.cap(...)` or `InterestRateOption.floor(...)` to construct.
 #[wasm_bindgen(js_name = InterestRateOption)]
 #[derive(Clone, Debug)]
 pub struct JsInterestRateOption(InterestRateOption);
@@ -35,6 +38,24 @@ impl InstrumentWrapper for JsInterestRateOption {
 
 #[wasm_bindgen(js_class = InterestRateOption)]
 impl JsInterestRateOption {
+    /// Create an interest rate cap.
+    ///
+    /// Conventions:
+    /// - `strike` is a **decimal rate** (e.g. `0.04` for 4%).
+    /// - `payments_per_year` defaults to 4 (quarterly) if omitted.
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param notional - Notional (currency-tagged)
+    /// @param strike - Cap strike rate (decimal)
+    /// @param start_date - Accrual start date
+    /// @param end_date - Accrual end date
+    /// @param discount_curve - Discount curve ID
+    /// @param forward_curve - Forward curve ID
+    /// @param vol_surface - Vol surface ID
+    /// @param payments_per_year - Optional payments per year (frequency)
+    /// @param day_count - Optional day count (defaults Act/360)
+    /// @returns A new `InterestRateOption` (cap)
+    /// @throws {Error} If frequency is invalid
     #[wasm_bindgen(js_name = cap)]
     #[allow(clippy::too_many_arguments)]
     pub fn cap(
@@ -69,6 +90,24 @@ impl JsInterestRateOption {
         Ok(JsInterestRateOption::from_inner(option))
     }
 
+    /// Create an interest rate floor.
+    ///
+    /// Conventions:
+    /// - `strike` is a **decimal rate**.
+    /// - `payments_per_year` defaults to 4 (quarterly) if omitted.
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param notional - Notional (currency-tagged)
+    /// @param strike - Floor strike rate (decimal)
+    /// @param start_date - Accrual start date
+    /// @param end_date - Accrual end date
+    /// @param discount_curve - Discount curve ID
+    /// @param forward_curve - Forward curve ID
+    /// @param vol_surface - Vol surface ID
+    /// @param payments_per_year - Optional payments per year (frequency)
+    /// @param day_count - Optional day count (defaults Act/360)
+    /// @returns A new `InterestRateOption` (floor)
+    /// @throws {Error} If frequency is invalid
     #[wasm_bindgen(js_name = floor)]
     #[allow(clippy::too_many_arguments)]
     pub fn floor(

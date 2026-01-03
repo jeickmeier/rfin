@@ -30,6 +30,43 @@ impl InstrumentWrapper for JsInterestRateFuture {
 
 #[wasm_bindgen(js_class = InterestRateFuture)]
 impl JsInterestRateFuture {
+    /// Create an interest rate future (e.g., Eurodollar/SOFR future style).
+    ///
+    /// Conventions:
+    /// - `quoted_price` is typically quoted as `100 - implied_rate*100` (market convention varies by contract).
+    /// - By default, convexity adjustment is set to 0.0 to avoid requiring a vol surface.
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param notional - Contract notional (currency-tagged)
+    /// @param quoted_price - Quoted futures price
+    /// @param expiry - Expiry date
+    /// @param fixing_date - Fixing date
+    /// @param period_start - Underlying accrual period start
+    /// @param period_end - Underlying accrual period end
+    /// @param discount_curve - Discount curve ID
+    /// @param forward_curve - Forward curve ID
+    /// @param position - Optional position string (e.g. `"long"`)
+    /// @param day_count - Optional day count (defaults Act/360)
+    /// @returns A new `InterestRateFuture`
+    /// @throws {Error} If inputs are invalid or parsing fails
+    ///
+    /// @example
+    /// ```javascript
+    /// import init, { InterestRateFuture, Money, FsDate } from "finstack-wasm";
+    ///
+    /// await init();
+    /// const fut = new InterestRateFuture(
+    ///   "fut_1",
+    ///   Money.fromCode(1_000_000, "USD"),
+    ///   95.25,
+    ///   new FsDate(2024, 12, 18),
+    ///   new FsDate(2024, 12, 18),
+    ///   new FsDate(2024, 12, 18),
+    ///   new FsDate(2025, 3, 19),
+    ///   "USD-OIS",
+    ///   "USD-SOFR-3M"
+    /// );
+    /// ```
     #[wasm_bindgen(constructor)]
     #[allow(clippy::too_many_arguments)]
     pub fn new(

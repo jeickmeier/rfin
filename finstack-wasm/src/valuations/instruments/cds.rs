@@ -25,6 +25,39 @@ impl InstrumentWrapper for JsCreditDefaultSwap {
 
 #[wasm_bindgen(js_class = CreditDefaultSwap)]
 impl JsCreditDefaultSwap {
+    /// Create a CDS position that **buys protection** (long credit protection).
+    ///
+    /// Conventions:
+    /// - `spread_bp` is in **basis points** (e.g. `120.0` for 120bp running spread).
+    /// - `recovery_rate` is a fraction in **decimal** (e.g. `0.4` for 40%).
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param notional - CDS notional (currency-tagged)
+    /// @param spread_bp - Running premium spread in bps
+    /// @param start_date - Effective start date
+    /// @param maturity - Maturity date
+    /// @param discount_curve - Discount curve ID (PV discounting)
+    /// @param credit_curve - Hazard/credit curve ID (default probabilities)
+    /// @param recovery_rate - Optional recovery rate override (decimal)
+    /// @returns A new `CreditDefaultSwap`
+    /// @throws {Error} If construction fails (e.g. invalid dates)
+    ///
+    /// @example
+    /// ```javascript
+    /// import init, { CreditDefaultSwap, Money, FsDate } from "finstack-wasm";
+    ///
+    /// await init();
+    /// const cds = CreditDefaultSwap.buyProtection(
+    ///   "cds_1",
+    ///   Money.fromCode(5_000_000, "USD"),
+    ///   120.0,
+    ///   new FsDate(2024, 1, 2),
+    ///   new FsDate(2029, 1, 2),
+    ///   "USD-OIS",
+    ///   "ACME-HAZARD",
+    ///   0.4
+    /// );
+    /// ```
     #[wasm_bindgen(js_name = buyProtection)]
     #[allow(clippy::too_many_arguments)]
     pub fn buy_protection(
@@ -53,6 +86,22 @@ impl JsCreditDefaultSwap {
         Ok(JsCreditDefaultSwap::from_inner(cds))
     }
 
+    /// Create a CDS position that **sells protection** (short credit protection).
+    ///
+    /// Conventions:
+    /// - `spread_bp` is in **basis points**.
+    /// - `recovery_rate` is a fraction in **decimal**.
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param notional - CDS notional (currency-tagged)
+    /// @param spread_bp - Running premium spread in bps
+    /// @param start_date - Effective start date
+    /// @param maturity - Maturity date
+    /// @param discount_curve - Discount curve ID (PV discounting)
+    /// @param credit_curve - Hazard/credit curve ID (default probabilities)
+    /// @param recovery_rate - Optional recovery rate override (decimal)
+    /// @returns A new `CreditDefaultSwap`
+    /// @throws {Error} If construction fails (e.g. invalid dates)
     #[wasm_bindgen(js_name = sellProtection)]
     #[allow(clippy::too_many_arguments)]
     pub fn sell_protection(

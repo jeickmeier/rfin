@@ -30,6 +30,49 @@ impl JsInflationLinkedBond {
 
 #[wasm_bindgen(js_class = InflationLinkedBond)]
 impl JsInflationLinkedBond {
+    /// Create an inflation-linked bond (TIPS-style by default).
+    ///
+    /// Conventions:
+    /// - `real_coupon` is a **decimal rate** (e.g. `0.015` for 1.5% real coupon).
+    /// - `base_index` is the CPI/index level at `issue` used for index ratio normalization.
+    /// - Discounting uses `discount_curve` and indexation uses `inflation_curve`.
+    /// - `indexation` / `deflation_protection` are parsed from strings; unsupported values will throw.
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param notional - Face amount (currency-tagged)
+    /// @param real_coupon - Real coupon rate (decimal)
+    /// @param issue - Issue date
+    /// @param maturity - Maturity date
+    /// @param base_index - CPI/index level at base date (typically issue date)
+    /// @param discount_curve - Discount curve ID
+    /// @param inflation_curve - Inflation index/curve ID
+    /// @param indexation - Optional indexation method (e.g. `"tips"`)
+    /// @param frequency - Optional coupon frequency (e.g. `"6M"`, `"1Y"`)
+    /// @param day_count - Optional day count (defaults to Act/Act)
+    /// @param deflation_protection - Optional deflation protection mode
+    /// @returns A new `InflationLinkedBond`
+    /// @throws {Error} If parsing fails or inputs are invalid
+    ///
+    /// @example
+    /// ```javascript
+    /// import init, { InflationLinkedBond, Money, FsDate, DayCount } from "finstack-wasm";
+    ///
+    /// await init();
+    /// const ilb = new InflationLinkedBond(
+    ///   "tips_1",
+    ///   Money.fromCode(1_000_000, "USD"),
+    ///   0.015,
+    ///   new FsDate(2024, 1, 2),
+    ///   new FsDate(2034, 1, 2),
+    ///   310.25,
+    ///   "USD-OIS",
+    ///   "US-CPI",
+    ///   "tips",
+    ///   "6M",
+    ///   DayCount.actAct(),
+    ///   null
+    /// );
+    /// ```
     #[wasm_bindgen(constructor)]
     #[allow(clippy::too_many_arguments)]
     pub fn new(

@@ -1,5 +1,31 @@
 #![allow(clippy::module_inception)]
 
+//! JavaScript/TypeScript bindings for the Finstack financial computation library.
+//!
+//! This crate exposes a **flat** JS/TS API surface (curves, instruments, pricers, scenarios)
+//! backed by the Rust `finstack-*` crates.
+//!
+//! ## Initialization
+//!
+//! When using the web build (`wasm-pack --target web`), you must initialize the WASM module
+//! once at application startup:
+//!
+//! @example
+//! ```javascript
+//! import init, { createStandardRegistry, MarketContext, FsDate } from "finstack-wasm";
+//!
+//! await init();
+//! const registry = createStandardRegistry();
+//! const market = new MarketContext();
+//! const asOf = new FsDate(2024, 1, 2);
+//! // ... build curves and instruments, then price ...
+//! ```
+//!
+//! ## Documentation delivery
+//!
+//! Documentation is written in Rust doc comments and is surfaced to JS/TS consumers through the
+//! generated declarations in `pkg/finstack_wasm.d.ts`.
+
 use wasm_bindgen::prelude::*;
 
 mod core;

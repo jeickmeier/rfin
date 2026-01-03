@@ -6,6 +6,10 @@ use finstack_valuations::instruments::equity::pe_fund::PrivateMarketsFund;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 
+/// Private markets fund with event schedule / waterfalls (JSON-serializable).
+///
+/// This instrument is configured via a JSON payload (matching the Rust model schema).
+/// Use `fromJson()` to construct it and `toJsonString()` to inspect the canonical representation.
 #[wasm_bindgen(js_name = PrivateMarketsFund)]
 #[derive(Clone, Debug)]
 pub struct JsPrivateMarketsFund {
@@ -24,6 +28,11 @@ impl InstrumentWrapper for JsPrivateMarketsFund {
 
 #[wasm_bindgen(js_class = PrivateMarketsFund)]
 impl JsPrivateMarketsFund {
+    /// Parse a private markets fund from a JSON string.
+    ///
+    /// @param json_str - JSON payload matching the fund schema
+    /// @returns A new `PrivateMarketsFund`
+    /// @throws {Error} If the JSON cannot be parsed or is invalid
     #[wasm_bindgen(js_name = fromJson)]
     pub fn from_json(json_str: &str) -> Result<JsPrivateMarketsFund, JsValue> {
         serde_json::from_str(json_str)
@@ -46,6 +55,10 @@ impl JsPrivateMarketsFund {
         to_js_value(&self.inner)
     }
 
+    /// Serialize this instrument to a pretty-printed JSON string.
+    ///
+    /// @returns JSON string
+    /// @throws {Error} If serialization fails
     #[wasm_bindgen(js_name = toJsonString)]
     pub fn to_json_string(&self) -> Result<String, JsValue> {
         serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))

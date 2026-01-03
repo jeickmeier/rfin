@@ -348,11 +348,8 @@ impl JsDayCount {
 
     /// Check if a day count name is valid without throwing an error.
     ///
-    /// # Arguments
-    /// * `name` - Day count name (e.g., "act_360", "act_365f", "thirty_360", "act_act")
-    ///
-    /// # Returns
-    /// `true` if the string can be parsed as a valid day count, `false` otherwise.
+    /// @param name - Day count name (e.g., `"act_360"`, `"act_365f"`, `"thirty_360"`, `"act_act"`)
+    /// @returns `true` if the string can be parsed as a valid day count, `false` otherwise.
     #[wasm_bindgen(js_name = isValid)]
     pub fn is_valid(name: &str) -> bool {
         DayCount::parse_from_string(name).is_ok()
@@ -419,6 +416,37 @@ impl JsDayCount {
         .to_string()
     }
 
+    /// Compute the year fraction between two dates using this day count convention.
+    ///
+    /// This is the canonical API for converting date differences into an accrual factor.
+    ///
+    /// Conventions:
+    /// - Output is in **decimal years**.
+    /// - If `context` is provided, it may affect conventions that depend on a calendar/frequency
+    ///   (e.g. `ActActIsma`, business-day based conventions, etc.).
+    ///
+    /// @param start - Start date (inclusive)
+    /// @param end - End date (exclusive for most accrual conventions)
+    /// @param context - Optional context (calendar/frequency/bus basis hints)
+    /// @returns Year fraction as a `number` (decimal years)
+    /// @throws {Error} If the dates are invalid for the chosen convention/context
+    ///
+    /// @example
+    /// ```javascript
+    /// import init, { FsDate, DayCount, DayCountContext, Tenor } from "finstack-wasm";
+    ///
+    /// await init();
+    /// const start = new FsDate(2024, 1, 2);
+    /// const end = new FsDate(2024, 7, 2);
+    ///
+    /// const dc = DayCount.act365f();
+    /// console.log(dc.yearFraction(start, end)); // ~0.5
+    ///
+    /// // With context (used by some conventions)
+    /// const ctx = new DayCountContext();
+    /// ctx.setTenor(Tenor.semiAnnual());
+    /// console.log(DayCount.actActIsma().yearFraction(start, end, ctx));
+    /// ```
     #[wasm_bindgen(js_name = yearFraction)]
     pub fn year_fraction(
         &self,

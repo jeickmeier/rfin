@@ -22,6 +22,26 @@ impl InstrumentWrapper for JsEquity {
 
 #[wasm_bindgen(js_class = Equity)]
 impl JsEquity {
+    /// Create an equity spot position.
+    ///
+    /// Conventions:
+    /// - `shares` is the quantity of shares (defaults to 1.0 if omitted by the underlying instrument type).
+    /// - `price` is an optional spot price override (absolute).
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param ticker - Underlying ticker/symbol
+    /// @param currency - Reporting currency of the equity
+    /// @param shares - Optional share quantity
+    /// @param price - Optional price override (absolute)
+    /// @returns A new `Equity`
+    ///
+    /// @example
+    /// ```javascript
+    /// import init, { Equity, Currency } from "finstack-wasm";
+    ///
+    /// await init();
+    /// const eq = new Equity("eq_1", "AAPL", new Currency("USD"), 100, 200.0);
+    /// ```
     #[wasm_bindgen(constructor)]
     pub fn new(
         instrument_id: &str,

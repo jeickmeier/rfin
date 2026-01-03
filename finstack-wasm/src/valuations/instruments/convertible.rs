@@ -18,6 +18,9 @@ pub struct JsConversionPolicy {
 
 #[wasm_bindgen(js_class = ConversionPolicy)]
 impl JsConversionPolicy {
+    /// Voluntary conversion (holder may convert at discretion).
+    ///
+    /// @returns ConversionPolicy
     #[wasm_bindgen(js_name = voluntary)]
     pub fn voluntary() -> JsConversionPolicy {
         JsConversionPolicy {
@@ -25,6 +28,10 @@ impl JsConversionPolicy {
         }
     }
 
+    /// Mandatory conversion on a specific date.
+    ///
+    /// @param conversion_date - Date when conversion becomes mandatory
+    /// @returns ConversionPolicy
     #[wasm_bindgen(js_name = mandatoryOn)]
     pub fn mandatory_on(conversion_date: &JsDate) -> JsConversionPolicy {
         JsConversionPolicy {
@@ -32,6 +39,11 @@ impl JsConversionPolicy {
         }
     }
 
+    /// Event-triggered conversion based on a price threshold lookback.
+    ///
+    /// @param price_threshold - Price trigger threshold (absolute)
+    /// @param lookback_days - Lookback window in days
+    /// @returns ConversionPolicy
     #[wasm_bindgen(js_name = uponEvent)]
     pub fn upon_event(price_threshold: f64, lookback_days: u32) -> JsConversionPolicy {
         JsConversionPolicy {
@@ -51,6 +63,16 @@ pub struct JsConversionSpec {
 
 #[wasm_bindgen(js_class = ConversionSpec)]
 impl JsConversionSpec {
+    /// Create a conversion specification for a convertible bond.
+    ///
+    /// Conventions:
+    /// - Provide either `ratio` (shares per bond) or `price` (conversion price). At least one is required.
+    ///
+    /// @param policy - Conversion policy (voluntary, mandatory on date, or event-triggered)
+    /// @param ratio - Optional conversion ratio (shares per bond)
+    /// @param price - Optional conversion price (absolute price level)
+    /// @returns A `ConversionSpec`
+    /// @throws {Error} If neither `ratio` nor `price` is provided
     #[wasm_bindgen(constructor)]
     pub fn new(
         policy: &JsConversionPolicy,
@@ -93,6 +115,37 @@ impl InstrumentWrapper for JsConvertibleBond {
 
 #[wasm_bindgen(js_class = ConvertibleBond)]
 impl JsConvertibleBond {
+    /// Create a convertible bond.
+    ///
+    /// Conventions:
+    /// - `discount_curve` is used for discounting cashflows.
+    /// - `underlying_equity_id` should correspond to an equity/spot identifier used in pricing models.
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param notional - Face amount (currency-tagged)
+    /// @param issue - Issue date
+    /// @param maturity - Maturity date
+    /// @param discount_curve - Discount curve ID
+    /// @param conversion - Conversion specification (ratio/price + policy)
+    /// @param underlying_equity_id - Optional equity identifier for the underlying
+    /// @returns A new `ConvertibleBond`
+    ///
+    /// @example
+    /// ```javascript
+    /// import init, { ConvertibleBond, ConversionSpec, ConversionPolicy, Money, FsDate } from "finstack-wasm";
+    ///
+    /// await init();
+    /// const conversion = new ConversionSpec(ConversionPolicy.voluntary(), 20.0, null);
+    /// const cb = new ConvertibleBond(
+    ///   "cb_1",
+    ///   Money.fromCode(1_000_000, "USD"),
+    ///   new FsDate(2024, 1, 2),
+    ///   new FsDate(2034, 1, 2),
+    ///   "USD-OIS",
+    ///   conversion,
+    ///   "AAPL"
+    /// );
+    /// ```
     #[wasm_bindgen(constructor)]
     #[allow(clippy::too_many_arguments)]
     pub fn new(

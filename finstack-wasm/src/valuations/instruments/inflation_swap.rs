@@ -27,6 +27,41 @@ impl InstrumentWrapper for JsInflationSwap {
 
 #[wasm_bindgen(js_class = InflationSwap)]
 impl JsInflationSwap {
+    /// Create a zero-coupon inflation swap.
+    ///
+    /// Conventions:
+    /// - `fixed_rate` is a **decimal rate** (e.g. `0.025` for 2.5%).
+    /// - `side` defaults to paying fixed if omitted.
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param notional - Swap notional (currency-tagged)
+    /// @param fixed_rate - Fixed inflation rate (decimal)
+    /// @param start_date - Start date
+    /// @param maturity - Maturity date
+    /// @param discount_curve - Discount curve ID
+    /// @param inflation_curve - Inflation index/curve ID
+    /// @param side - Optional pay/receive side string
+    /// @param day_count - Optional day count name (defaults to Act/Act)
+    /// @returns A new `InflationSwap`
+    /// @throws {Error} If inputs are invalid or parsing fails
+    ///
+    /// @example
+    /// ```javascript
+    /// import init, { InflationSwap, Money, FsDate } from "finstack-wasm";
+    ///
+    /// await init();
+    /// const swap = new InflationSwap(
+    ///   "infl_1",
+    ///   Money.fromCode(10_000_000, "USD"),
+    ///   0.025,
+    ///   new FsDate(2024, 1, 2),
+    ///   new FsDate(2029, 1, 2),
+    ///   "USD-OIS",
+    ///   "US-CPI",
+    ///   "pay_fixed",
+    ///   "act_act"
+    /// );
+    /// ```
     #[wasm_bindgen(constructor)]
     #[allow(clippy::too_many_arguments)]
     pub fn new(

@@ -4,6 +4,10 @@ use finstack_valuations::instruments::equity::cliquet_option::CliquetOption;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 
+/// Cliquet option (JSON-serializable).
+///
+/// This instrument is configured via a JSON payload (matching the Rust model schema).
+/// Use `fromJson()` to construct it and `toJsonString()` to inspect the canonical representation.
 #[wasm_bindgen(js_name = CliquetOption)]
 #[derive(Clone, Debug)]
 pub struct JsCliquetOption {
@@ -22,6 +26,11 @@ impl InstrumentWrapper for JsCliquetOption {
 
 #[wasm_bindgen(js_class = CliquetOption)]
 impl JsCliquetOption {
+    /// Parse a cliquet option from a JSON string.
+    ///
+    /// @param json_str - JSON payload matching the cliquet option schema
+    /// @returns A new `CliquetOption`
+    /// @throws {Error} If the JSON cannot be parsed or is invalid
     #[wasm_bindgen(js_name = fromJson)]
     pub fn from_json(json_str: &str) -> Result<JsCliquetOption, JsValue> {
         use crate::core::error::js_error;
@@ -40,6 +49,10 @@ impl JsCliquetOption {
         to_js_value(&self.inner)
     }
 
+    /// Serialize this instrument to a pretty-printed JSON string.
+    ///
+    /// @returns JSON string
+    /// @throws {Error} If serialization fails
     #[wasm_bindgen(js_name = toJsonString)]
     pub fn to_json_string(&self) -> Result<String, JsValue> {
         use crate::core::error::js_error;

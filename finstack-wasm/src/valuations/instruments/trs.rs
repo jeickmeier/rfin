@@ -22,6 +22,13 @@ pub struct JsTrsScheduleSpec {
 
 #[wasm_bindgen(js_class = TrsScheduleSpec)]
 impl JsTrsScheduleSpec {
+    /// Create a schedule specification for a total return swap.
+    ///
+    /// @param start - Schedule start date
+    /// @param end - Schedule end date
+    /// @param schedule_params - Schedule parameters (frequency/day count/bdc/etc.)
+    /// @returns A `TrsScheduleSpec`
+    /// @throws {Error} If `end` is not after `start`
     #[wasm_bindgen(constructor)]
     pub fn new(
         start: &JsDate,
@@ -47,6 +54,16 @@ pub struct JsFinancingLegSpec {
 
 #[wasm_bindgen(js_class = TrsFinancingLegSpec)]
 impl JsFinancingLegSpec {
+    /// Create a financing leg specification for a TRS.
+    ///
+    /// Conventions:
+    /// - `spread_bp` is in **basis points**.
+    ///
+    /// @param discount_curve - Discount curve ID
+    /// @param forward_curve - Forward curve ID
+    /// @param day_count - Day count for financing accrual
+    /// @param spread_bp - Optional spread in basis points (default 0)
+    /// @returns A `TrsFinancingLegSpec`
     #[wasm_bindgen(constructor)]
     pub fn new(
         discount_curve: &str,
@@ -76,6 +93,13 @@ pub struct JsEquityUnderlying {
 
 #[wasm_bindgen(js_class = EquityUnderlying)]
 impl JsEquityUnderlying {
+    /// Create equity underlying parameters for an equity TRS.
+    ///
+    /// @param ticker - Equity ticker/symbol
+    /// @param spot_id - Market scalar/price id for spot
+    /// @param currency - Equity currency
+    /// @param div_yield_id - Optional dividend yield id
+    /// @returns An `EquityUnderlying`
     #[wasm_bindgen(constructor)]
     pub fn new(
         ticker: &str,
@@ -100,6 +124,12 @@ pub struct JsIndexUnderlying {
 
 #[wasm_bindgen(js_class = IndexUnderlying)]
 impl JsIndexUnderlying {
+    /// Create index underlying parameters for an index TRS.
+    ///
+    /// @param index_id - Index identifier
+    /// @param base_currency - Index currency
+    /// @param yield_id - Optional yield id
+    /// @returns An `IndexUnderlying`
     #[wasm_bindgen(constructor)]
     pub fn new(
         index_id: &str,
@@ -133,6 +163,19 @@ impl InstrumentWrapper for JsEquityTotalReturnSwap {
 
 #[wasm_bindgen(js_class = EquityTotalReturnSwap)]
 impl JsEquityTotalReturnSwap {
+    /// Create an equity total return swap (TRS).
+    ///
+    /// Conventions:
+    /// - `receive_total_return = true` means you receive the underlying total return and pay financing.
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param notional - TRS notional (currency-tagged)
+    /// @param underlying - Equity underlying parameters
+    /// @param financing - Financing leg specification
+    /// @param schedule - Payment/reset schedule specification
+    /// @param receive_total_return - Direction flag
+    /// @param initial_level - Optional initial level/spot override
+    /// @returns A new `EquityTotalReturnSwap`
     #[wasm_bindgen(constructor)]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -213,6 +256,19 @@ impl InstrumentWrapper for JsFiIndexTotalReturnSwap {
 
 #[wasm_bindgen(js_class = FiIndexTotalReturnSwap)]
 impl JsFiIndexTotalReturnSwap {
+    /// Create a fixed-income index total return swap (TRS).
+    ///
+    /// Conventions:
+    /// - `receive_total_return = true` means you receive the index total return and pay financing.
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param notional - TRS notional (currency-tagged)
+    /// @param underlying - Index underlying parameters
+    /// @param financing - Financing leg specification
+    /// @param schedule - Payment/reset schedule specification
+    /// @param receive_total_return - Direction flag
+    /// @param initial_level - Optional initial level override
+    /// @returns A new `FiIndexTotalReturnSwap`
     #[wasm_bindgen(constructor)]
     #[allow(clippy::too_many_arguments)]
     pub fn new(

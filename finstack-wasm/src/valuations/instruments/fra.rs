@@ -26,6 +26,45 @@ impl InstrumentWrapper for JsForwardRateAgreement {
 
 #[wasm_bindgen(js_class = ForwardRateAgreement)]
 impl JsForwardRateAgreement {
+    /// Create a forward rate agreement (FRA).
+    ///
+    /// Conventions:
+    /// - `fixed_rate` is a **decimal rate** (e.g. `0.05` for 5%).
+    /// - `reset_lag` is in days (defaults depend on model conventions if omitted).
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param notional - Notional (currency-tagged)
+    /// @param fixed_rate - FRA fixed rate (decimal)
+    /// @param fixing_date - Fixing date
+    /// @param start_date - Accrual start date
+    /// @param end_date - Accrual end date
+    /// @param discount_curve - Discount curve ID
+    /// @param forward_curve - Forward curve ID
+    /// @param day_count - Optional day count (if omitted, library default applies)
+    /// @param reset_lag - Optional reset lag in days
+    /// @param pay_fixed - Optional direction (true pays fixed)
+    /// @returns A new `ForwardRateAgreement`
+    /// @throws {Error} If inputs are invalid
+    ///
+    /// @example
+    /// ```javascript
+    /// import init, { ForwardRateAgreement, Money, FsDate, DayCount } from "finstack-wasm";
+    ///
+    /// await init();
+    /// const fra = new ForwardRateAgreement(
+    ///   "fra_1",
+    ///   Money.fromCode(10_000_000, "USD"),
+    ///   0.045,
+    ///   new FsDate(2024, 3, 29),
+    ///   new FsDate(2024, 4, 2),
+    ///   new FsDate(2024, 7, 2),
+    ///   "USD-OIS",
+    ///   "USD-SOFR-3M",
+    ///   DayCount.act360(),
+    ///   2,
+    ///   true
+    /// );
+    /// ```
     #[wasm_bindgen(constructor)]
     #[allow(clippy::too_many_arguments)]
     pub fn new(

@@ -23,6 +23,35 @@ impl InstrumentWrapper for JsEquityOption {
 
 #[wasm_bindgen(js_class = EquityOption)]
 impl JsEquityOption {
+    /// Create a European equity call option.
+    ///
+    /// Conventions:
+    /// - `strike` is an **absolute price level** (not bps/percent).
+    /// - The strike currency is assumed to be the same currency as `notional`.
+    /// - `contract_size` defaults to `1.0` if omitted.
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param ticker - Underlying ticker/symbol (used to look up spot/dividends/vol in `MarketContext`)
+    /// @param strike - Strike price (absolute)
+    /// @param expiry - Expiry date
+    /// @param notional - Option notional (currency-tagged)
+    /// @param contract_size - Optional contract size multiplier (default 1.0)
+    /// @returns A new `EquityOption`
+    ///
+    /// @example
+    /// ```javascript
+    /// import init, { EquityOption, Money, FsDate } from "finstack-wasm";
+    ///
+    /// await init();
+    /// const opt = EquityOption.europeanCall(
+    ///   "eqopt_1",
+    ///   "AAPL",
+    ///   200.0,
+    ///   new FsDate(2025, 6, 21),
+    ///   Money.fromCode(1_000_000, "USD"),
+    ///   100
+    /// );
+    /// ```
     #[wasm_bindgen(js_name = europeanCall)]
     pub fn european_call(
         instrument_id: &str,
@@ -44,6 +73,20 @@ impl JsEquityOption {
         JsEquityOption::from_inner(option)
     }
 
+    /// Create a European equity put option.
+    ///
+    /// Conventions:
+    /// - `strike` is an **absolute price level**.
+    /// - The strike currency is assumed to be the same currency as `notional`.
+    /// - `contract_size` defaults to `1.0` if omitted.
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param ticker - Underlying ticker/symbol
+    /// @param strike - Strike price (absolute)
+    /// @param expiry - Expiry date
+    /// @param notional - Option notional (currency-tagged)
+    /// @param contract_size - Optional contract size multiplier (default 1.0)
+    /// @returns A new `EquityOption`
     #[wasm_bindgen(js_name = europeanPut)]
     pub fn european_put(
         instrument_id: &str,

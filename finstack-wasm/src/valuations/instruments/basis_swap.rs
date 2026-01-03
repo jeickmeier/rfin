@@ -17,6 +17,19 @@ pub struct JsBasisSwapLeg {
 
 #[wasm_bindgen(js_class = BasisSwapLeg)]
 impl JsBasisSwapLeg {
+    /// Create a basis swap floating leg specification.
+    ///
+    /// Conventions:
+    /// - `spread` is a **decimal rate** (not bps) applied to the index rate.
+    /// - `frequency` and `day_count` are parsed from strings (e.g. `"3M"`, `"act_360"`).
+    ///
+    /// @param forward_curve - Forward curve ID (e.g. `"USD-SOFR-3M"`)
+    /// @param frequency - Optional payment/reset frequency (e.g. `"3M"`)
+    /// @param day_count - Optional day count name (e.g. `"act_360"`)
+    /// @param spread - Optional spread (decimal) added to the forward rate
+    /// @param business_day_convention - Optional BDC name (e.g. `"modified_following"`)
+    /// @returns A `BasisSwapLeg`
+    /// @throws {Error} If parsing fails
     #[wasm_bindgen(constructor)]
     pub fn new(
         forward_curve: &str,
@@ -74,6 +87,41 @@ impl InstrumentWrapper for JsBasisSwap {
 
 #[wasm_bindgen(js_class = BasisSwap)]
 impl JsBasisSwap {
+    /// Create a float/float basis swap.
+    ///
+    /// Conventions:
+    /// - The two legs reference forward curve IDs; discounting uses `discount_curve`.
+    /// - Stub and calendar settings affect schedule generation.
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param notional - Swap notional (currency-tagged)
+    /// @param start_date - Swap start date
+    /// @param maturity - Swap end/maturity date
+    /// @param primary_leg - Primary floating leg specification
+    /// @param reference_leg - Reference floating leg specification
+    /// @param discount_curve - Discount curve ID
+    /// @param calendar - Optional calendar code (e.g. `"usny"`)
+    /// @param stub - Optional stub kind string
+    /// @returns A new `BasisSwap`
+    /// @throws {Error} If inputs are invalid
+    ///
+    /// @example
+    /// ```javascript
+    /// import init, { BasisSwap, BasisSwapLeg, Money, FsDate } from "finstack-wasm";
+    ///
+    /// await init();
+    /// const leg3m = new BasisSwapLeg("USD-SOFR-3M", "3M", "act_360", 0.0, "modified_following");
+    /// const leg1m = new BasisSwapLeg("USD-SOFR-1M", "1M", "act_360", 0.0, "modified_following");
+    /// const swap = new BasisSwap(
+    ///   "basis_1",
+    ///   Money.fromCode(10_000_000, "USD"),
+    ///   new FsDate(2024, 1, 2),
+    ///   new FsDate(2029, 1, 2),
+    ///   leg3m,
+    ///   leg1m,
+    ///   "USD-OIS"
+    /// );
+    /// ```
     #[wasm_bindgen(constructor)]
     #[allow(clippy::too_many_arguments)]
     pub fn new(

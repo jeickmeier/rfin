@@ -14,6 +14,9 @@ pub mod waterfall;
 // Basket
 // ===========================
 
+/// Basket instrument (JSON-serializable).
+///
+/// This instrument is configured via a JSON payload (matching the Rust model schema).
 #[wasm_bindgen(js_name = Basket)]
 #[derive(Clone, Debug)]
 pub struct JsBasket {
@@ -32,6 +35,11 @@ impl InstrumentWrapper for JsBasket {
 
 #[wasm_bindgen(js_class = Basket)]
 impl JsBasket {
+    /// Parse a basket instrument from a JSON string.
+    ///
+    /// @param json_str - JSON payload matching the basket schema
+    /// @returns A new `Basket`
+    /// @throws {Error} If JSON cannot be parsed or is invalid
     #[wasm_bindgen(js_name = fromJson)]
     pub fn from_json(json_str: &str) -> Result<JsBasket, JsValue> {
         serde_json::from_str(json_str)
@@ -49,6 +57,10 @@ impl JsBasket {
         to_js_value(&self.inner)
     }
 
+    /// Serialize this instrument to a pretty-printed JSON string.
+    ///
+    /// @returns JSON string
+    /// @throws {Error} If serialization fails
     #[wasm_bindgen(js_name = toJsonString)]
     pub fn to_json_string(&self) -> Result<String, JsValue> {
         serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
@@ -78,6 +90,9 @@ impl JsBasket {
 // Unified Structured Credit
 // ===========================
 
+/// Structured credit instrument (ABS/CLO/CMBS/RMBS-style) (JSON-serializable).
+///
+/// This instrument is configured via a JSON payload (matching the Rust model schema).
 #[wasm_bindgen(js_name = StructuredCredit)]
 #[derive(Clone, Debug)]
 pub struct JsStructuredCredit {
@@ -96,6 +111,11 @@ impl InstrumentWrapper for JsStructuredCredit {
 
 #[wasm_bindgen(js_class = StructuredCredit)]
 impl JsStructuredCredit {
+    /// Parse a structured credit deal from a JSON string.
+    ///
+    /// @param json_str - JSON payload matching the structured credit schema
+    /// @returns A new `StructuredCredit`
+    /// @throws {Error} If JSON cannot be parsed or is invalid
     #[wasm_bindgen(js_name = fromJson)]
     pub fn from_json(json_str: &str) -> Result<JsStructuredCredit, JsValue> {
         serde_json::from_str(json_str)
@@ -118,6 +138,10 @@ impl JsStructuredCredit {
         to_js_value(&self.inner)
     }
 
+    /// Serialize this instrument to a pretty-printed JSON string.
+    ///
+    /// @returns JSON string
+    /// @throws {Error} If serialization fails
     #[wasm_bindgen(js_name = toJsonString)]
     pub fn to_json_string(&self) -> Result<String, JsValue> {
         serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
@@ -162,6 +186,11 @@ pub struct JsTrancheStructure {
 
 #[wasm_bindgen(js_class = TrancheStructure)]
 impl JsTrancheStructure {
+    /// Parse a tranche structure from a JSON string.
+    ///
+    /// @param json_str - JSON payload matching the tranche structure schema
+    /// @returns A `TrancheStructure`
+    /// @throws {Error} If JSON cannot be parsed or is invalid
     #[wasm_bindgen(js_name = fromJson)]
     pub fn from_json(json_str: &str) -> Result<JsTrancheStructure, JsValue> {
         serde_json::from_str(json_str)
@@ -189,6 +218,11 @@ pub struct JsPool {
 
 #[wasm_bindgen(js_class = Pool)]
 impl JsPool {
+    /// Parse a collateral pool from a JSON string.
+    ///
+    /// @param json_str - JSON payload matching the pool schema
+    /// @returns A `Pool`
+    /// @throws {Error} If JSON cannot be parsed or is invalid
     #[wasm_bindgen(js_name = fromJson)]
     pub fn from_json(json_str: &str) -> Result<JsPool, JsValue> {
         serde_json::from_str(json_str)

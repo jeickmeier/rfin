@@ -28,6 +28,28 @@ impl InstrumentWrapper for JsCdsTranche {
 
 #[wasm_bindgen(js_class = CdsTranche)]
 impl JsCdsTranche {
+    /// Create a synthetic CDO tranche instrument (CDS tranche).
+    ///
+    /// Conventions:
+    /// - `attach_pct` / `detach_pct` are tranche attachment/detachment in **percent** (0..100).
+    /// - `running_coupon_bp` is in **basis points**.
+    /// - Payment frequency defaults to quarterly when omitted.
+    ///
+    /// @param instrument_id - Unique identifier
+    /// @param index_name - Underlying index name (e.g. `"CDX.NA.IG"`)
+    /// @param series - Series number
+    /// @param attach_pct - Attachment point (percent)
+    /// @param detach_pct - Detachment point (percent)
+    /// @param notional - Tranche notional (currency-tagged)
+    /// @param maturity - Maturity date
+    /// @param running_coupon_bp - Running coupon in bps
+    /// @param discount_curve - Discount curve ID
+    /// @param credit_index_curve - Credit index curve ID
+    /// @param side - Optional tranche side string
+    /// @param payments_per_year - Optional payment frequency via payments/year
+    /// @param day_count - Optional day count (defaults Act/360)
+    /// @returns A new `CdsTranche`
+    /// @throws {Error} If detach <= attach or inputs invalid
     #[wasm_bindgen(constructor)]
     #[allow(clippy::too_many_arguments)]
     pub fn new(
