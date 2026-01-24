@@ -142,6 +142,139 @@ impl JsEquityIndexFuture {
     }
 }
 
+#[wasm_bindgen(js_name = EquityIndexFutureBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsEquityIndexFutureBuilder {
+    instrument_id: String,
+    index_ticker: Option<String>,
+    currency: Option<String>,
+    quantity: Option<f64>,
+    expiry_date: Option<finstack_core::dates::Date>,
+    last_trading_date: Option<finstack_core::dates::Date>,
+    position: Option<finstack_valuations::instruments::fixed_income::bond_future::Position>,
+    specs: Option<EquityFutureSpecs>,
+    discount_curve_id: Option<String>,
+    index_price_id: Option<String>,
+}
+
+#[wasm_bindgen(js_class = EquityIndexFutureBuilder)]
+impl JsEquityIndexFutureBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new(instrument_id: &str) -> JsEquityIndexFutureBuilder {
+        JsEquityIndexFutureBuilder {
+            instrument_id: instrument_id.to_string(),
+            ..Default::default()
+        }
+    }
+
+    #[wasm_bindgen(js_name = indexTicker)]
+    pub fn index_ticker(mut self, index_ticker: String) -> JsEquityIndexFutureBuilder {
+        self.index_ticker = Some(index_ticker);
+        self
+    }
+
+    #[wasm_bindgen(js_name = currency)]
+    pub fn currency(mut self, currency: String) -> JsEquityIndexFutureBuilder {
+        self.currency = Some(currency);
+        self
+    }
+
+    #[wasm_bindgen(js_name = quantity)]
+    pub fn quantity(mut self, quantity: f64) -> JsEquityIndexFutureBuilder {
+        self.quantity = Some(quantity);
+        self
+    }
+
+    #[wasm_bindgen(js_name = expiryDate)]
+    pub fn expiry_date(mut self, expiry_date: &FsDate) -> JsEquityIndexFutureBuilder {
+        self.expiry_date = Some(expiry_date.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = lastTradingDate)]
+    pub fn last_trading_date(mut self, last_trading_date: &FsDate) -> JsEquityIndexFutureBuilder {
+        self.last_trading_date = Some(last_trading_date.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = position)]
+    pub fn position(mut self, position: &JsFuturePosition) -> JsEquityIndexFutureBuilder {
+        self.position = Some(position.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = specs)]
+    pub fn specs(mut self, specs: &JsEquityFutureSpecs) -> JsEquityIndexFutureBuilder {
+        self.specs = Some(specs.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = discountCurveId)]
+    pub fn discount_curve_id(mut self, discount_curve_id: String) -> JsEquityIndexFutureBuilder {
+        self.discount_curve_id = Some(discount_curve_id);
+        self
+    }
+
+    #[wasm_bindgen(js_name = indexPriceId)]
+    pub fn index_price_id(mut self, index_price_id: String) -> JsEquityIndexFutureBuilder {
+        self.index_price_id = Some(index_price_id);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsEquityIndexFuture, JsValue> {
+        let index_ticker = self.index_ticker.as_deref().ok_or_else(|| {
+            JsValue::from_str("EquityIndexFutureBuilder: indexTicker is required")
+        })?;
+        let currency = self
+            .currency
+            .as_deref()
+            .ok_or_else(|| JsValue::from_str("EquityIndexFutureBuilder: currency is required"))?;
+        let quantity = self
+            .quantity
+            .ok_or_else(|| JsValue::from_str("EquityIndexFutureBuilder: quantity is required"))?;
+        let expiry_date = self
+            .expiry_date
+            .ok_or_else(|| JsValue::from_str("EquityIndexFutureBuilder: expiryDate is required"))?;
+        let last_trading_date = self.last_trading_date.ok_or_else(|| {
+            JsValue::from_str("EquityIndexFutureBuilder: lastTradingDate is required")
+        })?;
+        let position = self
+            .position
+            .ok_or_else(|| JsValue::from_str("EquityIndexFutureBuilder: position is required"))?;
+        let specs = self
+            .specs
+            .ok_or_else(|| JsValue::from_str("EquityIndexFutureBuilder: specs is required"))?;
+        let discount_curve_id = self.discount_curve_id.as_deref().ok_or_else(|| {
+            JsValue::from_str("EquityIndexFutureBuilder: discountCurveId is required")
+        })?;
+        let index_price_id = self.index_price_id.as_deref().ok_or_else(|| {
+            JsValue::from_str("EquityIndexFutureBuilder: indexPriceId is required")
+        })?;
+
+        let ccy: Currency = currency
+            .parse()
+            .map_err(|e: strum::ParseError| JsValue::from_str(&e.to_string()))?;
+
+        let future = EquityIndexFuture::builder()
+            .id(InstrumentId::new(&self.instrument_id))
+            .index_ticker(index_ticker.to_string())
+            .currency(ccy)
+            .quantity(quantity)
+            .expiry_date(expiry_date)
+            .last_trading_date(last_trading_date)
+            .position(position)
+            .contract_specs(specs)
+            .discount_curve_id(CurveId::new(discount_curve_id))
+            .index_price_id(index_price_id.to_string())
+            .attributes(Attributes::new())
+            .build()
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        Ok(JsEquityIndexFuture { inner: future })
+    }
+}
+
 #[wasm_bindgen(js_class = EquityIndexFuture)]
 impl JsEquityIndexFuture {
     /// Create a new equity index future.
@@ -170,6 +303,9 @@ impl JsEquityIndexFuture {
         discount_curve_id: &str,
         index_price_id: &str,
     ) -> Result<JsEquityIndexFuture, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "EquityIndexFuture constructor is deprecated; use EquityIndexFutureBuilder instead.",
+        ));
         let ccy: Currency = currency
             .parse()
             .map_err(|e: strum::ParseError| JsValue::from_str(&e.to_string()))?;

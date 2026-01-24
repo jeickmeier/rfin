@@ -4,6 +4,35 @@ use finstack_valuations::instruments::equity::autocallable::Autocallable;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 
+#[wasm_bindgen(js_name = AutocallableBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsAutocallableBuilder {
+    json_str: Option<String>,
+}
+
+#[wasm_bindgen(js_class = AutocallableBuilder)]
+impl JsAutocallableBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> JsAutocallableBuilder {
+        JsAutocallableBuilder { json_str: None }
+    }
+
+    #[wasm_bindgen(js_name = jsonString)]
+    pub fn json_string(mut self, json_str: String) -> JsAutocallableBuilder {
+        self.json_str = Some(json_str);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsAutocallable, JsValue> {
+        let json_str = self
+            .json_str
+            .as_deref()
+            .ok_or_else(|| JsValue::from_str("AutocallableBuilder: jsonString is required"))?;
+        JsAutocallable::from_json(json_str)
+    }
+}
+
 /// Autocallable structured note (JSON-serializable).
 ///
 /// This instrument is configured via a JSON payload (matching the Rust model schema).
@@ -41,6 +70,9 @@ impl JsAutocallable {
     /// ```
     #[wasm_bindgen(js_name = fromJson)]
     pub fn from_json(json_str: &str) -> Result<JsAutocallable, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "Autocallable.fromJson is deprecated; use AutocallableBuilder instead.",
+        ));
         use crate::core::error::js_error;
         serde_json::from_str(json_str)
             .map(JsAutocallable::from_inner)

@@ -6,9 +6,8 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::credit_derivatives::cds::{
-    CDSConvention, CreditDefaultSwap, PayReceive,
-};
+use finstack_valuations::instruments::credit_derivatives::cds::{CDSConvention, PayReceive};
+use finstack_valuations::test_utils;
 use rust_decimal::Decimal;
 use time::Month;
 
@@ -23,7 +22,7 @@ fn test_buy_protection_constructor() {
     let start = test_date(2025, Month::January, 1);
     let end = test_date(2030, Month::January, 1);
 
-    let cds = CreditDefaultSwap::buy_protection(
+    let cds = test_utils::cds_buy_protection(
         "CDS_BUY_TEST",
         notional,
         100.0, // 100bp
@@ -48,7 +47,7 @@ fn test_sell_protection_constructor() {
     let start = test_date(2025, Month::March, 20);
     let end = test_date(2028, Month::March, 20);
 
-    let cds = CreditDefaultSwap::sell_protection(
+    let cds = test_utils::cds_sell_protection(
         "CDS_SELL_TEST",
         notional,
         150.0,
@@ -145,7 +144,7 @@ fn test_recovery_rate_applied() {
     let start = test_date(2025, Month::January, 1);
     let end = test_date(2030, Month::January, 1);
 
-    let mut cds = CreditDefaultSwap::buy_protection(
+    let mut cds = test_utils::cds_buy_protection(
         "RECOVERY_TEST",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -170,7 +169,7 @@ fn test_notional_zero_allowed() {
     let start = test_date(2025, Month::January, 1);
     let end = test_date(2030, Month::January, 1);
 
-    let cds = CreditDefaultSwap::buy_protection(
+    let cds = test_utils::cds_buy_protection(
         "ZERO_NOTIONAL",
         Money::new(0.0, Currency::USD),
         100.0,
@@ -190,7 +189,7 @@ fn test_spread_can_be_negative() {
     let start = test_date(2025, Month::January, 1);
     let end = test_date(2030, Month::January, 1);
 
-    let cds = CreditDefaultSwap::buy_protection(
+    let cds = test_utils::cds_buy_protection(
         "NEG_SPREAD",
         Money::new(10_000_000.0, Currency::USD),
         -50.0,
@@ -210,7 +209,7 @@ fn test_different_currencies() {
     let end = test_date(2030, Month::January, 1);
 
     for currency in [Currency::USD, Currency::EUR, Currency::GBP, Currency::JPY] {
-        let cds = CreditDefaultSwap::buy_protection(
+        let cds = test_utils::cds_buy_protection(
             format!("CDS_{}", currency),
             Money::new(10_000_000.0, currency),
             100.0,
@@ -230,7 +229,7 @@ fn test_maturity_after_start() {
     let start = test_date(2025, Month::January, 1);
     let end = test_date(2030, Month::January, 1);
 
-    let cds = CreditDefaultSwap::buy_protection(
+    let cds = test_utils::cds_buy_protection(
         "MATURITY_TEST",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -250,7 +249,7 @@ fn test_short_tenor_cds() {
     let start = test_date(2025, Month::January, 1);
     let end = test_date(2025, Month::April, 1);
 
-    let cds = CreditDefaultSwap::buy_protection(
+    let cds = test_utils::cds_buy_protection(
         "SHORT_TENOR",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -271,7 +270,7 @@ fn test_long_tenor_cds() {
     let start = test_date(2025, Month::January, 1);
     let end = test_date(2055, Month::January, 1);
 
-    let cds = CreditDefaultSwap::buy_protection(
+    let cds = test_utils::cds_buy_protection(
         "LONG_TENOR",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -290,7 +289,7 @@ fn test_premium_leg_spec_fields() {
     let start = test_date(2025, Month::January, 1);
     let end = test_date(2030, Month::January, 1);
 
-    let cds = CreditDefaultSwap::buy_protection(
+    let cds = test_utils::cds_buy_protection(
         "PREMIUM_SPEC",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -313,7 +312,7 @@ fn test_protection_leg_spec_fields() {
     let start = test_date(2025, Month::January, 1);
     let end = test_date(2030, Month::January, 1);
 
-    let cds = CreditDefaultSwap::buy_protection(
+    let cds = test_utils::cds_buy_protection(
         "PROTECTION_SPEC",
         Money::new(10_000_000.0, Currency::USD),
         100.0,

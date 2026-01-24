@@ -1,10 +1,34 @@
-"""Interest rate future instrument."""
+"""Interest rate future instrument (builder-only API)."""
 
-from typing import Optional
+from typing import Optional, Union
 from datetime import date
+from ...core.currency import Currency
 from ...core.money import Money
 from ...core.dates.daycount import DayCount
 from ..common import InstrumentType
+
+class InterestRateFutureBuilder:
+    """Fluent builder returned by :meth:`InterestRateFuture.builder`."""
+
+    def __init__(self, instrument_id: str) -> None: ...
+    def notional(self, amount: float) -> InterestRateFutureBuilder: ...
+    def currency(self, currency: Union[str, Currency]) -> InterestRateFutureBuilder: ...
+    def money(self, money: Money) -> InterestRateFutureBuilder: ...
+    def quoted_price(self, quoted_price: float) -> InterestRateFutureBuilder: ...
+    def expiry(self, expiry: date) -> InterestRateFutureBuilder: ...
+    def fixing_date(self, fixing_date: date) -> InterestRateFutureBuilder: ...
+    def period_start(self, period_start: date) -> InterestRateFutureBuilder: ...
+    def period_end(self, period_end: date) -> InterestRateFutureBuilder: ...
+    def disc_id(self, curve_id: str) -> InterestRateFutureBuilder: ...
+    def fwd_id(self, curve_id: str) -> InterestRateFutureBuilder: ...
+    def position(self, position: Optional[str] = ...) -> InterestRateFutureBuilder: ...
+    def day_count(self, day_count: Union[DayCount, str]) -> InterestRateFutureBuilder: ...
+    def face_value(self, face_value: float) -> InterestRateFutureBuilder: ...
+    def tick_size(self, tick_size: float) -> InterestRateFutureBuilder: ...
+    def tick_value(self, tick_value: Optional[float] = ...) -> InterestRateFutureBuilder: ...
+    def delivery_months(self, delivery_months: int) -> InterestRateFutureBuilder: ...
+    def convexity_adjustment(self, convexity_adjustment: Optional[float] = ...) -> InterestRateFutureBuilder: ...
+    def build(self) -> "InterestRateFuture": ...
 
 class InterestRateFuture:
     """Interest rate future for hedging and speculation on future rates.
@@ -24,16 +48,17 @@ class InterestRateFuture:
         >>> from finstack.valuations.instruments import InterestRateFuture
         >>> from finstack import Money, Currency
         >>> from datetime import date
-        >>> future = InterestRateFuture.create(
-        ...     "IR-FUTURE-DEC24",
-        ...     notional=Money(1_000_000, Currency("USD")),
-        ...     quoted_price=96.50,  # Implies 3.5% rate (100 - 96.50)
-        ...     expiry=date(2024, 12, 15),
-        ...     fixing_date=date(2024, 12, 16),
-        ...     period_start=date(2024, 12, 18),
-        ...     period_end=date(2025, 3, 18),  # 3-month period
-        ...     discount_curve="USD",
-        ...     forward_curve="USD-LIBOR-3M",
+        >>> future = (
+        ...     InterestRateFuture.builder("IR-FUTURE-DEC24")
+        ...     .money(Money(1_000_000, Currency("USD")))
+        ...     .quoted_price(96.50)  # Implies 3.5% rate (100 - 96.50)
+        ...     .expiry(date(2024, 12, 15))
+        ...     .fixing_date(date(2024, 12, 16))
+        ...     .period_start(date(2024, 12, 18))
+        ...     .period_end(date(2025, 3, 18))  # 3-month period
+        ...     .disc_id("USD")
+        ...     .fwd_id("USD-LIBOR-3M")
+        ...     .build()
         ... )
 
     Notes
@@ -63,93 +88,7 @@ class InterestRateFuture:
     """
 
     @classmethod
-    def create(
-        cls,
-        instrument_id: str,
-        notional: Money,
-        quoted_price: float,
-        expiry: date,
-        fixing_date: date,
-        period_start: date,
-        period_end: date,
-        discount_curve: str,
-        forward_curve: str,
-        *,
-        position: Optional[str] = "long",
-        day_count: Optional[DayCount] = None,
-        face_value: float = 1_000_000.0,
-        tick_size: float = 0.0025,
-        tick_value: Optional[float] = None,
-        delivery_months: int = 3,
-        convexity_adjustment: Optional[float] = None,
-    ) -> "InterestRateFuture":
-        """Create an interest rate future.
-
-        Parameters
-        ----------
-        instrument_id : str
-            Unique identifier for the future (e.g., "IR-FUTURE-DEC24").
-        notional : Money
-            Notional amount. Currency determines curve currency requirements.
-        quoted_price : float
-            Quoted futures price (typically 100 - rate, e.g., 96.50 for 3.5%).
-            Must be in range [0, 100].
-        expiry : date
-            Future expiration date (last trading day).
-        fixing_date : date
-            Date when the underlying rate is fixed (typically expiry + 1 day).
-        period_start : date
-            Start date of the interest rate period.
-        period_end : date
-            End date of the interest rate period. Must be after period_start.
-        discount_curve : str
-            Discount curve identifier in MarketContext.
-        forward_curve : str
-            Forward curve identifier for the underlying rate.
-        position : str, optional
-            Position direction: "long" (default, benefit from rate increase) or
-            "short" (benefit from rate decrease).
-        day_count : DayCount, optional
-            Day-count convention for the interest period (default: ACT/360).
-        face_value : float, optional
-            Contract face value (default: 1,000,000 for standard contracts).
-        tick_size : float, optional
-            Minimum price movement (default: 0.0025 = 1 basis point).
-        tick_value : float, optional
-            Dollar value per tick. If None, calculated from face_value and tick_size.
-        delivery_months : int, optional
-            Number of months in the delivery period (default: 3 for quarterly).
-        convexity_adjustment : float, optional
-            Convexity adjustment for futures vs forward rate (typically negative).
-            If None, calculated automatically.
-
-        Returns
-        -------
-        InterestRateFuture
-            Configured interest rate future ready for pricing.
-
-        Raises
-        ------
-        ValueError
-            If dates are invalid, if quoted_price is not in [0, 100], or if
-            required curves are not found in MarketContext.
-
-        Examples
-        --------
-            >>> future = InterestRateFuture.create(
-            ...     "IR-FUTURE-DEC24",
-            ...     Money(1_000_000, Currency("USD")),
-            ...     96.50,  # 3.5% implied rate
-            ...     date(2024, 12, 15),
-            ...     date(2024, 12, 16),
-            ...     date(2024, 12, 18),
-            ...     date(2025, 3, 18),
-            ...     discount_curve="USD",
-            ...     forward_curve="USD-LIBOR-3M",
-            ... )
-        """
-        ...
-
+    def builder(cls, instrument_id: str) -> InterestRateFutureBuilder: ...
     @property
     def instrument_id(self) -> str: ...
     @property

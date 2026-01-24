@@ -5,6 +5,35 @@ use finstack_valuations::pricer::InstrumentType;
 use js_sys::Array;
 use wasm_bindgen::prelude::*;
 
+#[wasm_bindgen(js_name = RevolvingCreditBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsRevolvingCreditBuilder {
+    json_str: Option<String>,
+}
+
+#[wasm_bindgen(js_class = RevolvingCreditBuilder)]
+impl JsRevolvingCreditBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> JsRevolvingCreditBuilder {
+        JsRevolvingCreditBuilder { json_str: None }
+    }
+
+    #[wasm_bindgen(js_name = jsonString)]
+    pub fn json_string(mut self, json_str: String) -> JsRevolvingCreditBuilder {
+        self.json_str = Some(json_str);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsRevolvingCredit, JsValue> {
+        let json_str = self
+            .json_str
+            .as_deref()
+            .ok_or_else(|| JsValue::from_str("RevolvingCreditBuilder: jsonString is required"))?;
+        JsRevolvingCredit::from_json(json_str)
+    }
+}
+
 /// Revolving credit facility (JSON-serializable).
 ///
 /// This instrument is configured via a JSON payload (matching the Rust model schema).
@@ -34,6 +63,9 @@ impl JsRevolvingCredit {
     /// @throws {Error} If the JSON cannot be parsed or is invalid
     #[wasm_bindgen(js_name = fromJson)]
     pub fn from_json(json_str: &str) -> Result<JsRevolvingCredit, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "RevolvingCredit.fromJson is deprecated; use RevolvingCreditBuilder instead.",
+        ));
         use crate::core::error::js_error;
         serde_json::from_str(json_str)
             .map(JsRevolvingCredit::from_inner)

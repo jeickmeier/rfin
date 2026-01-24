@@ -1,18 +1,20 @@
 use crate::core::common::labels::normalize_label;
+use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::market_data::PyMarketContext;
-use crate::core::money::{extract_money, PyMoney};
-use crate::errors::core_to_py;
+use crate::core::money::PyMoney;
+use crate::errors::{core_to_py, PyContext};
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::Tenor;
 use finstack_core::math::stats::RealizedVarMethod;
+use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity::variance_swap::{PayReceive, VarianceSwap};
 use finstack_valuations::instruments::Attributes;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};
-use pyo3::{Bound, FromPyObject, PyRef};
+use pyo3::{Bound, FromPyObject, Py, PyRef, PyRefMut};
 use std::fmt;
 use std::sync::Arc;
 
@@ -155,68 +157,285 @@ impl PyVarianceSwap {
     }
 }
 
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "VarianceSwapBuilder",
+    unsendable
+)]
+pub struct PyVarianceSwapBuilder {
+    instrument_id: InstrumentId,
+    underlying_id: Option<String>,
+    pending_notional_amount: Option<f64>,
+    pending_currency: Option<finstack_core::currency::Currency>,
+    strike_variance: Option<f64>,
+    start_date: Option<time::Date>,
+    maturity: Option<time::Date>,
+    discount_curve_id: Option<CurveId>,
+    observation_frequency: Option<Tenor>,
+    realized_method: RealizedVarMethod,
+    side: PayReceive,
+    day_count: finstack_core::dates::DayCount,
+}
+
+impl PyVarianceSwapBuilder {
+    fn new_with_id(id: InstrumentId) -> Self {
+        Self {
+            instrument_id: id,
+            underlying_id: None,
+            pending_notional_amount: None,
+            pending_currency: None,
+            strike_variance: None,
+            start_date: None,
+            maturity: None,
+            discount_curve_id: None,
+            observation_frequency: None,
+            realized_method: RealizedVarMethod::CloseToClose,
+            side: PayReceive::Receive,
+            day_count: finstack_core::dates::DayCount::Act365F,
+        }
+    }
+
+    fn notional_money(&self) -> Option<Money> {
+        match (self.pending_notional_amount, self.pending_currency) {
+            (Some(amount), Some(currency)) => Some(Money::new(amount, currency)),
+            _ => None,
+        }
+    }
+
+    fn ensure_ready(&self) -> PyResult<()> {
+        if self.underlying_id.as_deref().unwrap_or("").is_empty() {
+            return Err(PyValueError::new_err("underlying_id() is required."));
+        }
+        if self.notional_money().is_none() {
+            return Err(PyValueError::new_err(
+                "Both notional() and currency() must be provided before build().",
+            ));
+        }
+        if self.strike_variance.is_none() {
+            return Err(PyValueError::new_err("strike_variance() is required."));
+        }
+        if self.start_date.is_none() {
+            return Err(PyValueError::new_err("start_date() is required."));
+        }
+        if self.maturity.is_none() {
+            return Err(PyValueError::new_err("maturity() is required."));
+        }
+        if self.discount_curve_id.is_none() {
+            return Err(PyValueError::new_err("disc_id() is required."));
+        }
+        if self.observation_frequency.is_none() {
+            return Err(PyValueError::new_err(
+                "observation_frequency() is required.",
+            ));
+        }
+        Ok(())
+    }
+
+    fn parse_currency(value: &Bound<'_, PyAny>) -> PyResult<finstack_core::currency::Currency> {
+        if let Ok(py_ccy) = value.extract::<PyRef<PyCurrency>>() {
+            Ok(py_ccy.inner)
+        } else if let Ok(code) = value.extract::<&str>() {
+            code.parse::<finstack_core::currency::Currency>()
+                .map_err(|_| PyValueError::new_err("Invalid currency code"))
+        } else {
+            Err(PyTypeError::new_err("currency() expects str or Currency"))
+        }
+    }
+}
+
 #[pymethods]
-impl PyVarianceSwap {
-    #[classmethod]
-    #[pyo3(
-        text_signature = "(cls, instrument_id, underlying_id, notional, strike_variance, start_date, maturity, discount_curve, observation_frequency, *, realized_method=None, side=None, day_count=None)"
-    )]
-    #[allow(clippy::too_many_arguments)]
-    fn create(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        underlying_id: &str,
-        notional: Bound<'_, PyAny>,
+impl PyVarianceSwapBuilder {
+    #[new]
+    #[pyo3(text_signature = "(instrument_id)")]
+    fn new_py(instrument_id: &str) -> Self {
+        Self::new_with_id(InstrumentId::new(instrument_id))
+    }
+
+    #[pyo3(text_signature = "($self, underlying_id)")]
+    fn underlying_id(mut slf: PyRefMut<'_, Self>, underlying_id: String) -> PyRefMut<'_, Self> {
+        slf.underlying_id = Some(underlying_id);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, amount)")]
+    fn notional(mut slf: PyRefMut<'_, Self>, amount: f64) -> PyResult<PyRefMut<'_, Self>> {
+        if amount <= 0.0 {
+            return Err(PyValueError::new_err("notional must be positive"));
+        }
+        slf.pending_notional_amount = Some(amount);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, currency)")]
+    fn currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        currency: &Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.pending_currency = Some(Self::parse_currency(currency)?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, money)")]
+    fn money<'py>(mut slf: PyRefMut<'py, Self>, money: PyRef<'py, PyMoney>) -> PyRefMut<'py, Self> {
+        slf.pending_notional_amount = Some(money.inner.amount());
+        slf.pending_currency = Some(money.inner.currency());
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, strike_variance)")]
+    fn strike_variance(
+        mut slf: PyRefMut<'_, Self>,
         strike_variance: f64,
-        start_date: Bound<'_, PyAny>,
-        maturity: Bound<'_, PyAny>,
-        discount_curve: Bound<'_, PyAny>,
-        observation_frequency: crate::core::dates::schedule::PyFrequency,
-        realized_method: Option<PyRealizedVarMethod>,
-        side: Option<PayReceiveArg>,
-        day_count: Option<crate::core::dates::daycount::PyDayCount>,
-    ) -> PyResult<Self> {
+    ) -> PyResult<PyRefMut<'_, Self>> {
         if strike_variance < 0.0 {
             return Err(PyValueError::new_err(
                 "Strike variance must be non-negative",
             ));
         }
-        use crate::errors::PyContext;
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-        let notional_money = extract_money(&notional).context("notional")?;
-        let start = py_to_date(&start_date).context("start_date")?;
-        let maturity_date = py_to_date(&maturity).context("maturity")?;
-        if maturity_date <= start {
+        slf.strike_variance = Some(strike_variance);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, start_date)")]
+    fn start_date<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        start_date: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.start_date = Some(py_to_date(&start_date).context("start_date")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, maturity)")]
+    fn maturity<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        maturity: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.maturity = Some(py_to_date(&maturity).context("maturity")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, curve_id)")]
+    fn disc_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        slf.discount_curve_id = Some(CurveId::new(curve_id.as_str()));
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, observation_frequency)")]
+    fn observation_frequency(
+        mut slf: PyRefMut<'_, Self>,
+        observation_frequency: crate::core::dates::schedule::PyFrequency,
+    ) -> PyRefMut<'_, Self> {
+        slf.observation_frequency = Some(observation_frequency.inner);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, realized_method)")]
+    fn realized_method(
+        mut slf: PyRefMut<'_, Self>,
+        realized_method: Option<PyRealizedVarMethod>,
+    ) -> PyRefMut<'_, Self> {
+        if let Some(m) = realized_method {
+            slf.realized_method = m.inner;
+        }
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, side)")]
+    fn side(mut slf: PyRefMut<'_, Self>, side: Option<PayReceiveArg>) -> PyRefMut<'_, Self> {
+        if let Some(s) = side {
+            slf.side = s.0.inner;
+        }
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, day_count)")]
+    fn day_count(
+        mut slf: PyRefMut<'_, Self>,
+        day_count: crate::core::dates::daycount::PyDayCount,
+    ) -> PyRefMut<'_, Self> {
+        slf.day_count = day_count.inner;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyVarianceSwap> {
+        slf.ensure_ready()?;
+        let underlying_id = slf.underlying_id.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "VarianceSwapBuilder internal error: missing underlying_id after validation",
+            )
+        })?;
+        let notional = slf.notional_money().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "VarianceSwapBuilder internal error: missing notional after validation",
+            )
+        })?;
+        let strike_variance = slf.strike_variance.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "VarianceSwapBuilder internal error: missing strike_variance after validation",
+            )
+        })?;
+        let start_date = slf.start_date.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "VarianceSwapBuilder internal error: missing start_date after validation",
+            )
+        })?;
+        let maturity = slf.maturity.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "VarianceSwapBuilder internal error: missing maturity after validation",
+            )
+        })?;
+        if maturity <= start_date {
             return Err(PyValueError::new_err(
                 "Maturity must be after observation start",
             ));
         }
-        let discount_curve_id =
-            CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
-        let method = realized_method
-            .map(|m| m.inner)
-            .unwrap_or(RealizedVarMethod::CloseToClose);
-        let direction = side.map(|s| s.0.inner).unwrap_or(PayReceive::Receive);
-        let day_count = day_count
-            .map(|dc| dc.inner)
-            .unwrap_or(finstack_core::dates::DayCount::Act365F);
+        let discount_curve_id = slf.discount_curve_id.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "VarianceSwapBuilder internal error: missing discount curve after validation",
+            )
+        })?;
+        let observation_freq = slf.observation_frequency.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "VarianceSwapBuilder internal error: missing observation_frequency after validation",
+            )
+        })?;
 
         let swap = VarianceSwap {
-            id,
-            underlying_id: underlying_id.to_string(),
-            notional: notional_money,
+            id: slf.instrument_id.clone(),
+            underlying_id,
+            notional,
             strike_variance,
-            start_date: start,
-            maturity: maturity_date,
-            observation_freq: observation_frequency.inner,
-            realized_var_method: method,
-            side: direction,
+            start_date,
+            maturity,
+            observation_freq,
+            realized_var_method: slf.realized_method,
+            side: slf.side,
             discount_curve_id,
-            day_count,
+            day_count: slf.day_count,
             attributes: Attributes::new(),
         };
 
-        Ok(Self::new(swap))
+        Ok(PyVarianceSwap::new(swap))
+    }
+
+    fn __repr__(&self) -> String {
+        "VarianceSwapBuilder(...)".to_string()
+    }
+}
+
+#[pymethods]
+impl PyVarianceSwap {
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, instrument_id)")]
+    /// Start a fluent builder (builder-only API).
+    fn builder<'py>(
+        cls: &Bound<'py, PyType>,
+        instrument_id: &str,
+    ) -> PyResult<Py<PyVarianceSwapBuilder>> {
+        let py = cls.py();
+        let builder = PyVarianceSwapBuilder::new_with_id(InstrumentId::new(instrument_id));
+        Py::new(py, builder)
     }
 
     #[getter]
@@ -305,9 +524,11 @@ pub(crate) fn register<'py>(
     module.add_class::<PyPayReceive>()?;
     module.add_class::<PyRealizedVarMethod>()?;
     module.add_class::<PyVarianceSwap>()?;
+    module.add_class::<PyVarianceSwapBuilder>()?;
     Ok(vec![
         "VarianceDirection",
         "RealizedVarianceMethod",
         "VarianceSwap",
+        "VarianceSwapBuilder",
     ])
 }

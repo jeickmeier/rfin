@@ -3,11 +3,205 @@ use crate::core::money::JsMoney;
 use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
+use finstack_valuations::instruments::credit_derivatives::cds::{
+    CDSConvention, CreditDefaultSwap, CreditDefaultSwapBuilder, PremiumLegSpec, ProtectionLegSpec,
+    RECOVERY_SENIOR_UNSECURED,
+};
+use finstack_valuations::instruments::{Attributes, PayReceive, PricingOverrides};
 use finstack_valuations::pricer::InstrumentType;
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
+
+#[derive(Clone, Debug)]
+struct BuildCdsArgs {
+    id: finstack_core::types::InstrumentId,
+    notional: finstack_core::money::Money,
+    spread_bp: f64,
+    start: finstack_core::dates::Date,
+    maturity: finstack_core::dates::Date,
+    discount_curve: finstack_core::types::CurveId,
+    credit_curve: finstack_core::types::CurveId,
+    side: PayReceive,
+    recovery_rate: Option<f64>,
+}
+
+fn build_cds(args: BuildCdsArgs) -> Result<CreditDefaultSwap, JsValue> {
+    let convention = CDSConvention::IsdaNa;
+    let dc = convention.day_count();
+    let freq = convention.frequency();
+    let bdc = convention.business_day_convention();
+    let stub = convention.stub_convention();
+
+    let spread_bp_decimal = Decimal::try_from(args.spread_bp).map_err(|e| {
+        JsValue::from_str(&format!(
+            "spread_bp {} cannot be represented as Decimal: {e}",
+            args.spread_bp
+        ))
+    })?;
+
+    let mut cds = CreditDefaultSwapBuilder::new()
+        .id(args.id)
+        .notional(args.notional)
+        .side(args.side)
+        .convention(convention)
+        .premium(PremiumLegSpec {
+            start: args.start,
+            end: args.maturity,
+            freq,
+            stub,
+            bdc,
+            calendar_id: Some(convention.default_calendar().to_string()),
+            dc,
+            spread_bp: spread_bp_decimal,
+            discount_curve_id: args.discount_curve,
+        })
+        .protection(ProtectionLegSpec {
+            credit_curve_id: args.credit_curve,
+            recovery_rate: RECOVERY_SENIOR_UNSECURED,
+            settlement_delay: convention.settlement_delay(),
+        })
+        .pricing_overrides(PricingOverrides::default())
+        .attributes(Attributes::new())
+        .build()
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+    if let Some(rr) = args.recovery_rate {
+        cds.protection.recovery_rate = rr;
+    }
+
+    cds.validate()
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+    Ok(cds)
+}
+
+#[wasm_bindgen(js_name = CreditDefaultSwapBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsCreditDefaultSwapBuilder {
+    instrument_id: String,
+    notional: Option<finstack_core::money::Money>,
+    spread_bp: Option<f64>,
+    start_date: Option<finstack_core::dates::Date>,
+    maturity: Option<finstack_core::dates::Date>,
+    discount_curve: Option<String>,
+    credit_curve: Option<String>,
+    side: Option<String>,
+    recovery_rate: Option<f64>,
+}
+
+#[wasm_bindgen(js_class = CreditDefaultSwapBuilder)]
+impl JsCreditDefaultSwapBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new(instrument_id: &str) -> JsCreditDefaultSwapBuilder {
+        JsCreditDefaultSwapBuilder {
+            instrument_id: instrument_id.to_string(),
+            ..Default::default()
+        }
+    }
+
+    #[wasm_bindgen(js_name = money)]
+    pub fn money(mut self, notional: &JsMoney) -> JsCreditDefaultSwapBuilder {
+        self.notional = Some(notional.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = spreadBp)]
+    pub fn spread_bp(mut self, spread_bp: f64) -> JsCreditDefaultSwapBuilder {
+        self.spread_bp = Some(spread_bp);
+        self
+    }
+
+    #[wasm_bindgen(js_name = startDate)]
+    pub fn start_date(mut self, start_date: &JsDate) -> JsCreditDefaultSwapBuilder {
+        self.start_date = Some(start_date.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = maturity)]
+    pub fn maturity(mut self, maturity: &JsDate) -> JsCreditDefaultSwapBuilder {
+        self.maturity = Some(maturity.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = discountCurve)]
+    pub fn discount_curve(mut self, discount_curve: &str) -> JsCreditDefaultSwapBuilder {
+        self.discount_curve = Some(discount_curve.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = creditCurve)]
+    pub fn credit_curve(mut self, credit_curve: &str) -> JsCreditDefaultSwapBuilder {
+        self.credit_curve = Some(credit_curve.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = side)]
+    pub fn side(mut self, side: String) -> JsCreditDefaultSwapBuilder {
+        self.side = Some(side);
+        self
+    }
+
+    #[wasm_bindgen(js_name = recoveryRate)]
+    pub fn recovery_rate(mut self, recovery_rate: f64) -> JsCreditDefaultSwapBuilder {
+        self.recovery_rate = Some(recovery_rate);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsCreditDefaultSwap, JsValue> {
+        let notional = self.notional.ok_or_else(|| {
+            JsValue::from_str("CreditDefaultSwapBuilder: notional (money) is required")
+        })?;
+        let spread_bp = self
+            .spread_bp
+            .ok_or_else(|| JsValue::from_str("CreditDefaultSwapBuilder: spreadBp is required"))?;
+        let start_date = self
+            .start_date
+            .ok_or_else(|| JsValue::from_str("CreditDefaultSwapBuilder: startDate is required"))?;
+        let maturity = self
+            .maturity
+            .ok_or_else(|| JsValue::from_str("CreditDefaultSwapBuilder: maturity is required"))?;
+        let discount_curve = self.discount_curve.as_deref().ok_or_else(|| {
+            JsValue::from_str("CreditDefaultSwapBuilder: discountCurve is required")
+        })?;
+        let credit_curve = self.credit_curve.as_deref().ok_or_else(|| {
+            JsValue::from_str("CreditDefaultSwapBuilder: creditCurve is required")
+        })?;
+        let side = self
+            .side
+            .as_deref()
+            .ok_or_else(|| JsValue::from_str("CreditDefaultSwapBuilder: side is required"))?;
+
+        let id = instrument_id_from_str(&self.instrument_id);
+        let disc = curve_id_from_str(discount_curve);
+        let credit = curve_id_from_str(credit_curve);
+
+        let side = match side.to_lowercase().as_str() {
+            "buy_protection" => PayReceive::PayFixed,
+            "sell_protection" => PayReceive::ReceiveFixed,
+            other => {
+                return Err(JsValue::from_str(&format!(
+                    "Invalid side '{other}'; expected 'buy_protection' or 'sell_protection'"
+                )));
+            }
+        };
+
+        build_cds(BuildCdsArgs {
+            id,
+            notional,
+            spread_bp,
+            start: start_date,
+            maturity,
+            discount_curve: disc,
+            credit_curve: credit,
+            side,
+            recovery_rate: self.recovery_rate,
+        })
+        .map(JsCreditDefaultSwap::from_inner)
+    }
+}
 
 #[wasm_bindgen(js_name = CreditDefaultSwap)]
 #[derive(Clone, Debug)]
@@ -76,39 +270,34 @@ impl JsCreditDefaultSwap {
         side: &str,
         recovery_rate: Option<f64>,
     ) -> Result<JsCreditDefaultSwap, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "CreditDefaultSwap constructor is deprecated; use CreditDefaultSwapBuilder instead.",
+        ));
         let id = instrument_id_from_str(instrument_id);
         let disc = curve_id_from_str(discount_curve);
         let credit = curve_id_from_str(credit_curve);
-        let mut cds = match side.to_lowercase().as_str() {
-            "buy_protection" => CreditDefaultSwap::buy_protection(
-                id,
-                notional.inner(),
-                spread_bp,
-                start_date.inner(),
-                maturity.inner(),
-                disc,
-                credit,
-            ),
-            "sell_protection" => CreditDefaultSwap::sell_protection(
-                id,
-                notional.inner(),
-                spread_bp,
-                start_date.inner(),
-                maturity.inner(),
-                disc,
-                credit,
-            ),
+        let side = match side.to_lowercase().as_str() {
+            "buy_protection" => PayReceive::PayFixed,
+            "sell_protection" => PayReceive::ReceiveFixed,
             other => {
                 return Err(JsValue::from_str(&format!(
                     "Invalid side '{other}'; expected 'buy_protection' or 'sell_protection'"
                 )));
             }
-        }
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
-        if let Some(rr) = recovery_rate {
-            cds.protection.recovery_rate = rr;
-        }
-        Ok(JsCreditDefaultSwap::from_inner(cds))
+        };
+
+        build_cds(BuildCdsArgs {
+            id,
+            notional: notional.inner(),
+            spread_bp,
+            start: start_date.inner(),
+            maturity: maturity.inner(),
+            discount_curve: disc,
+            credit_curve: credit,
+            side,
+            recovery_rate,
+        })
+        .map(JsCreditDefaultSwap::from_inner)
     }
 
     /// Parse a CDS from a JSON value (as produced by `toJson`).

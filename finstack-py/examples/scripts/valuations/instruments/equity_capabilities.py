@@ -58,21 +58,31 @@ def main() -> None:
     market = build_equity_market(as_of)
     registry = create_standard_registry()
 
-    equity = Equity.create(
-        "ACME-SPOT",
-        ticker="ACME",
-        currency=USD,
-        shares=1_000.0,
+    equity = (
+        Equity.builder("ACME-SPOT")
+        .ticker("ACME")
+        .currency(USD)
+        .shares(1_000.0)
+        .price_id("EQUITY-SPOT")
+        .div_yield_id("EQUITY-DIVYIELD")
+        .build()
     )
     registry.price(equity, "discounting", market)
 
-    call = EquityOption.european_call(
-        "ACME-CALL-150",
-        ticker="ACME",
-        strike=150.0,
-        expiry=date(2024, 12, 31),
-        notional=Money(150.0, USD),
-        contract_size=100.0,
+    call = (
+        EquityOption.builder("ACME-CALL-150")
+        .money(Money(150.0, USD))
+        .ticker("ACME")
+        .strike(150.0)
+        .expiry(date(2024, 12, 31))
+        .contract_size(100.0)
+        .option_type("call")
+        .exercise_style("european")
+        .disc_id("USD-OIS")
+        .spot_id("EQUITY-SPOT")
+        .vol_surface("EQUITY-VOL")
+        .div_yield_id("EQUITY-DIVYIELD")
+        .build()
     )
     registry.price_with_metrics(
         call,
@@ -81,13 +91,20 @@ def main() -> None:
         ["delta", "gamma", "vega"],
     )
 
-    put = EquityOption.european_put(
-        "ACME-PUT-140",
-        ticker="ACME",
-        strike=140.0,
-        expiry=date(2024, 9, 30),
-        notional=Money(140.0, USD),
-        contract_size=100.0,
+    put = (
+        EquityOption.builder("ACME-PUT-140")
+        .money(Money(140.0, USD))
+        .ticker("ACME")
+        .strike(140.0)
+        .expiry(date(2024, 9, 30))
+        .contract_size(100.0)
+        .option_type("put")
+        .exercise_style("european")
+        .disc_id("USD-OIS")
+        .spot_id("EQUITY-SPOT")
+        .vol_surface("EQUITY-VOL")
+        .div_yield_id("EQUITY-DIVYIELD")
+        .build()
     )
     registry.price(put, "discounting", market)
 

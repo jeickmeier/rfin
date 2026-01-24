@@ -153,13 +153,14 @@ class ResultsMeta:
         ...     registry = create_standard_registry()
         ...     ctx = MarketContext()
         ...     ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (5.0, 0.95)]))
-        ...     bond = Bond.fixed_semiannual(
-        ...         "BOND-META",
-        ...         Money(1_000_000, Currency("USD")),
-        ...         0.04,
-        ...         date(2024, 1, 1),
-        ...         date(2029, 1, 1),
-        ...         "USD",
+        ...     bond = (
+        ...         Bond.builder("BOND-META")
+        ...         .money(Money(1_000_000, Currency("USD")))
+        ...         .coupon_rate(0.04)
+        ...         .issue(date(2024, 1, 1))
+        ...         .maturity(date(2029, 1, 1))
+        ...         .disc_id("USD")
+        ...         .build()
         ...     )
         ...     return registry.price(bond, "discounting", ctx).meta
         >>> meta = _meta_example()
@@ -271,13 +272,14 @@ class ValuationResult:
         >>> registry = create_standard_registry()
         >>> market_ctx = MarketContext()
         >>> market_ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
-        >>> bond = Bond.fixed_semiannual(
-        ...     "BOND-EXAMPLE",
-        ...     Money(1_000_000, Currency("USD")),
-        ...     0.05,
-        ...     date(2024, 1, 1),
-        ...     date(2029, 1, 1),
-        ...     "USD",
+        >>> bond = (
+        ...     Bond.builder("BOND-EXAMPLE")
+        ...     .money(Money(1_000_000, Currency("USD")))
+        ...     .coupon_rate(0.05)
+        ...     .issue(date(2024, 1, 1))
+        ...     .maturity(date(2029, 1, 1))
+        ...     .disc_id("USD")
+        ...     .build()
         ... )
         >>> value = registry.price(bond, "discounting", market_ctx).value
         >>> (value.currency.code, isinstance(value.amount, float))
@@ -295,13 +297,14 @@ class ValuationResult:
         >>> registry = create_standard_registry()
         >>> market_ctx = MarketContext()
         >>> market_ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
-        >>> bond = Bond.fixed_semiannual(
-        ...     "BOND-EXAMPLE",
-        ...     Money(1_000_000, Currency("USD")),
-        ...     0.05,
-        ...     date(2024, 1, 1),
-        ...     date(2029, 1, 1),
-        ...     "USD",
+        >>> bond = (
+        ...     Bond.builder("BOND-EXAMPLE")
+        ...     .money(Money(1_000_000, Currency("USD")))
+        ...     .coupon_rate(0.05)
+        ...     .issue(date(2024, 1, 1))
+        ...     .maturity(date(2029, 1, 1))
+        ...     .disc_id("USD")
+        ...     .build()
         ... )
         >>> result = registry.price_with_metrics(bond, "discounting", market_ctx, ["dv01", "ytm"])
         >>> sorted(result.measures.keys())
@@ -320,13 +323,14 @@ class ValuationResult:
         ...     registry = create_standard_registry()
         ...     ctx = MarketContext()
         ...     ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
-        ...     bond = Bond.fixed_semiannual(
-        ...         "BOND-003",
-        ...         Money(1_000_000, Currency("USD")),
-        ...         0.05,
-        ...         date(2024, 1, 1),
-        ...         date(2029, 1, 1),
-        ...         "USD",
+        ...     bond = (
+        ...         Bond.builder("BOND-003")
+        ...         .money(Money(1_000_000, Currency("USD")))
+        ...         .coupon_rate(0.05)
+        ...         .issue(date(2024, 1, 1))
+        ...         .maturity(date(2029, 1, 1))
+        ...         .disc_id("USD")
+        ...         .build()
         ...     )
         ...     return registry.price(bond, "discounting", ctx)
         >>> meta = _example_result().meta
@@ -346,13 +350,14 @@ class ValuationResult:
         ...     registry = create_standard_registry()
         ...     ctx = MarketContext()
         ...     ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
-        ...     bond = Bond.fixed_semiannual(
-        ...         "BOND-004",
-        ...         Money(1_000_000, Currency("USD")),
-        ...         0.05,
-        ...         date(2024, 1, 1),
-        ...         date(2029, 1, 1),
-        ...         "USD",
+        ...     bond = (
+        ...         Bond.builder("BOND-004")
+        ...         .money(Money(1_000_000, Currency("USD")))
+        ...         .coupon_rate(0.05)
+        ...         .issue(date(2024, 1, 1))
+        ...         .maturity(date(2029, 1, 1))
+        ...         .disc_id("USD")
+        ...         .build()
         ...     )
         ...     return registry.price(bond, "discounting", ctx)
         >>> result = _example_result()
@@ -374,13 +379,14 @@ class ValuationResult:
         ...     registry = create_standard_registry()
         ...     ctx = MarketContext()
         ...     ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
-        ...     bond = Bond.fixed_semiannual(
-        ...         "BOND-005",
-        ...         Money(1_000_000, Currency("USD")),
-        ...         0.05,
-        ...         date(2024, 1, 1),
-        ...         date(2029, 1, 1),
-        ...         "USD",
+        ...     bond = (
+        ...         Bond.builder("BOND-005")
+        ...         .money(Money(1_000_000, Currency("USD")))
+        ...         .coupon_rate(0.05)
+        ...         .issue(date(2024, 1, 1))
+        ...         .maturity(date(2029, 1, 1))
+        ...         .disc_id("USD")
+        ...         .build()
         ...     )
         ...     return registry.price(bond, "discounting", ctx)
         >>> data = _example_result().to_dict()
@@ -426,13 +432,14 @@ class ValuationResult:
             ...     registry = create_standard_registry()
             ...     ctx = MarketContext()
             ...     ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
-            ...     bond = Bond.fixed_semiannual(
-            ...         "BOND-001",
-            ...         Money(1_000_000, Currency("USD")),
-            ...         0.05,
-            ...         date(2024, 1, 1),
-            ...         date(2029, 1, 1),
-            ...         "USD",
+            ...     bond = (
+            ...         Bond.builder("BOND-001")
+            ...         .money(Money(1_000_000, Currency("USD")))
+            ...         .coupon_rate(0.05)
+            ...         .issue(date(2024, 1, 1))
+            ...         .maturity(date(2029, 1, 1))
+            ...         .disc_id("USD")
+            ...         .build()
             ...     )
             ...     return registry.price(bond, "discounting", ctx)
             >>> result = _example_result()
@@ -464,13 +471,14 @@ class ValuationResult:
             ...     registry = create_standard_registry()
             ...     ctx = MarketContext()
             ...     ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
-            ...     bond = Bond.fixed_semiannual(
-            ...         "BOND-001",
-            ...         Money(1_000_000, Currency("USD")),
-            ...         0.05,
-            ...         date(2024, 1, 1),
-            ...         date(2029, 1, 1),
-            ...         "USD",
+            ...     bond = (
+            ...         Bond.builder("BOND-001")
+            ...         .money(Money(1_000_000, Currency("USD")))
+            ...         .coupon_rate(0.05)
+            ...         .issue(date(2024, 1, 1))
+            ...         .maturity(date(2029, 1, 1))
+            ...         .disc_id("USD")
+            ...         .build()
             ...     )
             ...     return registry.price(bond, "discounting", ctx)
             >>> _example_result().as_of == date(2024, 1, 1)
@@ -504,13 +512,14 @@ class ValuationResult:
             ...     registry = create_standard_registry()
             ...     ctx = MarketContext()
             ...     ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
-            ...     bond = Bond.fixed_semiannual(
-            ...         "BOND-001",
-            ...         Money(1_000_000, Currency("USD")),
-            ...         0.05,
-            ...         date(2024, 1, 1),
-            ...         date(2029, 1, 1),
-            ...         "USD",
+            ...     bond = (
+            ...         Bond.builder("BOND-001")
+            ...         .money(Money(1_000_000, Currency("USD")))
+            ...         .coupon_rate(0.05)
+            ...         .issue(date(2024, 1, 1))
+            ...         .maturity(date(2029, 1, 1))
+            ...         .disc_id("USD")
+            ...         .build()
             ...     )
             ...     return registry.price(bond, "discounting", ctx)
             >>> value = _example_result().value
@@ -563,13 +572,14 @@ class ValuationResult:
             ...     registry = create_standard_registry()
             ...     ctx = MarketContext()
             ...     ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
-            ...     bond = Bond.fixed_semiannual(
-            ...         "BOND-002",
-            ...         Money(1_000_000, Currency("USD")),
-            ...         0.05,
-            ...         date(2024, 1, 1),
-            ...         date(2029, 1, 1),
-            ...         "USD",
+            ...     bond = (
+            ...         Bond.builder("BOND-002")
+            ...         .money(Money(1_000_000, Currency("USD")))
+            ...         .coupon_rate(0.05)
+            ...         .issue(date(2024, 1, 1))
+            ...         .maturity(date(2029, 1, 1))
+            ...         .disc_id("USD")
+            ...         .build()
             ...     )
             ...     return registry.price_with_metrics(bond, "discounting", ctx, ["dv01", "ytm"])
             >>> sorted(_metrics_result().measures.keys())

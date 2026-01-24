@@ -419,14 +419,23 @@ mod tests {
         use crate::instruments::equity_option::EquityOption;
 
         let expiry = date!(2025 - 06 - 01);
-        let option = EquityOption::european_call(
-            "EQO",
-            "AAPL",
-            100.0,
-            expiry,
-            Money::new(10_000.0, Currency::USD),
-            100.0,
-        )?;
+        let option = EquityOption::builder()
+            .id(finstack_core::types::InstrumentId::new("EQO"))
+            .underlying_ticker("AAPL".to_string())
+            .strike(Money::new(100.0, Currency::USD))
+            .option_type(crate::instruments::OptionType::Call)
+            .exercise_style(crate::instruments::ExerciseStyle::European)
+            .expiry(expiry)
+            .contract_size(100.0)
+            .day_count(DayCount::Act365F)
+            .settlement(crate::instruments::SettlementType::Cash)
+            .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
+            .spot_id("EQUITY-SPOT".to_string())
+            .vol_surface_id(finstack_core::types::CurveId::new("EQUITY-VOL"))
+            .div_yield_id_opt(Some("EQUITY-DIVYIELD".to_string()))
+            .pricing_overrides(crate::instruments::PricingOverrides::default())
+            .attributes(crate::instruments::Attributes::new())
+            .build()?;
 
         let base_date = date!(2024 - 01 - 01);
         let curve = DiscountCurve::builder("USD-OIS")

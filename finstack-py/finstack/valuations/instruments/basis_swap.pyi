@@ -1,7 +1,8 @@
-"""Basis swap instrument."""
+"""Basis swap instrument (builder-only API)."""
 
-from typing import Optional
+from typing import Optional, Union
 from datetime import date
+from ...core.currency import Currency
 from ...core.money import Money
 from ...core.dates.daycount import DayCount
 from ...core.dates.calendar import BusinessDayConvention
@@ -22,6 +23,22 @@ class BasisSwapLeg:
     def forward_curve(self) -> str: ...
     @property
     def spread(self) -> float: ...
+
+class BasisSwapBuilder:
+    """Fluent builder returned by :meth:`BasisSwap.builder`."""
+
+    def __init__(self, instrument_id: str) -> None: ...
+    def notional(self, amount: float) -> BasisSwapBuilder: ...
+    def currency(self, currency: Union[str, Currency]) -> BasisSwapBuilder: ...
+    def money(self, money: Money) -> BasisSwapBuilder: ...
+    def start_date(self, start_date: date) -> BasisSwapBuilder: ...
+    def maturity(self, maturity: date) -> BasisSwapBuilder: ...
+    def primary_leg(self, primary_leg: BasisSwapLeg) -> BasisSwapBuilder: ...
+    def reference_leg(self, reference_leg: BasisSwapLeg) -> BasisSwapBuilder: ...
+    def disc_id(self, curve_id: str) -> BasisSwapBuilder: ...
+    def calendar(self, calendar: Optional[str] = ...) -> BasisSwapBuilder: ...
+    def stub(self, stub: Optional[str] = ...) -> BasisSwapBuilder: ...
+    def build(self) -> "BasisSwap": ...
 
 class BasisSwap:
     """Basis swap for exchanging two floating interest rates.
@@ -47,14 +64,15 @@ class BasisSwap:
         ...     frequency="quarterly",
         ...     spread=10.0,  # 10bp basis spread
         ... )
-        >>> basis_swap = BasisSwap.create(
-        ...     "BASIS-LIBOR-SOFR",
-        ...     Money(10_000_000, Currency("USD")),
-        ...     start_date=date(2024, 1, 1),
-        ...     maturity=date(2029, 1, 1),  # 5-year swap
-        ...     primary_leg=primary_leg,
-        ...     reference_leg=reference_leg,
-        ...     discount_curve="USD",
+        >>> basis_swap = (
+        ...     BasisSwap.builder("BASIS-LIBOR-SOFR")
+        ...     .money(Money(10_000_000, Currency("USD")))
+        ...     .start_date(date(2024, 1, 1))
+        ...     .maturity(date(2029, 1, 1))  # 5-year swap
+        ...     .primary_leg(primary_leg)
+        ...     .reference_leg(reference_leg)
+        ...     .disc_id("USD")
+        ...     .build()
         ... )
 
     Notes
@@ -83,69 +101,7 @@ class BasisSwap:
     """
 
     @classmethod
-    def create(
-        cls,
-        instrument_id: str,
-        notional: Money,
-        start_date: date,
-        maturity: date,
-        primary_leg: BasisSwapLeg,
-        reference_leg: BasisSwapLeg,
-        discount_curve: str,
-        *,
-        calendar: Optional[str] = None,
-        stub: Optional[str] = "none",
-    ) -> "BasisSwap":
-        """Create a floating-for-floating basis swap with two legs.
-
-        Parameters
-        ----------
-        instrument_id : str
-            Unique identifier for the basis swap (e.g., "BASIS-LIBOR-SOFR").
-        notional : Money
-            Notional principal amount. Currency determines curve currency requirements.
-        start_date : date
-            Swap start date (first accrual date).
-        maturity : date
-            Swap maturity date (last payment date). Must be after start_date.
-        primary_leg : BasisSwapLeg
-            Primary leg specification (forward curve, frequency, spread).
-            Typically pays the higher floating rate.
-        reference_leg : BasisSwapLeg
-            Reference leg specification (forward curve, frequency, spread).
-            Typically pays the lower floating rate plus basis spread.
-        discount_curve : str
-            Discount curve identifier in MarketContext for present value calculations.
-        calendar : str, optional
-            Holiday calendar identifier for payment date adjustments.
-        stub : str, optional
-            Stub period handling: "none" (default), "short_first", "short_last".
-
-        Returns
-        -------
-        BasisSwap
-            Configured basis swap ready for pricing.
-
-        Raises
-        ------
-        ValueError
-            If dates are invalid (maturity <= start_date), if notional is invalid,
-            or if forward curves are not found in MarketContext.
-
-        Examples
-        --------
-            >>> basis_swap = BasisSwap.create(
-            ...     "BASIS-3M-6M",
-            ...     Money(10_000_000, Currency("USD")),
-            ...     date(2024, 1, 1),
-            ...     date(2029, 1, 1),
-            ...     primary_leg,
-            ...     reference_leg,
-            ...     discount_curve="USD",
-            ... )
-        """
-        ...
-
+    def builder(cls, instrument_id: str) -> BasisSwapBuilder: ...
     @property
     def instrument_id(self) -> str: ...
     @property

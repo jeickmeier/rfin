@@ -80,6 +80,128 @@ impl InstrumentWrapper for JsYoYInflationSwap {
     }
 }
 
+#[wasm_bindgen(js_name = YoYInflationSwapBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsYoYInflationSwapBuilder {
+    instrument_id: String,
+    notional: Option<finstack_core::money::Money>,
+    fixed_rate: Option<f64>,
+    start_date: Option<finstack_core::dates::Date>,
+    maturity: Option<finstack_core::dates::Date>,
+    discount_curve: Option<String>,
+    inflation_index_id: Option<String>,
+    frequency: Option<String>,
+    side: Option<String>,
+    day_count: Option<String>,
+}
+
+#[wasm_bindgen(js_class = YoYInflationSwapBuilder)]
+impl JsYoYInflationSwapBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new(instrument_id: &str) -> JsYoYInflationSwapBuilder {
+        JsYoYInflationSwapBuilder {
+            instrument_id: instrument_id.to_string(),
+            ..Default::default()
+        }
+    }
+
+    #[wasm_bindgen(js_name = money)]
+    pub fn money(mut self, notional: &JsMoney) -> JsYoYInflationSwapBuilder {
+        self.notional = Some(notional.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = fixedRate)]
+    pub fn fixed_rate(mut self, fixed_rate: f64) -> JsYoYInflationSwapBuilder {
+        self.fixed_rate = Some(fixed_rate);
+        self
+    }
+
+    #[wasm_bindgen(js_name = startDate)]
+    pub fn start_date(mut self, start_date: &JsDate) -> JsYoYInflationSwapBuilder {
+        self.start_date = Some(start_date.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = maturity)]
+    pub fn maturity(mut self, maturity: &JsDate) -> JsYoYInflationSwapBuilder {
+        self.maturity = Some(maturity.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = discountCurve)]
+    pub fn discount_curve(mut self, discount_curve: &str) -> JsYoYInflationSwapBuilder {
+        self.discount_curve = Some(discount_curve.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = inflationIndexId)]
+    pub fn inflation_index_id(mut self, inflation_index_id: &str) -> JsYoYInflationSwapBuilder {
+        self.inflation_index_id = Some(inflation_index_id.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = frequency)]
+    pub fn frequency(mut self, frequency: String) -> JsYoYInflationSwapBuilder {
+        self.frequency = Some(frequency);
+        self
+    }
+
+    #[wasm_bindgen(js_name = side)]
+    pub fn side(mut self, side: String) -> JsYoYInflationSwapBuilder {
+        self.side = Some(side);
+        self
+    }
+
+    #[wasm_bindgen(js_name = dayCount)]
+    pub fn day_count(mut self, day_count: String) -> JsYoYInflationSwapBuilder {
+        self.day_count = Some(day_count);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsYoYInflationSwap, JsValue> {
+        let notional = self.notional.ok_or_else(|| {
+            js_error("YoYInflationSwapBuilder: notional (money) is required".to_string())
+        })?;
+        let fixed_rate = self.fixed_rate.ok_or_else(|| {
+            js_error("YoYInflationSwapBuilder: fixedRate is required".to_string())
+        })?;
+        let start_date = self.start_date.ok_or_else(|| {
+            js_error("YoYInflationSwapBuilder: startDate is required".to_string())
+        })?;
+        let maturity = self
+            .maturity
+            .ok_or_else(|| js_error("YoYInflationSwapBuilder: maturity is required".to_string()))?;
+        let discount_curve = self.discount_curve.as_deref().ok_or_else(|| {
+            js_error("YoYInflationSwapBuilder: discountCurve is required".to_string())
+        })?;
+        let inflation_index_id = self.inflation_index_id.as_deref().ok_or_else(|| {
+            js_error("YoYInflationSwapBuilder: inflationIndexId is required".to_string())
+        })?;
+
+        let freq = parse_optional_with_default(self.frequency, Tenor::annual())?;
+        let side_value = parse_optional_with_default(self.side, PayReceiveInflation::PayFixed)?;
+        let dc = parse_optional_with_default(self.day_count, DayCount::ActAct)?;
+
+        YoYInflationSwap::builder()
+            .id(instrument_id_from_str(&self.instrument_id))
+            .notional(notional)
+            .fixed_rate(fixed_rate)
+            .start(start_date)
+            .maturity(maturity)
+            .frequency(freq)
+            .discount_curve_id(curve_id_from_str(discount_curve))
+            .inflation_index_id(curve_id_from_str(inflation_index_id))
+            .dc(dc)
+            .side(side_value)
+            .attributes(Default::default())
+            .build()
+            .map(JsYoYInflationSwap::from_inner)
+            .map_err(|e| js_error(e.to_string()))
+    }
+}
+
 #[wasm_bindgen(js_class = YoYInflationSwap)]
 impl JsYoYInflationSwap {
     /// Create a new YoY inflation swap.
@@ -97,6 +219,9 @@ impl JsYoYInflationSwap {
         side: Option<String>,
         day_count: Option<String>,
     ) -> Result<JsYoYInflationSwap, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "YoYInflationSwap constructor is deprecated; use YoYInflationSwapBuilder instead.",
+        ));
         let freq = parse_optional_with_default(frequency, Tenor::annual())?;
         let side_value = parse_optional_with_default(side, PayReceiveInflation::PayFixed)?;
         let dc = parse_optional_with_default(day_count, DayCount::ActAct)?;

@@ -13,9 +13,9 @@ use finstack_core::dates::{DateExt, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use finstack_valuations::instruments::fixed_income::bond::{Bond, CashflowSpec};
 use finstack_valuations::instruments::{CurveDependencies, Instrument};
+use finstack_valuations::test_utils;
 use time::macros::date;
 
 /// Build a discount curve with the given ID and flat rate.
@@ -109,7 +109,7 @@ fn test_cds_curve_dependencies_complete() {
     let as_of = date!(2025 - 01 - 01);
     let maturity = as_of.add_months(60);
 
-    let cds = CreditDefaultSwap::buy_protection(
+    let cds = test_utils::cds_buy_protection(
         "CDS-DEPS-TEST",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -148,7 +148,7 @@ fn test_missing_dependency_fails() {
     let as_of = date!(2025 - 01 - 01);
     let maturity = as_of.add_months(60);
 
-    let cds = CreditDefaultSwap::buy_protection(
+    let cds = test_utils::cds_buy_protection(
         "CDS-MISSING-TEST",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -208,7 +208,7 @@ fn test_dependency_count_reasonable() {
     );
 
     // A CDS should need 1 discount + 1 credit curve
-    let cds = CreditDefaultSwap::buy_protection(
+    let cds = test_utils::cds_buy_protection(
         "CDS-COUNT-TEST",
         Money::new(10_000_000.0, Currency::USD),
         100.0,

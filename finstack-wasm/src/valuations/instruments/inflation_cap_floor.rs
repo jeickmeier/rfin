@@ -97,6 +97,175 @@ impl InstrumentWrapper for JsInflationCapFloor {
     }
 }
 
+#[wasm_bindgen(js_name = InflationCapFloorBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsInflationCapFloorBuilder {
+    instrument_id: String,
+    option_type: Option<InflationCapFloorType>,
+    notional: Option<finstack_core::money::Money>,
+    strike_rate: Option<f64>,
+    start_date: Option<finstack_core::dates::Date>,
+    end_date: Option<finstack_core::dates::Date>,
+    inflation_index_id: Option<String>,
+    discount_curve_id: Option<String>,
+    vol_surface_id: Option<String>,
+    frequency: Option<String>,
+    day_count: Option<String>,
+    stub_kind: Option<String>,
+    bdc: Option<String>,
+    calendar_id: Option<String>,
+}
+
+#[wasm_bindgen(js_class = InflationCapFloorBuilder)]
+impl JsInflationCapFloorBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new(instrument_id: &str) -> JsInflationCapFloorBuilder {
+        JsInflationCapFloorBuilder {
+            instrument_id: instrument_id.to_string(),
+            ..Default::default()
+        }
+    }
+
+    #[wasm_bindgen(js_name = optionType)]
+    pub fn option_type(
+        mut self,
+        option_type: &JsInflationCapFloorType,
+    ) -> JsInflationCapFloorBuilder {
+        self.option_type = Some(option_type.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = money)]
+    pub fn money(mut self, notional: &JsMoney) -> JsInflationCapFloorBuilder {
+        self.notional = Some(notional.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = strikeRate)]
+    pub fn strike_rate(mut self, strike_rate: f64) -> JsInflationCapFloorBuilder {
+        self.strike_rate = Some(strike_rate);
+        self
+    }
+
+    #[wasm_bindgen(js_name = startDate)]
+    pub fn start_date(mut self, start_date: &JsDate) -> JsInflationCapFloorBuilder {
+        self.start_date = Some(start_date.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = endDate)]
+    pub fn end_date(mut self, end_date: &JsDate) -> JsInflationCapFloorBuilder {
+        self.end_date = Some(end_date.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = inflationIndexId)]
+    pub fn inflation_index_id(mut self, inflation_index_id: &str) -> JsInflationCapFloorBuilder {
+        self.inflation_index_id = Some(inflation_index_id.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = discountCurveId)]
+    pub fn discount_curve_id(mut self, discount_curve_id: &str) -> JsInflationCapFloorBuilder {
+        self.discount_curve_id = Some(discount_curve_id.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = volSurfaceId)]
+    pub fn vol_surface_id(mut self, vol_surface_id: &str) -> JsInflationCapFloorBuilder {
+        self.vol_surface_id = Some(vol_surface_id.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = frequency)]
+    pub fn frequency(mut self, frequency: String) -> JsInflationCapFloorBuilder {
+        self.frequency = Some(frequency);
+        self
+    }
+
+    #[wasm_bindgen(js_name = dayCount)]
+    pub fn day_count(mut self, day_count: String) -> JsInflationCapFloorBuilder {
+        self.day_count = Some(day_count);
+        self
+    }
+
+    #[wasm_bindgen(js_name = stubKind)]
+    pub fn stub_kind(mut self, stub_kind: String) -> JsInflationCapFloorBuilder {
+        self.stub_kind = Some(stub_kind);
+        self
+    }
+
+    #[wasm_bindgen(js_name = businessDayConvention)]
+    pub fn bdc(mut self, bdc: String) -> JsInflationCapFloorBuilder {
+        self.bdc = Some(bdc);
+        self
+    }
+
+    #[wasm_bindgen(js_name = calendarId)]
+    pub fn calendar_id(mut self, calendar_id: String) -> JsInflationCapFloorBuilder {
+        self.calendar_id = Some(calendar_id);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsInflationCapFloor, JsValue> {
+        let option_type = self.option_type.ok_or_else(|| {
+            js_error("InflationCapFloorBuilder: optionType is required".to_string())
+        })?;
+        let notional = self.notional.ok_or_else(|| {
+            js_error("InflationCapFloorBuilder: notional (money) is required".to_string())
+        })?;
+        let strike_rate = self.strike_rate.ok_or_else(|| {
+            js_error("InflationCapFloorBuilder: strikeRate is required".to_string())
+        })?;
+        let start_date = self.start_date.ok_or_else(|| {
+            js_error("InflationCapFloorBuilder: startDate is required".to_string())
+        })?;
+        let end_date = self
+            .end_date
+            .ok_or_else(|| js_error("InflationCapFloorBuilder: endDate is required".to_string()))?;
+        let inflation_index_id = self.inflation_index_id.as_deref().ok_or_else(|| {
+            js_error("InflationCapFloorBuilder: inflationIndexId is required".to_string())
+        })?;
+        let discount_curve_id = self.discount_curve_id.as_deref().ok_or_else(|| {
+            js_error("InflationCapFloorBuilder: discountCurveId is required".to_string())
+        })?;
+        let vol_surface_id = self.vol_surface_id.as_deref().ok_or_else(|| {
+            js_error("InflationCapFloorBuilder: volSurfaceId is required".to_string())
+        })?;
+
+        let freq = parse_optional_with_default(self.frequency, Tenor::annual())?;
+        let dc = parse_optional_with_default(self.day_count, DayCount::Act365F)?;
+        let stub = parse_optional_with_default(self.stub_kind, StubKind::None)?;
+        let bdc_value =
+            parse_optional_with_default(self.bdc, BusinessDayConvention::ModifiedFollowing)?;
+
+        let mut builder = InflationCapFloor::builder()
+            .id(instrument_id_from_str(&self.instrument_id))
+            .option_type(option_type)
+            .notional(notional)
+            .strike_rate(strike_rate)
+            .start_date(start_date)
+            .end_date(end_date)
+            .frequency(freq)
+            .day_count(dc)
+            .stub_kind(stub)
+            .bdc(bdc_value)
+            .inflation_index_id(curve_id_from_str(inflation_index_id))
+            .discount_curve_id(curve_id_from_str(discount_curve_id))
+            .vol_surface_id(curve_id_from_str(vol_surface_id))
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Default::default());
+
+        if let Some(cal_id) = self.calendar_id {
+            builder = builder.calendar_id(cal_id);
+        }
+
+        let inner = builder.build().map_err(|e| js_error(e.to_string()))?;
+        Ok(JsInflationCapFloor { inner })
+    }
+}
+
 #[wasm_bindgen(js_class = InflationCapFloor)]
 impl JsInflationCapFloor {
     /// Create a new inflation cap/floor.
@@ -118,6 +287,9 @@ impl JsInflationCapFloor {
         bdc: Option<String>,
         calendar_id: Option<String>,
     ) -> Result<JsInflationCapFloor, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "InflationCapFloor constructor is deprecated; use InflationCapFloorBuilder instead.",
+        ));
         let freq = parse_optional_with_default(frequency, Tenor::annual())?;
         let dc = parse_optional_with_default(day_count, DayCount::Act365F)?;
         let stub = parse_optional_with_default(stub_kind, StubKind::None)?;

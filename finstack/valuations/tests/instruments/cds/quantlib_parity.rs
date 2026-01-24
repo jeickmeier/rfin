@@ -21,7 +21,6 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use finstack_valuations::instruments::credit_derivatives::cds::{CDSPricer, CDSPricerConfig};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
@@ -143,7 +142,7 @@ fn test_quantlib_flat_hazard_par_spread() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let mut cds = CreditDefaultSwap::buy_protection(
+    let mut cds = finstack_valuations::test_utils::cds_buy_protection(
         "QL_PAR_SPREAD",
         Money::new(10_000_000.0, Currency::USD),
         100.0, // Initial spread (will be ignored for par calculation)
@@ -196,7 +195,7 @@ fn test_quantlib_fair_upfront_at_par() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let mut cds = CreditDefaultSwap::buy_protection(
+    let mut cds = finstack_valuations::test_utils::cds_buy_protection(
         "QL_FAIR_UPFRONT",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -247,7 +246,7 @@ fn test_quantlib_protection_equivalence() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let mut buyer = CreditDefaultSwap::buy_protection(
+    let mut buyer = finstack_valuations::test_utils::cds_buy_protection(
         "QL_BUYER",
         Money::new(10_000_000.0, Currency::USD),
         150.0, // 150 bps
@@ -259,7 +258,7 @@ fn test_quantlib_protection_equivalence() {
     .expect("CDS construction should succeed");
     buyer.protection.recovery_rate = 0.35;
 
-    let mut seller = CreditDefaultSwap::sell_protection(
+    let mut seller = finstack_valuations::test_utils::cds_sell_protection(
         "QL_SELLER",
         Money::new(10_000_000.0, Currency::USD),
         150.0,
@@ -305,7 +304,7 @@ fn test_quantlib_isda_conventions() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let mut cds = CreditDefaultSwap::buy_protection(
+    let mut cds = finstack_valuations::test_utils::cds_buy_protection(
         "QL_ISDA_CONV",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -371,7 +370,7 @@ fn test_quantlib_risky_annuity_calculation() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let mut cds = CreditDefaultSwap::buy_protection(
+    let mut cds = finstack_valuations::test_utils::cds_buy_protection(
         "QL_RISKY_ANN",
         Money::new(10_000_000.0, Currency::USD),
         100.0, // 100 bps
@@ -450,7 +449,7 @@ fn test_quantlib_recovery_rate_impact() {
     let mut protection_pvs = Vec::new();
 
     for recovery in recoveries {
-        let mut cds = CreditDefaultSwap::buy_protection(
+        let mut cds = finstack_valuations::test_utils::cds_buy_protection(
             "QL_RECOVERY",
             Money::new(10_000_000.0, Currency::USD),
             100.0,
@@ -514,7 +513,7 @@ fn test_quantlib_spread_sensitivity() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let mut cds = CreditDefaultSwap::buy_protection(
+    let mut cds = finstack_valuations::test_utils::cds_buy_protection(
         "QL_SPREAD_SENS",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -573,7 +572,7 @@ fn test_quantlib_hazard_rate_sensitivity() {
             .insert_discount(disc_curve)
             .insert_hazard(hazard);
 
-        let mut cds = CreditDefaultSwap::buy_protection(
+        let mut cds = finstack_valuations::test_utils::cds_buy_protection(
             "QL_HAZARD_SENS",
             Money::new(10_000_000.0, Currency::USD),
             100.0,
@@ -627,7 +626,7 @@ fn test_quantlib_accrual_on_default() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let mut cds = CreditDefaultSwap::buy_protection(
+    let mut cds = finstack_valuations::test_utils::cds_buy_protection(
         "QL_ACCRUAL",
         Money::new(10_000_000.0, Currency::USD),
         200.0, // Higher spread for visibility
@@ -705,7 +704,7 @@ fn test_quantlib_settlement_delay() {
     let pricer = CDSPricer::new();
 
     // No delay
-    let mut cds_no_delay = CreditDefaultSwap::buy_protection(
+    let mut cds_no_delay = finstack_valuations::test_utils::cds_buy_protection(
         "QL_SETTLE_0",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -784,7 +783,7 @@ fn test_quantlib_multiple_tenors() {
     let mut par_spreads = Vec::new();
 
     for (years, maturity) in tenors {
-        let mut cds = CreditDefaultSwap::buy_protection(
+        let mut cds = finstack_valuations::test_utils::cds_buy_protection(
             format!("QL_{}Y", years),
             Money::new(10_000_000.0, Currency::USD),
             100.0,
@@ -851,7 +850,7 @@ fn test_quantlib_expected_loss() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let mut cds = CreditDefaultSwap::buy_protection(
+    let mut cds = finstack_valuations::test_utils::cds_buy_protection(
         "QL_EL",
         Money::new(notional, Currency::USD),
         100.0,
@@ -925,7 +924,7 @@ fn test_expected_loss_numerical_integration() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let mut cds = CreditDefaultSwap::buy_protection(
+    let mut cds = finstack_valuations::test_utils::cds_buy_protection(
         "QL_EL_NUM",
         Money::new(notional, Currency::USD),
         100.0,
@@ -999,7 +998,7 @@ fn test_quantlib_jump_to_default() {
         .insert_hazard(hazard);
 
     // Protection buyer
-    let mut cds_buyer = CreditDefaultSwap::buy_protection(
+    let mut cds_buyer = finstack_valuations::test_utils::cds_buy_protection(
         "QL_JTD_BUYER",
         Money::new(notional, Currency::USD),
         100.0,
@@ -1041,7 +1040,7 @@ fn test_quantlib_integration_methods_consistency() {
     let disc = build_flat_discount_curve(0.05, as_of, "USD_DISC");
     let hazard = build_flat_hazard_curve(0.015, 0.40, as_of, "CREDIT");
 
-    let mut cds = CreditDefaultSwap::buy_protection(
+    let mut cds = finstack_valuations::test_utils::cds_buy_protection(
         "QL_INTEGRATION",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -1114,7 +1113,7 @@ fn test_par_spread_vs_isda_reference() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let mut cds = CreditDefaultSwap::buy_protection(
+    let mut cds = finstack_valuations::test_utils::cds_buy_protection(
         "ISDA_REF_PAR",
         Money::new(isda_reference::NOTIONAL, Currency::USD),
         100.0, // Placeholder spread
@@ -1156,7 +1155,7 @@ fn test_risky_annuity_vs_isda_reference() {
         "CREDIT",
     );
 
-    let mut cds = CreditDefaultSwap::buy_protection(
+    let mut cds = finstack_valuations::test_utils::cds_buy_protection(
         "ISDA_REF_ANNUITY",
         Money::new(isda_reference::NOTIONAL, Currency::USD),
         60.0, // Use par spread
@@ -1199,7 +1198,7 @@ fn test_protection_leg_pv_vs_isda_reference() {
         "CREDIT",
     );
 
-    let mut cds = CreditDefaultSwap::buy_protection(
+    let mut cds = finstack_valuations::test_utils::cds_buy_protection(
         "ISDA_REF_PROT",
         Money::new(isda_reference::NOTIONAL, Currency::USD),
         60.0,

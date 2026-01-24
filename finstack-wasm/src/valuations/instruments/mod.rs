@@ -67,11 +67,23 @@ use js_sys::Reflect;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::__rt::WasmRefCell;
 
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use asian_option::JsAsianOptionBuilder as AsianOptionBuilder;
 pub use asian_option::{JsAsianOption as AsianOption, JsAveragingMethod as AveragingMethod};
 pub use autocallable::JsAutocallable as Autocallable;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use autocallable::JsAutocallableBuilder as AutocallableBuilder;
 pub use barrier_option::JsBarrierOption as BarrierOption;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use barrier_option::JsBarrierOptionBuilder as BarrierOptionBuilder;
 pub use basis_swap::JsBasisSwap as BasisSwap;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use basis_swap::JsBasisSwapBuilder as BasisSwapBuilder;
 pub use bond::JsBond as Bond;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use bond::JsBondBuilder as BondBuilder;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use bond_future::JsBondFutureBuilder as BondFutureBuilder;
 pub use bond_future::{
     JsBondFuture as BondFuture, JsBondFutureSpecs as BondFutureSpecs,
     JsFuturePosition as FuturePosition,
@@ -79,67 +91,165 @@ pub use bond_future::{
 // Also export JsBond name for use within this crate
 pub use bond::JsBond;
 pub use cap_floor::JsInterestRateOption as InterestRateOption;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use cap_floor::JsInterestRateOptionBuilder as InterestRateOptionBuilder;
 pub use cds::JsCreditDefaultSwap as CreditDefaultSwap;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use cds::JsCreditDefaultSwapBuilder as CreditDefaultSwapBuilder;
 pub use cds_index::JsCDSIndex as CDSIndex;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use cds_index::JsCDSIndexBuilder as CDSIndexBuilder;
 pub use cds_option::JsCdsOption as CdsOption;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use cds_option::JsCdsOptionBuilder as CdsOptionBuilder;
 pub use cds_tranche::JsCdsTranche as CdsTranche;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use cds_tranche::JsCdsTrancheBuilder as CdsTrancheBuilder;
 pub use cliquet_option::JsCliquetOption as CliquetOption;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use cliquet_option::JsCliquetOptionBuilder as CliquetOptionBuilder;
 pub use cms_option::JsCmsOption as CmsOption;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use cms_option::JsCmsOptionBuilder as CmsOptionBuilder;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use commodity_forward::JsCommodityForward as CommodityForward;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use commodity_forward::JsCommodityForwardBuilder as CommodityForwardBuilder;
 pub use commodity_option::JsCommodityOption as CommodityOption;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use commodity_option::JsCommodityOptionBuilder as CommodityOptionBuilder;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use commodity_swap::JsCommoditySwap as CommoditySwap;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use commodity_swap::JsCommoditySwapBuilder as CommoditySwapBuilder;
 // Commodity instruments: exported directly via wasm_bindgen
 pub use convertible::JsConvertibleBond as ConvertibleBond;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use convertible::JsConvertibleBondBuilder as ConvertibleBondBuilder;
 pub use dcf::evaluate_dcf_wasm;
 pub use deposit::JsDeposit as Deposit;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use deposit::JsDepositBuilder as DepositBuilder;
 pub use equity::JsEquity as Equity;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use equity::JsEquityBuilder as EquityBuilder;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use equity_index_future::JsEquityIndexFutureBuilder as EquityIndexFutureBuilder;
 pub use equity_index_future::{
     JsEquityFutureSpecs as EquityFutureSpecs, JsEquityIndexFuture as EquityIndexFuture,
 };
 pub use equity_option::JsEquityOption as EquityOption;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use equity_option::JsEquityOptionBuilder as EquityOptionBuilder;
 pub use fra::JsForwardRateAgreement as ForwardRateAgreement;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use fra::JsForwardRateAgreementBuilder as ForwardRateAgreementBuilder;
 pub use fx::{JsFxOption as FxOption, JsFxSpot as FxSpot, JsFxSwap as FxSwap};
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use fx::{
+    JsFxOptionBuilder as FxOptionBuilder, JsFxSpotBuilder as FxSpotBuilder,
+    JsFxSwapBuilder as FxSwapBuilder,
+};
 pub use fx_barrier_option::JsFxBarrierOption as FxBarrierOption;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use fx_barrier_option::JsFxBarrierOptionBuilder as FxBarrierOptionBuilder;
 pub use fx_forward::JsFxForward as FxForward;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use fx_forward::JsFxForwardBuilder as FxForwardBuilder;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use fx_variance_swap::JsFxVarianceSwapBuilder as FxVarianceSwapBuilder;
 pub use fx_variance_swap::{
     JsFxVarianceSwap as FxVarianceSwap, JsVarianceSwapSide as VarianceSwapSide,
 };
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use inflation_cap_floor::JsInflationCapFloorBuilder as InflationCapFloorBuilder;
 pub use inflation_cap_floor::{
     JsInflationCapFloor as InflationCapFloor, JsInflationCapFloorType as InflationCapFloorType,
 };
 pub use inflation_linked_bond::JsInflationLinkedBond as InflationLinkedBond;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use inflation_linked_bond::JsInflationLinkedBondBuilder as InflationLinkedBondBuilder;
 pub use inflation_swap::JsInflationSwap as InflationSwap;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use inflation_swap::JsInflationSwapBuilder as InflationSwapBuilder;
 pub use ir_future::JsInterestRateFuture as InterestRateFuture;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use ir_future::JsInterestRateFutureBuilder as InterestRateFutureBuilder;
 pub use irs::JsInterestRateSwap as InterestRateSwap;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use irs::JsInterestRateSwapBuilder as InterestRateSwapBuilder;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use lookback_option::JsLookbackOptionBuilder as LookbackOptionBuilder;
 pub use lookback_option::{JsLookbackOption as LookbackOption, JsLookbackType as LookbackType};
 pub use ndf::JsNdf as Ndf;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use ndf::JsNdfBuilder as NdfBuilder;
 pub use private_markets_fund::JsPrivateMarketsFund as PrivateMarketsFund;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use private_markets_fund::JsPrivateMarketsFundBuilder as PrivateMarketsFundBuilder;
 pub use quanto_option::JsQuantoOption as QuantoOption;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use quanto_option::JsQuantoOptionBuilder as QuantoOptionBuilder;
 pub use range_accrual::JsRangeAccrual as RangeAccrual;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use range_accrual::JsRangeAccrualBuilder as RangeAccrualBuilder;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use real_estate::JsRealEstateAssetBuilder as RealEstateAssetBuilder;
 pub use real_estate::{
     JsRealEstateAsset as RealEstateAsset, JsRealEstateValuationMethod as RealEstateValuationMethod,
 };
 pub use repo::JsRepo as Repo;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use repo::JsRepoBuilder as RepoBuilder;
 pub use revolving_credit::JsRevolvingCredit as RevolvingCredit;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use revolving_credit::JsRevolvingCreditBuilder as RevolvingCreditBuilder;
 pub use structured_credit::{
     JsBasket as Basket, JsCoverageTestRules as CoverageTestRules,
     JsCoverageTrigger as CoverageTrigger, JsPool as Pool, JsStructuredCredit as StructuredCredit,
     JsTrancheStructure as TrancheStructure, JsWaterfall as WaterfallEngine,
     JsWaterfallDistribution as WaterfallDistribution,
 };
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use structured_credit::{
+    JsBasketBuilder as BasketBuilder, JsStructuredCreditBuilder as StructuredCreditBuilder,
+};
 pub use swaption::JsSwaption as Swaption;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use swaption::JsSwaptionBuilder as SwaptionBuilder;
 pub use term_loan::JsTermLoan as TermLoan;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use term_loan::JsTermLoanBuilder as TermLoanBuilder;
 pub use trs::{
     JsEquityTotalReturnSwap as EquityTotalReturnSwap,
     JsFiIndexTotalReturnSwap as FiIndexTotalReturnSwap,
 };
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use trs::{
+    JsEquityTotalReturnSwapBuilder as EquityTotalReturnSwapBuilder,
+    JsFiIndexTotalReturnSwapBuilder as FiIndexTotalReturnSwapBuilder,
+};
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use variance_swap::JsVarianceSwapBuilder as VarianceSwapBuilder;
 pub use variance_swap::{JsRealizedVarMethod as RealizedVarMethod, JsVarianceSwap as VarianceSwap};
 #[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
 pub use vol_index_future::JsVolatilityIndexFuture as VolatilityIndexFuture;
 #[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use vol_index_future::JsVolatilityIndexFutureBuilder as VolatilityIndexFutureBuilder;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
 pub use vol_index_option::JsVolatilityIndexOption as VolatilityIndexOption;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use vol_index_option::JsVolatilityIndexOptionBuilder as VolatilityIndexOptionBuilder;
 pub use xccy_swap::{
     JsLegSide as LegSide, JsNotionalExchange as NotionalExchange, JsXccySwap as XccySwap,
     JsXccySwapLeg as XccySwapLeg,
 };
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use xccy_swap::{
+    JsXccySwapBuilder as XccySwapBuilder, JsXccySwapLegBuilder as XccySwapLegBuilder,
+};
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use yoy_inflation_swap::JsYoYInflationSwapBuilder as YoYInflationSwapBuilder;
 pub use yoy_inflation_swap::{
     JsPayReceiveInflation as PayReceiveInflation, JsYoYInflationSwap as YoYInflationSwap,
 };

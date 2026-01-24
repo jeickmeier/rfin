@@ -1,14 +1,18 @@
 use crate::core::common::args::DayCountArg;
 // use crate::errors::core_to_py; // not used in this module currently
+use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
-use crate::core::money::{extract_money, PyMoney};
+use crate::core::money::PyMoney;
+use crate::errors::PyContext;
 use crate::valuations::common::{frequency_from_payments_per_year, PyInstrumentType};
 use finstack_core::dates::DayCount;
+use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::rates::cap_floor::InterestRateOption;
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use pyo3::Bound;
+use pyo3::{Bound, Py, PyRef, PyRefMut};
 use std::fmt;
 use std::sync::Arc;
 
@@ -24,14 +28,17 @@ fn extract_day_count(dc: Option<Bound<'_, PyAny>>) -> PyResult<DayCount> {
 /// Interest rate cap/floor instruments using Black pricing.
 ///
 /// Examples:
-///     >>> cap = InterestRateOption.cap(
-///     ...     "cap_1",
-///     ...     Money("USD", 5_000_000),
-///     ...     0.035,
-///     ...     date(2024, 1, 1),
-///     ...     date(2027, 1, 1),
-///     ...     "usd_discount",
-///     ...     "usd_libor_3m"
+///     >>> cap = (
+///     ...     InterestRateOption.builder("cap_1")
+///     ...     .kind("cap")
+///     ...     .money(Money("USD", 5_000_000))
+///     ...     .strike(0.035)
+///     ...     .start_date(date(2024, 1, 1))
+///     ...     .end_date(date(2027, 1, 1))
+///     ...     .disc_id("usd_discount")
+///     ...     .fwd_id("usd_libor_3m")
+///     ...     .vol_surface("usd_cap_vol")
+///     ...     .build()
 ///     ... )
 ///     >>> cap.strike
 ///     0.035
@@ -53,158 +60,286 @@ impl PyInterestRateOption {
     }
 }
 
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "InterestRateOptionBuilder",
+    unsendable
+)]
+pub struct PyInterestRateOptionBuilder {
+    instrument_id: InstrumentId,
+    is_cap: bool,
+    pending_notional_amount: Option<f64>,
+    pending_currency: Option<finstack_core::currency::Currency>,
+    strike: Option<f64>,
+    start_date: Option<time::Date>,
+    end_date: Option<time::Date>,
+    discount_curve_id: Option<CurveId>,
+    forward_curve_id: Option<CurveId>,
+    vol_surface_id: Option<String>,
+    payments_per_year: u32,
+    day_count: DayCount,
+}
+
+impl PyInterestRateOptionBuilder {
+    fn new_with_id(id: InstrumentId) -> Self {
+        Self {
+            instrument_id: id,
+            is_cap: true,
+            pending_notional_amount: None,
+            pending_currency: None,
+            strike: None,
+            start_date: None,
+            end_date: None,
+            discount_curve_id: None,
+            forward_curve_id: None,
+            vol_surface_id: None,
+            payments_per_year: 4,
+            day_count: DayCount::Act360,
+        }
+    }
+
+    fn notional_money(&self) -> Option<Money> {
+        match (self.pending_notional_amount, self.pending_currency) {
+            (Some(amount), Some(currency)) => Some(Money::new(amount, currency)),
+            _ => None,
+        }
+    }
+
+    fn ensure_ready(&self) -> PyResult<()> {
+        if self.notional_money().is_none() {
+            return Err(PyValueError::new_err(
+                "Both notional() and currency() must be provided before build().",
+            ));
+        }
+        if self.strike.is_none() {
+            return Err(PyValueError::new_err("strike() is required."));
+        }
+        if self.start_date.is_none() {
+            return Err(PyValueError::new_err("start_date() is required."));
+        }
+        if self.end_date.is_none() {
+            return Err(PyValueError::new_err("end_date() is required."));
+        }
+        if self.discount_curve_id.is_none() {
+            return Err(PyValueError::new_err("disc_id() is required."));
+        }
+        if self.forward_curve_id.is_none() {
+            return Err(PyValueError::new_err("fwd_id() is required."));
+        }
+        if self.vol_surface_id.as_deref().unwrap_or("").is_empty() {
+            return Err(PyValueError::new_err("vol_surface() is required."));
+        }
+        Ok(())
+    }
+
+    fn parse_currency(value: &Bound<'_, PyAny>) -> PyResult<finstack_core::currency::Currency> {
+        if let Ok(py_ccy) = value.extract::<PyRef<PyCurrency>>() {
+            Ok(py_ccy.inner)
+        } else if let Ok(code) = value.extract::<&str>() {
+            code.parse::<finstack_core::currency::Currency>()
+                .map_err(|_| PyValueError::new_err("Invalid currency code"))
+        } else {
+            Err(PyTypeError::new_err("currency() expects str or Currency"))
+        }
+    }
+}
+
+#[pymethods]
+impl PyInterestRateOptionBuilder {
+    #[new]
+    #[pyo3(text_signature = "(instrument_id)")]
+    fn new_py(instrument_id: &str) -> Self {
+        Self::new_with_id(InstrumentId::new(instrument_id))
+    }
+
+    #[pyo3(text_signature = "($self, kind)")]
+    fn kind(mut slf: PyRefMut<'_, Self>, kind: String) -> PyResult<PyRefMut<'_, Self>> {
+        match kind.to_lowercase().as_str() {
+            "cap" => slf.is_cap = true,
+            "floor" => slf.is_cap = false,
+            other => {
+                return Err(PyValueError::new_err(format!(
+                    "kind must be 'cap' or 'floor' (got '{other}')"
+                )))
+            }
+        }
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, amount)")]
+    fn notional(mut slf: PyRefMut<'_, Self>, amount: f64) -> PyResult<PyRefMut<'_, Self>> {
+        if amount <= 0.0 {
+            return Err(PyValueError::new_err("notional must be positive"));
+        }
+        slf.pending_notional_amount = Some(amount);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, currency)")]
+    fn currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        currency: &Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.pending_currency = Some(Self::parse_currency(currency)?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, money)")]
+    fn money<'py>(mut slf: PyRefMut<'py, Self>, money: PyRef<'py, PyMoney>) -> PyRefMut<'py, Self> {
+        slf.pending_notional_amount = Some(money.inner.amount());
+        slf.pending_currency = Some(money.inner.currency());
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, strike)")]
+    fn strike(mut slf: PyRefMut<'_, Self>, strike: f64) -> PyRefMut<'_, Self> {
+        slf.strike = Some(strike);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, start_date)")]
+    fn start_date<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        start_date: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.start_date = Some(py_to_date(&start_date).context("start_date")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, end_date)")]
+    fn end_date<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        end_date: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.end_date = Some(py_to_date(&end_date).context("end_date")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, curve_id)")]
+    fn disc_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        slf.discount_curve_id = Some(CurveId::new(curve_id.as_str()));
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, curve_id)")]
+    fn fwd_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        slf.forward_curve_id = Some(CurveId::new(curve_id.as_str()));
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, vol_surface)")]
+    fn vol_surface(mut slf: PyRefMut<'_, Self>, vol_surface: String) -> PyRefMut<'_, Self> {
+        slf.vol_surface_id = Some(vol_surface);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, payments_per_year)")]
+    fn payments_per_year(
+        mut slf: PyRefMut<'_, Self>,
+        payments_per_year: u32,
+    ) -> PyRefMut<'_, Self> {
+        slf.payments_per_year = payments_per_year;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, day_count)")]
+    fn day_count<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        day_count: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let dc = extract_day_count(Some(day_count))?;
+        slf.day_count = dc;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyInterestRateOption> {
+        slf.ensure_ready()?;
+        let notional = slf.notional_money().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "InterestRateOptionBuilder internal error: missing notional after validation",
+            )
+        })?;
+        let strike = slf.strike.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "InterestRateOptionBuilder internal error: missing strike after validation",
+            )
+        })?;
+        let start = slf.start_date.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "InterestRateOptionBuilder internal error: missing start_date after validation",
+            )
+        })?;
+        let end = slf.end_date.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "InterestRateOptionBuilder internal error: missing end_date after validation",
+            )
+        })?;
+        let disc = slf.discount_curve_id.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "InterestRateOptionBuilder internal error: missing discount curve after validation",
+            )
+        })?;
+        let fwd = slf.forward_curve_id.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "InterestRateOptionBuilder internal error: missing forward curve after validation",
+            )
+        })?;
+        let vol_surface_id = slf.vol_surface_id.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "InterestRateOptionBuilder internal error: missing vol surface after validation",
+            )
+        })?;
+        let freq = frequency_from_payments_per_year(Some(slf.payments_per_year))
+            .map_err(|e| PyValueError::new_err(e.to_string()))?;
+
+        let option = if slf.is_cap {
+            InterestRateOption::new_cap(
+                slf.instrument_id.clone(),
+                notional,
+                strike,
+                start,
+                end,
+                freq,
+                slf.day_count,
+                disc,
+                fwd,
+                vol_surface_id.as_str(),
+            )
+        } else {
+            InterestRateOption::new_floor(
+                slf.instrument_id.clone(),
+                notional,
+                strike,
+                start,
+                end,
+                freq,
+                slf.day_count,
+                disc,
+                fwd,
+                vol_surface_id.as_str(),
+            )
+        };
+        Ok(PyInterestRateOption::new(option))
+    }
+
+    fn __repr__(&self) -> String {
+        "InterestRateOptionBuilder(...)".to_string()
+    }
+}
+
 #[pymethods]
 impl PyInterestRateOption {
     #[classmethod]
-    #[pyo3(
-        signature = (
-            instrument_id,
-            notional,
-            strike,
-            start_date,
-            end_date,
-            discount_curve,
-            forward_curve,
-            vol_surface,
-            *,
-            payments_per_year=4,
-            day_count=None
-        ),
-        text_signature = "(cls, instrument_id, notional, strike, start_date, end_date, discount_curve, forward_curve, vol_surface, payments_per_year=4, day_count='act_360')"
-    )]
-    #[allow(clippy::too_many_arguments)]
-    /// Create a standard interest-rate cap.
-    ///
-    /// Args:
-    ///     instrument_id: Instrument identifier or string-like object.
-    ///     notional: Notional principal as :class:`finstack.core.money.Money`.
-    ///     strike: Strike rate in decimal form.
-    ///     start_date: Start of the accrual period.
-    ///     end_date: End of the accrual period.
-    ///     discount_curve: Discount curve identifier for valuation.
-    ///     forward_curve: Forward curve identifier for rate projections.
-    ///     vol_surface: Optional volatility surface identifier.
-    ///     payments_per_year: Optional number of payments per year.
-    ///     day_count: Optional day-count convention.
-    ///
-    /// Returns:
-    ///     InterestRateOption: Configured interest rate cap instrument.
-    ///
-    /// Raises:
-    ///     ValueError: If frequencies are invalid or inputs cannot be parsed.
-    fn cap(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        notional: Bound<'_, PyAny>,
-        strike: f64,
-        start_date: Bound<'_, PyAny>,
-        end_date: Bound<'_, PyAny>,
-        discount_curve: Bound<'_, PyAny>,
-        forward_curve: Bound<'_, PyAny>,
-        vol_surface: Bound<'_, PyAny>,
-        payments_per_year: Option<u32>,
-        day_count: Option<Bound<'_, PyAny>>,
-    ) -> PyResult<Self> {
-        use crate::errors::PyContext;
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-        let amt = extract_money(&notional).context("notional")?;
-        let start = py_to_date(&start_date).context("start_date")?;
-        let end = py_to_date(&end_date).context("end_date")?;
-        let disc = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
-        let fwd = CurveId::new(forward_curve.extract::<&str>().context("forward_curve")?);
-        let freq =
-            frequency_from_payments_per_year(payments_per_year).context("payments_per_year")?;
-        let dc = extract_day_count(day_count).context("day_count")?;
-        let vol_surface_id = vol_surface.extract::<&str>().context("vol_surface")?;
-        let option = InterestRateOption::new_cap(
-            id,
-            amt,
-            strike,
-            start,
-            end,
-            freq,
-            dc,
-            disc,
-            fwd,
-            vol_surface_id,
-        );
-        Ok(Self::new(option))
-    }
-
-    #[classmethod]
-    #[pyo3(
-        signature = (
-            instrument_id,
-            notional,
-            strike,
-            start_date,
-            end_date,
-            discount_curve,
-            forward_curve,
-            vol_surface,
-            *,
-            payments_per_year=4,
-            day_count=None
-        ),
-        text_signature = "(cls, instrument_id, notional, strike, start_date, end_date, discount_curve, forward_curve, vol_surface, payments_per_year=4, day_count='act_360')"
-    )]
-    #[allow(clippy::too_many_arguments)]
-    /// Create a standard interest-rate floor.
-    ///
-    /// Args:
-    ///     instrument_id: Instrument identifier or string-like object.
-    ///     notional: Notional principal as :class:`finstack.core.money.Money`.
-    ///     strike: Strike rate in decimal form.
-    ///     start_date: Start of the accrual period.
-    ///     end_date: End of the accrual period.
-    ///     discount_curve: Discount curve identifier for valuation.
-    ///     forward_curve: Forward curve identifier for rate projections.
-    ///     vol_surface: Optional volatility surface identifier.
-    ///     payments_per_year: Optional number of payments per year.
-    ///     day_count: Optional day-count convention.
-    ///
-    /// Returns:
-    ///     InterestRateOption: Configured interest rate floor instrument.
-    ///
-    /// Raises:
-    ///     ValueError: If frequencies are invalid or inputs cannot be parsed.
-    fn floor(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        notional: Bound<'_, PyAny>,
-        strike: f64,
-        start_date: Bound<'_, PyAny>,
-        end_date: Bound<'_, PyAny>,
-        discount_curve: Bound<'_, PyAny>,
-        forward_curve: Bound<'_, PyAny>,
-        vol_surface: Bound<'_, PyAny>,
-        payments_per_year: Option<u32>,
-        day_count: Option<Bound<'_, PyAny>>,
-    ) -> PyResult<Self> {
-        use crate::errors::PyContext;
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-        let amt = extract_money(&notional).context("notional")?;
-        let start = py_to_date(&start_date).context("start_date")?;
-        let end = py_to_date(&end_date).context("end_date")?;
-        let disc = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
-        let fwd = CurveId::new(forward_curve.extract::<&str>().context("forward_curve")?);
-        let freq =
-            frequency_from_payments_per_year(payments_per_year).context("payments_per_year")?;
-        let dc = extract_day_count(day_count).context("day_count")?;
-        let vol_surface_id = vol_surface.extract::<&str>().context("vol_surface")?;
-        let option = InterestRateOption::new_floor(
-            id,
-            amt,
-            strike,
-            start,
-            end,
-            freq,
-            dc,
-            disc,
-            fwd,
-            vol_surface_id,
-        );
-        Ok(Self::new(option))
+    #[pyo3(text_signature = "(cls, instrument_id)")]
+    /// Start a fluent builder (builder-only API).
+    fn builder<'py>(
+        cls: &Bound<'py, PyType>,
+        instrument_id: &str,
+    ) -> PyResult<Py<PyInterestRateOptionBuilder>> {
+        let py = cls.py();
+        let builder = PyInterestRateOptionBuilder::new_with_id(InstrumentId::new(instrument_id));
+        Py::new(py, builder)
     }
 
     /// Instrument identifier.
@@ -311,5 +446,6 @@ pub(crate) fn register<'py>(
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyInterestRateOption>()?;
-    Ok(vec!["InterestRateOption"])
+    module.add_class::<PyInterestRateOptionBuilder>()?;
+    Ok(vec!["InterestRateOption", "InterestRateOptionBuilder"])
 }

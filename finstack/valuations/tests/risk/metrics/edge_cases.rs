@@ -15,12 +15,12 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use finstack_valuations::instruments::equity::equity_option::EquityOption;
 use finstack_valuations::instruments::market::{ExerciseStyle, OptionType};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{PricingOverrides, SettlementType};
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
+use finstack_valuations::test_utils;
 use std::sync::Arc;
 use time::macros::date;
 
@@ -76,7 +76,7 @@ fn test_zero_recovery_cds() {
     let maturity = date!(2030 - 01 - 01);
 
     // Create CDS with zero recovery
-    let cds = CreditDefaultSwap::buy_protection(
+    let cds = test_utils::cds_buy_protection(
         "ZERO_RECOVERY_CDS",
         Money::new(1_000_000.0, Currency::USD),
         500.0, // 500bp = 5% spread

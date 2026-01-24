@@ -1,18 +1,20 @@
 //! Python bindings for VolatilityIndexOption.
 
+use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::py_to_date;
-use crate::core::money::{extract_money, PyMoney};
-use crate::errors::core_to_py;
+use crate::core::money::PyMoney;
+use crate::errors::{core_to_py, PyContext};
 use crate::valuations::common::PyInstrumentType;
+use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity::vol_index_option::{
     VolIndexOptionSpecs, VolatilityIndexOption,
 };
 use finstack_valuations::instruments::{ExerciseStyle, OptionType};
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use pyo3::Bound;
+use pyo3::{Bound, Py, PyRef, PyRefMut};
 use std::fmt;
 use std::sync::Arc;
 
@@ -89,84 +91,259 @@ impl PyVolatilityIndexOption {
     }
 }
 
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "VolatilityIndexOptionBuilder",
+    unsendable
+)]
+pub struct PyVolatilityIndexOptionBuilder {
+    instrument_id: InstrumentId,
+    pending_notional_amount: Option<f64>,
+    pending_currency: Option<finstack_core::currency::Currency>,
+    strike: Option<f64>,
+    expiry: Option<time::Date>,
+    discount_curve_id: Option<CurveId>,
+    vol_index_curve_id: Option<CurveId>,
+    vol_of_vol_surface_id: Option<CurveId>,
+    option_type: OptionType,
+    exercise_style: ExerciseStyle,
+    multiplier: f64,
+    index_id: String,
+}
+
+impl PyVolatilityIndexOptionBuilder {
+    fn new_with_id(id: InstrumentId) -> Self {
+        Self {
+            instrument_id: id,
+            pending_notional_amount: None,
+            pending_currency: None,
+            strike: None,
+            expiry: None,
+            discount_curve_id: None,
+            vol_index_curve_id: None,
+            vol_of_vol_surface_id: None,
+            option_type: OptionType::Call,
+            exercise_style: ExerciseStyle::European,
+            multiplier: 100.0,
+            index_id: "VIX".to_string(),
+        }
+    }
+
+    fn notional_money(&self) -> Option<Money> {
+        match (self.pending_notional_amount, self.pending_currency) {
+            (Some(amount), Some(currency)) => Some(Money::new(amount, currency)),
+            _ => None,
+        }
+    }
+
+    fn ensure_ready(&self) -> PyResult<()> {
+        if self.notional_money().is_none() {
+            return Err(PyValueError::new_err(
+                "Both notional() and currency() must be provided before build().",
+            ));
+        }
+        if self.strike.is_none() {
+            return Err(PyValueError::new_err("strike() is required."));
+        }
+        if self.expiry.is_none() {
+            return Err(PyValueError::new_err("expiry() is required."));
+        }
+        if self.discount_curve_id.is_none() {
+            return Err(PyValueError::new_err("disc_id() is required."));
+        }
+        if self.vol_index_curve_id.is_none() {
+            return Err(PyValueError::new_err("vol_index_curve_id() is required."));
+        }
+        if self.vol_of_vol_surface_id.is_none() {
+            return Err(PyValueError::new_err(
+                "vol_of_vol_surface_id() is required.",
+            ));
+        }
+        Ok(())
+    }
+
+    fn parse_currency(value: &Bound<'_, PyAny>) -> PyResult<finstack_core::currency::Currency> {
+        if let Ok(py_ccy) = value.extract::<PyRef<PyCurrency>>() {
+            Ok(py_ccy.inner)
+        } else if let Ok(code) = value.extract::<&str>() {
+            code.parse::<finstack_core::currency::Currency>()
+                .map_err(|_| PyValueError::new_err("Invalid currency code"))
+        } else {
+            Err(PyTypeError::new_err("currency() expects str or Currency"))
+        }
+    }
+}
+
 #[pymethods]
-impl PyVolatilityIndexOption {
-    #[classmethod]
-    #[pyo3(
-        signature = (
-            instrument_id,
-            notional,
-            strike,
-            expiry,
-            discount_curve,
-            vol_index_curve,
-            vol_of_vol_surface,
-            *,
-            option_type=None,
-            exercise_style=None,
-            multiplier=100.0,
-            index_id="VIX"
-        ),
-        text_signature = "(cls, instrument_id, notional, strike, expiry, discount_curve, vol_index_curve, vol_of_vol_surface, /, *, option_type='call', exercise_style='european', multiplier=100.0, index_id='VIX')"
-    )]
-    #[allow(clippy::too_many_arguments)]
-    fn create(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        notional: Bound<'_, PyAny>,
-        strike: f64,
-        expiry: Bound<'_, PyAny>,
-        discount_curve: Bound<'_, PyAny>,
-        vol_index_curve: Bound<'_, PyAny>,
-        vol_of_vol_surface: Bound<'_, PyAny>,
-        option_type: Option<&str>,
-        exercise_style: Option<&str>,
-        multiplier: Option<f64>,
-        index_id: Option<&str>,
-    ) -> PyResult<Self> {
-        use crate::errors::PyContext;
+impl PyVolatilityIndexOptionBuilder {
+    #[new]
+    #[pyo3(text_signature = "(instrument_id)")]
+    fn new_py(instrument_id: &str) -> Self {
+        Self::new_with_id(InstrumentId::new(instrument_id))
+    }
 
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-        let notional_money = extract_money(&notional).context("notional")?;
-        let expiry_date = py_to_date(&expiry).context("expiry")?;
-        let discount_curve_id =
-            CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
-        let vol_index_curve_id = CurveId::new(
-            vol_index_curve
-                .extract::<&str>()
-                .context("vol_index_curve")?,
-        );
-        let vol_of_vol_surface_id = CurveId::new(
-            vol_of_vol_surface
-                .extract::<&str>()
-                .context("vol_of_vol_surface")?,
-        );
+    #[pyo3(text_signature = "($self, amount)")]
+    fn notional(mut slf: PyRefMut<'_, Self>, amount: f64) -> PyResult<PyRefMut<'_, Self>> {
+        if amount <= 0.0 {
+            return Err(PyValueError::new_err("notional must be positive"));
+        }
+        slf.pending_notional_amount = Some(amount);
+        Ok(slf)
+    }
 
-        let option_type_value = parse_option_type(option_type).context("option_type")?;
-        let exercise_style_value =
-            parse_exercise_style(exercise_style).context("exercise_style")?;
+    #[pyo3(text_signature = "($self, currency)")]
+    fn currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        currency: &Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.pending_currency = Some(Self::parse_currency(currency)?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, money)")]
+    fn money<'py>(mut slf: PyRefMut<'py, Self>, money: PyRef<'py, PyMoney>) -> PyRefMut<'py, Self> {
+        slf.pending_notional_amount = Some(money.inner.amount());
+        slf.pending_currency = Some(money.inner.currency());
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, strike)")]
+    fn strike(mut slf: PyRefMut<'_, Self>, strike: f64) -> PyRefMut<'_, Self> {
+        slf.strike = Some(strike);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, expiry)")]
+    fn expiry<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        expiry: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.expiry = Some(py_to_date(&expiry).context("expiry")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, curve_id)")]
+    fn disc_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        slf.discount_curve_id = Some(CurveId::new(curve_id.as_str()));
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, curve_id)")]
+    fn vol_index_curve_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        slf.vol_index_curve_id = Some(CurveId::new(curve_id.as_str()));
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, curve_id)")]
+    fn vol_of_vol_surface_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        slf.vol_of_vol_surface_id = Some(CurveId::new(curve_id.as_str()));
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, option_type)")]
+    fn option_type(
+        mut slf: PyRefMut<'_, Self>,
+        option_type: String,
+    ) -> PyResult<PyRefMut<'_, Self>> {
+        slf.option_type = parse_option_type(Some(option_type.as_str()))?;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, exercise_style)")]
+    fn exercise_style(
+        mut slf: PyRefMut<'_, Self>,
+        exercise_style: String,
+    ) -> PyResult<PyRefMut<'_, Self>> {
+        slf.exercise_style = parse_exercise_style(Some(exercise_style.as_str()))?;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, multiplier)")]
+    fn multiplier(mut slf: PyRefMut<'_, Self>, multiplier: f64) -> PyRefMut<'_, Self> {
+        slf.multiplier = multiplier;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, index_id)")]
+    fn index_id(mut slf: PyRefMut<'_, Self>, index_id: String) -> PyRefMut<'_, Self> {
+        slf.index_id = index_id;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyVolatilityIndexOption> {
+        slf.ensure_ready()?;
+        let notional = slf.notional_money().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "VolatilityIndexOptionBuilder internal error: missing notional after validation",
+            )
+        })?;
+        let strike = slf.strike.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "VolatilityIndexOptionBuilder internal error: missing strike after validation",
+            )
+        })?;
+        let expiry = slf.expiry.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "VolatilityIndexOptionBuilder internal error: missing expiry after validation",
+            )
+        })?;
+        let discount_curve_id = slf.discount_curve_id.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "VolatilityIndexOptionBuilder internal error: missing discount curve after validation",
+            )
+        })?;
+        let vol_index_curve_id = slf.vol_index_curve_id.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "VolatilityIndexOptionBuilder internal error: missing vol index curve after validation",
+            )
+        })?;
+        let vol_of_vol_surface_id = slf.vol_of_vol_surface_id.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "VolatilityIndexOptionBuilder internal error: missing vol-of-vol surface after validation",
+            )
+        })?;
 
         let specs = VolIndexOptionSpecs {
-            multiplier: multiplier.unwrap_or(100.0),
-            index_id: index_id.unwrap_or("VIX").to_string(),
+            multiplier: slf.multiplier,
+            index_id: slf.index_id.clone(),
         };
 
         let option = VolatilityIndexOption::builder()
-            .id(id)
-            .notional(notional_money)
+            .id(slf.instrument_id.clone())
+            .notional(notional)
             .strike(strike)
-            .expiry(expiry_date)
+            .expiry(expiry)
             .discount_curve_id(discount_curve_id)
             .vol_index_curve_id(vol_index_curve_id)
             .vol_of_vol_surface_id(vol_of_vol_surface_id)
-            .option_type(option_type_value)
-            .exercise_style(exercise_style_value)
+            .option_type(slf.option_type)
+            .exercise_style(slf.exercise_style)
             .contract_specs(specs)
             .attributes(Default::default())
             .build()
             .map_err(core_to_py)?;
 
-        Ok(Self::new(option))
+        Ok(PyVolatilityIndexOption::new(option))
+    }
+
+    fn __repr__(&self) -> String {
+        "VolatilityIndexOptionBuilder(...)".to_string()
+    }
+}
+
+#[pymethods]
+impl PyVolatilityIndexOption {
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, instrument_id)")]
+    /// Start a fluent builder (builder-only API).
+    fn builder<'py>(
+        cls: &Bound<'py, PyType>,
+        instrument_id: &str,
+    ) -> PyResult<Py<PyVolatilityIndexOptionBuilder>> {
+        let py = cls.py();
+        let builder = PyVolatilityIndexOptionBuilder::new_with_id(InstrumentId::new(instrument_id));
+        Py::new(py, builder)
     }
 
     #[getter]
@@ -228,5 +405,9 @@ pub(crate) fn register<'py>(
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyVolatilityIndexOption>()?;
-    Ok(vec!["VolatilityIndexOption"])
+    module.add_class::<PyVolatilityIndexOptionBuilder>()?;
+    Ok(vec![
+        "VolatilityIndexOption",
+        "VolatilityIndexOptionBuilder",
+    ])
 }

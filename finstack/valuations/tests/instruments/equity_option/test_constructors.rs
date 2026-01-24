@@ -9,6 +9,7 @@ use finstack_valuations::instruments::equity::equity_option::EquityOption;
 use finstack_valuations::instruments::market::{ExerciseStyle, OptionType};
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::{PricingOverrides, SettlementType};
+use finstack_valuations::test_utils;
 use time::macros::date;
 
 #[test]
@@ -46,7 +47,8 @@ fn test_european_call_convenience_constructor() {
     let notional = Money::new(1_000_000.0, Currency::USD);
 
     let call =
-        EquityOption::european_call("SPX-CALL", "SPX", 4500.0, expiry, notional, 100.0).unwrap();
+        test_utils::equity_option_european_call("SPX-CALL", "SPX", 4500.0, expiry, notional, 100.0)
+            .unwrap();
 
     assert_eq!(call.option_type, OptionType::Call);
     assert_eq!(call.exercise_style, ExerciseStyle::European);
@@ -61,7 +63,8 @@ fn test_european_put_convenience_constructor() {
     let notional = Money::new(1_000_000.0, Currency::USD);
 
     let put =
-        EquityOption::european_put("SPX-PUT", "SPX", 4200.0, expiry, notional, 100.0).unwrap();
+        test_utils::equity_option_european_put("SPX-PUT", "SPX", 4200.0, expiry, notional, 100.0)
+            .unwrap();
 
     assert_eq!(put.option_type, OptionType::Put);
     assert_eq!(put.exercise_style, ExerciseStyle::European);
@@ -75,7 +78,8 @@ fn test_american_call_convenience_constructor() {
     let notional = Money::new(1_000_000.0, Currency::USD);
 
     let call =
-        EquityOption::american_call("SPX-AMER", "SPX", 4500.0, expiry, notional, 100.0).unwrap();
+        test_utils::equity_option_american_call("SPX-AMER", "SPX", 4500.0, expiry, notional, 100.0)
+            .unwrap();
 
     assert_eq!(call.exercise_style, ExerciseStyle::American);
     assert_eq!(call.option_type, OptionType::Call);
@@ -88,16 +92,20 @@ fn test_contract_size_variations() {
 
     // Standard contract
     let standard =
-        EquityOption::european_call("STD", "SPX", 100.0, expiry, notional, 100.0).unwrap();
+        test_utils::equity_option_european_call("STD", "SPX", 100.0, expiry, notional, 100.0)
+            .unwrap();
     assert_eq!(standard.contract_size, 100.0);
 
     // Mini contract
-    let mini = EquityOption::european_call("MINI", "SPX", 100.0, expiry, notional, 10.0).unwrap();
+    let mini =
+        test_utils::equity_option_european_call("MINI", "SPX", 100.0, expiry, notional, 10.0)
+            .unwrap();
     assert_eq!(mini.contract_size, 10.0);
 
     // Custom size
     let custom =
-        EquityOption::european_call("CUSTOM", "SPX", 100.0, expiry, notional, 50.0).unwrap();
+        test_utils::equity_option_european_call("CUSTOM", "SPX", 100.0, expiry, notional, 50.0)
+            .unwrap();
     assert_eq!(custom.contract_size, 50.0);
 }
 
@@ -135,7 +143,8 @@ fn test_convenience_constructors_use_notional_currency() {
     let notional = Money::new(1_000_000.0, Currency::EUR);
 
     let option =
-        EquityOption::european_call("EUR-OPT", "SX5E", 4000.0, expiry, notional, 100.0).unwrap();
+        test_utils::equity_option_european_call("EUR-OPT", "SX5E", 4000.0, expiry, notional, 100.0)
+            .unwrap();
 
     // Strike currency matches notional currency
     assert_eq!(option.strike.currency(), Currency::EUR);

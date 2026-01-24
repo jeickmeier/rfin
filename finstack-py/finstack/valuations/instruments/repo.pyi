@@ -1,7 +1,8 @@
-"""Repo instrument."""
+"""Repo instrument (builder-only API)."""
 
-from typing import Optional
+from typing import Optional, Union
 from datetime import date
+from ...core.currency import Currency
 from ...core.money import Money
 from ...core.dates.daycount import DayCount
 from ...core.dates.calendar import BusinessDayConvention
@@ -26,6 +27,26 @@ class RepoCollateral:
     @property
     def market_value_id(self) -> str: ...
 
+class RepoBuilder:
+    """Fluent builder returned by :meth:`Repo.builder`."""
+
+    def __init__(self, instrument_id: str) -> None: ...
+    def cash(self, amount: float) -> RepoBuilder: ...
+    def currency(self, currency: Union[str, Currency]) -> RepoBuilder: ...
+    def cash_amount(self, money: Money) -> RepoBuilder: ...
+    def collateral(self, collateral: RepoCollateral) -> RepoBuilder: ...
+    def repo_rate(self, repo_rate: float) -> RepoBuilder: ...
+    def start_date(self, start_date: date) -> RepoBuilder: ...
+    def maturity(self, maturity: date) -> RepoBuilder: ...
+    def disc_id(self, curve_id: str) -> RepoBuilder: ...
+    def repo_type(self, repo_type: Optional[str] = ...) -> RepoBuilder: ...
+    def haircut(self, haircut: float) -> RepoBuilder: ...
+    def day_count(self, day_count: Union[DayCount, str]) -> RepoBuilder: ...
+    def business_day_convention(self, business_day_convention: Union[BusinessDayConvention, str]) -> RepoBuilder: ...
+    def calendar(self, calendar: Optional[str] = ...) -> RepoBuilder: ...
+    def triparty(self, triparty: bool) -> RepoBuilder: ...
+    def build(self) -> "Repo": ...
+
 class Repo:
     """Repurchase agreement for secured funding.
 
@@ -48,15 +69,16 @@ class Repo:
         ...     quantity=1000.0,  # 1000 bonds
         ...     market_value_id="UST-5Y-PRICE",
         ... )
-        >>> repo = Repo.create(
-        ...     "REPO-UST-5Y",
-        ...     cash_amount=Money(1_000_000, Currency("USD")),
-        ...     collateral=collateral,
-        ...     repo_rate=0.03,  # 3% repo rate
-        ...     start_date=date(2024, 1, 1),
-        ...     maturity=date(2024, 1, 8),  # 1-week repo
-        ...     discount_curve="USD",
-        ...     repo_type="term",
+        >>> repo = (
+        ...     Repo.builder("REPO-UST-5Y")
+        ...     .cash_amount(Money(1_000_000, Currency("USD")))
+        ...     .collateral(collateral)
+        ...     .repo_rate(0.03)  # 3% repo rate
+        ...     .start_date(date(2024, 1, 1))
+        ...     .maturity(date(2024, 1, 8))  # 1-week repo
+        ...     .disc_id("USD")
+        ...     .repo_type("term")
+        ...     .build()
         ... )
 
     Notes
@@ -85,79 +107,7 @@ class Repo:
     """
 
     @classmethod
-    def create(
-        cls,
-        instrument_id: str,
-        cash_amount: Money,
-        collateral: RepoCollateral,
-        repo_rate: float,
-        start_date: date,
-        maturity: date,
-        discount_curve: str,
-        *,
-        repo_type: str = "term",
-        haircut: float = 0.0,
-        day_count: Optional[DayCount] = None,
-        business_day_convention: Optional[BusinessDayConvention] = None,
-        calendar: Optional[str] = None,
-        triparty: bool = False,
-    ) -> "Repo":
-        """Create a repo.
-
-        Parameters
-        ----------
-        instrument_id : str
-            Unique identifier for the repo (e.g., "REPO-UST-5Y").
-        cash_amount : Money
-            Cash lent (repo proceeds). Currency determines curve currency.
-        collateral : RepoCollateral
-            Collateral specification (instrument, quantity, market value).
-        repo_rate : float
-            Repo rate as a decimal (e.g., 0.03 for 3%). This is the funding cost.
-        start_date : date
-            Repo start date (cash lent, collateral delivered).
-        maturity : date
-            Repo maturity date (cash repaid, collateral returned). Must be after start_date.
-        discount_curve : str
-            Discount curve identifier in MarketContext.
-        repo_type : str, optional
-            Repo type: "term" (default, fixed maturity) or "open" (overnight, rolling).
-        haircut : float, optional
-            Haircut percentage (default: 0.0). Provides margin protection (e.g., 0.02 = 2%).
-        day_count : DayCount, optional
-            Day-count convention (default: ACT/360 for money market).
-        business_day_convention : BusinessDayConvention, optional
-            Business day convention for maturity date adjustment.
-        calendar : str, optional
-            Holiday calendar identifier.
-        triparty : bool, optional
-            If True, uses triparty repo structure (default: False).
-
-        Returns
-        -------
-        Repo
-            Configured repo ready for pricing.
-
-        Raises
-        ------
-        ValueError
-            If parameters are invalid (maturity <= start_date, repo_rate < 0,
-            etc.) or if required market data is missing.
-
-        Examples
-        --------
-            >>> repo = Repo.create(
-            ...     "REPO-UST-5Y",
-            ...     Money(1_000_000, Currency("USD")),
-            ...     collateral,
-            ...     0.03,  # 3% repo rate
-            ...     date(2024, 1, 1),
-            ...     date(2024, 1, 8),
-            ...     discount_curve="USD",
-            ... )
-        """
-        ...
-
+    def builder(cls, instrument_id: str) -> RepoBuilder: ...
     @property
     def instrument_id(self) -> str: ...
     @property

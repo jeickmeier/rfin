@@ -13,9 +13,9 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
+use finstack_valuations::test_utils;
 use time::macros::date;
 
 fn build_flat_discount(rate: f64, base_date: Date, curve_id: &str) -> DiscountCurve {
@@ -67,7 +67,7 @@ fn test_par_spread_approximation() {
         .insert_discount(disc_curve)
         .insert_hazard(hazard_curve);
 
-    let mut cds = CreditDefaultSwap::buy_protection(
+    let mut cds = test_utils::cds_buy_protection(
         "PAR_SPREAD_APPROX",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -109,7 +109,7 @@ fn test_risky_pv01_market_standard() {
         .insert_discount(disc_curve)
         .insert_hazard(hazard_curve);
 
-    let mut cds = CreditDefaultSwap::buy_protection(
+    let mut cds = test_utils::cds_buy_protection(
         "RISKY_PV01_MKT",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -150,7 +150,7 @@ fn test_buyer_seller_zero_sum() {
         .insert_discount(disc_curve)
         .insert_hazard(hazard_curve);
 
-    let mut cds_buyer = CreditDefaultSwap::buy_protection(
+    let mut cds_buyer = test_utils::cds_buy_protection(
         "BUYER",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -162,7 +162,7 @@ fn test_buyer_seller_zero_sum() {
     .expect("CDS construction should succeed");
     cds_buyer.protection.recovery_rate = 0.40;
 
-    let mut cds_seller = CreditDefaultSwap::sell_protection(
+    let mut cds_seller = test_utils::cds_sell_protection(
         "SELLER",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -201,7 +201,7 @@ fn test_cs01_positive_for_protection_buyer() {
         .insert_discount(disc_curve)
         .insert_hazard(hazard_curve);
 
-    let mut cds = CreditDefaultSwap::buy_protection(
+    let mut cds = test_utils::cds_buy_protection(
         "CS01_BUYER",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -250,7 +250,7 @@ fn test_hazard_rate_sensitivity_monotonic() {
             .insert_discount(disc_curve)
             .insert_hazard(hazard_curve);
 
-        let mut cds = CreditDefaultSwap::buy_protection(
+        let mut cds = test_utils::cds_buy_protection(
             "HAZARD_SENS",
             Money::new(10_000_000.0, Currency::USD),
             100.0,
@@ -297,7 +297,7 @@ fn test_recovery_rate_sensitivity_monotonic() {
             .insert_discount(disc_curve)
             .insert_hazard(hazard_curve);
 
-        let mut cds = CreditDefaultSwap::buy_protection(
+        let mut cds = test_utils::cds_buy_protection(
             "RECOVERY_SENS",
             Money::new(10_000_000.0, Currency::USD),
             100.0,
@@ -353,7 +353,7 @@ fn test_expected_loss_formula_validation() {
         .insert_discount(disc_curve)
         .insert_hazard(hazard_curve);
 
-    let mut cds = CreditDefaultSwap::buy_protection(
+    let mut cds = test_utils::cds_buy_protection(
         "EL_FORMULA_TEST",
         Money::new(notional, Currency::USD),
         100.0,
@@ -414,7 +414,7 @@ fn test_jump_to_default_equals_lgd_times_notional() {
         .insert_discount(disc_curve)
         .insert_hazard(hazard_curve);
 
-    let mut cds = CreditDefaultSwap::buy_protection(
+    let mut cds = test_utils::cds_buy_protection(
         "JTD_TEST",
         Money::new(notional, Currency::USD),
         100.0,
@@ -457,7 +457,7 @@ fn test_survival_probability_decreases_over_time() {
         .insert_discount(disc_curve)
         .insert_hazard(hazard_curve);
 
-    let mut cds = CreditDefaultSwap::buy_protection(
+    let mut cds = test_utils::cds_buy_protection(
         "SURVIVAL_TEST",
         Money::new(10_000_000.0, Currency::USD),
         150.0,
@@ -511,7 +511,7 @@ fn test_standard_tenors_reasonable_par_spreads() {
     ];
 
     for (tenor_years, maturity) in tenors {
-        let mut cds = CreditDefaultSwap::buy_protection(
+        let mut cds = test_utils::cds_buy_protection(
             format!("CDS_{}Y", tenor_years),
             Money::new(10_000_000.0, Currency::USD),
             100.0,
@@ -558,7 +558,7 @@ fn test_term_structure_upward_sloping_spreads() {
 
     for years in [1, 3, 5, 7, 10] {
         let maturity = Date::from_calendar_date(2024 + years, time::Month::January, 1).unwrap();
-        let mut cds = CreditDefaultSwap::buy_protection(
+        let mut cds = test_utils::cds_buy_protection(
             format!("TERM_{}Y", years),
             Money::new(10_000_000.0, Currency::USD),
             100.0,

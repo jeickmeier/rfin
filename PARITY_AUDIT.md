@@ -475,10 +475,10 @@
 ### High Priority
 
 1. **Add 1 missing instruments to Rust:** FiIndexTotalReturnSwap
-3. **Add 2 missing instruments to Python:** CDSIndex, StructuredCredit
-4. **Complete calibration API in Rust:** 9 types missing
-5. **Complete calibration API in WASM:** 7 types missing
-6. **Complete calibration API in Python:** 1 types missing
+2. **Add 2 missing instruments to Python:** CDSIndex, StructuredCredit
+3. **Complete calibration API in Rust:** 9 types missing
+4. **Complete calibration API in WASM:** 7 types missing
+5. **Complete calibration API in Python:** 1 types missing
 
 ### Medium Priority
 

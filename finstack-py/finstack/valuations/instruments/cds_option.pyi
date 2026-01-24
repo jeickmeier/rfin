@@ -5,6 +5,25 @@ from datetime import date
 from ...core.money import Money
 from ..common import InstrumentType
 
+class CdsOptionBuilder:
+    """Fluent builder returned by :meth:`CdsOption.builder`."""
+
+    def __init__(self, instrument_id: str) -> None: ...
+    def notional(self, notional: Money) -> "CdsOptionBuilder": ...
+    def money(self, money: Money) -> "CdsOptionBuilder": ...
+    def strike_spread_bp(self, strike_spread_bp: float) -> "CdsOptionBuilder": ...
+    def expiry(self, expiry: date) -> "CdsOptionBuilder": ...
+    def cds_maturity(self, cds_maturity: date) -> "CdsOptionBuilder": ...
+    def discount_curve(self, discount_curve: str) -> "CdsOptionBuilder": ...
+    def credit_curve(self, credit_curve: str) -> "CdsOptionBuilder": ...
+    def vol_surface(self, vol_surface: str) -> "CdsOptionBuilder": ...
+    def option_type(self, option_type: Optional[str]) -> "CdsOptionBuilder": ...
+    def recovery_rate(self, recovery_rate: float) -> "CdsOptionBuilder": ...
+    def underlying_is_index(self, underlying_is_index: bool) -> "CdsOptionBuilder": ...
+    def index_factor(self, index_factor: Optional[float] = ...) -> "CdsOptionBuilder": ...
+    def forward_adjust_bp(self, forward_adjust_bp: float) -> "CdsOptionBuilder": ...
+    def build(self) -> "CdsOption": ...
+
 class CdsOption:
     """Option on CDS spread for credit volatility exposure.
 
@@ -23,16 +42,17 @@ class CdsOption:
         >>> from finstack.valuations.instruments import CdsOption
         >>> from finstack import Money, Currency
         >>> from datetime import date
-        >>> cds_option = CdsOption.create(
-        ...     "CDS-OPT-CORP-A",
-        ...     notional=Money(10_000_000, Currency("USD")),
-        ...     strike_spread_bp=150.0,  # 150bp strike
-        ...     expiry=date(2024, 12, 20),
-        ...     cds_maturity=date(2029, 1, 1),  # 5-year underlying CDS
-        ...     discount_curve="USD",
-        ...     credit_curve="CORP-A-HAZARD",
-        ...     vol_surface="CDS-VOL",
-        ...     option_type="call",  # Right to buy protection at strike
+        >>> cds_option = (
+        ...     CdsOption.builder("CDS-OPT-CORP-A")
+        ...     .money(Money(10_000_000, Currency("USD")))
+        ...     .strike_spread_bp(150.0)  # 150bp strike
+        ...     .expiry(date(2024, 12, 20))
+        ...     .cds_maturity(date(2029, 1, 1))  # 5-year underlying CDS
+        ...     .discount_curve("USD")
+        ...     .credit_curve("CORP-A-HAZARD")
+        ...     .vol_surface("CDS-VOL")
+        ...     .option_type("call")  # Right to buy protection at strike
+        ...     .build()
         ... )
 
     Notes
@@ -69,24 +89,8 @@ class CdsOption:
     """
 
     @classmethod
-    def create(
-        cls,
-        instrument_id: str,
-        notional: Money,
-        strike_spread_bp: float,
-        expiry: date,
-        cds_maturity: date,
-        discount_curve: str,
-        credit_curve: str,
-        vol_surface: str,
-        *,
-        option_type: Optional[str] = "call",
-        recovery_rate: Optional[float] = 0.4,
-        underlying_is_index: Optional[bool] = False,
-        index_factor: Optional[float] = None,
-        forward_adjust_bp: Optional[float] = 0.0,
-    ) -> "CdsOption":
-        """Create a CDS option referencing a standard CDS contract.
+    def builder(cls, instrument_id: str) -> CdsOptionBuilder:
+        """Start a fluent builder (builder-only API).
 
         Parameters
         ----------
@@ -130,15 +134,16 @@ class CdsOption:
 
         Examples
         --------
-            >>> cds_option = CdsOption.create(
-            ...     "CDS-OPT-CORP-A",
-            ...     Money(10_000_000, Currency("USD")),
-            ...     150.0,  # 150bp strike
-            ...     date(2024, 12, 20),
-            ...     date(2029, 1, 1),
-            ...     discount_curve="USD",
-            ...     credit_curve="CORP-A-HAZARD",
-            ...     vol_surface="CDS-VOL",
+            >>> cds_option = (
+            ...     CdsOption.builder("CDS-OPT-CORP-A")
+            ...     .notional(Money(10_000_000, Currency("USD")))
+            ...     .strike_spread_bp(150.0)  # 150bp strike
+            ...     .expiry(date(2024, 12, 20))
+            ...     .cds_maturity(date(2029, 1, 1))
+            ...     .discount_curve("USD")
+            ...     .credit_curve("CORP-A-HAZARD")
+            ...     .vol_surface("CDS-VOL")
+            ...     .build()
             ... )
         """
         ...

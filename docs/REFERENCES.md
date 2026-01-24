@@ -4,6 +4,7 @@ This file centralizes **canonical, stable** references used throughout the Finst
 (Rust docs, Python `.pyi` docstrings, WASM/TypeScript docs).
 
 Guidelines:
+
 - Prefer **primary sources** (original paper, official standard/spec) or widely accepted reference texts.
 - When a docstring cites a reference, prefer linking to an **anchor in this file** so citations remain stable.
 

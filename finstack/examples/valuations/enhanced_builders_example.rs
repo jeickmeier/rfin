@@ -10,12 +10,17 @@ use num_traits::ToPrimitive;
 use rust_decimal_macros::dec;
 use time::Month;
 
+use finstack_core::types::{CurveId, InstrumentId};
+use finstack_valuations::instruments::credit_derivatives::cds::{
+    CDSConvention, CreditDefaultSwapBuilder, PremiumLegSpec, ProtectionLegSpec,
+    RECOVERY_SENIOR_UNSECURED,
+};
+use finstack_valuations::instruments::equity::equity_option::EquityOptionParams;
 use finstack_valuations::instruments::EquityUnderlyingParams;
 use finstack_valuations::instruments::PayReceive;
 use finstack_valuations::instruments::PricingOverrides;
-use finstack_valuations::instruments::{
-    Bond, CreditDefaultSwap, EquityOption, ExerciseStyle, InterestRateSwap,
-};
+use finstack_valuations::instruments::{Bond, EquityOption, ExerciseStyle};
+use finstack_valuations::instruments::{InterestRateSwap, OptionType, SettlementType};
 
 fn main() -> finstack_core::Result<()> {
     println!("=== Enhanced Builder Pattern Examples ===\n");
@@ -62,28 +67,65 @@ fn main() -> finstack_core::Result<()> {
 
     // Loan and revolver examples removed
 
-    // Credit Default Swap - ONE LINE!
-    let cds = CreditDefaultSwap::buy_protection(
-        "CDS-001",
-        Money::new(10_000_000.0, Currency::USD),
-        150.0, // 150bp spread
-        issue,
-        maturity_5y,
-        finstack_core::types::CurveId::new("USD-OIS"),
-        finstack_core::types::CurveId::new("AAPL-CREDIT"),
-    )?;
+    // Credit Default Swap - builder-based construction (replacement for deprecated constructor)
+    let cds = {
+        let convention = CDSConvention::IsdaNa;
+        let dc = convention.day_count();
+        let freq = convention.frequency();
+        let bdc = convention.business_day_convention();
+        let stub = convention.stub_convention();
+
+        CreditDefaultSwapBuilder::new()
+            .id(InstrumentId::new("CDS-001"))
+            .notional(Money::new(10_000_000.0, Currency::USD))
+            .side(PayReceive::PayFixed) // buy protection
+            .convention(convention)
+            .premium(PremiumLegSpec {
+                start: issue,
+                end: maturity_5y,
+                freq,
+                stub,
+                bdc,
+                calendar_id: Some(convention.default_calendar().to_string()),
+                dc,
+                spread_bp: dec!(150.0),
+                discount_curve_id: CurveId::new("USD-OIS"),
+            })
+            .protection(ProtectionLegSpec {
+                credit_curve_id: CurveId::new("AAPL-CREDIT"),
+                recovery_rate: RECOVERY_SENIOR_UNSECURED,
+                settlement_delay: convention.settlement_delay(),
+            })
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(finstack_valuations::instruments::Attributes::new())
+            .build()?
+    };
     println!("✓ CDS created: {} spread bp", cds.premium.spread_bp);
 
-    // European Call Option - ONE LINE!
-    let option = EquityOption::european_call(
-        "OPT-001",
-        "AAPL",
-        150.0, // $150 strike
-        expiry_1y,
-        Money::new(100_000.0, Currency::USD), // $100k notional
-        100.0,                                // 100 shares per contract
-    )
-    .expect("EquityOption::european_call should succeed with valid parameters");
+    // European Call Option - builder-based construction (replacement for deprecated constructor)
+    let option = {
+        let contract_size = 100.0;
+        let underlying = EquityUnderlyingParams::new("AAPL", "EQUITY-SPOT", Currency::USD)
+            .with_dividend_yield("EQUITY-DIVYIELD")
+            .with_contract_size(contract_size);
+
+        let option_params = EquityOptionParams::new(
+            Money::new(150.0, Currency::USD),
+            expiry_1y,
+            OptionType::Call,
+            contract_size,
+        )
+        .with_exercise_style(ExerciseStyle::European)
+        .with_settlement(SettlementType::Cash);
+
+        EquityOption::new(
+            "OPT-001",
+            &option_params,
+            &underlying,
+            CurveId::new("USD-OIS"),
+            CurveId::new("EQUITY-VOL"),
+        )
+    };
     println!("✓ Equity option created: {} strike", option.strike.amount());
 
     println!();
@@ -180,15 +222,36 @@ fn main() -> finstack_core::Result<()> {
 
     // High-Yield Credit Default Swap (custom recovery via builder)
     let hy_cds = {
-        let mut cds = CreditDefaultSwap::buy_protection(
-            "CDS-HY-001",
-            Money::new(5_000_000.0, Currency::USD),
-            800.0, // 800bp spread
-            issue,
-            maturity_5y,
-            finstack_core::types::CurveId::new("USD-OIS"),
-            finstack_core::types::CurveId::new("HY-CREDIT"),
-        )?;
+        let convention = CDSConvention::IsdaNa;
+        let dc = convention.day_count();
+        let freq = convention.frequency();
+        let bdc = convention.business_day_convention();
+        let stub = convention.stub_convention();
+
+        let mut cds = CreditDefaultSwapBuilder::new()
+            .id(InstrumentId::new("CDS-HY-001"))
+            .notional(Money::new(5_000_000.0, Currency::USD))
+            .side(PayReceive::PayFixed) // buy protection
+            .convention(convention)
+            .premium(PremiumLegSpec {
+                start: issue,
+                end: maturity_5y,
+                freq,
+                stub,
+                bdc,
+                calendar_id: Some(convention.default_calendar().to_string()),
+                dc,
+                spread_bp: dec!(800.0),
+                discount_curve_id: CurveId::new("USD-OIS"),
+            })
+            .protection(ProtectionLegSpec {
+                credit_curve_id: CurveId::new("HY-CREDIT"),
+                recovery_rate: RECOVERY_SENIOR_UNSECURED,
+                settlement_delay: convention.settlement_delay(),
+            })
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(finstack_valuations::instruments::Attributes::new())
+            .build()?;
         // Customize recovery for high-yield
         cds.protection.recovery_rate = 0.25;
         cds

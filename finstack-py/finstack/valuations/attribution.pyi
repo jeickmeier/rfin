@@ -414,8 +414,14 @@ def attribute_pnl(
         >>> from finstack.core.market_data.term_structures import DiscountCurve
         >>> from finstack.valuations.attribution import attribute_pnl, AttributionMethod
         >>> from finstack.valuations.instruments import Bond
-        >>> bond = Bond.fixed_semiannual(
-        ...     "CORP-001", Money(1_000_000, Currency("USD")), 0.05, date(2025, 1, 1), date(2030, 1, 1), "USD-OIS"
+        >>> bond = (
+        ...     Bond.builder("CORP-001")
+        ...     .money(Money(1_000_000, Currency("USD")))
+        ...     .coupon_rate(0.05)
+        ...     .issue(date(2025, 1, 1))
+        ...     .maturity(date(2030, 1, 1))
+        ...     .disc_id("USD-OIS")
+        ...     .build()
         ... )
         >>> market_t0 = MarketContext()
         >>> market_t1 = MarketContext()

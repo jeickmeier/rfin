@@ -26,20 +26,31 @@
 //! # Quick Example
 //!
 //! ```rust
-//! use finstack_valuations::instruments::equity::EquityOption;
+//! use finstack_valuations::instruments::{Attributes, EquityOption, ExerciseStyle, OptionType, PricingOverrides, SettlementType};
 //! use finstack_core::currency::Currency;
 //! use finstack_core::money::Money;
+//! use finstack_core::types::{CurveId, InstrumentId};
 //! use time::macros::date;
 //!
 //! // Create a 6-month ATM call option
-//! let option = EquityOption::european_call(
-//!     "SPX-CALL-4500",
-//!     "SPX",              // Underlying
-//!     4500.0,             // Strike
-//!     date!(2025-07-15),  // Expiry
-//!     Money::new(100_000.0, Currency::USD),
-//!     100.0,              // Multiplier
-//! ).expect("valid option");
+//! let option = EquityOption::builder()
+//!     .id(InstrumentId::new("SPX-CALL-4500"))
+//!     .underlying_ticker("SPX".to_string())
+//!     .strike(Money::new(4500.0, Currency::USD))
+//!     .option_type(OptionType::Call)
+//!     .exercise_style(ExerciseStyle::European)
+//!     .expiry(date!(2025 - 07 - 15))
+//!     .contract_size(100.0)
+//!     .day_count(finstack_core::dates::DayCount::Act365F)
+//!     .settlement(SettlementType::Cash)
+//!     .discount_curve_id(CurveId::new("USD-OIS"))
+//!     .spot_id("EQUITY-SPOT".to_string())
+//!     .vol_surface_id(CurveId::new("EQUITY-VOL"))
+//!     .div_yield_id_opt(Some("EQUITY-DIVYIELD".to_string()))
+//!     .pricing_overrides(PricingOverrides::default())
+//!     .attributes(Attributes::new())
+//!     .build()
+//!     .expect("valid option");
 //! ```
 //!
 //! # Greeks

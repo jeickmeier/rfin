@@ -41,22 +41,37 @@ class DividendAdjustment:
 
 class ConversionSpec:
     """Convertible conversion specification."""
-    @classmethod
-    def create(
-        cls,
+    def __init__(
+        self,
         policy: ConversionPolicy,
         *,
         ratio: Optional[float] = None,
         price: Optional[float] = None,
         anti_dilution: Optional[AntiDilutionPolicy] = None,
         dividend_adjustment: Optional[DividendAdjustment] = None,
-    ) -> "ConversionSpec": ...
+    ) -> None: ...
     @property
     def ratio(self) -> Optional[float]: ...
     @property
     def price(self) -> Optional[float]: ...
     @property
     def policy(self) -> str: ...
+
+class ConvertibleBondBuilder:
+    """Fluent builder returned by :meth:`ConvertibleBond.builder`."""
+
+    def __init__(self, instrument_id: str) -> None: ...
+    def notional(self, notional: Money) -> "ConvertibleBondBuilder": ...
+    def issue(self, issue: date) -> "ConvertibleBondBuilder": ...
+    def maturity(self, maturity: date) -> "ConvertibleBondBuilder": ...
+    def discount_curve(self, discount_curve: str) -> "ConvertibleBondBuilder": ...
+    def conversion(self, conversion: ConversionSpec) -> "ConvertibleBondBuilder": ...
+    def underlying_equity_id(self, underlying_equity_id: Optional[str] = ...) -> "ConvertibleBondBuilder": ...
+    def call_schedule(self, call_schedule: Optional[List[Tuple[date, float]]] = ...) -> "ConvertibleBondBuilder": ...
+    def put_schedule(self, put_schedule: Optional[List[Tuple[date, float]]] = ...) -> "ConvertibleBondBuilder": ...
+    def fixed_coupon(self, fixed_coupon: FixedCouponSpec) -> "ConvertibleBondBuilder": ...
+    def floating_coupon(self, floating_coupon: FloatingCouponSpec) -> "ConvertibleBondBuilder": ...
+    def build(self) -> "ConvertibleBond": ...
 
 class ConvertibleBond:
     """Convertible bond with equity conversion option.
@@ -76,18 +91,19 @@ class ConvertibleBond:
         >>> from finstack.valuations.instruments import ConvertibleBond, ConversionSpec, ConversionPolicy
         >>> from finstack import Money, Currency
         >>> from datetime import date
-        >>> conversion = ConversionSpec.create(
-        ...     ConversionPolicy.voluntary(),  # Holder can convert anytime (positional)
+        >>> conversion = ConversionSpec(
+        ...     ConversionPolicy.voluntary(),  # Holder can convert anytime
         ...     ratio=20.0,  # 20 shares per $1000 bond
         ... )
-        >>> convertible = ConvertibleBond.create(
-        ...     "CONVERTIBLE-CORP-A",
-        ...     Money(10_000_000, Currency("USD")),  # notional (positional)
-        ...     date(2024, 1, 1),  # issue (positional)
-        ...     date(2029, 1, 1),  # maturity (positional)
-        ...     "USD",  # discount_curve (positional)
-        ...     conversion,  # conversion (positional)
-        ...     underlying_equity_id="CORP-A",
+        >>> convertible = (
+        ...     ConvertibleBond.builder("CONVERTIBLE-CORP-A")
+        ...     .notional(Money(10_000_000, Currency("USD")))
+        ...     .issue(date(2024, 1, 1))
+        ...     .maturity(date(2029, 1, 1))
+        ...     .discount_curve("USD")
+        ...     .conversion(conversion)
+        ...     .underlying_equity_id("CORP-A")
+        ...     .build()
         ... )
 
     Notes
@@ -117,22 +133,8 @@ class ConvertibleBond:
     """
 
     @classmethod
-    def create(
-        cls,
-        instrument_id: str,
-        notional: Money,
-        issue: date,
-        maturity: date,
-        discount_curve: str,
-        conversion: ConversionSpec,
-        *,
-        underlying_equity_id: Optional[str] = None,
-        call_schedule: Optional[List[Tuple[date, float]]] = None,
-        put_schedule: Optional[List[Tuple[date, float]]] = None,
-        fixed_coupon: Optional[FixedCouponSpec] = None,
-        floating_coupon: Optional[FloatingCouponSpec] = None,
-    ) -> "ConvertibleBond":
-        """Create a convertible bond.
+    def builder(cls, instrument_id: str) -> ConvertibleBondBuilder:
+        """Start a fluent builder (builder-only API).
 
         Parameters
         ----------
@@ -173,16 +175,6 @@ class ConvertibleBond:
             If parameters are invalid (maturity <= issue, no coupon spec, etc.)
             or if required market data is missing.
 
-        Examples
-        --------
-            >>> convertible = ConvertibleBond.create(
-            ...     "CONVERTIBLE-CORP-A",
-            ...     Money(10_000_000, Currency("USD")),
-            ...     date(2024, 1, 1),
-            ...     date(2029, 1, 1),
-            ...     discount_curve="USD",
-            ...     conversion=conversion,
-            ... )
         """
         ...
 

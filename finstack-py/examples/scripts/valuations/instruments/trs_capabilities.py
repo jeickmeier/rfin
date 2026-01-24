@@ -91,14 +91,15 @@ def main() -> None:
         div_yield_id="ACME-DIVYIELD",
         contract_size=1.0,
     )
-    equity_trs = EquityTotalReturnSwap.create(
-        "ACME-TRS",
-        Money(5_000_000, USD),
-        equity_underlying,
-        financing,
-        schedule,
-        TrsSide.RECEIVE_TOTAL_RETURN,
-        initial_level=120.0,
+    equity_trs = (
+        EquityTotalReturnSwap.builder("ACME-TRS")
+        .notional(Money(5_000_000, USD))
+        .underlying(equity_underlying)
+        .financing(financing)
+        .schedule(schedule)
+        .side(TrsSide.RECEIVE_TOTAL_RETURN)
+        .initial_level(120.0)
+        .build()
     )
     registry.price_with_metrics(
         equity_trs,
@@ -115,14 +116,15 @@ def main() -> None:
         convexity_id=None,
         contract_size=1.0,
     )
-    index_trs = FiIndexTotalReturnSwap.create(
-        "CDX-TRS",
-        Money(8_000_000, USD),
-        index_underlying,
-        financing,
-        schedule,
-        TrsSide.PAY_TOTAL_RETURN,
-        initial_level=100.0,
+    index_trs = (
+        FiIndexTotalReturnSwap.builder("CDX-TRS")
+        .notional(Money(8_000_000, USD))
+        .underlying(index_underlying)
+        .financing(financing)
+        .schedule(schedule)
+        .side(TrsSide.PAY_TOTAL_RETURN)
+        .initial_level(100.0)
+        .build()
     )
     registry.price_with_metrics(
         index_trs,

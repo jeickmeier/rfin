@@ -7,6 +7,35 @@ use finstack_valuations::pricer::InstrumentType;
 use js_sys::Array;
 use wasm_bindgen::prelude::*;
 
+#[wasm_bindgen(js_name = RangeAccrualBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsRangeAccrualBuilder {
+    json_str: Option<String>,
+}
+
+#[wasm_bindgen(js_class = RangeAccrualBuilder)]
+impl JsRangeAccrualBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> JsRangeAccrualBuilder {
+        JsRangeAccrualBuilder { json_str: None }
+    }
+
+    #[wasm_bindgen(js_name = jsonString)]
+    pub fn json_string(mut self, json_str: String) -> JsRangeAccrualBuilder {
+        self.json_str = Some(json_str);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsRangeAccrual, JsValue> {
+        let json_str = self
+            .json_str
+            .as_deref()
+            .ok_or_else(|| JsValue::from_str("RangeAccrualBuilder: jsonString is required"))?;
+        JsRangeAccrual::from_json(json_str)
+    }
+}
+
 /// Range accrual note (JSON-serializable).
 ///
 /// This instrument is configured via a JSON payload (matching the Rust model schema).
@@ -36,6 +65,9 @@ impl JsRangeAccrual {
     /// @throws {Error} If the JSON cannot be parsed or is invalid
     #[wasm_bindgen(js_name = fromJson)]
     pub fn from_json(json_str: &str) -> Result<JsRangeAccrual, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "RangeAccrual.fromJson is deprecated; use RangeAccrualBuilder instead.",
+        ));
         use crate::core::error::js_error;
         serde_json::from_str(json_str)
             .map(JsRangeAccrual::from_inner)

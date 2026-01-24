@@ -19,6 +19,7 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::equity::equity_option::EquityOption;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
+use finstack_valuations::test_utils;
 use std::hint::black_box;
 use time::Month;
 
@@ -26,7 +27,7 @@ fn create_call_option(expiry_months: i64) -> EquityOption {
     let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let expiry = base + time::Duration::days(expiry_months * 30);
 
-    EquityOption::european_call(
+    test_utils::equity_option_european_call(
         format!("CALL-{}M", expiry_months),
         "AAPL",
         100.0, // ATM strike
@@ -34,7 +35,7 @@ fn create_call_option(expiry_months: i64) -> EquityOption {
         Money::new(100.0, Currency::USD),
         100.0, // 100 shares
     )
-    .expect("EquityOption::european_call should succeed with valid parameters")
+    .expect("equity option should build in benchmarks")
 }
 
 fn create_market() -> MarketContext {

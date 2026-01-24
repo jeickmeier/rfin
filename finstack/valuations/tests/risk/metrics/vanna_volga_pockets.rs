@@ -15,7 +15,10 @@ use finstack_valuations::instruments::equity::equity_option::EquityOption;
 use finstack_valuations::instruments::fx::fx_option::FxOption;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::{bump_scalar_price, bump_sizes, scale_surface, standard_registry, MetricContext, MetricId};
-use finstack_valuations::test_utils::{date, flat_discount_with_tenor, flat_vol_surface};
+use finstack_valuations::test_utils::{
+    date, equity_option_european_call, flat_discount_with_tenor, flat_vol_surface,
+    fx_option_european_call,
+};
 use std::sync::Arc;
 
 fn approx_eq(actual: f64, expected: f64, tol: f64) {
@@ -39,8 +42,8 @@ fn equity_market(as_of: Date, spot: f64, vol: f64, rate: f64, div_yield: f64) ->
 }
 
 fn equity_option(as_of: Date, expiry: Date, strike: f64) -> EquityOption {
-    // Use the standard constructor to keep conventions consistent.
-    EquityOption::european_call(
+    let _ = as_of;
+    equity_option_european_call(
         "EQ-VANNA-VOLGA",
         "SPX",
         strike,
@@ -48,29 +51,8 @@ fn equity_option(as_of: Date, expiry: Date, strike: f64) -> EquityOption {
         Money::new(1_000_000.0, Currency::USD),
         100.0,
     )
-    .tap_mut(|opt| {
-        // Ensure the expiry is as requested.
-        opt.expiry = expiry;
-        // Ensure day count matches what the pricer expects.
-        opt.day_count = DayCount::Act365F;
-        // Make sure the IDs align with our market setup.
-        opt.discount_curve_id = "USD-OIS".into();
-        opt.spot_id = "EQUITY-SPOT".to_string();
-        opt.vol_surface_id = "EQUITY-VOL".into();
-        opt.div_yield_id = Some("EQUITY-DIVYIELD".to_string());
-    })
+    .expect("equity option should build for vanna/volga tests")
 }
-
-trait TapMut {
-    fn tap_mut<F: FnOnce(&mut Self)>(mut self, f: F) -> Self
-    where
-        Self: Sized,
-    {
-        f(&mut self);
-        self
-    }
-}
-impl<T> TapMut for T {}
 
 fn equity_delta_fd(
     opt: &EquityOption,
@@ -210,7 +192,7 @@ fn fx_vanna_and_volga_match_reference_fd() -> finstack_core::Result<()> {
     let r_d = 0.04;
     let r_f = 0.02;
 
-    let opt = FxOption::european_call(
+    let opt = fx_option_european_call(
         "FX-VANNA-VOLGA".into(),
         Currency::EUR,
         Currency::USD,
@@ -218,7 +200,8 @@ fn fx_vanna_and_volga_match_reference_fd() -> finstack_core::Result<()> {
         expiry,
         Money::new(1_000_000.0, Currency::EUR),
         "EURUSD-VOL",
-    ).unwrap();
+    )
+    .unwrap();
 
     let market = fx_market(as_of, spot, vol, r_d, r_f);
     let pv = opt.value(&market, as_of)?;
@@ -267,7 +250,7 @@ fn fx_volga_returns_zero_when_surface_vol_is_zero() -> finstack_core::Result<()>
     let as_of = date(2025, 1, 2);
     let expiry = date(2025, 7, 2);
 
-    let opt = FxOption::european_call(
+    let opt = fx_option_european_call(
         "FX-ZERO-VOLGA".into(),
         Currency::EUR,
         Currency::USD,
@@ -275,7 +258,8 @@ fn fx_volga_returns_zero_when_surface_vol_is_zero() -> finstack_core::Result<()>
         expiry,
         Money::new(1_000_000.0, Currency::EUR),
         "EURUSD-VOL",
-    ).unwrap();
+    )
+    .unwrap();
 
     let market = fx_market(as_of, 1.10, 0.0, 0.02, 0.01);
     let pv = opt.value(&market, as_of)?;

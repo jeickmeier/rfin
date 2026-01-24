@@ -158,6 +158,10 @@ impl CDSIndexConstructionParams {
     }
 
     /// Create standard protection buyer parameters
+    #[deprecated(
+        since = "0.4.0",
+        note = "Use `CDSIndexConstructionParams::new(notional, PayReceive::PayFixed, CDSConvention::IsdaNa)`."
+    )]
     pub fn buy_protection(notional: Money) -> Self {
         Self::new(notional, PayReceive::PayFixed, CDSConvention::IsdaNa)
     }

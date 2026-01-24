@@ -396,8 +396,12 @@ class TestComplexExpressions:
         columns = ["revenue"]
         data = [[0.0, 100.0, 110.0, 121.0]]
 
-        result = compiled.eval(columns, data)
-        assert len(result.values) == 4
+        # `growth_rate` is a financial helper intended to be evaluated in the statements layer,
+        # not in the core expression evaluator.
+        with pytest.raises(BaseException, match="Custom financial functions") as excinfo:
+            compiled.eval(columns, data)
+        assert excinfo.value.__class__.__name__ == "PanicException"
+        assert "Custom financial functions" in str(excinfo.value)
 
     def test_multi_factor_signal(self) -> None:
         """Test multi-factor signal combining multiple indicators."""

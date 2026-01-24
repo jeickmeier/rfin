@@ -13,6 +13,146 @@ use finstack_valuations::instruments::rates::ir_future::{
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 
+#[wasm_bindgen(js_name = InterestRateFutureBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsInterestRateFutureBuilder {
+    instrument_id: String,
+    notional: Option<finstack_core::money::Money>,
+    quoted_price: Option<f64>,
+    expiry: Option<finstack_core::dates::Date>,
+    fixing_date: Option<finstack_core::dates::Date>,
+    period_start: Option<finstack_core::dates::Date>,
+    period_end: Option<finstack_core::dates::Date>,
+    discount_curve: Option<String>,
+    forward_curve: Option<String>,
+    position: Option<String>,
+    day_count: Option<DayCount>,
+}
+
+#[wasm_bindgen(js_class = InterestRateFutureBuilder)]
+impl JsInterestRateFutureBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new(instrument_id: &str) -> JsInterestRateFutureBuilder {
+        JsInterestRateFutureBuilder {
+            instrument_id: instrument_id.to_string(),
+            ..Default::default()
+        }
+    }
+
+    #[wasm_bindgen(js_name = money)]
+    pub fn money(mut self, notional: &JsMoney) -> JsInterestRateFutureBuilder {
+        self.notional = Some(notional.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = quotedPrice)]
+    pub fn quoted_price(mut self, quoted_price: f64) -> JsInterestRateFutureBuilder {
+        self.quoted_price = Some(quoted_price);
+        self
+    }
+
+    #[wasm_bindgen(js_name = expiry)]
+    pub fn expiry(mut self, expiry: &JsDate) -> JsInterestRateFutureBuilder {
+        self.expiry = Some(expiry.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = fixingDate)]
+    pub fn fixing_date(mut self, fixing_date: &JsDate) -> JsInterestRateFutureBuilder {
+        self.fixing_date = Some(fixing_date.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = periodStart)]
+    pub fn period_start(mut self, period_start: &JsDate) -> JsInterestRateFutureBuilder {
+        self.period_start = Some(period_start.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = periodEnd)]
+    pub fn period_end(mut self, period_end: &JsDate) -> JsInterestRateFutureBuilder {
+        self.period_end = Some(period_end.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = discountCurve)]
+    pub fn discount_curve(mut self, discount_curve: &str) -> JsInterestRateFutureBuilder {
+        self.discount_curve = Some(discount_curve.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = forwardCurve)]
+    pub fn forward_curve(mut self, forward_curve: &str) -> JsInterestRateFutureBuilder {
+        self.forward_curve = Some(forward_curve.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = position)]
+    pub fn position(mut self, position: String) -> JsInterestRateFutureBuilder {
+        self.position = Some(position);
+        self
+    }
+
+    #[wasm_bindgen(js_name = dayCount)]
+    pub fn day_count(mut self, day_count: JsDayCount) -> JsInterestRateFutureBuilder {
+        self.day_count = Some(day_count.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsInterestRateFuture, JsValue> {
+        let notional = self.notional.ok_or_else(|| {
+            js_error("InterestRateFutureBuilder: notional (money) is required".to_string())
+        })?;
+        let quoted_price = self.quoted_price.ok_or_else(|| {
+            js_error("InterestRateFutureBuilder: quotedPrice is required".to_string())
+        })?;
+        let expiry = self
+            .expiry
+            .ok_or_else(|| js_error("InterestRateFutureBuilder: expiry is required".to_string()))?;
+        let fixing_date = self.fixing_date.ok_or_else(|| {
+            js_error("InterestRateFutureBuilder: fixingDate is required".to_string())
+        })?;
+        let period_start = self.period_start.ok_or_else(|| {
+            js_error("InterestRateFutureBuilder: periodStart is required".to_string())
+        })?;
+        let period_end = self.period_end.ok_or_else(|| {
+            js_error("InterestRateFutureBuilder: periodEnd is required".to_string())
+        })?;
+        let discount_curve = self.discount_curve.as_deref().ok_or_else(|| {
+            js_error("InterestRateFutureBuilder: discountCurve is required".to_string())
+        })?;
+        let forward_curve = self.forward_curve.as_deref().ok_or_else(|| {
+            js_error("InterestRateFutureBuilder: forwardCurve is required".to_string())
+        })?;
+
+        let position_value = parse_optional_with_default(self.position, Position::Long)?;
+        let dc = self.day_count.unwrap_or(DayCount::Act360);
+        let contract_specs = FutureContractSpecs {
+            convexity_adjustment: Some(0.0),
+            ..Default::default()
+        };
+
+        InterestRateFuture::builder()
+            .id(instrument_id_from_str(&self.instrument_id))
+            .notional(notional)
+            .quoted_price(quoted_price)
+            .expiry_date(expiry)
+            .fixing_date(fixing_date)
+            .period_start(period_start)
+            .period_end(period_end)
+            .discount_curve_id(curve_id_from_str(discount_curve))
+            .forward_id(curve_id_from_str(forward_curve))
+            .day_count(dc)
+            .position(position_value)
+            .contract_specs(contract_specs)
+            .attributes(Default::default())
+            .build()
+            .map(JsInterestRateFuture::from_inner)
+            .map_err(|e| js_error(e.to_string()))
+    }
+}
+
 #[wasm_bindgen(js_name = InterestRateFuture)]
 #[derive(Clone, Debug)]
 pub struct JsInterestRateFuture {
@@ -83,6 +223,9 @@ impl JsInterestRateFuture {
         position: Option<String>,
         day_count: Option<JsDayCount>,
     ) -> Result<JsInterestRateFuture, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "InterestRateFuture constructor is deprecated; use InterestRateFutureBuilder instead.",
+        ));
         let position_value = parse_optional_with_default(position, Position::Long)?;
         let dc = day_count.map(|d| d.inner()).unwrap_or(DayCount::Act360);
 

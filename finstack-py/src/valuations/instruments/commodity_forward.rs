@@ -3,15 +3,17 @@
 use crate::core::common::args::CurrencyArg;
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::errors::PyContext;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_forward::{
     CommodityForward, SettlementType,
 };
 use finstack_valuations::instruments::Attributes;
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyType};
-use pyo3::{Bound, Py};
+use pyo3::types::{PyAny, PyModule, PyType};
+use pyo3::{Bound, Py, PyRefMut};
 use std::fmt;
 use std::sync::Arc;
 
@@ -22,16 +24,17 @@ use std::sync::Arc;
 /// cash settled (price difference).
 ///
 /// Examples:
-///     >>> forward = CommodityForward.create(
-///     ...     "WTI-FWD-2025M03",
-///     ...     commodity_type="Energy",
-///     ...     ticker="CL",
-///     ...     quantity=1000.0,
-///     ...     unit="BBL",
-///     ...     settlement_date=Date(2025, 3, 15),
-///     ...     currency="USD",
-///     ...     forward_curve_id="WTI-FORWARD",
-///     ...     discount_curve_id="USD-OIS"
+///     >>> forward = (
+///     ...     CommodityForward.builder("WTI-FWD-2025M03")
+///     ...     .commodity_type("Energy")
+///     ...     .ticker("CL")
+///     ...     .quantity(1000.0)
+///     ...     .unit("BBL")
+///     ...     .settlement_date(Date(2025, 3, 15))
+///     ...     .currency("USD")
+///     ...     .forward_curve_id("WTI-FORWARD")
+///     ...     .discount_curve_id("USD-OIS")
+///     ...     .build()
 ///     ... )
 #[pyclass(
     module = "finstack.valuations.instruments",
@@ -51,123 +54,297 @@ impl PyCommodityForward {
     }
 }
 
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "CommodityForwardBuilder",
+    unsendable
+)]
+pub struct PyCommodityForwardBuilder {
+    instrument_id: InstrumentId,
+    commodity_type: Option<String>,
+    ticker: Option<String>,
+    quantity: Option<f64>,
+    unit: Option<String>,
+    settlement_date: Option<time::Date>,
+    currency: Option<finstack_core::currency::Currency>,
+    forward_curve_id: Option<CurveId>,
+    discount_curve_id: Option<CurveId>,
+    multiplier: f64,
+    quoted_price: Option<f64>,
+    spot_price_id: Option<String>,
+    settlement_type: Option<SettlementType>,
+    exchange: Option<String>,
+    contract_month: Option<String>,
+}
+
+impl PyCommodityForwardBuilder {
+    fn new_with_id(id: InstrumentId) -> Self {
+        Self {
+            instrument_id: id,
+            commodity_type: None,
+            ticker: None,
+            quantity: None,
+            unit: None,
+            settlement_date: None,
+            currency: None,
+            forward_curve_id: None,
+            discount_curve_id: None,
+            multiplier: 1.0,
+            quoted_price: None,
+            spot_price_id: None,
+            settlement_type: None,
+            exchange: None,
+            contract_month: None,
+        }
+    }
+
+    fn ensure_ready(&self) -> PyResult<()> {
+        if self.commodity_type.as_deref().unwrap_or("").is_empty() {
+            return Err(PyValueError::new_err("commodity_type() is required."));
+        }
+        if self.ticker.as_deref().unwrap_or("").is_empty() {
+            return Err(PyValueError::new_err("ticker() is required."));
+        }
+        if self.quantity.is_none() {
+            return Err(PyValueError::new_err("quantity() is required."));
+        }
+        if self.unit.as_deref().unwrap_or("").is_empty() {
+            return Err(PyValueError::new_err("unit() is required."));
+        }
+        if self.settlement_date.is_none() {
+            return Err(PyValueError::new_err("settlement_date() is required."));
+        }
+        if self.currency.is_none() {
+            return Err(PyValueError::new_err("currency() is required."));
+        }
+        if self.forward_curve_id.is_none() {
+            return Err(PyValueError::new_err("forward_curve_id() is required."));
+        }
+        if self.discount_curve_id.is_none() {
+            return Err(PyValueError::new_err("discount_curve_id() is required."));
+        }
+        Ok(())
+    }
+}
+
 #[pymethods]
-impl PyCommodityForward {
-    #[classmethod]
-    #[pyo3(
-        text_signature = "(cls, instrument_id, *, commodity_type, ticker, quantity, unit, settlement_date, currency, forward_curve_id, discount_curve_id, multiplier=1.0, quoted_price=None, spot_price_id=None, settlement_type=None, exchange=None, contract_month=None)"
-    )]
-    #[pyo3(
-        signature = (
-            instrument_id,
-            *,
-            commodity_type,
-            ticker,
-            quantity,
-            unit,
-            settlement_date,
-            currency,
-            forward_curve_id,
-            discount_curve_id,
-            multiplier = 1.0,
-            quoted_price = None,
-            spot_price_id = None,
-            settlement_type = None,
-            exchange = None,
-            contract_month = None
-        )
-    )]
-    /// Create a commodity forward contract.
-    ///
-    /// Args:
-    ///     instrument_id: Unique identifier for this instrument.
-    ///     commodity_type: Commodity type (e.g., "Energy", "Metal", "Agricultural").
-    ///     ticker: Ticker or symbol (e.g., "CL" for WTI, "GC" for Gold).
-    ///     quantity: Contract quantity in units.
-    ///     unit: Unit of measurement (e.g., "BBL", "MT", "OZ").
-    ///     settlement_date: Settlement/delivery date.
-    ///     currency: Currency for pricing.
-    ///     forward_curve_id: Forward/futures curve ID for price interpolation.
-    ///     discount_curve_id: Discount curve ID.
-    ///     multiplier: Contract multiplier (default 1.0).
-    ///     quoted_price: Optional quoted forward price (overrides curve lookup).
-    ///     spot_price_id: Optional spot price ID (for delta calculations).
-    ///     settlement_type: Settlement type ("physical" or "cash").
-    ///     exchange: Optional exchange identifier (e.g., "NYMEX", "ICE").
-    ///     contract_month: Optional contract month (e.g., "2025M03").
-    ///
-    /// Returns:
-    ///     CommodityForward: Configured commodity forward instrument.
-    fn create(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        commodity_type: &str,
-        ticker: &str,
-        quantity: f64,
-        unit: &str,
-        settlement_date: Bound<'_, PyAny>,
-        currency: Bound<'_, PyAny>,
-        forward_curve_id: &str,
-        discount_curve_id: &str,
-        multiplier: f64,
-        quoted_price: Option<f64>,
-        spot_price_id: Option<&str>,
-        settlement_type: Option<&str>,
-        exchange: Option<&str>,
-        contract_month: Option<&str>,
-    ) -> PyResult<Self> {
-        use crate::errors::PyContext;
+impl PyCommodityForwardBuilder {
+    #[new]
+    #[pyo3(text_signature = "(instrument_id)")]
+    fn new_py(instrument_id: &str) -> Self {
+        Self::new_with_id(InstrumentId::new(instrument_id))
+    }
 
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+    #[pyo3(text_signature = "($self, commodity_type)")]
+    fn commodity_type(mut slf: PyRefMut<'_, Self>, commodity_type: String) -> PyRefMut<'_, Self> {
+        slf.commodity_type = Some(commodity_type);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, ticker)")]
+    fn ticker(mut slf: PyRefMut<'_, Self>, ticker: String) -> PyRefMut<'_, Self> {
+        slf.ticker = Some(ticker);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, quantity)")]
+    fn quantity(mut slf: PyRefMut<'_, Self>, quantity: f64) -> PyResult<PyRefMut<'_, Self>> {
+        if quantity <= 0.0 {
+            return Err(PyValueError::new_err("quantity must be positive"));
+        }
+        slf.quantity = Some(quantity);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, unit)")]
+    fn unit(mut slf: PyRefMut<'_, Self>, unit: String) -> PyRefMut<'_, Self> {
+        slf.unit = Some(unit);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, settlement_date)")]
+    fn settlement_date<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        settlement_date: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.settlement_date = Some(py_to_date(&settlement_date).context("settlement_date")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, currency)")]
+    fn currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        currency: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         let CurrencyArg(ccy) = currency.extract().context("currency")?;
-        let settle_date = py_to_date(&settlement_date).context("settlement_date")?;
+        slf.currency = Some(ccy);
+        Ok(slf)
+    }
 
-        let settlement_type_enum = match settlement_type {
+    #[pyo3(text_signature = "($self, curve_id)")]
+    fn forward_curve_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        slf.forward_curve_id = Some(CurveId::new(curve_id.as_str()));
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, curve_id)")]
+    fn discount_curve_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        slf.discount_curve_id = Some(CurveId::new(curve_id.as_str()));
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, multiplier)")]
+    fn multiplier(mut slf: PyRefMut<'_, Self>, multiplier: f64) -> PyRefMut<'_, Self> {
+        slf.multiplier = multiplier;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, quoted_price=None)", signature = (quoted_price=None))]
+    fn quoted_price(mut slf: PyRefMut<'_, Self>, quoted_price: Option<f64>) -> PyRefMut<'_, Self> {
+        slf.quoted_price = quoted_price;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, spot_price_id=None)", signature = (spot_price_id=None))]
+    fn spot_price_id(
+        mut slf: PyRefMut<'_, Self>,
+        spot_price_id: Option<String>,
+    ) -> PyRefMut<'_, Self> {
+        slf.spot_price_id = spot_price_id;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, settlement_type=None)", signature = (settlement_type=None))]
+    fn settlement_type(
+        mut slf: PyRefMut<'_, Self>,
+        settlement_type: Option<String>,
+    ) -> PyResult<PyRefMut<'_, Self>> {
+        slf.settlement_type = match settlement_type.as_deref() {
             Some("physical") | Some("Physical") => Some(SettlementType::Physical),
             Some("cash") | Some("Cash") => Some(SettlementType::Cash),
             None => None,
             Some(other) => {
-                return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                    "Invalid settlement_type: '{}'. Must be 'physical' or 'cash'",
-                    other
-                )));
+                return Err(PyValueError::new_err(format!(
+                    "Invalid settlement_type: '{other}'. Must be 'physical' or 'cash'",
+                )))
             }
         };
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, exchange=None)", signature = (exchange=None))]
+    fn exchange(mut slf: PyRefMut<'_, Self>, exchange: Option<String>) -> PyRefMut<'_, Self> {
+        slf.exchange = exchange;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, contract_month=None)", signature = (contract_month=None))]
+    fn contract_month(
+        mut slf: PyRefMut<'_, Self>,
+        contract_month: Option<String>,
+    ) -> PyRefMut<'_, Self> {
+        slf.contract_month = contract_month;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyCommodityForward> {
+        slf.ensure_ready()?;
+
+        let commodity_type = slf.commodity_type.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommodityForwardBuilder internal error: missing commodity_type after validation",
+            )
+        })?;
+        let ticker = slf.ticker.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommodityForwardBuilder internal error: missing ticker after validation",
+            )
+        })?;
+        let quantity = slf.quantity.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommodityForwardBuilder internal error: missing quantity after validation",
+            )
+        })?;
+        let unit = slf.unit.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommodityForwardBuilder internal error: missing unit after validation",
+            )
+        })?;
+        let settlement_date = slf.settlement_date.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommodityForwardBuilder internal error: missing settlement_date after validation",
+            )
+        })?;
+        let currency = slf.currency.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommodityForwardBuilder internal error: missing currency after validation",
+            )
+        })?;
+        let forward_curve_id = slf.forward_curve_id.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommodityForwardBuilder internal error: missing forward_curve_id after validation",
+            )
+        })?;
+        let discount_curve_id = slf.discount_curve_id.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommodityForwardBuilder internal error: missing discount_curve_id after validation",
+            )
+        })?;
 
         let mut builder = CommodityForward::builder()
-            .id(id)
-            .commodity_type(commodity_type.to_string())
-            .ticker(ticker.to_string())
+            .id(slf.instrument_id.clone())
+            .commodity_type(commodity_type)
+            .ticker(ticker)
             .quantity(quantity)
-            .unit(unit.to_string())
-            .multiplier(multiplier)
-            .settlement_date(settle_date)
-            .currency(ccy)
-            .forward_curve_id(CurveId::new(forward_curve_id))
-            .discount_curve_id(CurveId::new(discount_curve_id))
+            .unit(unit)
+            .multiplier(slf.multiplier)
+            .settlement_date(settlement_date)
+            .currency(currency)
+            .forward_curve_id(forward_curve_id)
+            .discount_curve_id(discount_curve_id)
             .attributes(Attributes::new());
 
-        if let Some(st) = settlement_type_enum {
+        if let Some(st) = slf.settlement_type {
             builder = builder.settlement_type_opt(Some(st));
         }
-        if let Some(qp) = quoted_price {
+        if let Some(qp) = slf.quoted_price {
             builder = builder.quoted_price_opt(Some(qp));
         }
-        if let Some(sp) = spot_price_id {
-            builder = builder.spot_price_id_opt(Some(sp.to_string()));
+        if let Some(sp) = slf.spot_price_id.clone() {
+            builder = builder.spot_price_id_opt(Some(sp));
         }
-        if let Some(ex) = exchange {
-            builder = builder.exchange_opt(Some(ex.to_string()));
+        if let Some(ex) = slf.exchange.clone() {
+            builder = builder.exchange_opt(Some(ex));
         }
-        if let Some(cm) = contract_month {
-            builder = builder.contract_month_opt(Some(cm.to_string()));
+        if let Some(cm) = slf.contract_month.clone() {
+            builder = builder.contract_month_opt(Some(cm));
         }
 
         let forward = builder
             .build()
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("{}", e)))?;
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("{e}")))?;
 
-        Ok(Self::new(forward))
+        Ok(PyCommodityForward::new(forward))
+    }
+
+    fn __repr__(&self) -> String {
+        "CommodityForwardBuilder(...)".to_string()
+    }
+}
+
+#[pymethods]
+impl PyCommodityForward {
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, instrument_id)")]
+    /// Start a fluent builder (builder-only API).
+    fn builder<'py>(
+        cls: &Bound<'py, PyType>,
+        instrument_id: &str,
+    ) -> PyResult<Py<PyCommodityForwardBuilder>> {
+        let py = cls.py();
+        let builder = PyCommodityForwardBuilder::new_with_id(InstrumentId::new(instrument_id));
+        Py::new(py, builder)
     }
 
     /// Instrument identifier.
@@ -281,5 +458,6 @@ impl fmt::Display for PyCommodityForward {
 /// Export module items for registration.
 pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     parent.add_class::<PyCommodityForward>()?;
+    parent.add_class::<PyCommodityForwardBuilder>()?;
     Ok(())
 }

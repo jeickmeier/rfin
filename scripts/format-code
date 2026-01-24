@@ -273,8 +273,8 @@ main() {
         fi
 
         run_formatter "Markdown formatting" \
-            "npx markdownlint-cli2 \"**/*.md\" \"#node_modules\" \"#finstack-wasm/pkg\" \"#.git\"" \
-            "npx markdownlint-cli2 \"**/*.md\" \"#node_modules\" \"#finstack-wasm/pkg\" \"#.git\" --fix" \
+            "npx markdownlint-cli2 \"**/*.md\" \"#node_modules\" \"#**/node_modules/**\" \"#finstack-wasm/pkg\" \"#.git\" \"#CHANGELOG.md\" \"#PARITY_AUDIT.md\" \"#.cursor\" \"#.agent\" \"#.zenflow\" \"#.zencoder\" \"#**/target/**\"" \
+            "npx markdownlint-cli2 \"**/*.md\" \"#node_modules\" \"#**/node_modules/**\" \"#finstack-wasm/pkg\" \"#.git\" \"#CHANGELOG.md\" \"#PARITY_AUDIT.md\" \"#.cursor\" \"#.agent\" \"#.zenflow\" \"#.zencoder\" \"#**/target/**\" --fix" \
             ""
     fi
 

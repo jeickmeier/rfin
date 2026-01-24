@@ -10,6 +10,97 @@ use finstack_valuations::pricer::InstrumentType;
 use js_sys::Array;
 use wasm_bindgen::prelude::*;
 
+#[wasm_bindgen(js_name = DepositBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsDepositBuilder {
+    instrument_id: String,
+    notional: Option<finstack_core::money::Money>,
+    start: Option<finstack_core::dates::Date>,
+    end: Option<finstack_core::dates::Date>,
+    day_count: Option<finstack_core::dates::DayCount>,
+    discount_curve: Option<String>,
+    quote_rate: Option<f64>,
+}
+
+#[wasm_bindgen(js_class = DepositBuilder)]
+impl JsDepositBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new(instrument_id: &str) -> JsDepositBuilder {
+        JsDepositBuilder {
+            instrument_id: instrument_id.to_string(),
+            ..Default::default()
+        }
+    }
+
+    #[wasm_bindgen(js_name = money)]
+    pub fn money(mut self, notional: &JsMoney) -> JsDepositBuilder {
+        self.notional = Some(notional.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = start)]
+    pub fn start(mut self, start: &JsDate) -> JsDepositBuilder {
+        self.start = Some(start.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = end)]
+    pub fn end(mut self, end: &JsDate) -> JsDepositBuilder {
+        self.end = Some(end.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = dayCount)]
+    pub fn day_count(mut self, day_count: &JsDayCount) -> JsDepositBuilder {
+        self.day_count = Some(day_count.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = discountCurve)]
+    pub fn discount_curve(mut self, discount_curve: &str) -> JsDepositBuilder {
+        self.discount_curve = Some(discount_curve.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = quoteRate)]
+    pub fn quote_rate(mut self, quote_rate: f64) -> JsDepositBuilder {
+        self.quote_rate = Some(quote_rate);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsDeposit, JsValue> {
+        let notional = self
+            .notional
+            .ok_or_else(|| js_error("DepositBuilder: notional (money) is required".to_string()))?;
+        let start = self
+            .start
+            .ok_or_else(|| js_error("DepositBuilder: start is required".to_string()))?;
+        let end = self
+            .end
+            .ok_or_else(|| js_error("DepositBuilder: end is required".to_string()))?;
+        let day_count = self
+            .day_count
+            .ok_or_else(|| js_error("DepositBuilder: dayCount is required".to_string()))?;
+        let discount_curve = self
+            .discount_curve
+            .as_deref()
+            .ok_or_else(|| js_error("DepositBuilder: discountCurve is required".to_string()))?;
+
+        Deposit::builder()
+            .id(instrument_id_from_str(&self.instrument_id))
+            .notional(notional)
+            .start(start)
+            .end(end)
+            .day_count(day_count)
+            .discount_curve_id(curve_id_from_str(discount_curve))
+            .quote_rate_opt(self.quote_rate)
+            .build()
+            .map(JsDeposit::from_inner)
+            .map_err(|e| js_error(e.to_string()))
+    }
+}
+
 #[wasm_bindgen(js_name = Deposit)]
 #[derive(Clone, Debug)]
 pub struct JsDeposit {
@@ -69,6 +160,9 @@ impl JsDeposit {
         discount_curve: &str,
         quote_rate: Option<f64>,
     ) -> Result<JsDeposit, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "Deposit constructor is deprecated; use DepositBuilder instead.",
+        ));
         Deposit::builder()
             .id(instrument_id_from_str(instrument_id))
             .notional(notional.inner())

@@ -2,13 +2,18 @@ use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::credit_derivatives::cds::{CreditDefaultSwap, PayReceive};
+use finstack_valuations::instruments::credit_derivatives::cds::{
+    CDSConvention, CreditDefaultSwap, CreditDefaultSwapBuilder, PayReceive, PremiumLegSpec,
+    ProtectionLegSpec,
+};
+use finstack_valuations::instruments::{Attributes, PricingOverrides};
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRef};
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use std::fmt;
 use std::sync::Arc;
 
@@ -407,16 +412,41 @@ fn construct_cds(
     let disc = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
     let credit = credit_curve.extract::<&str>().context("credit_curve")?;
 
-    let mut cds = match side {
-        PayReceive::PayFixed => {
-            CreditDefaultSwap::buy_protection(id.clone(), amt, spread_bp, start, end, disc, credit)
-                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?
-        }
-        PayReceive::ReceiveFixed => {
-            CreditDefaultSwap::sell_protection(id.clone(), amt, spread_bp, start, end, disc, credit)
-                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?
-        }
-    };
+    let convention = CDSConvention::IsdaNa;
+    let dc = convention.day_count();
+    let freq = convention.frequency();
+    let bdc = convention.business_day_convention();
+    let stub = convention.stub_convention();
+
+    let spread_bp_decimal = Decimal::try_from(spread_bp).map_err(|e| {
+        PyValueError::new_err(format!("spread_bp cannot be represented as Decimal: {e}"))
+    })?;
+
+    let mut cds = CreditDefaultSwapBuilder::new()
+        .id(id.clone())
+        .notional(amt)
+        .side(side)
+        .convention(convention)
+        .premium(PremiumLegSpec {
+            start,
+            end,
+            freq,
+            stub,
+            bdc,
+            calendar_id: Some(convention.default_calendar().to_string()),
+            dc,
+            spread_bp: spread_bp_decimal,
+            discount_curve_id: disc,
+        })
+        .protection(ProtectionLegSpec {
+            credit_curve_id: CurveId::new(credit),
+            recovery_rate: finstack_valuations::instruments::credit_derivatives::cds::RECOVERY_SENIOR_UNSECURED,
+            settlement_delay: convention.settlement_delay(),
+        })
+        .pricing_overrides(PricingOverrides::default())
+        .attributes(Attributes::new())
+        .build()
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
 
     if let Some(rr) = recovery_rate {
         cds.protection.recovery_rate = rr;
@@ -424,6 +454,9 @@ fn construct_cds(
     if let Some(delay) = settlement_delay {
         cds.protection.settlement_delay = delay;
     }
+
+    cds.validate()
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
 
     Ok(PyCreditDefaultSwap::new(cds))
 }

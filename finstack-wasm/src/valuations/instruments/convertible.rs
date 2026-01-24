@@ -115,6 +115,104 @@ impl InstrumentWrapper for JsConvertibleBond {
     }
 }
 
+#[wasm_bindgen(js_name = ConvertibleBondBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsConvertibleBondBuilder {
+    instrument_id: String,
+    notional: Option<finstack_core::money::Money>,
+    issue: Option<finstack_core::dates::Date>,
+    maturity: Option<finstack_core::dates::Date>,
+    discount_curve: Option<String>,
+    conversion: Option<ConversionSpec>,
+    underlying_equity_id: Option<String>,
+}
+
+#[wasm_bindgen(js_class = ConvertibleBondBuilder)]
+impl JsConvertibleBondBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new(instrument_id: &str) -> JsConvertibleBondBuilder {
+        JsConvertibleBondBuilder {
+            instrument_id: instrument_id.to_string(),
+            ..Default::default()
+        }
+    }
+
+    #[wasm_bindgen(js_name = money)]
+    pub fn money(mut self, notional: &JsMoney) -> JsConvertibleBondBuilder {
+        self.notional = Some(notional.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = issue)]
+    pub fn issue(mut self, issue: &JsDate) -> JsConvertibleBondBuilder {
+        self.issue = Some(issue.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = maturity)]
+    pub fn maturity(mut self, maturity: &JsDate) -> JsConvertibleBondBuilder {
+        self.maturity = Some(maturity.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = discountCurve)]
+    pub fn discount_curve(mut self, discount_curve: &str) -> JsConvertibleBondBuilder {
+        self.discount_curve = Some(discount_curve.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = conversion)]
+    pub fn conversion(mut self, conversion: &JsConversionSpec) -> JsConvertibleBondBuilder {
+        self.conversion = Some(conversion.inner.clone());
+        self
+    }
+
+    #[wasm_bindgen(js_name = underlyingEquityId)]
+    pub fn underlying_equity_id(
+        mut self,
+        underlying_equity_id: String,
+    ) -> JsConvertibleBondBuilder {
+        self.underlying_equity_id = Some(underlying_equity_id);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsConvertibleBond, JsValue> {
+        let notional = self.notional.ok_or_else(|| {
+            js_error("ConvertibleBondBuilder: notional (money) is required".to_string())
+        })?;
+        let issue = self
+            .issue
+            .ok_or_else(|| js_error("ConvertibleBondBuilder: issue is required".to_string()))?;
+        let maturity = self
+            .maturity
+            .ok_or_else(|| js_error("ConvertibleBondBuilder: maturity is required".to_string()))?;
+        let discount_curve = self.discount_curve.as_deref().ok_or_else(|| {
+            js_error("ConvertibleBondBuilder: discountCurve is required".to_string())
+        })?;
+        let conversion = self.conversion.ok_or_else(|| {
+            js_error("ConvertibleBondBuilder: conversion is required".to_string())
+        })?;
+
+        let bond = ConvertibleBond {
+            id: instrument_id_from_str(&self.instrument_id),
+            notional,
+            issue,
+            maturity,
+            discount_curve_id: curve_id_from_str(discount_curve),
+            credit_curve_id: None,
+            conversion,
+            underlying_equity_id: self.underlying_equity_id,
+            call_put: None,
+            fixed_coupon: None,
+            floating_coupon: None,
+            attributes: Default::default(),
+        };
+
+        Ok(JsConvertibleBond::from_inner(bond))
+    }
+}
+
 #[wasm_bindgen(js_class = ConvertibleBond)]
 impl JsConvertibleBond {
     /// Create a convertible bond.
@@ -159,6 +257,9 @@ impl JsConvertibleBond {
         conversion: &JsConversionSpec,
         underlying_equity_id: Option<String>,
     ) -> Result<JsConvertibleBond, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "ConvertibleBond constructor is deprecated; use ConvertibleBondBuilder instead.",
+        ));
         let bond = ConvertibleBond {
             id: instrument_id_from_str(instrument_id),
             notional: notional.inner(),

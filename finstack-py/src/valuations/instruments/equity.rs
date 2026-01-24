@@ -1,25 +1,20 @@
 use crate::core::common::args::CurrencyArg;
 use crate::core::currency::PyCurrency;
 // use crate::core::money::PyMoney; // not used in this module
+use crate::errors::PyContext;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::types::InstrumentId;
 use finstack_valuations::instruments::equity::Equity;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use pyo3::Bound;
+use pyo3::{Bound, Py, PyRefMut};
 use std::fmt;
 use std::sync::Arc;
 
 /// Spot equity position with optional share count and price override.
 ///
 /// Examples:
-///     >>> equity = Equity.create(
-///     ...     "eq_us_apple",
-///     ...     "AAPL",
-///     ...     "USD",
-///     ...     shares=100,
-///     ...     price=185.5
-///     ... )
+///     >>> equity = Equity.builder("eq_us_apple").ticker("AAPL").currency("USD").shares(100).price(185.5).build()
 ///     >>> equity.shares
 ///     100.0
 #[pyclass(module = "finstack.valuations.instruments", name = "Equity", frozen)]
@@ -36,67 +31,127 @@ impl PyEquity {
     }
 }
 
+/// Fluent builder for Equity (builder-only API).
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "EquityBuilder",
+    unsendable
+)]
+pub struct PyEquityBuilder {
+    instrument_id: InstrumentId,
+    ticker: Option<String>,
+    currency: Option<finstack_core::currency::Currency>,
+    shares: Option<f64>,
+    price: Option<f64>,
+    price_id: Option<String>,
+    div_yield_id: Option<String>,
+}
+
+impl PyEquityBuilder {
+    fn new_with_id(id: InstrumentId) -> Self {
+        Self {
+            instrument_id: id,
+            ticker: None,
+            currency: None,
+            shares: None,
+            price: None,
+            price_id: None,
+            div_yield_id: None,
+        }
+    }
+}
+
+#[pymethods]
+impl PyEquityBuilder {
+    #[new]
+    #[pyo3(text_signature = "(instrument_id)")]
+    fn new_py(instrument_id: &str) -> Self {
+        Self::new_with_id(InstrumentId::new(instrument_id))
+    }
+
+    #[pyo3(text_signature = "($self, ticker)")]
+    fn ticker(mut slf: PyRefMut<'_, Self>, ticker: String) -> PyRefMut<'_, Self> {
+        slf.ticker = Some(ticker);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, currency)")]
+    fn currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        currency: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let CurrencyArg(ccy) = currency.extract().context("currency")?;
+        slf.currency = Some(ccy);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, shares)")]
+    fn shares(mut slf: PyRefMut<'_, Self>, shares: f64) -> PyRefMut<'_, Self> {
+        slf.shares = Some(shares);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, price)")]
+    fn price(mut slf: PyRefMut<'_, Self>, price: f64) -> PyRefMut<'_, Self> {
+        slf.price = Some(price);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, price_id)")]
+    fn price_id(mut slf: PyRefMut<'_, Self>, price_id: String) -> PyRefMut<'_, Self> {
+        slf.price_id = Some(price_id);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, div_yield_id)")]
+    fn div_yield_id(mut slf: PyRefMut<'_, Self>, div_yield_id: String) -> PyRefMut<'_, Self> {
+        slf.div_yield_id = Some(div_yield_id);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyEquity> {
+        let ticker = slf.ticker.as_deref().ok_or_else(|| {
+            pyo3::exceptions::PyValueError::new_err("EquityBuilder: ticker() is required")
+        })?;
+        let currency = slf.currency.ok_or_else(|| {
+            pyo3::exceptions::PyValueError::new_err("EquityBuilder: currency() is required")
+        })?;
+
+        let mut equity = Equity::new(slf.instrument_id.clone().into_string(), ticker, currency);
+        if let Some(qty) = slf.shares {
+            equity = equity.with_shares(qty);
+        }
+        if let Some(px) = slf.price {
+            equity = equity.with_price(px);
+        }
+        if let Some(pid) = slf.price_id.as_deref() {
+            equity = equity.with_price_id(pid);
+        }
+        if let Some(did) = slf.div_yield_id.as_deref() {
+            equity = equity.with_dividend_yield_id(did);
+        }
+
+        Ok(PyEquity::new(equity))
+    }
+
+    fn __repr__(&self) -> String {
+        "EquityBuilder(...)".to_string()
+    }
+}
+
 #[pymethods]
 impl PyEquity {
     #[classmethod]
-    #[pyo3(
-        text_signature = "(cls, instrument_id, ticker, currency, *, shares=None, price=None, price_id=None, div_yield_id=None)"
-    )]
-    #[pyo3(
-        signature = (
-            instrument_id,
-            ticker,
-            currency,
-            *,
-            shares=None,
-            price=None,
-            price_id=None,
-            div_yield_id=None
-        )
-    )]
-    /// Create an equity instrument optionally specifying share count and price.
-    ///
-    /// Args:
-    ///     instrument_id: Instrument identifier or string-like object.
-    ///     ticker: Equity ticker symbol (e.g., ``"AAPL"``).
-    ///     currency: Currency for quotation, supplied as a currency wrapper or code.
-    ///     shares: Optional number of shares held.
-    ///     price: Optional price override per share.
-    ///     price_id: Optional market data identifier resolving spot price.
-    ///     div_yield_id: Optional market data identifier for dividend yield.
-    ///
-    /// Returns:
-    ///     Equity: Configured equity instrument ready for pricing.
-    ///
-    /// Raises:
-    ///     ValueError: If identifiers or currency inputs cannot be parsed.
-    fn create(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        ticker: &str,
-        currency: Bound<'_, PyAny>,
-        shares: Option<f64>,
-        price: Option<f64>,
-        price_id: Option<&str>,
-        div_yield_id: Option<&str>,
-    ) -> PyResult<Self> {
-        use crate::errors::PyContext;
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-        let CurrencyArg(ccy) = currency.extract().context("currency")?;
-        let mut equity = Equity::new(id.into_string(), ticker, ccy);
-        if let Some(qty) = shares {
-            equity = equity.with_shares(qty);
-        }
-        if let Some(px) = price {
-            equity = equity.with_price(px);
-        }
-        if let Some(pid) = price_id {
-            equity = equity.with_price_id(pid);
-        }
-        if let Some(did) = div_yield_id {
-            equity = equity.with_dividend_yield_id(did);
-        }
-        Ok(Self::new(equity))
+    #[pyo3(text_signature = "(cls, instrument_id)")]
+    /// Start a fluent builder (builder-only API).
+    fn builder<'py>(
+        cls: &Bound<'py, PyType>,
+        instrument_id: &str,
+    ) -> PyResult<Py<PyEquityBuilder>> {
+        let py = cls.py();
+        let builder = PyEquityBuilder::new_with_id(InstrumentId::new(instrument_id));
+        Py::new(py, builder)
     }
 
     /// Instrument identifier.
@@ -198,5 +253,6 @@ pub(crate) fn register<'py>(
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyEquity>()?;
-    Ok(vec!["Equity"])
+    module.add_class::<PyEquityBuilder>()?;
+    Ok(vec!["Equity", "EquityBuilder"])
 }

@@ -32,8 +32,8 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::equity::equity_option::EquityOption;
 use finstack_valuations::instruments::Instrument;
+use finstack_valuations::test_utils;
 use time::macros::date;
 
 /// Helper: Create market context for option pricing
@@ -94,7 +94,7 @@ fn quantlib_parity_atm_call_black_scholes() {
     let rate = 0.05; // 5% risk-free rate
     let div_yield = 0.02; // 2% dividend yield
 
-    let call = EquityOption::european_call(
+    let call = test_utils::equity_option_european_call(
         "CALL_ATM",
         "EQUITY",
         strike,
@@ -102,7 +102,7 @@ fn quantlib_parity_atm_call_black_scholes() {
         Money::new(spot, Currency::USD),
         1.0, // contract size
     )
-    .expect("EquityOption::european_call should succeed with valid parameters");
+    .unwrap();
 
     let market = create_option_market(as_of, spot, vol, rate, div_yield);
     let pv = call.value(&market, as_of).unwrap();
@@ -134,7 +134,7 @@ fn quantlib_parity_atm_put_black_scholes() {
     let rate = 0.05;
     let div_yield = 0.02;
 
-    let put = EquityOption::european_put(
+    let put = test_utils::equity_option_european_put(
         "PUT_ATM",
         "EQUITY",
         strike,
@@ -174,7 +174,7 @@ fn quantlib_parity_put_call_parity() {
     let rate = 0.05;
     let div_yield = 0.02;
 
-    let call = EquityOption::european_call(
+    let call = test_utils::equity_option_european_call(
         "CALL_PCP",
         "EQUITY",
         strike,
@@ -184,7 +184,7 @@ fn quantlib_parity_put_call_parity() {
     )
     .unwrap();
 
-    let put = EquityOption::european_put(
+    let put = test_utils::equity_option_european_put(
         "PUT_PCP",
         "EQUITY",
         strike,
@@ -231,7 +231,7 @@ fn quantlib_parity_itm_call() {
     let rate = 0.05;
     let div_yield = 0.02;
 
-    let call = EquityOption::european_call(
+    let call = test_utils::equity_option_european_call(
         "CALL_ITM",
         "EQUITY",
         strike,
@@ -271,7 +271,7 @@ fn quantlib_parity_otm_put() {
     let rate = 0.05;
     let div_yield = 0.02;
 
-    let put = EquityOption::european_put(
+    let put = test_utils::equity_option_european_put(
         "PUT_OTM",
         "EQUITY",
         strike,
@@ -317,7 +317,7 @@ fn quantlib_parity_short_dated_option() {
     let rate = 0.05;
     let div_yield = 0.02;
 
-    let call = EquityOption::european_call(
+    let call = test_utils::equity_option_european_call(
         "CALL_1M",
         "EQUITY",
         strike,
@@ -358,7 +358,7 @@ fn quantlib_parity_long_dated_option() {
     let rate = 0.05;
     let div_yield = 0.02;
 
-    let call = EquityOption::european_call(
+    let call = test_utils::equity_option_european_call(
         "CALL_3Y",
         "EQUITY",
         strike,
@@ -398,7 +398,7 @@ fn quantlib_parity_high_vol_option() {
     let rate = 0.05;
     let div_yield = 0.02;
 
-    let call = EquityOption::european_call(
+    let call = test_utils::equity_option_european_call(
         "CALL_HIGHVOL",
         "EQUITY",
         strike,
@@ -439,7 +439,7 @@ fn quantlib_parity_deep_itm_call() {
     let rate = 0.05;
     let div_yield = 0.02;
 
-    let call = EquityOption::european_call(
+    let call = test_utils::equity_option_european_call(
         "CALL_DEEP_ITM",
         "EQUITY",
         strike,
@@ -482,7 +482,7 @@ fn quantlib_parity_deep_otm_put() {
     let rate = 0.05;
     let div_yield = 0.02;
 
-    let put = EquityOption::european_put(
+    let put = test_utils::equity_option_european_put(
         "PUT_DEEP_OTM",
         "EQUITY",
         strike,

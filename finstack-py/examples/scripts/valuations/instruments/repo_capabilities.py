@@ -45,17 +45,18 @@ def build_repo(as_of: date) -> Repo:
     # Use a start date strictly after as_of to avoid zero-length accrual date ranges.
     start = as_of + timedelta(days=1)
     maturity = as_of + timedelta(days=15)
-    return Repo.create(
-        "UST-TERM-REPO",
-        Money(10_000_000.0, USD),
-        collateral,
-        repo_rate=0.032,
-        start_date=start,
-        maturity=maturity,
-        discount_curve="USD-OIS",
-        repo_type="term",
-        haircut=0.02,
-        calendar="usny",
+    return (
+        Repo.builder("UST-TERM-REPO")
+        .cash_amount(Money(10_000_000.0, USD))
+        .collateral(collateral)
+        .repo_rate(0.032)
+        .start_date(start)
+        .maturity(maturity)
+        .disc_id("USD-OIS")
+        .repo_type("term")
+        .haircut(0.02)
+        .calendar("usny")
+        .build()
     )
 
 

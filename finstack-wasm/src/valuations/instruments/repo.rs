@@ -15,6 +15,142 @@ use finstack_valuations::pricer::InstrumentType;
 use js_sys::Array;
 use wasm_bindgen::prelude::*;
 
+#[wasm_bindgen(js_name = RepoBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsRepoBuilder {
+    instrument_id: String,
+    cash_amount: Option<finstack_core::money::Money>,
+    collateral: Option<CollateralSpec>,
+    repo_rate: Option<f64>,
+    start_date: Option<finstack_core::dates::Date>,
+    maturity: Option<finstack_core::dates::Date>,
+    discount_curve: Option<String>,
+    repo_type: Option<String>,
+    haircut: Option<f64>,
+    day_count: Option<finstack_core::dates::DayCount>,
+    business_day_convention: Option<finstack_core::dates::BusinessDayConvention>,
+}
+
+#[wasm_bindgen(js_class = RepoBuilder)]
+impl JsRepoBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new(instrument_id: &str) -> JsRepoBuilder {
+        JsRepoBuilder {
+            instrument_id: instrument_id.to_string(),
+            ..Default::default()
+        }
+    }
+
+    #[wasm_bindgen(js_name = money)]
+    pub fn money(mut self, cash_amount: &JsMoney) -> JsRepoBuilder {
+        self.cash_amount = Some(cash_amount.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = collateral)]
+    pub fn collateral(mut self, collateral: &JsRepoCollateral) -> JsRepoBuilder {
+        self.collateral = Some(collateral.inner.clone());
+        self
+    }
+
+    #[wasm_bindgen(js_name = repoRate)]
+    pub fn repo_rate(mut self, repo_rate: f64) -> JsRepoBuilder {
+        self.repo_rate = Some(repo_rate);
+        self
+    }
+
+    #[wasm_bindgen(js_name = startDate)]
+    pub fn start_date(mut self, start_date: &JsDate) -> JsRepoBuilder {
+        self.start_date = Some(start_date.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = maturity)]
+    pub fn maturity(mut self, maturity: &JsDate) -> JsRepoBuilder {
+        self.maturity = Some(maturity.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = discountCurve)]
+    pub fn discount_curve(mut self, discount_curve: &str) -> JsRepoBuilder {
+        self.discount_curve = Some(discount_curve.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = repoType)]
+    pub fn repo_type(mut self, repo_type: String) -> JsRepoBuilder {
+        self.repo_type = Some(repo_type);
+        self
+    }
+
+    #[wasm_bindgen(js_name = haircut)]
+    pub fn haircut(mut self, haircut: f64) -> JsRepoBuilder {
+        self.haircut = Some(haircut);
+        self
+    }
+
+    #[wasm_bindgen(js_name = dayCount)]
+    pub fn day_count(mut self, day_count: JsDayCount) -> JsRepoBuilder {
+        self.day_count = Some(day_count.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = businessDayConvention)]
+    pub fn business_day_convention(
+        mut self,
+        business_day_convention: JsBusinessDayConvention,
+    ) -> JsRepoBuilder {
+        self.business_day_convention = Some(business_day_convention.into());
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsRepo, JsValue> {
+        let cash_amount = self
+            .cash_amount
+            .ok_or_else(|| js_error("RepoBuilder: cash amount (money) is required".to_string()))?;
+        let collateral = self
+            .collateral
+            .ok_or_else(|| js_error("RepoBuilder: collateral is required".to_string()))?;
+        let repo_rate = self
+            .repo_rate
+            .ok_or_else(|| js_error("RepoBuilder: repoRate is required".to_string()))?;
+        let start_date = self
+            .start_date
+            .ok_or_else(|| js_error("RepoBuilder: startDate is required".to_string()))?;
+        let maturity = self
+            .maturity
+            .ok_or_else(|| js_error("RepoBuilder: maturity is required".to_string()))?;
+        let discount_curve = self
+            .discount_curve
+            .as_deref()
+            .ok_or_else(|| js_error("RepoBuilder: discountCurve is required".to_string()))?;
+
+        let repo_type_value = parse_optional_with_default(self.repo_type, RepoType::Term)?;
+        let dc = self.day_count.unwrap_or(DayCount::Act360);
+        let bdc = self
+            .business_day_convention
+            .unwrap_or(finstack_core::dates::BusinessDayConvention::Following);
+
+        Repo::builder()
+            .id(instrument_id_from_str(&self.instrument_id))
+            .cash_amount(cash_amount)
+            .collateral(collateral)
+            .repo_rate(repo_rate)
+            .start_date(start_date)
+            .maturity(maturity)
+            .haircut(self.haircut.unwrap_or(0.0))
+            .repo_type(repo_type_value)
+            .triparty(false)
+            .day_count(dc)
+            .bdc(bdc)
+            .discount_curve_id(curve_id_from_str(discount_curve))
+            .build()
+            .map(JsRepo::from_inner)
+            .map_err(|e| js_error(e.to_string()))
+    }
+}
+
 #[wasm_bindgen(js_name = RepoCollateral)]
 #[derive(Clone, Debug)]
 pub struct JsRepoCollateral {
@@ -113,6 +249,9 @@ impl JsRepo {
         day_count: Option<JsDayCount>,
         business_day_convention: Option<JsBusinessDayConvention>,
     ) -> Result<JsRepo, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "Repo constructor is deprecated; use RepoBuilder instead.",
+        ));
         let repo_type_value = parse_optional_with_default(repo_type, RepoType::Term)?;
         let dc = day_count.map(|d| d.inner()).unwrap_or(DayCount::Act360);
         let bdc = business_day_convention

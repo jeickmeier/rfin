@@ -13,6 +13,193 @@ use finstack_valuations::instruments::OptionType;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 
+#[wasm_bindgen(js_name = BarrierOptionBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsBarrierOptionBuilder {
+    instrument_id: String,
+    ticker: Option<String>,
+    strike: Option<f64>,
+    barrier: Option<f64>,
+    option_type: Option<String>,
+    barrier_type: Option<String>,
+    expiry: Option<finstack_core::dates::Date>,
+    notional: Option<finstack_core::money::Money>,
+    discount_curve: Option<String>,
+    spot_id: Option<String>,
+    vol_surface: Option<String>,
+    div_yield_id: Option<String>,
+    use_gobet_miri: Option<bool>,
+}
+
+#[wasm_bindgen(js_class = BarrierOptionBuilder)]
+impl JsBarrierOptionBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new(instrument_id: &str) -> JsBarrierOptionBuilder {
+        JsBarrierOptionBuilder {
+            instrument_id: instrument_id.to_string(),
+            ..Default::default()
+        }
+    }
+
+    #[wasm_bindgen(js_name = ticker)]
+    pub fn ticker(mut self, ticker: String) -> JsBarrierOptionBuilder {
+        self.ticker = Some(ticker);
+        self
+    }
+
+    #[wasm_bindgen(js_name = strike)]
+    pub fn strike(mut self, strike: f64) -> JsBarrierOptionBuilder {
+        self.strike = Some(strike);
+        self
+    }
+
+    #[wasm_bindgen(js_name = barrier)]
+    pub fn barrier(mut self, barrier: f64) -> JsBarrierOptionBuilder {
+        self.barrier = Some(barrier);
+        self
+    }
+
+    #[wasm_bindgen(js_name = optionType)]
+    pub fn option_type(mut self, option_type: String) -> JsBarrierOptionBuilder {
+        self.option_type = Some(option_type);
+        self
+    }
+
+    #[wasm_bindgen(js_name = barrierType)]
+    pub fn barrier_type(mut self, barrier_type: String) -> JsBarrierOptionBuilder {
+        self.barrier_type = Some(barrier_type);
+        self
+    }
+
+    #[wasm_bindgen(js_name = expiry)]
+    pub fn expiry(mut self, expiry: &JsDate) -> JsBarrierOptionBuilder {
+        self.expiry = Some(expiry.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = money)]
+    pub fn money(mut self, notional: &JsMoney) -> JsBarrierOptionBuilder {
+        self.notional = Some(notional.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = discountCurve)]
+    pub fn discount_curve(mut self, discount_curve: &str) -> JsBarrierOptionBuilder {
+        self.discount_curve = Some(discount_curve.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = spotId)]
+    pub fn spot_id(mut self, spot_id: &str) -> JsBarrierOptionBuilder {
+        self.spot_id = Some(spot_id.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = volSurface)]
+    pub fn vol_surface(mut self, vol_surface: &str) -> JsBarrierOptionBuilder {
+        self.vol_surface = Some(vol_surface.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = divYieldId)]
+    pub fn div_yield_id(mut self, div_yield_id: String) -> JsBarrierOptionBuilder {
+        self.div_yield_id = Some(div_yield_id);
+        self
+    }
+
+    #[wasm_bindgen(js_name = useGobetMiri)]
+    pub fn use_gobet_miri(mut self, use_gobet_miri: bool) -> JsBarrierOptionBuilder {
+        self.use_gobet_miri = Some(use_gobet_miri);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsBarrierOption, JsValue> {
+        use crate::core::error::js_error;
+        use finstack_core::dates::DayCount;
+
+        let ticker = self
+            .ticker
+            .as_deref()
+            .ok_or_else(|| js_error("BarrierOptionBuilder: ticker is required"))?;
+        let strike = self
+            .strike
+            .ok_or_else(|| js_error("BarrierOptionBuilder: strike is required"))?;
+        let barrier = self
+            .barrier
+            .ok_or_else(|| js_error("BarrierOptionBuilder: barrier is required"))?;
+        let option_type = self
+            .option_type
+            .as_deref()
+            .ok_or_else(|| js_error("BarrierOptionBuilder: optionType is required"))?;
+        let barrier_type = self
+            .barrier_type
+            .as_deref()
+            .ok_or_else(|| js_error("BarrierOptionBuilder: barrierType is required"))?;
+        let expiry = self
+            .expiry
+            .ok_or_else(|| js_error("BarrierOptionBuilder: expiry is required"))?;
+        let notional = self
+            .notional
+            .ok_or_else(|| js_error("BarrierOptionBuilder: notional (money) is required"))?;
+        let discount_curve = self
+            .discount_curve
+            .as_deref()
+            .ok_or_else(|| js_error("BarrierOptionBuilder: discountCurve is required"))?;
+        let spot_id = self
+            .spot_id
+            .as_deref()
+            .ok_or_else(|| js_error("BarrierOptionBuilder: spotId is required"))?;
+        let vol_surface = self
+            .vol_surface
+            .as_deref()
+            .ok_or_else(|| js_error("BarrierOptionBuilder: volSurface is required"))?;
+
+        let opt_type = match option_type.to_lowercase().as_str() {
+            "call" => OptionType::Call,
+            "put" => OptionType::Put,
+            other => return Err(js_error(format!("Unknown option type: {other}"))),
+        };
+
+        let barrier_type_enum = match barrier_type.to_lowercase().replace('_', "").as_str() {
+            "upandout" => BarrierOptionType::UpAndOut,
+            "upandin" => BarrierOptionType::UpAndIn,
+            "downandout" => BarrierOptionType::DownAndOut,
+            "downandin" => BarrierOptionType::DownAndIn,
+            other => return Err(js_error(format!("Unknown barrier type: {other}"))),
+        };
+
+        let strike_money = finstack_core::money::Money::new(strike, notional.currency());
+        let barrier_money = finstack_core::money::Money::new(barrier, notional.currency());
+
+        let mut builder = BarrierOption::builder();
+        builder = builder.id(instrument_id_from_str(&self.instrument_id));
+        builder = builder.underlying_ticker(ticker.to_string());
+        builder = builder.strike(strike_money);
+        builder = builder.barrier(barrier_money);
+        builder = builder.option_type(opt_type);
+        builder = builder.barrier_type(barrier_type_enum);
+        builder = builder.expiry(expiry);
+        builder = builder.notional(notional);
+        builder = builder.day_count(DayCount::Act365F);
+        builder = builder.use_gobet_miri(self.use_gobet_miri.unwrap_or(false));
+        builder = builder.discount_curve_id(curve_id_from_str(discount_curve));
+        builder = builder.spot_id(spot_id.to_string());
+        builder = builder.vol_surface_id(curve_id_from_str(vol_surface));
+        if let Some(div) = self.div_yield_id {
+            builder = builder.div_yield_id(curve_id_from_str(&div));
+        }
+        builder = builder
+            .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
+        builder = builder.attributes(finstack_valuations::instruments::Attributes::new());
+
+        builder
+            .build()
+            .map(JsBarrierOption::from_inner)
+            .map_err(|e| js_error(e.to_string()))
+    }
+}
+
 #[wasm_bindgen(js_name = BarrierOption)]
 #[derive(Clone, Debug)]
 pub struct JsBarrierOption {
@@ -90,6 +277,9 @@ impl JsBarrierOption {
         div_yield_id: Option<String>,
         use_gobet_miri: Option<bool>,
     ) -> Result<JsBarrierOption, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "BarrierOption constructor is deprecated; use BarrierOptionBuilder instead.",
+        ));
         use crate::core::error::js_error;
         use finstack_core::dates::DayCount;
 

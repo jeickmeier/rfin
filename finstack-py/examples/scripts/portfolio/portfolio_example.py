@@ -405,9 +405,23 @@ def example_5_multi_entity_portfolio() -> None:
         quote_rate=0.0475,  # 4.75% deposit rate
     )
 
-    equity_aapl = Equity.create("AAPL_POS", "AAPL", Currency("USD"), shares=5000.0)
+    equity_aapl = (
+        Equity.builder("AAPL_POS")
+        .ticker("AAPL")
+        .currency(Currency("USD"))
+        .shares(5000.0)
+        .price_id("AAPL")
+        .build()
+    )
 
-    equity_msft = Equity.create("MSFT_POS", "MSFT", Currency("USD"), shares=2000.0)
+    equity_msft = (
+        Equity.builder("MSFT_POS")
+        .ticker("MSFT")
+        .currency(Currency("USD"))
+        .shares(2000.0)
+        .price_id("MSFT")
+        .build()
+    )
 
     swap = InterestRateSwap.usd_pay_fixed(
         "IRS_PAY_FIXED", Money(8_000_000, "USD"), 0.0450, date(2024, 1, 5), date(2027, 1, 5)
@@ -551,7 +565,14 @@ def example_7_position_units() -> None:
         "USD-OIS",
     )
 
-    equity = Equity.create("EQUITY_UNITS", "AAPL", Currency("USD"), shares=100.0)
+    equity = (
+        Equity.builder("EQUITY_UNITS")
+        .ticker("AAPL")
+        .currency(Currency("USD"))
+        .shares(100.0)
+        .price_id("AAPL")
+        .build()
+    )
 
     entity = Entity("PORTFOLIO_MGR")
 

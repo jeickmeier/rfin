@@ -16,7 +16,7 @@ use finstack_valuations::instruments::{TrsScheduleSpec, TrsSide};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use pyo3::Bound;
+use pyo3::{Bound, Py, PyRefMut};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use std::fmt;
@@ -295,39 +295,147 @@ impl PyEquityTotalReturnSwap {
     }
 }
 
-#[pymethods]
-impl PyEquityTotalReturnSwap {
-    #[classmethod]
-    #[pyo3(
-        text_signature = "(cls, instrument_id, notional, underlying, financing, schedule, side, /, *, initial_level=None)"
-    )]
-    #[allow(clippy::too_many_arguments)]
-    fn create(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        notional: Bound<'_, PyAny>,
-        underlying: &PyEquityUnderlyingParams,
-        financing: &PyFinancingLegSpec,
-        schedule: &PyTrsScheduleSpec,
-        side: PyTrsSide,
-        initial_level: Option<f64>,
-    ) -> PyResult<Self> {
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let notional_money = extract_money(&notional)?;
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "EquityTotalReturnSwapBuilder",
+    unsendable
+)]
+pub struct PyEquityTotalReturnSwapBuilder {
+    instrument_id: InstrumentId,
+    notional: Option<finstack_core::money::Money>,
+    underlying: Option<EquityUnderlyingParams>,
+    financing: Option<FinancingLegSpec>,
+    schedule: Option<TrsScheduleSpec>,
+    side: Option<TrsSide>,
+    initial_level: Option<f64>,
+}
 
+impl PyEquityTotalReturnSwapBuilder {
+    fn new_with_id(id: InstrumentId) -> Self {
+        Self {
+            instrument_id: id,
+            notional: None,
+            underlying: None,
+            financing: None,
+            schedule: None,
+            side: None,
+            initial_level: None,
+        }
+    }
+
+    fn ensure_ready(&self) -> PyResult<()> {
+        if self.notional.is_none() {
+            return Err(PyValueError::new_err("notional() is required."));
+        }
+        if self.underlying.is_none() {
+            return Err(PyValueError::new_err("underlying() is required."));
+        }
+        if self.financing.is_none() {
+            return Err(PyValueError::new_err("financing() is required."));
+        }
+        if self.schedule.is_none() {
+            return Err(PyValueError::new_err("schedule() is required."));
+        }
+        if self.side.is_none() {
+            return Err(PyValueError::new_err("side() is required."));
+        }
+        Ok(())
+    }
+}
+
+#[pymethods]
+impl PyEquityTotalReturnSwapBuilder {
+    #[new]
+    #[pyo3(text_signature = "(instrument_id)")]
+    fn new_py(instrument_id: &str) -> Self {
+        Self::new_with_id(InstrumentId::new(instrument_id))
+    }
+
+    #[pyo3(text_signature = "($self, notional)")]
+    fn notional<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        notional: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.notional = Some(extract_money(&notional)?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, underlying)")]
+    fn underlying<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        underlying: &PyEquityUnderlyingParams,
+    ) -> PyRefMut<'py, Self> {
+        slf.underlying = Some(underlying.inner.clone());
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, financing)")]
+    fn financing<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        financing: &PyFinancingLegSpec,
+    ) -> PyRefMut<'py, Self> {
+        slf.financing = Some(financing.inner.clone());
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, schedule)")]
+    fn schedule<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        schedule: &PyTrsScheduleSpec,
+    ) -> PyRefMut<'py, Self> {
+        slf.schedule = Some(schedule.inner.clone());
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, side)")]
+    fn side(mut slf: PyRefMut<'_, Self>, side: PyTrsSide) -> PyRefMut<'_, Self> {
+        slf.side = Some(side.inner);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, initial_level=None)", signature = (initial_level=None))]
+    fn initial_level(
+        mut slf: PyRefMut<'_, Self>,
+        initial_level: Option<f64>,
+    ) -> PyRefMut<'_, Self> {
+        slf.initial_level = initial_level;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyEquityTotalReturnSwap> {
+        slf.ensure_ready()?;
         let inner = EquityTotalReturnSwap {
-            id,
-            notional: notional_money,
-            underlying: underlying.inner.clone(),
-            financing: financing.inner.clone(),
-            schedule: schedule.inner.clone(),
-            side: side.inner,
-            initial_level,
+            id: slf.instrument_id.clone(),
+            notional: slf.notional.unwrap(),
+            underlying: slf.underlying.clone().unwrap(),
+            financing: slf.financing.clone().unwrap(),
+            schedule: slf.schedule.clone().unwrap(),
+            side: slf.side.unwrap(),
+            initial_level: slf.initial_level,
             attributes: Attributes::new(),
             margin_spec: None,
         };
+        Ok(PyEquityTotalReturnSwap::new(inner))
+    }
 
-        Ok(Self::new(inner))
+    fn __repr__(&self) -> String {
+        "EquityTotalReturnSwapBuilder(...)".to_string()
+    }
+}
+
+#[pymethods]
+impl PyEquityTotalReturnSwap {
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, instrument_id)")]
+    /// Start a fluent builder (builder-only API).
+    fn builder<'py>(
+        cls: &Bound<'py, PyType>,
+        instrument_id: &str,
+    ) -> PyResult<Py<PyEquityTotalReturnSwapBuilder>> {
+        let py = cls.py();
+        let builder = PyEquityTotalReturnSwapBuilder::new_with_id(InstrumentId::new(instrument_id));
+        Py::new(py, builder)
     }
 
     #[getter]
@@ -436,39 +544,148 @@ impl PyFiIndexTotalReturnSwap {
     }
 }
 
-#[pymethods]
-impl PyFiIndexTotalReturnSwap {
-    #[classmethod]
-    #[pyo3(
-        text_signature = "(cls, instrument_id, notional, underlying, financing, schedule, side, /, *, initial_level=None)"
-    )]
-    #[allow(clippy::too_many_arguments)]
-    fn create(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        notional: Bound<'_, PyAny>,
-        underlying: &PyIndexUnderlyingParams,
-        financing: &PyFinancingLegSpec,
-        schedule: &PyTrsScheduleSpec,
-        side: PyTrsSide,
-        initial_level: Option<f64>,
-    ) -> PyResult<Self> {
-        let id = InstrumentId::new(instrument_id.extract::<&str>()?);
-        let notional_money = extract_money(&notional)?;
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "FiIndexTotalReturnSwapBuilder",
+    unsendable
+)]
+pub struct PyFiIndexTotalReturnSwapBuilder {
+    instrument_id: InstrumentId,
+    notional: Option<finstack_core::money::Money>,
+    underlying: Option<IndexUnderlyingParams>,
+    financing: Option<FinancingLegSpec>,
+    schedule: Option<TrsScheduleSpec>,
+    side: Option<TrsSide>,
+    initial_level: Option<f64>,
+}
 
+impl PyFiIndexTotalReturnSwapBuilder {
+    fn new_with_id(id: InstrumentId) -> Self {
+        Self {
+            instrument_id: id,
+            notional: None,
+            underlying: None,
+            financing: None,
+            schedule: None,
+            side: None,
+            initial_level: None,
+        }
+    }
+
+    fn ensure_ready(&self) -> PyResult<()> {
+        if self.notional.is_none() {
+            return Err(PyValueError::new_err("notional() is required."));
+        }
+        if self.underlying.is_none() {
+            return Err(PyValueError::new_err("underlying() is required."));
+        }
+        if self.financing.is_none() {
+            return Err(PyValueError::new_err("financing() is required."));
+        }
+        if self.schedule.is_none() {
+            return Err(PyValueError::new_err("schedule() is required."));
+        }
+        if self.side.is_none() {
+            return Err(PyValueError::new_err("side() is required."));
+        }
+        Ok(())
+    }
+}
+
+#[pymethods]
+impl PyFiIndexTotalReturnSwapBuilder {
+    #[new]
+    #[pyo3(text_signature = "(instrument_id)")]
+    fn new_py(instrument_id: &str) -> Self {
+        Self::new_with_id(InstrumentId::new(instrument_id))
+    }
+
+    #[pyo3(text_signature = "($self, notional)")]
+    fn notional<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        notional: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.notional = Some(extract_money(&notional)?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, underlying)")]
+    fn underlying<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        underlying: &PyIndexUnderlyingParams,
+    ) -> PyRefMut<'py, Self> {
+        slf.underlying = Some(underlying.inner.clone());
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, financing)")]
+    fn financing<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        financing: &PyFinancingLegSpec,
+    ) -> PyRefMut<'py, Self> {
+        slf.financing = Some(financing.inner.clone());
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, schedule)")]
+    fn schedule<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        schedule: &PyTrsScheduleSpec,
+    ) -> PyRefMut<'py, Self> {
+        slf.schedule = Some(schedule.inner.clone());
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, side)")]
+    fn side(mut slf: PyRefMut<'_, Self>, side: PyTrsSide) -> PyRefMut<'_, Self> {
+        slf.side = Some(side.inner);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, initial_level=None)", signature = (initial_level=None))]
+    fn initial_level(
+        mut slf: PyRefMut<'_, Self>,
+        initial_level: Option<f64>,
+    ) -> PyRefMut<'_, Self> {
+        slf.initial_level = initial_level;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyFiIndexTotalReturnSwap> {
+        slf.ensure_ready()?;
         let inner = FIIndexTotalReturnSwap {
-            id,
-            notional: notional_money,
-            underlying: underlying.inner.clone(),
-            financing: financing.inner.clone(),
-            schedule: schedule.inner.clone(),
-            side: side.inner,
-            initial_level,
+            id: slf.instrument_id.clone(),
+            notional: slf.notional.unwrap(),
+            underlying: slf.underlying.clone().unwrap(),
+            financing: slf.financing.clone().unwrap(),
+            schedule: slf.schedule.clone().unwrap(),
+            side: slf.side.unwrap(),
+            initial_level: slf.initial_level,
             attributes: Attributes::new(),
             margin_spec: None,
         };
+        Ok(PyFiIndexTotalReturnSwap::new(inner))
+    }
 
-        Ok(Self::new(inner))
+    fn __repr__(&self) -> String {
+        "FiIndexTotalReturnSwapBuilder(...)".to_string()
+    }
+}
+
+#[pymethods]
+impl PyFiIndexTotalReturnSwap {
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, instrument_id)")]
+    /// Start a fluent builder (builder-only API).
+    fn builder<'py>(
+        cls: &Bound<'py, PyType>,
+        instrument_id: &str,
+    ) -> PyResult<Py<PyFiIndexTotalReturnSwapBuilder>> {
+        let py = cls.py();
+        let builder =
+            PyFiIndexTotalReturnSwapBuilder::new_with_id(InstrumentId::new(instrument_id));
+        Py::new(py, builder)
     }
 
     #[getter]
@@ -569,6 +786,8 @@ pub(crate) fn register<'py>(
     module.add_class::<PyIndexUnderlyingParams>()?;
     module.add_class::<PyEquityTotalReturnSwap>()?;
     module.add_class::<PyFiIndexTotalReturnSwap>()?;
+    module.add_class::<PyEquityTotalReturnSwapBuilder>()?;
+    module.add_class::<PyFiIndexTotalReturnSwapBuilder>()?;
     Ok(vec![
         "TrsSide",
         "TrsFinancingLegSpec",
@@ -577,5 +796,7 @@ pub(crate) fn register<'py>(
         "IndexUnderlying",
         "EquityTotalReturnSwap",
         "FiIndexTotalReturnSwap",
+        "EquityTotalReturnSwapBuilder",
+        "FiIndexTotalReturnSwapBuilder",
     ])
 }

@@ -700,15 +700,38 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     .with_tag("sector", "FX");
 
     // 8. CDS (Credit Default Swap) - standalone
-    let cds = CreditDefaultSwap::buy_protection(
-        "CDS_5Y",
-        Money::new(10_000_000.0, Currency::USD),
-        100.0, // 100bp running spread
-        as_of,
-        date!(2029 - 01 - 01),
-        "USD",     // Discount curve
-        "CORP_BB", // Credit/hazard curve
-    )?;
+    let cds = {
+        let convention = CDSConvention::IsdaNa;
+        let dc = convention.day_count();
+        let freq = convention.frequency();
+        let bdc = convention.business_day_convention();
+        let stub = convention.stub_convention();
+
+        CreditDefaultSwapBuilder::new()
+            .id(finstack_core::types::InstrumentId::new("CDS_5Y"))
+            .notional(Money::new(10_000_000.0, Currency::USD))
+            .side(PayReceive::PayFixed) // buy protection
+            .convention(convention)
+            .premium(PremiumLegSpec {
+                start: as_of,
+                end: date!(2029 - 01 - 01),
+                freq,
+                stub,
+                bdc,
+                calendar_id: Some(convention.default_calendar().to_string()),
+                dc,
+                spread_bp: dec!(100.0), // 100bp running spread
+                discount_curve_id: finstack_core::types::CurveId::new("USD"),
+            })
+            .protection(ProtectionLegSpec {
+                credit_curve_id: finstack_core::types::CurveId::new("CORP_BB"),
+                recovery_rate: STANDARD_RECOVERY_SENIOR,
+                settlement_delay: convention.settlement_delay(),
+            })
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()?
+    };
 
     let cds_position = Position::new(
         "POS_CDS_001",
@@ -727,8 +750,10 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     let index_params = CDSIndexParams::cdx_na_ig(42, 1, 100.0) // Series 42, Version 1, 100bp coupon
         .with_index_factor(0.95); // 95% index factor (some defaults occurred)
 
-    let construction_params = CDSIndexConstructionParams::buy_protection(
+    let construction_params = CDSIndexConstructionParams::new(
         Money::new(10_000_000.0, Currency::USD), // $10M
+        PayReceive::PayFixed,
+        CDSConvention::IsdaNa,
     );
 
     let credit_params = finstack_valuations::instruments::CreditParams {
@@ -919,10 +944,11 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     .with_tag("sector", "Technology");
 
     // 15. Equity Option (Microsoft call option) - standalone
-    let option_params = EquityOptionParams::european_call(
+    let option_params = EquityOptionParams::new(
         Money::new(300.0, Currency::USD), // $300 strike
         date!(2024 - 12 - 20),            // ~6M expiry
-        33_333.33,                        // Shares to make ~$10M exposure
+        OptionType::Call,
+        33_333.33, // Shares to make ~$10M exposure
     );
 
     let underlying_params = finstack_valuations::instruments::EquityUnderlyingParams::new(
@@ -1050,9 +1076,10 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
     .with_tag("sector", "Foreign Exchange");
 
     // 19. FX Option (EUR/USD Call) - standalone
-    let fx_option_params = FxOptionParams::european_call(
-        1.05,                                    // Strike: EUR/USD = 1.05
-        date!(2024 - 12 - 31),                   // 1Y expiry
+    let fx_option_params = FxOptionParams::new(
+        1.05,                  // Strike: EUR/USD = 1.05
+        date!(2024 - 12 - 31), // 1Y expiry
+        OptionType::Call,
         Money::new(10_000_000.0, Currency::EUR), // €10M
     );
 

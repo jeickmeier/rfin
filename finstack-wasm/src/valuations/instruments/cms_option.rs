@@ -5,6 +5,35 @@ use finstack_valuations::pricer::InstrumentType;
 use js_sys::Array;
 use wasm_bindgen::prelude::*;
 
+#[wasm_bindgen(js_name = CmsOptionBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsCmsOptionBuilder {
+    json_str: Option<String>,
+}
+
+#[wasm_bindgen(js_class = CmsOptionBuilder)]
+impl JsCmsOptionBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> JsCmsOptionBuilder {
+        JsCmsOptionBuilder { json_str: None }
+    }
+
+    #[wasm_bindgen(js_name = jsonString)]
+    pub fn json_string(mut self, json_str: String) -> JsCmsOptionBuilder {
+        self.json_str = Some(json_str);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsCmsOption, JsValue> {
+        let json_str = self
+            .json_str
+            .as_deref()
+            .ok_or_else(|| JsValue::from_str("CmsOptionBuilder: jsonString is required"))?;
+        JsCmsOption::from_json(json_str)
+    }
+}
+
 /// CMS option (option on a swap rate) (JSON-serializable).
 ///
 /// This instrument is configured via a JSON payload (matching the Rust model schema).
@@ -34,6 +63,9 @@ impl JsCmsOption {
     /// @throws {Error} If the JSON cannot be parsed or is invalid
     #[wasm_bindgen(js_name = fromJson)]
     pub fn from_json(json_str: &str) -> Result<JsCmsOption, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "CmsOption.fromJson is deprecated; use CmsOptionBuilder instead.",
+        ));
         use crate::core::error::js_error;
         serde_json::from_str(json_str)
             .map(JsCmsOption::from_inner)

@@ -465,16 +465,45 @@ impl CreditDefaultSwap {
     /// Returns a 5-year investment-grade CDS with standard ISDA conventions.
     #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
-        Self::buy_protection(
-            "CDS-CORP-5Y",
-            Money::new(10_000_000.0, Currency::USD),
-            100.0, // 100 bps spread
-            date!(2024 - 03 - 20),
-            date!(2029 - 03 - 20),
-            "USD-OIS",
-            "CORP-HAZARD",
-        )
-        .expect("Example CDS construction should not fail")
+        let convention = CDSConvention::IsdaNa;
+        let dc = convention.day_count();
+        let freq = convention.frequency();
+        let bdc = convention.business_day_convention();
+        let stub = convention.stub_convention();
+
+        let spread_bp_decimal = Decimal::try_from(100.0)
+            .expect("Example CDS spread 100bp should always be representable as Decimal");
+
+        let cds = CreditDefaultSwapBuilder::new()
+            .id(InstrumentId::new("CDS-CORP-5Y"))
+            .notional(Money::new(10_000_000.0, Currency::USD))
+            .side(PayReceive::PayFixed)
+            .convention(convention)
+            .premium(PremiumLegSpec {
+                start: date!(2024 - 03 - 20),
+                end: date!(2029 - 03 - 20),
+                freq,
+                stub,
+                bdc,
+                calendar_id: Some(convention.default_calendar().to_string()),
+                dc,
+                spread_bp: spread_bp_decimal,
+                discount_curve_id: finstack_core::types::CurveId::new("USD-OIS"),
+            })
+            .protection(ProtectionLegSpec {
+                credit_curve_id: finstack_core::types::CurveId::new("CORP-HAZARD"),
+                recovery_rate: crate::instruments::cds::parameters::RECOVERY_SENIOR_UNSECURED,
+                settlement_delay: convention.settlement_delay(),
+            })
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("Example CDS construction should not fail");
+
+        cds.validate()
+            .expect("Example CDS validation should not fail");
+
+        cds
     }
 
     /// Create a standard CDS with ISDA conventions (buy protection).
@@ -486,6 +515,10 @@ impl CreditDefaultSwap {
     /// # Errors
     ///
     /// Returns an error if the builder fails validation or spread_bp cannot be represented as Decimal.
+    #[deprecated(
+        since = "0.4.0",
+        note = "Use `CreditDefaultSwapBuilder` directly to construct a CDS with explicit conventions/legs and call `.build()`."
+    )]
     #[allow(clippy::too_many_arguments)]
     pub fn buy_protection(
         id: impl Into<InstrumentId>,
@@ -548,6 +581,10 @@ impl CreditDefaultSwap {
     /// # Errors
     ///
     /// Returns an error if the builder fails validation or spread_bp cannot be represented as Decimal.
+    #[deprecated(
+        since = "0.4.0",
+        note = "Use `CreditDefaultSwapBuilder` directly to construct a CDS with explicit conventions/legs and call `.build()`."
+    )]
     #[allow(clippy::too_many_arguments)]
     pub fn buy_protection_bps(
         id: impl Into<InstrumentId>,
@@ -610,6 +647,10 @@ impl CreditDefaultSwap {
     /// # Errors
     ///
     /// Returns an error if the builder fails validation or spread_bp cannot be represented as Decimal.
+    #[deprecated(
+        since = "0.4.0",
+        note = "Use `CreditDefaultSwapBuilder` directly to construct a CDS with explicit conventions/legs and call `.build()`."
+    )]
     #[allow(clippy::too_many_arguments)]
     pub fn sell_protection(
         id: impl Into<InstrumentId>,
@@ -672,6 +713,10 @@ impl CreditDefaultSwap {
     /// # Errors
     ///
     /// Returns an error if the builder fails validation or spread_bp cannot be represented as Decimal.
+    #[deprecated(
+        since = "0.4.0",
+        note = "Use `CreditDefaultSwapBuilder` directly to construct a CDS with explicit conventions/legs and call `.build()`."
+    )]
     #[allow(clippy::too_many_arguments)]
     pub fn sell_protection_bps(
         id: impl Into<InstrumentId>,
@@ -812,7 +857,30 @@ impl CreditDefaultSwap {
     /// # Example
     ///
     /// ```ignore
-    /// let cds = CreditDefaultSwap::buy_protection(...)?;
+    /// let cds = CreditDefaultSwapBuilder::new()
+    ///     .id("CDS-EXAMPLE".into())
+    ///     .notional(Money::new(10_000_000.0, Currency::USD))
+    ///     .side(PayReceive::PayFixed)
+    ///     .convention(CDSConvention::IsdaNa)
+    ///     .premium(PremiumLegSpec {
+    ///         start: date!(2024 - 03 - 20),
+    ///         end: date!(2029 - 03 - 20),
+    ///         freq: CDSConvention::IsdaNa.frequency(),
+    ///         stub: CDSConvention::IsdaNa.stub_convention(),
+    ///         bdc: CDSConvention::IsdaNa.business_day_convention(),
+    ///         calendar_id: Some(CDSConvention::IsdaNa.default_calendar().to_string()),
+    ///         dc: CDSConvention::IsdaNa.day_count(),
+    ///         spread_bp: Decimal::try_from(100.0).expect(\"valid bps\"),
+    ///         discount_curve_id: CurveId::new(\"USD-OIS\"),
+    ///     })
+    ///     .protection(ProtectionLegSpec {
+    ///         credit_curve_id: CurveId::new(\"CORP-HAZARD\"),
+    ///         recovery_rate: RECOVERY_SENIOR_UNSECURED,
+    ///         settlement_delay: CDSConvention::IsdaNa.settlement_delay(),
+    ///     })
+    ///     .pricing_overrides(PricingOverrides::default())
+    ///     .attributes(Attributes::new())
+    ///     .build()?;
     /// cds.validate()?; // Validates all parameters
     /// ```
     pub fn validate(&self) -> finstack_core::Result<()> {

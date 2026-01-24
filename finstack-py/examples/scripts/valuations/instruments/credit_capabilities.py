@@ -115,17 +115,18 @@ def main() -> None:
         as_of=as_of,
     )
 
-    index = CDSIndex.create(
-        "CDX-TRAD",
-        index_name="CDX.NA.IG",
-        series=42,
-        version=1,
-        notional=Money(25_000_000, USD),
-        fixed_coupon_bp=100.0,
-        start_date=start,
-        maturity=maturity,
-        discount_curve="USD-OIS",
-        credit_curve="CDX-IG-HZD",
+    index = (
+        CDSIndex.builder("CDX-TRAD")
+        .index_name("CDX.NA.IG")
+        .series(42)
+        .version(1)
+        .notional(Money(25_000_000, USD))
+        .fixed_coupon_bp(100.0)
+        .start_date(start)
+        .maturity(maturity)
+        .discount_curve("USD-OIS")
+        .credit_curve("CDX-IG-HZD")
+        .build()
     )
     registry.price_with_metrics(
         index,
@@ -135,16 +136,17 @@ def main() -> None:
         as_of=as_of,
     )
 
-    option = CdsOption.create(
-        "ACME-CDSOPT",
-        Money(5_000_000, USD),
-        strike_spread_bp=150.0,
-        expiry=date(2025, 1, 2),
-        cds_maturity=maturity,
-        discount_curve="USD-OIS",
-        credit_curve="ACME-HZD",
-        vol_surface="CDS-VOL",
-        option_type="call",
+    option = (
+        CdsOption.builder("ACME-CDSOPT")
+        .notional(Money(5_000_000, USD))
+        .strike_spread_bp(150.0)
+        .expiry(date(2025, 1, 2))
+        .cds_maturity(maturity)
+        .discount_curve("USD-OIS")
+        .credit_curve("ACME-HZD")
+        .vol_surface("CDS-VOL")
+        .option_type("call")
+        .build()
     )
     registry.price_with_metrics(
         option,
@@ -154,19 +156,20 @@ def main() -> None:
         as_of=as_of,
     )
 
-    tranche = CdsTranche.create(
-        "CDX-MEZ-TRANCHE",
-        index_name="CDX.NA.IG",
-        series=42,
-        attach_pct=3.0,
-        detach_pct=7.0,
-        notional=Money(10_000_000, USD),
-        maturity=maturity,
-        running_coupon_bp=500.0,
-        discount_curve="USD-OIS",
-        credit_index_curve="CDX.NA.IG",
-        side="buy_protection",
-        payments_per_year=4,
+    tranche = (
+        CdsTranche.builder("CDX-MEZ-TRANCHE")
+        .index_name("CDX.NA.IG")
+        .series(42)
+        .attach_pct(3.0)
+        .detach_pct(7.0)
+        .notional(Money(10_000_000, USD))
+        .maturity(maturity)
+        .running_coupon_bp(500.0)
+        .discount_curve("USD-OIS")
+        .credit_index_curve("CDX.NA.IG")
+        .side("buy_protection")
+        .payments_per_year(4)
+        .build()
     )
     registry.price_with_metrics(
         tranche,

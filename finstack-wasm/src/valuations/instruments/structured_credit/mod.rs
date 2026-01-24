@@ -15,6 +15,35 @@ pub mod waterfall;
 // Basket
 // ===========================
 
+#[wasm_bindgen(js_name = BasketBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsBasketBuilder {
+    json_str: Option<String>,
+}
+
+#[wasm_bindgen(js_class = BasketBuilder)]
+impl JsBasketBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> JsBasketBuilder {
+        JsBasketBuilder { json_str: None }
+    }
+
+    #[wasm_bindgen(js_name = jsonString)]
+    pub fn json_string(mut self, json_str: String) -> JsBasketBuilder {
+        self.json_str = Some(json_str);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsBasket, JsValue> {
+        let json_str = self
+            .json_str
+            .as_deref()
+            .ok_or_else(|| JsValue::from_str("BasketBuilder: jsonString is required"))?;
+        JsBasket::from_json(json_str)
+    }
+}
+
 /// Basket instrument (JSON-serializable).
 ///
 /// This instrument is configured via a JSON payload (matching the Rust model schema).
@@ -43,6 +72,9 @@ impl JsBasket {
     /// @throws {Error} If JSON cannot be parsed or is invalid
     #[wasm_bindgen(js_name = fromJson)]
     pub fn from_json(json_str: &str) -> Result<JsBasket, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "Basket.fromJson is deprecated; use BasketBuilder instead.",
+        ));
         serde_json::from_str(json_str)
             .map(JsBasket::from_inner)
             .map_err(|e| js_error(e.to_string()))
@@ -110,6 +142,35 @@ impl InstrumentWrapper for JsStructuredCredit {
     }
 }
 
+#[wasm_bindgen(js_name = StructuredCreditBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsStructuredCreditBuilder {
+    json_str: Option<String>,
+}
+
+#[wasm_bindgen(js_class = StructuredCreditBuilder)]
+impl JsStructuredCreditBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> JsStructuredCreditBuilder {
+        JsStructuredCreditBuilder { json_str: None }
+    }
+
+    #[wasm_bindgen(js_name = jsonString)]
+    pub fn json_string(mut self, json_str: String) -> JsStructuredCreditBuilder {
+        self.json_str = Some(json_str);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsStructuredCredit, JsValue> {
+        let json_str = self
+            .json_str
+            .as_deref()
+            .ok_or_else(|| JsValue::from_str("StructuredCreditBuilder: jsonString is required"))?;
+        JsStructuredCredit::from_json(json_str)
+    }
+}
+
 #[wasm_bindgen(js_class = StructuredCredit)]
 impl JsStructuredCredit {
     /// Parse a structured credit deal from a JSON string.
@@ -119,6 +180,9 @@ impl JsStructuredCredit {
     /// @throws {Error} If JSON cannot be parsed or is invalid
     #[wasm_bindgen(js_name = fromJson)]
     pub fn from_json(json_str: &str) -> Result<JsStructuredCredit, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "StructuredCredit.fromJson is deprecated; use StructuredCreditBuilder instead.",
+        ));
         serde_json::from_str(json_str)
             .map(JsStructuredCredit::from_inner)
             .map_err(|e| js_error(e.to_string()))

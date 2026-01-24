@@ -51,6 +51,180 @@ impl InstrumentWrapper for JsAsianOption {
     }
 }
 
+#[wasm_bindgen(js_name = AsianOptionBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsAsianOptionBuilder {
+    instrument_id: String,
+    ticker: Option<String>,
+    strike: Option<f64>,
+    expiry: Option<finstack_core::dates::Date>,
+    fixing_dates: Option<Array>,
+    notional: Option<finstack_core::money::Money>,
+    discount_curve: Option<String>,
+    spot_id: Option<String>,
+    vol_surface: Option<String>,
+    averaging_method: Option<String>,
+    option_type: Option<String>,
+    div_yield_id: Option<String>,
+}
+
+#[wasm_bindgen(js_class = AsianOptionBuilder)]
+impl JsAsianOptionBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new(instrument_id: &str) -> JsAsianOptionBuilder {
+        JsAsianOptionBuilder {
+            instrument_id: instrument_id.to_string(),
+            ..Default::default()
+        }
+    }
+
+    #[wasm_bindgen(js_name = ticker)]
+    pub fn ticker(mut self, ticker: String) -> JsAsianOptionBuilder {
+        self.ticker = Some(ticker);
+        self
+    }
+
+    #[wasm_bindgen(js_name = strike)]
+    pub fn strike(mut self, strike: f64) -> JsAsianOptionBuilder {
+        self.strike = Some(strike);
+        self
+    }
+
+    #[wasm_bindgen(js_name = expiry)]
+    pub fn expiry(mut self, expiry: &JsDate) -> JsAsianOptionBuilder {
+        self.expiry = Some(expiry.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = fixingDates)]
+    pub fn fixing_dates(mut self, fixing_dates: Array) -> JsAsianOptionBuilder {
+        self.fixing_dates = Some(fixing_dates);
+        self
+    }
+
+    #[wasm_bindgen(js_name = money)]
+    pub fn money(mut self, notional: &JsMoney) -> JsAsianOptionBuilder {
+        self.notional = Some(notional.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = discountCurve)]
+    pub fn discount_curve(mut self, discount_curve: &str) -> JsAsianOptionBuilder {
+        self.discount_curve = Some(discount_curve.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = spotId)]
+    pub fn spot_id(mut self, spot_id: &str) -> JsAsianOptionBuilder {
+        self.spot_id = Some(spot_id.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = volSurface)]
+    pub fn vol_surface(mut self, vol_surface: &str) -> JsAsianOptionBuilder {
+        self.vol_surface = Some(vol_surface.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = averagingMethod)]
+    pub fn averaging_method(mut self, averaging_method: String) -> JsAsianOptionBuilder {
+        self.averaging_method = Some(averaging_method);
+        self
+    }
+
+    #[wasm_bindgen(js_name = optionType)]
+    pub fn option_type(mut self, option_type: String) -> JsAsianOptionBuilder {
+        self.option_type = Some(option_type);
+        self
+    }
+
+    #[wasm_bindgen(js_name = divYieldId)]
+    pub fn div_yield_id(mut self, div_yield_id: String) -> JsAsianOptionBuilder {
+        self.div_yield_id = Some(div_yield_id);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsAsianOption, JsValue> {
+        use crate::core::error::js_error;
+        use finstack_core::dates::DayCount;
+
+        let ticker = self
+            .ticker
+            .as_deref()
+            .ok_or_else(|| js_error("AsianOptionBuilder: ticker is required"))?;
+        let strike = self
+            .strike
+            .ok_or_else(|| js_error("AsianOptionBuilder: strike is required"))?;
+        let expiry = self
+            .expiry
+            .ok_or_else(|| js_error("AsianOptionBuilder: expiry is required"))?;
+        let fixing_dates = self
+            .fixing_dates
+            .ok_or_else(|| js_error("AsianOptionBuilder: fixingDates is required"))?;
+        let notional = self
+            .notional
+            .ok_or_else(|| js_error("AsianOptionBuilder: notional (money) is required"))?;
+        let discount_curve = self
+            .discount_curve
+            .as_deref()
+            .ok_or_else(|| js_error("AsianOptionBuilder: discountCurve is required"))?;
+        let spot_id = self
+            .spot_id
+            .as_deref()
+            .ok_or_else(|| js_error("AsianOptionBuilder: spotId is required"))?;
+        let vol_surface = self
+            .vol_surface
+            .as_deref()
+            .ok_or_else(|| js_error("AsianOptionBuilder: volSurface is required"))?;
+
+        let mut fixing_dates_vec = Vec::new();
+        for item in fixing_dates.iter() {
+            let date_str = item
+                .as_string()
+                .ok_or_else(|| js_error("Fixing dates must be ISO date strings (YYYY-MM-DD)"))?;
+            fixing_dates_vec.push(parse_iso_date(&date_str)?);
+        }
+
+        let avg_method = match self.averaging_method.as_deref() {
+            None | Some("arithmetic") => AveragingMethod::Arithmetic,
+            Some("geometric") => AveragingMethod::Geometric,
+            Some(other) => return Err(js_error(format!("Unknown averaging method: {other}"))),
+        };
+        let opt_type = match self.option_type.as_deref() {
+            None | Some("call") => OptionType::Call,
+            Some("put") => OptionType::Put,
+            Some(other) => return Err(js_error(format!("Unknown option type: {other}"))),
+        };
+
+        let strike_money = finstack_core::money::Money::new(strike, notional.currency());
+
+        let mut builder = AsianOption::builder();
+        builder = builder.id(instrument_id_from_str(&self.instrument_id));
+        builder = builder.underlying_ticker(ticker.to_string());
+        builder = builder.strike(strike_money);
+        builder = builder.option_type(opt_type);
+        builder = builder.averaging_method(avg_method);
+        builder = builder.expiry(expiry);
+        builder = builder.fixing_dates(fixing_dates_vec);
+        builder = builder.notional(notional);
+        builder = builder.day_count(DayCount::Act365F);
+        builder = builder.discount_curve_id(curve_id_from_str(discount_curve));
+        builder = builder.spot_id(spot_id.to_string());
+        builder = builder.vol_surface_id(curve_id_from_str(vol_surface));
+        builder = builder.pricing_overrides(Default::default());
+        builder = builder.attributes(Default::default());
+        if let Some(div) = self.div_yield_id {
+            builder = builder.div_yield_id(curve_id_from_str(&div));
+        }
+
+        builder
+            .build()
+            .map(JsAsianOption::from_inner)
+            .map_err(|e| js_error(e.to_string()))
+    }
+}
+
 #[wasm_bindgen(js_class = AsianOption)]
 impl JsAsianOption {
     /// Create an Asian option (average price option) on an equity underlying.
@@ -111,6 +285,9 @@ impl JsAsianOption {
         option_type: Option<String>,
         div_yield_id: Option<String>,
     ) -> Result<JsAsianOption, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "AsianOption constructor is deprecated; use AsianOptionBuilder instead.",
+        ));
         use crate::core::error::js_error;
         use finstack_core::dates::DayCount;
 

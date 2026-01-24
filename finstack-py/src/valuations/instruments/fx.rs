@@ -10,16 +10,17 @@ use finstack_valuations::instruments::fx::fx_option::FxOption;
 use finstack_valuations::instruments::fx::fx_spot::FxSpot;
 use finstack_valuations::instruments::fx::fx_swap::FxSwap;
 use finstack_valuations::instruments::{ExerciseStyle, OptionType, SettlementType};
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use pyo3::Bound;
+use pyo3::{Bound, Py, PyRefMut};
 use std::fmt;
 use std::sync::Arc;
 
 /// FX spot instrument exchanging base currency for quote currency.
 ///
 /// Examples:
-///     >>> spot = FxSpot.create("eurusd_spot", "EUR", "USD", spot_rate=1.095)
+///     >>> spot = FxSpot.builder("eurusd_spot").base_currency("EUR").quote_currency("USD").spot_rate(1.095).build()
 ///     >>> spot.pair_name
 ///     'EURUSD'
 #[pyclass(module = "finstack.valuations.instruments", name = "FxSpot", frozen)]
@@ -36,87 +37,184 @@ impl PyFxSpot {
     }
 }
 
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "FxSpotBuilder",
+    unsendable
+)]
+pub struct PyFxSpotBuilder {
+    instrument_id: InstrumentId,
+    base_currency: Option<finstack_core::currency::Currency>,
+    quote_currency: Option<finstack_core::currency::Currency>,
+    settlement: Option<time::Date>,
+    settlement_lag_days: Option<i32>,
+    spot_rate: Option<f64>,
+    notional: Option<finstack_core::money::Money>,
+    bdc: Option<finstack_core::dates::BusinessDayConvention>,
+    calendar: Option<String>,
+}
+
+impl PyFxSpotBuilder {
+    fn new_with_id(id: InstrumentId) -> Self {
+        Self {
+            instrument_id: id,
+            base_currency: None,
+            quote_currency: None,
+            settlement: None,
+            settlement_lag_days: None,
+            spot_rate: None,
+            notional: None,
+            bdc: None,
+            calendar: None,
+        }
+    }
+
+    fn ensure_ready(&self) -> PyResult<()> {
+        if self.base_currency.is_none() {
+            return Err(PyValueError::new_err("base_currency() is required."));
+        }
+        if self.quote_currency.is_none() {
+            return Err(PyValueError::new_err("quote_currency() is required."));
+        }
+        Ok(())
+    }
+}
+
+#[pymethods]
+impl PyFxSpotBuilder {
+    #[new]
+    #[pyo3(text_signature = "(instrument_id)")]
+    fn new_py(instrument_id: &str) -> Self {
+        Self::new_with_id(InstrumentId::new(instrument_id))
+    }
+
+    #[pyo3(text_signature = "($self, base_currency)")]
+    fn base_currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        base_currency: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        use crate::errors::PyContext;
+        let CurrencyArg(base) = base_currency.extract().context("base_currency")?;
+        slf.base_currency = Some(base);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, quote_currency)")]
+    fn quote_currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        quote_currency: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        use crate::errors::PyContext;
+        let CurrencyArg(quote) = quote_currency.extract().context("quote_currency")?;
+        slf.quote_currency = Some(quote);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, settlement)")]
+    fn settlement<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        settlement: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        use crate::errors::PyContext;
+        slf.settlement = Some(py_to_date(&settlement).context("settlement")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, settlement_lag_days)")]
+    fn settlement_lag_days(
+        mut slf: PyRefMut<'_, Self>,
+        settlement_lag_days: i32,
+    ) -> PyRefMut<'_, Self> {
+        slf.settlement_lag_days = Some(settlement_lag_days);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, spot_rate)")]
+    fn spot_rate(mut slf: PyRefMut<'_, Self>, spot_rate: f64) -> PyRefMut<'_, Self> {
+        slf.spot_rate = Some(spot_rate);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, notional)")]
+    fn notional<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        notional: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        use crate::errors::PyContext;
+        slf.notional = Some(extract_money(&notional).context("notional")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, bdc)")]
+    fn bdc<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        bdc: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        use crate::errors::PyContext;
+        let BusinessDayConventionArg(conv) = bdc.extract().context("bdc")?;
+        slf.bdc = Some(conv);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, calendar=None)", signature = (calendar=None))]
+    fn calendar(mut slf: PyRefMut<'_, Self>, calendar: Option<String>) -> PyRefMut<'_, Self> {
+        slf.calendar = calendar;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyFxSpot> {
+        slf.ensure_ready()?;
+        let base = slf.base_currency.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "FxSpotBuilder internal error: missing base_currency after validation",
+            )
+        })?;
+        let quote = slf.quote_currency.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "FxSpotBuilder internal error: missing quote_currency after validation",
+            )
+        })?;
+
+        let mut inst = FxSpot::new(slf.instrument_id.clone(), base, quote);
+        if let Some(date) = slf.settlement {
+            inst = inst.with_settlement(date);
+        }
+        if let Some(lag) = slf.settlement_lag_days {
+            inst.settlement_lag_days = Some(lag);
+        }
+        if let Some(rate) = slf.spot_rate {
+            inst = inst.with_rate(rate);
+        }
+        if let Some(money) = slf.notional {
+            inst = inst.with_notional(money).map_err(core_to_py)?;
+        }
+        if let Some(conv) = slf.bdc {
+            inst = inst.with_bdc(conv);
+        }
+        if let Some(cal_id) = intern_calendar_id_opt(slf.calendar.as_deref()) {
+            inst = inst.with_calendar_id(cal_id);
+        }
+        Ok(PyFxSpot::new(inst))
+    }
+
+    fn __repr__(&self) -> String {
+        "FxSpotBuilder(...)".to_string()
+    }
+}
+
 #[pymethods]
 impl PyFxSpot {
     #[classmethod]
-    #[pyo3(
-        text_signature = "(cls, instrument_id, base_currency, quote_currency, *, settlement=None, settlement_lag_days=None, spot_rate=None, notional=None, bdc=None, calendar=None)"
-    )]
-    #[pyo3(
-        signature = (
-            instrument_id,
-            base_currency,
-            quote_currency,
-            *,
-            settlement=None,
-            settlement_lag_days=None,
-            spot_rate=None,
-            notional=None,
-            bdc=None,
-            calendar=None
-        )
-    )]
-    /// Create an FX spot position with optional settlement overrides.
-    ///
-    /// Args:
-    ///     instrument_id: Instrument identifier or string-like object.
-    ///     base_currency: Base currency code or wrapper.
-    ///     quote_currency: Quote currency code or wrapper.
-    ///     settlement: Optional explicit settlement date.
-    ///     settlement_lag_days: Optional settlement lag when date is inferred.
-    ///     spot_rate: Optional explicit spot rate.
-    ///     notional: Optional notional money amount in base currency.
-    ///     bdc: Optional business-day convention for settlement adjustments.
-    ///     calendar: Optional settlement calendar identifier.
-    ///
-    /// Returns:
-    ///     FxSpot: Configured FX spot instrument.
-    ///
-    /// Raises:
-    ///     ValueError: If identifiers or dates cannot be parsed.
-    ///     RuntimeError: When the underlying builder rejects the notional input.
-    #[allow(clippy::too_many_arguments)]
-    fn create(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        base_currency: Bound<'_, PyAny>,
-        quote_currency: Bound<'_, PyAny>,
-        settlement: Option<Bound<'_, PyAny>>,
-        settlement_lag_days: Option<i32>,
-        spot_rate: Option<f64>,
-        notional: Option<Bound<'_, PyAny>>,
-        bdc: Option<Bound<'_, PyAny>>,
-        calendar: Option<&str>,
-    ) -> PyResult<Self> {
-        use crate::errors::PyContext;
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-        let CurrencyArg(base) = base_currency.extract().context("base_currency")?;
-        let CurrencyArg(quote) = quote_currency.extract().context("quote_currency")?;
-        let mut inst = FxSpot::new(id, base, quote);
-
-        if let Some(date_obj) = settlement {
-            let date = py_to_date(&date_obj).context("settlement")?;
-            inst = inst.with_settlement(date);
-        }
-        if let Some(lag) = settlement_lag_days {
-            inst.settlement_lag_days = Some(lag);
-        }
-        if let Some(rate) = spot_rate {
-            inst = inst.with_rate(rate);
-        }
-        if let Some(notional_obj) = notional {
-            let money = extract_money(&notional_obj).context("notional")?;
-            inst = inst.with_notional(money).map_err(core_to_py)?;
-        }
-        if let Some(bdc_obj) = bdc {
-            let BusinessDayConventionArg(conv) = bdc_obj.extract().context("bdc")?;
-            inst = inst.with_bdc(conv);
-        }
-        if let Some(cal_id) = intern_calendar_id_opt(calendar) {
-            inst = inst.with_calendar_id(cal_id);
-        }
-
-        Ok(Self::new(inst))
+    #[pyo3(text_signature = "(cls, instrument_id)")]
+    /// Start a fluent builder (builder-only API).
+    fn builder<'py>(
+        cls: &Bound<'py, PyType>,
+        instrument_id: &str,
+    ) -> PyResult<Py<PyFxSpotBuilder>> {
+        let py = cls.py();
+        let builder = PyFxSpotBuilder::new_with_id(InstrumentId::new(instrument_id));
+        Py::new(py, builder)
     }
 
     /// Instrument identifier.
@@ -251,14 +349,7 @@ impl fmt::Display for PyFxSpot {
 /// Garman–Kohlhagen FX option with European exercise.
 ///
 /// Examples:
-///     >>> option = FxOption.european_call(
-///     ...     "eurusd_call",
-///     ...     "EUR",
-///     ...     "USD",
-///     ...     1.1,
-///     ...     date(2024, 12, 20),
-///     ...     Money("EUR", 1_000_000)
-///     ... )
+///     >>> option = FxOption.builder("eurusd_call").base_currency("EUR").quote_currency("USD").strike(1.1).expiry(date(2024, 12, 20)).notional(Money("EUR", 1_000_000)).build()
 ///     >>> option.option_type
 ///     'call'
 #[pyclass(module = "finstack.valuations.instruments", name = "FxOption", frozen)]
@@ -275,189 +366,264 @@ impl PyFxOption {
     }
 }
 
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "FxOptionBuilder",
+    unsendable
+)]
+pub struct PyFxOptionBuilder {
+    instrument_id: InstrumentId,
+    base_currency: Option<finstack_core::currency::Currency>,
+    quote_currency: Option<finstack_core::currency::Currency>,
+    strike: Option<f64>,
+    expiry: Option<time::Date>,
+    notional: Option<finstack_core::money::Money>,
+    domestic_curve: Option<CurveId>,
+    foreign_curve: Option<CurveId>,
+    vol_surface: Option<CurveId>,
+    option_type: OptionType,
+    exercise_style: ExerciseStyle,
+    settlement: SettlementType,
+    day_count: finstack_core::dates::DayCount,
+}
+
+impl PyFxOptionBuilder {
+    fn new_with_id(id: InstrumentId) -> Self {
+        Self {
+            instrument_id: id,
+            base_currency: None,
+            quote_currency: None,
+            strike: None,
+            expiry: None,
+            notional: None,
+            domestic_curve: None,
+            foreign_curve: None,
+            vol_surface: None,
+            option_type: OptionType::Call,
+            exercise_style: ExerciseStyle::European,
+            settlement: SettlementType::Cash,
+            day_count: finstack_core::dates::DayCount::Act365F,
+        }
+    }
+
+    fn ensure_ready(&self) -> PyResult<()> {
+        if self.base_currency.is_none() {
+            return Err(PyValueError::new_err("base_currency() is required."));
+        }
+        if self.quote_currency.is_none() {
+            return Err(PyValueError::new_err("quote_currency() is required."));
+        }
+        if self.strike.is_none() {
+            return Err(PyValueError::new_err("strike() is required."));
+        }
+        if self.expiry.is_none() {
+            return Err(PyValueError::new_err("expiry() is required."));
+        }
+        if self.notional.is_none() {
+            return Err(PyValueError::new_err("notional() is required."));
+        }
+        if self.domestic_curve.is_none() {
+            return Err(PyValueError::new_err("domestic_curve() is required."));
+        }
+        if self.foreign_curve.is_none() {
+            return Err(PyValueError::new_err("foreign_curve() is required."));
+        }
+        if self.vol_surface.is_none() {
+            return Err(PyValueError::new_err("vol_surface() is required."));
+        }
+        Ok(())
+    }
+}
+
 #[pymethods]
-impl PyFxOption {
-    #[classmethod]
-    #[pyo3(
-        text_signature = "(cls, instrument_id, base_currency, quote_currency, strike, expiry, notional, vol_surface)"
-    )]
-    /// Create a European call option with explicit volatility surface.
-    ///
-    /// Args:
-    ///     instrument_id: Instrument identifier or string-like object.
-    ///     base_currency: Base currency code or wrapper.
-    ///     quote_currency: Quote currency code or wrapper.
-    ///     strike: Strike rate in quote per base units.
-    ///     expiry: Expiry date of the option.
-    ///     notional: Notional amount as :class:`finstack.core.money.Money`.
-    ///     vol_surface: Volatility surface identifier for pricing.
-    ///
-    /// Returns:
-    ///     FxOption: Configured call option instrument.
-    ///
-    /// Raises:
-    ///     ValueError: If identifiers or dates cannot be parsed.
-    #[pyo3(
-        signature = (
-            instrument_id,
-            base_currency,
-            quote_currency,
-            strike,
-            expiry,
-            notional,
-            vol_surface
-        )
-    )]
-    fn european_call(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        base_currency: Bound<'_, PyAny>,
-        quote_currency: Bound<'_, PyAny>,
-        strike: f64,
-        expiry: Bound<'_, PyAny>,
-        notional: Bound<'_, PyAny>,
-        vol_surface: Bound<'_, PyAny>,
-    ) -> PyResult<Self> {
-        use crate::errors::PyContext;
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-        let CurrencyArg(base) = base_currency.extract().context("base_currency")?;
-        let CurrencyArg(quote) = quote_currency.extract().context("quote_currency")?;
-        let expiry_date = py_to_date(&expiry).context("expiry")?;
-        let amt = extract_money(&notional).context("notional")?;
-        let vol_surface_id = vol_surface.extract::<&str>().context("vol_surface")?;
-        Ok(Self::new(
-            FxOption::european_call(id, base, quote, strike, expiry_date, amt, vol_surface_id)
-                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?,
-        ))
+impl PyFxOptionBuilder {
+    #[new]
+    #[pyo3(text_signature = "(instrument_id)")]
+    fn new_py(instrument_id: &str) -> Self {
+        Self::new_with_id(InstrumentId::new(instrument_id))
     }
 
-    #[classmethod]
-    #[pyo3(
-        text_signature = "(cls, instrument_id, base_currency, quote_currency, strike, expiry, notional, vol_surface)"
-    )]
-    /// Create a European put option with explicit volatility surface.
-    ///
-    /// Args:
-    ///     instrument_id: Instrument identifier or string-like object.
-    ///     base_currency: Base currency code or wrapper.
-    ///     quote_currency: Quote currency code or wrapper.
-    ///     strike: Strike rate in quote per base units.
-    ///     expiry: Expiry date of the option.
-    ///     notional: Notional amount as :class:`finstack.core.money.Money`.
-    ///     vol_surface: Volatility surface identifier for pricing.
-    ///
-    /// Returns:
-    ///     FxOption: Configured put option instrument.
-    ///
-    /// Raises:
-    ///     ValueError: If identifiers or dates cannot be parsed.
-    #[pyo3(
-        signature = (
-            instrument_id,
-            base_currency,
-            quote_currency,
-            strike,
-            expiry,
-            notional,
-            vol_surface
-        )
-    )]
-    fn european_put(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        base_currency: Bound<'_, PyAny>,
-        quote_currency: Bound<'_, PyAny>,
-        strike: f64,
-        expiry: Bound<'_, PyAny>,
-        notional: Bound<'_, PyAny>,
-        vol_surface: Bound<'_, PyAny>,
-    ) -> PyResult<Self> {
+    #[pyo3(text_signature = "($self, base_currency)")]
+    fn base_currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        base_currency: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         use crate::errors::PyContext;
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
         let CurrencyArg(base) = base_currency.extract().context("base_currency")?;
-        let CurrencyArg(quote) = quote_currency.extract().context("quote_currency")?;
-        let expiry_date = py_to_date(&expiry).context("expiry")?;
-        let amt = extract_money(&notional).context("notional")?;
-        let vol_surface_id = vol_surface.extract::<&str>().context("vol_surface")?;
-        Ok(Self::new(
-            FxOption::european_put(id, base, quote, strike, expiry_date, amt, vol_surface_id)
-                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?,
-        ))
+        slf.base_currency = Some(base);
+        Ok(slf)
     }
 
-    #[classmethod]
-    #[pyo3(
-        text_signature = "(cls, instrument_id, base_currency, quote_currency, strike, expiry, notional, domestic_curve, foreign_curve, vol_surface, /, *, settlement='cash')",
-        signature = (
-            instrument_id,
-            base_currency,
-            quote_currency,
-            strike,
-            expiry,
-            notional,
-            domestic_curve,
-            foreign_curve,
-            vol_surface,
-            *,
-            settlement=None
-        )
-    )]
-    #[allow(clippy::too_many_arguments)]
-    /// Create an FX option with explicit domestic/foreign curves and vol surface.
-    fn builder(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        base_currency: Bound<'_, PyAny>,
-        quote_currency: Bound<'_, PyAny>,
-        strike: f64,
-        expiry: Bound<'_, PyAny>,
-        notional: Bound<'_, PyAny>,
-        domestic_curve: Bound<'_, PyAny>,
-        foreign_curve: Bound<'_, PyAny>,
-        vol_surface: Bound<'_, PyAny>,
-        settlement: Option<&str>,
-    ) -> PyResult<Self> {
+    #[pyo3(text_signature = "($self, quote_currency)")]
+    fn quote_currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        quote_currency: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         use crate::errors::PyContext;
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-        let CurrencyArg(base) = base_currency.extract().context("base_currency")?;
         let CurrencyArg(quote) = quote_currency.extract().context("quote_currency")?;
-        let expiry_date = py_to_date(&expiry).context("expiry")?;
-        let amt = extract_money(&notional).context("notional")?;
-        let dom = CurveId::new(domestic_curve.extract::<&str>().context("domestic_curve")?);
-        let for_id = CurveId::new(foreign_curve.extract::<&str>().context("foreign_curve")?);
-        let vol_surface_id = CurveId::new(vol_surface.extract::<&str>().context("vol_surface")?);
+        slf.quote_currency = Some(quote);
+        Ok(slf)
+    }
 
-        let settle = match settlement
-            .map(crate::core::common::labels::normalize_label)
-            .as_deref()
-        {
-            None | Some("cash") => SettlementType::Cash,
-            Some("physical") => SettlementType::Physical,
-            Some(other) => {
-                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+    #[pyo3(text_signature = "($self, strike)")]
+    fn strike(mut slf: PyRefMut<'_, Self>, strike: f64) -> PyRefMut<'_, Self> {
+        slf.strike = Some(strike);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, expiry)")]
+    fn expiry<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        expiry: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        use crate::errors::PyContext;
+        slf.expiry = Some(py_to_date(&expiry).context("expiry")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, notional)")]
+    fn notional<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        notional: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        use crate::errors::PyContext;
+        slf.notional = Some(extract_money(&notional).context("notional")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, domestic_curve)")]
+    fn domestic_curve<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        domestic_curve: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        use crate::errors::PyContext;
+        slf.domestic_curve = Some(CurveId::new(
+            domestic_curve.extract::<&str>().context("domestic_curve")?,
+        ));
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, foreign_curve)")]
+    fn foreign_curve<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        foreign_curve: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        use crate::errors::PyContext;
+        slf.foreign_curve = Some(CurveId::new(
+            foreign_curve.extract::<&str>().context("foreign_curve")?,
+        ));
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, vol_surface)")]
+    fn vol_surface<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        vol_surface: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        use crate::errors::PyContext;
+        slf.vol_surface = Some(CurveId::new(
+            vol_surface.extract::<&str>().context("vol_surface")?,
+        ));
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, option_type)")]
+    fn option_type(
+        mut slf: PyRefMut<'_, Self>,
+        option_type: String,
+    ) -> PyResult<PyRefMut<'_, Self>> {
+        slf.option_type = match option_type.to_lowercase().as_str() {
+            "call" => OptionType::Call,
+            "put" => OptionType::Put,
+            other => {
+                return Err(PyValueError::new_err(format!(
+                    "Invalid option_type: '{other}'. Must be 'call' or 'put'",
+                )))
+            }
+        };
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, settlement)")]
+    fn settlement(mut slf: PyRefMut<'_, Self>, settlement: String) -> PyResult<PyRefMut<'_, Self>> {
+        slf.settlement = match settlement.to_lowercase().as_str() {
+            "cash" => SettlementType::Cash,
+            "physical" => SettlementType::Physical,
+            other => {
+                return Err(PyValueError::new_err(format!(
                     "Unsupported settlement: {other}",
                 )))
             }
         };
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyFxOption> {
+        slf.ensure_ready()?;
+        let base = slf.base_currency.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "FxOptionBuilder internal error: missing base_currency after validation",
+            )
+        })?;
+        let quote = slf.quote_currency.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "FxOptionBuilder internal error: missing quote_currency after validation",
+            )
+        })?;
+        let strike = slf.strike.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "FxOptionBuilder internal error: missing strike after validation",
+            )
+        })?;
+        let expiry = slf.expiry.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "FxOptionBuilder internal error: missing expiry after validation",
+            )
+        })?;
+        let notional = slf.notional.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "FxOptionBuilder internal error: missing notional after validation",
+            )
+        })?;
 
         let mut builder = FxOption::builder();
-        builder = builder.id(id);
+        builder = builder.id(slf.instrument_id.clone());
         builder = builder.base_currency(base);
         builder = builder.quote_currency(quote);
         builder = builder.strike(strike);
-        builder = builder.option_type(OptionType::Call);
-        builder = builder.exercise_style(ExerciseStyle::European);
-        builder = builder.expiry(expiry_date);
-        builder = builder.day_count(finstack_core::dates::DayCount::Act365F);
-        builder = builder.notional(amt);
-        builder = builder.settlement(settle);
-        builder = builder.domestic_discount_curve_id(dom.into());
-        builder = builder.foreign_discount_curve_id(for_id.into());
-        builder = builder.vol_surface_id(vol_surface_id.into());
+        builder = builder.option_type(slf.option_type);
+        builder = builder.exercise_style(slf.exercise_style);
+        builder = builder.expiry(expiry);
+        builder = builder.day_count(slf.day_count);
+        builder = builder.notional(notional);
+        builder = builder.settlement(slf.settlement);
+        builder = builder.domestic_discount_curve_id(slf.domestic_curve.clone().unwrap().into());
+        builder = builder.foreign_discount_curve_id(slf.foreign_curve.clone().unwrap().into());
+        builder = builder.vol_surface_id(slf.vol_surface.clone().unwrap().into());
         builder = builder
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
         builder = builder.attributes(finstack_valuations::instruments::Attributes::new());
-        Ok(Self::new(builder.build().map_err(core_to_py)?))
+        Ok(PyFxOption::new(builder.build().map_err(core_to_py)?))
+    }
+
+    fn __repr__(&self) -> String {
+        "FxOptionBuilder(...)".to_string()
+    }
+}
+
+#[pymethods]
+impl PyFxOption {
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, instrument_id)")]
+    /// Start a fluent builder (builder-only API).
+    fn builder<'py>(
+        cls: &Bound<'py, PyType>,
+        instrument_id: &str,
+    ) -> PyResult<Py<PyFxOptionBuilder>> {
+        let py = cls.py();
+        let builder = PyFxOptionBuilder::new_with_id(InstrumentId::new(instrument_id));
+        Py::new(py, builder)
     }
 
     /// Instrument identifier.
@@ -624,55 +790,228 @@ impl PyFxSwap {
     }
 }
 
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "FxSwapBuilder",
+    unsendable
+)]
+pub struct PyFxSwapBuilder {
+    instrument_id: InstrumentId,
+    base_currency: Option<finstack_core::currency::Currency>,
+    quote_currency: Option<finstack_core::currency::Currency>,
+    notional: Option<finstack_core::money::Money>,
+    near_date: Option<time::Date>,
+    far_date: Option<time::Date>,
+    domestic_curve: Option<CurveId>,
+    foreign_curve: Option<CurveId>,
+    near_rate: Option<f64>,
+    far_rate: Option<f64>,
+}
+
+impl PyFxSwapBuilder {
+    fn new_with_id(id: InstrumentId) -> Self {
+        Self {
+            instrument_id: id,
+            base_currency: None,
+            quote_currency: None,
+            notional: None,
+            near_date: None,
+            far_date: None,
+            domestic_curve: None,
+            foreign_curve: None,
+            near_rate: None,
+            far_rate: None,
+        }
+    }
+
+    fn ensure_ready(&self) -> PyResult<()> {
+        if self.base_currency.is_none() {
+            return Err(PyValueError::new_err("base_currency() is required."));
+        }
+        if self.quote_currency.is_none() {
+            return Err(PyValueError::new_err("quote_currency() is required."));
+        }
+        if self.notional.is_none() {
+            return Err(PyValueError::new_err("notional() is required."));
+        }
+        if self.near_date.is_none() {
+            return Err(PyValueError::new_err("near_date() is required."));
+        }
+        if self.far_date.is_none() {
+            return Err(PyValueError::new_err("far_date() is required."));
+        }
+        if self.domestic_curve.is_none() {
+            return Err(PyValueError::new_err("domestic_curve() is required."));
+        }
+        if self.foreign_curve.is_none() {
+            return Err(PyValueError::new_err("foreign_curve() is required."));
+        }
+        Ok(())
+    }
+}
+
 #[pymethods]
-impl PyFxSwap {
-    #[classmethod]
-    #[pyo3(
-        text_signature = "(cls, instrument_id, base_currency, quote_currency, notional, near_date, far_date, domestic_curve, foreign_curve, /, *, near_rate=None, far_rate=None)"
-    )]
-    #[allow(clippy::too_many_arguments)]
-    /// Create an FX swap specifying near/far legs and associated curves.
-    fn create(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        base_currency: Bound<'_, PyAny>,
-        quote_currency: Bound<'_, PyAny>,
-        notional: Bound<'_, PyAny>,
-        near_date: Bound<'_, PyAny>,
-        far_date: Bound<'_, PyAny>,
-        domestic_curve: Bound<'_, PyAny>,
-        foreign_curve: Bound<'_, PyAny>,
-        near_rate: Option<f64>,
-        far_rate: Option<f64>,
-    ) -> PyResult<Self> {
+impl PyFxSwapBuilder {
+    #[new]
+    #[pyo3(text_signature = "(instrument_id)")]
+    fn new_py(instrument_id: &str) -> Self {
+        Self::new_with_id(InstrumentId::new(instrument_id))
+    }
+
+    #[pyo3(text_signature = "($self, base_currency)")]
+    fn base_currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        base_currency: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         use crate::errors::PyContext;
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
         let CurrencyArg(base) = base_currency.extract().context("base_currency")?;
+        slf.base_currency = Some(base);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, quote_currency)")]
+    fn quote_currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        quote_currency: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        use crate::errors::PyContext;
         let CurrencyArg(quote) = quote_currency.extract().context("quote_currency")?;
-        let base_notional = extract_money(&notional).context("notional")?;
-        let near = py_to_date(&near_date).context("near_date")?;
-        let far = py_to_date(&far_date).context("far_date")?;
-        let domestic = CurveId::new(domestic_curve.extract::<&str>().context("domestic_curve")?);
-        let foreign = CurveId::new(foreign_curve.extract::<&str>().context("foreign_curve")?);
+        slf.quote_currency = Some(quote);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, notional)")]
+    fn notional<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        notional: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        use crate::errors::PyContext;
+        slf.notional = Some(extract_money(&notional).context("notional")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, near_date)")]
+    fn near_date<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        near_date: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        use crate::errors::PyContext;
+        slf.near_date = Some(py_to_date(&near_date).context("near_date")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, far_date)")]
+    fn far_date<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        far_date: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        use crate::errors::PyContext;
+        slf.far_date = Some(py_to_date(&far_date).context("far_date")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, domestic_curve)")]
+    fn domestic_curve<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        domestic_curve: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        use crate::errors::PyContext;
+        slf.domestic_curve = Some(CurveId::new(
+            domestic_curve.extract::<&str>().context("domestic_curve")?,
+        ));
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, foreign_curve)")]
+    fn foreign_curve<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        foreign_curve: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        use crate::errors::PyContext;
+        slf.foreign_curve = Some(CurveId::new(
+            foreign_curve.extract::<&str>().context("foreign_curve")?,
+        ));
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, near_rate=None)", signature = (near_rate=None))]
+    fn near_rate(mut slf: PyRefMut<'_, Self>, near_rate: Option<f64>) -> PyRefMut<'_, Self> {
+        slf.near_rate = near_rate;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, far_rate=None)", signature = (far_rate=None))]
+    fn far_rate(mut slf: PyRefMut<'_, Self>, far_rate: Option<f64>) -> PyRefMut<'_, Self> {
+        slf.far_rate = far_rate;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyFxSwap> {
+        slf.ensure_ready()?;
+        let base = slf.base_currency.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "FxSwapBuilder internal error: missing base_currency after validation",
+            )
+        })?;
+        let quote = slf.quote_currency.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "FxSwapBuilder internal error: missing quote_currency after validation",
+            )
+        })?;
+        let base_notional = slf.notional.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "FxSwapBuilder internal error: missing notional after validation",
+            )
+        })?;
+        let near = slf.near_date.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "FxSwapBuilder internal error: missing near_date after validation",
+            )
+        })?;
+        let far = slf.far_date.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "FxSwapBuilder internal error: missing far_date after validation",
+            )
+        })?;
 
         let mut builder = FxSwap::builder();
-        builder = builder.id(id);
+        builder = builder.id(slf.instrument_id.clone());
         builder = builder.base_currency(base);
         builder = builder.quote_currency(quote);
         builder = builder.near_date(near);
         builder = builder.far_date(far);
         builder = builder.base_notional(base_notional);
-        builder = builder.domestic_discount_curve_id(domestic.into());
-        builder = builder.foreign_discount_curve_id(foreign.into());
-        if let Some(rate) = near_rate {
+        builder = builder.domestic_discount_curve_id(slf.domestic_curve.clone().unwrap().into());
+        builder = builder.foreign_discount_curve_id(slf.foreign_curve.clone().unwrap().into());
+        if let Some(rate) = slf.near_rate {
             builder = builder.near_rate(rate);
         }
-        if let Some(rate) = far_rate {
+        if let Some(rate) = slf.far_rate {
             builder = builder.far_rate(rate);
         }
 
         let swap = builder.build().map_err(core_to_py)?;
-        Ok(Self::new(swap))
+        Ok(PyFxSwap::new(swap))
+    }
+
+    fn __repr__(&self) -> String {
+        "FxSwapBuilder(...)".to_string()
+    }
+}
+
+#[pymethods]
+impl PyFxSwap {
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, instrument_id)")]
+    /// Start a fluent builder (builder-only API).
+    fn builder<'py>(
+        cls: &Bound<'py, PyType>,
+        instrument_id: &str,
+    ) -> PyResult<Py<PyFxSwapBuilder>> {
+        let py = cls.py();
+        let builder = PyFxSwapBuilder::new_with_id(InstrumentId::new(instrument_id));
+        Py::new(py, builder)
     }
 
     /// Instrument identifier.
@@ -799,5 +1138,15 @@ pub(crate) fn register<'py>(
     module.add_class::<PyFxSpot>()?;
     module.add_class::<PyFxOption>()?;
     module.add_class::<PyFxSwap>()?;
-    Ok(vec!["FxSpot", "FxOption", "FxSwap"])
+    module.add_class::<PyFxSpotBuilder>()?;
+    module.add_class::<PyFxOptionBuilder>()?;
+    module.add_class::<PyFxSwapBuilder>()?;
+    Ok(vec![
+        "FxSpot",
+        "FxOption",
+        "FxSwap",
+        "FxSpotBuilder",
+        "FxOptionBuilder",
+        "FxSwapBuilder",
+    ])
 }

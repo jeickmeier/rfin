@@ -41,6 +41,7 @@ use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionP
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTrancheParams;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_valuations::instruments::equity::equity_option::EquityOption;
+use finstack_valuations::instruments::equity::equity_option::EquityOptionParams;
 use finstack_valuations::instruments::equity::variance_swap::{RealizedVarMethod, VarianceSwap};
 use finstack_valuations::instruments::equity::Equity;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
@@ -63,6 +64,7 @@ use finstack_valuations::instruments::rates::swaption::Swaption;
 use finstack_valuations::instruments::rates::swaption::SwaptionParams;
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::CreditParams;
+use finstack_valuations::instruments::EquityUnderlyingParams;
 use finstack_valuations::instruments::{ExerciseStyle, OptionType, SettlementType};
 use rust_decimal_macros::dec;
 use std::hint::black_box;
@@ -447,15 +449,27 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
     // 5. Equity Options
     for i in 0..positions_per_common {
         let option_id = format!("OPTION_{}", i);
-        let option = EquityOption::european_call(
-            option_id.clone(),
-            "AAPL",
-            150.0,
+        let contract_size = 100.0;
+        let option_params = EquityOptionParams::new(
+            Money::new(150.0, Currency::USD),
             maturity_2y(),
-            Money::new(10_000.0, Currency::USD),
-            100.0,
+            OptionType::Call,
+            contract_size,
         )
-        .expect("EquityOption::european_call should succeed with valid parameters");
+        .with_exercise_style(ExerciseStyle::European)
+        .with_settlement(SettlementType::Cash);
+
+        let underlying_params = EquityUnderlyingParams::new("AAPL", "EQUITY-SPOT", Currency::USD)
+            .with_dividend_yield("EQUITY-DIVYIELD")
+            .with_contract_size(contract_size);
+
+        let option = EquityOption::new(
+            option_id.clone(),
+            &option_params,
+            &underlying_params,
+            "USD-OIS".into(),
+            "EQUITY-VOL".into(),
+        );
 
         let entity_id = format!("FUND_{}", (i % 5) + 1);
         builder = builder.position(

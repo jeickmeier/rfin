@@ -36,13 +36,14 @@ def _build_market_and_bond() -> tuple[Bond, MarketContext]:
     market.insert_discount(disc)
     market.insert_forward(fwd)
 
-    bond = Bond.fixed_semiannual(
-        "ASW-PY",
-        Money(100.0, Currency("USD")),
-        0.05,
-        as_of,
-        dt.date(2030, 1, 1),
-        "USD-OIS",
+    bond = (
+        Bond.builder("ASW-PY")
+        .money(Money(100.0, Currency("USD")))
+        .coupon_rate(0.05)
+        .issue(as_of)
+        .maturity(dt.date(2030, 1, 1))
+        .disc_id("USD-OIS")
+        .build()
     )
 
     return bond, market

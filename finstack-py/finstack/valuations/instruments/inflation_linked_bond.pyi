@@ -6,6 +6,24 @@ from ...core.money import Money
 from ...core.dates.daycount import DayCount
 from ..common import InstrumentType
 
+class InflationLinkedBondBuilder:
+    """Fluent builder returned by :meth:`InflationLinkedBond.builder`."""
+
+    def __init__(self, instrument_id: str) -> None: ...
+    def notional(self, notional: Money) -> "InflationLinkedBondBuilder": ...
+    def real_coupon(self, real_coupon: float) -> "InflationLinkedBondBuilder": ...
+    def issue(self, issue: date) -> "InflationLinkedBondBuilder": ...
+    def maturity(self, maturity: date) -> "InflationLinkedBondBuilder": ...
+    def base_index(self, base_index: float) -> "InflationLinkedBondBuilder": ...
+    def discount_curve(self, discount_curve: str) -> "InflationLinkedBondBuilder": ...
+    def inflation_curve(self, inflation_curve: str) -> "InflationLinkedBondBuilder": ...
+    def indexation(self, indexation: str) -> "InflationLinkedBondBuilder": ...
+    def frequency(self, frequency: str) -> "InflationLinkedBondBuilder": ...
+    def day_count(self, day_count: DayCount) -> "InflationLinkedBondBuilder": ...
+    def deflation_protection(self, deflation_protection: str) -> "InflationLinkedBondBuilder": ...
+    def calendar(self, calendar: Optional[str] = ...) -> "InflationLinkedBondBuilder": ...
+    def build(self) -> "InflationLinkedBond": ...
+
 class InflationLinkedBond:
     """Inflation-linked bond for real return protection.
 
@@ -26,17 +44,18 @@ class InflationLinkedBond:
         >>> from finstack.core.currency import Currency
         >>> from finstack.core.money import Money
         >>> from finstack.valuations.instruments import InflationLinkedBond
-        >>> bond = InflationLinkedBond.create(
-        ...     "TIPS-2030",
-        ...     notional=Money(1_000_000, Currency("USD")),
-        ...     real_coupon=0.02,
-        ...     issue=date(2024, 1, 1),
-        ...     maturity=date(2030, 1, 1),
-        ...     base_index=300.0,
-        ...     discount_curve="USD-OIS",
-        ...     inflation_curve="US-CPI",
-        ...     indexation="tips",
-        ...     deflation_protection="maturity_only",
+        >>> bond = (
+        ...     InflationLinkedBond.builder("TIPS-2030")
+        ...     .notional(Money(1_000_000, Currency("USD")))
+        ...     .real_coupon(0.02)
+        ...     .issue(date(2024, 1, 1))
+        ...     .maturity(date(2030, 1, 1))
+        ...     .base_index(300.0)
+        ...     .discount_curve("USD-OIS")
+        ...     .inflation_curve("US-CPI")
+        ...     .indexation("tips")
+        ...     .deflation_protection("maturity_only")
+        ...     .build()
         ... )
 
     Price the bond:
@@ -48,15 +67,16 @@ class InflationLinkedBond:
         >>> from finstack.core.money import Money
         >>> from finstack.valuations.instruments import InflationLinkedBond
         >>> from finstack.valuations.pricer import create_standard_registry
-        >>> bond = InflationLinkedBond.create(
-        ...     "TIPS-2030",
-        ...     Money(1_000_000, Currency("USD")),
-        ...     0.02,
-        ...     date(2024, 1, 1),
-        ...     date(2030, 1, 1),
-        ...     base_index=300.0,
-        ...     discount_curve="USD-OIS",
-        ...     inflation_curve="US-CPI",
+        >>> bond = (
+        ...     InflationLinkedBond.builder("TIPS-2030")
+        ...     .notional(Money(1_000_000, Currency("USD")))
+        ...     .real_coupon(0.02)
+        ...     .issue(date(2024, 1, 1))
+        ...     .maturity(date(2030, 1, 1))
+        ...     .base_index(300.0)
+        ...     .discount_curve("USD-OIS")
+        ...     .inflation_curve("US-CPI")
+        ...     .build()
         ... )
         >>> ctx = MarketContext()
         >>> ctx.insert_discount(DiscountCurve("USD-OIS", date(2024, 1, 1), [(0.0, 1.0), (6.0, 0.92)]))
@@ -93,24 +113,8 @@ class InflationLinkedBond:
     """
 
     @classmethod
-    def create(
-        cls,
-        instrument_id: str,
-        notional: Money,
-        real_coupon: float,
-        issue: date,
-        maturity: date,
-        base_index: float,
-        discount_curve: str,
-        inflation_curve: str,
-        *,
-        indexation: Optional[str] = "tips",
-        frequency: Optional[str] = "semi_annual",
-        day_count: Optional[DayCount] = None,
-        deflation_protection: Optional[str] = "maturity_only",
-        calendar: Optional[str] = None,
-    ) -> "InflationLinkedBond":
-        """Create an inflation-linked bond instrument using standard parameters.
+    def builder(cls, instrument_id: str) -> InflationLinkedBondBuilder:
+        """Start a fluent builder (builder-only API).
 
         Parameters
         ----------
@@ -158,22 +162,6 @@ class InflationLinkedBond:
             If dates are invalid (maturity <= issue), if real_coupon is negative,
             if base_index <= 0, or if notional is invalid.
 
-        Examples
-        --------
-            >>> from finstack import Money, Currency
-            >>> from datetime import date
-            >>> bond = InflationLinkedBond.create(
-            ...     "TIPS-2030",
-            ...     Money(1_000_000, Currency("USD")),
-            ...     0.02,  # 2% real coupon
-            ...     date(2024, 1, 1),
-            ...     date(2030, 1, 1),
-            ...     base_index=300.0,
-            ...     discount_curve="USD",
-            ...     inflation_curve="US-CPI",
-            ... )
-            >>> bond.real_coupon
-            0.02
         """
         ...
 

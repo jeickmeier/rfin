@@ -359,12 +359,15 @@ pub(crate) fn register<'py>(
 
     commodity_forward::register_module(&module)?;
     exports.push("CommodityForward");
+    exports.push("CommodityForwardBuilder");
 
     commodity_option::register_module(&module)?;
     exports.push("CommodityOption");
+    exports.push("CommodityOptionBuilder");
 
     commodity_swap::register_module(&module)?;
     exports.push("CommoditySwap");
+    exports.push("CommoditySwapBuilder");
 
     real_estate::register_module(&module)?;
     exports.push("RealEstateAsset");

@@ -7,6 +7,20 @@ from ...core.currency import Currency
 from ...core.dates.calendar import BusinessDayConvention
 from ..common import InstrumentType
 
+class FxSpotBuilder:
+    """Fluent builder returned by :meth:`FxSpot.builder`."""
+
+    def __init__(self, instrument_id: str) -> None: ...
+    def base_currency(self, base_currency: Currency) -> "FxSpotBuilder": ...
+    def quote_currency(self, quote_currency: Currency) -> "FxSpotBuilder": ...
+    def settlement(self, settlement: date) -> "FxSpotBuilder": ...
+    def settlement_lag_days(self, settlement_lag_days: int) -> "FxSpotBuilder": ...
+    def spot_rate(self, spot_rate: float) -> "FxSpotBuilder": ...
+    def notional(self, notional: Money) -> "FxSpotBuilder": ...
+    def bdc(self, bdc: BusinessDayConvention) -> "FxSpotBuilder": ...
+    def calendar(self, calendar: Optional[str] = ...) -> "FxSpotBuilder": ...
+    def build(self) -> "FxSpot": ...
+
 class FxSpot:
     """FX spot transaction for immediate currency exchange.
 
@@ -23,12 +37,13 @@ class FxSpot:
         >>> from finstack.core.currency import Currency
         >>> from finstack.core.money import Money
         >>> from finstack.valuations.instruments import FxSpot
-        >>> fx_spot = FxSpot.create(
-        ...     "FX-EURUSD-SPOT",
-        ...     base_currency=Currency("EUR"),
-        ...     quote_currency=Currency("USD"),
-        ...     notional=Money(1_000_000, Currency("EUR")),
-        ...     spot_rate=1.10,
+        >>> fx_spot = (
+        ...     FxSpot.builder("FX-EURUSD-SPOT")
+        ...     .base_currency(Currency("EUR"))
+        ...     .quote_currency(Currency("USD"))
+        ...     .notional(Money(1_000_000, Currency("EUR")))
+        ...     .spot_rate(1.10)
+        ...     .build()
         ... )
 
     Notes
@@ -61,20 +76,8 @@ class FxSpot:
     """
 
     @classmethod
-    def create(
-        cls,
-        instrument_id: str,
-        base_currency: Currency,
-        quote_currency: Currency,
-        *,
-        settlement: Optional[date] = None,
-        settlement_lag_days: Optional[int] = None,
-        spot_rate: Optional[float] = None,
-        notional: Optional[Money] = None,
-        bdc: Optional[BusinessDayConvention] = None,
-        calendar: Optional[str] = None,
-    ) -> "FxSpot":
-        """Create an FX spot position with optional settlement overrides.
+    def builder(cls, instrument_id: str) -> FxSpotBuilder:
+        """Start a fluent builder (builder-only API).
 
         Parameters
         ----------
@@ -109,18 +112,6 @@ class FxSpot:
             If currencies are the same, if spot_rate is <= 0, or if dates
             are invalid.
 
-        Examples
-        --------
-            >>> from finstack import Currency, Money
-            >>> fx_spot = FxSpot.create(
-            ...     "FX-EURUSD",
-            ...     Currency("EUR"),
-            ...     Currency("USD"),
-            ...     notional=Money(1_000_000, Currency("EUR")),
-            ...     spot_rate=1.10,
-            ... )
-            >>> fx_spot.pair_name
-            'EURUSD'
         """
         ...
 
@@ -167,14 +158,18 @@ class FxOption:
         >>> from finstack.valuations.instruments import FxOption
         >>> from finstack import Currency, Money
         >>> from datetime import date
-        >>> fx_option = FxOption.european_call(
-        ...     "FX-OPT-EURUSD-CALL",
-        ...     base_currency=Currency("EUR"),
-        ...     quote_currency=Currency("USD"),
-        ...     strike=1.10,  # EUR/USD strike
-        ...     expiry=date(2024, 12, 20),
-        ...     notional=Money(1_000_000, Currency("EUR")),
-        ...     vol_surface="EURUSD-VOL",
+        >>> fx_option = (
+        ...     FxOption.builder("FX-OPT-EURUSD-CALL")
+        ...     .base_currency(Currency("EUR"))
+        ...     .quote_currency(Currency("USD"))
+        ...     .strike(1.10)  # EUR/USD strike
+        ...     .expiry(date(2024, 12, 20))
+        ...     .notional(Money(1_000_000, Currency("EUR")))
+        ...     .domestic_curve("USD-OIS")
+        ...     .foreign_curve("EUR-OIS")
+        ...     .vol_surface("EURUSD-VOL")
+        ...     .option_type("call")
+        ...     .build()
         ... )
 
     Price the option:
@@ -188,14 +183,18 @@ class FxOption:
         >>> from finstack.core.money import Money
         >>> from finstack.valuations.instruments import FxOption
         >>> from finstack.valuations.pricer import create_standard_registry
-        >>> fx_option = FxOption.european_call(
-        ...     "FX-OPT-EURUSD",
-        ...     Currency("EUR"),
-        ...     Currency("USD"),
-        ...     strike=1.10,
-        ...     expiry=date(2024, 12, 20),
-        ...     notional=Money(1_000_000, Currency("EUR")),
-        ...     vol_surface="EURUSD-VOL",
+        >>> fx_option = (
+        ...     FxOption.builder("FX-OPT-EURUSD")
+        ...     .base_currency(Currency("EUR"))
+        ...     .quote_currency(Currency("USD"))
+        ...     .strike(1.10)
+        ...     .expiry(date(2024, 12, 20))
+        ...     .notional(Money(1_000_000, Currency("EUR")))
+        ...     .domestic_curve("USD-OIS")
+        ...     .foreign_curve("EUR-OIS")
+        ...     .vol_surface("EURUSD-VOL")
+        ...     .option_type("call")
+        ...     .build()
         ... )
         >>> ctx = MarketContext()
         >>> ctx.insert_discount(DiscountCurve("USD-OIS", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
@@ -248,201 +247,24 @@ class FxOption:
     - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
     """
 
+class FxOptionBuilder:
+    """Fluent builder returned by :meth:`FxOption.builder`."""
+
+    def __init__(self, instrument_id: str) -> None: ...
+    def base_currency(self, base_currency: Currency) -> "FxOptionBuilder": ...
+    def quote_currency(self, quote_currency: Currency) -> "FxOptionBuilder": ...
+    def strike(self, strike: float) -> "FxOptionBuilder": ...
+    def expiry(self, expiry: date) -> "FxOptionBuilder": ...
+    def notional(self, notional: Money) -> "FxOptionBuilder": ...
+    def domestic_curve(self, domestic_curve: str) -> "FxOptionBuilder": ...
+    def foreign_curve(self, foreign_curve: str) -> "FxOptionBuilder": ...
+    def vol_surface(self, vol_surface: str) -> "FxOptionBuilder": ...
+    def option_type(self, option_type: str) -> "FxOptionBuilder": ...
+    def settlement(self, settlement: str) -> "FxOptionBuilder": ...
+    def build(self) -> "FxOption": ...
     @classmethod
-    def european_call(
-        cls,
-        instrument_id: str,
-        base_currency: Currency,
-        quote_currency: Currency,
-        strike: float,
-        expiry: date,
-        notional: Money,
-        vol_surface: str,
-    ) -> "FxOption":
-        """Create a European call option with explicit volatility surface.
-
-        A call option gives the holder the right to buy base_currency (sell
-        quote_currency) at the strike rate. The option can only be exercised
-        at expiry (European style).
-
-        Parameters
-        ----------
-        instrument_id : str
-            Unique identifier for the option (e.g., "FX-OPT-EURUSD-CALL").
-        base_currency : Currency
-            Base currency of the FX pair (currency being bought if exercised).
-        quote_currency : Currency
-            Quote currency of the FX pair (currency being sold if exercised).
-        strike : float
-            Strike exchange rate (quote_currency per base_currency). Must be > 0.
-        expiry : date
-            Option expiration date (European exercise only).
-        notional : Money
-            Notional amount in base currency.
-        vol_surface : str
-            Volatility surface identifier in MarketContext for FX option pricing.
-
-        Returns
-        -------
-        FxOption
-            Configured European FX call option ready for pricing.
-
-        Raises
-        ------
-        ValueError
-            If strike <= 0, if expiry is invalid, or if currencies are the same.
-
-        Examples
-        --------
-            >>> from finstack import Currency, Money
-            >>> from datetime import date
-            >>> option = FxOption.european_call(
-            ...     "FX-OPT-EURUSD",
-            ...     Currency("EUR"),
-            ...     Currency("USD"),
-            ...     strike=1.10,
-            ...     expiry=date(2024, 12, 20),
-            ...     notional=Money(1_000_000, Currency("EUR")),
-            ...     vol_surface="EURUSD-VOL",
-            ... )
-        """
-        ...
-
-    @classmethod
-    def european_put(
-        cls,
-        instrument_id: str,
-        base_currency: Currency,
-        quote_currency: Currency,
-        strike: float,
-        expiry: date,
-        notional: Money,
-        vol_surface: str,
-    ) -> "FxOption":
-        """Create a European put option with explicit volatility surface.
-
-        A put option gives the holder the right to sell base_currency (buy
-        quote_currency) at the strike rate. The option can only be exercised
-        at expiry (European style).
-
-        Parameters
-        ----------
-        instrument_id : str
-            Unique identifier for the option.
-        base_currency : Currency
-            Base currency of the FX pair (currency being sold if exercised).
-        quote_currency : Currency
-            Quote currency of the FX pair (currency being bought if exercised).
-        strike : float
-            Strike exchange rate (quote_currency per base_currency). Must be > 0.
-        expiry : date
-            Option expiration date (European exercise only).
-        notional : Money
-            Notional amount in base currency.
-        vol_surface : str
-            Volatility surface identifier in MarketContext.
-
-        Returns
-        -------
-        FxOption
-            Configured European FX put option ready for pricing.
-
-        Raises
-        ------
-        ValueError
-            If parameters are invalid.
-
-        Examples
-        --------
-            >>> option = FxOption.european_put(
-            ...     "FX-OPT-EURUSD-PUT",
-            ...     Currency("EUR"),
-            ...     Currency("USD"),
-            ...     strike=1.10,
-            ...     expiry=date(2024, 12, 20),
-            ...     notional=Money(1_000_000, Currency("EUR")),
-            ...     vol_surface="EURUSD-VOL",
-            ... )
-        """
-        ...
-
-    @classmethod
-    def builder(
-        cls,
-        instrument_id: str,
-        base_currency: Currency,
-        quote_currency: Currency,
-        strike: float,
-        expiry: date,
-        notional: Money,
-        domestic_curve: str,
-        foreign_curve: str,
-        vol_surface: str,
-        *,
-        settlement: Optional[str] = "cash",
-    ) -> "FxOption":
-        """Create an FX option with explicit domestic/foreign curves and vol surface.
-
-        Builder method for creating FX options with full control over market data
-        dependencies. Use this when you need to specify exact curve identifiers
-        or customize settlement.
-
-        Parameters
-        ----------
-        instrument_id : str
-            Unique identifier for the option.
-        base_currency : Currency
-            Base currency of the FX pair.
-        quote_currency : Currency
-            Quote currency of the FX pair.
-        strike : float
-            Strike exchange rate (quote_currency per base_currency). Must be > 0.
-        expiry : date
-            Option expiration date.
-        notional : Money
-            Notional amount in base currency.
-        domestic_curve : str
-            Domestic (quote currency) discount curve identifier in MarketContext.
-        foreign_curve : str
-            Foreign (base currency) discount curve identifier in MarketContext.
-        vol_surface : str
-            Volatility surface identifier in MarketContext.
-        settlement : str, optional
-            Settlement type: "cash" (default, cash settlement) or "physical"
-            (physical currency exchange).
-
-        Returns
-        -------
-        FxOption
-            Configured FX option with explicit market data dependencies.
-
-        Raises
-        ------
-        ValueError
-            If parameters are invalid.
-
-        Examples
-        --------
-            >>> option = FxOption.builder(
-            ...     "FX-OPT-EURUSD",
-            ...     Currency("EUR"),
-            ...     Currency("USD"),
-            ...     strike=1.10,
-            ...     expiry=date(2024, 12, 20),
-            ...     notional=Money(1_000_000, Currency("EUR")),
-            ...     domestic_curve="USD",  # USD is domestic
-            ...     foreign_curve="EUR",  # EUR is foreign
-            ...     vol_surface="EURUSD-VOL",
-            ... )
-
-        Notes
-        -----
-        - Domestic curve is for the quote currency (USD in EUR/USD)
-        - Foreign curve is for the base currency (EUR in EUR/USD)
-        - Garman-Kohlhagen model uses both curves for pricing
-        - Cash settlement pays the option's intrinsic value
-        - Physical settlement exchanges currencies at strike rate
-        """
+    def builder(cls, instrument_id: str) -> FxOptionBuilder:
+        """Start a fluent builder (builder-only API)."""
         ...
 
     @property
@@ -492,17 +314,18 @@ class FxSwap:
         >>> from finstack.valuations.instruments import FxSwap
         >>> from finstack import Currency, Money
         >>> from datetime import date
-        >>> fx_swap = FxSwap.create(
-        ...     "FX-SWAP-EURUSD",
-        ...     base_currency=Currency("EUR"),
-        ...     quote_currency=Currency("USD"),
-        ...     notional=Money(1_000_000, Currency("EUR")),
-        ...     near_date=date(2024, 1, 3),  # Spot date (T+2)
-        ...     far_date=date(2024, 7, 3),  # 6-month forward
-        ...     domestic_curve="USD",
-        ...     foreign_curve="EUR",
-        ...     near_rate=1.10,  # Optional: spot rate
-        ...     far_rate=1.12,  # Optional: forward rate
+        >>> fx_swap = (
+        ...     FxSwap.builder("FX-SWAP-EURUSD")
+        ...     .base_currency(Currency("EUR"))
+        ...     .quote_currency(Currency("USD"))
+        ...     .notional(Money(1_000_000, Currency("EUR")))
+        ...     .near_date(date(2024, 1, 3))  # Spot date (T+2)
+        ...     .far_date(date(2024, 7, 3))  # 6-month forward
+        ...     .domestic_curve("USD")
+        ...     .foreign_curve("EUR")
+        ...     .near_rate(1.10)  # Optional: spot rate
+        ...     .far_rate(1.12)  # Optional: forward rate
+        ...     .build()
         ... )
 
     Price the FX swap:
@@ -515,17 +338,18 @@ class FxSwap:
         >>> from finstack.core.money import Money
         >>> from finstack.valuations.instruments import FxSwap
         >>> from finstack.valuations.pricer import create_standard_registry
-        >>> fx_swap = FxSwap.create(
-        ...     "FX-SWAP-EURUSD",
-        ...     base_currency=Currency("EUR"),
-        ...     quote_currency=Currency("USD"),
-        ...     notional=Money(1_000_000, Currency("EUR")),
-        ...     near_date=date(2024, 1, 3),
-        ...     far_date=date(2024, 7, 3),
-        ...     domestic_curve="USD",
-        ...     foreign_curve="EUR",
-        ...     near_rate=1.10,
-        ...     far_rate=1.12,
+        >>> fx_swap = (
+        ...     FxSwap.builder("FX-SWAP-EURUSD")
+        ...     .base_currency(Currency("EUR"))
+        ...     .quote_currency(Currency("USD"))
+        ...     .notional(Money(1_000_000, Currency("EUR")))
+        ...     .near_date(date(2024, 1, 3))
+        ...     .far_date(date(2024, 7, 3))
+        ...     .domestic_curve("USD")
+        ...     .foreign_curve("EUR")
+        ...     .near_rate(1.10)
+        ...     .far_rate(1.12)
+        ...     .build()
         ... )
         >>> ctx = MarketContext()
         >>> ctx.insert_discount(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (0.5, 0.995)]))
@@ -568,22 +392,23 @@ class FxSwap:
     - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
     """
 
+class FxSwapBuilder:
+    """Fluent builder returned by :meth:`FxSwap.builder`."""
+
+    def __init__(self, instrument_id: str) -> None: ...
+    def base_currency(self, base_currency: Currency) -> "FxSwapBuilder": ...
+    def quote_currency(self, quote_currency: Currency) -> "FxSwapBuilder": ...
+    def notional(self, notional: Money) -> "FxSwapBuilder": ...
+    def near_date(self, near_date: date) -> "FxSwapBuilder": ...
+    def far_date(self, far_date: date) -> "FxSwapBuilder": ...
+    def domestic_curve(self, domestic_curve: str) -> "FxSwapBuilder": ...
+    def foreign_curve(self, foreign_curve: str) -> "FxSwapBuilder": ...
+    def near_rate(self, near_rate: Optional[float] = ...) -> "FxSwapBuilder": ...
+    def far_rate(self, far_rate: Optional[float] = ...) -> "FxSwapBuilder": ...
+    def build(self) -> "FxSwap": ...
     @classmethod
-    def create(
-        cls,
-        instrument_id: str,
-        base_currency: Currency,
-        quote_currency: Currency,
-        notional: Money,
-        near_date: date,
-        far_date: date,
-        domestic_curve: str,
-        foreign_curve: str,
-        *,
-        near_rate: Optional[float] = None,
-        far_rate: Optional[float] = None,
-    ) -> "FxSwap":
-        """Create an FX swap specifying near/far legs and associated curves.
+    def builder(cls, instrument_id: str) -> FxSwapBuilder:
+        """Start a fluent builder (builder-only API).
 
         Parameters
         ----------
@@ -621,22 +446,6 @@ class FxSwap:
             If dates are invalid (far_date <= near_date), if rates are <= 0,
             or if currencies are the same.
 
-        Examples
-        --------
-            >>> from finstack import Currency, Money
-            >>> from datetime import date
-            >>> fx_swap = FxSwap.create(
-            ...     "FX-SWAP-EURUSD-6M",
-            ...     Currency("EUR"),
-            ...     Currency("USD"),
-            ...     Money(1_000_000, Currency("EUR")),
-            ...     near_date=date(2024, 1, 3),
-            ...     far_date=date(2024, 7, 3),
-            ...     domestic_curve="USD",
-            ...     foreign_curve="EUR",
-            ...     near_rate=1.10,
-            ...     far_rate=1.12,
-            ... )
         """
         ...
 

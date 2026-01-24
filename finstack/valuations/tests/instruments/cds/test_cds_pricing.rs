@@ -8,9 +8,9 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use finstack_valuations::instruments::credit_derivatives::cds::{CDSPricer, CDSPricerConfig};
 use finstack_valuations::instruments::Instrument;
+use finstack_valuations::test_utils;
 use rust_decimal::Decimal;
 use time::macros::date;
 
@@ -52,7 +52,7 @@ fn test_protection_leg_positive_pv() {
     let disc = build_discount_curve(0.05, as_of, "USD_OIS");
     let hazard = build_hazard_curve(0.02, 0.40, as_of, "CORP");
 
-    let cds = CreditDefaultSwap::buy_protection(
+    let cds = test_utils::cds_buy_protection(
         "PROT_LEG_TEST",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -89,7 +89,7 @@ fn test_premium_leg_positive_pv() {
     let disc = build_discount_curve(0.05, as_of, "USD_OIS");
     let hazard = build_hazard_curve(0.02, 0.40, as_of, "CORP");
 
-    let cds = CreditDefaultSwap::buy_protection(
+    let cds = test_utils::cds_buy_protection(
         "PREM_LEG_TEST",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -130,7 +130,7 @@ fn test_npv_calculation_buyer() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let cds = CreditDefaultSwap::buy_protection(
+    let cds = test_utils::cds_buy_protection(
         "NPV_BUYER",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -157,7 +157,7 @@ fn test_par_spread_full_premium_branch() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let cds = CreditDefaultSwap::buy_protection(
+    let cds = test_utils::cds_buy_protection(
         "FULL_PREM",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -210,7 +210,7 @@ fn test_par_spread_errors_when_expired() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let cds = CreditDefaultSwap::buy_protection(
+    let cds = test_utils::cds_buy_protection(
         "EXPIRED_PAR",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -247,7 +247,7 @@ fn test_premium_leg_excludes_accrual_when_disabled() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let cds = CreditDefaultSwap::buy_protection(
+    let cds = test_utils::cds_buy_protection(
         "AOE_TOGGLE",
         Money::new(10_000_000.0, Currency::USD),
         500.0,
@@ -292,7 +292,7 @@ fn test_npv_buyer_seller_opposite() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let buyer = CreditDefaultSwap::buy_protection(
+    let buyer = test_utils::cds_buy_protection(
         "BUYER",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -303,7 +303,7 @@ fn test_npv_buyer_seller_opposite() {
     )
     .expect("CDS construction should succeed");
 
-    let seller = CreditDefaultSwap::sell_protection(
+    let seller = test_utils::cds_sell_protection(
         "SELLER",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -341,7 +341,7 @@ fn test_par_spread_positive() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let cds = CreditDefaultSwap::buy_protection(
+    let cds = test_utils::cds_buy_protection(
         "PAR_SPREAD_TEST",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -379,7 +379,7 @@ fn test_par_spread_gives_zero_npv() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let mut cds = CreditDefaultSwap::buy_protection(
+    let mut cds = test_utils::cds_buy_protection(
         "PAR_NPV_TEST",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -423,7 +423,7 @@ fn test_risky_annuity_positive() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let cds = CreditDefaultSwap::buy_protection(
+    let cds = test_utils::cds_buy_protection(
         "RISKY_ANN_TEST",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -458,7 +458,7 @@ fn test_risky_pv01_scales_with_notional() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let cds1 = CreditDefaultSwap::buy_protection(
+    let cds1 = test_utils::cds_buy_protection(
         "PV01_1MM",
         Money::new(1_000_000.0, Currency::USD),
         100.0,
@@ -469,7 +469,7 @@ fn test_risky_pv01_scales_with_notional() {
     )
     .expect("CDS construction should succeed");
 
-    let cds10 = CreditDefaultSwap::buy_protection(
+    let cds10 = test_utils::cds_buy_protection(
         "PV01_10MM",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -510,7 +510,7 @@ fn test_schedule_generation_isda() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
-    let cds = CreditDefaultSwap::buy_protection(
+    let cds = test_utils::cds_buy_protection(
         "SCHEDULE_TEST",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -572,7 +572,7 @@ fn test_higher_hazard_increases_protection_value() {
             .insert_discount(disc_local)
             .insert_hazard(hazard);
 
-        let cds = CreditDefaultSwap::buy_protection(
+        let cds = test_utils::cds_buy_protection(
             "HAZARD_SENS",
             Money::new(10_000_000.0, Currency::USD),
             100.0,
@@ -617,7 +617,7 @@ fn test_higher_recovery_decreases_protection_value() {
             .insert_discount(disc_local)
             .insert_hazard(hazard);
 
-        let mut cds = CreditDefaultSwap::buy_protection(
+        let mut cds = test_utils::cds_buy_protection(
             "RECOVERY_SENS",
             Money::new(10_000_000.0, Currency::USD),
             100.0,
@@ -661,7 +661,7 @@ fn test_zero_spread_gives_negative_npv_for_buyer() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let cds = CreditDefaultSwap::buy_protection(
+    let cds = test_utils::cds_buy_protection(
         "ZERO_SPREAD",
         Money::new(10_000_000.0, Currency::USD),
         0.0, // Zero spread
@@ -694,7 +694,7 @@ fn test_accrual_on_default_increases_premium() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let cds = CreditDefaultSwap::buy_protection(
+    let cds = test_utils::cds_buy_protection(
         "ACCRUAL_TEST",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -749,7 +749,7 @@ fn test_settlement_delay_reduces_protection_pv() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let mut cds_no_delay = CreditDefaultSwap::buy_protection(
+    let mut cds_no_delay = test_utils::cds_buy_protection(
         "NO_DELAY",
         Money::new(10_000_000.0, Currency::USD),
         100.0,

@@ -4,6 +4,7 @@ use crate::core::common::args::CurrencyArg;
 use crate::core::currency::PyCurrency;
 use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::errors::PyContext;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::DayCount;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -11,9 +12,10 @@ use finstack_valuations::instruments::commodity::commodity_option::CommodityOpti
 use finstack_valuations::instruments::{
     Attributes, ExerciseStyle, OptionType, PricingOverrides, SettlementType,
 };
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyType};
-use pyo3::{Bound, Py};
+use pyo3::types::{PyAny, PyModule, PyType};
+use pyo3::{Bound, Py, PyRefMut};
 use std::fmt;
 use std::sync::Arc;
 
@@ -25,20 +27,21 @@ use std::sync::Arc;
 /// Pricing uses Black-76 for European exercise and binomial tree for American.
 ///
 /// Examples:
-///     >>> option = CommodityOption.create(
-///     ...     "WTI-CALL-75-2025M06",
-///     ...     commodity_type="Energy",
-///     ...     ticker="CL",
-///     ...     strike=75.0,
-///     ...     option_type="call",
-///     ...     exercise_style="european",
-///     ...     expiry=Date(2025, 6, 15),
-///     ...     quantity=1000.0,
-///     ...     unit="BBL",
-///     ...     currency="USD",
-///     ...     forward_curve_id="WTI-FORWARD",
-///     ...     discount_curve_id="USD-OIS",
-///     ...     vol_surface_id="WTI-VOL"
+///     >>> option = (
+///     ...     CommodityOption.builder("WTI-CALL-75-2025M06")
+///     ...     .commodity_type("Energy")
+///     ...     .ticker("CL")
+///     ...     .strike(75.0)
+///     ...     .option_type("call")
+///     ...     .exercise_style("european")
+///     ...     .expiry(Date(2025, 6, 15))
+///     ...     .quantity(1000.0)
+///     ...     .unit("BBL")
+///     ...     .currency("USD")
+///     ...     .forward_curve_id("WTI-FORWARD")
+///     ...     .discount_curve_id("USD-OIS")
+///     ...     .vol_surface_id("WTI-VOL")
+///     ...     .build()
 ///     ... )
 #[pyclass(
     module = "finstack.valuations.instruments",
@@ -58,196 +61,407 @@ impl PyCommodityOption {
     }
 }
 
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "CommodityOptionBuilder",
+    unsendable
+)]
+pub struct PyCommodityOptionBuilder {
+    instrument_id: InstrumentId,
+    commodity_type: Option<String>,
+    ticker: Option<String>,
+    strike: Option<f64>,
+    option_type: OptionType,
+    exercise_style: ExerciseStyle,
+    expiry: Option<time::Date>,
+    quantity: Option<f64>,
+    unit: Option<String>,
+    currency: Option<finstack_core::currency::Currency>,
+    forward_curve_id: Option<CurveId>,
+    discount_curve_id: Option<CurveId>,
+    vol_surface_id: Option<CurveId>,
+    multiplier: f64,
+    settlement: SettlementType,
+    day_count: DayCount,
+    spot_price_id: Option<String>,
+    quoted_forward: Option<f64>,
+    implied_volatility: Option<f64>,
+    tree_steps: Option<usize>,
+}
+
+impl PyCommodityOptionBuilder {
+    fn new_with_id(id: InstrumentId) -> Self {
+        Self {
+            instrument_id: id,
+            commodity_type: None,
+            ticker: None,
+            strike: None,
+            option_type: OptionType::Call,
+            exercise_style: ExerciseStyle::European,
+            expiry: None,
+            quantity: None,
+            unit: None,
+            currency: None,
+            forward_curve_id: None,
+            discount_curve_id: None,
+            vol_surface_id: None,
+            multiplier: 1.0,
+            settlement: SettlementType::Cash,
+            day_count: DayCount::Act365F,
+            spot_price_id: None,
+            quoted_forward: None,
+            implied_volatility: None,
+            tree_steps: None,
+        }
+    }
+
+    fn ensure_ready(&self) -> PyResult<()> {
+        if self.commodity_type.as_deref().unwrap_or("").is_empty() {
+            return Err(PyValueError::new_err("commodity_type() is required."));
+        }
+        if self.ticker.as_deref().unwrap_or("").is_empty() {
+            return Err(PyValueError::new_err("ticker() is required."));
+        }
+        if self.strike.is_none() {
+            return Err(PyValueError::new_err("strike() is required."));
+        }
+        if self.expiry.is_none() {
+            return Err(PyValueError::new_err("expiry() is required."));
+        }
+        if self.quantity.is_none() {
+            return Err(PyValueError::new_err("quantity() is required."));
+        }
+        if self.unit.as_deref().unwrap_or("").is_empty() {
+            return Err(PyValueError::new_err("unit() is required."));
+        }
+        if self.currency.is_none() {
+            return Err(PyValueError::new_err("currency() is required."));
+        }
+        if self.forward_curve_id.is_none() {
+            return Err(PyValueError::new_err("forward_curve_id() is required."));
+        }
+        if self.discount_curve_id.is_none() {
+            return Err(PyValueError::new_err("discount_curve_id() is required."));
+        }
+        if self.vol_surface_id.is_none() {
+            return Err(PyValueError::new_err("vol_surface_id() is required."));
+        }
+        Ok(())
+    }
+
+    fn parse_day_count(dc: Bound<'_, PyAny>) -> PyResult<DayCount> {
+        if let Ok(py_dc) = dc.extract::<pyo3::PyRef<PyDayCount>>() {
+            return Ok(py_dc.inner);
+        }
+        if let Ok(name) = dc.extract::<&str>() {
+            return match name.to_lowercase().as_str() {
+                "act_360" | "act/360" => Ok(DayCount::Act360),
+                "act_365f" | "act/365f" | "act365f" => Ok(DayCount::Act365F),
+                "act_act" | "act/act" | "actact" => Ok(DayCount::ActAct),
+                "thirty_360" | "30/360" | "30e/360" => Ok(DayCount::Thirty360),
+                other => Err(PyValueError::new_err(format!(
+                    "Unsupported day count '{other}'"
+                ))),
+            };
+        }
+        Err(PyTypeError::new_err("day_count expects DayCount or str"))
+    }
+}
+
 #[pymethods]
-impl PyCommodityOption {
-    #[classmethod]
-    #[pyo3(
-        text_signature = "(cls, instrument_id, *, commodity_type, ticker, strike, option_type, exercise_style, expiry, quantity, unit, currency, forward_curve_id, discount_curve_id, vol_surface_id, multiplier=1.0, settlement_type='cash', day_count=None, spot_price_id=None, quoted_forward=None, implied_volatility=None, tree_steps=None)"
-    )]
-    #[pyo3(
-        signature = (
-            instrument_id,
-            *,
-            commodity_type,
-            ticker,
-            strike,
-            option_type,
-            exercise_style,
-            expiry,
-            quantity,
-            unit,
-            currency,
-            forward_curve_id,
-            discount_curve_id,
-            vol_surface_id,
-            multiplier = 1.0,
-            settlement_type = "cash",
-            day_count = None,
-            spot_price_id = None,
-            quoted_forward = None,
-            implied_volatility = None,
-            tree_steps = None
-        )
-    )]
-    /// Create a commodity option.
-    ///
-    /// Args:
-    ///     instrument_id: Unique identifier for this instrument.
-    ///     commodity_type: Commodity type (e.g., "Energy", "Metal", "Agricultural").
-    ///     ticker: Ticker or symbol (e.g., "CL" for WTI, "GC" for Gold).
-    ///     strike: Strike price per unit.
-    ///     option_type: Option type ("call" or "put").
-    ///     exercise_style: Exercise style ("european" or "american").
-    ///     expiry: Option expiry date.
-    ///     quantity: Contract quantity in units.
-    ///     unit: Unit of measurement (e.g., "BBL", "MT", "OZ").
-    ///     currency: Currency for pricing.
-    ///     forward_curve_id: Forward/futures curve ID for price interpolation.
-    ///     discount_curve_id: Discount curve ID.
-    ///     vol_surface_id: Volatility surface ID for implied vol.
-    ///     multiplier: Contract multiplier (default 1.0).
-    ///     settlement_type: Settlement type ("physical" or "cash", default "cash").
-    ///     day_count: Day count convention (default Act365F).
-    ///     spot_price_id: Optional spot price ID (for American options).
-    ///     quoted_forward: Optional quoted forward price (overrides curve lookup).
-    ///     implied_volatility: Optional implied vol override (overrides surface lookup).
-    ///     tree_steps: Number of steps for binomial tree (American exercise only).
-    ///
-    /// Returns:
-    ///     CommodityOption: Configured commodity option instrument.
-    fn create(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        commodity_type: &str,
-        ticker: &str,
-        strike: f64,
-        option_type: &str,
-        exercise_style: &str,
-        expiry: Bound<'_, PyAny>,
-        quantity: f64,
-        unit: &str,
-        currency: Bound<'_, PyAny>,
-        forward_curve_id: &str,
-        discount_curve_id: &str,
-        vol_surface_id: &str,
-        multiplier: f64,
-        settlement_type: &str,
-        day_count: Option<Bound<'_, PyAny>>,
-        spot_price_id: Option<&str>,
-        quoted_forward: Option<f64>,
-        implied_volatility: Option<f64>,
-        tree_steps: Option<usize>,
-    ) -> PyResult<Self> {
-        use crate::errors::PyContext;
+impl PyCommodityOptionBuilder {
+    #[new]
+    #[pyo3(text_signature = "(instrument_id)")]
+    fn new_py(instrument_id: &str) -> Self {
+        Self::new_with_id(InstrumentId::new(instrument_id))
+    }
 
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-        let CurrencyArg(ccy) = currency.extract().context("currency")?;
-        let expiry_date = py_to_date(&expiry).context("expiry")?;
+    #[pyo3(text_signature = "($self, commodity_type)")]
+    fn commodity_type(mut slf: PyRefMut<'_, Self>, commodity_type: String) -> PyRefMut<'_, Self> {
+        slf.commodity_type = Some(commodity_type);
+        slf
+    }
 
-        // Parse option type
-        let opt_type = match option_type.to_lowercase().as_str() {
+    #[pyo3(text_signature = "($self, ticker)")]
+    fn ticker(mut slf: PyRefMut<'_, Self>, ticker: String) -> PyRefMut<'_, Self> {
+        slf.ticker = Some(ticker);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, strike)")]
+    fn strike(mut slf: PyRefMut<'_, Self>, strike: f64) -> PyRefMut<'_, Self> {
+        slf.strike = Some(strike);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, option_type)")]
+    fn option_type(
+        mut slf: PyRefMut<'_, Self>,
+        option_type: String,
+    ) -> PyResult<PyRefMut<'_, Self>> {
+        slf.option_type = match option_type.to_lowercase().as_str() {
             "call" => OptionType::Call,
             "put" => OptionType::Put,
-            _ => {
-                return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                    "Invalid option_type: '{}'. Must be 'call' or 'put'",
-                    option_type
-                )));
+            other => {
+                return Err(PyValueError::new_err(format!(
+                    "Invalid option_type: '{other}'. Must be 'call' or 'put'"
+                )))
             }
         };
+        Ok(slf)
+    }
 
-        // Parse exercise style
-        let exercise = match exercise_style.to_lowercase().as_str() {
+    #[pyo3(text_signature = "($self, exercise_style)")]
+    fn exercise_style(
+        mut slf: PyRefMut<'_, Self>,
+        exercise_style: String,
+    ) -> PyResult<PyRefMut<'_, Self>> {
+        slf.exercise_style = match exercise_style.to_lowercase().as_str() {
             "european" => ExerciseStyle::European,
             "american" => ExerciseStyle::American,
             "bermudan" => ExerciseStyle::Bermudan,
-            _ => {
-                return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                    "Invalid exercise_style: '{}'. Must be 'european', 'american', or 'bermudan'",
-                    exercise_style
-                )));
+            other => {
+                return Err(PyValueError::new_err(format!(
+                "Invalid exercise_style: '{other}'. Must be 'european', 'american', or 'bermudan'"
+            )))
             }
         };
+        Ok(slf)
+    }
 
-        // Parse settlement type
-        let settlement = match settlement_type.to_lowercase().as_str() {
+    #[pyo3(text_signature = "($self, expiry)")]
+    fn expiry<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        expiry: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.expiry = Some(py_to_date(&expiry).context("expiry")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, quantity)")]
+    fn quantity(mut slf: PyRefMut<'_, Self>, quantity: f64) -> PyResult<PyRefMut<'_, Self>> {
+        if quantity <= 0.0 {
+            return Err(PyValueError::new_err("quantity must be positive"));
+        }
+        slf.quantity = Some(quantity);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, unit)")]
+    fn unit(mut slf: PyRefMut<'_, Self>, unit: String) -> PyRefMut<'_, Self> {
+        slf.unit = Some(unit);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, currency)")]
+    fn currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        currency: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let CurrencyArg(ccy) = currency.extract().context("currency")?;
+        slf.currency = Some(ccy);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, curve_id)")]
+    fn forward_curve_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        slf.forward_curve_id = Some(CurveId::new(curve_id.as_str()));
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, curve_id)")]
+    fn discount_curve_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        slf.discount_curve_id = Some(CurveId::new(curve_id.as_str()));
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, curve_id)")]
+    fn vol_surface_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        slf.vol_surface_id = Some(CurveId::new(curve_id.as_str()));
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, multiplier)")]
+    fn multiplier(mut slf: PyRefMut<'_, Self>, multiplier: f64) -> PyRefMut<'_, Self> {
+        slf.multiplier = multiplier;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, settlement_type)")]
+    fn settlement_type(
+        mut slf: PyRefMut<'_, Self>,
+        settlement_type: String,
+    ) -> PyResult<PyRefMut<'_, Self>> {
+        slf.settlement = match settlement_type.to_lowercase().as_str() {
             "physical" => SettlementType::Physical,
             "cash" => SettlementType::Cash,
-            _ => {
-                return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                    "Invalid settlement_type: '{}'. Must be 'physical' or 'cash'",
-                    settlement_type
-                )));
+            other => {
+                return Err(PyValueError::new_err(format!(
+                    "Invalid settlement_type: '{other}'. Must be 'physical' or 'cash'"
+                )))
             }
         };
+        Ok(slf)
+    }
 
-        // Parse day count
-        let dc = if let Some(dc_arg) = day_count {
-            if let Ok(py_dc) = dc_arg.extract::<pyo3::PyRef<PyDayCount>>() {
-                py_dc.inner
-            } else if let Ok(name) = dc_arg.extract::<&str>() {
-                match name.to_lowercase().as_str() {
-                    "act_360" | "act/360" => DayCount::Act360,
-                    "act_365f" | "act/365f" | "act365f" => DayCount::Act365F,
-                    "act_act" | "act/act" | "actact" => DayCount::ActAct,
-                    "thirty_360" | "30/360" | "30e/360" => DayCount::Thirty360,
-                    other => {
-                        return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                            "Unsupported day count '{}'",
-                            other
-                        )));
-                    }
-                }
-            } else {
-                return Err(pyo3::exceptions::PyTypeError::new_err(
-                    "day_count expects DayCount or str",
-                ));
-            }
-        } else {
-            DayCount::Act365F
-        };
+    #[pyo3(text_signature = "($self, day_count)")]
+    fn day_count<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        day_count: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.day_count = Self::parse_day_count(day_count)?;
+        Ok(slf)
+    }
 
-        // Build pricing overrides
+    #[pyo3(text_signature = "($self, spot_price_id=None)", signature = (spot_price_id=None))]
+    fn spot_price_id(
+        mut slf: PyRefMut<'_, Self>,
+        spot_price_id: Option<String>,
+    ) -> PyRefMut<'_, Self> {
+        slf.spot_price_id = spot_price_id;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, quoted_forward=None)", signature = (quoted_forward=None))]
+    fn quoted_forward(
+        mut slf: PyRefMut<'_, Self>,
+        quoted_forward: Option<f64>,
+    ) -> PyRefMut<'_, Self> {
+        slf.quoted_forward = quoted_forward;
+        slf
+    }
+
+    #[pyo3(
+        text_signature = "($self, implied_volatility=None)",
+        signature = (implied_volatility=None)
+    )]
+    fn implied_volatility(
+        mut slf: PyRefMut<'_, Self>,
+        implied_volatility: Option<f64>,
+    ) -> PyRefMut<'_, Self> {
+        slf.implied_volatility = implied_volatility;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, tree_steps=None)", signature = (tree_steps=None))]
+    fn tree_steps(mut slf: PyRefMut<'_, Self>, tree_steps: Option<usize>) -> PyRefMut<'_, Self> {
+        slf.tree_steps = tree_steps;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyCommodityOption> {
+        slf.ensure_ready()?;
+        let commodity_type = slf.commodity_type.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommodityOptionBuilder internal error: missing commodity_type after validation",
+            )
+        })?;
+        let ticker = slf.ticker.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommodityOptionBuilder internal error: missing ticker after validation",
+            )
+        })?;
+        let strike = slf.strike.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommodityOptionBuilder internal error: missing strike after validation",
+            )
+        })?;
+        let expiry = slf.expiry.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommodityOptionBuilder internal error: missing expiry after validation",
+            )
+        })?;
+        let quantity = slf.quantity.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommodityOptionBuilder internal error: missing quantity after validation",
+            )
+        })?;
+        let unit = slf.unit.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommodityOptionBuilder internal error: missing unit after validation",
+            )
+        })?;
+        let currency = slf.currency.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommodityOptionBuilder internal error: missing currency after validation",
+            )
+        })?;
+        let forward_curve_id = slf.forward_curve_id.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommodityOptionBuilder internal error: missing forward_curve_id after validation",
+            )
+        })?;
+        let discount_curve_id = slf.discount_curve_id.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommodityOptionBuilder internal error: missing discount_curve_id after validation",
+            )
+        })?;
+        let vol_surface_id = slf.vol_surface_id.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommodityOptionBuilder internal error: missing vol_surface_id after validation",
+            )
+        })?;
+
         let mut pricing_overrides = PricingOverrides::default();
-        if let Some(vol) = implied_volatility {
+        if let Some(vol) = slf.implied_volatility {
             pricing_overrides.implied_volatility = Some(vol);
         }
-        if let Some(steps) = tree_steps {
+        if let Some(steps) = slf.tree_steps {
             pricing_overrides.tree_steps = Some(steps);
         }
 
         let mut builder = CommodityOption::builder()
-            .id(id)
-            .commodity_type(commodity_type.to_string())
-            .ticker(ticker.to_string())
+            .id(slf.instrument_id.clone())
+            .commodity_type(commodity_type)
+            .ticker(ticker)
             .strike(strike)
-            .option_type(opt_type)
-            .exercise_style(exercise)
-            .expiry(expiry_date)
+            .option_type(slf.option_type)
+            .exercise_style(slf.exercise_style)
+            .expiry(expiry)
             .quantity(quantity)
-            .unit(unit.to_string())
-            .multiplier(multiplier)
-            .settlement(settlement)
-            .currency(ccy)
-            .forward_curve_id(CurveId::new(forward_curve_id))
-            .discount_curve_id(CurveId::new(discount_curve_id))
-            .vol_surface_id(CurveId::new(vol_surface_id))
-            .day_count(dc)
+            .unit(unit)
+            .multiplier(slf.multiplier)
+            .settlement(slf.settlement)
+            .currency(currency)
+            .forward_curve_id(forward_curve_id)
+            .discount_curve_id(discount_curve_id)
+            .vol_surface_id(vol_surface_id)
+            .day_count(slf.day_count)
             .pricing_overrides(pricing_overrides)
             .attributes(Attributes::new());
 
-        if let Some(sp_id) = spot_price_id {
-            builder = builder.spot_price_id_opt(Some(sp_id.to_string()));
+        if let Some(sp_id) = slf.spot_price_id.clone() {
+            builder = builder.spot_price_id_opt(Some(sp_id));
         }
-        if let Some(qf) = quoted_forward {
+        if let Some(qf) = slf.quoted_forward {
             builder = builder.quoted_forward_opt(Some(qf));
         }
 
         let option = builder
             .build()
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("{}", e)))?;
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("{e}")))?;
 
-        Ok(Self::new(option))
+        Ok(PyCommodityOption::new(option))
+    }
+
+    fn __repr__(&self) -> String {
+        "CommodityOptionBuilder(...)".to_string()
+    }
+}
+
+#[pymethods]
+impl PyCommodityOption {
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, instrument_id)")]
+    /// Start a fluent builder (builder-only API).
+    fn builder<'py>(
+        cls: &Bound<'py, PyType>,
+        instrument_id: &str,
+    ) -> PyResult<Py<PyCommodityOptionBuilder>> {
+        let py = cls.py();
+        let builder = PyCommodityOptionBuilder::new_with_id(InstrumentId::new(instrument_id));
+        Py::new(py, builder)
     }
 
     /// Instrument identifier.
@@ -405,5 +619,6 @@ impl fmt::Display for PyCommodityOption {
 /// Export module items for registration.
 pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     parent.add_class::<PyCommodityOption>()?;
+    parent.add_class::<PyCommodityOptionBuilder>()?;
     Ok(())
 }

@@ -3,14 +3,16 @@
 use crate::core::common::args::CurrencyArg;
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::errors::PyContext;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::{BusinessDayConvention, Tenor, TenorUnit};
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
 use finstack_valuations::instruments::Attributes;
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyType};
-use pyo3::{Bound, Py};
+use pyo3::types::{PyAny, PyModule, PyType};
+use pyo3::{Bound, Py, PyRefMut};
 use std::fmt;
 use std::sync::Arc;
 
@@ -20,20 +22,21 @@ use std::sync::Arc;
 /// determined by an index or average of spot prices over the period.
 ///
 /// Examples:
-///     >>> swap = CommoditySwap.create(
-///     ...     "NG-SWAP-2025",
-///     ...     commodity_type="Energy",
-///     ...     ticker="NG",
-///     ...     unit="MMBTU",
-///     ...     currency="USD",
-///     ...     notional_quantity=10000.0,
-///     ...     fixed_price=3.50,
-///     ...     floating_index_id="NG-SPOT-AVG",
-///     ...     pay_fixed=True,
-///     ...     start_date=Date(2025, 1, 1),
-///     ...     end_date=Date(2025, 12, 31),
-///     ...     payment_frequency="1M",
-///     ...     discount_curve_id="USD-OIS"
+///     >>> swap = (
+///     ...     CommoditySwap.builder("NG-SWAP-2025")
+///     ...     .commodity_type("Energy")
+///     ...     .ticker("NG")
+///     ...     .unit("MMBTU")
+///     ...     .currency("USD")
+///     ...     .notional_quantity(10000.0)
+///     ...     .fixed_price(3.50)
+///     ...     .floating_index_id("NG-SPOT-AVG")
+///     ...     .pay_fixed(True)
+///     ...     .start_date(Date(2025, 1, 1))
+///     ...     .end_date(Date(2025, 12, 31))
+///     ...     .payment_frequency("1M")
+///     ...     .discount_curve_id("USD-OIS")
+///     ...     .build()
 ///     ... )
 #[pyclass(
     module = "finstack.valuations.instruments",
@@ -53,91 +56,206 @@ impl PyCommoditySwap {
     }
 }
 
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "CommoditySwapBuilder",
+    unsendable
+)]
+pub struct PyCommoditySwapBuilder {
+    instrument_id: InstrumentId,
+    commodity_type: Option<String>,
+    ticker: Option<String>,
+    unit: Option<String>,
+    currency: Option<finstack_core::currency::Currency>,
+    notional_quantity: Option<f64>,
+    fixed_price: Option<f64>,
+    floating_index_id: Option<CurveId>,
+    pay_fixed: Option<bool>,
+    start_date: Option<time::Date>,
+    end_date: Option<time::Date>,
+    payment_frequency: Option<Tenor>,
+    discount_curve_id: Option<CurveId>,
+    calendar_id: Option<String>,
+    bdc: Option<BusinessDayConvention>,
+    index_lag_days: Option<i32>,
+}
+
+impl PyCommoditySwapBuilder {
+    fn new_with_id(id: InstrumentId) -> Self {
+        Self {
+            instrument_id: id,
+            commodity_type: None,
+            ticker: None,
+            unit: None,
+            currency: None,
+            notional_quantity: None,
+            fixed_price: None,
+            floating_index_id: None,
+            pay_fixed: None,
+            start_date: None,
+            end_date: None,
+            payment_frequency: None,
+            discount_curve_id: None,
+            calendar_id: None,
+            bdc: None,
+            index_lag_days: None,
+        }
+    }
+
+    fn ensure_ready(&self) -> PyResult<()> {
+        if self.commodity_type.as_deref().unwrap_or("").is_empty() {
+            return Err(PyValueError::new_err("commodity_type() is required."));
+        }
+        if self.ticker.as_deref().unwrap_or("").is_empty() {
+            return Err(PyValueError::new_err("ticker() is required."));
+        }
+        if self.unit.as_deref().unwrap_or("").is_empty() {
+            return Err(PyValueError::new_err("unit() is required."));
+        }
+        if self.currency.is_none() {
+            return Err(PyValueError::new_err("currency() is required."));
+        }
+        if self.notional_quantity.is_none() {
+            return Err(PyValueError::new_err("notional_quantity() is required."));
+        }
+        if self.fixed_price.is_none() {
+            return Err(PyValueError::new_err("fixed_price() is required."));
+        }
+        if self.floating_index_id.is_none() {
+            return Err(PyValueError::new_err("floating_index_id() is required."));
+        }
+        if self.pay_fixed.is_none() {
+            return Err(PyValueError::new_err("pay_fixed() is required."));
+        }
+        if self.start_date.is_none() {
+            return Err(PyValueError::new_err("start_date() is required."));
+        }
+        if self.end_date.is_none() {
+            return Err(PyValueError::new_err("end_date() is required."));
+        }
+        if self.payment_frequency.is_none() {
+            return Err(PyValueError::new_err("payment_frequency() is required."));
+        }
+        if self.discount_curve_id.is_none() {
+            return Err(PyValueError::new_err("discount_curve_id() is required."));
+        }
+        Ok(())
+    }
+}
+
 #[pymethods]
-impl PyCommoditySwap {
-    #[classmethod]
-    #[pyo3(
-        text_signature = "(cls, instrument_id, *, commodity_type, ticker, unit, currency, notional_quantity, fixed_price, floating_index_id, pay_fixed, start_date, end_date, payment_frequency, discount_curve_id, calendar_id=None, bdc=None, index_lag_days=None)"
-    )]
-    #[pyo3(
-        signature = (
-            instrument_id,
-            *,
-            commodity_type,
-            ticker,
-            unit,
-            currency,
-            notional_quantity,
-            fixed_price,
-            floating_index_id,
-            pay_fixed,
-            start_date,
-            end_date,
-            payment_frequency,
-            discount_curve_id,
-            calendar_id = None,
-            bdc = None,
-            index_lag_days = None
-        )
-    )]
-    /// Create a commodity swap.
-    ///
-    /// Args:
-    ///     instrument_id: Unique identifier for this instrument.
-    ///     commodity_type: Commodity type (e.g., "Energy", "Metal", "Agricultural").
-    ///     ticker: Ticker or symbol (e.g., "CL" for WTI, "NG" for Natural Gas).
-    ///     unit: Unit of measurement (e.g., "BBL", "MMBTU", "MT").
-    ///     currency: Currency for pricing and settlement.
-    ///     notional_quantity: Notional quantity per period.
-    ///     fixed_price: Fixed price per unit.
-    ///     floating_index_id: Floating index ID for price lookups.
-    ///     pay_fixed: True if paying fixed (receiving floating).
-    ///     start_date: Start date of the swap.
-    ///     end_date: End date of the swap.
-    ///     payment_frequency: Payment frequency as tenor string (e.g., "1M", "3M").
-    ///     discount_curve_id: Discount curve ID.
-    ///     calendar_id: Optional calendar ID for date adjustments.
-    ///     bdc: Business day convention ("following", "modified_following", etc.).
-    ///     index_lag_days: Optional index lag in days.
-    ///
-    /// Returns:
-    ///     CommoditySwap: Configured commodity swap instrument.
-    fn create(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        commodity_type: &str,
-        ticker: &str,
-        unit: &str,
-        currency: Bound<'_, PyAny>,
-        notional_quantity: f64,
-        fixed_price: f64,
-        floating_index_id: &str,
-        pay_fixed: bool,
-        start_date: Bound<'_, PyAny>,
-        end_date: Bound<'_, PyAny>,
-        payment_frequency: &str,
-        discount_curve_id: &str,
-        calendar_id: Option<&str>,
-        bdc: Option<&str>,
-        index_lag_days: Option<i32>,
-    ) -> PyResult<Self> {
-        use crate::errors::PyContext;
+impl PyCommoditySwapBuilder {
+    #[new]
+    #[pyo3(text_signature = "(instrument_id)")]
+    fn new_py(instrument_id: &str) -> Self {
+        Self::new_with_id(InstrumentId::new(instrument_id))
+    }
 
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
+    #[pyo3(text_signature = "($self, commodity_type)")]
+    fn commodity_type(mut slf: PyRefMut<'_, Self>, commodity_type: String) -> PyRefMut<'_, Self> {
+        slf.commodity_type = Some(commodity_type);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, ticker)")]
+    fn ticker(mut slf: PyRefMut<'_, Self>, ticker: String) -> PyRefMut<'_, Self> {
+        slf.ticker = Some(ticker);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, unit)")]
+    fn unit(mut slf: PyRefMut<'_, Self>, unit: String) -> PyRefMut<'_, Self> {
+        slf.unit = Some(unit);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, currency)")]
+    fn currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        currency: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         let CurrencyArg(ccy) = currency.extract().context("currency")?;
-        let start = py_to_date(&start_date).context("start_date")?;
-        let end = py_to_date(&end_date).context("end_date")?;
+        slf.currency = Some(ccy);
+        Ok(slf)
+    }
 
-        // Parse frequency tenor
-        let freq = parse_tenor(payment_frequency).map_err(|e| {
-            pyo3::exceptions::PyValueError::new_err(format!(
+    #[pyo3(text_signature = "($self, notional_quantity)")]
+    fn notional_quantity(
+        mut slf: PyRefMut<'_, Self>,
+        notional_quantity: f64,
+    ) -> PyResult<PyRefMut<'_, Self>> {
+        if notional_quantity <= 0.0 {
+            return Err(PyValueError::new_err("notional_quantity must be positive"));
+        }
+        slf.notional_quantity = Some(notional_quantity);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, fixed_price)")]
+    fn fixed_price(mut slf: PyRefMut<'_, Self>, fixed_price: f64) -> PyRefMut<'_, Self> {
+        slf.fixed_price = Some(fixed_price);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, curve_id)")]
+    fn floating_index_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        slf.floating_index_id = Some(CurveId::new(curve_id.as_str()));
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, pay_fixed)")]
+    fn pay_fixed(mut slf: PyRefMut<'_, Self>, pay_fixed: bool) -> PyRefMut<'_, Self> {
+        slf.pay_fixed = Some(pay_fixed);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, start_date)")]
+    fn start_date<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        start_date: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.start_date = Some(py_to_date(&start_date).context("start_date")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, end_date)")]
+    fn end_date<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        end_date: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.end_date = Some(py_to_date(&end_date).context("end_date")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, payment_frequency)")]
+    fn payment_frequency(
+        mut slf: PyRefMut<'_, Self>,
+        payment_frequency: String,
+    ) -> PyResult<PyRefMut<'_, Self>> {
+        slf.payment_frequency = Some(parse_tenor(&payment_frequency).map_err(|e| {
+            PyValueError::new_err(format!(
                 "Invalid payment_frequency '{}': {}",
                 payment_frequency, e
             ))
-        })?;
+        })?);
+        Ok(slf)
+    }
 
-        // Parse BDC
-        let bdc_enum = match bdc {
+    #[pyo3(text_signature = "($self, curve_id)")]
+    fn discount_curve_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        slf.discount_curve_id = Some(CurveId::new(curve_id.as_str()));
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, calendar_id=None)", signature = (calendar_id=None))]
+    fn calendar_id(mut slf: PyRefMut<'_, Self>, calendar_id: Option<String>) -> PyRefMut<'_, Self> {
+        slf.calendar_id = calendar_id;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, bdc=None)", signature = (bdc=None))]
+    fn bdc(mut slf: PyRefMut<'_, Self>, bdc: Option<String>) -> PyResult<PyRefMut<'_, Self>> {
+        slf.bdc = match bdc.as_deref() {
             Some("following") | Some("Following") => Some(BusinessDayConvention::Following),
             Some("modified_following") | Some("ModifiedFollowing") => {
                 Some(BusinessDayConvention::ModifiedFollowing)
@@ -151,44 +269,138 @@ impl PyCommoditySwap {
             }
             None => None,
             Some(other) => {
-                return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                    "Invalid bdc: '{}'. Must be 'following', 'modified_following', 'preceding', 'modified_preceding', or 'unadjusted'",
-                    other
-                )));
+                return Err(PyValueError::new_err(format!(
+                    "Invalid bdc: '{other}'. Must be 'following', 'modified_following', 'preceding', 'modified_preceding', or 'unadjusted'",
+                )))
             }
         };
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, index_lag_days=None)", signature = (index_lag_days=None))]
+    fn index_lag_days(
+        mut slf: PyRefMut<'_, Self>,
+        index_lag_days: Option<i32>,
+    ) -> PyRefMut<'_, Self> {
+        slf.index_lag_days = index_lag_days;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyCommoditySwap> {
+        slf.ensure_ready()?;
+
+        let commodity_type = slf.commodity_type.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommoditySwapBuilder internal error: missing commodity_type after validation",
+            )
+        })?;
+        let ticker = slf.ticker.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommoditySwapBuilder internal error: missing ticker after validation",
+            )
+        })?;
+        let unit = slf.unit.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommoditySwapBuilder internal error: missing unit after validation",
+            )
+        })?;
+        let currency = slf.currency.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommoditySwapBuilder internal error: missing currency after validation",
+            )
+        })?;
+        let notional_quantity = slf.notional_quantity.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommoditySwapBuilder internal error: missing notional_quantity after validation",
+            )
+        })?;
+        let fixed_price = slf.fixed_price.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommoditySwapBuilder internal error: missing fixed_price after validation",
+            )
+        })?;
+        let floating_index_id = slf.floating_index_id.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommoditySwapBuilder internal error: missing floating_index_id after validation",
+            )
+        })?;
+        let pay_fixed = slf.pay_fixed.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommoditySwapBuilder internal error: missing pay_fixed after validation",
+            )
+        })?;
+        let start_date = slf.start_date.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommoditySwapBuilder internal error: missing start_date after validation",
+            )
+        })?;
+        let end_date = slf.end_date.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommoditySwapBuilder internal error: missing end_date after validation",
+            )
+        })?;
+        let payment_frequency = slf.payment_frequency.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommoditySwapBuilder internal error: missing payment_frequency after validation",
+            )
+        })?;
+        let discount_curve_id = slf.discount_curve_id.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CommoditySwapBuilder internal error: missing discount_curve_id after validation",
+            )
+        })?;
 
         let mut builder = CommoditySwap::builder()
-            .id(id)
-            .commodity_type(commodity_type.to_string())
-            .ticker(ticker.to_string())
-            .unit(unit.to_string())
-            .currency(ccy)
+            .id(slf.instrument_id.clone())
+            .commodity_type(commodity_type)
+            .ticker(ticker)
+            .unit(unit)
+            .currency(currency)
             .notional_quantity(notional_quantity)
             .fixed_price(fixed_price)
-            .floating_index_id(CurveId::new(floating_index_id))
+            .floating_index_id(floating_index_id)
             .pay_fixed(pay_fixed)
-            .start_date(start)
-            .end_date(end)
-            .payment_frequency(freq)
-            .discount_curve_id(CurveId::new(discount_curve_id))
+            .start_date(start_date)
+            .end_date(end_date)
+            .payment_frequency(payment_frequency)
+            .discount_curve_id(discount_curve_id)
             .attributes(Attributes::new());
 
-        if let Some(cal) = calendar_id {
-            builder = builder.calendar_id_opt(Some(cal.to_string()));
+        if let Some(cal) = slf.calendar_id.clone() {
+            builder = builder.calendar_id_opt(Some(cal));
         }
-        if let Some(b) = bdc_enum {
+        if let Some(b) = slf.bdc {
             builder = builder.bdc_opt(Some(b));
         }
-        if let Some(lag) = index_lag_days {
+        if let Some(lag) = slf.index_lag_days {
             builder = builder.index_lag_days_opt(Some(lag));
         }
 
         let swap = builder
             .build()
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("{}", e)))?;
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("{e}")))?;
 
-        Ok(Self::new(swap))
+        Ok(PyCommoditySwap::new(swap))
+    }
+
+    fn __repr__(&self) -> String {
+        "CommoditySwapBuilder(...)".to_string()
+    }
+}
+
+#[pymethods]
+impl PyCommoditySwap {
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, instrument_id)")]
+    /// Start a fluent builder (builder-only API).
+    fn builder<'py>(
+        cls: &Bound<'py, PyType>,
+        instrument_id: &str,
+    ) -> PyResult<Py<PyCommoditySwapBuilder>> {
+        let py = cls.py();
+        let builder = PyCommoditySwapBuilder::new_with_id(InstrumentId::new(instrument_id));
+        Py::new(py, builder)
     }
 
     /// Instrument identifier.
@@ -323,5 +535,6 @@ fn parse_tenor(s: &str) -> Result<Tenor, String> {
 /// Export module items for registration.
 pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     parent.add_class::<PyCommoditySwap>()?;
+    parent.add_class::<PyCommoditySwapBuilder>()?;
     Ok(())
 }

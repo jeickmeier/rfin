@@ -8,7 +8,6 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use finstack_valuations::instruments::Instrument;
 use time::macros::date;
 
@@ -54,7 +53,7 @@ fn test_upfront_payment_buyer_payfast() {
         .insert_hazard(hazard);
 
     // Creates a CDS (Buy Protection)
-    let mut cds = CreditDefaultSwap::buy_protection(
+    let mut cds = finstack_valuations::test_utils::cds_buy_protection(
         "UPFRONT_BUYER",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -97,7 +96,7 @@ fn test_upfront_payment_seller_receivefast() {
         .insert_hazard(hazard);
 
     // Creates a CDS (Sell Protection)
-    let mut cds = CreditDefaultSwap::sell_protection(
+    let mut cds = finstack_valuations::test_utils::cds_sell_protection(
         "UPFRONT_SELLER",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -142,7 +141,7 @@ fn test_upfront_payment_discounted() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let mut cds = CreditDefaultSwap::buy_protection(
+    let mut cds = finstack_valuations::test_utils::cds_buy_protection(
         "UPFRONT_DISCOUNTED",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -188,7 +187,7 @@ fn test_upfront_payment_past_is_ignored() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let mut cds = CreditDefaultSwap::buy_protection(
+    let mut cds = finstack_valuations::test_utils::cds_buy_protection(
         "UPFRONT_PAST",
         Money::new(10_000_000.0, Currency::USD),
         100.0,

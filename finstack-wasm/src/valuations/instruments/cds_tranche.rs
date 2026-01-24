@@ -28,6 +28,176 @@ impl InstrumentWrapper for JsCdsTranche {
     }
 }
 
+#[wasm_bindgen(js_name = CdsTrancheBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsCdsTrancheBuilder {
+    instrument_id: String,
+    index_name: Option<String>,
+    series: Option<u16>,
+    attach_pct: Option<f64>,
+    detach_pct: Option<f64>,
+    notional: Option<finstack_core::money::Money>,
+    maturity: Option<finstack_core::dates::Date>,
+    running_coupon_bp: Option<f64>,
+    discount_curve: Option<String>,
+    credit_index_curve: Option<String>,
+    side: Option<String>,
+    payments_per_year: Option<u32>,
+    day_count: Option<DayCount>,
+}
+
+#[wasm_bindgen(js_class = CdsTrancheBuilder)]
+impl JsCdsTrancheBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new(instrument_id: &str) -> JsCdsTrancheBuilder {
+        JsCdsTrancheBuilder {
+            instrument_id: instrument_id.to_string(),
+            ..Default::default()
+        }
+    }
+
+    #[wasm_bindgen(js_name = indexName)]
+    pub fn index_name(mut self, index_name: String) -> JsCdsTrancheBuilder {
+        self.index_name = Some(index_name);
+        self
+    }
+
+    #[wasm_bindgen(js_name = series)]
+    pub fn series(mut self, series: u16) -> JsCdsTrancheBuilder {
+        self.series = Some(series);
+        self
+    }
+
+    #[wasm_bindgen(js_name = attachPct)]
+    pub fn attach_pct(mut self, attach_pct: f64) -> JsCdsTrancheBuilder {
+        self.attach_pct = Some(attach_pct);
+        self
+    }
+
+    #[wasm_bindgen(js_name = detachPct)]
+    pub fn detach_pct(mut self, detach_pct: f64) -> JsCdsTrancheBuilder {
+        self.detach_pct = Some(detach_pct);
+        self
+    }
+
+    #[wasm_bindgen(js_name = money)]
+    pub fn money(mut self, notional: &JsMoney) -> JsCdsTrancheBuilder {
+        self.notional = Some(notional.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = maturity)]
+    pub fn maturity(mut self, maturity: &JsDate) -> JsCdsTrancheBuilder {
+        self.maturity = Some(maturity.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = runningCouponBp)]
+    pub fn running_coupon_bp(mut self, running_coupon_bp: f64) -> JsCdsTrancheBuilder {
+        self.running_coupon_bp = Some(running_coupon_bp);
+        self
+    }
+
+    #[wasm_bindgen(js_name = discountCurve)]
+    pub fn discount_curve(mut self, discount_curve: &str) -> JsCdsTrancheBuilder {
+        self.discount_curve = Some(discount_curve.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = creditIndexCurve)]
+    pub fn credit_index_curve(mut self, credit_index_curve: &str) -> JsCdsTrancheBuilder {
+        self.credit_index_curve = Some(credit_index_curve.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = side)]
+    pub fn side(mut self, side: String) -> JsCdsTrancheBuilder {
+        self.side = Some(side);
+        self
+    }
+
+    #[wasm_bindgen(js_name = paymentsPerYear)]
+    pub fn payments_per_year(mut self, payments_per_year: u32) -> JsCdsTrancheBuilder {
+        self.payments_per_year = Some(payments_per_year);
+        self
+    }
+
+    #[wasm_bindgen(js_name = dayCount)]
+    pub fn day_count(mut self, day_count: JsDayCount) -> JsCdsTrancheBuilder {
+        self.day_count = Some(day_count.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsCdsTranche, JsValue> {
+        let index_name = self
+            .index_name
+            .as_deref()
+            .ok_or_else(|| js_error("CdsTrancheBuilder: indexName is required".to_string()))?;
+        let series = self
+            .series
+            .ok_or_else(|| js_error("CdsTrancheBuilder: series is required".to_string()))?;
+        let attach_pct = self
+            .attach_pct
+            .ok_or_else(|| js_error("CdsTrancheBuilder: attachPct is required".to_string()))?;
+        let detach_pct = self
+            .detach_pct
+            .ok_or_else(|| js_error("CdsTrancheBuilder: detachPct is required".to_string()))?;
+        let notional = self.notional.ok_or_else(|| {
+            js_error("CdsTrancheBuilder: notional (money) is required".to_string())
+        })?;
+        let maturity = self
+            .maturity
+            .ok_or_else(|| js_error("CdsTrancheBuilder: maturity is required".to_string()))?;
+        let running_coupon_bp = self.running_coupon_bp.ok_or_else(|| {
+            js_error("CdsTrancheBuilder: runningCouponBp is required".to_string())
+        })?;
+        let discount_curve = self
+            .discount_curve
+            .as_deref()
+            .ok_or_else(|| js_error("CdsTrancheBuilder: discountCurve is required".to_string()))?;
+        let credit_index_curve = self.credit_index_curve.as_deref().ok_or_else(|| {
+            js_error("CdsTrancheBuilder: creditIndexCurve is required".to_string())
+        })?;
+
+        if attach_pct < 0.0 || detach_pct <= attach_pct {
+            return Err(js_error(
+                "detach_pct must be greater than attach_pct and both non-negative".to_string(),
+            ));
+        }
+
+        let side_value = parse_optional_with_default(self.side, TrancheSide::BuyProtection)?;
+        let freq = match self.payments_per_year {
+            Some(ppy) => Tenor::from_payments_per_year(ppy)
+                .map_err(|e| js_error(format!("Invalid payments per year: {}", e)))?,
+            None => Tenor::quarterly(),
+        };
+        let dc = self.day_count.unwrap_or(DayCount::Act360);
+
+        CdsTranche::builder()
+            .id(instrument_id_from_str(&self.instrument_id))
+            .index_name(index_name.to_string())
+            .series(series)
+            .attach_pct(attach_pct)
+            .detach_pct(detach_pct)
+            .notional(notional)
+            .maturity(maturity)
+            .running_coupon_bp(running_coupon_bp)
+            .payment_frequency(freq)
+            .day_count(dc)
+            .business_day_convention(BusinessDayConvention::Following)
+            .discount_curve_id(curve_id_from_str(discount_curve))
+            .credit_index_id(curve_id_from_str(credit_index_curve))
+            .side(side_value)
+            .accumulated_loss(0.0)
+            .standard_imm_dates(false)
+            .attributes(Default::default())
+            .build()
+            .map(JsCdsTranche::from_inner)
+            .map_err(|e| js_error(e.to_string()))
+    }
+}
+
 #[wasm_bindgen(js_class = CdsTranche)]
 impl JsCdsTranche {
     /// Create a synthetic CDO tranche instrument (CDS tranche).
@@ -69,6 +239,9 @@ impl JsCdsTranche {
         payments_per_year: Option<u32>,
         day_count: Option<JsDayCount>,
     ) -> Result<JsCdsTranche, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "CdsTranche constructor is deprecated; use CdsTrancheBuilder instead.",
+        ));
         if attach_pct < 0.0 || detach_pct <= attach_pct {
             return Err(js_error(
                 "detach_pct must be greater than attach_pct and both non-negative".to_string(),

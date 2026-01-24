@@ -7,7 +7,9 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::credit_derivatives::cds::RECOVERY_SENIOR_UNSECURED;
+use finstack_valuations::instruments::credit_derivatives::cds::{
+    CDSConvention, PayReceive, RECOVERY_SENIOR_UNSECURED,
+};
 use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndex;
 use finstack_valuations::instruments::credit_derivatives::cds_index::{
     CDSIndexConstituentParam, CDSIndexConstructionParams, CDSIndexParams,
@@ -70,7 +72,11 @@ pub fn standard_cdx_params() -> CDSIndexParams {
 
 /// Create standard construction parameters
 pub fn standard_construction_params(notional: f64) -> CDSIndexConstructionParams {
-    CDSIndexConstructionParams::buy_protection(Money::new(notional, Currency::USD))
+    CDSIndexConstructionParams::new(
+        Money::new(notional, Currency::USD),
+        PayReceive::PayFixed,
+        CDSConvention::IsdaNa,
+    )
 }
 
 /// Create equal-weight constituents

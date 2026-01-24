@@ -11,6 +11,7 @@ use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap
 use finstack_valuations::instruments::credit_derivatives::cds::{
     CDSPricer, CDSPricerConfig, IntegrationMethod,
 };
+use finstack_valuations::test_utils;
 use time::macros::date;
 
 fn build_curves(as_of: Date) -> (DiscountCurve, HazardCurve) {
@@ -32,7 +33,7 @@ fn build_curves(as_of: Date) -> (DiscountCurve, HazardCurve) {
 }
 
 fn create_test_cds(as_of: Date, end: Date) -> CreditDefaultSwap {
-    CreditDefaultSwap::buy_protection(
+    test_utils::cds_buy_protection(
         "INTEGRATION_TEST",
         Money::new(10_000_000.0, Currency::USD),
         100.0,

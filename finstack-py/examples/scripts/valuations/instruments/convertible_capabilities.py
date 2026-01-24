@@ -64,22 +64,23 @@ def build_convertible(issue: date) -> ConvertibleBond:
     )
 
     conversion_policy = ConversionPolicy.upon_event(ConversionEvent.price_trigger(160.0, 30))
-    conversion_spec = ConversionSpec.create(
+    conversion_spec = ConversionSpec(
         conversion_policy,
         ratio=20.0,  # 20 shares per bond
         anti_dilution=None,
     )
 
-    return ConvertibleBond.create(
-        "ACME-CB-2029",
-        Money(1_000_000, USD),
-        issue,
-        maturity,
-        "USD-OIS",
-        conversion_spec,
-        underlying_equity_id="EQUITY-SPOT",
-        call_schedule=[(date(issue.year + 3, issue.month, issue.day), 102.5)],
-        fixed_coupon=fixed_coupon,
+    return (
+        ConvertibleBond.builder("ACME-CB-2029")
+        .notional(Money(1_000_000, USD))
+        .issue(issue)
+        .maturity(maturity)
+        .discount_curve("USD-OIS")
+        .conversion(conversion_spec)
+        .underlying_equity_id("EQUITY-SPOT")
+        .call_schedule([(date(issue.year + 3, issue.month, issue.day), 102.5)])
+        .fixed_coupon(fixed_coupon)
+        .build()
     )
 
 

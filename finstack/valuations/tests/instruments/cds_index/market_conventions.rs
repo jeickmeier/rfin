@@ -11,7 +11,7 @@
 
 use super::test_utils::*;
 use finstack_core::dates::{DayCount, Tenor};
-use finstack_valuations::instruments::credit_derivatives::cds::CDSConvention;
+use finstack_valuations::instruments::credit_derivatives::cds::{CDSConvention, PayReceive};
 use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndex;
 use finstack_valuations::instruments::credit_derivatives::cds_index::{
     CDSIndexConstructionParams, CDSIndexParams,
@@ -30,8 +30,10 @@ fn test_cdx_na_ig_standard_conventions() {
     let idx = CDSIndex::new_standard(
         "CDX.NA.IG.42",
         &params,
-        &CDSIndexConstructionParams::buy_protection(
+        &CDSIndexConstructionParams::new(
             standard_construction_params(10_000_000.0).notional,
+            PayReceive::PayFixed,
+            CDSConvention::IsdaNa,
         ),
         start,
         end,
@@ -56,8 +58,10 @@ fn test_cdx_na_hy_standard_conventions() {
     let idx = CDSIndex::new_standard(
         "CDX.NA.HY.39",
         &params,
-        &CDSIndexConstructionParams::buy_protection(
+        &CDSIndexConstructionParams::new(
             standard_construction_params(10_000_000.0).notional,
+            PayReceive::PayFixed,
+            CDSConvention::IsdaNa,
         ),
         start,
         end,
@@ -81,8 +85,10 @@ fn test_itraxx_europe_standard_conventions() {
     let idx = CDSIndex::new_standard(
         "iTraxx.Europe.41",
         &params,
-        &CDSIndexConstructionParams::buy_protection(
+        &CDSIndexConstructionParams::new(
             standard_construction_params(10_000_000.0).notional,
+            PayReceive::PayFixed,
+            CDSConvention::IsdaNa,
         ),
         start,
         end,
@@ -196,8 +202,10 @@ fn test_index_factor_application() {
     let idx = CDSIndex::new_standard(
         "CDX-SEASONED",
         &params,
-        &CDSIndexConstructionParams::buy_protection(
+        &CDSIndexConstructionParams::new(
             standard_construction_params(10_000_000.0).notional,
+            PayReceive::PayFixed,
+            CDSConvention::IsdaNa,
         ),
         start,
         end,
@@ -286,8 +294,10 @@ fn test_pricing_with_standard_conventions() {
     let idx = CDSIndex::new_standard(
         "CDX.NA.IG.42",
         &params,
-        &CDSIndexConstructionParams::buy_protection(
+        &CDSIndexConstructionParams::new(
             standard_construction_params(10_000_000.0).notional,
+            PayReceive::PayFixed,
+            CDSConvention::IsdaNa,
         ),
         start,
         end,
@@ -330,8 +340,10 @@ fn test_fixed_coupon_in_premium_leg() {
     let idx = CDSIndex::new_standard(
         "CDX-COUPON",
         &params,
-        &CDSIndexConstructionParams::buy_protection(
+        &CDSIndexConstructionParams::new(
             standard_construction_params(10_000_000.0).notional,
+            PayReceive::PayFixed,
+            CDSConvention::IsdaNa,
         ),
         start,
         end,

@@ -71,6 +71,145 @@ impl InstrumentWrapper for JsVarianceSwap {
     }
 }
 
+#[wasm_bindgen(js_name = VarianceSwapBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsVarianceSwapBuilder {
+    instrument_id: String,
+    underlying_id: Option<String>,
+    notional: Option<finstack_core::money::Money>,
+    strike_variance: Option<f64>,
+    start_date: Option<finstack_core::dates::Date>,
+    maturity: Option<finstack_core::dates::Date>,
+    discount_curve: Option<String>,
+    observation_frequency: Option<finstack_core::dates::Tenor>,
+    realized_method: Option<String>,
+    side: Option<String>,
+}
+
+#[wasm_bindgen(js_class = VarianceSwapBuilder)]
+impl JsVarianceSwapBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new(instrument_id: &str) -> JsVarianceSwapBuilder {
+        JsVarianceSwapBuilder {
+            instrument_id: instrument_id.to_string(),
+            ..Default::default()
+        }
+    }
+
+    #[wasm_bindgen(js_name = underlyingId)]
+    pub fn underlying_id(mut self, underlying_id: String) -> JsVarianceSwapBuilder {
+        self.underlying_id = Some(underlying_id);
+        self
+    }
+
+    #[wasm_bindgen(js_name = money)]
+    pub fn money(mut self, notional: &JsMoney) -> JsVarianceSwapBuilder {
+        self.notional = Some(notional.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = strikeVariance)]
+    pub fn strike_variance(mut self, strike_variance: f64) -> JsVarianceSwapBuilder {
+        self.strike_variance = Some(strike_variance);
+        self
+    }
+
+    #[wasm_bindgen(js_name = startDate)]
+    pub fn start_date(mut self, start_date: &JsDate) -> JsVarianceSwapBuilder {
+        self.start_date = Some(start_date.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = maturity)]
+    pub fn maturity(mut self, maturity: &JsDate) -> JsVarianceSwapBuilder {
+        self.maturity = Some(maturity.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = discountCurve)]
+    pub fn discount_curve(mut self, discount_curve: &str) -> JsVarianceSwapBuilder {
+        self.discount_curve = Some(discount_curve.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = observationFrequency)]
+    pub fn observation_frequency(
+        mut self,
+        observation_frequency: &JsTenor,
+    ) -> JsVarianceSwapBuilder {
+        self.observation_frequency = Some(observation_frequency.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = realizedMethod)]
+    pub fn realized_method(mut self, realized_method: String) -> JsVarianceSwapBuilder {
+        self.realized_method = Some(realized_method);
+        self
+    }
+
+    #[wasm_bindgen(js_name = side)]
+    pub fn side(mut self, side: String) -> JsVarianceSwapBuilder {
+        self.side = Some(side);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsVarianceSwap, JsValue> {
+        let underlying_id = self
+            .underlying_id
+            .as_deref()
+            .ok_or_else(|| js_error("VarianceSwapBuilder: underlyingId is required".to_string()))?;
+        let notional = self.notional.ok_or_else(|| {
+            js_error("VarianceSwapBuilder: notional (money) is required".to_string())
+        })?;
+        let strike_variance = self.strike_variance.ok_or_else(|| {
+            js_error("VarianceSwapBuilder: strikeVariance is required".to_string())
+        })?;
+        let start_date = self
+            .start_date
+            .ok_or_else(|| js_error("VarianceSwapBuilder: startDate is required".to_string()))?;
+        let maturity = self
+            .maturity
+            .ok_or_else(|| js_error("VarianceSwapBuilder: maturity is required".to_string()))?;
+        let discount_curve = self.discount_curve.as_deref().ok_or_else(|| {
+            js_error("VarianceSwapBuilder: discountCurve is required".to_string())
+        })?;
+        let observation_freq = self.observation_frequency.ok_or_else(|| {
+            js_error("VarianceSwapBuilder: observationFrequency is required".to_string())
+        })?;
+
+        if strike_variance < 0.0 {
+            return Err(js_error("Strike variance must be non-negative".to_string()));
+        }
+        if maturity <= start_date {
+            return Err(js_error(
+                "Maturity must be after observation start".to_string(),
+            ));
+        }
+
+        let method =
+            parse_optional_with_default(self.realized_method, RealizedVarMethod::CloseToClose)?;
+        let direction = parse_optional_with_default(self.side, VarSwapPayReceive::Receive)?;
+
+        let swap = VarianceSwap {
+            id: instrument_id_from_str(&self.instrument_id),
+            underlying_id: underlying_id.to_string(),
+            notional,
+            strike_variance,
+            start_date,
+            maturity,
+            observation_freq,
+            realized_var_method: method,
+            side: direction,
+            discount_curve_id: curve_id_from_str(discount_curve),
+            day_count: DayCount::Act365F,
+            attributes: Attributes::new(),
+        };
+
+        Ok(JsVarianceSwap::from_inner(swap))
+    }
+}
+
 #[wasm_bindgen(js_class = VarianceSwap)]
 impl JsVarianceSwap {
     /// Create a variance swap.
@@ -125,6 +264,9 @@ impl JsVarianceSwap {
         realized_method: Option<String>,
         side: Option<String>,
     ) -> Result<JsVarianceSwap, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "VarianceSwap constructor is deprecated; use VarianceSwapBuilder instead.",
+        ));
         if strike_variance < 0.0 {
             return Err(js_error("Strike variance must be non-negative".to_string()));
         }

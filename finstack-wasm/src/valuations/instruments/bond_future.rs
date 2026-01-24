@@ -156,6 +156,173 @@ impl JsBondFuture {
     }
 }
 
+#[wasm_bindgen(js_name = BondFutureBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsBondFutureBuilder {
+    instrument_id: String,
+    notional: Option<f64>,
+    currency: Option<String>,
+    expiry_date: Option<finstack_core::dates::Date>,
+    delivery_start: Option<finstack_core::dates::Date>,
+    delivery_end: Option<finstack_core::dates::Date>,
+    quoted_price: Option<f64>,
+    position: Option<Position>,
+    specs: Option<BondFutureSpecs>,
+    deliverable_basket: Option<JsValue>,
+    ctd_bond_id: Option<String>,
+    discount_curve_id: Option<String>,
+}
+
+#[wasm_bindgen(js_class = BondFutureBuilder)]
+impl JsBondFutureBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new(instrument_id: &str) -> JsBondFutureBuilder {
+        JsBondFutureBuilder {
+            instrument_id: instrument_id.to_string(),
+            ..Default::default()
+        }
+    }
+
+    #[wasm_bindgen(js_name = notional)]
+    pub fn notional(mut self, notional: f64) -> JsBondFutureBuilder {
+        self.notional = Some(notional);
+        self
+    }
+
+    #[wasm_bindgen(js_name = currency)]
+    pub fn currency(mut self, currency: String) -> JsBondFutureBuilder {
+        self.currency = Some(currency);
+        self
+    }
+
+    #[wasm_bindgen(js_name = expiryDate)]
+    pub fn expiry_date(mut self, expiry_date: &FsDate) -> JsBondFutureBuilder {
+        self.expiry_date = Some(expiry_date.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = deliveryStart)]
+    pub fn delivery_start(mut self, delivery_start: &FsDate) -> JsBondFutureBuilder {
+        self.delivery_start = Some(delivery_start.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = deliveryEnd)]
+    pub fn delivery_end(mut self, delivery_end: &FsDate) -> JsBondFutureBuilder {
+        self.delivery_end = Some(delivery_end.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = quotedPrice)]
+    pub fn quoted_price(mut self, quoted_price: f64) -> JsBondFutureBuilder {
+        self.quoted_price = Some(quoted_price);
+        self
+    }
+
+    #[wasm_bindgen(js_name = position)]
+    pub fn position(mut self, position: &JsFuturePosition) -> JsBondFutureBuilder {
+        self.position = Some(position.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = specs)]
+    pub fn specs(mut self, specs: &JsBondFutureSpecs) -> JsBondFutureBuilder {
+        self.specs = Some(specs.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = deliverableBasket)]
+    pub fn deliverable_basket(mut self, deliverable_basket: JsValue) -> JsBondFutureBuilder {
+        self.deliverable_basket = Some(deliverable_basket);
+        self
+    }
+
+    #[wasm_bindgen(js_name = ctdBondId)]
+    pub fn ctd_bond_id(mut self, ctd_bond_id: String) -> JsBondFutureBuilder {
+        self.ctd_bond_id = Some(ctd_bond_id);
+        self
+    }
+
+    #[wasm_bindgen(js_name = discountCurveId)]
+    pub fn discount_curve_id(mut self, discount_curve_id: String) -> JsBondFutureBuilder {
+        self.discount_curve_id = Some(discount_curve_id);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsBondFuture, JsValue> {
+        let notional = self
+            .notional
+            .ok_or_else(|| JsValue::from_str("BondFutureBuilder: notional is required"))?;
+        let currency = self
+            .currency
+            .as_deref()
+            .ok_or_else(|| JsValue::from_str("BondFutureBuilder: currency is required"))?;
+        let expiry_date = self
+            .expiry_date
+            .ok_or_else(|| JsValue::from_str("BondFutureBuilder: expiryDate is required"))?;
+        let delivery_start = self
+            .delivery_start
+            .ok_or_else(|| JsValue::from_str("BondFutureBuilder: deliveryStart is required"))?;
+        let delivery_end = self
+            .delivery_end
+            .ok_or_else(|| JsValue::from_str("BondFutureBuilder: deliveryEnd is required"))?;
+        let quoted_price = self
+            .quoted_price
+            .ok_or_else(|| JsValue::from_str("BondFutureBuilder: quotedPrice is required"))?;
+        let position = self
+            .position
+            .ok_or_else(|| JsValue::from_str("BondFutureBuilder: position is required"))?;
+        let specs = self
+            .specs
+            .ok_or_else(|| JsValue::from_str("BondFutureBuilder: specs is required"))?;
+        let deliverable_basket = self
+            .deliverable_basket
+            .ok_or_else(|| JsValue::from_str("BondFutureBuilder: deliverableBasket is required"))?;
+        let ctd_bond_id = self
+            .ctd_bond_id
+            .as_deref()
+            .ok_or_else(|| JsValue::from_str("BondFutureBuilder: ctdBondId is required"))?;
+        let discount_curve_id = self
+            .discount_curve_id
+            .as_deref()
+            .ok_or_else(|| JsValue::from_str("BondFutureBuilder: discountCurveId is required"))?;
+
+        let ccy: Currency = currency
+            .parse()
+            .map_err(|e: strum::ParseError| JsValue::from_str(&e.to_string()))?;
+
+        let basket_raw: Vec<DeliverableBondJs> = serde_wasm_bindgen::from_value(deliverable_basket)
+            .map_err(|e| JsValue::from_str(&format!("Invalid deliverable basket: {}", e)))?;
+        let basket: Vec<DeliverableBond> = basket_raw
+            .into_iter()
+            .map(|b| DeliverableBond {
+                bond_id: InstrumentId::new(&b.bond_id),
+                conversion_factor: b.conversion_factor,
+            })
+            .collect();
+
+        let future = BondFuture::ust_10y(
+            InstrumentId::new(&self.instrument_id),
+            Money::new(notional, ccy),
+            expiry_date,
+            delivery_start,
+            delivery_end,
+            quoted_price,
+            position,
+            basket,
+            InstrumentId::new(ctd_bond_id),
+            CurveId::new(discount_curve_id),
+        )
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        let mut result = future;
+        result.contract_specs = specs;
+
+        Ok(JsBondFuture { inner: result })
+    }
+}
+
 #[wasm_bindgen(js_class = BondFuture)]
 impl JsBondFuture {
     /// Create a new bond future.
@@ -188,6 +355,9 @@ impl JsBondFuture {
         ctd_bond_id: &str,
         discount_curve_id: &str,
     ) -> Result<JsBondFuture, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "BondFuture constructor is deprecated; use BondFutureBuilder instead.",
+        ));
         let ccy: Currency = currency
             .parse()
             .map_err(|e: strum::ParseError| JsValue::from_str(&e.to_string()))?;

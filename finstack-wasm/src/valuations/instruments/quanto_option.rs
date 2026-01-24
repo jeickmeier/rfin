@@ -4,6 +4,35 @@ use finstack_valuations::instruments::fx::quanto_option::QuantoOption;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 
+#[wasm_bindgen(js_name = QuantoOptionBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsQuantoOptionBuilder {
+    json_str: Option<String>,
+}
+
+#[wasm_bindgen(js_class = QuantoOptionBuilder)]
+impl JsQuantoOptionBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> JsQuantoOptionBuilder {
+        JsQuantoOptionBuilder { json_str: None }
+    }
+
+    #[wasm_bindgen(js_name = jsonString)]
+    pub fn json_string(mut self, json_str: String) -> JsQuantoOptionBuilder {
+        self.json_str = Some(json_str);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsQuantoOption, JsValue> {
+        let json_str = self
+            .json_str
+            .as_deref()
+            .ok_or_else(|| JsValue::from_str("QuantoOptionBuilder: jsonString is required"))?;
+        JsQuantoOption::from_json(json_str)
+    }
+}
+
 /// Quanto option (foreign underlying, domestic payout) (JSON-serializable).
 ///
 /// This instrument is configured via a JSON payload (matching the Rust model schema).
@@ -33,6 +62,9 @@ impl JsQuantoOption {
     /// @throws {Error} If the JSON cannot be parsed or is invalid
     #[wasm_bindgen(js_name = fromJson)]
     pub fn from_json(json_str: &str) -> Result<JsQuantoOption, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "QuantoOption.fromJson is deprecated; use QuantoOptionBuilder instead.",
+        ));
         use crate::core::error::js_error;
         serde_json::from_str(json_str)
             .map(JsQuantoOption::from_inner)

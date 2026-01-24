@@ -49,16 +49,17 @@ def main() -> None:
     market = build_market(as_of)
     registry = create_standard_registry()
 
-    ilb = InflationLinkedBond.create(
-        "US-TIPS-2033",
-        Money(1_000_000, USD),
-        real_coupon=0.0125,
-        issue=as_of,
-        maturity=date(2034, 1, 15),
-        base_index=300.0,
-        discount_curve="USD-OIS",
-        inflation_curve="US-CPI",
-        indexation="tips",
+    ilb = (
+        InflationLinkedBond.builder("US-TIPS-2033")
+        .notional(Money(1_000_000, USD))
+        .real_coupon(0.0125)
+        .issue(as_of)
+        .maturity(date(2034, 1, 15))
+        .base_index(300.0)
+        .discount_curve("USD-OIS")
+        .inflation_curve("US-CPI")
+        .indexation("tips")
+        .build()
     )
     registry.price_with_metrics(
         ilb,
@@ -67,15 +68,16 @@ def main() -> None:
         ["real_duration", "breakeven_inflation"],
     )
 
-    inf_swap = InflationSwap.create(
-        "US-ZC-INFLATION-SWAP",
-        Money(5_000_000, USD),
-        fixed_rate=0.025,
-        start_date=as_of,
-        maturity=date(2030, 1, 2),
-        discount_curve="USD-OIS",
-        inflation_curve="US-CPI",
-        side="pay_fixed",
+    inf_swap = (
+        InflationSwap.builder("US-ZC-INFLATION-SWAP")
+        .notional(Money(5_000_000, USD))
+        .fixed_rate(0.025)
+        .start_date(as_of)
+        .maturity(date(2030, 1, 2))
+        .discount_curve("USD-OIS")
+        .inflation_curve("US-CPI")
+        .side("pay_fixed")
+        .build()
     )
     registry.price_with_metrics(
         inf_swap,

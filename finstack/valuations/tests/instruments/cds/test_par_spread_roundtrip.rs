@@ -20,7 +20,6 @@ use finstack_core::money::Money;
 use finstack_valuations::calibration::api::schema::{HazardCurveParams, StepParams};
 use finstack_valuations::calibration::CalibrationConfig;
 use finstack_valuations::calibration::CalibrationMethod;
-use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
 use finstack_valuations::market::quotes::cds::CdsQuote;
@@ -92,7 +91,7 @@ fn test_cds_par_spread_roundtrip_1y() {
 
     // Create CDS at the quoted spread
     // Hazard curve ID is "{entity}-{seniority}" per HazardCurveCalibrator
-    let cds = CreditDefaultSwap::buy_protection(
+    let cds = finstack_valuations::test_utils::cds_buy_protection(
         "ROUNDTRIP-CDS",
         Money::new(10_000_000.0, Currency::USD),
         par_spread_bp,
@@ -193,7 +192,7 @@ fn test_cds_par_spread_roundtrip_multi_tenor() {
 
     for (maturity, par_spread_bp) in &tenors_and_spreads {
         // Hazard curve ID is "{entity}-{seniority}" per HazardCurveCalibrator
-        let cds = CreditDefaultSwap::buy_protection(
+        let cds = finstack_valuations::test_utils::cds_buy_protection(
             format!("ROUNDTRIP-CDS-{}", maturity),
             Money::new(10_000_000.0, Currency::USD),
             *par_spread_bp,
@@ -273,7 +272,7 @@ fn test_cds_par_spread_calculation_consistency() {
 
     // Create CDS with arbitrary spread
     // Hazard curve ID is "{entity}-{seniority}" per HazardCurveCalibrator
-    let cds_test = CreditDefaultSwap::buy_protection(
+    let cds_test = finstack_valuations::test_utils::cds_buy_protection(
         "TEST-CDS",
         Money::new(10_000_000.0, Currency::USD),
         150.0, // Different spread (150bp)

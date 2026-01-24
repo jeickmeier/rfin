@@ -102,28 +102,30 @@ def main() -> None:
     registry = create_standard_registry()
 
     # Deposit example: 3M USD term deposit priced off OIS curve
-    deposit = Deposit(
-        "USD-DEP-3M",
-        Money(5_000_000, USD),
-        as_of,
-        as_of + timedelta(days=92),
-        DayCount.ACT_360,
-        "USD-OIS",
-        quote_rate=0.0450,
+    deposit = (
+        Deposit.builder("USD-DEP-3M")
+        .money(Money(5_000_000, USD))
+        .start(as_of)
+        .end(as_of + timedelta(days=92))
+        .day_count(DayCount.ACT_360)
+        .disc_id("USD-OIS")
+        .quote_rate(0.0450)
+        .build()
     )
     registry.price(deposit, "discounting", market, as_of=as_of)
 
     # FRA: receive fixed vs pay floating (SOFR 3M)
-    fra = ForwardRateAgreement.create(
-        "USD-FRA-3x6",
-        Money(10_000_000, USD),
-        fixed_rate=0.0360,
-        fixing_date=as_of + timedelta(days=30),
-        start_date=as_of + timedelta(days=92),
-        end_date=as_of + timedelta(days=182),
-        discount_curve="USD-OIS",
-        forward_curve="USD-SOFR-3M",
-        pay_fixed=False,
+    fra = (
+        ForwardRateAgreement.builder("USD-FRA-3x6")
+        .money(Money(10_000_000, USD))
+        .fixed_rate(0.0360)
+        .fixing_date(as_of + timedelta(days=30))
+        .start_date(as_of + timedelta(days=92))
+        .end_date(as_of + timedelta(days=182))
+        .disc_id("USD-OIS")
+        .fwd_id("USD-SOFR-3M")
+        .pay_fixed(False)
+        .build()
     )
     registry.price_with_metrics(
         fra,
@@ -150,16 +152,17 @@ def main() -> None:
         business_day_convention=BusinessDayConvention.MODIFIED_FOLLOWING,
         spread=0.0005,  # 5bp in decimal terms
     )
-    basis_swap = BasisSwap.create(
-        "USD-BASIS-3M-6M",
-        Money(25_000_000, USD),
-        start,
-        maturity,
-        leg_3m,
-        leg_6m,
-        "USD-OIS",
-        calendar="usny",
-        stub="none",
+    basis_swap = (
+        BasisSwap.builder("USD-BASIS-3M-6M")
+        .money(Money(25_000_000, USD))
+        .start_date(start)
+        .maturity(maturity)
+        .primary_leg(leg_3m)
+        .reference_leg(leg_6m)
+        .disc_id("USD-OIS")
+        .calendar("usny")
+        .stub("none")
+        .build()
     )
     registry.price_with_metrics(
         basis_swap,
@@ -170,15 +173,19 @@ def main() -> None:
     )
 
     # Interest-rate cap and floor built via helper constructors
-    cap = InterestRateOption.cap(
-        "USD-CAP-5Y",
-        Money(10_000_000, USD),
-        strike=0.04,
-        start_date=start,
-        end_date=date(as_of.year + 5, as_of.month, as_of.day),
-        discount_curve="USD-OIS",
-        forward_curve="USD-SOFR-3M",
-        vol_surface="USD-CAP-VOL",
+    cap = (
+        InterestRateOption.builder("USD-CAP-5Y")
+        .kind("cap")
+        .money(Money(10_000_000, USD))
+        .strike(0.04)
+        .start_date(start)
+        .end_date(date(as_of.year + 5, as_of.month, as_of.day))
+        .disc_id("USD-OIS")
+        .fwd_id("USD-SOFR-3M")
+        .vol_surface("USD-CAP-VOL")
+        .payments_per_year(4)
+        .day_count(DayCount.ACT_360)
+        .build()
     )
     registry.price_with_metrics(
         cap,
@@ -188,31 +195,36 @@ def main() -> None:
         as_of=as_of,
     )
 
-    floor = InterestRateOption.floor(
-        "USD-FLOOR-5Y",
-        Money(10_000_000, USD),
-        strike=0.02,
-        start_date=start,
-        end_date=date(as_of.year + 5, as_of.month, as_of.day),
-        discount_curve="USD-OIS",
-        forward_curve="USD-SOFR-3M",
-        vol_surface="USD-CAP-VOL",
+    floor = (
+        InterestRateOption.builder("USD-FLOOR-5Y")
+        .kind("floor")
+        .money(Money(10_000_000, USD))
+        .strike(0.02)
+        .start_date(start)
+        .end_date(date(as_of.year + 5, as_of.month, as_of.day))
+        .disc_id("USD-OIS")
+        .fwd_id("USD-SOFR-3M")
+        .vol_surface("USD-CAP-VOL")
+        .payments_per_year(4)
+        .day_count(DayCount.ACT_360)
+        .build()
     )
     registry.price(floor, "discounting", market, as_of=as_of)
 
     # Interest-rate future (SOFR) with simple contract specs
-    future = InterestRateFuture.create(
-        "SOFR-FUT-SEP24",
-        Money(1_000_000, USD),
-        quoted_price=97.25,
-        expiry=date(2024, 9, 16),
-        fixing_date=date(2024, 9, 18),
-        period_start=date(2024, 9, 18),
-        period_end=date(2024, 12, 18),
-        discount_curve="USD-OIS",
-        forward_curve="USD-SOFR-3M",
-        position="long",
-        convexity_adjustment=0.0,
+    future = (
+        InterestRateFuture.builder("SOFR-FUT-SEP24")
+        .money(Money(1_000_000, USD))
+        .quoted_price(97.25)
+        .expiry(date(2024, 9, 16))
+        .fixing_date(date(2024, 9, 18))
+        .period_start(date(2024, 9, 18))
+        .period_end(date(2024, 12, 18))
+        .disc_id("USD-OIS")
+        .fwd_id("USD-SOFR-3M")
+        .position("long")
+        .convexity_adjustment(0.0)
+        .build()
     )
     registry.price_with_metrics(
         future,

@@ -15,13 +15,14 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
+use finstack_valuations::test_utils;
 use time::Month;
 
 fn create_test_cds() -> CreditDefaultSwap {
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 15).unwrap();
 
-    CreditDefaultSwap::buy_protection(
+    test_utils::cds_buy_protection(
         "CDS-DETERMINISM-TEST",
         Money::new(10_000_000.0, Currency::USD),
         100.0, // 100bp spread
@@ -246,7 +247,7 @@ fn test_cds_different_tenors_determinism() {
     ];
 
     for maturity in maturities {
-        let cds = CreditDefaultSwap::buy_protection(
+        let cds = test_utils::cds_buy_protection(
             format!("CDS-{}", maturity),
             Money::new(10_000_000.0, Currency::USD),
             100.0, // 100bp spread

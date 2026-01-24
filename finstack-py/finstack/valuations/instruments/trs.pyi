@@ -85,16 +85,20 @@ class IndexUnderlying:
     @property
     def base_currency(self) -> Currency: ...
 
+class EquityTotalReturnSwapBuilder:
+    """Fluent builder returned by :meth:`EquityTotalReturnSwap.builder`."""
+
+    def __init__(self, instrument_id: str) -> None: ...
+    def notional(self, notional: Money) -> "EquityTotalReturnSwapBuilder": ...
+    def underlying(self, underlying: EquityUnderlying) -> "EquityTotalReturnSwapBuilder": ...
+    def financing(self, financing: TrsFinancingLegSpec) -> "EquityTotalReturnSwapBuilder": ...
+    def schedule(self, schedule: TrsScheduleSpec) -> "EquityTotalReturnSwapBuilder": ...
+    def side(self, side: TrsSide) -> "EquityTotalReturnSwapBuilder": ...
+    def initial_level(self, initial_level: Optional[float] = ...) -> "EquityTotalReturnSwapBuilder": ...
+    def build(self) -> "EquityTotalReturnSwap": ...
+
 class EquityTotalReturnSwap:
     """Equity total return swap for synthetic equity exposure.
-
-    EquityTotalReturnSwap (TRS) is a derivative where one party pays the total
-    return (price appreciation + dividends) of an equity and receives a
-    financing rate, while the other party does the opposite.
-
-    Equity TRS allows investors to gain synthetic exposure to equities without
-    owning the underlying, or to hedge equity positions. The total return
-    includes both capital gains/losses and dividend payments.
 
     Examples
     --------
@@ -126,100 +130,20 @@ class EquityTotalReturnSwap:
         ...     end=date(2025, 1, 1),
         ...     schedule_params=ScheduleParams.quarterly_act360(),
         ... )
-        >>> trs = EquityTotalReturnSwap.create(
-        ...     "TRS-SPX",
-        ...     notional=Money(10_000_000, Currency("USD")),
-        ...     underlying=underlying,
-        ...     financing=financing,
-        ...     schedule=schedule,
-        ...     side=TrsSide.RECEIVE_TOTAL_RETURN,
-        ...     initial_level=4_000.0,
+        >>> trs = (
+        ...     EquityTotalReturnSwap.builder("TRS-SPX")
+        ...     .notional(Money(10_000_000, Currency("USD")))
+        ...     .underlying(underlying)
+        ...     .financing(financing)
+        ...     .schedule(schedule)
+        ...     .side(TrsSide.RECEIVE_TOTAL_RETURN)
+        ...     .initial_level(4_000.0)
+        ...     .build()
         ... )
-
-    Notes
-    -----
-    - TRS requires underlying equity spot price and dividend yield
-    - Financing leg uses discount and forward curves
-    - Total return leg pays equity performance (price + dividends)
-    - Financing leg pays/receives floating rate + spread
-    - Settlement occurs on schedule dates (typically quarterly)
-
-    MarketContext Requirements
-    -------------------------
-    - Underlying spot: ``underlying.spot_id`` (required).
-    - Dividend yield: ``underlying.div_yield_id`` (optional; used when provided).
-    - Discount curve: ``financing.discount_curve`` (required).
-    - Forward curve: ``financing.forward_curve`` (required).
-
-    See Also
-    --------
-    :class:`FiIndexTotalReturnSwap`: Fixed-income index TRS
-    :class:`EquityOption`: Equity options
-    :class:`PricerRegistry`: Pricing entry point
-
-    Sources
-    -------
-    - ISDA (2006) Definitions: see ``docs/REFERENCES.md#isda2006Definitions``.
-    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
     """
 
     @classmethod
-    def create(
-        cls,
-        instrument_id: str,
-        notional: Money,
-        underlying: EquityUnderlying,
-        financing: TrsFinancingLegSpec,
-        schedule: TrsScheduleSpec,
-        side: TrsSide,
-        *,
-        initial_level: Optional[float] = None,
-    ) -> "EquityTotalReturnSwap":
-        """Create an equity total return swap.
-
-        Parameters
-        ----------
-        instrument_id : str
-            Unique identifier for the TRS (e.g., "TRS-SPX", "TRS-AAPL").
-        notional : Money
-            Notional principal amount. The currency should match the underlying
-            equity currency.
-        underlying : EquityUnderlying
-            Equity underlying specification (ticker, spot_id, currency, etc.).
-        financing : TrsFinancingLegSpec
-            Financing leg specification (discount curve, forward curve, spread).
-        schedule : TrsScheduleSpec
-            TRS schedule specification (start date, end date, payment frequency).
-        side : TrsSide
-            TRS side: RECEIVE_TOTAL_RETURN (receive equity return, pay financing)
-            or PAY_TOTAL_RETURN (pay equity return, receive financing).
-        initial_level : float, optional
-            Initial equity level for calculating returns. If None, uses spot
-            price at start date.
-
-        Returns
-        -------
-        EquityTotalReturnSwap
-            Configured equity TRS ready for pricing.
-
-        Raises
-        ------
-        ValueError
-            If parameters are invalid or if required market data is missing.
-
-        Examples
-        --------
-            >>> trs = EquityTotalReturnSwap.create(
-            ...     "TRS-SPX",
-            ...     Money(10_000_000, Currency("USD")),
-            ...     underlying,
-            ...     financing,
-            ...     schedule,
-            ...     TrsSide.RECEIVE_TOTAL_RETURN,
-            ... )
-        """
-        ...
-
+    def builder(cls, instrument_id: str) -> EquityTotalReturnSwapBuilder: ...
     @property
     def instrument_id(self) -> str: ...
     @property
@@ -231,16 +155,20 @@ class EquityTotalReturnSwap:
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
 
+class FiIndexTotalReturnSwapBuilder:
+    """Fluent builder returned by :meth:`FiIndexTotalReturnSwap.builder`."""
+
+    def __init__(self, instrument_id: str) -> None: ...
+    def notional(self, notional: Money) -> "FiIndexTotalReturnSwapBuilder": ...
+    def underlying(self, underlying: IndexUnderlying) -> "FiIndexTotalReturnSwapBuilder": ...
+    def financing(self, financing: TrsFinancingLegSpec) -> "FiIndexTotalReturnSwapBuilder": ...
+    def schedule(self, schedule: TrsScheduleSpec) -> "FiIndexTotalReturnSwapBuilder": ...
+    def side(self, side: TrsSide) -> "FiIndexTotalReturnSwapBuilder": ...
+    def initial_level(self, initial_level: Optional[float] = ...) -> "FiIndexTotalReturnSwapBuilder": ...
+    def build(self) -> "FiIndexTotalReturnSwap": ...
+
 class FiIndexTotalReturnSwap:
     """Fixed-income index total return swap for synthetic bond index exposure.
-
-    FiIndexTotalReturnSwap (TRS) is a derivative where one party pays the total
-    return (price appreciation + interest) of a fixed-income index and receives
-    a financing rate, while the other party does the opposite.
-
-    Fixed-income TRS allows investors to gain synthetic exposure to bond indices
-    without owning the underlying bonds, or to hedge bond positions. The total
-    return includes both price changes and interest payments.
 
     Examples
     --------
@@ -275,99 +203,20 @@ class FiIndexTotalReturnSwap:
         ...     end=date(2025, 1, 1),
         ...     schedule_params=ScheduleParams.quarterly_act360(),
         ... )
-        >>> trs = FiIndexTotalReturnSwap.create(
-        ...     "TRS-AGG",
-        ...     Money(10_000_000, Currency("USD")),
-        ...     underlying,
-        ...     financing,
-        ...     schedule,
-        ...     TrsSide.RECEIVE_TOTAL_RETURN,
-        ...     initial_level=100.0,  # Initial index level
+        >>> trs = (
+        ...     FiIndexTotalReturnSwap.builder("TRS-AGG")
+        ...     .notional(Money(10_000_000, Currency("USD")))
+        ...     .underlying(underlying)
+        ...     .financing(financing)
+        ...     .schedule(schedule)
+        ...     .side(TrsSide.RECEIVE_TOTAL_RETURN)
+        ...     .initial_level(100.0)  # Initial index level
+        ...     .build()
         ... )
-
-    Notes
-    -----
-    - TRS requires underlying index level and yield/duration metrics
-    - Financing leg uses discount and forward curves
-    - Total return leg pays index performance (price + interest)
-    - Financing leg pays/receives floating rate + spread
-    - Settlement occurs on schedule dates
-
-    MarketContext Requirements
-    -------------------------
-    - Underlying index/metrics: referenced by IDs in ``underlying`` (e.g., ``yield_id``, ``duration_id``, ``convexity_id``)
-      when provided.
-    - Discount curve: ``financing.discount_curve`` (required).
-    - Forward curve: ``financing.forward_curve`` (required).
-
-    See Also
-    --------
-    :class:`EquityTotalReturnSwap`: Equity TRS
-    :class:`Bond`: Individual bonds
-    :class:`PricerRegistry`: Pricing entry point
-
-    Sources
-    -------
-    - ISDA (2006) Definitions: see ``docs/REFERENCES.md#isda2006Definitions``.
-    - Hull (text): see ``docs/REFERENCES.md#hullOptionsFuturesDerivatives``.
     """
 
     @classmethod
-    def create(
-        cls,
-        instrument_id: str,
-        notional: Money,
-        underlying: IndexUnderlying,
-        financing: TrsFinancingLegSpec,
-        schedule: TrsScheduleSpec,
-        side: TrsSide,
-        *,
-        initial_level: Optional[float] = None,
-    ) -> "FiIndexTotalReturnSwap":
-        """Create a fixed income index total return swap.
-
-        Parameters
-        ----------
-        instrument_id : str
-            Unique identifier for the TRS (e.g., "TRS-AGG", "TRS-HY").
-        notional : Money
-            Notional principal amount. Currency should match index currency.
-        underlying : IndexUnderlying
-            Fixed-income index underlying specification (index_id, currency, etc.).
-        financing : TrsFinancingLegSpec
-            Financing leg specification (discount curve, forward curve, spread).
-        schedule : TrsScheduleSpec
-            TRS schedule specification (start date, end date, payment frequency).
-        side : TrsSide
-            TRS side: RECEIVE_TOTAL_RETURN or PAY_TOTAL_RETURN.
-        initial_level : float, optional
-            Initial index level for calculating returns. If None, uses index
-            level at start date.
-
-        Returns
-        -------
-        FiIndexTotalReturnSwap
-            Configured fixed-income index TRS ready for pricing.
-
-        Raises
-        ------
-        ValueError
-            If parameters are invalid or if required market data is missing.
-
-        Examples
-        --------
-            >>> trs = FiIndexTotalReturnSwap.create(
-            ...     "TRS-AGG",
-            ...     Money(10_000_000, Currency("USD")),
-            ...     underlying,
-            ...     financing,
-            ...     schedule,
-            ...     TrsSide.RECEIVE_TOTAL_RETURN,
-            ...     initial_level=100.0,  # Initial index level
-            ... )
-        """
-        ...
-
+    def builder(cls, instrument_id: str) -> FiIndexTotalReturnSwapBuilder: ...
     @property
     def instrument_id(self) -> str: ...
     @property

@@ -31,7 +31,7 @@ class Portfolio:
         ... )
         >>> from finstack.valuations.instruments import Equity
         >>> entity = Entity("ACME")
-        >>> equity = Equity.create("EQ-ACME", ticker="ACME", currency=Currency("USD"), price=120.0)
+        >>> equity = Equity.builder("EQ-ACME").ticker("ACME").currency(Currency("USD")).price(120.0).build()
         >>> position = Position("POS-1", entity.id, equity.instrument_id, equity, 100.0, PositionUnit.UNITS)
         >>> portfolio = (
         ...     PortfolioBuilder("FUND_A")
@@ -96,7 +96,7 @@ class Portfolio:
             >>> from finstack.portfolio import PortfolioBuilder, Entity, Position, PositionUnit
             >>> from finstack.valuations.instruments import Equity
             >>> entity = Entity("ACME")
-            >>> equity = Equity.create("EQ-ACME", ticker="ACME", currency=Currency("USD"), price=120.0)
+            >>> equity = Equity.builder("EQ-ACME").ticker("ACME").currency(Currency("USD")).price(120.0).build()
             >>> position = Position("POS-1", entity.id, equity.instrument_id, equity, 100.0, PositionUnit.UNITS)
             >>> portfolio = (
             ...     PortfolioBuilder("FUND_A")
@@ -127,7 +127,7 @@ class Portfolio:
             >>> from finstack.portfolio import PortfolioBuilder, Entity, Position, PositionUnit
             >>> from finstack.valuations.instruments import Equity
             >>> entity = Entity("ACME")
-            >>> equity = Equity.create("EQ-ACME", ticker="ACME", currency=Currency("USD"), price=120.0)
+            >>> equity = Equity.builder("EQ-ACME").ticker("ACME").currency(Currency("USD")).price(120.0).build()
             >>> position = Position("POS-1", entity.id, equity.instrument_id, equity, 100.0, PositionUnit.UNITS)
             >>> portfolio = (
             ...     PortfolioBuilder("FUND_A")
@@ -170,7 +170,7 @@ class Portfolio:
             >>> from finstack.portfolio import PortfolioBuilder, Entity, Position, PositionUnit
             >>> from finstack.valuations.instruments import Equity
             >>> entity = Entity("ACME")
-            >>> equity = Equity.create("EQ-ACME", ticker="ACME", currency=Currency("USD"), price=120.0)
+            >>> equity = Equity.builder("EQ-ACME").ticker("ACME").currency(Currency("USD")).price(120.0).build()
             >>> position = Position("POS-1", entity.id, equity.instrument_id, equity, 100.0, PositionUnit.UNITS)
             >>> portfolio = (
             ...     PortfolioBuilder("FUND_A")

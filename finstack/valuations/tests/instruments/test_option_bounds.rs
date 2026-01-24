@@ -13,8 +13,8 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::equity::equity_option::EquityOption;
 use finstack_valuations::instruments::Instrument;
+use finstack_valuations::test_utils;
 use proptest::prelude::*;
 use time::Month;
 
@@ -76,14 +76,15 @@ proptest! {
         let base_date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
         let expiry = base_date + time::Duration::days(time_to_expiry_days);
 
-        let call = EquityOption::european_call(
+        let call = test_utils::equity_option_european_call(
             "PROP-CALL",
             "AAPL",
             strike,
             expiry,
             Money::new(strike, Currency::USD),
             1.0,
-        ).unwrap();
+        )
+        .unwrap();
 
         let market = create_option_market(base_date, spot, vol, rate, div_yield);
         let call_price = call.value(&market, base_date).unwrap().amount();
@@ -123,14 +124,15 @@ proptest! {
         let base_date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
         let expiry = base_date + time::Duration::days(time_to_expiry_days);
 
-        let put = EquityOption::european_put(
+        let put = test_utils::equity_option_european_put(
             "PROP-PUT",
             "AAPL",
             strike,
             expiry,
             Money::new(strike, Currency::USD),
             1.0,
-        ).unwrap();
+        )
+        .unwrap();
 
         let market = create_option_market(base_date, spot, vol, rate, div_yield);
         let put_price = put.value(&market, base_date).unwrap().amount();
@@ -168,14 +170,15 @@ proptest! {
         let base_date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
         let expiry = base_date + time::Duration::days(time_to_expiry_days);
 
-        let call = EquityOption::european_call(
+        let call = test_utils::equity_option_european_call(
             "PROP-CALL-UPPER",
             "AAPL",
             strike,
             expiry,
             Money::new(strike, Currency::USD),
             1.0,
-        ).unwrap();
+        )
+        .unwrap();
 
         let market = create_option_market(base_date, spot, vol, 0.05, 0.02);
         let call_price = call.value(&market, base_date).unwrap().amount();
@@ -198,14 +201,15 @@ proptest! {
         let base_date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
         let expiry = base_date + time::Duration::days(time_to_expiry_days);
 
-        let put = EquityOption::european_put(
+        let put = test_utils::equity_option_european_put(
             "PROP-PUT-UPPER",
             "AAPL",
             strike,
             expiry,
             Money::new(strike, Currency::USD),
             1.0,
-        ).unwrap();
+        )
+        .unwrap();
 
         let market = create_option_market(base_date, 100.0, vol, rate, 0.02);
         let put_price = put.value(&market, base_date).unwrap().amount();
@@ -230,14 +234,15 @@ proptest! {
         let base_date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
         let expiry = base_date + time::Duration::days(time_to_expiry_days);
 
-        let call = EquityOption::european_call(
+        let call = test_utils::equity_option_european_call(
             "VOL-MONO-CALL",
             "AAPL",
             strike,
             expiry,
             Money::new(strike, Currency::USD),
             1.0,
-        ).unwrap();
+        )
+        .unwrap();
 
         // Price with low vol
         let market_low = create_option_market(base_date, spot, 0.15, 0.05, 0.02);

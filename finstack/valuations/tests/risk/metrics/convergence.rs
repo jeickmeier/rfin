@@ -262,9 +262,8 @@ fn test_bucketed_cs01_sums_to_total() {
     let as_of = date!(2025 - 01 - 01);
 
     use finstack_core::market_data::term_structures::HazardCurve;
-    use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 
-    let cds = CreditDefaultSwap::buy_protection(
+    let cds = finstack_valuations::test_utils::cds_buy_protection(
         "BUCKETED_CS01_TEST",
         Money::new(1_000_000.0, Currency::USD),
         200.0, // 200bp spread

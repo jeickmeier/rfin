@@ -1,9 +1,18 @@
+use crate::core::currency::PyCurrency;
+use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
-use crate::core::money::{extract_money, PyMoney};
+use crate::core::money::PyMoney;
+use crate::errors::{core_to_py, PyContext};
 use crate::valuations::common::PyInstrumentType;
+use finstack_core::currency::Currency;
+use finstack_core::dates::DayCount;
+use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity::equity_option::EquityOption;
-use finstack_valuations::instruments::{ExerciseStyle, OptionType};
+use finstack_valuations::instruments::{
+    Attributes, ExerciseStyle, OptionType, PricingOverrides, SettlementType,
+};
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::Bound;
@@ -13,13 +22,7 @@ use std::sync::Arc;
 /// Equity option priced via Black–Scholes style models.
 ///
 /// Examples:
-///     >>> option = EquityOption.european_call(
-///     ...     "opt_aapl_jan",
-///     ...     "AAPL",
-///     ...     180.0,
-///     ...     date(2024, 1, 19),
-///     ...     Money("USD", 100)
-///     ... )
+///     >>> option = EquityOption.builder("opt_aapl_jan").ticker("AAPL").strike(180.0).expiry(date(2024, 1, 19)).money(Money("USD", 100)).contract_size(1.0).option_type("call").exercise_style("european").disc_id("USD-OIS").spot_id("AAPL").vol_surface("AAPL-VOL").build()
 ///     >>> option.option_type
 ///     'call'
 #[pyclass(
@@ -40,163 +43,335 @@ impl PyEquityOption {
     }
 }
 
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "EquityOptionBuilder",
+    unsendable
+)]
+pub struct PyEquityOptionBuilder {
+    instrument_id: InstrumentId,
+    pending_currency: Option<Currency>,
+    ticker: Option<String>,
+    strike: Option<f64>,
+    option_type: OptionType,
+    exercise_style: ExerciseStyle,
+    expiry: Option<time::Date>,
+    contract_size: f64,
+    day_count: DayCount,
+    settlement: SettlementType,
+    discount_curve_id: Option<CurveId>,
+    spot_id: Option<String>,
+    vol_surface_id: Option<CurveId>,
+    div_yield_id: Option<String>,
+}
+
+impl PyEquityOptionBuilder {
+    fn new_with_id(id: InstrumentId) -> Self {
+        Self {
+            instrument_id: id,
+            pending_currency: None,
+            ticker: None,
+            strike: None,
+            option_type: OptionType::Call,
+            exercise_style: ExerciseStyle::European,
+            expiry: None,
+            contract_size: 1.0,
+            day_count: DayCount::Act365F,
+            settlement: SettlementType::Cash,
+            discount_curve_id: None,
+            spot_id: None,
+            vol_surface_id: None,
+            div_yield_id: None,
+        }
+    }
+
+    fn ensure_ready(&self) -> PyResult<()> {
+        if self.pending_currency.is_none() {
+            return Err(PyValueError::new_err(
+                "Currency must be provided via currency() or money().",
+            ));
+        }
+        if self.ticker.as_deref().unwrap_or("").is_empty() {
+            return Err(PyValueError::new_err("ticker() is required."));
+        }
+        if self.strike.is_none() {
+            return Err(PyValueError::new_err("strike() is required."));
+        }
+        if self.expiry.is_none() {
+            return Err(PyValueError::new_err("expiry() is required."));
+        }
+        if self.discount_curve_id.is_none() {
+            return Err(PyValueError::new_err("disc_id() is required."));
+        }
+        if self.spot_id.as_deref().unwrap_or("").is_empty() {
+            return Err(PyValueError::new_err("spot_id() is required."));
+        }
+        if self.vol_surface_id.is_none() {
+            return Err(PyValueError::new_err("vol_surface() is required."));
+        }
+        Ok(())
+    }
+
+    fn parse_currency(value: &Bound<'_, PyAny>) -> PyResult<Currency> {
+        if let Ok(py_ccy) = value.extract::<PyRef<PyCurrency>>() {
+            Ok(py_ccy.inner)
+        } else if let Ok(code) = value.extract::<&str>() {
+            code.parse::<Currency>()
+                .map_err(|_| PyValueError::new_err("Invalid currency code"))
+        } else {
+            Err(PyTypeError::new_err("currency() expects str or Currency"))
+        }
+    }
+
+    fn parse_day_count(value: &Bound<'_, PyAny>) -> PyResult<DayCount> {
+        if let Ok(py_dc) = value.extract::<PyRef<PyDayCount>>() {
+            return Ok(py_dc.inner);
+        }
+        if let Ok(name) = value.extract::<&str>() {
+            return match name.to_lowercase().as_str() {
+                "act_360" | "act/360" => Ok(DayCount::Act360),
+                "act_365f" | "act/365f" | "act365f" => Ok(DayCount::Act365F),
+                "act_act" | "act/act" | "actact" => Ok(DayCount::ActAct),
+                "thirty_360" | "30/360" | "30e/360" => Ok(DayCount::Thirty360),
+                other => Err(PyValueError::new_err(format!(
+                    "Unsupported day count '{other}'"
+                ))),
+            };
+        }
+        Err(PyTypeError::new_err("day_count() expects DayCount or str"))
+    }
+
+    fn parse_option_type(value: &str) -> PyResult<OptionType> {
+        match value.to_lowercase().as_str() {
+            "call" => Ok(OptionType::Call),
+            "put" => Ok(OptionType::Put),
+            other => Err(PyValueError::new_err(format!(
+                "option_type must be 'call' or 'put' (got '{other}')"
+            ))),
+        }
+    }
+
+    fn parse_exercise_style(value: &str) -> PyResult<ExerciseStyle> {
+        match value.to_lowercase().as_str() {
+            "european" => Ok(ExerciseStyle::European),
+            "american" => Ok(ExerciseStyle::American),
+            "bermudan" => Ok(ExerciseStyle::Bermudan),
+            other => Err(PyValueError::new_err(format!(
+                "exercise_style must be 'european', 'american', or 'bermudan' (got '{other}')"
+            ))),
+        }
+    }
+
+    fn parse_settlement(value: &str) -> PyResult<SettlementType> {
+        match value.to_lowercase().as_str() {
+            "cash" => Ok(SettlementType::Cash),
+            "physical" => Ok(SettlementType::Physical),
+            other => Err(PyValueError::new_err(format!(
+                "settlement must be 'cash' or 'physical' (got '{other}')"
+            ))),
+        }
+    }
+}
+
+#[pymethods]
+impl PyEquityOptionBuilder {
+    #[new]
+    #[pyo3(text_signature = "(instrument_id)")]
+    fn new_py(instrument_id: &str) -> Self {
+        Self::new_with_id(InstrumentId::new(instrument_id))
+    }
+
+    #[pyo3(text_signature = "($self, currency)")]
+    fn currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        currency: &Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.pending_currency = Some(Self::parse_currency(currency)?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, money)")]
+    fn money<'py>(mut slf: PyRefMut<'py, Self>, money: PyRef<'py, PyMoney>) -> PyRefMut<'py, Self> {
+        slf.pending_currency = Some(money.inner.currency());
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, ticker)")]
+    fn ticker(mut slf: PyRefMut<'_, Self>, ticker: String) -> PyRefMut<'_, Self> {
+        slf.ticker = Some(ticker);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, strike)")]
+    fn strike(mut slf: PyRefMut<'_, Self>, strike: f64) -> PyResult<PyRefMut<'_, Self>> {
+        if strike <= 0.0 {
+            return Err(PyValueError::new_err("strike must be positive"));
+        }
+        slf.strike = Some(strike);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, option_type)")]
+    fn option_type(
+        mut slf: PyRefMut<'_, Self>,
+        option_type: String,
+    ) -> PyResult<PyRefMut<'_, Self>> {
+        slf.option_type = Self::parse_option_type(&option_type)?;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, exercise_style)")]
+    fn exercise_style(
+        mut slf: PyRefMut<'_, Self>,
+        exercise_style: String,
+    ) -> PyResult<PyRefMut<'_, Self>> {
+        slf.exercise_style = Self::parse_exercise_style(&exercise_style)?;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, expiry)")]
+    fn expiry<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        expiry: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.expiry = Some(py_to_date(&expiry).context("expiry")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, contract_size)")]
+    fn contract_size(
+        mut slf: PyRefMut<'_, Self>,
+        contract_size: f64,
+    ) -> PyResult<PyRefMut<'_, Self>> {
+        if contract_size <= 0.0 {
+            return Err(PyValueError::new_err("contract_size must be positive"));
+        }
+        slf.contract_size = contract_size;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, day_count)")]
+    fn day_count<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        day_count: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.day_count = Self::parse_day_count(&day_count)?;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, settlement)")]
+    fn settlement(mut slf: PyRefMut<'_, Self>, settlement: String) -> PyResult<PyRefMut<'_, Self>> {
+        slf.settlement = Self::parse_settlement(&settlement)?;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, curve_id)")]
+    fn disc_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        slf.discount_curve_id = Some(CurveId::new(curve_id.as_str()));
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, spot_id)")]
+    fn spot_id(mut slf: PyRefMut<'_, Self>, spot_id: String) -> PyRefMut<'_, Self> {
+        slf.spot_id = Some(spot_id);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, vol_surface)")]
+    fn vol_surface(mut slf: PyRefMut<'_, Self>, vol_surface: String) -> PyRefMut<'_, Self> {
+        slf.vol_surface_id = Some(CurveId::new(vol_surface.as_str()));
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, div_yield_id=None)", signature = (div_yield_id=None))]
+    fn div_yield_id(
+        mut slf: PyRefMut<'_, Self>,
+        div_yield_id: Option<String>,
+    ) -> PyRefMut<'_, Self> {
+        slf.div_yield_id = div_yield_id;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyEquityOption> {
+        slf.ensure_ready()?;
+
+        let ccy = slf.pending_currency.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "EquityOptionBuilder internal error: missing currency after validation",
+            )
+        })?;
+        let ticker = slf.ticker.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "EquityOptionBuilder internal error: missing ticker after validation",
+            )
+        })?;
+        let strike = slf.strike.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "EquityOptionBuilder internal error: missing strike after validation",
+            )
+        })?;
+        let expiry = slf.expiry.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "EquityOptionBuilder internal error: missing expiry after validation",
+            )
+        })?;
+        let discount = slf.discount_curve_id.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "EquityOptionBuilder internal error: missing discount curve after validation",
+            )
+        })?;
+        let spot_id = slf.spot_id.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "EquityOptionBuilder internal error: missing spot_id after validation",
+            )
+        })?;
+        let vol_surface = slf.vol_surface_id.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "EquityOptionBuilder internal error: missing vol surface after validation",
+            )
+        })?;
+
+        let strike_money = Money::new(strike, ccy);
+
+        EquityOption::builder()
+            .id(slf.instrument_id.clone())
+            .underlying_ticker(ticker)
+            .strike(strike_money)
+            .option_type(slf.option_type)
+            .exercise_style(slf.exercise_style)
+            .expiry(expiry)
+            .contract_size(slf.contract_size)
+            .day_count(slf.day_count)
+            .settlement(slf.settlement)
+            .discount_curve_id(discount)
+            .spot_id(spot_id)
+            .vol_surface_id(vol_surface)
+            .div_yield_id_opt(slf.div_yield_id.clone())
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .map(PyEquityOption::new)
+            .map_err(core_to_py)
+    }
+
+    fn __repr__(&self) -> String {
+        "EquityOptionBuilder(...)".to_string()
+    }
+}
+
 #[pymethods]
 impl PyEquityOption {
     #[classmethod]
-    #[pyo3(
-        text_signature = "(cls, instrument_id, ticker, strike, expiry, notional, contract_size=1.0)"
-    )]
-    /// Create a European call option with standard market conventions.
-    ///
-    /// Args:
-    ///     instrument_id: Instrument identifier or string-like object.
-    ///     ticker: Equity ticker symbol for the underlying asset.
-    ///     strike: Strike price expressed in quote currency units.
-    ///     expiry: Option expiry date.
-    ///     notional: Contract notional as :class:`finstack.core.money.Money`.
-    ///     contract_size: Optional contract size multiplier.
-    ///
-    /// Returns:
-    ///     EquityOption: Configured call option instrument.
-    ///
-    /// Raises:
-    ///     ValueError: If identifiers or dates cannot be parsed.
-    fn european_call(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        ticker: &str,
-        strike: f64,
-        expiry: Bound<'_, PyAny>,
-        notional: Bound<'_, PyAny>,
-        contract_size: Option<f64>,
-    ) -> PyResult<Self> {
-        use crate::errors::PyContext;
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-        let expiry_date = py_to_date(&expiry).context("expiry")?;
-        let notional_money = extract_money(&notional).context("notional")?;
-        let contract = contract_size.unwrap_or(1.0);
-        Ok(Self::new(
-            EquityOption::european_call(
-                id.into_string(),
-                ticker,
-                strike,
-                expiry_date,
-                notional_money,
-                contract,
-            )
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?,
-        ))
-    }
-
-    #[classmethod]
-    #[pyo3(
-        text_signature = "(cls, instrument_id, ticker, strike, expiry, notional, contract_size=1.0)"
-    )]
-    /// Create a European put option with standard market conventions.
-    ///
-    /// Args:
-    ///     instrument_id: Instrument identifier or string-like object.
-    ///     ticker: Equity ticker symbol for the underlying asset.
-    ///     strike: Strike price expressed in quote currency units.
-    ///     expiry: Option expiry date.
-    ///     notional: Contract notional as :class:`finstack.core.money.Money`.
-    ///     contract_size: Optional contract size multiplier.
-    ///
-    /// Returns:
-    ///     EquityOption: Configured put option instrument.
-    ///
-    /// Raises:
-    ///     ValueError: If identifiers or dates cannot be parsed.
-    fn european_put(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        ticker: &str,
-        strike: f64,
-        expiry: Bound<'_, PyAny>,
-        notional: Bound<'_, PyAny>,
-        contract_size: Option<f64>,
-    ) -> PyResult<Self> {
-        use crate::errors::PyContext;
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-        let expiry_date = py_to_date(&expiry).context("expiry")?;
-        let notional_money = extract_money(&notional).context("notional")?;
-        let contract = contract_size.unwrap_or(1.0);
-        Ok(Self::new(
-            EquityOption::european_put(
-                id.into_string(),
-                ticker,
-                strike,
-                expiry_date,
-                notional_money,
-                contract,
-            )
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?,
-        ))
-    }
-
-    #[classmethod]
-    #[pyo3(
-        text_signature = "(cls, instrument_id, ticker, strike, expiry, notional, discount_curve, spot_id, vol_surface, /, *, div_yield_id=None, contract_size=1.0)",
-        signature = (
-            instrument_id,
-            ticker,
-            strike,
-            expiry,
-            notional,
-            discount_curve,
-            spot_id,
-            vol_surface,
-            *,
-            div_yield_id=None,
-            contract_size=None
-        )
-    )]
-    #[allow(clippy::too_many_arguments)]
-    /// Create an equity option with explicit discount curve, spot id, vol surface and optional dividend yield.
-    fn builder(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        ticker: &str,
-        strike: f64,
-        expiry: Bound<'_, PyAny>,
-        notional: Bound<'_, PyAny>,
-        discount_curve: Bound<'_, PyAny>,
-        spot_id: &str,
-        vol_surface: Bound<'_, PyAny>,
-        div_yield_id: Option<&str>,
-        contract_size: Option<f64>,
-    ) -> PyResult<Self> {
-        use crate::errors::PyContext;
-        use finstack_valuations::instruments::equity::equity_option::EquityOptionParams;
-        use finstack_valuations::instruments::EquityUnderlyingParams;
-
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-        let expiry_date = py_to_date(&expiry).context("expiry")?;
-        let notional_money = extract_money(&notional).context("notional")?;
-        let discount_curve_id =
-            CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
-        let vol_surface_id = vol_surface.extract::<&str>().context("vol_surface")?;
-
-        let mut underlying =
-            EquityUnderlyingParams::new(ticker, spot_id, notional_money.currency());
-        if let Some(div) = div_yield_id {
-            underlying = underlying.with_dividend_yield(div);
-        }
-        if let Some(cs) = contract_size {
-            underlying = underlying.with_contract_size(cs);
-        }
-
-        let strike_money = finstack_core::money::Money::new(strike, notional_money.currency());
-        let cs = contract_size.unwrap_or(1.0);
-        let params = EquityOptionParams::european_call(strike_money, expiry_date, cs);
-        let option = finstack_valuations::instruments::equity::equity_option::EquityOption::new(
-            id.into_string(),
-            &params,
-            &underlying,
-            discount_curve_id,
-            vol_surface_id.into(),
-        );
-        Ok(Self::new(option))
+    #[pyo3(text_signature = "(cls, instrument_id)")]
+    /// Start a fluent builder (builder-only API).
+    fn builder<'py>(
+        cls: &Bound<'py, PyType>,
+        instrument_id: &str,
+    ) -> PyResult<Py<PyEquityOptionBuilder>> {
+        let py = cls.py();
+        let builder = PyEquityOptionBuilder::new_with_id(InstrumentId::new(instrument_id));
+        Py::new(py, builder)
     }
 
     /// Instrument identifier.
@@ -323,5 +498,6 @@ pub(crate) fn register<'py>(
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyEquityOption>()?;
-    Ok(vec!["EquityOption"])
+    module.add_class::<PyEquityOptionBuilder>()?;
+    Ok(vec!["EquityOption", "EquityOptionBuilder"])
 }

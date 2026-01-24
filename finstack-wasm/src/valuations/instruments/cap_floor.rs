@@ -37,6 +37,160 @@ impl InstrumentWrapper for JsInterestRateOption {
     }
 }
 
+#[wasm_bindgen(js_name = InterestRateOptionBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsInterestRateOptionBuilder {
+    instrument_id: String,
+    option_kind: Option<String>,
+    notional: Option<finstack_core::money::Money>,
+    strike: Option<f64>,
+    start_date: Option<finstack_core::dates::Date>,
+    end_date: Option<finstack_core::dates::Date>,
+    discount_curve: Option<String>,
+    forward_curve: Option<String>,
+    vol_surface: Option<String>,
+    payments_per_year: Option<u32>,
+    day_count: Option<DayCount>,
+}
+
+#[wasm_bindgen(js_class = InterestRateOptionBuilder)]
+impl JsInterestRateOptionBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new(instrument_id: &str) -> JsInterestRateOptionBuilder {
+        JsInterestRateOptionBuilder {
+            instrument_id: instrument_id.to_string(),
+            ..Default::default()
+        }
+    }
+
+    /// Set option kind: `"cap"` or `"floor"`.
+    #[wasm_bindgen(js_name = kind)]
+    pub fn kind(mut self, kind: String) -> JsInterestRateOptionBuilder {
+        self.option_kind = Some(kind);
+        self
+    }
+
+    #[wasm_bindgen(js_name = money)]
+    pub fn money(mut self, notional: &JsMoney) -> JsInterestRateOptionBuilder {
+        self.notional = Some(notional.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = strike)]
+    pub fn strike(mut self, strike: f64) -> JsInterestRateOptionBuilder {
+        self.strike = Some(strike);
+        self
+    }
+
+    #[wasm_bindgen(js_name = startDate)]
+    pub fn start_date(mut self, start_date: &JsDate) -> JsInterestRateOptionBuilder {
+        self.start_date = Some(start_date.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = endDate)]
+    pub fn end_date(mut self, end_date: &JsDate) -> JsInterestRateOptionBuilder {
+        self.end_date = Some(end_date.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = discountCurve)]
+    pub fn discount_curve(mut self, discount_curve: &str) -> JsInterestRateOptionBuilder {
+        self.discount_curve = Some(discount_curve.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = forwardCurve)]
+    pub fn forward_curve(mut self, forward_curve: &str) -> JsInterestRateOptionBuilder {
+        self.forward_curve = Some(forward_curve.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = volSurface)]
+    pub fn vol_surface(mut self, vol_surface: &str) -> JsInterestRateOptionBuilder {
+        self.vol_surface = Some(vol_surface.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = paymentsPerYear)]
+    pub fn payments_per_year(mut self, payments_per_year: u32) -> JsInterestRateOptionBuilder {
+        self.payments_per_year = Some(payments_per_year);
+        self
+    }
+
+    #[wasm_bindgen(js_name = dayCount)]
+    pub fn day_count(mut self, day_count: JsDayCount) -> JsInterestRateOptionBuilder {
+        self.day_count = Some(day_count.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsInterestRateOption, JsValue> {
+        let kind = self.option_kind.as_deref().ok_or_else(|| {
+            js_error("InterestRateOptionBuilder: kind is required ('cap' or 'floor')".to_string())
+        })?;
+        let notional = self.notional.ok_or_else(|| {
+            js_error("InterestRateOptionBuilder: notional (money) is required".to_string())
+        })?;
+        let strike = self
+            .strike
+            .ok_or_else(|| js_error("InterestRateOptionBuilder: strike is required".to_string()))?;
+        let start_date = self.start_date.ok_or_else(|| {
+            js_error("InterestRateOptionBuilder: startDate is required".to_string())
+        })?;
+        let end_date = self.end_date.ok_or_else(|| {
+            js_error("InterestRateOptionBuilder: endDate is required".to_string())
+        })?;
+        let discount_curve = self.discount_curve.as_deref().ok_or_else(|| {
+            js_error("InterestRateOptionBuilder: discountCurve is required".to_string())
+        })?;
+        let forward_curve = self.forward_curve.as_deref().ok_or_else(|| {
+            js_error("InterestRateOptionBuilder: forwardCurve is required".to_string())
+        })?;
+        let vol_surface = self.vol_surface.as_deref().ok_or_else(|| {
+            js_error("InterestRateOptionBuilder: volSurface is required".to_string())
+        })?;
+
+        let freq = frequency_from_payments(self.payments_per_year)?;
+        let dc = self.day_count.unwrap_or(DayCount::Act360);
+        let vol_surface_id = curve_id_from_str(vol_surface);
+
+        let option = match kind.to_lowercase().as_str() {
+            "cap" => InterestRateOption::new_cap(
+                instrument_id_from_str(&self.instrument_id),
+                notional,
+                strike,
+                start_date,
+                end_date,
+                freq,
+                dc,
+                curve_id_from_str(discount_curve),
+                curve_id_from_str(forward_curve),
+                vol_surface_id,
+            ),
+            "floor" => InterestRateOption::new_floor(
+                instrument_id_from_str(&self.instrument_id),
+                notional,
+                strike,
+                start_date,
+                end_date,
+                freq,
+                dc,
+                curve_id_from_str(discount_curve),
+                curve_id_from_str(forward_curve),
+                vol_surface_id,
+            ),
+            other => {
+                return Err(js_error(format!(
+                    "Invalid kind '{other}'; expected 'cap' or 'floor'"
+                )));
+            }
+        };
+
+        Ok(JsInterestRateOption::from_inner(option))
+    }
+}
+
 #[wasm_bindgen(js_class = InterestRateOption)]
 impl JsInterestRateOption {
     /// Create an interest rate cap.
@@ -71,6 +225,9 @@ impl JsInterestRateOption {
         payments_per_year: Option<u32>,
         day_count: Option<JsDayCount>,
     ) -> Result<JsInterestRateOption, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "InterestRateOption.cap is deprecated; use InterestRateOptionBuilder instead.",
+        ));
         let freq = frequency_from_payments(payments_per_year)?;
         let dc = extract_day_count(day_count);
         let vol_surface_id = curve_id_from_str(vol_surface);
@@ -123,6 +280,9 @@ impl JsInterestRateOption {
         payments_per_year: Option<u32>,
         day_count: Option<JsDayCount>,
     ) -> Result<JsInterestRateOption, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "InterestRateOption.floor is deprecated; use InterestRateOptionBuilder instead.",
+        ));
         let freq = frequency_from_payments(payments_per_year)?;
         let dc = extract_day_count(day_count);
         let vol_surface_id = curve_id_from_str(vol_surface);

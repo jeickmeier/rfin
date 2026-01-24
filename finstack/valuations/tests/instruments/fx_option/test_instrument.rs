@@ -12,6 +12,7 @@ use finstack_valuations::instruments::market::{ExerciseStyle, OptionType};
 use finstack_valuations::instruments::FxUnderlyingParams;
 use finstack_valuations::instruments::{Attributes, Instrument};
 use finstack_valuations::instruments::{PricingOverrides, SettlementType};
+use finstack_valuations::test_utils;
 use time::macros::date;
 
 #[test]
@@ -46,7 +47,7 @@ fn test_builder_pattern_creates_valid_option() {
 #[test]
 fn test_european_call_convenience_constructor() {
     // Arrange & Act
-    let call = FxOption::european_call(
+    let call = test_utils::fx_option_european_call(
         "EUR_USD_CALL",
         Currency::EUR,
         Currency::USD,
@@ -70,7 +71,7 @@ fn test_european_call_convenience_constructor() {
 #[test]
 fn test_european_put_convenience_constructor() {
     // Arrange & Act
-    let put = FxOption::european_put(
+    let put = test_utils::fx_option_european_put(
         "EUR_USD_PUT",
         Currency::EUR,
         Currency::USD,
@@ -91,9 +92,10 @@ fn test_european_put_convenience_constructor() {
 #[test]
 fn test_new_with_parameter_structs() {
     // Arrange
-    let option_params = FxOptionParams::european_call(
+    let option_params = FxOptionParams::new(
         1.20,
         date!(2025 - 01 - 01),
+        OptionType::Call,
         Money::new(1_000_000.0, Currency::EUR),
     );
     let underlying_params = FxUnderlyingParams::usd_eur();

@@ -431,9 +431,8 @@ fn test_cds_cs01_protection_buyer_positive() {
     let as_of = date!(2025 - 01 - 01);
 
     use finstack_core::market_data::term_structures::HazardCurve;
-    use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 
-    let cds = CreditDefaultSwap::buy_protection(
+    let cds = finstack_valuations::test_utils::cds_buy_protection(
         "CS01_BUY_TEST",
         Money::new(1_000_000.0, Currency::USD),
         200.0, // 200bp spread
@@ -506,9 +505,8 @@ fn test_cds_cs01_protection_seller_negative() {
     let as_of = date!(2025 - 01 - 01);
 
     use finstack_core::market_data::term_structures::HazardCurve;
-    use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 
-    let cds = CreditDefaultSwap::sell_protection(
+    let cds = finstack_valuations::test_utils::cds_sell_protection(
         "CS01_SELL_TEST",
         Money::new(1_000_000.0, Currency::USD),
         200.0, // 200bp spread
@@ -580,9 +578,8 @@ fn test_cds_cs01_opposite_signs() {
     let as_of = date!(2025 - 01 - 01);
 
     use finstack_core::market_data::term_structures::HazardCurve;
-    use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 
-    let cds_buy = CreditDefaultSwap::buy_protection(
+    let cds_buy = finstack_valuations::test_utils::cds_buy_protection(
         "CS01_BUY",
         Money::new(1_000_000.0, Currency::USD),
         200.0,
@@ -593,7 +590,7 @@ fn test_cds_cs01_opposite_signs() {
     )
     .expect("CDS construction should succeed");
 
-    let cds_sell = CreditDefaultSwap::sell_protection(
+    let cds_sell = finstack_valuations::test_utils::cds_sell_protection(
         "CS01_SELL",
         Money::new(1_000_000.0, Currency::USD),
         200.0,

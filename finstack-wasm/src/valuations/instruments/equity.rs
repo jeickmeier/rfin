@@ -1,9 +1,75 @@
 use crate::core::currency::JsCurrency;
+use crate::core::error::js_error;
 use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::equity::Equity;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
+
+#[wasm_bindgen(js_name = EquityBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsEquityBuilder {
+    instrument_id: String,
+    ticker: Option<String>,
+    currency: Option<finstack_core::currency::Currency>,
+    shares: Option<f64>,
+    price: Option<f64>,
+}
+
+#[wasm_bindgen(js_class = EquityBuilder)]
+impl JsEquityBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new(instrument_id: &str) -> JsEquityBuilder {
+        JsEquityBuilder {
+            instrument_id: instrument_id.to_string(),
+            ..Default::default()
+        }
+    }
+
+    #[wasm_bindgen(js_name = ticker)]
+    pub fn ticker(mut self, ticker: String) -> JsEquityBuilder {
+        self.ticker = Some(ticker);
+        self
+    }
+
+    #[wasm_bindgen(js_name = currency)]
+    pub fn currency(mut self, currency: &JsCurrency) -> JsEquityBuilder {
+        self.currency = Some(currency.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = shares)]
+    pub fn shares(mut self, shares: f64) -> JsEquityBuilder {
+        self.shares = Some(shares);
+        self
+    }
+
+    #[wasm_bindgen(js_name = price)]
+    pub fn price(mut self, price: f64) -> JsEquityBuilder {
+        self.price = Some(price);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsEquity, JsValue> {
+        let ticker = self
+            .ticker
+            .as_deref()
+            .ok_or_else(|| js_error("EquityBuilder: ticker is required".to_string()))?;
+        let currency = self
+            .currency
+            .ok_or_else(|| js_error("EquityBuilder: currency is required".to_string()))?;
+
+        let mut equity = Equity::new(self.instrument_id.to_string(), ticker, currency);
+        if let Some(qty) = self.shares {
+            equity = equity.with_shares(qty);
+        }
+        if let Some(px) = self.price {
+            equity = equity.with_price(px);
+        }
+        Ok(JsEquity::from_inner(equity))
+    }
+}
 
 #[wasm_bindgen(js_name = Equity)]
 #[derive(Clone, Debug)]
@@ -51,6 +117,9 @@ impl JsEquity {
         shares: Option<f64>,
         price: Option<f64>,
     ) -> JsEquity {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "Equity constructor is deprecated; use EquityBuilder instead.",
+        ));
         let mut equity = Equity::new(instrument_id.to_string(), ticker, currency.inner());
         if let Some(qty) = shares {
             equity = equity.with_shares(qty);

@@ -1,6 +1,7 @@
 // use crate::errors::core_to_py; // not used directly
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
+use crate::errors::PyContext;
 use crate::valuations::common::PyInstrumentType;
 use crate::valuations::instruments::cds::normalize_cds_side;
 use finstack_core::types::InstrumentId;
@@ -13,7 +14,7 @@ use finstack_valuations::instruments::CreditParams;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use pyo3::Bound;
+use pyo3::{Bound, Py, PyRef, PyRefMut};
 use rust_decimal::prelude::ToPrimitive;
 use std::fmt;
 use std::sync::Arc;
@@ -23,17 +24,18 @@ const STANDARD_RECOVERY_SENIOR: f64 = 0.40;
 /// CDS index instrument binding exposing a simplified constructor.
 ///
 /// Examples:
-///     >>> itraxx = CDSIndex.create(
-///     ...     "itraxx_main",
-///     ...     "iTraxx Europe",
-///     ...     38,
-///     ...     1,
-///     ...     Money("EUR", 10_000_000),
-///     ...     100.0,
-///     ...     date(2024, 3, 20),
-///     ...     date(2029, 3, 20),
-///     ...     "eur_discount",
-///     ...     "itraxx_credit"
+///     >>> itraxx = (
+///     ...     CDSIndex.builder("itraxx_main")
+///     ...     .index_name("iTraxx Europe")
+///     ...     .series(38)
+///     ...     .version(1)
+///     ...     .money(Money("EUR", 10_000_000))
+///     ...     .fixed_coupon_bp(100.0)
+///     ...     .start_date(date(2024, 3, 20))
+///     ...     .maturity(date(2029, 3, 20))
+///     ...     .discount_curve("eur_discount")
+///     ...     .credit_curve("itraxx_credit")
+///     ...     .build()
 ///     ... )
 ///     >>> itraxx.fixed_coupon_bp
 ///     100.0
@@ -51,103 +53,273 @@ impl PyCdsIndex {
     }
 }
 
-#[pymethods]
-impl PyCdsIndex {
-    #[classmethod]
-    #[pyo3(
-        signature = (
-            instrument_id,
-            index_name,
-            series,
-            version,
-            notional,
-            fixed_coupon_bp,
-            start_date,
-            maturity,
-            discount_curve,
-            credit_curve,
-            *,
-            side="pay_protection",
-            recovery_rate=None,
-            index_factor=None
-        ),
-        text_signature = "(cls, instrument_id, index_name, series, version, notional, fixed_coupon_bp, start_date, maturity, discount_curve, credit_curve, /, *, side='pay_protection', recovery_rate=None, index_factor=None)"
-    )]
-    #[allow(clippy::too_many_arguments)]
-    /// Create a CDS index instrument with standard ISDA conventions.
-    ///
-    /// Args:
-    ///     instrument_id: Instrument identifier or string-like object.
-    ///     index_name: Name of the CDS index family (e.g., ``"iTraxx"``).
-    ///     series: Index series number.
-    ///     version: Index version.
-    ///     notional: Notional principal as :class:`finstack.core.money.Money`.
-    ///     fixed_coupon_bp: Fixed coupon in basis points.
-    ///     start_date: Start date for premium payments.
-    ///     maturity: Maturity date of the index swap.
-    ///     discount_curve: Discount curve identifier.
-    ///     credit_curve: Credit curve identifier for the portfolio.
-    ///     side: Optional side label (``"pay_protection"`` or ``"receive_protection"``).
-    ///     recovery_rate: Optional recovery rate across constituents.
-    ///     index_factor: Optional outstanding notional factor.
-    ///
-    /// Returns:
-    ///     CDSIndex: Configured CDS index instrument.
-    ///
-    /// Raises:
-    ///     ValueError: If inputs cannot be parsed or recovery rate is invalid.
-    fn create(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        index_name: &str,
-        series: u16,
-        version: u16,
-        notional: Bound<'_, PyAny>,
-        fixed_coupon_bp: f64,
-        start_date: Bound<'_, PyAny>,
-        maturity: Bound<'_, PyAny>,
-        discount_curve: Bound<'_, PyAny>,
-        credit_curve: Bound<'_, PyAny>,
-        side: Option<&str>,
-        recovery_rate: Option<f64>,
-        index_factor: Option<f64>,
-    ) -> PyResult<Self> {
-        use crate::errors::PyContext;
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-        let notional_money = extract_money(&notional).context("notional")?;
-        let start = py_to_date(&start_date).context("start_date")?;
-        let end = py_to_date(&maturity).context("maturity")?;
-        let disc_curve = discount_curve.extract::<&str>().context("discount_curve")?;
-        let credit_curve_id = credit_curve.extract::<&str>().context("credit_curve")?;
-        let side_value = normalize_cds_side(side.unwrap_or("pay_protection")).context("side")?;
-        let recovery = recovery_rate.unwrap_or(STANDARD_RECOVERY_SENIOR);
-        if !(0.0..=1.0).contains(&recovery) {
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "CdsIndexBuilder",
+    unsendable
+)]
+pub struct PyCdsIndexBuilder {
+    instrument_id: InstrumentId,
+    index_name: Option<String>,
+    series: Option<u16>,
+    version: Option<u16>,
+    notional: Option<finstack_core::money::Money>,
+    fixed_coupon_bp: Option<f64>,
+    start_date: Option<time::Date>,
+    maturity: Option<time::Date>,
+    discount_curve: Option<String>,
+    credit_curve: Option<String>,
+    side: PayReceive,
+    recovery_rate: f64,
+    index_factor: Option<f64>,
+}
+
+impl PyCdsIndexBuilder {
+    fn new_with_id(id: InstrumentId) -> Self {
+        Self {
+            instrument_id: id,
+            index_name: None,
+            series: None,
+            version: None,
+            notional: None,
+            fixed_coupon_bp: None,
+            start_date: None,
+            maturity: None,
+            discount_curve: None,
+            credit_curve: None,
+            side: PayReceive::PayFixed,
+            recovery_rate: STANDARD_RECOVERY_SENIOR,
+            index_factor: None,
+        }
+    }
+
+    fn ensure_ready(&self) -> PyResult<()> {
+        if self.index_name.as_deref().unwrap_or("").is_empty() {
+            return Err(PyValueError::new_err("index_name() is required."));
+        }
+        if self.series.is_none() {
+            return Err(PyValueError::new_err("series() is required."));
+        }
+        if self.version.is_none() {
+            return Err(PyValueError::new_err("version() is required."));
+        }
+        if self.notional.is_none() {
+            return Err(PyValueError::new_err("notional() is required."));
+        }
+        if self.fixed_coupon_bp.is_none() {
+            return Err(PyValueError::new_err("fixed_coupon_bp() is required."));
+        }
+        if self.start_date.is_none() {
+            return Err(PyValueError::new_err("start_date() is required."));
+        }
+        if self.maturity.is_none() {
+            return Err(PyValueError::new_err("maturity() is required."));
+        }
+        if self.discount_curve.as_deref().unwrap_or("").is_empty() {
+            return Err(PyValueError::new_err("discount_curve() is required."));
+        }
+        if self.credit_curve.as_deref().unwrap_or("").is_empty() {
+            return Err(PyValueError::new_err("credit_curve() is required."));
+        }
+        if !(0.0..=1.0).contains(&self.recovery_rate) {
             return Err(PyValueError::new_err(
                 "recovery_rate must be between 0 and 1",
             ));
         }
+        Ok(())
+    }
+}
 
-        let mut index_params = CDSIndexParams::new(index_name, series, version, fixed_coupon_bp);
-        if let Some(factor) = index_factor {
+#[pymethods]
+impl PyCdsIndexBuilder {
+    #[new]
+    #[pyo3(text_signature = "(instrument_id)")]
+    fn new_py(instrument_id: &str) -> Self {
+        Self::new_with_id(InstrumentId::new(instrument_id))
+    }
+
+    #[pyo3(text_signature = "($self, index_name)")]
+    fn index_name(mut slf: PyRefMut<'_, Self>, index_name: String) -> PyRefMut<'_, Self> {
+        slf.index_name = Some(index_name);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, series)")]
+    fn series(mut slf: PyRefMut<'_, Self>, series: u16) -> PyRefMut<'_, Self> {
+        slf.series = Some(series);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, version)")]
+    fn version(mut slf: PyRefMut<'_, Self>, version: u16) -> PyRefMut<'_, Self> {
+        slf.version = Some(version);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, notional)")]
+    fn notional<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        notional: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.notional = Some(extract_money(&notional).context("notional")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, money)")]
+    fn money<'py>(mut slf: PyRefMut<'py, Self>, money: PyRef<'py, PyMoney>) -> PyRefMut<'py, Self> {
+        slf.notional = Some(money.inner);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, fixed_coupon_bp)")]
+    fn fixed_coupon_bp(mut slf: PyRefMut<'_, Self>, fixed_coupon_bp: f64) -> PyRefMut<'_, Self> {
+        slf.fixed_coupon_bp = Some(fixed_coupon_bp);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, start_date)")]
+    fn start_date<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        start_date: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.start_date = Some(py_to_date(&start_date).context("start_date")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, maturity)")]
+    fn maturity<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        maturity: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.maturity = Some(py_to_date(&maturity).context("maturity")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, discount_curve)")]
+    fn discount_curve(mut slf: PyRefMut<'_, Self>, discount_curve: String) -> PyRefMut<'_, Self> {
+        slf.discount_curve = Some(discount_curve);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, credit_curve)")]
+    fn credit_curve(mut slf: PyRefMut<'_, Self>, credit_curve: String) -> PyRefMut<'_, Self> {
+        slf.credit_curve = Some(credit_curve);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, side)")]
+    fn side(mut slf: PyRefMut<'_, Self>, side: String) -> PyResult<PyRefMut<'_, Self>> {
+        slf.side = normalize_cds_side(&side).context("side")?;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, recovery_rate)")]
+    fn recovery_rate(mut slf: PyRefMut<'_, Self>, recovery_rate: f64) -> PyRefMut<'_, Self> {
+        slf.recovery_rate = recovery_rate;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, index_factor=None)", signature = (index_factor=None))]
+    fn index_factor(mut slf: PyRefMut<'_, Self>, index_factor: Option<f64>) -> PyRefMut<'_, Self> {
+        slf.index_factor = index_factor;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyCdsIndex> {
+        slf.ensure_ready()?;
+        let index_name = slf.index_name.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CdsIndexBuilder internal error: missing index_name after validation",
+            )
+        })?;
+        let series = slf.series.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CdsIndexBuilder internal error: missing series after validation",
+            )
+        })?;
+        let version = slf.version.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CdsIndexBuilder internal error: missing version after validation",
+            )
+        })?;
+        let notional = slf.notional.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CdsIndexBuilder internal error: missing notional after validation",
+            )
+        })?;
+        let fixed_coupon_bp = slf.fixed_coupon_bp.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CdsIndexBuilder internal error: missing fixed_coupon_bp after validation",
+            )
+        })?;
+        let start = slf.start_date.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CdsIndexBuilder internal error: missing start_date after validation",
+            )
+        })?;
+        let end = slf.maturity.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CdsIndexBuilder internal error: missing maturity after validation",
+            )
+        })?;
+        let disc_curve = slf.discount_curve.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CdsIndexBuilder internal error: missing discount_curve after validation",
+            )
+        })?;
+        let credit_curve_id = slf.credit_curve.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CdsIndexBuilder internal error: missing credit_curve after validation",
+            )
+        })?;
+
+        let mut index_params = CDSIndexParams::new(&index_name, series, version, fixed_coupon_bp);
+        if let Some(factor) = slf.index_factor {
             index_params = index_params.with_index_factor(factor);
         }
+
         let construction =
-            CDSIndexConstructionParams::new(notional_money, side_value, CDSConvention::IsdaNa);
-        let credit_params = CreditParams::new(index_name.to_string(), recovery, credit_curve_id);
+            CDSIndexConstructionParams::new(notional, slf.side, CDSConvention::IsdaNa);
+        let credit_params = CreditParams::new(
+            index_name.clone(),
+            slf.recovery_rate,
+            credit_curve_id.as_str(),
+        );
 
         let index = CDSIndex::new_standard(
-            id,
+            slf.instrument_id.clone(),
             &index_params,
             &construction,
             start,
             end,
             &credit_params,
-            disc_curve,
-            credit_curve_id,
+            disc_curve.as_str(),
+            credit_curve_id.as_str(),
         );
-        Ok(Self::new(
+
+        Ok(PyCdsIndex::new(
             index.map_err(|e| PyValueError::new_err(e.to_string()))?,
         ))
+    }
+
+    fn __repr__(&self) -> String {
+        "CdsIndexBuilder(...)".to_string()
+    }
+}
+
+#[pymethods]
+impl PyCdsIndex {
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, instrument_id)")]
+    /// Start a fluent builder (builder-only API).
+    fn builder<'py>(
+        cls: &Bound<'py, PyType>,
+        instrument_id: &str,
+    ) -> PyResult<Py<PyCdsIndexBuilder>> {
+        let py = cls.py();
+        let builder = PyCdsIndexBuilder::new_with_id(InstrumentId::new(instrument_id));
+        Py::new(py, builder)
     }
 
     /// Instrument identifier.
@@ -257,5 +429,6 @@ pub(crate) fn register<'py>(
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyCdsIndex>()?;
-    Ok(vec!["CDSIndex"])
+    module.add_class::<PyCdsIndexBuilder>()?;
+    Ok(vec!["CDSIndex", "CdsIndexBuilder"])
 }

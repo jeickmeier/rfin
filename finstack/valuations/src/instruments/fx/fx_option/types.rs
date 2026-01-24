@@ -115,6 +115,10 @@ impl FxOption {
     /// # Errors
     ///
     /// Returns an error if the builder fails validation.
+    #[deprecated(
+        since = "0.4.0",
+        note = "Use `FxOption::builder()` and set `id/base_currency/quote_currency/strike/expiry/option_type/exercise_style/notional/curves/ids` explicitly before calling `.build()`."
+    )]
     pub fn european_call(
         id: impl Into<InstrumentId>,
         base_currency: Currency,
@@ -155,6 +159,10 @@ impl FxOption {
     /// # Errors
     ///
     /// Returns an error if the builder fails validation.
+    #[deprecated(
+        since = "0.4.0",
+        note = "Use `FxOption::builder()` and set `id/base_currency/quote_currency/strike/expiry/option_type/exercise_style/notional/curves/ids` explicitly before calling `.build()`."
+    )]
     pub fn european_put(
         id: impl Into<InstrumentId>,
         base_currency: Currency,
@@ -194,6 +202,10 @@ impl FxOption {
     ///
     /// `spot_lag_days` defaults to T+2 in most markets. The expiry is rolled on the
     /// joint base/quote calendars using the provided business day convention.
+    #[deprecated(
+        since = "0.4.0",
+        note = "Use `FxOption::builder()` and set explicit trade/expiry dates after applying your calendar/spot-lag conventions."
+    )]
     #[allow(clippy::too_many_arguments)]
     pub fn european_from_trade_date(
         id: impl Into<InstrumentId>,

@@ -18,6 +18,7 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
+use finstack_valuations::test_utils;
 use std::hint::black_box;
 use time::Month;
 
@@ -25,7 +26,7 @@ fn create_cds(tenor_years: i32) -> CreditDefaultSwap {
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2025 + tenor_years, Month::January, 1).unwrap();
 
-    CreditDefaultSwap::buy_protection(
+    test_utils::cds_buy_protection(
         format!("CDS-{}Y", tenor_years),
         Money::new(10_000_000.0, Currency::USD),
         100.0, // 100bp spread

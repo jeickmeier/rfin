@@ -1,8 +1,20 @@
-"""Equity instrument."""
+"""Equity instrument (builder-only API)."""
 
-from typing import Optional
+from typing import Optional, Union
 from ...core.currency import Currency
 from ..common import InstrumentType
+
+class EquityBuilder:
+    """Fluent builder returned by :meth:`Equity.builder`."""
+
+    def __init__(self, instrument_id: str) -> None: ...
+    def ticker(self, ticker: str) -> EquityBuilder: ...
+    def currency(self, currency: Union[str, Currency]) -> EquityBuilder: ...
+    def shares(self, shares: float) -> EquityBuilder: ...
+    def price(self, price: float) -> EquityBuilder: ...
+    def price_id(self, price_id: str) -> EquityBuilder: ...
+    def div_yield_id(self, div_yield_id: str) -> EquityBuilder: ...
+    def build(self) -> "Equity": ...
 
 class Equity:
     """Spot equity position for equity valuation and portfolio modeling.
@@ -20,12 +32,13 @@ class Equity:
 
         >>> from finstack.valuations.instruments import Equity
         >>> from finstack import Currency
-        >>> equity = Equity.create(
-        ...     "EQUITY-AAPL",
-        ...     ticker="AAPL",
-        ...     currency=Currency("USD"),
-        ...     shares=100.0,
-        ...     price_id="AAPL",  # Spot price ID in MarketContext
+        >>> equity = (
+        ...     Equity.builder("EQUITY-AAPL")
+        ...     .ticker("AAPL")
+        ...     .currency(Currency("USD"))
+        ...     .shares(100.0)
+        ...     .price_id("AAPL")  # Spot price ID in MarketContext
+        ...     .build()
         ... )
 
     Notes
@@ -52,51 +65,7 @@ class Equity:
     """
 
     @classmethod
-    def create(
-        cls,
-        instrument_id: str,
-        ticker: str,
-        currency: Currency,
-        *,
-        shares: Optional[float] = None,
-        price: Optional[float] = None,
-        price_id: Optional[str] = None,
-        div_yield_id: Optional[str] = None,
-    ) -> "Equity":
-        """Create an equity instrument optionally specifying share count and price.
-
-        Parameters
-        ----------
-        instrument_id : str
-            Unique identifier for the equity position (e.g., "EQUITY-AAPL").
-        ticker : str
-            Equity ticker symbol (e.g., "AAPL", "MSFT", "SPX").
-        currency : Currency
-            Currency of the equity (e.g., Currency("USD")).
-        shares : float, optional
-            Number of shares (can be positive for long, negative for short).
-            If None, uses a unit position.
-        price : float, optional
-            Spot price override. If None, price is retrieved from MarketContext
-            using price_id.
-        price_id : str, optional
-            Spot price identifier in MarketContext. If None, uses ticker as price_id.
-        div_yield_id : str, optional
-            Dividend yield identifier in MarketContext for total return calculations.
-
-        Returns
-        -------
-        Equity
-            Configured equity position ready for valuation.
-
-        Examples
-        --------
-            >>> equity = Equity.create(
-            ...     "EQUITY-AAPL", ticker="AAPL", currency=Currency("USD"), shares=100.0, price_id="AAPL"
-            ... )
-        """
-        ...
-
+    def builder(cls, instrument_id: str) -> EquityBuilder: ...
     @property
     def instrument_id(self) -> str: ...
     @property

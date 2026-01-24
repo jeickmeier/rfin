@@ -78,18 +78,32 @@ impl EquityOption {
     ///
     /// Returns an at-the-money SPX call option with 6 months to expiry.
     pub fn example() -> Self {
+        let notional = Money::new(100_000.0, Currency::USD);
+        let underlying = EquityUnderlyingParams::new("SPX", "EQUITY-SPOT", Currency::USD)
+            .with_dividend_yield("EQUITY-DIVYIELD")
+            .with_contract_size(100.0);
+
         // SAFETY: All inputs are compile-time validated constants
-        Self::european_call(
-            "SPX-CALL-4500",
-            "SPX",
-            4500.0,
-            date!(2024 - 06 - 21),
-            Money::new(100_000.0, Currency::USD),
-            100.0,
-        )
-        .unwrap_or_else(|_| {
-            unreachable!("Example equity option with valid constants should never fail")
-        })
+        Self::builder()
+            .id(InstrumentId::new("SPX-CALL-4500"))
+            .underlying_ticker(underlying.ticker)
+            .strike(Money::new(4500.0, notional.currency()))
+            .option_type(OptionType::Call)
+            .exercise_style(ExerciseStyle::European)
+            .expiry(date!(2024 - 06 - 21))
+            .contract_size(underlying.contract_size)
+            .day_count(finstack_core::dates::DayCount::Act365F)
+            .settlement(SettlementType::Cash)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .spot_id(underlying.spot_id)
+            .vol_surface_id(CurveId::new("EQUITY-VOL"))
+            .div_yield_id_opt(underlying.div_yield_id)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .unwrap_or_else(|_| {
+                unreachable!("Example equity option with valid constants should never fail")
+            })
     }
 
     /// Create a European call option with standard conventions.
@@ -99,6 +113,10 @@ impl EquityOption {
     /// # Errors
     ///
     /// Returns an error if the builder fails validation.
+    #[deprecated(
+        since = "0.4.0",
+        note = "Use `EquityOption::builder()` and set `id/underlying/strike/expiry/option_type/exercise_style/curves/ids` explicitly before calling `.build()`."
+    )]
     pub fn european_call(
         id: impl Into<String>,
         ticker: impl Into<String>,
@@ -136,6 +154,10 @@ impl EquityOption {
     /// # Errors
     ///
     /// Returns an error if the builder fails validation.
+    #[deprecated(
+        since = "0.4.0",
+        note = "Use `EquityOption::builder()` and set `id/underlying/strike/expiry/option_type/exercise_style/curves/ids` explicitly before calling `.build()`."
+    )]
     pub fn european_put(
         id: impl Into<String>,
         ticker: impl Into<String>,
@@ -172,6 +194,10 @@ impl EquityOption {
     /// # Errors
     ///
     /// Returns an error if the builder fails validation.
+    #[deprecated(
+        since = "0.4.0",
+        note = "Use `EquityOption::builder()` and set `id/underlying/strike/expiry/option_type/exercise_style/curves/ids` explicitly before calling `.build()`."
+    )]
     pub fn american_call(
         id: impl Into<String>,
         ticker: impl Into<String>,
@@ -477,21 +503,27 @@ mod tests {
     fn convenience_constructors_apply_standard_conventions() {
         let expiry = date(2025, 12, 31);
         let notional = Money::new(1_000_000.0, Currency::USD);
-        let call =
-            EquityOption::european_call("SPX-CALL", "SPX", 100.0, expiry, notional, 100.0).unwrap();
+        let call = crate::test_utils::equity_option_european_call(
+            "SPX-CALL", "SPX", 100.0, expiry, notional, 100.0,
+        )
+        .unwrap();
         assert_eq!(call.exercise_style, ExerciseStyle::European);
         assert_eq!(call.option_type, OptionType::Call);
         assert_eq!(call.discount_curve_id, CurveId::new(DISC_ID));
         assert_eq!(call.spot_id, "EQUITY-SPOT");
         assert_eq!(call.vol_surface_id, CurveId::new("EQUITY-VOL"));
 
-        let put =
-            EquityOption::european_put("SPX-PUT", "SPX", 90.0, expiry, notional, 50.0).unwrap();
+        let put = crate::test_utils::equity_option_european_put(
+            "SPX-PUT", "SPX", 90.0, expiry, notional, 50.0,
+        )
+        .unwrap();
         assert_eq!(put.option_type, OptionType::Put);
         assert_eq!(put.contract_size, 50.0);
 
-        let american =
-            EquityOption::american_call("SPX-AMER", "SPX", 105.0, expiry, notional, 75.0).unwrap();
+        let american = crate::test_utils::equity_option_american_call(
+            "SPX-AMER", "SPX", 105.0, expiry, notional, 75.0,
+        )
+        .unwrap();
         assert_eq!(american.exercise_style, ExerciseStyle::American);
         assert_eq!(american.contract_size, 75.0);
     }

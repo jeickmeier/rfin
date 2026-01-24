@@ -28,13 +28,14 @@ class PricerRegistry:
         >>> from finstack.valuations.instruments import Bond
         >>> from finstack.valuations.pricer import create_standard_registry
         >>> registry = create_standard_registry()
-        >>> bond = Bond.fixed_semiannual(
-        ...     "BOND-001",
-        ...     Money(1_000_000, Currency("USD")),
-        ...     0.045,
-        ...     date(2023, 1, 1),
-        ...     date(2028, 1, 1),
-        ...     "USD",
+        >>> bond = (
+        ...     Bond.builder("BOND-001")
+        ...     .money(Money(1_000_000, Currency("USD")))
+        ...     .coupon_rate(0.045)
+        ...     .issue(date(2023, 1, 1))
+        ...     .maturity(date(2028, 1, 1))
+        ...     .disc_id("USD")
+        ...     .build()
         ... )
         >>> ctx = MarketContext()
         >>> curve = DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (5.0, 0.97)])
@@ -306,13 +307,14 @@ class PricerRegistry:
             >>> from finstack.valuations.instruments import Bond
             >>> from finstack.valuations.pricer import create_standard_registry
             >>> registry = create_standard_registry()
-            >>> bond = Bond.fixed_semiannual(
-            ...     "EXAMPLE",
-            ...     Money(1_000_000, Currency("USD")),
-            ...     0.04,
-            ...     date(2024, 1, 1),
-            ...     date(2029, 1, 1),
-            ...     "USD",
+            >>> bond = (
+            ...     Bond.builder("EXAMPLE")
+            ...     .money(Money(1_000_000, Currency("USD")))
+            ...     .coupon_rate(0.04)
+            ...     .issue(date(2024, 1, 1))
+            ...     .maturity(date(2029, 1, 1))
+            ...     .disc_id("USD")
+            ...     .build()
             ... )
             >>> key = registry.key(bond, "discounting")
             >>> (key.instrument.name, key.model.name)

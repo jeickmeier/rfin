@@ -34,18 +34,22 @@ class InterestRateSwap:
 
     Examples
     --------
-    Create a USD SOFR swap (pay fixed, receive floating):
+    Create an interest rate swap (pay fixed, receive floating):
 
         >>> from datetime import date
         >>> from finstack.core.currency import Currency
         >>> from finstack.core.money import Money
         >>> from finstack.valuations.instruments import InterestRateSwap
-        >>> swap = InterestRateSwap.usd_pay_fixed(
-        ...     "SWAP-001",
-        ...     Money(10_000_000, Currency("USD")),
-        ...     0.035,
-        ...     date(2024, 1, 1),
-        ...     date(2029, 1, 1),
+        >>> swap = (
+        ...     InterestRateSwap.builder("SWAP-001")
+        ...     .money(Money(10_000_000, Currency("USD")))
+        ...     .side(PayReceive.PAY_FIXED)
+        ...     .fixed_rate(0.035)
+        ...     .start(date(2024, 1, 1))
+        ...     .maturity(date(2029, 1, 1))
+        ...     .disc_id("USD-OIS")
+        ...     .fwd_id("USD-SOFR-3M")
+        ...     .build()
         ... )
 
     Price the swap:
@@ -57,12 +61,16 @@ class InterestRateSwap:
         >>> from finstack.core.money import Money
         >>> from finstack.valuations.instruments import InterestRateSwap
         >>> from finstack.valuations.pricer import create_standard_registry
-        >>> swap = InterestRateSwap.usd_pay_fixed(
-        ...     "SWAP-EXAMPLE",
-        ...     Money(5_000_000, Currency("USD")),
-        ...     0.03,
-        ...     date(2024, 1, 1),
-        ...     date(2029, 1, 1),
+        >>> swap = (
+        ...     InterestRateSwap.builder("SWAP-EXAMPLE")
+        ...     .money(Money(5_000_000, Currency("USD")))
+        ...     .side(PayReceive.PAY_FIXED)
+        ...     .fixed_rate(0.03)
+        ...     .start(date(2024, 1, 1))
+        ...     .maturity(date(2029, 1, 1))
+        ...     .disc_id("USD-OIS")
+        ...     .fwd_id("USD-SOFR-3M")
+        ...     .build()
         ... )
         >>> ctx = MarketContext()
         >>> ctx.insert_discount(DiscountCurve("USD-OIS", date(2024, 1, 1), [(0.0, 1.0), (5.0, 0.95)]))
@@ -101,97 +109,9 @@ class InterestRateSwap:
     """
 
     @classmethod
-    def usd_pay_fixed(
-        cls,
-        instrument_id: str,
-        notional: Money,
-        fixed_rate: float,
-        start: date,
-        end: date,
-    ) -> "InterestRateSwap":
-        """Create a USD SOFR swap where the caller pays fixed and receives floating.
-
-        Factory method for creating a standard USD interest rate swap using SOFR
-        conventions: quarterly floating payments, semi-annual fixed payments,
-        30/360 day count, and Following business day convention.
-
-        Parameters
-        ----------
-        instrument_id : str
-            Unique identifier for the swap (e.g., "SWAP-001", "IRS-5Y").
-        notional : Money
-            Notional principal amount. Must be in USD for this factory method.
-        fixed_rate : float
-            Fixed rate paid by the caller, as a decimal (e.g., 0.035 for 3.5%).
-            This is typically the par swap rate at inception.
-        start : date
-            Swap start date (first accrual date).
-        end : date
-            Swap end date (last payment date). Must be after start date.
-
-        Returns
-        -------
-        InterestRateSwap
-            Configured swap where the caller pays fixed and receives floating.
-
-        Raises
-        ------
-        ValueError
-            If dates are invalid (end <= start), if fixed_rate is negative,
-            or if notional currency is not USD.
-
-        Examples
-        --------
-            >>> from finstack import Money, Currency
-            >>> from datetime import date
-            >>> swap = InterestRateSwap.usd_pay_fixed(
-            ...     "SWAP-5Y",
-            ...     Money(10_000_000, Currency("USD")),
-            ...     0.035,  # 3.5% fixed rate
-            ...     date(2024, 1, 1),
-            ...     date(2029, 1, 1),  # 5-year swap
-            ... )
-            >>> swap.fixed_rate
-            0.035
-            >>> swap.side
-            PayReceive.PAY_FIXED
-        """
+    def builder(cls, instrument_id: str) -> "InterestRateSwapBuilder":
+        """Start a fluent builder (builder-only API)."""
         ...
-
-    @classmethod
-    def usd_receive_fixed(
-        cls,
-        instrument_id: str,
-        notional: Money,
-        fixed_rate: float,
-        start: date,
-        end: date,
-    ) -> "InterestRateSwap":
-        """Create a USD SOFR swap where the caller receives fixed."""
-        ...
-
-    @classmethod
-    def builder(
-        cls,
-        instrument_id: str,
-        notional: Optional[Money] = ...,
-        fixed_rate: Optional[float] = ...,
-        start: Optional[date] = ...,
-        end: Optional[date] = ...,
-        side: Optional[Union[PayReceive, str]] = ...,
-        discount_curve: Optional[str] = ...,
-        forward_curve: Optional[str] = ...,
-        *,
-        fixed_frequency: Optional[Frequency] = None,
-        float_frequency: Optional[Frequency] = None,
-        fixed_day_count: Optional[DayCount] = None,
-        float_day_count: Optional[DayCount] = None,
-        business_day_convention: Optional[BusinessDayConvention] = None,
-        float_spread_bp: Optional[float] = None,
-        reset_lag_days: Optional[int] = None,
-        calendar: Optional[str] = None,
-        stub: Optional[StubKind] = None,
-    ) -> Union[InterestRateSwapBuilder, "InterestRateSwap"]: ...
 
 class InterestRateSwapBuilder:
     """Fluent builder returned by :meth:`InterestRateSwap.builder` when only an ID is provided."""

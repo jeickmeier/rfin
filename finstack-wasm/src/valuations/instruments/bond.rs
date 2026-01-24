@@ -10,6 +10,7 @@ use crate::valuations::cashflow::JsAmortizationSpec;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::Date as CoreDate;
+use finstack_core::money::Money as CoreMoney;
 use finstack_valuations::cashflow::builder::specs::{
     CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
 };
@@ -107,6 +108,292 @@ fn parse_call_put_entries(
         Ok(Some(out))
     } else {
         Ok(None)
+    }
+}
+
+#[wasm_bindgen(js_name = BondBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsBondBuilder {
+    instrument_id: String,
+    notional: Option<CoreMoney>,
+    issue: Option<CoreDate>,
+    maturity: Option<CoreDate>,
+    discount_curve: Option<String>,
+    credit_curve: Option<String>,
+    coupon_rate: Option<f64>,
+    frequency: Option<finstack_core::dates::Tenor>,
+    day_count: Option<finstack_core::dates::DayCount>,
+    business_day_convention: Option<finstack_core::dates::BusinessDayConvention>,
+    calendar_id: Option<String>,
+    stub_kind: Option<finstack_core::dates::StubKind>,
+    amortization: Option<finstack_valuations::cashflow::builder::AmortizationSpec>,
+    call_schedule: Option<Array>,
+    put_schedule: Option<Array>,
+    quoted_clean_price: Option<f64>,
+    forward_curve: Option<String>,
+    float_margin_bp: Option<f64>,
+    float_gearing: Option<f64>,
+    float_reset_lag_days: Option<i32>,
+}
+
+impl JsBondBuilder {
+    fn build_cashflow_spec(&self) -> Result<CashflowSpec, JsValue> {
+        let freq = self
+            .frequency
+            .unwrap_or_else(finstack_core::dates::Tenor::semi_annual);
+        let bdc = self
+            .business_day_convention
+            .unwrap_or(finstack_core::dates::BusinessDayConvention::Following);
+        let stub = self
+            .stub_kind
+            .unwrap_or(finstack_core::dates::StubKind::None);
+
+        let base = if let Some(curve) = &self.forward_curve {
+            // Floating rate bond
+            let dc = self
+                .day_count
+                .unwrap_or(finstack_core::dates::DayCount::Act360);
+            CashflowSpec::Floating(FloatingCouponSpec {
+                rate_spec: FloatingRateSpec {
+                    index_id: curve_id_from_str(curve),
+                    spread_bp: rust_decimal::Decimal::from_f64_retain(
+                        self.float_margin_bp.unwrap_or(0.0),
+                    )
+                    .unwrap_or_default(),
+                    gearing: rust_decimal::Decimal::from_f64_retain(
+                        self.float_gearing.unwrap_or(1.0),
+                    )
+                    .unwrap_or(rust_decimal::Decimal::ONE),
+                    gearing_includes_spread: true,
+                    floor_bp: None,
+                    all_in_floor_bp: None,
+                    cap_bp: None,
+                    index_cap_bp: None,
+                    reset_freq: freq,
+                    reset_lag_days: self.float_reset_lag_days.unwrap_or(2),
+                    dc,
+                    bdc,
+                    calendar_id: self.calendar_id.clone(),
+                    fixing_calendar_id: self.calendar_id.clone(),
+                },
+                coupon_type: CouponType::Cash,
+                freq,
+                stub,
+            })
+        } else {
+            // Fixed rate bond
+            let dc = self
+                .day_count
+                .unwrap_or(finstack_core::dates::DayCount::Thirty360);
+            CashflowSpec::Fixed(FixedCouponSpec {
+                coupon_type: CouponType::Cash,
+                rate: rust_decimal::Decimal::from_f64_retain(self.coupon_rate.unwrap_or(0.0))
+                    .unwrap_or_default(),
+                freq,
+                dc,
+                bdc,
+                calendar_id: self.calendar_id.clone(),
+                stub,
+            })
+        };
+
+        // Wrap in amortization if present
+        if let Some(amort) = &self.amortization {
+            Ok(CashflowSpec::Amortizing {
+                base: Box::new(base),
+                schedule: amort.clone(),
+            })
+        } else {
+            Ok(base)
+        }
+    }
+
+    fn build_call_put(&self) -> Result<Option<CallPutSchedule>, JsValue> {
+        if self.call_schedule.is_none() && self.put_schedule.is_none() {
+            return Ok(None);
+        }
+        let mut schedule = CallPutSchedule::default();
+        if let Some(calls) = parse_call_put_entries(self.call_schedule.clone(), "Call schedule")? {
+            schedule.calls = calls;
+        }
+        if let Some(puts) = parse_call_put_entries(self.put_schedule.clone(), "Put schedule")? {
+            schedule.puts = puts;
+        }
+        Ok(Some(schedule))
+    }
+
+    fn effective_issue(&self, maturity: CoreDate) -> CoreDate {
+        self.issue.unwrap_or_else(|| {
+            maturity
+                .checked_sub(time::Duration::days(365))
+                .unwrap_or(maturity)
+        })
+    }
+}
+
+#[wasm_bindgen(js_class = BondBuilder)]
+impl JsBondBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new(instrument_id: &str) -> JsBondBuilder {
+        JsBondBuilder {
+            instrument_id: instrument_id.to_string(),
+            ..Default::default()
+        }
+    }
+
+    #[wasm_bindgen(js_name = money)]
+    pub fn money(mut self, notional: &JsMoney) -> JsBondBuilder {
+        self.notional = Some(notional.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = issue)]
+    pub fn issue(mut self, issue: &JsDate) -> JsBondBuilder {
+        self.issue = Some(issue.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = maturity)]
+    pub fn maturity(mut self, maturity: &JsDate) -> JsBondBuilder {
+        self.maturity = Some(maturity.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = discountCurve)]
+    pub fn discount_curve(mut self, discount_curve: &str) -> JsBondBuilder {
+        self.discount_curve = Some(discount_curve.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = hazardCurve)]
+    pub fn hazard_curve(mut self, hazard_curve: &str) -> JsBondBuilder {
+        self.credit_curve = Some(hazard_curve.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = couponRate)]
+    pub fn coupon_rate(mut self, coupon_rate: f64) -> JsBondBuilder {
+        self.coupon_rate = Some(coupon_rate);
+        self
+    }
+
+    #[wasm_bindgen(js_name = frequency)]
+    pub fn frequency(mut self, frequency: JsFrequency) -> JsBondBuilder {
+        self.frequency = Some(frequency.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = dayCount)]
+    pub fn day_count(mut self, day_count: JsDayCount) -> JsBondBuilder {
+        self.day_count = Some(day_count.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = businessDayConvention)]
+    pub fn business_day_convention(mut self, bdc: JsBusinessDayConvention) -> JsBondBuilder {
+        self.business_day_convention = Some(bdc.into());
+        self
+    }
+
+    #[wasm_bindgen(js_name = calendarId)]
+    pub fn calendar_id(mut self, calendar_id: String) -> JsBondBuilder {
+        self.calendar_id = Some(calendar_id);
+        self
+    }
+
+    #[wasm_bindgen(js_name = stubKind)]
+    pub fn stub_kind(mut self, stub_kind: JsStubKind) -> JsBondBuilder {
+        self.stub_kind = Some(stub_kind.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = amortization)]
+    pub fn amortization(mut self, amortization: JsAmortizationSpec) -> JsBondBuilder {
+        self.amortization = Some(amortization.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = callSchedule)]
+    pub fn call_schedule(mut self, call_schedule: Array) -> JsBondBuilder {
+        self.call_schedule = Some(call_schedule);
+        self
+    }
+
+    #[wasm_bindgen(js_name = putSchedule)]
+    pub fn put_schedule(mut self, put_schedule: Array) -> JsBondBuilder {
+        self.put_schedule = Some(put_schedule);
+        self
+    }
+
+    #[wasm_bindgen(js_name = quotedCleanPrice)]
+    pub fn quoted_clean_price(mut self, quoted_clean_price: f64) -> JsBondBuilder {
+        self.quoted_clean_price = Some(quoted_clean_price);
+        self
+    }
+
+    #[wasm_bindgen(js_name = forwardCurve)]
+    pub fn forward_curve(mut self, forward_curve: String) -> JsBondBuilder {
+        self.forward_curve = Some(forward_curve);
+        self
+    }
+
+    #[wasm_bindgen(js_name = floatMarginBp)]
+    pub fn float_margin_bp(mut self, float_margin_bp: f64) -> JsBondBuilder {
+        self.float_margin_bp = Some(float_margin_bp);
+        self
+    }
+
+    #[wasm_bindgen(js_name = floatGearing)]
+    pub fn float_gearing(mut self, float_gearing: f64) -> JsBondBuilder {
+        self.float_gearing = Some(float_gearing);
+        self
+    }
+
+    #[wasm_bindgen(js_name = floatResetLagDays)]
+    pub fn float_reset_lag_days(mut self, float_reset_lag_days: i32) -> JsBondBuilder {
+        self.float_reset_lag_days = Some(float_reset_lag_days);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsBond, JsValue> {
+        let notional = self
+            .notional
+            .ok_or_else(|| js_error("BondBuilder: notional (money) is required".to_string()))?;
+        let maturity = self
+            .maturity
+            .ok_or_else(|| js_error("BondBuilder: maturity is required".to_string()))?;
+        let discount_curve = self
+            .discount_curve
+            .as_deref()
+            .ok_or_else(|| js_error("BondBuilder: discountCurve is required".to_string()))?;
+
+        let issue = self.effective_issue(maturity);
+        let cashflow_spec = self.build_cashflow_spec()?;
+
+        let mut builder = Bond::builder()
+            .id(instrument_id_from_str(&self.instrument_id))
+            .notional(notional)
+            .issue(issue)
+            .maturity(maturity)
+            .cashflow_spec(cashflow_spec)
+            .discount_curve_id(curve_id_from_str(discount_curve));
+
+        if let Some(price) = self.quoted_clean_price {
+            builder =
+                builder.pricing_overrides(PricingOverrides::default().with_clean_price(price));
+        }
+        if let Some(hazard) = self.credit_curve.as_deref() {
+            builder = builder.credit_curve_id_opt(Some(curve_id_from_str(hazard)));
+        }
+        if let Some(schedule) = self.build_call_put()? {
+            builder = builder.call_put_opt(Some(schedule));
+        }
+
+        builder
+            .build()
+            .map(JsBond::from_inner)
+            .map_err(|e| js_error(e.to_string()))
     }
 }
 

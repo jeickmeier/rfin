@@ -17,12 +17,13 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::equity::equity_option::EquityOption;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
+use finstack_valuations::test_utils;
 use time::Month;
 
 fn create_test_call() -> EquityOption {
     let expiry = Date::from_calendar_date(2026, Month::January, 15).unwrap();
 
-    EquityOption::european_call(
+    test_utils::equity_option_european_call(
         "CALL-DETERMINISM",
         "AAPL",
         100.0, // strike
@@ -256,7 +257,7 @@ fn test_option_all_greeks_determinism() {
 #[test]
 fn test_option_put_determinism() {
     let expiry = Date::from_calendar_date(2026, Month::January, 15).unwrap();
-    let put = EquityOption::european_put(
+    let put = test_utils::equity_option_european_put(
         "PUT-DETERMINISM",
         "AAPL",
         100.0,
@@ -294,7 +295,7 @@ fn test_option_different_moneyness_determinism() {
     let strikes = vec![80.0, 100.0, 120.0];
 
     for strike in strikes {
-        let call = EquityOption::european_call(
+        let call = test_utils::equity_option_european_call(
             format!("CALL-K{}", strike),
             "AAPL",
             strike,
@@ -324,7 +325,7 @@ fn test_option_put_call_parity_determinism() {
     let expiry = Date::from_calendar_date(2026, Month::January, 15).unwrap();
     let market = create_test_market(as_of);
 
-    let call = EquityOption::european_call(
+    let call = test_utils::equity_option_european_call(
         "PARITY-CALL",
         "AAPL",
         100.0,
@@ -333,7 +334,7 @@ fn test_option_put_call_parity_determinism() {
         1.0,
     )
     .unwrap();
-    let put = EquityOption::european_put(
+    let put = test_utils::equity_option_european_put(
         "PARITY-PUT",
         "AAPL",
         100.0,

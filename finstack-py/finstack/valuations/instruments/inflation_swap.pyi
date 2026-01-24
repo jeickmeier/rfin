@@ -5,6 +5,22 @@ from datetime import date
 from ...core.money import Money
 from ..common import InstrumentType
 
+class InflationSwapBuilder:
+    """Fluent builder returned by :meth:`InflationSwap.builder`."""
+
+    def __init__(self, instrument_id: str) -> None: ...
+    def notional(self, notional: Money) -> "InflationSwapBuilder": ...
+    def fixed_rate(self, fixed_rate: float) -> "InflationSwapBuilder": ...
+    def start_date(self, start_date: date) -> "InflationSwapBuilder": ...
+    def maturity(self, maturity: date) -> "InflationSwapBuilder": ...
+    def discount_curve(self, discount_curve: str) -> "InflationSwapBuilder": ...
+    def inflation_index_id(self, inflation_index_id: str) -> "InflationSwapBuilder": ...
+    def inflation_curve(self, inflation_curve: str) -> "InflationSwapBuilder": ...
+    def side(self, side: str) -> "InflationSwapBuilder": ...
+    def day_count(self, day_count: str) -> "InflationSwapBuilder": ...
+    def lag_override(self, lag_override: Optional[str] = ...) -> "InflationSwapBuilder": ...
+    def build(self) -> "InflationSwap": ...
+
 class InflationSwap:
     """Inflation swap for exchanging fixed rate for inflation-linked payments.
 
@@ -23,15 +39,16 @@ class InflationSwap:
         >>> from finstack.valuations.instruments import InflationSwap
         >>> from finstack import Money, Currency
         >>> from datetime import date
-        >>> inflation_swap = InflationSwap.create(
-        ...     "INFLATION-SWAP-5Y",
-        ...     notional=Money(10_000_000, Currency("USD")),
-        ...     fixed_rate=0.025,  # 2.5% fixed rate
-        ...     start_date=date(2024, 1, 1),
-        ...     maturity=date(2029, 1, 1),  # 5-year swap
-        ...     discount_curve="USD",
-        ...     inflation_curve="US-CPI",
-        ...     side="pay_fixed",  # Pay fixed, receive inflation
+        >>> inflation_swap = (
+        ...     InflationSwap.builder("INFLATION-SWAP-5Y")
+        ...     .notional(Money(10_000_000, Currency("USD")))
+        ...     .fixed_rate(0.025)  # 2.5% fixed rate
+        ...     .start_date(date(2024, 1, 1))
+        ...     .maturity(date(2029, 1, 1))  # 5-year swap
+        ...     .discount_curve("USD")
+        ...     .inflation_curve("US-CPI")
+        ...     .side("pay_fixed")  # Pay fixed, receive inflation
+        ...     .build()
         ... )
 
     Notes
@@ -60,23 +77,8 @@ class InflationSwap:
     """
 
     @classmethod
-    def create(
-        cls,
-        instrument_id: str,
-        notional: Money,
-        fixed_rate: float,
-        start_date: date,
-        maturity: date,
-        discount_curve: str,
-        inflation_index: Optional[str] = None,
-        *,
-        side: Optional[str] = "pay_fixed",
-        day_count: Optional[str] = "act_act",
-        inflation_index_id: Optional[str] = None,
-        lag_override: Optional[str] = None,
-        inflation_curve: Optional[str] = None,
-    ) -> "InflationSwap":
-        """Create an inflation swap fixing against the supplied inflation index.
+    def builder(cls, instrument_id: str) -> InflationSwapBuilder:
+        """Start a fluent builder (builder-only API).
 
         Parameters
         ----------
@@ -118,17 +120,6 @@ class InflationSwap:
             If dates are invalid (maturity <= start_date), if fixed_rate is negative,
             or if required curves are not found in MarketContext.
 
-        Examples
-        --------
-            >>> inflation_swap = InflationSwap.create(
-            ...     "INFLATION-SWAP-5Y",
-            ...     Money(10_000_000, Currency("USD")),
-            ...     0.025,  # 2.5% fixed
-            ...     date(2024, 1, 1),
-            ...     date(2029, 1, 1),
-            ...     discount_curve="USD",
-            ...     inflation_curve="US-CPI",
-            ... )
         """
         ...
 

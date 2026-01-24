@@ -163,6 +163,107 @@ impl InstrumentWrapper for JsEquityTotalReturnSwap {
     }
 }
 
+#[wasm_bindgen(js_name = EquityTotalReturnSwapBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsEquityTotalReturnSwapBuilder {
+    instrument_id: String,
+    notional: Option<finstack_core::money::Money>,
+    underlying: Option<EquityUnderlyingParams>,
+    financing: Option<FinancingLegSpec>,
+    schedule: Option<TrsScheduleSpec>,
+    receive_total_return: Option<bool>,
+    initial_level: Option<f64>,
+}
+
+#[wasm_bindgen(js_class = EquityTotalReturnSwapBuilder)]
+impl JsEquityTotalReturnSwapBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new(instrument_id: &str) -> JsEquityTotalReturnSwapBuilder {
+        JsEquityTotalReturnSwapBuilder {
+            instrument_id: instrument_id.to_string(),
+            ..Default::default()
+        }
+    }
+
+    #[wasm_bindgen(js_name = money)]
+    pub fn money(mut self, notional: &JsMoney) -> JsEquityTotalReturnSwapBuilder {
+        self.notional = Some(notional.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = underlying)]
+    pub fn underlying(mut self, underlying: &JsEquityUnderlying) -> JsEquityTotalReturnSwapBuilder {
+        self.underlying = Some(underlying.inner.clone());
+        self
+    }
+
+    #[wasm_bindgen(js_name = financing)]
+    pub fn financing(mut self, financing: &JsFinancingLegSpec) -> JsEquityTotalReturnSwapBuilder {
+        self.financing = Some(financing.inner.clone());
+        self
+    }
+
+    #[wasm_bindgen(js_name = schedule)]
+    pub fn schedule(mut self, schedule: &JsTrsScheduleSpec) -> JsEquityTotalReturnSwapBuilder {
+        self.schedule = Some(schedule.inner.clone());
+        self
+    }
+
+    #[wasm_bindgen(js_name = receiveTotalReturn)]
+    pub fn receive_total_return(
+        mut self,
+        receive_total_return: bool,
+    ) -> JsEquityTotalReturnSwapBuilder {
+        self.receive_total_return = Some(receive_total_return);
+        self
+    }
+
+    #[wasm_bindgen(js_name = initialLevel)]
+    pub fn initial_level(mut self, initial_level: f64) -> JsEquityTotalReturnSwapBuilder {
+        self.initial_level = Some(initial_level);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsEquityTotalReturnSwap, JsValue> {
+        let notional = self.notional.ok_or_else(|| {
+            js_error("EquityTotalReturnSwapBuilder: notional (money) is required".to_string())
+        })?;
+        let underlying = self.underlying.ok_or_else(|| {
+            js_error("EquityTotalReturnSwapBuilder: underlying is required".to_string())
+        })?;
+        let financing = self.financing.ok_or_else(|| {
+            js_error("EquityTotalReturnSwapBuilder: financing is required".to_string())
+        })?;
+        let schedule = self.schedule.ok_or_else(|| {
+            js_error("EquityTotalReturnSwapBuilder: schedule is required".to_string())
+        })?;
+        let receive_total_return = self.receive_total_return.ok_or_else(|| {
+            js_error("EquityTotalReturnSwapBuilder: receiveTotalReturn is required".to_string())
+        })?;
+
+        let side = if receive_total_return {
+            TrsSide::ReceiveTotalReturn
+        } else {
+            TrsSide::PayTotalReturn
+        };
+
+        let trs = EquityTotalReturnSwap {
+            id: instrument_id_from_str(&self.instrument_id),
+            notional,
+            underlying,
+            financing,
+            schedule,
+            side,
+            initial_level: self.initial_level,
+            attributes: Default::default(),
+            margin_spec: None,
+        };
+
+        Ok(JsEquityTotalReturnSwap::from_inner(trs))
+    }
+}
+
 #[wasm_bindgen(js_class = EquityTotalReturnSwap)]
 impl JsEquityTotalReturnSwap {
     /// Create an equity total return swap (TRS).
@@ -189,6 +290,9 @@ impl JsEquityTotalReturnSwap {
         receive_total_return: bool,
         initial_level: Option<f64>,
     ) -> JsEquityTotalReturnSwap {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "EquityTotalReturnSwap constructor is deprecated; use EquityTotalReturnSwapBuilder instead.",
+        ));
         let side = if receive_total_return {
             TrsSide::ReceiveTotalReturn
         } else {
@@ -306,6 +410,107 @@ impl InstrumentWrapper for JsFiIndexTotalReturnSwap {
     }
 }
 
+#[wasm_bindgen(js_name = FiIndexTotalReturnSwapBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsFiIndexTotalReturnSwapBuilder {
+    instrument_id: String,
+    notional: Option<finstack_core::money::Money>,
+    underlying: Option<IndexUnderlyingParams>,
+    financing: Option<FinancingLegSpec>,
+    schedule: Option<TrsScheduleSpec>,
+    receive_total_return: Option<bool>,
+    initial_level: Option<f64>,
+}
+
+#[wasm_bindgen(js_class = FiIndexTotalReturnSwapBuilder)]
+impl JsFiIndexTotalReturnSwapBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new(instrument_id: &str) -> JsFiIndexTotalReturnSwapBuilder {
+        JsFiIndexTotalReturnSwapBuilder {
+            instrument_id: instrument_id.to_string(),
+            ..Default::default()
+        }
+    }
+
+    #[wasm_bindgen(js_name = money)]
+    pub fn money(mut self, notional: &JsMoney) -> JsFiIndexTotalReturnSwapBuilder {
+        self.notional = Some(notional.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = underlying)]
+    pub fn underlying(mut self, underlying: &JsIndexUnderlying) -> JsFiIndexTotalReturnSwapBuilder {
+        self.underlying = Some(underlying.inner.clone());
+        self
+    }
+
+    #[wasm_bindgen(js_name = financing)]
+    pub fn financing(mut self, financing: &JsFinancingLegSpec) -> JsFiIndexTotalReturnSwapBuilder {
+        self.financing = Some(financing.inner.clone());
+        self
+    }
+
+    #[wasm_bindgen(js_name = schedule)]
+    pub fn schedule(mut self, schedule: &JsTrsScheduleSpec) -> JsFiIndexTotalReturnSwapBuilder {
+        self.schedule = Some(schedule.inner.clone());
+        self
+    }
+
+    #[wasm_bindgen(js_name = receiveTotalReturn)]
+    pub fn receive_total_return(
+        mut self,
+        receive_total_return: bool,
+    ) -> JsFiIndexTotalReturnSwapBuilder {
+        self.receive_total_return = Some(receive_total_return);
+        self
+    }
+
+    #[wasm_bindgen(js_name = initialLevel)]
+    pub fn initial_level(mut self, initial_level: f64) -> JsFiIndexTotalReturnSwapBuilder {
+        self.initial_level = Some(initial_level);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsFiIndexTotalReturnSwap, JsValue> {
+        let notional = self.notional.ok_or_else(|| {
+            js_error("FiIndexTotalReturnSwapBuilder: notional (money) is required".to_string())
+        })?;
+        let underlying = self.underlying.ok_or_else(|| {
+            js_error("FiIndexTotalReturnSwapBuilder: underlying is required".to_string())
+        })?;
+        let financing = self.financing.ok_or_else(|| {
+            js_error("FiIndexTotalReturnSwapBuilder: financing is required".to_string())
+        })?;
+        let schedule = self.schedule.ok_or_else(|| {
+            js_error("FiIndexTotalReturnSwapBuilder: schedule is required".to_string())
+        })?;
+        let receive_total_return = self.receive_total_return.ok_or_else(|| {
+            js_error("FiIndexTotalReturnSwapBuilder: receiveTotalReturn is required".to_string())
+        })?;
+
+        let side = if receive_total_return {
+            TrsSide::ReceiveTotalReturn
+        } else {
+            TrsSide::PayTotalReturn
+        };
+
+        let trs = FIIndexTotalReturnSwap {
+            id: instrument_id_from_str(&self.instrument_id),
+            notional,
+            underlying,
+            financing,
+            schedule,
+            side,
+            initial_level: self.initial_level,
+            attributes: Default::default(),
+            margin_spec: None,
+        };
+
+        Ok(JsFiIndexTotalReturnSwap::from_inner(trs))
+    }
+}
+
 #[wasm_bindgen(js_class = FiIndexTotalReturnSwap)]
 impl JsFiIndexTotalReturnSwap {
     /// Create a fixed-income index total return swap (TRS).
@@ -332,6 +537,9 @@ impl JsFiIndexTotalReturnSwap {
         receive_total_return: bool,
         initial_level: Option<f64>,
     ) -> JsFiIndexTotalReturnSwap {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "FiIndexTotalReturnSwap constructor is deprecated; use FiIndexTotalReturnSwapBuilder instead.",
+        ));
         let side = if receive_total_return {
             TrsSide::ReceiveTotalReturn
         } else {

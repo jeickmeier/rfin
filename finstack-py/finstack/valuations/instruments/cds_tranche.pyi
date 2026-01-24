@@ -7,6 +7,27 @@ from ...core.dates.daycount import DayCount
 from ...core.dates.calendar import BusinessDayConvention
 from ..common import InstrumentType
 
+class CdsTrancheBuilder:
+    """Fluent builder returned by :meth:`CdsTranche.builder`."""
+
+    def __init__(self, instrument_id: str) -> None: ...
+    def index_name(self, index_name: str) -> "CdsTrancheBuilder": ...
+    def series(self, series: int) -> "CdsTrancheBuilder": ...
+    def attach_pct(self, attach_pct: float) -> "CdsTrancheBuilder": ...
+    def detach_pct(self, detach_pct: float) -> "CdsTrancheBuilder": ...
+    def notional(self, notional: Money) -> "CdsTrancheBuilder": ...
+    def maturity(self, maturity: date) -> "CdsTrancheBuilder": ...
+    def running_coupon_bp(self, running_coupon_bp: float) -> "CdsTrancheBuilder": ...
+    def discount_curve(self, discount_curve: str) -> "CdsTrancheBuilder": ...
+    def credit_index_curve(self, credit_index_curve: str) -> "CdsTrancheBuilder": ...
+    def side(self, side: str) -> "CdsTrancheBuilder": ...
+    def payments_per_year(self, payments_per_year: int) -> "CdsTrancheBuilder": ...
+    def day_count(self, day_count: DayCount) -> "CdsTrancheBuilder": ...
+    def business_day_convention(self, business_day_convention: BusinessDayConvention) -> "CdsTrancheBuilder": ...
+    def calendar(self, calendar: Optional[str] = ...) -> "CdsTrancheBuilder": ...
+    def effective_date(self, effective_date: Optional[date] = ...) -> "CdsTrancheBuilder": ...
+    def build(self) -> "CdsTranche": ...
+
 class CdsTranche:
     """CDS tranche for structured credit exposure.
 
@@ -25,17 +46,18 @@ class CdsTranche:
         >>> from finstack.valuations.instruments import CdsTranche
         >>> from finstack import Money, Currency
         >>> from datetime import date
-        >>> tranche = CdsTranche.create(
-        ...     "CDX-IG-0-3",
-        ...     index_name="CDX.NA.IG",
-        ...     series=40,
-        ...     attach_pct=0.0,  # 0% attachment (equity)
-        ...     detach_pct=3.0,  # 3% detachment
-        ...     notional=Money(10_000_000, Currency("USD")),
-        ...     maturity=date(2029, 1, 1),
-        ...     running_coupon_bp=500.0,  # 500bp running coupon
-        ...     discount_curve="USD",
-        ...     credit_index_curve="CDX-IG-40",
+        >>> tranche = (
+        ...     CdsTranche.builder("CDX-IG-0-3")
+        ...     .index_name("CDX.NA.IG")
+        ...     .series(40)
+        ...     .attach_pct(0.0)  # 0% attachment (equity)
+        ...     .detach_pct(3.0)  # 3% detachment
+        ...     .notional(Money(10_000_000, Currency("USD")))
+        ...     .maturity(date(2029, 1, 1))
+        ...     .running_coupon_bp(500.0)  # 500bp running coupon
+        ...     .discount_curve("USD")
+        ...     .credit_index_curve("CDX-IG-40")
+        ...     .build()
         ... )
 
     Notes
@@ -74,27 +96,8 @@ class CdsTranche:
     """
 
     @classmethod
-    def create(
-        cls,
-        instrument_id: str,
-        index_name: str,
-        series: int,
-        attach_pct: float,
-        detach_pct: float,
-        notional: Money,
-        maturity: date,
-        running_coupon_bp: float,
-        discount_curve: str,
-        credit_index_curve: str,
-        *,
-        side: Optional[str] = "buy_protection",
-        payments_per_year: Optional[int] = 4,
-        day_count: Optional[DayCount] = None,
-        business_day_convention: Optional[BusinessDayConvention] = None,
-        calendar: Optional[str] = None,
-        effective_date: Optional[date] = None,
-    ) -> "CdsTranche":
-        """Create a CDS tranche referencing a credit index.
+    def builder(cls, instrument_id: str) -> CdsTrancheBuilder:
+        """Start a fluent builder (builder-only API).
 
         Parameters
         ----------
@@ -143,20 +146,6 @@ class CdsTranche:
             If parameters are invalid (detach_pct <= attach_pct, etc.) or if
             required curves are not found.
 
-        Examples
-        --------
-            >>> tranche = CdsTranche.create(
-            ...     "CDX-IG-0-3",
-            ...     "CDX.NA.IG",
-            ...     40,
-            ...     0.0,  # 0% attachment
-            ...     3.0,  # 3% detachment
-            ...     Money(10_000_000, Currency("USD")),
-            ...     date(2029, 1, 1),
-            ...     500.0,  # 500bp
-            ...     discount_curve="USD",
-            ...     credit_index_curve="CDX-IG-40",
-            ... )
         """
         ...
 

@@ -1,17 +1,19 @@
 use crate::core::common::args::DayCountArg;
+use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::py_to_date;
-use crate::core::money::{extract_money, PyMoney};
-use crate::errors::core_to_py;
+use crate::core::money::PyMoney;
+use crate::errors::{core_to_py, PyContext};
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::DayCount;
+use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::rates::ir_future::{
     FutureContractSpecs, InterestRateFuture, Position,
 };
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use pyo3::Bound;
+use pyo3::{Bound, Py, PyRef, PyRefMut};
 use std::fmt;
 use std::sync::Arc;
 
@@ -41,102 +43,334 @@ impl PyInterestRateFuture {
     }
 }
 
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "InterestRateFutureBuilder",
+    unsendable
+)]
+pub struct PyInterestRateFutureBuilder {
+    instrument_id: InstrumentId,
+    pending_notional_amount: Option<f64>,
+    pending_currency: Option<finstack_core::currency::Currency>,
+    quoted_price: Option<f64>,
+    expiry: Option<time::Date>,
+    fixing_date: Option<time::Date>,
+    period_start: Option<time::Date>,
+    period_end: Option<time::Date>,
+    discount_curve_id: Option<CurveId>,
+    forward_curve_id: Option<CurveId>,
+    position: Position,
+    day_count: DayCount,
+    face_value: f64,
+    tick_size: f64,
+    tick_value: Option<f64>,
+    delivery_months: u8,
+    convexity_adjustment: Option<f64>,
+}
+
+impl PyInterestRateFutureBuilder {
+    fn new_with_id(id: InstrumentId) -> Self {
+        Self {
+            instrument_id: id,
+            pending_notional_amount: None,
+            pending_currency: None,
+            quoted_price: None,
+            expiry: None,
+            fixing_date: None,
+            period_start: None,
+            period_end: None,
+            discount_curve_id: None,
+            forward_curve_id: None,
+            position: Position::Long,
+            day_count: DayCount::Act360,
+            face_value: 1_000_000.0,
+            tick_size: 0.0025,
+            tick_value: None,
+            delivery_months: 3,
+            convexity_adjustment: None,
+        }
+    }
+
+    fn notional_money(&self) -> Option<Money> {
+        match (self.pending_notional_amount, self.pending_currency) {
+            (Some(amount), Some(currency)) => Some(Money::new(amount, currency)),
+            _ => None,
+        }
+    }
+
+    fn ensure_ready(&self) -> PyResult<()> {
+        if self.notional_money().is_none() {
+            return Err(PyValueError::new_err(
+                "Both notional() and currency() must be provided before build().",
+            ));
+        }
+        if self.quoted_price.is_none() {
+            return Err(PyValueError::new_err("quoted_price() is required."));
+        }
+        if self.expiry.is_none() {
+            return Err(PyValueError::new_err("expiry() is required."));
+        }
+        if self.fixing_date.is_none() {
+            return Err(PyValueError::new_err("fixing_date() is required."));
+        }
+        if self.period_start.is_none() {
+            return Err(PyValueError::new_err("period_start() is required."));
+        }
+        if self.period_end.is_none() {
+            return Err(PyValueError::new_err("period_end() is required."));
+        }
+        if self.discount_curve_id.is_none() {
+            return Err(PyValueError::new_err("disc_id() is required."));
+        }
+        if self.forward_curve_id.is_none() {
+            return Err(PyValueError::new_err("fwd_id() is required."));
+        }
+        Ok(())
+    }
+
+    fn parse_currency(value: &Bound<'_, PyAny>) -> PyResult<finstack_core::currency::Currency> {
+        if let Ok(py_ccy) = value.extract::<PyRef<PyCurrency>>() {
+            Ok(py_ccy.inner)
+        } else if let Ok(code) = value.extract::<&str>() {
+            code.parse::<finstack_core::currency::Currency>()
+                .map_err(|_| PyValueError::new_err("Invalid currency code"))
+        } else {
+            Err(PyTypeError::new_err("currency() expects str or Currency"))
+        }
+    }
+}
+
+#[pymethods]
+impl PyInterestRateFutureBuilder {
+    #[new]
+    #[pyo3(text_signature = "(instrument_id)")]
+    fn new_py(instrument_id: &str) -> Self {
+        Self::new_with_id(InstrumentId::new(instrument_id))
+    }
+
+    #[pyo3(text_signature = "($self, amount)")]
+    fn notional(mut slf: PyRefMut<'_, Self>, amount: f64) -> PyResult<PyRefMut<'_, Self>> {
+        if amount <= 0.0 {
+            return Err(PyValueError::new_err("notional must be positive"));
+        }
+        slf.pending_notional_amount = Some(amount);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, currency)")]
+    fn currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        currency: &Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.pending_currency = Some(Self::parse_currency(currency)?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, money)")]
+    fn money<'py>(mut slf: PyRefMut<'py, Self>, money: PyRef<'py, PyMoney>) -> PyRefMut<'py, Self> {
+        slf.pending_notional_amount = Some(money.inner.amount());
+        slf.pending_currency = Some(money.inner.currency());
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, quoted_price)")]
+    fn quoted_price(mut slf: PyRefMut<'_, Self>, quoted_price: f64) -> PyRefMut<'_, Self> {
+        slf.quoted_price = Some(quoted_price);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, expiry)")]
+    fn expiry<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        expiry: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.expiry = Some(py_to_date(&expiry).context("expiry")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, fixing_date)")]
+    fn fixing_date<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        fixing_date: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.fixing_date = Some(py_to_date(&fixing_date).context("fixing_date")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, period_start)")]
+    fn period_start<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        period_start: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.period_start = Some(py_to_date(&period_start).context("period_start")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, period_end)")]
+    fn period_end<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        period_end: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.period_end = Some(py_to_date(&period_end).context("period_end")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, curve_id)")]
+    fn disc_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        slf.discount_curve_id = Some(CurveId::new(curve_id.as_str()));
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, curve_id)")]
+    fn fwd_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        slf.forward_curve_id = Some(CurveId::new(curve_id.as_str()));
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, position)")]
+    fn position(
+        mut slf: PyRefMut<'_, Self>,
+        position: Option<String>,
+    ) -> PyResult<PyRefMut<'_, Self>> {
+        slf.position = parse_position(position.as_deref())?;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, day_count)")]
+    fn day_count<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        day_count: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let DayCountArg(value) = day_count.extract().context("day_count")?;
+        slf.day_count = value;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, face_value)")]
+    fn face_value(mut slf: PyRefMut<'_, Self>, face_value: f64) -> PyRefMut<'_, Self> {
+        slf.face_value = face_value;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, tick_size)")]
+    fn tick_size(mut slf: PyRefMut<'_, Self>, tick_size: f64) -> PyRefMut<'_, Self> {
+        slf.tick_size = tick_size;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, tick_value=None)", signature = (tick_value=None))]
+    fn tick_value(mut slf: PyRefMut<'_, Self>, tick_value: Option<f64>) -> PyRefMut<'_, Self> {
+        slf.tick_value = tick_value;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, delivery_months)")]
+    fn delivery_months(mut slf: PyRefMut<'_, Self>, delivery_months: u8) -> PyRefMut<'_, Self> {
+        slf.delivery_months = delivery_months;
+        slf
+    }
+
+    #[pyo3(
+        text_signature = "($self, convexity_adjustment=None)",
+        signature = (convexity_adjustment=None)
+    )]
+    fn convexity_adjustment(
+        mut slf: PyRefMut<'_, Self>,
+        convexity_adjustment: Option<f64>,
+    ) -> PyRefMut<'_, Self> {
+        slf.convexity_adjustment = convexity_adjustment;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyInterestRateFuture> {
+        slf.ensure_ready()?;
+        let notional = slf.notional_money().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "InterestRateFutureBuilder internal error: missing notional after validation",
+            )
+        })?;
+        let quoted_price = slf.quoted_price.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "InterestRateFutureBuilder internal error: missing quoted_price after validation",
+            )
+        })?;
+        let expiry = slf.expiry.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "InterestRateFutureBuilder internal error: missing expiry after validation",
+            )
+        })?;
+        let fixing_date = slf.fixing_date.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "InterestRateFutureBuilder internal error: missing fixing_date after validation",
+            )
+        })?;
+        let period_start = slf.period_start.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "InterestRateFutureBuilder internal error: missing period_start after validation",
+            )
+        })?;
+        let period_end = slf.period_end.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "InterestRateFutureBuilder internal error: missing period_end after validation",
+            )
+        })?;
+        let discount_curve_id = slf.discount_curve_id.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "InterestRateFutureBuilder internal error: missing discount curve after validation",
+            )
+        })?;
+        let forward_curve_id = slf.forward_curve_id.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "InterestRateFutureBuilder internal error: missing forward curve after validation",
+            )
+        })?;
+
+        let mut specs = FutureContractSpecs::default();
+        specs.face_value = slf.face_value;
+        specs.tick_size = slf.tick_size;
+        if let Some(v) = slf.tick_value {
+            specs.tick_value = v;
+        }
+        specs.delivery_months = slf.delivery_months;
+        specs.convexity_adjustment = slf.convexity_adjustment;
+
+        InterestRateFuture::builder()
+            .id(slf.instrument_id.clone())
+            .notional(notional)
+            .quoted_price(quoted_price)
+            .expiry_date(expiry)
+            .fixing_date(fixing_date)
+            .period_start(period_start)
+            .period_end(period_end)
+            .discount_curve_id(discount_curve_id)
+            .forward_id(forward_curve_id)
+            .day_count(slf.day_count)
+            .position(slf.position)
+            .contract_specs(specs)
+            .attributes(Default::default())
+            .build()
+            .map(PyInterestRateFuture::new)
+            .map_err(core_to_py)
+    }
+
+    fn __repr__(&self) -> String {
+        "InterestRateFutureBuilder(...)".to_string()
+    }
+}
+
 #[pymethods]
 impl PyInterestRateFuture {
     #[classmethod]
-    #[pyo3(
-        signature = (
-            instrument_id,
-            notional,
-            quoted_price,
-            expiry,
-            fixing_date,
-            period_start,
-            period_end,
-            discount_curve,
-            forward_curve,
-            *,
-            position=None,
-            day_count=None,
-            face_value=1_000_000.0,
-            tick_size=0.0025,
-            tick_value=None,
-            delivery_months=3,
-            convexity_adjustment=None
-        ),
-        text_signature = "(cls, instrument_id, notional, quoted_price, expiry, fixing_date, period_start, period_end, discount_curve, forward_curve, /, *, position='long', day_count='act_360', face_value=1_000_000.0, tick_size=0.0025, tick_value=None, delivery_months=3, convexity_adjustment=None)"
-    )]
-    #[allow(clippy::too_many_arguments)]
-    fn create(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        notional: Bound<'_, PyAny>,
-        quoted_price: f64,
-        expiry: Bound<'_, PyAny>,
-        fixing_date: Bound<'_, PyAny>,
-        period_start: Bound<'_, PyAny>,
-        period_end: Bound<'_, PyAny>,
-        discount_curve: Bound<'_, PyAny>,
-        forward_curve: Bound<'_, PyAny>,
-        position: Option<&str>,
-        day_count: Option<Bound<'_, PyAny>>,
-        face_value: Option<f64>,
-        tick_size: Option<f64>,
-        tick_value: Option<f64>,
-        delivery_months: Option<u8>,
-        convexity_adjustment: Option<f64>,
-    ) -> PyResult<Self> {
-        use crate::errors::PyContext;
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-        let notional_money = extract_money(&notional).context("notional")?;
-        let expiry_date = py_to_date(&expiry).context("expiry")?;
-        let fixing = py_to_date(&fixing_date).context("fixing_date")?;
-        let start = py_to_date(&period_start).context("period_start")?;
-        let end = py_to_date(&period_end).context("period_end")?;
-        let discount_curve_id =
-            CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
-        let forward_curve_id =
-            CurveId::new(forward_curve.extract::<&str>().context("forward_curve")?);
-        let day_count_value = if let Some(obj) = day_count {
-            let DayCountArg(value) = obj.extract().context("day_count")?;
-            value
-        } else {
-            DayCount::Act360
-        };
-        let position_value = parse_position(position).context("position")?;
-
-        let mut specs = FutureContractSpecs::default();
-        if let Some(face) = face_value {
-            specs.face_value = face;
-        }
-        if let Some(tick) = tick_size {
-            specs.tick_size = tick;
-        }
-        if let Some(value) = tick_value {
-            specs.tick_value = value;
-        }
-        if let Some(months) = delivery_months {
-            specs.delivery_months = months;
-        }
-        specs.convexity_adjustment = convexity_adjustment;
-
-        let mut builder = InterestRateFuture::builder();
-        builder = builder.id(id);
-        builder = builder.notional(notional_money);
-        builder = builder.quoted_price(quoted_price);
-        builder = builder.expiry_date(expiry_date);
-        builder = builder.fixing_date(fixing);
-        builder = builder.period_start(start);
-        builder = builder.period_end(end);
-        builder = builder.discount_curve_id(discount_curve_id);
-        builder = builder.forward_id(forward_curve_id);
-        builder = builder.day_count(day_count_value);
-        builder = builder.position(position_value);
-        builder = builder.contract_specs(specs);
-        builder = builder.attributes(Default::default());
-
-        let future = builder.build().map_err(core_to_py)?;
-        Ok(Self::new(future))
+    #[pyo3(text_signature = "(cls, instrument_id)")]
+    /// Start a fluent builder (builder-only API).
+    fn builder<'py>(
+        cls: &Bound<'py, PyType>,
+        instrument_id: &str,
+    ) -> PyResult<Py<PyInterestRateFutureBuilder>> {
+        let py = cls.py();
+        let builder = PyInterestRateFutureBuilder::new_with_id(InstrumentId::new(instrument_id));
+        Py::new(py, builder)
     }
 
     #[getter]
@@ -182,5 +416,6 @@ pub(crate) fn register<'py>(
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyInterestRateFuture>()?;
-    Ok(vec!["InterestRateFuture"])
+    module.add_class::<PyInterestRateFutureBuilder>()?;
+    Ok(vec!["InterestRateFuture", "InterestRateFutureBuilder"])
 }

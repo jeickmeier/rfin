@@ -1,14 +1,17 @@
 use crate::core::common::args::{BusinessDayConventionArg, DayCountArg};
+use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::py_to_date;
-use crate::core::money::{extract_money, PyMoney};
-use crate::errors::core_to_py;
+use crate::core::money::PyMoney;
+use crate::errors::{core_to_py, PyContext};
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
+use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::rates::basis_swap::{BasisSwap, BasisSwapLeg};
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use pyo3::Bound;
+use pyo3::{Bound, Py, PyRef, PyRefMut};
 use std::fmt;
 use std::sync::Arc;
 
@@ -129,14 +132,15 @@ impl PyBasisSwapLeg {
 /// Basis swap wrapper with convenience constructor.
 ///
 /// Examples:
-///     >>> swap = BasisSwap.create(
-///     ...     "basis_usd",
-///     ...     Money("USD", 10_000_000),
-///     ...     date(2024, 1, 2),
-///     ...     date(2027, 1, 2),
-///     ...     primary_leg,
-///     ...     reference_leg,
-///     ...     "usd_discount"
+///     >>> swap = (
+///     ...     BasisSwap.builder("basis_usd")
+///     ...     .money(Money("USD", 10_000_000))
+///     ...     .start_date(date(2024, 1, 2))
+///     ...     .maturity(date(2027, 1, 2))
+///     ...     .primary_leg(primary_leg)
+///     ...     .reference_leg(reference_leg)
+///     ...     .disc_id("usd_discount")
+///     ...     .build()
 ///     ... )
 ///     >>> swap.notional.amount
 ///     10000000
@@ -154,82 +158,236 @@ impl PyBasisSwap {
     }
 }
 
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "BasisSwapBuilder",
+    unsendable
+)]
+pub struct PyBasisSwapBuilder {
+    instrument_id: InstrumentId,
+    pending_notional_amount: Option<f64>,
+    pending_currency: Option<finstack_core::currency::Currency>,
+    start_date: Option<time::Date>,
+    maturity: Option<time::Date>,
+    primary_leg: Option<BasisSwapLeg>,
+    reference_leg: Option<BasisSwapLeg>,
+    discount_curve_id: Option<CurveId>,
+    calendar: Option<String>,
+    stub: finstack_core::dates::StubKind,
+}
+
+impl PyBasisSwapBuilder {
+    fn new_with_id(id: InstrumentId) -> Self {
+        Self {
+            instrument_id: id,
+            pending_notional_amount: None,
+            pending_currency: None,
+            start_date: None,
+            maturity: None,
+            primary_leg: None,
+            reference_leg: None,
+            discount_curve_id: None,
+            calendar: None,
+            stub: finstack_core::dates::StubKind::None,
+        }
+    }
+
+    fn notional_money(&self) -> Option<Money> {
+        match (self.pending_notional_amount, self.pending_currency) {
+            (Some(amount), Some(currency)) => Some(Money::new(amount, currency)),
+            _ => None,
+        }
+    }
+
+    fn ensure_ready(&self) -> PyResult<()> {
+        if self.notional_money().is_none() {
+            return Err(PyValueError::new_err(
+                "Both notional() and currency() must be provided before build().",
+            ));
+        }
+        if self.start_date.is_none() {
+            return Err(PyValueError::new_err("start_date() is required."));
+        }
+        if self.maturity.is_none() {
+            return Err(PyValueError::new_err("maturity() is required."));
+        }
+        if self.primary_leg.is_none() {
+            return Err(PyValueError::new_err("primary_leg() is required."));
+        }
+        if self.reference_leg.is_none() {
+            return Err(PyValueError::new_err("reference_leg() is required."));
+        }
+        if self.discount_curve_id.is_none() {
+            return Err(PyValueError::new_err("disc_id() is required."));
+        }
+        Ok(())
+    }
+
+    fn parse_currency(value: &Bound<'_, PyAny>) -> PyResult<finstack_core::currency::Currency> {
+        if let Ok(py_ccy) = value.extract::<PyRef<PyCurrency>>() {
+            Ok(py_ccy.inner)
+        } else if let Ok(code) = value.extract::<&str>() {
+            code.parse::<finstack_core::currency::Currency>()
+                .map_err(|_| PyValueError::new_err("Invalid currency code"))
+        } else {
+            Err(PyTypeError::new_err("currency() expects str or Currency"))
+        }
+    }
+}
+
+#[pymethods]
+impl PyBasisSwapBuilder {
+    #[new]
+    #[pyo3(text_signature = "(instrument_id)")]
+    fn new_py(instrument_id: &str) -> Self {
+        Self::new_with_id(InstrumentId::new(instrument_id))
+    }
+
+    #[pyo3(text_signature = "($self, amount)")]
+    fn notional(mut slf: PyRefMut<'_, Self>, amount: f64) -> PyResult<PyRefMut<'_, Self>> {
+        if amount <= 0.0 {
+            return Err(PyValueError::new_err("notional must be positive"));
+        }
+        slf.pending_notional_amount = Some(amount);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, currency)")]
+    fn currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        currency: &Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.pending_currency = Some(Self::parse_currency(currency)?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, money)")]
+    fn money<'py>(mut slf: PyRefMut<'py, Self>, money: PyRef<'py, PyMoney>) -> PyRefMut<'py, Self> {
+        slf.pending_notional_amount = Some(money.inner.amount());
+        slf.pending_currency = Some(money.inner.currency());
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, start_date)")]
+    fn start_date<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        start_date: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.start_date = Some(py_to_date(&start_date).context("start_date")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, maturity)")]
+    fn maturity<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        maturity: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.maturity = Some(py_to_date(&maturity).context("maturity")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, primary_leg)")]
+    fn primary_leg(mut slf: PyRefMut<'_, Self>, primary_leg: PyBasisSwapLeg) -> PyRefMut<'_, Self> {
+        slf.primary_leg = Some(primary_leg.inner);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, reference_leg)")]
+    fn reference_leg(
+        mut slf: PyRefMut<'_, Self>,
+        reference_leg: PyBasisSwapLeg,
+    ) -> PyRefMut<'_, Self> {
+        slf.reference_leg = Some(reference_leg.inner);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, curve_id)")]
+    fn disc_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        slf.discount_curve_id = Some(CurveId::new(curve_id.as_str()));
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, calendar=None)", signature = (calendar=None))]
+    fn calendar(mut slf: PyRefMut<'_, Self>, calendar: Option<String>) -> PyRefMut<'_, Self> {
+        slf.calendar = calendar;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, stub)")]
+    fn stub(mut slf: PyRefMut<'_, Self>, stub: Option<String>) -> PyResult<PyRefMut<'_, Self>> {
+        slf.stub = parse_stub(stub.as_deref())?;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyBasisSwap> {
+        slf.ensure_ready()?;
+        let notional = slf.notional_money().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "BasisSwapBuilder internal error: missing notional after validation",
+            )
+        })?;
+        let start = slf.start_date.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "BasisSwapBuilder internal error: missing start_date after validation",
+            )
+        })?;
+        let maturity = slf.maturity.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "BasisSwapBuilder internal error: missing maturity after validation",
+            )
+        })?;
+        let primary_leg = slf.primary_leg.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "BasisSwapBuilder internal error: missing primary leg after validation",
+            )
+        })?;
+        let reference_leg = slf.reference_leg.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "BasisSwapBuilder internal error: missing reference leg after validation",
+            )
+        })?;
+        let discount_curve_id = slf.discount_curve_id.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "BasisSwapBuilder internal error: missing discount curve after validation",
+            )
+        })?;
+
+        let swap = BasisSwap::builder()
+            .id(slf.instrument_id.clone())
+            .notional(notional)
+            .start_date(start)
+            .maturity_date(maturity)
+            .primary_leg(primary_leg)
+            .reference_leg(reference_leg)
+            .discount_curve_id(discount_curve_id)
+            .stub_kind(slf.stub)
+            .calendar_id_opt(slf.calendar.clone())
+            .allow_calendar_fallback(false)
+            .attributes(Default::default())
+            .build()
+            .map_err(core_to_py)?;
+
+        Ok(PyBasisSwap::new(swap))
+    }
+
+    fn __repr__(&self) -> String {
+        "BasisSwapBuilder(...)".to_string()
+    }
+}
+
 #[pymethods]
 impl PyBasisSwap {
     #[classmethod]
-    #[pyo3(
-        signature = (
-            instrument_id,
-            notional,
-            start_date,
-            maturity,
-            primary_leg,
-            reference_leg,
-            discount_curve,
-            *,
-            calendar=None,
-            stub="none"
-        ),
-        text_signature = "(cls, instrument_id, notional, start_date, maturity, primary_leg, reference_leg, discount_curve, /, *, calendar=None, stub='none')"
-    )]
-    #[allow(clippy::too_many_arguments)]
-    /// Create a floating-for-floating basis swap with two legs.
-    ///
-    /// Args:
-    ///     instrument_id: Instrument identifier or string-like object.
-    ///     notional: Swap notional as :class:`finstack.core.money.Money`.
-    ///     start_date: Effective start date of the swap.
-    ///     maturity: Maturity date of the swap.
-    ///     primary_leg: Primary leg specification.
-    ///     reference_leg: Reference leg specification.
-    ///     discount_curve: Discount curve identifier for valuation.
-    ///     calendar: Optional calendar identifier for scheduling adjustments.
-    ///     stub: Optional stub label (e.g., ``"short_front"``).
-    ///
-    /// Returns:
-    ///     BasisSwap: Configured basis swap instrument ready for pricing.
-    ///
-    /// Raises:
-    ///     ValueError: If frequency or stub settings are invalid.
-    ///     RuntimeError: When the underlying builder detects inconsistent input.
-    fn create(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        notional: Bound<'_, PyAny>,
-        start_date: Bound<'_, PyAny>,
-        maturity: Bound<'_, PyAny>,
-        primary_leg: &PyBasisSwapLeg,
-        reference_leg: &PyBasisSwapLeg,
-        discount_curve: Bound<'_, PyAny>,
-        calendar: Option<&str>,
-        stub: Option<&str>,
-    ) -> PyResult<Self> {
-        use crate::errors::PyContext;
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-        let notional_money = extract_money(&notional).context("notional")?;
-        let start = py_to_date(&start_date).context("start_date")?;
-        let maturity_date = py_to_date(&maturity).context("maturity")?;
-        let discount_curve_id =
-            CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
-        let stub_kind = parse_stub(stub).context("stub")?;
-
-        let mut builder = BasisSwap::builder();
-        builder = builder.id(id);
-        builder = builder.notional(notional_money);
-        builder = builder.start_date(start);
-        builder = builder.maturity_date(maturity_date);
-        builder = builder.primary_leg(primary_leg.inner.clone());
-        builder = builder.reference_leg(reference_leg.inner.clone());
-        builder = builder.discount_curve_id(discount_curve_id);
-        builder = builder.stub_kind(stub_kind);
-        builder = builder.calendar_id_opt(calendar.map(|s| s.to_string()));
-        // BasisSwap requires an explicit allow_calendar_fallback flag in the generated builder.
-        // Keep the default behavior strict (no silent calendar-day fallback).
-        builder = builder.allow_calendar_fallback(false);
-        builder = builder.attributes(Default::default());
-
-        let swap = builder.build().map_err(core_to_py)?;
-        Ok(Self::new(swap))
+    #[pyo3(text_signature = "(cls, instrument_id)")]
+    /// Start a fluent builder (builder-only API).
+    fn builder<'py>(
+        cls: &Bound<'py, PyType>,
+        instrument_id: &str,
+    ) -> PyResult<Py<PyBasisSwapBuilder>> {
+        let py = cls.py();
+        let builder = PyBasisSwapBuilder::new_with_id(InstrumentId::new(instrument_id));
+        Py::new(py, builder)
     }
 
     /// Instrument identifier.
@@ -289,5 +447,6 @@ pub(crate) fn register<'py>(
 ) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyBasisSwapLeg>()?;
     module.add_class::<PyBasisSwap>()?;
-    Ok(vec!["BasisSwapLeg", "BasisSwap"])
+    module.add_class::<PyBasisSwapBuilder>()?;
+    Ok(vec!["BasisSwapLeg", "BasisSwap", "BasisSwapBuilder"])
 }

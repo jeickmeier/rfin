@@ -2,6 +2,7 @@
 
 from typing import Optional, Union
 from datetime import date
+from ...core.currency import Currency
 from ...core.money import Money
 from ...core.dates.schedule import Frequency
 from ...core.dates.daycount import DayCount
@@ -21,6 +22,24 @@ class RealizedVarianceMethod:
     GARMAN_KLASS: "RealizedVarianceMethod"
     ROGERS_SATCHELL: "RealizedVarianceMethod"
     YANG_ZHANG: "RealizedVarianceMethod"
+
+class VarianceSwapBuilder:
+    """Fluent builder returned by :meth:`VarianceSwap.builder`."""
+
+    def __init__(self, instrument_id: str) -> None: ...
+    def underlying_id(self, underlying_id: str) -> VarianceSwapBuilder: ...
+    def notional(self, amount: float) -> VarianceSwapBuilder: ...
+    def currency(self, currency: Union[str, Currency]) -> VarianceSwapBuilder: ...
+    def money(self, money: Money) -> VarianceSwapBuilder: ...
+    def strike_variance(self, strike_variance: float) -> VarianceSwapBuilder: ...
+    def start_date(self, start_date: date) -> VarianceSwapBuilder: ...
+    def maturity(self, maturity: date) -> VarianceSwapBuilder: ...
+    def disc_id(self, curve_id: str) -> VarianceSwapBuilder: ...
+    def observation_frequency(self, observation_frequency: Frequency) -> VarianceSwapBuilder: ...
+    def realized_method(self, realized_method: Optional[RealizedVarianceMethod] = ...) -> VarianceSwapBuilder: ...
+    def side(self, side: Optional[Union[VarianceDirection, str]] = ...) -> VarianceSwapBuilder: ...
+    def day_count(self, day_count: DayCount) -> VarianceSwapBuilder: ...
+    def build(self) -> "VarianceSwap": ...
 
 class VarianceSwap:
     """Variance swap for volatility trading.
@@ -47,18 +66,19 @@ class VarianceSwap:
         ...     VarianceSwap,
         ...     RealizedVarianceMethod,
         ... )
-        >>> variance_swap = VarianceSwap.create(
-        ...     "VAR-SWAP-SPX",
-        ...     underlying_id="SPX",
-        ...     notional=Money(1_000_000, Currency("USD")),
-        ...     strike_variance=0.04,  # 20% vol squared (0.20^2)
-        ...     start_date=date(2024, 1, 1),
-        ...     maturity=date(2024, 12, 31),  # 1-year swap
-        ...     discount_curve="USD-OIS",
-        ...     observation_frequency=Frequency.DAILY,
-        ...     realized_method=RealizedVarianceMethod.CLOSE_TO_CLOSE,
-        ...     side=VarianceDirection.RECEIVE,  # Receive realized, pay strike
-        ...     day_count=DayCount.ACT_365F,
+        >>> variance_swap = (
+        ...     VarianceSwap.builder("VAR-SWAP-SPX")
+        ...     .underlying_id("SPX")
+        ...     .money(Money(1_000_000, Currency("USD")))
+        ...     .strike_variance(0.04)  # 20% vol squared (0.20^2)
+        ...     .start_date(date(2024, 1, 1))
+        ...     .maturity(date(2024, 12, 31))  # 1-year swap
+        ...     .disc_id("USD-OIS")
+        ...     .observation_frequency(Frequency.DAILY)
+        ...     .realized_method(RealizedVarianceMethod.CLOSE_TO_CLOSE)
+        ...     .side(VarianceDirection.RECEIVE)  # Receive realized, pay strike
+        ...     .day_count(DayCount.ACT_365F)
+        ...     .build()
         ... )
 
     Notes
@@ -87,76 +107,7 @@ class VarianceSwap:
     """
 
     @classmethod
-    def create(
-        cls,
-        instrument_id: str,
-        underlying_id: str,
-        notional: Money,
-        strike_variance: float,
-        start_date: date,
-        maturity: date,
-        discount_curve: str,
-        observation_frequency: Frequency,
-        *,
-        realized_method: Optional[RealizedVarianceMethod] = None,
-        side: Optional[Union[VarianceDirection, str]] = None,
-        day_count: Optional[DayCount] = None,
-    ) -> "VarianceSwap":
-        """Create a variance swap.
-
-        Parameters
-        ----------
-        instrument_id : str
-            Unique identifier for the swap (e.g., "VAR-SWAP-SPX").
-        underlying_id : str
-            Underlying asset identifier (e.g., "SPX", "AAPL").
-        notional : Money
-            Variance notional (typically in variance points, not currency).
-        strike_variance : float
-            Strike variance rate (volatility squared, e.g., 0.04 for 20% vol).
-        start_date : date
-            Swap start date (first observation date).
-        maturity : date
-            Swap maturity date (last observation date). Must be after start_date.
-        discount_curve : str
-            Discount curve identifier in MarketContext.
-        observation_frequency : Frequency
-            Frequency of price observations (e.g., Frequency.DAILY, Frequency.WEEKLY).
-        realized_method : RealizedVarianceMethod, optional
-            Method for calculating realized variance (default: CLOSE_TO_CLOSE).
-        side : VarianceDirection or str, optional
-            Swap side: RECEIVE (receive realized, pay strike) or PAY (pay realized,
-            receive strike). Default: RECEIVE.
-        day_count : DayCount, optional
-            Day-count convention for time calculations.
-
-        Returns
-        -------
-        VarianceSwap
-            Configured variance swap ready for pricing.
-
-        Raises
-        ------
-        ValueError
-            If parameters are invalid (maturity <= start_date, strike_variance < 0,
-            etc.) or if required market data is missing.
-
-        Examples
-        --------
-            >>> from finstack.core.dates.schedule import Frequency
-            >>> swap = VarianceSwap.create(
-            ...     "VAR-SWAP-SPX",
-            ...     "SPX",
-            ...     Money(1_000_000, Currency("USD")),
-            ...     0.04,  # 20% vol squared
-            ...     date(2024, 1, 1),
-            ...     date(2024, 12, 31),
-            ...     discount_curve="USD",
-            ...     observation_frequency=Frequency.DAILY,
-            ... )
-        """
-        ...
-
+    def builder(cls, instrument_id: str) -> VarianceSwapBuilder: ...
     @property
     def instrument_id(self) -> str: ...
     @property

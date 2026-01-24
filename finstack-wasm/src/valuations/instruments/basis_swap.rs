@@ -87,6 +87,119 @@ impl InstrumentWrapper for JsBasisSwap {
     }
 }
 
+#[wasm_bindgen(js_name = BasisSwapBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsBasisSwapBuilder {
+    instrument_id: String,
+    notional: Option<finstack_core::money::Money>,
+    start_date: Option<finstack_core::dates::Date>,
+    maturity: Option<finstack_core::dates::Date>,
+    primary_leg: Option<BasisSwapLeg>,
+    reference_leg: Option<BasisSwapLeg>,
+    discount_curve: Option<String>,
+    calendar: Option<String>,
+    stub: Option<String>,
+}
+
+#[wasm_bindgen(js_class = BasisSwapBuilder)]
+impl JsBasisSwapBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new(instrument_id: &str) -> JsBasisSwapBuilder {
+        JsBasisSwapBuilder {
+            instrument_id: instrument_id.to_string(),
+            ..Default::default()
+        }
+    }
+
+    #[wasm_bindgen(js_name = money)]
+    pub fn money(mut self, notional: &JsMoney) -> JsBasisSwapBuilder {
+        self.notional = Some(notional.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = startDate)]
+    pub fn start_date(mut self, start_date: &JsDate) -> JsBasisSwapBuilder {
+        self.start_date = Some(start_date.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = maturity)]
+    pub fn maturity(mut self, maturity: &JsDate) -> JsBasisSwapBuilder {
+        self.maturity = Some(maturity.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = primaryLeg)]
+    pub fn primary_leg(mut self, primary_leg: &JsBasisSwapLeg) -> JsBasisSwapBuilder {
+        self.primary_leg = Some(primary_leg.inner.clone());
+        self
+    }
+
+    #[wasm_bindgen(js_name = referenceLeg)]
+    pub fn reference_leg(mut self, reference_leg: &JsBasisSwapLeg) -> JsBasisSwapBuilder {
+        self.reference_leg = Some(reference_leg.inner.clone());
+        self
+    }
+
+    #[wasm_bindgen(js_name = discountCurve)]
+    pub fn discount_curve(mut self, discount_curve: &str) -> JsBasisSwapBuilder {
+        self.discount_curve = Some(discount_curve.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = calendar)]
+    pub fn calendar(mut self, calendar: String) -> JsBasisSwapBuilder {
+        self.calendar = Some(calendar);
+        self
+    }
+
+    #[wasm_bindgen(js_name = stub)]
+    pub fn stub(mut self, stub: String) -> JsBasisSwapBuilder {
+        self.stub = Some(stub);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsBasisSwap, JsValue> {
+        let notional = self.notional.ok_or_else(|| {
+            js_error("BasisSwapBuilder: notional (money) is required".to_string())
+        })?;
+        let start_date = self
+            .start_date
+            .ok_or_else(|| js_error("BasisSwapBuilder: startDate is required".to_string()))?;
+        let maturity = self
+            .maturity
+            .ok_or_else(|| js_error("BasisSwapBuilder: maturity is required".to_string()))?;
+        let primary_leg = self
+            .primary_leg
+            .ok_or_else(|| js_error("BasisSwapBuilder: primaryLeg is required".to_string()))?;
+        let reference_leg = self
+            .reference_leg
+            .ok_or_else(|| js_error("BasisSwapBuilder: referenceLeg is required".to_string()))?;
+        let discount_curve = self
+            .discount_curve
+            .as_deref()
+            .ok_or_else(|| js_error("BasisSwapBuilder: discountCurve is required".to_string()))?;
+
+        let stub_kind = parse_optional_with_default(self.stub, StubKind::None)?;
+
+        BasisSwap::builder()
+            .id(instrument_id_from_str(&self.instrument_id))
+            .notional(notional)
+            .start_date(start_date)
+            .maturity_date(maturity)
+            .primary_leg(primary_leg)
+            .reference_leg(reference_leg)
+            .discount_curve_id(curve_id_from_str(discount_curve))
+            .stub_kind(stub_kind)
+            .calendar_id_opt(self.calendar)
+            .attributes(Default::default())
+            .build()
+            .map(JsBasisSwap::from_inner)
+            .map_err(|e| js_error(e.to_string()))
+    }
+}
+
 #[wasm_bindgen(js_class = BasisSwap)]
 impl JsBasisSwap {
     /// Create a float/float basis swap.
@@ -137,6 +250,9 @@ impl JsBasisSwap {
         calendar: Option<String>,
         stub: Option<String>,
     ) -> Result<JsBasisSwap, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "BasisSwap constructor is deprecated; use BasisSwapBuilder instead.",
+        ));
         let stub_kind = parse_optional_with_default(stub, StubKind::None)?;
 
         let builder = BasisSwap::builder()

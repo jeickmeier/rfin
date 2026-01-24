@@ -15,39 +15,24 @@ use finstack_valuations::instruments::Attributes;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use pyo3::Bound;
+use pyo3::{Bound, Py, PyRefMut};
 use std::fmt;
 use std::sync::Arc;
 
-fn parse_call_put_schedule(
-    calls: Option<Vec<(Bound<'_, PyAny>, f64)>>,
-    puts: Option<Vec<(Bound<'_, PyAny>, f64)>>,
-) -> PyResult<Option<CallPutSchedule>> {
-    if calls.is_none() && puts.is_none() {
-        return Ok(None);
+fn parse_call_put_list(
+    items: Vec<(Bound<'_, PyAny>, f64)>,
+    context_label: &str,
+) -> PyResult<Vec<CallPut>> {
+    let mut out = Vec::with_capacity(items.len());
+    for (date_obj, pct) in items {
+        use crate::errors::PyContext;
+        let date = py_to_date(&date_obj).context(context_label)?;
+        out.push(CallPut {
+            date,
+            price_pct_of_par: pct,
+        });
     }
-    let mut schedule = CallPutSchedule::default();
-    if let Some(list) = calls {
-        for (date_obj, pct) in list {
-            use crate::errors::PyContext;
-            let date = py_to_date(&date_obj).context("call_schedule date")?;
-            schedule.calls.push(CallPut {
-                date,
-                price_pct_of_par: pct,
-            });
-        }
-    }
-    if let Some(list) = puts {
-        for (date_obj, pct) in list {
-            use crate::errors::PyContext;
-            let date = py_to_date(&date_obj).context("put_schedule date")?;
-            schedule.puts.push(CallPut {
-                date,
-                price_pct_of_par: pct,
-            });
-        }
-    }
-    Ok(Some(schedule))
+    Ok(out)
 }
 
 fn describe_policy(policy: &ConversionPolicy) -> String {
@@ -270,14 +255,13 @@ pub struct PyConversionSpec {
 }
 
 impl PyConversionSpec {
-    pub(crate) fn new(inner: ConversionSpec) -> Self {
+    pub(crate) fn from_inner(inner: ConversionSpec) -> Self {
         Self { inner }
     }
 }
 
 #[pymethods]
 impl PyConversionSpec {
-    #[classmethod]
     #[pyo3(
         text_signature = "(cls, policy, /, *, ratio=None, price=None, anti_dilution=None, dividend_adjustment=None)",
         signature = (
@@ -290,8 +274,8 @@ impl PyConversionSpec {
             dividend_adjustment=None
         )
     )]
-    fn create(
-        _cls: &Bound<'_, PyType>,
+    #[new]
+    fn new(
         policy: PyConversionPolicy,
         ratio: Option<f64>,
         price: Option<f64>,
@@ -303,7 +287,7 @@ impl PyConversionSpec {
                 "Provide either conversion ratio or conversion price",
             ));
         }
-        Ok(Self::new(ConversionSpec {
+        Ok(Self::from_inner(ConversionSpec {
             ratio,
             price,
             policy: policy.inner,
@@ -351,77 +335,225 @@ impl PyConvertibleBond {
     }
 }
 
-#[pymethods]
-impl PyConvertibleBond {
-    #[classmethod]
-    #[pyo3(
-        text_signature = "(cls, instrument_id, notional, issue, maturity, discount_curve, conversion, /, *, underlying_equity_id=None, call_schedule=None, put_schedule=None, fixed_coupon=None, floating_coupon=None)",
-        signature = (
-            instrument_id,
-            notional,
-            issue,
-            maturity,
-            discount_curve,
-            conversion,
-            /,
-            *,
-            underlying_equity_id=None,
-            call_schedule=None,
-            put_schedule=None,
-            fixed_coupon=None,
-            floating_coupon=None
-        )
-    )]
-    #[allow(clippy::too_many_arguments)]
-    fn create(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        notional: Bound<'_, PyAny>,
-        issue: Bound<'_, PyAny>,
-        maturity: Bound<'_, PyAny>,
-        discount_curve: Bound<'_, PyAny>,
-        conversion: &PyConversionSpec,
-        underlying_equity_id: Option<&str>,
-        call_schedule: Option<Vec<(Bound<'_, PyAny>, f64)>>,
-        put_schedule: Option<Vec<(Bound<'_, PyAny>, f64)>>,
-        fixed_coupon: Option<&PyFixedCouponSpec>,
-        floating_coupon: Option<&PyFloatingCouponSpec>,
-    ) -> PyResult<Self> {
-        use crate::errors::PyContext;
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-        let notional_money = extract_money(&notional).context("notional")?;
-        let issue_date = py_to_date(&issue).context("issue")?;
-        let maturity_date = py_to_date(&maturity).context("maturity")?;
-        let discount_curve_id =
-            CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "ConvertibleBondBuilder",
+    unsendable
+)]
+pub struct PyConvertibleBondBuilder {
+    instrument_id: InstrumentId,
+    notional: Option<finstack_core::money::Money>,
+    issue: Option<time::Date>,
+    maturity: Option<time::Date>,
+    discount_curve_id: Option<CurveId>,
+    conversion: Option<ConversionSpec>,
+    underlying_equity_id: Option<String>,
+    calls: Vec<CallPut>,
+    puts: Vec<CallPut>,
+    fixed_coupon: Option<FixedCouponSpec>,
+    floating_coupon: Option<FloatingCouponSpec>,
+}
 
-        if fixed_coupon.is_some() && floating_coupon.is_some() {
+impl PyConvertibleBondBuilder {
+    fn new_with_id(id: InstrumentId) -> Self {
+        Self {
+            instrument_id: id,
+            notional: None,
+            issue: None,
+            maturity: None,
+            discount_curve_id: None,
+            conversion: None,
+            underlying_equity_id: None,
+            calls: Vec::new(),
+            puts: Vec::new(),
+            fixed_coupon: None,
+            floating_coupon: None,
+        }
+    }
+
+    fn ensure_ready(&self) -> PyResult<()> {
+        if self.notional.is_none() {
+            return Err(PyValueError::new_err("notional() is required."));
+        }
+        if self.issue.is_none() {
+            return Err(PyValueError::new_err("issue() is required."));
+        }
+        if self.maturity.is_none() {
+            return Err(PyValueError::new_err("maturity() is required."));
+        }
+        if self.discount_curve_id.is_none() {
+            return Err(PyValueError::new_err("discount_curve() is required."));
+        }
+        if self.conversion.is_none() {
+            return Err(PyValueError::new_err("conversion() is required."));
+        }
+        if self.fixed_coupon.is_some() && self.floating_coupon.is_some() {
             return Err(PyValueError::new_err(
                 "Specify either fixed_coupon or floating_coupon, not both",
             ));
         }
+        Ok(())
+    }
+}
 
-        let call_put = parse_call_put_schedule(call_schedule, put_schedule)?;
+#[pymethods]
+impl PyConvertibleBondBuilder {
+    #[new]
+    #[pyo3(text_signature = "(instrument_id)")]
+    fn new_py(instrument_id: &str) -> Self {
+        Self::new_with_id(InstrumentId::new(instrument_id))
+    }
 
-        let fixed_spec: Option<FixedCouponSpec> = fixed_coupon.map(|c| c.inner.clone());
-        let floating_spec: Option<FloatingCouponSpec> = floating_coupon.map(|c| c.inner.clone());
+    #[pyo3(text_signature = "($self, notional)")]
+    fn notional<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        notional: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        use crate::errors::PyContext;
+        slf.notional = Some(extract_money(&notional).context("notional")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, issue)")]
+    fn issue<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        issue: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        use crate::errors::PyContext;
+        slf.issue = Some(py_to_date(&issue).context("issue")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, maturity)")]
+    fn maturity<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        maturity: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        use crate::errors::PyContext;
+        slf.maturity = Some(py_to_date(&maturity).context("maturity")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, discount_curve)")]
+    fn discount_curve(mut slf: PyRefMut<'_, Self>, discount_curve: String) -> PyRefMut<'_, Self> {
+        slf.discount_curve_id = Some(CurveId::new(discount_curve.as_str()));
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, conversion)")]
+    fn conversion<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        conversion: &PyConversionSpec,
+    ) -> PyRefMut<'py, Self> {
+        slf.conversion = Some(conversion.inner.clone());
+        slf
+    }
+
+    #[pyo3(
+        text_signature = "($self, underlying_equity_id=None)",
+        signature = (underlying_equity_id=None)
+    )]
+    fn underlying_equity_id(
+        mut slf: PyRefMut<'_, Self>,
+        underlying_equity_id: Option<String>,
+    ) -> PyRefMut<'_, Self> {
+        slf.underlying_equity_id = underlying_equity_id;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, call_schedule=None)", signature = (call_schedule=None))]
+    fn call_schedule<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        call_schedule: Option<Vec<(Bound<'py, PyAny>, f64)>>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.calls = if let Some(items) = call_schedule {
+            parse_call_put_list(items, "call_schedule date")?
+        } else {
+            Vec::new()
+        };
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, put_schedule=None)", signature = (put_schedule=None))]
+    fn put_schedule<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        put_schedule: Option<Vec<(Bound<'py, PyAny>, f64)>>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.puts = if let Some(items) = put_schedule {
+            parse_call_put_list(items, "put_schedule date")?
+        } else {
+            Vec::new()
+        };
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, fixed_coupon)")]
+    fn fixed_coupon<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        fixed_coupon: &PyFixedCouponSpec,
+    ) -> PyRefMut<'py, Self> {
+        slf.fixed_coupon = Some(fixed_coupon.inner.clone());
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, floating_coupon)")]
+    fn floating_coupon<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        floating_coupon: &PyFloatingCouponSpec,
+    ) -> PyRefMut<'py, Self> {
+        slf.floating_coupon = Some(floating_coupon.inner.clone());
+        slf
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyConvertibleBond> {
+        slf.ensure_ready()?;
+
+        let call_put = if slf.calls.is_empty() && slf.puts.is_empty() {
+            None
+        } else {
+            Some(CallPutSchedule {
+                calls: slf.calls.clone(),
+                puts: slf.puts.clone(),
+                ..Default::default()
+            })
+        };
 
         let bond = ConvertibleBond {
-            id,
-            notional: notional_money,
-            issue: issue_date,
-            maturity: maturity_date,
-            discount_curve_id,
+            id: slf.instrument_id.clone(),
+            notional: slf.notional.unwrap(),
+            issue: slf.issue.unwrap(),
+            maturity: slf.maturity.unwrap(),
+            discount_curve_id: slf.discount_curve_id.clone().unwrap(),
             credit_curve_id: None,
-            conversion: conversion.inner.clone(),
-            underlying_equity_id: underlying_equity_id.map(|s| s.to_string()),
+            conversion: slf.conversion.clone().unwrap(),
+            underlying_equity_id: slf.underlying_equity_id.clone(),
             call_put,
-            fixed_coupon: fixed_spec,
-            floating_coupon: floating_spec,
+            fixed_coupon: slf.fixed_coupon.clone(),
+            floating_coupon: slf.floating_coupon.clone(),
             attributes: Attributes::new(),
         };
 
-        Ok(Self::new(bond))
+        Ok(PyConvertibleBond::new(bond))
+    }
+
+    fn __repr__(&self) -> String {
+        "ConvertibleBondBuilder(...)".to_string()
+    }
+}
+
+#[pymethods]
+impl PyConvertibleBond {
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, instrument_id)")]
+    /// Start a fluent builder (builder-only API).
+    fn builder<'py>(
+        cls: &Bound<'py, PyType>,
+        instrument_id: &str,
+    ) -> PyResult<Py<PyConvertibleBondBuilder>> {
+        let py = cls.py();
+        let builder = PyConvertibleBondBuilder::new_with_id(InstrumentId::new(instrument_id));
+        Py::new(py, builder)
     }
 
     #[getter]
@@ -517,6 +649,7 @@ pub(crate) fn register<'py>(
     module.add_class::<PyDividendAdjustment>()?;
     module.add_class::<PyConversionSpec>()?;
     module.add_class::<PyConvertibleBond>()?;
+    module.add_class::<PyConvertibleBondBuilder>()?;
     Ok(vec![
         "ConversionEvent",
         "ConversionPolicy",
@@ -524,5 +657,6 @@ pub(crate) fn register<'py>(
         "DividendAdjustment",
         "ConversionSpec",
         "ConvertibleBond",
+        "ConvertibleBondBuilder",
     ])
 }

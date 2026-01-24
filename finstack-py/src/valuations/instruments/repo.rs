@@ -1,17 +1,19 @@
 use crate::core::common::args::{BusinessDayConventionArg, DayCountArg};
+use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
-use crate::core::money::{extract_money, PyMoney};
-use crate::errors::core_to_py;
+use crate::core::money::PyMoney;
+use crate::errors::{core_to_py, PyContext};
 use crate::valuations::common::{to_optional_string, PyInstrumentType};
 use finstack_core::dates::BusinessDayConvention;
+use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::rates::repo::{
     CollateralSpec, CollateralType, Repo, RepoType,
 };
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use pyo3::Bound;
+use pyo3::{Bound, Py, PyRef, PyRefMut};
 use std::fmt;
 use std::sync::Arc;
 
@@ -114,84 +116,283 @@ impl PyRepo {
     }
 }
 
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "RepoBuilder",
+    unsendable
+)]
+pub struct PyRepoBuilder {
+    instrument_id: InstrumentId,
+    pending_cash_amount: Option<f64>,
+    pending_currency: Option<finstack_core::currency::Currency>,
+    collateral: Option<CollateralSpec>,
+    repo_rate: Option<f64>,
+    start_date: Option<time::Date>,
+    maturity: Option<time::Date>,
+    discount_curve_id: Option<CurveId>,
+    repo_type: RepoType,
+    haircut: f64,
+    day_count: finstack_core::dates::DayCount,
+    business_day_convention: BusinessDayConvention,
+    calendar: Option<String>,
+    triparty: bool,
+}
+
+impl PyRepoBuilder {
+    fn new_with_id(id: InstrumentId) -> Self {
+        Self {
+            instrument_id: id,
+            pending_cash_amount: None,
+            pending_currency: None,
+            collateral: None,
+            repo_rate: None,
+            start_date: None,
+            maturity: None,
+            discount_curve_id: None,
+            repo_type: RepoType::Term,
+            haircut: 0.0,
+            day_count: finstack_core::dates::DayCount::Act360,
+            business_day_convention: BusinessDayConvention::Following,
+            calendar: None,
+            triparty: false,
+        }
+    }
+
+    fn cash_money(&self) -> Option<Money> {
+        match (self.pending_cash_amount, self.pending_currency) {
+            (Some(amount), Some(currency)) => Some(Money::new(amount, currency)),
+            _ => None,
+        }
+    }
+
+    fn ensure_ready(&self) -> PyResult<()> {
+        if self.cash_money().is_none() {
+            return Err(PyValueError::new_err(
+                "Both cash_amount() and currency() must be provided before build().",
+            ));
+        }
+        if self.collateral.is_none() {
+            return Err(PyValueError::new_err("collateral() is required."));
+        }
+        if self.repo_rate.is_none() {
+            return Err(PyValueError::new_err("repo_rate() is required."));
+        }
+        if self.start_date.is_none() {
+            return Err(PyValueError::new_err("start_date() is required."));
+        }
+        if self.maturity.is_none() {
+            return Err(PyValueError::new_err("maturity() is required."));
+        }
+        if self.discount_curve_id.is_none() {
+            return Err(PyValueError::new_err("disc_id() is required."));
+        }
+        Ok(())
+    }
+
+    fn parse_currency(value: &Bound<'_, PyAny>) -> PyResult<finstack_core::currency::Currency> {
+        if let Ok(py_ccy) = value.extract::<PyRef<PyCurrency>>() {
+            Ok(py_ccy.inner)
+        } else if let Ok(code) = value.extract::<&str>() {
+            code.parse::<finstack_core::currency::Currency>()
+                .map_err(|_| PyValueError::new_err("Invalid currency code"))
+        } else {
+            Err(PyTypeError::new_err("currency() expects str or Currency"))
+        }
+    }
+}
+
+#[pymethods]
+impl PyRepoBuilder {
+    #[new]
+    #[pyo3(text_signature = "(instrument_id)")]
+    fn new_py(instrument_id: &str) -> Self {
+        Self::new_with_id(InstrumentId::new(instrument_id))
+    }
+
+    #[pyo3(text_signature = "($self, amount)")]
+    fn cash(mut slf: PyRefMut<'_, Self>, amount: f64) -> PyResult<PyRefMut<'_, Self>> {
+        if amount <= 0.0 {
+            return Err(PyValueError::new_err("cash amount must be positive"));
+        }
+        slf.pending_cash_amount = Some(amount);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, currency)")]
+    fn currency<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        currency: &Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.pending_currency = Some(Self::parse_currency(currency)?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, money)")]
+    fn cash_amount<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        money: PyRef<'py, PyMoney>,
+    ) -> PyRefMut<'py, Self> {
+        slf.pending_cash_amount = Some(money.inner.amount());
+        slf.pending_currency = Some(money.inner.currency());
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, collateral)")]
+    fn collateral(mut slf: PyRefMut<'_, Self>, collateral: PyRepoCollateral) -> PyRefMut<'_, Self> {
+        slf.collateral = Some(collateral.inner);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, repo_rate)")]
+    fn repo_rate(mut slf: PyRefMut<'_, Self>, repo_rate: f64) -> PyResult<PyRefMut<'_, Self>> {
+        if repo_rate < 0.0 {
+            return Err(PyValueError::new_err("repo_rate must be non-negative"));
+        }
+        slf.repo_rate = Some(repo_rate);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, start_date)")]
+    fn start_date<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        start_date: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.start_date = Some(py_to_date(&start_date).context("start_date")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, maturity)")]
+    fn maturity<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        maturity: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.maturity = Some(py_to_date(&maturity).context("maturity")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, curve_id)")]
+    fn disc_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        slf.discount_curve_id = Some(CurveId::new(curve_id.as_str()));
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, repo_type)")]
+    fn repo_type(
+        mut slf: PyRefMut<'_, Self>,
+        repo_type: Option<String>,
+    ) -> PyResult<PyRefMut<'_, Self>> {
+        slf.repo_type = parse_repo_type(repo_type.as_deref())?;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, haircut)")]
+    fn haircut(mut slf: PyRefMut<'_, Self>, haircut: f64) -> PyRefMut<'_, Self> {
+        slf.haircut = haircut;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, day_count)")]
+    fn day_count<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        day_count: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let DayCountArg(value) = day_count.extract().context("day_count")?;
+        slf.day_count = value;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, business_day_convention)")]
+    fn business_day_convention<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        business_day_convention: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let BusinessDayConventionArg(value) = business_day_convention
+            .extract()
+            .context("business_day_convention")?;
+        slf.business_day_convention = value;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, calendar=None)", signature = (calendar=None))]
+    fn calendar(mut slf: PyRefMut<'_, Self>, calendar: Option<String>) -> PyRefMut<'_, Self> {
+        slf.calendar = calendar;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, triparty)")]
+    fn triparty(mut slf: PyRefMut<'_, Self>, triparty: bool) -> PyRefMut<'_, Self> {
+        slf.triparty = triparty;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyRepo> {
+        slf.ensure_ready()?;
+
+        let cash = slf.cash_money().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "RepoBuilder internal error: missing cash amount after validation",
+            )
+        })?;
+        let collateral = slf.collateral.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "RepoBuilder internal error: missing collateral after validation",
+            )
+        })?;
+        let repo_rate = slf.repo_rate.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "RepoBuilder internal error: missing repo_rate after validation",
+            )
+        })?;
+        let start = slf.start_date.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "RepoBuilder internal error: missing start_date after validation",
+            )
+        })?;
+        let maturity = slf.maturity.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "RepoBuilder internal error: missing maturity after validation",
+            )
+        })?;
+        let discount = slf.discount_curve_id.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "RepoBuilder internal error: missing discount curve after validation",
+            )
+        })?;
+
+        Repo::builder()
+            .id(slf.instrument_id.clone())
+            .cash_amount(cash)
+            .collateral(collateral)
+            .repo_rate(repo_rate)
+            .start_date(start)
+            .maturity(maturity)
+            .haircut(slf.haircut)
+            .repo_type(slf.repo_type)
+            .triparty(slf.triparty)
+            .day_count(slf.day_count)
+            .bdc(slf.business_day_convention)
+            .calendar_id_opt(to_optional_string(slf.calendar.as_deref()))
+            .discount_curve_id(discount)
+            .build()
+            .map(PyRepo::new)
+            .map_err(core_to_py)
+    }
+
+    fn __repr__(&self) -> String {
+        "RepoBuilder(...)".to_string()
+    }
+}
+
 #[pymethods]
 impl PyRepo {
     #[classmethod]
-    #[pyo3(
-        signature = (
-            instrument_id,
-            cash_amount,
-            collateral,
-            repo_rate,
-            start_date,
-            maturity,
-            discount_curve,
-            *,
-            repo_type = "term",
-            haircut = 0.0,
-            day_count = None,
-            business_day_convention = None,
-            calendar = None,
-            triparty = false
-        ),
-        text_signature = "(cls, instrument_id, cash_amount, collateral, repo_rate, start_date, maturity, discount_curve, *, repo_type='term', haircut=0.0, day_count='act_360', business_day_convention='following', calendar=None, triparty=False)"
-    )]
-    #[allow(clippy::too_many_arguments)]
-    fn create(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        cash_amount: Bound<'_, PyAny>,
-        collateral: PyRepoCollateral,
-        repo_rate: f64,
-        start_date: Bound<'_, PyAny>,
-        maturity: Bound<'_, PyAny>,
-        discount_curve: Bound<'_, PyAny>,
-        repo_type: Option<&str>,
-        haircut: Option<f64>,
-        day_count: Option<Bound<'_, PyAny>>,
-        business_day_convention: Option<Bound<'_, PyAny>>,
-        calendar: Option<&str>,
-        triparty: Option<bool>,
-    ) -> PyResult<Self> {
-        use crate::errors::PyContext;
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-        let cash = extract_money(&cash_amount).context("cash_amount")?;
-        let start = py_to_date(&start_date).context("start_date")?;
-        let maturity_date = py_to_date(&maturity).context("maturity")?;
-        let discount_curve_id =
-            CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
-        let repo_type_value = parse_repo_type(repo_type).context("repo_type")?;
-        let day_count_value = if let Some(obj) = day_count {
-            let DayCountArg(value) = obj.extract().context("day_count")?;
-            value
-        } else {
-            finstack_core::dates::DayCount::Act360
-        };
-        let bdc_value = if let Some(obj) = business_day_convention {
-            let BusinessDayConventionArg(value) =
-                obj.extract().context("business_day_convention")?;
-            value
-        } else {
-            BusinessDayConvention::Following
-        };
-
-        let mut builder = Repo::builder();
-        builder = builder.id(id);
-        builder = builder.cash_amount(cash);
-        builder = builder.collateral(collateral.inner.clone());
-        builder = builder.repo_rate(repo_rate);
-        builder = builder.start_date(start);
-        builder = builder.maturity(maturity_date);
-        builder = builder.haircut(haircut.unwrap_or(0.0));
-        builder = builder.repo_type(repo_type_value);
-        builder = builder.triparty(triparty.unwrap_or(false));
-        builder = builder.day_count(day_count_value);
-        builder = builder.bdc(bdc_value);
-        builder = builder.calendar_id_opt(to_optional_string(calendar));
-        builder = builder.discount_curve_id(discount_curve_id);
-
-        let repo = builder.build().map_err(core_to_py)?;
-        Ok(Self::new(repo))
+    #[pyo3(text_signature = "(cls, instrument_id)")]
+    /// Start a fluent builder (builder-only API).
+    fn builder<'py>(cls: &Bound<'py, PyType>, instrument_id: &str) -> PyResult<Py<PyRepoBuilder>> {
+        let py = cls.py();
+        let builder = PyRepoBuilder::new_with_id(InstrumentId::new(instrument_id));
+        Py::new(py, builder)
     }
 
     #[getter]
@@ -253,5 +454,6 @@ pub(crate) fn register<'py>(
 ) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyRepoCollateral>()?;
     module.add_class::<PyRepo>()?;
-    Ok(vec!["RepoCollateral", "Repo"])
+    module.add_class::<PyRepoBuilder>()?;
+    Ok(vec!["RepoCollateral", "Repo", "RepoBuilder"])
 }

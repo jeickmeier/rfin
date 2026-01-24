@@ -214,7 +214,7 @@ class Position:
         >>> from finstack.core.currency import Currency
         >>> from finstack.valuations.instruments import Equity
         >>> from finstack.portfolio import Position, PositionUnit
-        >>> equity = Equity.create("EQ-ACME", ticker="ACME", currency=Currency("USD"), price=120.0)
+        >>> equity = Equity.builder("EQ-ACME").ticker("ACME").currency(Currency("USD")).price(120.0).build()
         >>> position = Position("POS-1", "ENTITY_A", equity.instrument_id, equity, 100.0, PositionUnit.UNITS)
         >>> (position.is_long(), position.instrument_id)
         (True, 'EQ-ACME')

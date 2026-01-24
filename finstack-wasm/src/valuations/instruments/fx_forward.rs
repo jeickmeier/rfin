@@ -9,6 +9,105 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fx::fx_forward::FxForward;
 use wasm_bindgen::prelude::*;
 
+#[wasm_bindgen(js_name = FxForwardBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsFxForwardBuilder {
+    instrument_id: String,
+    base_currency: Option<finstack_core::currency::Currency>,
+    quote_currency: Option<finstack_core::currency::Currency>,
+    maturity_date: Option<finstack_core::dates::Date>,
+    notional: Option<f64>,
+    domestic_curve_id: Option<String>,
+    foreign_curve_id: Option<String>,
+}
+
+#[wasm_bindgen(js_class = FxForwardBuilder)]
+impl JsFxForwardBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new(instrument_id: &str) -> JsFxForwardBuilder {
+        JsFxForwardBuilder {
+            instrument_id: instrument_id.to_string(),
+            ..Default::default()
+        }
+    }
+
+    #[wasm_bindgen(js_name = baseCurrency)]
+    pub fn base_currency(mut self, base_currency: &JsCurrency) -> JsFxForwardBuilder {
+        self.base_currency = Some(base_currency.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = quoteCurrency)]
+    pub fn quote_currency(mut self, quote_currency: &JsCurrency) -> JsFxForwardBuilder {
+        self.quote_currency = Some(quote_currency.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = maturityDate)]
+    pub fn maturity_date(mut self, maturity_date: &FsDate) -> JsFxForwardBuilder {
+        self.maturity_date = Some(maturity_date.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = notional)]
+    pub fn notional(mut self, notional: f64) -> JsFxForwardBuilder {
+        self.notional = Some(notional);
+        self
+    }
+
+    #[wasm_bindgen(js_name = domesticCurveId)]
+    pub fn domestic_curve_id(mut self, domestic_curve_id: &str) -> JsFxForwardBuilder {
+        self.domestic_curve_id = Some(domestic_curve_id.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = foreignCurveId)]
+    pub fn foreign_curve_id(mut self, foreign_curve_id: &str) -> JsFxForwardBuilder {
+        self.foreign_curve_id = Some(foreign_curve_id.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsFxForward, JsValue> {
+        use finstack_valuations::instruments::Attributes;
+
+        let base = self
+            .base_currency
+            .ok_or_else(|| JsValue::from_str("FxForwardBuilder: baseCurrency is required"))?;
+        let quote = self
+            .quote_currency
+            .ok_or_else(|| JsValue::from_str("FxForwardBuilder: quoteCurrency is required"))?;
+        let maturity = self
+            .maturity_date
+            .ok_or_else(|| JsValue::from_str("FxForwardBuilder: maturityDate is required"))?;
+        let notional = self
+            .notional
+            .ok_or_else(|| JsValue::from_str("FxForwardBuilder: notional is required"))?;
+        let domestic = self
+            .domestic_curve_id
+            .as_deref()
+            .ok_or_else(|| JsValue::from_str("FxForwardBuilder: domesticCurveId is required"))?;
+        let foreign = self
+            .foreign_curve_id
+            .as_deref()
+            .ok_or_else(|| JsValue::from_str("FxForwardBuilder: foreignCurveId is required"))?;
+
+        let forward = FxForward::builder()
+            .id(InstrumentId::new(&self.instrument_id))
+            .base_currency(base)
+            .quote_currency(quote)
+            .maturity_date(maturity)
+            .notional(Money::new(notional, base))
+            .domestic_discount_curve_id(CurveId::new(domestic))
+            .foreign_discount_curve_id(CurveId::new(foreign))
+            .attributes(Attributes::new())
+            .build()
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        Ok(JsFxForward { inner: forward })
+    }
+}
+
 /// FX Forward (outright forward) instrument.
 ///
 /// Represents a commitment to exchange one currency for another at a specified
@@ -63,6 +162,9 @@ impl JsFxForward {
         foreign_curve_id: &str,
     ) -> Result<JsFxForward, JsValue> {
         use finstack_valuations::instruments::Attributes;
+        web_sys::console::warn_1(&JsValue::from_str(
+            "FxForward constructor is deprecated; use FxForwardBuilder instead.",
+        ));
 
         let forward = FxForward::builder()
             .id(InstrumentId::new(id))

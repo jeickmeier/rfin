@@ -23,7 +23,7 @@ class PortfolioBuilder:
         >>> from finstack.portfolio import PortfolioBuilder, Entity, Position, PositionUnit
         >>> from finstack.valuations.instruments import Equity
         >>> entity = Entity("ACME")
-        >>> equity = Equity.create("EQ-ACME", ticker="ACME", currency=Currency("USD"), price=120.0)
+        >>> equity = Equity.builder("EQ-ACME").ticker("ACME").currency(Currency("USD")).price(120.0).build()
         >>> position = Position("POS-1", entity.id, equity.instrument_id, equity, 100.0, PositionUnit.UNITS)
         >>> portfolio = (
         ...     PortfolioBuilder("FUND_A")
@@ -147,7 +147,7 @@ class PortfolioBuilder:
             >>> from finstack.portfolio import PortfolioBuilder, Entity, Position, PositionUnit
             >>> from finstack.valuations.instruments import Equity
             >>> from finstack.core.currency import Currency
-            >>> equity = Equity.create("EQ-ACME", ticker="ACME", currency=Currency("USD"), price=120.0)
+            >>> equity = Equity.builder("EQ-ACME").ticker("ACME").currency(Currency("USD")).price(120.0).build()
             >>> position = Position("POS_1", "ENTITY_A", "EQ-ACME", equity, 1.0, PositionUnit.UNITS)
             >>> builder = PortfolioBuilder("FUND_A").position(position)
         """

@@ -4,6 +4,35 @@ use finstack_valuations::instruments::exotics::lookback_option::{LookbackOption,
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 
+#[wasm_bindgen(js_name = LookbackOptionBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsLookbackOptionBuilder {
+    json_str: Option<String>,
+}
+
+#[wasm_bindgen(js_class = LookbackOptionBuilder)]
+impl JsLookbackOptionBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> JsLookbackOptionBuilder {
+        JsLookbackOptionBuilder { json_str: None }
+    }
+
+    #[wasm_bindgen(js_name = jsonString)]
+    pub fn json_string(mut self, json_str: String) -> JsLookbackOptionBuilder {
+        self.json_str = Some(json_str);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsLookbackOption, JsValue> {
+        let json_str = self
+            .json_str
+            .as_deref()
+            .ok_or_else(|| JsValue::from_str("LookbackOptionBuilder: jsonString is required"))?;
+        JsLookbackOption::from_json(json_str)
+    }
+}
+
 /// Lookback type for lookback options.
 #[wasm_bindgen(js_name = LookbackType)]
 #[derive(Clone, Copy, Debug)]
@@ -59,6 +88,9 @@ impl JsLookbackOption {
     /// @throws {Error} If the JSON cannot be parsed or is invalid
     #[wasm_bindgen(js_name = fromJson)]
     pub fn from_json(json_str: &str) -> Result<JsLookbackOption, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "LookbackOption.fromJson is deprecated; use LookbackOptionBuilder instead.",
+        ));
         use crate::core::error::js_error;
         serde_json::from_str(json_str)
             .map(JsLookbackOption::from_inner)

@@ -3,7 +3,7 @@ use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
 use crate::errors::core_to_py;
 use crate::valuations::common::PyInstrumentType;
-use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind};
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor, TenorUnit};
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fixed_income::inflation_linked_bond::InflationLinkedBondParams;
 use finstack_valuations::instruments::fixed_income::inflation_linked_bond::{
@@ -12,7 +12,7 @@ use finstack_valuations::instruments::fixed_income::inflation_linked_bond::{
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use pyo3::Bound;
+use pyo3::{Bound, Py, PyRefMut};
 use std::fmt;
 use std::sync::Arc;
 
@@ -33,15 +33,16 @@ fn parse_deflation_protection(label: Option<&str>) -> PyResult<DeflationProtecti
 /// Inflation-linked bond binding with a convenience constructor.
 ///
 /// Examples:
-///     >>> ilb = InflationLinkedBond.create(
-///     ...     "tips_2032",
-///     ...     Money("USD", 1_000_000),
-///     ...     0.01,
-///     ...     date(2022, 1, 15),
-///     ...     date(2032, 1, 15),
-///     ...     260.0,
-///     ...     "usd_discount",
-///     ...     "us_cpi"
+///     >>> ilb = (
+///     ...     InflationLinkedBond.builder("tips_2032")
+///     ...     .notional(Money("USD", 1_000_000))
+///     ...     .real_coupon(0.01)
+///     ...     .issue(date(2022, 1, 15))
+///     ...     .maturity(date(2032, 1, 15))
+///     ...     .base_index(260.0)
+///     ...     .discount_curve("usd_discount")
+///     ...     .inflation_curve("us_cpi")
+///     ...     .build()
 ///     ... )
 ///     >>> ilb.real_coupon
 ///     0.01
@@ -63,105 +64,190 @@ impl PyInflationLinkedBond {
     }
 }
 
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "InflationLinkedBondBuilder",
+    unsendable
+)]
+pub struct PyInflationLinkedBondBuilder {
+    instrument_id: InstrumentId,
+    notional: Option<finstack_core::money::Money>,
+    real_coupon: Option<f64>,
+    issue: Option<time::Date>,
+    maturity: Option<time::Date>,
+    base_index: Option<f64>,
+    discount_curve: Option<CurveId>,
+    inflation_curve: Option<CurveId>,
+    indexation: IndexationMethod,
+    frequency: Tenor,
+    day_count: DayCount,
+    deflation_protection: DeflationProtection,
+    calendar: Option<String>,
+}
+
+impl PyInflationLinkedBondBuilder {
+    fn new_with_id(id: InstrumentId) -> Self {
+        Self {
+            instrument_id: id,
+            notional: None,
+            real_coupon: None,
+            issue: None,
+            maturity: None,
+            base_index: None,
+            discount_curve: None,
+            inflation_curve: None,
+            indexation: IndexationMethod::TIPS,
+            frequency: crate::valuations::common::parse_frequency_label(Some("semi_annual"))
+                .unwrap_or_else(|_| Tenor::new(6, TenorUnit::Months)),
+            day_count: DayCount::ActAct,
+            deflation_protection: DeflationProtection::MaturityOnly,
+            calendar: None,
+        }
+    }
+
+    fn ensure_ready(&self) -> PyResult<()> {
+        if self.notional.is_none() {
+            return Err(PyValueError::new_err("notional() is required."));
+        }
+        if self.real_coupon.is_none() {
+            return Err(PyValueError::new_err("real_coupon() is required."));
+        }
+        if self.issue.is_none() {
+            return Err(PyValueError::new_err("issue() is required."));
+        }
+        if self.maturity.is_none() {
+            return Err(PyValueError::new_err("maturity() is required."));
+        }
+        if self.base_index.is_none() {
+            return Err(PyValueError::new_err("base_index() is required."));
+        }
+        if self.discount_curve.is_none() {
+            return Err(PyValueError::new_err("discount_curve() is required."));
+        }
+        if self.inflation_curve.is_none() {
+            return Err(PyValueError::new_err("inflation_curve() is required."));
+        }
+        Ok(())
+    }
+}
+
 #[pymethods]
-impl PyInflationLinkedBond {
-    #[classmethod]
-    #[pyo3(
-        text_signature = "(cls, instrument_id, notional, real_coupon, issue, maturity, base_index, discount_curve, inflation_curve, /, *, indexation='tips', frequency='semi_annual', day_count='act_act', deflation_protection='maturity_only', calendar=None)",
-        signature = (
-            instrument_id,
-            notional,
-            real_coupon,
-            issue,
-            maturity,
-            base_index,
-            discount_curve,
-            inflation_curve,
-            *,
-            indexation = None,
-            frequency = None,
-            day_count = None,
-            deflation_protection = None,
-            calendar = None,
-        )
-    )]
-    #[allow(clippy::too_many_arguments)]
-    /// Create an inflation-linked bond instrument using standard parameters.
-    ///
-    /// Args:
-    ///     instrument_id: Instrument identifier or string-like object.
-    ///     notional: Notional principal as :class:`finstack.core.money.Money`.
-    ///     real_coupon: Real coupon rate expressed in decimal.
-    ///     issue: Issue date of the bond.
-    ///     maturity: Maturity date of the bond.
-    ///     base_index: Base inflation index level.
-    ///     discount_curve: Discount curve identifier.
-    ///     inflation_curve: Inflation curve identifier.
-    ///     indexation: Optional indexation method label (defaults to TIPS).
-    ///     frequency: Optional coupon frequency label.
-    ///     day_count: Optional day-count convention.
-    ///     deflation_protection: Optional deflation protection label.
-    ///     calendar: Optional calendar identifier.
-    ///
-    /// Returns:
-    ///     InflationLinkedBond: Configured inflation-linked bond instrument.
-    ///
-    /// Raises:
-    ///     ValueError: If labels cannot be parsed or arguments are inconsistent.
-    ///     RuntimeError: When the underlying builder detects invalid input.
-    fn create(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        notional: Bound<'_, PyAny>,
-        real_coupon: f64,
-        issue: Bound<'_, PyAny>,
-        maturity: Bound<'_, PyAny>,
-        base_index: f64,
-        discount_curve: Bound<'_, PyAny>,
-        inflation_curve: Bound<'_, PyAny>,
-        indexation: Option<&str>,
-        frequency: Option<&str>,
-        day_count: Option<Bound<'_, PyAny>>,
-        deflation_protection: Option<&str>,
-        calendar: Option<&str>,
-    ) -> PyResult<Self> {
+impl PyInflationLinkedBondBuilder {
+    #[new]
+    #[pyo3(text_signature = "(instrument_id)")]
+    fn new_py(instrument_id: &str) -> Self {
+        Self::new_with_id(InstrumentId::new(instrument_id))
+    }
+
+    #[pyo3(text_signature = "($self, notional)")]
+    fn notional<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        notional: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         use crate::errors::PyContext;
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-        let notional_money = extract_money(&notional).context("notional")?;
-        let issue_date = py_to_date(&issue).context("issue")?;
-        let maturity_date = py_to_date(&maturity).context("maturity")?;
-        let discount_curve_id =
-            CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
-        let inflation_index_id = CurveId::new(
-            inflation_curve
-                .extract::<&str>()
-                .context("inflation_curve")?,
-        );
+        slf.notional = Some(extract_money(&notional).context("notional")?);
+        Ok(slf)
+    }
 
-        let indexation_method = parse_indexation_method(indexation).context("indexation")?;
-        let freq =
-            crate::valuations::common::parse_frequency_label(frequency).context("frequency")?;
-        let dc = if let Some(obj) = day_count {
-            let DayCountArg(value) = obj.extract().context("day_count")?;
-            value
-        } else {
-            DayCount::ActAct
-        };
-        let deflation =
-            parse_deflation_protection(deflation_protection).context("deflation_protection")?;
+    #[pyo3(text_signature = "($self, real_coupon)")]
+    fn real_coupon(mut slf: PyRefMut<'_, Self>, real_coupon: f64) -> PyRefMut<'_, Self> {
+        slf.real_coupon = Some(real_coupon);
+        slf
+    }
 
+    #[pyo3(text_signature = "($self, issue)")]
+    fn issue<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        issue: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        use crate::errors::PyContext;
+        slf.issue = Some(py_to_date(&issue).context("issue")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, maturity)")]
+    fn maturity<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        maturity: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        use crate::errors::PyContext;
+        slf.maturity = Some(py_to_date(&maturity).context("maturity")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, base_index)")]
+    fn base_index(mut slf: PyRefMut<'_, Self>, base_index: f64) -> PyRefMut<'_, Self> {
+        slf.base_index = Some(base_index);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, discount_curve)")]
+    fn discount_curve(mut slf: PyRefMut<'_, Self>, discount_curve: String) -> PyRefMut<'_, Self> {
+        slf.discount_curve = Some(CurveId::new(discount_curve.as_str()));
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, inflation_curve)")]
+    fn inflation_curve(mut slf: PyRefMut<'_, Self>, inflation_curve: String) -> PyRefMut<'_, Self> {
+        slf.inflation_curve = Some(CurveId::new(inflation_curve.as_str()));
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, indexation)")]
+    fn indexation(mut slf: PyRefMut<'_, Self>, indexation: String) -> PyResult<PyRefMut<'_, Self>> {
+        slf.indexation = parse_indexation_method(Some(indexation.as_str())).map_err(|e| e)?;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, frequency)")]
+    fn frequency(mut slf: PyRefMut<'_, Self>, frequency: String) -> PyResult<PyRefMut<'_, Self>> {
+        slf.frequency = crate::valuations::common::parse_frequency_label(Some(frequency.as_str()))
+            .map_err(|e| PyValueError::new_err(format!("{e}")))?;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, day_count)")]
+    fn day_count<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        day_count: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let DayCountArg(value) = day_count.extract().map_err(|e| {
+            pyo3::exceptions::PyTypeError::new_err(format!("day_count expects DayCount: {e}"))
+        })?;
+        slf.day_count = value;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, deflation_protection)")]
+    fn deflation_protection(
+        mut slf: PyRefMut<'_, Self>,
+        deflation_protection: String,
+    ) -> PyResult<PyRefMut<'_, Self>> {
+        slf.deflation_protection = parse_deflation_protection(Some(deflation_protection.as_str()))?;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, calendar=None)", signature = (calendar=None))]
+    fn calendar(mut slf: PyRefMut<'_, Self>, calendar: Option<String>) -> PyRefMut<'_, Self> {
+        slf.calendar = calendar;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyInflationLinkedBond> {
+        slf.ensure_ready()?;
         let params = InflationLinkedBondParams::new(
-            notional_money,
-            real_coupon,
-            issue_date,
-            maturity_date,
-            base_index,
-            freq,
-            dc,
+            slf.notional.unwrap(),
+            slf.real_coupon.unwrap(),
+            slf.issue.unwrap(),
+            slf.maturity.unwrap(),
+            slf.base_index.unwrap(),
+            slf.frequency,
+            slf.day_count,
         );
 
         let mut builder = InflationLinkedBond::builder();
-        builder = builder.id(id);
+        builder = builder.id(slf.instrument_id.clone());
         builder = builder.notional(params.notional);
         builder = builder.real_coupon(params.real_coupon);
         builder = builder.freq(params.frequency);
@@ -170,18 +256,37 @@ impl PyInflationLinkedBond {
         builder = builder.maturity(params.maturity);
         builder = builder.base_index(params.base_index);
         builder = builder.base_date(params.issue);
-        builder = builder.indexation_method(indexation_method);
-        builder = builder.lag(indexation_method.standard_lag());
-        builder = builder.deflation_protection(deflation);
+        builder = builder.indexation_method(slf.indexation);
+        builder = builder.lag(slf.indexation.standard_lag());
+        builder = builder.deflation_protection(slf.deflation_protection);
         builder = builder.bdc(BusinessDayConvention::Following);
         builder = builder.stub(StubKind::None);
-        builder = builder.calendar_id_opt(calendar.map(|s| s.to_string()));
-        builder = builder.discount_curve_id(discount_curve_id);
-        builder = builder.inflation_index_id(inflation_index_id.into());
+        builder = builder.calendar_id_opt(slf.calendar.clone());
+        builder = builder.discount_curve_id(slf.discount_curve.clone().unwrap());
+        builder = builder.inflation_index_id(slf.inflation_curve.clone().unwrap().into());
         builder = builder.attributes(Default::default());
 
         let bond = builder.build().map_err(core_to_py)?;
-        Ok(Self::new(bond))
+        Ok(PyInflationLinkedBond::new(bond))
+    }
+
+    fn __repr__(&self) -> String {
+        "InflationLinkedBondBuilder(...)".to_string()
+    }
+}
+
+#[pymethods]
+impl PyInflationLinkedBond {
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, instrument_id)")]
+    /// Start a fluent builder (builder-only API).
+    fn builder<'py>(
+        cls: &Bound<'py, PyType>,
+        instrument_id: &str,
+    ) -> PyResult<Py<PyInflationLinkedBondBuilder>> {
+        let py = cls.py();
+        let builder = PyInflationLinkedBondBuilder::new_with_id(InstrumentId::new(instrument_id));
+        Py::new(py, builder)
     }
 
     /// Instrument identifier.
@@ -270,5 +375,6 @@ pub(crate) fn register<'py>(
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyInflationLinkedBond>()?;
-    Ok(vec!["InflationLinkedBond"])
+    module.add_class::<PyInflationLinkedBondBuilder>()?;
+    Ok(vec!["InflationLinkedBond", "InflationLinkedBondBuilder"])
 }

@@ -3,7 +3,7 @@ use crate::core::dates::calendar::PyBusinessDayConvention;
 use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::schedule::{PyFrequency, PyStubKind};
 use crate::core::dates::utils::{date_to_py, py_to_date};
-use crate::core::money::{extract_money, PyMoney};
+use crate::core::money::PyMoney;
 use crate::errors::{core_to_py, PyContext};
 use crate::valuations::cashflow::builder::PyCashFlowSchedule;
 use crate::valuations::cashflow::specs::PyAmortizationSpec;
@@ -13,6 +13,7 @@ use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::cashflow::builder::AmortizationSpec as ValAmortizationSpec;
+use finstack_valuations::cashflow::builder::CashFlowSchedule;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::fixed_income::bond::{
     CallPut, CallPutSchedule, CashflowSpec,
@@ -30,7 +31,7 @@ use finstack_valuations::cashflow::builder::specs::{
     CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
 };
 
-/// Fixed-income bond instrument with convenience constructors.
+/// Fixed-income bond instrument (builder-only API).
 #[pyclass(module = "finstack.valuations.instruments", name = "Bond", frozen)]
 #[derive(Clone, Debug)]
 pub struct PyBond {
@@ -65,6 +66,7 @@ pub struct PyBondBuilder {
     stub: StubKind,
     amortization: Option<ValAmortizationSpec>,
     call_put: Option<CallPutSchedule>,
+    custom_cashflows: Option<CashFlowSchedule>,
     coupon_rate: f64,
     quoted_clean_price: Option<f64>,
     forward_curve: Option<CurveId>,
@@ -90,6 +92,7 @@ impl PyBondBuilder {
             stub: StubKind::None,
             amortization: None,
             call_put: None,
+            custom_cashflows: None,
             coupon_rate: 0.0,
             quoted_clean_price: None,
             forward_curve: None,
@@ -151,6 +154,14 @@ impl PyBondBuilder {
     }
 
     fn ensure_ready(&mut self) -> PyResult<()> {
+        if self.custom_cashflows.is_some() {
+            if self.discount_curve.is_none() {
+                return Err(PyValueError::new_err(
+                    "Discount curve must be provided via disc_id().",
+                ));
+            }
+            return Ok(());
+        }
         if self.notional_money().is_none() {
             return Err(PyValueError::new_err(
                 "Both notional() and currency() must be provided before build().",
@@ -315,6 +326,15 @@ impl PyBondBuilder {
     fn money<'py>(mut slf: PyRefMut<'py, Self>, money: PyRef<'py, PyMoney>) -> PyRefMut<'py, Self> {
         slf.pending_notional_amount = Some(money.inner.amount());
         slf.pending_currency = Some(money.inner.currency());
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, schedule)")]
+    fn cashflows<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        schedule: PyRef<'py, PyCashFlowSchedule>,
+    ) -> PyRefMut<'py, Self> {
+        slf.custom_cashflows = Some(schedule.inner_clone());
         slf
     }
 
@@ -496,6 +516,63 @@ impl PyBondBuilder {
     #[pyo3(text_signature = "($self)")]
     fn build(mut slf: PyRefMut<'_, Self>) -> PyResult<PyBond> {
         slf.ensure_ready()?;
+
+        if let Some(schedule) = slf.custom_cashflows.clone() {
+            let discount = slf.discount_curve.clone().ok_or_else(|| {
+                pyo3::exceptions::PyRuntimeError::new_err(
+                    "BondBuilder internal error: missing discount curve after validation",
+                )
+            })?;
+
+            let mut bond = Bond::from_cashflows(
+                slf.instrument_id.clone(),
+                schedule,
+                discount,
+                slf.quoted_clean_price,
+            )
+            .map_err(core_to_py)?;
+
+            if let Some(credit) = slf.credit_curve.clone() {
+                bond.credit_curve_id = Some(credit);
+            }
+
+            if let Some(call_put) = slf.call_put.clone() {
+                if call_put.has_options() {
+                    bond.call_put = Some(call_put);
+                }
+            }
+
+            if let Some(fwd) = slf.forward_curve.clone() {
+                let freq = bond.cashflow_spec.frequency();
+                let dc = bond.cashflow_spec.day_count();
+                bond.cashflow_spec = CashflowSpec::Floating(FloatingCouponSpec {
+                    rate_spec: FloatingRateSpec {
+                        index_id: fwd,
+                        spread_bp: rust_decimal::Decimal::from_f64_retain(slf.float_margin_bp)
+                            .unwrap_or_default(),
+                        gearing: rust_decimal::Decimal::from_f64_retain(slf.float_gearing)
+                            .unwrap_or(rust_decimal::Decimal::ONE),
+                        gearing_includes_spread: true,
+                        floor_bp: None,
+                        all_in_floor_bp: None,
+                        cap_bp: None,
+                        index_cap_bp: None,
+                        reset_freq: freq,
+                        reset_lag_days: slf.float_reset_lag_days,
+                        dc,
+                        bdc: finstack_core::dates::BusinessDayConvention::Following,
+                        calendar_id: None,
+                        fixing_calendar_id: None,
+                    },
+                    coupon_type: CouponType::Cash,
+                    freq,
+                    stub: finstack_core::dates::StubKind::None,
+                });
+            }
+
+            return Ok(PyBond::new(bond));
+        }
+
         let money = slf.notional_money().ok_or_else(|| {
             pyo3::exceptions::PyRuntimeError::new_err(
                 "BondBuilder internal error: missing notional after validation",
@@ -553,475 +630,12 @@ impl PyBondBuilder {
 #[pymethods]
 impl PyBond {
     #[classmethod]
-    #[pyo3(
-        text_signature = "(cls, instrument_id, notional, coupon_rate, issue, maturity, discount_curve)"
-    )]
-    /// Create a semi-annual fixed-rate bond with 30/360 day count and Following BDC.
-    ///
-    /// Args:
-    ///     instrument_id: Instrument identifier or string-like object.
-    ///     notional: Notional principal as :class:`finstack.core.money.Money`.
-    ///     coupon_rate: Annual coupon in decimal form.
-    ///     issue: Issue date of the bond.
-    ///     maturity: Maturity date of the bond.
-    ///     discount_curve: Discount curve identifier for valuation.
-    ///
-    /// Returns:
-    ///     Bond: Configured fixed-rate bond instrument.
-    ///
-    /// Raises:
-    ///     ValueError: If identifiers or dates cannot be parsed.
-    ///
-    /// Examples:
-    ///     >>> bond = Bond.fixed_semiannual(
-    ///     ...     "corp_1",
-    ///     ...     Money("USD", 1_000_000),
-    ///     ...     0.045,
-    ///     ...     date(2023, 1, 1),
-    ///     ...     date(2028, 1, 1),
-    ///     ...     "usd_discount"
-    ///     ... )
-    ///     >>> bond.coupon
-    ///     0.045
-    fn fixed_semiannual(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        notional: Bound<'_, PyAny>,
-        coupon_rate: f64,
-        issue: Bound<'_, PyAny>,
-        maturity: Bound<'_, PyAny>,
-        discount_curve: Bound<'_, PyAny>,
-    ) -> PyResult<Self> {
-        use crate::errors::PyContext;
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-        let amt = extract_money(&notional).context("notional")?;
-        let issue_date = py_to_date(&issue).context("issue")?;
-        let maturity_date = py_to_date(&maturity).context("maturity")?;
-        let disc = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
-        Ok(Self::new(
-            Bond::fixed(id, amt, coupon_rate, issue_date, maturity_date, disc)
-                .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?,
-        ))
-    }
-
-    #[classmethod]
-    #[pyo3(text_signature = "(cls, instrument_id, notional, coupon_rate, issue, maturity)")]
-    /// Create a U.S. Treasury-style bond with annual coupons and Act/Act ISMA day count.
-    ///
-    /// Args:
-    ///     instrument_id: Instrument identifier or string-like object.
-    ///     notional: Notional principal as :class:`finstack.core.money.Money`.
-    ///     coupon_rate: Annual coupon in decimal form.
-    ///     issue: Issue date of the bond.
-    ///     maturity: Maturity date of the bond.
-    ///
-    /// Returns:
-    ///     Bond: Configured Treasury-style bond instrument.
-    ///
-    /// Raises:
-    ///     ValueError: If identifiers or dates cannot be parsed.
-    ///
-    /// Examples:
-    ///     >>> Bond.treasury("ust_5y", Money("USD", 1_000), 0.03, date(2024, 1, 1), date(2029, 1, 1))
-    ///     Bond(id='ust_5y', coupon=0.03, maturity='2029-01-01')
-    fn treasury(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        notional: Bound<'_, PyAny>,
-        coupon_rate: f64,
-        issue: Bound<'_, PyAny>,
-        maturity: Bound<'_, PyAny>,
-    ) -> PyResult<Self> {
-        use crate::errors::PyContext;
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-        let amt = extract_money(&notional).context("notional")?;
-        let issue_date = py_to_date(&issue).context("issue")?;
-        let maturity_date = py_to_date(&maturity).context("maturity")?;
-        use finstack_valuations::instruments::BondConvention;
-        Ok(Self::new(
-            Bond::with_convention(
-                id,
-                amt,
-                coupon_rate,
-                issue_date,
-                maturity_date,
-                BondConvention::USTreasury,
-                "USD-TREASURY",
-            )
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?,
-        ))
-    }
-
-    #[classmethod]
-    #[pyo3(text_signature = "(cls, instrument_id, notional, issue, maturity, discount_curve)")]
-    /// Create a zero-coupon bond discounted off ``discount_curve``.
-    ///
-    /// Args:
-    ///     instrument_id: Instrument identifier or string-like object.
-    ///     notional: Redemption amount as :class:`finstack.core.money.Money`.
-    ///     issue: Issue date of the bond.
-    ///     maturity: Maturity date of the bond.
-    ///     discount_curve: Discount curve identifier for valuation.
-    ///
-    /// Returns:
-    ///     Bond: Configured zero-coupon bond instrument.
-    ///
-    /// Raises:
-    ///     ValueError: If identifiers or dates cannot be parsed.
-    fn zero_coupon(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        notional: Bound<'_, PyAny>,
-        issue: Bound<'_, PyAny>,
-        maturity: Bound<'_, PyAny>,
-        discount_curve: Bound<'_, PyAny>,
-    ) -> PyResult<Self> {
-        use crate::errors::PyContext;
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-        let amt = extract_money(&notional).context("notional")?;
-        let issue_date = py_to_date(&issue).context("issue")?;
-        let maturity_date = py_to_date(&maturity).context("maturity")?;
-        let disc = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
-        Ok(Self::new(
-            Bond::fixed(
-                id,
-                amt,
-                0.0, // Zero coupon
-                issue_date,
-                maturity_date,
-                disc,
-            )
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?,
-        ))
-    }
-
-    #[classmethod]
-    #[pyo3(
-        text_signature = "(cls, instrument_id, notional=None, issue=None, maturity=None, discount_curve=None, /, *, coupon_rate=None, frequency=None, day_count=None, bdc=None, calendar_id=None, stub=None, amortization=None, call_schedule=None, put_schedule=None, quoted_clean_price=None, forward_curve=None, float_margin_bp=None, float_gearing=None, float_reset_lag_days=None)",
-        signature = (
-            instrument_id,
-            notional=None,
-            issue=None,
-            maturity=None,
-            discount_curve=None,
-            *,
-            coupon_rate=None,
-            frequency=None,
-            day_count=None,
-            bdc=None,
-            calendar_id=None,
-            stub=None,
-            amortization=None,
-            call_schedule=None,
-            put_schedule=None,
-            quoted_clean_price=None,
-            forward_curve=None,
-            float_margin_bp=None,
-            float_gearing=None,
-            float_reset_lag_days=None,
-        )
-    )]
-    #[allow(clippy::too_many_arguments)]
-    /// Start a fluent builder (``Bond.builder(\"ID\")``) or build immediately using
-    /// the legacy full-argument signature.
-    fn builder<'py>(
-        cls: &Bound<'py, PyType>,
-        instrument_id: Bound<'py, PyAny>,
-        notional: Option<Bound<'py, PyAny>>,
-        issue: Option<Bound<'py, PyAny>>,
-        maturity: Option<Bound<'py, PyAny>>,
-        discount_curve: Option<Bound<'py, PyAny>>,
-        coupon_rate: Option<f64>,
-        frequency: Option<PyFrequency>,
-        day_count: Option<PyDayCount>,
-        bdc: Option<PyBusinessDayConvention>,
-        calendar_id: Option<&str>,
-        stub: Option<PyStubKind>,
-        amortization: Option<PyAmortizationSpec>,
-        call_schedule: Option<Vec<(Bound<'py, PyAny>, f64)>>,
-        put_schedule: Option<Vec<(Bound<'py, PyAny>, f64)>>,
-        quoted_clean_price: Option<f64>,
-        forward_curve: Option<Bound<'py, PyAny>>,
-        float_margin_bp: Option<f64>,
-        float_gearing: Option<f64>,
-        float_reset_lag_days: Option<i32>,
-    ) -> PyResult<Py<PyAny>> {
-        use crate::errors::PyContext;
-
+    #[pyo3(text_signature = "(cls, instrument_id)")]
+    /// Start a fluent builder (``Bond.builder(\"ID\")``).
+    fn builder<'py>(cls: &Bound<'py, PyType>, instrument_id: &str) -> PyResult<Py<PyBondBuilder>> {
         let py = cls.py();
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-
-        let wants_builder = notional.is_none()
-            && issue.is_none()
-            && maturity.is_none()
-            && discount_curve.is_none()
-            && coupon_rate.is_none()
-            && frequency.is_none()
-            && day_count.is_none()
-            && bdc.is_none()
-            && calendar_id.is_none()
-            && stub.is_none()
-            && amortization.is_none()
-            && call_schedule.is_none()
-            && put_schedule.is_none()
-            && quoted_clean_price.is_none()
-            && forward_curve.is_none()
-            && float_margin_bp.is_none()
-            && float_gearing.is_none()
-            && float_reset_lag_days.is_none();
-
-        if wants_builder {
-            let builder = PyBondBuilder::new_with_id(id);
-            let handle = Py::new(py, builder)?;
-            return Ok(handle.into());
-        }
-
-        let notional = notional.ok_or_else(|| {
-            PyValueError::new_err(
-                "notional is required when calling Bond.builder with full arguments",
-            )
-        })?;
-        let issue = issue.ok_or_else(|| {
-            PyValueError::new_err(
-                "issue date is required when calling Bond.builder with full arguments",
-            )
-        })?;
-        let maturity = maturity.ok_or_else(|| {
-            PyValueError::new_err(
-                "maturity date is required when calling Bond.builder with full arguments",
-            )
-        })?;
-        let discount_curve = discount_curve.ok_or_else(|| {
-            PyValueError::new_err(
-                "discount_curve is required when calling Bond.builder with full arguments",
-            )
-        })?;
-
-        let amt = extract_money(&notional).context("notional")?;
-        let issue_date = py_to_date(&issue).context("issue")?;
-        let maturity_date = py_to_date(&maturity).context("maturity")?;
-        let disc = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
-
-        let freq = frequency.map(|f| f.inner).unwrap_or(Tenor::semi_annual());
-        let dc = day_count.map(|d| d.inner).unwrap_or(DayCount::Thirty360);
-        let bdc_val = bdc
-            .map(|b| b.inner)
-            .unwrap_or(BusinessDayConvention::Following);
-        let stub_val = stub.map(|s| s.inner).unwrap_or(StubKind::None);
-        let calendar_str = calendar_id.map(|s| s.to_string());
-
-        let cashflow_spec = if let Some(fwd) = forward_curve {
-            let forward_curve_id = CurveId::new(fwd.extract::<&str>()?);
-            CashflowSpec::Floating(FloatingCouponSpec {
-                rate_spec: FloatingRateSpec {
-                    index_id: forward_curve_id,
-                    spread_bp: rust_decimal::Decimal::from_f64_retain(
-                        float_margin_bp.unwrap_or(0.0),
-                    )
-                    .unwrap_or_default(),
-                    gearing: rust_decimal::Decimal::from_f64_retain(float_gearing.unwrap_or(1.0))
-                        .unwrap_or(rust_decimal::Decimal::ONE),
-                    gearing_includes_spread: true,
-                    floor_bp: None,
-                    all_in_floor_bp: None,
-                    cap_bp: None,
-                    index_cap_bp: None,
-                    reset_freq: freq,
-                    reset_lag_days: float_reset_lag_days.unwrap_or(2),
-                    dc,
-                    bdc: bdc_val,
-                    calendar_id: calendar_str.clone(),
-                    fixing_calendar_id: calendar_str.clone(),
-                },
-                coupon_type: CouponType::Cash,
-                freq,
-                stub: stub_val,
-            })
-        } else {
-            let rate = rust_decimal::Decimal::from_f64_retain(coupon_rate.unwrap_or(0.0))
-                .unwrap_or_default();
-            if let Some(am) = amortization.as_ref() {
-                CashflowSpec::amortizing(
-                    CashflowSpec::Fixed(FixedCouponSpec {
-                        coupon_type: CouponType::Cash,
-                        rate,
-                        freq,
-                        dc,
-                        bdc: bdc_val,
-                        calendar_id: calendar_str.clone(),
-                        stub: stub_val,
-                    }),
-                    am.inner.clone(),
-                )
-            } else {
-                CashflowSpec::Fixed(FixedCouponSpec {
-                    coupon_type: CouponType::Cash,
-                    rate,
-                    freq,
-                    dc,
-                    bdc: bdc_val,
-                    calendar_id: calendar_str.clone(),
-                    stub: stub_val,
-                })
-            }
-        };
-
-        let mut builder = Bond::builder()
-            .id(id)
-            .notional(amt)
-            .issue(issue_date)
-            .maturity(maturity_date)
-            .discount_curve_id(disc)
-            .cashflow_spec(cashflow_spec);
-
-        if let Some(px) = quoted_clean_price {
-            builder = builder.pricing_overrides(PricingOverrides::default().with_clean_price(px));
-        }
-
-        if call_schedule.is_some() || put_schedule.is_some() {
-            let mut cps = CallPutSchedule::default();
-            if let Some(calls) = call_schedule {
-                for (d, pct) in calls {
-                    cps.calls.push(CallPut {
-                        date: py_to_date(&d)?,
-                        price_pct_of_par: pct,
-                    });
-                }
-            }
-            if let Some(puts) = put_schedule {
-                for (d, pct) in puts {
-                    cps.puts.push(CallPut {
-                        date: py_to_date(&d)?,
-                        price_pct_of_par: pct,
-                    });
-                }
-            }
-            builder = builder.call_put_opt(Some(cps));
-        }
-
-        let bond = builder.build().map_err(core_to_py)?;
-        let handle = Py::new(py, PyBond::new(bond))?;
-        Ok(handle.into())
-    }
-
-    #[classmethod]
-    #[pyo3(
-        text_signature = "(cls, instrument_id, schedule, discount_curve, quoted_clean=None, forward_curve=None, float_margin_bp=None, float_gearing=None, float_reset_lag_days=None)",
-        signature = (
-            instrument_id,
-            schedule,
-            discount_curve,
-            quoted_clean=None,
-            forward_curve=None,
-            float_margin_bp=None,
-            float_gearing=None,
-            float_reset_lag_days=None,
-        )
-    )]
-    /// Create a bond from a pre-built CashFlowSchedule (supports PIK, amort, custom coupons).
-    /// Optionally attach a floating-rate spec (forward curve + margin) so ASW metrics
-    /// can build a custom-swap on the same schedule.
-    fn from_cashflows(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        schedule: PyRef<PyCashFlowSchedule>,
-        discount_curve: Bound<'_, PyAny>,
-        quoted_clean: Option<f64>,
-        forward_curve: Option<Bound<'_, PyAny>>,
-        float_margin_bp: Option<f64>,
-        float_gearing: Option<f64>,
-        float_reset_lag_days: Option<i32>,
-    ) -> PyResult<Self> {
-        use crate::errors::PyContext;
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-        let disc = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
-        let mut bond = finstack_valuations::instruments::fixed_income::bond::Bond::from_cashflows(
-            id,
-            schedule.inner_clone(),
-            disc,
-            quoted_clean,
-        )
-        .map_err(core_to_py)?;
-
-        if let Some(fwd) = forward_curve {
-            // Update cashflow_spec to floating if forward curve is provided
-            use finstack_valuations::cashflow::builder::specs::{
-                CouponType, FloatingCouponSpec, FloatingRateSpec,
-            };
-
-            let forward_curve_id = CurveId::new(fwd.extract::<&str>().context("forward_curve")?);
-            let freq = bond.cashflow_spec.frequency();
-            let dc = bond.cashflow_spec.day_count();
-
-            bond.cashflow_spec = CashflowSpec::Floating(FloatingCouponSpec {
-                rate_spec: FloatingRateSpec {
-                    index_id: forward_curve_id,
-                    spread_bp: rust_decimal::Decimal::from_f64_retain(
-                        float_margin_bp.unwrap_or(0.0),
-                    )
-                    .unwrap_or_default(),
-                    gearing: rust_decimal::Decimal::from_f64_retain(float_gearing.unwrap_or(1.0))
-                        .unwrap_or(rust_decimal::Decimal::ONE),
-                    gearing_includes_spread: true,
-                    floor_bp: None,
-                    all_in_floor_bp: None,
-                    cap_bp: None,
-                    index_cap_bp: None,
-                    reset_freq: freq,
-                    reset_lag_days: float_reset_lag_days.unwrap_or(2),
-                    dc,
-                    bdc: finstack_core::dates::BusinessDayConvention::Following,
-                    calendar_id: None,
-                    fixing_calendar_id: None,
-                },
-                coupon_type: CouponType::Cash,
-                freq,
-                stub: finstack_core::dates::StubKind::None,
-            });
-        }
-
-        Ok(Self::new(bond))
-    }
-
-    #[classmethod]
-    #[pyo3(
-        text_signature = "(cls, instrument_id, notional, issue, maturity, discount_curve, forward_curve, margin_bp)"
-    )]
-    /// Create a floating-rate note (FRN) using SOFR-like conventions.
-    fn floating(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        notional: Bound<'_, PyAny>,
-        issue: Bound<'_, PyAny>,
-        maturity: Bound<'_, PyAny>,
-        discount_curve: Bound<'_, PyAny>,
-        forward_curve: Bound<'_, PyAny>,
-        margin_bp: f64,
-    ) -> PyResult<Self> {
-        use crate::errors::PyContext;
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-        let amt = extract_money(&notional).context("notional")?;
-        let issue_date = py_to_date(&issue).context("issue")?;
-        let maturity_date = py_to_date(&maturity).context("maturity")?;
-        let disc = CurveId::new(discount_curve.extract::<&str>().context("discount_curve")?);
-        let fwd = CurveId::new(forward_curve.extract::<&str>().context("forward_curve")?);
-
-        use finstack_core::dates::{DayCount, Tenor};
-
-        let bond = finstack_valuations::instruments::fixed_income::bond::Bond::floating(
-            id,
-            amt,
-            fwd,
-            margin_bp,
-            issue_date,
-            maturity_date,
-            Tenor::quarterly(),
-            DayCount::Act360,
-            disc,
-        )
-        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
-
-        Ok(Self::new(bond))
+        let builder = PyBondBuilder::new_with_id(InstrumentId::new(instrument_id));
+        Py::new(py, builder)
     }
 
     /// Instrument identifier.

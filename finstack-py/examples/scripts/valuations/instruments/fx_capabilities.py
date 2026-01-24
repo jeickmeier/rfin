@@ -85,30 +85,32 @@ def main() -> None:
     registry = create_standard_registry()
 
     # FX spot trade settling T+2 with explicit notional
-    spot = FxSpot.create(
-        "EURUSD-SPOT",
-        EUR,
-        USD,
-        settlement=as_of + timedelta(days=2),
-        spot_rate=1.0860,
-        notional=Money(1_000_000, EUR),
+    spot = (
+        FxSpot.builder("EURUSD-SPOT")
+        .base_currency(EUR)
+        .quote_currency(USD)
+        .settlement(as_of + timedelta(days=2))
+        .spot_rate(1.0860)
+        .notional(Money(1_000_000, EUR))
+        .build()
     )
     registry.price(spot, "discounting", market, as_of=as_of)
 
     # FX swap exchanging notionals
     near = as_of + timedelta(days=2)
     far = near + timedelta(days=180)
-    fx_swap = FxSwap.create(
-        "EURUSD-SWAP",
-        EUR,
-        USD,
-        Money(5_000_000, EUR),
-        near,
-        far,
-        "USD-OIS",
-        "EUR-OIS",
-        near_rate=1.0865,
-        far_rate=1.0920,
+    fx_swap = (
+        FxSwap.builder("EURUSD-SWAP")
+        .base_currency(EUR)
+        .quote_currency(USD)
+        .notional(Money(5_000_000, EUR))
+        .near_date(near)
+        .far_date(far)
+        .domestic_curve("USD-OIS")
+        .foreign_curve("EUR-OIS")
+        .near_rate(1.0865)
+        .far_rate(1.0920)
+        .build()
     )
     registry.price_with_metrics(
         fx_swap,
@@ -119,14 +121,18 @@ def main() -> None:
     )
 
     # European FX option (call on EURUSD)
-    fx_call = FxOption.european_call(
-        "EURUSD-CALL-1Y",
-        EUR,
-        USD,
-        strike=1.10,
-        expiry=date(2025, 1, 2),
-        notional=Money(2_000_000, EUR),
-        vol_surface="FX-VOL",
+    fx_call = (
+        FxOption.builder("EURUSD-CALL-1Y")
+        .base_currency(EUR)
+        .quote_currency(USD)
+        .strike(1.10)
+        .expiry(date(2025, 1, 2))
+        .notional(Money(2_000_000, EUR))
+        .domestic_curve("USD-OIS")
+        .foreign_curve("EUR-OIS")
+        .vol_surface("FX-VOL")
+        .option_type("call")
+        .build()
     )
     registry.price_with_metrics(
         fx_call,
@@ -137,14 +143,18 @@ def main() -> None:
     )
 
     # Put option via helper for completeness
-    fx_put = FxOption.european_put(
-        "EURUSD-PUT-6M",
-        EUR,
-        USD,
-        strike=1.06,
-        expiry=date(2024, 7, 2),
-        notional=Money(1_500_000, EUR),
-        vol_surface="FX-VOL",
+    fx_put = (
+        FxOption.builder("EURUSD-PUT-6M")
+        .base_currency(EUR)
+        .quote_currency(USD)
+        .strike(1.06)
+        .expiry(date(2024, 7, 2))
+        .notional(Money(1_500_000, EUR))
+        .domestic_curve("USD-OIS")
+        .foreign_curve("EUR-OIS")
+        .vol_surface("FX-VOL")
+        .option_type("put")
+        .build()
     )
     registry.price(fx_put, "discounting", market, as_of=as_of)
 

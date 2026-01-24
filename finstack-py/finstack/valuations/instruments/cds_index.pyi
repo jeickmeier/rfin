@@ -5,6 +5,25 @@ from datetime import date
 from ...core.money import Money
 from ..common import InstrumentType
 
+class CdsIndexBuilder:
+    """Fluent builder returned by :meth:`CDSIndex.builder`."""
+
+    def __init__(self, instrument_id: str) -> None: ...
+    def index_name(self, index_name: str) -> "CdsIndexBuilder": ...
+    def series(self, series: int) -> "CdsIndexBuilder": ...
+    def version(self, version: int) -> "CdsIndexBuilder": ...
+    def notional(self, notional: Money) -> "CdsIndexBuilder": ...
+    def money(self, money: Money) -> "CdsIndexBuilder": ...
+    def fixed_coupon_bp(self, fixed_coupon_bp: float) -> "CdsIndexBuilder": ...
+    def start_date(self, start_date: date) -> "CdsIndexBuilder": ...
+    def maturity(self, maturity: date) -> "CdsIndexBuilder": ...
+    def discount_curve(self, discount_curve: str) -> "CdsIndexBuilder": ...
+    def credit_curve(self, credit_curve: str) -> "CdsIndexBuilder": ...
+    def side(self, side: str) -> "CdsIndexBuilder": ...
+    def recovery_rate(self, recovery_rate: float) -> "CdsIndexBuilder": ...
+    def index_factor(self, index_factor: Optional[float] = ...) -> "CdsIndexBuilder": ...
+    def build(self) -> "CDSIndex": ...
+
 class CDSIndex:
     """CDS index for portfolio credit risk exposure.
 
@@ -23,18 +42,19 @@ class CDSIndex:
         >>> from finstack.valuations.instruments import CDSIndex
         >>> from finstack import Money, Currency
         >>> from datetime import date
-        >>> cds_index = CDSIndex.create(
-        ...     "CDX-IG-5Y",
-        ...     index_name="CDX.NA.IG",
-        ...     series=40,
-        ...     version=1,
-        ...     notional=Money(10_000_000, Currency("USD")),
-        ...     fixed_coupon_bp=100.0,  # 100bp fixed coupon
-        ...     start_date=date(2024, 1, 1),
-        ...     maturity=date(2029, 1, 1),  # 5-year index
-        ...     discount_curve="USD",
-        ...     credit_curve="CDX-IG-40",
-        ...     side="pay_protection",
+        >>> cds_index = (
+        ...     CDSIndex.builder("CDX-IG-5Y")
+        ...     .index_name("CDX.NA.IG")
+        ...     .series(40)
+        ...     .version(1)
+        ...     .money(Money(10_000_000, Currency("USD")))
+        ...     .fixed_coupon_bp(100.0)  # 100bp fixed coupon
+        ...     .start_date(date(2024, 1, 1))
+        ...     .maturity(date(2029, 1, 1))  # 5-year index
+        ...     .discount_curve("USD")
+        ...     .credit_curve("CDX-IG-40")
+        ...     .side("pay_protection")
+        ...     .build()
         ... )
 
     Notes
@@ -70,24 +90,8 @@ class CDSIndex:
     """
 
     @classmethod
-    def create(
-        cls,
-        instrument_id: str,
-        index_name: str,
-        series: int,
-        version: int,
-        notional: Money,
-        fixed_coupon_bp: float,
-        start_date: date,
-        maturity: date,
-        discount_curve: str,
-        credit_curve: str,
-        *,
-        side: Optional[str] = "pay_protection",
-        recovery_rate: Optional[float] = None,
-        index_factor: Optional[float] = None,
-    ) -> "CDSIndex":
-        """Create a CDS index instrument with standard ISDA conventions.
+    def builder(cls, instrument_id: str) -> CdsIndexBuilder:
+        """Start a fluent builder (builder-only API).
 
         Parameters
         ----------
@@ -130,20 +134,6 @@ class CDSIndex:
         ValueError
             If parameters are invalid or if required curves are not found.
 
-        Examples
-        --------
-            >>> cds_index = CDSIndex.create(
-            ...     "CDX-IG-5Y",
-            ...     "CDX.NA.IG",
-            ...     40,
-            ...     1,
-            ...     Money(10_000_000, Currency("USD")),
-            ...     100.0,  # 100bp
-            ...     date(2024, 1, 1),
-            ...     date(2029, 1, 1),
-            ...     discount_curve="USD",
-            ...     credit_curve="CDX-IG-40",
-            ... )
         """
         ...
 

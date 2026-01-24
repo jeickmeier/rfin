@@ -71,14 +71,15 @@ def deposit_strategy(draw: Callable[[Any], Any], currency_code: str = "USD") -> 
 
     currency = Currency(currency_code)
 
-    return Deposit(
-        f"DEP-{tenor_days}D",
-        Money(notional, currency),
-        start_date,
-        maturity_date,
-        DayCount.ACT_360,
-        f"{currency_code}-OIS",
-        quote_rate=rate,
+    return (
+        Deposit.builder(f"DEP-{tenor_days}D")
+        .money(Money(notional, currency))
+        .start(start_date)
+        .end(maturity_date)
+        .day_count(DayCount.ACT_360)
+        .disc_id(f"{currency_code}-OIS")
+        .quote_rate(rate)
+        .build()
     )
 
 
@@ -94,13 +95,14 @@ def bond_strategy(draw: Callable[[Any], Any], currency_code: str = "USD") -> Bon
 
     currency = Currency(currency_code)
 
-    return Bond.fixed_semiannual(
-        f"BOND-{tenor_years}Y",
-        Money(notional, currency),
-        coupon,
-        issue_date,
-        maturity_date,
-        f"{currency_code}-OIS",
+    return (
+        Bond.builder(f"BOND-{tenor_years}Y")
+        .money(Money(notional, currency))
+        .coupon_rate(coupon)
+        .issue(issue_date)
+        .maturity(maturity_date)
+        .disc_id(f"{currency_code}-OIS")
+        .build()
     )
 
 

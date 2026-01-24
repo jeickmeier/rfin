@@ -4,6 +4,35 @@ use finstack_valuations::instruments::fx::fx_barrier_option::FxBarrierOption;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 
+#[wasm_bindgen(js_name = FxBarrierOptionBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsFxBarrierOptionBuilder {
+    json_str: Option<String>,
+}
+
+#[wasm_bindgen(js_class = FxBarrierOptionBuilder)]
+impl JsFxBarrierOptionBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> JsFxBarrierOptionBuilder {
+        JsFxBarrierOptionBuilder { json_str: None }
+    }
+
+    #[wasm_bindgen(js_name = jsonString)]
+    pub fn json_string(mut self, json_str: String) -> JsFxBarrierOptionBuilder {
+        self.json_str = Some(json_str);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsFxBarrierOption, JsValue> {
+        let json_str = self
+            .json_str
+            .as_deref()
+            .ok_or_else(|| JsValue::from_str("FxBarrierOptionBuilder: jsonString is required"))?;
+        JsFxBarrierOption::from_json(json_str)
+    }
+}
+
 /// FX barrier option (JSON-serializable).
 ///
 /// This instrument is configured via a JSON payload (matching the Rust model schema).
@@ -33,6 +62,9 @@ impl JsFxBarrierOption {
     /// @throws {Error} If the JSON cannot be parsed or is invalid
     #[wasm_bindgen(js_name = fromJson)]
     pub fn from_json(json_str: &str) -> Result<JsFxBarrierOption, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "FxBarrierOption.fromJson is deprecated; use FxBarrierOptionBuilder instead.",
+        ));
         use crate::core::error::js_error;
         serde_json::from_str(json_str)
             .map(JsFxBarrierOption::from_inner)

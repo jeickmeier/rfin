@@ -8,6 +8,35 @@ use finstack_valuations::pricer::InstrumentType;
 use js_sys::Array;
 use wasm_bindgen::prelude::*;
 
+#[wasm_bindgen(js_name = TermLoanBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsTermLoanBuilder {
+    json_str: Option<String>,
+}
+
+#[wasm_bindgen(js_class = TermLoanBuilder)]
+impl JsTermLoanBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> JsTermLoanBuilder {
+        JsTermLoanBuilder { json_str: None }
+    }
+
+    #[wasm_bindgen(js_name = jsonString)]
+    pub fn json_string(mut self, json_str: String) -> JsTermLoanBuilder {
+        self.json_str = Some(json_str);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsTermLoan, JsValue> {
+        let json_str = self
+            .json_str
+            .as_deref()
+            .ok_or_else(|| JsValue::from_str("TermLoanBuilder: jsonString is required"))?;
+        JsTermLoan::from_json(json_str)
+    }
+}
+
 /// Term loan instrument with DDTL (Delayed Draw Term Loan) support.
 ///
 /// A term loan is a debt instrument with a defined maturity, optional amortization,
@@ -47,6 +76,9 @@ impl JsTermLoan {
     /// Returns an error if JSON cannot be parsed or is invalid
     #[wasm_bindgen(js_name = fromJson)]
     pub fn from_json(json_str: &str) -> Result<JsTermLoan, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "TermLoan.fromJson is deprecated; use TermLoanBuilder instead.",
+        ));
         serde_json::from_str(json_str)
             .map(JsTermLoan::from_inner)
             .map_err(|e| js_error(e.to_string()))

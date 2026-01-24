@@ -10,6 +10,143 @@ use finstack_valuations::pricer::InstrumentType;
 use js_sys::Array;
 use wasm_bindgen::prelude::*;
 
+#[wasm_bindgen(js_name = ForwardRateAgreementBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsForwardRateAgreementBuilder {
+    instrument_id: String,
+    notional: Option<finstack_core::money::Money>,
+    fixed_rate: Option<f64>,
+    fixing_date: Option<finstack_core::dates::Date>,
+    start_date: Option<finstack_core::dates::Date>,
+    end_date: Option<finstack_core::dates::Date>,
+    discount_curve: Option<String>,
+    forward_curve: Option<String>,
+    day_count: Option<finstack_core::dates::DayCount>,
+    reset_lag: Option<i32>,
+    pay_fixed: Option<bool>,
+}
+
+#[wasm_bindgen(js_class = ForwardRateAgreementBuilder)]
+impl JsForwardRateAgreementBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new(instrument_id: &str) -> JsForwardRateAgreementBuilder {
+        JsForwardRateAgreementBuilder {
+            instrument_id: instrument_id.to_string(),
+            ..Default::default()
+        }
+    }
+
+    #[wasm_bindgen(js_name = money)]
+    pub fn money(mut self, notional: &JsMoney) -> JsForwardRateAgreementBuilder {
+        self.notional = Some(notional.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = fixedRate)]
+    pub fn fixed_rate(mut self, fixed_rate: f64) -> JsForwardRateAgreementBuilder {
+        self.fixed_rate = Some(fixed_rate);
+        self
+    }
+
+    #[wasm_bindgen(js_name = fixingDate)]
+    pub fn fixing_date(mut self, fixing_date: &JsDate) -> JsForwardRateAgreementBuilder {
+        self.fixing_date = Some(fixing_date.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = startDate)]
+    pub fn start_date(mut self, start_date: &JsDate) -> JsForwardRateAgreementBuilder {
+        self.start_date = Some(start_date.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = endDate)]
+    pub fn end_date(mut self, end_date: &JsDate) -> JsForwardRateAgreementBuilder {
+        self.end_date = Some(end_date.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = discountCurve)]
+    pub fn discount_curve(mut self, discount_curve: &str) -> JsForwardRateAgreementBuilder {
+        self.discount_curve = Some(discount_curve.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = forwardCurve)]
+    pub fn forward_curve(mut self, forward_curve: &str) -> JsForwardRateAgreementBuilder {
+        self.forward_curve = Some(forward_curve.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = dayCount)]
+    pub fn day_count(mut self, day_count: JsDayCount) -> JsForwardRateAgreementBuilder {
+        self.day_count = Some(day_count.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = resetLag)]
+    pub fn reset_lag(mut self, reset_lag: i32) -> JsForwardRateAgreementBuilder {
+        self.reset_lag = Some(reset_lag);
+        self
+    }
+
+    #[wasm_bindgen(js_name = payFixed)]
+    pub fn pay_fixed(mut self, pay_fixed: bool) -> JsForwardRateAgreementBuilder {
+        self.pay_fixed = Some(pay_fixed);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsForwardRateAgreement, JsValue> {
+        let notional = self.notional.ok_or_else(|| {
+            js_error("ForwardRateAgreementBuilder: notional (money) is required".to_string())
+        })?;
+        let fixed_rate = self.fixed_rate.ok_or_else(|| {
+            js_error("ForwardRateAgreementBuilder: fixedRate is required".to_string())
+        })?;
+        let fixing_date = self.fixing_date.ok_or_else(|| {
+            js_error("ForwardRateAgreementBuilder: fixingDate is required".to_string())
+        })?;
+        let start_date = self.start_date.ok_or_else(|| {
+            js_error("ForwardRateAgreementBuilder: startDate is required".to_string())
+        })?;
+        let end_date = self.end_date.ok_or_else(|| {
+            js_error("ForwardRateAgreementBuilder: endDate is required".to_string())
+        })?;
+        let discount_curve = self.discount_curve.as_deref().ok_or_else(|| {
+            js_error("ForwardRateAgreementBuilder: discountCurve is required".to_string())
+        })?;
+        let forward_curve = self.forward_curve.as_deref().ok_or_else(|| {
+            js_error("ForwardRateAgreementBuilder: forwardCurve is required".to_string())
+        })?;
+
+        let mut builder = ForwardRateAgreement::builder()
+            .id(instrument_id_from_str(&self.instrument_id))
+            .notional(notional)
+            .fixed_rate(fixed_rate)
+            .fixing_date(fixing_date)
+            .start_date(start_date)
+            .end_date(end_date)
+            .discount_curve_id(curve_id_from_str(discount_curve))
+            .forward_id(curve_id_from_str(forward_curve));
+
+        if let Some(dc) = self.day_count {
+            builder = builder.day_count(dc);
+        }
+        if let Some(lag) = self.reset_lag {
+            builder = builder.reset_lag(lag);
+        }
+        if let Some(pay) = self.pay_fixed {
+            builder = builder.pay_fixed(pay);
+        }
+
+        builder
+            .build()
+            .map(JsForwardRateAgreement::from_inner)
+            .map_err(|e| js_error(e.to_string()))
+    }
+}
+
 #[wasm_bindgen(js_name = ForwardRateAgreement)]
 #[derive(Clone, Debug)]
 pub struct JsForwardRateAgreement {
@@ -82,6 +219,9 @@ impl JsForwardRateAgreement {
         reset_lag: Option<i32>,
         pay_fixed: Option<bool>,
     ) -> Result<JsForwardRateAgreement, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "ForwardRateAgreement constructor is deprecated; use ForwardRateAgreementBuilder instead.",
+        ));
         let mut builder = ForwardRateAgreement::builder()
             .id(instrument_id_from_str(instrument_id))
             .notional(notional.inner())

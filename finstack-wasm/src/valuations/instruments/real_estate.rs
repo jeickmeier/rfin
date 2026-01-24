@@ -73,6 +73,176 @@ impl InstrumentWrapper for JsRealEstateAsset {
     }
 }
 
+#[wasm_bindgen(js_name = RealEstateAssetBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsRealEstateAssetBuilder {
+    instrument_id: String,
+    currency: Option<finstack_core::currency::Currency>,
+    valuation_date: Option<finstack_core::dates::Date>,
+    valuation_method: Option<RealEstateValuationMethod>,
+    noi_schedule: Option<Vec<JsValue>>,
+    discount_curve_id: Option<String>,
+    day_count: Option<String>,
+    discount_rate: Option<f64>,
+    cap_rate: Option<f64>,
+    stabilized_noi: Option<f64>,
+    terminal_cap_rate: Option<f64>,
+}
+
+#[wasm_bindgen(js_class = RealEstateAssetBuilder)]
+impl JsRealEstateAssetBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new(instrument_id: &str) -> JsRealEstateAssetBuilder {
+        JsRealEstateAssetBuilder {
+            instrument_id: instrument_id.to_string(),
+            ..Default::default()
+        }
+    }
+
+    #[wasm_bindgen(js_name = currency)]
+    pub fn currency(mut self, currency: &JsCurrency) -> JsRealEstateAssetBuilder {
+        self.currency = Some(currency.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = valuationDate)]
+    pub fn valuation_date(mut self, valuation_date: &JsDate) -> JsRealEstateAssetBuilder {
+        self.valuation_date = Some(valuation_date.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = valuationMethod)]
+    pub fn valuation_method(
+        mut self,
+        valuation_method: &JsRealEstateValuationMethod,
+    ) -> JsRealEstateAssetBuilder {
+        self.valuation_method = Some(valuation_method.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = noiSchedule)]
+    pub fn noi_schedule(mut self, noi_schedule: Vec<JsValue>) -> JsRealEstateAssetBuilder {
+        self.noi_schedule = Some(noi_schedule);
+        self
+    }
+
+    #[wasm_bindgen(js_name = discountCurveId)]
+    pub fn discount_curve_id(mut self, discount_curve_id: &str) -> JsRealEstateAssetBuilder {
+        self.discount_curve_id = Some(discount_curve_id.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = dayCount)]
+    pub fn day_count(mut self, day_count: String) -> JsRealEstateAssetBuilder {
+        self.day_count = Some(day_count);
+        self
+    }
+
+    #[wasm_bindgen(js_name = discountRate)]
+    pub fn discount_rate(mut self, discount_rate: f64) -> JsRealEstateAssetBuilder {
+        self.discount_rate = Some(discount_rate);
+        self
+    }
+
+    #[wasm_bindgen(js_name = capRate)]
+    pub fn cap_rate(mut self, cap_rate: f64) -> JsRealEstateAssetBuilder {
+        self.cap_rate = Some(cap_rate);
+        self
+    }
+
+    #[wasm_bindgen(js_name = stabilizedNoi)]
+    pub fn stabilized_noi(mut self, stabilized_noi: f64) -> JsRealEstateAssetBuilder {
+        self.stabilized_noi = Some(stabilized_noi);
+        self
+    }
+
+    #[wasm_bindgen(js_name = terminalCapRate)]
+    pub fn terminal_cap_rate(mut self, terminal_cap_rate: f64) -> JsRealEstateAssetBuilder {
+        self.terminal_cap_rate = Some(terminal_cap_rate);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsRealEstateAsset, JsValue> {
+        let currency = self
+            .currency
+            .ok_or_else(|| js_error("RealEstateAssetBuilder: currency is required".to_string()))?;
+        let valuation_date = self.valuation_date.ok_or_else(|| {
+            js_error("RealEstateAssetBuilder: valuationDate is required".to_string())
+        })?;
+        let valuation_method = self.valuation_method.ok_or_else(|| {
+            js_error("RealEstateAssetBuilder: valuationMethod is required".to_string())
+        })?;
+        let noi_schedule = self.noi_schedule.ok_or_else(|| {
+            js_error("RealEstateAssetBuilder: noiSchedule is required".to_string())
+        })?;
+        let discount_curve_id = self.discount_curve_id.as_deref().ok_or_else(|| {
+            js_error("RealEstateAssetBuilder: discountCurveId is required".to_string())
+        })?;
+
+        let dc = parse_optional_with_default(self.day_count, DayCount::Act365F)?;
+
+        let mut schedule = Vec::with_capacity(noi_schedule.len());
+        for entry in noi_schedule {
+            let arr: js_sys::Array = entry.into();
+            if arr.length() != 4 {
+                return Err(js_error(
+                    "NOI schedule entries must be [year, month, day, amount]".to_string(),
+                ));
+            }
+            let year = arr
+                .get(0)
+                .as_f64()
+                .ok_or_else(|| js_error("Invalid year"))? as i32;
+            let month = arr
+                .get(1)
+                .as_f64()
+                .ok_or_else(|| js_error("Invalid month"))? as u8;
+            let day = arr.get(2).as_f64().ok_or_else(|| js_error("Invalid day"))? as u8;
+            let amount = arr
+                .get(3)
+                .as_f64()
+                .ok_or_else(|| js_error("Invalid amount"))?;
+
+            let date = finstack_core::dates::Date::from_calendar_date(
+                year,
+                time::Month::try_from(month).map_err(|e| js_error(e.to_string()))?,
+                day,
+            )
+            .map_err(|e| js_error(e.to_string()))?;
+            schedule.push((date, amount));
+        }
+
+        let mut builder = RealEstateAsset::builder()
+            .id(instrument_id_from_str(&self.instrument_id))
+            .currency(currency)
+            .valuation_date(valuation_date)
+            .valuation_method(valuation_method)
+            .noi_schedule(schedule)
+            .discount_curve_id(curve_id_from_str(discount_curve_id))
+            .day_count(dc)
+            .attributes(Default::default());
+
+        if let Some(rate) = self.discount_rate {
+            builder = builder.discount_rate(rate);
+        }
+        if let Some(rate) = self.cap_rate {
+            builder = builder.cap_rate(rate);
+        }
+        if let Some(noi) = self.stabilized_noi {
+            builder = builder.stabilized_noi(noi);
+        }
+        if let Some(rate) = self.terminal_cap_rate {
+            builder = builder.terminal_cap_rate(rate);
+        }
+
+        builder
+            .build()
+            .map(JsRealEstateAsset::from_inner)
+            .map_err(|e| js_error(e.to_string()))
+    }
+}
+
 #[wasm_bindgen(js_class = RealEstateAsset)]
 impl JsRealEstateAsset {
     /// Create a new real estate asset.
@@ -103,6 +273,9 @@ impl JsRealEstateAsset {
         stabilized_noi: Option<f64>,
         terminal_cap_rate: Option<f64>,
     ) -> Result<JsRealEstateAsset, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "RealEstateAsset constructor is deprecated; use RealEstateAssetBuilder instead.",
+        ));
         let dc = parse_optional_with_default(day_count, DayCount::Act365F)?;
 
         // Parse NOI schedule from JS arrays [year, month, day, amount]

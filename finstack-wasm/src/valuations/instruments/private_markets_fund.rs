@@ -6,6 +6,34 @@ use finstack_valuations::instruments::equity::pe_fund::PrivateMarketsFund;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 
+#[wasm_bindgen(js_name = PrivateMarketsFundBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsPrivateMarketsFundBuilder {
+    json_str: Option<String>,
+}
+
+#[wasm_bindgen(js_class = PrivateMarketsFundBuilder)]
+impl JsPrivateMarketsFundBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> JsPrivateMarketsFundBuilder {
+        JsPrivateMarketsFundBuilder { json_str: None }
+    }
+
+    #[wasm_bindgen(js_name = jsonString)]
+    pub fn json_string(mut self, json_str: String) -> JsPrivateMarketsFundBuilder {
+        self.json_str = Some(json_str);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsPrivateMarketsFund, JsValue> {
+        let json_str = self.json_str.as_deref().ok_or_else(|| {
+            JsValue::from_str("PrivateMarketsFundBuilder: jsonString is required")
+        })?;
+        JsPrivateMarketsFund::from_json(json_str)
+    }
+}
+
 /// Private markets fund with event schedule / waterfalls (JSON-serializable).
 ///
 /// This instrument is configured via a JSON payload (matching the Rust model schema).
@@ -35,6 +63,9 @@ impl JsPrivateMarketsFund {
     /// @throws {Error} If the JSON cannot be parsed or is invalid
     #[wasm_bindgen(js_name = fromJson)]
     pub fn from_json(json_str: &str) -> Result<JsPrivateMarketsFund, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "PrivateMarketsFund.fromJson is deprecated; use PrivateMarketsFundBuilder instead.",
+        ));
         serde_json::from_str(json_str)
             .map(JsPrivateMarketsFund::from_inner)
             .map_err(|e| js_error(e.to_string()))

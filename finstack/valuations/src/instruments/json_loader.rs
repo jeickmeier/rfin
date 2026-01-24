@@ -867,7 +867,7 @@ mod tests {
 
     #[test]
     fn test_cds_roundtrip() {
-        let cds = CreditDefaultSwap::buy_protection(
+        let cds = crate::test_utils::cds_buy_protection(
             "CDS-TEST",
             Money::new(10_000_000.0, Currency::USD),
             100.0,

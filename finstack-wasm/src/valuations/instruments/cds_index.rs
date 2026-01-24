@@ -36,6 +36,176 @@ impl InstrumentWrapper for JsCDSIndex {
     }
 }
 
+#[wasm_bindgen(js_name = CDSIndexBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsCDSIndexBuilder {
+    instrument_id: String,
+    index_name: Option<String>,
+    series: Option<u16>,
+    version: Option<u16>,
+    notional: Option<finstack_core::money::Money>,
+    fixed_coupon_bp: Option<f64>,
+    start_date: Option<finstack_core::dates::Date>,
+    maturity: Option<finstack_core::dates::Date>,
+    discount_curve: Option<String>,
+    credit_curve: Option<String>,
+    side: Option<String>,
+    recovery_rate: Option<f64>,
+    index_factor: Option<f64>,
+}
+
+#[wasm_bindgen(js_class = CDSIndexBuilder)]
+impl JsCDSIndexBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new(instrument_id: &str) -> JsCDSIndexBuilder {
+        JsCDSIndexBuilder {
+            instrument_id: instrument_id.to_string(),
+            ..Default::default()
+        }
+    }
+
+    #[wasm_bindgen(js_name = indexName)]
+    pub fn index_name(mut self, index_name: String) -> JsCDSIndexBuilder {
+        self.index_name = Some(index_name);
+        self
+    }
+
+    #[wasm_bindgen(js_name = series)]
+    pub fn series(mut self, series: u16) -> JsCDSIndexBuilder {
+        self.series = Some(series);
+        self
+    }
+
+    #[wasm_bindgen(js_name = version)]
+    pub fn version(mut self, version: u16) -> JsCDSIndexBuilder {
+        self.version = Some(version);
+        self
+    }
+
+    #[wasm_bindgen(js_name = money)]
+    pub fn money(mut self, notional: &JsMoney) -> JsCDSIndexBuilder {
+        self.notional = Some(notional.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = fixedCouponBp)]
+    pub fn fixed_coupon_bp(mut self, fixed_coupon_bp: f64) -> JsCDSIndexBuilder {
+        self.fixed_coupon_bp = Some(fixed_coupon_bp);
+        self
+    }
+
+    #[wasm_bindgen(js_name = startDate)]
+    pub fn start_date(mut self, start_date: &JsDate) -> JsCDSIndexBuilder {
+        self.start_date = Some(start_date.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = maturity)]
+    pub fn maturity(mut self, maturity: &JsDate) -> JsCDSIndexBuilder {
+        self.maturity = Some(maturity.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = discountCurve)]
+    pub fn discount_curve(mut self, discount_curve: &str) -> JsCDSIndexBuilder {
+        self.discount_curve = Some(discount_curve.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = creditCurve)]
+    pub fn credit_curve(mut self, credit_curve: &str) -> JsCDSIndexBuilder {
+        self.credit_curve = Some(credit_curve.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = side)]
+    pub fn side(mut self, side: String) -> JsCDSIndexBuilder {
+        self.side = Some(side);
+        self
+    }
+
+    #[wasm_bindgen(js_name = recoveryRate)]
+    pub fn recovery_rate(mut self, recovery_rate: f64) -> JsCDSIndexBuilder {
+        self.recovery_rate = Some(recovery_rate);
+        self
+    }
+
+    #[wasm_bindgen(js_name = indexFactor)]
+    pub fn index_factor(mut self, index_factor: f64) -> JsCDSIndexBuilder {
+        self.index_factor = Some(index_factor);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsCDSIndex, JsValue> {
+        let index_name = self
+            .index_name
+            .as_deref()
+            .ok_or_else(|| js_error("CDSIndexBuilder: indexName is required".to_string()))?;
+        let series = self
+            .series
+            .ok_or_else(|| js_error("CDSIndexBuilder: series is required".to_string()))?;
+        let version = self
+            .version
+            .ok_or_else(|| js_error("CDSIndexBuilder: version is required".to_string()))?;
+        let notional = self
+            .notional
+            .ok_or_else(|| js_error("CDSIndexBuilder: notional (money) is required".to_string()))?;
+        let fixed_coupon_bp = self
+            .fixed_coupon_bp
+            .ok_or_else(|| js_error("CDSIndexBuilder: fixedCouponBp is required".to_string()))?;
+        let start_date = self
+            .start_date
+            .ok_or_else(|| js_error("CDSIndexBuilder: startDate is required".to_string()))?;
+        let maturity = self
+            .maturity
+            .ok_or_else(|| js_error("CDSIndexBuilder: maturity is required".to_string()))?;
+        let discount_curve = self
+            .discount_curve
+            .as_deref()
+            .ok_or_else(|| js_error("CDSIndexBuilder: discountCurve is required".to_string()))?;
+        let credit_curve = self
+            .credit_curve
+            .as_deref()
+            .ok_or_else(|| js_error("CDSIndexBuilder: creditCurve is required".to_string()))?;
+
+        let side_value = parse_optional_with_default(self.side, CdsPayReceive::PayFixed)?;
+        let recovery = self.recovery_rate.unwrap_or(STANDARD_RECOVERY_SENIOR);
+        if !(0.0..=1.0).contains(&recovery) {
+            return Err(js_error(
+                "recovery_rate must be between 0 and 1".to_string(),
+            ));
+        }
+
+        let mut index_params = CDSIndexParams::new(index_name, series, version, fixed_coupon_bp);
+        if let Some(factor) = self.index_factor {
+            index_params = index_params.with_index_factor(factor);
+        }
+
+        let construction =
+            CDSIndexConstructionParams::new(notional, side_value, CDSConvention::IsdaNa);
+
+        let disc_curve = curve_id_from_str(discount_curve);
+        let credit_curve_id = curve_id_from_str(credit_curve);
+        let credit_params =
+            CreditParams::new(index_name.to_string(), recovery, credit_curve_id.clone());
+
+        let index = CDSIndex::new_standard(
+            instrument_id_from_str(&self.instrument_id),
+            &index_params,
+            &construction,
+            start_date,
+            maturity,
+            &credit_params,
+            disc_curve,
+            credit_curve_id,
+        )
+        .map_err(js_error)?;
+
+        Ok(JsCDSIndex::from_inner(index))
+    }
+}
+
 #[wasm_bindgen(js_class = CDSIndex)]
 impl JsCDSIndex {
     /// Create a standardized CDS index instrument.
@@ -77,6 +247,9 @@ impl JsCDSIndex {
         recovery_rate: Option<f64>,
         index_factor: Option<f64>,
     ) -> Result<JsCDSIndex, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "CDSIndex constructor is deprecated; use CDSIndexBuilder instead.",
+        ));
         let side_value = parse_optional_with_default(side, CdsPayReceive::PayFixed)?;
         let recovery = recovery_rate.unwrap_or(STANDARD_RECOVERY_SENIOR);
 

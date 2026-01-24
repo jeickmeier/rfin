@@ -108,9 +108,9 @@ fi
 # Markdown files
 if echo "$STAGED_FILES" | grep -E "\.md$"; then
     echo -e "\n${YELLOW}Checking Markdown files...${NC}"
-    if ! npx markdownlint-cli2 "**/*.md" "#node_modules" "#finstack-wasm/pkg" "#.git" > /dev/null 2>&1; then
+    if ! npx markdownlint-cli2 "**/*.md" "#node_modules" "#**/node_modules/**" "#finstack-wasm/pkg" "#.git" "#CHANGELOG.md" "#PARITY_AUDIT.md" "#.cursor" "#.agent" "#.zenflow" "#.zencoder" "#**/target/**" > /dev/null 2>&1; then
         echo -e "${RED}Markdown files need formatting${NC}"
-        echo "Run: npx markdownlint-cli2 \"**/*.md\" \"#node_modules\" \"#finstack-wasm/pkg\" \"#.git\" --fix"
+        echo "Run: npx markdownlint-cli2 \"**/*.md\" \"#node_modules\" \"#**/node_modules/**\" \"#finstack-wasm/pkg\" \"#.git\" \"#CHANGELOG.md\" \"#PARITY_AUDIT.md\" \"#.cursor\" \"#.agent\" \"#.zenflow\" \"#.zencoder\" \"#**/target/**\" --fix"
         FAILED=1
     fi
 fi

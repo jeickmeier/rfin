@@ -5,6 +5,7 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::credit_derivatives::cds::CDSPricer;
+use finstack_valuations::instruments::credit_derivatives::cds::{CDSConvention, PayReceive};
 use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndex;
 use finstack_valuations::instruments::credit_derivatives::cds_index::{
     CDSIndexConstituentParam, CDSIndexConstructionParams, CDSIndexParams,
@@ -47,7 +48,11 @@ fn imm_20th_schedule_for_index_synthetic() {
     let idx = CDSIndex::new_standard(
         "CDX-IMM",
         &CDSIndexParams::cdx_na_ig(42, 1, 100.0),
-        &CDSIndexConstructionParams::buy_protection(Money::new(1_000_000.0, Currency::USD)),
+        &CDSIndexConstructionParams::new(
+            Money::new(1_000_000.0, Currency::USD),
+            PayReceive::PayFixed,
+            CDSConvention::IsdaNa,
+        ),
         start,
         end,
         &CreditParams::corporate_standard("INDEX", "HZ-IDX"),
@@ -105,7 +110,11 @@ fn index_factor_scales_pv() {
     let idx_base = CDSIndex::new_standard(
         "CDX-BASE",
         &p_base,
-        &CDSIndexConstructionParams::buy_protection(Money::new(10_000_000.0, Currency::USD)),
+        &CDSIndexConstructionParams::new(
+            Money::new(10_000_000.0, Currency::USD),
+            PayReceive::PayFixed,
+            CDSConvention::IsdaNa,
+        ),
         start,
         end,
         &CreditParams::corporate_standard("INDEX", "HZ-IDX"),
@@ -117,7 +126,11 @@ fn index_factor_scales_pv() {
     let idx_scaled = CDSIndex::new_standard(
         "CDX-SCALED",
         &p_scaled,
-        &CDSIndexConstructionParams::buy_protection(Money::new(10_000_000.0, Currency::USD)),
+        &CDSIndexConstructionParams::new(
+            Money::new(10_000_000.0, Currency::USD),
+            PayReceive::PayFixed,
+            CDSConvention::IsdaNa,
+        ),
         start,
         end,
         &CreditParams::corporate_standard("INDEX", "HZ-IDX"),

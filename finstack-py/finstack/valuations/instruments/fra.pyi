@@ -1,10 +1,29 @@
-"""Forward rate agreement instrument."""
+"""Forward rate agreement instrument (builder-only API)."""
 
-from typing import Optional
+from typing import Optional, Union
 from datetime import date
+from ...core.currency import Currency
 from ...core.money import Money
 from ...core.dates.daycount import DayCount
 from ..common import InstrumentType
+
+class ForwardRateAgreementBuilder:
+    """Fluent builder returned by :meth:`ForwardRateAgreement.builder`."""
+
+    def __init__(self, instrument_id: str) -> None: ...
+    def notional(self, amount: float) -> ForwardRateAgreementBuilder: ...
+    def currency(self, currency: Union[str, Currency]) -> ForwardRateAgreementBuilder: ...
+    def money(self, money: Money) -> ForwardRateAgreementBuilder: ...
+    def fixed_rate(self, rate: float) -> ForwardRateAgreementBuilder: ...
+    def fixing_date(self, fixing_date: date) -> ForwardRateAgreementBuilder: ...
+    def start_date(self, start_date: date) -> ForwardRateAgreementBuilder: ...
+    def end_date(self, end_date: date) -> ForwardRateAgreementBuilder: ...
+    def disc_id(self, curve_id: str) -> ForwardRateAgreementBuilder: ...
+    def fwd_id(self, curve_id: str) -> ForwardRateAgreementBuilder: ...
+    def day_count(self, day_count: Union[DayCount, str]) -> ForwardRateAgreementBuilder: ...
+    def reset_lag(self, reset_lag: int) -> ForwardRateAgreementBuilder: ...
+    def pay_fixed(self, pay_fixed: bool) -> ForwardRateAgreementBuilder: ...
+    def build(self) -> "ForwardRateAgreement": ...
 
 class ForwardRateAgreement:
     """Forward Rate Agreement for locking in future interest rates.
@@ -26,15 +45,16 @@ class ForwardRateAgreement:
         >>> from finstack.core.currency import Currency
         >>> from finstack.core.money import Money
         >>> from finstack.valuations.instruments import ForwardRateAgreement
-        >>> fra = ForwardRateAgreement.create(
-        ...     "FRA-3M6M",
-        ...     notional=Money(10_000_000, Currency("USD")),
-        ...     fixed_rate=0.035,
-        ...     fixing_date=date(2024, 6, 1),
-        ...     start_date=date(2024, 9, 1),
-        ...     end_date=date(2024, 12, 1),
-        ...     discount_curve="USD-OIS",
-        ...     forward_curve="USD-SOFR-3M",
+        >>> fra = (
+        ...     ForwardRateAgreement.builder("FRA-3M6M")
+        ...     .money(Money(10_000_000, Currency("USD")))
+        ...     .fixed_rate(0.035)
+        ...     .fixing_date(date(2024, 6, 1))
+        ...     .start_date(date(2024, 9, 1))
+        ...     .end_date(date(2024, 12, 1))
+        ...     .disc_id("USD-OIS")
+        ...     .fwd_id("USD-SOFR-3M")
+        ...     .build()
         ... )
 
     Price the FRA:
@@ -46,15 +66,16 @@ class ForwardRateAgreement:
         >>> from finstack.core.money import Money
         >>> from finstack.valuations.instruments import ForwardRateAgreement
         >>> from finstack.valuations.pricer import create_standard_registry
-        >>> fra = ForwardRateAgreement.create(
-        ...     "FRA-3M6M",
-        ...     Money(5_000_000, Currency("USD")),
-        ...     0.03,
-        ...     date(2024, 6, 1),
-        ...     date(2024, 9, 1),
-        ...     date(2024, 12, 1),
-        ...     discount_curve="USD-OIS",
-        ...     forward_curve="USD-SOFR-3M",
+        >>> fra = (
+        ...     ForwardRateAgreement.builder("FRA-3M6M")
+        ...     .money(Money(5_000_000, Currency("USD")))
+        ...     .fixed_rate(0.03)
+        ...     .fixing_date(date(2024, 6, 1))
+        ...     .start_date(date(2024, 9, 1))
+        ...     .end_date(date(2024, 12, 1))
+        ...     .disc_id("USD-OIS")
+        ...     .fwd_id("USD-SOFR-3M")
+        ...     .build()
         ... )
         >>> ctx = MarketContext()
         >>> ctx.insert_discount(DiscountCurve("USD-OIS", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.97)]))
@@ -94,85 +115,7 @@ class ForwardRateAgreement:
     """
 
     @classmethod
-    def create(
-        cls,
-        instrument_id: str,
-        notional: Money,
-        fixed_rate: float,
-        fixing_date: date,
-        start_date: date,
-        end_date: date,
-        discount_curve: str,
-        forward_curve: str,
-        *,
-        day_count: Optional[DayCount] = None,
-        reset_lag: int = 2,
-        pay_fixed: bool = True,
-    ) -> "ForwardRateAgreement":
-        """Create a standard FRA referencing discount and forward curves.
-
-        Parameters
-        ----------
-        instrument_id : str
-            Unique identifier for the FRA (e.g., "FRA-3M6M").
-        notional : Money
-            Notional principal amount. The currency determines curve currency
-            requirements.
-        fixed_rate : float
-            Fixed rate agreed at trade date, as a decimal (e.g., 0.035 for 3.5%).
-            This rate is compared to the floating rate on fixing_date.
-        fixing_date : date
-            Date when the floating rate is observed and the FRA is settled.
-            Typically 2 business days before start_date (reset_lag).
-        start_date : date
-            Start date of the interest rate period. The floating rate applies
-            from this date.
-        end_date : date
-            End date of the interest rate period. Must be after start_date.
-            The period length determines the interest calculation.
-        discount_curve : str
-            Discount curve identifier in MarketContext for present value calculations.
-        forward_curve : str
-            Forward curve identifier for projecting the floating rate on fixing_date.
-        day_count : DayCount, optional
-            Day-count convention for the interest period (default: ACT/360 for
-            most money-market conventions).
-        reset_lag : int, optional
-            Number of days between fixing_date and start_date (default: 2 for T+2).
-        pay_fixed : bool, optional
-            If True (default), the holder pays fixed and receives floating.
-            If False, the holder receives fixed and pays floating.
-
-        Returns
-        -------
-        ForwardRateAgreement
-            Configured FRA ready for pricing.
-
-        Raises
-        ------
-        ValueError
-            If dates are invalid (end_date <= start_date, fixing_date > start_date),
-            if fixed_rate is negative, or if notional is invalid.
-
-        Examples
-        --------
-            >>> from finstack import Money, Currency
-            >>> from datetime import date
-            >>> fra = ForwardRateAgreement.create(
-            ...     "FRA-3M6M",
-            ...     Money(10_000_000, Currency("USD")),
-            ...     0.035,  # 3.5% fixed
-            ...     date(2024, 6, 1),  # Fixing in 3 months
-            ...     date(2024, 9, 1),  # Period starts in 6 months
-            ...     date(2024, 12, 1),  # Period ends in 9 months (3M period)
-            ...     discount_curve="USD",
-            ...     forward_curve="USD-LIBOR-3M",
-            ... )
-            >>> fra.fixed_rate
-            0.035
-        """
-        ...
-
+    def builder(cls, instrument_id: str) -> ForwardRateAgreementBuilder: ...
     @property
     def instrument_id(self) -> str: ...
     @property

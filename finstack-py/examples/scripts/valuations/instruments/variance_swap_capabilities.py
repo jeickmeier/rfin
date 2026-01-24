@@ -66,18 +66,18 @@ def main() -> None:
     market = build_market(as_of)
     registry = create_standard_registry()
 
-    variance_swap = VarianceSwap.create(
-        "SPX-VAR-SWAP",
-        underlying_id="SPX",
-        notional=Money(1_000_000, USD),
-        strike_variance=0.04,
-        start_date=date(2024, 1, 1),
-        maturity=date(2024, 12, 31),
-        discount_curve="USD-OIS",
-        observation_frequency=Frequency.QUARTERLY,
-        realized_method=None,
-        side="receive",
-        day_count=DayCount.ACT_365F,
+    variance_swap = (
+        VarianceSwap.builder("SPX-VAR-SWAP")
+        .underlying_id("SPX")
+        .money(Money(1_000_000, USD))
+        .strike_variance(0.04)
+        .start_date(date(2024, 1, 1))
+        .maturity(date(2024, 12, 31))
+        .disc_id("USD-OIS")
+        .observation_frequency(Frequency.QUARTERLY)
+        .side("receive")
+        .day_count(DayCount.ACT_365F)
+        .build()
     )
 
     registry.price_with_metrics(

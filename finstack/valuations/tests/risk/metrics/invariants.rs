@@ -329,7 +329,7 @@ mod cds_invariants {
     use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
     use finstack_core::money::Money;
     use finstack_valuations::instruments::credit_derivatives::cds::CDSPricer;
-    use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
+
     use proptest::prelude::*;
     use time::macros::date;
 
@@ -383,7 +383,7 @@ mod cds_invariants {
             let maturity = as_of.add_months(60); // 5Y CDS
             let (disc, hazard) = build_test_curves(0.04, hazard_rate);
 
-            let cds = CreditDefaultSwap::buy_protection(
+            let cds = finstack_valuations::test_utils::cds_buy_protection(
                 "PROP_PAR_TEST",
                 Money::new(10_000_000.0, Currency::USD),
                 spread_bp,
@@ -421,7 +421,7 @@ mod cds_invariants {
             let as_of = date!(2025 - 01 - 01);
             let maturity = as_of.add_months(60);
 
-            let cds_low_recovery = CreditDefaultSwap::buy_protection(
+            let cds_low_recovery = finstack_valuations::test_utils::cds_buy_protection(
                 "PROP_RECOVERY_LOW",
                 Money::new(10_000_000.0, Currency::USD),
                 100.0,
@@ -464,7 +464,7 @@ mod cs01_invariants {
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
     use finstack_core::money::Money;
-    use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
+
     use finstack_valuations::instruments::Instrument;
     use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
     use proptest::prelude::*;
@@ -518,7 +518,7 @@ mod cs01_invariants {
             let as_of = date!(2025 - 01 - 01);
             let maturity = as_of.add_months(60);
 
-            let cds = CreditDefaultSwap::buy_protection(
+            let cds = finstack_valuations::test_utils::cds_buy_protection(
                 "PROP_CS01_TEST",
                 Money::new(10_000_000.0, Currency::USD),
                 spread_bp,
@@ -564,7 +564,7 @@ mod bucketed_cs01_invariants {
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
     use finstack_core::money::Money;
-    use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
+
     use finstack_valuations::instruments::Instrument;
     use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
     use std::sync::Arc;
@@ -612,7 +612,7 @@ mod bucketed_cs01_invariants {
         let as_of = date!(2025 - 01 - 01);
         let maturity = as_of.add_months(60); // 5Y CDS
 
-        let cds = CreditDefaultSwap::buy_protection(
+        let cds = finstack_valuations::test_utils::cds_buy_protection(
             "CS01_BUCKET_TEST",
             Money::new(10_000_000.0, Currency::USD),
             100.0,

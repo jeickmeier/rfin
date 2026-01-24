@@ -78,6 +78,161 @@ impl JsFxVarianceSwap {
     }
 }
 
+#[wasm_bindgen(js_name = FxVarianceSwapBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsFxVarianceSwapBuilder {
+    instrument_id: String,
+    base_currency: Option<finstack_core::currency::Currency>,
+    quote_currency: Option<finstack_core::currency::Currency>,
+    notional: Option<f64>,
+    strike_variance: Option<f64>,
+    start_date: Option<finstack_core::dates::Date>,
+    maturity: Option<finstack_core::dates::Date>,
+    observation_freq: Option<finstack_core::dates::Tenor>,
+    side: Option<PayReceive>,
+    domestic_curve_id: Option<String>,
+    foreign_curve_id: Option<String>,
+    vol_surface_id: Option<String>,
+}
+
+#[wasm_bindgen(js_class = FxVarianceSwapBuilder)]
+impl JsFxVarianceSwapBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new(instrument_id: &str) -> JsFxVarianceSwapBuilder {
+        JsFxVarianceSwapBuilder {
+            instrument_id: instrument_id.to_string(),
+            ..Default::default()
+        }
+    }
+
+    #[wasm_bindgen(js_name = baseCurrency)]
+    pub fn base_currency(mut self, base_currency: &JsCurrency) -> JsFxVarianceSwapBuilder {
+        self.base_currency = Some(base_currency.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = quoteCurrency)]
+    pub fn quote_currency(mut self, quote_currency: &JsCurrency) -> JsFxVarianceSwapBuilder {
+        self.quote_currency = Some(quote_currency.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = notional)]
+    pub fn notional(mut self, notional: f64) -> JsFxVarianceSwapBuilder {
+        self.notional = Some(notional);
+        self
+    }
+
+    #[wasm_bindgen(js_name = strikeVariance)]
+    pub fn strike_variance(mut self, strike_variance: f64) -> JsFxVarianceSwapBuilder {
+        self.strike_variance = Some(strike_variance);
+        self
+    }
+
+    #[wasm_bindgen(js_name = startDate)]
+    pub fn start_date(mut self, start_date: &FsDate) -> JsFxVarianceSwapBuilder {
+        self.start_date = Some(start_date.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = maturity)]
+    pub fn maturity(mut self, maturity: &FsDate) -> JsFxVarianceSwapBuilder {
+        self.maturity = Some(maturity.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = observationFreq)]
+    pub fn observation_freq(mut self, observation_freq: &JsTenor) -> JsFxVarianceSwapBuilder {
+        self.observation_freq = Some(observation_freq.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = side)]
+    pub fn side(mut self, side: &JsVarianceSwapSide) -> JsFxVarianceSwapBuilder {
+        self.side = Some(side.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = domesticCurveId)]
+    pub fn domestic_curve_id(mut self, domestic_curve_id: &str) -> JsFxVarianceSwapBuilder {
+        self.domestic_curve_id = Some(domestic_curve_id.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = foreignCurveId)]
+    pub fn foreign_curve_id(mut self, foreign_curve_id: &str) -> JsFxVarianceSwapBuilder {
+        self.foreign_curve_id = Some(foreign_curve_id.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = volSurfaceId)]
+    pub fn vol_surface_id(mut self, vol_surface_id: &str) -> JsFxVarianceSwapBuilder {
+        self.vol_surface_id = Some(vol_surface_id.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsFxVarianceSwap, JsValue> {
+        use finstack_core::math::stats::RealizedVarMethod;
+
+        let base_currency = self
+            .base_currency
+            .ok_or_else(|| JsValue::from_str("FxVarianceSwapBuilder: baseCurrency is required"))?;
+        let quote_currency = self
+            .quote_currency
+            .ok_or_else(|| JsValue::from_str("FxVarianceSwapBuilder: quoteCurrency is required"))?;
+        let notional = self
+            .notional
+            .ok_or_else(|| JsValue::from_str("FxVarianceSwapBuilder: notional is required"))?;
+        let strike_variance = self.strike_variance.ok_or_else(|| {
+            JsValue::from_str("FxVarianceSwapBuilder: strikeVariance is required")
+        })?;
+        let start_date = self
+            .start_date
+            .ok_or_else(|| JsValue::from_str("FxVarianceSwapBuilder: startDate is required"))?;
+        let maturity = self
+            .maturity
+            .ok_or_else(|| JsValue::from_str("FxVarianceSwapBuilder: maturity is required"))?;
+        let observation_freq = self.observation_freq.ok_or_else(|| {
+            JsValue::from_str("FxVarianceSwapBuilder: observationFreq is required")
+        })?;
+        let side = self
+            .side
+            .ok_or_else(|| JsValue::from_str("FxVarianceSwapBuilder: side is required"))?;
+        let domestic_curve_id = self.domestic_curve_id.as_deref().ok_or_else(|| {
+            JsValue::from_str("FxVarianceSwapBuilder: domesticCurveId is required")
+        })?;
+        let foreign_curve_id = self.foreign_curve_id.as_deref().ok_or_else(|| {
+            JsValue::from_str("FxVarianceSwapBuilder: foreignCurveId is required")
+        })?;
+        let vol_surface_id = self
+            .vol_surface_id
+            .as_deref()
+            .ok_or_else(|| JsValue::from_str("FxVarianceSwapBuilder: volSurfaceId is required"))?;
+
+        let swap = FxVarianceSwap::builder()
+            .id(InstrumentId::new(&self.instrument_id))
+            .base_currency(base_currency)
+            .quote_currency(quote_currency)
+            .notional(Money::new(notional, quote_currency))
+            .strike_variance(strike_variance)
+            .start_date(start_date)
+            .maturity(maturity)
+            .observation_freq(observation_freq)
+            .realized_var_method(RealizedVarMethod::CloseToClose)
+            .side(side)
+            .domestic_discount_curve_id(CurveId::new(domestic_curve_id))
+            .foreign_discount_curve_id(CurveId::new(foreign_curve_id))
+            .vol_surface_id(CurveId::new(vol_surface_id))
+            .day_count(DayCount::Act365F)
+            .attributes(Attributes::new())
+            .build()
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        Ok(JsFxVarianceSwap { inner: swap })
+    }
+}
+
 #[wasm_bindgen(js_class = FxVarianceSwap)]
 impl JsFxVarianceSwap {
     /// Create a new FX variance swap.
@@ -110,6 +265,9 @@ impl JsFxVarianceSwap {
         foreign_curve_id: &str,
         vol_surface_id: &str,
     ) -> Result<JsFxVarianceSwap, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "FxVarianceSwap constructor is deprecated; use FxVarianceSwapBuilder instead.",
+        ));
         use finstack_core::math::stats::RealizedVarMethod;
 
         let swap = FxVarianceSwap::builder()

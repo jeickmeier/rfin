@@ -1,5 +1,6 @@
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
+use crate::errors::PyContext;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::types::InstrumentId;
 use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOption;
@@ -8,7 +9,7 @@ use finstack_valuations::instruments::{CreditParams, OptionType};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use pyo3::Bound;
+use pyo3::{Bound, Py, PyRef, PyRefMut};
 use std::fmt;
 use std::sync::Arc;
 
@@ -24,15 +25,16 @@ fn parse_option_type(label: Option<&str>) -> PyResult<OptionType> {
 /// Option on CDS spread with simplified constructor.
 ///
 /// Examples:
-///     >>> opt = CdsOption.create(
-///     ...     "opt_xyz",
-///     ...     Money("USD", 5_000_000),
-///     ...     150.0,
-///     ...     date(2024, 6, 20),
-///     ...     date(2029, 6, 20),
-///     ...     "usd_discount",
-///     ...     "xyz_credit",
-///     ...     "cds_vol_surface"
+///     >>> opt = (
+///     ...     CdsOption.builder("opt_xyz")
+///     ...     .money(Money("USD", 5_000_000))
+///     ...     .strike_spread_bp(150.0)
+///     ...     .expiry(date(2024, 6, 20))
+///     ...     .cds_maturity(date(2029, 6, 20))
+///     ...     .discount_curve("usd_discount")
+///     ...     .credit_curve("xyz_credit")
+///     ...     .vol_surface("cds_vol_surface")
+///     ...     .build()
 ///     ... )
 ///     >>> opt.strike_spread_bp
 ///     150.0
@@ -50,104 +52,255 @@ impl PyCdsOption {
     }
 }
 
-#[pymethods]
-impl PyCdsOption {
-    #[classmethod]
-    #[pyo3(
-        signature = (
-            instrument_id,
-            notional,
-            strike_spread_bp,
-            expiry,
-            cds_maturity,
-            discount_curve,
-            credit_curve,
-            vol_surface,
-            *,
-            option_type="call",
-            recovery_rate=0.4,
-            underlying_is_index=false,
-            index_factor=None,
-            forward_adjust_bp=0.0
-        ),
-        text_signature = "(cls, instrument_id, notional, strike_spread_bp, expiry, cds_maturity, discount_curve, credit_curve, vol_surface, /, *, option_type='call', recovery_rate=0.4, underlying_is_index=False, index_factor=None, forward_adjust_bp=0.0)"
-    )]
-    #[allow(clippy::too_many_arguments)]
-    /// Create a CDS option referencing a standard CDS contract.
-    ///
-    /// Args:
-    ///     instrument_id: Instrument identifier or string-like object.
-    ///     notional: Notional principal as :class:`finstack.core.money.Money`.
-    ///     strike_spread_bp: Option strike spread in basis points.
-    ///     expiry: Option expiry date.
-    ///     cds_maturity: Maturity date of the underlying CDS.
-    ///     discount_curve: Discount curve identifier.
-    ///     credit_curve: Credit curve identifier for the reference entity or index.
-    ///     vol_surface: Volatility surface identifier for pricing.
-    ///     option_type: Optional label indicating call/put (buy/sell protection).
-    ///     recovery_rate: Optional recovery rate assumption.
-    ///     underlying_is_index: Optional flag to treat the underlying as an index.
-    ///     index_factor: Optional outstanding factor when pricing index options.
-    ///     forward_adjust_bp: Optional forward spread adjustment in basis points.
-    ///
-    /// Returns:
-    ///     CdsOption: Configured CDS option instrument.
-    ///
-    /// Raises:
-    ///     ValueError: If labels cannot be parsed or recovery rate lies outside [0, 1].
-    fn create(
-        _cls: &Bound<'_, PyType>,
-        instrument_id: Bound<'_, PyAny>,
-        notional: Bound<'_, PyAny>,
-        strike_spread_bp: f64,
-        expiry: Bound<'_, PyAny>,
-        cds_maturity: Bound<'_, PyAny>,
-        discount_curve: Bound<'_, PyAny>,
-        credit_curve: Bound<'_, PyAny>,
-        vol_surface: &str,
-        option_type: Option<&str>,
-        recovery_rate: Option<f64>,
-        underlying_is_index: Option<bool>,
-        index_factor: Option<f64>,
-        forward_adjust_bp: Option<f64>,
-    ) -> PyResult<Self> {
-        use crate::errors::PyContext;
-        let id = InstrumentId::new(instrument_id.extract::<&str>().context("instrument_id")?);
-        let notional_money = extract_money(&notional).context("notional")?;
-        let expiry_date = py_to_date(&expiry).context("expiry")?;
-        let cds_maturity_date = py_to_date(&cds_maturity).context("cds_maturity")?;
-        let discount = discount_curve.extract::<&str>().context("discount_curve")?;
-        let credit = credit_curve.extract::<&str>().context("credit_curve")?;
-        let option_type_value = parse_option_type(option_type).context("option_type")?;
-        let recovery = recovery_rate.unwrap_or(STANDARD_RECOVERY_SENIOR);
-        if !(0.0..=1.0).contains(&recovery) {
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "CdsOptionBuilder",
+    unsendable
+)]
+pub struct PyCdsOptionBuilder {
+    instrument_id: InstrumentId,
+    notional: Option<finstack_core::money::Money>,
+    strike_spread_bp: Option<f64>,
+    expiry: Option<time::Date>,
+    cds_maturity: Option<time::Date>,
+    discount_curve: Option<String>,
+    credit_curve: Option<String>,
+    vol_surface: Option<String>,
+    option_type: OptionType,
+    recovery_rate: f64,
+    underlying_is_index: bool,
+    index_factor: Option<f64>,
+    forward_adjust_bp: f64,
+}
+
+impl PyCdsOptionBuilder {
+    fn new_with_id(id: InstrumentId) -> Self {
+        Self {
+            instrument_id: id,
+            notional: None,
+            strike_spread_bp: None,
+            expiry: None,
+            cds_maturity: None,
+            discount_curve: None,
+            credit_curve: None,
+            vol_surface: None,
+            option_type: OptionType::Call,
+            recovery_rate: STANDARD_RECOVERY_SENIOR,
+            underlying_is_index: false,
+            index_factor: None,
+            forward_adjust_bp: 0.0,
+        }
+    }
+
+    fn ensure_ready(&self) -> PyResult<()> {
+        if self.notional.is_none() {
+            return Err(PyValueError::new_err("notional() is required."));
+        }
+        if self.strike_spread_bp.is_none() {
+            return Err(PyValueError::new_err("strike_spread_bp() is required."));
+        }
+        if self.expiry.is_none() {
+            return Err(PyValueError::new_err("expiry() is required."));
+        }
+        if self.cds_maturity.is_none() {
+            return Err(PyValueError::new_err("cds_maturity() is required."));
+        }
+        if self.discount_curve.as_deref().unwrap_or("").is_empty() {
+            return Err(PyValueError::new_err("discount_curve() is required."));
+        }
+        if self.credit_curve.as_deref().unwrap_or("").is_empty() {
+            return Err(PyValueError::new_err("credit_curve() is required."));
+        }
+        if self.vol_surface.as_deref().unwrap_or("").is_empty() {
+            return Err(PyValueError::new_err("vol_surface() is required."));
+        }
+        if !(0.0..=1.0).contains(&self.recovery_rate) {
             return Err(PyValueError::new_err(
                 "recovery_rate must be between 0 and 1",
             ));
         }
+        Ok(())
+    }
+}
+
+#[pymethods]
+impl PyCdsOptionBuilder {
+    #[new]
+    #[pyo3(text_signature = "(instrument_id)")]
+    fn new_py(instrument_id: &str) -> Self {
+        Self::new_with_id(InstrumentId::new(instrument_id))
+    }
+
+    #[pyo3(text_signature = "($self, notional)")]
+    fn notional<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        notional: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.notional = Some(extract_money(&notional).context("notional")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, money)")]
+    fn money<'py>(mut slf: PyRefMut<'py, Self>, money: PyRef<'py, PyMoney>) -> PyRefMut<'py, Self> {
+        slf.notional = Some(money.inner);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, strike_spread_bp)")]
+    fn strike_spread_bp(mut slf: PyRefMut<'_, Self>, strike_spread_bp: f64) -> PyRefMut<'_, Self> {
+        slf.strike_spread_bp = Some(strike_spread_bp);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, expiry)")]
+    fn expiry<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        expiry: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.expiry = Some(py_to_date(&expiry).context("expiry")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, cds_maturity)")]
+    fn cds_maturity<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        cds_maturity: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        slf.cds_maturity = Some(py_to_date(&cds_maturity).context("cds_maturity")?);
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, discount_curve)")]
+    fn discount_curve(mut slf: PyRefMut<'_, Self>, discount_curve: String) -> PyRefMut<'_, Self> {
+        slf.discount_curve = Some(discount_curve);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, credit_curve)")]
+    fn credit_curve(mut slf: PyRefMut<'_, Self>, credit_curve: String) -> PyRefMut<'_, Self> {
+        slf.credit_curve = Some(credit_curve);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, vol_surface)")]
+    fn vol_surface(mut slf: PyRefMut<'_, Self>, vol_surface: String) -> PyRefMut<'_, Self> {
+        slf.vol_surface = Some(vol_surface);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, option_type)")]
+    fn option_type(
+        mut slf: PyRefMut<'_, Self>,
+        option_type: Option<String>,
+    ) -> PyResult<PyRefMut<'_, Self>> {
+        slf.option_type = parse_option_type(option_type.as_deref())?;
+        Ok(slf)
+    }
+
+    #[pyo3(text_signature = "($self, recovery_rate)")]
+    fn recovery_rate(mut slf: PyRefMut<'_, Self>, recovery_rate: f64) -> PyRefMut<'_, Self> {
+        slf.recovery_rate = recovery_rate;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, underlying_is_index)")]
+    fn underlying_is_index(
+        mut slf: PyRefMut<'_, Self>,
+        underlying_is_index: bool,
+    ) -> PyRefMut<'_, Self> {
+        slf.underlying_is_index = underlying_is_index;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, index_factor=None)", signature = (index_factor=None))]
+    fn index_factor(mut slf: PyRefMut<'_, Self>, index_factor: Option<f64>) -> PyRefMut<'_, Self> {
+        slf.index_factor = index_factor;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, forward_adjust_bp)")]
+    fn forward_adjust_bp(
+        mut slf: PyRefMut<'_, Self>,
+        forward_adjust_bp: f64,
+    ) -> PyRefMut<'_, Self> {
+        slf.forward_adjust_bp = forward_adjust_bp;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyCdsOption> {
+        slf.ensure_ready()?;
+        let notional = slf.notional.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CdsOptionBuilder internal error: missing notional after validation",
+            )
+        })?;
+        let strike_spread_bp = slf.strike_spread_bp.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CdsOptionBuilder internal error: missing strike_spread_bp after validation",
+            )
+        })?;
+        let expiry = slf.expiry.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CdsOptionBuilder internal error: missing expiry after validation",
+            )
+        })?;
+        let cds_maturity = slf.cds_maturity.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "CdsOptionBuilder internal error: missing cds_maturity after validation",
+            )
+        })?;
+        let discount = slf.discount_curve.clone().unwrap();
+        let credit = slf.credit_curve.clone().unwrap();
+        let vol_surface = slf.vol_surface.clone().unwrap();
 
         let mut option_params = CdsOptionParams::new(
             strike_spread_bp,
-            expiry_date,
-            cds_maturity_date,
-            notional_money,
-            option_type_value,
+            expiry,
+            cds_maturity,
+            notional,
+            slf.option_type,
         )
         .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        if underlying_is_index.unwrap_or(false) {
-            let factor = index_factor.unwrap_or(1.0);
+        if slf.underlying_is_index {
+            let factor = slf.index_factor.unwrap_or(1.0);
             option_params = option_params
                 .as_index(factor)
                 .map_err(|e| PyValueError::new_err(e.to_string()))?;
         }
-        if let Some(adj) = forward_adjust_bp {
-            option_params = option_params.with_forward_spread_adjust_bp(adj);
+        if slf.forward_adjust_bp != 0.0 {
+            option_params = option_params.with_forward_spread_adjust_bp(slf.forward_adjust_bp);
         }
 
-        let credit_params = CreditParams::new("CDS_OPTION", recovery, credit);
-        let option = CdsOption::new(id, &option_params, &credit_params, discount, vol_surface)
-            .map_err(|e| PyValueError::new_err(e.to_string()))?;
-        Ok(Self::new(option))
+        let credit_params = CreditParams::new("CDS_OPTION", slf.recovery_rate, credit.as_str());
+        let option = CdsOption::new(
+            slf.instrument_id.clone(),
+            &option_params,
+            &credit_params,
+            discount.as_str(),
+            vol_surface.as_str(),
+        )
+        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        Ok(PyCdsOption::new(option))
+    }
+
+    fn __repr__(&self) -> String {
+        "CdsOptionBuilder(...)".to_string()
+    }
+}
+
+#[pymethods]
+impl PyCdsOption {
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, instrument_id)")]
+    /// Start a fluent builder (builder-only API).
+    fn builder<'py>(
+        cls: &Bound<'py, PyType>,
+        instrument_id: &str,
+    ) -> PyResult<Py<PyCdsOptionBuilder>> {
+        let py = cls.py();
+        let builder = PyCdsOptionBuilder::new_with_id(InstrumentId::new(instrument_id));
+        Py::new(py, builder)
     }
 
     /// Instrument identifier.
@@ -250,5 +403,6 @@ pub(crate) fn register<'py>(
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyCdsOption>()?;
-    Ok(vec!["CdsOption"])
+    module.add_class::<PyCdsOptionBuilder>()?;
+    Ok(vec!["CdsOption", "CdsOptionBuilder"])
 }

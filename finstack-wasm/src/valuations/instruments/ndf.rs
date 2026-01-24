@@ -9,6 +9,115 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fx::ndf::Ndf;
 use wasm_bindgen::prelude::*;
 
+#[wasm_bindgen(js_name = NdfBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsNdfBuilder {
+    instrument_id: String,
+    base_currency: Option<finstack_core::currency::Currency>,
+    settlement_currency: Option<finstack_core::currency::Currency>,
+    fixing_date: Option<finstack_core::dates::Date>,
+    maturity_date: Option<finstack_core::dates::Date>,
+    notional: Option<f64>,
+    contract_rate: Option<f64>,
+    settlement_curve_id: Option<String>,
+}
+
+#[wasm_bindgen(js_class = NdfBuilder)]
+impl JsNdfBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new(instrument_id: &str) -> JsNdfBuilder {
+        JsNdfBuilder {
+            instrument_id: instrument_id.to_string(),
+            ..Default::default()
+        }
+    }
+
+    #[wasm_bindgen(js_name = baseCurrency)]
+    pub fn base_currency(mut self, base_currency: &JsCurrency) -> JsNdfBuilder {
+        self.base_currency = Some(base_currency.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = settlementCurrency)]
+    pub fn settlement_currency(mut self, settlement_currency: &JsCurrency) -> JsNdfBuilder {
+        self.settlement_currency = Some(settlement_currency.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = fixingDate)]
+    pub fn fixing_date(mut self, fixing_date: &FsDate) -> JsNdfBuilder {
+        self.fixing_date = Some(fixing_date.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = maturityDate)]
+    pub fn maturity_date(mut self, maturity_date: &FsDate) -> JsNdfBuilder {
+        self.maturity_date = Some(maturity_date.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = notional)]
+    pub fn notional(mut self, notional: f64) -> JsNdfBuilder {
+        self.notional = Some(notional);
+        self
+    }
+
+    #[wasm_bindgen(js_name = contractRate)]
+    pub fn contract_rate(mut self, contract_rate: f64) -> JsNdfBuilder {
+        self.contract_rate = Some(contract_rate);
+        self
+    }
+
+    #[wasm_bindgen(js_name = settlementCurveId)]
+    pub fn settlement_curve_id(mut self, settlement_curve_id: &str) -> JsNdfBuilder {
+        self.settlement_curve_id = Some(settlement_curve_id.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsNdf, JsValue> {
+        use finstack_valuations::instruments::Attributes;
+
+        let base_currency = self
+            .base_currency
+            .ok_or_else(|| JsValue::from_str("NdfBuilder: baseCurrency is required"))?;
+        let settlement_currency = self
+            .settlement_currency
+            .ok_or_else(|| JsValue::from_str("NdfBuilder: settlementCurrency is required"))?;
+        let fixing_date = self
+            .fixing_date
+            .ok_or_else(|| JsValue::from_str("NdfBuilder: fixingDate is required"))?;
+        let maturity_date = self
+            .maturity_date
+            .ok_or_else(|| JsValue::from_str("NdfBuilder: maturityDate is required"))?;
+        let notional = self
+            .notional
+            .ok_or_else(|| JsValue::from_str("NdfBuilder: notional is required"))?;
+        let contract_rate = self
+            .contract_rate
+            .ok_or_else(|| JsValue::from_str("NdfBuilder: contractRate is required"))?;
+        let settlement_curve_id = self
+            .settlement_curve_id
+            .as_deref()
+            .ok_or_else(|| JsValue::from_str("NdfBuilder: settlementCurveId is required"))?;
+
+        let ndf = Ndf::builder()
+            .id(InstrumentId::new(&self.instrument_id))
+            .base_currency(base_currency)
+            .settlement_currency(settlement_currency)
+            .fixing_date(fixing_date)
+            .maturity_date(maturity_date)
+            .notional(Money::new(notional, base_currency))
+            .contract_rate(contract_rate)
+            .settlement_curve_id(CurveId::new(settlement_curve_id))
+            .attributes(Attributes::new())
+            .build()
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        Ok(JsNdf { inner: ndf })
+    }
+}
+
 /// Non-Deliverable Forward (NDF) instrument.
 ///
 /// A cash-settled forward contract on a restricted currency pair.
@@ -66,6 +175,9 @@ impl JsNdf {
         contract_rate: f64,
         settlement_curve_id: &str,
     ) -> Result<JsNdf, JsValue> {
+        web_sys::console::warn_1(&JsValue::from_str(
+            "Ndf constructor is deprecated; use NdfBuilder instead.",
+        ));
         use finstack_valuations::instruments::Attributes;
 
         let ndf = Ndf::builder()
