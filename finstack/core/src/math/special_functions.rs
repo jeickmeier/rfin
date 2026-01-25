@@ -181,9 +181,10 @@ pub fn erf(x: f64) -> f64 {
 pub fn norm_cdf(x: f64) -> f64 {
     use statrs::distribution::{ContinuousCDF, Normal};
     // Standard normal: mean=0, std_dev=1
-    // unwrap is safe because std_dev=1 is always valid
-    let n = Normal::new(0.0, 1.0).unwrap_or_else(|_| unreachable!());
-    n.cdf(x)
+    match Normal::new(0.0, 1.0) {
+        Ok(n) => n.cdf(x),
+        Err(_) => f64::NAN,
+    }
 }
 
 /// Standard normal probability density function φ(x).
@@ -236,9 +237,10 @@ pub fn norm_cdf(x: f64) -> f64 {
 pub fn norm_pdf(x: f64) -> f64 {
     use statrs::distribution::{Continuous, Normal};
     // Standard normal: mean=0, std_dev=1
-    // unwrap is safe because std_dev=1 is always valid
-    let n = Normal::new(0.0, 1.0).unwrap_or_else(|_| unreachable!());
-    n.pdf(x)
+    match Normal::new(0.0, 1.0) {
+        Ok(n) => n.pdf(x),
+        Err(_) => f64::NAN,
+    }
 }
 
 /// Inverse standard normal cumulative distribution function.
@@ -275,9 +277,10 @@ pub fn norm_pdf(x: f64) -> f64 {
 pub fn standard_normal_inv_cdf(p: f64) -> f64 {
     use statrs::distribution::{ContinuousCDF, Normal};
     // Standard normal: mean=0, std_dev=1
-    // unwrap is safe because std_dev=1 is always valid
-    let n = Normal::new(0.0, 1.0).unwrap_or_else(|_| unreachable!());
-    n.inverse_cdf(p)
+    match Normal::new(0.0, 1.0) {
+        Ok(n) => n.inverse_cdf(p),
+        Err(_) => f64::NAN,
+    }
 }
 
 /// Student-t cumulative distribution function.

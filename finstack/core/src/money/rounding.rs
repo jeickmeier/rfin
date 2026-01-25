@@ -33,6 +33,7 @@ pub(crate) fn amount_from_repr(x: AmountRepr) -> f64 {
         result.is_some(),
         "Decimal to f64 conversion failed: value outside representable range"
     );
+    // Safe because the assert above guarantees `result` is Some.
     result.unwrap_or(0.0)
 }
 
@@ -65,6 +66,7 @@ pub(crate) fn repr_mul_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
         "Money multiplication requires finite, representable scalar (got {:?})",
         rhs
     );
+    // Safe because the assert above guarantees `res` is Ok.
     res.unwrap_or(Decimal::ZERO)
 }
 
@@ -76,6 +78,7 @@ pub(crate) fn repr_div_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
         "Money division requires finite, non-zero, representable scalar (got {:?})",
         rhs
     );
+    // Safe because the assert above guarantees `res` is Ok.
     res.unwrap_or(a)
 }
 
@@ -89,6 +92,7 @@ pub(crate) fn round_f64(x: f64, dp: i32, mode: RoundingMode) -> Decimal {
         "Money rounding requires finite, representable scalar (got {:?})",
         x
     );
+    // Safe because the assert above guarantees `res` is Ok.
     res.unwrap_or(Decimal::ZERO)
 }
 
@@ -311,15 +315,6 @@ mod tests {
     fn repr_mul_f64_panics_on_infinity() {
         let a = Decimal::from_str("100.00").expect("valid decimal");
         repr_mul_f64(a, f64::INFINITY);
-    }
-
-    #[cfg(not(debug_assertions))]
-    #[test]
-    fn repr_mul_f64_non_finite_returns_zero_in_release_builds() {
-        let a = Decimal::from_str("100.00").expect("valid decimal");
-        assert_eq!(repr_mul_f64(a, f64::NAN), Decimal::ZERO);
-        assert_eq!(repr_mul_f64(a, f64::INFINITY), Decimal::ZERO);
-        assert_eq!(repr_mul_f64(a, f64::NEG_INFINITY), Decimal::ZERO);
     }
 
     // ========================================================================

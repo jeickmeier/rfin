@@ -138,6 +138,9 @@ impl TimeGrid {
         if times.is_empty() {
             return Err(crate::error::InputError::Invalid.into());
         }
+        if !times[0].is_finite() {
+            return Err(crate::error::InputError::Invalid.into());
+        }
         if times[0] != 0.0 {
             return Err(crate::error::InputError::Invalid.into());
         }
@@ -145,6 +148,9 @@ impl TimeGrid {
         // Validate monotonicity and check for duplicate/near-duplicate times
         const MIN_DT_THRESHOLD: f64 = 1e-12;
         for i in 1..times.len() {
+            if !times[i].is_finite() {
+                return Err(crate::error::InputError::Invalid.into());
+            }
             if times[i] <= times[i - 1] {
                 return Err(crate::error::InputError::NonMonotonicKnots.into());
             }
@@ -157,15 +163,16 @@ impl TimeGrid {
         // Compute time steps
         let mut dts = Vec::with_capacity(times.len() - 1);
         for i in 0..times.len() - 1 {
-            dts.push(times[i + 1] - times[i]);
+            let dt = times[i + 1] - times[i];
+            if !dt.is_finite() {
+                return Err(crate::error::InputError::Invalid.into());
+            }
+            dts.push(dt);
         }
 
         // Check for minimum dt to prevent numerical issues
         const MIN_DT: f64 = 1e-10;
-        if let Some(&min_dt) = dts
-            .iter()
-            .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-        {
+        if let Some(&min_dt) = dts.iter().min_by(|a, b| a.total_cmp(b)) {
             if min_dt < MIN_DT {
                 return Err(crate::error::InputError::Invalid.into());
             }

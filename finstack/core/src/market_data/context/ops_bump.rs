@@ -190,7 +190,7 @@ impl MarketContext {
                             if let Some((idx, _)) = points.iter().enumerate().min_by(|a, b| {
                                 let da = (a.1 .0 - target_bucket).abs();
                                 let db = (b.1 .0 - target_bucket).abs();
-                                da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
+                                da.total_cmp(&db)
                             }) {
                                 points[idx].1 *= 1.0 + delta;
                             }

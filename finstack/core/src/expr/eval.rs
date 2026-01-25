@@ -679,8 +679,8 @@ impl CompiledExpr {
             let tmp = &mut guard.tmp;
             tmp.truncate(0);
             tmp.extend_from_slice(data);
-            // NaN values compare as Equal to maintain stable sort
-            tmp.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+            // Use total order to avoid comparator panics with NaN values.
+            tmp.sort_unstable_by(|a, b| a.total_cmp(b));
             let n = tmp.len();
             let median = if n % 2 == 1 {
                 tmp[n / 2]
@@ -751,8 +751,8 @@ impl CompiledExpr {
                 let slice = &base[start..=i];
                 wbuf.truncate(0);
                 wbuf.extend_from_slice(slice);
-                // NaN values compare as Equal to maintain stable sort
-                wbuf.sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                // Use total order to avoid comparator panics with NaN values.
+                wbuf.sort_unstable_by(|a, b| a.total_cmp(b));
                 let k = wbuf.len();
                 out[i] = if k % 2 == 1 {
                     wbuf[k / 2]
@@ -819,10 +819,8 @@ impl CompiledExpr {
             let base = &arg_results[0];
             let mut indexed: Vec<(f64, usize)> =
                 base.iter().enumerate().map(|(i, &v)| (v, i)).collect();
-            // NaN values compare as Equal to maintain stable sort
-            indexed.sort_unstable_by(|a, b| {
-                a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal)
-            });
+            // Use total order to avoid comparator panics with NaN values.
+            indexed.sort_unstable_by(|a, b| a.0.total_cmp(&b.0));
             let mut out: Vec<f64> = vec![0.0; len];
             let mut current_rank: f64 = 1.0;
             let mut last_value: f64 = f64::NAN;
@@ -853,9 +851,8 @@ impl CompiledExpr {
                 .collect();
             let mut out = vec![0.0; len];
             if !valid_values.is_empty() {
-                // NaN values filtered above, but use unwrap_or for safety
-                valid_values
-                    .sort_unstable_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                // Use total order to avoid comparator panics with NaN values.
+                valid_values.sort_unstable_by(|a, b| a.total_cmp(b));
                 let index = q * (valid_values.len() - 1) as f64;
                 let lower = index.floor() as usize;
                 let upper = index.ceil() as usize;
@@ -893,8 +890,7 @@ impl CompiledExpr {
             w.iter()
                 .copied()
                 .filter(|x| !x.is_nan())
-                // NaN values filtered above, but use unwrap_or for safety
-                .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+                .min_by(|a, b| a.total_cmp(b))
                 .unwrap_or(f64::NAN)
         });
         out
@@ -915,8 +911,7 @@ impl CompiledExpr {
             w.iter()
                 .copied()
                 .filter(|x| !x.is_nan())
-                // NaN values filtered above, but use unwrap_or for safety
-                .max_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
+                .max_by(|a, b| a.total_cmp(b))
                 .unwrap_or(f64::NAN)
         });
         out
