@@ -114,6 +114,16 @@ where
 ///
 /// Accepts Arc-wrapped arguments to avoid cloning on every call. Callers should
 /// clone the instrument and market context once into Arc at the call boundary.
+///
+/// # Thread Safety
+///
+/// The `curves` parameter is wrapped in `Arc` for efficiency, not thread synchronization.
+/// Callers must ensure the market context is not mutated concurrently. For multi-threaded
+/// pricing with market data updates, create a new `MarketContext` snapshot for each
+/// pricing batch.
+///
+/// The `instrument` parameter is also `Arc`-wrapped. Instruments are generally immutable
+/// after construction, so this is safe for concurrent reads.
 pub(crate) fn build_with_metrics_dyn(
     instrument: Arc<dyn crate::instruments::common::traits::Instrument>,
     curves: Arc<MarketContext>,

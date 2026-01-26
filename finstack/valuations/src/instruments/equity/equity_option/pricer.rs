@@ -5,7 +5,9 @@
 //! sourced from a surface (clamped) unless overridden. This mirrors the
 //! structure used by `fx_option` and keeps pricing logic separate from
 //! instrument definitions.
-#![allow(dead_code)] // Public API items may be used by external bindings
+// Allow dead_code for public API items exposed via Python (finstack-py) and WASM bindings.
+// Key items: npv, compute_greeks, EquityOptionGreeks, SimpleEquityOptionBlackPricer.
+#![allow(dead_code)]
 
 use crate::instruments::common::models::trees::binomial_tree::BinomialTree;
 use crate::instruments::common::models::{bs_greeks, bs_price, BsGreeks};

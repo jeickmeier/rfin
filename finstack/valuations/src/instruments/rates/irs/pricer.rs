@@ -46,6 +46,19 @@ use finstack_core::dates::{DateExt, DayCountCtx};
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::term_structures::ForwardCurve;
 
+/// Convert Decimal to f64 with proper error handling.
+///
+/// Returns an error if the Decimal value cannot be represented as f64,
+/// rather than silently defaulting to 0.0 which could mask configuration errors.
+fn decimal_to_f64(value: rust_decimal::Decimal, field_name: &str) -> finstack_core::Result<f64> {
+    value.to_f64().ok_or_else(|| {
+        finstack_core::Error::Validation(format!(
+            "{} value {} cannot be converted to f64",
+            field_name, value
+        ))
+    })
+}
+
 impl InterestRateSwap {
     /// Returns true if this swap is configured as *single-curve* compounded RFR:
     /// compounded-in-arrears and the floating index id matches the discount curve id.
@@ -259,7 +272,7 @@ impl InterestRateSwap {
             // Coupon amount: N * [(compound_factor - 1) + spread * total_dcf]
             // Note: alpha_total is cf.accrual_factor from builder
             let interest = self.notional.amount() * (compound_factor - 1.0);
-            let spread_bp_f64 = self.float.spread_bp.to_f64().unwrap_or(0.0);
+            let spread_bp_f64 = decimal_to_f64(self.float.spread_bp, "float leg spread_bp")?;
             let spread_contrib =
                 self.notional.amount() * (spread_bp_f64 * BP_TO_DECIMAL) * cf.accrual_factor;
 
@@ -323,7 +336,7 @@ impl InterestRateSwap {
 
         // Build fixed leg params
         let params = crate::instruments::common::pricing::swap_legs::FixedLegParams {
-            rate: self.fixed.rate.to_f64().unwrap_or(0.0),
+            rate: decimal_to_f64(self.fixed.rate, "fixed leg rate")?,
             day_count: self.fixed.dc,
             payment_delay_days: self.fixed.payment_delay_days,
             calendar_id: self.fixed.calendar_id.clone(),
@@ -406,7 +419,7 @@ impl InterestRateSwap {
 
         // Build floating leg params using shared type
         let params = FloatingLegParams::full(
-            self.float.spread_bp.to_f64().unwrap_or(0.0),
+            decimal_to_f64(self.float.spread_bp, "float leg spread_bp")?,
             1.0,  // gearing
             true, // gearing_includes_spread
             None, // index_floor_bp

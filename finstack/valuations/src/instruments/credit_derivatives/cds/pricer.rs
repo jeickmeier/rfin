@@ -50,7 +50,9 @@
 //! - ISDA CDS Standard Model (Markit, 2009)
 //! - O'Kane, D. "Modelling Single-name and Multi-name Credit Derivatives" (2008), Chapter 5
 //! - Hull, J.C. & White, A. "Valuing Credit Default Swaps I: No Counterparty Default Risk"
-#![allow(dead_code)] // Public API items may be used by external bindings or tests
+// Allow dead_code for public API items exposed via Python (finstack-py) and WASM bindings.
+// Key items: CDSPricer, CDSPricerConfig, IntegrationMethod, CDSBootstrapper.
+#![allow(dead_code)]
 use crate::constants::{
     isda, numerical, time as time_constants, NUMERICAL_TOLERANCE, ONE_BASIS_POINT,
 };
@@ -323,6 +325,69 @@ impl CDSPricerConfig {
             self.steps_per_year
         }
     }
+
+    /// Validate configuration parameters.
+    ///
+    /// Returns an error if any parameter is out of valid range. This method provides
+    /// fail-fast validation for catching configuration errors early.
+    ///
+    /// # Errors
+    ///
+    /// Returns a validation error if:
+    /// - `tolerance` is not positive
+    /// - `steps_per_year` is zero
+    /// - `min_steps_per_year` is zero
+    /// - `bootstrap_max_iterations` is zero
+    /// - `bootstrap_tolerance` is not positive
+    /// - `business_days_per_year` is not positive
+    /// - `adaptive_max_depth` is zero
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::credit_derivatives::cds::pricer::CDSPricerConfig;
+    ///
+    /// let config = CDSPricerConfig::isda_standard();
+    /// assert!(config.validate().is_ok());
+    /// ```
+    pub fn validate(&self) -> Result<()> {
+        if self.tolerance <= 0.0 {
+            return Err(Error::Validation(
+                "CDSPricerConfig: tolerance must be positive".into(),
+            ));
+        }
+        if self.steps_per_year == 0 {
+            return Err(Error::Validation(
+                "CDSPricerConfig: steps_per_year must be at least 1".into(),
+            ));
+        }
+        if self.min_steps_per_year == 0 {
+            return Err(Error::Validation(
+                "CDSPricerConfig: min_steps_per_year must be at least 1".into(),
+            ));
+        }
+        if self.bootstrap_max_iterations == 0 {
+            return Err(Error::Validation(
+                "CDSPricerConfig: bootstrap_max_iterations must be at least 1".into(),
+            ));
+        }
+        if self.bootstrap_tolerance <= 0.0 {
+            return Err(Error::Validation(
+                "CDSPricerConfig: bootstrap_tolerance must be positive".into(),
+            ));
+        }
+        if self.business_days_per_year <= 0.0 {
+            return Err(Error::Validation(
+                "CDSPricerConfig: business_days_per_year must be positive".into(),
+            ));
+        }
+        if self.adaptive_max_depth == 0 {
+            return Err(Error::Validation(
+                "CDSPricerConfig: adaptive_max_depth must be at least 1".into(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 /// CDS pricing engine. Stateless wrapper carrying configuration.
@@ -347,9 +412,27 @@ impl CDSPricer {
     }
 
     /// Create pricer with custom config.
+    ///
+    /// Note: This method does not validate the configuration. For fail-fast
+    /// validation, use [`try_with_config`](Self::try_with_config) instead.
     #[must_use]
     pub fn with_config(config: CDSPricerConfig) -> Self {
         Self { config }
+    }
+
+    /// Create pricer with custom config, validating parameters.
+    ///
+    /// Returns an error if the configuration contains invalid parameters.
+    /// Prefer this over [`with_config`](Self::with_config) when configuration
+    /// comes from external sources (user input, config files, etc.).
+    ///
+    /// # Errors
+    ///
+    /// Returns a validation error if the configuration is invalid.
+    /// See [`CDSPricerConfig::validate`] for details.
+    pub fn try_with_config(config: CDSPricerConfig) -> Result<Self> {
+        config.validate()?;
+        Ok(Self { config })
     }
 
     /// Get the configuration for this pricer.
@@ -420,7 +503,14 @@ impl CDSPricer {
                 surv,
             ) {
                 Ok(pv) => pv,
-                Err(_) => {
+                Err(e) => {
+                    tracing::warn!(
+                        method = "GaussianQuadrature",
+                        error = %e,
+                        t_start = t_start,
+                        t_end = t_end,
+                        "Integration failed, falling back to midpoint method"
+                    );
                     self.protection_leg_midpoint(t_start, t_end, recovery, delay_years, disc, surv)?
                 }
             },
@@ -433,7 +523,14 @@ impl CDSPricer {
                 surv,
             ) {
                 Ok(pv) => pv,
-                Err(_) => {
+                Err(e) => {
+                    tracing::warn!(
+                        method = "AdaptiveSimpson",
+                        error = %e,
+                        t_start = t_start,
+                        t_end = t_end,
+                        "Integration failed, falling back to midpoint method"
+                    );
                     self.protection_leg_midpoint(t_start, t_end, recovery, delay_years, disc, surv)?
                 }
             },
@@ -1017,7 +1114,7 @@ impl CDSPricer {
             self.risky_annuity(cds, disc, surv, as_of)?
         };
 
-        if denom.abs() < 1e-12 {
+        if denom.abs() < numerical::RATE_COMPARISON_TOLERANCE {
             return Err(Error::Validation(
                 "Par spread denominator is too small (risky annuity ≈ 0). \
                  This may indicate zero survival probability or expired CDS."
