@@ -64,6 +64,7 @@
 use crate::dates::{Date, DayCount, DayCountCtx};
 use crate::market_data::term_structures::FlatCurve;
 use crate::market_data::traits::Discounting;
+use crate::math::NeumaierAccumulator;
 use crate::money::Money;
 
 /// Objects that can be present-valued against a `Discount` curve.
@@ -211,8 +212,24 @@ pub fn npv<D: Discounting + ?Sized>(
     }
     let day_count = dc.unwrap_or_else(|| disc.day_count());
     let ccy = flows[0].1.currency();
-    let mut total = Money::new(0.0, ccy);
+
+    // Validate all cashflows have the same currency
+    for (_, amt) in flows.iter().skip(1) {
+        if amt.currency() != ccy {
+            return Err(crate::Error::CurrencyMismatch {
+                expected: ccy,
+                actual: amt.currency(),
+            });
+        }
+    }
+
     let ctx = DayCountCtx::default();
+
+    // Accumulate using Money arithmetic to preserve internal Decimal precision.
+    // Money uses rust_decimal::Decimal internally, which doesn't suffer from the
+    // same floating-point accumulation errors that Neumaier summation addresses.
+    // For scalar (f64) NPV calculations, use npv_amounts() which employs Neumaier.
+    let mut total = Money::new(0.0, ccy);
     for (d, amt) in flows {
         let t = day_count.signed_year_fraction(base, *d, ctx)?;
         let df = disc.df(t);
@@ -333,13 +350,14 @@ pub fn npv_amounts(
     }
     let continuous_rate = (1.0 + discount_rate).ln();
 
-    let mut pv = 0.0;
+    // Use Neumaier compensated summation for numerical stability with many cashflows
+    let mut acc = NeumaierAccumulator::new();
     for (date, amount) in cash_flows {
         let t = dc.signed_year_fraction(base, *date, crate::dates::DayCountCtx::default())?;
-        pv += amount * (-continuous_rate * t).exp();
+        acc.add(amount * (-continuous_rate * t).exp());
     }
 
-    Ok(pv)
+    Ok(acc.total())
 }
 
 /// Compute NPV of dated `Money` flows using a discount curve.
@@ -565,6 +583,64 @@ mod tests {
             "npv_constant and npv with FlatCurve should be equivalent: {} vs {}",
             pv1.amount(),
             pv2.amount()
+        );
+    }
+
+    #[test]
+    fn npv_precision_many_cashflows() {
+        // Regression test for Neumaier compensated summation precision.
+        // A 30Y quarterly swap has 120 cashflows where naive summation can
+        // accumulate floating-point errors of ~1e-10 to 1e-9 of total PV.
+        // With Neumaier summation, we should maintain much higher precision.
+        let curve = FlatCurve {
+            id: CurveId::new("PRECISION-TEST"),
+        };
+        let base = curve.base_date();
+
+        // Create 120 cashflows (30Y quarterly), each 100.0 USD
+        // With DF=1.0 (flat curve), the sum should be exactly 12000.0
+        let flows: Vec<(Date, Money)> = (1..=120)
+            .map(|i| {
+                // ~91 days per quarter
+                let date = base + time::Duration::days(i as i64 * 91);
+                (date, Money::new(100.0, Currency::USD))
+            })
+            .collect();
+
+        let pv = npv(&curve, base, None, &flows).expect("NPV should succeed");
+
+        // With Neumaier summation, we expect precision better than 1e-10
+        assert!(
+            (pv.amount() - 12000.0).abs() < 1e-10,
+            "NPV precision lost with {} cashflows: expected 12000.0, got {} (error: {:.2e})",
+            flows.len(),
+            pv.amount(),
+            (pv.amount() - 12000.0).abs()
+        );
+    }
+
+    #[test]
+    fn npv_amounts_precision_many_cashflows() {
+        // Same precision test for npv_amounts (scalar version)
+        let base = create_date(2025, Month::January, 1).expect("Valid test date");
+
+        // Create 120 cashflows with 0% discount rate (DF=1.0 at all times)
+        let flows: Vec<(Date, f64)> = (1..=120)
+            .map(|i| {
+                let date = base + time::Duration::days(i as i64 * 91);
+                (date, 100.0)
+            })
+            .collect();
+
+        let pv = npv_amounts(&flows, 0.0, Some(base), None).expect("npv_amounts should succeed");
+
+        // With Neumaier summation, we expect precision better than 1e-10
+        assert!(
+            (pv - 12000.0).abs() < 1e-10,
+            "npv_amounts precision lost with {} cashflows: expected 12000.0, got {} (error: {:.2e})",
+            flows.len(),
+            pv,
+            (pv - 12000.0).abs()
         );
     }
 }

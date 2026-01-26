@@ -1018,8 +1018,14 @@ impl MonotoneConvexStrategy {
             // This matches the standard "linear" extrapolation of discrete forwards at
             // the ends and avoids coupling the boundary forwards to the interior knot
             // estimates (which can otherwise amplify endpoint sensitivity for long tenors).
-            f[0] = 1.5 * fd[0] - 0.5 * fd[1];
-            f[n - 1] = 1.5 * fd[n - 2] - 0.5 * fd[n - 3];
+            //
+            // Note: n >= 3 here (n == 2 handled above), so fd has at least 2 elements.
+            // For n == 3: fd[n-2] = fd[1], fd[n-3] = fd[0] are both valid.
+            // For n >= 4: all indices are well within bounds.
+            // We use defensive indexing to guard against future code changes.
+            f[0] = 1.5 * fd[0] - 0.5 * fd.get(1).copied().unwrap_or(fd[0]);
+            let last_idx = (n.saturating_sub(3)).min(fd.len().saturating_sub(1));
+            f[n - 1] = 1.5 * fd[n - 2] - 0.5 * fd[last_idx];
 
             // Apply monotonicity constraints to ensure positive forwards
             // and avoid overshoots

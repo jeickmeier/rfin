@@ -337,10 +337,21 @@ impl DiscountCurve {
     ///
     /// # Errors
     ///
-    /// Returns an error if `t1` or `t2` is non-finite, or if `t2 <= t1`.
+    /// Returns an error if:
+    /// - `t1` or `t2` is non-finite
+    /// - `t2 <= t1`
+    /// - `(t2 - t1) < MIN_FORWARD_TENOR` (~30 seconds) to avoid numerical precision issues
     #[inline]
     pub fn forward(&self, t1: f64, t2: f64) -> crate::Result<f64> {
+        /// Minimum forward rate tenor in years (~30 seconds).
+        /// Very short tenors cause precision degradation in the formula (z2 - z1) / (t2 - t1)
+        /// due to catastrophic cancellation when z1*t1 ≈ z2*t2.
+        const MIN_FORWARD_TENOR: f64 = 1e-6;
+
         if !t1.is_finite() || !t2.is_finite() || t2 <= t1 {
+            return Err(crate::error::InputError::Invalid.into());
+        }
+        if (t2 - t1) < MIN_FORWARD_TENOR {
             return Err(crate::error::InputError::Invalid.into());
         }
         let z1 = self.zero(t1) * t1;
