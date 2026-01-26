@@ -41,6 +41,7 @@ mod types;
 
 pub use pricer::CommodityForwardDiscountingPricer;
 pub use types::CommodityForward;
+pub use types::Position;
 pub use types::SettlementType;
 
 /// Metrics submodule for commodity forward risk measures.

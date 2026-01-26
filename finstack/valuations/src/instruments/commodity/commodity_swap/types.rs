@@ -182,40 +182,94 @@ impl CommoditySwap {
     }
 
     /// Calculate the present value of the floating leg.
+    ///
+    /// Projects floating prices from the `PriceCurve` referenced by `floating_index_id`,
+    /// with optional index lag and period averaging.
     pub fn floating_leg_pv(&self, market: &MarketContext, as_of: Date) -> Result<f64> {
         let disc = market.get_discount(self.discount_curve_id.as_str())?;
         let schedule = self.payment_schedule(as_of)?;
 
-        // Try to get floating index curve
-        let float_curve = market.get_discount(self.floating_index_id.as_str())?;
+        // Try to get PriceCurve for floating index
+        let price_curve = market.get_price_curve(self.floating_index_id.as_str())?;
 
         let mut pv = 0.0;
+        let mut prev_period_end = self.start_date;
+
         for payment_date in schedule {
             if payment_date < as_of {
+                prev_period_end = payment_date;
                 continue; // Skip past payments
             }
 
-            // Calculate time to payment for forward price interpolation
-            let t = DayCount::Act365F
-                .year_fraction(as_of, payment_date, DayCountCtx::default())
-                .unwrap_or(0.0);
+            // Period start is previous period end (or swap start for first period)
+            let period_start = prev_period_end;
+            let period_end = payment_date;
 
-            // Get forward price from curve (using rate as proxy)
-            // In practice, this would use actual commodity forward prices
-            let rate = float_curve.zero(t);
-            let forward_price = if t > 0.0 {
-                // Use cost-of-carry approximation
-                self.fixed_price * (rate * t).exp()
-            } else {
-                self.fixed_price
-            };
+            // Get expected average price for this period
+            let forward_price =
+                self.expected_period_price(&price_curve, as_of, period_start, period_end)?;
 
             let df = disc.df_between_dates(as_of, payment_date)?;
             let period_value = self.notional_quantity * forward_price;
             pv += period_value * df;
+
+            prev_period_end = payment_date;
         }
 
         Ok(pv)
+    }
+
+    /// Calculate expected average price for a period.
+    ///
+    /// Samples the price curve at multiple points within the period and averages.
+    /// Applies index lag if specified (shifts observation window backwards).
+    ///
+    /// # Arguments
+    /// * `price_curve` - The commodity price curve
+    /// * `as_of` - Valuation date
+    /// * `period_start` - Start of the averaging period
+    /// * `period_end` - End of the averaging period
+    fn expected_period_price(
+        &self,
+        price_curve: &finstack_core::market_data::term_structures::PriceCurve,
+        as_of: Date,
+        period_start: Date,
+        period_end: Date,
+    ) -> Result<f64> {
+        // Apply index lag if specified (shift observation window backwards)
+        let lag_days = self.index_lag_days.unwrap_or(0);
+        let obs_start = period_start - time::Duration::days(lag_days as i64);
+        let obs_end = period_end - time::Duration::days(lag_days as i64);
+
+        // For past or very near periods, use spot/near price
+        if obs_end <= as_of {
+            let t = DayCount::Act365F
+                .year_fraction(as_of, obs_end, DayCountCtx::default())
+                .unwrap_or(0.0);
+            return Ok(price_curve.price(t.max(0.0)));
+        }
+
+        // For future periods, sample multiple points and average
+        // Use 3-point averaging: start, middle, end of observation period
+        let obs_mid = obs_start + (obs_end - obs_start) / 2;
+
+        let t_start = DayCount::Act365F
+            .year_fraction(as_of, obs_start, DayCountCtx::default())
+            .unwrap_or(0.0);
+        let t_mid = DayCount::Act365F
+            .year_fraction(as_of, obs_mid, DayCountCtx::default())
+            .unwrap_or(0.0);
+        let t_end = DayCount::Act365F
+            .year_fraction(as_of, obs_end, DayCountCtx::default())
+            .unwrap_or(0.0);
+
+        // Sample prices at start, mid, end
+        let p_start = price_curve.price(t_start.max(0.0));
+        let p_mid = price_curve.price(t_mid.max(0.0));
+        let p_end = price_curve.price(t_end.max(0.0));
+
+        // Simple average (could use weighted average for more accuracy)
+        Ok((p_start + p_mid + p_end) / 3.0)
     }
 
     /// Generate the payment schedule for this swap.
@@ -244,26 +298,27 @@ impl CommoditySwap {
     }
 
     /// Get all projected cashflows for this swap.
+    ///
+    /// Returns net cashflows (floating - fixed for pay-fixed, fixed - floating otherwise)
+    /// at each payment date.
     pub fn cashflows(&self, market: &MarketContext, as_of: Date) -> Result<Vec<(Date, Money)>> {
         let schedule = self.payment_schedule(as_of)?;
-        let float_curve = market.get_discount(self.floating_index_id.as_str())?;
+        let price_curve = market.get_price_curve(self.floating_index_id.as_str())?;
 
         let mut flows = Vec::new();
+        let mut prev_period_end = self.start_date;
+
         for payment_date in schedule {
             if payment_date < as_of {
+                prev_period_end = payment_date;
                 continue;
             }
 
-            let t = DayCount::Act365F
-                .year_fraction(as_of, payment_date, DayCountCtx::default())
-                .unwrap_or(0.0);
+            let period_start = prev_period_end;
+            let period_end = payment_date;
 
-            let rate = float_curve.zero(t);
-            let forward_price = if t > 0.0 {
-                self.fixed_price * (rate * t).exp()
-            } else {
-                self.fixed_price
-            };
+            let forward_price =
+                self.expected_period_price(&price_curve, as_of, period_start, period_end)?;
 
             let net_cashflow = if self.pay_fixed {
                 self.notional_quantity * (forward_price - self.fixed_price)
@@ -272,6 +327,7 @@ impl CommoditySwap {
             };
 
             flows.push((payment_date, Money::new(net_cashflow, self.currency)));
+            prev_period_end = payment_date;
         }
 
         Ok(flows)
@@ -359,7 +415,35 @@ impl crate::instruments::common::pricing::HasForwardCurves for CommoditySwap {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use finstack_core::market_data::term_structures::{DiscountCurve, PriceCurve};
     use time::Month;
+
+    fn test_market(as_of: Date) -> MarketContext {
+        // Create discount curve
+        let disc = DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .knots([(0.0, 1.0), (0.5, 0.975), (1.0, 0.95), (2.0, 0.90)])
+            .build()
+            .expect("Valid discount curve");
+
+        // Create price curve for NG forward prices (slight contango)
+        let price_curve = PriceCurve::builder("NG-SPOT-AVG")
+            .base_date(as_of)
+            .spot_price(3.50)
+            .knots([
+                (0.0, 3.50),
+                (0.25, 3.55),
+                (0.5, 3.60),
+                (0.75, 3.65),
+                (1.0, 3.70),
+            ])
+            .build()
+            .expect("Valid price curve");
+
+        MarketContext::new()
+            .insert_discount(disc)
+            .insert_price_curve(price_curve)
+    }
 
     #[test]
     fn test_commodity_swap_creation() {
@@ -395,6 +479,129 @@ mod tests {
         assert_eq!(swap.commodity_type, "Energy");
         assert_eq!(swap.ticker, "NG");
         assert!(swap.attributes.has_tag("energy"));
+    }
+
+    #[test]
+    fn test_commodity_swap_npv_at_market() {
+        // When fixed price equals expected floating average, NPV should be ~0
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let market = test_market(as_of);
+
+        let swap = CommoditySwap::builder()
+            .id(InstrumentId::new("AT-MARKET-SWAP"))
+            .commodity_type("Energy".to_string())
+            .ticker("NG".to_string())
+            .unit("MMBTU".to_string())
+            .currency(Currency::USD)
+            .notional_quantity(10000.0)
+            .fixed_price(3.50) // Same as spot
+            .floating_index_id(CurveId::new("NG-SPOT-AVG"))
+            .pay_fixed(true)
+            .start_date(as_of)
+            .end_date(Date::from_calendar_date(2025, Month::June, 30).expect("valid date"))
+            .payment_frequency(Tenor::new(1, finstack_core::dates::TenorUnit::Months))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .build()
+            .expect("should build");
+
+        let npv = swap.npv(&market, as_of).expect("should price");
+
+        // In contango (forward > spot), pay-fixed should receive more on floating leg
+        // So NPV should be slightly positive
+        assert!(
+            npv.amount() > 0.0,
+            "Pay-fixed swap in contango should have positive NPV, got {}",
+            npv.amount()
+        );
+    }
+
+    #[test]
+    fn test_commodity_swap_pay_receive_symmetry() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let market = test_market(as_of);
+
+        let pay_fixed = CommoditySwap::builder()
+            .id(InstrumentId::new("PAY-FIXED"))
+            .commodity_type("Energy".to_string())
+            .ticker("NG".to_string())
+            .unit("MMBTU".to_string())
+            .currency(Currency::USD)
+            .notional_quantity(10000.0)
+            .fixed_price(3.55)
+            .floating_index_id(CurveId::new("NG-SPOT-AVG"))
+            .pay_fixed(true)
+            .start_date(as_of)
+            .end_date(Date::from_calendar_date(2025, Month::June, 30).expect("valid date"))
+            .payment_frequency(Tenor::new(1, finstack_core::dates::TenorUnit::Months))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .build()
+            .expect("should build");
+
+        let receive_fixed = CommoditySwap::builder()
+            .id(InstrumentId::new("RECEIVE-FIXED"))
+            .commodity_type("Energy".to_string())
+            .ticker("NG".to_string())
+            .unit("MMBTU".to_string())
+            .currency(Currency::USD)
+            .notional_quantity(10000.0)
+            .fixed_price(3.55)
+            .floating_index_id(CurveId::new("NG-SPOT-AVG"))
+            .pay_fixed(false) // Receiving fixed
+            .start_date(as_of)
+            .end_date(Date::from_calendar_date(2025, Month::June, 30).expect("valid date"))
+            .payment_frequency(Tenor::new(1, finstack_core::dates::TenorUnit::Months))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .build()
+            .expect("should build");
+
+        let pay_npv = pay_fixed.npv(&market, as_of).expect("should price");
+        let recv_npv = receive_fixed.npv(&market, as_of).expect("should price");
+
+        // Offsetting swaps should net to zero
+        let net = pay_npv.amount() + recv_npv.amount();
+        assert!(
+            net.abs() < 1e-10,
+            "Pay + Receive NPV should sum to 0, got {}",
+            net
+        );
+    }
+
+    #[test]
+    fn test_commodity_swap_cashflows() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let market = test_market(as_of);
+
+        let swap = CommoditySwap::builder()
+            .id(InstrumentId::new("CASHFLOW-TEST"))
+            .commodity_type("Energy".to_string())
+            .ticker("NG".to_string())
+            .unit("MMBTU".to_string())
+            .currency(Currency::USD)
+            .notional_quantity(10000.0)
+            .fixed_price(3.50)
+            .floating_index_id(CurveId::new("NG-SPOT-AVG"))
+            .pay_fixed(true)
+            .start_date(as_of)
+            .end_date(Date::from_calendar_date(2025, Month::March, 31).expect("valid date"))
+            .payment_frequency(Tenor::new(1, finstack_core::dates::TenorUnit::Months))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .build()
+            .expect("should build");
+
+        let flows = swap.cashflows(&market, as_of).expect("should get flows");
+
+        // Should have 3 payments (Jan, Feb, Mar end of month)
+        assert_eq!(flows.len(), 3, "Expected 3 monthly payments");
+
+        // All cashflows should be positive in contango (floating > fixed)
+        for (date, cf) in &flows {
+            assert!(
+                cf.amount() > 0.0,
+                "Cashflow on {} should be positive in contango, got {}",
+                date,
+                cf.amount()
+            );
+        }
     }
 
     #[test]

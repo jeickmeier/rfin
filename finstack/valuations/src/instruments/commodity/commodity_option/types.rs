@@ -17,8 +17,25 @@ use smallvec::smallvec;
 
 /// Commodity option (option on commodity forward or spot).
 ///
-/// Pricing uses Black-76 for European exercise and a binomial tree for
-/// American exercise.
+/// # Pricing
+///
+/// - **European options**: Black-76 model using the forward price from the `PriceCurve`
+/// - **American options**: Binomial tree (Leisen-Reimer) with cost-of-carry derived from
+///   the forward/spot relationship
+///
+/// # American Option Assumptions
+///
+/// For American exercise, the model requires a spot price to build the binomial tree.
+/// If `spot_price_id` is provided, it uses that spot price. Otherwise, the forward
+/// price is used as a proxy for spot, which may underestimate early exercise value.
+/// The convenience yield (cost-of-carry) is implied from the forward/spot ratio:
+/// `q = r - ln(F/S)/T`
+///
+/// # Forward Price Retrieval
+///
+/// Forward prices are retrieved from a `PriceCurve` (not a `ForwardCurve`).
+/// The curve must be added via `MarketContext::insert_price_curve()`.
+/// If `quoted_forward` is provided, it overrides the curve lookup.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
@@ -218,28 +235,41 @@ impl CommodityOption {
 
     /// Get the forward price for this option.
     ///
-    /// Uses quoted_forward if provided, otherwise interpolates from the forward curve.
+    /// Uses `quoted_forward` if provided, otherwise retrieves from the `PriceCurve`
+    /// specified by `forward_curve_id`. If no `PriceCurve` is found but `spot_price_id`
+    /// is provided, falls back to cost-of-carry model: F = S × exp(r × T).
     pub fn forward_price(&self, market: &MarketContext, as_of: Date) -> Result<f64> {
+        // 1. Direct override takes precedence
         if let Some(price) = self.quoted_forward {
             return Ok(price);
         }
 
-        let curve = market.get_forward(self.forward_curve_id.as_str())?;
         let t = DayCount::Act365F
             .year_fraction(as_of, self.expiry, DayCountCtx::default())?
             .max(0.0);
-        let rate = curve.rate(t);
 
+        // 2. Try to get price from PriceCurve
+        if let Ok(price_curve) = market.get_price_curve(self.forward_curve_id.as_str()) {
+            return Ok(price_curve.price(t));
+        }
+
+        // 3. Fallback: cost-of-carry model if spot is available
         if let Some(spot) = self.spot_price(market)? {
-            return Ok(spot * (rate * t).exp());
+            let disc = market.get_discount(self.discount_curve_id.as_str())?;
+            let r = disc.zero(t);
+            return Ok(spot * (r * t).exp());
         }
 
-        let df = curve.df(t)?;
-        if df.abs() > 1e-12 {
-            Ok(100.0 / df)
-        } else {
-            Ok(100.0)
-        }
+        // 4. No PriceCurve and no spot - error with helpful message
+        Err(finstack_core::Error::Input(
+            finstack_core::error::InputError::NotFound {
+                id: format!(
+                    "PriceCurve '{}' not found. \
+                     Use MarketContext::insert_price_curve() to add a commodity forward price curve.",
+                    self.forward_curve_id
+                ),
+            },
+        ))
     }
 }
 

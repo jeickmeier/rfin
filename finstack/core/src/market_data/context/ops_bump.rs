@@ -7,7 +7,8 @@ use super::curve_storage::CurveStorage;
 use super::MarketContext;
 
 use crate::market_data::term_structures::{
-    BaseCorrelationCurve, DiscountCurve, ForwardCurve, InflationCurve, VolatilityIndexCurve,
+    BaseCorrelationCurve, DiscountCurve, ForwardCurve, InflationCurve, PriceCurve,
+    VolatilityIndexCurve,
 };
 
 impl MarketContext {
@@ -255,6 +256,26 @@ impl MarketContext {
                             bumped
                         };
                         CurveStorage::VolIndex(Arc::new(final_curve))
+                    }
+                    CurveStorage::Price(original) => {
+                        let bumped = original.apply_bump(bump_spec)?;
+                        let final_curve = if bumped.id() != original.id() {
+                            PriceCurve::builder(original.id().as_str())
+                                .base_date(bumped.base_date())
+                                .day_count(bumped.day_count())
+                                .spot_price(bumped.spot_price())
+                                .knots(
+                                    bumped
+                                        .knots()
+                                        .iter()
+                                        .copied()
+                                        .zip(bumped.prices().iter().copied()),
+                                )
+                                .build()?
+                        } else {
+                            bumped
+                        };
+                        CurveStorage::Price(Arc::new(final_curve))
                     }
                 };
 

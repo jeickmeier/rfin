@@ -67,7 +67,7 @@ mod tests {
     use crate::pricer::Pricer;
     use finstack_core::currency::Currency;
     use finstack_core::dates::{Tenor, TenorUnit};
-    use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::market_data::term_structures::{DiscountCurve, PriceCurve};
     use finstack_core::types::{CurveId, InstrumentId};
     use time::Month;
 
@@ -93,20 +93,25 @@ mod tests {
 
     fn create_test_market() -> MarketContext {
         let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
-        let discount_curve_ois = DiscountCurve::builder("USD-OIS")
+
+        // Create discount curve
+        let discount_curve = DiscountCurve::builder("USD-OIS")
             .base_date(base_date)
-            .knots(vec![(0.0, 1.0), (1.0, 0.95), (5.0, 0.80)])
+            .knots(vec![(0.0, 1.0), (0.5, 0.975), (1.0, 0.95), (5.0, 0.80)])
             .build()
             .expect("should succeed");
-        let discount_curve_ng = DiscountCurve::builder("NG-SPOT-AVG")
+
+        // Create price curve for NG forward prices
+        let price_curve = PriceCurve::builder("NG-SPOT-AVG")
             .base_date(base_date)
-            .knots(vec![(0.0, 1.0), (1.0, 0.95), (5.0, 0.80)])
+            .spot_price(3.50)
+            .knots(vec![(0.0, 3.50), (0.25, 3.55), (0.5, 3.60), (1.0, 3.70)])
             .build()
             .expect("should succeed");
 
         MarketContext::new()
-            .insert_discount(discount_curve_ois)
-            .insert_discount(discount_curve_ng)
+            .insert_discount(discount_curve)
+            .insert_price_curve(price_curve)
     }
 
     #[test]
@@ -126,9 +131,17 @@ mod tests {
         let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
 
         let result = pricer.price_dyn(&swap, &market, as_of);
-        assert!(result.is_ok());
+        assert!(result.is_ok(), "Pricing failed: {:?}", result.err());
 
         let valuation = result.expect("should succeed");
         assert_eq!(valuation.instrument_id, "TEST-SWAP");
+
+        // In contango (forward > spot), pay-fixed should have positive NPV
+        // because floating leg receives higher forward prices
+        assert!(
+            valuation.value.amount() > 0.0,
+            "Pay-fixed swap in contango should have positive NPV, got {}",
+            valuation.value.amount()
+        );
     }
 }

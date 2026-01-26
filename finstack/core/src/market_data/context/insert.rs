@@ -13,7 +13,7 @@ use crate::market_data::{
     surfaces::VolSurface,
     term_structures::{
         BaseCorrelationCurve, CreditIndexData, DiscountCurve, ForwardCurve, HazardCurve,
-        InflationCurve, VolatilityIndexCurve,
+        InflationCurve, PriceCurve, VolatilityIndexCurve,
     },
 };
 
@@ -89,6 +89,32 @@ impl MarketContext {
     /// assert!(ctx.get_vol_index("VIX").is_ok());
     /// ```
     pub fn insert_vol_index(mut self, curve: VolatilityIndexCurve) -> Self {
+        self.curves.insert(curve.id().to_owned(), curve.into());
+        self
+    }
+
+    /// Insert a price curve (forward prices for commodities/indices).
+    ///
+    /// # Parameters
+    /// - `curve`: [`PriceCurve`] to store (e.g., WTI forward prices)
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::market_data::context::MarketContext;
+    /// use finstack_core::market_data::term_structures::PriceCurve;
+    /// use finstack_core::dates::Date;
+    /// use time::Month;
+    ///
+    /// let curve = PriceCurve::builder("WTI-FORWARD")
+    ///     .base_date(Date::from_calendar_date(2024, Month::January, 1).expect("Valid date"))
+    ///     .spot_price(75.0)
+    ///     .knots([(0.0, 75.0), (0.5, 77.0)])
+    ///     .build()
+    ///     .expect("PriceCurve builder should succeed");
+    /// let ctx = MarketContext::new().insert_price_curve(curve);
+    /// assert!(ctx.get_price_curve("WTI-FORWARD").is_ok());
+    /// ```
+    pub fn insert_price_curve(mut self, curve: PriceCurve) -> Self {
         self.curves.insert(curve.id().to_owned(), curve.into());
         self
     }

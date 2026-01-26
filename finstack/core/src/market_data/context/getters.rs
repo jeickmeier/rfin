@@ -14,7 +14,7 @@ use crate::market_data::{
     surfaces::VolSurface,
     term_structures::{
         BaseCorrelationCurve, CreditIndexData, DiscountCurve, ForwardCurve, HazardCurve,
-        InflationCurve, VolatilityIndexCurve,
+        InflationCurve, PriceCurve, VolatilityIndexCurve,
     },
 };
 
@@ -98,6 +98,30 @@ impl MarketContext {
         self.get_curve_with_type_check(id_str, "VolIndex", |storage| {
             storage.vol_index().map(Arc::clone)
         })
+    }
+
+    /// Get a price curve by identifier.
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use finstack_core::market_data::context::MarketContext;
+    /// # use finstack_core::market_data::term_structures::PriceCurve;
+    /// # use finstack_core::dates::Date;
+    /// # use time::Month;
+    /// # let base = Date::from_calendar_date(2024, Month::January, 1).expect("Valid date");
+    /// # let curve = PriceCurve::builder("WTI-FORWARD")
+    /// #     .base_date(base)
+    /// #     .spot_price(75.0)
+    /// #     .knots([(0.0, 75.0), (0.5, 77.0)])
+    /// #     .build()
+    /// #     .expect("PriceCurve builder should succeed");
+    /// # let ctx = MarketContext::new().insert_price_curve(curve);
+    /// let price_curve = ctx.get_price_curve("WTI-FORWARD").expect("Price curve should exist");
+    /// assert!(price_curve.price(0.25) > 0.0);
+    /// ```
+    pub fn get_price_curve(&self, id: impl AsRef<str>) -> Result<Arc<PriceCurve>> {
+        let id_str = id.as_ref();
+        self.get_curve_with_type_check(id_str, "Price", |storage| storage.price().map(Arc::clone))
     }
 
     /// Clone a volatility surface by identifier.

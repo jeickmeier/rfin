@@ -1,7 +1,10 @@
 //! Forward curve dependency completeness tests.
 //!
 //! Ensures instruments declaring forward curve dependencies can be priced
-//! with only the declared market data present.
+//! with only the declared market data present. For commodity options,
+//! the forward price can come from either:
+//! 1. A PriceCurve (preferred)
+//! 2. Cost-of-carry model using spot price and discount curve (fallback)
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -13,7 +16,7 @@ use finstack_valuations::instruments::common::InstrumentDependencies;
 use finstack_valuations::instruments::json_loader::InstrumentJson;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::test_utils::{
-    flat_discount_with_tenor, flat_forward_with_tenor, flat_vol_surface,
+    flat_discount_with_tenor, flat_price_curve, flat_vol_surface,
 };
 use time::macros::date;
 
@@ -32,9 +35,9 @@ fn build_market_from_deps(
             5.0,
         ));
     }
+    // Use PriceCurve for commodity forward prices (not ForwardCurve which is for rates)
     for curve_id in deps.curves.forward_curves.iter() {
-        market =
-            market.insert_forward(flat_forward_with_tenor(curve_id.as_str(), as_of, 0.03, 5.0));
+        market = market.insert_price_curve(flat_price_curve(curve_id.as_str(), as_of, 80.0, 5.0));
     }
     for surface_id in deps.vol_surface_ids.iter() {
         market = market.insert_surface(flat_vol_surface(
@@ -74,7 +77,8 @@ fn test_forward_curve_dependencies_complete() {
 }
 
 #[test]
-fn test_missing_forward_curve_fails() {
+fn test_missing_forward_curve_with_spot_succeeds() {
+    // When spot_price_id is present, commodity option can derive forward via cost-of-carry
     let as_of = date!(2025 - 01 - 01);
     let mut option = CommodityOption::example();
     option.spot_price_id = Some("WTI-SPOT".to_string());
@@ -108,8 +112,47 @@ fn test_missing_forward_curve_fails() {
     }
 
     let result = option.value(&market, as_of);
+    // Should SUCCEED - cost-of-carry fallback: F = S * exp(r * T)
+    assert!(
+        result.is_ok(),
+        "Commodity option with spot price should succeed via cost-of-carry fallback, got: {:?}",
+        result.err()
+    );
+}
+
+#[test]
+fn test_missing_both_forward_and_spot_fails() {
+    // When neither PriceCurve nor spot_price_id is available, pricing should fail
+    let as_of = date!(2025 - 01 - 01);
+    let mut option = CommodityOption::example();
+    option.spot_price_id = None; // No spot fallback
+
+    let deps = InstrumentDependencies::from_instrument_json(&InstrumentJson::CommodityOption(
+        option.clone(),
+    ));
+
+    let mut market = MarketContext::new();
+    for curve_id in deps.curves.discount_curves.iter() {
+        market = market.insert_discount(flat_discount_with_tenor(
+            curve_id.as_str(),
+            as_of,
+            0.02,
+            5.0,
+        ));
+    }
+    for surface_id in deps.vol_surface_ids.iter() {
+        market = market.insert_surface(flat_vol_surface(
+            surface_id.as_str(),
+            &[0.25, 0.5, 1.0],
+            &[50.0, 75.0, 100.0],
+            0.2,
+        ));
+    }
+    // No spot price and no PriceCurve
+
+    let result = option.value(&market, as_of);
     assert!(
         result.is_err(),
-        "Commodity option pricing should fail when forward curve is missing"
+        "Commodity option pricing should fail when both PriceCurve and spot are missing"
     );
 }

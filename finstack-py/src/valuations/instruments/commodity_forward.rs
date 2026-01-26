@@ -7,7 +7,7 @@ use crate::errors::PyContext;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_forward::{
-    CommodityForward, SettlementType,
+    CommodityForward, Position, SettlementType,
 };
 use finstack_valuations::instruments::Attributes;
 use pyo3::exceptions::PyValueError;
@@ -75,6 +75,8 @@ pub struct PyCommodityForwardBuilder {
     settlement_type: Option<SettlementType>,
     exchange: Option<String>,
     contract_month: Option<String>,
+    position: Option<Position>,
+    contract_price: Option<f64>,
 }
 
 impl PyCommodityForwardBuilder {
@@ -95,6 +97,8 @@ impl PyCommodityForwardBuilder {
             settlement_type: None,
             exchange: None,
             contract_month: None,
+            position: None,
+            contract_price: None,
         }
     }
 
@@ -247,6 +251,35 @@ impl PyCommodityForwardBuilder {
         slf
     }
 
+    /// Set position direction: "long" or "short" (defaults to "long").
+    #[pyo3(text_signature = "($self, position=None)", signature = (position=None))]
+    fn position(
+        mut slf: PyRefMut<'_, Self>,
+        position: Option<String>,
+    ) -> PyResult<PyRefMut<'_, Self>> {
+        slf.position = match position.as_deref() {
+            Some("long") | Some("Long") | Some("LONG") => Some(Position::Long),
+            Some("short") | Some("Short") | Some("SHORT") => Some(Position::Short),
+            None => None,
+            Some(other) => {
+                return Err(PyValueError::new_err(format!(
+                    "Invalid position: '{other}'. Must be 'long' or 'short'",
+                )))
+            }
+        };
+        Ok(slf)
+    }
+
+    /// Set contract entry price (for mark-to-market). If None, treated as at-market.
+    #[pyo3(text_signature = "($self, contract_price=None)", signature = (contract_price=None))]
+    fn contract_price(
+        mut slf: PyRefMut<'_, Self>,
+        contract_price: Option<f64>,
+    ) -> PyRefMut<'_, Self> {
+        slf.contract_price = contract_price;
+        slf
+    }
+
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyCommodityForward> {
         slf.ensure_ready()?;
@@ -319,6 +352,12 @@ impl PyCommodityForwardBuilder {
         }
         if let Some(cm) = slf.contract_month.clone() {
             builder = builder.contract_month_opt(Some(cm));
+        }
+        if let Some(pos) = slf.position {
+            builder = builder.position(pos);
+        }
+        if let Some(cp) = slf.contract_price {
+            builder = builder.contract_price_opt(Some(cp));
         }
 
         let forward = builder
@@ -423,6 +462,21 @@ impl PyCommodityForward {
     #[getter]
     fn contract_month(&self) -> Option<&str> {
         self.inner.contract_month.as_deref()
+    }
+
+    /// Position direction: "long" or "short".
+    #[getter]
+    fn position(&self) -> &str {
+        match self.inner.position {
+            Position::Long => "long",
+            Position::Short => "short",
+        }
+    }
+
+    /// Contract entry price (for mark-to-market). None if at-market.
+    #[getter]
+    fn contract_price(&self) -> Option<f64> {
+        self.inner.contract_price
     }
 
     /// Instrument type key.

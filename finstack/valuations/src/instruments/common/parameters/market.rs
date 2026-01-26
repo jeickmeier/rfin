@@ -87,6 +87,56 @@ pub enum SettlementType {
     Cash,
 }
 
+/// Position direction for futures and forwards.
+///
+/// Indicates whether the holder is long (buyer) or short (seller) of the contract.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+pub enum Position {
+    /// Long position (buyer of futures/forward contract).
+    ///
+    /// Profits when the underlying price increases.
+    #[default]
+    Long,
+    /// Short position (seller of futures/forward contract).
+    ///
+    /// Profits when the underlying price decreases.
+    Short,
+}
+
+impl Position {
+    /// Returns the sign multiplier for this position (+1.0 for Long, -1.0 for Short).
+    #[inline]
+    pub fn sign(&self) -> f64 {
+        match self {
+            Position::Long => 1.0,
+            Position::Short => -1.0,
+        }
+    }
+}
+
+impl std::fmt::Display for Position {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Position::Long => write!(f, "long"),
+            Position::Short => write!(f, "short"),
+        }
+    }
+}
+
+impl std::str::FromStr for Position {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "long" | "buy" | "buyer" => Ok(Position::Long),
+            "short" | "sell" | "seller" => Ok(Position::Short),
+            other => Err(format!("Unknown position: {}", other)),
+        }
+    }
+}
+
 impl std::fmt::Display for SettlementType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

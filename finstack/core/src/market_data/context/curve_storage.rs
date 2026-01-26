@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::market_data::term_structures::{
-    BaseCorrelationCurve, DiscountCurve, ForwardCurve, HazardCurve, InflationCurve,
+    BaseCorrelationCurve, DiscountCurve, ForwardCurve, HazardCurve, InflationCurve, PriceCurve,
     VolatilityIndexCurve,
 };
 use crate::types::CurveId;
@@ -23,6 +23,8 @@ pub enum CurveStorage {
     Inflation(Arc<InflationCurve>),
     /// Base correlation curve
     BaseCorrelation(Arc<BaseCorrelationCurve>),
+    /// Forward price curve (commodities, indices)
+    Price(Arc<PriceCurve>),
     /// Volatility index forward curve (VIX, VXN, VSTOXX)
     VolIndex(Arc<VolatilityIndexCurve>),
 }
@@ -36,6 +38,7 @@ impl CurveStorage {
             Self::Hazard(c) => c.id(),
             Self::Inflation(c) => c.id(),
             Self::BaseCorrelation(c) => c.id(),
+            Self::Price(c) => c.id(),
             Self::VolIndex(c) => c.id(),
         }
     }
@@ -88,6 +91,14 @@ impl CurveStorage {
         }
     }
 
+    /// Borrow the price curve when the variant matches.
+    pub fn price(&self) -> Option<&Arc<PriceCurve>> {
+        match self {
+            Self::Price(curve) => Some(curve),
+            _ => None,
+        }
+    }
+
     /// Return `true` when this storage contains a discount curve.
     pub fn is_discount(&self) -> bool {
         matches!(self, Self::Discount(_))
@@ -113,6 +124,11 @@ impl CurveStorage {
         matches!(self, Self::VolIndex(_))
     }
 
+    /// Return `true` when this storage contains a price curve.
+    pub fn is_price(&self) -> bool {
+        matches!(self, Self::Price(_))
+    }
+
     /// Return a human-readable curve type (useful for diagnostics/logging).
     pub fn curve_type(&self) -> &'static str {
         match self {
@@ -121,6 +137,7 @@ impl CurveStorage {
             Self::Hazard(_) => "Hazard",
             Self::Inflation(_) => "Inflation",
             Self::BaseCorrelation(_) => "BaseCorrelation",
+            Self::Price(_) => "Price",
             Self::VolIndex(_) => "VolIndex",
         }
     }
@@ -193,5 +210,16 @@ impl From<VolatilityIndexCurve> for CurveStorage {
 impl From<Arc<VolatilityIndexCurve>> for CurveStorage {
     fn from(c: Arc<VolatilityIndexCurve>) -> Self {
         Self::VolIndex(c)
+    }
+}
+
+impl From<PriceCurve> for CurveStorage {
+    fn from(c: PriceCurve) -> Self {
+        Self::Price(Arc::new(c))
+    }
+}
+impl From<Arc<PriceCurve>> for CurveStorage {
+    fn from(c: Arc<PriceCurve>) -> Self {
+        Self::Price(c)
     }
 }

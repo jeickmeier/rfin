@@ -17,6 +17,9 @@ use smallvec::smallvec;
 /// Settlement type for commodity contracts.
 pub use crate::instruments::common::parameters::SettlementType;
 
+/// Position direction (long/short) for commodity contracts.
+pub use crate::instruments::common::parameters::Position;
+
 /// Commodity forward or futures contract.
 ///
 /// Represents a commitment to buy or sell a commodity at a specified future
@@ -27,25 +30,32 @@ pub use crate::instruments::common::parameters::SettlementType;
 ///
 /// Forward value is calculated as:
 /// ```text
-/// NPV = (F - K) × Q × M × DF(T)
+/// NPV = sign(position) × (F - K) × Q × M × DF(T)
 /// ```
 /// where:
-/// - F = Forward price from commodity curve (or quoted_price if provided)
-/// - K = Contract strike price (if applicable, else F is the agreed price)
+/// - sign = +1.0 for Long, -1.0 for Short
+/// - F = Forward price from price curve (or quoted_price if provided)
+/// - K = Contract price (entry price). If None, treated as at-market (K = F)
 /// - Q = Quantity
 /// - M = Contract multiplier
 /// - DF(T) = Discount factor to settlement date
 ///
+/// # At-Market vs Off-Market
+///
+/// - **At-market**: `contract_price = None` → NPV ≈ 0 (like entering a new futures position)
+/// - **Off-market**: `contract_price = Some(K)` → NPV reflects mark-to-market vs K
+///
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::commodity::commodity_forward::CommodityForward;
+/// use finstack_valuations::instruments::commodity::commodity_forward::{CommodityForward, Position};
 /// use finstack_core::currency::Currency;
 /// use finstack_core::dates::Date;
 /// use finstack_core::types::{CurveId, InstrumentId};
 /// use time::Month;
 ///
-/// let forward = CommodityForward::builder()
+/// // At-market long forward (NPV ≈ 0)
+/// let at_market = CommodityForward::builder()
 ///     .id(InstrumentId::new("WTI-FWD-2025M03"))
 ///     .commodity_type("Energy".to_string())
 ///     .ticker("CL".to_string())
@@ -54,6 +64,24 @@ pub use crate::instruments::common::parameters::SettlementType;
 ///     .multiplier(1.0)
 ///     .settlement_date(Date::from_calendar_date(2025, Month::March, 15).unwrap())
 ///     .currency(Currency::USD)
+///     .position(Position::Long)
+///     .forward_curve_id(CurveId::new("WTI-FORWARD"))
+///     .discount_curve_id(CurveId::new("USD-OIS"))
+///     .build()
+///     .expect("Valid forward");
+///
+/// // Off-market forward with specific contract price
+/// let off_market = CommodityForward::builder()
+///     .id(InstrumentId::new("WTI-FWD-2025M03-TRADE"))
+///     .commodity_type("Energy".to_string())
+///     .ticker("CL".to_string())
+///     .quantity(1000.0)
+///     .unit("BBL".to_string())
+///     .multiplier(1.0)
+///     .settlement_date(Date::from_calendar_date(2025, Month::March, 15).unwrap())
+///     .currency(Currency::USD)
+///     .position(Position::Long)
+///     .contract_price_opt(Some(72.0)) // Entry price
 ///     .forward_curve_id(CurveId::new("WTI-FORWARD"))
 ///     .discount_curve_id(CurveId::new("USD-OIS"))
 ///     .build()
@@ -86,14 +114,39 @@ pub struct CommodityForward {
     pub settlement_type: Option<SettlementType>,
     /// Currency for pricing.
     pub currency: Currency,
-    /// Optional quoted forward price (overrides curve lookup).
+    /// Position direction (long or short).
+    ///
+    /// - Long: buyer of the commodity at settlement
+    /// - Short: seller of the commodity at settlement
+    #[builder(default)]
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub position: Position,
+    /// Contract price (entry/trade price K).
+    ///
+    /// If `None`, the forward is treated as **at-market** (K = F), meaning
+    /// NPV ≈ 0 at inception (like a newly opened futures position).
+    ///
+    /// If `Some(K)`, the forward is **off-market** and NPV reflects the
+    /// mark-to-market difference: sign × (F - K) × Q × M × DF.
+    #[builder(optional)]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub contract_price: Option<f64>,
+    /// Optional quoted forward price (overrides curve lookup for F).
+    ///
+    /// This is a market price override, not the contract entry price.
+    /// Use `contract_price` for the trade entry price K.
     #[builder(optional)]
     #[cfg_attr(
         feature = "serde",
         serde(default, skip_serializing_if = "Option::is_none")
     )]
     pub quoted_price: Option<f64>,
-    /// Forward/futures curve ID for price interpolation.
+    /// Forward/futures price curve ID for price interpolation.
+    ///
+    /// Should reference a `PriceCurve` in the `MarketContext`.
     pub forward_curve_id: CurveId,
     /// Optional spot price ID (for delta calculations).
     #[builder(optional)]
@@ -141,6 +194,7 @@ impl CommodityForward {
             )
             .settlement_type_opt(Some(SettlementType::Cash))
             .currency(Currency::USD)
+            .position(Position::Long)
             .forward_curve_id(CurveId::new("WTI-FORWARD"))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .exchange_opt(Some("NYMEX".to_string()))
@@ -156,6 +210,20 @@ impl CommodityForward {
 
     /// Calculate the net present value of this commodity forward.
     ///
+    /// # Formula
+    ///
+    /// ```text
+    /// NPV = sign(position) × (F - K) × Q × M × DF(T)
+    /// ```
+    ///
+    /// where:
+    /// - sign = +1.0 for Long, -1.0 for Short
+    /// - F = Market forward price from `quoted_price` or `PriceCurve`
+    /// - K = Contract price (`contract_price`). If `None`, K = F (at-market)
+    /// - Q = Quantity
+    /// - M = Contract multiplier
+    /// - DF(T) = Discount factor to settlement date
+    ///
     /// # Arguments
     ///
     /// * `market` - Market context with curves and prices
@@ -164,78 +232,112 @@ impl CommodityForward {
     /// # Returns
     ///
     /// Present value in the instrument's currency.
+    ///
+    /// # At-Market Behavior
+    ///
+    /// When `contract_price = None`, the forward is at-market and NPV ≈ 0,
+    /// similar to entering a new futures position at the current market price.
     pub fn npv(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
         // If settlement has passed, value is zero
         if self.settlement_date < as_of {
             return Ok(Money::new(0.0, self.currency));
         }
 
-        // Get forward price from quoted price or curve
+        // Get market forward price F from quoted price or curve
         let forward_price = self.forward_price(market, as_of)?;
+
+        // Get contract price K (entry price). If None, treat as at-market (K = F)
+        let contract_price = self.contract_price.unwrap_or(forward_price);
 
         // Get discount factor
         let disc = market.get_discount(self.discount_curve_id.as_str())?;
         let df = disc.df_between_dates(as_of, self.settlement_date)?;
 
-        // NPV = Forward × Quantity × Multiplier × DF
-        // For a standard forward, we're long the commodity at the forward price
-        let notional_value = forward_price * self.quantity * self.multiplier;
-        let pv = notional_value * df;
+        // NPV = sign(position) × (F - K) × Q × M × DF
+        let price_diff = forward_price - contract_price;
+        let notional_qty = self.quantity * self.multiplier;
+        let pv = self.position.sign() * price_diff * notional_qty * df;
 
         Ok(Money::new(pv, self.currency))
     }
 
-    /// Get the forward price for this contract.
+    /// Get the market forward price for this contract.
     ///
-    /// Uses quoted_price if provided, otherwise interpolates from the forward curve.
+    /// Uses `quoted_price` if provided, otherwise interpolates from the
+    /// `PriceCurve` referenced by `forward_curve_id`.
+    ///
+    /// # Curve Lookup Order
+    ///
+    /// 1. If `quoted_price` is set, return it directly
+    /// 2. Look up `PriceCurve` by `forward_curve_id`
+    /// 3. If `spot_price_id` is set and PriceCurve not found, use cost-of-carry model
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if neither `quoted_price` nor `PriceCurve` is available.
     pub fn forward_price(&self, market: &MarketContext, as_of: Date) -> Result<f64> {
         // Use quoted price if available
         if let Some(price) = self.quoted_price {
             return Ok(price);
         }
 
-        // Otherwise look up from forward curve
-        // Try to get the forward curve as a discount curve (for interpolation)
-        let curve = market.get_discount(self.forward_curve_id.as_str())?;
-
         // Calculate time to settlement
         use finstack_core::dates::{DayCount, DayCountCtx};
-        let t = DayCount::Act365F
-            .year_fraction(as_of, self.settlement_date, DayCountCtx::default())
-            .unwrap_or(0.0);
+        let t = if self.settlement_date <= as_of {
+            0.0
+        } else {
+            DayCount::Act365F
+                .year_fraction(as_of, self.settlement_date, DayCountCtx::default())
+                .unwrap_or(0.0)
+        };
 
-        // For commodity curves, we interpret the "zero rate" as the forward price level
-        // This is a simplification - in practice, commodity curves store prices directly
-        // We'll use the rate as a proxy: F(T) = S × exp(r × T) where r is the convenience yield adjusted rate
-        let rate = curve.zero(t);
+        // Primary path: use PriceCurve
+        if let Ok(price_curve) = market.get_price_curve(self.forward_curve_id.as_str()) {
+            return Ok(price_curve.price(t));
+        }
 
-        // If we have a spot price, use cost-of-carry model
+        // Fallback: if we have a spot price and discount curve, use cost-of-carry model
+        // F = S × exp(r × T) where r is the implied carry rate
         if let Some(spot_id) = &self.spot_price_id {
             if let Ok(spot_scalar) = market.price(spot_id) {
                 let spot = match spot_scalar {
                     finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
                     finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
                 };
-                // F = S × exp(r × T)
-                return Ok(spot * (rate * t).exp());
+
+                // Try to get discount curve for carry rate
+                if let Ok(disc) = market.get_discount(self.discount_curve_id.as_str()) {
+                    let rate = disc.zero(t);
+                    return Ok(spot * (rate * t).exp());
+                }
+
+                // If no discount curve, return spot as approximation
+                return Ok(spot);
             }
         }
 
-        // Fallback: use the discount factor inverse as a price proxy
-        // This is suitable when the "forward curve" stores forward prices as pseudo-rates
-        let df = curve.df(t);
-        if df.abs() > 1e-12 {
-            // Assume a base price of 100 and adjust by discount factor ratio
-            // This is a placeholder - real implementation would use actual forward prices
-            Ok(100.0 / df)
-        } else {
-            Ok(100.0)
-        }
+        // If no PriceCurve and no spot, fail with a clear error
+        Err(finstack_core::Error::Input(
+            finstack_core::error::InputError::NotFound {
+                id: format!(
+                    "PriceCurve '{}' not found. \
+                     Use MarketContext::insert_price_curve() to add a commodity forward price curve.",
+                    self.forward_curve_id
+                ),
+            },
+        ))
     }
 
     /// Get the effective notional value at settlement.
     pub fn notional_value(&self, forward_price: f64) -> f64 {
         forward_price * self.quantity * self.multiplier
+    }
+
+    /// Check if this forward is at-market (no contract price set).
+    ///
+    /// At-market forwards have NPV ≈ 0 at inception.
+    pub fn is_at_market(&self) -> bool {
+        self.contract_price.is_none()
     }
 }
 
@@ -324,7 +426,29 @@ impl crate::instruments::common::pricing::HasForwardCurves for CommodityForward 
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use finstack_core::market_data::term_structures::{DiscountCurve, PriceCurve};
     use time::Month;
+
+    fn test_market(as_of: Date) -> MarketContext {
+        // Create a PriceCurve for WTI forward prices
+        let price_curve = PriceCurve::builder("WTI-FORWARD")
+            .base_date(as_of)
+            .spot_price(75.0)
+            .knots([(0.0, 75.0), (0.25, 76.0), (0.5, 77.0), (1.0, 78.0)])
+            .build()
+            .expect("Valid price curve");
+
+        // Create a discount curve
+        let disc = DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .knots([(0.0, 1.0), (0.25, 0.99), (0.5, 0.98), (1.0, 0.96)])
+            .build()
+            .expect("Valid discount curve");
+
+        MarketContext::new()
+            .insert_price_curve(price_curve)
+            .insert_discount(disc)
+    }
 
     #[test]
     fn test_commodity_forward_creation() {
@@ -337,6 +461,7 @@ mod tests {
             .multiplier(1.0)
             .settlement_date(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
             .currency(Currency::USD)
+            .position(Position::Long)
             .forward_curve_id(CurveId::new("CL-FWD"))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .attributes(Attributes::new())
@@ -347,6 +472,8 @@ mod tests {
         assert_eq!(forward.ticker, "CL");
         assert_eq!(forward.quantity, 1000.0);
         assert_eq!(forward.currency, Currency::USD);
+        assert_eq!(forward.position, Position::Long);
+        assert!(forward.is_at_market()); // No contract price set
     }
 
     #[test]
@@ -355,6 +482,7 @@ mod tests {
         assert_eq!(forward.id.as_str(), "WTI-FWD-2025M03");
         assert_eq!(forward.commodity_type, "Energy");
         assert_eq!(forward.ticker, "CL");
+        assert_eq!(forward.position, Position::Long);
         assert!(forward.attributes.has_tag("energy"));
     }
 
@@ -385,6 +513,148 @@ mod tests {
             .forward_price(&market, as_of)
             .expect("should get price");
         assert_eq!(price, 2000.0);
+    }
+
+    #[test]
+    fn test_commodity_forward_at_market_npv_near_zero() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
+        let market = test_market(as_of);
+
+        // At-market forward (no contract_price)
+        let forward = CommodityForward::builder()
+            .id(InstrumentId::new("WTI-AT-MARKET"))
+            .commodity_type("Energy".to_string())
+            .ticker("CL".to_string())
+            .quantity(1000.0)
+            .unit("BBL".to_string())
+            .multiplier(1.0)
+            .settlement_date(Date::from_calendar_date(2025, Month::April, 15).expect("valid date"))
+            .currency(Currency::USD)
+            .position(Position::Long)
+            .forward_curve_id(CurveId::new("WTI-FORWARD"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .build()
+            .expect("should build");
+
+        let npv = forward.npv(&market, as_of).expect("should price");
+        // At-market: K = F, so NPV = sign × (F - F) × Q × M × DF = 0
+        assert!(
+            npv.amount().abs() < 1e-10,
+            "At-market forward NPV should be ~0, got {}",
+            npv.amount()
+        );
+    }
+
+    #[test]
+    fn test_commodity_forward_off_market_long() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
+        let market = test_market(as_of);
+
+        // Off-market long forward with contract price below current forward
+        let forward = CommodityForward::builder()
+            .id(InstrumentId::new("WTI-OFF-MARKET-LONG"))
+            .commodity_type("Energy".to_string())
+            .ticker("CL".to_string())
+            .quantity(1000.0)
+            .unit("BBL".to_string())
+            .multiplier(1.0)
+            .settlement_date(Date::from_calendar_date(2025, Month::April, 15).expect("valid date"))
+            .currency(Currency::USD)
+            .position(Position::Long)
+            .contract_price_opt(Some(72.0)) // Bought at $72, market is ~$76
+            .forward_curve_id(CurveId::new("WTI-FORWARD"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .build()
+            .expect("should build");
+
+        let npv = forward.npv(&market, as_of).expect("should price");
+        // Long position, F > K: NPV should be positive
+        assert!(
+            npv.amount() > 0.0,
+            "Long position with F > K should have positive NPV, got {}",
+            npv.amount()
+        );
+    }
+
+    #[test]
+    fn test_commodity_forward_off_market_short() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
+        let market = test_market(as_of);
+
+        // Off-market short forward with contract price below current forward
+        let forward = CommodityForward::builder()
+            .id(InstrumentId::new("WTI-OFF-MARKET-SHORT"))
+            .commodity_type("Energy".to_string())
+            .ticker("CL".to_string())
+            .quantity(1000.0)
+            .unit("BBL".to_string())
+            .multiplier(1.0)
+            .settlement_date(Date::from_calendar_date(2025, Month::April, 15).expect("valid date"))
+            .currency(Currency::USD)
+            .position(Position::Short)
+            .contract_price_opt(Some(72.0)) // Sold at $72, market is ~$76
+            .forward_curve_id(CurveId::new("WTI-FORWARD"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .build()
+            .expect("should build");
+
+        let npv = forward.npv(&market, as_of).expect("should price");
+        // Short position, F > K: NPV should be negative (loss on short)
+        assert!(
+            npv.amount() < 0.0,
+            "Short position with F > K should have negative NPV, got {}",
+            npv.amount()
+        );
+    }
+
+    #[test]
+    fn test_commodity_forward_position_sign_symmetry() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
+        let market = test_market(as_of);
+        let settlement = Date::from_calendar_date(2025, Month::April, 15).expect("valid date");
+
+        let long = CommodityForward::builder()
+            .id(InstrumentId::new("LONG"))
+            .commodity_type("Energy".to_string())
+            .ticker("CL".to_string())
+            .quantity(1000.0)
+            .unit("BBL".to_string())
+            .multiplier(1.0)
+            .settlement_date(settlement)
+            .currency(Currency::USD)
+            .position(Position::Long)
+            .contract_price_opt(Some(72.0))
+            .forward_curve_id(CurveId::new("WTI-FORWARD"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .build()
+            .expect("should build");
+
+        let short = CommodityForward::builder()
+            .id(InstrumentId::new("SHORT"))
+            .commodity_type("Energy".to_string())
+            .ticker("CL".to_string())
+            .quantity(1000.0)
+            .unit("BBL".to_string())
+            .multiplier(1.0)
+            .settlement_date(settlement)
+            .currency(Currency::USD)
+            .position(Position::Short)
+            .contract_price_opt(Some(72.0))
+            .forward_curve_id(CurveId::new("WTI-FORWARD"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .build()
+            .expect("should build");
+
+        let long_npv = long.npv(&market, as_of).expect("should price");
+        let short_npv = short.npv(&market, as_of).expect("should price");
+
+        // Long + Short should net to zero (opposing positions cancel)
+        let net = long_npv.amount() + short_npv.amount();
+        assert!(
+            net.abs() < 1e-10,
+            "Long + Short should sum to zero, got {}",
+            net
+        );
     }
 
     #[test]
@@ -422,5 +692,6 @@ mod tests {
         assert_eq!(forward.id.as_str(), deserialized.id.as_str());
         assert_eq!(forward.ticker, deserialized.ticker);
         assert_eq!(forward.quantity, deserialized.quantity);
+        assert_eq!(forward.position, deserialized.position);
     }
 }

@@ -12,7 +12,7 @@ use finstack_valuations::instruments::{
     ExerciseStyle, OptionType, PricingOverrides, SettlementType,
 };
 use finstack_valuations::test_utils::{
-    date, flat_discount_with_tenor, flat_forward_with_tenor, flat_vol_surface,
+    date, flat_discount_with_tenor, flat_price_curve, flat_vol_surface,
 };
 
 #[test]
@@ -21,12 +21,13 @@ fn test_black76_futures_based_pricing() {
     let expiry = date(2026, 1, 1);
 
     let discount_curve = flat_discount_with_tenor("USD-OIS", as_of, 0.03, 1.0);
-    let forward_curve = flat_forward_with_tenor("CL-FWD", as_of, 0.0, 1.0);
+    // Use PriceCurve with flat forward price of 100
+    let price_curve = flat_price_curve("CL-FWD", as_of, 100.0, 1.0);
     let vol_surface = flat_vol_surface("CL-VOL", &[1.0], &[80.0, 100.0, 120.0], 0.20);
 
     let market = MarketContext::new()
         .insert_discount(discount_curve)
-        .insert_forward(forward_curve)
+        .insert_price_curve(price_curve)
         .insert_surface(vol_surface);
 
     let option = CommodityOption::builder()
@@ -74,12 +75,13 @@ fn test_futures_based_american_matches_european() {
     let expiry = date(2026, 1, 1);
 
     let discount_curve = flat_discount_with_tenor("USD-OIS", as_of, 0.02, 1.0);
-    let forward_curve = flat_forward_with_tenor("CL-FWD", as_of, 0.0, 1.0);
+    // Use PriceCurve with flat forward price of 100
+    let price_curve = flat_price_curve("CL-FWD", as_of, 100.0, 1.0);
     let vol_surface = flat_vol_surface("CL-VOL", &[1.0], &[90.0, 100.0, 110.0], 0.25);
 
     let market = MarketContext::new()
         .insert_discount(discount_curve)
-        .insert_forward(forward_curve)
+        .insert_price_curve(price_curve)
         .insert_surface(vol_surface);
 
     let build = |style| {
@@ -128,12 +130,13 @@ fn test_spot_based_american_put_above_european() {
     let expiry = date(2026, 1, 1);
 
     let discount_curve = flat_discount_with_tenor("USD-OIS", as_of, 0.05, 1.0);
-    let forward_curve = flat_forward_with_tenor("CL-FWD", as_of, 0.02, 1.0);
+    // Price curve shows forward at 90 * exp(0.02 * 1) ≈ 91.8 (contango)
+    let price_curve = flat_price_curve("CL-FWD", as_of, 91.8, 1.0);
     let vol_surface = flat_vol_surface("CL-VOL", &[1.0], &[80.0, 100.0, 120.0], 0.30);
 
     let market = MarketContext::new()
         .insert_discount(discount_curve)
-        .insert_forward(forward_curve)
+        .insert_price_curve(price_curve)
         .insert_surface(vol_surface)
         .insert_price("CL-SPOT", MarketScalar::Unitless(90.0));
 

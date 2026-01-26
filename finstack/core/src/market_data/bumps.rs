@@ -6,7 +6,7 @@
 
 use super::scalars::{MarketScalar, ScalarTimeSeries};
 use super::term_structures::{
-    BaseCorrelationCurve, DiscountCurve, ForwardCurve, HazardCurve, InflationCurve,
+    BaseCorrelationCurve, DiscountCurve, ForwardCurve, HazardCurve, InflationCurve, PriceCurve,
     VolatilityIndexCurve,
 };
 use crate::currency::Currency;
@@ -769,5 +769,69 @@ impl Bumpable for ScalarTimeSeries {
 
         ScalarTimeSeries::new(self.id().as_str(), bumped_obs, self.currency())
             .map(|s| s.with_interpolation(self.interpolation()))
+    }
+}
+
+impl Bumpable for PriceCurve {
+    fn apply_bump(&self, spec: BumpSpec) -> crate::Result<Self> {
+        use crate::error::InputError;
+
+        match spec.bump_type {
+            BumpType::Parallel => {
+                // Price curves support both additive and multiplicative bumps
+                match (spec.mode, spec.units) {
+                    (BumpMode::Additive, BumpUnits::Fraction) => {
+                        // Interpret fraction as absolute price units
+                        self.with_parallel_bump(spec.value)
+                    }
+                    (BumpMode::Additive, BumpUnits::Percent) => {
+                        // Interpret percent as percentage of current price
+                        let pct = spec.value / 100.0;
+                        self.with_percentage_bump(pct)
+                    }
+                    (BumpMode::Multiplicative, BumpUnits::Factor) => {
+                        // spec.value is the target factor (e.g., 1.10 for +10%)
+                        let pct = spec.value - 1.0;
+                        self.with_percentage_bump(pct)
+                    }
+                    (BumpMode::Multiplicative, BumpUnits::Percent) => {
+                        // spec.value is the percentage (e.g., 10 for +10%)
+                        let pct = spec.value / 100.0;
+                        self.with_percentage_bump(pct)
+                    }
+                    _ => Err(InputError::UnsupportedBump {
+                        reason: format!(
+                            "PriceCurve parallel bump: unsupported mode/units {:?}/{:?}. \
+                             Use Additive/{{Fraction,Percent}} or Multiplicative/{{Factor,Percent}}",
+                            spec.mode, spec.units
+                        ),
+                    }
+                    .into()),
+                }
+            }
+            BumpType::TriangularKeyRate {
+                prev_bucket,
+                target_bucket,
+                next_bucket,
+            } => {
+                let bump = match (spec.mode, spec.units) {
+                    (BumpMode::Additive, BumpUnits::Fraction) => spec.value,
+                    (BumpMode::Additive, BumpUnits::Percent) => {
+                        // Compute percentage of spot as additive bump
+                        spec.value / 100.0 * self.spot_price()
+                    }
+                    _ => {
+                        return Err(InputError::UnsupportedBump {
+                            reason: format!(
+                                "PriceCurve key-rate bump requires Additive mode, got {:?}/{:?}",
+                                spec.mode, spec.units
+                            ),
+                        }
+                        .into());
+                    }
+                };
+                self.with_triangular_key_rate_bump(prev_bucket, target_bucket, next_bucket, bump)
+            }
+        }
     }
 }

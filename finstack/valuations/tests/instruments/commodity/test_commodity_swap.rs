@@ -3,32 +3,40 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Tenor, TenorUnit};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::market_data::term_structures::{DiscountCurve, PriceCurve};
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
 use finstack_valuations::instruments::Attributes;
 use time::Month;
 
-/// Helper to create a test market context.
+/// Helper to create a test market context with discount and price curves.
 fn create_test_market() -> MarketContext {
-    // Create a flat 5% discount curve for USD-OIS
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+
+    // Create a 5% discount curve for USD-OIS
     let discount_curve = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
-        .knots([(0.0, 1.0), (5.0, (-0.05_f64 * 5.0).exp())])
+        .knots([(0.0, 1.0), (0.5, 0.975), (1.0, 0.95), (5.0, 0.78)])
         .build()
         .expect("discount curve should build");
 
-    // Create a flat curve for the floating commodity index
-    let floating_curve = DiscountCurve::builder("NG-SPOT-AVG")
+    // Create a price curve for NG forward prices (slight contango)
+    let price_curve = PriceCurve::builder("NG-SPOT-AVG")
         .base_date(base_date)
-        .knots([(0.0, 1.0), (5.0, (-0.05_f64 * 5.0).exp())])
+        .spot_price(3.50)
+        .knots([
+            (0.0, 3.50),
+            (0.25, 3.55),
+            (0.5, 3.60),
+            (0.75, 3.65),
+            (1.0, 3.70),
+        ])
         .build()
-        .expect("floating curve should build");
+        .expect("price curve should build");
 
     MarketContext::new()
         .insert_discount(discount_curve)
-        .insert_discount(floating_curve)
+        .insert_price_curve(price_curve)
 }
 
 #[test]
@@ -43,7 +51,7 @@ fn test_commodity_swap_pricing() {
         .unit("MMBTU".to_string())
         .currency(Currency::USD)
         .notional_quantity(10000.0)
-        .fixed_price(3.50)
+        .fixed_price(3.50) // Same as spot
         .floating_index_id(CurveId::new("NG-SPOT-AVG"))
         .pay_fixed(true)
         .start_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
@@ -59,10 +67,13 @@ fn test_commodity_swap_pricing() {
     // Verify basic properties
     assert_eq!(npv.currency(), Currency::USD);
 
-    // The NPV should be defined (could be positive, negative, or near zero depending on curves)
-    // For a flat curve where forward equals fixed, the swap should be near par (NPV ~= 0)
-    // But because of discounting and cost-of-carry approximation, it won't be exactly zero
-    println!("Swap NPV: {:?}", npv);
+    // In contango (forward > spot), pay-fixed swap should have positive NPV
+    // because the floating leg receives higher forward prices
+    assert!(
+        npv.amount() > 0.0,
+        "Pay-fixed swap in contango should have positive NPV, got {}",
+        npv.amount()
+    );
 }
 
 #[test]
@@ -90,7 +101,7 @@ fn test_commodity_swap_fixed_leg_pv() {
 
     let fixed_pv = swap.fixed_leg_pv(&market, as_of).expect("should compute");
 
-    // Fixed leg should have positive PV (we're paying fixed)
+    // Fixed leg should have positive PV
     // Each period is 10000 * 3.50 = 35000, with ~6 periods, total ~210000 before discounting
     assert!(fixed_pv > 0.0);
     assert!(fixed_pv < 250000.0); // Reasonable upper bound

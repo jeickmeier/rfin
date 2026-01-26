@@ -3,32 +3,39 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::market_data::term_structures::{DiscountCurve, PriceCurve};
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::commodity::commodity_forward::CommodityForward;
+use finstack_valuations::instruments::commodity::commodity_forward::{CommodityForward, Position};
 use finstack_valuations::instruments::Attributes;
 use time::Month;
 
-/// Helper to create a test discount curve.
+/// Helper to create a test market with discount and price curves.
 fn create_test_market() -> MarketContext {
     // Create a flat 5% discount curve for USD-OIS
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let discount_curve = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
-        .knots([(0.0, 1.0), (5.0, (-0.05_f64 * 5.0).exp())])
+        .knots([(0.0, 1.0), (0.5, 0.975), (1.0, 0.95), (5.0, 0.78)])
         .build()
         .expect("discount curve should build");
 
-    // Create a flat curve for forward prices (using same curve structure)
-    let forward_curve = DiscountCurve::builder("WTI-FORWARD")
+    // Create a price curve for WTI forward prices
+    let price_curve = PriceCurve::builder("WTI-FORWARD")
         .base_date(base_date)
-        .knots([(0.0, 1.0), (5.0, (-0.05_f64 * 5.0).exp())])
+        .spot_price(75.0)
+        .knots([
+            (0.0, 75.0),
+            (0.25, 76.0),
+            (0.5, 77.0),
+            (1.0, 78.0),
+            (2.0, 80.0),
+        ])
         .build()
-        .expect("forward curve should build");
+        .expect("price curve should build");
 
     MarketContext::new()
         .insert_discount(discount_curve)
-        .insert_discount(forward_curve)
+        .insert_price_curve(price_curve)
 }
 
 #[test]
@@ -37,6 +44,7 @@ fn test_commodity_forward_pricing_with_quoted_price() {
     let settlement = Date::from_calendar_date(2025, Month::June, 15).unwrap();
     let market = create_test_market();
 
+    // Create an off-market forward with contract_price below market
     let forward = CommodityForward::builder()
         .id(InstrumentId::new("WTI-TEST"))
         .commodity_type("Energy".to_string())
@@ -46,7 +54,9 @@ fn test_commodity_forward_pricing_with_quoted_price() {
         .multiplier(1.0)
         .settlement_date(settlement)
         .currency(Currency::USD)
-        .quoted_price_opt(Some(75.0)) // Quoted at $75/BBL
+        .position(Position::Long)
+        .contract_price_opt(Some(72.0)) // Entry price below market for positive MTM
+        .quoted_price_opt(Some(75.0)) // Quoted market price at $75/BBL
         .forward_curve_id(CurveId::new("WTI-FORWARD"))
         .discount_curve_id(CurveId::new("USD-OIS"))
         .attributes(Attributes::new())
@@ -57,16 +67,22 @@ fn test_commodity_forward_pricing_with_quoted_price() {
 
     // Verify basic properties
     assert_eq!(npv.currency(), Currency::USD);
+    // NPV = sign × (F - K) × Q × M × DF
+    // = +1 × (75 - 72) × 1000 × 1 × DF
+    // = 3000 × DF
+    // Should be positive because we're long and F > K
     assert!(
         npv.amount() > 0.0,
-        "NPV should be positive for a long forward"
+        "NPV should be positive for a long forward with F > K, got {}",
+        npv.amount()
     );
 
-    // The forward value should be roughly F * Q * M * DF
-    // With F=75, Q=1000, M=1, and some discount factor < 1
-    // NPV should be less than 75 * 1000 = 75000
-    assert!(npv.amount() < 75000.0);
-    assert!(npv.amount() > 70000.0); // Given short tenor and 5% rate
+    // NPV should be roughly 3000 × DF (where DF ≈ 0.97 for ~6 months at 5%)
+    assert!(
+        npv.amount() < 3500.0 && npv.amount() > 2500.0,
+        "NPV should be around 2800-3000, got {}",
+        npv.amount()
+    );
 }
 
 #[test]
@@ -85,6 +101,7 @@ fn test_commodity_forward_pricing_expired() {
         .multiplier(1.0)
         .settlement_date(settlement)
         .currency(Currency::USD)
+        .position(Position::Long)
         .quoted_price_opt(Some(75.0))
         .forward_curve_id(CurveId::new("WTI-FORWARD"))
         .discount_curve_id(CurveId::new("USD-OIS"))
@@ -111,7 +128,7 @@ fn test_commodity_forward_instrument_trait() {
 
 #[test]
 fn test_commodity_forward_forward_price_from_curve() {
-    // Test forward price calculation without quoted price
+    // Test forward price calculation from PriceCurve (no quoted price)
     let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let settlement = Date::from_calendar_date(2025, Month::March, 15).unwrap();
     let market = create_test_market();
@@ -125,7 +142,8 @@ fn test_commodity_forward_forward_price_from_curve() {
         .multiplier(1.0)
         .settlement_date(settlement)
         .currency(Currency::USD)
-        // No quoted_price - should use curve
+        .position(Position::Long)
+        // No quoted_price - should use PriceCurve
         .forward_curve_id(CurveId::new("WTI-FORWARD"))
         .discount_curve_id(CurveId::new("USD-OIS"))
         .attributes(Attributes::new())
@@ -134,10 +152,100 @@ fn test_commodity_forward_forward_price_from_curve() {
 
     let price = forward
         .forward_price(&market, as_of)
-        .expect("should get price");
+        .expect("should get price from PriceCurve");
 
-    // Without quoted price, should interpolate from curve
-    assert!(price > 0.0);
+    // Should interpolate from PriceCurve: ~2.5 months out from base
+    // Spot = 75, 3M = 76, so ~2.5M should be around 75.8
+    assert!(
+        price > 75.0 && price < 76.0,
+        "Forward price should be around 75.8, got {}",
+        price
+    );
+}
+
+#[test]
+fn test_commodity_forward_at_market_npv_zero() {
+    // At-market forward (no contract_price) should have NPV ≈ 0
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let settlement = Date::from_calendar_date(2025, Month::June, 15).unwrap();
+    let market = create_test_market();
+
+    let forward = CommodityForward::builder()
+        .id(InstrumentId::new("AT-MARKET"))
+        .commodity_type("Energy".to_string())
+        .ticker("CL".to_string())
+        .quantity(1000.0)
+        .unit("BBL".to_string())
+        .multiplier(1.0)
+        .settlement_date(settlement)
+        .currency(Currency::USD)
+        .position(Position::Long)
+        // No contract_price → at-market
+        .forward_curve_id(CurveId::new("WTI-FORWARD"))
+        .discount_curve_id(CurveId::new("USD-OIS"))
+        .attributes(Attributes::new())
+        .build()
+        .expect("should build");
+
+    let npv = forward.npv(&market, as_of).expect("should price");
+
+    // At-market: K = F, so NPV = 0
+    assert!(
+        npv.amount().abs() < 1e-10,
+        "At-market NPV should be ~0, got {}",
+        npv.amount()
+    );
+}
+
+#[test]
+fn test_commodity_forward_long_short_symmetry() {
+    // Long and short positions should have opposite NPVs
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let settlement = Date::from_calendar_date(2025, Month::June, 15).unwrap();
+    let market = create_test_market();
+
+    let long = CommodityForward::builder()
+        .id(InstrumentId::new("LONG"))
+        .commodity_type("Energy".to_string())
+        .ticker("CL".to_string())
+        .quantity(1000.0)
+        .unit("BBL".to_string())
+        .multiplier(1.0)
+        .settlement_date(settlement)
+        .currency(Currency::USD)
+        .position(Position::Long)
+        .contract_price_opt(Some(72.0))
+        .forward_curve_id(CurveId::new("WTI-FORWARD"))
+        .discount_curve_id(CurveId::new("USD-OIS"))
+        .build()
+        .expect("should build");
+
+    let short = CommodityForward::builder()
+        .id(InstrumentId::new("SHORT"))
+        .commodity_type("Energy".to_string())
+        .ticker("CL".to_string())
+        .quantity(1000.0)
+        .unit("BBL".to_string())
+        .multiplier(1.0)
+        .settlement_date(settlement)
+        .currency(Currency::USD)
+        .position(Position::Short)
+        .contract_price_opt(Some(72.0))
+        .forward_curve_id(CurveId::new("WTI-FORWARD"))
+        .discount_curve_id(CurveId::new("USD-OIS"))
+        .build()
+        .expect("should build");
+
+    let long_npv = long.npv(&market, as_of).expect("long should price");
+    let short_npv = short.npv(&market, as_of).expect("short should price");
+
+    // Long + Short should net to zero
+    let net = long_npv.amount() + short_npv.amount();
+    assert!(
+        net.abs() < 1e-10,
+        "Long + Short NPV should sum to 0, got {}",
+        net
+    );
 }
 
 #[cfg(feature = "serde")]
@@ -152,4 +260,5 @@ fn test_commodity_forward_serialization() {
     assert_eq!(forward.ticker, parsed.ticker);
     assert_eq!(forward.quantity, parsed.quantity);
     assert_eq!(forward.currency, parsed.currency);
+    assert_eq!(forward.position, parsed.position);
 }

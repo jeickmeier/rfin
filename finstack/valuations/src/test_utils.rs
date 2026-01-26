@@ -5,7 +5,7 @@ use finstack_core::{
     dates::Date,
     market_data::{
         surfaces::VolSurface,
-        term_structures::{DiscountCurve, ForwardCurve},
+        term_structures::{DiscountCurve, ForwardCurve, PriceCurve},
     },
     money::Money,
     types::{CurveId, InstrumentId},
@@ -336,6 +336,34 @@ pub fn flat_forward_with_tenor(id: &str, as_of: Date, rate: f64, tenor_years: f6
         .knots([(0.0, rate), (tenor_years, rate)])
         .build()
         .expect("forward curve should build in tests")
+}
+
+/// Build a flat price curve with a constant price level (for commodity forward prices).
+pub fn flat_price_curve(id: &str, as_of: Date, price: f64, tenor_years: f64) -> PriceCurve {
+    PriceCurve::builder(id)
+        .base_date(as_of)
+        .spot_price(price)
+        .knots([(0.0, price), (tenor_years, price)])
+        .build()
+        .expect("price curve should build in tests")
+}
+
+/// Build a contango price curve (forward prices increase with time).
+pub fn contango_price_curve(
+    id: &str,
+    as_of: Date,
+    spot: f64,
+    carry_rate: f64,
+    tenor_years: f64,
+) -> PriceCurve {
+    // F(T) = S * exp(r * T)
+    let far_price = spot * (carry_rate * tenor_years).exp();
+    PriceCurve::builder(id)
+        .base_date(as_of)
+        .spot_price(spot)
+        .knots([(0.0, spot), (tenor_years, far_price)])
+        .build()
+        .expect("price curve should build in tests")
 }
 
 /// Build a constant vol surface using provided expiries/strikes grid.

@@ -99,6 +99,10 @@ impl MarketContext {
                     let rolled = curve.roll_forward(days)?;
                     CurveStorage::VolIndex(Arc::new(rolled))
                 }
+                CurveStorage::Price(curve) => {
+                    let rolled = curve.roll_forward(days)?;
+                    CurveStorage::Price(Arc::new(rolled))
+                }
             };
             new_ctx.curves.insert(id.clone(), rolled_storage);
         }
