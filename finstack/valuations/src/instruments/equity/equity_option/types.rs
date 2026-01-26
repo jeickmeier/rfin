@@ -739,4 +739,79 @@ mod tests {
         // Same tolerance as other tests in this file
         approx_eq(pv.amount(), bs_price, 5e-3);
     }
+
+    /// Tests that pricing fails with a clear error when div_yield_id is set but missing from
+    /// the market context.
+    ///
+    /// This validates the fix for the silent fallback to 0.0 issue identified in the quant
+    /// code review. Market data configuration errors should not be masked.
+    #[test]
+    fn pricing_fails_when_dividend_yield_missing() {
+        let as_of = date(2025, 1, 3);
+        let expiry = date(2025, 7, 3);
+
+        // Create option with div_yield_id that won't exist in market context
+        let mut option = base_option(expiry);
+        option.div_yield_id = Some("MISSING-DIV-YIELD".to_string());
+
+        // Build market context WITHOUT the dividend yield
+        let expiries = [0.25, 0.5, 1.0, 2.0];
+        let strikes = [80.0, 90.0, 100.0, 110.0, 120.0];
+        let curves = MarketContext::new()
+            .insert_discount(flat_discount_with_tenor(DISC_ID, as_of, 0.03, 5.0))
+            .insert_surface(flat_vol_surface(VOL_ID, &expiries, &strikes, 0.25))
+            .insert_price(SPOT_ID, MarketScalar::Unitless(100.0));
+        // Note: NOT inserting dividend yield
+
+        // Pricing should fail with a validation error
+        let result = option.npv(&curves, as_of);
+        assert!(
+            result.is_err(),
+            "Expected pricing to fail when div_yield_id is set but missing from market context"
+        );
+
+        let err = result.unwrap_err();
+        let err_msg = err.to_string();
+        assert!(
+            err_msg.contains("MISSING-DIV-YIELD") || err_msg.contains("dividend yield"),
+            "Error message should mention the missing dividend yield ID, got: {}",
+            err_msg
+        );
+    }
+
+    /// Tests that pricing fails when div_yield_id returns a Price scalar instead of Unitless.
+    ///
+    /// Dividend yield should be a unitless decimal (e.g., 0.02 for 2%), not a price.
+    /// This validates type safety in market data configuration.
+    #[test]
+    fn pricing_fails_when_dividend_yield_wrong_type() {
+        let as_of = date(2025, 1, 3);
+        let expiry = date(2025, 7, 3);
+        let option = base_option(expiry);
+
+        // Build market context with dividend yield as a Price instead of Unitless
+        let expiries = [0.25, 0.5, 1.0, 2.0];
+        let strikes = [80.0, 90.0, 100.0, 110.0, 120.0];
+        let curves = MarketContext::new()
+            .insert_discount(flat_discount_with_tenor(DISC_ID, as_of, 0.03, 5.0))
+            .insert_surface(flat_vol_surface(VOL_ID, &expiries, &strikes, 0.25))
+            .insert_price(SPOT_ID, MarketScalar::Unitless(100.0))
+            // Wrong type: Price instead of Unitless
+            .insert_price(DIV_ID, MarketScalar::Price(Money::new(0.02, Currency::USD)));
+
+        // Pricing should fail with a validation error about wrong scalar type
+        let result = option.npv(&curves, as_of);
+        assert!(
+            result.is_err(),
+            "Expected pricing to fail when div_yield_id returns Price instead of Unitless"
+        );
+
+        let err = result.unwrap_err();
+        let err_msg = err.to_string();
+        assert!(
+            err_msg.contains("unitless") || err_msg.contains("Price"),
+            "Error message should mention the type mismatch, got: {}",
+            err_msg
+        );
+    }
 }

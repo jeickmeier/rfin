@@ -130,17 +130,23 @@ impl InterestRateSwap {
 
         // Resolve fixing calendar for daily stepping.
         //
-        // Default behavior: if the calendar is missing, fall back to weekday-only stepping
-        // (Mon-Fri). This avoids silently switching to calendar-day arithmetic, while still
-        // allowing pricing to proceed in environments where holiday calendars are not loaded.
-        let cal = fixing_calendar_id.and_then(|id| CalendarRegistry::global().resolve_str(id));
-        if cal.is_none() {
-            tracing::warn!(
-                swap_id = %self.id.as_str(),
-                calendar_id = fixing_calendar_id.unwrap_or(""),
-                "Fixing calendar not found for compounding; falling back to weekday-only stepping (Mon-Fri)"
-            );
-        }
+        // When a calendar ID is explicitly provided, we require it to resolve successfully.
+        // Silent fallback to weekday-only stepping would produce incorrect RFR accrual weights
+        // (SOFR, ESTR) and mask configuration errors. If no calendar is specified, weekday
+        // stepping is intentional and allowed.
+        let cal = if let Some(id) = fixing_calendar_id {
+            Some(CalendarRegistry::global().resolve_str(id).ok_or_else(|| {
+                finstack_core::Error::Validation(format!(
+                    "Fixing calendar '{}' not found in registry for compounded RFR swap '{}'. \
+                     Load the calendar or remove fixing_calendar_id to use weekday stepping.",
+                    id,
+                    self.id.as_str()
+                ))
+            })?)
+        } else {
+            // No calendar specified - weekday stepping is intentional
+            None
+        };
 
         let total_shift = self.compounded_total_shift_days();
 
@@ -533,7 +539,7 @@ pub fn npv_raw(irs: &InterestRateSwap, context: &MarketContext, as_of: Date) -> 
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
+#[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::instruments::common::traits::Instrument;
@@ -747,6 +753,158 @@ mod tests {
             "Expected PV to differ with lookback; pv0={}, pv2={}",
             pv0.amount(),
             pv2.amount()
+        );
+    }
+
+    /// Tests that compounded OIS pricing fails when fixing_calendar_id is specified but not
+    /// found in the CalendarRegistry.
+    ///
+    /// This validates the fix for the silent fallback to weekday stepping issue identified
+    /// in the quant code review. For RFR compounding (SOFR, ESTR), incorrect calendar
+    /// handling produces material accrual errors.
+    #[test]
+    fn compounded_ois_fails_when_calendar_missing() {
+        let as_of = date(2024, 1, 1);
+        let start = date(2024, 2, 1);
+        let end = date(2024, 5, 1);
+
+        let disc_id = CurveId::new("USD-OIS");
+        let disc = DiscountCurve::builder(disc_id.clone())
+            .base_date(as_of)
+            .knots(vec![(0.0, 1.0), (0.25, 0.99), (1.0, 0.95)])
+            .build()
+            .expect("discount curve");
+
+        let ctx = MarketContext::new().insert_discount(disc);
+
+        // Create swap with an explicitly specified but non-existent fixing calendar
+        let swap = InterestRateSwap::builder()
+            .id(InstrumentId::new("OIS-MISSING-CAL"))
+            .notional(Money::new(10_000_000.0, Currency::USD))
+            .side(crate::instruments::irs::PayReceive::PayFixed)
+            .fixed(crate::instruments::common::parameters::legs::FixedLegSpec {
+                discount_curve_id: disc_id.clone(),
+                rate: rust_decimal::Decimal::try_from(0.03).expect("valid"),
+                freq: finstack_core::dates::Tenor::quarterly(),
+                dc: finstack_core::dates::DayCount::Act360,
+                bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+                stub: finstack_core::dates::StubKind::None,
+                start,
+                end,
+                par_method: None,
+                compounding_simple: true,
+                payment_delay_days: 0,
+            })
+            .float(crate::instruments::common::parameters::legs::FloatLegSpec {
+                discount_curve_id: disc_id.clone(),
+                forward_curve_id: disc_id.clone(),
+                spread_bp: rust_decimal::Decimal::ZERO,
+                freq: finstack_core::dates::Tenor::quarterly(),
+                dc: finstack_core::dates::DayCount::Act360,
+                bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+                stub: finstack_core::dates::StubKind::None,
+                reset_lag_days: 0,
+                start,
+                end,
+                compounding: FloatingLegCompounding::sofr(),
+                // This calendar ID does not exist in the registry
+                fixing_calendar_id: Some("NONEXISTENT-CALENDAR-XYZ".to_string()),
+                payment_delay_days: 0,
+            })
+            .build()
+            .expect("swap");
+
+        // Pricing should fail with a validation error about the missing calendar
+        let result = swap.value(&ctx, as_of);
+        assert!(
+            result.is_err(),
+            "Expected pricing to fail when fixing_calendar_id is specified but not found"
+        );
+
+        let err = result.expect_err("Expected pricing to fail");
+        let err_msg = err.to_string();
+        assert!(
+            err_msg.contains("NONEXISTENT-CALENDAR-XYZ") || err_msg.contains("calendar"),
+            "Error message should mention the missing calendar ID, got: {}",
+            err_msg
+        );
+    }
+
+    /// Tests that compounded OIS pricing succeeds with weekday stepping when no fixing
+    /// calendar is specified.
+    ///
+    /// When fixing_calendar_id is None, weekday-only stepping (Mon-Fri) is intentional
+    /// and the pricing should proceed without error.
+    #[test]
+    fn compounded_ois_succeeds_with_weekday_stepping_when_no_calendar() {
+        let as_of = date(2024, 1, 1);
+        let start = date(2024, 2, 1);
+        let end = date(2024, 5, 1);
+
+        let disc_id = CurveId::new("USD-OIS");
+        let disc = DiscountCurve::builder(disc_id.clone())
+            .base_date(as_of)
+            .knots(vec![(0.0, 1.0), (0.25, 0.99), (1.0, 0.95)])
+            .build()
+            .expect("discount curve");
+
+        let ctx = MarketContext::new().insert_discount(disc);
+
+        // Create swap with NO fixing_calendar_id (intentional weekday stepping)
+        let swap = InterestRateSwap::builder()
+            .id(InstrumentId::new("OIS-NO-CALENDAR"))
+            .notional(Money::new(10_000_000.0, Currency::USD))
+            .side(crate::instruments::irs::PayReceive::PayFixed)
+            .fixed(crate::instruments::common::parameters::legs::FixedLegSpec {
+                discount_curve_id: disc_id.clone(),
+                rate: rust_decimal::Decimal::try_from(0.03).expect("valid"),
+                freq: finstack_core::dates::Tenor::quarterly(),
+                dc: finstack_core::dates::DayCount::Act360,
+                bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+                stub: finstack_core::dates::StubKind::None,
+                start,
+                end,
+                par_method: None,
+                compounding_simple: true,
+                payment_delay_days: 0,
+            })
+            .float(crate::instruments::common::parameters::legs::FloatLegSpec {
+                discount_curve_id: disc_id.clone(),
+                forward_curve_id: disc_id.clone(),
+                spread_bp: rust_decimal::Decimal::ZERO,
+                freq: finstack_core::dates::Tenor::quarterly(),
+                dc: finstack_core::dates::DayCount::Act360,
+                bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+                stub: finstack_core::dates::StubKind::None,
+                reset_lag_days: 0,
+                start,
+                end,
+                compounding: FloatingLegCompounding::sofr(),
+                // No fixing_calendar_id - intentional weekday stepping
+                fixing_calendar_id: None,
+                payment_delay_days: 0,
+            })
+            .build()
+            .expect("swap");
+
+        // Pricing should succeed when no calendar is specified
+        let result = swap.value(&ctx, as_of);
+        assert!(
+            result.is_ok(),
+            "Expected pricing to succeed with weekday stepping when no calendar specified, got: {:?}",
+            result.err()
+        );
+
+        // Verify we get a reasonable PV (non-zero, finite)
+        let pv = result.expect("Pricing should succeed");
+        assert!(
+            pv.amount().is_finite(),
+            "PV should be finite, got: {}",
+            pv.amount()
         );
     }
 }

@@ -158,13 +158,26 @@ pub fn collect_inputs_extended(
     };
 
     // Dividend yield from scalar id if provided
+    //
+    // When a dividend yield ID is explicitly provided, we require the lookup to succeed
+    // and return a unitless scalar. Silent fallback to 0.0 would mask market data
+    // configuration errors.
     let q = if let Some(div_id) = &inst.div_yield_id {
-        match curves.price(div_id.as_str()) {
-            Ok(ms) => match ms {
-                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-                finstack_core::market_data::scalars::MarketScalar::Price(_) => 0.0,
-            },
-            Err(_) => 0.0,
+        let ms = curves.price(div_id.as_str()).map_err(|e| {
+            finstack_core::Error::Validation(format!(
+                "Failed to fetch dividend yield '{}': {}",
+                div_id, e
+            ))
+        })?;
+        match ms {
+            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+            finstack_core::market_data::scalars::MarketScalar::Price(m) => {
+                return Err(finstack_core::Error::Validation(format!(
+                    "Dividend yield '{}' should be a unitless scalar, got Price({})",
+                    div_id,
+                    m.currency()
+                )));
+            }
         }
     } else {
         0.0
