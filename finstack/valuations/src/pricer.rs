@@ -786,16 +786,19 @@ impl From<PricingError> for finstack_core::Error {
                 finstack_core::InputError::NotFound { id: pricer_id }.into()
             }
             PricingError::TypeMismatch { .. } => finstack_core::InputError::Invalid.into(),
-            PricingError::InvalidInput { message, context } => finstack_core::Error::Calibration {
-                message: format!("{message}{}", format_context(&context)),
-                category: "pricing_input".to_string(),
-            },
+            // InvalidInput maps to Validation rather than Calibration:
+            // these are input validation failures, not numerical/solver failures.
+            PricingError::InvalidInput { message, context } => {
+                finstack_core::Error::Validation(format!("{message}{}", format_context(&context)))
+            }
             PricingError::MissingMarketData { missing_id, .. } => {
                 finstack_core::InputError::NotFound {
                     id: missing_id.clone(),
                 }
                 .into()
             }
+            // ModelFailure maps to Calibration for numerical/convergence failures.
+            // This includes solver non-convergence, matrix singularity, etc.
             PricingError::ModelFailure { message, context } => finstack_core::Error::Calibration {
                 message: format!("{message}{}", format_context(&context)),
                 category: "pricing_model".to_string(),
@@ -2315,6 +2318,7 @@ mod tests {
 
     #[test]
     fn pricing_error_maps_to_structured_core_errors() {
+        // MissingMarketData -> InputError::NotFound
         let missing: finstack_core::Error = PricingError::MissingMarketData {
             missing_id: "USD-SOFR".to_string(),
             context: PricingErrorContext::default(),
@@ -2327,6 +2331,7 @@ mod tests {
             other => panic!("unexpected mapping for missing market data: {other:?}"),
         }
 
+        // UnknownPricer -> InputError::NotFound
         let unknown_pricer: finstack_core::Error =
             PricingError::UnknownPricer(PricerKey::new(InstrumentType::Bond, ModelKey::Tree))
                 .into();
@@ -2337,14 +2342,47 @@ mod tests {
             other => panic!("unexpected mapping for unknown pricer: {other:?}"),
         }
 
+        // TypeMismatch -> InputError::Invalid
+        let type_mismatch: finstack_core::Error = PricingError::TypeMismatch {
+            expected: InstrumentType::Bond,
+            got: InstrumentType::IRS,
+        }
+        .into();
+        match type_mismatch {
+            finstack_core::Error::Input(finstack_core::InputError::Invalid) => {}
+            other => panic!("unexpected mapping for type mismatch: {other:?}"),
+        }
+
+        // InvalidInput -> Error::Validation (not Calibration)
+        let invalid_input: finstack_core::Error = PricingError::InvalidInput {
+            message: "bad parameter".to_string(),
+            context: PricingErrorContext::new().with_instrument_id("TEST-001"),
+        }
+        .into();
+        match invalid_input {
+            finstack_core::Error::Validation(msg) => {
+                assert!(
+                    msg.contains("bad parameter"),
+                    "Validation message should contain original message"
+                );
+                assert!(
+                    msg.contains("TEST-001"),
+                    "Validation message should contain context"
+                );
+            }
+            other => panic!("unexpected mapping for invalid input: {other:?}"),
+        }
+
+        // ModelFailure -> Calibration (for numerical/solver failures)
         let model_failure: finstack_core::Error = PricingError::ModelFailure {
-            message: "failed".to_string(),
+            message: "solver did not converge".to_string(),
             context: PricingErrorContext::default(),
         }
         .into();
         match model_failure {
-            finstack_core::Error::Calibration { category, .. } => {
-                assert_eq!(category, "pricing_model")
+            finstack_core::Error::Calibration { category, message } => {
+                assert_eq!(category, "pricing_model");
+                assert!(message.contains("solver did not converge"));
             }
             other => panic!("unexpected mapping for model failure: {other:?}"),
         }

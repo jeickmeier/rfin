@@ -250,7 +250,7 @@ Grid-based IM calculation (simpler but more conservative):
 ```rust
 use finstack_valuations::margin::{ScheduleImCalculator, ScheduleAssetClass};
 
-let calc = ScheduleImCalculator::bcbs_standard()
+let calc = ScheduleImCalculator::bcbs_standard()?
     .with_asset_class(ScheduleAssetClass::InterestRate)
     .with_maturity(5.0);
 

@@ -156,16 +156,42 @@ impl MetricId {
     // Equity Metrics
     // ========================================================================
 
-    /// Equity price per share - TODO: Remove this as input to metrics
+    /// Equity price per share (spot price).
+    ///
+    /// This is a market data input used in equity option and forward pricing.
+    /// Units: currency per share. Typically sourced from market data context.
+    ///
+    /// # Note
+    /// While primarily an input, it is exposed as a metric ID to allow
+    /// tracking and reporting alongside computed metrics.
     pub const EquityPricePerShare: Self = Self(Cow::Borrowed("equity_price_per_share"));
 
-    /// Equity shares (effective) - TODO: Remove this as input to metrics
+    /// Number of effective shares for the position.
+    ///
+    /// This is a position-level input representing the share count after
+    /// adjusting for stock splits, corporate actions, etc.
+    /// Units: shares (dimensionless count).
+    ///
+    /// # Note
+    /// While primarily an input, it is exposed as a metric ID to allow
+    /// position-level reporting and reconciliation.
     pub const EquityShares: Self = Self(Cow::Borrowed("equity_shares"));
 
-    /// Equity dividend yield (annualized, decimal) - TODO: Remove this as input to metrics
+    /// Equity dividend yield (annualized, continuous compounding).
+    ///
+    /// This is a market data input used in equity option pricing models.
+    /// Units: decimal (0.02 = 2% per annum).
+    ///
+    /// # Note
+    /// While primarily an input, it is exposed as a metric ID to allow
+    /// tracking and reporting alongside computed metrics.
     pub const EquityDividendYield: Self = Self(Cow::Borrowed("equity_dividend_yield"));
 
-    /// Equity forward price per share
+    /// Equity forward price per share.
+    ///
+    /// Computed as: S * exp((r - q) * T), where S is spot, r is risk-free rate,
+    /// q is dividend yield, and T is time to delivery.
+    /// Units: currency per share.
     pub const EquityForwardPrice: Self = Self(Cow::Borrowed("equity_forward_price"));
 
     // ========================================================================
@@ -235,38 +261,94 @@ impl MetricId {
     /// Annuity factor for fixed leg
     pub const Annuity: Self = Self(Cow::Borrowed("annuity"));
 
-    /// Par swap rate
+    /// Par swap rate (at-the-money fixed rate).
+    ///
+    /// The fixed rate that makes the swap have zero present value.
+    /// Units: decimal (0.05 = 5% per annum).
     pub const ParRate: Self = Self(Cow::Borrowed("par_rate"));
 
-    /// Present value of 01 (PV01) - TODO: Change this to valude of shifting coupon by 1bp
+    /// Present value of a basis point (PV01).
+    ///
+    /// **Current behavior**: Sensitivity to a 1bp parallel shift in the discount
+    /// curve, computed as the change in PV for a +1bp shift.
+    /// Units: currency (positive means gains value when rates rise).
+    ///
+    /// # Sign Convention
+    /// - Payer swap (pay fixed): PV01 > 0 (benefits from rising rates)
+    /// - Receiver swap (receive fixed): PV01 < 0 (loses value when rates rise)
+    ///
+    /// # Future Direction
+    /// Consider introducing `Pv01CouponBump` for sensitivity to coupon rate changes,
+    /// distinct from curve-based rate sensitivity.
     pub const Pv01: Self = Self(Cow::Borrowed("pv01"));
 
-    /// Present value of fixed leg
+    /// Present value of fixed leg.
+    ///
+    /// Discounted sum of all fixed-leg cashflows.
+    /// Units: currency.
     pub const PvFixed: Self = Self(Cow::Borrowed("pv_fixed"));
 
-    /// Present value of floating leg
+    /// Present value of floating leg.
+    ///
+    /// Discounted sum of all floating-leg cashflows (projected forward rates).
+    /// Units: currency.
     pub const PvFloat: Self = Self(Cow::Borrowed("pv_float"));
 
     // ========================================================================
     // Deposit Metrics
     // ========================================================================
+    // These metrics are used for deposit instrument valuation and curve
+    // calibration. They provide transparency into the intermediate values
+    // used in pricing calculations.
 
-    /// Year fraction - TODO: Do we need this?
+    /// Year fraction between start and end dates.
+    ///
+    /// Computed using the instrument's day-count convention.
+    /// Units: years (dimensionless).
+    ///
+    /// Used in: deposit valuation, curve calibration bootstrap.
     pub const Yf: Self = Self(Cow::Borrowed("yf"));
 
-    /// Discount factor at start date - TODO: Do we need this?
+    /// Discount factor at start date (from curve).
+    ///
+    /// DF(0, start) where 0 is the valuation date.
+    /// Units: dimensionless (0 < df <= 1 for positive rates).
+    ///
+    /// Used in: forward-start deposit valuation, curve calibration.
     pub const DfStart: Self = Self(Cow::Borrowed("df_start"));
 
-    /// Discount factor at end date - TODO: Do we need this?
+    /// Discount factor at end date (from curve).
+    ///
+    /// DF(0, end) where 0 is the valuation date.
+    /// Units: dimensionless (0 < df <= 1 for positive rates).
+    ///
+    /// Used in: deposit valuation, curve calibration.
     pub const DfEnd: Self = Self(Cow::Borrowed("df_end"));
 
-    /// Deposit par rate
+    /// Deposit par rate (implied from curve).
+    ///
+    /// The rate that makes the deposit have zero present value given the
+    /// current curve. Units: decimal (0.05 = 5% per annum).
+    ///
+    /// Distinct from `QuoteRate` which is the market-observed rate.
     pub const DepositParRate: Self = Self(Cow::Borrowed("deposit_par_rate"));
 
-    /// Discount factor at end date from quote - TODO: Do we need this?
+    /// Discount factor implied by the market quote.
+    ///
+    /// DF(start, end) = 1 / (1 + rate * yf) for simple compounding.
+    /// Units: dimensionless.
+    ///
+    /// Used in: curve calibration as a calibration target.
     pub const DfEndFromQuote: Self = Self(Cow::Borrowed("df_end_from_quote"));
 
-    /// Quote rate - TODO: Is both deposit par rate and quote rate the same thing?
+    /// Quoted market rate for the deposit.
+    ///
+    /// The rate observed in the market, used as input to curve calibration.
+    /// Units: decimal (0.05 = 5% per annum).
+    ///
+    /// **Relation to DepositParRate**: `QuoteRate` is the market input;
+    /// `DepositParRate` is the rate implied by the calibrated curve.
+    /// After successful calibration, these should match within tolerance.
     pub const QuoteRate: Self = Self(Cow::Borrowed("quote_rate"));
 
     // ========================================================================

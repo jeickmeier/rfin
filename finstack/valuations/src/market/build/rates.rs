@@ -378,8 +378,19 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
             // spread_decimal is in decimal format (e.g., 0.0010 for 10bp)
             // Convert to basis points by multiplying by 10000
             if let Some(spread_decimal) = spread_decimal {
-                swap.float.spread_bp = rust_decimal::Decimal::try_from(*spread_decimal * 10000.0)
-                    .unwrap_or(rust_decimal::Decimal::ZERO);
+                let spread_bp_f64 = *spread_decimal * 10000.0;
+                if !spread_bp_f64.is_finite() {
+                    let kind = if spread_bp_f64.is_nan() {
+                        finstack_core::NonFiniteKind::NaN
+                    } else if spread_bp_f64.is_sign_positive() {
+                        finstack_core::NonFiniteKind::PosInfinity
+                    } else {
+                        finstack_core::NonFiniteKind::NegInfinity
+                    };
+                    return Err(finstack_core::InputError::NonFiniteValue { kind }.into());
+                }
+                swap.float.spread_bp = rust_decimal::Decimal::try_from(spread_bp_f64)
+                    .map_err(|_| finstack_core::InputError::ConversionOverflow)?;
             }
 
             Ok(Box::new(swap))
@@ -526,5 +537,76 @@ mod tests {
         }
 
         Ok(())
+    }
+
+    /// Test that NaN spread_decimal produces an error
+    #[test]
+    fn test_swap_spread_nan_returns_error() {
+        let ctx = usd_build_ctx();
+
+        let quote = RateQuote::Swap {
+            id: QuoteId::new("USD-SOFR-OIS-SWAP-5Y"),
+            index: IndexId::new("USD-SOFR-OIS"),
+            pillar: Pillar::Tenor(finstack_core::dates::Tenor::new(
+                5,
+                finstack_core::dates::TenorUnit::Years,
+            )),
+            rate: 0.0450,
+            spread_decimal: Some(f64::NAN),
+        };
+
+        let result = build_rate_instrument(&quote, &ctx);
+        assert!(result.is_err(), "NaN spread_decimal should return an error");
+
+        // Verify error message contains expected text
+        let err = result.err().expect("should be error");
+        let err_str = err.to_string();
+        assert!(
+            err_str.contains("Non-finite") || err_str.contains("NaN"),
+            "Error should mention non-finite value: {}",
+            err_str
+        );
+    }
+
+    /// Test that infinity spread_decimal produces an error
+    #[test]
+    fn test_swap_spread_infinity_returns_error() {
+        let ctx = usd_build_ctx();
+
+        // Test positive infinity
+        let quote = RateQuote::Swap {
+            id: QuoteId::new("USD-SOFR-OIS-SWAP-5Y"),
+            index: IndexId::new("USD-SOFR-OIS"),
+            pillar: Pillar::Tenor(finstack_core::dates::Tenor::new(
+                5,
+                finstack_core::dates::TenorUnit::Years,
+            )),
+            rate: 0.0450,
+            spread_decimal: Some(f64::INFINITY),
+        };
+
+        let result = build_rate_instrument(&quote, &ctx);
+        assert!(
+            result.is_err(),
+            "Positive infinity spread_decimal should return an error"
+        );
+
+        // Test negative infinity
+        let quote_neg = RateQuote::Swap {
+            id: QuoteId::new("USD-SOFR-OIS-SWAP-5Y"),
+            index: IndexId::new("USD-SOFR-OIS"),
+            pillar: Pillar::Tenor(finstack_core::dates::Tenor::new(
+                5,
+                finstack_core::dates::TenorUnit::Years,
+            )),
+            rate: 0.0450,
+            spread_decimal: Some(f64::NEG_INFINITY),
+        };
+
+        let result_neg = build_rate_instrument(&quote_neg, &ctx);
+        assert!(
+            result_neg.is_err(),
+            "Negative infinity spread_decimal should return an error"
+        );
     }
 }

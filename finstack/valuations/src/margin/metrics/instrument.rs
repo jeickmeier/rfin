@@ -154,10 +154,10 @@ impl InitialMarginMetric {
                 self.calculate_simm_from_sensitivities(&simm, &sensitivities, spec, as_of)
             }
             ImMethodology::Schedule => {
-                let schedule = self
-                    .schedule_calculator
-                    .clone()
-                    .unwrap_or_else(ScheduleImCalculator::bcbs_standard);
+                let schedule = match self.schedule_calculator.clone() {
+                    Some(calc) => calc,
+                    None => ScheduleImCalculator::bcbs_standard()?,
+                };
 
                 schedule.calculate(instrument, market, as_of)
             }

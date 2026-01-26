@@ -2,8 +2,12 @@
 //!
 //! Fallback methodology using grid-based rates applied to notional amounts.
 //! Simpler but typically more conservative than SIMM.
-
-#![allow(clippy::unwrap_used)]
+//!
+//! # Error Handling
+//!
+//! The constructors [`RegulatorySchedule::bcbs_iosco()`] and
+//! [`ScheduleImCalculator::bcbs_standard()`] return `Result` rather than panicking,
+//! allowing callers to handle missing registry data gracefully.
 
 use crate::instruments::common::traits::Instrument;
 use crate::margin::calculators::traits::{ImCalculator, ImResult};
@@ -122,24 +126,21 @@ pub enum MaturityBucket {
     Long,
 }
 
-impl Default for RegulatorySchedule {
-    fn default() -> Self {
-        Self::bcbs_iosco()
-    }
-}
-
 impl RegulatorySchedule {
     /// BCBS-IOSCO standard schedule loaded from the embedded registry.
-    #[must_use]
-    pub fn bcbs_iosco() -> Self {
-        if let Ok(registry) = embedded_registry() {
-            if let Some(schedule) = registry.schedule_im.get("bcbs_iosco") {
-                return Self::from_registry(schedule.clone());
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded registry cannot be loaded or if the
+    /// "bcbs_iosco" schedule entry is missing.
+    pub fn bcbs_iosco() -> Result<Self> {
+        let registry = embedded_registry()?;
+        let schedule = registry.schedule_im.get("bcbs_iosco").ok_or_else(|| {
+            finstack_core::InputError::NotFound {
+                id: "bcbs_iosco schedule".to_string(),
             }
-        }
-        let registry = embedded_registry().unwrap();
-        let schedule = registry.schedule_im.get("bcbs_iosco").unwrap();
-        Self::from_registry(schedule.clone())
+        })?;
+        Ok(Self::from_registry(schedule.clone()))
     }
 
     /// Build from a registry entry.
@@ -192,7 +193,7 @@ impl RegulatorySchedule {
 /// use time::macros::date;
 ///
 /// # fn main() -> finstack_core::Result<()> {
-/// let calc = ScheduleImCalculator::bcbs_standard();
+/// let calc = ScheduleImCalculator::bcbs_standard()?;
 /// # let swap: &dyn Instrument = todo!("provide a swap instrument");
 /// # let context = MarketContext::new();
 /// # let as_of: Date = date!(2025-01-01);
@@ -213,19 +214,21 @@ pub struct ScheduleImCalculator {
     pub mpor_days: u32,
 }
 
-impl Default for ScheduleImCalculator {
-    fn default() -> Self {
-        Self::bcbs_standard()
-    }
-}
-
 impl ScheduleImCalculator {
     /// Create calculator with BCBS-IOSCO standard schedule.
-    #[must_use]
-    pub fn bcbs_standard() -> Self {
-        let registry = embedded_registry().unwrap();
-        let entry = registry.schedule_im.get("bcbs_iosco").unwrap();
-        Self::from_registry(entry)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded registry cannot be loaded or if the
+    /// "bcbs_iosco" schedule entry is missing.
+    pub fn bcbs_standard() -> Result<Self> {
+        let registry = embedded_registry()?;
+        let entry = registry.schedule_im.get("bcbs_iosco").ok_or_else(|| {
+            finstack_core::InputError::NotFound {
+                id: "bcbs_iosco schedule".to_string(),
+            }
+        })?;
+        Ok(Self::from_registry(entry))
     }
 
     /// Create calculator from a registry entry.
@@ -240,10 +243,17 @@ impl ScheduleImCalculator {
     }
 
     /// Create calculator resolved from a provided `FinstackConfig`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the registry cannot be loaded from the config or if the
+    /// "bcbs_iosco" schedule entry is missing.
     pub fn from_finstack_config(cfg: &finstack_core::config::FinstackConfig) -> Result<Self> {
         let registry = margin_registry_from_config(cfg)?;
         let entry = registry.schedule_im.get("bcbs_iosco").ok_or_else(|| {
-            finstack_core::Error::Validation("bcbs_iosco schedule missing".into())
+            finstack_core::InputError::NotFound {
+                id: "bcbs_iosco schedule".to_string(),
+            }
         })?;
         Ok(Self::from_registry(entry))
     }
@@ -330,7 +340,8 @@ mod tests {
 
     #[test]
     fn bcbs_schedule_rates() {
-        let schedule = RegulatorySchedule::bcbs_iosco();
+        let schedule = RegulatorySchedule::bcbs_iosco()
+            .expect("bcbs_iosco schedule should load from embedded registry");
 
         // Interest rate
         assert_eq!(schedule.rate(ScheduleAssetClass::InterestRate, 1.0), 0.01); // 1%
@@ -348,7 +359,8 @@ mod tests {
 
     #[test]
     fn schedule_im_calculation() {
-        let calc = ScheduleImCalculator::bcbs_standard();
+        let calc = ScheduleImCalculator::bcbs_standard()
+            .expect("bcbs_standard calculator should load from embedded registry");
 
         let notional = Money::new(100_000_000.0, Currency::USD);
         let im = calc.calculate_for_notional(notional, ScheduleAssetClass::InterestRate, 5.0);
@@ -360,6 +372,7 @@ mod tests {
     #[test]
     fn credit_schedule_im() {
         let calc = ScheduleImCalculator::bcbs_standard()
+            .expect("bcbs_standard calculator should load from embedded registry")
             .with_asset_class(ScheduleAssetClass::Credit)
             .with_maturity(7.0);
 
@@ -368,5 +381,19 @@ mod tests {
 
         // 7y credit uses long bucket (10%)
         assert_eq!(im.amount(), 5_000_000.0);
+    }
+
+    #[test]
+    fn bcbs_constructors_return_ok() {
+        // Verify the embedded registry is available and constructors succeed.
+        // This catches registry configuration issues at CI time.
+        assert!(
+            RegulatorySchedule::bcbs_iosco().is_ok(),
+            "RegulatorySchedule::bcbs_iosco() should return Ok"
+        );
+        assert!(
+            ScheduleImCalculator::bcbs_standard().is_ok(),
+            "ScheduleImCalculator::bcbs_standard() should return Ok"
+        );
     }
 }

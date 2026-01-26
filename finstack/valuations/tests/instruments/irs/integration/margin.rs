@@ -185,7 +185,8 @@ fn test_simm_calculator_exists() {
 #[test]
 fn test_schedule_calculator_exists() {
     // Verify schedule IM calculator can be created
-    let schedule_calc = ScheduleImCalculator::bcbs_standard();
+    let schedule_calc = ScheduleImCalculator::bcbs_standard()
+        .expect("bcbs_standard should load from embedded registry");
 
     // Just verify it was created successfully
     // Full integration test would require setting up market context
