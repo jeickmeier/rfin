@@ -275,25 +275,29 @@ impl CommodityForward {
     /// # Errors
     ///
     /// Returns an error if neither `quoted_price` nor `PriceCurve` is available.
+    ///
+    /// # Note on PriceCurve Evaluation
+    ///
+    /// When using a `PriceCurve`, this method uses `price_on_date(settlement_date)`
+    /// which respects the curve's own day count convention. This avoids hard-coding
+    /// Act365F and ensures consistent time calculation across different curves.
     pub fn forward_price(&self, market: &MarketContext, as_of: Date) -> Result<f64> {
         // Use quoted price if available
         if let Some(price) = self.quoted_price {
             return Ok(price);
         }
 
-        // Calculate time to settlement
-        use finstack_core::dates::{DayCount, DayCountCtx};
-        let t = if self.settlement_date <= as_of {
-            0.0
-        } else {
-            DayCount::Act365F
-                .year_fraction(as_of, self.settlement_date, DayCountCtx::default())
-                .unwrap_or(0.0)
-        };
+        // At or past settlement, return spot price from curve
+        if self.settlement_date <= as_of {
+            if let Ok(price_curve) = market.get_price_curve(self.forward_curve_id.as_str()) {
+                return Ok(price_curve.spot_price());
+            }
+        }
 
-        // Primary path: use PriceCurve
+        // Primary path: use PriceCurve with date-based evaluation
         if let Ok(price_curve) = market.get_price_curve(self.forward_curve_id.as_str()) {
-            return Ok(price_curve.price(t));
+            // Use price_on_date to respect the curve's day count convention
+            return price_curve.price_on_date(self.settlement_date);
         }
 
         // Fallback: if we have a spot price and discount curve, use cost-of-carry model
@@ -304,6 +308,13 @@ impl CommodityForward {
                     finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
                     finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
                 };
+
+                // Calculate time to settlement for cost-of-carry
+                use finstack_core::dates::{DayCount, DayCountCtx};
+                let t = DayCount::Act365F
+                    .year_fraction(as_of, self.settlement_date, DayCountCtx::default())
+                    .unwrap_or(0.0)
+                    .max(0.0);
 
                 // Try to get discount curve for carry rate
                 if let Ok(disc) = market.get_discount(self.discount_curve_id.as_str()) {

@@ -2,17 +2,18 @@
 //!
 //! Registers option greeks and rate sensitivities for commodity options.
 //!
-//! # Commodity-Specific Greeks
+//! # Forward-Based Greeks
 //!
-//! Unlike equity options, commodity options may not have a spot price scalar.
-//! The gamma, vanna, and volga calculators are commodity-specific and handle
-//! both scenarios:
+//! Commodity options are priced using Black-76, which is forward/futures-based.
+//! The gamma and vanna calculators use **forward-based** sensitivities, bumping
+//! the forward price driver in priority order:
 //!
-//! - **With `spot_price_id`**: bumps the spot price scalar
-//! - **Without `spot_price_id`**: bumps the `PriceCurve` (parallel percent bump)
+//! 1. **`quoted_forward`**: If the instrument has a quoted forward override, bump that
+//! 2. **`PriceCurve`**: If a PriceCurve exists for `forward_curve_id`, bump it (parallel percent)
+//! 3. **`spot_price_id`**: Only as a fallback, bump spot to propagate via cost-of-carry
 //!
-//! This ensures FD greeks work correctly regardless of whether the option is
-//! priced off spot or forward prices.
+//! This ensures greeks are consistent with the Black-76 pricing model, regardless of
+//! how the forward price is specified in the market data.
 
 mod delta;
 mod gamma;
@@ -36,13 +37,13 @@ pub fn register_commodity_option_metrics(registry: &mut MetricRegistry) {
         Arc::new(vega::VegaCalculator),
         &[InstrumentType::CommodityOption],
     );
-    // Use commodity-specific gamma that handles PriceCurve bumping
+    // Forward-based gamma: bumps quoted_forward > PriceCurve > spot_price_id
     registry.register_metric(
         MetricId::Gamma,
         Arc::new(gamma::GammaCalculator),
         &[InstrumentType::CommodityOption],
     );
-    // Use commodity-specific vanna that handles PriceCurve bumping
+    // Forward-based vanna: bumps quoted_forward > PriceCurve > spot_price_id
     registry.register_metric(
         MetricId::Vanna,
         Arc::new(vanna::VannaCalculator),

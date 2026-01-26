@@ -1,11 +1,20 @@
 //! Delta calculator for commodity swaps.
+//!
+//! Delta measures the sensitivity of the swap's NPV to changes in the floating price.
+//! For each payment period:
+//!
+//! Delta contribution = sign × Q × DF(as_of → payment_date)
+//!
+//! Uses `df_between_dates(as_of, payment_date)` for base-date-safe discounting.
 
 use crate::instruments::commodity_swap::CommoditySwap;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::dates::DayCount;
 use finstack_core::Result;
 
 /// Delta calculator for commodity swaps (per 1.0 unit of floating price).
+///
+/// Uses `df_between_dates(as_of, payment_date)` for base-date-safe discounting,
+/// consistent with the NPV calculation in `CommoditySwap::floating_leg_pv()`.
 pub struct DeltaCalculator;
 
 impl MetricCalculator for DeltaCalculator {
@@ -22,10 +31,8 @@ impl MetricCalculator for DeltaCalculator {
             if payment_date < context.as_of {
                 continue;
             }
-            let t = DayCount::Act365F
-                .year_fraction(context.as_of, payment_date, Default::default())?
-                .max(0.0);
-            let df = disc.df(t);
+            // Use df_between_dates for base-date-safe discounting (consistent with npv())
+            let df = disc.df_between_dates(context.as_of, payment_date)?;
             delta += sign * swap.notional_quantity * df;
         }
 

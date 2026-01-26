@@ -7,9 +7,7 @@
 use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{Attributes, CurveIdVec};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{
-    BusinessDayConvention, CalendarRegistry, Date, DayCount, DayCountCtx, ScheduleBuilder, Tenor,
-};
+use finstack_core::dates::{BusinessDayConvention, CalendarRegistry, Date, ScheduleBuilder, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -229,10 +227,16 @@ impl CommoditySwap {
     /// * `as_of` - Valuation date
     /// * `period_start` - Start of the averaging period
     /// * `period_end` - End of the averaging period
+    ///
+    /// # Note on PriceCurve Evaluation
+    ///
+    /// This method uses `price_on_date(date)` to respect the curve's day count convention
+    /// rather than hard-coding Act365F. If a date falls before the curve's base date,
+    /// it falls back to the curve's spot price.
     fn expected_period_price(
         &self,
         price_curve: &finstack_core::market_data::term_structures::PriceCurve,
-        as_of: Date,
+        _as_of: Date,
         period_start: Date,
         period_end: Date,
     ) -> Result<f64> {
@@ -241,32 +245,27 @@ impl CommoditySwap {
         let obs_start = period_start - time::Duration::days(lag_days as i64);
         let obs_end = period_end - time::Duration::days(lag_days as i64);
 
-        // For past or very near periods, use spot/near price
-        if obs_end <= as_of {
-            let t = DayCount::Act365F
-                .year_fraction(as_of, obs_end, DayCountCtx::default())
-                .unwrap_or(0.0);
-            return Ok(price_curve.price(t.max(0.0)));
+        // Helper to get price, falling back to spot if date is before curve base
+        let get_price = |date: Date| -> f64 {
+            price_curve
+                .price_on_date(date)
+                .unwrap_or_else(|_| price_curve.spot_price())
+        };
+
+        // For past periods (both obs dates <= curve base), use spot price
+        let curve_base = price_curve.base_date();
+        if obs_end <= curve_base {
+            return Ok(price_curve.spot_price());
         }
 
         // For future periods, sample multiple points and average
         // Use 3-point averaging: start, middle, end of observation period
         let obs_mid = obs_start + (obs_end - obs_start) / 2;
 
-        let t_start = DayCount::Act365F
-            .year_fraction(as_of, obs_start, DayCountCtx::default())
-            .unwrap_or(0.0);
-        let t_mid = DayCount::Act365F
-            .year_fraction(as_of, obs_mid, DayCountCtx::default())
-            .unwrap_or(0.0);
-        let t_end = DayCount::Act365F
-            .year_fraction(as_of, obs_end, DayCountCtx::default())
-            .unwrap_or(0.0);
-
-        // Sample prices at start, mid, end
-        let p_start = price_curve.price(t_start.max(0.0));
-        let p_mid = price_curve.price(t_mid.max(0.0));
-        let p_end = price_curve.price(t_end.max(0.0));
+        // Sample prices at start, mid, end using date-based evaluation
+        let p_start = get_price(obs_start);
+        let p_mid = get_price(obs_mid);
+        let p_end = get_price(obs_end);
 
         // Simple average (could use weighted average for more accuracy)
         Ok((p_start + p_mid + p_end) / 3.0)

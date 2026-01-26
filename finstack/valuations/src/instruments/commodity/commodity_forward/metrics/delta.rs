@@ -9,17 +9,18 @@
 //! - sign(position) = +1 for long, -1 for short
 //! - Q = quantity
 //! - M = multiplier
-//! - DF = discount factor to settlement
+//! - DF = discount factor from as_of to settlement
 
 use crate::instruments::commodity_forward::CommodityForward;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::dates::DayCount;
 use finstack_core::Result;
 
 /// Delta calculator for commodity forwards (per 1.0 unit of forward price).
 ///
 /// Returns the change in NPV for a 1.0 unit increase in the forward price,
 /// accounting for position direction (long = positive delta, short = negative delta).
+///
+/// Uses `df_between_dates(as_of, settlement)` for base-date-safe discounting.
 pub struct DeltaCalculator;
 
 impl MetricCalculator for DeltaCalculator {
@@ -34,10 +35,9 @@ impl MetricCalculator for DeltaCalculator {
         let disc = context
             .curves
             .get_discount(fwd.discount_curve_id.as_str())?;
-        let t = DayCount::Act365F
-            .year_fraction(context.as_of, fwd.settlement_date, Default::default())?
-            .max(0.0);
-        let df = disc.df(t);
+
+        // Use df_between_dates for base-date-safe discounting (consistent with npv())
+        let df = disc.df_between_dates(context.as_of, fwd.settlement_date)?;
 
         // Delta = sign(position) × Q × M × DF
         Ok(fwd.position.sign() * fwd.quantity * fwd.multiplier * df)

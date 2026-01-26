@@ -125,9 +125,20 @@ impl CommodityOption {
     }
 
     /// Calculate the net present value of this commodity option.
+    ///
+    /// # Post-Expiry Behavior
+    ///
+    /// If `as_of > expiry`, the option is treated as fully settled and returns 0.
+    /// At expiry (`as_of == expiry`), the intrinsic value is returned.
     pub fn npv(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
+        // Post-expiry: option is fully settled, value is 0
+        if as_of > self.expiry {
+            return Ok(Money::new(0.0, self.currency));
+        }
+
         let t = self.time_to_expiry(as_of)?;
         if t <= 0.0 {
+            // At expiry: return intrinsic value
             let underlying = if let Some(spot) = self.spot_price(market)? {
                 spot
             } else {
@@ -238,23 +249,32 @@ impl CommodityOption {
     /// Uses `quoted_forward` if provided, otherwise retrieves from the `PriceCurve`
     /// specified by `forward_curve_id`. If no `PriceCurve` is found but `spot_price_id`
     /// is provided, falls back to cost-of-carry model: F = S × exp(r × T).
+    ///
+    /// # Note on PriceCurve Evaluation
+    ///
+    /// When using a `PriceCurve`, this method uses `price_on_date(expiry)` which
+    /// respects the curve's own day count convention rather than hard-coding Act365F.
     pub fn forward_price(&self, market: &MarketContext, as_of: Date) -> Result<f64> {
         // 1. Direct override takes precedence
         if let Some(price) = self.quoted_forward {
             return Ok(price);
         }
 
-        let t = DayCount::Act365F
-            .year_fraction(as_of, self.expiry, DayCountCtx::default())?
-            .max(0.0);
-
-        // 2. Try to get price from PriceCurve
+        // 2. Try to get price from PriceCurve using date-based evaluation
         if let Ok(price_curve) = market.get_price_curve(self.forward_curve_id.as_str()) {
-            return Ok(price_curve.price(t));
+            // At or past expiry, return spot price from curve
+            if self.expiry <= as_of {
+                return Ok(price_curve.spot_price());
+            }
+            // Use price_on_date to respect the curve's day count convention
+            return price_curve.price_on_date(self.expiry);
         }
 
         // 3. Fallback: cost-of-carry model if spot is available
         if let Some(spot) = self.spot_price(market)? {
+            let t = DayCount::Act365F
+                .year_fraction(as_of, self.expiry, DayCountCtx::default())?
+                .max(0.0);
             let disc = market.get_discount(self.discount_curve_id.as_str())?;
             let r = disc.zero(t);
             return Ok(spot * (r * t).exp());

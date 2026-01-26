@@ -173,3 +173,165 @@ fn test_spot_based_american_put_above_european() {
 
     assert!(pv_amer.amount() + 1e-6 >= pv_eur.amount());
 }
+
+#[test]
+fn test_post_expiry_returns_zero() {
+    let expiry = date(2025, 6, 15);
+    let as_of_after_expiry = date(2025, 6, 16); // 1 day after expiry
+
+    let discount_curve = flat_discount_with_tenor("USD-OIS", as_of_after_expiry, 0.03, 1.0);
+    let price_curve = flat_price_curve("CL-FWD", as_of_after_expiry, 100.0, 1.0);
+    let vol_surface = flat_vol_surface("CL-VOL", &[1.0], &[80.0, 100.0, 120.0], 0.20);
+
+    let market = MarketContext::new()
+        .insert_discount(discount_curve)
+        .insert_price_curve(price_curve)
+        .insert_surface(vol_surface);
+
+    // ITM call option (forward 100 > strike 90)
+    let itm_call = CommodityOption::builder()
+        .id(InstrumentId::new("CL-CALL-EXPIRED"))
+        .commodity_type("Energy".to_string())
+        .ticker("CL".to_string())
+        .strike(90.0) // ITM: forward 100 > strike 90
+        .option_type(OptionType::Call)
+        .exercise_style(ExerciseStyle::European)
+        .expiry(expiry)
+        .quantity(1.0)
+        .unit("BBL".to_string())
+        .multiplier(1.0)
+        .settlement(SettlementType::Cash)
+        .currency(Currency::USD)
+        .forward_curve_id(CurveId::new("CL-FWD"))
+        .discount_curve_id(CurveId::new("USD-OIS"))
+        .vol_surface_id(CurveId::new("CL-VOL"))
+        .day_count(DayCount::Act365F)
+        .pricing_overrides(PricingOverrides::default())
+        .attributes(Attributes::new())
+        .build()
+        .expect("should build");
+
+    // After expiry, NPV should be 0 (option is fully settled)
+    let pv = itm_call
+        .npv(&market, as_of_after_expiry)
+        .expect("should price");
+    assert_eq!(
+        pv.amount(),
+        0.0,
+        "Post-expiry option NPV should be 0, got {}",
+        pv.amount()
+    );
+
+    // ITM put option
+    let itm_put = CommodityOption::builder()
+        .id(InstrumentId::new("CL-PUT-EXPIRED"))
+        .commodity_type("Energy".to_string())
+        .ticker("CL".to_string())
+        .strike(110.0) // ITM: strike 110 > forward 100
+        .option_type(OptionType::Put)
+        .exercise_style(ExerciseStyle::European)
+        .expiry(expiry)
+        .quantity(1.0)
+        .unit("BBL".to_string())
+        .multiplier(1.0)
+        .settlement(SettlementType::Cash)
+        .currency(Currency::USD)
+        .forward_curve_id(CurveId::new("CL-FWD"))
+        .discount_curve_id(CurveId::new("USD-OIS"))
+        .vol_surface_id(CurveId::new("CL-VOL"))
+        .day_count(DayCount::Act365F)
+        .pricing_overrides(PricingOverrides::default())
+        .attributes(Attributes::new())
+        .build()
+        .expect("should build");
+
+    let pv_put = itm_put
+        .npv(&market, as_of_after_expiry)
+        .expect("should price");
+    assert_eq!(
+        pv_put.amount(),
+        0.0,
+        "Post-expiry put NPV should be 0, got {}",
+        pv_put.amount()
+    );
+}
+
+#[test]
+fn test_at_expiry_returns_intrinsic() {
+    let expiry = date(2025, 6, 15);
+    let as_of_at_expiry = expiry; // Exactly at expiry
+
+    let discount_curve = flat_discount_with_tenor("USD-OIS", as_of_at_expiry, 0.03, 1.0);
+    let price_curve = flat_price_curve("CL-FWD", as_of_at_expiry, 100.0, 1.0);
+    let vol_surface = flat_vol_surface("CL-VOL", &[1.0], &[80.0, 100.0, 120.0], 0.20);
+
+    let market = MarketContext::new()
+        .insert_discount(discount_curve)
+        .insert_price_curve(price_curve)
+        .insert_surface(vol_surface);
+
+    // ITM call: forward 100 > strike 90, intrinsic = 10
+    let itm_call = CommodityOption::builder()
+        .id(InstrumentId::new("CL-CALL-AT-EXPIRY"))
+        .commodity_type("Energy".to_string())
+        .ticker("CL".to_string())
+        .strike(90.0)
+        .option_type(OptionType::Call)
+        .exercise_style(ExerciseStyle::European)
+        .expiry(expiry)
+        .quantity(1.0)
+        .unit("BBL".to_string())
+        .multiplier(1.0)
+        .settlement(SettlementType::Cash)
+        .currency(Currency::USD)
+        .forward_curve_id(CurveId::new("CL-FWD"))
+        .discount_curve_id(CurveId::new("USD-OIS"))
+        .vol_surface_id(CurveId::new("CL-VOL"))
+        .day_count(DayCount::Act365F)
+        .pricing_overrides(PricingOverrides::default())
+        .attributes(Attributes::new())
+        .build()
+        .expect("should build");
+
+    let pv = itm_call
+        .npv(&market, as_of_at_expiry)
+        .expect("should price");
+    // Forward = 100, Strike = 90, intrinsic = max(100 - 90, 0) = 10
+    assert!(
+        (pv.amount() - 10.0).abs() < 0.01,
+        "At-expiry ITM call should have intrinsic value ~10, got {}",
+        pv.amount()
+    );
+
+    // OTM call: forward 100 < strike 110, intrinsic = 0
+    let otm_call = CommodityOption::builder()
+        .id(InstrumentId::new("CL-CALL-OTM-AT-EXPIRY"))
+        .commodity_type("Energy".to_string())
+        .ticker("CL".to_string())
+        .strike(110.0)
+        .option_type(OptionType::Call)
+        .exercise_style(ExerciseStyle::European)
+        .expiry(expiry)
+        .quantity(1.0)
+        .unit("BBL".to_string())
+        .multiplier(1.0)
+        .settlement(SettlementType::Cash)
+        .currency(Currency::USD)
+        .forward_curve_id(CurveId::new("CL-FWD"))
+        .discount_curve_id(CurveId::new("USD-OIS"))
+        .vol_surface_id(CurveId::new("CL-VOL"))
+        .day_count(DayCount::Act365F)
+        .pricing_overrides(PricingOverrides::default())
+        .attributes(Attributes::new())
+        .build()
+        .expect("should build");
+
+    let pv_otm = otm_call
+        .npv(&market, as_of_at_expiry)
+        .expect("should price");
+    assert!(
+        pv_otm.amount().abs() < 0.01,
+        "At-expiry OTM call should have intrinsic value ~0, got {}",
+        pv_otm.amount()
+    );
+}
