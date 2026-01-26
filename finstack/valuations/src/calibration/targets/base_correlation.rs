@@ -208,8 +208,12 @@ impl BaseCorrelationBootstrapper {
             );
 
             // Market tranche upfront is quoted as a percentage of tranche notional.
-            let width = (detachment - attachment).max(0.0);
-            let tranche_notional = self.params.notional * width;
+            // Normalize attachment/detachment to percent (0-100) for consistent handling,
+            // then compute width as a fraction (0-1) for the tranche notional calculation.
+            let attachment_pct = Self::normalize_pct(attachment);
+            let detachment_pct_local = Self::normalize_pct(detachment);
+            let width_frac = ((detachment_pct_local - attachment_pct) / 100.0).max(0.0);
+            let tranche_notional = self.params.notional * width_frac;
             let upfront_money = Some(Money::new(
                 upfront_pct * 0.01 * tranche_notional,
                 self.params.currency,
@@ -254,11 +258,17 @@ impl BaseCorrelationBootstrapper {
 
         let target = BaseCorrelationBootstrapper::new(params.clone(), context.clone());
         let prepared_quotes = target.prepare_quotes(tranche_quotes)?;
+
+        // Base correlation uses discount curve validation tolerance as the closest target-specific config.
+        // Could add a dedicated base_correlation_curve config in the future if needed.
+        let success_tolerance = Some(global_config.discount_curve.validation_tolerance);
+
         let (curve, mut report) = SequentialBootstrapper::bootstrap(
             &target,
             &prepared_quotes,
             Vec::new(),
             global_config,
+            success_tolerance,
             None,
         )?;
 

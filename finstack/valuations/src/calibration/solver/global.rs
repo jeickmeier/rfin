@@ -53,17 +53,20 @@ impl GlobalFitOptimizer {
     /// * `target` - The domain-specific implementation of the [`GlobalSolveTarget`] trait.
     /// * `quotes` - The list of high-level market quotes to fit.
     /// * `config` - Calibration settings specifying tolerances and methods.
+    /// * `success_tolerance` - Target-specific validation tolerance for determining calibration success.
+    ///   If `None`, falls back to `config.discount_curve.validation_tolerance`.
     ///
     /// # Returns
     /// A pair containing the calibrated term structure and a diagnostic report.
     ///
     /// # Tolerance Semantics
-    /// The configured tolerance is applied to the **L2 norm of the weighted residual vector**,
-    /// i.e., after scaling each residual \(r_i\) by \(\sqrt{w_i}\).
+    /// Success is determined by comparing the **weighted L2 norm of the residual vector**
+    /// (i.e., `sqrt(sum((r_i * sqrt(w_i))^2))`) against the `success_tolerance`.
     pub fn optimize<T>(
         target: &T,
         quotes: &[T::Quote],
         config: &CalibrationConfig,
+        success_tolerance: Option<f64>,
     ) -> Result<(T::Curve, CalibrationReport)>
     where
         T: GlobalSolveTarget,
@@ -276,49 +279,63 @@ impl GlobalFitOptimizer {
             .map(|(r, w)| (r * w).abs())
             .fold(0.0_f64, f64::max);
 
-        let success_tolerance = config.discount_curve.validation_tolerance;
+        // Use explicit success_tolerance if provided, otherwise fall back to discount_curve.validation_tolerance.
+        let validation_tolerance =
+            success_tolerance.unwrap_or(config.discount_curve.validation_tolerance);
+
+        // Success is determined by weighted L2 norm of residuals.
+        let calibration_success = weighted_l2_norm <= validation_tolerance;
+
         let mut report = CalibrationReport::for_type_with_tolerance(
             "global_fit",
             residuals_map,
             stats.iterations,
-            success_tolerance,
-        )
-        .with_metadata("method", "global_fit_lm_weighted_lsq")
-        .with_metadata("tolerance_definition", "abs_l2(weighted_residuals)")
-        .with_metadata("validation_tolerance", format!("{:.2e}", success_tolerance))
-        .with_metadata(
-            "solver_tolerance",
-            format!("{:.2e}", config.solver.tolerance()),
-        )
-        .with_metadata("residual_evals", stats.residual_evals.to_string())
-        .with_metadata("residual_closure_evals", eval_counter.get().to_string())
-        .with_metadata(
-            "lm_termination_reason",
-            format!("{:?}", stats.termination_reason),
-        )
-        .with_metadata("lm_jacobian_evals", stats.jacobian_evals.to_string())
-        .with_metadata(
-            "lm_final_weighted_resid_l2_norm",
-            format!("{:.2e}", stats.final_residual_norm),
-        )
-        .with_metadata(
-            "lm_final_step_norm",
-            format!("{:.2e}", stats.final_step_norm),
-        )
-        .with_metadata("lm_lambda_final", format!("{:.2e}", stats.lambda_final))
-        .with_metadata("final_unweighted_resid_l2_norm", format!("{:.2e}", l2_norm))
-        .with_metadata(
-            "final_unweighted_max_abs_residual",
-            format!("{:.2e}", max_abs_residual),
-        )
-        .with_metadata(
-            "final_weighted_resid_l2_norm",
-            format!("{:.2e}", weighted_l2_norm),
-        )
-        .with_metadata(
-            "final_weighted_max_abs_residual",
-            format!("{:.2e}", weighted_max_abs_residual),
+            validation_tolerance,
         );
+        // Override success based on weighted L2 criterion (not max residual).
+        report.success = calibration_success;
+        report.objective_value = weighted_l2_norm;
+
+        report = report
+            .with_metadata("method", "global_fit_lm_weighted_lsq")
+            .with_metadata("tolerance_definition", "weighted_l2_norm")
+            .with_metadata(
+                "validation_tolerance",
+                format!("{:.2e}", validation_tolerance),
+            )
+            .with_metadata(
+                "solver_tolerance",
+                format!("{:.2e}", config.solver.tolerance()),
+            )
+            .with_metadata("residual_evals", stats.residual_evals.to_string())
+            .with_metadata("residual_closure_evals", eval_counter.get().to_string())
+            .with_metadata(
+                "lm_termination_reason",
+                format!("{:?}", stats.termination_reason),
+            )
+            .with_metadata("lm_jacobian_evals", stats.jacobian_evals.to_string())
+            .with_metadata(
+                "lm_final_weighted_resid_l2_norm",
+                format!("{:.2e}", stats.final_residual_norm),
+            )
+            .with_metadata(
+                "lm_final_step_norm",
+                format!("{:.2e}", stats.final_step_norm),
+            )
+            .with_metadata("lm_lambda_final", format!("{:.2e}", stats.lambda_final))
+            .with_metadata("final_unweighted_resid_l2_norm", format!("{:.2e}", l2_norm))
+            .with_metadata(
+                "final_unweighted_max_abs_residual",
+                format!("{:.2e}", max_abs_residual),
+            )
+            .with_metadata(
+                "final_weighted_resid_l2_norm",
+                format!("{:.2e}", weighted_l2_norm),
+            )
+            .with_metadata(
+                "final_weighted_max_abs_residual",
+                format!("{:.2e}", weighted_max_abs_residual),
+            );
 
         // Attach diagnostics from any infeasible evaluations encountered during solving.
         {
@@ -587,8 +604,8 @@ mod tests {
         let quotes = vec![0usize, 1usize];
         let config = CalibrationConfig::default().with_tolerance(1.0);
 
-        let (_curve, report) =
-            GlobalFitOptimizer::optimize(&target, &quotes, &config).expect("optimization succeeds");
+        let (_curve, report) = GlobalFitOptimizer::optimize(&target, &quotes, &config, None)
+            .expect("optimization succeeds");
 
         let meta = report
             .metadata
@@ -609,7 +626,8 @@ mod tests {
         let quotes = vec![0usize, 1usize];
         let config = CalibrationConfig::default().with_tolerance(1.0);
 
-        let err = GlobalFitOptimizer::optimize(&target, &quotes, &config).expect_err("should fail");
+        let err =
+            GlobalFitOptimizer::optimize(&target, &quotes, &config, None).expect_err("should fail");
         match err {
             Error::Calibration { message, .. } => {
                 assert!(
@@ -628,7 +646,8 @@ mod tests {
         let quotes = vec![0usize, 1usize];
         let config = CalibrationConfig::default().with_tolerance(1.0);
 
-        let err = GlobalFitOptimizer::optimize(&target, &quotes, &config).expect_err("should fail");
+        let err =
+            GlobalFitOptimizer::optimize(&target, &quotes, &config, None).expect_err("should fail");
         match err {
             Error::Calibration { message, .. } => {
                 assert!(
@@ -647,7 +666,8 @@ mod tests {
         let quotes = vec![0usize];
         let config = CalibrationConfig::default().with_tolerance(1.0);
 
-        let err = GlobalFitOptimizer::optimize(&target, &quotes, &config).expect_err("should fail");
+        let err =
+            GlobalFitOptimizer::optimize(&target, &quotes, &config, None).expect_err("should fail");
         match err {
             Error::Calibration { message, .. } => {
                 assert!(
@@ -669,8 +689,8 @@ mod tests {
         let quotes = vec![5usize, 7usize];
         let config = CalibrationConfig::default().with_tolerance(1.0);
 
-        let (_curve, report) =
-            GlobalFitOptimizer::optimize(&target, &quotes, &config).expect("optimization succeeds");
+        let (_curve, report) = GlobalFitOptimizer::optimize(&target, &quotes, &config, None)
+            .expect("optimization succeeds");
 
         assert!(report.residuals.contains_key("TEST-5"));
         assert!(report.residuals.contains_key("TEST-7"));
@@ -694,7 +714,7 @@ mod tests {
         let config = CalibrationConfig::default().with_tolerance(1e12);
 
         let (_curve, report) =
-            GlobalFitOptimizer::optimize(&target, &quotes, &config).expect("should succeed");
+            GlobalFitOptimizer::optimize(&target, &quotes, &config, None).expect("should succeed");
 
         assert_eq!(report.residuals.len(), 3);
         assert!(report.residuals.contains_key("GLOBAL-000010"));
@@ -756,7 +776,7 @@ mod tests {
         let config = CalibrationConfig::default().with_tolerance(1e12);
 
         let (_curve, report) =
-            GlobalFitOptimizer::optimize(&target, &quotes, &config).expect("should succeed");
+            GlobalFitOptimizer::optimize(&target, &quotes, &config, None).expect("should succeed");
 
         let invalid_count: usize = report
             .metadata

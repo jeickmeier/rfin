@@ -165,12 +165,16 @@ impl ForwardCurveTarget {
             base_context: context.clone(),
         });
 
+        // Forward curves use discount curve validation tolerance (could add dedicated config later).
+        let success_tolerance = Some(config.discount_curve.validation_tolerance);
+
         let (curve, mut report) = match params.method {
             CalibrationMethod::Bootstrap => SequentialBootstrapper::bootstrap(
                 &target,
                 &prepared_quotes,
                 Vec::new(),
                 &config,
+                success_tolerance,
                 None,
             )?,
             CalibrationMethod::GlobalSolve { .. } => {

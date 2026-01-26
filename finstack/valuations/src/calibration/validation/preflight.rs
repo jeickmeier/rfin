@@ -48,7 +48,7 @@ pub fn preflight_step(
 ) -> Result<()> {
     match &step.params {
         StepParams::Discount(_p) => validate_discount_step(quotes),
-        StepParams::Forward(_p) => validate_forward_step(quotes),
+        StepParams::Forward(p) => validate_forward_step(p, quotes, context),
         StepParams::Hazard(p) => validate_hazard_step(p, quotes, context),
         StepParams::Inflation(p) => validate_inflation_step(p, quotes, context),
         StepParams::VolSurface(p) => validate_vol_surface_step(p, context),
@@ -70,7 +70,14 @@ fn validate_discount_step(quotes: &[MarketQuote]) -> Result<()> {
 }
 
 /// Validate forward curve calibration step.
-fn validate_forward_step(quotes: &[MarketQuote]) -> Result<()> {
+fn validate_forward_step(
+    p: &crate::calibration::api::schema::ForwardCurveParams,
+    quotes: &[MarketQuote],
+    context: &MarketContext,
+) -> Result<()> {
+    // Ensure referenced discount curve exists (forward curve depends on it for pricing).
+    let _ = context.get_discount(&p.discount_curve_id)?;
+
     let rates_quotes: Vec<crate::market::quotes::rates::RateQuote> = quotes.extract_quotes();
     if rates_quotes.is_empty() {
         return Err(finstack_core::Error::Input(

@@ -34,6 +34,8 @@ impl SequentialBootstrapper {
     /// * `quotes` - The list of high-level market quotes to fit.
     /// * `initial_knots` - Optional pre-existing knots (e.g., spot or short-end anchors).
     /// * `config` - Calibration settings specifying tolerances and methods.
+    /// * `success_tolerance` - Target-specific validation tolerance for determining calibration success.
+    ///   If `None`, falls back to `config.solver.tolerance()`.
     /// * `trace` - Optional trace for collecting diagnostics and intermediate steps.
     ///
     /// # Returns
@@ -43,12 +45,15 @@ impl SequentialBootstrapper {
         quotes: &[T::Quote],
         initial_knots: Vec<(f64, f64)>,
         config: &CalibrationConfig,
+        success_tolerance: Option<f64>,
         mut trace: Option<finstack_core::explain::ExplanationTrace>,
     ) -> Result<(T::Curve, CalibrationReport)>
     where
         T: BootstrapTarget,
         T::Quote: std::fmt::Debug,
     {
+        // Use explicit success_tolerance if provided, otherwise fall back to solver tolerance.
+        let validation_tolerance = success_tolerance.unwrap_or(config.solver.tolerance());
         let mut knots = initial_knots;
         let mut residuals = BTreeMap::new();
         let mut total_iterations = 0;
@@ -219,7 +224,7 @@ impl SequentialBootstrapper {
                 // accept it; otherwise fail fast rather than running a generic solver through
                 // infeasible regions (which is often unstable and non-deterministic).
                 if let (Some(best_x), Some(best_f)) = (diag.best_point, diag.best_value) {
-                    if best_f.is_finite() && best_f.abs() <= config.solver.tolerance() {
+                    if best_f.is_finite() && best_f.abs() <= validation_tolerance {
                         best_x
                     } else {
                         return Err(finstack_core::Error::Calibration {
@@ -228,7 +233,7 @@ impl SequentialBootstrapper {
                                 time,
                                 quote,
                                 best_f.abs(),
-                                config.solver.tolerance(),
+                                validation_tolerance,
                                 diag.scan_bounds.0,
                                 diag.scan_bounds.1
                             ),
@@ -294,12 +299,12 @@ impl SequentialBootstrapper {
                     category: "bootstrapping".to_string(),
                 });
             }
-            if residual_abs > config.solver.tolerance() {
+            if residual_abs > validation_tolerance {
                 knots.pop();
                 return Err(finstack_core::Error::Calibration {
                     message: format!(
                         "Bootstrap failed to converge at t={:.6}: residual={} (|.|={:.3e}) exceeds tolerance={:.3e}",
-                        time, residual_signed, residual_abs, config.solver.tolerance()
+                        time, residual_signed, residual_abs, validation_tolerance
                     ),
                     category: "bootstrapping".to_string(),
                 });
@@ -319,7 +324,7 @@ impl SequentialBootstrapper {
                         iteration: sorted_idx,
                         residual: residual_signed,
                         knots_updated: vec![format!("t={:.4}", time)],
-                        converged: residual_abs <= config.solver.tolerance(),
+                        converged: residual_abs <= validation_tolerance,
                     },
                     config.explain.max_entries,
                 );
@@ -333,7 +338,7 @@ impl SequentialBootstrapper {
             "generic_bootstrap",
             residuals,
             total_iterations,
-            config.solver.tolerance(),
+            validation_tolerance,
         );
         let report = if let Some(t) = trace {
             report.with_explanation(t)
@@ -396,9 +401,9 @@ mod tests {
 
         let config = CalibrationConfig::default();
         let (curve_a, _) =
-            SequentialBootstrapper::bootstrap(&target, &quotes, Vec::new(), &config, None)?;
+            SequentialBootstrapper::bootstrap(&target, &quotes, Vec::new(), &config, None, None)?;
         let (curve_b, _) =
-            SequentialBootstrapper::bootstrap(&target, &shuffled, Vec::new(), &config, None)?;
+            SequentialBootstrapper::bootstrap(&target, &shuffled, Vec::new(), &config, None, None)?;
 
         assert_eq!(curve_a, curve_b);
         Ok(())
@@ -499,7 +504,7 @@ mod solver_tests {
             ..CalibrationConfig::default()
         };
         let (curve, report) =
-            SequentialBootstrapper::bootstrap(&target, &[q], vec![(0.0, 0.0)], &cfg, None)
+            SequentialBootstrapper::bootstrap(&target, &[q], vec![(0.0, 0.0)], &cfg, None, None)
                 .expect("bootstrap should succeed");
         assert!((curve - 0.5).abs() < 1e-6);
         assert!(report.success);
@@ -523,7 +528,7 @@ mod solver_tests {
             ..CalibrationConfig::default()
         };
         let (curve, report) =
-            SequentialBootstrapper::bootstrap(&target, &[q], vec![(0.0, 0.0)], &cfg, None)
+            SequentialBootstrapper::bootstrap(&target, &[q], vec![(0.0, 0.0)], &cfg, None, None)
                 .expect("bootstrap should succeed despite infeasible points");
         assert!((curve - 0.5).abs() < 1e-6);
         assert!(report.success);
@@ -547,8 +552,9 @@ mod solver_tests {
                 .with_max_iterations(200),
             ..CalibrationConfig::default()
         };
-        let err = SequentialBootstrapper::bootstrap(&target, &[q], vec![(0.0, 0.0)], &cfg, None)
-            .expect_err("should fail when all evaluations are penalized");
+        let err =
+            SequentialBootstrapper::bootstrap(&target, &[q], vec![(0.0, 0.0)], &cfg, None, None)
+                .expect_err("should fail when all evaluations are penalized");
         let msg = format!("{err}");
         assert!(
             msg.contains("all")
@@ -623,8 +629,9 @@ mod solver_tests {
                 .with_max_iterations(200),
             ..CalibrationConfig::default()
         };
-        let err = SequentialBootstrapper::bootstrap(&target, &[q], vec![(0.0, 0.0)], &cfg, None)
-            .expect_err("bootstrap should fail due to f-space tolerance enforcement");
+        let err =
+            SequentialBootstrapper::bootstrap(&target, &[q], vec![(0.0, 0.0)], &cfg, None, None)
+                .expect_err("bootstrap should fail due to f-space tolerance enforcement");
         let msg = format!("{err}");
         assert!(
             msg.contains("exceeds tolerance"),
@@ -647,9 +654,15 @@ mod solver_tests {
             ..q1.clone()
         };
         let cfg = CalibrationConfig::default();
-        let err =
-            SequentialBootstrapper::bootstrap(&target, &[q1, q2], vec![(0.0, 0.0)], &cfg, None)
-                .expect_err("should reject duplicate times");
+        let err = SequentialBootstrapper::bootstrap(
+            &target,
+            &[q1, q2],
+            vec![(0.0, 0.0)],
+            &cfg,
+            None,
+            None,
+        )
+        .expect_err("should reject duplicate times");
         assert!(format!("{err}").contains("duplicate quote times"));
     }
 
@@ -683,6 +696,7 @@ mod solver_tests {
             vec![(0.0, 0.0)],
             &cfg,
             None,
+            None,
         )
         .expect("sorted input should succeed");
         let (curve_shuffled, report_shuffled) = SequentialBootstrapper::bootstrap(
@@ -690,6 +704,7 @@ mod solver_tests {
             &[q_long, q_short],
             vec![(0.0, 0.0)],
             &cfg,
+            None,
             None,
         )
         .expect("shuffled input should succeed");

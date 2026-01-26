@@ -139,6 +139,41 @@ impl HazardCurveSolveConfig {
     }
 }
 
+/// Inflation-curve specific numerical solver configuration.
+///
+/// Controls the numerical stability and success criteria of inflation curve
+/// bootstrapping or global solve for CPI curve calibration.
+///
+/// # Examples
+/// ```rust,no_run
+/// use finstack_valuations::calibration::InflationCurveSolveConfig;
+///
+/// let config = InflationCurveSolveConfig {
+///     validation_tolerance: 1e-6,  // Relax for noisy inflation markets
+///     ..Default::default()
+/// };
+/// ```
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct InflationCurveSolveConfig {
+    /// Weighting scheme for global solve residuals.
+    #[serde(default)]
+    pub weighting_scheme: ResidualWeightingScheme,
+    /// Tolerance for determining calibration success (applied to residuals).
+    pub validation_tolerance: f64,
+}
+
+impl Default for InflationCurveSolveConfig {
+    fn default() -> Self {
+        Self {
+            weighting_scheme: ResidualWeightingScheme::default(),
+            validation_tolerance: 1e-8,
+        }
+    }
+}
+
 /// Discount-curve specific numerical solver configuration.
 ///
 /// Controls the search space and numerical stability of the discount curve
@@ -276,6 +311,10 @@ pub struct CalibrationConfig {
     /// Hazard-curve specific solver configuration.
     #[serde(default)]
     pub hazard_curve: HazardCurveSolveConfig,
+
+    /// Inflation-curve specific solver configuration.
+    #[serde(default)]
+    pub inflation_curve: InflationCurveSolveConfig,
 }
 
 /// Extension section key for calibration overrides.
@@ -295,6 +334,7 @@ impl Default for CalibrationConfig {
             calibration_method: CalibrationMethod::default(),
             discount_curve: DiscountCurveSolveConfig::default(),
             hazard_curve: HazardCurveSolveConfig::default(),
+            inflation_curve: InflationCurveSolveConfig::default(),
         }
     }
 }
@@ -475,6 +515,7 @@ impl CalibrationConfig {
             calibration_method: CalibrationMethod::default(),
             discount_curve: DiscountCurveSolveConfig::default(),
             hazard_curve: HazardCurveSolveConfig::default(),
+            inflation_curve: InflationCurveSolveConfig::default(),
         }
     }
 
@@ -514,6 +555,7 @@ impl CalibrationConfig {
             calibration_method: CalibrationMethod::default(),
             discount_curve: DiscountCurveSolveConfig::default(),
             hazard_curve: HazardCurveSolveConfig::default(),
+            inflation_curve: InflationCurveSolveConfig::default(),
         }
     }
 
@@ -553,6 +595,7 @@ impl CalibrationConfig {
             calibration_method: CalibrationMethod::default(),
             discount_curve: DiscountCurveSolveConfig::default(),
             hazard_curve: HazardCurveSolveConfig::default(),
+            inflation_curve: InflationCurveSolveConfig::default(),
         }
     }
 

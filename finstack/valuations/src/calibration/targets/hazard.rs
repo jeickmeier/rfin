@@ -129,16 +129,20 @@ impl HazardBootstrapper {
             prepared_quotes.push(CalibrationQuote::Cds(prepared));
         }
 
+        // Target-specific validation tolerance for hazard curves.
+        let success_tolerance = Some(config.hazard_curve.validation_tolerance);
+
         let (curve, report) = match params.method {
             CalibrationMethod::Bootstrap => SequentialBootstrapper::bootstrap(
                 &target,
                 &prepared_quotes,
                 Vec::new(),
                 &config,
+                success_tolerance,
                 None,
             )?,
             CalibrationMethod::GlobalSolve { .. } => {
-                GlobalFitOptimizer::optimize(&target, &prepared_quotes, &config)?
+                GlobalFitOptimizer::optimize(&target, &prepared_quotes, &config, success_tolerance)?
             }
         };
 
@@ -524,7 +528,8 @@ Global solve requires strictly increasing times.",
         for (i, quote) in quotes.iter().enumerate() {
             let t = self.quote_time(quote)?.max(1e-6);
 
-            let weight = match self.config.discount_curve.weighting_scheme {
+            // Use hazard-curve-specific weighting scheme, not discount curve's.
+            let weight = match self.config.hazard_curve.weighting_scheme {
                 ResidualWeightingScheme::Equal => 1.0,
                 ResidualWeightingScheme::LinearTime => t,
                 ResidualWeightingScheme::SqrtTime => t.sqrt(),

@@ -81,7 +81,8 @@ pub(crate) mod constants;
 #[doc(hidden)]
 pub use config::{
     CalibrationConfig, CalibrationMethod, DiscountCurveSolveConfig, HazardCurveSolveConfig,
-    RatesStepConventions, ResidualWeightingScheme, CALIBRATION_CONFIG_KEY,
+    InflationCurveSolveConfig, RatesStepConventions, ResidualWeightingScheme,
+    CALIBRATION_CONFIG_KEY,
 };
 #[doc(hidden)]
 pub use solver::SolverConfig;

@@ -367,6 +367,9 @@ Global solve requires strictly increasing times.",
             base_context: context.clone(),
         });
 
+        // Target-specific validation tolerance for discount curves.
+        let success_tolerance = Some(config.discount_curve.validation_tolerance);
+
         // Optional bootstrap seeding for the global solve to improve convergence and accuracy.
         let mut seed_report: Option<CalibrationReport> = None;
         let mut seed_error: Option<String> = None;
@@ -380,6 +383,7 @@ Global solve requires strictly increasing times.",
                 &seed_quotes,
                 vec![(0.0, 1.0)],
                 &config,
+                success_tolerance,
                 None,
             ) {
                 Ok((curve_seed, report)) => {
@@ -398,10 +402,11 @@ Global solve requires strictly increasing times.",
                 &prepared_quotes,
                 vec![(0.0, 1.0)],
                 &config,
+                success_tolerance,
                 None,
             )?,
             CalibrationMethod::GlobalSolve { .. } => {
-                GlobalFitOptimizer::optimize(&target, &prepared_quotes, &config)?
+                GlobalFitOptimizer::optimize(&target, &prepared_quotes, &config, success_tolerance)?
             }
         };
 
@@ -950,7 +955,9 @@ Ensure quotes map to strictly increasing year fractions.",
                     continue;
                 }
 
-                let pv = quote.get_instrument().value(ctx, self.base_date)?.amount();
+                // Use value_raw() instead of value().amount() to avoid Money representation
+                // noise in finite-difference Jacobian calculations.
+                let pv = quote.get_instrument().value_raw(ctx, self.base_date)?;
                 let val_plus = pv / self.residual_notional;
                 let val_base = base_residuals[i];
 
@@ -1118,7 +1125,7 @@ mod tests {
         let quotes = vec![CalibrationQuote::Rates(pq)];
 
         let (_curve, report) =
-            GlobalFitOptimizer::optimize(&target, &quotes, &config).expect("solve");
+            GlobalFitOptimizer::optimize(&target, &quotes, &config, None).expect("solve");
         println!("Max residual: {}", report.max_residual);
         assert!(report.max_residual < 1e-6);
     }
@@ -1187,7 +1194,7 @@ mod tests {
             }
 
             let (curve, report) =
-                GlobalFitOptimizer::optimize(&target, &quotes, &config).expect("solve");
+                GlobalFitOptimizer::optimize(&target, &quotes, &config, None).expect("solve");
 
             // Ensure calibration succeeded with normalized residuals
             println!(
