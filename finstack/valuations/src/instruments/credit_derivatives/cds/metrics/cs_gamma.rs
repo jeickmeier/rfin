@@ -61,9 +61,10 @@ impl MetricCalculator for CsGammaCalculator {
         let curves_down = context.curves.bump(bumps_down)?;
         let pv_down = cds.value(&curves_down, as_of)?.amount();
 
-        if base_pv == 0.0 {
-            return Ok(0.0);
-        }
+        // Note: We intentionally do NOT return early when base_pv == 0.0.
+        // At par (base_pv = 0), the second derivative formula still works correctly:
+        // CS-Gamma = (pv_up + pv_down - 2×0) / bump² = (pv_up + pv_down) / bump²
+        // This gives the correct convexity measure even at par.
 
         // Convert bump from bp to decimal
         let bump_decimal = bump_bp / 10_000.0;

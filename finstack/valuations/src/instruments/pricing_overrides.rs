@@ -67,7 +67,23 @@ pub struct PricingOverrides {
     pub vol_surface_extrapolation: VolSurfaceExtrapolation,
     /// Quoted spread (for credit instruments)
     pub quoted_spread_bp: Option<f64>,
-    /// Upfront payment (for CDS, convertibles)
+    /// PV adjustment at valuation date (for CDS, CDSIndex, convertibles).
+    ///
+    /// This is an **already-discounted** adjustment to the net present value.
+    /// It is added directly to the NPV without further discounting.
+    ///
+    /// # Sign Convention
+    ///
+    /// - Positive value: increases NPV (e.g., premium received)
+    /// - Negative value: decreases NPV (e.g., premium paid)
+    ///
+    /// # Relationship to CDS Dated Upfront
+    ///
+    /// For CDS, this is distinct from `CreditDefaultSwap.upfront: Option<(Date, Money)>`:
+    /// - **`upfront_payment`**: PV adjustment at `as_of`, added directly
+    /// - **`CreditDefaultSwap.upfront`**: Dated cashflow, discounted from payment date
+    ///
+    /// Both can be set simultaneously without double-counting.
     pub upfront_payment: Option<Money>,
     /// Optional YTM bump size for numerical metrics (e.g., convexity/duration), in decimal (1 bp = 1e-4)
     pub ytm_bump_decimal: Option<f64>,

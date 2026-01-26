@@ -11,7 +11,8 @@
 //! - Protection leg PV
 //! - Premium leg PV
 //! - Expected loss
-//! - Jump to default
+//! - Jump to default (includes accrued premium)
+//! - Jump to default LGD only (excludes accrued premium)
 
 mod cs_gamma;
 mod expected_loss;
@@ -48,6 +49,13 @@ pub fn register_cds_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::Recovery01,
         Arc::new(recovery01::Recovery01Calculator),
+        &[InstrumentType::CDS],
+    );
+
+    // JumpToDefaultLgdOnly (custom metric - LGD only, excludes accrued)
+    registry.register_metric(
+        MetricId::custom("jump_to_default_lgd_only"),
+        Arc::new(jump_to_default::JumpToDefaultLgdOnlyCalculator),
         &[InstrumentType::CDS],
     );
 

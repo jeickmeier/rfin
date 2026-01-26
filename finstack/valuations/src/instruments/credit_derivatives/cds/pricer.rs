@@ -61,8 +61,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::DateExt;
 use finstack_core::dates::{adjust, next_cds_date, Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::HazardCurve;
-use finstack_core::market_data::traits::{Discounting, Survival};
+use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::math::{adaptive_simpson, gauss_legendre_integrate};
 use finstack_core::money::Money;
@@ -345,7 +344,7 @@ impl CDSPricerConfig {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::credit_derivatives::cds::pricer::CDSPricerConfig;
+    /// use finstack_valuations::instruments::credit_derivatives::cds::CDSPricerConfig;
     ///
     /// let config = CDSPricerConfig::isda_standard();
     /// assert!(config.validate().is_ok());
@@ -456,8 +455,8 @@ impl CDSPricer {
     pub fn pv_protection_leg(
         &self,
         cds: &CreditDefaultSwap,
-        disc: &dyn Discounting,
-        surv: &dyn Survival,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
         as_of: Date,
     ) -> Result<Money> {
         let pv = self.pv_protection_leg_raw(cds, disc, surv, as_of)?;
@@ -465,6 +464,11 @@ impl CDSPricer {
     }
 
     /// Calculate PV of protection leg (raw f64)
+    ///
+    /// Uses proper time-axis conventions:
+    /// - Times are computed using the hazard curve's day-count convention
+    /// - Survival probabilities are conditional on no default before `as_of`
+    /// - Discounting uses the discount curve (times mapped from hazard curve axis)
     ///
     /// # Panics
     ///
@@ -474,8 +478,8 @@ impl CDSPricer {
     pub fn pv_protection_leg_raw(
         &self,
         cds: &CreditDefaultSwap,
-        disc: &dyn Discounting,
-        surv: &dyn Survival,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
         as_of: Date,
     ) -> Result<f64> {
         // Note: Recovery rate validation is performed at CDS construction time.
@@ -484,64 +488,118 @@ impl CDSPricer {
         // Protection leg covers the period from premium start to premium end
         // But we only value protection from as_of onwards (can't protect against past defaults)
         let protection_start = as_of.max(cds.premium.start);
-        let t_start = self.year_fraction(as_of, protection_start, cds.premium.dc)?;
-        let t_end = self.year_fraction(as_of, cds.premium.end, cds.premium.dc)?;
+        let protection_end = cds.premium.end;
+
+        // Use hazard curve's day-count for time axis (survival is the dominant factor)
+        let t_asof = haz_t(surv, as_of)?;
+        let t_start = haz_t(surv, protection_start)?;
+        let t_end = haz_t(surv, protection_end)?;
+
         let recovery = cds.protection.recovery_rate;
         let delay_years =
             (cds.protection.settlement_delay as f64) / self.config.business_days_per_year;
 
+        // Compute survival at as_of for conditioning
+        let sp_asof = surv.sp(t_asof);
+
+        // Compute DF at as_of for relative discounting
+        // Note: We use hazard curve's time axis for consistency in integration
+        let df_asof = disc.df(t_asof);
+
         let protection_pv = match self.config.integration_method {
-            IntegrationMethod::Midpoint => {
-                self.protection_leg_midpoint(t_start, t_end, recovery, delay_years, disc, surv)?
-            }
-            IntegrationMethod::GaussianQuadrature => match self.protection_leg_gaussian_quadrature(
+            IntegrationMethod::Midpoint => self.protection_leg_midpoint_cond(
                 t_start,
                 t_end,
                 recovery,
                 delay_years,
+                sp_asof,
+                df_asof,
                 disc,
                 surv,
-            ) {
-                Ok(pv) => pv,
-                Err(e) => {
-                    tracing::warn!(
-                        method = "GaussianQuadrature",
-                        error = %e,
-                        t_start = t_start,
-                        t_end = t_end,
-                        "Integration failed, falling back to midpoint method"
-                    );
-                    self.protection_leg_midpoint(t_start, t_end, recovery, delay_years, disc, surv)?
+            )?,
+            IntegrationMethod::GaussianQuadrature => {
+                match self.protection_leg_gaussian_quadrature_cond(
+                    t_start,
+                    t_end,
+                    recovery,
+                    delay_years,
+                    sp_asof,
+                    df_asof,
+                    disc,
+                    surv,
+                ) {
+                    Ok(pv) => pv,
+                    Err(e) => {
+                        tracing::warn!(
+                            method = "GaussianQuadrature",
+                            error = %e,
+                            t_start = t_start,
+                            t_end = t_end,
+                            "Integration failed, falling back to midpoint method"
+                        );
+                        self.protection_leg_midpoint_cond(
+                            t_start,
+                            t_end,
+                            recovery,
+                            delay_years,
+                            sp_asof,
+                            df_asof,
+                            disc,
+                            surv,
+                        )?
+                    }
                 }
-            },
-            IntegrationMethod::AdaptiveSimpson => match self.protection_leg_adaptive_simpson(
+            }
+            IntegrationMethod::AdaptiveSimpson => {
+                match self.protection_leg_adaptive_simpson_cond(
+                    t_start,
+                    t_end,
+                    recovery,
+                    delay_years,
+                    sp_asof,
+                    df_asof,
+                    disc,
+                    surv,
+                ) {
+                    Ok(pv) => pv,
+                    Err(e) => {
+                        tracing::warn!(
+                            method = "AdaptiveSimpson",
+                            error = %e,
+                            t_start = t_start,
+                            t_end = t_end,
+                            "Integration failed, falling back to midpoint method"
+                        );
+                        self.protection_leg_midpoint_cond(
+                            t_start,
+                            t_end,
+                            recovery,
+                            delay_years,
+                            sp_asof,
+                            df_asof,
+                            disc,
+                            surv,
+                        )?
+                    }
+                }
+            }
+            IntegrationMethod::IsdaExact => self.protection_leg_isda_exact_cond(
                 t_start,
                 t_end,
                 recovery,
                 delay_years,
+                sp_asof,
+                df_asof,
                 disc,
                 surv,
-            ) {
-                Ok(pv) => pv,
-                Err(e) => {
-                    tracing::warn!(
-                        method = "AdaptiveSimpson",
-                        error = %e,
-                        t_start = t_start,
-                        t_end = t_end,
-                        "Integration failed, falling back to midpoint method"
-                    );
-                    self.protection_leg_midpoint(t_start, t_end, recovery, delay_years, disc, surv)?
-                }
-            },
-            IntegrationMethod::IsdaExact => {
-                self.protection_leg_isda_exact(t_start, t_end, recovery, delay_years, disc, surv)?
-            }
-            IntegrationMethod::IsdaStandardModel => self.protection_leg_isda_standard_model(
+            )?,
+            IntegrationMethod::IsdaStandardModel => self.protection_leg_isda_standard_model_cond(
                 t_start,
                 t_end,
                 recovery,
                 delay_years,
+                sp_asof,
+                df_asof,
                 disc,
                 surv,
             )?,
@@ -555,8 +613,8 @@ impl CDSPricer {
     pub fn pv_premium_leg(
         &self,
         cds: &CreditDefaultSwap,
-        disc: &dyn Discounting,
-        surv: &dyn Survival,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
         as_of: Date,
     ) -> Result<Money> {
         let pv = self.pv_premium_leg_raw(cds, disc, surv, as_of)?;
@@ -564,14 +622,18 @@ impl CDSPricer {
     }
 
     /// Calculate PV of premium leg (raw f64)
+    ///
+    /// Uses proper time-axis conventions:
+    /// - Discounting: relative DF from `as_of` using discount curve's day-count
+    /// - Survival: conditional survival given no default before `as_of` using hazard curve's day-count
+    /// - Accrual: instrument's premium leg day-count convention (Act/360 for NA, etc.)
     pub fn pv_premium_leg_raw(
         &self,
         cds: &CreditDefaultSwap,
-        disc: &dyn Discounting,
-        surv: &dyn Survival,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
         as_of: Date,
     ) -> Result<f64> {
-        let base_date = disc.base_date();
         let schedule = self.generate_schedule(cds, as_of)?;
 
         let mut premium_pv = 0.0;
@@ -591,33 +653,280 @@ impl CDSPricer {
                 continue;
             }
 
-            let t_end = self.year_fraction(base_date, end_date, cds.premium.dc)?;
+            // Accrual uses instrument's day-count convention (e.g., Act/360 for ISDA NA)
             let accrual = self.year_fraction(start_date, end_date, cds.premium.dc)?;
 
-            let sp = surv.sp(t_end);
-            let df = disc.df(t_end);
+            // Discounting uses discount curve's day-count and relative DF from as_of
+            let df = df_asof_to(disc, as_of, end_date)?;
+
+            // Survival uses hazard curve's day-count and conditional probability
+            let sp = sp_cond_to(surv, as_of, end_date)?;
 
             premium_pv += spread * accrual * sp * df;
 
             if self.config.include_accrual {
-                let t_start =
-                    self.year_fraction(base_date, base_date.max(start_date), cds.premium.dc)?;
-                premium_pv +=
-                    self.calculate_accrual_on_default(spread, t_start, t_end, disc, surv)?;
+                // Accrual-on-default contribution for this period
+                premium_pv += self.calculate_accrual_on_default_dates(
+                    spread,
+                    start_date.max(as_of),
+                    end_date,
+                    as_of,
+                    disc,
+                    surv,
+                )?;
             }
         }
 
         Ok(premium_pv * cds.notional.amount())
     }
 
-    /// Calculate accrual-on-default for a period using configured method
+    /// Calculate accrual-on-default for a period using dates with proper time-axis handling.
+    ///
+    /// This method properly handles:
+    /// - Discounting using discount curve's day-count relative to as_of
+    /// - Survival using hazard curve's day-count with conditional probability from as_of
+    /// - Accrual fraction within the period
+    fn calculate_accrual_on_default_dates(
+        &self,
+        spread: f64,
+        start_date: Date,
+        end_date: Date,
+        as_of: Date,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
+    ) -> Result<f64> {
+        // Compute times using respective curve day-counts
+        let t_asof_disc = disc_t(disc, as_of)?;
+        let t_start_disc = disc_t(disc, start_date)?;
+        let t_end_disc = disc_t(disc, end_date)?;
+
+        let t_asof_haz = haz_t(surv, as_of)?;
+        let t_start_haz = haz_t(surv, start_date)?;
+        let t_end_haz = haz_t(surv, end_date)?;
+
+        // Period length in hazard curve's time axis (used for integration steps)
+        let period_length = t_end_haz - t_start_haz;
+        if period_length <= 0.0 {
+            return Ok(0.0);
+        }
+
+        // Survival at as_of for conditioning
+        let sp_asof = surv.sp(t_asof_haz);
+        if sp_asof <= 0.0 {
+            return Ok(0.0); // Already defaulted
+        }
+
+        // DF at as_of for relative discounting
+        let df_asof = disc.df(t_asof_disc);
+        if df_asof <= 0.0 {
+            return Ok(0.0);
+        }
+
+        match self.config.integration_method {
+            IntegrationMethod::Midpoint => self.accrual_on_default_midpoint_dates(
+                spread,
+                t_start_haz,
+                t_end_haz,
+                t_start_disc,
+                t_end_disc,
+                sp_asof,
+                df_asof,
+                disc,
+                surv,
+            ),
+            IntegrationMethod::GaussianQuadrature | IntegrationMethod::AdaptiveSimpson => self
+                .accrual_on_default_adaptive_dates(
+                    spread,
+                    t_start_haz,
+                    t_end_haz,
+                    t_start_disc,
+                    t_end_disc,
+                    sp_asof,
+                    df_asof,
+                    disc,
+                    surv,
+                ),
+            IntegrationMethod::IsdaExact | IntegrationMethod::IsdaStandardModel => self
+                .accrual_on_default_isda_dates(
+                    spread,
+                    t_start_haz,
+                    t_end_haz,
+                    t_start_disc,
+                    t_end_disc,
+                    sp_asof,
+                    df_asof,
+                    disc,
+                    surv,
+                ),
+        }
+    }
+
+    /// Midpoint method for AoD with proper time-axis handling
+    #[allow(clippy::too_many_arguments)]
+    fn accrual_on_default_midpoint_dates(
+        &self,
+        spread: f64,
+        t_start_haz: f64,
+        t_end_haz: f64,
+        t_start_disc: f64,
+        _t_end_disc: f64,
+        sp_asof: f64,
+        df_asof: f64,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
+    ) -> Result<f64> {
+        let period_length = t_end_haz - t_start_haz;
+        let num_steps = (period_length * self.config.steps_per_year as f64).ceil() as usize;
+        let num_steps = num_steps.max(1);
+        let dt_haz = period_length / num_steps as f64;
+        // Assume disc and haz time axes are similar for step sizing (not exact but reasonable)
+        let dt_disc = (t_start_disc - t_start_haz + period_length) / num_steps as f64;
+        let _ = dt_disc; // We'll interpolate disc time from haz time ratio
+
+        let mut accrual_pv = 0.0;
+        for i in 0..num_steps {
+            let t1_haz = t_start_haz + i as f64 * dt_haz;
+            let t2_haz = t_start_haz + (i + 1) as f64 * dt_haz;
+
+            // Conditional default probability for this sub-period
+            let sp1 = surv.sp(t1_haz) / sp_asof;
+            let sp2 = surv.sp(t2_haz) / sp_asof;
+            let default_prob = sp1 - sp2;
+
+            // Default assumed at midpoint
+            let t_mid_haz = (t1_haz + t2_haz) * 0.5;
+            // Map haz time to disc time (linear interpolation approximation)
+            let ratio = (t_mid_haz - t_start_haz) / period_length;
+            let t_mid_disc = t_start_disc + ratio * (t_start_disc - t_start_haz + period_length);
+
+            // Relative DF from as_of
+            let df = disc.df(t_mid_disc) / df_asof;
+
+            // Accrued time within the period (from start to default)
+            let accrued_fraction = t_mid_haz - t_start_haz;
+            let accrual = spread * accrued_fraction;
+
+            accrual_pv += accrual * default_prob * df;
+        }
+        Ok(accrual_pv)
+    }
+
+    /// Adaptive method for AoD with proper time-axis handling
+    #[allow(clippy::too_many_arguments)]
+    fn accrual_on_default_adaptive_dates(
+        &self,
+        spread: f64,
+        t_start_haz: f64,
+        t_end_haz: f64,
+        t_start_disc: f64,
+        _t_end_disc: f64,
+        sp_asof: f64,
+        df_asof: f64,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
+    ) -> Result<f64> {
+        let period_length = t_end_haz - t_start_haz;
+        if period_length <= 0.0 || spread < 0.0 {
+            return Ok(0.0);
+        }
+
+        let h = period_length * numerical::INTEGRATION_STEP_FACTOR;
+        let integrand = |t_haz: f64| {
+            // Density of default at t_haz (conditioned on survival to as_of)
+            let density = approx_default_density(surv, t_haz, h, t_start_haz, t_end_haz) / sp_asof;
+
+            // Map haz time to disc time
+            let ratio = (t_haz - t_start_haz) / period_length;
+            let t_disc = t_start_disc + ratio * period_length;
+
+            // Relative DF from as_of
+            let df = disc.df(t_disc) / df_asof;
+
+            // Accrued time within period
+            let accrued_time = (t_haz - t_start_haz).max(0.0);
+
+            spread * accrued_time * density * df
+        };
+
+        adaptive_simpson(
+            integrand,
+            t_start_haz,
+            t_end_haz,
+            self.config.tolerance,
+            self.config.adaptive_max_depth,
+        )
+    }
+
+    /// ISDA-style method for AoD with proper time-axis handling
+    #[allow(clippy::too_many_arguments)]
+    fn accrual_on_default_isda_dates(
+        &self,
+        spread: f64,
+        t_start_haz: f64,
+        t_end_haz: f64,
+        t_start_disc: f64,
+        _t_end_disc: f64,
+        sp_asof: f64,
+        df_asof: f64,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
+    ) -> Result<f64> {
+        let period_length = t_end_haz - t_start_haz;
+        if period_length <= 0.0 {
+            return Ok(0.0);
+        }
+
+        // Use ISDA piecewise-constant approximation
+        let steps_per_period = self.config.effective_steps(period_length);
+        let dt = period_length / steps_per_period as f64;
+        let mut accrual_pv = 0.0;
+
+        for i in 0..steps_per_period {
+            let t1_haz = t_start_haz + i as f64 * dt;
+            let t2_haz = t1_haz + dt;
+
+            // Conditional survival probabilities
+            let sp1 = surv.sp(t1_haz) / sp_asof;
+            let sp2 = surv.sp(t2_haz) / sp_asof;
+
+            if sp1 > sp2 && sp1 > 0.0 {
+                // Note: Hazard rate computed for documentation but not needed in simplified formula
+                // let hazard_rate = -(sp2 / sp1).ln() / dt;
+
+                // Map to disc time axis
+                let ratio1 = (t1_haz - t_start_haz) / period_length;
+                let t1_disc = t_start_disc + ratio1 * period_length;
+
+                // Relative DF at interval start
+                let df1 = disc.df(t1_disc) / df_asof;
+
+                // Accrued time from period start to interval start
+                let accrued_time = t1_haz - t_start_haz;
+
+                // ISDA: accrual at default is approximately at interval midpoint
+                // Simplified: use accrued_time + dt/2 as average
+                let avg_accrued = accrued_time + dt * 0.5;
+
+                // Contribution: spread * avg_accrued * (probability of default in interval) * df
+                // Default prob = sp1 - sp2
+                accrual_pv += spread * avg_accrued * (sp1 - sp2) * df1;
+            }
+        }
+
+        Ok(accrual_pv)
+    }
+
+    /// Calculate accrual-on-default for a period using configured method (legacy time-based)
+    ///
+    /// Note: This method assumes times are computed using consistent day-count conventions.
+    /// Prefer using `calculate_accrual_on_default_dates` for new code.
     fn calculate_accrual_on_default(
         &self,
         spread: f64,
         t_start: f64,
         t_end: f64,
-        disc: &dyn Discounting,
-        surv: &dyn Survival,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
     ) -> Result<f64> {
         let period_length = t_end - t_start;
         match self.config.integration_method {
@@ -652,8 +961,8 @@ impl CDSPricer {
         t_start: f64,
         _t_end: f64,
         period_length: f64,
-        disc: &dyn Discounting,
-        surv: &dyn Survival,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
     ) -> Result<f64> {
         let num_steps = (period_length * self.config.steps_per_year as f64).ceil() as usize;
         let dt = period_length / num_steps as f64;
@@ -677,8 +986,8 @@ impl CDSPricer {
         t_start: f64,
         t_end: f64,
         _period_length: f64,
-        disc: &dyn Discounting,
-        surv: &dyn Survival,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
     ) -> Result<f64> {
         if t_start >= t_end || spread < 0.0 {
             return Err(Error::Internal);
@@ -705,8 +1014,8 @@ impl CDSPricer {
         t_start: f64,
         _t_end: f64,
         period_length: f64,
-        disc: &dyn Discounting,
-        surv: &dyn Survival,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
     ) -> Result<f64> {
         let steps = isda::STANDARD_INTEGRATION_POINTS;
         let dt = period_length / steps as f64;
@@ -735,8 +1044,8 @@ impl CDSPricer {
         t_start: f64,
         _t_end: f64,
         period_length: f64,
-        disc: &dyn Discounting,
-        surv: &dyn Survival,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
     ) -> Result<f64> {
         let steps = isda::STANDARD_INTEGRATION_POINTS;
         let dt = period_length / steps as f64;
@@ -756,8 +1065,9 @@ impl CDSPricer {
                 let df1 = disc.df(t1);
                 let df2 = disc.df(t2);
 
-                // Calculate piecewise constant interest rate
-                let interest_rate = if df1 > 0.0 && df2 > 0.0 && df2 < df1 {
+                // Calculate piecewise constant interest rate (allow negative rates)
+                // Negative rates are valid when df2 > df1 (discount factors rising)
+                let interest_rate = if df1 > 0.0 && df2 > 0.0 {
                     -(df2 / df1).ln() / dt
                 } else {
                     0.0
@@ -801,8 +1111,8 @@ impl CDSPricer {
         t_end: f64,
         recovery: f64,
         delay_years: f64,
-        disc: &dyn Discounting,
-        surv: &dyn Survival,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
     ) -> Result<f64> {
         let tenor_years = t_end - t_start;
         let steps_per_year = self.config.effective_steps(tenor_years);
@@ -827,8 +1137,8 @@ impl CDSPricer {
         t_end: f64,
         recovery: f64,
         delay_years: f64,
-        disc: &dyn Discounting,
-        surv: &dyn Survival,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
     ) -> Result<f64> {
         if t_start >= t_end {
             return Err(Error::Validation(format!(
@@ -853,8 +1163,8 @@ impl CDSPricer {
         t_end: f64,
         recovery: f64,
         delay_years: f64,
-        disc: &dyn Discounting,
-        surv: &dyn Survival,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
     ) -> Result<f64> {
         if t_start >= t_end {
             return Err(Error::Validation(format!(
@@ -885,8 +1195,8 @@ impl CDSPricer {
         t_end: f64,
         recovery: f64,
         delay_years: f64,
-        disc: &dyn Discounting,
-        surv: &dyn Survival,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
     ) -> Result<f64> {
         if t_start >= t_end {
             return Err(Error::Validation(format!(
@@ -926,8 +1236,8 @@ impl CDSPricer {
         t_end: f64,
         recovery: f64,
         delay_years: f64,
-        disc: &dyn Discounting,
-        surv: &dyn Survival,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
     ) -> Result<f64> {
         if t_start >= t_end {
             return Err(Error::Validation(format!(
@@ -956,8 +1266,9 @@ impl CDSPricer {
                 let df1 = disc.df(t1 + delay_years);
                 let df2 = disc.df(t2 + delay_years);
 
-                // Calculate piecewise constant interest rate
-                let interest_rate = if df1 > 0.0 && df2 > 0.0 && df2 < df1 {
+                // Calculate piecewise constant interest rate (allow negative rates)
+                // Negative rates are valid when df2 > df1 (discount factors rising)
+                let interest_rate = if df1 > 0.0 && df2 > 0.0 {
                     -(df2 / df1).ln() / dt
                 } else {
                     0.0
@@ -973,6 +1284,248 @@ impl CDSPricer {
                     integral += df1 * sp1 * (hazard_rate / lambda_plus_r) * (1.0 - exp_term);
                 } else {
                     // Fallback to simple approximation when rates are very small
+                    integral += df1 * sp1 * hazard_rate * dt;
+                }
+            }
+        }
+
+        Ok(integral * lgd)
+    }
+
+    // ----- Conditioned protection leg methods (proper time-axis handling) -----
+
+    /// Midpoint method with conditional survival and relative discounting
+    #[allow(clippy::too_many_arguments)]
+    fn protection_leg_midpoint_cond(
+        &self,
+        t_start: f64,
+        t_end: f64,
+        recovery: f64,
+        delay_years: f64,
+        sp_asof: f64,
+        df_asof: f64,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
+    ) -> Result<f64> {
+        if sp_asof <= 0.0 || df_asof <= 0.0 {
+            return Ok(0.0);
+        }
+
+        let tenor_years = t_end - t_start;
+        let steps_per_year = self.config.effective_steps(tenor_years);
+        let num_steps = ((tenor_years) * steps_per_year as f64).ceil() as usize;
+        let num_steps = num_steps.max(1);
+        let dt = tenor_years / num_steps as f64;
+        let lgd = 1.0 - recovery;
+        let mut protection_pv = 0.0;
+
+        for i in 0..num_steps {
+            let t1 = t_start + i as f64 * dt;
+            let t2 = t_start + (i + 1) as f64 * dt;
+            let t_mid = (t1 + t2) * 0.5;
+
+            // Conditional survival probabilities
+            let sp1 = surv.sp(t1) / sp_asof;
+            let sp2 = surv.sp(t2) / sp_asof;
+            let default_prob = sp1 - sp2;
+
+            // Relative discount factor from as_of
+            let df = disc.df(t_mid + delay_years) / df_asof;
+
+            protection_pv += lgd * default_prob * df;
+        }
+        Ok(protection_pv)
+    }
+
+    /// Gaussian quadrature method with conditional survival and relative discounting
+    #[allow(clippy::too_many_arguments)]
+    fn protection_leg_gaussian_quadrature_cond(
+        &self,
+        t_start: f64,
+        t_end: f64,
+        recovery: f64,
+        delay_years: f64,
+        sp_asof: f64,
+        df_asof: f64,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
+    ) -> Result<f64> {
+        if t_start >= t_end {
+            return Err(Error::Validation(format!(
+                "Protection leg start time ({}) must be before end time ({})",
+                t_start, t_end
+            )));
+        }
+        if sp_asof <= 0.0 || df_asof <= 0.0 {
+            return Ok(0.0);
+        }
+
+        let h = (t_end - t_start) * numerical::INTEGRATION_STEP_FACTOR;
+        let lgd = 1.0 - recovery;
+        let integrand = |t: f64| {
+            // Conditional default density
+            let density = approx_default_density(surv, t, h, t_start, t_end) / sp_asof;
+            // Relative DF from as_of
+            let df = disc.df(t + delay_years) / df_asof;
+            lgd * density * df
+        };
+        gauss_legendre_integrate(integrand, t_start, t_end, self.config.validated_gl_order())
+    }
+
+    /// Adaptive Simpson method with conditional survival and relative discounting
+    #[allow(clippy::too_many_arguments)]
+    fn protection_leg_adaptive_simpson_cond(
+        &self,
+        t_start: f64,
+        t_end: f64,
+        recovery: f64,
+        delay_years: f64,
+        sp_asof: f64,
+        df_asof: f64,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
+    ) -> Result<f64> {
+        if t_start >= t_end {
+            return Err(Error::Validation(format!(
+                "Protection leg start time ({}) must be before end time ({})",
+                t_start, t_end
+            )));
+        }
+        if sp_asof <= 0.0 || df_asof <= 0.0 {
+            return Ok(0.0);
+        }
+
+        let h = (t_end - t_start) * numerical::INTEGRATION_STEP_FACTOR;
+        let lgd = 1.0 - recovery;
+        let integrand = |t: f64| {
+            // Conditional default density
+            let density = approx_default_density(surv, t, h, t_start, t_end) / sp_asof;
+            // Relative DF from as_of
+            let df = disc.df(t + delay_years) / df_asof;
+            lgd * density * df
+        };
+        adaptive_simpson(
+            integrand,
+            t_start,
+            t_end,
+            self.config.tolerance,
+            self.config.adaptive_max_depth,
+        )
+    }
+
+    /// ISDA exact method with conditional survival and relative discounting
+    #[allow(clippy::too_many_arguments)]
+    fn protection_leg_isda_exact_cond(
+        &self,
+        t_start: f64,
+        t_end: f64,
+        recovery: f64,
+        delay_years: f64,
+        sp_asof: f64,
+        df_asof: f64,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
+    ) -> Result<f64> {
+        if t_start >= t_end {
+            return Err(Error::Validation(format!(
+                "Protection leg start time ({}) must be before end time ({})",
+                t_start, t_end
+            )));
+        }
+        if sp_asof <= 0.0 || df_asof <= 0.0 {
+            return Ok(0.0);
+        }
+
+        let lgd = 1.0 - recovery;
+        let tenor_years = t_end - t_start;
+        let steps_per_period = self.config.effective_steps(tenor_years);
+        let dt = tenor_years / steps_per_period as f64;
+        let mut integral = 0.0;
+
+        for i in 0..steps_per_period {
+            let t1 = t_start + i as f64 * dt;
+            let t2 = t1 + dt;
+
+            // Conditional survival probabilities
+            let sp1 = surv.sp(t1) / sp_asof;
+            let sp2 = surv.sp(t2) / sp_asof;
+
+            if sp1 > sp2 && sp1 > 0.0 {
+                let hazard_rate = -(sp2 / sp1).ln() / dt;
+                let avg_t = (t1 + t2) * 0.5;
+                // Relative DF from as_of
+                let df_mid = disc.df(avg_t + delay_years) / df_asof;
+
+                if hazard_rate.abs() > numerical::ZERO_TOLERANCE {
+                    integral += (sp1 - sp2) * df_mid;
+                } else {
+                    let sp_mid = (sp1 + sp2) * 0.5;
+                    integral += sp_mid * df_mid * hazard_rate * dt;
+                }
+            }
+        }
+        Ok(integral * lgd)
+    }
+
+    /// ISDA Standard Model with conditional survival and relative discounting
+    #[allow(clippy::too_many_arguments)]
+    fn protection_leg_isda_standard_model_cond(
+        &self,
+        t_start: f64,
+        t_end: f64,
+        recovery: f64,
+        delay_years: f64,
+        sp_asof: f64,
+        df_asof: f64,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
+    ) -> Result<f64> {
+        if t_start >= t_end {
+            return Err(Error::Validation(format!(
+                "Protection leg start time ({}) must be before end time ({})",
+                t_start, t_end
+            )));
+        }
+        if sp_asof <= 0.0 || df_asof <= 0.0 {
+            return Ok(0.0);
+        }
+
+        let lgd = 1.0 - recovery;
+        let tenor_years = t_end - t_start;
+        let steps_per_period = self.config.effective_steps(tenor_years);
+        let dt = tenor_years / steps_per_period as f64;
+        let mut integral = 0.0;
+
+        for i in 0..steps_per_period {
+            let t1 = t_start + i as f64 * dt;
+            let t2 = t1 + dt;
+
+            // Conditional survival probabilities
+            let sp1 = surv.sp(t1) / sp_asof;
+            let sp2 = surv.sp(t2) / sp_asof;
+
+            if sp1 > sp2 && sp1 > 0.0 {
+                // Piecewise constant hazard rate for this interval
+                let hazard_rate = -(sp2 / sp1).ln() / dt;
+
+                // Relative discount factors from as_of
+                let df1 = disc.df(t1 + delay_years) / df_asof;
+                let df2 = disc.df(t2 + delay_years) / df_asof;
+
+                // Piecewise constant interest rate (allow negative rates)
+                let interest_rate = if df1 > 0.0 && df2 > 0.0 {
+                    -(df2 / df1).ln() / dt
+                } else {
+                    0.0
+                };
+
+                // ISDA Standard Model analytical integration
+                let lambda_plus_r = hazard_rate + interest_rate;
+
+                if lambda_plus_r.abs() > numerical::ZERO_TOLERANCE {
+                    let exp_term = (-lambda_plus_r * dt).exp();
+                    integral += df1 * sp1 * (hazard_rate / lambda_plus_r) * (1.0 - exp_term);
+                } else {
                     integral += df1 * sp1 * hazard_rate * dt;
                 }
             }
@@ -1073,8 +1626,8 @@ impl CDSPricer {
     pub fn par_spread(
         &self,
         cds: &CreditDefaultSwap,
-        disc: &dyn Discounting,
-        surv: &dyn Survival,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
         as_of: Date,
     ) -> Result<f64> {
         let protection_pv = self.pv_protection_leg(cds, disc, surv, as_of)?;
@@ -1083,7 +1636,6 @@ impl CDSPricer {
         // This excludes accrual-on-default from the denominator per ISDA convention.
         let denom = if self.config.par_spread_uses_full_premium {
             // Opt-in: Compute full premium PV per 1bp including AoD
-            let base_date = disc.base_date();
             let schedule = self.generate_schedule(cds, as_of)?;
             let mut ann = 0.0;
             for i in 0..schedule.len() - 1 {
@@ -1095,18 +1647,28 @@ impl CDSPricer {
                     continue;
                 }
 
-                let t_end = self.year_fraction(base_date, end_date, cds.premium.dc)?;
+                // Accrual uses instrument day-count
                 let accrual = self.year_fraction(start_date, end_date, cds.premium.dc)?;
-                let sp = surv.sp(t_end);
-                let df = disc.df(t_end);
+
+                // Discounting uses discount curve's day-count and relative DF from as_of
+                let df = df_asof_to(disc, as_of, end_date)?;
+
+                // Survival uses hazard curve's day-count and conditional probability
+                let sp = sp_cond_to(surv, as_of, end_date)?;
+
                 let unit_spread = 1.0;
                 // coupon part per unit spread
                 ann += unit_spread * accrual * sp * df;
+
                 // AoD part per unit spread in this period
-                let t_start =
-                    self.year_fraction(base_date, base_date.max(start_date), cds.premium.dc)?;
-                ann +=
-                    self.calculate_accrual_on_default(unit_spread, t_start, t_end, disc, surv)?;
+                ann += self.calculate_accrual_on_default_dates(
+                    unit_spread,
+                    start_date.max(as_of),
+                    end_date,
+                    as_of,
+                    disc,
+                    surv,
+                )?;
             }
             ann
         } else {
@@ -1127,15 +1689,16 @@ impl CDSPricer {
     }
 
     /// Premium leg PV per 1 bp of spread, including accrual-on-default if configured.
+    ///
+    /// Uses proper time-axis conventions for discounting and survival.
     #[must_use = "premium leg calculation is pure computation"]
     pub fn premium_leg_pv_per_bp(
         &self,
         cds: &CreditDefaultSwap,
-        disc: &dyn Discounting,
-        surv: &dyn Survival,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
         as_of: Date,
     ) -> Result<f64> {
-        let base_date = disc.base_date();
         let schedule = self.generate_schedule(cds, as_of)?;
         let mut per_bp_pv = 0.0;
         for i in 0..schedule.len() - 1 {
@@ -1147,16 +1710,26 @@ impl CDSPricer {
                 continue;
             }
 
-            let t_end = self.year_fraction(base_date, end_date, cds.premium.dc)?;
+            // Accrual uses instrument day-count
             let accrual = self.year_fraction(start_date, end_date, cds.premium.dc)?;
-            let sp = surv.sp(t_end);
-            let df = disc.df(t_end);
+
+            // Discounting uses discount curve's day-count and relative DF from as_of
+            let df = df_asof_to(disc, as_of, end_date)?;
+
+            // Survival uses hazard curve's day-count and conditional probability
+            let sp = sp_cond_to(surv, as_of, end_date)?;
+
             per_bp_pv += ONE_BASIS_POINT * accrual * sp * df;
+
             if self.config.include_accrual {
-                let t_start =
-                    self.year_fraction(base_date, base_date.max(start_date), cds.premium.dc)?;
-                per_bp_pv +=
-                    self.calculate_accrual_on_default(ONE_BASIS_POINT, t_start, t_end, disc, surv)?;
+                per_bp_pv += self.calculate_accrual_on_default_dates(
+                    ONE_BASIS_POINT,
+                    start_date.max(as_of),
+                    end_date,
+                    as_of,
+                    disc,
+                    surv,
+                )?;
             }
         }
         Ok(per_bp_pv)
@@ -1166,15 +1739,16 @@ impl CDSPricer {
     ///
     /// This is the sum of `DF(t) × SP(t) × YearFrac` across all coupon periods.
     /// Used as the denominator in ISDA standard par spread calculation.
+    ///
+    /// Uses proper time-axis conventions for discounting and survival.
     #[must_use = "risky annuity calculation is pure computation"]
     pub fn risky_annuity(
         &self,
         cds: &CreditDefaultSwap,
-        disc: &dyn Discounting,
-        surv: &dyn Survival,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
         as_of: Date,
     ) -> Result<f64> {
-        let base_date = disc.base_date();
         let schedule = self.generate_schedule(cds, as_of)?;
         let mut annuity = 0.0;
         for i in 0..schedule.len() - 1 {
@@ -1186,10 +1760,15 @@ impl CDSPricer {
                 continue;
             }
 
-            let t_end = self.year_fraction(base_date, end_date, cds.premium.dc)?;
+            // Accrual uses instrument day-count
             let accrual = self.year_fraction(start_date, end_date, cds.premium.dc)?;
-            let sp = surv.sp(t_end);
-            let df = disc.df(t_end);
+
+            // Discounting uses discount curve's day-count and relative DF from as_of
+            let df = df_asof_to(disc, as_of, end_date)?;
+
+            // Survival uses hazard curve's day-count and conditional probability
+            let sp = sp_cond_to(surv, as_of, end_date)?;
+
             annuity += accrual * sp * df;
         }
         Ok(annuity)
@@ -1202,8 +1781,8 @@ impl CDSPricer {
     pub fn risky_pv01(
         &self,
         cds: &CreditDefaultSwap,
-        disc: &dyn Discounting,
-        surv: &dyn Survival,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
         as_of: Date,
     ) -> Result<f64> {
         let risky_annuity = self.risky_annuity(cds, disc, surv, as_of)?;
@@ -1217,8 +1796,8 @@ impl CDSPricer {
     pub fn npv(
         &self,
         cds: &CreditDefaultSwap,
-        disc: &dyn Discounting,
-        surv: &dyn Survival,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
         as_of: Date,
     ) -> Result<Money> {
         let protection_pv = self.pv_protection_leg(cds, disc, surv, as_of)?;
@@ -1229,18 +1808,48 @@ impl CDSPricer {
         }
     }
 
-    /// Instrument NPV including upfront override when provided.
+    /// Instrument NPV including both types of upfront payments.
+    ///
+    /// This method applies two types of upfront payments (if present):
+    ///
+    /// 1. **Dated cashflow** (`cds.upfront: Option<(Date, Money)>`):
+    ///    A specific payment on a specific date, discounted from `as_of`.
+    ///    - Positive amount = payment by buyer, negative = receipt by buyer
+    ///    - Applied with sign convention based on trade side
+    ///
+    /// 2. **PV adjustment** (`cds.pricing_overrides.upfront_payment: Option<Money>`):
+    ///    An already-discounted adjustment to the PV at `as_of`.
+    ///    - Added directly without further discounting
+    ///    - Positive = increases NPV, negative = decreases NPV (for both sides)
+    ///
+    /// Both can be set simultaneously without double-counting.
     pub fn npv_with_upfront(
         &self,
         cds: &CreditDefaultSwap,
-        disc: &dyn Discounting,
-        surv: &dyn Survival,
+        disc: &DiscountCurve,
+        surv: &HazardCurve,
         as_of: Date,
     ) -> Result<Money> {
         let mut pv = self.npv(cds, disc, surv, as_of)?;
+
+        // 1. Handle dated cashflow upfront (discounted and signed)
+        if let Some((dt, amount)) = cds.upfront {
+            if dt >= as_of {
+                let df = df_asof_to(disc, as_of, dt)?;
+                let upfront_pv = Money::new(amount.amount() * df, cds.notional.currency());
+                // Sign convention: positive upfront is paid by buyer
+                pv = match cds.side {
+                    PayReceive::PayFixed => pv.checked_sub(upfront_pv)?,
+                    PayReceive::ReceiveFixed => (pv + upfront_pv)?,
+                };
+            }
+        }
+
+        // 2. Handle PV adjustment upfront (added directly without discounting)
         if let Some(upfront) = cds.pricing_overrides.upfront_payment {
             pv = (pv + upfront)?;
         }
+
         Ok(pv)
     }
 
@@ -1262,9 +1871,60 @@ impl CDSPricer {
     }
 }
 
+// ----- Time-axis helpers -----
+//
+// These helpers ensure we use the correct day-count conventions:
+// - For discounting: use the discount curve's day-count convention
+// - For survival: use the hazard curve's day-count convention
+// - For accrual: use the instrument's premium leg day-count convention
+
+/// Compute time from discount curve's base date using its day-count convention.
+#[inline]
+fn disc_t(disc: &DiscountCurve, date: Date) -> Result<f64> {
+    disc.day_count().year_fraction(
+        disc.base_date(),
+        date,
+        finstack_core::dates::DayCountCtx::default(),
+    )
+}
+
+/// Compute time from hazard curve's base date using its day-count convention.
+#[inline]
+fn haz_t(surv: &HazardCurve, date: Date) -> Result<f64> {
+    surv.day_count().year_fraction(
+        surv.base_date(),
+        date,
+        finstack_core::dates::DayCountCtx::default(),
+    )
+}
+
+/// Compute discount factor from as_of to date using curve's time axis.
+/// This returns df(date) / df(as_of) = exp(-r*(t_date - t_asof))
+#[inline]
+fn df_asof_to(disc: &DiscountCurve, as_of: Date, date: Date) -> Result<f64> {
+    disc.df_between_dates(as_of, date)
+}
+
+/// Compute conditional survival probability: S(date | survived to as_of).
+/// Returns S(t_date) / S(t_asof) where times are computed using hazard curve's day-count.
+#[inline]
+fn sp_cond_to(surv: &HazardCurve, as_of: Date, date: Date) -> Result<f64> {
+    let t_asof = haz_t(surv, as_of)?;
+    let t_date = haz_t(surv, date)?;
+    let sp_asof = surv.sp(t_asof);
+    let sp_date = surv.sp(t_date);
+    // Conditional survival: S(date) / S(as_of)
+    // For numerical stability when as_of is near curve base (sp_asof ~ 1.0)
+    if sp_asof > 0.0 {
+        Ok(sp_date / sp_asof)
+    } else {
+        Ok(0.0) // Already defaulted by as_of
+    }
+}
+
 // ----- Local helpers -----
 #[inline]
-fn approx_default_density(surv: &dyn Survival, t: f64, h: f64, t_start: f64, t_end: f64) -> f64 {
+fn approx_default_density(surv: &HazardCurve, t: f64, h: f64, t_start: f64, t_end: f64) -> f64 {
     // Finite-difference approximation of -dS/dt, clipped to [t_start, t_end]
     let hh = if h <= 0.0 {
         (t_end - t_start) * numerical::INTEGRATION_STEP_FACTOR
@@ -1282,9 +1942,31 @@ fn approx_default_density(surv: &dyn Survival, t: f64, h: f64, t_start: f64, t_e
     (-deriv).max(0.0)
 }
 
+/// Configuration for CDS bootstrapping.
+///
+/// Controls how synthetic CDS instruments are constructed during hazard curve
+/// bootstrapping to match market quote conventions.
+#[derive(Clone, Debug)]
+pub struct BootstrapConvention {
+    /// CDS convention (determines day count, frequency, etc.)
+    pub convention: crate::instruments::cds::CDSConvention,
+    /// Whether to use IMM dates for maturity (20th of Mar/Jun/Sep/Dec)
+    pub use_imm_dates: bool,
+}
+
+impl Default for BootstrapConvention {
+    fn default() -> Self {
+        Self {
+            convention: crate::instruments::cds::CDSConvention::IsdaNa,
+            use_imm_dates: true, // Standard market practice
+        }
+    }
+}
+
 /// Bootstrap hazard rates from CDS spreads to a simple hazard curve
 pub struct CDSBootstrapper {
     config: CDSPricerConfig,
+    convention: BootstrapConvention,
 }
 
 impl Default for CDSBootstrapper {
@@ -1298,15 +1980,46 @@ impl CDSBootstrapper {
     pub fn new() -> Self {
         Self {
             config: CDSPricerConfig::default(),
+            convention: BootstrapConvention::default(),
         }
     }
 
+    /// Create bootstrapper with custom convention
+    pub fn with_convention(convention: BootstrapConvention) -> Self {
+        Self {
+            config: CDSPricerConfig::default(),
+            convention,
+        }
+    }
+
+    /// Create bootstrapper with custom pricer config and convention
+    pub fn with_config(config: CDSPricerConfig, convention: BootstrapConvention) -> Self {
+        Self { config, convention }
+    }
+
     /// Bootstrap hazard curve from CDS spreads (tenor years, spread bps)
+    ///
+    /// This method constructs synthetic CDS instruments for each input tenor/spread
+    /// pair and solves for the hazard rate that reproduces the quoted spread.
+    ///
+    /// # Arguments
+    ///
+    /// * `cds_spreads` - Slice of (tenor_years, spread_bps) pairs
+    /// * `recovery_rate` - Assumed recovery rate for the reference entity
+    /// * `disc` - Discount curve for present value calculations
+    /// * `base_date` - Valuation date and curve base date
+    ///
+    /// # IMM Date Handling
+    ///
+    /// When `use_imm_dates` is true (default), maturities are aligned to the
+    /// standard CDS IMM dates (20th of Mar/Jun/Sep/Dec). For example:
+    /// - A 5Y CDS quoted on 2024-01-15 would have maturity 2029-03-20
+    /// - Premium start is the most recent IMM date (2023-12-20)
     pub fn bootstrap_hazard_curve(
         &self,
         cds_spreads: &[(f64, f64)],
         recovery_rate: f64,
-        disc: &dyn Discounting,
+        disc: &DiscountCurve,
         base_date: Date,
     ) -> Result<HazardCurve> {
         let mut knots = Vec::new();
@@ -1340,21 +2053,37 @@ impl CDSBootstrapper {
         spread_bps: f64,
         recovery_rate: f64,
     ) -> Result<CreditDefaultSwap> {
-        let months = (tenor_years * 12.0).round() as i32;
-        let end_date = base_date.add_months(months);
         let spread_bp_decimal = Decimal::try_from(spread_bps).map_err(|e| {
             Error::Validation(format!(
                 "spread_bps {} cannot be represented as Decimal: {}",
                 spread_bps, e
             ))
         })?;
+
+        // Determine premium start and end dates
+        let (start_date, end_date) = if self.convention.use_imm_dates {
+            // IMM-aligned dates: maturities on 20th of Mar/Jun/Sep/Dec
+            // Premium start is the most recent IMM date on or before base_date
+            let prev_imm = self.previous_imm_date(base_date);
+            let months = (tenor_years * 12.0).round() as i32;
+            // End date is the IMM date approximately `months` months after base_date
+            let approx_end = base_date.add_months(months);
+            let end_imm = next_cds_date(approx_end);
+            (prev_imm, end_imm)
+        } else {
+            // Non-IMM: simple date arithmetic
+            let months = (tenor_years * 12.0).round() as i32;
+            let end_date = base_date.add_months(months);
+            (base_date, end_date)
+        };
+
         CreditDefaultSwap::new_isda(
             finstack_core::types::InstrumentId::new(format!("SYNTHETIC_{:.1}Y", tenor_years)),
             Money::new(1_000_000.0, Currency::USD),
             PayReceive::PayFixed,
-            crate::instruments::cds::CDSConvention::IsdaNa,
+            self.convention.convention,
             spread_bp_decimal,
-            base_date,
+            start_date,
             end_date,
             recovery_rate,
             finstack_core::types::CurveId::new("DISC"),
@@ -1362,11 +2091,46 @@ impl CDSBootstrapper {
         )
     }
 
+    /// Find the most recent IMM date on or before the given date.
+    ///
+    /// IMM dates are the 20th of Mar, Jun, Sep, Dec.
+    fn previous_imm_date(&self, date: Date) -> Date {
+        use time::Month;
+
+        let year = date.year();
+        let month = date.month();
+        let day = date.day();
+
+        // IMM months are Mar(3), Jun(6), Sep(9), Dec(12)
+        let month_num: u8 = month.into();
+
+        // Find the current or previous IMM month
+        let (imm_year, imm_month) = if month_num >= 12 || (month_num == 12 && day >= 20) {
+            // Dec 20 or later -> Dec 20 of this year
+            (year, Month::December)
+        } else if month_num >= 9 || (month_num == 9 && day >= 20) {
+            // Sep 20 or later -> Sep 20 of this year
+            (year, Month::September)
+        } else if month_num >= 6 || (month_num == 6 && day >= 20) {
+            // Jun 20 or later -> Jun 20 of this year
+            (year, Month::June)
+        } else if month_num >= 3 || (month_num == 3 && day >= 20) {
+            // Mar 20 or later -> Mar 20 of this year
+            (year, Month::March)
+        } else {
+            // Before Mar 20 -> Dec 20 of previous year
+            (year - 1, Month::December)
+        };
+
+        // Return the IMM date (20th of the month)
+        Date::from_calendar_date(imm_year, imm_month, 20).unwrap_or(date)
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn solve_for_hazard_rate(
         &self,
         cds: &CreditDefaultSwap,
-        disc: &dyn Discounting,
+        disc: &DiscountCurve,
         target_spread_bps: f64,
         pricer: &CDSPricer,
         existing_knots: &[(f64, f64)],
