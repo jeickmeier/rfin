@@ -49,4 +49,11 @@ pub mod quote_engine;
 pub mod tree_engine;
 pub mod ytm_solver;
 
-mod settlement;
+/// Settlement date and quote-date utilities for bond pricing.
+///
+/// This module provides the `QuoteDateContext` struct which computes:
+/// - `quote_date`: Settlement date (as_of + settlement_days) or as_of if no settlement convention
+/// - `accrued_at_quote_date`: Accrued interest at the quote date
+///
+/// These are used by yield/spread metrics to properly interpret market quotes.
+pub(crate) mod settlement;

@@ -1,3 +1,4 @@
+use crate::instruments::bond::pricing::settlement::QuoteDateContext;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
@@ -12,6 +13,12 @@ use finstack_core::money::Money;
 /// ```
 /// where `P` is the yield-implied price and `y` uses the bond's yield compounding
 /// convention (street/periodic by default).
+///
+/// # Quote-Date Convention
+///
+/// Convexity is computed relative to the **quote date** (settlement date when
+/// `settlement_days` is set, otherwise `as_of`), consistent with YTM and duration.
+/// Time to each cashflow is measured from the quote date.
 ///
 /// # Dependencies
 ///
@@ -60,26 +67,29 @@ impl MetricCalculator for ConvexityCalculator {
         let comp = crate::instruments::bond::pricing::quote_engine::YieldCompounding::Street;
         let freq = bond.cashflow_spec.frequency();
 
+        // Compute quote-date context (settlement date) for yield-based convexity
+        let quote_ctx = QuoteDateContext::new(bond, &context.curves, context.as_of)?;
+        let quote_date = quote_ctx.quote_date;
+
+        // Calculate price from flows using quote_date to ensure consistency with YTM
         let price = crate::instruments::bond::pricing::quote_engine::price_from_ytm(
-            bond,
-            flows,
-            context.as_of,
-            ytm,
+            bond, flows, quote_date, ytm,
         )?;
         if price == 0.0 {
             return Ok(0.0);
         }
 
+        // Calculate convexity using quote_date as time origin
         let mut d2_price = 0.0;
         for &(date, amount) in flows {
-            if date <= context.as_of {
+            if date <= quote_date {
                 continue;
             }
             let t = bond
                 .cashflow_spec
                 .day_count()
                 .year_fraction(
-                    context.as_of,
+                    quote_date,
                     date,
                     finstack_core::dates::DayCountCtx::default(),
                 )?

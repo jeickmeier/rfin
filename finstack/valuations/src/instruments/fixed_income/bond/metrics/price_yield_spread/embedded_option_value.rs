@@ -53,7 +53,7 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
-use crate::instruments::bond::pricing::tree_engine::BondValuator;
+use crate::instruments::bond::pricing::tree_engine::{bond_tree_config, BondValuator};
 use crate::instruments::common::models::{
     short_rate_keys, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
 };
@@ -163,10 +163,20 @@ impl MetricCalculator for EmbeddedOptionValueCalculator {
             return Ok(0.0);
         }
 
-        // Configure and calibrate the short-rate tree
+        // Use centralized tree config from bond.pricing_overrides,
+        // falling back to calculator's defaults if bond has no overrides
+        let bond_config = bond_tree_config(bond);
         let tree_config = ShortRateTreeConfig {
-            steps: self.tree_steps,
-            volatility: self.volatility,
+            steps: if bond.pricing_overrides.tree_steps.is_some() {
+                bond_config.tree_steps
+            } else {
+                self.tree_steps
+            },
+            volatility: if bond.pricing_overrides.tree_volatility.is_some() {
+                bond_config.volatility
+            } else {
+                self.volatility
+            },
             ..Default::default()
         };
         let mut tree = ShortRateTree::new(tree_config);

@@ -1,4 +1,5 @@
 use crate::cashflow::traits::CashflowProvider;
+use crate::instruments::bond::pricing::settlement::QuoteDateContext;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::money::Money;
@@ -8,7 +9,16 @@ use finstack_core::money::Money;
 /// YTW is defined here as the minimum yield-to-maturity across all admissible
 /// exercise paths (calls, puts, and final maturity), where each candidate
 /// yield is solved as an IRR that equates the present value of the **truncated
-/// projected cashflows** to the current dirty market price.
+/// projected cashflows** to the current dirty market price at the **quote date**
+/// (settlement date).
+///
+/// # Quote-Date Convention
+///
+/// Like YTM, YTW is computed relative to the **quote date** (settlement date when
+/// `settlement_days` is set, otherwise `as_of`):
+/// - Accrued interest is computed at the quote date
+/// - Cashflows before the quote date are excluded
+/// - Time to each cashflow is measured from the quote date
 ///
 /// # Applicability
 ///
@@ -28,7 +38,7 @@ use finstack_core::money::Money;
 ///
 /// # Dependencies
 ///
-/// Requires `Accrued` metric to be computed first.
+/// None (accrued is computed internally at quote_date).
 ///
 /// # Examples
 ///
@@ -48,12 +58,16 @@ pub struct YtwCalculator;
 
 impl MetricCalculator for YtwCalculator {
     fn dependencies(&self) -> &[MetricId] {
-        // YTW is defined off the market price (quoted clean + accrued), so we
-        // require Accrued to be computed first to construct the dirty price.
-        &[MetricId::Accrued]
+        // No dependencies - we compute accrued internally at quote_date
+        &[]
     }
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
+        let bond: &Bond = context.instrument_as()?;
+
+        // Compute quote-date context (settlement date and accrued at settlement)
+        let quote_ctx = QuoteDateContext::new(bond, &context.curves, context.as_of)?;
+
         // Build and cache flows and hints if not already present
         let flows = if let Some(ref flows) = context.cashflows {
             flows
@@ -76,10 +90,7 @@ impl MetricCalculator for YtwCalculator {
             })?
         };
 
-        // Construct current dirty market price from quoted clean price + accrued interest.
-        //
-        // This mirrors the YTM and DirtyPrice calculators so that YTW is
-        // defined relative to the same market price, not the model PV.
+        // Construct current dirty market price from quoted clean price + accrued at quote_date.
         let bond: &Bond = context.instrument_as()?;
         let clean_px = bond.pricing_overrides.quoted_clean_price.ok_or_else(|| {
             finstack_core::Error::from(finstack_core::InputError::NotFound {
@@ -87,27 +98,17 @@ impl MetricCalculator for YtwCalculator {
             })
         })?;
 
-        // Get accrued from computed metrics (dependency ensures this is present).
-        let accrued = context
-            .computed
-            .get(&MetricId::Accrued)
-            .copied()
-            .ok_or_else(|| {
-                finstack_core::Error::from(finstack_core::InputError::NotFound {
-                    id: "metric:Accrued".to_string(),
-                })
-            })?;
-
-        // Dirty price in currency: quoted clean is % of par.
-        let dirty_amt = (clean_px * bond.notional.amount() / 100.0) + accrued;
+        // Dirty price in currency at quote_date: quoted clean is % of par.
+        let dirty_amt = quote_ctx.dirty_from_clean_pct(clean_px, bond.notional.amount());
         let dirty_now = Money::new(dirty_amt, bond.notional.currency());
 
         // Delegate candidate scanning and YTM solving to shared helper.
+        // Use quote_date as the time origin to match market convention.
         let (best_ytm, _best_flows) =
             crate::instruments::bond::pricing::quote_engine::solve_ytw_from_flows(
                 bond,
                 flows,
-                context.as_of,
+                quote_ctx.quote_date,
                 dirty_now,
             )?;
 

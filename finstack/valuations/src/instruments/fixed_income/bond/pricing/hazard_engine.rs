@@ -4,25 +4,31 @@
 //! with piecewise-constant hazard curve and **fractional recovery of par**.
 //!
 //! Let:
-//! - `D(0, t)` be the risk-free discount factor from the discount curve.
+//! - `D(as_of, t)` be the risk-free discount factor from valuation date to t.
 //! - `S(t)` be the survival probability from the hazard curve.
 //! - `R` be the recovery rate (fraction of outstanding notional).
 //! - `CF_i` be holder-view cashflows (coupons + principal) at dates `T_i`.
 //! - `N(t)` be the outstanding notional process (including amortization).
 //!
-//! Under independence of rates and credit and FRP, the price is:
+//! Under independence of rates and credit and FRP, the price at `as_of` is:
 //! ```text
-//! PV ≈ Σ_i CF_i · D(0, T_i) · S(T_i)
-//!    + R · Σ_k N(t_{k-1}) · D(0, t_k) · ΔS_k
+//! PV = Σ_i CF_i · D(as_of, T_i) · S(T_i)
+//!    + R · Σ_k N(t_{k-1}) · D(as_of, t_k) · ΔS_k
 //! ```
 //! where:
 //! - `ΔS_k = S(t_{k-1}) - S(t_k) ≈ ∫_{t_{k-1}}^{t_k} λ(u) S(u) du`
 //! - the time grid `{t_k}` is built from the bond cashflow dates, with `t_0`
-//!   anchored at settlement.
+//!   anchored at `as_of` (valuation date).
 //!
 //! Recovery is taken as a fraction of **outstanding notional** (par) during
 //! each interval, which matches the fractional recovery of par convention used
 //! in the two-factor rates+credit tree (`BondValuator`).
+//!
+//! # Settlement Convention
+//!
+//! Settlement days affect quote interpretation (accrued interest at settlement),
+//! but the PV is always anchored at `as_of`. The quote engine handles
+//! settlement-date accrued interest separately.
 
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -68,10 +74,6 @@ use super::discount_engine::BondEngine;
 pub struct HazardBondEngine;
 
 impl HazardBondEngine {
-    fn compute_settlement_date(bond: &Bond, as_of: Date) -> Result<Date> {
-        super::settlement::settlement_date(bond, as_of)
-    }
-
     /// Resolve a hazard curve for the bond using the same precedence as the
     /// tree-based bond valuator:
     ///
@@ -164,8 +166,6 @@ impl HazardBondEngine {
 
         // Resolve discount curve
         let disc = market.get_discount(&bond.discount_curve_id)?;
-        // Compute settlement date (theta alignment).
-        let settle_date = Self::compute_settlement_date(bond, as_of)?;
 
         // Resolve hazard curve; if not found, fall back to risk-free pricing.
         let hazard = match Self::resolve_hazard_curve(bond, market) {
@@ -177,45 +177,42 @@ impl HazardBondEngine {
         // Schedules
         let (flows, schedule) = Self::build_schedules(bond, market, as_of)?;
 
-        // Build time grid from settlement + future cashflow dates.
+        // Build time grid from as_of + future cashflow dates.
+        // PV is anchored at as_of (valuation date), not settlement.
         let mut dates: Vec<Date> = flows
             .iter()
             .map(|(d, _)| *d)
-            .filter(|d| *d > settle_date)
+            .filter(|d| *d > as_of)
             .collect();
         dates.sort();
         dates.dedup();
 
-        // No future cashflows after settlement → PV is zero.
+        // No future cashflows after as_of → PV is zero.
         if dates.is_empty() {
             return Ok(Money::new(0.0, bond.notional.currency()));
         }
 
-        dates.insert(0, settle_date);
+        dates.insert(0, as_of);
 
-        // Discount factors relative to settlement for correct theta.
+        // Discount factors relative to as_of for correct PV anchoring.
         let mut dfs = Vec::with_capacity(dates.len());
         for d in &dates {
-            let df_rel = disc
-                .df_between_dates(settle_date, *d)
-                .or_else(|_| disc.df_between_dates(as_of, *d))?;
+            let df_rel = disc.df_between_dates(as_of, *d)?;
             dfs.push(df_rel);
         }
 
-        // Survival probabilities from hazard curve at the grid dates, then
-        // renormalized to be conditional on survival up to settlement.
-        let mut surv_raw = hazard.survival_at_dates(&dates)?;
-        if surv_raw.is_empty() {
+        // Survival probabilities from hazard curve at the grid dates.
+        // Use unconditional survival from the hazard curve's base date; no
+        // renormalization is applied since PV is anchored at as_of.
+        let surv = hazard.survival_at_dates(&dates)?;
+        if surv.is_empty() {
             return Err(InputError::TooFewPoints.into());
         }
-        let s0 = surv_raw[0].clamp(0.0, 1.0);
+        // Check if already defaulted by as_of
+        let s0 = surv[0].clamp(0.0, 1.0);
         if s0 <= 0.0 {
-            // Already defaulted by settlement; no future value.
+            // Already defaulted by as_of; no future value.
             return Ok(Money::new(0.0, bond.notional.currency()));
-        }
-        let mut surv = Vec::with_capacity(surv_raw.len());
-        for s in surv_raw.drain(..) {
-            surv.push((s / s0).clamp(0.0, 1.0));
         }
 
         // Alive leg: survival-weighted PV of holder-view coupons and principal.
@@ -223,7 +220,7 @@ impl HazardBondEngine {
         let ccy = bond.notional.currency();
         let pv_values: Vec<f64> = flows
             .iter()
-            .filter(|(d, amt)| *d > settle_date && amt.amount() != 0.0)
+            .filter(|(d, amt)| *d > as_of && amt.amount() != 0.0)
             .filter_map(|(d, amt)| {
                 // Dates come from the same grid we built, so binary_search should succeed
                 dates.binary_search(d).ok().map(|idx| {
@@ -238,7 +235,7 @@ impl HazardBondEngine {
         // Recovery leg: FRP on outstanding notional.
         let mut pv_rec = 0.0;
         if recovery > 0.0 {
-            // Compute outstanding notional at settlement and future reductions.
+            // Compute outstanding notional at as_of and future reductions.
             let mut full_flows = schedule.flows.clone();
             full_flows.sort_by_key(|cf| cf.date);
 
@@ -254,7 +251,7 @@ impl HazardBondEngine {
                 if !is_principal {
                     continue;
                 }
-                if cf.date <= settle_date {
+                if cf.date <= as_of {
                     outstanding -= amt;
                 } else {
                     *future_principal.entry(cf.date).or_insert(0.0) += amt;

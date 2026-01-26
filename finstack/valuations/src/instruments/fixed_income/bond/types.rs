@@ -600,13 +600,18 @@ impl Bond {
         //
         // This is used only for yield/duration conventions; the actual cashflows
         // always come from `custom_cashflows`.
+        //
+        // We compute the mode (most frequent) interval across all consecutive
+        // coupon dates, ignoring potential stubs at the front or back. This is
+        // more robust than using just the first interval, which may be a stub.
         use crate::cashflow::primitives::CFKind;
         use finstack_core::dates::Tenor;
+        use std::collections::HashMap;
 
         let mut coupon_dates: Vec<Date> = schedule
             .flows
             .iter()
-            .filter(|cf| matches!(cf.kind, CFKind::Fixed | CFKind::Stub))
+            .filter(|cf| matches!(cf.kind, CFKind::Fixed | CFKind::Stub | CFKind::FloatReset))
             .map(|cf| cf.date)
             .collect();
         coupon_dates.sort();
@@ -616,20 +621,40 @@ impl Bond {
             // Fallback to annual if we cannot infer a pattern
             Tenor::annual()
         } else {
-            // Use the first interval as a proxy for the schedule frequency.
-            let d0 = coupon_dates[0];
-            let d1 = coupon_dates[1];
-            let days = (d1 - d0).whole_days().abs();
-            // Map common patterns to standard frequencies; otherwise fall back
-            // to an approximate day-based frequency.
-            match days {
-                360..=370 => Tenor::annual(),
-                178..=187 => Tenor::semi_annual(),
-                88..=95 => Tenor::quarterly(),
-                27..=35 => Tenor::monthly(),
-                6..=8 => Tenor::weekly(),
+            // Compute all interval lengths between consecutive coupon dates
+            let mut interval_counts: HashMap<i64, usize> = HashMap::new();
+            for window in coupon_dates.windows(2) {
+                let d0 = window[0];
+                let d1 = window[1];
+                let days = (d1 - d0).whole_days().abs();
+                // Bucket into standard frequency ranges for robust mode detection
+                let bucket = match days {
+                    360..=370 => 365, // Annual
+                    178..=187 => 182, // Semi-annual
+                    88..=95 => 91,    // Quarterly
+                    27..=35 => 30,    // Monthly
+                    6..=8 => 7,       // Weekly
+                    _ => days,        // Non-standard interval
+                };
+                *interval_counts.entry(bucket).or_insert(0) += 1;
+            }
+
+            // Find the mode (most frequent interval)
+            let (mode_days, _mode_count) = interval_counts
+                .iter()
+                .max_by_key(|(_, count)| *count)
+                .map(|(days, count)| (*days, *count))
+                .unwrap_or((365, 1));
+
+            // Map bucketed mode to standard Tenor
+            match mode_days {
+                365 => Tenor::annual(),
+                182 => Tenor::semi_annual(),
+                91 => Tenor::quarterly(),
+                30 => Tenor::monthly(),
+                7 => Tenor::weekly(),
                 _ => finstack_core::dates::Tenor::new(
-                    days as u32,
+                    mode_days as u32,
                     finstack_core::dates::TenorUnit::Days,
                 ),
             }
@@ -820,7 +845,7 @@ impl Bond {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        use crate::instruments::bond::pricing::tree_engine::BondValuator;
+        use crate::instruments::bond::pricing::tree_engine::{bond_tree_config, BondValuator};
         use crate::instruments::common::models::{
             short_rate_keys, state_keys, ShortRateTree, ShortRateTreeConfig, StateVariables,
             TreeModel,
@@ -839,9 +864,10 @@ impl Bond {
             return Ok(Money::new(0.0, self.notional.currency()));
         }
 
-        // Tree configuration - use overrides if present, otherwise defaults
-        let tree_steps = self.pricing_overrides.tree_steps.unwrap_or(100);
-        let volatility = self.pricing_overrides.tree_volatility.unwrap_or(0.01);
+        // Use centralized tree config from pricing_overrides (or defaults)
+        let config = bond_tree_config(self);
+        let tree_steps = config.tree_steps;
+        let volatility = config.volatility;
 
         let tree_config = ShortRateTreeConfig {
             steps: tree_steps,

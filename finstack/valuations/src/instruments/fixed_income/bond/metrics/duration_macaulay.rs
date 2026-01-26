@@ -1,3 +1,4 @@
+use crate::instruments::bond::pricing::settlement::QuoteDateContext;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
@@ -10,6 +11,12 @@ use finstack_core::money::Money;
 /// ```text
 /// D_mac = Σ (t_i * PV(CF_i)) / Price
 /// ```
+///
+/// # Quote-Date Convention
+///
+/// Macaulay duration is computed relative to the **quote date** (settlement date
+/// when `settlement_days` is set, otherwise `as_of`), consistent with YTM.
+/// Time to each cashflow is measured from the quote date.
 ///
 /// # Dependencies
 ///
@@ -54,46 +61,43 @@ impl MetricCalculator for MacaulayDurationCalculator {
             })
         })?;
 
-        // Calculate price from flows to ensure consistency
-        let price = {
-            let bond: &Bond = context.instrument_as()?;
-            crate::instruments::bond::pricing::quote_engine::price_from_ytm(
-                bond,
-                flows,
-                context.as_of,
-                ytm,
-            )?
-        };
+        let bond: &Bond = context.instrument_as()?;
+
+        // Compute quote-date context (settlement date) for yield-based duration
+        let quote_ctx = QuoteDateContext::new(bond, &context.curves, context.as_of)?;
+        let quote_date = quote_ctx.quote_date;
+
+        // Calculate price from flows using quote_date to ensure consistency with YTM
+        let price = crate::instruments::bond::pricing::quote_engine::price_from_ytm(
+            bond, flows, quote_date, ytm,
+        )?;
         if price == 0.0 {
             return Ok(0.0);
         }
 
-        // Calculate Macaulay duration
+        // Calculate Macaulay duration using quote_date as time origin
         let mut weighted_time = 0.0;
 
-        {
-            let bond: &Bond = context.instrument_as()?;
-            for &(date, amount) in flows {
-                if date <= context.as_of {
-                    continue;
-                }
-                let t = bond
-                    .cashflow_spec
-                    .day_count()
-                    .year_fraction(
-                        context.as_of,
-                        date,
-                        finstack_core::dates::DayCountCtx::default(),
-                    )?
-                    .max(0.0);
-                let df = crate::instruments::bond::pricing::quote_engine::df_from_yield(
-                    ytm,
-                    t,
-                    crate::instruments::bond::pricing::quote_engine::YieldCompounding::Street,
-                    bond.cashflow_spec.frequency(),
-                )?;
-                weighted_time += t * amount.amount() * df;
+        for &(date, amount) in flows {
+            if date <= quote_date {
+                continue;
             }
+            let t = bond
+                .cashflow_spec
+                .day_count()
+                .year_fraction(
+                    quote_date,
+                    date,
+                    finstack_core::dates::DayCountCtx::default(),
+                )?
+                .max(0.0);
+            let df = crate::instruments::bond::pricing::quote_engine::df_from_yield(
+                ytm,
+                t,
+                crate::instruments::bond::pricing::quote_engine::YieldCompounding::Street,
+                bond.cashflow_spec.frequency(),
+            )?;
+            weighted_time += t * amount.amount() * df;
         }
 
         Ok(weighted_time / price)

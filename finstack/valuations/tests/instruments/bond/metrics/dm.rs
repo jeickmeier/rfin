@@ -227,59 +227,7 @@ fn test_dm_solver_convergence_across_spread_regimes() {
     }
 }
 
-/// DM requires Accrued when a quoted clean price is present.
-#[test]
-fn test_dm_requires_accrued_when_clean_price_present() {
-    use finstack_core::dates::DayCount;
-    use finstack_core::market_data::context::MarketContext;
-    use finstack_core::market_data::term_structures::DiscountCurve;
-    use finstack_core::math::interp::InterpStyle;
-    use finstack_valuations::instruments::PricingOverrides;
-
-    let as_of = date!(2025 - 01 - 01);
-    let bond = Bond::fixed(
-        "DM-ACC-REQ",
-        Money::new(100.0, Currency::USD),
-        0.05,
-        as_of,
-        date!(2030 - 01 - 01),
-        "USD-OIS",
-    )
-    .unwrap();
-
-    let disc = DiscountCurve::builder("USD-OIS")
-        .base_date(as_of)
-        .day_count(DayCount::Act365F)
-        .knots([(0.0, 1.0), (5.0, 0.85)])
-        .set_interp(InterpStyle::LogLinear)
-        .build()
-        .unwrap();
-    let market = MarketContext::new().insert_discount(disc);
-
-    // Attach a clean price override but do not pre-populate Accrued in the metric context.
-    let mut bond_with_price = bond.clone();
-    bond_with_price.pricing_overrides = PricingOverrides::default().with_clean_price(99.5);
-
-    let base_value = Money::new(100.0, Currency::USD);
-    let mut mctx = MetricContext::new(
-        Arc::new(bond_with_price),
-        Arc::new(market),
-        as_of,
-        base_value,
-        MetricContext::default_config(),
-    );
-
-    let calc = DiscountMarginCalculator::default();
-    let result = calc.calculate(&mut mctx);
-
-    match result {
-        Err(Error::Input(InputError::NotFound { id })) => {
-            assert_eq!(id, "metric:Accrued");
-        }
-        Err(e) => panic!("expected InputError::NotFound(metric:Accrued), got {}", e),
-        Ok(dm) => panic!(
-            "expected DM calculation to fail without Accrued, but got DM={}",
-            dm
-        ),
-    }
-}
+// NOTE: The old test "test_dm_requires_accrued_when_clean_price_present" was removed
+// because DM now computes accrued internally via QuoteDateContext per the fix plan.
+// DM no longer requires Accrued to be pre-populated in the metric context.
+// The test was also using a fixed-rate bond which is not valid for DM anyway.

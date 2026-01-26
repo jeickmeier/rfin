@@ -227,6 +227,41 @@ impl Default for TreePricerConfig {
     }
 }
 
+/// Get the tree pricer configuration for a bond.
+///
+/// This centralized function sources tree config from `bond.pricing_overrides`
+/// when present, otherwise returns defaults. Use this instead of constructing
+/// `TreePricerConfig::default()` directly to ensure consistent configuration
+/// across all tree-based pricing paths (OAS metric, price_from_oas, embedded
+/// option value, etc.).
+///
+/// # Arguments
+///
+/// * `bond` - The bond to get tree config for
+///
+/// # Returns
+///
+/// A `TreePricerConfig` with values from pricing_overrides or defaults.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_valuations::instruments::fixed_income::bond::Bond;
+/// use finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::bond_tree_config;
+///
+/// let bond = Bond::example();
+/// let config = bond_tree_config(&bond);
+/// ```
+pub fn bond_tree_config(bond: &Bond) -> TreePricerConfig {
+    TreePricerConfig {
+        tree_steps: bond.pricing_overrides.tree_steps.unwrap_or(100),
+        volatility: bond.pricing_overrides.tree_volatility.unwrap_or(0.01),
+        tolerance: 1e-6,
+        max_iterations: 50,
+        initial_bracket_size_bp: Some(1000.0),
+    }
+}
+
 impl TreePricerConfig {
     // ========================================================================
     // Model-Specific Factory Methods
@@ -414,6 +449,12 @@ impl TreePricerConfig {
 /// Maps bond cashflows and call/put schedules to tree time steps and handles
 /// exercise decisions during backward induction.
 ///
+/// # Call/Put Redemption Convention
+///
+/// Call/put redemption prices are computed as `outstanding_principal × (price_pct_of_par / 100)`,
+/// where `outstanding_principal` is the remaining principal at the exercise date after
+/// any amortization. This correctly handles amortizing callable bonds.
+///
 /// # Performance
 ///
 /// Uses `Vec` instead of `HashMap` for step-indexed lookups to eliminate hashing
@@ -441,10 +482,15 @@ pub struct BondValuator {
     coupon_vec: Vec<f64>,
     /// Call prices indexed by time step (sparse via Option for memory efficiency).
     /// `Some(price)` indicates a call option is exercisable at that step.
+    /// Price is computed as `outstanding_principal × (price_pct / 100)`.
     call_vec: Vec<Option<f64>>,
     /// Put prices indexed by time step (sparse via Option for memory efficiency).
     /// `Some(price)` indicates a put option is exercisable at that step.
+    /// Price is computed as `outstanding_principal × (price_pct / 100)`.
     put_vec: Vec<Option<f64>>,
+    /// Outstanding principal indexed by time step for amortizing bonds.
+    /// Used for call/put redemption and recovery calculations.
+    outstanding_principal_vec: Vec<f64>,
     /// Time steps for tree pricing
     time_steps: Vec<f64>,
     /// Optional recovery rate sourced from a hazard curve in MarketContext
@@ -504,6 +550,8 @@ impl BondValuator {
         time_to_maturity: f64,
         tree_steps: usize,
     ) -> Result<Self> {
+        use crate::cashflow::primitives::CFKind;
+
         let dt = time_to_maturity / tree_steps as f64;
         let time_steps: Vec<f64> = (0..=tree_steps).map(|i| i as f64 * dt).collect();
         let num_steps = tree_steps + 1; // Include step 0
@@ -512,6 +560,53 @@ impl BondValuator {
         let discount_curve = market_context.get_discount(&bond.discount_curve_id)?;
         let dc_curve = discount_curve.day_count();
         let flows = bond.build_dated_flows(curves, as_of)?;
+
+        // Build outstanding principal schedule from the full cashflow schedule.
+        // This tracks notional minus cumulative amortization at each step for
+        // correct call/put redemption pricing on amortizing bonds.
+        let full_schedule = bond.get_full_schedule(market_context)?;
+        let mut outstanding_principal_vec = vec![bond.notional.amount(); num_steps];
+
+        // Collect amortization events sorted by date
+        let mut amort_events: Vec<(Date, f64)> = full_schedule
+            .flows
+            .iter()
+            .filter(|cf| matches!(cf.kind, CFKind::Amortization | CFKind::Notional))
+            .filter(|cf| cf.date > as_of && cf.amount.amount() > 0.0)
+            .map(|cf| (cf.date, cf.amount.amount()))
+            .collect();
+        amort_events.sort_by_key(|(d, _)| *d);
+
+        // Track cumulative amortization and map to time steps
+        let mut cumulative_amort = 0.0;
+        let initial_notional = bond.notional.amount();
+        let mut amort_idx = 0;
+
+        for step in 0..num_steps {
+            let step_time = time_steps[step];
+
+            // Process any amortization events that occur at or before this step time
+            while amort_idx < amort_events.len() {
+                let (amort_date, amort_amt) = amort_events[amort_idx];
+                let amort_time = dc_curve
+                    .year_fraction(
+                        as_of,
+                        amort_date,
+                        finstack_core::dates::DayCountCtx::default(),
+                    )
+                    .unwrap_or(0.0);
+
+                if amort_time <= step_time + dt / 2.0 {
+                    // This amortization has occurred by this step
+                    cumulative_amort += amort_amt;
+                    amort_idx += 1;
+                } else {
+                    break;
+                }
+            }
+
+            outstanding_principal_vec[step] = (initial_notional - cumulative_amort).max(0.0);
+        }
 
         // Pre-allocate vectors for O(1) access during backward induction
         let mut coupon_vec = vec![0.0; num_steps];
@@ -548,6 +643,7 @@ impl BondValuator {
         }
 
         // Sparse vectors for call/put (most steps have no option)
+        // Call/put redemption uses outstanding principal at exercise date, not original notional.
         let mut call_vec: Vec<Option<f64>> = vec![None; num_steps];
         let mut put_vec: Vec<Option<f64>> = vec![None; num_steps];
         if let Some(ref call_put) = bond.call_put {
@@ -566,7 +662,9 @@ impl BondValuator {
                     if step >= num_steps {
                         step = num_steps - 1;
                     }
-                    let call_price = bond.notional.amount() * (call.price_pct_of_par / 100.0);
+                    // Use outstanding principal at exercise step, not original notional
+                    let outstanding = outstanding_principal_vec[step];
+                    let call_price = outstanding * (call.price_pct_of_par / 100.0);
                     call_vec[step] = Some(call_price);
                 }
             }
@@ -585,27 +683,28 @@ impl BondValuator {
                     if step >= num_steps {
                         step = num_steps - 1;
                     }
-                    let put_price = bond.notional.amount() * (put.price_pct_of_par / 100.0);
+                    // Use outstanding principal at exercise step, not original notional
+                    let outstanding = outstanding_principal_vec[step];
+                    let put_price = outstanding * (put.price_pct_of_par / 100.0);
                     put_vec[step] = Some(put_price);
                 }
             }
         }
 
-        // Source recovery rate from the hazard curve identified by the bond's credit_curve_id
-        // (if present), otherwise try the discount curve ID with fallback "-CREDIT" suffix.
-        // This ensures consistency with the hazard curve used for rates+credit tree calibration.
-        let mut recovery_rate: Option<f64> = None;
-        if let Some(ref credit_id) = bond.credit_curve_id {
-            if let Ok(hc) = market_context.get_hazard(credit_id.as_str()) {
-                recovery_rate = Some(hc.recovery_rate());
-            }
-        }
+        // Source recovery rate from hazard curve using the same precedence as
+        // HazardBondEngine and TreePricer::calculate_oas:
+        // 1. credit_curve_id (if present)
+        // 2. discount_curve_id
+        // 3. discount_curve_id with "-CREDIT" suffix
+        // This ensures consistency across all credit-aware pricing paths.
+        let recovery_rate = Self::resolve_recovery_rate(&bond, market_context);
 
         Ok(Self {
             bond,
             coupon_vec,
             call_vec,
             put_vec,
+            outstanding_principal_vec,
             time_steps,
             recovery_rate,
         })
@@ -628,6 +727,49 @@ impl BondValuator {
     fn put_at(&self, step: usize) -> Option<f64> {
         self.put_vec.get(step).copied().flatten()
     }
+
+    /// Get outstanding principal at this time step.
+    ///
+    /// For bullet bonds, this returns the original notional.
+    /// For amortizing bonds, this returns the remaining principal after amortization.
+    #[inline]
+    fn outstanding_principal_at(&self, step: usize) -> f64 {
+        self.outstanding_principal_vec
+            .get(step)
+            .copied()
+            .unwrap_or(self.bond.notional.amount())
+    }
+
+    /// Resolve recovery rate from hazard curve using the same precedence as
+    /// HazardBondEngine and TreePricer::calculate_oas.
+    ///
+    /// Precedence:
+    /// 1. `credit_curve_id` if present
+    /// 2. `discount_curve_id`
+    /// 3. `discount_curve_id` with "-CREDIT" suffix
+    ///
+    /// Returns `None` if no hazard curve can be resolved.
+    fn resolve_recovery_rate(bond: &Bond, market: &MarketContext) -> Option<f64> {
+        // Try credit_curve_id first
+        if let Some(ref credit_id) = bond.credit_curve_id {
+            if let Ok(hc) = market.get_hazard(credit_id.as_str()) {
+                return Some(hc.recovery_rate());
+            }
+        }
+
+        // Try discount_curve_id
+        if let Ok(hc) = market.get_hazard(bond.discount_curve_id.as_str()) {
+            return Some(hc.recovery_rate());
+        }
+
+        // Try discount_curve_id with "-CREDIT" suffix
+        let credit_id = format!("{}-CREDIT", bond.discount_curve_id.as_str());
+        if let Ok(hc) = market.get_hazard(&credit_id) {
+            return Some(hc.recovery_rate());
+        }
+
+        None
+    }
 }
 
 impl TreeValuator for BondValuator {
@@ -641,14 +783,33 @@ impl TreeValuator for BondValuator {
         let step = state.step;
         let coupon = self.coupon_at(step);
 
-        // Alive (no default) value at end of the step including coupon, with call/put decisions
-        let mut alive_value = continuation_value + coupon;
+        // Call/put exercise logic:
+        // - Coupon is ALWAYS paid on coupon dates regardless of exercise decision
+        // - Call/put redemption is principal-only (price_pct_of_par × outstanding)
+        // - Exercise decision compares continuation vs redemption value
+        //
+        // Formula: value = coupon + min(max(continuation, put_redemption), call_redemption)
+        //
+        // This ensures:
+        // 1. Coupon is received regardless of exercise
+        // 2. Put floor: holder can demand redemption if continuation < put_price
+        // 3. Call cap: issuer can redeem if continuation > call_price
+
+        // Start with continuation value (principal path if not exercised)
+        let mut principal_value = continuation_value;
+
+        // Put option: holder can exercise if redemption > continuation
         if let Some(put_price) = self.put_at(step) {
-            alive_value = alive_value.max(put_price);
+            principal_value = principal_value.max(put_price);
         }
+
+        // Call option: issuer can exercise if redemption < continuation
         if let Some(call_price) = self.call_at(step) {
-            alive_value = alive_value.min(call_price);
+            principal_value = principal_value.min(call_price);
         }
+
+        // Coupon is added after exercise decision (coupon is paid regardless)
+        let alive_value = coupon + principal_value;
 
         // Default handling: if hazard rate is present, compute survival/default weighting
         // Use cached fields instead of hash lookups for performance
@@ -656,9 +817,11 @@ impl TreeValuator for BondValuator {
             let df = state.df.unwrap_or(1.0);
             let p_surv = (-hazard.max(0.0) * dt).exp();
             let default_prob = (1.0 - p_surv).clamp(0.0, 1.0);
+            // Use outstanding principal at this step for recovery (FRP convention)
+            let outstanding = self.outstanding_principal_at(step);
             let recovery = self
                 .recovery_rate
-                .map(|rr| rr.clamp(0.0, 1.0) * self.bond.notional.amount())
+                .map(|rr| rr.clamp(0.0, 1.0) * outstanding)
                 .unwrap_or(0.0);
             let node_value = p_surv * alive_value + default_prob * df * recovery;
             Ok(node_value)

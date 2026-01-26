@@ -21,12 +21,18 @@ use super::super::types::Bond;
 ///
 /// The present value is computed by discounting all future holder-view cashflows:
 /// ```text
-/// PV = Σ CF_i · DF(settle_date → t_i)
+/// PV = Σ CF_i · DF(as_of → t_i)
 /// ```
 /// where:
 /// - `CF_i` are holder-view cashflows (coupons, amortization, redemption)
-/// - `DF(settle_date → t_i)` is the discount factor from settlement date to cashflow date
-/// - Settlement date is computed from `as_of` using `bond.settlement_days` and calendar conventions
+/// - `DF(as_of → t_i)` is the discount factor from valuation date to cashflow date
+///
+/// # Settlement Convention
+///
+/// Settlement days (`bond.settlement_days`) affect how market **quotes** are
+/// interpreted (e.g., accrued interest at settlement date), but the instrument
+/// PV is always anchored at `as_of`. The quote engine handles settlement-date
+/// accrued interest separately when computing quote-derived metrics (YTM, Z-spread, etc.).
 ///
 /// # Examples
 ///
@@ -53,7 +59,7 @@ impl BondEngine {
     /// Price a bond using discount curve present value calculation.
     ///
     /// Computes the present value by discounting all future holder-view cashflows
-    /// from the settlement date using the bond's discount curve.
+    /// from the valuation date (`as_of`) using the bond's discount curve.
     ///
     /// # Arguments
     ///
@@ -63,7 +69,7 @@ impl BondEngine {
     ///
     /// # Returns
     ///
-    /// Present value of the bond in the bond's currency, discounted from settlement date.
+    /// Present value of the bond in the bond's currency, discounted from `as_of`.
     ///
     /// # Errors
     ///
@@ -157,17 +163,18 @@ impl BondEngine {
             None
         };
 
-        // Settlement PV: start discounting from settlement date if provided
-        let settle_date = super::settlement::settlement_date(bond, as_of)?;
+        // PV is anchored at as_of (valuation date), not settlement.
+        // Settlement days affect quote interpretation (accrued at settle), but PV
+        // is the instrument's theoretical value at as_of.
         // Collect PV values for Kahan summation (O(1) error growth vs O(n) for naive sum).
         // This is particularly important for long-dated bonds (50Y+ monthly-pay).
         let mut pv_values: Vec<f64> = Vec::with_capacity(flows.len());
 
         for (d, amt) in &flows {
-            if *d <= settle_date {
+            if *d <= as_of {
                 continue;
             }
-            let df = disc.df_between_dates(settle_date, *d)?;
+            let df = disc.df_between_dates(as_of, *d)?;
             let pv_cf = *amt * df;
             pv_values.push(pv_cf.amount());
 

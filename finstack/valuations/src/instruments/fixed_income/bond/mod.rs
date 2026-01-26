@@ -35,6 +35,36 @@
 //! - `t = 0` corresponds to the valuation date `as_of`
 //! - `t > 0` are year-fractions to future cashflow and exercise dates
 //!
+//! **Important**: PV is always anchored at `as_of` (the valuation date), not the
+//! settlement date. This is the instrument's theoretical value on the valuation
+//! date. Settlement-date pricing (for trade execution) is a separate concern.
+//!
+//! # Quote-Date Convention for Yield Metrics
+//!
+//! While PV is anchored at `as_of`, market-derived metrics (YTM, Z-spread, DM,
+//! OAS, duration, convexity) are computed from the **quote date** (settlement
+//! date) because market quotes reflect settlement-date pricing:
+//!
+//! - **quote_date** = `as_of + settlement_days` (or `as_of` if no settlement convention)
+//! - **accrued_at_quote_date** = accrued interest computed at quote_date
+//! - **dirty_price** = clean_price * notional / 100 + accrued_at_quote_date
+//!
+//! This separation ensures that:
+//! 1. Curve discounting always uses `as_of` as the anchor
+//! 2. Quote-derived metrics properly interpret market prices as settlement quotes
+//! 3. The YTM/duration/convexity numbers match market standard conventions
+//!
+//! # Call/Put Exercise Convention
+//!
+//! For callable/putable bonds:
+//!
+//! - **`CallPut.price_pct_of_par`** is applied to the **outstanding principal**
+//!   at the exercise date, not the original notional. This correctly handles
+//!   amortizing callable bonds.
+//! - **Exercise payoff**: Coupon is always paid regardless of exercise decision.
+//!   The exercise decision applies only to the principal redemption vs. continuation.
+//! - **Formula**: `node_value = coupon + min(max(continuation, put_price), call_price)`
+//!
 //! # Accrual and Ex-Coupon Conventions
 //!
 //! Accrued interest is driven directly off the true coupon schedule and

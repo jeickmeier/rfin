@@ -1,4 +1,5 @@
 use crate::instruments::bond::pricing::quote_engine::price_from_dm;
+use crate::instruments::bond::pricing::settlement::QuoteDateContext;
 use crate::instruments::bond::CashflowSpec;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
@@ -185,24 +186,19 @@ impl DiscountMarginCalculator {
 
 impl MetricCalculator for DiscountMarginCalculator {
     fn dependencies(&self) -> &[MetricId] {
-        &[MetricId::Accrued]
+        // No dependencies - we compute accrued internally at quote_date
+        &[]
     }
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let bond: &Bond = context.instrument_as()?;
 
-        // Determine dirty market price in currency
+        // Compute quote-date context (settlement date and accrued at settlement)
+        let quote_ctx = QuoteDateContext::new(bond, &context.curves, context.as_of)?;
+
+        // Determine dirty market price in currency at quote_date
         let dirty_ccy = if let Some(clean_px) = bond.pricing_overrides.quoted_clean_price {
-            let accrued = context
-                .computed
-                .get(&MetricId::Accrued)
-                .copied()
-                .ok_or_else(|| {
-                    finstack_core::Error::from(finstack_core::InputError::NotFound {
-                        id: "metric:Accrued".to_string(),
-                    })
-                })?;
-            clean_px * bond.notional.amount() / 100.0 + accrued
+            quote_ctx.dirty_from_clean_pct(clean_px, bond.notional.amount())
         } else {
             context.base_value.amount()
         };
@@ -216,10 +212,14 @@ impl MetricCalculator for DiscountMarginCalculator {
         }
 
         // Root-find DM such that PV(dm) - dirty = 0
+        // Note: price_from_dm uses as_of for cashflow projection timing.
+        // The DM is still meaningful as it measures the spread that makes the
+        // projected FRN cashflows equal the settlement dirty price.
         let pricing_error: RefCell<Option<finstack_core::Error>> = RefCell::new(None);
+        let quote_date = quote_ctx.quote_date;
 
         let objective = |dm: f64| -> f64 {
-            match Self::pv_given_dm(bond, &context.curves, context.as_of, dm) {
+            match Self::pv_given_dm(bond, &context.curves, quote_date, dm) {
                 Ok(pv) => pv - dirty_ccy,
                 Err(e) => {
                     // Capture the first pricing error and map to a large non-zero residual
@@ -236,7 +236,7 @@ impl MetricCalculator for DiscountMarginCalculator {
         };
 
         // Use a maturity-aware initial bracket with production-grade tolerance.
-        let bracket = self.initial_bracket_decimal(bond, context.as_of)?;
+        let bracket = self.initial_bracket_decimal(bond, quote_date)?;
         let solver = BrentSolver::new()
             .with_tolerance(self.config.tolerance)
             .with_initial_bracket_size(Some(bracket));

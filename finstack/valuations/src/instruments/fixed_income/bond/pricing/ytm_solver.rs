@@ -9,6 +9,7 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::money::Money;
 use finstack_core::Result;
+use std::cell::RefCell;
 
 use super::quote_engine::{price_from_ytm_compounded_params, YieldCompounding};
 
@@ -274,33 +275,46 @@ impl YtmSolver {
             spec.coupon_rate
         };
 
+        // Capture first pricing error to avoid masking errors with 0.0.
+        // This pattern ensures the solver doesn't converge to fake roots when
+        // underlying pricing calculations fail (e.g., invalid dates, overflow).
+        let pricing_error: RefCell<Option<finstack_core::Error>> = RefCell::new(None);
+
         let price_fn = |y: f64| -> f64 {
-            self.calculate_price(
+            match price_from_ytm_compounded_params(
+                spec.day_count,
+                spec.frequency,
                 cashflows,
                 as_of,
                 y,
-                spec.day_count,
                 spec.compounding,
-                spec.frequency,
-            ) - target
+            ) {
+                Ok(price) => price - target,
+                Err(e) => {
+                    // Capture the first error for later reporting
+                    let mut slot = pricing_error.borrow_mut();
+                    if slot.is_none() {
+                        *slot = Some(e);
+                    }
+                    drop(slot);
+                    // Return large signed residual so Brent doesn't see a fake root.
+                    // The sign depends on yield to prevent accidental bracket crossing.
+                    1e12 * if y >= 0.0 { 1.0 } else { -1.0 }
+                }
+            }
         };
 
         // Always use BrentSolver for robustness
         let solver = BrentSolver::new().with_tolerance(self.config.tolerance);
-        solver.solve(price_fn, initial_guess)
-    }
+        let ytm = solver.solve(price_fn, initial_guess)?;
 
-    fn calculate_price(
-        &self,
-        cashflows: &[(Date, Money)],
-        as_of: Date,
-        yield_rate: f64,
-        day_count: DayCount,
-        comp: YieldCompounding,
-        freq: Tenor,
-    ) -> f64 {
-        price_from_ytm_compounded_params(day_count, freq, cashflows, as_of, yield_rate, comp)
-            .unwrap_or(0.0)
+        // If any pricing error occurred during objective evaluation, surface it
+        // instead of returning a potentially meaningless yield.
+        if let Some(err) = pricing_error.into_inner() {
+            return Err(err);
+        }
+
+        Ok(ytm)
     }
 
     fn calculate_initial_guess(

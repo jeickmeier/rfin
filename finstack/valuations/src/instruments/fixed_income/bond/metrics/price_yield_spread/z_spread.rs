@@ -1,4 +1,5 @@
 use crate::cashflow::traits::CashflowProvider;
+use crate::instruments::bond::pricing::settlement::QuoteDateContext;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::{Date, DayCountCtx};
@@ -191,27 +192,22 @@ impl ZSpreadCalculator {
 
 impl MetricCalculator for ZSpreadCalculator {
     fn dependencies(&self) -> &[MetricId] {
-        // Need accrued to form dirty market price when using quoted clean price
-        &[MetricId::Accrued]
+        // No dependencies - we compute accrued internally at quote_date
+        &[]
     }
 
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
-        // Determine dirty market value in currency
+        // Get bond and compute quote-date context
         let bond: &Bond = context.instrument_as()?;
+
+        // Compute quote-date context (settlement date and accrued at settlement)
+        let quote_ctx = QuoteDateContext::new(bond, &context.curves, context.as_of)?;
+
+        // Determine dirty market value in currency at quote_date
         let target_value_ccy: f64 =
             if let Some(clean_px) = bond.pricing_overrides.quoted_clean_price {
-                // Accrued from computed metrics (currency amount)
-                let accrued_ccy = context
-                    .computed
-                    .get(&MetricId::Accrued)
-                    .copied()
-                    .ok_or_else(|| {
-                        finstack_core::Error::from(finstack_core::InputError::NotFound {
-                            id: "metric:Accrued".to_string(),
-                        })
-                    })?;
-                // Convert clean price (quote, pct of par) to currency and add accrued currency
-                clean_px * bond.notional.amount() / 100.0 + accrued_ccy
+                // Use accrued at quote_date for dirty price calculation
+                quote_ctx.dirty_from_clean_pct(clean_px, bond.notional.amount())
             } else {
                 // Fallback to base PV if no market quote
                 context.base_value.amount()
@@ -219,18 +215,19 @@ impl MetricCalculator for ZSpreadCalculator {
 
         // OPTIMIZATION: Pre-calculate cashflow times and base discount factors
         // to avoid repeated date logic and curve lookups inside the solver loop.
+        // Time origin is quote_date to match YTM convention.
         let flows = bond.build_dated_flows(&context.curves, context.as_of)?;
         let disc = context.curves.get_discount(&bond.discount_curve_id)?;
-        let as_of = context.as_of;
+        let quote_date = quote_ctx.quote_date;
         let dc = disc.day_count();
 
-        // Cache (time, df_base, amount) for each future cashflow
+        // Cache (time_from_quote_date, df_from_quote_date, amount) for each future cashflow
         let cached_flows: Vec<(f64, f64, f64)> = flows
             .iter()
-            .filter(|(d, _)| *d > as_of)
+            .filter(|(d, _)| *d > quote_date)
             .map(|(d, amt)| -> finstack_core::Result<(f64, f64, f64)> {
-                let t = dc.year_fraction(as_of, *d, DayCountCtx::default())?;
-                let df_base = disc.df_between_dates(as_of, *d)?;
+                let t = dc.year_fraction(quote_date, *d, DayCountCtx::default())?;
+                let df_base = disc.df_between_dates(quote_date, *d)?;
                 Ok((t, df_base, amt.amount()))
             })
             .collect::<finstack_core::Result<Vec<_>>>()?;
@@ -251,7 +248,7 @@ impl MetricCalculator for ZSpreadCalculator {
 
         // Solve using Brent with a maturity-aware bracket and production-grade
         // tolerance. Initial guess is 0.0 (0 bp).
-        let bracket = self.initial_bracket_decimal(bond, as_of)?;
+        let bracket = self.initial_bracket_decimal(bond, quote_date)?;
         let solver = BrentSolver::new()
             .with_tolerance(self.config.tolerance)
             .with_initial_bracket_size(Some(bracket));

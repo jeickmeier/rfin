@@ -230,8 +230,8 @@ main() {
         fi
 
         run_formatter "WASM/TS formatting" \
-            "npm run format -- --check ." \
-            "npm run format:fix ." \
+            "npm run format" \
+            "npm run format:fix" \
             "finstack-wasm"
 
         run_formatter "WASM/TS linting" \
@@ -254,8 +254,8 @@ main() {
         fi
 
         run_formatter "UI/TS formatting" \
-            "npm run format -- --check \"**/*.{js,jsx,ts,tsx,json,md,css}\"" \
-            "npm run format:fix \"**/*.{js,jsx,ts,tsx,json,md,css}\"" \
+            "npm run format" \
+            "npm run format:fix" \
             "finstack-ui"
 
         run_formatter "UI/TS linting" \
