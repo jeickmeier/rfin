@@ -75,10 +75,16 @@ use smallvec::SmallVec;
 // Pipeline scaffolding — pure-ish stages and fold state
 // -------------------------------------------------------------------------
 
+/// Internal state accumulated during schedule building.
 #[derive(Debug, Clone)]
 struct BuildState {
     flows: Vec<CashFlow>,
     outstanding_after: finstack_core::HashMap<Date, f64>,
+    /// Outstanding balance tracked as f64 for performance.
+    ///
+    /// For typical instruments (< 200 periods), f64 accumulation error is negligible
+    /// (< 1e-12 relative error). For very long-dated instruments with many small
+    /// cashflows, consider validating final outstanding against expected value.
     outstanding: f64,
 }
 

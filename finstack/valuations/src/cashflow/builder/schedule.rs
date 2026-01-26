@@ -317,8 +317,20 @@ impl CashFlowSchedule {
 
 /// Compare two amounts using relative epsilon for floating-point tolerance.
 ///
-/// Uses a relative tolerance scaled by the magnitude of the values, with a
-/// minimum absolute tolerance of 1e-12 for values near zero.
+/// Uses a relative tolerance of 1e-9 scaled by magnitude, with a minimum
+/// absolute tolerance of 1e-9 (from the `.max(1.0)` floor).
+///
+/// # Tolerance Bounds by Scale
+///
+/// | Notional     | Tolerance  |
+/// |--------------|------------|
+/// | $1B          | ~$1        |
+/// | $1M          | ~$0.001    |
+/// | $1K          | ~$0.000001 |
+/// | Near zero    | 1e-9       |
+///
+/// This is sufficient for detecting the initial funding flow while
+/// allowing for floating-point representation differences.
 fn amounts_approx_equal(a: f64, b: f64) -> bool {
     let max_abs = a.abs().max(b.abs()).max(1.0);
     (a - b).abs() < max_abs * 1e-9

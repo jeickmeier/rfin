@@ -108,6 +108,18 @@ fn default_reset_lag() -> i32 {
 ///
 /// Formula: `cap(gearing * (floor(index) + spread))`
 ///
+/// # Negative Rate Handling
+///
+/// Negative index rates are supported and will flow through calculations
+/// unless constrained by floors. For markets with negative rates (EUR, JPY, CHF):
+///
+/// - Set `floor_bp: Some(0.0)` to floor the index at zero
+/// - Set `all_in_floor_bp: Some(0.0)` to floor the total coupon at zero
+/// - Omit floors to allow negative coupons (rare but valid in some structures)
+///
+/// The implementation does not reject negative rates; the policy is controlled
+/// by the floor configuration.
+///
 /// # Example
 ///
 /// ```rust

@@ -333,10 +333,18 @@ fn time_discount_survival(
 /// # Recovery Logic
 ///
 /// If `recovery_rate` is `Some(R)`:
-/// - **Principal/Amortization/Notional**: PV includes recovery term: `PV = Amount * DF * (SP + R * (1 - SP))`
+/// - **Amortization/Notional**: PV includes recovery term: `PV = Amount * DF * (SP + R * (1 - SP))`
 /// - **Others (Interest/Fees)**: PV assumes zero recovery: `PV = Amount * DF * SP`
 ///
 /// If `recovery_rate` is `None`, falls back to zero recovery for all flows (`PV = Amount * DF * SP`).
+///
+/// # Recovery Rationale
+///
+/// This follows standard credit modeling convention where:
+/// - Principal claims have recovery value in default (par recovery assumption)
+/// - Interest/fee claims are typically subordinate and assumed to have zero recovery
+/// - The `CFKind::Principal` is not included because scheduled principal repayments
+///   are captured via `Amortization` and `Notional` kinds in this module's taxonomy
 pub(crate) fn pv_by_period_credit_adjusted_detailed(
     flows: &[CashFlow],
     periods: &[Period],
