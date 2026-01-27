@@ -133,12 +133,25 @@ impl VarResult {
             });
         }
 
-        // Calculate VaR at confidence level
+        // Calculate VaR at confidence level using ceiling-based (conservative) quantile method
+        //
+        // Method choice rationale:
+        // - We use ceil((1 - α) * n) to determine the tail size, which is a conservative approach
+        // - For 95% VaR with 100 scenarios: ceil(0.05 * 100) = 5 scenarios in the tail
+        // - For 95% VaR with 8 scenarios: ceil(0.05 * 8) = ceil(0.4) = 1 scenario in the tail
+        //
+        // Alternative methods (not used here):
+        // - Floor-based: floor((1 - α) * n) - less conservative, may understate risk
+        // - Interpolation (e.g., linear): more accurate for small samples but adds complexity
+        //
+        // The ceiling method ensures we never underestimate risk, which aligns with
+        // regulatory and risk management best practices.
         let var_index = ((1.0 - confidence_level) * num_scenarios as f64).ceil() as usize;
         let var_index = var_index.saturating_sub(1).min(num_scenarios - 1);
         let var = -pnl_distribution[var_index]; // Negative because losses are negative P&Ls
 
-        // Calculate Expected Shortfall (average of tail losses)
+        // Calculate Expected Shortfall (CVaR) as the average of tail losses
+        // ES is always >= VaR and captures the expected loss given that losses exceed VaR
         let tail_size = var_index + 1;
         let expected_shortfall = if tail_size > 0 {
             let sum: f64 = pnl_distribution.iter().take(tail_size).sum();
@@ -146,6 +159,23 @@ impl VarResult {
         } else {
             0.0
         };
+
+        // Warn about statistical reliability for small sample sizes
+        // With fewer than 20 scenarios, the quantile estimates may be unreliable
+        // and the discrete nature of the distribution becomes more significant
+        const MIN_RELIABLE_SCENARIOS: usize = 20;
+        if num_scenarios < MIN_RELIABLE_SCENARIOS && num_scenarios > 0 {
+            tracing::warn!(
+                num_scenarios = num_scenarios,
+                confidence_level = confidence_level,
+                var = var,
+                expected_shortfall = expected_shortfall,
+                "VaR calculated with fewer than {} scenarios. Statistical reliability is limited: \
+                 quantile estimates may be unstable and ES may not be well-defined. \
+                 Consider using more historical observations or stress scenarios.",
+                MIN_RELIABLE_SCENARIOS
+            );
+        }
 
         Ok(Self {
             var,
@@ -653,6 +683,87 @@ mod tests {
             rel < 0.15,
             "Taylor VaR should be close to full revaluation (diff: {:.4}%)",
             rel * 100.0
+        );
+
+        Ok(())
+    }
+
+    /// Verifies the Taylor VaR shift convention: shifts are in decimal form (e.g., 0.0001 = 1bp)
+    /// and DV01 is "per basis point", so the P&L formula is:
+    ///
+    ///   P&L = DV01_per_bp × shift_decimal × 10,000
+    ///       = DV01_per_bp × shift_bp
+    ///
+    /// This test uses a known linear instrument (bond) with a single scenario
+    /// to verify the scaling convention produces matching results.
+    #[test]
+    fn test_taylor_shift_convention_matches_full_revaluation_linear_instrument() -> Result<()> {
+        let as_of = sample_as_of();
+        // 5-year bond: approximately linear in rate changes for small shifts
+        let bond = standard_bond("LINEAR-BOND", as_of, date!(2029 - 01 - 01));
+        let base_market = usd_ois_market(as_of)?;
+
+        // Single scenario with a small parallel rate shift (5bp = 0.0005 decimal)
+        // This tests the convention: shift.shift is in decimal form
+        let shift_decimal = 0.0005; // 5 basis points
+        let shift_bp = shift_decimal * 10_000.0; // = 5.0 bp
+
+        let history = history_from_rate_shifts(as_of, &[(date!(2023 - 12 - 31), shift_decimal)]);
+
+        // Full revaluation: direct repricing under shifted curve
+        let full_config = VarConfig::var_95();
+        let full_result = calculate_var(&[&bond], &base_market, &history, as_of, &full_config)?;
+
+        // Taylor approximation: P&L ≈ DV01 × shift_bp
+        let taylor_config = VarConfig::var_95().with_method(VarMethod::TaylorApproximation);
+        let taylor_result = calculate_var(&[&bond], &base_market, &history, as_of, &taylor_config)?;
+
+        // With a single scenario, VaR = P&L magnitude
+        // For a linear instrument, Taylor should closely match full revaluation
+        let full_pnl = full_result.pnl_distribution[0];
+        let taylor_pnl = taylor_result.pnl_distribution[0];
+
+        // Verify P&L has correct sign (rates up → bond value down → negative P&L)
+        assert!(
+            full_pnl < 0.0,
+            "Full revaluation P&L should be negative for rate increase"
+        );
+        assert!(
+            taylor_pnl < 0.0,
+            "Taylor P&L should be negative for rate increase"
+        );
+
+        // Verify Taylor approximation is within 5% of full revaluation for this linear case
+        // (Small difference expected due to convexity and discrete bumping)
+        let rel_diff = (taylor_pnl - full_pnl).abs() / full_pnl.abs();
+        assert!(
+            rel_diff < 0.05,
+            "Taylor P&L ({:.2}) should be within 5% of full revaluation P&L ({:.2}), got {:.2}%",
+            taylor_pnl,
+            full_pnl,
+            rel_diff * 100.0
+        );
+
+        // Document the convention explicitly in the test
+        // The Taylor formula in taylor_pnl_for_scenario is:
+        //   pnl += dv01 * shift.shift * 10_000.0
+        //
+        // This means:
+        //   - shift.shift is in DECIMAL form (0.0001 = 1bp)
+        //   - DV01 is in currency units PER BASIS POINT
+        //   - The 10,000 factor converts shift_decimal to shift_bp
+        //
+        // Example: DV01 = -500 (loses $500 per 1bp rise)
+        //          shift = 0.0005 (5bp rise)
+        //          P&L = -500 * 0.0005 * 10,000 = -500 * 5 = -2500
+        println!(
+            "Shift convention test passed: \
+             shift_decimal={}, shift_bp={}, full_pnl={:.2}, taylor_pnl={:.2}, rel_diff={:.2}%",
+            shift_decimal,
+            shift_bp,
+            full_pnl,
+            taylor_pnl,
+            rel_diff * 100.0
         );
 
         Ok(())

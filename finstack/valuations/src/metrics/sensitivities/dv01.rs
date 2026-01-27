@@ -7,6 +7,13 @@
 //!
 //! Both methods ensure: **sum of bucketed DV01 ≈ parallel DV01**
 //!
+//! # Units and Sign Convention
+//!
+//! - **DV01 is expressed in currency units per basis point (1bp = 0.0001)**
+//! - A DV01 of -100 means the instrument loses $100 when rates rise by 1bp
+//! - Positive DV01: instrument gains value when rates rise (rare, e.g., short positions)
+//! - Negative DV01: instrument loses value when rates rise (typical for long bonds)
+//!
 //! # Key Features
 //!
 //! - **Type-safe curve discovery**: Uses [`CurveDependencies`] trait to discover curves at compile time
@@ -25,6 +32,7 @@
 //!
 //! let bond = Bond::example();
 //! let result = bond.price_with_metrics(&market, as_of, &[MetricId::Dv01])?;
+//! // DV01 is in currency units per 1bp rate move
 //! ```
 
 use crate::instruments::common::pricing::HasDiscountCurve;
@@ -435,6 +443,19 @@ pub fn format_bucket_label(years: f64) -> String {
 /// Calculate DV01 from PV changes (high-precision f64 version).
 ///
 /// Uses raw f64 values to avoid Money rounding precision loss in sensitivity calculations.
+///
+/// # Units
+///
+/// Returns DV01 in **currency units per basis point**. For example:
+/// - If `base_pv = 1_000_000` and `bumped_pv = 999_500` with `bump_bp = 1.0`
+/// - DV01 = (999_500 - 1_000_000) / 1.0 = -500
+/// - This means the instrument loses $500 per 1bp rate increase
+///
+/// # Arguments
+///
+/// * `base_pv` - Present value before bump (in currency units)
+/// * `bumped_pv` - Present value after bump (in currency units)
+/// * `bump_bp` - Bump size in basis points (typically 1.0)
 #[inline]
 fn calculate_dv01_raw(base_pv: f64, bumped_pv: f64, bump_bp: f64) -> f64 {
     (bumped_pv - base_pv) / bump_bp

@@ -40,6 +40,29 @@
 //!
 //! - Still approximate (third-order+ effects ignored)
 //! - Less accurate than parallel/waterfall methods for extreme moves
+//! - Large market moves (>100bp rates, >5% vol) can exceed reliable approximation range
+//!
+//! # Metric Unit Contracts
+//!
+//! This module expects metrics to follow these unit conventions:
+//!
+//! | Metric | Unit | Definition |
+//! |--------|------|------------|
+//! | DV01 | $ / bp | Dollar change per 1bp parallel rate shift |
+//! | Convexity | dimensionless | Percentage second derivative: (∂²P/∂r²) / P |
+//! | IrConvexity | dimensionless | Same as Convexity (alias for swaps) |
+//! | CS01 | $ / bp | Dollar change per 1bp spread shift |
+//! | CsGamma | $ / bp² | Dollar second derivative per bp² spread change |
+//! | Vega | $ / vol point | Dollar change per 1% absolute vol shift |
+//! | Volga | $ / vol point² | Dollar second derivative per vol point² |
+//! | Theta | $ / day | Dollar time decay per calendar day |
+//!
+//! **Important**: `Convexity` and `IrConvexity` are dimensionless percentage metrics,
+//! NOT "modified convexity" in years² as quoted by some data vendors. The formula
+//! used is: `ΔP_convexity = ½ × P₀ × Convexity × (Δr_decimal)²`
+//!
+//! If your convexity metric uses different units, apply the appropriate scaling
+//! factor before passing to attribution.
 
 use super::helpers::*;
 use super::types::*;
@@ -63,6 +86,28 @@ use finstack_core::types::CurveId;
 use finstack_core::HashMap;
 use finstack_core::Result;
 use std::sync::Arc;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Large Move Warning Thresholds
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// These thresholds define when market moves are large enough that second-order
+// Taylor expansion may produce significant approximation errors (>5% relative).
+//
+// Beyond these thresholds, consider using parallel or waterfall attribution
+// for more accurate results.
+
+/// Maximum rate shift (in basis points) before warning about approximation accuracy.
+/// Beyond ~100bp, third-order and higher terms become significant.
+const LARGE_RATE_MOVE_THRESHOLD_BP: f64 = 100.0;
+
+/// Maximum credit spread shift (in basis points) before warning.
+/// Credit spread convexity is typically larger than rate convexity.
+const LARGE_SPREAD_MOVE_THRESHOLD_BP: f64 = 50.0;
+
+/// Maximum volatility shift (in percentage points) before warning.
+/// Vol-of-vol effects become significant beyond ~5% absolute vol change.
+const LARGE_VOL_MOVE_THRESHOLD_PCT: f64 = 5.0;
 
 /// Extract per-curve bucketed DV01 sensitivities from ValuationResult measures.
 ///
@@ -392,6 +437,18 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
                 val_t1.value.currency(),
             );
         }
+
+        // Check for large rate moves that may exceed approximation accuracy
+        let avg_shift = total_shift_for_convexity / curves_with_data as f64;
+        if avg_shift.abs() > LARGE_RATE_MOVE_THRESHOLD_BP {
+            attribution.meta.notes.push(format!(
+                "Warning: Large rate move ({:.0}bp) exceeds {}bp threshold; \
+                 third-order+ effects ignored, consider parallel/waterfall attribution \
+                 for more accurate results",
+                avg_shift.abs(),
+                LARGE_RATE_MOVE_THRESHOLD_BP
+            ));
+        }
     }
 
     // 3. Credit curves attribution (CS01)
@@ -445,13 +502,18 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
 
         // 3b. Credit curves gamma (second-order)
         //
-        // METRIC DEFINITION:
-        // - CS-Gamma: Dollar gamma ($ per bp²) - similar to bond convexity but in dollar terms
-        // - Formula: ½ × CS-Gamma × (Δs)²
-        // - Δs must be in decimal (e.g., 0.0001 for 1bp)
+        // UNIT CONTRACT:
+        // - CS-Gamma: Dollar second derivative in $ per decimal² (NOT $ per bp²)
+        // - This is the raw second derivative: ∂²V/∂s² where s is spread in decimal
+        // - Formula: ΔP_gamma = ½ × CS-Gamma × (Δs_decimal)²
+        //
+        // Example: If CS-Gamma = $1,000,000 and spread moves 10bp (0.001 decimal):
+        //   gamma_pnl = 0.5 × $1M × (0.001)² = 0.5 × $1M × 1e-6 = $0.50
+        //
+        // To convert from "$ per bp²" to our convention: multiply by 10,000² = 1e8
         if let Some(cs_gamma) = val_t0.measures.get(MetricId::CsGamma.as_str()) {
-            // CS-Gamma term: ½ × CS-Gamma × (Δs)²
-            // avg_shift is in basis points, convert to decimal
+            // CS-Gamma term: ½ × CS-Gamma × (Δs_decimal)²
+            // avg_shift is in basis points, convert to decimal for formula
             let shift_decimal = avg_shift / 10_000.0;
             let gamma_pnl = 0.5 * cs_gamma * shift_decimal * shift_decimal;
 
@@ -459,6 +521,16 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
                 attribution.credit_curves_pnl.amount() + gamma_pnl,
                 val_t1.value.currency(),
             );
+        }
+
+        // Check for large credit spread moves that may exceed approximation accuracy
+        if avg_shift.abs() > LARGE_SPREAD_MOVE_THRESHOLD_BP {
+            attribution.meta.notes.push(format!(
+                "Warning: Large credit spread move ({:.0}bp) exceeds {}bp threshold; \
+                 consider parallel/waterfall attribution for more accurate results",
+                avg_shift.abs(),
+                LARGE_SPREAD_MOVE_THRESHOLD_BP
+            ));
         }
     }
 
@@ -510,6 +582,16 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
                 // Only include if we can measure both Δspot and Δσ
                 // For now, skip vanna as it requires instrument-specific spot ID
                 // (would need instrument.underlying_id() or similar)
+
+                // Check for large vol moves that may exceed approximation accuracy
+                if vol_shift.abs() > LARGE_VOL_MOVE_THRESHOLD_PCT {
+                    attribution.meta.notes.push(format!(
+                        "Warning: Large volatility move ({:.1}%) exceeds {:.1}% threshold; \
+                         vol-of-vol effects ignored, consider parallel/waterfall attribution",
+                        vol_shift.abs(),
+                        LARGE_VOL_MOVE_THRESHOLD_PCT
+                    ));
+                }
             }
         }
     }

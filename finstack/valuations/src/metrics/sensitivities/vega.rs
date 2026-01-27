@@ -184,6 +184,24 @@ where
         } else {
             1.0
         };
+
+        // Warn if scale factor deviates significantly from 1.0, which may indicate
+        // that the bucketed vega grid doesn't capture the true sensitivity distribution
+        // (e.g., option expiry/strike far from grid points, or exotic payoff structure)
+        const SCALE_DEVIATION_THRESHOLD: f64 = 0.10; // 10% deviation
+        if (scale - 1.0).abs() > SCALE_DEVIATION_THRESHOLD {
+            tracing::warn!(
+                raw_total = raw_total,
+                target_total = target_total,
+                scale = scale,
+                scale_deviation_pct = (scale - 1.0).abs() * 100.0,
+                "Bucketed vega scale factor deviates significantly from 1.0. \
+                 This may indicate the vega grid doesn't fully capture the instrument's \
+                 volatility sensitivity. Consider using a finer grid or reviewing the \
+                 instrument's strike/expiry relative to grid points."
+            );
+        }
+
         let matrix: Vec<Vec<f64>> = raw_matrix
             .into_iter()
             .map(|row| row.into_iter().map(|v| v * scale).collect())

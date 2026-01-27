@@ -166,6 +166,14 @@ pub fn scale_surface(
 ///
 /// where `bump_abs` is expressed in *absolute* volatility units (e.g., `0.01` for +1 vol point).
 ///
+/// # Non-Negativity Guarantee
+///
+/// The underlying [`VolSurface::bump`] implementation ensures that bumped volatilities
+/// are floored at zero. This means:
+/// - For negative bumps (e.g., `bump_abs = -0.15` on a 10% vol surface), vols are clamped to 0.0
+/// - This prevents mathematically invalid negative volatilities
+/// - Vega calculations near zero vol may exhibit non-linearity due to this floor
+///
 /// Prefer this helper for market-standard vega/volga/vanna definitions (derivatives w.r.t. σ).
 pub fn bump_surface_vol_absolute(
     context: &finstack_core::market_data::context::MarketContext,

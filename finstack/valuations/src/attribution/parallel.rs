@@ -270,17 +270,36 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
     }
 
     // Step 7: FX attribution
-    // Measures internal FX exposure (pricing-side) effects
-    // For cross-currency instruments, this captures how changes in FX rates affect
-    // the instrument's value in its native currency
+    //
+    // FX P&L has two conceptually distinct components that are COMBINED in this attribution:
+    //
+    // 1. **FX EXPOSURE P&L** (Pricing Impact):
+    //    Impact of FX rate changes on instrument pricing for cross-currency products.
+    //    Example: Cross-currency swap pricing depends on FX rates for basis adjustment.
+    //    This is isolated by repricing with T₀ FX rates but T₁ curves.
+    //
+    // 2. **FX TRANSLATION P&L** (Reporting Impact):
+    //    Impact of converting instrument PV from native currency to reporting currency.
+    //    Example: EUR-denominated bond held by USD reporter. If EUR/USD moves, the
+    //    reported USD value changes even if EUR PV is unchanged.
+    //    This is captured by using date-appropriate FX rates for conversion.
+    //
+    // DESIGN DECISION: This implementation combines both effects into a single `fx_pnl`
+    // field. For most use cases this is sufficient, as the total FX impact is what
+    // matters for P&L reporting. If you need to separate these effects:
+    //   - FX Exposure: Reprice with T₀ FX, compare using SAME FX rate for both PVs
+    //   - FX Translation: Keep FX at T₁ for pricing, compare using T₀ vs T₁ FX for conversion
+    //
+    // For single-currency instruments in their native reporting currency, this step
+    // produces zero P&L as expected.
     let fx_t0 = extract_fx(market_t0);
     if fx_t0.is_some() {
         let market_with_t0_fx = restore_fx(market_t1, fx_t0.clone());
         let val_with_t0_fx = reprice_instrument(instrument, &market_with_t0_fx, as_of_t1)?;
         num_repricings += 1;
 
-        // Use full FX translation attribution
-        // This captures both internal pricing impact and translation P&L
+        // Compute combined FX P&L (exposure + translation)
+        // Uses T₀ FX for converting T₀ PV and T₁ FX for converting T₁ PV
         attribution.fx_pnl = compute_pnl_with_fx(
             val_with_t0_fx,
             val_t1,
@@ -291,14 +310,13 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
             as_of_t1,
         )?;
 
-        // Stamp FX policy if conversions were applied
-        if attribution.fx_pnl.currency() != val_t1.currency() {
-            attribution.meta.fx_policy = Some(finstack_core::money::fx::FxPolicyMeta {
-                strategy: finstack_core::money::fx::FxConversionPolicy::CashflowDate,
-                target_ccy: Some(val_t1.currency()),
-                notes: "Parallel FX attribution with full translation".to_string(),
-            });
-        }
+        // Stamp FX policy metadata for audit trail
+        attribution.meta.fx_policy = Some(finstack_core::money::fx::FxPolicyMeta {
+            strategy: finstack_core::money::fx::FxConversionPolicy::CashflowDate,
+            target_ccy: Some(val_t1.currency()),
+            notes: "Combined FX exposure and translation P&L (see parallel.rs for details)"
+                .to_string(),
+        });
     }
 
     // Step 8: Volatility attribution

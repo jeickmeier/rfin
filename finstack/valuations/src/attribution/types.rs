@@ -1144,6 +1144,71 @@ mod tests {
     }
 
     #[test]
+    fn test_zero_total_pnl_with_nonzero_factors() {
+        // Edge case: total P&L is zero but individual factors have non-zero values
+        // (e.g., carry and rates cancel out)
+        let total = Money::new(0.0, Currency::USD);
+        let mut attr = PnlAttribution::new(
+            total,
+            "BOND-001",
+            date!(2025 - 01 - 15),
+            date!(2025 - 01 - 16),
+            AttributionMethod::Parallel,
+        );
+
+        // Carry and rates cancel out
+        attr.carry = Money::new(100.0, Currency::USD);
+        attr.rates_curves_pnl = Money::new(-100.0, Currency::USD);
+
+        attr.compute_residual()
+            .expect("Residual computation should succeed with zero total P&L");
+
+        // Residual should be zero (100 + (-100) = 0, matches total)
+        assert_eq!(attr.residual.amount(), 0.0);
+
+        // Residual percentage should be 0 (not NaN or Inf) when total is zero
+        assert!(!attr.meta.residual_pct.is_nan());
+        assert!(!attr.meta.residual_pct.is_infinite());
+        assert_eq!(attr.meta.residual_pct, 0.0);
+
+        // Tolerance check should pass (residual is zero)
+        assert!(attr.residual_within_tolerance(0.01, 0.01));
+    }
+
+    #[test]
+    fn test_zero_total_pnl_with_nonzero_residual() {
+        // Edge case: total P&L is zero but factors don't sum to zero
+        // This can happen due to cross-effects in parallel attribution
+        let total = Money::new(0.0, Currency::USD);
+        let mut attr = PnlAttribution::new(
+            total,
+            "BOND-001",
+            date!(2025 - 01 - 15),
+            date!(2025 - 01 - 16),
+            AttributionMethod::Parallel,
+        );
+
+        // Factors sum to 50, but total is 0 → residual = -50
+        attr.carry = Money::new(100.0, Currency::USD);
+        attr.rates_curves_pnl = Money::new(-50.0, Currency::USD);
+
+        attr.compute_residual()
+            .expect("Residual computation should succeed");
+
+        // Residual = 0 - (100 + -50) = -50
+        assert_eq!(attr.residual.amount(), -50.0);
+
+        // Residual percentage should be 0 when total is zero (avoids division by zero)
+        assert!(!attr.meta.residual_pct.is_nan());
+        assert!(!attr.meta.residual_pct.is_infinite());
+        assert_eq!(attr.meta.residual_pct, 0.0);
+
+        // Tolerance check should use absolute tolerance when total is zero
+        assert!(!attr.residual_within_tolerance(0.01, 10.0)); // abs(50) > 10
+        assert!(attr.residual_within_tolerance(0.01, 100.0)); // abs(50) < 100
+    }
+
+    #[test]
     #[cfg(feature = "serde")]
     fn test_pnl_attribution_json_envelope_trait() {
         let total = Money::new(1000.0, Currency::USD);

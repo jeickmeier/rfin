@@ -3,6 +3,14 @@
 //! Provides generic functions to compute bucketed CS01 for instruments that
 //! depend on hazard curves. Results are stored into `MetricContext` via structured
 //! series using stable composite keys.
+//!
+//! # Units and Sign Convention
+//!
+//! - **CS01 is expressed in currency units per basis point (1bp = 0.0001)**
+//! - A CS01 of -50 means the instrument loses $50 when credit spreads widen by 1bp
+//! - For protection buyers (long CDS): CS01 is typically positive (gain when spreads widen)
+//! - For protection sellers (short CDS): CS01 is typically negative (lose when spreads widen)
+//! - For corporate bonds: CS01 is typically negative (lose value when spreads widen)
 
 use crate::calibration::bumps::hazard::{bump_hazard_shift, bump_hazard_spreads};
 use crate::calibration::bumps::BumpRequest;
@@ -104,7 +112,9 @@ where
     let temp_ctx = base_ctx.clone().insert_hazard(bumped_hazard);
     let pv_bumped = revalue_with_context(&temp_ctx)?;
 
-    // CS01 is PV change per 1bp
+    // CS01 is PV change per 1bp (currency units per basis point)
+    // Positive CS01: instrument gains value when spreads widen
+    // Negative CS01: instrument loses value when spreads widen
     let cs01 = if bump_bp.abs() > 1e-10 {
         (pv_bumped.amount() - base_pv.amount()) / bump_bp
     } else {

@@ -425,6 +425,32 @@ impl<'a> WaterfallContext<'a> {
         Ok(market)
     }
 
+    /// Update the current accumulated value by adding a factor's P&L delta.
+    ///
+    /// # Numerical Precision Note
+    ///
+    /// This method uses simple sequential addition rather than Kahan summation.
+    /// For the standard 9-factor waterfall attribution, this is acceptable because:
+    ///
+    /// - IEEE 754 f64 has ~15-16 significant digits
+    /// - With 9 additions, accumulated relative error is bounded by ~9 × ε ≈ 2e-15
+    /// - For typical P&L values ($1M or less), this represents sub-cent precision
+    ///
+    /// If you extend the waterfall to >20 factors or work with very large notionals
+    /// ($1B+), consider implementing Kahan summation:
+    ///
+    /// ```ignore
+    /// // Kahan summation pseudocode
+    /// let compensation = 0.0;
+    /// for delta in deltas {
+    ///     let y = delta - compensation;
+    ///     let t = sum + y;
+    ///     compensation = (t - sum) - y;
+    ///     sum = t;
+    /// }
+    /// ```
+    ///
+    /// For most production use cases, the current implementation is sufficient.
     fn update_current_value(&mut self, prev_val: Money, delta: Money) -> Result<()> {
         self.current_val = prev_val
             .checked_add(delta)

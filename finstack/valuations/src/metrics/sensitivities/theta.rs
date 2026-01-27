@@ -239,24 +239,46 @@ use finstack_core::Result;
 use std::any::Any;
 use std::marker::PhantomData;
 
-/// Parse a period string to calendar days.
+/// Parse a period string to an **approximate** number of calendar days.
 ///
-/// Supported formats:
+/// # Deprecation Notice
+///
+/// **This function uses fixed approximations (30 days/month, 365 days/year) and should
+/// be used with caution.** For accurate date arithmetic, use [`calculate_theta_date`]
+/// which performs proper calendar-aware month and year rolling with end-of-month handling.
+///
+/// This function is primarily retained for backward compatibility and for cases where
+/// an approximate day count is acceptable (e.g., rough time-to-maturity estimates).
+///
+/// # Approximations Used
+///
+/// | Period | Approximation |
+/// |--------|---------------|
+/// | "D"    | Exact (1 day) |
+/// | "W"    | Exact (7 days)|
+/// | "M"    | **30 days** (not calendar-aware) |
+/// | "Y"    | **365 days** (ignores leap years) |
+///
+/// # Supported formats
 /// - "1D", "2D", etc. -> days
 /// - "1W", "2W", etc. -> weeks (7 days each)
-/// - "1M", "2M", etc. -> months (30 days each)
-/// - "3M", "6M", etc. -> months (30 days each)
-/// - "1Y", "2Y", etc. -> years (365 days each)
+/// - "1M", "2M", etc. -> months (30 days each, approximate)
+/// - "3M", "6M", etc. -> months (30 days each, approximate)
+/// - "1Y", "2Y", etc. -> years (365 days each, approximate)
 ///
 /// # Examples
 /// ```
 /// # use finstack_valuations::metrics::parse_period_days;
 /// assert_eq!(parse_period_days("1D").expect("should succeed"), 1);
 /// assert_eq!(parse_period_days("1W").expect("should succeed"), 7);
-/// assert_eq!(parse_period_days("1M").expect("should succeed"), 30);
-/// assert_eq!(parse_period_days("3M").expect("should succeed"), 90);
-/// assert_eq!(parse_period_days("1Y").expect("should succeed"), 365);
+/// assert_eq!(parse_period_days("1M").expect("should succeed"), 30);  // Approximate!
+/// assert_eq!(parse_period_days("3M").expect("should succeed"), 90);  // Approximate!
+/// assert_eq!(parse_period_days("1Y").expect("should succeed"), 365); // Approximate!
 /// ```
+///
+/// # See Also
+///
+/// - [`calculate_theta_date`]: Calendar-aware date rolling (recommended for theta calculations)
 #[allow(dead_code)]
 pub fn parse_period_days(period: &str) -> Result<i64> {
     let period = period.trim().to_uppercase();
