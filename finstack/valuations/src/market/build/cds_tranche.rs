@@ -126,8 +126,10 @@ impl CdsTrancheBuildOverrides {
 ///
 /// The upfront payment (if present) is calculated as:
 /// ```text
-/// upfront_amount = tranche_notional * upfront_pct * 0.01
+/// upfront_amount = tranche_notional * upfront_pct
 /// ```
+///
+/// Note: `upfront_pct` is a decimal fraction (e.g., -0.025 for -2.5%).
 ///
 /// # Examples
 ///
@@ -154,7 +156,7 @@ impl CdsTrancheBuildOverrides {
 ///     attachment: 0.03,  // 3%
 ///     detachment: 0.07,   // 7%
 ///     maturity: Date::from_calendar_date(2029, time::Month::June, 20).unwrap(),
-///     upfront_pct: -2.5, // -2.5% upfront
+///     upfront_pct: -0.025, // -2.5% upfront (decimal fraction)
 ///     running_spread_bp: 500.0,
 ///     convention: CdsConventionKey {
 ///         currency: Currency::USD,
@@ -249,11 +251,21 @@ pub fn build_cds_tranche_instrument(
     }
     let notional_amt = ctx.notional() * normalization_factor;
 
-    // `upfront_pct` is expressed in percentage points (e.g. -5.0 means -5% of tranche notional).
+    // Validate upfront_pct is in decimal fraction format (not percentage points).
+    // Reject values > 1.0 to prevent accidental misuse of old percentage-point notation.
+    if upfront_pct.abs() > 1.0 {
+        return Err(Error::Validation(format!(
+            "upfront_pct must be a decimal fraction (e.g., -0.025 for -2.5%), got {}; \
+             values with abs() > 1.0 are rejected to prevent unit confusion",
+            upfront_pct
+        )));
+    }
+
+    // `upfront_pct` is expressed as a decimal fraction (e.g. -0.025 means -2.5% of tranche notional).
     let upfront_payment = (upfront_pct.abs() > 0.0).then(|| {
         (
             spot,
-            Money::new(notional_amt * upfront_pct * 0.01, convention_key.currency),
+            Money::new(notional_amt * upfront_pct, convention_key.currency),
         )
     });
 
@@ -261,10 +273,9 @@ pub fn build_cds_tranche_instrument(
         // CDS-style effective date (prior IMM) and IMM-aligned maturity.
         let roll_anchor = spot.add_months(-3);
         let effective_date = next_cds_date(roll_anchor);
-        let maturity_imm = {
-            let adjusted = adjust(maturity, conv.business_day_convention, cal)?;
-            next_cds_date(adjusted - time::Duration::days(1))
-        };
+        // Use unadjusted maturity date for IMM roll selection to prevent BDC
+        // from pushing the date past the 20th into the next quarter.
+        let maturity_imm = next_cds_date(maturity - time::Duration::days(1));
         (effective_date, maturity_imm, true)
     } else {
         let maturity_adj = adjust(maturity, conv.business_day_convention, cal)?;
@@ -351,7 +362,7 @@ mod tests {
             attachment: 0.03,
             detachment: 0.07,
             maturity,
-            upfront_pct: -2.5,
+            upfront_pct: -0.025, // -2.5% as decimal fraction
             running_spread_bp: 500.0,
             convention: convention_key.clone(),
         };
@@ -385,5 +396,140 @@ mod tests {
 
         assert_eq!(tranche.effective_date, Some(spot));
         assert_eq!(tranche.maturity, maturity_adj);
+    }
+
+    /// Regression test: verify upfront_pct uses decimal fraction semantics.
+    /// `-0.025` should produce an upfront payment of -2.5% of tranche notional.
+    #[test]
+    fn test_upfront_decimal_fraction_semantics() {
+        let as_of = Date::from_calendar_date(2024, Month::January, 2).expect("valid date");
+        let mut curve_ids = HashMap::default();
+        curve_ids.insert("discount".to_string(), "USD-OIS".to_string());
+        curve_ids.insert("credit".to_string(), "CDX.NA.IG".to_string());
+        // Base notional of 100M -> tranche notional = 100M * (0.07 - 0.03) = 4M
+        let ctx = BuildCtx::new(as_of, 100_000_000.0, curve_ids);
+
+        let convention_key = CdsConventionKey {
+            currency: Currency::USD,
+            doc_clause: CdsDocClause::IsdaNa,
+        };
+        let maturity = Date::from_calendar_date(2029, Month::June, 20).expect("valid date");
+
+        let quote = CdsTrancheQuote::CDSTranche {
+            id: QuoteId::new("CDX-IG-3-7"),
+            index: "CDX.NA.IG".to_string(),
+            attachment: 0.03,
+            detachment: 0.07,
+            maturity,
+            upfront_pct: -0.025, // -2.5% as decimal fraction
+            running_spread_bp: 500.0,
+            convention: convention_key,
+        };
+
+        let overrides = CdsTrancheBuildOverrides::new(42);
+        let instrument = build_cds_tranche_instrument(&quote, &ctx, &overrides)
+            .expect("tranche build should succeed");
+        let tranche = instrument
+            .as_any()
+            .downcast_ref::<CdsTranche>()
+            .expect("should be CdsTranche");
+
+        // Tranche notional = 100M * 0.04 = 4M
+        // Upfront = 4M * (-0.025) = -100,000 USD
+        let (_, upfront_money) = tranche.upfront.expect("should have upfront payment");
+        let upfront_amount = upfront_money.amount();
+
+        // Verify sign is negative (protection buyer receives upfront)
+        assert!(upfront_amount < 0.0, "Upfront should be negative");
+
+        // Verify magnitude: 4M * 0.025 = 100,000
+        let expected_amount = -100_000.0;
+        let tolerance = 1.0; // Allow for minor floating point differences
+        assert!(
+            (upfront_amount - expected_amount).abs() < tolerance,
+            "Upfront amount should be ~{}, got {}",
+            expected_amount,
+            upfront_amount
+        );
+    }
+
+    /// Regression test: verify that upfront_pct > 1.0 is rejected (prevents old percentage-point notation)
+    #[test]
+    fn test_upfront_rejects_percentage_point_notation() {
+        let as_of = Date::from_calendar_date(2024, Month::January, 2).expect("valid date");
+        let mut curve_ids = HashMap::default();
+        curve_ids.insert("discount".to_string(), "USD-OIS".to_string());
+        curve_ids.insert("credit".to_string(), "CDX.NA.IG".to_string());
+        let ctx = BuildCtx::new(as_of, 100_000_000.0, curve_ids);
+
+        let convention_key = CdsConventionKey {
+            currency: Currency::USD,
+            doc_clause: CdsDocClause::IsdaNa,
+        };
+        let maturity = Date::from_calendar_date(2029, Month::June, 20).expect("valid date");
+
+        // Use old percentage-point notation (-2.5 instead of -0.025)
+        let quote = CdsTrancheQuote::CDSTranche {
+            id: QuoteId::new("CDX-IG-3-7"),
+            index: "CDX.NA.IG".to_string(),
+            attachment: 0.03,
+            detachment: 0.07,
+            maturity,
+            upfront_pct: -2.5, // WRONG: this is percentage-point notation
+            running_spread_bp: 500.0,
+            convention: convention_key,
+        };
+
+        let overrides = CdsTrancheBuildOverrides::new(42);
+        let result = build_cds_tranche_instrument(&quote, &ctx, &overrides);
+
+        assert!(result.is_err(), "Should reject upfront_pct with abs > 1.0");
+
+        let err_str = result.err().expect("should be error").to_string();
+        assert!(
+            err_str.contains("decimal fraction") || err_str.contains("upfront_pct"),
+            "Error should mention decimal fraction format: {}",
+            err_str
+        );
+    }
+
+    /// Test that zero upfront is handled correctly
+    #[test]
+    fn test_zero_upfront_no_payment() {
+        let as_of = Date::from_calendar_date(2024, Month::January, 2).expect("valid date");
+        let mut curve_ids = HashMap::default();
+        curve_ids.insert("discount".to_string(), "USD-OIS".to_string());
+        curve_ids.insert("credit".to_string(), "CDX.NA.IG".to_string());
+        let ctx = BuildCtx::new(as_of, 100_000_000.0, curve_ids);
+
+        let convention_key = CdsConventionKey {
+            currency: Currency::USD,
+            doc_clause: CdsDocClause::IsdaNa,
+        };
+        let maturity = Date::from_calendar_date(2029, Month::June, 20).expect("valid date");
+
+        let quote = CdsTrancheQuote::CDSTranche {
+            id: QuoteId::new("CDX-IG-3-7"),
+            index: "CDX.NA.IG".to_string(),
+            attachment: 0.03,
+            detachment: 0.07,
+            maturity,
+            upfront_pct: 0.0, // No upfront
+            running_spread_bp: 500.0,
+            convention: convention_key,
+        };
+
+        let overrides = CdsTrancheBuildOverrides::new(42);
+        let instrument = build_cds_tranche_instrument(&quote, &ctx, &overrides)
+            .expect("tranche build should succeed");
+        let tranche = instrument
+            .as_any()
+            .downcast_ref::<CdsTranche>()
+            .expect("should be CdsTranche");
+
+        assert!(
+            tranche.upfront.is_none(),
+            "Zero upfront should result in no upfront payment"
+        );
     }
 }

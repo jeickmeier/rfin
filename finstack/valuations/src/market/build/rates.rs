@@ -609,4 +609,46 @@ mod tests {
             "Negative infinity spread_decimal should return an error"
         );
     }
+
+    /// Regression test: verify that reset_lag_days uses positive T-minus semantics.
+    /// With reset_lag_days = 2, the fixing date should be 2 business days BEFORE accrual start.
+    #[test]
+    fn test_fixing_date_is_t_minus_2() -> Result<()> {
+        let ctx = usd_build_ctx();
+
+        // Build an FRA with USD-SOFR-3M index (which has reset_lag_days = 2 in conventions)
+        let quote = RateQuote::Fra {
+            id: QuoteId::new("USD-SOFR-FRA-3x6"),
+            index: IndexId::new("USD-SOFR-3M"),
+            start: Pillar::Tenor("3M".parse().unwrap()),
+            end: Pillar::Tenor("6M".parse().unwrap()),
+            rate: 0.05,
+        };
+
+        let instrument = build_rate_instrument(&quote, &ctx)?;
+
+        use crate::instruments::fra::ForwardRateAgreement;
+        let fra = instrument
+            .as_any()
+            .downcast_ref::<ForwardRateAgreement>()
+            .expect("Expected ForwardRateAgreement");
+
+        // The fixing date should be BEFORE the start date (T-2 semantics)
+        assert!(
+            fra.fixing_date < fra.start_date,
+            "Fixing date {} should be before start date {} (T-minus semantics)",
+            fra.fixing_date,
+            fra.start_date
+        );
+
+        // Verify it's approximately 2 business days before (exact depends on calendar)
+        let days_diff = (fra.start_date - fra.fixing_date).whole_days();
+        assert!(
+            (2..=4).contains(&days_diff),
+            "Fixing date should be ~2 business days before start, got {} calendar days",
+            days_diff
+        );
+
+        Ok(())
+    }
 }

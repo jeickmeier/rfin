@@ -9,7 +9,7 @@ use crate::market::conventions::registry::ConventionRegistry;
 use crate::market::quotes::cds::CdsQuote;
 use crate::market::quotes::ids::Pillar;
 use crate::market::BuildCtx;
-use finstack_core::dates::{adjust, next_cds_date, DateExt, StubKind};
+use finstack_core::dates::{next_cds_date, BusinessDayConvention, DateExt, StubKind};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::{Error, InputError, Result};
@@ -180,14 +180,18 @@ pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<dyn 
 
     let maturity = match pillar {
         Pillar::Tenor(t) => {
-            // Maturity is the CDS roll date on or after the tenor-adjusted date.
-            let raw = t.add_to_date(start, Some(cal), conv.business_day_convention)?;
+            // Maturity is the CDS roll date on or after the tenor target date.
+            // Use Unadjusted BDC to compute the raw target date, then roll to IMM.
+            // This prevents business-day adjustment from shifting us past the 20th
+            // into the next quarter (e.g., 20-Jun on Saturday -> 22-Jun -> 20-Sep).
+            let raw = t.add_to_date(start, Some(cal), BusinessDayConvention::Unadjusted)?;
             next_cds_date(raw - time::Duration::days(1))
         }
         Pillar::Date(d) => {
-            // Enforce IMM alignment even for explicit dates.
-            let adjusted = adjust(*d, conv.business_day_convention, cal)?;
-            next_cds_date(adjusted - time::Duration::days(1))
+            // Enforce IMM alignment using the unadjusted input date.
+            // Do NOT business-day adjust before roll selection, as that can push
+            // the date past the 20th and cause next_cds_date to return the next quarter.
+            next_cds_date(*d - time::Duration::days(1))
         }
     };
 
@@ -252,3 +256,117 @@ pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<dyn 
 }
 
 // Helpers moved to build::helpers
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use crate::market::conventions::ids::{CdsConventionKey, CdsDocClause};
+    use crate::market::quotes::cds::CdsQuote;
+    use crate::market::quotes::ids::{Pillar, QuoteId};
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::Date;
+    use finstack_core::HashMap;
+    use time::Month;
+
+    fn cds_build_ctx() -> BuildCtx {
+        let as_of = Date::from_calendar_date(2024, Month::January, 2).unwrap();
+        let mut curve_ids = HashMap::default();
+        curve_ids.insert("discount".to_string(), "USD-OIS".to_string());
+        curve_ids.insert("credit".to_string(), "ABC-CORP".to_string());
+        BuildCtx::new(as_of, 10_000_000.0, curve_ids)
+    }
+
+    /// Regression test: CDS maturity roll alignment should not jump to the next quarter
+    /// when the 20th of the target month falls on a weekend.
+    ///
+    /// Example: June 20, 2026 is a Saturday. The CDS maturity should still be 2026-06-20,
+    /// not 2026-09-20 (which would happen if we business-day adjusted before roll selection).
+    #[test]
+    fn test_cds_maturity_roll_does_not_jump_quarter_on_weekend() -> Result<()> {
+        let ctx = cds_build_ctx();
+
+        // June 20, 2026 is a Saturday - pick this as our explicit maturity date
+        let explicit_maturity = Date::from_calendar_date(2026, Month::June, 20).unwrap();
+
+        let quote = CdsQuote::CdsParSpread {
+            id: QuoteId::new("CDS-TEST-5Y"),
+            entity: "Test Corp".to_string(),
+            convention: CdsConventionKey {
+                currency: Currency::USD,
+                doc_clause: CdsDocClause::IsdaNa,
+            },
+            pillar: Pillar::Date(explicit_maturity),
+            spread_bp: 100.0,
+            recovery_rate: 0.40,
+        };
+
+        let instrument = build_cds_instrument(&quote, &ctx)?;
+
+        use crate::instruments::cds::CreditDefaultSwap;
+        let cds = instrument
+            .as_any()
+            .downcast_ref::<CreditDefaultSwap>()
+            .expect("Expected CreditDefaultSwap");
+
+        // The maturity should be June 20, 2026 (the IMM date), NOT September 20, 2026
+        // next_cds_date(June 19) returns June 20
+        assert_eq!(
+            cds.premium.end.month(),
+            Month::June,
+            "CDS maturity should be in June, not jumped to September"
+        );
+        assert_eq!(
+            cds.premium.end, explicit_maturity,
+            "CDS maturity should be exactly 2026-06-20"
+        );
+
+        Ok(())
+    }
+
+    /// Test that tenor-based CDS pillar also correctly aligns to IMM dates
+    #[test]
+    fn test_cds_tenor_pillar_aligns_to_imm() -> Result<()> {
+        let ctx = cds_build_ctx();
+
+        let quote = CdsQuote::CdsParSpread {
+            id: QuoteId::new("CDS-TEST-5Y"),
+            entity: "Test Corp".to_string(),
+            convention: CdsConventionKey {
+                currency: Currency::USD,
+                doc_clause: CdsDocClause::IsdaNa,
+            },
+            pillar: Pillar::Tenor("5Y".parse().unwrap()),
+            spread_bp: 100.0,
+            recovery_rate: 0.40,
+        };
+
+        let instrument = build_cds_instrument(&quote, &ctx)?;
+
+        use crate::instruments::cds::CreditDefaultSwap;
+        let cds = instrument
+            .as_any()
+            .downcast_ref::<CreditDefaultSwap>()
+            .expect("Expected CreditDefaultSwap");
+
+        // Maturity should be on the 20th (CDS IMM date)
+        assert_eq!(
+            cds.premium.end.day(),
+            20,
+            "CDS maturity should be on the 20th (IMM date)"
+        );
+
+        // Should be in a quarterly month (Mar, Jun, Sep, Dec)
+        let maturity_month = cds.premium.end.month();
+        assert!(
+            matches!(
+                maturity_month,
+                Month::March | Month::June | Month::September | Month::December
+            ),
+            "CDS maturity should be in a quarterly month, got {:?}",
+            maturity_month
+        );
+
+        Ok(())
+    }
+}

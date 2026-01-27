@@ -20,6 +20,7 @@ nalgebra = { version = "0.34", optional = true }
 tracing = { version = "0.1", default-features = false }
 thiserror = "2.0"
 num-complex = "0.4"
+strum = { workspace = true }
 ts-rs = { version = "10", optional = true, features = ["serde-compat", "no-serde-warnings"] }
 
 [dev-dependencies]

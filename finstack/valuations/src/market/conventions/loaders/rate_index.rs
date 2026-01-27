@@ -122,6 +122,21 @@ impl RateIndexConventionsRecord {
             }
         }
 
+        // Reset lag validation: must be non-negative (T-minus semantics: positive value means
+        // fixing date = accrual_start - reset_lag_days business days).
+        if self.default_reset_lag_days < 0 {
+            return Err(Error::Validation(format!(
+                "default_reset_lag_days must be non-negative (got {}); use positive T-minus semantics",
+                self.default_reset_lag_days
+            )));
+        }
+        if self.default_reset_lag_days > 31 {
+            return Err(Error::Validation(format!(
+                "default_reset_lag_days exceeds reasonable limit of 31 (got {})",
+                self.default_reset_lag_days
+            )));
+        }
+
         Ok(RateIndexConventions {
             currency: self.currency,
             kind: self.kind,

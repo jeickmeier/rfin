@@ -11,6 +11,12 @@ use ts_rs::TS;
 /// CDS tranches represent slices of credit risk on a CDS index, defined by attachment and
 /// detachment points. Quotes include upfront payments and running spreads for pricing.
 ///
+/// # Upfront Convention
+///
+/// `upfront_pct` is expressed as a **decimal fraction** of tranche notional (consistent with
+/// `CdsQuote`). For example, `-0.025` means a -2.5% upfront payment. Values with `abs() > 1.0`
+/// are rejected by the builder to prevent accidental use of percentage-point notation.
+///
 /// # Examples
 ///
 /// ```rust
@@ -27,7 +33,7 @@ use ts_rs::TS;
 ///     attachment: 0.03,  // 3%
 ///     detachment: 0.07, // 7%
 ///     maturity: Date::from_calendar_date(2029, time::Month::June, 20).unwrap(),
-///     upfront_pct: -2.5, // -2.5% upfront
+///     upfront_pct: -0.025, // -2.5% upfront (decimal fraction)
 ///     running_spread_bp: 500.0,
 ///     convention: CdsConventionKey {
 ///         currency: Currency::USD,
@@ -57,7 +63,7 @@ pub enum CdsTrancheQuote {
         /// Maturity date.
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         maturity: finstack_core::dates::Date,
-        /// Upfront payment percentage.
+        /// Upfront payment as a decimal fraction of tranche notional (e.g., -0.025 for -2.5%).
         upfront_pct: f64,
         /// Running spread (bps).
         running_spread_bp: f64,
@@ -90,7 +96,7 @@ impl CdsTrancheQuote {
     ///     attachment: 0.03,
     ///     detachment: 0.07,
     ///     maturity: Date::from_calendar_date(2029, time::Month::June, 20).unwrap(),
-    ///     upfront_pct: -2.5,
+    ///     upfront_pct: -0.025, // -2.5% as decimal fraction
     ///     running_spread_bp: 500.0,
     ///     convention: CdsConventionKey {
     ///         currency: Currency::USD,
@@ -137,7 +143,7 @@ impl CdsTrancheQuote {
     ///     attachment: 0.03,
     ///     detachment: 0.07,
     ///     maturity: Date::from_calendar_date(2029, time::Month::June, 20).unwrap(),
-    ///     upfront_pct: -2.5,
+    ///     upfront_pct: -0.025, // -2.5% as decimal fraction
     ///     running_spread_bp: 500.0,
     ///     convention: CdsConventionKey {
     ///         currency: Currency::USD,
