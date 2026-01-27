@@ -100,21 +100,21 @@ fn test_very_large_notional() {
     let market = build_standard_market(as_of, 0.05);
 
     // Billion dollar position
-    let future = create_custom_future(
-        "LARGE",
-        1_000_000_000.0,
-        start,
-        start,
-        end,
-        97.50,
-        Position::Long,
-    );
+    let notional = 1_000_000_000.0;
+    let future = create_custom_future("LARGE", notional, start, start, end, 97.50, Position::Long);
     let pv = future.npv(&market).unwrap();
 
     assert!(pv.amount().is_finite());
+
+    // Scale-aware bound: PV should be at most a few percent of notional
+    // For a 2.5% rate (price 97.50 vs implied 100-5=95), PV is notional × price_diff × DF
+    // Maximum reasonable bound: ~5% of notional = $50M for $1B position
+    let max_reasonable_pv = notional * 0.05;
     assert!(
-        pv.amount().abs() < 1e12,
-        "PV should be reasonable even for large notional"
+        pv.amount().abs() < max_reasonable_pv,
+        "PV should be reasonable for notional: pv={:.2}, max={:.2}",
+        pv.amount(),
+        max_reasonable_pv
     );
 }
 

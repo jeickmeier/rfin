@@ -256,24 +256,141 @@ fn test_bucketed_dv01_sums_to_parallel() {
     }
 }
 
+/// Test bucketed CS01 sum with full curve support (strict tolerance).
+///
+/// When the hazard curve has knots covering the full standard bucket grid,
+/// bucketed CS01 should sum very closely to total CS01 (within 2%).
 #[test]
-fn test_bucketed_cs01_sums_to_total() {
-    // Bucketed CS01 should approximately sum to total CS01
+fn test_bucketed_cs01_sums_to_total_strict() {
     let as_of = date!(2025 - 01 - 01);
 
     use finstack_core::market_data::term_structures::HazardCurve;
 
+    // 10Y CDS - within curve support
     let cds = finstack_valuations::test_utils::cds_buy_protection(
-        "BUCKETED_CS01_TEST",
+        "BUCKETED_CS01_STRICT",
         Money::new(1_000_000.0, Currency::USD),
         200.0, // 200bp spread
         as_of,
-        date!(2030 - 01 - 01),
+        date!(2035 - 01 - 01), // 10Y CDS
         "USD-OIS",
         "HAZARD",
     )
     .expect("CDS construction should succeed");
 
+    // Discount curve with knots extending to 30Y to cover all standard buckets
+    let disc_curve = DiscountCurve::builder("USD-OIS")
+        .base_date(as_of)
+        .day_count(DayCount::Act365F)
+        .knots([
+            (0.0f64, 1.0f64),
+            (0.25f64, (-0.05f64 * 0.25).exp()),
+            (0.5f64, (-0.05f64 * 0.5).exp()),
+            (1.0f64, (-0.05f64).exp()),
+            (2.0f64, (-0.05f64 * 2.0).exp()),
+            (3.0f64, (-0.05f64 * 3.0).exp()),
+            (5.0f64, (-0.05f64 * 5.0).exp()),
+            (7.0f64, (-0.05f64 * 7.0).exp()),
+            (10.0f64, (-0.05f64 * 10.0).exp()),
+            (15.0f64, (-0.05f64 * 15.0).exp()),
+            (20.0f64, (-0.05f64 * 20.0).exp()),
+            (30.0f64, (-0.05f64 * 30.0).exp()),
+        ])
+        .build()
+        .unwrap();
+
+    // Hazard curve with knots covering standard bucket grid (out to 30Y)
+    let hazard_curve = HazardCurve::builder("HAZARD")
+        .base_date(as_of)
+        .day_count(DayCount::Act365F)
+        .recovery_rate(0.4)
+        .knots([
+            (0.0f64, 0.02f64),
+            (0.25f64, 0.020f64),
+            (0.5f64, 0.021f64),
+            (1.0f64, 0.022f64),
+            (2.0f64, 0.025f64),
+            (3.0f64, 0.028f64),
+            (5.0f64, 0.032f64),
+            (7.0f64, 0.036f64),
+            (10.0f64, 0.040f64),
+            (15.0f64, 0.045f64),
+            (20.0f64, 0.050f64),
+            (30.0f64, 0.055f64),
+        ])
+        .build()
+        .unwrap();
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_hazard(hazard_curve);
+
+    let registry = standard_registry();
+    let pv = cds.value(&market, as_of).unwrap();
+    let mut context = MetricContext::new(
+        Arc::new(cds),
+        Arc::new(market),
+        as_of,
+        pv,
+        MetricContext::default_config(),
+    );
+
+    // Compute both total CS01 and bucketed CS01
+    let results = registry
+        .compute(
+            &[MetricId::Cs01, MetricId::custom("bucketed_cs01")],
+            &mut context,
+        )
+        .unwrap();
+
+    let total_cs01 = *results.get(&MetricId::Cs01).unwrap();
+
+    // Get bucketed CS01 series
+    let bucketed_series = context
+        .computed_series
+        .get(&MetricId::custom("bucketed_cs01"));
+
+    if let Some(series) = bucketed_series {
+        let sum_bucketed: f64 = series.iter().map(|(_, v)| v).sum();
+
+        // With full curve support, bucketed CS01 should sum to total CS01 within 2%
+        let diff_pct = (sum_bucketed - total_cs01).abs() / total_cs01.abs().max(1e-10);
+        assert!(
+            diff_pct < 0.02,
+            "Bucketed CS01 sum ({:.4}) should equal total CS01 ({:.4}) within 2%, diff: {:.2}%",
+            sum_bucketed,
+            total_cs01,
+            diff_pct * 100.0
+        );
+    } else {
+        panic!("Bucketed CS01 series should be populated");
+    }
+}
+
+/// Test bucketed CS01 sum when curve support is limited (fallback tolerance).
+///
+/// When the hazard curve has fewer knots than the standard bucket grid,
+/// some buckets will have zero or extrapolated values. This test documents
+/// the graceful degradation behavior with a looser tolerance.
+#[test]
+fn test_bucketed_cs01_sums_to_total_limited_curve_support() {
+    let as_of = date!(2025 - 01 - 01);
+
+    use finstack_core::market_data::term_structures::HazardCurve;
+
+    // 5Y CDS - curve support only to 5Y
+    let cds = finstack_valuations::test_utils::cds_buy_protection(
+        "BUCKETED_CS01_LIMITED",
+        Money::new(1_000_000.0, Currency::USD),
+        200.0, // 200bp spread
+        as_of,
+        date!(2030 - 01 - 01), // 5Y CDS
+        "USD-OIS",
+        "HAZARD",
+    )
+    .expect("CDS construction should succeed");
+
+    // Discount curve with knots only to 5Y
     let disc_curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .day_count(DayCount::Act365F)
@@ -288,6 +405,7 @@ fn test_bucketed_cs01_sums_to_total() {
         .build()
         .unwrap();
 
+    // Hazard curve with knots only to 5Y (standard buckets include 7Y, 10Y, 15Y, 20Y, 30Y)
     let hazard_curve = HazardCurve::builder("HAZARD")
         .base_date(as_of)
         .day_count(DayCount::Act365F)
@@ -335,13 +453,28 @@ fn test_bucketed_cs01_sums_to_total() {
     if let Some(series) = bucketed_series {
         let sum_bucketed: f64 = series.iter().map(|(_, v)| v).sum();
 
-        // Bucketed CS01 is an approximation to the parallel CS01 and depends on bucket
-        // definitions vs curve support (e.g. requesting standard buckets beyond the last knot).
-        // We enforce a loose sanity bound rather than exact equality.
+        // With limited curve support, bucketed CS01 may not sum exactly to total.
+        // Standard buckets (7Y, 10Y, etc.) beyond curve support will have extrapolated
+        // or zero values. This documents the expected degradation behavior.
+        //
+        // For proper bucketed CS01 accuracy, use curves with knots covering all
+        // standard buckets (see test_bucketed_cs01_sums_to_total_strict).
         let diff_pct = (sum_bucketed - total_cs01).abs() / total_cs01.abs().max(1e-10);
+
+        // Log the difference for documentation purposes
+        println!(
+            "Limited curve support: bucketed CS01 sum = {:.4}, total CS01 = {:.4}, diff = {:.2}%",
+            sum_bucketed,
+            total_cs01,
+            diff_pct * 100.0
+        );
+
+        // Sanity check: even with limited support, sum should be within 25%
+        // This is a documentation test, not a validation test.
         assert!(
             diff_pct < 0.25,
-            "Bucketed CS01 sum ({}) should be close to total CS01 ({}), diff: {:.2}%",
+            "Bucketed CS01 sum ({:.4}) should be within 25% of total CS01 ({:.4}) \
+            even with limited curve support (expected degradation), diff: {:.2}%",
             sum_bucketed,
             total_cs01,
             diff_pct * 100.0

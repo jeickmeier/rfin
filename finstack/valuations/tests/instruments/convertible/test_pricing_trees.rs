@@ -287,11 +287,82 @@ fn test_tree_framework_with_custom_valuator() {
     );
 }
 
+/// Test tree pricing convergence with increasing time steps.
+///
+/// Both binomial and trinomial trees should converge as step count increases.
+/// Once converged, cross-tree consistency should be within 3%.
+#[test]
+fn test_tree_pricing_convergence() {
+    let bond = create_standard_convertible();
+    let market = create_market_context();
+
+    // Test convergence with increasing steps
+    let step_counts = [25, 50, 100, 200];
+    let mut prev_bin = 0.0;
+    let mut prev_tri = 0.0;
+
+    for &steps in &step_counts {
+        let bin_price = price_convertible_bond(
+            &bond,
+            &market,
+            ConvertibleTreeType::Binomial(steps),
+            dates::base_date(),
+        )
+        .unwrap()
+        .amount();
+
+        let tri_price = price_convertible_bond(
+            &bond,
+            &market,
+            ConvertibleTreeType::Trinomial(steps),
+            dates::base_date(),
+        )
+        .unwrap()
+        .amount();
+
+        // Check convergence (difference from previous should decrease)
+        if prev_bin > 0.0 {
+            let bin_change = (bin_price - prev_bin).abs() / prev_bin;
+            let tri_change = (tri_price - prev_tri).abs() / prev_tri;
+
+            // As steps increase, change from previous should decrease
+            assert!(
+                bin_change < 0.15,
+                "Binomial should stabilize: {}→{} steps, change={:.2}%",
+                steps / 2,
+                steps,
+                bin_change * 100.0
+            );
+            assert!(
+                tri_change < 0.15,
+                "Trinomial should stabilize: {}→{} steps, change={:.2}%",
+                steps / 2,
+                steps,
+                tri_change * 100.0
+            );
+        }
+
+        prev_bin = bin_price;
+        prev_tri = tri_price;
+    }
+
+    // At highest step count (200), trees should agree within 3%
+    let final_diff_pct = (prev_bin - prev_tri).abs() / prev_bin.max(1e-10);
+    assert!(
+        final_diff_pct < 0.03,
+        "Converged trees should agree within 3%: bin={:.2}, tri={:.2}, diff={:.2}%",
+        prev_bin,
+        prev_tri,
+        final_diff_pct * 100.0
+    );
+}
+
 #[test]
 fn test_tree_pricing_consistency_across_scenarios() {
     let bond = create_standard_convertible();
 
     // Test multiple market scenarios with both tree types
+    // Using 100 steps for better convergence
     let scenarios = vec![
         ("ITM", create_market_context()),
         (
@@ -324,7 +395,7 @@ fn test_tree_pricing_consistency_across_scenarios() {
         let bin_price = price_convertible_bond(
             &bond,
             &market,
-            ConvertibleTreeType::Binomial(50),
+            ConvertibleTreeType::Binomial(100), // Increased from 50 for better convergence
             dates::base_date(),
         )
         .unwrap();
@@ -332,7 +403,7 @@ fn test_tree_pricing_consistency_across_scenarios() {
         let tri_price = price_convertible_bond(
             &bond,
             &market,
-            ConvertibleTreeType::Trinomial(50),
+            ConvertibleTreeType::Trinomial(100), // Increased from 50
             dates::base_date(),
         )
         .unwrap();
@@ -352,11 +423,12 @@ fn test_tree_pricing_consistency_across_scenarios() {
             tri_price.amount()
         );
 
-        // Should be roughly consistent
+        // With converged trees (100 steps), should agree within 5%
+        // (looser than convergence test since scenarios vary more)
         let diff_pct = (bin_price.amount() - tri_price.amount()).abs() / bin_price.amount();
         assert!(
-            diff_pct < 0.10, // Within 10%
-            "Trees diverge too much for scenario {}: {}%",
+            diff_pct < 0.05,
+            "Trees diverge too much for scenario {}: {:.2}%",
             name,
             diff_pct * 100.0
         );

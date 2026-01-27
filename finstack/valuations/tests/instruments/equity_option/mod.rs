@@ -7,9 +7,12 @@
 //! - Edge Cases: Expiry, extreme strikes, zero vol, etc.
 //! - Parity: Put-call parity validation
 //! - Moneyness: ITM/ATM/OTM behavior
+//!
+//! Note: QuantLib parity tests were removed in favor of invariant/property-based tests
+//! that don't rely on external reference values with loose tolerances.
+//! See: test_option_bounds.rs (property tests) and test_put_call_parity.rs (parity tests)
 
 mod helpers;
-mod integration;
 mod test_constructors;
 mod test_edge_cases;
 mod test_greeks;

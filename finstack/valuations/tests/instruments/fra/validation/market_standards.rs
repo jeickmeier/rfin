@@ -33,27 +33,39 @@ fn test_settlement_adjustment_formula() {
 
     let pv = fra.value(&market, BASE_DATE).unwrap().amount();
 
-    // Manual calculation using settlement adjustment formula
-    // Note: The implementation uses rate_diff = F - K, and applies sign based on pay_fixed flag
-    let forward_rate = 0.05; // market rate
+    // Compute values from the actual curves/conventions (not hardcoded approximations)
+    let forward_rate = 0.05; // market rate from flat forward curve
     let fixed_rate = 0.06;
     let rate_diff = forward_rate - fixed_rate; // -0.01
-    let tau = 0.25277777; // ~91 days / 360
-    let df = 0.9876; // approximate DF to start date
+
+    // Compute tau from actual dates and day count convention (ACT/360)
+    // start = 2024-04-01, end = 2024-07-01 = 91 days
+    let days = (end - start).whole_days() as f64;
+    let tau = days / 360.0; // ACT/360
+
+    // Compute DF from the discount curve
+    // Time to start date from base date (2024-01-01 to 2024-04-01)
+    let time_to_start = (start - BASE_DATE).whole_days() as f64 / 365.0;
+    let df = (-0.05 * time_to_start).exp(); // Using flat 5% rate
 
     // PV = N * DF * tau * (F - K) / (1 + F * tau)
     let settlement_adj = 1.0 / (1.0 + forward_rate * tau);
     let base_pv = 1_000_000.0 * df * tau * rate_diff * settlement_adj;
-    // pay_fixed = true (receive fixed) → negate the base PV
+    // pay_fixed = true (receive fixed) → FRA receives fixed, pays floating
+    // When receiving above market, should have positive PV
     let expected_pv = -base_pv;
 
-    // Should be within 15% of manual calculation (rough approximation due to curve details)
-    let diff_pct = ((pv - expected_pv) / expected_pv).abs();
+    // With properly computed values, we should be within 0.5% (was 15% with approximations)
+    let diff_pct = ((pv - expected_pv) / expected_pv.abs().max(1e-10)).abs();
     assert!(
-        diff_pct < 0.15,
-        "PV should match settlement adjustment formula: pv={}, expected~{}",
+        diff_pct < 0.005,
+        "PV should match settlement adjustment formula within 0.5%: \
+        pv={:.2}, expected={:.2}, diff={:.4}%, tau={:.6}, df={:.6}",
         pv,
-        expected_pv
+        expected_pv,
+        diff_pct * 100.0,
+        tau,
+        df
     );
 }
 

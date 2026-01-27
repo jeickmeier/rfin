@@ -17,11 +17,10 @@ fn test_rho_finite_and_reasonable() {
     let rho = *result.measures.get("rho").unwrap();
 
     assert!(rho.is_finite(), "Rho should be finite");
-    // Rho can be positive or negative for swaptions depending on maturity structure
-    assert!(
-        rho.abs() < 50_000_000.0,
-        "Rho should be reasonable magnitude"
-    );
+    // Rho can be positive or negative for swaptions depending on maturity structure.
+    // For a 1M notional, 1Y-5Y swaption, rho per 1bp should be in the range of $10-$1000.
+    // See test_rho_parallel_bump_validation for the tighter magnitude check.
+    assert_reasonable(rho.abs(), 1.0, 10_000.0, "Rho magnitude");
 }
 
 #[test]

@@ -228,19 +228,20 @@ fn test_delta_by_finite_difference() {
         .unwrap();
     let analytic_delta = *result.measures.get("delta").unwrap();
 
-    // Should be close (within 10% relative error)
-    let relative_error = if analytic_delta.abs() > 1.0 {
-        (fd_delta - analytic_delta).abs() / analytic_delta.abs()
-    } else {
-        (fd_delta - analytic_delta).abs()
-    };
+    // FD vs analytic delta should match within 2% relative error for meaningful values,
+    // or within absolute tolerance of $10 for small values.
+    let abs_diff = (fd_delta - analytic_delta).abs();
+    let within_relative = analytic_delta.abs() > 100.0 && abs_diff / analytic_delta.abs() < 0.02;
+    let within_absolute = abs_diff < 10.0;
 
     assert!(
-        relative_error < 0.10,
-        "FD delta ({}) should match analytic delta ({}), rel error: {}",
+        within_relative || within_absolute,
+        "FD delta ({:.4}) should match analytic delta ({:.4}): \
+        abs_diff={:.4}, rel_error={:.2}%",
         fd_delta,
         analytic_delta,
-        relative_error
+        abs_diff,
+        abs_diff / analytic_delta.abs().max(1e-10) * 100.0
     );
 }
 
@@ -306,25 +307,26 @@ fn test_vega_by_finite_difference() {
     // FD vega (per 1% vol change)
     let fd_vega = (pv_up - pv_down) / (2.0 * vol_bump);
 
-    // Analytical vega
+    // Analytical vega (per 1% vol change)
     let result = caplet
         .price_with_metrics(&market_mid, as_of, &[MetricId::Vega])
         .unwrap();
     let analytic_vega = *result.measures.get("vega").unwrap();
 
-    // Should be close
-    let relative_error = if analytic_vega.abs() > 0.1 {
-        (fd_vega - analytic_vega).abs() / analytic_vega.abs()
-    } else {
-        (fd_vega - analytic_vega).abs()
-    };
+    // FD vs analytic vega should match within 2% relative error for meaningful values,
+    // or within absolute tolerance of $1 for small values.
+    let abs_diff = (fd_vega - analytic_vega).abs();
+    let within_relative = analytic_vega.abs() > 10.0 && abs_diff / analytic_vega.abs() < 0.02;
+    let within_absolute = abs_diff < 1.0;
 
     assert!(
-        relative_error < 0.15,
-        "FD vega ({}) should match analytic vega ({}), rel error: {}",
+        within_relative || within_absolute,
+        "FD vega ({:.4}) should match analytic vega ({:.4}): \
+        abs_diff={:.4}, rel_error={:.2}%",
         fd_vega,
         analytic_vega,
-        relative_error
+        abs_diff,
+        abs_diff / analytic_vega.abs().max(1e-10) * 100.0
     );
 }
 

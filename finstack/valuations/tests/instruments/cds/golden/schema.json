@@ -1,0 +1,180 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CDS Golden Vector",
+  "description": "ISDA CDS Standard Model reference test vector for validation",
+  "type": "object",
+  "required": ["id", "source", "contract", "curves", "expected"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for this test case"
+    },
+    "source": {
+      "type": "string",
+      "description": "Source of expected values (e.g., 'ISDA Standard Model v1.8.2', 'QuantLib 1.34')"
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable description of this test case"
+    },
+    "contract": {
+      "type": "object",
+      "required": ["as_of", "start_date", "maturity_date", "notional", "currency", "spread_bp", "recovery_rate"],
+      "properties": {
+        "as_of": {
+          "type": "string",
+          "format": "date",
+          "description": "Valuation date (YYYY-MM-DD)"
+        },
+        "start_date": {
+          "type": "string",
+          "format": "date",
+          "description": "Protection start date (YYYY-MM-DD)"
+        },
+        "maturity_date": {
+          "type": "string",
+          "format": "date",
+          "description": "Protection end date (YYYY-MM-DD)"
+        },
+        "notional": {
+          "type": "number",
+          "description": "Notional amount"
+        },
+        "currency": {
+          "type": "string",
+          "description": "Currency code (e.g., 'USD')"
+        },
+        "spread_bp": {
+          "type": "number",
+          "description": "Running spread in basis points"
+        },
+        "recovery_rate": {
+          "type": "number",
+          "description": "Recovery rate as decimal (e.g., 0.40 for 40%)"
+        },
+        "convention": {
+          "type": "string",
+          "enum": ["ISDA_NA", "ISDA_EU", "ISDA_ASIA"],
+          "description": "CDS convention"
+        },
+        "side": {
+          "type": "string",
+          "enum": ["buy_protection", "sell_protection"],
+          "description": "Protection buyer or seller"
+        }
+      }
+    },
+    "curves": {
+      "type": "object",
+      "required": ["discount", "hazard"],
+      "properties": {
+        "discount": {
+          "type": "object",
+          "oneOf": [
+            {
+              "required": ["flat_rate"],
+              "properties": {
+                "flat_rate": {
+                  "type": "number",
+                  "description": "Flat continuously compounded discount rate"
+                }
+              }
+            },
+            {
+              "required": ["knots"],
+              "properties": {
+                "knots": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["time", "df"],
+                    "properties": {
+                      "time": { "type": "number" },
+                      "df": { "type": "number" }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "hazard": {
+          "type": "object",
+          "oneOf": [
+            {
+              "required": ["flat_rate"],
+              "properties": {
+                "flat_rate": {
+                  "type": "number",
+                  "description": "Flat hazard rate"
+                }
+              }
+            },
+            {
+              "required": ["knots"],
+              "properties": {
+                "knots": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["time", "hazard"],
+                    "properties": {
+                      "time": { "type": "number" },
+                      "hazard": { "type": "number" }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "description": "Expected metric values with tolerances",
+      "properties": {
+        "par_spread_bp": {
+          "type": "object",
+          "required": ["value", "tolerance_bp"],
+          "properties": {
+            "value": { "type": "number" },
+            "tolerance_bp": { "type": "number" }
+          }
+        },
+        "risky_pv01": {
+          "type": "object",
+          "required": ["value", "tolerance_pct"],
+          "properties": {
+            "value": { "type": "number" },
+            "tolerance_pct": { "type": "number" }
+          }
+        },
+        "protection_leg_pv": {
+          "type": "object",
+          "required": ["value", "tolerance_pct"],
+          "properties": {
+            "value": { "type": "number" },
+            "tolerance_pct": { "type": "number" }
+          }
+        },
+        "premium_leg_pv": {
+          "type": "object",
+          "required": ["value", "tolerance_pct"],
+          "properties": {
+            "value": { "type": "number" },
+            "tolerance_pct": { "type": "number" }
+          }
+        },
+        "npv": {
+          "type": "object",
+          "required": ["value", "tolerance_abs"],
+          "properties": {
+            "value": { "type": "number" },
+            "tolerance_abs": { "type": "number" }
+          }
+        }
+      }
+    }
+  }
+}
