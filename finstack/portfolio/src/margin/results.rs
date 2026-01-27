@@ -5,6 +5,36 @@ use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::HashMap;
 use finstack_valuations::margin::{ImMethodology, NettingSetId, SimmSensitivities};
+use std::fmt;
+
+/// Error returned when attempting to aggregate margin results with mismatched currencies.
+///
+/// This error occurs when [`PortfolioMarginResult::add_netting_set`] is called with a
+/// netting set margin in a currency different from the portfolio's base currency.
+/// Use [`PortfolioMarginResult::add_netting_set_with_fx`] to handle cross-currency
+/// aggregation with explicit FX conversion.
+#[derive(Debug, Clone)]
+pub struct CurrencyMismatchError {
+    /// The netting set that caused the error.
+    pub netting_set_id: NettingSetId,
+    /// Currency of the netting set margin.
+    pub netting_set_currency: Currency,
+    /// Expected base currency of the portfolio margin result.
+    pub base_currency: Currency,
+}
+
+impl fmt::Display for CurrencyMismatchError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Currency mismatch for netting set {:?}: expected {} but got {}. \
+             Use add_netting_set_with_fx() for cross-currency aggregation.",
+            self.netting_set_id, self.base_currency, self.netting_set_currency
+        )
+    }
+}
+
+impl std::error::Error for CurrencyMismatchError {}
 
 /// Margin results for a single netting set.
 #[derive(Debug, Clone)]
@@ -115,10 +145,26 @@ impl PortfolioMarginResult {
     }
 
     /// Add a netting set margin result.
-    pub fn add_netting_set(&mut self, result: NettingSetMargin) {
-        // Convert to base currency if needed (simplified - assumes same currency)
-        // In production, would use FX rates for cross-currency conversion
-        // TODO: Implement FX conversion when currencies differ
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the netting set margin currency differs from the
+    /// portfolio's base currency. Cross-currency margin aggregation requires
+    /// explicit FX conversion via [`add_netting_set_with_fx`].
+    pub fn add_netting_set(
+        &mut self,
+        result: NettingSetMargin,
+    ) -> Result<(), CurrencyMismatchError> {
+        // Validate currency matches base currency
+        let ns_currency = result.initial_margin.currency();
+        if ns_currency != self.base_currency {
+            return Err(CurrencyMismatchError {
+                netting_set_id: result.netting_set_id.clone(),
+                netting_set_currency: ns_currency,
+                base_currency: self.base_currency,
+            });
+        }
+
         let im = result.initial_margin.amount();
         let vm = result.variation_margin.amount();
 
@@ -132,6 +178,36 @@ impl PortfolioMarginResult {
             self.total_margin.amount() + result.total_margin.amount(),
             self.base_currency,
         );
+        self.total_positions += result.position_count;
+        self.by_netting_set
+            .insert(result.netting_set_id.clone(), result);
+
+        Ok(())
+    }
+
+    /// Add a netting set margin result with explicit FX conversion.
+    ///
+    /// Use this method when the netting set margin is in a different currency
+    /// than the portfolio's base currency. The provided FX rate converts from
+    /// the netting set currency to the base currency.
+    ///
+    /// # Arguments
+    ///
+    /// * `result` - The netting set margin to add
+    /// * `fx_rate` - FX rate to convert from netting set currency to base currency
+    ///   (e.g., if netting set is EUR and base is USD, rate is EUR/USD)
+    pub fn add_netting_set_with_fx(&mut self, result: NettingSetMargin, fx_rate: f64) {
+        let im = result.initial_margin.amount() * fx_rate;
+        let vm = result.variation_margin.amount() * fx_rate;
+        let total = result.total_margin.amount() * fx_rate;
+
+        self.total_initial_margin =
+            Money::new(self.total_initial_margin.amount() + im, self.base_currency);
+        self.total_variation_margin = Money::new(
+            self.total_variation_margin.amount() + vm,
+            self.base_currency,
+        );
+        self.total_margin = Money::new(self.total_margin.amount() + total, self.base_currency);
         self.total_positions += result.position_count;
         self.by_netting_set
             .insert(result.netting_set_id.clone(), result);
@@ -170,7 +246,7 @@ impl PortfolioMarginResult {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
+#[allow(clippy::expect_used, clippy::unwrap_used)]
 mod tests {
     use super::*;
     use time::Month;
@@ -210,7 +286,9 @@ mod tests {
             10,
             ImMethodology::Simm,
         );
-        portfolio_result.add_netting_set(bilateral);
+        portfolio_result
+            .add_netting_set(bilateral)
+            .expect("same currency should succeed");
 
         // Add cleared netting set
         let cleared = NettingSetMargin::new(
@@ -221,7 +299,9 @@ mod tests {
             5,
             ImMethodology::ClearingHouse,
         );
-        portfolio_result.add_netting_set(cleared);
+        portfolio_result
+            .add_netting_set(cleared)
+            .expect("same currency should succeed");
 
         assert_eq!(portfolio_result.netting_set_count(), 2);
         assert_eq!(portfolio_result.total_initial_margin.amount(), 8_000_000.0);
@@ -234,5 +314,49 @@ mod tests {
         let (cleared_total, bilateral_total) = portfolio_result.cleared_bilateral_split();
         assert_eq!(cleared_total.amount(), 3_500_000.0);
         assert_eq!(bilateral_total.amount(), 6_000_000.0);
+    }
+
+    #[test]
+    fn test_currency_mismatch_error() {
+        let mut portfolio_result = PortfolioMarginResult::new(test_date(), Currency::USD);
+
+        // Try to add EUR netting set to USD portfolio
+        let eur_netting_set = NettingSetMargin::new(
+            NettingSetId::bilateral("BANK_B", "CSA_002"),
+            test_date(),
+            Money::new(1_000_000.0, Currency::EUR),
+            Money::new(200_000.0, Currency::EUR),
+            5,
+            ImMethodology::Simm,
+        );
+
+        let result = portfolio_result.add_netting_set(eur_netting_set);
+        assert!(result.is_err());
+
+        let err = result.unwrap_err();
+        assert_eq!(err.netting_set_currency, Currency::EUR);
+        assert_eq!(err.base_currency, Currency::USD);
+    }
+
+    #[test]
+    fn test_add_netting_set_with_fx() {
+        let mut portfolio_result = PortfolioMarginResult::new(test_date(), Currency::USD);
+
+        // Add EUR netting set with FX conversion (EUR/USD = 1.10)
+        let eur_netting_set = NettingSetMargin::new(
+            NettingSetId::bilateral("BANK_B", "CSA_002"),
+            test_date(),
+            Money::new(1_000_000.0, Currency::EUR),
+            Money::new(200_000.0, Currency::EUR),
+            5,
+            ImMethodology::Simm,
+        );
+
+        let eur_usd_rate = 1.10;
+        portfolio_result.add_netting_set_with_fx(eur_netting_set, eur_usd_rate);
+
+        // Verify conversion: 1M EUR * 1.10 = 1.1M USD
+        assert_eq!(portfolio_result.total_initial_margin.amount(), 1_100_000.0);
+        assert_eq!(portfolio_result.total_variation_margin.amount(), 220_000.0);
     }
 }

@@ -428,16 +428,19 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
                     // Already applied to `DecisionFeatures::min_weight/max_weight`.
                 }
                 Constraint::MaxTurnover {
-                    label,
+                    label: _,
                     max_turnover,
                 } => {
                     // Turnover handled later via auxiliary variables.
-                    // We record a synthetic constraint row: coefficients of 1 for t_i.
+                    // We record a placeholder constraint row that will be skipped in
+                    // the primary constraint loop. The actual turnover constraint is
+                    // built with auxiliary variables |w_i - w0_i| below.
                     lp_constraints.push(LpConstraint {
-                        coefficients: vec![0.0; n_vars], // placeholder; filled later
+                        coefficients: vec![0.0; n_vars], // placeholder; not used
                         relation: LpRelation::Le,
                         rhs: *max_turnover,
-                        name: label.clone(),
+                        // Use internal marker name to identify this placeholder
+                        name: Some("__turnover_placeholder__".to_string()),
                     });
                 }
                 Constraint::MaxPositionDelta { .. } => {
@@ -516,8 +519,9 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
 
         // Add primary constraints
         for lc in &lp_constraints {
-            // Skip placeholder turnover row; handled below.
-            if matches!(lc.name.as_deref(), Some(name) if name == "turnover") {
+            // Skip placeholder turnover row; actual turnover constraint is
+            // built below with auxiliary variables for |w_i - w0_i|.
+            if matches!(lc.name.as_deref(), Some("__turnover_placeholder__")) {
                 continue;
             }
 

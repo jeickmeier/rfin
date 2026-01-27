@@ -582,6 +582,10 @@ pub struct BrentSolver {
     pub bracket_expansion: f64,
     /// Initial bracket size (adaptive to initial guess if None)
     pub initial_bracket_size: Option<f64>,
+    /// Minimum bound for bracket search (default: -1e6)
+    pub bracket_min: f64,
+    /// Maximum bound for bracket search (default: 1e6)
+    pub bracket_max: f64,
 }
 
 impl Default for BrentSolver {
@@ -591,6 +595,8 @@ impl Default for BrentSolver {
             max_iterations: 100,
             bracket_expansion: 2.0,
             initial_bracket_size: None, // Adaptive by default
+            bracket_min: -1e6,
+            bracket_max: 1e6,
         }
     }
 }
@@ -642,17 +648,43 @@ impl BrentSolver {
         self
     }
 
+    /// Set the minimum and maximum bounds for bracket search.
+    ///
+    /// During bracket expansion, the search will not extend beyond these bounds.
+    /// Default bounds are `[-1e6, 1e6]`, which is suitable for most financial
+    /// applications (rates, spreads, volatilities).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::math::solver::{BrentSolver, Solver};
+    ///
+    /// // For a problem where the root must be positive
+    /// let solver = BrentSolver::new()
+    ///     .with_bracket_bounds(0.0, 1e9);
+    ///
+    /// // For implied volatility (must be positive, typically < 5.0)
+    /// let vol_solver = BrentSolver::new()
+    ///     .with_bracket_bounds(1e-6, 5.0);
+    /// ```
+    pub fn with_bracket_bounds(mut self, min: f64, max: f64) -> Self {
+        self.bracket_min = min;
+        self.bracket_max = max;
+        self
+    }
+
     /// Find bracket around the root starting from initial guess.
+    ///
+    /// The search is bounded by `bracket_min` and `bracket_max` to prevent
+    /// overflow and to constrain the search to a reasonable domain.
     fn find_bracket<Func>(&self, f: &Func, initial_guess: f64) -> Result<(f64, f64)>
     where
         Func: Fn(f64) -> f64,
     {
         use crate::error::InputError;
 
-        // Maximum bracket width to prevent overflow
-        const MAX_BRACKET_WIDTH: f64 = 1e6;
-        const MIN_VALUE: f64 = -1e6;
-        const MAX_VALUE: f64 = 1e6;
+        // Use configurable bounds
+        let max_bracket_width = self.bracket_max - self.bracket_min;
 
         // Calculate adaptive initial bracket size
         let initial_size = self.initial_bracket_size.unwrap_or_else(|| {
@@ -696,30 +728,49 @@ impl BrentSolver {
             let width = b - a;
 
             // Stop if bracket is unreasonably wide
-            if width > MAX_BRACKET_WIDTH {
+            if width > max_bracket_width {
                 break;
             }
 
             // Expand with bounds checking to prevent overflow
-            a = (a - width * self.bracket_expansion).max(MIN_VALUE);
-            b = (b + width * self.bracket_expansion).min(MAX_VALUE);
+            a = (a - width * self.bracket_expansion).max(self.bracket_min);
+            b = (b + width * self.bracket_expansion).min(self.bracket_max);
 
             // Stop if we've hit the bounds
-            if a <= MIN_VALUE && b >= MAX_VALUE {
+            if a <= self.bracket_min && b >= self.bracket_max {
                 break;
             }
         }
 
-        // Compute final values for error reporting
+        // Compute final values - check for sign change one more time
         let fa = f(a);
         let fb = f(b);
+
+        // Check for non-finite values at final bounds
+        if !fa.is_finite() || !fb.is_finite() {
+            return Err(InputError::SolverConvergenceFailed {
+                iterations: expansion_iterations,
+                residual: if fa.is_finite() { fa.abs() } else { fb.abs() },
+                last_x: if fa.is_finite() { a } else { b },
+                reason: format!(
+                    "bracket search found non-finite value at bounds: f({a:.6e}) = {fa}, f({b:.6e}) = {fb}"
+                ),
+            }
+            .into());
+        }
+
+        // Final sign change check at the expanded bounds
+        if fa * fb < 0.0 {
+            return Ok((a, b));
+        }
 
         Err(InputError::SolverConvergenceFailed {
             iterations: expansion_iterations,
             residual: fa.abs().min(fb.abs()),
             last_x: initial_guess,
             reason: format!(
-                "no sign change found in [{a:.6e}, {b:.6e}]: f(a) = {fa:.6e}, f(b) = {fb:.6e} (both same sign)"
+                "no sign change found in [{a:.6e}, {b:.6e}] (bounds: [{:.6e}, {:.6e}]): f(a) = {fa:.6e}, f(b) = {fb:.6e} (same sign)",
+                self.bracket_min, self.bracket_max
             ),
         }
         .into())
@@ -856,7 +907,17 @@ impl BrentSolver {
             fb = f(b);
         }
 
-        Ok(b)
+        // Max iterations reached without convergence - return error
+        Err(InputError::SolverConvergenceFailed {
+            iterations: self.max_iterations,
+            residual: fb.abs(),
+            last_x: b,
+            reason: format!(
+                "max iterations ({}) reached without convergence (tolerance: {:.6e}, residual: {:.6e})",
+                self.max_iterations, self.tolerance, fb.abs()
+            ),
+        }
+        .into())
     }
 }
 
@@ -1103,5 +1164,67 @@ mod tests {
         assert!((f(root)).abs() < 1e-10);
         // One root is around x ≈ 0.619 (there's also one near 1.512)
         assert!(root > 0.0 && root < 2.0);
+    }
+
+    #[test]
+    fn test_brent_max_iterations_returns_error() {
+        // Test that Brent solver returns an error when max iterations is reached
+        // without convergence, rather than silently returning a non-root value.
+
+        // Create a solver with very few iterations so it won't converge
+        let solver = BrentSolver::new()
+            .with_max_iterations(2)
+            .with_tolerance(1e-15); // Extremely tight tolerance
+
+        // A function that converges slowly (root at x ≈ 1.3247)
+        let f = |x: f64| x * x * x - x - 1.0;
+
+        let result = solver.solve(f, 1.0);
+
+        // Should return an error, not a potentially incorrect result
+        assert!(
+            result.is_err(),
+            "Should return error when max iterations reached without convergence"
+        );
+
+        // Verify error contains useful information
+        match result {
+            Err(crate::Error::Input(crate::error::InputError::SolverConvergenceFailed {
+                iterations,
+                reason,
+                ..
+            })) => {
+                assert_eq!(iterations, 2, "Should report correct iteration count");
+                assert!(
+                    reason.contains("max iterations"),
+                    "Error message should mention max iterations: {}",
+                    reason
+                );
+            }
+            other => panic!("Expected SolverConvergenceFailed error, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_brent_configurable_bracket_bounds() {
+        // Test that bracket bounds can be configured
+        let solver = BrentSolver::new().with_bracket_bounds(0.0, 10.0);
+
+        // Function with root at x = 2
+        let f = |x: f64| x - 2.0;
+        let root = solver
+            .solve(f, 5.0)
+            .expect("Should find root within custom bounds");
+        assert!((root - 2.0).abs() < 1e-10);
+
+        // Test that search fails when root is outside bounds
+        let solver_narrow = BrentSolver::new().with_bracket_bounds(5.0, 10.0);
+
+        // Root at x = 2 is outside [5, 10]
+        let result = solver_narrow.solve(f, 7.0);
+        assert!(
+            result.is_err(),
+            "Should fail when root is outside bracket bounds"
+        );
     }
 }

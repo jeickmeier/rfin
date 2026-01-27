@@ -88,6 +88,21 @@ pub enum Constraint {
     },
 }
 
+/// Error returned when constraint parameters are invalid.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ConstraintValidationError {
+    /// Description of the validation failure.
+    pub message: String,
+}
+
+impl std::fmt::Display for ConstraintValidationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Constraint validation error: {}", self.message)
+    }
+}
+
+impl std::error::Error for ConstraintValidationError {}
+
 impl Constraint {
     /// Get the constraint label (for diagnostics).
     #[must_use]
@@ -101,5 +116,237 @@ impl Constraint {
             Self::MaxPositionDelta { label, .. } => label.as_deref(),
             Self::Budget { .. } => Some("budget"),
         }
+    }
+
+    /// Create a tag exposure limit constraint with validation.
+    ///
+    /// # Arguments
+    ///
+    /// * `tag_key` - Tag key to match (e.g., "rating")
+    /// * `tag_value` - Tag value to match (e.g., "CCC")
+    /// * `max_share` - Maximum share in `[0, 1]`
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConstraintValidationError`] if `max_share` is not in `[0, 1]`.
+    pub fn tag_exposure_limit(
+        tag_key: impl Into<String>,
+        tag_value: impl Into<String>,
+        max_share: f64,
+    ) -> Result<Self, ConstraintValidationError> {
+        Self::tag_exposure_limit_with_label(None, tag_key, tag_value, max_share)
+    }
+
+    /// Create a tag exposure limit constraint with a label and validation.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConstraintValidationError`] if `max_share` is not in `[0, 1]`.
+    pub fn tag_exposure_limit_with_label(
+        label: Option<String>,
+        tag_key: impl Into<String>,
+        tag_value: impl Into<String>,
+        max_share: f64,
+    ) -> Result<Self, ConstraintValidationError> {
+        if !(0.0..=1.0).contains(&max_share) {
+            return Err(ConstraintValidationError {
+                message: format!("max_share must be in [0, 1], got {}", max_share),
+            });
+        }
+
+        Ok(Self::TagExposureLimit {
+            label,
+            tag_key: tag_key.into(),
+            tag_value: tag_value.into(),
+            max_share,
+        })
+    }
+
+    /// Create a tag exposure minimum constraint with validation.
+    ///
+    /// # Arguments
+    ///
+    /// * `tag_key` - Tag key to match (e.g., "rating")
+    /// * `tag_value` - Tag value to match (e.g., "IG")
+    /// * `min_share` - Minimum share in `[0, 1]`
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConstraintValidationError`] if `min_share` is not in `[0, 1]`.
+    pub fn tag_exposure_minimum(
+        tag_key: impl Into<String>,
+        tag_value: impl Into<String>,
+        min_share: f64,
+    ) -> Result<Self, ConstraintValidationError> {
+        Self::tag_exposure_minimum_with_label(None, tag_key, tag_value, min_share)
+    }
+
+    /// Create a tag exposure minimum constraint with a label and validation.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConstraintValidationError`] if `min_share` is not in `[0, 1]`.
+    pub fn tag_exposure_minimum_with_label(
+        label: Option<String>,
+        tag_key: impl Into<String>,
+        tag_value: impl Into<String>,
+        min_share: f64,
+    ) -> Result<Self, ConstraintValidationError> {
+        if !(0.0..=1.0).contains(&min_share) {
+            return Err(ConstraintValidationError {
+                message: format!("min_share must be in [0, 1], got {}", min_share),
+            });
+        }
+
+        Ok(Self::TagExposureMinimum {
+            label,
+            tag_key: tag_key.into(),
+            tag_value: tag_value.into(),
+            min_share,
+        })
+    }
+
+    /// Create a weight bounds constraint with validation.
+    ///
+    /// # Arguments
+    ///
+    /// * `filter` - Filter to select positions
+    /// * `min` - Inclusive minimum weight
+    /// * `max` - Inclusive maximum weight
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConstraintValidationError`] if `min > max`.
+    pub fn weight_bounds(
+        filter: PositionFilter,
+        min: f64,
+        max: f64,
+    ) -> Result<Self, ConstraintValidationError> {
+        Self::weight_bounds_with_label(None, filter, min, max)
+    }
+
+    /// Create a weight bounds constraint with a label and validation.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConstraintValidationError`] if `min > max`.
+    pub fn weight_bounds_with_label(
+        label: Option<String>,
+        filter: PositionFilter,
+        min: f64,
+        max: f64,
+    ) -> Result<Self, ConstraintValidationError> {
+        if min > max {
+            return Err(ConstraintValidationError {
+                message: format!("weight bounds min ({}) must be <= max ({})", min, max),
+            });
+        }
+
+        Ok(Self::WeightBounds {
+            label,
+            filter,
+            min,
+            max,
+        })
+    }
+
+    /// Create a max turnover constraint with validation.
+    ///
+    /// # Arguments
+    ///
+    /// * `max_turnover` - Maximum allowed turnover (must be non-negative)
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConstraintValidationError`] if `max_turnover` is negative.
+    pub fn max_turnover(max_turnover: f64) -> Result<Self, ConstraintValidationError> {
+        Self::max_turnover_with_label(None, max_turnover)
+    }
+
+    /// Create a max turnover constraint with a label and validation.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConstraintValidationError`] if `max_turnover` is negative.
+    pub fn max_turnover_with_label(
+        label: Option<String>,
+        max_turnover: f64,
+    ) -> Result<Self, ConstraintValidationError> {
+        if max_turnover < 0.0 {
+            return Err(ConstraintValidationError {
+                message: format!("max_turnover must be non-negative, got {}", max_turnover),
+            });
+        }
+
+        Ok(Self::MaxTurnover {
+            label,
+            max_turnover,
+        })
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_tag_exposure_limit_validation() {
+        // Valid: 0.0
+        assert!(Constraint::tag_exposure_limit("rating", "CCC", 0.0).is_ok());
+
+        // Valid: 1.0
+        assert!(Constraint::tag_exposure_limit("rating", "CCC", 1.0).is_ok());
+
+        // Valid: 0.5
+        assert!(Constraint::tag_exposure_limit("rating", "CCC", 0.5).is_ok());
+
+        // Invalid: negative
+        let result = Constraint::tag_exposure_limit("rating", "CCC", -0.1);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("max_share"));
+
+        // Invalid: > 1.0
+        let result = Constraint::tag_exposure_limit("rating", "CCC", 1.5);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_tag_exposure_minimum_validation() {
+        // Valid
+        assert!(Constraint::tag_exposure_minimum("rating", "IG", 0.5).is_ok());
+
+        // Invalid: negative
+        let result = Constraint::tag_exposure_minimum("rating", "IG", -0.1);
+        assert!(result.is_err());
+
+        // Invalid: > 1.0
+        let result = Constraint::tag_exposure_minimum("rating", "IG", 1.1);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_weight_bounds_validation() {
+        // Valid: min < max
+        assert!(Constraint::weight_bounds(PositionFilter::All, 0.0, 0.1).is_ok());
+
+        // Valid: min == max
+        assert!(Constraint::weight_bounds(PositionFilter::All, 0.05, 0.05).is_ok());
+
+        // Invalid: min > max
+        let result = Constraint::weight_bounds(PositionFilter::All, 0.2, 0.1);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("min"));
+    }
+
+    #[test]
+    fn test_max_turnover_validation() {
+        // Valid
+        assert!(Constraint::max_turnover(0.5).is_ok());
+        assert!(Constraint::max_turnover(0.0).is_ok());
+
+        // Invalid: negative
+        let result = Constraint::max_turnover(-0.1);
+        assert!(result.is_err());
     }
 }

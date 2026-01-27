@@ -168,7 +168,14 @@ impl PortfolioMarginAggregator {
         for (_ns_id, netting_set) in self.netting_sets.iter() {
             let ns_margin =
                 self.calculate_netting_set_margin(netting_set, portfolio, market, as_of)?;
-            result.add_netting_set(ns_margin);
+            // Currency mismatch is impossible here since we create all margins
+            // with self.base_currency, but we handle the error for API consistency.
+            result.add_netting_set(ns_margin).map_err(|e| {
+                PortfolioError::validation(format!(
+                    "Unexpected currency mismatch in margin aggregation: {}",
+                    e
+                ))
+            })?;
         }
 
         // Count positions without margin

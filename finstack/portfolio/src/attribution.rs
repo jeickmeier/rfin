@@ -25,45 +25,92 @@ use serde::{Deserialize, Serialize};
 ///
 /// Aggregates P&L attribution across all positions with currency conversion
 /// to portfolio base currency.
+///
+/// # FX Translation Effects
+///
+/// For positions denominated in currencies other than the portfolio's base currency,
+/// the attribution includes FX translation effects. The `total_pnl` field represents
+/// the **all-in P&L** including both:
+///
+/// 1. **Instrument-level P&L** converted to base currency at T₁ FX rates
+/// 2. **FX translation P&L** from the revaluation of opening principal
+///
+/// The decomposition is:
+///
+/// ```text
+/// total_pnl = sum(factor_pnl) + fx_translation_pnl + residual
+/// ```
+///
+/// Where `factor_pnl` includes carry, rates, credit, vol, etc. (each already
+/// converted to base currency), and `fx_translation_pnl` captures:
+///
+/// - Translation of P&L flow: `PnL_native × (FX_T1 - FX_T0)`
+/// - Revaluation of opening principal: `Val_T0_native × (FX_T1 - FX_T0)`
+///
+/// # Note on by_position Attribution
+///
+/// The `by_position` map contains instrument-currency attribution before FX
+/// translation effects are applied. To reconcile with `total_pnl`, apply the
+/// FX rates and add the principal revaluation effect.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PortfolioAttribution {
     /// Total portfolio P&L in base currency.
+    ///
+    /// This is the **all-in P&L** that includes:
+    /// - All factor attributions converted to base currency at T₁ rates
+    /// - FX translation effects from opening principal revaluation
+    ///
+    /// Note: This differs from a simple sum of factor attributions because
+    /// cross-currency positions include FX translation P&L on the principal.
     pub total_pnl: Money,
 
-    /// Carry P&L (theta + accruals).
+    /// Carry P&L (theta + accruals) in base currency.
     pub carry: Money,
 
-    /// Interest rate curves P&L.
+    /// Interest rate curves P&L in base currency.
     pub rates_curves_pnl: Money,
 
-    /// Credit hazard curves P&L.
+    /// Credit hazard curves P&L in base currency.
     pub credit_curves_pnl: Money,
 
-    /// Inflation curves P&L.
+    /// Inflation curves P&L in base currency.
     pub inflation_curves_pnl: Money,
 
-    /// Base correlation curves P&L.
+    /// Base correlation curves P&L in base currency.
     pub correlations_pnl: Money,
 
-    /// FX rate changes P&L.
+    /// FX rate changes P&L in base currency.
+    ///
+    /// This captures FX exposure within instruments (e.g., cross-currency swaps),
+    /// not the translation effect from converting instrument P&L to base currency.
     pub fx_pnl: Money,
 
-    /// FX translation P&L from instrument currency to portfolio base currency.
+    /// FX translation P&L from converting instrument-currency values to base currency.
+    ///
+    /// For cross-currency positions, this includes:
+    /// - Translation of P&L flow: effect of FX rate change on the reported P&L
+    /// - Revaluation of opening principal: effect of FX change on T₀ position value
+    ///
+    /// This is separate from `fx_pnl` which captures FX exposure within instruments.
     pub fx_translation_pnl: Money,
 
-    /// Implied volatility changes P&L.
+    /// Implied volatility changes P&L in base currency.
     pub vol_pnl: Money,
 
-    /// Model parameters P&L.
+    /// Model parameters P&L in base currency.
     pub model_params_pnl: Money,
 
-    /// Market scalars P&L.
+    /// Market scalars P&L in base currency.
     pub market_scalars_pnl: Money,
 
-    /// Residual P&L.
+    /// Residual P&L (unexplained) in base currency.
     pub residual: Money,
 
-    /// Attribution by position.
+    /// Attribution by position in instrument-native currency.
+    ///
+    /// Note: These values are in each instrument's native currency and do not
+    /// include FX translation effects. Use the portfolio-level aggregates for
+    /// base-currency totals.
     pub by_position: IndexMap<PositionId, PnlAttribution>,
 
     /// Aggregate rates curves detail (optional).

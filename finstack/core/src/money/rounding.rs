@@ -17,24 +17,27 @@ pub(crate) type AmountRepr = Decimal;
 
 /// Convert a Decimal representation to f64.
 ///
-/// Converts Decimal representation to f64.
+/// # Invariant
 ///
-/// # Safety
+/// All `Decimal` values within the monetary range (which is a subset of f64's range)
+/// can be converted to f64. The `rust_decimal::Decimal` type has a max of ~7.9e28,
+/// which is well within f64's range of ~1.8e308.
 ///
-/// - **Debug builds**: Panics if conversion fails (catches bugs early)
-/// - **Release builds**: Panics if conversion fails (silent fallback is unsafe)
+/// # Panics
 ///
+/// Panics if conversion fails (which should never happen for valid monetary amounts).
 /// Use [`try_amount_from_repr`] for explicit error handling at API boundaries.
 #[inline]
 pub(crate) fn amount_from_repr(x: AmountRepr) -> f64 {
     use rust_decimal::prelude::ToPrimitive;
-    let result = x.to_f64();
-    assert!(
-        result.is_some(),
-        "Decimal to f64 conversion failed: value outside representable range"
-    );
-    // Safe because the assert above guarantees `result` is Some.
-    result.unwrap_or(0.0)
+    match x.to_f64() {
+        Some(v) => v,
+        // INVARIANT: Decimal values within monetary range always convert to f64.
+        // The rust_decimal::Decimal max (~7.9e28) is well within f64's range (~1.8e308).
+        None => {
+            unreachable!("Decimal to f64 conversion failed: value {x} outside representable range")
+        }
+    }
 }
 
 /// Fallible conversion from Decimal representation to f64.
@@ -60,40 +63,45 @@ pub(crate) fn repr_sub(a: AmountRepr, b: AmountRepr) -> AmountRepr {
 
 #[inline]
 pub(crate) fn repr_mul_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
-    let res = try_repr_mul_f64(a, rhs);
-    assert!(
-        res.is_ok(),
-        "Money multiplication requires finite, representable scalar (got {:?})",
-        rhs
-    );
-    // Safe because the assert above guarantees `res` is Ok.
-    res.unwrap_or(Decimal::ZERO)
+    match try_repr_mul_f64(a, rhs) {
+        Ok(v) => v,
+        // INVARIANT: Callers must ensure rhs is finite and representable.
+        // This is enforced at API boundaries via try_* variants.
+        Err(_) => {
+            unreachable!("Money multiplication requires finite, representable scalar (got {rhs:?})")
+        }
+    }
 }
 
 #[inline]
 pub(crate) fn repr_div_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
-    let res = try_repr_div_f64(a, rhs);
-    assert!(
-        res.is_ok(),
-        "Money division requires finite, non-zero, representable scalar (got {:?})",
-        rhs
-    );
-    // Safe because the assert above guarantees `res` is Ok.
-    res.unwrap_or(a)
+    match try_repr_div_f64(a, rhs) {
+        Ok(v) => v,
+        // INVARIANT: Callers must ensure rhs is finite, non-zero, and representable.
+        // This is enforced at API boundaries via try_* variants.
+        Err(_) => unreachable!(
+            "Money division requires finite, non-zero, representable scalar (got {rhs:?})"
+        ),
+    }
 }
 
 /// Round `x` to `dp` decimal places using the supplied [`RoundingMode`].
 /// Converts f64 input to Decimal for proper rounding.
+///
+/// # Panics
+///
+/// Panics if `x` is not finite or cannot be represented as a Decimal.
+/// Use [`try_round_f64`] for explicit error handling at API boundaries.
 #[inline]
 pub(crate) fn round_f64(x: f64, dp: i32, mode: RoundingMode) -> Decimal {
-    let res = try_round_f64(x, dp, mode);
-    assert!(
-        res.is_ok(),
-        "Money rounding requires finite, representable scalar (got {:?})",
-        x
-    );
-    // Safe because the assert above guarantees `res` is Ok.
-    res.unwrap_or(Decimal::ZERO)
+    match try_round_f64(x, dp, mode) {
+        Ok(v) => v,
+        // INVARIANT: Callers must ensure x is finite and representable.
+        // This is enforced at API boundaries via try_* variants.
+        Err(_) => {
+            unreachable!("Money rounding requires finite, representable scalar (got {x:?})")
+        }
+    }
 }
 
 /// Fallible multiplication by an `f64` scalar (no silent substitution).

@@ -167,8 +167,14 @@ pub fn aggregate_metrics(valuation: &PortfolioValuation) -> Result<PortfolioMetr
 /// Serial implementation of metrics aggregation.
 #[cfg(not(feature = "parallel"))]
 fn aggregate_metrics_serial(valuation: &PortfolioValuation) -> Result<PortfolioMetrics> {
+    use crate::types::EntityId;
+
     let mut by_position: IndexMap<PositionId, IndexMap<String, f64>> = IndexMap::new();
-    let mut aggregated: IndexMap<String, AggregatedMetric> = IndexMap::new();
+
+    // Intermediate collection: metric_id -> (total_values, entity_id -> values)
+    // Collecting all values first allows proper compensated summation
+    let mut metric_values: IndexMap<String, Vec<f64>> = IndexMap::new();
+    let mut entity_values: IndexMap<String, IndexMap<EntityId, Vec<f64>>> = IndexMap::new();
 
     // Phase 1: Collect metrics from each position
     for (position_id, position_value) in &valuation.position_values {
@@ -180,7 +186,7 @@ fn aggregate_metrics_serial(valuation: &PortfolioValuation) -> Result<PortfolioM
                 .collect();
             by_position.insert(position_id.clone(), metrics.clone());
 
-            // Phase 2: Aggregate summable metrics
+            // Phase 2: Collect summable metrics for later aggregation
             for (metric_id, value) in metrics {
                 if is_summable(&metric_id) {
                     // Skip non-finite values (NaN, Inf)
@@ -194,27 +200,47 @@ fn aggregate_metrics_serial(valuation: &PortfolioValuation) -> Result<PortfolioM
                         continue;
                     }
 
-                    let agg =
-                        aggregated
-                            .entry(metric_id.clone())
-                            .or_insert_with(|| AggregatedMetric {
-                                metric_id: metric_id.clone(),
-                                total: 0.0,
-                                by_entity: IndexMap::new(),
-                            });
+                    // Collect for total
+                    metric_values
+                        .entry(metric_id.clone())
+                        .or_default()
+                        .push(value);
 
-                    // Add to total using compensated summation
-                    agg.total = neumaier_sum([agg.total, value].into_iter());
-
-                    // Add to entity
-                    let entity_entry = agg
-                        .by_entity
+                    // Collect for entity
+                    entity_values
+                        .entry(metric_id)
+                        .or_default()
                         .entry(position_value.entity_id.clone())
-                        .or_insert(0.0);
-                    *entity_entry = neumaier_sum([*entity_entry, value].into_iter());
+                        .or_default()
+                        .push(value);
                 }
             }
         }
+    }
+
+    // Phase 3: Apply compensated summation to collected values
+    let mut aggregated: IndexMap<String, AggregatedMetric> = IndexMap::new();
+
+    for (metric_id, values) in metric_values {
+        // Apply neumaier_sum to all collected values at once
+        let total = neumaier_sum(values.into_iter());
+
+        let mut by_entity: IndexMap<EntityId, f64> = IndexMap::new();
+        if let Some(entity_map) = entity_values.get(&metric_id) {
+            for (entity_id, entity_vals) in entity_map {
+                let entity_total = neumaier_sum(entity_vals.iter().copied());
+                by_entity.insert(entity_id.clone(), entity_total);
+            }
+        }
+
+        aggregated.insert(
+            metric_id.clone(),
+            AggregatedMetric {
+                metric_id,
+                total,
+                by_entity,
+            },
+        );
     }
 
     Ok(PortfolioMetrics {
@@ -226,6 +252,7 @@ fn aggregate_metrics_serial(valuation: &PortfolioValuation) -> Result<PortfolioM
 /// Parallel implementation of metrics aggregation.
 #[cfg(feature = "parallel")]
 fn aggregate_metrics_parallel(valuation: &PortfolioValuation) -> Result<PortfolioMetrics> {
+    use crate::types::EntityId;
     use rayon::prelude::*;
 
     // Phase 1: Collect metrics from each position in parallel
@@ -250,15 +277,19 @@ fn aggregate_metrics_parallel(valuation: &PortfolioValuation) -> Result<Portfoli
         })
         .collect();
 
-    // Phase 2: Build by_position map and aggregate summable metrics deterministically
+    // Phase 2: Build by_position map and collect values for summable metrics
     let mut by_position: IndexMap<PositionId, IndexMap<String, f64>> = IndexMap::new();
-    let mut aggregated: IndexMap<String, AggregatedMetric> = IndexMap::new();
+
+    // Intermediate collection: metric_id -> (total_values, entity_id -> values)
+    // Collecting all values first allows proper compensated summation
+    let mut metric_values: IndexMap<String, Vec<f64>> = IndexMap::new();
+    let mut entity_values: IndexMap<String, IndexMap<EntityId, Vec<f64>>> = IndexMap::new();
 
     for (position_id, entity_id, metrics) in position_metrics {
         let position_id_clone = position_id.clone();
         by_position.insert(position_id, metrics.clone());
 
-        // Aggregate summable metrics
+        // Collect summable metrics for later aggregation
         for (metric_id, value) in &metrics {
             if is_summable(metric_id) {
                 // Skip non-finite values (NaN, Inf)
@@ -272,22 +303,46 @@ fn aggregate_metrics_parallel(valuation: &PortfolioValuation) -> Result<Portfoli
                     continue;
                 }
 
-                let agg = aggregated
+                // Collect for total
+                metric_values
                     .entry(metric_id.clone())
-                    .or_insert_with(|| AggregatedMetric {
-                        metric_id: metric_id.clone(),
-                        total: 0.0,
-                        by_entity: IndexMap::new(),
-                    });
+                    .or_default()
+                    .push(*value);
 
-                // Add to total using compensated summation
-                agg.total = neumaier_sum([agg.total, *value].into_iter());
-
-                // Add to entity
-                let entity_entry = agg.by_entity.entry(entity_id.clone()).or_insert(0.0);
-                *entity_entry = neumaier_sum([*entity_entry, *value].into_iter());
+                // Collect for entity
+                entity_values
+                    .entry(metric_id.clone())
+                    .or_default()
+                    .entry(entity_id.clone())
+                    .or_default()
+                    .push(*value);
             }
         }
+    }
+
+    // Phase 3: Apply compensated summation to collected values
+    let mut aggregated: IndexMap<String, AggregatedMetric> = IndexMap::new();
+
+    for (metric_id, values) in metric_values {
+        // Apply neumaier_sum to all collected values at once
+        let total = neumaier_sum(values.into_iter());
+
+        let mut by_entity: IndexMap<EntityId, f64> = IndexMap::new();
+        if let Some(entity_map) = entity_values.get(&metric_id) {
+            for (entity_id, entity_vals) in entity_map {
+                let entity_total = neumaier_sum(entity_vals.iter().copied());
+                by_entity.insert(entity_id.clone(), entity_total);
+            }
+        }
+
+        aggregated.insert(
+            metric_id.clone(),
+            AggregatedMetric {
+                metric_id,
+                total,
+                by_entity,
+            },
+        );
     }
 
     Ok(PortfolioMetrics {

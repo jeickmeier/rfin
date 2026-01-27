@@ -175,35 +175,44 @@ impl DateExt for Date {
         let new_year = total_months.div_euclid(12);
         let new_month_idx = total_months.rem_euclid(12);
 
-        // Month index 0-11 + 1 = 1-12, always valid.
-        let new_month = Month::try_from((new_month_idx + 1) as u8).unwrap_or(Month::January);
+        // INVARIANT: rem_euclid(12) always returns 0..12, so (new_month_idx + 1) is 1..=12.
+        // This is always a valid Month value, so the conversion cannot fail.
+        let new_month = match Month::try_from((new_month_idx + 1) as u8) {
+            Ok(m) => m,
+            // new_month_idx is in 0..12, so (new_month_idx + 1) is in 1..=12 - always valid.
+            Err(_) => unreachable!(
+                "Month conversion failed for index {} (this is a bug)",
+                new_month_idx + 1
+            ),
+        };
 
         let days_in_new_month = new_month.length(new_year);
         let new_day = self.day().min(days_in_new_month);
 
-        // Day is clamped to a valid range. If we overflow the supported `time::Date`
-        // range, fail loudly (returning a sentinel date is unsafe).
-        let result = Date::from_calendar_date(new_year, new_month, new_day);
-        assert!(
-            result.is_ok(),
-            "DateExt::add_months overflowed supported date range"
-        );
-        match result {
+        // Day is clamped to a valid range. The only failure mode is year overflow
+        // (years outside -999999..=999999 for the `time` crate).
+        match Date::from_calendar_date(new_year, new_month, new_day) {
             Ok(d) => d,
-            Err(_) => self,
+            // Year overflow outside `time::Date` supported range.
+            Err(_) => unreachable!(
+                "DateExt::add_months overflowed supported date range (year: {})",
+                new_year
+            ),
         }
     }
 
     fn end_of_month(self) -> Self {
         let days = self.month().length(self.year());
-        let result = Date::from_calendar_date(self.year(), self.month(), days);
-        assert!(
-            result.is_ok(),
-            "DateExt::end_of_month overflowed supported date range"
-        );
-        match result {
+        // INVARIANT: self is already a valid Date, so year and month are valid.
+        // days is the length of the month, which is always valid (28-31).
+        // Therefore, from_calendar_date cannot fail.
+        match Date::from_calendar_date(self.year(), self.month(), days) {
             Ok(d) => d,
-            Err(_) => self,
+            // If self is a valid Date, then (year, month, last_day_of_month) must be valid.
+            Err(_) => unreachable!(
+                "DateExt::end_of_month failed unexpectedly for {:?} (this is a bug)",
+                self
+            ),
         }
     }
 

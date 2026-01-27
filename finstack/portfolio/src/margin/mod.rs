@@ -49,4 +49,4 @@ mod results;
 
 pub use aggregator::PortfolioMarginAggregator;
 pub use netting_set::{NettingSet, NettingSetManager};
-pub use results::{NettingSetMargin, PortfolioMarginResult};
+pub use results::{CurrencyMismatchError, NettingSetMargin, PortfolioMarginResult};

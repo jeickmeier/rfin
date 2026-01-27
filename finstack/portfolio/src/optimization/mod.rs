@@ -14,7 +14,7 @@ mod result;
 mod types;
 mod universe;
 
-pub use constraints::{Constraint, Inequality};
+pub use constraints::{Constraint, ConstraintValidationError, Inequality};
 pub use helpers::{optimize_max_yield_with_ccc_limit, MaxYieldWithCccLimitResult};
 pub use lp_solver::{DefaultLpOptimizer, PortfolioOptimizer};
 pub use problem::PortfolioOptimizationProblem;
