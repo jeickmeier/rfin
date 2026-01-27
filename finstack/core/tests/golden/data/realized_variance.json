@@ -1,0 +1,65 @@
+{
+  "meta": {
+    "suite_id": "realized_variance",
+    "description": "Golden tests for realized variance estimators (Parkinson, Garman-Klass)",
+    "reference_source": {
+      "name": "Academic Papers",
+      "vendor": "Journal of Business",
+      "extra": {
+        "parkinson_reference": "Parkinson, M. (1980). 'The Extreme Value Method for Estimating the Variance of the Rate of Return.' Journal of Business, 53(1), 61-65.",
+        "garman_klass_reference": "Garman, M. B., & Klass, M. J. (1980). 'On the Estimation of Security Price Volatilities from Historical Data.' Journal of Business, 53(1), 67-78."
+      }
+    },
+    "generated": {
+      "at": "2026-01-27T00:00:00Z",
+      "by": "finstack_core::math::stats implementation",
+      "command": "cargo test --test golden_tests"
+    },
+    "status": "certified",
+    "schema_version": 1
+  },
+  "cases": [
+    {
+      "id": "parkinson_two_day",
+      "case_meta": {
+        "notes": "Two-day data with H/L ratios of 1.1 and 1.2. Formula: σ² = [1/(4·ln(2))] · (1/n) · Σ[ln(H/L)]²"
+      },
+      "inputs": {
+        "open": [100.0, 100.0],
+        "high": [110.0, 120.0],
+        "low": [100.0, 100.0],
+        "close": [105.0, 110.0],
+        "annualization_factor": 252.0,
+        "method": "parkinson"
+      },
+      "expected": {
+        "annualized_variance": {
+          "value": 1.9234633299312283,
+          "tolerance_abs": 1e-10,
+          "notes": "Hand-calculated: ln(1.1)=0.0953, ln(1.2)=0.1823, sum_sq=0.0423, factor=0.3607, daily=0.00764, annual=1.924"
+        }
+      }
+    },
+    {
+      "id": "garman_klass_two_day",
+      "case_meta": {
+        "notes": "Two-day data. Formula: σ² = (1/n) · Σ[0.5·[ln(H/L)]² - (2·ln(2) - 1)·[ln(C/O)]²]"
+      },
+      "inputs": {
+        "open": [100.0, 105.0],
+        "high": [110.0, 115.0],
+        "low": [95.0, 100.0],
+        "close": [105.0, 110.0],
+        "annualization_factor": 252.0,
+        "method": "garman_klass"
+      },
+      "expected": {
+        "annualized_variance": {
+          "value": 2.363437356527532,
+          "tolerance_abs": 1e-10,
+          "notes": "Hand-calculated: Day1 contrib=0.00982, Day2 contrib=0.00893, daily=0.009375, annual=2.362"
+        }
+      }
+    }
+  ]
+}

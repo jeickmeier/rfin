@@ -3,18 +3,27 @@
 //! This module provides golden test data loading for validating finstack implementations
 //! against known reference values from QuantLib, Bloomberg, and analytical formulas.
 //!
+//! # Migration Note
+//!
+//! This module now re-exports types from `finstack_core::golden` for consistency
+//! across the codebase. Local loader functions are retained for backward compatibility
+//! with existing option pricing test cases.
+//!
 //! # Components
 //!
-//! ## Golden Test Data (`loader`)
+//! ## Core Framework (from `finstack_core::golden`)
 //!
-//! JSON-based test fixtures for regression and validation testing:
-//! - Market compliance fixtures (`data/market_compliance/`)
-//! - Option pricing vectors (`data/options/`)
+//! - `GoldenSuite<T>`: Canonical suite format with metadata
+//! - `SuiteMeta`: Suite-level provenance information
+//! - `Tolerance`: Comparison tolerance types (Abs, Rel, Bps, Pct)
+//! - `Expectation`: Exact or range expectations
+//! - `GoldenAssert`: Fluent assertion builder
 //!
-//! ## Parity Testing
+//! ## Local Types (for option pricing tests)
 //!
-//! For parity testing (tolerance-based comparison), see `instruments/common/parity.rs`.
-//! Use `use crate::parity::*;` in instrument tests.
+//! - `GoldenTestCase`: European option test case
+//! - `BarrierTestCase`: Barrier option test case
+//! - `AsianTestCase`: Asian option test case
 //!
 //! # Usage
 //!
@@ -30,7 +39,16 @@
 //! }
 //! ```
 
-// Golden test data loader
+// Re-export core golden framework types
+#[allow(unused_imports)]
+pub use finstack_core::golden::{
+    assert_abs, assert_bp, assert_expected_f64, assert_pct, assert_range,
+    assert_within_tolerance as core_assert_within_tolerance, is_suite_ready, load_suite_from_path,
+    load_suite_from_str, Expectation, ExpectedValue, GoldenAssert, GoldenSuite, SuiteMeta,
+    Tolerance,
+};
+
+// Local loader for backward compatibility with option pricing tests
 #[allow(dead_code)]
 mod loader;
 

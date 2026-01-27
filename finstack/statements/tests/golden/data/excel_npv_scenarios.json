@@ -1,0 +1,115 @@
+{
+  "meta": {
+    "suite_id": "excel_npv_scenarios",
+    "description": "NPV calculations validated against Microsoft Excel NPV() function",
+    "reference_source": {
+      "name": "Microsoft Excel",
+      "version": "365 (Version 16.80)",
+      "vendor": "Microsoft",
+      "extra": {
+        "function": "NPV()",
+        "day_count": "ACT/365F",
+        "currency": "USD"
+      }
+    },
+    "generated": {
+      "at": "2026-01-27T00:00:00Z",
+      "by": "manual Excel calculation",
+      "command": "Manual verification in Excel"
+    },
+    "validated": {
+      "at": "2025-01-15",
+      "by": "finance-team",
+      "method": "Manual spot-check"
+    },
+    "status": "certified",
+    "schema_version": 1
+  },
+  "cases": [
+    {
+      "id": "npv_001",
+      "case_meta": {
+        "notes": "Simple 4-period cashflow"
+      },
+      "inputs": {
+        "discount_rate": 0.10,
+        "cashflows": [1000, 1000, 1000, 1000]
+      },
+      "expected": {
+        "npv": {
+          "value": 3169.87,
+          "tolerance_abs": 0.00001,
+          "notes": "Excel NPV() result"
+        }
+      }
+    },
+    {
+      "id": "npv_002",
+      "case_meta": {
+        "notes": "Lower discount rate"
+      },
+      "inputs": {
+        "discount_rate": 0.05,
+        "cashflows": [5000, 5000, 5000, 5000]
+      },
+      "expected": {
+        "npv": {
+          "value": 17729.75,
+          "tolerance_abs": 0.00001,
+          "notes": "Excel NPV() result"
+        }
+      }
+    },
+    {
+      "id": "npv_003",
+      "case_meta": {
+        "notes": "Initial outflow with positive returns"
+      },
+      "inputs": {
+        "discount_rate": 0.15,
+        "cashflows": [-10000, 3000, 4000, 5000]
+      },
+      "expected": {
+        "npv": {
+          "value": -938.39,
+          "tolerance_abs": 0.00001,
+          "notes": "Excel NPV() result"
+        }
+      }
+    },
+    {
+      "id": "npv_004",
+      "case_meta": {
+        "notes": "Growing cashflows"
+      },
+      "inputs": {
+        "discount_rate": 0.08,
+        "cashflows": [100000, 110000, 120000, 130000]
+      },
+      "expected": {
+        "npv": {
+          "value":  377713.6 ,
+          "tolerance_abs": 0.00001,
+          "notes": "Excel NPV() result"
+        }
+      }
+    },
+    {
+      "id": "npv_005",
+      "case_meta": {
+        "notes": "Higher discount rate"
+      },
+      "inputs": {
+        "discount_rate": 0.12,
+        "cashflows": [50000, 50000, 50000, 50000]
+      },
+      "expected": {
+        "npv": {
+          "value": 151867.47,
+          "tolerance_abs": 0.00001,
+          "notes": "Excel NPV() result"
+        }
+      }
+    }
+  ]
+}

@@ -2,16 +2,24 @@
 //!
 //! These tests verify that the wire format doesn't change and that
 //! evaluation produces consistent results over time.
+//!
+//! # Framework
+//!
+//! Uses `finstack_core::golden` for consistent assertion helpers.
 
 use finstack_core::dates::PeriodId;
+use finstack_core::golden::{GoldenAssert, SuiteMeta};
 use finstack_statements::evaluator::Evaluator;
 use finstack_statements::types::FinancialModelSpec;
 use indexmap::IndexMap;
 
+/// Tolerance for floating-point comparisons in golden tests.
+const GOLDEN_TOLERANCE: f64 = 0.01;
+
 #[test]
 fn test_golden_basic_model() {
     // Load golden model JSON
-    let json = include_str!("golden/basic_model.json");
+    let json = include_str!("basic_model.json");
     let spec: FinancialModelSpec =
         serde_json::from_str(json).expect("Failed to deserialize basic_model.json");
 
@@ -27,11 +35,18 @@ fn test_golden_basic_model() {
         .expect("Failed to evaluate basic golden model");
 
     // Load expected results
-    let expected_json = include_str!("golden/basic_model_results.json");
+    let expected_json = include_str!("basic_model_results.json");
     let expected: IndexMap<String, IndexMap<PeriodId, f64>> = serde_json::from_str(expected_json)
         .expect("Failed to deserialize basic_model_results.json");
 
-    // Compare results
+    // Compare results using core golden framework
+    let meta = SuiteMeta {
+        suite_id: "basic_model".to_string(),
+        description: "Basic P&L model golden test".to_string(),
+        ..Default::default()
+    };
+    let assert = GoldenAssert::new(&meta, "basic_model");
+
     for (node_id, expected_periods) in &expected {
         for (period_id, expected_value) in expected_periods {
             let actual_value = results.get(node_id, period_id).unwrap_or_else(|| {
@@ -41,14 +56,10 @@ fn test_golden_basic_model() {
                 )
             });
 
-            assert!(
-                (actual_value - expected_value).abs() < 0.01,
-                "Value mismatch for node '{}' at period '{}': expected {}, got {}",
-                node_id,
-                period_id,
-                expected_value,
-                actual_value
-            );
+            let metric = format!("{}@{}", node_id, period_id);
+            assert
+                .abs(&metric, actual_value, *expected_value, GOLDEN_TOLERANCE)
+                .unwrap_or_else(|e| panic!("{}", e));
         }
     }
 }
@@ -56,7 +67,7 @@ fn test_golden_basic_model() {
 #[test]
 fn test_golden_model_serialization_stability() {
     // Load the golden model
-    let json = include_str!("golden/basic_model.json");
+    let json = include_str!("basic_model.json");
     let spec: FinancialModelSpec =
         serde_json::from_str(json).expect("Failed to deserialize basic_model.json");
 

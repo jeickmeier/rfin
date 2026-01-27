@@ -9,9 +9,15 @@
 //! - Clear documentation of assumptions and conventions
 //!
 //! To regenerate golden vectors, run: `uv run scripts/generate_cds_golden_vectors.py`
+//!
+//! # Migration Note
+//!
+//! This module now uses `finstack_core::golden::ExpectedValue` for tolerance handling,
+//! which provides consistent comparison semantics across all golden tests.
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
+use finstack_core::golden::ExpectedValue;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
@@ -77,17 +83,7 @@ struct ContractSpec {
     side: Option<String>,
 }
 
-/// Expected value with tolerance
-#[derive(Debug, Deserialize)]
-struct ExpectedValue {
-    value: f64,
-    #[serde(default)]
-    tolerance_bp: Option<f64>,
-    #[serde(default)]
-    tolerance_pct: Option<f64>,
-    #[serde(default)]
-    tolerance_abs: Option<f64>,
-}
+// Note: Using finstack_core::golden::ExpectedValue for consistency
 
 /// Expected outputs
 #[derive(Debug, Deserialize)]
@@ -210,49 +206,14 @@ fn load_golden_vectors() -> Vec<GoldenVector> {
     vectors
 }
 
+/// Assert using the core golden framework's ExpectedValue type.
+///
+/// This wraps `finstack_core::golden::assert_expected_value` with a panic on failure
+/// for use in tests.
 fn assert_within_tolerance(actual: f64, expected: &ExpectedValue, metric: &str, case_id: &str) {
-    let expected_val = expected.value;
-
-    if let Some(tol_bp) = expected.tolerance_bp {
-        let diff_bp = (actual - expected_val).abs();
-        assert!(
-            diff_bp <= tol_bp,
-            "[{}] {} = {:.4} bp, expected {:.4} bp (diff {:.4} bp > tolerance {:.4} bp)",
-            case_id,
-            metric,
-            actual,
-            expected_val,
-            diff_bp,
-            tol_bp
-        );
-    } else if let Some(tol_pct) = expected.tolerance_pct {
-        let rel_error = if expected_val.abs() > 1e-10 {
-            ((actual - expected_val) / expected_val).abs() * 100.0
-        } else {
-            actual.abs()
-        };
-        assert!(
-            rel_error <= tol_pct,
-            "[{}] {} = {:.2}, expected {:.2} (rel error {:.2}% > tolerance {:.2}%)",
-            case_id,
-            metric,
-            actual,
-            expected_val,
-            rel_error,
-            tol_pct
-        );
-    } else if let Some(tol_abs) = expected.tolerance_abs {
-        let diff = (actual - expected_val).abs();
-        assert!(
-            diff <= tol_abs,
-            "[{}] {} = {:.2}, expected {:.2} (diff {:.2} > tolerance {:.2})",
-            case_id,
-            metric,
-            actual,
-            expected_val,
-            diff,
-            tol_abs
-        );
+    use finstack_core::golden::assert_expected_value;
+    if let Err(e) = assert_expected_value("cds_golden", case_id, metric, actual, expected) {
+        panic!("{}", e);
     }
 }
 
