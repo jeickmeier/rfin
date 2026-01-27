@@ -81,6 +81,14 @@ use crate::{
     types::CurveId,
 };
 
+/// Default minimum forward rate tenor in years (~30 seconds).
+///
+/// Very short tenors cause precision degradation in the formula (z2 - z1) / (t2 - t1)
+/// due to catastrophic cancellation when z1*t1 ≈ z2*t2.
+///
+/// This constant can be overridden via [`DiscountCurveBuilder::with_min_forward_tenor`].
+pub const DEFAULT_MIN_FORWARD_TENOR: f64 = 1e-6;
+
 /// Piece-wise discount factor curve supporting several interpolation styles.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(try_from = "RawDiscountCurve", into = "RawDiscountCurve")]
@@ -98,6 +106,8 @@ pub struct DiscountCurve {
     style: InterpStyle,
     /// Extrapolation policy (stored for serialization and bumping)
     extrapolation: ExtrapolationPolicy,
+    /// Minimum tenor for forward rate calculations (configurable)
+    min_forward_tenor: f64,
 }
 
 /// Raw serializable state of DiscountCurve
@@ -121,6 +131,13 @@ struct RawDiscountCurve {
     /// Whether non-monotonic DFs are allowed (dangerous override)
     #[serde(default)]
     pub allow_non_monotonic: bool,
+    /// Minimum tenor for forward rate calculations
+    #[serde(default = "default_min_forward_tenor")]
+    pub min_forward_tenor: f64,
+}
+
+fn default_min_forward_tenor() -> f64 {
+    DEFAULT_MIN_FORWARD_TENOR
 }
 
 impl From<DiscountCurve> for RawDiscountCurve {
@@ -145,6 +162,7 @@ impl From<DiscountCurve> for RawDiscountCurve {
             },
             min_forward_rate: None, // Can't recover from existing curves easily without storing it
             allow_non_monotonic: false,
+            min_forward_tenor: curve.min_forward_tenor,
         }
     }
 }
@@ -158,7 +176,8 @@ impl TryFrom<RawDiscountCurve> for DiscountCurve {
             .day_count(state.day_count)
             .knots(state.points.knot_points)
             .set_interp(state.interp.interp_style)
-            .extrapolation(state.interp.extrapolation);
+            .extrapolation(state.interp.extrapolation)
+            .with_min_forward_tenor(state.min_forward_tenor);
 
         if state.allow_non_monotonic {
             builder = builder.allow_non_monotonic();
@@ -340,23 +359,41 @@ impl DiscountCurve {
     /// Returns an error if:
     /// - `t1` or `t2` is non-finite
     /// - `t2 <= t1`
-    /// - `(t2 - t1) < MIN_FORWARD_TENOR` (~30 seconds) to avoid numerical precision issues
+    /// - `(t2 - t1) < min_forward_tenor` (configurable, default ~30 seconds) to avoid
+    ///   numerical precision issues from catastrophic cancellation
+    ///
+    /// # Configuring Minimum Tenor
+    ///
+    /// The minimum forward tenor can be customized when building the curve:
+    /// ```rust,no_run
+    /// use finstack_core::market_data::term_structures::DiscountCurve;
+    /// # use time::macros::date;
+    /// # fn main() -> finstack_core::Result<()> {
+    /// let curve = DiscountCurve::builder("USD")
+    ///     .base_date(date!(2025-01-01))
+    ///     .knots([(0.0, 1.0), (1.0, 0.95)])
+    ///     .with_min_forward_tenor(1e-8)  // Allow very short tenors
+    ///     .build()?;
+    /// # Ok(())
+    /// # }
+    /// ```
     #[inline]
     pub fn forward(&self, t1: f64, t2: f64) -> crate::Result<f64> {
-        /// Minimum forward rate tenor in years (~30 seconds).
-        /// Very short tenors cause precision degradation in the formula (z2 - z1) / (t2 - t1)
-        /// due to catastrophic cancellation when z1*t1 ≈ z2*t2.
-        const MIN_FORWARD_TENOR: f64 = 1e-6;
-
         if !t1.is_finite() || !t2.is_finite() || t2 <= t1 {
             return Err(crate::error::InputError::Invalid.into());
         }
-        if (t2 - t1) < MIN_FORWARD_TENOR {
+        if (t2 - t1) < self.min_forward_tenor {
             return Err(crate::error::InputError::Invalid.into());
         }
         let z1 = self.zero(t1) * t1;
         let z2 = self.zero(t2) * t2;
         Ok((z2 - z1) / (t2 - t1))
+    }
+
+    /// Get the minimum forward tenor configured for this curve.
+    #[inline]
+    pub fn min_forward_tenor(&self) -> f64 {
+        self.min_forward_tenor
     }
 
     /// Batch evaluation of discount factors for multiple times.
@@ -518,7 +555,7 @@ impl DiscountCurve {
         // Derive new ID with suffix
         let new_id = crate::market_data::bumps::id_bump_bp(self.id.as_str(), bp);
 
-        // Rebuild preserving base date, interpolation, and extrapolation policies
+        // Rebuild preserving base date, interpolation, extrapolation, and forward tenor policies
         // Use allow_non_monotonic to handle negative rate environments
         DiscountCurve::builder(new_id)
             .base_date(self.base)
@@ -526,6 +563,7 @@ impl DiscountCurve {
             .knots(bumped_points)
             .set_interp(self.style)
             .extrapolation(self.extrapolation)
+            .with_min_forward_tenor(self.min_forward_tenor)
             .allow_non_monotonic() // Allow for negative rate environments
             .build()
     }
@@ -631,6 +669,7 @@ impl DiscountCurve {
             .knots(bumped_points)
             .set_interp(self.style)
             .extrapolation(self.extrapolation)
+            .with_min_forward_tenor(self.min_forward_tenor)
             .allow_non_monotonic() // Allow for negative rate environments
             .build()
     }
@@ -693,6 +732,7 @@ impl DiscountCurve {
             .knots(rolled_points)
             .set_interp(self.style)
             .extrapolation(self.extrapolation)
+            .with_min_forward_tenor(self.min_forward_tenor)
             .build()
     }
 
@@ -735,6 +775,7 @@ impl DiscountCurve {
             extrapolation: ExtrapolationPolicy::FlatForward,
             min_forward_rate: None,     // No floor by default
             allow_non_monotonic: false, // Strict validation by default
+            min_forward_tenor: DEFAULT_MIN_FORWARD_TENOR, // Default ~30 seconds
         }
     }
 
@@ -919,6 +960,7 @@ pub struct DiscountCurveBuilder {
     extrapolation: ExtrapolationPolicy,
     min_forward_rate: Option<f64>, // Minimum allowed forward rate (e.g., -50bp = -0.005)
     allow_non_monotonic: bool,     // Override to disable monotonicity checks (use with caution)
+    min_forward_tenor: f64,        // Minimum tenor for forward rate calculations
 }
 
 impl DiscountCurveBuilder {
@@ -1016,6 +1058,40 @@ impl DiscountCurveBuilder {
         self
     }
 
+    /// Set a custom minimum tenor for forward rate calculations.
+    ///
+    /// The forward rate calculation `f(t1, t2) = (z2*t2 - z1*t1) / (t2 - t1)` suffers
+    /// from catastrophic cancellation when `(t2 - t1)` is very small. This threshold
+    /// prevents such precision issues.
+    ///
+    /// # Default
+    ///
+    /// The default value is [`DEFAULT_MIN_FORWARD_TENOR`] (~30 seconds or 1e-6 years).
+    ///
+    /// # Use Cases
+    ///
+    /// - Set to a smaller value (e.g., `1e-8`) for high-frequency intraday operations
+    /// - Set to a larger value (e.g., `1e-4`) for daily curve operations with coarse data
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use finstack_core::market_data::term_structures::DiscountCurve;
+    /// # use time::macros::date;
+    /// # fn main() -> finstack_core::Result<()> {
+    /// let curve = DiscountCurve::builder("USD")
+    ///     .base_date(date!(2025-01-01))
+    ///     .knots([(0.0, 1.0), (1.0, 0.95)])
+    ///     .with_min_forward_tenor(1e-8)  // Allow sub-second tenors
+    ///     .build()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn with_min_forward_tenor(mut self, tenor: f64) -> Self {
+        self.min_forward_tenor = tenor;
+        self
+    }
+
     /// Build the curve with minimal validation for solver use.
     ///
     /// This method skips monotonicity validation and forward rate checks, providing
@@ -1067,6 +1143,7 @@ impl DiscountCurveBuilder {
             interp,
             style: self.style,
             extrapolation: self.extrapolation,
+            min_forward_tenor: self.min_forward_tenor,
         })
     }
 
@@ -1118,6 +1195,7 @@ impl DiscountCurveBuilder {
             interp,
             style: self.style,
             extrapolation: self.extrapolation,
+            min_forward_tenor: self.min_forward_tenor,
         })
     }
 }

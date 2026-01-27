@@ -586,9 +586,14 @@ fn bus252_counts_only_business_days() {
     let yf = DayCount::Bus252.year_fraction(start, end, ctx).unwrap();
 
     // Should count exactly: Thu, Fri = 2 business days (skip Sat, Sun)
-    // Business day counting is deterministic, so use exact integer match
-    let biz_days = (yf * 252.0).round() as i32;
-    assert_eq!(biz_days, 2, "Bus/252 should count exactly 2 days");
+    // Verify the implied business-day count without rounding.
+    let biz_days = yf * 252.0;
+    assert!(
+        (biz_days - 2.0).abs() < 1e-12,
+        "Bus/252 should count exactly 2 days: yf={}, yf*252={}",
+        yf,
+        biz_days
+    );
 }
 
 #[test]
@@ -609,7 +614,7 @@ fn bus252_full_year_is_deterministic() {
 
     // Compute expected business day count by iterating through dates
     // The calendar is deterministic, so this should yield an exact count
-    let mut expected_biz_days = 0;
+    let mut expected_biz_days: i32 = 0;
     let mut current = start;
     while current < end {
         if calendar.is_business_day(current) {
@@ -619,11 +624,13 @@ fn bus252_full_year_is_deterministic() {
     }
 
     // Verify the year fraction matches the expected business day count
-    let computed_biz_days = (yf * 252.0).round() as i32;
-    assert_eq!(
-        computed_biz_days, expected_biz_days,
-        "Bus/252 should return exactly {} business days for TARGET2 2025-01-02 to 2026-01-02",
-        expected_biz_days
+    let computed_biz_days = yf * 252.0;
+    assert!(
+        (computed_biz_days - expected_biz_days as f64).abs() < 1e-10,
+        "Bus/252 mismatch for TARGET2 2025-01-02 to 2026-01-02: expected_days={}, got_yf={}, got_yf*252={}",
+        expected_biz_days,
+        yf,
+        computed_biz_days
     );
 
     // Sanity check: should be close to 252 (typical trading year)

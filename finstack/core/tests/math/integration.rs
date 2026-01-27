@@ -158,7 +158,11 @@ fn test_gauss_hermite_adaptive_low_tolerance() {
 
     let result = quad.integrate_adaptive(f, 1e-10);
     // x² over standard normal should be 1.0
-    assert!((result - 1.0).abs() < 0.1);
+    assert!(
+        (result - 1.0).abs() < 1e-8,
+        "E[X^2] should be 1.0, got {}",
+        result
+    );
 }
 
 #[test]
@@ -168,7 +172,11 @@ fn test_gauss_hermite_adaptive_high_tolerance() {
 
     let result = quad.integrate_adaptive(f, 1e-2);
     // x^4 over standard normal should be 3.0
-    assert!((result - 3.0).abs() < 1.0);
+    assert!(
+        (result - 3.0).abs() < 1e-6,
+        "E[X^4] should be 3.0, got {}",
+        result
+    );
 }
 
 #[test]
@@ -212,7 +220,11 @@ fn test_gauss_hermite_high_order_polynomial() {
 
     // x^6 over standard normal = 15 (formula: (2n-1)!! for x^(2n))
     let result = quad.integrate(|x| x.powi(6));
-    assert!((result - 15.0).abs() < 1.0);
+    assert!(
+        (result - 15.0).abs() < 1e-6,
+        "E[X^6] should be 15.0, got {}",
+        result
+    );
 }
 
 #[test]

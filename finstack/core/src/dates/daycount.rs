@@ -5,6 +5,20 @@
 //! Capital Market Association). All implementations are panic-free and avoid heap
 //! allocation.
 //!
+//! # Date Interval Convention
+//!
+//! **All day-count calculations use start-inclusive, end-exclusive intervals `[start, end)`.**
+//!
+//! This means:
+//! - The start date **is** counted in the accrual period
+//! - The end date **is not** counted in the accrual period
+//! - A period from Jan 1 to Jan 2 contains 1 day (Jan 1 only)
+//! - A period from Jan 1 to Jan 1 contains 0 days
+//!
+//! This convention is consistent with how payment dates work in financial instruments:
+//! the accrual period ends the day before the payment date, and you don't accrue
+//! interest on the payment date itself.
+//!
 //! # Industry Standards
 //!
 //! Day count conventions define how interest accrues between two dates. Different
@@ -858,8 +872,10 @@ fn year_fraction_act_act_isma(start: Date, end: Date, freq: Tenor) -> crate::Res
     let extended_end = extend_forward_for_coupon_period(end, freq)?;
 
     // Optimization: Manually generate dates to avoid heap allocation of ScheduleBuilder
-    // Most ISMA calculations involve very few periods (often 1 or 2), so 16 is plenty.
-    let mut periods: SmallVec<[Date; 16]> = SmallVec::new();
+    // Most ISMA calculations involve very few periods, but long-dated bonds (15+ years)
+    // with semi-annual coupons can have 30+ periods. Using 32 elements covers ~16 years
+    // of semi-annual coupons without heap allocation.
+    let mut periods: SmallVec<[Date; 32]> = SmallVec::new();
     let mut current = extended_start;
     periods.push(current);
 

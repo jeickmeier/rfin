@@ -168,7 +168,10 @@ macro_rules! interp_basic_tests {
                     vec![0.95].into_boxed_slice(),
                     ExtrapolationPolicy::default()
                 );
-                let _ = result; // Just verify it doesn't panic
+                assert!(
+                    result.is_err(),
+                    "Interpolators require at least two points under Strict validation"
+                );
             }
         }
     };

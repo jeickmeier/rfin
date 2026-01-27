@@ -37,7 +37,9 @@ const MAX_CPR: f64 = 0.999999;
 /// // Edge case: 100% CPR is clamped
 /// let smm_100 = cpr_to_smm(1.0);
 /// assert!(smm_100.is_finite());
-/// assert!(smm_100 > 0.99); // Near 100% monthly
+/// // With MAX_CPR=0.999999, the implied SMM is about 0.684 (68.4% monthly).
+/// let expected = 1.0 - (1.0 - 0.999999_f64).powf(1.0 / 12.0);
+/// assert!((smm_100 - expected).abs() < 1e-12);
 /// ```
 pub fn cpr_to_smm(cpr: f64) -> f64 {
     if cpr == 0.0 {
@@ -137,10 +139,16 @@ mod tests {
     fn test_cpr_100_percent_clamped() {
         // 100% CPR should be clamped to MAX_CPR (0.999999) to avoid NaN
         // The clamped CPR still produces a high SMM but not 100%
-        // SMM = 1 - (1 - 0.999999)^(1/12) ≈ 1 - 0.000001^(1/12) ≈ 0.44
+        // SMM = 1 - (1 - 0.999999)^(1/12) ≈ 0.683772...
         let smm = cpr_to_smm(1.0);
         assert!(smm.is_finite(), "100% CPR should produce finite SMM");
-        assert!(smm > 0.4, "100% CPR (clamped) should produce SMM > 40%");
+        let expected = 1.0 - (1.0 - MAX_CPR).powf(1.0 / 12.0);
+        assert!(
+            (smm - expected).abs() < 1e-12,
+            "100% CPR (clamped) should match formula: expected {}, got {}",
+            expected,
+            smm
+        );
         assert!(smm < 1.0, "SMM should be less than 1.0");
     }
 

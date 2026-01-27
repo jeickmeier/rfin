@@ -118,6 +118,14 @@ pub struct LmStats {
     pub final_step_norm: f64,
     /// Final damping parameter (lambda) at termination.
     pub lambda_final: f64,
+    /// Number of times λ hit the upper or lower bound.
+    ///
+    /// High values may indicate an ill-conditioned problem, poor initial guess,
+    /// or a problem that's near singular. Consider:
+    /// - Improving the initial guess
+    /// - Scaling the problem differently
+    /// - Using analytical derivatives if available
+    pub lambda_bound_hits: usize,
 }
 
 /// Solution vector plus solver statistics.
@@ -154,6 +162,24 @@ pub trait MultiSolver: Send + Sync {
         Obj: Fn(&[f64]) -> f64;
 }
 
+/// Minimum bound for damping parameter λ.
+///
+/// Lambda values below this threshold are clamped to prevent numerical instability
+/// from overly aggressive Gauss-Newton steps.
+pub const LAMBDA_MIN: f64 = 1e-15;
+
+/// Maximum bound for damping parameter λ.
+///
+/// Lambda values above this threshold are clamped to prevent the solver from
+/// becoming effectively stuck in pure gradient descent mode.
+pub const LAMBDA_MAX: f64 = 1e15;
+
+/// Number of consecutive iterations at λ bounds before warning.
+///
+/// If λ hits its bounds for this many consecutive iterations, it may indicate
+/// an ill-conditioned problem or poor initial guess.
+pub const LAMBDA_BOUND_WARNING_THRESHOLD: usize = 5;
+
 /// Levenberg-Marquardt solver for non-linear least squares.
 ///
 /// Combines Gauss-Newton and gradient descent methods using a damping parameter
@@ -175,6 +201,13 @@ pub trait MultiSolver: Send + Sync {
 ///
 /// - **λ → 0**: Gauss-Newton (fast near solution)
 /// - **λ → ∞**: Gradient descent (robust far from solution)
+///
+/// # Damping Parameter Bounds
+///
+/// The damping parameter λ is bounded to [`LAMBDA_MIN`] and [`LAMBDA_MAX`] to ensure
+/// numerical stability. If λ hits these bounds for [`LAMBDA_BOUND_WARNING_THRESHOLD`]
+/// consecutive iterations, the solver records this in [`LmStats::lambda_bound_hits`]
+/// which may indicate an ill-conditioned problem.
 ///
 /// # Convergence
 ///
@@ -434,6 +467,7 @@ impl LevenbergMarquardtSolver {
         let mut jacobian_evals = 0usize;
         let mut iterations = 0usize;
         let mut last_step_norm = 0.0_f64;
+        let mut lambda_bound_hits = 0usize;
 
         for _iter in 0..self.max_iterations {
             // Compute Jacobian (strategy depends on use case)
@@ -452,6 +486,7 @@ impl LevenbergMarquardtSolver {
                         final_residual_norm: resid_norm,
                         final_step_norm: last_step_norm,
                         lambda_final: lambda,
+                        lambda_bound_hits,
                     },
                 });
             }
@@ -460,8 +495,11 @@ impl LevenbergMarquardtSolver {
             let step = match self.solve_normal_equations(&jacobian, &resid_vec, lambda) {
                 Ok(step) => step,
                 Err(_) => {
-                    lambda *= self.lambda_factor;
-                    lambda = lambda.min(1e15);
+                    let new_lambda = (lambda * self.lambda_factor).min(LAMBDA_MAX);
+                    if new_lambda >= LAMBDA_MAX {
+                        lambda_bound_hits += 1;
+                    }
+                    lambda = new_lambda;
                     continue;
                 }
             };
@@ -480,6 +518,7 @@ impl LevenbergMarquardtSolver {
                         final_residual_norm: resid_norm,
                         final_step_norm: last_step_norm,
                         lambda_final: lambda,
+                        lambda_bound_hits,
                     },
                 });
             }
@@ -504,12 +543,18 @@ impl LevenbergMarquardtSolver {
                 resid_norm = new_norm;
                 iterations += 1;
 
-                lambda /= self.lambda_factor;
-                lambda = lambda.max(1e-15);
+                let new_lambda = (lambda / self.lambda_factor).max(LAMBDA_MIN);
+                if new_lambda <= LAMBDA_MIN {
+                    lambda_bound_hits += 1;
+                }
+                lambda = new_lambda;
             } else {
                 // Reject: increase lambda and try again with same params
-                lambda *= self.lambda_factor;
-                lambda = lambda.min(1e15);
+                let new_lambda = (lambda * self.lambda_factor).min(LAMBDA_MAX);
+                if new_lambda >= LAMBDA_MAX {
+                    lambda_bound_hits += 1;
+                }
+                lambda = new_lambda;
             }
         }
 
@@ -523,6 +568,7 @@ impl LevenbergMarquardtSolver {
                 final_residual_norm: resid_norm,
                 final_step_norm: last_step_norm,
                 lambda_final: lambda,
+                lambda_bound_hits,
             },
         })
     }

@@ -13,6 +13,28 @@
 //! ```
 //!
 //! XIRR uses a day count convention (defaulting to Act/365F) to calculate year fractions.
+//!
+//! # Multiple Roots
+//!
+//! **Important**: For certain cashflow patterns, the NPV equation can have multiple roots
+//! (i.e., multiple rates that produce NPV = 0). This typically occurs when:
+//! - Cashflows change sign more than once (e.g., outflow, inflow, outflow)
+//! - There are large negative cashflows late in the sequence
+//!
+//! When multiple roots exist, this implementation returns the **first valid root found**
+//! from a predefined set of initial guesses. The search order prioritizes:
+//! 1. User-provided guess (if any)
+//! 2. Commonly encountered rates (10%, 5%, 20%, etc.)
+//! 3. Extreme rates for distressed scenarios (-90%, -99%, +500%)
+//!
+//! The returned root may not be the "economically meaningful" one (typically the
+//! smallest positive root or the root nearest zero). Users with complex cashflow
+//! patterns should verify the result makes economic sense for their use case.
+//!
+//! # Rate Bounds
+//!
+//! The solver rejects rates below [`MIN_VALID_RATE`] (-99.9%) as these represent
+//! near-total loss scenarios that are economically implausible for most applications.
 
 use crate::dates::{Date, DayCount, DayCountCtx};
 use crate::error::InputError;
@@ -26,6 +48,17 @@ pub const DEFAULT_MAX_ITERATIONS: usize = 100;
 
 /// Default initial guess for IRR/XIRR.
 pub const DEFAULT_GUESS: f64 = 0.1;
+
+/// Minimum valid rate threshold.
+///
+/// Rates at or below this threshold (-99.9%) represent near-total loss scenarios
+/// where (1 + r) approaches zero. Such extreme rates:
+/// - Cause numerical instability in discounting calculations
+/// - Are economically implausible for most applications
+/// - Often indicate solver convergence to an invalid root
+///
+/// The solver rejects any root at or below this threshold.
+pub const MIN_VALID_RATE: f64 = -0.999;
 
 /// Trait for calculating the Internal Rate of Return (IRR).
 ///
@@ -269,8 +302,9 @@ where
 
     for &g in seeds {
         if let Ok(root) = solver.solve_with_derivative(npv, npv_derivative, g) {
-            // Valid rate check?
-            if root > -0.999 {
+            // Reject rates at or below MIN_VALID_RATE (-99.9%)
+            // Such extreme rates are economically implausible and numerically unstable
+            if root > MIN_VALID_RATE {
                 return Ok(root);
             }
         }

@@ -15,6 +15,7 @@
 
 use finstack_core::cashflow::InternalRateOfReturn;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::Error;
 use time::Month;
 
 // =============================================================================
@@ -327,20 +328,25 @@ fn xirr_breakeven_zero_return() {
 #[test]
 fn xirr_same_day_instant_return() {
     // Investment and return on same day - mathematically undefined IRR
-    // Should still handle gracefully
-    let flows = vec![(d(2024, 6, 15), -100_000.0), (d(2024, 6, 15), 110_000.0)];
+    // This should return a typed error (no panic).
+    let flows = [(d(2024, 6, 15), -100_000.0), (d(2024, 6, 15), 110_000.0)];
 
-    // This may succeed or fail depending on implementation
-    // The important thing is no panic
     let result = flows.irr(None);
-    if let Ok(irr) = result {
-        // If it succeeds, verify NPV at IRR is reasonable
-        let npv_at_irr = compute_dated_npv(&flows, irr);
-        assert!(
-            npv_at_irr.abs() < 100.0,
-            "NPV at IRR should be near 0, got {}",
-            npv_at_irr
-        );
+    assert!(
+        result.is_err(),
+        "Same-day cashflows have constant NPV and should not yield a defined IRR"
+    );
+
+    // Ensure it fails with a typed, user-facing error.
+    match result.unwrap_err() {
+        Error::Validation(msg) => {
+            assert!(
+                msg.contains("no convergence") || msg.contains("failed"),
+                "Expected a convergence/validation message, got: {}",
+                msg
+            );
+        }
+        other => panic!("Expected validation error, got: {other:?}"),
     }
 }
 

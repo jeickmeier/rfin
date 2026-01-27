@@ -226,7 +226,7 @@ fn npv_cashflow_at_base_date_equals_notional() {
     let pv = npv(&curve, base, Some(DayCount::Act365F), &flows).expect("NPV should succeed");
 
     assert!(
-        (pv.amount() - 100_000.0).abs() < 0.01,
+        (pv.amount() - 100_000.0).abs() < financial_tolerance(100_000.0),
         "PV at t=0 should equal notional, got {}",
         pv.amount()
     );
@@ -255,7 +255,7 @@ fn npv_negative_rate_inflates_value() {
         pv.amount()
     );
     assert!(
-        (pv.amount() - expected_pv).abs() < 0.01,
+        (pv.amount() - expected_pv).abs() < financial_tolerance(expected_pv),
         "PV with -2% rate should be ~{:.2}, got {:.2}",
         expected_pv,
         pv.amount()
@@ -276,7 +276,7 @@ fn npv_zero_rate_preserves_value() {
 
     // Zero rate: DF = 1.0, so PV = sum of cashflows
     assert!(
-        (pv.amount() - 3000.0).abs() < 0.01,
+        (pv.amount() - 3000.0).abs() < financial_tolerance(3000.0),
         "Zero rate PV should equal sum of cashflows: got {}",
         pv.amount()
     );

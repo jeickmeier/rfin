@@ -637,6 +637,22 @@ pub fn exponential_quantile(p: f64, lambda: f64) -> f64 {
 /// - Mode: exp(μ - σ²)
 /// ```
 ///
+/// # Practical Parameter Ranges
+///
+/// | Parameter | Typical Range | Notes |
+/// |-----------|---------------|-------|
+/// | μ (mu) | [-10, 10] | Very negative μ (< -10) produces samples approaching 0; very positive μ (> 10) produces huge samples |
+/// | σ (sigma) | [0.01, 3.0] | Financial volatilities rarely exceed 300%; σ < 0.01 is nearly deterministic |
+///
+/// **Warning for extreme μ values:**
+/// - μ → -∞: Samples approach 0, which may cause downstream precision issues
+/// - μ → +∞: Samples become very large, potentially causing overflow
+///
+/// For asset price simulation, typical values are:
+/// - **Equity**: μ ∈ [-0.1, 0.3], σ ∈ [0.15, 0.50]
+/// - **FX**: μ ∈ [-0.05, 0.05], σ ∈ [0.05, 0.20]
+/// - **Commodity**: μ ∈ [-0.2, 0.2], σ ∈ [0.20, 0.60]
+///
 /// # Algorithm
 ///
 /// Uses the transformation: X = exp(μ + σ*Z) where Z ~ N(0,1)
@@ -644,8 +660,8 @@ pub fn exponential_quantile(p: f64, lambda: f64) -> f64 {
 /// # Arguments
 ///
 /// * `rng` - Random number generator implementing [`RandomNumberGenerator`]
-/// * `mu` - Location parameter (mean of underlying normal)
-/// * `sigma` - Scale parameter (std dev of underlying normal, σ > 0)
+/// * `mu` - Location parameter (mean of underlying normal). Practical range: [-10, 10]
+/// * `sigma` - Scale parameter (std dev of underlying normal, σ > 0). Practical range: [0.01, 3.0]
 ///
 /// # Returns
 ///

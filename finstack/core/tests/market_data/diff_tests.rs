@@ -570,9 +570,10 @@ fn test_vol_surface_point_shift() {
     let shift = measure_vol_surface_shift("EQ-VOL", &market_t0, &market_t1, Some(1.0), Some(1.0))
         .expect("Should measure shift");
 
-    // 0.23 - 0.23 = 0 at 1Y ATM from the surfaces as built
-    // Let me verify: at expiry 1.0, strike 1.0 (middle strike), vol should be ~0.23
-    // Actually we need to check the exact values
+    // At expiry=1.0 and strike=1.0 (ATM), the constructed surfaces have:
+    // - surface_t0: 0.23
+    // - surface_t1: 0.25
+    // so the expected shift is +0.02 = +2 vol points (percentage points).
 
     assert!((shift - 2.0).abs() < 0.5, "Expected ~2pct pts vol shift");
 }
