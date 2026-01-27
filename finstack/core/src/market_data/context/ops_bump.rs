@@ -6,11 +6,6 @@ use std::sync::Arc;
 use super::curve_storage::CurveStorage;
 use super::MarketContext;
 
-use crate::market_data::term_structures::{
-    BaseCorrelationCurve, DiscountCurve, ForwardCurve, InflationCurve, PriceCurve,
-    VolatilityIndexCurve,
-};
-
 impl MarketContext {
     /// Apply a heterogeneous list of market bumps (curves, surfaces, prices, FX).
     ///
@@ -111,6 +106,11 @@ impl MarketContext {
         Ok(ctx)
     }
 
+    /// Apply curve bumps using the centralized bump-and-rebuild logic in `CurveStorage`.
+    ///
+    /// This method iterates over the bump specifications and applies them to curves,
+    /// surfaces, prices, or series. The `CurveStorage::apply_bump_preserving_id` method
+    /// handles the curve-specific bumping and ID preservation logic.
     fn apply_curve_bumps(
         &mut self,
         bumps: crate::collections::HashMap<CurveId, BumpSpec>,
@@ -118,181 +118,28 @@ impl MarketContext {
         for (curve_id, bump_spec) in bumps {
             let cid = curve_id.as_str();
 
+            // Try curves first (most common case)
             if let Some(storage) = self.curves.get(cid).cloned() {
-                let bumped_storage = match storage {
-                    CurveStorage::Discount(original) => {
-                        let bumped = original.apply_bump(bump_spec)?;
-                        let final_curve = if bumped.id() != original.id() {
-                            DiscountCurve::builder(original.id().as_str())
-                                .base_date(bumped.base_date())
-                                .day_count(bumped.day_count())
-                                .knots(
-                                    bumped
-                                        .knots()
-                                        .iter()
-                                        .copied()
-                                        .zip(bumped.dfs().iter().copied()),
-                                )
-                                .set_interp(bumped.interp_style())
-                                .extrapolation(bumped.extrapolation())
-                                .allow_non_monotonic()
-                                .build()?
-                        } else {
-                            bumped
-                        };
-                        CurveStorage::Discount(Arc::new(final_curve))
-                    }
-                    CurveStorage::Forward(original) => {
-                        let bumped = original.apply_bump(bump_spec)?;
-                        let final_curve = if bumped.id() != original.id() {
-                            ForwardCurve::builder(original.id().as_str(), bumped.tenor())
-                                .base_date(bumped.base_date())
-                                .reset_lag(bumped.reset_lag())
-                                .day_count(bumped.day_count())
-                                .knots(
-                                    bumped
-                                        .knots()
-                                        .iter()
-                                        .copied()
-                                        .zip(bumped.forwards().iter().copied()),
-                                )
-                                .build()?
-                        } else {
-                            bumped
-                        };
-                        CurveStorage::Forward(Arc::new(final_curve))
-                    }
-                    CurveStorage::Hazard(original) => {
-                        let bumped = original.apply_bump(bump_spec)?;
-                        let final_curve = if bumped.id() != original.id() {
-                            bumped.to_builder_with_id(original.id().clone()).build()?
-                        } else {
-                            bumped
-                        };
-                        CurveStorage::Hazard(Arc::new(final_curve))
-                    }
-                    CurveStorage::Inflation(original) => {
-                        if let BumpType::TriangularKeyRate { target_bucket, .. } =
-                            bump_spec.bump_type
-                        {
-                            let delta = bump_spec.additive_fraction().ok_or_else(|| {
-                                crate::error::InputError::UnsupportedBump {
-                                    reason:
-                                        "InflationCurve key-rate bump requires additive fraction"
-                                            .to_string(),
-                                }
-                            })?;
-                            let mut points: Vec<(f64, f64)> = original
-                                .knots()
-                                .iter()
-                                .copied()
-                                .zip(original.cpi_levels().iter().copied())
-                                .collect();
-                            if let Some((idx, _)) = points.iter().enumerate().min_by(|a, b| {
-                                let da = (a.1 .0 - target_bucket).abs();
-                                let db = (b.1 .0 - target_bucket).abs();
-                                da.total_cmp(&db)
-                            }) {
-                                points[idx].1 *= 1.0 + delta;
-                            }
-
-                            let rebuilt = InflationCurve::builder(original.id().as_str())
-                                .base_cpi(original.base_cpi())
-                                .knots(points)
-                                .build()?;
-                            CurveStorage::Inflation(Arc::new(rebuilt))
-                        } else {
-                            let bumped = original.apply_bump(bump_spec)?;
-                            let final_curve = if bumped.id() != original.id() {
-                                InflationCurve::builder(original.id().as_str())
-                                    .base_cpi(bumped.base_cpi())
-                                    .knots(
-                                        bumped
-                                            .knots()
-                                            .iter()
-                                            .copied()
-                                            .zip(bumped.cpi_levels().iter().copied()),
-                                    )
-                                    .build()?
-                            } else {
-                                bumped
-                            };
-                            CurveStorage::Inflation(Arc::new(final_curve))
-                        }
-                    }
-                    CurveStorage::BaseCorrelation(original) => {
-                        let bumped = original.apply_bump(bump_spec)?;
-                        let final_curve = if bumped.id() != original.id() {
-                            BaseCorrelationCurve::builder(original.id().as_str())
-                                .knots(
-                                    bumped
-                                        .detachment_points()
-                                        .iter()
-                                        .copied()
-                                        .zip(bumped.correlations().iter().copied()),
-                                )
-                                .build()?
-                        } else {
-                            bumped
-                        };
-                        CurveStorage::BaseCorrelation(Arc::new(final_curve))
-                    }
-                    CurveStorage::VolIndex(original) => {
-                        let bumped = original.apply_bump(bump_spec)?;
-                        let final_curve = if bumped.id() != original.id() {
-                            VolatilityIndexCurve::builder(original.id().as_str())
-                                .base_date(bumped.base_date())
-                                .day_count(bumped.day_count())
-                                .spot_level(bumped.spot_level())
-                                .knots(
-                                    bumped
-                                        .knots()
-                                        .iter()
-                                        .copied()
-                                        .zip(bumped.levels().iter().copied()),
-                                )
-                                .build()?
-                        } else {
-                            bumped
-                        };
-                        CurveStorage::VolIndex(Arc::new(final_curve))
-                    }
-                    CurveStorage::Price(original) => {
-                        let bumped = original.apply_bump(bump_spec)?;
-                        let final_curve = if bumped.id() != original.id() {
-                            PriceCurve::builder(original.id().as_str())
-                                .base_date(bumped.base_date())
-                                .day_count(bumped.day_count())
-                                .spot_price(bumped.spot_price())
-                                .knots(
-                                    bumped
-                                        .knots()
-                                        .iter()
-                                        .copied()
-                                        .zip(bumped.prices().iter().copied()),
-                                )
-                                .build()?
-                        } else {
-                            bumped
-                        };
-                        CurveStorage::Price(Arc::new(final_curve))
-                    }
-                };
-
+                let bumped_storage = storage.apply_bump_preserving_id(&curve_id, bump_spec)?;
                 self.curves.insert(curve_id.clone(), bumped_storage);
                 continue;
             }
 
+            // Try vol surfaces
             if let Some(original) = self.surfaces.get(cid).cloned() {
                 let bumped = original.apply_bump(bump_spec)?;
                 self.surfaces.insert(curve_id.clone(), Arc::new(bumped));
                 continue;
             }
+
+            // Try scalar prices
             if let Some(original) = self.prices.get(cid).cloned() {
                 let bumped = original.apply_bump(bump_spec)?;
                 self.prices.insert(curve_id.clone(), bumped);
                 continue;
             }
+
+            // Try time series
             if let Some(original) = self.series.get(cid).cloned() {
                 let bumped = original.apply_bump(bump_spec)?;
                 self.series.insert(curve_id.clone(), bumped);

@@ -1,10 +1,119 @@
 use std::sync::Arc;
 
+use crate::market_data::bumps::{BumpSpec, BumpType, Bumpable};
 use crate::market_data::term_structures::{
     BaseCorrelationCurve, DiscountCurve, ForwardCurve, HazardCurve, InflationCurve, PriceCurve,
     VolatilityIndexCurve,
 };
 use crate::types::CurveId;
+use crate::Result;
+
+// -----------------------------------------------------------------------------
+// RebuildableWithId trait for preserving curve ID after bumping
+// -----------------------------------------------------------------------------
+
+/// Trait for curves that can be rebuilt with a new ID while preserving all other data.
+///
+/// This is used during market bumping operations where the bump produces a curve
+/// with a modified ID (e.g., "USD-OIS_bump_+10bp") but we want to keep the original ID.
+pub(crate) trait RebuildableWithId: Sized {
+    /// Rebuild the curve with a new ID, preserving all other data.
+    fn rebuild_with_id(&self, id: CurveId) -> Result<Self>;
+}
+
+impl RebuildableWithId for DiscountCurve {
+    fn rebuild_with_id(&self, id: CurveId) -> Result<Self> {
+        DiscountCurve::builder(id)
+            .base_date(self.base_date())
+            .day_count(self.day_count())
+            .knots(self.knots().iter().copied().zip(self.dfs().iter().copied()))
+            .set_interp(self.interp_style())
+            .extrapolation(self.extrapolation())
+            .allow_non_monotonic()
+            .build()
+    }
+}
+
+impl RebuildableWithId for ForwardCurve {
+    fn rebuild_with_id(&self, id: CurveId) -> Result<Self> {
+        ForwardCurve::builder(id, self.tenor())
+            .base_date(self.base_date())
+            .reset_lag(self.reset_lag())
+            .day_count(self.day_count())
+            .knots(
+                self.knots()
+                    .iter()
+                    .copied()
+                    .zip(self.forwards().iter().copied()),
+            )
+            .build()
+    }
+}
+
+impl RebuildableWithId for HazardCurve {
+    fn rebuild_with_id(&self, id: CurveId) -> Result<Self> {
+        self.to_builder_with_id(id).build()
+    }
+}
+
+impl RebuildableWithId for InflationCurve {
+    fn rebuild_with_id(&self, id: CurveId) -> Result<Self> {
+        InflationCurve::builder(id)
+            .base_cpi(self.base_cpi())
+            .knots(
+                self.knots()
+                    .iter()
+                    .copied()
+                    .zip(self.cpi_levels().iter().copied()),
+            )
+            .build()
+    }
+}
+
+impl RebuildableWithId for BaseCorrelationCurve {
+    fn rebuild_with_id(&self, id: CurveId) -> Result<Self> {
+        BaseCorrelationCurve::builder(id)
+            .knots(
+                self.detachment_points()
+                    .iter()
+                    .copied()
+                    .zip(self.correlations().iter().copied()),
+            )
+            .build()
+    }
+}
+
+impl RebuildableWithId for VolatilityIndexCurve {
+    fn rebuild_with_id(&self, id: CurveId) -> Result<Self> {
+        VolatilityIndexCurve::builder(id)
+            .base_date(self.base_date())
+            .day_count(self.day_count())
+            .spot_level(self.spot_level())
+            .knots(
+                self.knots()
+                    .iter()
+                    .copied()
+                    .zip(self.levels().iter().copied()),
+            )
+            .build()
+    }
+}
+
+impl RebuildableWithId for PriceCurve {
+    fn rebuild_with_id(&self, id: CurveId) -> Result<Self> {
+        PriceCurve::builder(id)
+            .base_date(self.base_date())
+            .day_count(self.day_count())
+            .spot_price(self.spot_price())
+            .knots(
+                self.knots()
+                    .iter()
+                    .copied()
+                    .zip(self.prices().iter().copied()),
+            )
+            .build()
+    }
+}
 
 /// Unified storage for all curve types using an enum.
 ///
@@ -139,6 +248,116 @@ impl CurveStorage {
             Self::BaseCorrelation(_) => "BaseCorrelation",
             Self::Price(_) => "Price",
             Self::VolIndex(_) => "VolIndex",
+        }
+    }
+
+    /// Apply a bump to this curve storage, preserving the original ID.
+    ///
+    /// After bumping, if the bumped curve has a different ID (e.g., "USD-OIS_bump_+10bp"),
+    /// it is rebuilt with the original ID to maintain context consistency.
+    ///
+    /// # Special Cases
+    ///
+    /// - `InflationCurve` with `TriangularKeyRate` bump: Custom point-level bumping
+    ///   that modifies the CPI level at the target bucket.
+    pub(crate) fn apply_bump_preserving_id(
+        &self,
+        original_id: &CurveId,
+        spec: BumpSpec,
+    ) -> Result<Self> {
+        match self {
+            Self::Discount(original) => {
+                let bumped = original.apply_bump(spec)?;
+                let final_curve = if bumped.id() != original_id {
+                    bumped.rebuild_with_id(original_id.clone())?
+                } else {
+                    bumped
+                };
+                Ok(Self::Discount(Arc::new(final_curve)))
+            }
+            Self::Forward(original) => {
+                let bumped = original.apply_bump(spec)?;
+                let final_curve = if bumped.id() != original_id {
+                    bumped.rebuild_with_id(original_id.clone())?
+                } else {
+                    bumped
+                };
+                Ok(Self::Forward(Arc::new(final_curve)))
+            }
+            Self::Hazard(original) => {
+                let bumped = original.apply_bump(spec)?;
+                let final_curve = if bumped.id() != original_id {
+                    bumped.rebuild_with_id(original_id.clone())?
+                } else {
+                    bumped
+                };
+                Ok(Self::Hazard(Arc::new(final_curve)))
+            }
+            Self::Inflation(original) => {
+                // Special handling for TriangularKeyRate bumps on InflationCurve
+                if let BumpType::TriangularKeyRate { target_bucket, .. } = spec.bump_type {
+                    let delta = spec.additive_fraction().ok_or_else(|| {
+                        crate::error::InputError::UnsupportedBump {
+                            reason: "InflationCurve key-rate bump requires additive fraction"
+                                .to_string(),
+                        }
+                    })?;
+                    let mut points: Vec<(f64, f64)> = original
+                        .knots()
+                        .iter()
+                        .copied()
+                        .zip(original.cpi_levels().iter().copied())
+                        .collect();
+                    if let Some((idx, _)) = points.iter().enumerate().min_by(|a, b| {
+                        let da = (a.1 .0 - target_bucket).abs();
+                        let db = (b.1 .0 - target_bucket).abs();
+                        da.total_cmp(&db)
+                    }) {
+                        points[idx].1 *= 1.0 + delta;
+                    }
+
+                    let rebuilt = InflationCurve::builder(original_id.clone())
+                        .base_cpi(original.base_cpi())
+                        .knots(points)
+                        .build()?;
+                    return Ok(Self::Inflation(Arc::new(rebuilt)));
+                }
+
+                let bumped = original.apply_bump(spec)?;
+                let final_curve = if bumped.id() != original_id {
+                    bumped.rebuild_with_id(original_id.clone())?
+                } else {
+                    bumped
+                };
+                Ok(Self::Inflation(Arc::new(final_curve)))
+            }
+            Self::BaseCorrelation(original) => {
+                let bumped = original.apply_bump(spec)?;
+                let final_curve = if bumped.id() != original_id {
+                    bumped.rebuild_with_id(original_id.clone())?
+                } else {
+                    bumped
+                };
+                Ok(Self::BaseCorrelation(Arc::new(final_curve)))
+            }
+            Self::VolIndex(original) => {
+                let bumped = original.apply_bump(spec)?;
+                let final_curve = if bumped.id() != original_id {
+                    bumped.rebuild_with_id(original_id.clone())?
+                } else {
+                    bumped
+                };
+                Ok(Self::VolIndex(Arc::new(final_curve)))
+            }
+            Self::Price(original) => {
+                let bumped = original.apply_bump(spec)?;
+                let final_curve = if bumped.id() != original_id {
+                    bumped.rebuild_with_id(original_id.clone())?
+                } else {
+                    bumped
+                };
+                Ok(Self::Price(Arc::new(final_curve)))
+            }
         }
     }
 }

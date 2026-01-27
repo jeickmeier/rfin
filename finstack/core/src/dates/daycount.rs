@@ -98,6 +98,7 @@
 #![allow(clippy::many_single_char_names)]
 
 use crate::dates::date_extensions::DateExt;
+#[cfg(test)]
 use core::cmp::Ordering;
 use smallvec::SmallVec;
 use time::{Date, Duration, Month};
@@ -604,48 +605,42 @@ impl DayCount {
     /// # Ok::<(), finstack_core::Error>(())
     /// ```
     pub fn year_fraction(self, start: Date, end: Date, ctx: DayCountCtx<'_>) -> crate::Result<f64> {
-        match start.cmp(&end) {
-            Ordering::Greater => Err(InputError::InvalidDateRange.into()),
-            Ordering::Equal => Ok(0.0),
-            Ordering::Less => {
-                let yf = match self {
-                    DayCount::Act360 => {
-                        let days = (end - start).whole_days() as f64;
-                        days / 360.0
-                    }
-                    DayCount::Act365F => {
-                        let days = (end - start).whole_days() as f64;
-                        days / 365.0
-                    }
-                    DayCount::Act365L => year_fraction_act_365l(start, end),
-                    DayCount::Thirty360 => {
-                        let days = days_30_360(start, end, Thirty360Convention::Us) as f64;
-                        days / 360.0
-                    }
-                    DayCount::ThirtyE360 => {
-                        let days = days_30_360(start, end, Thirty360Convention::European) as f64;
-                        days / 360.0
-                    }
-                    DayCount::ActAct => year_fraction_act_act_isda(start, end)?,
-                    DayCount::ActActIsma => match ctx.frequency {
-                        Some(freq) => year_fraction_act_act_isma(start, end, freq)?,
-                        None => return Err(InputError::MissingFrequencyForActActIsma.into()),
-                    },
-                    DayCount::Bus252 => match ctx.calendar {
-                        Some(cal) => {
-                            let biz_days = count_business_days(start, end, cal) as f64;
-                            let basis_u16 = ctx.bus_basis.unwrap_or(252);
-                            if basis_u16 == 0 {
-                                return Err(InputError::InvalidBusBasis { basis: basis_u16 }.into());
-                            }
-                            let basis = f64::from(basis_u16);
-                            biz_days / basis
-                        }
-                        None => return Err(InputError::MissingCalendarForBus252.into()),
-                    },
-                };
-                Ok(yf)
+        // Early returns for edge cases - flattens nesting
+        if start > end {
+            return Err(InputError::InvalidDateRange.into());
+        }
+        if start == end {
+            return Ok(0.0);
+        }
+
+        // Dispatch to convention-specific calculations
+        self.year_fraction_impl(start, end, ctx)
+    }
+
+    /// Internal implementation dispatching to convention-specific calculations.
+    ///
+    /// Precondition: `start < end` (validated by `year_fraction`).
+    fn year_fraction_impl(
+        self,
+        start: Date,
+        end: Date,
+        ctx: DayCountCtx<'_>,
+    ) -> crate::Result<f64> {
+        let days = (end - start).whole_days() as f64;
+
+        match self {
+            DayCount::Act360 => Ok(days / 360.0),
+            DayCount::Act365F => Ok(days / 365.0),
+            DayCount::Act365L => Ok(year_fraction_act_365l(start, end)),
+            DayCount::Thirty360 => {
+                Ok(days_30_360(start, end, Thirty360Convention::Us) as f64 / 360.0)
             }
+            DayCount::ThirtyE360 => {
+                Ok(days_30_360(start, end, Thirty360Convention::European) as f64 / 360.0)
+            }
+            DayCount::ActAct => year_fraction_act_act_isda(start, end),
+            DayCount::ActActIsma => year_fraction_act_act_isma_with_ctx(start, end, ctx),
+            DayCount::Bus252 => year_fraction_bus252(start, end, ctx),
         }
     }
 
@@ -800,6 +795,33 @@ fn year_fraction_act_act_isda(start: Date, end: Date) -> crate::Result<f64> {
     frac += days_end_year / days_in_year(end.year()) as f64;
 
     Ok(frac)
+}
+
+// -------------------------------------------------------------------------------------------------
+// Context-aware helpers for year_fraction_impl
+// -------------------------------------------------------------------------------------------------
+
+/// ACT/ACT (ISMA) with context extraction - validates frequency is present.
+fn year_fraction_act_act_isma_with_ctx(
+    start: Date,
+    end: Date,
+    ctx: DayCountCtx<'_>,
+) -> crate::Result<f64> {
+    let freq = ctx
+        .frequency
+        .ok_or(InputError::MissingFrequencyForActActIsma)?;
+    year_fraction_act_act_isma(start, end, freq)
+}
+
+/// Bus/252 with context extraction - validates calendar is present and basis is non-zero.
+fn year_fraction_bus252(start: Date, end: Date, ctx: DayCountCtx<'_>) -> crate::Result<f64> {
+    let cal = ctx.calendar.ok_or(InputError::MissingCalendarForBus252)?;
+    let basis = ctx.bus_basis.unwrap_or(252);
+    if basis == 0 {
+        return Err(InputError::InvalidBusBasis { basis }.into());
+    }
+    let biz_days = count_business_days(start, end, cal) as f64;
+    Ok(biz_days / f64::from(basis))
 }
 
 // -------------------------------------------------------------------------------------------------
