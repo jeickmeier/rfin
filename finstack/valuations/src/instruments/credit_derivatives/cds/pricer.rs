@@ -54,7 +54,7 @@
 // Key items: CDSPricer, CDSPricerConfig, IntegrationMethod, CDSBootstrapper.
 #![allow(dead_code)]
 use crate::constants::{
-    isda, numerical, time as time_constants, NUMERICAL_TOLERANCE, ONE_BASIS_POINT,
+    credit, isda, numerical, time as time_constants, NUMERICAL_TOLERANCE, ONE_BASIS_POINT,
 };
 use crate::instruments::cds::{CreditDefaultSwap, PayReceive};
 use finstack_core::currency::Currency;
@@ -712,8 +712,8 @@ impl CDSPricer {
 
         // Survival at as_of for conditioning
         let sp_asof = surv.sp(t_asof_haz);
-        if sp_asof <= 0.0 {
-            return Ok(0.0); // Already defaulted
+        if sp_asof <= credit::SURVIVAL_PROBABILITY_FLOOR {
+            return Ok(0.0); // Already defaulted (or effectively defaulted)
         }
 
         // DF at as_of for relative discounting
@@ -1307,7 +1307,7 @@ impl CDSPricer {
         disc: &DiscountCurve,
         surv: &HazardCurve,
     ) -> Result<f64> {
-        if sp_asof <= 0.0 || df_asof <= 0.0 {
+        if sp_asof <= credit::SURVIVAL_PROBABILITY_FLOOR || df_asof <= numerical::DIVISION_EPSILON {
             return Ok(0.0);
         }
 
@@ -1356,7 +1356,7 @@ impl CDSPricer {
                 t_start, t_end
             )));
         }
-        if sp_asof <= 0.0 || df_asof <= 0.0 {
+        if sp_asof <= credit::SURVIVAL_PROBABILITY_FLOOR || df_asof <= numerical::DIVISION_EPSILON {
             return Ok(0.0);
         }
 
@@ -1391,7 +1391,7 @@ impl CDSPricer {
                 t_start, t_end
             )));
         }
-        if sp_asof <= 0.0 || df_asof <= 0.0 {
+        if sp_asof <= credit::SURVIVAL_PROBABILITY_FLOOR || df_asof <= numerical::DIVISION_EPSILON {
             return Ok(0.0);
         }
 
@@ -1432,7 +1432,7 @@ impl CDSPricer {
                 t_start, t_end
             )));
         }
-        if sp_asof <= 0.0 || df_asof <= 0.0 {
+        if sp_asof <= credit::SURVIVAL_PROBABILITY_FLOOR || df_asof <= numerical::DIVISION_EPSILON {
             return Ok(0.0);
         }
 
@@ -1486,7 +1486,7 @@ impl CDSPricer {
                 t_start, t_end
             )));
         }
-        if sp_asof <= 0.0 || df_asof <= 0.0 {
+        if sp_asof <= credit::SURVIVAL_PROBABILITY_FLOOR || df_asof <= numerical::DIVISION_EPSILON {
             return Ok(0.0);
         }
 
@@ -1907,6 +1907,9 @@ fn df_asof_to(disc: &DiscountCurve, as_of: Date, date: Date) -> Result<f64> {
 
 /// Compute conditional survival probability: S(date | survived to as_of).
 /// Returns S(t_date) / S(t_asof) where times are computed using hazard curve's day-count.
+///
+/// Uses `credit::SURVIVAL_PROBABILITY_FLOOR` to prevent division by near-zero
+/// values that could produce inf/NaN results.
 #[inline]
 fn sp_cond_to(surv: &HazardCurve, as_of: Date, date: Date) -> Result<f64> {
     let t_asof = haz_t(surv, as_of)?;
@@ -1914,11 +1917,11 @@ fn sp_cond_to(surv: &HazardCurve, as_of: Date, date: Date) -> Result<f64> {
     let sp_asof = surv.sp(t_asof);
     let sp_date = surv.sp(t_date);
     // Conditional survival: S(date) / S(as_of)
-    // For numerical stability when as_of is near curve base (sp_asof ~ 1.0)
-    if sp_asof > 0.0 {
+    // Use floor constant to prevent division by near-zero producing inf/NaN
+    if sp_asof > credit::SURVIVAL_PROBABILITY_FLOOR {
         Ok(sp_date / sp_asof)
     } else {
-        Ok(0.0) // Already defaulted by as_of
+        Ok(0.0) // Already defaulted (or effectively defaulted) by as_of
     }
 }
 
@@ -2158,14 +2161,19 @@ impl CDSBootstrapper {
 
         // Initial guess using credit triangle approximation: h ~ S / (1-R)
         // Or use the last bootstrapped hazard rate if available
+        let lgd = (1.0 - cds.protection.recovery_rate).max(numerical::DIVISION_EPSILON);
+        let implied_hazard = target_spread_bps / 10000.0 / lgd;
+
         let initial_guess = if let Some(&(_, last_h)) = existing_knots.last() {
             last_h
         } else {
-            target_spread_bps / 10000.0 / (1.0 - cds.protection.recovery_rate)
+            implied_hazard
         };
 
-        let bracket_min = 1e-5; // 0.1 bp hazard
-        let bracket_max = 1.0; // 100% hazard
+        // Adaptive bracket: for distressed credits (high spreads), expand upper bound
+        let bracket_min = credit::MIN_HAZARD_RATE;
+        let bracket_max = (implied_hazard * credit::HAZARD_RATE_BRACKET_MULTIPLIER)
+            .max(credit::DEFAULT_MAX_HAZARD_RATE);
 
         let solver = BrentSolver {
             tolerance: self.config.bootstrap_tolerance,

@@ -8,6 +8,7 @@
 //! forward spread, risky annuity, and discount factor into the option
 //! PV via the modified Black formula implemented on the instrument.
 
+use crate::constants::credit;
 use crate::instruments::cds::pricer::CDSPricer;
 use crate::instruments::cds::{CDSConvention, CreditDefaultSwap, PayReceive};
 use crate::instruments::cds_option::CdsOption;
@@ -278,6 +279,9 @@ impl CdsOptionPricer {
     }
 
     /// Gamma per bp of spread.
+    ///
+    /// Returns 0.0 when time-to-expiry or volatility are too small for stable
+    /// numerical calculation (denominator approaches zero).
     pub fn gamma(
         &self,
         option: &CdsOption,
@@ -291,7 +295,9 @@ impl CdsOptionPricer {
         } else {
             1.0
         };
-        if t <= 0.0 || sigma <= 0.0 {
+        // Guard against numerical instability near expiry or with very low vol
+        // The denominator (forward * sigma * sqrt(t)) approaches zero in these cases
+        if t < credit::MIN_TIME_TO_EXPIRY_GREEKS || sigma < credit::MIN_VOLATILITY_GREEKS {
             return 0.0;
         }
         let forward = forward_spread_bp / self.config.bp_per_unit;
@@ -305,6 +311,8 @@ impl CdsOptionPricer {
     }
 
     /// Vega per 1% vol change.
+    ///
+    /// Returns 0.0 when time-to-expiry is too small for stable calculation.
     pub fn vega(
         &self,
         option: &CdsOption,
@@ -318,7 +326,8 @@ impl CdsOptionPricer {
         } else {
             1.0
         };
-        if t <= 0.0 {
+        // Guard against numerical instability near expiry
+        if t < credit::MIN_TIME_TO_EXPIRY_GREEKS {
             return 0.0;
         }
         let forward = forward_spread_bp / self.config.bp_per_unit;
@@ -326,7 +335,7 @@ impl CdsOptionPricer {
         if forward <= 0.0 || strike <= 0.0 {
             return 0.0;
         }
-        let d1 = if sigma > 0.0 {
+        let d1 = if sigma >= credit::MIN_VOLATILITY_GREEKS {
             d1(forward, strike, 0.0, sigma, t, 0.0)
         } else {
             0.0
@@ -532,11 +541,12 @@ impl CdsOptionPricer {
                 .map(|s| s.value_clamped(t, option.strike_spread_bp))
                 .unwrap_or(self.config.iv_initial_guess)
         };
-        let x0 = (initial_guess.unwrap_or(sigma0.max(1e-6))).ln();
+        let x0 = (initial_guess.unwrap_or(sigma0.max(credit::MIN_VOLATILITY_GREEKS))).ln();
 
         let solver = BrentSolver::new().with_tolerance(1e-10);
         let root = solver.solve(f, x0)?;
-        Ok(root.exp())
+        // Ensure minimum volatility floor for numerical stability
+        Ok(root.exp().max(credit::MIN_VOLATILITY_GREEKS))
     }
 }
 

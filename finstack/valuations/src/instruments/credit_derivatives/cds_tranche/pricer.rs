@@ -48,6 +48,7 @@
 //! * Base correlation model can have small arbitrage inconsistencies at curve knots
 
 use crate::cashflow::builder::build_dates;
+use crate::constants::credit;
 use crate::instruments::cds_tranche::{CdsTranche, TrancheSide};
 use crate::instruments::common::traits::Instrument;
 use finstack_core::dates::next_cds_date;
@@ -185,6 +186,13 @@ pub struct CDSTranchePricerConfig {
     pub recovery_spec: Option<super::recovery::RecoverySpec>,
     /// Whether to validate base correlation for arbitrage-free conditions
     pub validate_arbitrage_free: bool,
+    /// Whether to enforce expected loss monotonicity in the EL curve.
+    ///
+    /// When `true` (default), if a computed EL value is less than the previous
+    /// date's EL (which can occur due to base correlation model inconsistencies),
+    /// it will be clamped to the previous value to ensure monotonicity.
+    /// This prevents small arbitrage in leg PV calculations.
+    pub enforce_el_monotonicity: bool,
 
     // ========================================================================
     // Numerical Integration
@@ -274,6 +282,7 @@ impl Default for CDSTranchePricerConfig {
             copula_spec: super::copula::CopulaSpec::default(),
             recovery_spec: None, // Use index recovery rate by default
             validate_arbitrage_free: true,
+            enforce_el_monotonicity: true, // Prevent EL from decreasing over time
 
             // Numerical integration
             quadrature_order: DEFAULT_QUADRATURE_ORDER,
@@ -793,6 +802,11 @@ impl CDSTranchePricer {
     ///
     /// Returns a vector of (Date, EL_fraction) pairs where EL_fraction
     /// is the cumulative expected loss as a fraction of tranche notional.
+    ///
+    /// When `enforce_el_monotonicity` is enabled (default), any computed EL
+    /// value that is less than the previous date's EL will be clamped to
+    /// maintain monotonicity. This prevents small arbitrage opportunities
+    /// that can arise from base correlation model inconsistencies.
     fn build_el_curve(
         &self,
         tranche: &CdsTranche,
@@ -803,18 +817,29 @@ impl CDSTranchePricer {
         let mut prev_el = 0.0;
 
         for &date in dates {
-            let el_fraction = self.expected_tranche_loss_fraction_at(tranche, index_data, date)?;
+            let mut el_fraction =
+                self.expected_tranche_loss_fraction_at(tranche, index_data, date)?;
 
-            // Warn if EL decreased (indicates numerical issue or model limitation)
+            // Check for non-monotonic EL (indicates numerical issue or model limitation)
             // This can happen due to base correlation model inconsistencies
             if el_fraction < prev_el - 1e-6 {
                 tracing::debug!(
-                    "EL decreased from {:.6} to {:.6} at {:?} (Δ={:.6})",
+                    "EL decreased from {:.6} to {:.6} at {:?} (Δ={:.6}){}",
                     prev_el,
                     el_fraction,
                     date,
-                    prev_el - el_fraction
+                    prev_el - el_fraction,
+                    if self.params.enforce_el_monotonicity {
+                        " - enforcing monotonicity"
+                    } else {
+                        ""
+                    }
                 );
+
+                // Enforce monotonicity if configured (default: true)
+                if self.params.enforce_el_monotonicity {
+                    el_fraction = prev_el;
+                }
             }
 
             el_curve.push((date, el_fraction));
@@ -1044,8 +1069,7 @@ impl CDSTranchePricer {
 
         // Prefer exact convolution for small pools to reduce SPA error
         let n_const = index_data.num_constituents as usize;
-        let small_pool_threshold: usize = 16;
-        let el = if n_const <= small_pool_threshold {
+        let el = if n_const <= credit::SMALL_POOL_THRESHOLD {
             self.hetero_exact_convolution_full(
                 detachment_pct,
                 correlation,

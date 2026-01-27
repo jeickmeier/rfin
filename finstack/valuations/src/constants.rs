@@ -184,3 +184,54 @@ pub mod time {
     /// Business days per year for Asia (Japan markets)
     pub const BUSINESS_DAYS_PER_YEAR_JP: f64 = 255.0;
 }
+
+/// Credit derivatives specific constants
+pub mod credit {
+    /// Survival probability floor for numerical stability.
+    ///
+    /// When computing conditional survival probabilities (S(t)/S(t0)), if S(t0)
+    /// falls below this threshold, we treat the entity as already defaulted.
+    /// This prevents division by near-zero values producing inf/NaN.
+    ///
+    /// Value: 1e-15 (well above f64 machine epsilon ~2.2e-16, allowing for
+    /// cumulative multiplication errors in survival probability calculations).
+    pub const SURVIVAL_PROBABILITY_FLOOR: f64 = 1e-15;
+
+    /// Minimum time-to-expiry (in years) for Greeks calculations.
+    ///
+    /// Below this threshold, option Greeks become numerically unstable.
+    /// Approximately 1 calendar day.
+    pub const MIN_TIME_TO_EXPIRY_GREEKS: f64 = 1.0 / 365.0;
+
+    /// Minimum volatility for option Greeks calculations.
+    ///
+    /// Below this threshold, d1/d2 calculations can overflow.
+    /// Value: 0.1% annualized volatility.
+    pub const MIN_VOLATILITY_GREEKS: f64 = 0.001;
+
+    /// Minimum hazard rate for bootstrapping (0.1 bp annualized).
+    ///
+    /// Acts as lower bound for root-finding bracket.
+    pub const MIN_HAZARD_RATE: f64 = 1e-5;
+
+    /// Default maximum hazard rate for bootstrapping (100% annualized).
+    ///
+    /// For deeply distressed credits, this may be dynamically increased.
+    pub const DEFAULT_MAX_HAZARD_RATE: f64 = 1.0;
+
+    /// Hazard rate multiplier for adaptive upper bound in bootstrapping.
+    ///
+    /// Upper bound = max(DEFAULT_MAX_HAZARD_RATE, spread_implied_hazard * this multiplier).
+    pub const HAZARD_RATE_BRACKET_MULTIPLIER: f64 = 2.0;
+
+    /// Par spread denominator tolerance.
+    ///
+    /// If the risky annuity (denominator) is below this, par spread is undefined.
+    pub const PAR_SPREAD_DENOM_TOLERANCE: f64 = 1e-12;
+
+    /// Small pool threshold for exact convolution vs SPA in tranche pricing.
+    ///
+    /// Portfolios with this many or fewer constituents use exact convolution
+    /// for higher accuracy; larger pools use saddle-point approximation.
+    pub const SMALL_POOL_THRESHOLD: usize = 16;
+}

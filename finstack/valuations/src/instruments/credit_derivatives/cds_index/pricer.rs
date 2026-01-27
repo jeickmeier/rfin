@@ -12,6 +12,7 @@
 //! risky PV01, and leg PVs. Heavy numerical work is delegated to
 //! `crate::instruments::cds::pricer::CDSPricer`.
 
+use crate::constants::credit;
 use crate::instruments::cds::pricer::{CDSPricer, CDSPricerConfig};
 use crate::instruments::cds::{CreditDefaultSwap, PayReceive};
 use crate::instruments::cds_index::{CDSIndex, IndexPricing};
@@ -151,8 +152,12 @@ impl CDSIndexPricer {
                     };
                     denom_sum += denom_per_unit * cds.notional.amount();
                 }
-                if denom_sum.abs() < 1e-12 {
-                    return Err(Error::Internal);
+                if denom_sum.abs() < credit::PAR_SPREAD_DENOM_TOLERANCE {
+                    return Err(Error::Validation(
+                        "CDS Index par spread denominator near zero (risky annuity sum ≈ 0). \
+                         This may indicate zero survival probability across all constituents."
+                            .to_string(),
+                    ));
                 }
                 Ok(prot_sum.amount() / denom_sum * 10000.0)
             }
