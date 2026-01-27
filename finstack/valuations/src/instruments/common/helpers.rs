@@ -47,6 +47,20 @@ where
 ///
 /// Returns unrounded NPV for high-precision calibration/risk.
 ///
+/// # Cashflow-on-as_of Policy: PRICING-VIEW (Includes `date == as_of`)
+///
+/// This helper uses **pricing-view** semantics:
+/// - Cashflows where `date < as_of` are excluded (truly past)
+/// - Cashflows where `date == as_of` are **included** at DF=1 (t=0)
+/// - Future cashflows (`date > as_of`) are discounted
+///
+/// This is critical for:
+/// - **Calibration instruments**: T+0 deposits require initial exchange for bracketing
+/// - **FRAs and same-day settling instruments**: Payment on as_of is part of value
+///
+/// For holder-view semantics (excludes `date <= as_of`), see
+/// [`crate::instruments::common::discountable::npv_by_date`].
+///
 /// # Numerical Stability
 ///
 /// Uses Neumaier compensated summation instead of Kahan summation because
@@ -75,9 +89,9 @@ where
     let dc = disc.day_count();
 
     for (date, amount) in flows {
-        // Include cashflows that occur exactly on `as_of` (t=0, df=1).
-        // Skipping them can break calibration bracketing for instruments that settle on `as_of`
-        // (e.g. T+0 deposits), because the initial exchange is incorrectly dropped.
+        // PRICING-VIEW: Include cashflows on `as_of` (t=0, df=1).
+        // Only exclude truly past cashflows (date < as_of).
+        // This ensures calibration bracketing works for T+0 instruments.
         if date < as_of {
             continue;
         }
@@ -308,6 +322,68 @@ mod tests {
         assert_eq!(usd_scale, Some(4), "meta should reflect provided config");
         Ok(())
     }
+
+    #[test]
+    fn black_scholes_inputs_df_r_eff_consistency() {
+        use super::BlackScholesInputsDf;
+
+        // Test that r_eff is consistent with df and t
+        // Given df = exp(-r * t), we should have r_eff = -ln(df) / t
+        let inputs = BlackScholesInputsDf {
+            spot: 100.0,
+            df: 0.95, // ~5% discount over the period
+            q: 0.02,
+            sigma: 0.20,
+            t: 1.0, // 1 year
+        };
+
+        let r_eff = inputs.r_eff();
+        // r_eff should be approximately -ln(0.95) / 1.0 ≈ 0.0513
+        let expected_r = -0.95_f64.ln() / 1.0;
+        assert!(
+            (r_eff - expected_r).abs() < 1e-10,
+            "r_eff = {}, expected = {}",
+            r_eff,
+            expected_r
+        );
+
+        // Verify round-trip: exp(-r_eff * t) should equal df
+        let reconstructed_df = (-r_eff * inputs.t).exp();
+        assert!(
+            (reconstructed_df - inputs.df).abs() < 1e-10,
+            "reconstructed_df = {}, original df = {}",
+            reconstructed_df,
+            inputs.df
+        );
+    }
+
+    #[test]
+    fn black_scholes_inputs_df_edge_cases() {
+        use super::BlackScholesInputsDf;
+
+        // At expiry (t = 0), r_eff should return 0.0
+        let at_expiry = BlackScholesInputsDf {
+            spot: 100.0,
+            df: 1.0,
+            q: 0.02,
+            sigma: 0.20,
+            t: 0.0,
+        };
+        assert_eq!(at_expiry.r_eff(), 0.0, "r_eff at expiry should be 0");
+
+        // Very short time horizon
+        let short_horizon = BlackScholesInputsDf {
+            spot: 100.0,
+            df: 0.9999,
+            q: 0.0,
+            sigma: 0.20,
+            t: 0.001,
+        };
+        let r_short = short_horizon.r_eff();
+        // Should be approximately -ln(0.9999) / 0.001 ≈ 0.1 (10%)
+        assert!(r_short > 0.0, "r_eff should be positive for df < 1");
+        assert!(r_short.is_finite(), "r_eff should be finite");
+    }
 }
 
 /// Convert a trait object reference to Arc-wrapped trait object.
@@ -348,31 +424,57 @@ pub fn validate_currency_consistency(amounts: &[Money]) -> finstack_core::Result
     Ok(())
 }
 
-/// Collect standard Black-Scholes inputs (spot, r, q, sigma, t) from market context.
+/// Black-Scholes inputs with discount factor (DF-first approach).
 ///
-/// Retrieves and calculates the 5 standard parameters required for Black-Scholes pricing:
-/// - Spot price (S)
-/// - Risk-free rate (r) for the period to expiry
-/// - Dividend/Continuous yield (q)
-/// - Volatility (sigma) at strike/maturity
-/// - Time to expiry (t) in years
+/// This struct provides the source-of-truth inputs for Black-Scholes/Garman-Kohlhagen
+/// pricing where discounting is done via date-based discount factors rather than rates.
+/// This avoids day-count basis mismatches between the rate `r` and time `t`.
 ///
-/// # Day Count Convention Handling
+/// # Fields
 ///
-/// **Important**: This function correctly separates the day count bases:
+/// - `spot`: Current spot price
+/// - `df`: Discount factor from `as_of` to `expiry` (date-based, no year-fraction ambiguity)
+/// - `q`: Dividend yield / foreign rate (continuous)
+/// - `sigma`: Implied volatility from the vol surface
+/// - `t`: Time to expiry using the vol surface day count basis (for vol interpolation and Greeks)
+#[derive(Clone, Copy, Debug)]
+pub struct BlackScholesInputsDf {
+    /// Current spot price
+    pub spot: f64,
+    /// Discount factor from as_of to expiry (date-based)
+    pub df: f64,
+    /// Dividend yield / foreign rate (continuous)
+    pub q: f64,
+    /// Implied volatility
+    pub sigma: f64,
+    /// Time to expiry in years (vol surface basis)
+    pub t: f64,
+}
+
+impl BlackScholesInputsDf {
+    /// Derive an effective continuously-compounded rate consistent with `t` and `df`.
+    ///
+    /// This returns `r_eff = -ln(df) / t` such that `exp(-r_eff * t) = df`.
+    /// Use this when analytical formulas require a scalar rate.
+    ///
+    /// # Returns
+    ///
+    /// `r_eff` if `t > 0`, otherwise returns 0.0 (at expiry, rate is irrelevant).
+    #[inline]
+    pub fn r_eff(&self) -> f64 {
+        if self.t > 0.0 && self.df > 0.0 {
+            -self.df.ln() / self.t
+        } else {
+            0.0
+        }
+    }
+}
+
+/// Collect Black-Scholes inputs with discount factor (DF-first approach).
 ///
-/// - **Discounting (t_disc)**: Uses the discount curve's own day count (`disc_curve.day_count()`).
-///   This is used to calculate the zero rate `r` and ensures proper discount factor calculation
-///   regardless of instrument or volatility conventions.
-///
-/// - **Volatility lookup (t_vol)**: Uses the instrument's `day_count` parameter, which should
-///   match how the volatility surface was calibrated (typically ACT/365F for equity options).
-///   This time is used for vol surface interpolation and returned as the primary `t` output.
-///
-/// This separation is critical for barrier options and other path-dependent derivatives:
-/// - Mixing bases would bias barrier crossing probabilities
-/// - Monte Carlo time stepping should use the vol surface basis
-/// - Rebate PVs require consistent discounting
+/// This is the preferred helper for option pricing as it avoids day-count basis
+/// mismatches. The discount factor is computed directly from dates, ensuring
+/// `exp(-r_eff * t) = df` when `r_eff` is derived via [`BlackScholesInputsDf::r_eff`].
 ///
 /// # Arguments
 ///
@@ -382,45 +484,43 @@ pub fn validate_currency_consistency(amounts: &[Money]) -> finstack_core::Result
 /// * `vol_surface_id` - ID of the volatility surface
 /// * `strike` - Strike price for volatility lookup
 /// * `expiry` - Expiry date
-/// * `day_count` - Day count convention for vol surface time calculation (should match vol surface calibration basis)
+/// * `day_count` - Day count convention for vol surface time calculation
 /// * `curves` - Market data context
 /// * `as_of` - Valuation date
 ///
 /// # Returns
 ///
-/// A tuple `(spot, r, q, sigma, t)` where:
-/// - `spot`: Current spot price
-/// - `r`: Continuously compounded risk-free rate (calculated using disc curve's day count)
-/// - `q`: Dividend yield (0.0 if not provided)
-/// - `sigma`: Implied volatility from the vol surface at (t_vol, strike)
-/// - `t`: Time to expiry using the vol surface day count basis (t_vol)
+/// [`BlackScholesInputsDf`] containing (spot, df, q, sigma, t_vol).
 #[allow(clippy::too_many_arguments)]
-pub fn collect_black_scholes_inputs(
+pub fn collect_black_scholes_inputs_df(
     spot_id: &str,
     discount_curve_id: &finstack_core::types::CurveId,
-    div_yield_id: Option<&finstack_core::types::CurveId>, // Changed to match Instrument fields often being CurveId or String
+    div_yield_id: Option<&finstack_core::types::CurveId>,
     vol_surface_id: &str,
     strike: f64,
     expiry: Date,
     day_count: DayCount,
     curves: &MarketContext,
     as_of: Date,
-) -> finstack_core::Result<(f64, f64, f64, f64, f64)> {
-    // Get discount curve first to access its day count
+) -> finstack_core::Result<BlackScholesInputsDf> {
+    // Get discount curve
     let disc_curve = curves.get_discount(discount_curve_id.as_str())?;
 
     // Time to expiry for vol surface lookup (using instrument's day count, which should
     // match how the vol surface was calibrated - typically ACT/365F for equity options)
     let t_vol = day_count.year_fraction(as_of, expiry, DayCountCtx::default())?;
 
-    // Time to expiry for discounting (using the discount curve's own day count basis)
-    // This ensures proper DF calculation regardless of instrument/vol conventions
-    let t_disc = disc_curve
-        .day_count()
-        .year_fraction(as_of, expiry, DayCountCtx::default())?;
+    // Discount factor from as_of to expiry (date-based, no year-fraction ambiguity)
+    // This is the source of truth for discounting.
+    let df = disc_curve.df_between_dates(as_of, expiry)?;
 
-    // Risk-free rate (r) using the discount curve's time basis
-    let r = disc_curve.zero(t_disc);
+    // Validate DF is usable
+    if !df.is_finite() || df <= 0.0 {
+        return Err(finstack_core::Error::Validation(format!(
+            "Invalid discount factor ({:.6e}) between {} and {}",
+            df, as_of, expiry
+        )));
+    }
 
     // Spot price (S)
     let spot_scalar = curves.price(spot_id)?;
@@ -430,10 +530,6 @@ pub fn collect_black_scholes_inputs(
     };
 
     // Dividend yield (q)
-    //
-    // When a dividend yield ID is explicitly provided, we require the lookup to succeed
-    // and return a unitless scalar. Silent fallback to 0.0 would mask market data
-    // configuration errors.
     let q = if let Some(div_id) = div_yield_id {
         let ms = curves.price(div_id.as_str()).map_err(|e| {
             finstack_core::Error::Validation(format!(
@@ -459,8 +555,77 @@ pub fn collect_black_scholes_inputs(
     let vol_surface = curves.surface(vol_surface_id)?;
     let sigma = vol_surface.value_clamped(t_vol, strike);
 
-    // Return the vol-surface time as 't' (for backward compatibility with callers
-    // expecting t to be used for things like Monte Carlo time stepping, which should
-    // align with the vol surface basis)
-    Ok((spot, r, q, sigma, t_vol))
+    Ok(BlackScholesInputsDf {
+        spot,
+        df,
+        q,
+        sigma,
+        t: t_vol,
+    })
+}
+
+/// Collect standard Black-Scholes inputs (spot, r, q, sigma, t) from market context.
+///
+/// Retrieves and calculates the 5 standard parameters required for Black-Scholes pricing:
+/// - Spot price (S)
+/// - Risk-free rate (r) for the period to expiry
+/// - Dividend/Continuous yield (q)
+/// - Volatility (sigma) at strike/maturity
+/// - Time to expiry (t) in years
+///
+/// # Time-Consistency
+///
+/// This function derives `r` from the discount factor such that `exp(-r * t) = df`.
+/// This ensures the rate and time are on the same basis, avoiding day-count mismatches
+/// that can cause pricing errors in barrier options and other path-dependent derivatives.
+///
+/// # Arguments
+///
+/// * `spot_id` - ID of the spot price scalar
+/// * `discount_curve_id` - ID of the discount curve
+/// * `div_yield_id` - Optional ID of the dividend yield scalar (defaults to 0.0 if None)
+/// * `vol_surface_id` - ID of the volatility surface
+/// * `strike` - Strike price for volatility lookup
+/// * `expiry` - Expiry date
+/// * `day_count` - Day count convention for vol surface time calculation (should match vol surface calibration basis)
+/// * `curves` - Market data context
+/// * `as_of` - Valuation date
+///
+/// # Returns
+///
+/// A tuple `(spot, r, q, sigma, t)` where:
+/// - `spot`: Current spot price
+/// - `r`: Effective continuously compounded rate such that `exp(-r*t) = df`
+/// - `q`: Dividend yield (0.0 if not provided)
+/// - `sigma`: Implied volatility from the vol surface at (t_vol, strike)
+/// - `t`: Time to expiry using the vol surface day count basis (t_vol)
+#[allow(clippy::too_many_arguments)]
+pub fn collect_black_scholes_inputs(
+    spot_id: &str,
+    discount_curve_id: &finstack_core::types::CurveId,
+    div_yield_id: Option<&finstack_core::types::CurveId>,
+    vol_surface_id: &str,
+    strike: f64,
+    expiry: Date,
+    day_count: DayCount,
+    curves: &MarketContext,
+    as_of: Date,
+) -> finstack_core::Result<(f64, f64, f64, f64, f64)> {
+    // Delegate to DF-based helper and derive r_eff
+    let inputs = collect_black_scholes_inputs_df(
+        spot_id,
+        discount_curve_id,
+        div_yield_id,
+        vol_surface_id,
+        strike,
+        expiry,
+        day_count,
+        curves,
+        as_of,
+    )?;
+
+    // Derive effective rate: r_eff = -ln(df) / t such that exp(-r_eff * t) = df
+    let r_eff = inputs.r_eff();
+
+    Ok((inputs.spot, r_eff, inputs.q, inputs.sigma, inputs.t))
 }

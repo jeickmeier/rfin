@@ -598,6 +598,117 @@ pub fn barrier_put_continuous(
     }
 }
 
+// ==================== DF-FIRST WRAPPERS ====================
+//
+// These wrappers take the discount factor directly instead of a rate, ensuring
+// that r_eff and time are on consistent bases (no day-count mismatches).
+// Use these when DF is sourced from date-based curve lookups.
+
+/// Price a continuous barrier call with explicit discount factor (DF-first API).
+///
+/// This is the preferred entry point when `df` is known directly (e.g., from
+/// date-based curve lookup). Derives `r_eff = -ln(df)/t` internally.
+///
+/// See [`barrier_call_continuous`] for formula details.
+#[allow(clippy::too_many_arguments)]
+pub fn barrier_call_continuous_df(
+    spot: f64,
+    strike: f64,
+    barrier: f64,
+    time: f64,
+    df: f64,
+    div_yield: f64,
+    vol: f64,
+    barrier_type: BarrierType,
+) -> f64 {
+    // Derive rate from DF for internal calculations
+    let rate = if time > 0.0 && df > 0.0 {
+        -df.ln() / time
+    } else {
+        0.0
+    };
+    barrier_call_continuous(
+        spot,
+        strike,
+        barrier,
+        time,
+        rate,
+        div_yield,
+        vol,
+        barrier_type,
+    )
+}
+
+/// Price a continuous barrier put with explicit discount factor (DF-first API).
+///
+/// This is the preferred entry point when `df` is known directly (e.g., from
+/// date-based curve lookup). Derives `r_eff = -ln(df)/t` internally.
+///
+/// See [`barrier_put_continuous`] for formula details.
+#[allow(clippy::too_many_arguments)]
+pub fn barrier_put_continuous_df(
+    spot: f64,
+    strike: f64,
+    barrier: f64,
+    time: f64,
+    df: f64,
+    div_yield: f64,
+    vol: f64,
+    barrier_type: BarrierType,
+) -> f64 {
+    // Derive rate from DF for internal calculations
+    let rate = if time > 0.0 && df > 0.0 {
+        -df.ln() / time
+    } else {
+        0.0
+    };
+    barrier_put_continuous(
+        spot,
+        strike,
+        barrier,
+        time,
+        rate,
+        div_yield,
+        vol,
+        barrier_type,
+    )
+}
+
+/// Price a barrier rebate with explicit discount factor (DF-first API).
+///
+/// This is the preferred entry point when `df` is known directly (e.g., from
+/// date-based curve lookup). Derives `r_eff = -ln(df)/t` internally.
+///
+/// See [`barrier_rebate_continuous`] for formula details.
+#[allow(clippy::too_many_arguments)]
+pub fn barrier_rebate_continuous_df(
+    spot: f64,
+    barrier: f64,
+    rebate: f64,
+    time: f64,
+    df: f64,
+    div_yield: f64,
+    vol: f64,
+    barrier_type: BarrierType,
+) -> f64 {
+    // Derive rate from DF for internal calculations
+    let rate = if time > 0.0 && df > 0.0 {
+        -df.ln() / time
+    } else {
+        0.0
+    };
+    barrier_rebate_continuous(
+        spot,
+        barrier,
+        rebate,
+        time,
+        rate,
+        div_yield,
+        vol,
+        barrier_type,
+    )
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
@@ -707,5 +818,137 @@ mod tests {
         assert!(up_out_call(spot, strike, barrier_up, time, rate, div_yield, vol) >= 0.0);
         assert!(down_in_call(spot, strike, barrier_down, time, rate, div_yield, vol) >= 0.0);
         assert!(down_out_call(spot, strike, barrier_down, time, rate, div_yield, vol) >= 0.0);
+    }
+
+    // ==================== DF-WRAPPER TESTS ====================
+
+    #[test]
+    fn test_df_wrapper_consistency_barrier_call() {
+        let spot = 100.0_f64;
+        let strike = 100.0_f64;
+        let barrier = 120.0_f64;
+        let time = 1.0_f64;
+        let rate = 0.05_f64;
+        let div_yield = 0.02_f64;
+        let vol = 0.2_f64;
+        let df = (-rate * time).exp();
+
+        for barrier_type in [
+            BarrierType::UpIn,
+            BarrierType::UpOut,
+            BarrierType::DownIn,
+            BarrierType::DownOut,
+        ] {
+            let b = if matches!(barrier_type, BarrierType::DownIn | BarrierType::DownOut) {
+                80.0 // Use down barrier for down types
+            } else {
+                barrier
+            };
+
+            let price_rate =
+                barrier_call_continuous(spot, strike, b, time, rate, div_yield, vol, barrier_type);
+            let price_df =
+                barrier_call_continuous_df(spot, strike, b, time, df, div_yield, vol, barrier_type);
+
+            assert!(
+                (price_rate - price_df).abs() < 1e-10,
+                "{:?}: rate-based {} vs df-based {}",
+                barrier_type,
+                price_rate,
+                price_df
+            );
+        }
+    }
+
+    #[test]
+    fn test_df_wrapper_consistency_barrier_put() {
+        let spot = 100.0_f64;
+        let strike = 100.0_f64;
+        let barrier = 120.0_f64;
+        let time = 1.0_f64;
+        let rate = 0.05_f64;
+        let div_yield = 0.02_f64;
+        let vol = 0.2_f64;
+        let df = (-rate * time).exp();
+
+        for barrier_type in [
+            BarrierType::UpIn,
+            BarrierType::UpOut,
+            BarrierType::DownIn,
+            BarrierType::DownOut,
+        ] {
+            let b = if matches!(barrier_type, BarrierType::DownIn | BarrierType::DownOut) {
+                80.0
+            } else {
+                barrier
+            };
+
+            let price_rate =
+                barrier_put_continuous(spot, strike, b, time, rate, div_yield, vol, barrier_type);
+            let price_df =
+                barrier_put_continuous_df(spot, strike, b, time, df, div_yield, vol, barrier_type);
+
+            assert!(
+                (price_rate - price_df).abs() < 1e-10,
+                "{:?}: rate-based {} vs df-based {}",
+                barrier_type,
+                price_rate,
+                price_df
+            );
+        }
+    }
+
+    #[test]
+    fn test_df_wrapper_consistency_rebate() {
+        let spot = 100.0_f64;
+        let barrier = 120.0_f64;
+        let rebate = 5.0_f64;
+        let time = 1.0_f64;
+        let rate = 0.05_f64;
+        let div_yield = 0.02_f64;
+        let vol = 0.2_f64;
+        let df = (-rate * time).exp();
+
+        for barrier_type in [
+            BarrierType::UpIn,
+            BarrierType::UpOut,
+            BarrierType::DownIn,
+            BarrierType::DownOut,
+        ] {
+            let b = if matches!(barrier_type, BarrierType::DownIn | BarrierType::DownOut) {
+                80.0
+            } else {
+                barrier
+            };
+
+            let price_rate = barrier_rebate_continuous(
+                spot,
+                b,
+                rebate,
+                time,
+                rate,
+                div_yield,
+                vol,
+                barrier_type,
+            );
+            let price_df = barrier_rebate_continuous_df(
+                spot,
+                b,
+                rebate,
+                time,
+                df,
+                div_yield,
+                vol,
+                barrier_type,
+            );
+
+            assert!(
+                (price_rate - price_df).abs() < 1e-10,
+                "{:?}: rate-based {} vs df-based {}",
+                barrier_type,
+                price_rate,
+                price_df
+            );
+        }
     }
 }

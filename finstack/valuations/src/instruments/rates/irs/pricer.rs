@@ -282,8 +282,8 @@ impl InterestRateSwap {
             let spread_contrib =
                 self.notional.amount() * (spread_bp_f64 * BP_TO_DECIMAL) * cf.accrual_factor;
 
-            // Discount to payment date (holiday-aware) using shared helper
-            let payment_date = add_payment_delay(accrual_end, payment_delay, calendar_id);
+            // Discount to payment date (holiday-aware, strict) using shared helper
+            let payment_date = add_payment_delay(accrual_end, payment_delay, calendar_id)?;
             let df = robust_relative_df(disc, as_of, payment_date)?;
 
             terms.push((interest + spread_contrib) * df);
@@ -672,7 +672,7 @@ mod tests {
             day = step_end;
         }
 
-        let payment_date = add_payment_delay(end, 0, None);
+        let payment_date = add_payment_delay(end, 0, None).expect("payment delay");
         let df = robust_relative_df(&disc, as_of, payment_date).expect("df");
         let expected = 1_000_000.0 * (acc - 1.0) * df;
 

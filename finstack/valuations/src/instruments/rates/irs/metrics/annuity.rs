@@ -101,9 +101,9 @@ impl MetricCalculator for AnnuityCalculator {
             )?;
 
             // Apply payment delay: actual payment occurs payment_delay_days after period end
-            // Use shared helper for holiday-aware business day adjustment
+            // Use shared helper for holiday-aware business day adjustment (strict)
             let payment_date =
-                add_payment_delay(d, payment_delay, irs.fixed.calendar_id.as_deref());
+                add_payment_delay(d, payment_delay, irs.fixed.calendar_id.as_deref())?;
 
             // Use shared helper - handles epsilon validation and relative DF calculation
             let df = crate::instruments::irs::pricer::relative_df(&disc, as_of, payment_date)?;

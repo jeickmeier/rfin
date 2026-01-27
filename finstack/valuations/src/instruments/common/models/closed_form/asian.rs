@@ -204,9 +204,35 @@ pub fn geometric_asian_call(
     vol: f64,
     num_fixings: usize,
 ) -> f64 {
+    let df = (-rate * time).exp();
+    geometric_asian_call_df(spot, strike, time, df, div_yield, vol, num_fixings)
+}
+
+/// Price a geometric Asian call with explicit discount factor (DF-first API).
+///
+/// This is the preferred entry point when `df` is known directly (e.g., from
+/// date-based curve lookup). Derives `r_eff = -ln(df)/t` internally.
+///
+/// See [`geometric_asian_call`] for formula details.
+pub fn geometric_asian_call_df(
+    spot: f64,
+    strike: f64,
+    time: f64,
+    df: f64,
+    div_yield: f64,
+    vol: f64,
+    num_fixings: usize,
+) -> f64 {
     if time <= 0.0 {
         return (spot - strike).max(0.0);
     }
+
+    // Derive rate from DF
+    let rate = if time > 0.0 && df > 0.0 {
+        -df.ln() / time
+    } else {
+        0.0
+    };
 
     let n = num_fixings as f64;
 
@@ -243,9 +269,35 @@ pub fn geometric_asian_put(
     vol: f64,
     num_fixings: usize,
 ) -> f64 {
+    let df = (-rate * time).exp();
+    geometric_asian_put_df(spot, strike, time, df, div_yield, vol, num_fixings)
+}
+
+/// Price a geometric Asian put with explicit discount factor (DF-first API).
+///
+/// This is the preferred entry point when `df` is known directly (e.g., from
+/// date-based curve lookup). Derives `r_eff = -ln(df)/t` internally.
+///
+/// See [`geometric_asian_call`] for formula details.
+pub fn geometric_asian_put_df(
+    spot: f64,
+    strike: f64,
+    time: f64,
+    df: f64,
+    div_yield: f64,
+    vol: f64,
+    num_fixings: usize,
+) -> f64 {
     if time <= 0.0 {
         return (strike - spot).max(0.0);
     }
+
+    // Derive rate from DF
+    let rate = if time > 0.0 && df > 0.0 {
+        -df.ln() / time
+    } else {
+        0.0
+    };
 
     let n = num_fixings as f64;
 
@@ -290,13 +342,43 @@ pub fn geometric_asian_put(
 /// M1 = E[A] = S * exp((r - q)T) * [1 - exp(-qT)] / (qT) for q ≠ 0
 /// M2 = E[A²] computed via double integral (see implementation)
 ///
-/// Then solve for parameters (μ*, σ*) of lognormal matching M1, M2,
-/// and price as vanilla with strike adjusted to average space.
+/// Then solve for parameters (μ*, σ*) of lognormal matching M1, M2.
+/// For X ~ LogNormal(μ*, σ*²):
+/// - E[X] = m1 = exp(μ* + σ*²/2)
+/// - E[X²] = m2 = exp(2μ* + 2σ*²)
+///
+/// Solving: σ*² = ln(m2/m1²), μ* = ln(m1) - σ*²/2
+///
+/// The d-parameters for the lognormal approximation are:
+/// - d1 = (μ* - ln(K) + σ*²) / σ*
+/// - d2 = d1 - σ*
+///
+/// Price = df * (m1 * N(d1) - K * N(d2))
 pub fn arithmetic_asian_call_tw(
     spot: f64,
     strike: f64,
     time: f64,
     rate: f64,
+    div_yield: f64,
+    vol: f64,
+    num_fixings: usize,
+) -> f64 {
+    let df = (-rate * time).exp();
+    arithmetic_asian_call_tw_df(spot, strike, time, df, div_yield, vol, num_fixings)
+}
+
+/// Price an arithmetic Asian call with explicit discount factor (DF-first API).
+///
+/// This is the preferred entry point when `df` is known directly (e.g., from
+/// date-based curve lookup). Derives `r_eff = -ln(df)/t` internally for moment
+/// calculations that require a rate.
+///
+/// See [`arithmetic_asian_call_tw`] for formula details.
+pub fn arithmetic_asian_call_tw_df(
+    spot: f64,
+    strike: f64,
+    time: f64,
+    df: f64,
     div_yield: f64,
     vol: f64,
     num_fixings: usize,
@@ -308,6 +390,13 @@ pub fn arithmetic_asian_call_tw(
         return 0.0; // Need at least one fixing
     }
 
+    // Derive rate from DF for moment calculations
+    let rate = if time > 0.0 && df > 0.0 {
+        -df.ln() / time
+    } else {
+        0.0
+    };
+
     // Compute first moment: E[A]
     let m1 = compute_arithmetic_mean_first_moment(spot, time, rate, div_yield, num_fixings);
 
@@ -315,44 +404,68 @@ pub fn arithmetic_asian_call_tw(
     let m2 = compute_arithmetic_mean_second_moment(spot, time, rate, div_yield, vol, num_fixings);
 
     // Match to lognormal distribution
-    // If E[X] = m1 and E[X²] = m2, and X ~ LogNormal(μ*, σ*²), then:
-    // m1 = exp(μ* + σ*²/2)
-    // m2 = exp(2μ* + 2σ*²)
-    // => σ*² = ln(m2 / m1²)
-    // => μ* = ln(m1) - σ*²/2
+    // For X ~ LogNormal(μ*, σ*²):
+    // - E[X] = m1 = exp(μ* + σ*²/2)
+    // - E[X²] = m2 = exp(2μ* + 2σ*²)
+    // Solving: σ*² = ln(m2/m1²), μ* = ln(m1) - σ*²/2
 
     if m2 <= m1 * m1 {
-        // Degenerate case (no variance), treat as forward
-        return (m1 * (-rate * time).exp() - strike).max(0.0) * (rate * time).exp();
+        // Degenerate case (no variance): treat as forward, price = df * max(m1 - K, 0)
+        return df * (m1 - strike).max(0.0);
     }
 
     let var = (m2 / (m1 * m1)).ln();
     if var <= 0.0 {
-        return (m1 * (-rate * time).exp() - strike).max(0.0) * (rate * time).exp();
+        // Degenerate case (numerical issues): same treatment
+        return df * (m1 - strike).max(0.0);
     }
 
     let sigma_star = var.sqrt();
     let mu_star = m1.ln() - 0.5 * var;
 
-    // Price as vanilla with modified parameters
-    // Forward value of average: F_A = m1
-    // Discount: df = exp(-rT)
-    // Effective time to maturity: T (same)
-
-    let d1 = (mu_star - strike.ln() + 0.5 * var) / sigma_star;
+    // Lognormal d-parameters:
+    // d1 = (μ* - ln(K) + σ*²) / σ*
+    // d2 = d1 - σ*
+    //
+    // Note: The correct formula uses +σ*² (not +0.5*σ*²) because we're working
+    // with the log-average distribution directly, not the standard BS form.
+    let d1 = (mu_star - strike.ln() + var) / sigma_star;
     let d2 = d1 - sigma_star;
 
-    let call_price = (-rate * time).exp() * (m1 * norm_cdf(d1) - strike * norm_cdf(d2));
+    // Price = df * (m1 * N(d1) - K * N(d2))
+    let call_price = df * (m1 * norm_cdf(d1) - strike * norm_cdf(d2));
 
     call_price.max(0.0)
 }
 
 /// Price an arithmetic average Asian put option using Turnbull-Wakeman approximation.
+///
+/// See [`arithmetic_asian_call_tw`] for formula details.
 pub fn arithmetic_asian_put_tw(
     spot: f64,
     strike: f64,
     time: f64,
     rate: f64,
+    div_yield: f64,
+    vol: f64,
+    num_fixings: usize,
+) -> f64 {
+    let df = (-rate * time).exp();
+    arithmetic_asian_put_tw_df(spot, strike, time, df, div_yield, vol, num_fixings)
+}
+
+/// Price an arithmetic Asian put with explicit discount factor (DF-first API).
+///
+/// This is the preferred entry point when `df` is known directly (e.g., from
+/// date-based curve lookup). Derives `r_eff = -ln(df)/t` internally for moment
+/// calculations that require a rate.
+///
+/// See [`arithmetic_asian_call_tw`] for formula details.
+pub fn arithmetic_asian_put_tw_df(
+    spot: f64,
+    strike: f64,
+    time: f64,
+    df: f64,
     div_yield: f64,
     vol: f64,
     num_fixings: usize,
@@ -364,25 +477,34 @@ pub fn arithmetic_asian_put_tw(
         return 0.0;
     }
 
+    // Derive rate from DF for moment calculations
+    let rate = if time > 0.0 && df > 0.0 {
+        -df.ln() / time
+    } else {
+        0.0
+    };
+
     let m1 = compute_arithmetic_mean_first_moment(spot, time, rate, div_yield, num_fixings);
     let m2 = compute_arithmetic_mean_second_moment(spot, time, rate, div_yield, vol, num_fixings);
 
     if m2 <= m1 * m1 {
-        return (strike - m1 * (-rate * time).exp()).max(0.0) * (rate * time).exp();
+        // Degenerate case: df * max(K - m1, 0)
+        return df * (strike - m1).max(0.0);
     }
 
     let var = (m2 / (m1 * m1)).ln();
     if var <= 0.0 {
-        return (strike - m1 * (-rate * time).exp()).max(0.0) * (rate * time).exp();
+        return df * (strike - m1).max(0.0);
     }
 
     let sigma_star = var.sqrt();
     let mu_star = m1.ln() - 0.5 * var;
 
-    let d1 = (mu_star - strike.ln() + 0.5 * var) / sigma_star;
+    // Correct d-parameters: d1 = (μ* - ln(K) + σ*²) / σ*
+    let d1 = (mu_star - strike.ln() + var) / sigma_star;
     let d2 = d1 - sigma_star;
 
-    let put_price = (-rate * time).exp() * (strike * norm_cdf(-d2) - m1 * norm_cdf(-d1));
+    let put_price = df * (strike * norm_cdf(-d2) - m1 * norm_cdf(-d1));
 
     put_price.max(0.0)
 }
@@ -582,5 +704,222 @@ mod tests {
         // Should be close to forward value
         let forward_approx = 100.0 * ((0.05_f64 - 0.02) * 1.0).exp();
         assert!((m1 - forward_approx).abs() < 5.0); // Reasonable proximity
+    }
+
+    // ==================== DF-WRAPPER TESTS ====================
+
+    #[test]
+    fn test_df_wrapper_consistency_geometric_call() {
+        let spot = 100.0_f64;
+        let strike = 100.0_f64;
+        let time = 1.0_f64;
+        let rate = 0.05_f64;
+        let div_yield = 0.02_f64;
+        let vol = 0.2_f64;
+        let num_fixings = 12;
+        let df = (-rate * time).exp();
+
+        let price_rate =
+            geometric_asian_call(spot, strike, time, rate, div_yield, vol, num_fixings);
+        let price_df = geometric_asian_call_df(spot, strike, time, df, div_yield, vol, num_fixings);
+
+        assert!(
+            (price_rate - price_df).abs() < 1e-10,
+            "rate-based {} vs df-based {}",
+            price_rate,
+            price_df
+        );
+    }
+
+    #[test]
+    fn test_df_wrapper_consistency_arithmetic_call() {
+        let spot = 100.0_f64;
+        let strike = 100.0_f64;
+        let time = 1.0_f64;
+        let rate = 0.05_f64;
+        let div_yield = 0.02_f64;
+        let vol = 0.2_f64;
+        let num_fixings = 12;
+        let df = (-rate * time).exp();
+
+        let price_rate =
+            arithmetic_asian_call_tw(spot, strike, time, rate, div_yield, vol, num_fixings);
+        let price_df =
+            arithmetic_asian_call_tw_df(spot, strike, time, df, div_yield, vol, num_fixings);
+
+        assert!(
+            (price_rate - price_df).abs() < 1e-10,
+            "rate-based {} vs df-based {}",
+            price_rate,
+            price_df
+        );
+    }
+
+    #[test]
+    fn test_df_wrapper_consistency_puts() {
+        let spot = 100.0_f64;
+        let strike = 105.0_f64; // OTM call, ITM put
+        let time = 0.5_f64;
+        let rate = 0.03_f64;
+        let div_yield = 0.01_f64;
+        let vol = 0.25_f64;
+        let num_fixings = 26;
+        let df = (-rate * time).exp();
+
+        // Geometric put
+        let geo_put_rate =
+            geometric_asian_put(spot, strike, time, rate, div_yield, vol, num_fixings);
+        let geo_put_df =
+            geometric_asian_put_df(spot, strike, time, df, div_yield, vol, num_fixings);
+        assert!(
+            (geo_put_rate - geo_put_df).abs() < 1e-10,
+            "geo put rate {} vs df {}",
+            geo_put_rate,
+            geo_put_df
+        );
+
+        // Arithmetic put
+        let arith_put_rate =
+            arithmetic_asian_put_tw(spot, strike, time, rate, div_yield, vol, num_fixings);
+        let arith_put_df =
+            arithmetic_asian_put_tw_df(spot, strike, time, df, div_yield, vol, num_fixings);
+        assert!(
+            (arith_put_rate - arith_put_df).abs() < 1e-10,
+            "arith put rate {} vs df {}",
+            arith_put_rate,
+            arith_put_df
+        );
+    }
+
+    // ==================== TW FORMULA FIX REGRESSION TESTS ====================
+
+    #[test]
+    fn test_tw_call_non_negative() {
+        // Ensure call prices are non-negative across parameter ranges
+        for strike in [80.0, 100.0, 120.0] {
+            for vol in [0.1, 0.2, 0.3, 0.5] {
+                let price = arithmetic_asian_call_tw(100.0, strike, 1.0, 0.05, 0.02, vol, 12);
+                assert!(
+                    price >= 0.0,
+                    "Negative call price {} for K={}, vol={}",
+                    price,
+                    strike,
+                    vol
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_tw_put_non_negative() {
+        // Ensure put prices are non-negative across parameter ranges
+        for strike in [80.0, 100.0, 120.0] {
+            for vol in [0.1, 0.2, 0.3, 0.5] {
+                let price = arithmetic_asian_put_tw(100.0, strike, 1.0, 0.05, 0.02, vol, 12);
+                assert!(
+                    price >= 0.0,
+                    "Negative put price {} for K={}, vol={}",
+                    price,
+                    strike,
+                    vol
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_tw_monotonicity_in_vol() {
+        // Higher volatility should generally increase option value (for ATM options)
+        let spot = 100.0;
+        let strike = 100.0;
+        let time = 1.0;
+        let rate = 0.05;
+        let div_yield = 0.02;
+        let num_fixings = 12;
+
+        let price_low_vol =
+            arithmetic_asian_call_tw(spot, strike, time, rate, div_yield, 0.15, num_fixings);
+        let price_high_vol =
+            arithmetic_asian_call_tw(spot, strike, time, rate, div_yield, 0.35, num_fixings);
+
+        assert!(
+            price_high_vol >= price_low_vol - 0.01,
+            "Higher vol price {} should be >= lower vol price {}",
+            price_high_vol,
+            price_low_vol
+        );
+    }
+
+    #[test]
+    fn test_tw_degenerate_zero_vol() {
+        // At zero vol, the average is deterministic = forward
+        // Call value should be df * max(forward - K, 0)
+        let spot = 100.0;
+        let strike = 98.0;
+        let time = 1.0;
+        let rate = 0.05;
+        let div_yield = 0.0;
+        let vol = 0.0; // Zero vol
+        let num_fixings = 12;
+
+        let price = arithmetic_asian_call_tw(spot, strike, time, rate, div_yield, vol, num_fixings);
+
+        // m1 ≈ forward ≈ spot * exp((r-q)*T) for average of forwards
+        // At zero vol, m2 = m1^2, so we hit the degenerate branch
+        // Price should be df * max(m1 - K, 0) which is positive for K < forward
+        assert!(
+            price > 0.0,
+            "Zero vol ITM call should have positive value, got {}",
+            price
+        );
+    }
+
+    #[test]
+    fn test_tw_arithmetic_put_call_relation() {
+        // Arithmetic Asian doesn't have exact put-call parity, but we can check
+        // that the relationship is reasonable: for ATM options, call ≈ put
+        let spot = 100.0;
+        let strike = 100.0;
+        let time = 1.0;
+        let rate = 0.05;
+        let div_yield = 0.05; // r = q for approximate symmetry
+        let vol = 0.2;
+        let num_fixings = 12;
+
+        let call = arithmetic_asian_call_tw(spot, strike, time, rate, div_yield, vol, num_fixings);
+        let put = arithmetic_asian_put_tw(spot, strike, time, rate, div_yield, vol, num_fixings);
+
+        // When r ≈ q, forward ≈ spot, so ATM call and put should be similar
+        let ratio = call / put;
+        assert!(
+            (0.5..2.0).contains(&ratio),
+            "ATM call/put ratio {} seems unreasonable",
+            ratio
+        );
+    }
+
+    #[test]
+    fn test_tw_deep_itm_convergence() {
+        // Deep ITM call should approach df * (forward_avg - K)
+        let spot = 100.0;
+        let strike = 50.0_f64; // Very deep ITM
+        let time = 1.0_f64;
+        let rate = 0.05_f64;
+        let div_yield = 0.02_f64;
+        let vol = 0.2_f64;
+        let num_fixings = 12;
+        let df = (-rate * time).exp();
+
+        let price = arithmetic_asian_call_tw(spot, strike, time, rate, div_yield, vol, num_fixings);
+        let m1 = compute_arithmetic_mean_first_moment(spot, time, rate, div_yield, num_fixings);
+        let intrinsic = df * (m1 - strike);
+
+        // For deep ITM, price should be close to intrinsic
+        assert!(
+            (price - intrinsic).abs() < 2.0,
+            "Deep ITM call {} should be close to intrinsic {}",
+            price,
+            intrinsic
+        );
     }
 }

@@ -172,7 +172,7 @@ pub fn prepare_rate_quote(
                 end,
                 swp.fixed.payment_delay_days,
                 swp.fixed.calendar_id.as_deref(),
-            )
+            )?
         } else {
             end
         }

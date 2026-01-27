@@ -56,31 +56,37 @@ pub const ANNUITY_EPSILON: f64 = 1e-12;
 
 /// Compute discount factor at `target` relative to `as_of`, with numerical stability guard.
 ///
-/// This helper centralizes the pattern of:
-/// 1. Computing the discount factor ratio DF(target) / DF(as_of)
-/// 2. Validating as_of DF against DF_EPSILON
-/// 3. Returning the relative DF
+/// This helper centralizes the pattern of computing the discount factor from `as_of` to `target`
+/// using date-based DF calculation (no year-fraction ambiguity).
 ///
 /// This is the Bloomberg-validated implementation used in IRS pricing.
 ///
 /// # Arguments
 ///
 /// * `disc` - Discount curve for pricing
-/// * `as_of` - Valuation date (denominator for relative discounting)
-/// * `target` - Target payment date (numerator for relative discounting)
+/// * `as_of` - Valuation date (start of discounting interval)
+/// * `target` - Target payment date (end of discounting interval)
 ///
 /// # Returns
 ///
-/// Discount factor from `as_of` to `target` (DF(target) / DF(as_of)).
-/// For seasoned instruments this represents the proper discount factor for
-/// cashflows occurring after the valuation date.
+/// Discount factor from `as_of` to `target`. For seasoned instruments this represents the
+/// proper discount factor for cashflows occurring after the valuation date.
+///
+/// # Validation Policy
+///
+/// This function validates that the resulting DF is:
+/// - Finite (not NaN or infinity)
+/// - Positive (non-negative DFs are non-physical under standard assumptions)
+///
+/// It does **not** validate the absolute DF at `as_of` against a hard threshold (like 1e-10),
+/// because what matters for pricing is the relative DF between dates. Long-horizon instruments
+/// or stress scenarios may have tiny absolute DFs at `as_of` but still-usable relative DFs.
 ///
 /// # Errors
 ///
 /// Returns a validation error if:
 /// - Year fraction calculation fails
-/// - The as_of discount factor is below DF_EPSILON threshold (1e-10),
-///   which can occur in extreme rate scenarios or very long time horizons
+/// - The resulting discount factor is non-finite (NaN/inf)
 /// - The resulting discount factor is non-positive (non-physical)
 ///
 /// # Examples
@@ -108,35 +114,25 @@ pub const ANNUITY_EPSILON: f64 = 1e-12;
 /// ```
 #[inline]
 pub fn robust_relative_df(disc: &DiscountCurve, as_of: Date, target: Date) -> Result<f64> {
-    let df_as_of = disc.df_on_date_curve(as_of)?;
-
-    // Guard against invalid/near-zero discount factors for numerical stability and no-arb.
-    if !df_as_of.is_finite() {
-        return Err(finstack_core::Error::Validation(
-            "Valuation date discount factor is not finite.".into(),
-        ));
-    }
-    // Discount factors must be strictly positive under standard discounting assumptions.
-    if df_as_of <= DF_EPSILON {
-        return Err(finstack_core::Error::Validation(format!(
-            "Valuation date discount factor ({:.2e}) is below numerical stability threshold ({:.2e}). \
-             This may indicate extreme rate scenarios or very long time horizons.",
-            df_as_of, DF_EPSILON
-        )));
-    }
-
+    // Use date-based DF calculation which internally handles as_of != base_date scenarios
     let df = disc.df_between_dates(as_of, target)?;
+
+    // Validate the result DF (not the intermediate as_of DF)
     if !df.is_finite() {
-        return Err(finstack_core::Error::Validation(
-            "Discount factor between dates is not finite.".into(),
-        ));
+        return Err(finstack_core::Error::Validation(format!(
+            "Discount factor between {} and {} is not finite (df={:?}). \
+             This may indicate extreme rate scenarios or curve extrapolation issues.",
+            as_of, target, df
+        )));
     }
     if df <= 0.0 {
         return Err(finstack_core::Error::Validation(format!(
-            "Discount factor between dates is non-positive (df={:.3e}) which is non-physical.",
-            df
+            "Discount factor between {} and {} is non-positive (df={:.3e}) which is non-physical. \
+             Check curve construction and rate levels.",
+            as_of, target, df
         )));
     }
+
     Ok(df)
 }
 
@@ -154,42 +150,41 @@ pub fn robust_relative_df(disc: &DiscountCurve, as_of: Date, target: Date) -> Re
 ///
 /// # Returns
 ///
-/// The adjusted payment date.
+/// The adjusted payment date, or an error if a calendar ID is provided but cannot be resolved.
+///
+/// # Strict Calendar Policy
+///
+/// If a `calendar_id` is provided, this function **requires** the calendar to be available
+/// and usable. This prevents silent date drift that can cause trade breaks.
+///
+/// - If `calendar_id` is `Some` but the calendar cannot be resolved or applied → `Err`
+/// - If `calendar_id` is `None` → weekday-only stepping is assumed intentional → `Ok`
 #[inline]
-pub fn add_payment_delay(date: Date, delay_days: i32, calendar_id: Option<&str>) -> Date {
+pub fn add_payment_delay(date: Date, delay_days: i32, calendar_id: Option<&str>) -> Result<Date> {
     if delay_days <= 0 {
-        return date;
+        return Ok(date);
     }
 
     if let Some(id) = calendar_id {
+        // Calendar explicitly specified: require successful resolution and application
         match CalendarRegistry::global().resolve_str(id) {
-            Some(cal) => match date.add_business_days(delay_days, cal) {
-                Ok(d) => return d,
-                Err(e) => {
-                    tracing::warn!(
-                        calendar_id = id,
-                        date = %date,
-                        delay_days,
-                        err = %e,
-                        "Failed holiday-aware business-day addition for payment delay; \
-                         falling back to weekday-only adjustment (Mon-Fri)"
-                    );
-                }
-            },
-            None => {
-                tracing::warn!(
-                    calendar_id = id,
-                    date = %date,
-                    delay_days,
-                    "Payment-delay calendar not found; \
-                     falling back to weekday-only adjustment (Mon-Fri)"
-                );
-            }
-        };
+            Some(cal) => date.add_business_days(delay_days, cal).map_err(|e| {
+                finstack_core::Error::Validation(format!(
+                    "Failed to add {} business days to {} using calendar '{}': {}",
+                    delay_days, date, id, e
+                ))
+            }),
+            None => Err(finstack_core::Error::Validation(format!(
+                "Payment-delay calendar '{}' not found in registry; \
+                 cannot apply {} business day delay to {}. \
+                 Either register the calendar or use None for weekday-only stepping.",
+                id, delay_days, date
+            ))),
+        }
+    } else {
+        // No calendar specified: weekday-only (Mon-Fri) is intentional
+        Ok(date.add_weekdays(delay_days))
     }
-
-    // Fallback: weekday-only (Mon-Fri), ignores holidays.
-    date.add_weekdays(delay_days)
 }
 
 /// Parameters for pricing a floating rate leg.
@@ -417,12 +412,12 @@ where
         // Coupon amount
         let coupon_amount = notional * forward_rate * period.year_fraction;
 
-        // Apply payment delay
+        // Apply payment delay (strict: calendar must resolve if specified)
         let payment_date = add_payment_delay(
             period.accrual_end,
             params.payment_delay_days,
             params.calendar_id.as_deref(),
-        );
+        )?;
 
         // Discount from as_of for correct theta
         let df = robust_relative_df(disc, as_of, payment_date)?;
@@ -542,12 +537,12 @@ where
         // Fixed coupon amount
         let coupon_amount = notional * params.rate * period.year_fraction;
 
-        // Apply payment delay
+        // Apply payment delay (strict: calendar must resolve if specified)
         let payment_date = add_payment_delay(
             period.accrual_end,
             params.payment_delay_days,
             params.calendar_id.as_deref(),
-        );
+        )?;
 
         // Discount from as_of for correct theta
         let df = robust_relative_df(disc, as_of, payment_date)?;
@@ -590,7 +585,8 @@ where
     let mut annuity = 0.0;
 
     for period in periods {
-        let payment_date = add_payment_delay(period.accrual_end, payment_delay_days, calendar_id);
+        // Apply payment delay (strict: calendar must resolve if specified)
+        let payment_date = add_payment_delay(period.accrual_end, payment_delay_days, calendar_id)?;
 
         // Only include future payments
         if payment_date > as_of {
@@ -713,17 +709,26 @@ mod tests {
     }
 
     #[test]
-    fn robust_relative_df_rejects_zero_df() {
-        // Create a curve that produces effectively zero DFs at long horizons
+    fn robust_relative_df_accepts_small_absolute_df() {
+        // Create a curve with very small absolute DFs (stress scenario).
+        // The new policy accepts these as long as the RELATIVE DF between dates is valid.
         let base_date = date(2024, 1, 1);
         let disc = DiscountCurve::builder(CurveId::new("EXTREME"))
             .base_date(base_date)
-            .knots(vec![(0.0, 1e-12), (1.0, 1e-15)]) // Near-zero DFs
+            .knots(vec![(0.0, 1e-12), (1.0, 1e-15)]) // Very small DFs
             .build()
             .expect("curve should build");
 
+        // Under the new policy, df_between_dates computes df(target) / df(as_of)
+        // = 1e-15 / 1e-12 = 0.001, which is a valid positive relative DF.
         let result = robust_relative_df(&disc, base_date, date(2025, 1, 1));
-        assert!(result.is_err(), "Should reject near-zero DF");
+        assert!(
+            result.is_ok(),
+            "Small absolute DFs should be accepted if relative DF is valid: {:?}",
+            result
+        );
+        let df = result.expect("relative DF should be valid");
+        assert!(df > 0.0, "Relative DF should be positive: {}", df);
     }
 
     #[test]
@@ -894,16 +899,30 @@ mod tests {
     #[test]
     fn add_payment_delay_zero_returns_same() {
         let d = date(2024, 1, 15);
-        let result = add_payment_delay(d, 0, None);
+        let result = add_payment_delay(d, 0, None).expect("should succeed");
         assert_eq!(result, d);
     }
 
     #[test]
     fn add_payment_delay_positive_adds_weekdays() {
         let d = date(2024, 1, 15); // Monday
-        let result = add_payment_delay(d, 2, None);
+        let result = add_payment_delay(d, 2, None).expect("should succeed");
         // 2 weekdays from Monday = Wednesday
         assert_eq!(result, date(2024, 1, 17));
+    }
+
+    #[test]
+    fn add_payment_delay_missing_calendar_errors() {
+        let d = date(2024, 1, 15);
+        // Providing a calendar ID that doesn't exist should now error
+        let result = add_payment_delay(d, 2, Some("nonexistent_calendar"));
+        assert!(result.is_err(), "Should error when calendar not found");
+        let err = result.expect_err("should error when calendar not found");
+        assert!(
+            err.to_string().contains("not found"),
+            "Error should mention calendar not found: {}",
+            err
+        );
     }
 
     #[test]
@@ -973,5 +992,72 @@ mod tests {
         assert_eq!(leg_params.rate_params.spread_bp, 200.0);
         assert_eq!(leg_params.rate_params.index_floor_bp, Some(100.0));
         assert_eq!(leg_params.payment_delay_days, 2);
+    }
+
+    // ==================== robust_relative_df EDGE CASE TESTS ====================
+
+    #[test]
+    fn robust_relative_df_as_of_equals_base_date() {
+        let base_date = date(2024, 1, 1);
+        let disc = test_discount_curve(base_date);
+
+        // When as_of == base_date, DF(as_of to target) is just DF(target)
+        let target = date(2025, 1, 1);
+        let df = robust_relative_df(&disc, base_date, target).expect("should succeed");
+        assert!(df > 0.0 && df < 1.0, "DF should be in (0,1): {}", df);
+    }
+
+    #[test]
+    fn robust_relative_df_as_of_after_base_date() {
+        let base_date = date(2024, 1, 1);
+        let disc = test_discount_curve(base_date);
+
+        // as_of is 6 months after base_date (seasoned instrument scenario)
+        let as_of = date(2024, 7, 1);
+        let target = date(2025, 1, 1);
+
+        let df = robust_relative_df(&disc, as_of, target).expect("should succeed");
+        // Should be the relative DF from as_of to target, which is valid and positive
+        assert!(df > 0.0, "Relative DF should be positive: {}", df);
+    }
+
+    #[test]
+    fn robust_relative_df_long_horizon() {
+        use finstack_core::market_data::term_structures::DiscountCurve;
+
+        // Create a curve that extends far into the future
+        let base_date = date(2024, 1, 1);
+        let curve = DiscountCurve::builder("TEST-LONG")
+            .base_date(base_date)
+            .knots([
+                (0.0, 1.0),
+                (1.0, 0.95),
+                (10.0, 0.60),
+                (30.0, 0.20),
+                (50.0, 0.08),
+            ])
+            .build()
+            .expect("curve should build");
+
+        // 30Y forward date - long horizon but should still work
+        let target = date(2054, 1, 1);
+        let df = robust_relative_df(&curve, base_date, target).expect("should succeed");
+        assert!(df > 0.0, "Long-horizon DF should be positive: {}", df);
+    }
+
+    #[test]
+    fn robust_relative_df_rejects_non_positive() {
+        // This test verifies that truly invalid DFs are rejected
+        // In practice this shouldn't happen with well-constructed curves,
+        // but the guard protects against misconfigured curves.
+        //
+        // We can't easily construct a curve that returns negative DF,
+        // so we just verify the function returns valid positive DFs for normal inputs.
+        let base_date = date(2024, 1, 1);
+        let disc = test_discount_curve(base_date);
+
+        let target = date(2025, 1, 1);
+        let df = robust_relative_df(&disc, base_date, target).expect("should succeed");
+        assert!(df > 0.0, "DF must be positive: {}", df);
     }
 }

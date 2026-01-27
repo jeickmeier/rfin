@@ -896,6 +896,8 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
         market: &MarketContext,
         as_of: Date,
     ) -> PricingResult<ValuationResult> {
+        use crate::instruments::common::helpers::collect_black_scholes_inputs_df;
+
         let asian = instrument
             .as_any()
             .downcast_ref::<AsianOption>()
@@ -903,8 +905,8 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
                 PricingError::type_mismatch(InstrumentType::AsianOption, instrument.key())
             })?;
 
-        // Use standardized input collection
-        let (spot, r, q, sigma, t) = collect_black_scholes_inputs(
+        // Use DF-based input collection for time-consistent discounting
+        let bs_inputs = collect_black_scholes_inputs_df(
             &asian.spot_id,
             &asian.discount_curve_id,
             asian.div_yield_id.as_ref(),
@@ -918,6 +920,14 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
         .map_err(|e| {
             PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
         })?;
+
+        let spot = bs_inputs.spot;
+        let df_expiry = bs_inputs.df;
+        let q = bs_inputs.q;
+        let sigma = bs_inputs.sigma;
+        let t = bs_inputs.t;
+        // Derive r_eff for TW formula (which still needs a rate for moment calculations)
+        let r = bs_inputs.r_eff();
 
         let (sum, _, count) = asian.accumulated_state(as_of);
         let total_fixings = asian.fixing_dates.len();
@@ -943,18 +953,12 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
                 crate::instruments::OptionType::Call => (average - asian.strike.amount()).max(0.0),
                 crate::instruments::OptionType::Put => (asian.strike.amount() - average).max(0.0),
             };
-            // Discount to present
-            let disc_curve = market
-                .get_discount(asian.discount_curve_id.as_str())
-                .map_err(|e| {
-                    PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
-                })?;
-            let df = disc_curve.df(t); // approx discount using t (time to expiry)
+            // Use the date-based DF from inputs
             return Ok(ValuationResult::stamped(
                 asian.id(),
                 as_of,
                 Money::new(
-                    payoff * df * asian.notional.amount(),
+                    payoff * df_expiry * asian.notional.amount(),
                     asian.strike.currency(),
                 ),
             ));
@@ -971,15 +975,21 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
         let price = if k_eff < 0.0 {
             match asian.option_type {
                 crate::instruments::OptionType::Call => {
-                    // Deep ITM: PV(Avg) - PV(K)
-                    // PV(Avg) = (Sum + Sum(PV(F_i))) / N * DF_T ??
-                    // No, Payoff paid at T.
-                    // E[Payoff] = 1/N (Sum + Sum(E[S_i])) - K
-                    // PV = DF_T * ( 1/N (Sum + Sum(F_i)) - K )
-                    // F_i = S * exp((r-q)*t_i)
-                    // This requires iterating future fixings.
-                    // For simplicity in this review fix, we can error or approximate.
-                    // But let's try to be correct.
+                    // Deep ITM: PV = DF_T * (Expected_Avg - K)
+                    // Expected_Avg = (Past_Sum + Sum(F_i)) / N
+                    // F_i = forward price for fixing date i
+                    //     = S * exp(-q*t_i) / df_i  (GK forward formula)
+                    //
+                    // We compute each forward using date-based DFs for consistency.
+                    let disc_curve = market
+                        .get_discount(asian.discount_curve_id.as_str())
+                        .map_err(|e| {
+                            PricingError::model_failure_ctx(
+                                e.to_string(),
+                                PricingErrorContext::default(),
+                            )
+                        })?;
+
                     let mut sum_fwd = 0.0;
                     for date in &asian.fixing_dates {
                         if *date > as_of {
@@ -992,12 +1002,21 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
                                         PricingErrorContext::default(),
                                     )
                                 })?;
-                            sum_fwd += spot * ((r - q) * t_i).exp();
+                            // Get date-based DF for this fixing
+                            let df_i = disc_curve.df_between_dates(as_of, *date).map_err(|e| {
+                                PricingError::model_failure_ctx(
+                                    e.to_string(),
+                                    PricingErrorContext::default(),
+                                )
+                            })?;
+                            // GK forward: F_i = S * exp(-q*t_i) / df_i
+                            let forward_i = spot * (-q * t_i).exp() / df_i;
+                            sum_fwd += forward_i;
                         }
                     }
                     let expected_avg = (sum + sum_fwd) / n;
-                    let df = (-r * t).exp();
-                    (expected_avg - k).max(0.0) * df
+                    // Use date-based DF for final discounting
+                    (expected_avg - k).max(0.0) * df_expiry
                 }
                 crate::instruments::OptionType::Put => 0.0,
             }
