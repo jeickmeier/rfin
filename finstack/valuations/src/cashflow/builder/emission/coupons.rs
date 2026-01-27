@@ -16,6 +16,7 @@ use finstack_core::money::Money;
 use finstack_core::InputError;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
+use tracing::warn;
 
 use super::super::compiler::{FixedSchedule, FloatSchedule};
 use super::helpers::{add_pik_flow_if_nonzero, compute_reset_date, resolve_calendar};
@@ -247,7 +248,18 @@ pub(in crate::cashflow::builder) fn emit_float_coupons_on(
                     &params,
                 ) {
                     Ok(rate) => rate,
-                    Err(_) => super::super::rate_helpers::project_fallback_rate(&params),
+                    Err(e) => {
+                        // Log warning when projection fails - the fallback rate (spread-only)
+                        // may differ materially from the projected rate
+                        warn!(
+                            reset_date = %reset_date,
+                            index_maturity = %index_maturity,
+                            spread_bp = %spread_bp,
+                            error = %e,
+                            "Floating rate projection failed, using fallback (spread-only) rate"
+                        );
+                        super::super::rate_helpers::project_fallback_rate(&params)
+                    }
                 }
             } else {
                 super::super::rate_helpers::project_fallback_rate(&params)

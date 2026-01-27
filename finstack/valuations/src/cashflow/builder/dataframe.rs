@@ -15,7 +15,7 @@
 use crate::cashflow::builder::schedule::CashFlowSchedule;
 use crate::cashflow::primitives::CFKind;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, DayCountCtx, Period};
+use finstack_core::dates::{Date, DayCount, DayCountCtx, Period, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 
@@ -51,6 +51,18 @@ pub struct PeriodDataFrameOptions<'a> {
     pub facility_limit: Option<Money>,
     /// Whether to include floating rate decomposition (base_rates, spreads)
     pub include_floating_decomposition: bool,
+    /// Optional coupon frequency for day count context (required for Act/Act ISMA).
+    ///
+    /// When the day count convention is `ActActIsma`, this frequency is used to
+    /// construct the proper `DayCountCtx` for year fraction calculations.
+    /// If not provided, defaults to `None` which may cause incorrect year fractions
+    /// for Act/Act ISMA convention.
+    pub frequency: Option<Tenor>,
+    /// Optional calendar ID for day count context (required for Bus/252).
+    ///
+    /// When the day count convention is `Bus252`, this calendar ID is used to
+    /// look up the holiday calendar for business day counting.
+    pub calendar_id: Option<&'a str>,
 }
 
 /// Period-aligned DataFrame-like result.
@@ -241,7 +253,12 @@ impl CashFlowSchedule {
         options: PeriodDataFrameOptions<'_>,
         out: &mut PeriodDataFrame,
     ) -> finstack_core::Result<()> {
+        use finstack_core::dates::calendar::calendar_by_id;
+
         let dc = options.day_count.unwrap_or(self.day_count);
+
+        // Resolve calendar for day count context (required for Bus/252 convention)
+        let resolved_calendar = options.calendar_id.and_then(calendar_by_id);
 
         let disc_arc = market.get_discount(discount_curve_id)?;
         let base = options.as_of.unwrap_or_else(|| disc_arc.base_date());
@@ -412,24 +429,36 @@ impl CashFlowSchedule {
                 undrawn.push(notional_undrawn);
             }
 
-            // YrFraq and Days
+            // YrFraq and Days - use proper DayCountCtx with frequency/calendar from options
+            let dc_ctx = DayCountCtx {
+                calendar: resolved_calendar,
+                frequency: options.frequency,
+                bus_basis: None,
+            };
             let yr_fraq = dc
-                .year_fraction(period.start, cf.date, DayCountCtx::default())
+                .year_fraction(period.start, cf.date, dc_ctx)
                 .unwrap_or(0.0);
             out.yr_fraqs.push(yr_fraq);
             out.days.push((cf.date - period.start).whole_days());
 
             // Discount factor using configured discounting basis
+            // Note: Discounting typically uses Act/365F or Act/360 which don't need context,
+            // but we still pass the context for consistency and to support exotic conventions.
             let dc_for_discounting = options.discount_day_count.unwrap_or(dc);
+            let disc_dc_ctx = DayCountCtx {
+                calendar: resolved_calendar,
+                frequency: options.frequency,
+                bus_basis: None,
+            };
             let t = if cf.date == base {
                 0.0
             } else if cf.date > base {
                 dc_for_discounting
-                    .year_fraction(base, cf.date, DayCountCtx::default())
+                    .year_fraction(base, cf.date, disc_dc_ctx)
                     .unwrap_or(0.0)
             } else {
                 -dc_for_discounting
-                    .year_fraction(cf.date, base, DayCountCtx::default())
+                    .year_fraction(cf.date, base, disc_dc_ctx)
                     .unwrap_or(0.0)
             };
             let df = disc_arc.df(t);
@@ -477,21 +506,27 @@ impl CashFlowSchedule {
             let mut spread_opt: Option<f64> = None;
             if options.include_floating_decomposition && matches!(cf.kind, CFKind::FloatReset) {
                 if let Some(ref fwd) = forward_arc_opt {
+                    // Use the forward curve's day count with our context for consistency
+                    let fwd_dc_ctx = DayCountCtx {
+                        calendar: resolved_calendar,
+                        frequency: options.frequency,
+                        bus_basis: None,
+                    };
                     let reset_t = if let Some(reset_date) = cf.reset_date {
                         if reset_date == base {
                             0.0
                         } else if reset_date > base {
                             fwd.day_count()
-                                .year_fraction(base, reset_date, DayCountCtx::default())
+                                .year_fraction(base, reset_date, fwd_dc_ctx)
                                 .unwrap_or(0.0)
                         } else {
                             -fwd.day_count()
-                                .year_fraction(reset_date, base, DayCountCtx::default())
+                                .year_fraction(reset_date, base, fwd_dc_ctx)
                                 .unwrap_or(0.0)
                         }
                     } else {
                         fwd.day_count()
-                            .year_fraction(base, period.start, DayCountCtx::default())
+                            .year_fraction(base, period.start, fwd_dc_ctx)
                             .unwrap_or(0.0)
                     };
                     let b = fwd.rate(reset_t);
@@ -597,6 +632,8 @@ mod tests {
             discount_day_count: None,
             facility_limit: None,
             include_floating_decomposition: false,
+            frequency: None,
+            calendar_id: None,
         };
 
         let df = schedule

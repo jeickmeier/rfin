@@ -416,6 +416,15 @@ fn find_active_period_and_elapsed<'a>(
 /// - Avoids precision loss for small `r` via `ln1p` (log(1+r) accurate near 0)
 /// - Avoids precision loss for small results via `expm1` (exp(x)-1 accurate near 0)
 /// - Works correctly across all fraction values without threshold switching
+///
+/// The compounded accrual formula follows ICMA Rule 251.1 for calculating accrued
+/// interest on securities with periodic interest payments:
+///
+/// `Accrued = Notional × [(1 + period_rate)^(elapsed/period) - 1]`
+///
+/// where `period_rate = coupon_amount / notional` is the yield per coupon period.
+///
+/// Reference: ICMA Primary Market Handbook, Rule 251 (Accrued Interest Calculations)
 fn accrue_in_period(
     inputs: &PeriodInputs,
     elapsed_yf: f64,

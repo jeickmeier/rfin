@@ -345,6 +345,12 @@ fn time_discount_survival(
 /// - Interest/fee claims are typically subordinate and assumed to have zero recovery
 /// - The `CFKind::Principal` is not included because scheduled principal repayments
 ///   are captured via `Amortization` and `Notional` kinds in this module's taxonomy
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - `hazard` curve is `None`
+/// - `recovery_rate` is outside the valid range `[0.0, 1.0]`
 pub(crate) fn pv_by_period_credit_adjusted_detailed(
     flows: &[CashFlow],
     periods: &[Period],
@@ -353,6 +359,15 @@ pub(crate) fn pv_by_period_credit_adjusted_detailed(
     recovery_rate: Option<f64>,
     date_ctx: DateContext<'_>,
 ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
+    // Validate recovery rate is in [0, 1] if provided
+    if let Some(r) = recovery_rate {
+        if !(0.0..=1.0).contains(&r) {
+            return Err(finstack_core::Error::Input(
+                finstack_core::InputError::Invalid,
+            ));
+        }
+    }
+
     let hazard = hazard.ok_or_else(|| {
         finstack_core::Error::Input(finstack_core::InputError::NotFound {
             id: "hazard curve".to_string(),

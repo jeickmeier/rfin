@@ -537,6 +537,8 @@ impl PyCashFlowSchedule {
             discount_day_count: None,
             facility_limit: None,
             include_floating_decomposition: false,
+            frequency: None,
+            calendar_id: None,
         };
 
         let periods: Vec<Period> = if let (Some(first), Some(last)) =
