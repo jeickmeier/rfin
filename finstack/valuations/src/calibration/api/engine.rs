@@ -2,9 +2,10 @@
 //!
 //! Orchestrates the execution of a calibration plan.
 
-use super::schema::CalibrationEnvelope;
+use super::schema::{CalibrationEnvelope, CalibrationPlan};
 use crate::calibration::api::schema::CalibrationStep;
 use crate::calibration::api::schema::{CalibrationResult, CalibrationResultEnvelope};
+use crate::calibration::config::CalibrationConfig;
 use crate::calibration::step_runtime;
 use crate::calibration::step_runtime::{OutputKey, StepOutcome};
 use crate::calibration::validation::preflight_step;
@@ -16,10 +17,137 @@ use finstack_core::Result;
 use rayon::prelude::*;
 use std::collections::{BTreeMap, HashSet};
 
+// =============================================================================
+// Helper Types
+// =============================================================================
+
+/// A step with its associated quotes, ready for batch execution.
+struct StepBatchItem<'a> {
+    step: &'a CalibrationStep,
+    quotes: &'a [MarketQuote],
+}
+
+/// Result of trying to add a step to a parallel batch.
+enum BatchAddResult {
+    /// Step was added to the batch.
+    Added,
+    /// Step cannot be added (output conflict or preflight failed with non-empty batch).
+    Stop,
+    /// Preflight failed and batch is empty - propagate the error.
+    Error(finstack_core::Error),
+}
+
+/// Builder for accumulating steps that can execute in parallel.
+struct ParallelBatchBuilder<'a> {
+    plan: &'a CalibrationPlan,
+    curve_outputs: HashSet<finstack_core::types::CurveId>,
+    surface_outputs: HashSet<finstack_core::types::CurveId>,
+    batch: Vec<StepBatchItem<'a>>,
+}
+
+impl<'a> ParallelBatchBuilder<'a> {
+    fn new(plan: &'a CalibrationPlan) -> Self {
+        Self {
+            plan,
+            curve_outputs: HashSet::default(),
+            surface_outputs: HashSet::default(),
+            batch: Vec::new(),
+        }
+    }
+
+    /// Try to add a step to the batch.
+    fn try_add(&mut self, step: &'a CalibrationStep, context: &MarketContext) -> BatchAddResult {
+        let quotes = match self.get_quotes(step) {
+            Ok(q) => q,
+            Err(e) => return BatchAddResult::Error(e),
+        };
+
+        // Preflight validation
+        if let Err(err) = preflight_step(step, quotes, context, &self.plan.settings) {
+            return if self.batch.is_empty() {
+                BatchAddResult::Error(err)
+            } else {
+                BatchAddResult::Stop
+            };
+        }
+
+        // Check for output conflicts
+        if self.has_output_conflict(step) {
+            return BatchAddResult::Stop;
+        }
+
+        self.batch.push(StepBatchItem {
+            step,
+            quotes: quotes.as_slice(),
+        });
+        BatchAddResult::Added
+    }
+
+    /// Check if adding this step would create an output conflict.
+    fn has_output_conflict(&mut self, step: &CalibrationStep) -> bool {
+        match step_runtime::output_key(step) {
+            OutputKey::Curve(id) => !self.curve_outputs.insert(id),
+            OutputKey::Surface(id) => !self.surface_outputs.insert(id),
+        }
+    }
+
+    /// Get quotes for a step from the plan.
+    fn get_quotes(&self, step: &CalibrationStep) -> Result<&'a Vec<MarketQuote>> {
+        self.plan.quote_sets.get(&step.quote_set).ok_or_else(|| {
+            finstack_core::Error::Input(finstack_core::InputError::NotFound {
+                id: format!("Quote set '{}' not found", step.quote_set),
+            })
+        })
+    }
+
+    /// Take the accumulated batch, resetting internal state for next batch.
+    fn take_batch(&mut self) -> Vec<StepBatchItem<'a>> {
+        self.curve_outputs.clear();
+        self.surface_outputs.clear();
+        std::mem::take(&mut self.batch)
+    }
+
+    /// Check if batch is empty.
+    fn is_empty(&self) -> bool {
+        self.batch.is_empty()
+    }
+}
+
+/// Aggregated execution state for collecting results.
+struct ExecutionState {
+    aggregated_residuals: BTreeMap<String, f64>,
+    total_iterations: usize,
+    step_reports: BTreeMap<String, CalibrationReport>,
+}
+
+impl ExecutionState {
+    fn new() -> Self {
+        Self {
+            aggregated_residuals: BTreeMap::new(),
+            total_iterations: 0,
+            step_reports: BTreeMap::new(),
+        }
+    }
+
+    /// Record a step's execution result.
+    fn record_result(&mut self, step_id: &str, report: CalibrationReport) {
+        for (k, v) in &report.residuals {
+            self.aggregated_residuals
+                .insert(format!("{step_id}:{k}"), *v);
+        }
+        self.total_iterations += report.iterations;
+        self.step_reports.insert(step_id.to_string(), report);
+    }
+}
+
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
 /// Merges explanation traces from individual calibration steps into a plan-level trace.
 fn merge_step_traces(
     step_reports: &BTreeMap<String, CalibrationReport>,
-    config: &crate::calibration::config::CalibrationConfig,
+    config: &CalibrationConfig,
 ) -> Option<ExplanationTrace> {
     if !config.explain.enabled {
         return None;
@@ -49,20 +177,13 @@ fn merge_step_traces(
 }
 
 /// Aggregates per-step reports into a single plan execution report.
-fn aggregate_plan_report(
-    aggregated_residuals: BTreeMap<String, f64>,
-    total_iterations: usize,
-    step_reports: &BTreeMap<String, CalibrationReport>,
-    config: &crate::calibration::config::CalibrationConfig,
-) -> CalibrationReport {
-    let all_steps_success = step_reports.values().all(|r| r.success);
-    let all_steps_validation_passed = step_reports.values().all(|r| r.validation_passed);
+fn aggregate_plan_report(state: ExecutionState, config: &CalibrationConfig) -> CalibrationReport {
+    let all_steps_success = state.step_reports.values().all(|r| r.success);
+    let all_steps_validation_passed = state.step_reports.values().all(|r| r.validation_passed);
 
-    // Market-standard: plan-level success follows per-step success. The plan's solver tolerance
-    // is not meaningful for aggregating residuals across heterogeneous steps (rates, credit, vols).
     let mut report = CalibrationReport::new(
-        aggregated_residuals,
-        total_iterations,
+        state.aggregated_residuals,
+        state.total_iterations,
         all_steps_success && all_steps_validation_passed,
         if all_steps_success && all_steps_validation_passed {
             "Plan execution completed"
@@ -78,29 +199,127 @@ fn aggregate_plan_report(
     );
 
     if !all_steps_validation_passed {
-        let mut failures = Vec::new();
-        for (step_id, r) in step_reports {
-            if !r.validation_passed {
-                failures.push(format!(
-                    "{step_id}:{}",
-                    r.validation_error.as_deref().unwrap_or("validation failed")
-                ));
-            }
-        }
+        let failures = collect_validation_failures(&state.step_reports);
         report = report.with_validation_result(false, Some(failures.join("; ")));
     }
 
-    if let Some(trace) = merge_step_traces(step_reports, config) {
+    if let Some(trace) = merge_step_traces(&state.step_reports, config) {
         report = report.with_explanation(trace);
     }
 
     report
 }
 
-struct StepBatchItem<'a> {
-    step: &'a CalibrationStep,
-    quotes: &'a [MarketQuote],
+/// Collect validation failure messages from step reports.
+fn collect_validation_failures(step_reports: &BTreeMap<String, CalibrationReport>) -> Vec<String> {
+    step_reports
+        .iter()
+        .filter(|(_, r)| !r.validation_passed)
+        .map(|(step_id, r)| {
+            format!(
+                "{step_id}:{}",
+                r.validation_error.as_deref().unwrap_or("validation failed")
+            )
+        })
+        .collect()
 }
+
+/// Execute a batch of steps in parallel.
+fn execute_batch(
+    batch: &[StepBatchItem],
+    context: &MarketContext,
+    settings: &CalibrationConfig,
+) -> Result<Vec<StepOutcome>> {
+    if batch.len() == 1 {
+        let item = &batch[0];
+        let outcome = step_runtime::execute(item.step, item.quotes, context, settings)?;
+        return Ok(vec![outcome]);
+    }
+
+    batch
+        .par_iter()
+        .map(|item| step_runtime::execute(item.step, item.quotes, context, settings))
+        .collect()
+}
+
+/// Apply batch results to context and state.
+fn apply_batch_results(
+    batch: Vec<StepBatchItem>,
+    results: Vec<StepOutcome>,
+    context: &mut MarketContext,
+    state: &mut ExecutionState,
+) {
+    for (item, result) in batch.into_iter().zip(results) {
+        let StepOutcome {
+            output,
+            report,
+            credit_index_update,
+        } = result;
+        step_runtime::apply_output(context, output, credit_index_update);
+        state.record_result(&item.step.id, report);
+    }
+}
+
+/// Execute steps in parallel mode.
+fn execute_parallel(
+    plan: &CalibrationPlan,
+    context: &mut MarketContext,
+    state: &mut ExecutionState,
+) -> Result<()> {
+    let mut index = 0;
+    while index < plan.steps.len() {
+        let mut builder = ParallelBatchBuilder::new(plan);
+
+        // Build batch of independent steps
+        while index < plan.steps.len() {
+            match builder.try_add(&plan.steps[index], context) {
+                BatchAddResult::Added => index += 1,
+                BatchAddResult::Stop => break,
+                BatchAddResult::Error(e) => return Err(e),
+            }
+        }
+
+        if builder.is_empty() {
+            continue;
+        }
+
+        let batch = builder.take_batch();
+        let results = execute_batch(&batch, context, &plan.settings)?;
+        apply_batch_results(batch, results, context, state);
+    }
+    Ok(())
+}
+
+/// Execute steps in sequential mode.
+fn execute_sequential(
+    plan: &CalibrationPlan,
+    context: &mut MarketContext,
+    state: &mut ExecutionState,
+) -> Result<()> {
+    for step in &plan.steps {
+        let quotes = plan.quote_sets.get(&step.quote_set).ok_or_else(|| {
+            finstack_core::Error::Input(finstack_core::InputError::NotFound {
+                id: format!("Quote set '{}' not found", step.quote_set),
+            })
+        })?;
+
+        preflight_step(step, quotes, context, &plan.settings)?;
+
+        let outcome = step_runtime::execute(step, quotes, context, &plan.settings)?;
+        let StepOutcome {
+            output,
+            report,
+            credit_index_update,
+        } = outcome;
+        step_runtime::apply_output(context, output, credit_index_update);
+        state.record_result(&step.id, report);
+    }
+    Ok(())
+}
+
+// =============================================================================
+// Public API
+// =============================================================================
 
 /// Execute a full [`CalibrationEnvelope`] plan.
 ///
@@ -114,109 +333,18 @@ pub fn execute(envelope: &CalibrationEnvelope) -> Result<CalibrationResultEnvelo
         None => MarketContext::new(),
     };
     let plan = &envelope.plan;
-    let mut aggregated_residuals = BTreeMap::new();
-    let mut total_iterations = 0;
-    let mut step_reports = BTreeMap::new();
+    let mut state = ExecutionState::new();
 
-    // 1. Execution loop (with per-step preflight validation against the current context)
+    // Execute based on mode
     if plan.settings.use_parallel {
-        let mut index = 0;
-        while index < plan.steps.len() {
-            let mut batch = Vec::new();
-            let mut curve_outputs: finstack_core::HashSet<_> = HashSet::default();
-            let mut surface_outputs: finstack_core::HashSet<_> = HashSet::default();
-
-            while index < plan.steps.len() {
-                let step = &plan.steps[index];
-                let quotes = plan.quote_sets.get(&step.quote_set).ok_or_else(|| {
-                    finstack_core::Error::Input(finstack_core::InputError::NotFound {
-                        id: format!("Quote set '{}' not found", step.quote_set),
-                    })
-                })?;
-
-                match preflight_step(step, quotes, &context, &plan.settings) {
-                    Ok(()) => {}
-                    Err(err) => {
-                        if batch.is_empty() {
-                            return Err(err);
-                        }
-                        break;
-                    }
-                }
-
-                match step_runtime::output_key(step) {
-                    OutputKey::Curve(id) => {
-                        if !curve_outputs.insert(id) {
-                            break;
-                        }
-                    }
-                    OutputKey::Surface(id) => {
-                        if !surface_outputs.insert(id) {
-                            break;
-                        }
-                    }
-                }
-
-                batch.push(StepBatchItem {
-                    step,
-                    quotes: quotes.as_slice(),
-                });
-                index += 1;
-            }
-
-            let results: Vec<StepOutcome> = if batch.len() == 1 {
-                let item = &batch[0];
-                let outcome =
-                    step_runtime::execute(item.step, item.quotes, &context, &plan.settings)?;
-                vec![outcome]
-            } else {
-                batch
-                    .par_iter()
-                    .map(|item| {
-                        step_runtime::execute(item.step, item.quotes, &context, &plan.settings)
-                    })
-                    .collect::<Result<Vec<_>>>()?
-            };
-
-            for (item, result) in batch.iter().zip(results) {
-                step_runtime::apply_output(&mut context, result.output, result.credit_index_update);
-
-                for (k, v) in &result.report.residuals {
-                    aggregated_residuals.insert(format!("{}:{}", item.step.id, k), *v);
-                }
-                total_iterations += result.report.iterations;
-                step_reports.insert(item.step.id.clone(), result.report);
-            }
-        }
+        execute_parallel(plan, &mut context, &mut state)?;
     } else {
-        for step in &plan.steps {
-            let quotes = plan.quote_sets.get(&step.quote_set).ok_or_else(|| {
-                finstack_core::Error::Input(finstack_core::InputError::NotFound {
-                    id: format!("Quote set '{}' not found", step.quote_set),
-                })
-            })?;
-
-            preflight_step(step, quotes, &context, &plan.settings)?;
-
-            let outcome = step_runtime::execute(step, quotes, &context, &plan.settings)?;
-            step_runtime::apply_output(&mut context, outcome.output, outcome.credit_index_update);
-
-            // Aggregate report
-            for (k, v) in &outcome.report.residuals {
-                aggregated_residuals.insert(format!("{}:{}", step.id, k), *v);
-            }
-            total_iterations += outcome.report.iterations;
-            step_reports.insert(step.id.clone(), outcome.report);
-        }
+        execute_sequential(plan, &mut context, &mut state)?;
     }
 
-    // 2. Build result
-    let aggregated_report = aggregate_plan_report(
-        aggregated_residuals,
-        total_iterations,
-        &step_reports,
-        &plan.settings,
-    );
+    // Build result
+    let step_reports = state.step_reports.clone();
+    let aggregated_report = aggregate_plan_report(state, &plan.settings);
 
     let result = CalibrationResult {
         final_market: (&context).into(),
@@ -236,6 +364,19 @@ mod tests {
     use super::*;
     use finstack_core::explain::ExplanationTrace;
 
+    /// Helper to create an ExecutionState for testing.
+    fn make_test_state(
+        residuals: BTreeMap<String, f64>,
+        iterations: usize,
+        step_reports: BTreeMap<String, CalibrationReport>,
+    ) -> ExecutionState {
+        ExecutionState {
+            aggregated_residuals: residuals,
+            total_iterations: iterations,
+            step_reports,
+        }
+    }
+
     #[test]
     fn aggregated_report_computes_rmse_and_objective() {
         let mut step_reports = BTreeMap::new();
@@ -254,7 +395,8 @@ mod tests {
             solver: crate::calibration::solver::SolverConfig::brent_default().with_tolerance(1e-12),
             ..Default::default()
         };
-        let report = aggregate_plan_report(aggregated_residuals, 5, &step_reports, &cfg);
+        let state = make_test_state(aggregated_residuals, 5, step_reports);
+        let report = aggregate_plan_report(state, &cfg);
 
         let expected = ((3.0_f64 * 3.0 + 4.0 * 4.0) / 2.0).sqrt();
         assert!((report.rmse - expected).abs() < 1e-12);
@@ -280,7 +422,8 @@ mod tests {
             explain: finstack_core::explain::ExplainOpts::enabled(),
             ..Default::default()
         };
-        let report = aggregate_plan_report(BTreeMap::new(), 0, &step_reports, &cfg);
+        let state = make_test_state(BTreeMap::new(), 0, step_reports);
+        let report = aggregate_plan_report(state, &cfg);
         let trace = report.explanation.expect("merged explanation");
         assert!(
             trace
@@ -299,7 +442,8 @@ mod tests {
         step_reports.insert("curve_step".to_string(), failed);
 
         let cfg = crate::calibration::config::CalibrationConfig::default();
-        let report = aggregate_plan_report(BTreeMap::new(), 1, &step_reports, &cfg);
+        let state = make_test_state(BTreeMap::new(), 1, step_reports);
+        let report = aggregate_plan_report(state, &cfg);
 
         assert!(!report.validation_passed);
         assert!(!report.success);

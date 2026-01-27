@@ -339,6 +339,60 @@ impl Tenor {
         }
     }
 
+    /// Convert tenor to an approximate number of days.
+    ///
+    /// This uses consistent approximations that align with [`to_years_simple`](Self::to_years_simple):
+    /// - 1D = 1 day
+    /// - 1W = 7 days
+    /// - 1M = 365/12 ≈ 30.42 days (consistent with 1M = 1/12 year)
+    /// - 1Y = 365 days
+    ///
+    /// The month approximation uses 365/12 rather than 30 to maintain consistency
+    /// with year fraction calculations. This avoids discrepancies when converting
+    /// between days and years for multi-year periods.
+    ///
+    /// # Returns
+    /// Approximate number of days as i64.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::dates::Tenor;
+    /// # fn main() -> finstack_core::Result<()> {
+    ///
+    /// let tenor = Tenor::parse("1D")?;
+    /// assert_eq!(tenor.to_days_approx(), 1);
+    ///
+    /// let tenor = Tenor::parse("1W")?;
+    /// assert_eq!(tenor.to_days_approx(), 7);
+    ///
+    /// let tenor = Tenor::parse("1M")?;
+    /// assert_eq!(tenor.to_days_approx(), 30); // 365/12 ≈ 30.42, rounded
+    ///
+    /// let tenor = Tenor::parse("1Y")?;
+    /// assert_eq!(tenor.to_days_approx(), 365);
+    ///
+    /// // Multi-year consistency: 5Y = 5 * 365 days
+    /// let tenor = Tenor::parse("5Y")?;
+    /// assert_eq!(tenor.to_days_approx(), 1825);
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[inline]
+    pub fn to_days_approx(&self) -> i64 {
+        const DAYS_PER_YEAR: f64 = 365.0;
+        const DAYS_PER_MONTH: f64 = DAYS_PER_YEAR / 12.0; // ≈ 30.4167
+
+        let count = f64::from(self.count);
+        let days = match self.unit {
+            TenorUnit::Days => count,
+            TenorUnit::Weeks => count * 7.0,
+            TenorUnit::Months => count * DAYS_PER_MONTH,
+            TenorUnit::Years => count * DAYS_PER_YEAR,
+        };
+        days.round() as i64
+    }
+
     /// Add the tenor to a date, optionally respecting a business day calendar.
     ///
     /// # Arguments
@@ -647,6 +701,44 @@ mod tests {
         assert!((Tenor::parse("6M").expect("valid").to_years_simple() - 0.5).abs() < 1e-10);
         assert!((Tenor::parse("1Y").expect("valid").to_years_simple() - 1.0).abs() < 1e-10);
         assert!((Tenor::parse("5Y").expect("valid").to_years_simple() - 5.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_to_days_approx() {
+        // Days and weeks are exact
+        assert_eq!(Tenor::parse("1D").expect("valid").to_days_approx(), 1);
+        assert_eq!(Tenor::parse("7D").expect("valid").to_days_approx(), 7);
+        assert_eq!(Tenor::parse("1W").expect("valid").to_days_approx(), 7);
+        assert_eq!(Tenor::parse("2W").expect("valid").to_days_approx(), 14);
+
+        // Months use 365/12 ≈ 30.4167, rounded
+        // 1M: 30.4167 → 30
+        // 3M: 91.25 → 91
+        // 6M: 182.5 → 183 (rounds up)
+        // 12M: 365.0 → 365
+        assert_eq!(Tenor::parse("1M").expect("valid").to_days_approx(), 30);
+        assert_eq!(Tenor::parse("3M").expect("valid").to_days_approx(), 91);
+        assert_eq!(Tenor::parse("6M").expect("valid").to_days_approx(), 183);
+        assert_eq!(Tenor::parse("12M").expect("valid").to_days_approx(), 365);
+
+        // Years are exact
+        assert_eq!(Tenor::parse("1Y").expect("valid").to_days_approx(), 365);
+        assert_eq!(Tenor::parse("5Y").expect("valid").to_days_approx(), 1825);
+
+        // Consistency: to_days_approx() / 365 ≈ to_years_simple()
+        for tenor_str in &["1M", "3M", "6M", "1Y", "5Y"] {
+            let tenor = Tenor::parse(tenor_str).expect("valid");
+            let days = tenor.to_days_approx() as f64;
+            let years = tenor.to_years_simple();
+            // Allow 1 day tolerance due to rounding
+            assert!(
+                (days / 365.0 - years).abs() < 0.003,
+                "Consistency failed for {}: days={}, years={}",
+                tenor_str,
+                days,
+                years
+            );
+        }
     }
 
     #[test]

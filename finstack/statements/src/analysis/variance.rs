@@ -46,6 +46,7 @@
 
 use crate::error::{Error, Result};
 use crate::evaluator::Results;
+use crate::utils::constants::EPSILON;
 use finstack_core::dates::PeriodId;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -239,7 +240,7 @@ impl<'a> VarianceAnalyzer<'a> {
                 })?;
 
                 let abs_var = comparison - baseline;
-                let pct_var = if baseline.abs() < 1e-10 {
+                let pct_var = if baseline.abs() < EPSILON {
                     0.0
                 } else {
                     abs_var / baseline

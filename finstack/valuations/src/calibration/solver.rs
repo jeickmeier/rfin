@@ -24,7 +24,7 @@
 pub mod bootstrap;
 mod config;
 pub mod global;
-mod helpers;
+pub(crate) mod helpers;
 /// Solver traits for bootstrap and global optimization.
 pub mod traits;
 

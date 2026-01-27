@@ -21,4 +21,4 @@ pub use asset_corr::{
     apply_selective_correlation_shock,
 };
 pub use time_roll::RollForwardReport;
-pub use vol::ArbitrageViolation;
+pub use vol::{check_arbitrage, ArbitrageViolation};

@@ -157,63 +157,121 @@ impl DiscountCurveTarget {
     ) -> Vec<f64> {
         let mut grid = Vec::with_capacity(num_points + 20);
 
-        if df_lo.is_finite() && df_lo > 0.0 {
-            grid.push(df_lo);
-        }
-        if df_hi.is_finite() && df_hi > 0.0 && (df_hi - df_lo).abs() > TOLERANCE_DUP_KNOTS {
-            grid.push(df_hi);
-        }
+        // Add boundary points
+        Self::add_boundary_points(&mut grid, df_lo, df_hi);
 
+        // Add coarse grid points
         let center = initial_df.clamp(df_lo, df_hi);
         let use_log_spacing = df_lo > DF_MIN_HARD && df_hi / df_lo > 10.0;
+        Self::add_coarse_grid_points(&mut grid, df_lo, df_hi, num_points, use_log_spacing);
 
-        if use_log_spacing {
-            let log_lo = df_lo.ln();
-            let log_hi = df_hi.ln();
-            let coarse_points = num_points.saturating_sub(10).max(8);
-            for i in 1..coarse_points {
-                let t = i as f64 / coarse_points as f64;
-                let log_df = log_lo + t * (log_hi - log_lo);
-                let df = log_df.exp();
-                if df.is_finite() && df > 0.0 && df > df_lo && df < df_hi {
-                    grid.push(df);
-                }
-            }
-        } else {
-            let coarse_points = num_points.saturating_sub(10).max(8);
-            for i in 1..coarse_points {
-                let t = i as f64 / coarse_points as f64;
-                let df = df_lo + t * (df_hi - df_lo);
-                if df.is_finite() && df > 0.0 && df > df_lo && df < df_hi {
-                    grid.push(df);
-                }
-            }
-        }
+        // Add fine grid around center
+        Self::add_fine_grid_around_center(&mut grid, center, df_lo, df_hi);
 
-        if center.is_finite() && center > 0.0 {
-            grid.push(center);
-            let log_center = center.ln();
-            let log_lo = df_lo.max(DF_MIN_HARD).ln();
-            let log_hi = df_hi.max(DF_MIN_HARD).ln();
-            const LOG_STEPS: [f64; 8] = [1e-4, 2e-4, 5e-4, 1e-3, 2e-3, 5e-3, 1e-2, 2e-2];
-            for step in LOG_STEPS {
-                for sign in [-1.0, 1.0] {
-                    let candidate = log_center + sign * step;
-                    if candidate >= log_lo && candidate <= log_hi {
-                        let df = candidate.exp();
-                        if df >= df_lo && df <= df_hi && df.is_finite() && df > 0.0 {
-                            grid.push(df);
-                        }
-                    }
-                }
-            }
-        }
-
-        // Keep scan points ordered in x-space so bracketing logic can reliably detect
-        // adjacent sign changes.
+        // Sort and deduplicate
         grid.sort_by(|a, b| b.total_cmp(a));
         grid.dedup_by(|a, b| (*a - *b).abs() < (df_hi - df_lo) * TOLERANCE_GRID_DEDUP);
         grid
+    }
+
+    /// Add boundary points to the grid if valid.
+    fn add_boundary_points(grid: &mut Vec<f64>, df_lo: f64, df_hi: f64) {
+        if Self::is_valid_df(df_lo) {
+            grid.push(df_lo);
+        }
+        if Self::is_valid_df(df_hi) && (df_hi - df_lo).abs() > TOLERANCE_DUP_KNOTS {
+            grid.push(df_hi);
+        }
+    }
+
+    /// Add coarse grid points between bounds using linear or log spacing.
+    fn add_coarse_grid_points(
+        grid: &mut Vec<f64>,
+        df_lo: f64,
+        df_hi: f64,
+        num_points: usize,
+        use_log_spacing: bool,
+    ) {
+        let coarse_points = num_points.saturating_sub(10).max(8);
+
+        for i in 1..coarse_points {
+            let t = i as f64 / coarse_points as f64;
+            let df = if use_log_spacing {
+                Self::interpolate_log(df_lo, df_hi, t)
+            } else {
+                Self::interpolate_linear(df_lo, df_hi, t)
+            };
+
+            if Self::is_valid_df_in_range(df, df_lo, df_hi) {
+                grid.push(df);
+            }
+        }
+    }
+
+    /// Add fine grid points around the center for better precision.
+    fn add_fine_grid_around_center(grid: &mut Vec<f64>, center: f64, df_lo: f64, df_hi: f64) {
+        if !Self::is_valid_df(center) {
+            return;
+        }
+
+        grid.push(center);
+
+        let log_center = center.ln();
+        let log_lo = df_lo.max(DF_MIN_HARD).ln();
+        let log_hi = df_hi.max(DF_MIN_HARD).ln();
+
+        const LOG_STEPS: [f64; 8] = [1e-4, 2e-4, 5e-4, 1e-3, 2e-3, 5e-3, 1e-2, 2e-2];
+
+        for step in LOG_STEPS {
+            Self::try_add_log_offset(grid, log_center, -step, log_lo, log_hi, df_lo, df_hi);
+            Self::try_add_log_offset(grid, log_center, step, log_lo, log_hi, df_lo, df_hi);
+        }
+    }
+
+    /// Try to add a point at log_center + offset if it's valid.
+    fn try_add_log_offset(
+        grid: &mut Vec<f64>,
+        log_center: f64,
+        offset: f64,
+        log_lo: f64,
+        log_hi: f64,
+        df_lo: f64,
+        df_hi: f64,
+    ) {
+        let candidate = log_center + offset;
+        if candidate < log_lo || candidate > log_hi {
+            return;
+        }
+        let df = candidate.exp();
+        if Self::is_valid_df_in_range(df, df_lo, df_hi) {
+            grid.push(df);
+        }
+    }
+
+    /// Check if a discount factor is valid (finite and positive).
+    #[inline]
+    fn is_valid_df(df: f64) -> bool {
+        df.is_finite() && df > 0.0
+    }
+
+    /// Check if a discount factor is valid and within the given range (exclusive bounds).
+    #[inline]
+    fn is_valid_df_in_range(df: f64, lo: f64, hi: f64) -> bool {
+        df.is_finite() && df > 0.0 && df > lo && df < hi
+    }
+
+    /// Interpolate linearly between two values.
+    #[inline]
+    fn interpolate_linear(lo: f64, hi: f64, t: f64) -> f64 {
+        lo + t * (hi - lo)
+    }
+
+    /// Interpolate logarithmically between two values.
+    #[inline]
+    fn interpolate_log(lo: f64, hi: f64, t: f64) -> f64 {
+        let log_lo = lo.ln();
+        let log_hi = hi.ln();
+        (log_lo + t * (log_hi - log_lo)).exp()
     }
 
     fn with_temp_context<F, T>(&self, curve: &DiscountCurve, op: F) -> Result<T>

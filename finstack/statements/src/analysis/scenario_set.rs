@@ -44,6 +44,8 @@ use indexmap::{IndexMap, IndexSet};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "dataframes")]
+use crate::utils::constants::EPSILON;
+#[cfg(feature = "dataframes")]
 use polars::prelude::*;
 
 /// Definition for a single named scenario.
@@ -361,7 +363,7 @@ impl ScenarioResults {
 
                         let pct = match (baseline_value, value) {
                             (Some(base), Some(v)) => {
-                                if base.abs() < 1e-10 {
+                                if base.abs() < EPSILON {
                                     Some(0.0)
                                 } else {
                                     Some((v - base) / base)

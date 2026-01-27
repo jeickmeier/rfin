@@ -2,6 +2,48 @@
 //!
 //! This module implements dynamic cash flow allocation according to priority of payments,
 //! excess cash flow sweeps, and PIK toggles based on model results.
+//!
+//! # Sign Conventions
+//!
+//! The ECF (Excess Cash Flow) sweep calculation follows standard LBO model conventions:
+//!
+//! ## Input Nodes
+//!
+//! - **EBITDA** (`ebitda_node`): Positive value representing operating cash generation.
+//!   Example: $10M EBITDA → use `10_000_000.0`
+//!
+//! - **Taxes** (`taxes_node`): Positive value representing cash tax payments (outflow).
+//!   Example: $2M taxes paid → use `2_000_000.0` (not negative)
+//!
+//! - **CapEx** (`capex_node`): Positive value representing capital expenditures (outflow).
+//!   Example: $1.5M capex → use `1_500_000.0` (not negative)
+//!
+//! - **Working Capital** (`working_capital_node`): Signed value representing change in NWC.
+//!   - Positive = cash consumed (increase in receivables/inventory)
+//!   - Negative = cash released (increase in payables)
+//!   - Example: $500K increase in NWC → use `500_000.0`
+//!
+//! ## ECF Calculation
+//!
+//! ```text
+//! ECF = EBITDA - Taxes - CapEx - Working_Capital_Change
+//! Sweep = max(0, ECF × sweep_percentage)
+//! ```
+//!
+//! The sweep is floored at zero (cannot sweep negative cash flow) and then
+//! applied as additional principal prepayment to the target instrument.
+//!
+//! ## Example
+//!
+//! ```text
+//! EBITDA:    $10,000,000  (positive)
+//! Taxes:     $ 2,000,000  (positive = outflow)
+//! CapEx:     $ 1,500,000  (positive = outflow)
+//! ΔWC:       $   500,000  (positive = cash used)
+//! ─────────────────────────────────
+//! ECF:       $ 6,000,000
+//! Sweep @50%: $ 3,000,000 → applied to debt prepayment
+//! ```
 
 use crate::capital_structure::types::*;
 use crate::error::Result;

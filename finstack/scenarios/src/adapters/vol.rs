@@ -13,9 +13,27 @@
 //!
 //! # Arbitrage Detection
 //!
-//! After applying shocks, basic arbitrage validation is performed:
-//! - Calendar spread: Total variance must be non-decreasing in expiry
-//! - Positive vol: All volatilities must be positive
+//! The [`check_arbitrage`] function can validate vol surface grids for common
+//! arbitrage violations:
+//! - **Calendar spread**: Total variance must be non-decreasing in expiry
+//! - **Positive vol**: All volatilities must be positive
+//!
+//! Since vol bumps are applied via `MarketBump` (delegated to the market context),
+//! arbitrage validation should be performed by the caller after scenario application
+//! if needed. Large negative percentage shocks (e.g., -50%) on short-dated options
+//! may produce non-positive vols.
+//!
+//! # Example
+//!
+//! ```rust,ignore
+//! use finstack_scenarios::adapters::vol::{check_arbitrage, ArbitrageViolation};
+//!
+//! // After applying vol shocks, validate the resulting surface:
+//! let violations = check_arbitrage(&expiries, &strikes, &vols);
+//! for v in &violations {
+//!     eprintln!("Warning: {}", v);
+//! }
+//! ```
 
 use crate::error::Result;
 use crate::utils::parse_tenor_to_years;
@@ -99,15 +117,37 @@ impl std::fmt::Display for ArbitrageViolation {
 
 /// Check a vol surface grid for arbitrage violations.
 ///
+/// Validates the surface for:
+/// - **Calendar spread arbitrage**: Total variance must be non-decreasing in expiry.
+///   If variance decreases, a calendar spread can be constructed for risk-free profit.
+/// - **Non-positive volatility**: All vols must be positive. Negative or zero vols
+///   indicate either data errors or excessive negative shocks.
+///
 /// # Arguments
-/// - `expiries`: Expiry times in years
+/// - `expiries`: Expiry times in years (must be sorted ascending)
 /// - `strikes`: Strike levels
-/// - `vols`: 2D grid of volatilities [expiry_idx][strike_idx]
+/// - `vols`: 2D grid of volatilities indexed as `vols[expiry_idx][strike_idx]`
 ///
 /// # Returns
-/// Vector of detected arbitrage violations (empty if none).
-#[allow(dead_code)]
-fn check_arbitrage(
+/// Vector of detected arbitrage violations (empty if surface is clean).
+///
+/// # Example
+///
+/// ```rust
+/// use finstack_scenarios::adapters::vol::{check_arbitrage, ArbitrageViolation};
+///
+/// let expiries = vec![0.25, 0.5, 1.0];
+/// let strikes = vec![100.0];
+/// let vols = vec![
+///     vec![0.20], // 0.25Y
+///     vec![0.19], // 0.5Y
+///     vec![0.18], // 1Y
+/// ];
+///
+/// let violations = check_arbitrage(&expiries, &strikes, &vols);
+/// assert!(violations.is_empty(), "Surface should be arbitrage-free");
+/// ```
+pub fn check_arbitrage(
     expiries: &[f64],
     strikes: &[f64],
     vols: &[Vec<f64>],
@@ -159,6 +199,10 @@ use crate::spec::OperationSpec;
 /// Adapter for volatility surface operations.
 pub struct VolAdapter;
 
+/// Threshold for warning about large negative vol shocks that may cause arbitrage.
+/// A -50% shock could produce non-positive vols for low-vol points.
+const LARGE_NEGATIVE_VOL_SHOCK_PCT: f64 = -50.0;
+
 impl ScenarioAdapter for VolAdapter {
     fn try_generate_effects(
         &self,
@@ -169,6 +213,18 @@ impl ScenarioAdapter for VolAdapter {
             OperationSpec::VolSurfaceParallelPct {
                 surface_id, pct, ..
             } => {
+                let mut effects = Vec::new();
+
+                // Warn about potentially problematic vol shocks
+                if *pct <= LARGE_NEGATIVE_VOL_SHOCK_PCT {
+                    effects.push(ScenarioEffect::Warning(format!(
+                        "Vol surface '{}': Large negative shock ({:.1}%) may produce \
+                         non-positive vols or calendar spread arbitrage. Consider using \
+                         check_arbitrage() to validate post-shock surface.",
+                        surface_id, pct
+                    )));
+                }
+
                 let bump = MarketBump::Curve {
                     id: finstack_core::types::CurveId::from(surface_id.as_str()),
                     spec: BumpSpec {
@@ -178,7 +234,9 @@ impl ScenarioAdapter for VolAdapter {
                         bump_type: BumpType::Parallel,
                     },
                 };
-                Ok(Some(vec![ScenarioEffect::MarketBump(bump)]))
+                effects.push(ScenarioEffect::MarketBump(bump));
+
+                Ok(Some(effects))
             }
             OperationSpec::VolSurfaceBucketPct {
                 surface_id,
@@ -188,6 +246,16 @@ impl ScenarioAdapter for VolAdapter {
                 ..
             } => {
                 let mut warnings = Vec::new();
+
+                // Warn about potentially problematic vol shocks
+                if *pct <= LARGE_NEGATIVE_VOL_SHOCK_PCT {
+                    warnings.push(format!(
+                        "Vol surface '{}': Large negative bucket shock ({:.1}%) may produce \
+                         non-positive vols or calendar spread arbitrage. Consider using \
+                         check_arbitrage() to validate post-shock surface.",
+                        surface_id, pct
+                    ));
+                }
 
                 // Parse tenor strings to years if present
                 let exp_years = if let Some(t) = tenors {

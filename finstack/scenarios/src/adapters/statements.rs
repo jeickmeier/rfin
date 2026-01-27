@@ -191,6 +191,15 @@ fn convert_continuous_rate(
     comp: Compounding,
     year_fraction: f64,
 ) -> Result<f64> {
+    // Validate year fraction to prevent division by zero or invalid calculations
+    // in simple rate conversion: simple_rate = (exp(r * t) - 1) / t
+    if year_fraction <= 0.0 {
+        return Err(Error::Validation(format!(
+            "Year fraction must be positive for rate conversion, got {}",
+            year_fraction
+        )));
+    }
+
     let converted = match comp {
         Compounding::Continuous => continuous_rate,
         Compounding::Simple => continuous_to_simple(continuous_rate, year_fraction)

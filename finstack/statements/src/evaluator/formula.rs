@@ -17,47 +17,18 @@
 //! - Growth rates > 100% produce warnings
 //!
 //! ## Precision
-//! - Equality comparisons use EPSILON = 1e-10
+//! - Equality comparisons use [`EPSILON`] from [`crate::utils::constants`]
 //! - Suitable for rate comparisons (0.01 bp precision)
 //! - Monetary comparisons should use the `Money` type for currency safety
 
 use crate::error::{Error, Result};
 use crate::evaluator::context::EvaluationContext;
 use crate::evaluator::results::EvalWarning;
+use crate::utils::constants::EPSILON;
 use finstack_core::dates::{PeriodId, PeriodKind};
 use finstack_core::expr::{Expr, ExprNode, Function};
 use finstack_core::math::{kahan_sum, neumaier_sum};
 use std::collections::BTreeMap;
-
-/// Epsilon value for floating point comparisons.
-///
-/// # Value: 1e-10
-///
-/// This epsilon is used for:
-/// - **Equality comparisons** (`==`, `!=`): Values within ±1e-10 are considered equal
-/// - **Near-zero guards**: Division and percentage change operations
-///
-/// # Precision Guarantees
-/// - Rate/ratio comparisons: ±0.01 basis points (0.0001%)
-/// - Interest rate comparisons: sub-basis point precision
-/// - Monetary values: Suitable for values up to ~$1 trillion before precision loss
-///
-/// # Examples
-/// ```text
-/// 100_000_000.0 == 100_000_000.0000000001  // true (within epsilon)
-/// 100_000_000.0 == 100_000_001.0            // false (exceeds epsilon)
-/// 0.0001 == 0.00010000000001                // true (within epsilon)
-/// ```
-///
-/// # Breaking Change (v2.0)
-///
-/// As of version 2.0, the DSL `==` and `!=` operators use approximate equality
-/// with this epsilon tolerance. This prevents spurious inequality from floating-point
-/// rounding errors.
-///
-/// # Note
-/// For currency-safe comparisons with explicit rounding, use the `Money` type.
-const EPSILON: f64 = 1e-10;
 
 fn annotate_error(err: Error, node_id: Option<&str>) -> Error {
     match (node_id, err) {
@@ -775,6 +746,36 @@ fn evaluate_function(
         }
 
         Function::Quantile => {
+            // Quantile/Percentile Calculation
+            //
+            // # Interpolation Method
+            //
+            // This implementation uses **linear interpolation** (equivalent to numpy's
+            // `interpolation='linear'` or pandas' `interpolation='linear'`, also known
+            // as R's type=7 quantile).
+            //
+            // The formula is:
+            //   index = q * (n - 1)
+            //   quantile = x[floor(index)] * (1 - frac) + x[ceil(index)] * frac
+            //
+            // where frac = index - floor(index).
+            //
+            // # Comparison with Other Methods
+            //
+            // - **R-1 to R-9**: R provides 9 different quantile types. This is R-7.
+            // - **Excel PERCENTILE**: Uses a similar linear interpolation (R-7 equivalent).
+            // - **numpy default**: Also uses linear interpolation (R-7 equivalent).
+            // - **SciPy**: Defaults to R-9 (Blom's method) for some functions.
+            //
+            // For most financial applications, R-7/linear interpolation is appropriate
+            // as it provides intuitive results and matches Excel behavior.
+            //
+            // # Edge Cases
+            //
+            // - q=0.0: Returns minimum value
+            // - q=1.0: Returns maximum value
+            // - n=1: Returns the single value for any q
+            // - Empty data: Returns NaN
             require_args("quantile", args, 2, node_id)?;
 
             // Get the quantile level (e.g., 0.25 for 25th percentile)
@@ -805,7 +806,7 @@ fn evaluate_function(
 
             all_values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
 
-            // Calculate quantile value
+            // Calculate quantile using linear interpolation (R-7 / Excel / numpy default)
             let n = all_values.len() as f64;
             let index = quantile * (n - 1.0);
             let lower = index.floor() as usize;
@@ -814,7 +815,7 @@ fn evaluate_function(
             if lower == upper {
                 Ok(all_values[lower])
             } else {
-                // Linear interpolation
+                // Linear interpolation between adjacent values
                 let weight = index - lower as f64;
                 Ok(all_values[lower] * (1.0 - weight) + all_values[upper] * weight)
             }
@@ -1172,8 +1173,18 @@ fn evaluate_function(
 
         Function::EwmStd | Function::EwmVar => {
             // EWM variance and std support 2 or 3 arguments:
-            // - 2 args: ewm_var(series, alpha) — non-bias-corrected (pandas adjust=False)
+            // - 2 args: ewm_var(series, alpha) — bias-corrected (pandas adjust=True, market standard)
             // - 3 args: ewm_var(series, alpha, adjust) — bias correction enabled if adjust=1.0
+            //
+            // # Bias Correction (adjust=True)
+            //
+            // When adjust=True, we apply the bias correction factor at the end of the
+            // computation, not iteratively inside the loop. This matches pandas semantics
+            // for `ewm(..., adjust=True).var()`.
+            //
+            // The bias correction compensates for the fact that earlier observations have
+            // exponentially decaying weights that don't sum to 1.0. The correction factor
+            // is: 1 / (1 - (1-alpha)^n) where n is the number of observations.
             if args.len() < 2 || args.len() > 3 {
                 return Err(eval_error(
                     node_id,
@@ -1227,20 +1238,28 @@ fn evaluate_function(
             // Sort by period
             values.sort_by_key(|(period, _)| *period);
 
-            // Calculate EWM mean first
+            // Calculate EWM variance using the recursive formula:
+            //   ewm_var_t = (1 - alpha) * (ewm_var_{t-1} + alpha * (x_t - ewm_mean_{t-1})^2)
+            //
+            // This is the non-bias-corrected (adjust=False) variance.
             let mut ewm_mean = values[0].1;
             let mut ewm_var = 0.0;
 
-            for (i, (_, value)) in values.iter().enumerate().skip(1) {
+            for (_, value) in values.iter().skip(1) {
                 let diff = value - ewm_mean;
                 ewm_mean = alpha * value + (1.0 - alpha) * ewm_mean;
                 ewm_var = (1.0 - alpha) * (ewm_var + alpha * diff * diff);
+            }
 
-                // Apply bias correction if requested (pandas adjust=True)
-                if adjust {
-                    // Bias correction factor: 1 / (1 - (1-alpha)^(i+1))
-                    let bias_factor = 1.0 / (1.0 - (1.0 - alpha).powi((i + 1) as i32));
-                    ewm_var *= bias_factor;
+            // Apply bias correction AFTER the loop if requested (pandas adjust=True)
+            // This corrects for the fact that the sum of weights doesn't equal 1.0
+            if adjust {
+                let n = values.len();
+                // Bias correction factor: 1 / (1 - (1-alpha)^n)
+                // This accounts for the exponentially decaying weights not summing to 1
+                let weight_sum = 1.0 - (1.0 - alpha).powi(n as i32);
+                if weight_sum.abs() > EPSILON {
+                    ewm_var /= weight_sum;
                 }
             }
 

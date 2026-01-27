@@ -2,6 +2,7 @@
 
 use crate::error::{Error, Result};
 use crate::types::SeasonalMode;
+use crate::utils::constants::EPSILON;
 use finstack_core::dates::PeriodId;
 use indexmap::IndexMap;
 
@@ -180,7 +181,20 @@ pub fn timeseries_forecast(
     Ok(result)
 }
 
-/// Calculate linear trend using least squares regression
+/// Calculate linear trend using least squares regression.
+///
+/// # Numerical Stability
+///
+/// The standard least-squares formula can suffer from catastrophic cancellation
+/// when the denominator `n*sum_xx - sum_x²` is close to zero (highly correlated
+/// x values or insufficient variation). This function guards against this by
+/// checking for a near-zero denominator and returning a flat trend (mean value)
+/// in degenerate cases.
+///
+/// # Returns
+///
+/// A tuple `(slope, intercept)` where `y = slope * x + intercept`.
+/// For degenerate cases (constant x or insufficient data), returns `(0.0, mean_y)`.
 fn calculate_linear_trend(data: &[f64]) -> (f64, f64) {
     let n = data.len() as f64;
     let mut sum_x = 0.0;
@@ -196,7 +210,17 @@ fn calculate_linear_trend(data: &[f64]) -> (f64, f64) {
         sum_xy += x * y;
     }
 
-    let slope = (n * sum_xy - sum_x * sum_y) / (n * sum_xx - sum_x * sum_x);
+    let denominator = n * sum_xx - sum_x * sum_x;
+
+    // Guard against degenerate cases (near-zero denominator causes numerical instability)
+    if denominator.abs() < EPSILON {
+        // Degenerate case: constant x values or insufficient variation
+        // Return flat trend at mean value
+        let mean_y = if n > 0.0 { sum_y / n } else { 0.0 };
+        return (0.0, mean_y);
+    }
+
+    let slope = (n * sum_xy - sum_x * sum_y) / denominator;
     let intercept = (sum_y - slope * sum_x) / n;
 
     (slope, intercept)
@@ -325,11 +349,18 @@ fn seasonal_forecast_with_decomposition(
         let value = match mode {
             SeasonalMode::Additive => trend_value + seasonal_value,
             SeasonalMode::Multiplicative => {
-                // For multiplicative, seasonal is a factor
-                let seasonal_factor = if trend[0] != 0.0 {
-                    1.0 + seasonal_value / trend[0]
-                } else {
+                // For multiplicative, seasonal is a factor relative to trend level.
+                // Guard against near-zero trend to avoid numerical instability.
+                let seasonal_factor = if trend[0].abs() < EPSILON {
+                    log::warn!(
+                        "Near-zero trend ({:.2e}) in multiplicative seasonal decomposition at period {:?}; \
+                         using seasonal_factor=1.0 to avoid division instability",
+                        trend[0],
+                        period_id
+                    );
                     1.0
+                } else {
+                    1.0 + seasonal_value / trend[0]
                 };
                 trend_value * seasonal_factor
             }

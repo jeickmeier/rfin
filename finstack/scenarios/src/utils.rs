@@ -150,11 +150,15 @@ pub fn tenor_years_from_binding(
 
 /// Parse a period string to an integer number of days.
 ///
-/// Supports formats like:
-/// - "1D", "7D" → days
-/// - "1W" → 7 days
-/// - "1M" → 30 days
+/// Uses consistent approximations aligned with [`Tenor::to_years_simple`]:
+/// - "1D", "7D" → days (exact)
+/// - "1W" → 7 days (exact)
+/// - "1M" → 365/12 ≈ 30 days (consistent with 1M = 1/12 year)
 /// - "1Y" → 365 days
+///
+/// The month approximation uses 365/12 rather than 30 to maintain consistency
+/// with year fraction calculations. This ensures that time roll theta calculations
+/// align with tenor-to-years conversions.
 ///
 /// # Arguments
 /// - `period`: Period string matching one of the supported formats.
@@ -171,20 +175,24 @@ pub fn tenor_years_from_binding(
 /// # use finstack_scenarios::utils::parse_period_to_days;
 /// assert_eq!(parse_period_to_days("1D").unwrap(), 1);
 /// assert_eq!(parse_period_to_days("1W").unwrap(), 7);
-/// assert_eq!(parse_period_to_days("1M").unwrap(), 30);
+/// assert_eq!(parse_period_to_days("1M").unwrap(), 30); // 365/12 rounded
 /// assert_eq!(parse_period_to_days("1Y").unwrap(), 365);
+/// assert_eq!(parse_period_to_days("12M").unwrap(), 365); // Consistent with 1Y
 /// ```
 pub fn parse_period_to_days(period: &str) -> Result<i64> {
     let parsed = Tenor::parse(period).map_err(|e| Error::InvalidPeriod(e.to_string()))?;
+    Ok(parsed.to_days_approx())
+}
 
-    let days = match parsed.unit {
-        finstack_core::dates::TenorUnit::Days => i64::from(parsed.count),
-        finstack_core::dates::TenorUnit::Weeks => i64::from(parsed.count) * 7,
-        finstack_core::dates::TenorUnit::Months => i64::from(parsed.count) * 30,
-        finstack_core::dates::TenorUnit::Years => i64::from(parsed.count) * 365,
-    };
-
-    Ok(days)
+/// Result of interpolation weight calculation, including any extrapolation info.
+#[derive(Debug, Clone)]
+pub struct InterpolationResult {
+    /// Weights as (knot_index, weight) pairs.
+    pub weights: Vec<(usize, f64)>,
+    /// True if target is beyond the curve's maximum knot (extrapolation).
+    pub is_extrapolation: bool,
+    /// If extrapolation, how far beyond the curve (in years).
+    pub extrapolation_distance: Option<f64>,
 }
 
 /// Calculate weights for distributing a bump at `target` year to adjacent curve pillars.
@@ -200,33 +208,101 @@ pub fn parse_period_to_days(period: &str) -> Result<i64> {
 /// # Returns
 /// A vector of `(index, weight)` tuples. Usually contains 1 (exact match or extrapolation)
 /// or 2 (interpolation) elements.
+///
+/// # Extrapolation Behavior
+///
+/// When `target` exceeds the curve's maximum knot, flat extrapolation is used:
+/// - All weight is assigned to the last knot point
+/// - This is consistent with standard curve extrapolation conventions
+/// - For extrapolation detection, use [`calculate_interpolation_weights_with_info`]
 pub fn calculate_interpolation_weights(target: f64, knots: &[f64]) -> Vec<(usize, f64)> {
+    calculate_interpolation_weights_with_info(target, knots).weights
+}
+
+/// Calculate interpolation weights with detailed extrapolation information.
+///
+/// Like [`calculate_interpolation_weights`], but also returns information about
+/// whether extrapolation occurred and how far beyond the curve the target is.
+///
+/// # Arguments
+/// - `target`: The time (in years) where the shock is applied.
+/// - `knots`: Sorted slice of knot times (in years).
+///
+/// # Returns
+/// [`InterpolationResult`] containing weights and extrapolation metadata.
+///
+/// # Example
+///
+/// ```rust
+/// use finstack_scenarios::utils::calculate_interpolation_weights_with_info;
+///
+/// let knots = vec![1.0, 2.0, 5.0, 10.0];
+///
+/// // Interpolation case
+/// let result = calculate_interpolation_weights_with_info(3.0, &knots);
+/// assert!(!result.is_extrapolation);
+///
+/// // Extrapolation case (beyond 10Y curve)
+/// let result = calculate_interpolation_weights_with_info(15.0, &knots);
+/// assert!(result.is_extrapolation);
+/// assert!((result.extrapolation_distance.unwrap() - 5.0).abs() < 1e-6);
+/// ```
+pub fn calculate_interpolation_weights_with_info(
+    target: f64,
+    knots: &[f64],
+) -> InterpolationResult {
     if knots.is_empty() {
-        return vec![];
+        return InterpolationResult {
+            weights: vec![],
+            is_extrapolation: false,
+            extrapolation_distance: None,
+        };
     }
+
+    let max_knot = knots[knots.len() - 1];
+    let min_knot = knots[0];
+
+    // Check for extrapolation beyond curve range
+    let (is_extrapolation, extrapolation_distance) = if target > max_knot + 1e-10 {
+        (true, Some(target - max_knot))
+    } else if target < min_knot - 1e-10 {
+        (true, Some(min_knot - target))
+    } else {
+        (false, None)
+    };
 
     let pos = knots
         .iter()
         .position(|&t| t >= target)
         .unwrap_or(knots.len() - 1);
 
-    if pos == 0 {
-        return vec![(0, 1.0)];
-    }
-
-    let i0 = pos - 1;
-    let i1 = pos.min(knots.len() - 1);
-    let t0 = knots[i0];
-    let t1 = knots[i1];
-
-    if (t1 - t0).abs() < 1e-12 {
-        // Coincident points, distribute evenly to avoiding div/0
-        // (Should not happen in valid curves)
-        vec![(i0, 0.5), (i1, 0.5)]
+    let weights = if pos == 0 {
+        // Before or at first knot - flat extrapolation to first point
+        vec![(0, 1.0)]
+    } else if pos >= knots.len() || target > max_knot {
+        // Beyond last knot - flat extrapolation to last point
+        vec![(knots.len() - 1, 1.0)]
     } else {
-        let w1 = (target - t0) / (t1 - t0);
-        let w0 = 1.0 - w1;
-        vec![(i0, w0), (i1, w1)]
+        let i0 = pos - 1;
+        let i1 = pos;
+        let t0 = knots[i0];
+        let t1 = knots[i1];
+
+        if (t1 - t0).abs() < 1e-12 {
+            // Coincident points, distribute evenly to avoid div/0
+            // (Should not happen in valid curves)
+            vec![(i0, 0.5), (i1, 0.5)]
+        } else {
+            let w1 = (target - t0) / (t1 - t0);
+            let w0 = 1.0 - w1;
+            vec![(i0, w0), (i1, w1)]
+        }
+    };
+
+    InterpolationResult {
+        weights,
+        is_extrapolation,
+        extrapolation_distance,
     }
 }
 
@@ -246,11 +322,28 @@ mod tests {
 
     #[test]
     fn test_parse_period_days() {
+        // Days and weeks are exact
         assert_eq!(parse_period_to_days("1D").expect("valid period"), 1);
         assert_eq!(parse_period_to_days("7D").expect("valid period"), 7);
         assert_eq!(parse_period_to_days("1W").expect("valid period"), 7);
+
+        // Months use 365/12 ≈ 30.4167, rounded
+        // 1M: 30.4167 → 30
+        // 3M: 91.25 → 91
+        // 6M: 182.5 → 183 (rounds up)
         assert_eq!(parse_period_to_days("1M").expect("valid period"), 30);
+        assert_eq!(parse_period_to_days("3M").expect("valid period"), 91);
+        assert_eq!(parse_period_to_days("6M").expect("valid period"), 183);
+
+        // Years
         assert_eq!(parse_period_to_days("1Y").expect("valid period"), 365);
+
+        // Consistency: 12M should equal 1Y
+        assert_eq!(
+            parse_period_to_days("12M").expect("valid period"),
+            parse_period_to_days("1Y").expect("valid period"),
+            "12M should equal 1Y for consistency"
+        );
     }
 
     #[test]

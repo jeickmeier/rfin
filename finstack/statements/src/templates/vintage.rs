@@ -3,6 +3,7 @@
 use crate::builder::{ModelBuilder, Ready};
 use crate::error::Result;
 use crate::types::{NodeSpec, NodeType};
+use crate::utils::constants::EPSILON;
 
 /// Add a vintage buildup (cohort analysis) structure.
 ///
@@ -30,7 +31,7 @@ pub fn add_vintage_buildup(
 
     for (lag, &rate) in decay_curve.iter().enumerate() {
         // Skip zero rates to keep formula clean
-        if rate.abs() < 1e-10 {
+        if rate.abs() < EPSILON {
             continue;
         }
 

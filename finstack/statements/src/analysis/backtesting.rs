@@ -4,6 +4,7 @@
 //! predicted values against actual outcomes using standard error metrics.
 
 use crate::error::{Error, Result};
+use crate::utils::constants::EPSILON;
 
 /// Forecast accuracy metrics.
 ///
@@ -135,7 +136,7 @@ pub fn backtest_forecast(actual: &[f64], forecast: &[f64]) -> Result<ForecastMet
         .iter()
         .zip(forecast.iter())
         .map(|(a, f)| {
-            if a.abs() < 1e-10 {
+            if a.abs() < EPSILON {
                 // Skip near-zero actuals to avoid division by zero
                 0.0
             } else {

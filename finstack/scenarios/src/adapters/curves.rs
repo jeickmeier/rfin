@@ -10,12 +10,20 @@ use crate::adapters::traits::{ScenarioAdapter, ScenarioEffect};
 use crate::engine::ExecutionContext;
 use crate::error::{Error, Result};
 use crate::spec::{CurveKind, OperationSpec, TenorMatchMode};
-use crate::utils::{calculate_interpolation_weights, parse_tenor_to_years_with_context};
+use crate::utils::{calculate_interpolation_weights_with_info, parse_tenor_to_years_with_context};
 use finstack_core::dates::{BusinessDayConvention, DayCount};
 use finstack_core::market_data::bumps::{BumpSpec, Bumpable, MarketBump};
 
 /// Adapter for curve operations.
 pub struct CurveAdapter;
+
+/// Result of resolving bump targets, including any warnings.
+struct BumpTargetResult {
+    /// Resolved (time, bump_value) pairs for curve knots.
+    targets: Vec<(f64, f64)>,
+    /// Warnings generated during resolution (e.g., extrapolation).
+    warnings: Vec<String>,
+}
 
 // Helper function for resolving bump targets, used by CurveNodeBp
 fn resolve_bump_targets(
@@ -24,8 +32,13 @@ fn resolve_bump_targets(
     match_mode: TenorMatchMode,
     as_of: finstack_core::types::Date,
     day_count: DayCount,
-) -> Result<Vec<(f64, f64)>> {
+) -> Result<BumpTargetResult> {
     let mut targets = Vec::new();
+    let mut warnings = Vec::new();
+
+    // Calculate max knot for extrapolation warnings
+    let max_knot = knots.last().copied().unwrap_or(0.0);
+
     for (tenor_str, bp) in nodes {
         // Use calendar-aware parsing with curve's DayCount
         // We lack Calendar and BDC on the curve, so we assume Unadjusted/None.
@@ -79,14 +92,26 @@ fn resolve_bump_targets(
                     tenor_years_ctx
                 };
 
-                let weights = calculate_interpolation_weights(use_years, knots);
-                for (idx, weight) in weights {
+                // Use extrapolation-aware weight calculation
+                let result = calculate_interpolation_weights_with_info(use_years, knots);
+
+                // Emit warning if extrapolating beyond curve range
+                if result.is_extrapolation {
+                    let distance = result.extrapolation_distance.unwrap_or(0.0);
+                    warnings.push(format!(
+                        "Tenor '{}' ({:.2}Y) extrapolates beyond curve max ({:.2}Y) by {:.2}Y. \
+                         Using flat extrapolation to last pillar.",
+                        tenor_str, use_years, max_knot, distance
+                    ));
+                }
+
+                for (idx, weight) in result.weights {
                     targets.push((knots[idx], add * weight));
                 }
             }
         }
     }
-    Ok(targets)
+    Ok(BumpTargetResult { targets, warnings })
 }
 
 /// Resolve a deterministic discount curve ID for (re)calibration-based bumps.
@@ -191,41 +216,26 @@ impl ScenarioAdapter for CurveAdapter {
                         }]))
                     }
                     CurveKind::Forecast => {
-                        // Similar logic for forward curves?
-                        // rates.rs currently only has `bump_discount_curve`.
-                        // Forward curves might need a `bump_forward_curve`.
-                        // I haven't implemented `bump_forward_curve` in `bumps/rates.rs`.
-                        // Task said: "Implement src/calibration/bumps/rates.rs (shared rates bumping)".
-                        // The implementation plan says "Use [NEW] shared logic... for Discount and Forward".
-                        // `rates.rs` has `bump_discount_curve`.
-                        // Does it work for Forward? `ForwardCurve` is different from `DiscountCurve`.
-                        // I typically need a `bump_forward_curve` fn.
+                        // Forward curve parallel bump uses direct additive rate shifts.
                         //
-                        // I missed `bump_forward_curve` in `rates.rs`.
-                        // I should add it or use `bump_discount_curve` if they are unified?
-                        // They are distinct structs/traits.
+                        // METHODOLOGY NOTE:
+                        // Unlike discount curves which use solve-to-par bumping (repricing
+                        // underlying swaps to new par rates), forward curves apply direct
+                        // additive shifts to forward rates. This is intentional:
                         //
-                        // I will leave logic for Forecast as TODO or try to implement it inline using `bump_discount_curve` logic?
-                        // Better: Add `bump_forward_curve_synthetic` to `rates.rs` in next step if I can.
-                        // Or just handle Discount, Hazard, Inflation for now as per immediate plan instructions (Hazard, Inflation, Rates).
-                        // "Rates" usually includes Forward.
-                        // I'll skip Forecast update for this exact tool call and do it in next step/turn after checking.
-                        // But I'm replacing the whole function! I must handle it.
-                        // I'll leave the OLD logic for Forecast if I can't use shared yet.
-                        // Or simply fail/TODO.
+                        // - Discount curves represent discount factors derived from swap rates,
+                        //   so solve-to-par maintains consistency with market instruments
+                        // - Forward curves represent forward rates directly (e.g., LIBOR forwards),
+                        //   so additive shifts are the natural bump methodology
                         //
-                        // Actually, I can implementation `bump_forward_curve` in `rates.rs` quite easily (similar to discount).
-                        // I'll stick to the plan: Update `curves.rs`.
-                        // I'll keep the old implementation for Forecast for now.
-
+                        // For DV01 consistency when using both curve types, ensure the underlying
+                        // market data construction is compatible with the bump methodology.
                         let _base_curve = ctx.market.get_forward(curve_id).map_err(|_| {
                             Error::MarketDataNotFound {
                                 id: curve_id.to_string(),
                             }
                         })?;
-                        // Keep old logic for now or implement similar synthetic bump.
-                        // Since I am replacing the block, I'll copy-paste the old logic for Forecast.
-                        // (Abbreviated for brevity here, I'll put it back).
+
                         let spec = BumpSpec::parallel_bp(*bp);
                         let bump = MarketBump::Curve {
                             id: finstack_core::types::CurveId::from(curve_id.as_str()),
@@ -318,15 +328,26 @@ impl ScenarioAdapter for CurveAdapter {
                         }]))
                     }
                     CurveKind::VolIndex => {
-                        // Volatility index curves store forward volatility levels
-                        // Apply parallel bump to index levels (bp interpreted as index points)
+                        // Volatility index curves store forward volatility levels (e.g., VIX, VSTOXX)
+                        //
+                        // UNIT SEMANTICS:
+                        // The `bp` parameter for vol index curves is passed directly to `BumpSpec::parallel_bp()`.
+                        // Unlike rate curves where bp=100 means 1% (100 basis points), for vol index curves
+                        // the underlying bump implementation determines the semantic meaning.
+                        //
+                        // The `Bumpable` trait implementation for `VolatilityIndexCurve` treats bp as
+                        // "index points" scaled by the bump spec. For example:
+                        // - A parallel bump of bp=100 with the default spec may add 1.0 index points
+                        // - Check the `VolatilityIndexCurve::apply_bump` implementation for exact behavior
+                        //
+                        // For node-specific bumps, see `CurveNodeBp` handling below which documents the
+                        // explicit bp/100 scaling used there.
                         let base_curve = ctx.market.get_vol_index(curve_id).map_err(|_| {
                             Error::MarketDataNotFound {
                                 id: curve_id.to_string(),
                             }
                         })?;
 
-                        // For vol index curves, bp is interpreted as index points (not basis points)
                         let spec = BumpSpec::parallel_bp(*bp);
                         let new_curve = base_curve.apply_bump(spec).map_err(|e| {
                             Error::Internal(format!("Failed to bump vol index curve: {}", e))
@@ -363,14 +384,14 @@ impl ScenarioAdapter for CurveAdapter {
                         })?;
 
                         let knots: Vec<f64> = base_curve.knots().to_vec();
-                        let targets = resolve_bump_targets(
+                        let result = resolve_bump_targets(
                             nodes,
                             &knots,
                             *match_mode,
                             as_of,
                             base_curve.day_count(),
                         )?;
-                        let bump_req = BumpRequest::Tenors(targets);
+                        let bump_req = BumpRequest::Tenors(result.targets);
 
                         let new_curve = bump_discount_curve_synthetic(
                             &base_curve,
@@ -385,30 +406,31 @@ impl ScenarioAdapter for CurveAdapter {
                             ))
                         })?;
 
-                        Ok(Some(vec![ScenarioEffect::UpdateDiscountCurve {
+                        let mut effects = vec![ScenarioEffect::UpdateDiscountCurve {
                             id: curve_id.clone(),
                             curve: std::sync::Arc::new(new_curve),
-                        }]))
+                        }];
+                        effects.extend(result.warnings.into_iter().map(ScenarioEffect::Warning));
+                        Ok(Some(effects))
                     }
                     CurveKind::Forecast => {
-                        // Keep manual logic for Forecast until we have shared bumper
+                        // Forward curve node bumps use direct additive rate shifts.
+                        //
+                        // METHODOLOGY NOTE:
+                        // The bump is applied as: forward_rate += bp * 1e-4
+                        // where bp is in basis points. This differs from discount curve
+                        // node bumps which use solve-to-par methodology. See the parallel
+                        // bump documentation above for rationale.
                         let base_curve = ctx.market.get_forward(curve_id).map_err(|_| {
                             Error::MarketDataNotFound {
                                 id: curve_id.to_string(),
                             }
                         })?;
-                        // ... old logic copy ...
-                        // For brevity, I'm just emitting error "NotImplemented" for now?
-                        // No, must preserve functionality.
-                        // I'll use the OLD logic for Forecast Node Bumps.
-                        // (Ideally I'd use `resolve_bump_targets` and apply to forwards manually).
 
-                        let rebuilt = base_curve.clone(); // If cloneable?
-                                                          // Actually `base_curve` is `&ForwardCurve` (struct).
-                        let knots = rebuilt.knots().to_vec();
-                        let mut forwards = rebuilt.forwards().to_vec();
+                        let knots = base_curve.knots().to_vec();
+                        let mut forwards = base_curve.forwards().to_vec();
 
-                        let targets = resolve_bump_targets(
+                        let result = resolve_bump_targets(
                             nodes,
                             &knots,
                             *match_mode,
@@ -416,14 +438,15 @@ impl ScenarioAdapter for CurveAdapter {
                             base_curve.day_count(),
                         )?;
 
-                        for (t, bp) in targets {
-                            // Find exact match in knots
-                            if let Some(idx) = knots.iter().position(|&k| (k - t).abs() < 1e-4) {
+                        for (t, bp) in &result.targets {
+                            // Find exact match in knots (within tolerance for floating point)
+                            if let Some(idx) = knots.iter().position(|&k| (k - *t).abs() < 1e-4) {
+                                // bp is in basis points; 1bp = 0.0001 = 1e-4
                                 forwards[idx] += bp * 1e-4;
                             }
                         }
 
-                        // Rebuild
+                        // Rebuild the curve with bumped forward rates
                         let bumped_points: Vec<(f64, f64)> =
                             knots.into_iter().zip(forwards).collect();
                         let new_curve =
@@ -438,10 +461,12 @@ impl ScenarioAdapter for CurveAdapter {
                                 Error::Internal(format!("Failed to rebuild forward curve: {}", e))
                             })?;
 
-                        Ok(Some(vec![ScenarioEffect::UpdateForwardCurve {
+                        let mut effects = vec![ScenarioEffect::UpdateForwardCurve {
                             id: curve_id.clone(),
                             curve: std::sync::Arc::new(new_curve),
-                        }]))
+                        }];
+                        effects.extend(result.warnings.into_iter().map(ScenarioEffect::Warning));
+                        Ok(Some(effects))
                     }
                     CurveKind::ParCDS => {
                         let base_curve = ctx.market.get_hazard(curve_id).map_err(|_| {
@@ -451,14 +476,14 @@ impl ScenarioAdapter for CurveAdapter {
                         })?;
 
                         let knots: Vec<f64> = base_curve.knot_points().map(|(t, _)| t).collect();
-                        let targets = resolve_bump_targets(
+                        let result = resolve_bump_targets(
                             nodes,
                             &knots,
                             *match_mode,
                             as_of,
                             base_curve.day_count(),
                         )?;
-                        let bump_req = BumpRequest::Tenors(targets);
+                        let bump_req = BumpRequest::Tenors(result.targets);
 
                         let discount_id = resolve_discount_curve_id(ctx.market);
 
@@ -476,10 +501,12 @@ impl ScenarioAdapter for CurveAdapter {
                             ))
                         })?;
 
-                        Ok(Some(vec![ScenarioEffect::UpdateHazardCurve {
+                        let mut effects = vec![ScenarioEffect::UpdateHazardCurve {
                             id: curve_id.clone(),
                             curve: std::sync::Arc::new(new_curve),
-                        }]))
+                        }];
+                        effects.extend(result.warnings.into_iter().map(ScenarioEffect::Warning));
+                        Ok(Some(effects))
                     }
                     CurveKind::Inflation => {
                         let base_curve = ctx.market.get_inflation(curve_id).map_err(|_| {
@@ -489,14 +516,29 @@ impl ScenarioAdapter for CurveAdapter {
                         })?;
 
                         let knots: Vec<f64> = base_curve.knots().to_vec();
-                        let targets = resolve_bump_targets(
+
+                        // InflationCurve stores CPI index levels, not rates, so it doesn't
+                        // have an inherent day count convention. For tenor-to-years parsing
+                        // when matching tenor strings (like "5Y") to curve knots, we use:
+                        // 1. The discount curve's day count if one is available (for consistency)
+                        // 2. Act365F as fallback (standard for inflation markets)
+                        let tenor_day_count = resolve_discount_curve_id(ctx.market)
+                            .and_then(|dc_id| {
+                                ctx.market
+                                    .get_discount(dc_id.as_str())
+                                    .ok()
+                                    .map(|dc| dc.day_count())
+                            })
+                            .unwrap_or(DayCount::Act365F);
+
+                        let result = resolve_bump_targets(
                             nodes,
                             &knots,
                             *match_mode,
                             as_of,
-                            DayCount::Act365F, // Inflation often uses Act365 or imply from base; using default for robustness
+                            tenor_day_count,
                         )?;
-                        let bump_req = BumpRequest::Tenors(targets);
+                        let bump_req = BumpRequest::Tenors(result.targets);
 
                         let discount_id = resolve_discount_curve_id(ctx.market)
                             .unwrap_or_else(|| finstack_core::types::CurveId::from("USD-OIS"));
@@ -515,10 +557,12 @@ impl ScenarioAdapter for CurveAdapter {
                             ))
                         })?;
 
-                        Ok(Some(vec![ScenarioEffect::UpdateInflationCurve {
+                        let mut effects = vec![ScenarioEffect::UpdateInflationCurve {
                             id: curve_id.clone(),
                             curve: std::sync::Arc::new(new_curve),
-                        }]))
+                        }];
+                        effects.extend(result.warnings.into_iter().map(ScenarioEffect::Warning));
+                        Ok(Some(effects))
                     }
                     CurveKind::Commodity => {
                         // Commodity curves treated like discount curves for bump purposes
@@ -529,14 +573,14 @@ impl ScenarioAdapter for CurveAdapter {
                         })?;
 
                         let knots: Vec<f64> = base_curve.knots().to_vec();
-                        let targets = resolve_bump_targets(
+                        let result = resolve_bump_targets(
                             nodes,
                             &knots,
                             *match_mode,
                             as_of,
                             base_curve.day_count(),
                         )?;
-                        let bump_req = BumpRequest::Tenors(targets);
+                        let bump_req = BumpRequest::Tenors(result.targets);
 
                         let new_curve = bump_discount_curve_synthetic(
                             &base_curve,
@@ -551,13 +595,23 @@ impl ScenarioAdapter for CurveAdapter {
                             ))
                         })?;
 
-                        Ok(Some(vec![ScenarioEffect::UpdateDiscountCurve {
+                        let mut effects = vec![ScenarioEffect::UpdateDiscountCurve {
                             id: curve_id.clone(),
                             curve: std::sync::Arc::new(new_curve),
-                        }]))
+                        }];
+                        effects.extend(result.warnings.into_iter().map(ScenarioEffect::Warning));
+                        Ok(Some(effects))
                     }
                     CurveKind::VolIndex => {
                         // Volatility index curves - apply node-specific bumps
+                        //
+                        // UNIT SEMANTICS:
+                        // The `bp` parameter is interpreted as "index points" (not basis points).
+                        // For example, a bp=100 shock on a VIX curve with level 20 would produce:
+                        //   new_level = 20 + (100 / 100) = 21
+                        //
+                        // This differs from rate curves where bp represents basis points (1bp = 0.01%).
+                        // The division by 100 converts the input to a direct index level change.
                         let base_curve = ctx.market.get_vol_index(curve_id).map_err(|_| {
                             Error::MarketDataNotFound {
                                 id: curve_id.to_string(),
@@ -565,7 +619,7 @@ impl ScenarioAdapter for CurveAdapter {
                         })?;
 
                         let knots: Vec<f64> = base_curve.knots().to_vec();
-                        let targets = resolve_bump_targets(
+                        let result = resolve_bump_targets(
                             nodes,
                             &knots,
                             *match_mode,
@@ -576,10 +630,10 @@ impl ScenarioAdapter for CurveAdapter {
                         // Apply node bumps by rebuilding the curve with shifted levels
                         let mut levels: Vec<f64> = base_curve.levels().to_vec();
 
-                        for (t, bp) in targets {
+                        for (t, bp) in &result.targets {
                             // Find exact match in knots
-                            if let Some(idx) = knots.iter().position(|&k| (k - t).abs() < 1e-4) {
-                                // bp is in "basis points" but for vol index we interpret as index points / 100
+                            if let Some(idx) = knots.iter().position(|&k| (k - *t).abs() < 1e-4) {
+                                // bp / 100 converts to index points: bp=100 → +1.0 index point
                                 levels[idx] += bp / 100.0;
                             }
                         }
@@ -598,10 +652,12 @@ impl ScenarioAdapter for CurveAdapter {
                             .build()
                             .map_err(|e| Error::Internal(format!("Failed to rebuild vol index curve: {}", e)))?;
 
-                        Ok(Some(vec![ScenarioEffect::UpdateVolIndexCurve {
+                        let mut effects = vec![ScenarioEffect::UpdateVolIndexCurve {
                             id: curve_id.clone(),
                             curve: std::sync::Arc::new(new_curve),
-                        }]))
+                        }];
+                        effects.extend(result.warnings.into_iter().map(ScenarioEffect::Warning));
+                        Ok(Some(effects))
                     }
                 }
             }
