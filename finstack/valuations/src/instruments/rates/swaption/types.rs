@@ -593,7 +593,16 @@ impl Swaption {
     }
 
     /// Discounted fixed-leg PV01 (annuity) of the underlying swap schedule (Physical Settlement).
+    ///
+    /// # Time Basis
+    ///
+    /// Uses curve-consistent relative discount factors via `relative_df_discounting`:
+    /// - DF from `as_of` to each payment date is computed using the discount curve's
+    ///   own base_date and day_count (not the instrument's day_count).
+    /// - Accrual fractions use the instrument's day_count (correct for coupon calculation).
     pub fn swap_annuity(&self, disc: &dyn Discounting, as_of: Date) -> Result<f64> {
+        use crate::instruments::common::pricing::time::relative_df_discounting;
+
         let mut annuity = 0.0;
         let sched = crate::cashflow::builder::build_dates(
             self.swap_start,
@@ -610,9 +619,10 @@ impl Swaption {
         let mut prev = dates[0];
         for window in dates.windows(2) {
             let d = window[1];
-            let t = self.year_fraction(as_of, d, self.day_count)?;
+            // Accrual uses instrument's day count (correct for coupon calculation)
             let accrual = self.year_fraction(prev, d, self.day_count)?;
-            let df = disc.df(t);
+            // DF uses curve-consistent relative DF (correct for discounting)
+            let df = relative_df_discounting(disc, as_of, d)?;
             annuity += accrual * df;
             prev = d;
         }
@@ -659,11 +669,25 @@ impl Swaption {
     }
 
     /// Forward par swap rate implied by discount factors and annuity.
+    ///
+    /// # Time Basis
+    ///
+    /// Uses curve-consistent relative discount factors:
+    /// - DF(as_of → swap_start) and DF(as_of → swap_end) computed using the discount
+    ///   curve's own base_date and day_count.
+    ///
+    /// # Formula
+    ///
+    /// ```text
+    /// S = (DF_start - DF_end) / Annuity
+    /// ```
+    ///
+    /// where Annuity = Σ (accrual_i × DF_i) for all fixed leg payments.
     pub fn forward_swap_rate(&self, disc: &dyn Discounting, as_of: Date) -> Result<f64> {
-        let t_start = self.year_fraction(as_of, self.swap_start, self.day_count)?;
-        let t_end = self.year_fraction(as_of, self.swap_end, self.day_count)?;
-        let df_start = disc.df(t_start);
-        let df_end = disc.df(t_end);
+        use crate::instruments::common::pricing::time::relative_df_discounting;
+
+        let df_start = relative_df_discounting(disc, as_of, self.swap_start)?;
+        let df_end = relative_df_discounting(disc, as_of, self.swap_end)?;
         let annuity = self.swap_annuity(disc, as_of)?;
         if annuity.abs() < 1e-10 {
             return Ok(0.0);
@@ -1204,20 +1228,23 @@ impl BermudanSwaption {
     ///
     /// For co-terminal swaptions, the swap always matures at `swap_end`.
     /// For non-co-terminal, each exercise date may have different remaining tenor.
+    ///
+    /// # Time Basis
+    ///
+    /// Uses curve-consistent relative discount factors via `relative_df_discounting`:
+    /// - DF from `as_of` to exercise_date and swap_end computed using the discount
+    ///   curve's own base_date and day_count.
     pub fn forward_swap_rate(
         &self,
         disc: &dyn Discounting,
         as_of: Date,
         exercise_date: Date,
     ) -> Result<f64> {
-        let ctx = finstack_core::dates::DayCountCtx::default();
+        use crate::instruments::common::pricing::time::relative_df_discounting;
 
         // Swap starts at exercise date
-        let t_start = self.day_count.year_fraction(as_of, exercise_date, ctx)?;
-        let t_end = self.day_count.year_fraction(as_of, self.swap_end, ctx)?;
-
-        let df_start = disc.df(t_start);
-        let df_end = disc.df(t_end);
+        let df_start = relative_df_discounting(disc, as_of, exercise_date)?;
+        let df_end = relative_df_discounting(disc, as_of, self.swap_end)?;
 
         // Calculate annuity for remaining swap
         let annuity = self.remaining_annuity(disc, as_of, exercise_date)?;
@@ -1230,20 +1257,28 @@ impl BermudanSwaption {
     }
 
     /// Calculate annuity for remaining swap payments after exercise date.
+    ///
+    /// # Time Basis
+    ///
+    /// Uses curve-consistent relative discount factors:
+    /// - DF from `as_of` to each payment date computed using the discount curve's
+    ///   own base_date and day_count.
+    /// - Accrual fractions use the instrument's day_count (correct for coupon calculation).
     pub fn remaining_annuity(
         &self,
         disc: &dyn Discounting,
         as_of: Date,
         exercise_date: Date,
     ) -> Result<f64> {
+        use crate::instruments::common::pricing::time::relative_df_discounting;
+
         let (dates, accruals) = self.build_swap_schedule(as_of)?;
-        let ctx = finstack_core::dates::DayCountCtx::default();
 
         let mut annuity = 0.0;
         for (d, tau) in dates.iter().zip(accruals.iter()) {
             if *d > exercise_date {
-                let t = self.day_count.year_fraction(as_of, *d, ctx)?;
-                annuity += tau * disc.df(t);
+                let df = relative_df_discounting(disc, as_of, *d)?;
+                annuity += tau * df;
             }
         }
 

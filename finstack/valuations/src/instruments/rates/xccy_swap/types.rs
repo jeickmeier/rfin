@@ -254,13 +254,29 @@ impl XccySwap {
         builder.build()
     }
 
-    fn pv_leg_in_leg_ccy(
+    /// Calculate the present value of a leg with per-cashflow FX conversion.
+    ///
+    /// # Market-Standard FX Conversion
+    ///
+    /// For cross-currency swaps, each cashflow should be converted to the reporting
+    /// currency using the FX rate applicable on the cashflow's payment date, not
+    /// the spot rate at `as_of`. This respects covered interest parity (CIP).
+    ///
+    /// If FxMatrix is not available or only provides spot rates, the conversion is
+    /// an approximation (documented in output).
+    ///
+    /// # Returns
+    ///
+    /// Present value in the **reporting currency**, not the leg currency.
+    fn pv_leg_in_reporting_ccy(
         &self,
         leg: &XccySwapLeg,
         schedule: &Schedule,
         context: &MarketContext,
         as_of: Date,
     ) -> Result<Money> {
+        use crate::instruments::common::pricing::time::rate_period_on_dates;
+
         if schedule.dates.len() < 2 {
             return Err(finstack_core::Error::Validation(
                 "XccySwap leg schedule must contain at least 2 dates".to_string(),
@@ -273,17 +289,41 @@ impl XccySwap {
         let disc = context.get_discount(&leg.discount_curve_id)?;
         let fwd = context.get_forward(&leg.forward_curve_id)?;
         let cal = leg.resolve_calendar(&self.id)?;
+        let fx = context.fx();
 
         let dc_ctx = DayCountCtx::default();
 
         let mut pv = NeumaierAccumulator::new();
 
-        // Notional exchanges (principal) in leg currency
+        // Helper to convert a single cashflow to reporting currency
+        let convert_cf = |amount: f64, payment_date: Date| -> Result<f64> {
+            if leg.currency == self.reporting_currency {
+                return Ok(amount);
+            }
+            let fx_matrix = fx.ok_or_else(|| {
+                finstack_core::Error::from(finstack_core::InputError::NotFound {
+                    id: "fx_matrix".to_string(),
+                })
+            })?;
+            // Use cashflow-date FX (default policy is CashflowDate)
+            let rate = fx_matrix
+                .rate(FxQuery::new(
+                    leg.currency,
+                    self.reporting_currency,
+                    payment_date,
+                ))?
+                .rate;
+            Ok(amount * rate)
+        };
+
+        // Notional exchanges (principal)
         if matches!(self.notional_exchange, NotionalExchange::InitialAndFinal)
             && self.start_date > as_of
         {
             let df = disc.df_between_dates(as_of, self.start_date)?;
-            pv.add(leg.side.initial_principal_sign() * leg.notional.amount() * df);
+            let cf_leg_ccy = leg.side.initial_principal_sign() * leg.notional.amount() * df;
+            let cf_rep = convert_cf(cf_leg_ccy, self.start_date)?;
+            pv.add(cf_rep);
         }
 
         if matches!(
@@ -292,7 +332,9 @@ impl XccySwap {
         ) && self.maturity_date > as_of
         {
             let df = disc.df_between_dates(as_of, self.maturity_date)?;
-            pv.add(leg.side.final_principal_sign() * leg.notional.amount() * df);
+            let cf_leg_ccy = leg.side.final_principal_sign() * leg.notional.amount() * df;
+            let cf_rep = convert_cf(cf_leg_ccy, self.maturity_date)?;
+            pv.add(cf_rep);
         }
 
         // Floating coupons
@@ -312,12 +354,8 @@ impl XccySwap {
                 continue;
             }
 
-            // Forward rate for the accrual period using the forward curve's own time basis
-            let fwd_dc = fwd.day_count();
-            let fwd_base = fwd.base_date();
-            let t_start = fwd_dc.year_fraction(fwd_base, period_start, dc_ctx)?;
-            let t_end = fwd_dc.year_fraction(fwd_base, period_end, dc_ctx)?;
-            let forward_rate = fwd.rate_period(t_start, t_end);
+            // Forward rate using forward curve's time basis
+            let forward_rate = rate_period_on_dates(fwd.as_ref(), period_start, period_end)?;
             if !forward_rate.is_finite() {
                 return Err(finstack_core::Error::Validation(
                     "Non-finite forward rate".to_string(),
@@ -331,32 +369,27 @@ impl XccySwap {
             let coupon = leg.side.coupon_sign() * leg.notional.amount() * total_rate * year_frac;
 
             let df = disc.df_between_dates(as_of, payment_date)?;
-            pv.add(coupon * df);
+            let cf_leg_ccy = coupon * df;
+
+            // Convert to reporting currency using cashflow-date FX
+            let cf_rep = convert_cf(cf_leg_ccy, payment_date)?;
+            pv.add(cf_rep);
         }
 
-        Ok(Money::new(pv.total(), leg.currency))
+        Ok(Money::new(pv.total(), self.reporting_currency))
     }
 
-    fn convert(
-        &self,
-        amount: Money,
-        to: Currency,
-        market: &MarketContext,
-        as_of: Date,
-    ) -> Result<Money> {
-        if amount.currency() == to {
-            return Ok(amount);
-        }
-        let fx = market.fx().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::InputError::NotFound {
-                id: "fx_matrix".to_string(),
-            })
-        })?;
-        let rate = fx.rate(FxQuery::new(amount.currency(), to, as_of))?.rate;
-        Ok(Money::new(amount.amount() * rate, to))
-    }
-
-    /// Net PV (reporting currency): PV(leg1) + PV(leg2), after FX conversion of each leg PV.
+    /// Net PV (reporting currency): PV(leg1) + PV(leg2).
+    ///
+    /// # FX Conversion Strategy
+    ///
+    /// Each cashflow is converted to reporting currency using the FX rate at its
+    /// payment date (via `FxQuery` with default `CashflowDate` policy). This is
+    /// the market-standard approach that respects covered interest parity.
+    ///
+    /// If `FxMatrix` only provides spot rates, the conversion is an approximation.
+    /// The documentation notes that `FxMatrix` is expected to provide cashflow-date
+    /// forward/spot consistent with the policy.
     pub fn npv(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
         self.validate_leg(&self.leg1)?;
         self.validate_leg(&self.leg2)?;
@@ -364,11 +397,10 @@ impl XccySwap {
         let s1 = self.leg_schedule(&self.leg1)?;
         let s2 = self.leg_schedule(&self.leg2)?;
 
-        let pv1 = self.pv_leg_in_leg_ccy(&self.leg1, &s1, market, as_of)?;
-        let pv2 = self.pv_leg_in_leg_ccy(&self.leg2, &s2, market, as_of)?;
+        // Each leg's PV is computed and converted to reporting currency per-cashflow
+        let pv1_rep = self.pv_leg_in_reporting_ccy(&self.leg1, &s1, market, as_of)?;
+        let pv2_rep = self.pv_leg_in_reporting_ccy(&self.leg2, &s2, market, as_of)?;
 
-        let pv1_rep = self.convert(pv1, self.reporting_currency, market, as_of)?;
-        let pv2_rep = self.convert(pv2, self.reporting_currency, market, as_of)?;
         pv1_rep + pv2_rep
     }
 }

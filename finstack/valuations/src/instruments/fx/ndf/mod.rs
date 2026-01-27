@@ -18,18 +18,44 @@
 //! - **KRW (Korean Won)**: KFTC fixing
 //! - **TWD (Taiwan Dollar)**: TAIFX fixing
 //!
+//! # Quote Conventions
+//!
+//! NDFs support two quote conventions via [`NdfQuoteConvention`]:
+//!
+//! ## BasePerSettlement (default)
+//!
+//! Rate quoted as units of base (restricted) currency per one unit of settlement currency.
+//! This is the standard convention for most Asian NDF markets.
+//!
+//! Example: USD/CNY = 7.25 means 7.25 CNY per 1 USD.
+//!
+//! ```text
+//! Settlement = Notional_base × (1/F_contract - 1/F_fixing)
+//! ```
+//!
+//! ## SettlementPerBase
+//!
+//! Rate quoted as units of settlement currency per one unit of base currency.
+//!
+//! Example: CNY/USD = 0.138 means 0.138 USD per 1 CNY.
+//!
+//! ```text
+//! Settlement = Notional_base × (F_fixing - F_contract)
+//! ```
+//!
 //! # Pricing
 //!
 //! ## Pre-Fixing (before fixing date)
-//! ```text
-//! F_market = S × DF_foreign(T) / DF_settlement(T)  [or fallback when restricted]
-//! PV = notional × (F_market - contract_rate) × DF_settlement(T)
-//! ```
+//!
+//! Forward rate is estimated via covered interest rate parity when foreign curve
+//! is available, otherwise falls back to spot rate.
 //!
 //! ## Post-Fixing (after fixing date, before settlement)
-//! ```text
-//! PV = notional × (fixing_rate - contract_rate) × DF_settlement(T_settlement)
-//! ```
+//!
+//! Uses the observed fixing rate for settlement calculation.
+//!
+//! **Note:** If valuation is past the fixing date but no fixing rate is set,
+//! the pricer returns an error. Use `with_fixing_rate()` to set the observed rate.
 //!
 //! # Fixing Conventions
 //!
@@ -40,13 +66,14 @@
 //! # Examples
 //!
 //! ```rust
-//! use finstack_valuations::instruments::fx::ndf::Ndf;
+//! use finstack_valuations::instruments::fx::ndf::{Ndf, NdfQuoteConvention};
 //! use finstack_core::currency::Currency;
 //!
-//! // Create a USD/CNY NDF
+//! // Create a USD/CNY NDF with default (BasePerSettlement) convention
 //! let ndf = Ndf::example();
 //! assert_eq!(ndf.base_currency, Currency::CNY);
 //! assert_eq!(ndf.settlement_currency, Currency::USD);
+//! assert_eq!(ndf.quote_convention, NdfQuoteConvention::BasePerSettlement);
 //! ```
 //!
 //! # See Also
@@ -59,7 +86,7 @@ pub(crate) mod pricer;
 mod types;
 
 pub use pricer::NdfDiscountingPricer;
-pub use types::Ndf;
+pub use types::{Ndf, NdfQuoteConvention};
 
 /// Metrics submodule for NDF risk measures.
 pub(crate) mod metrics;

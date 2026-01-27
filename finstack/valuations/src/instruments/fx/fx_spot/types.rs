@@ -141,7 +141,25 @@ impl FxSpot {
     /// If an explicit `spot_rate` is set on the instrument, that is used directly
     /// to compute `quote_amount = base_notional.amount() * spot_rate`.
     /// Otherwise, the rate is obtained from the `MarketContext`'s `FxMatrix`.
+    ///
+    /// # Settlement Date Handling
+    ///
+    /// When using `FxConversionPolicy::CashflowDate`, the FX rate query uses the
+    /// effective settlement date rather than `as_of`. The settlement date is:
+    /// - The explicit `settlement` date if provided (adjusted for business days if calendar set)
+    /// - `as_of + settlement_lag_days` business days otherwise (default: T+2)
+    ///
+    /// If the settlement date is in the past (`settle_date <= as_of`), returns zero
+    /// since the trade has already settled.
     pub fn npv(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
+        // Compute effective settlement date
+        let settle_date = self.effective_settlement_date(as_of)?;
+
+        // If already settled, return zero
+        if settle_date <= as_of {
+            return Ok(Money::new(0.0, self.quote));
+        }
+
         if let Some(rate) = self.spot_rate {
             let quote_amount = self.effective_notional().amount() * rate;
             return Ok(Money::new(quote_amount, self.quote));
@@ -174,8 +192,39 @@ impl FxSpot {
 
         let provider = MatrixProvider { m: matrix.as_ref() };
         let policy = finstack_core::money::fx::FxConversionPolicy::CashflowDate;
+        // Use settlement date for the FX conversion when using CashflowDate policy
         self.effective_notional()
-            .convert(self.quote, as_of, &provider, policy)
+            .convert(self.quote, settle_date, &provider, policy)
+    }
+
+    /// Compute the effective settlement date for this FX spot.
+    ///
+    /// Returns the settlement date adjusted for business days according to the
+    /// configured calendar and business day convention.
+    pub fn effective_settlement_date(&self, as_of: Date) -> Result<Date> {
+        if let Some(date) = self.settlement {
+            if let Some(id) = self.calendar_id.as_deref() {
+                if let Some(cal) = calendar_by_id(id) {
+                    adjust(date, self.bdc, cal)
+                } else {
+                    Ok(date)
+                }
+            } else {
+                Ok(date)
+            }
+        } else {
+            // Compute T+N in a calendar-aware way if a calendar is available
+            let lag_days = self.settlement_lag_days.unwrap_or(2);
+            if let Some(id) = self.calendar_id.as_deref() {
+                if let Some(cal) = calendar_by_id(id) {
+                    as_of.add_business_days(lag_days, cal)
+                } else {
+                    Ok(as_of.add_weekdays(lag_days))
+                }
+            } else {
+                Ok(as_of.add_weekdays(lag_days))
+            }
+        }
     }
 
     /// Set the settlement date
@@ -316,35 +365,10 @@ impl CashflowProvider for FxSpot {
 
     fn build_full_schedule(
         &self,
-        _curves: &MarketContext,
+        curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
-        // FX spot settles on provided settlement date (BDC-adjusted if calendar present)
-        // or computed T+N BUSINESS days when settlement is not provided.
-        let settle_date = if let Some(date) = self.settlement {
-            if let Some(id) = self.calendar_id.as_deref() {
-                if let Some(cal) = calendar_by_id(id) {
-                    adjust(date, self.bdc, cal)?
-                } else {
-                    date
-                }
-            } else {
-                date
-            }
-        } else {
-            // Compute T+N in a calendar-aware way if a calendar is available; otherwise
-            // fall back to weekend-only business-day addition.
-            let lag_days = self.settlement_lag_days.unwrap_or(2);
-            if let Some(id) = self.calendar_id.as_deref() {
-                if let Some(cal) = calendar_by_id(id) {
-                    as_of.add_business_days(lag_days, cal)?
-                } else {
-                    as_of.add_weekdays(lag_days)
-                }
-            } else {
-                as_of.add_weekdays(lag_days)
-            }
-        };
+        let settle_date = self.effective_settlement_date(as_of)?;
 
         let flows = if settle_date > as_of {
             // Future settlement - use explicit spot_rate if provided, otherwise query FX matrix
@@ -352,7 +376,7 @@ impl CashflowProvider for FxSpot {
                 rate
             } else {
                 // Try market context FX matrix
-                let matrix = _curves.fx().ok_or_else(|| {
+                let matrix = curves.fx().ok_or_else(|| {
                     finstack_core::Error::from(finstack_core::InputError::NotFound {
                         id: "fx_matrix".to_string(),
                     })
@@ -372,5 +396,116 @@ impl CashflowProvider for FxSpot {
             self.notional(),
             finstack_core::dates::DayCount::Act365F, // Standard for FX spot
         ))
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use time::Month;
+
+    fn date(year: i32, month: Month, day: u8) -> Date {
+        Date::from_calendar_date(year, month, day).expect("valid test date")
+    }
+
+    #[test]
+    fn test_fx_spot_creation() {
+        let spot = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD);
+        assert_eq!(spot.base, Currency::EUR);
+        assert_eq!(spot.quote, Currency::USD);
+        assert_eq!(spot.pair_name(), "EURUSD");
+    }
+
+    #[test]
+    fn test_fx_spot_with_explicit_rate() {
+        let spot =
+            FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD).with_rate(1.10);
+
+        let market = MarketContext::new();
+        let as_of = date(2025, Month::January, 15);
+        let pv = spot
+            .npv(&market, as_of)
+            .expect("should price with explicit rate");
+
+        // 1 EUR * 1.10 = 1.10 USD
+        assert!((pv.amount() - 1.10).abs() < 1e-10);
+        assert_eq!(pv.currency(), Currency::USD);
+    }
+
+    #[test]
+    fn test_fx_spot_effective_settlement_date_default() {
+        let spot = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD);
+
+        // Wednesday -> should settle Friday (T+2 weekdays)
+        let as_of = date(2025, Month::January, 15); // Wednesday
+        let settle = spot
+            .effective_settlement_date(as_of)
+            .expect("should compute");
+        assert_eq!(settle, date(2025, Month::January, 17)); // Friday
+    }
+
+    #[test]
+    fn test_fx_spot_effective_settlement_date_explicit() {
+        let settle_date = date(2025, Month::January, 20);
+        let spot = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
+            .with_settlement(settle_date);
+
+        let as_of = date(2025, Month::January, 15);
+        let settle = spot
+            .effective_settlement_date(as_of)
+            .expect("should compute");
+        assert_eq!(settle, settle_date);
+    }
+
+    #[test]
+    fn test_fx_spot_effective_settlement_date_custom_lag() {
+        let spot = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
+            .with_settlement_lag_days(1);
+
+        // Wednesday -> should settle Thursday (T+1 weekdays)
+        let as_of = date(2025, Month::January, 15); // Wednesday
+        let settle = spot
+            .effective_settlement_date(as_of)
+            .expect("should compute");
+        assert_eq!(settle, date(2025, Month::January, 16)); // Thursday
+    }
+
+    #[test]
+    fn test_fx_spot_returns_zero_when_settled() {
+        let settle_date = date(2025, Month::January, 10);
+        let spot = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
+            .with_settlement(settle_date)
+            .with_rate(1.10);
+
+        let market = MarketContext::new();
+        let as_of = date(2025, Month::January, 15); // After settlement
+        let pv = spot.npv(&market, as_of).expect("should price");
+
+        assert_eq!(pv.amount(), 0.0, "Should return zero when settled");
+    }
+
+    #[test]
+    fn test_fx_spot_notional_currency_validation() {
+        let spot = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD);
+        let wrong_notional = Money::new(1000.0, Currency::GBP);
+
+        let result = spot.with_notional(wrong_notional);
+        assert!(result.is_err(), "Should reject notional in wrong currency");
+    }
+
+    #[test]
+    fn test_fx_spot_with_notional() {
+        let spot = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
+            .with_notional(Money::new(1_000_000.0, Currency::EUR))
+            .expect("valid notional")
+            .with_rate(1.10);
+
+        let market = MarketContext::new();
+        let as_of = date(2025, Month::January, 15);
+        let pv = spot.npv(&market, as_of).expect("should price");
+
+        // 1,000,000 EUR * 1.10 = 1,100,000 USD
+        assert!((pv.amount() - 1_100_000.0).abs() < 1e-6);
     }
 }

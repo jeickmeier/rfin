@@ -221,6 +221,16 @@ impl FxVarianceSwap {
     }
 
     /// Get observation dates based on frequency.
+    ///
+    /// # Weekday-Aware Daily Observations
+    ///
+    /// For daily observations (frequency = 1 day or no explicit step), weekends
+    /// (Saturday and Sunday) are skipped to be consistent with:
+    /// - Market data availability (FX spot rates published on weekdays)
+    /// - Annualization factor of 252 (trading days per year)
+    ///
+    /// For other frequencies (weekly, monthly), all dates are included and
+    /// the caller should ensure alignment with market data.
     pub fn observation_dates(&self) -> Vec<Date> {
         let mut dates = Vec::new();
         let mut current = self.start_date;
@@ -234,31 +244,66 @@ impl FxVarianceSwap {
                 }
             }
         } else if let Some(days_step) = self.observation_freq.days() {
-            while current <= self.maturity {
-                dates.push(current);
-                current += time::Duration::days(days_step as i64);
-                if current > self.maturity {
-                    break;
+            if days_step == 1 {
+                // Daily observations: skip weekends for consistency with 252 annualization
+                while current <= self.maturity {
+                    if current.weekday() != time::Weekday::Saturday
+                        && current.weekday() != time::Weekday::Sunday
+                    {
+                        dates.push(current);
+                    }
+                    current += time::Duration::days(1);
+                }
+            } else {
+                // Other day-based frequencies (e.g., weekly): include all dates
+                while current <= self.maturity {
+                    dates.push(current);
+                    current += time::Duration::days(days_step as i64);
+                    if current > self.maturity {
+                        break;
+                    }
                 }
             }
         } else {
+            // Default to daily weekday observations
             while current <= self.maturity {
-                dates.push(current);
-                current += time::Duration::days(1);
-                if current > self.maturity {
-                    break;
+                if current.weekday() != time::Weekday::Saturday
+                    && current.weekday() != time::Weekday::Sunday
+                {
+                    dates.push(current);
                 }
+                current += time::Duration::days(1);
             }
         }
 
+        // Ensure maturity is included (even if on weekend, it's the settlement date)
         if dates.is_empty() || dates.last() != Some(&self.maturity) {
-            dates.push(self.maturity);
+            // For maturity, always include regardless of weekend
+            if !dates.contains(&self.maturity) {
+                dates.push(self.maturity);
+            }
         }
 
         dates
     }
 
     /// Calculate annualization factor based on observation frequency.
+    ///
+    /// # Daily Observations
+    ///
+    /// For daily observations, returns 252 (standard trading days per year).
+    /// This is consistent with `observation_dates()` which skips weekends.
+    ///
+    /// # Other Frequencies
+    ///
+    /// | Frequency | Factor |
+    /// |-----------|--------|
+    /// | Monthly   | 12     |
+    /// | Quarterly | 4      |
+    /// | Semi-annual | 2    |
+    /// | Annual    | 1      |
+    /// | Weekly    | 52     |
+    /// | Bi-weekly | 26     |
     pub fn annualization_factor(&self) -> f64 {
         if let Some(months) = self.observation_freq.months() {
             return match months {
@@ -271,13 +316,13 @@ impl FxVarianceSwap {
         }
         if let Some(days) = self.observation_freq.days() {
             return match days {
-                1 => 252.0,
-                7 => 52.0,
-                14 => 26.0,
-                _ => 365.0 / days as f64,
+                1 => 252.0, // Daily: 252 trading days (weekdays only)
+                7 => 52.0,  // Weekly: 52 weeks
+                14 => 26.0, // Bi-weekly: 26 periods
+                _ => 252.0, // Other: default to trading days
             };
         }
-        252.0
+        252.0 // Default for daily observations
     }
 
     /// Calculate realized fraction based on observation counts.
@@ -468,10 +513,12 @@ impl HasDiscountCurve for FxVarianceSwap {
     }
 }
 
+// FxVarianceSwap uses both domestic and foreign curves for forward construction
 impl CurveDependencies for FxVarianceSwap {
     fn curve_dependencies(&self) -> InstrumentCurves {
         InstrumentCurves::builder()
             .discount(self.domestic_discount_curve_id.clone())
+            .discount(self.foreign_discount_curve_id.clone())
             .build()
     }
 }
@@ -491,5 +538,171 @@ impl CashflowProvider for FxVarianceSwap {
             self.notional(),
             self.day_count,
         ))
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use finstack_core::dates::TenorUnit;
+    use time::Month;
+
+    fn date(year: i32, month: Month, day: u8) -> Date {
+        Date::from_calendar_date(year, month, day).expect("valid test date")
+    }
+
+    #[test]
+    fn test_fx_variance_swap_curve_dependencies_includes_both_curves() {
+        let swap = FxVarianceSwap::example();
+        let deps = swap.curve_dependencies();
+
+        // Should include both domestic and foreign discount curves
+        assert_eq!(
+            deps.discount_curves.len(),
+            2,
+            "FxVarianceSwap should depend on both domestic and foreign curves"
+        );
+        assert!(
+            deps.discount_curves.iter().any(|c| c.as_str() == "USD-OIS"),
+            "Should include domestic curve"
+        );
+        assert!(
+            deps.discount_curves.iter().any(|c| c.as_str() == "EUR-OIS"),
+            "Should include foreign curve"
+        );
+    }
+
+    #[test]
+    fn test_fx_variance_swap_daily_observations_skip_weekends() {
+        // Create a swap with daily observations over 1 week
+        // Monday 2025-01-06 to Friday 2025-01-10 = 5 weekdays
+        let swap = FxVarianceSwap::builder()
+            .id(InstrumentId::new("TEST-VARSWAP"))
+            .base_currency(Currency::EUR)
+            .quote_currency(Currency::USD)
+            .notional(Money::new(100_000.0, Currency::USD))
+            .strike_variance(0.01)
+            .start_date(date(2025, Month::January, 6)) // Monday
+            .maturity(date(2025, Month::January, 10)) // Friday
+            .observation_freq(Tenor::new(1, TenorUnit::Days))
+            .realized_var_method(RealizedVarMethod::CloseToClose)
+            .side(PayReceive::Receive)
+            .domestic_discount_curve_id(CurveId::new("USD-OIS"))
+            .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
+            .vol_surface_id(CurveId::new("EURUSD-VOL"))
+            .day_count(DayCount::Act365F)
+            .attributes(Attributes::new())
+            .build()
+            .expect("should build");
+
+        let dates = swap.observation_dates();
+
+        // Should be exactly 5 weekdays (Mon-Fri)
+        assert_eq!(
+            dates.len(),
+            5,
+            "Should have 5 weekday observations: {:?}",
+            dates
+        );
+
+        // Verify no weekends
+        for d in &dates {
+            assert!(
+                d.weekday() != time::Weekday::Saturday && d.weekday() != time::Weekday::Sunday,
+                "Should not include weekend: {:?}",
+                d
+            );
+        }
+    }
+
+    #[test]
+    fn test_fx_variance_swap_annualization_consistency() {
+        // Create a swap with daily observations
+        let swap = FxVarianceSwap::builder()
+            .id(InstrumentId::new("TEST-VARSWAP"))
+            .base_currency(Currency::EUR)
+            .quote_currency(Currency::USD)
+            .notional(Money::new(100_000.0, Currency::USD))
+            .strike_variance(0.01)
+            .start_date(date(2025, Month::January, 2))
+            .maturity(date(2025, Month::December, 31))
+            .observation_freq(Tenor::new(1, TenorUnit::Days))
+            .realized_var_method(RealizedVarMethod::CloseToClose)
+            .side(PayReceive::Receive)
+            .domestic_discount_curve_id(CurveId::new("USD-OIS"))
+            .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
+            .vol_surface_id(CurveId::new("EURUSD-VOL"))
+            .day_count(DayCount::Act365F)
+            .attributes(Attributes::new())
+            .build()
+            .expect("should build");
+
+        let dates = swap.observation_dates();
+        let annualization = swap.annualization_factor();
+
+        // Daily observations should use 252 annualization
+        assert_eq!(annualization, 252.0);
+
+        // The number of observations should be close to 252 for a full year
+        // (allowing for start/end date positioning and maturity inclusion)
+        assert!(
+            dates.len() >= 250 && dates.len() <= 260,
+            "Daily observations for ~1 year should be close to 252: got {}",
+            dates.len()
+        );
+    }
+
+    #[test]
+    fn test_fx_variance_swap_weekly_observations_include_all_dates() {
+        // Weekly observations should NOT skip weekends (week boundaries may fall on any day)
+        let swap = FxVarianceSwap::builder()
+            .id(InstrumentId::new("TEST-VARSWAP"))
+            .base_currency(Currency::EUR)
+            .quote_currency(Currency::USD)
+            .notional(Money::new(100_000.0, Currency::USD))
+            .strike_variance(0.01)
+            .start_date(date(2025, Month::January, 4)) // Saturday
+            .maturity(date(2025, Month::January, 25)) // Saturday
+            .observation_freq(Tenor::new(7, TenorUnit::Days)) // Weekly
+            .realized_var_method(RealizedVarMethod::CloseToClose)
+            .side(PayReceive::Receive)
+            .domestic_discount_curve_id(CurveId::new("USD-OIS"))
+            .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
+            .vol_surface_id(CurveId::new("EURUSD-VOL"))
+            .day_count(DayCount::Act365F)
+            .attributes(Attributes::new())
+            .build()
+            .expect("should build");
+
+        let dates = swap.observation_dates();
+        let annualization = swap.annualization_factor();
+
+        // Weekly should use 52 annualization
+        assert_eq!(annualization, 52.0);
+
+        // Weekly observations: Jan 4, 11, 18, 25 = 4 dates
+        assert_eq!(dates.len(), 4, "Weekly over 3 weeks should have 4 dates");
+    }
+
+    #[test]
+    fn test_fx_variance_swap_realized_fraction_monotonic() {
+        let swap = FxVarianceSwap::example();
+
+        let start_frac = swap.realized_fraction_by_observations(swap.start_date);
+        let mid_date = swap.start_date + time::Duration::days(90);
+        let mid_frac = swap.realized_fraction_by_observations(mid_date);
+        let end_frac = swap.realized_fraction_by_observations(swap.maturity);
+
+        assert_eq!(start_frac, 0.0, "Should be 0 at start");
+        assert!(
+            mid_frac > 0.0 && mid_frac < 1.0,
+            "Should be between 0 and 1 mid-way"
+        );
+        assert_eq!(end_frac, 1.0, "Should be 1 at maturity");
+        assert!(
+            mid_frac > start_frac && end_frac > mid_frac,
+            "Realized fraction should be monotonically increasing"
+        );
     }
 }

@@ -1690,14 +1690,6 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         crate::instruments::lookback_option::pricer::LookbackOptionAnalyticalPricer
     );
 
-    // Quanto Option
-    #[cfg(feature = "mc")]
-    register_pricer!(
-        registry,
-        QuantoOption,
-        MonteCarloGBM,
-        crate::instruments::quanto_option::pricer::QuantoOptionMcPricer::default()
-    );
     // Quanto Option - Analytical
     register_pricer!(
         registry,

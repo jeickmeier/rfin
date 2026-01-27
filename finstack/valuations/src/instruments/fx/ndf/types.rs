@@ -14,23 +14,106 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
 use smallvec::smallvec;
 
+/// Quote convention for NDF contract rates.
+///
+/// NDFs can be quoted in two conventions depending on the market:
+///
+/// # BasePerSettlement (default)
+///
+/// Rate is quoted as units of base currency per one unit of settlement currency.
+/// Example: USD/CNY = 7.25 means 7.25 CNY per 1 USD.
+///
+/// Settlement formula:
+/// ```text
+/// Settlement = Notional_base × (1/F_contract - 1/F_fixing)
+/// ```
+///
+/// This is the standard convention for most Asian NDF markets (CNY, KRW, INR, etc.)
+/// where the restricted currency is the base and USD is the settlement currency.
+///
+/// # SettlementPerBase
+///
+/// Rate is quoted as units of settlement currency per one unit of base currency.
+/// Example: CNY/USD = 0.138 means 0.138 USD per 1 CNY.
+///
+/// Settlement formula:
+/// ```text
+/// Settlement = Notional_base × (F_fixing - F_contract)
+/// ```
+///
+/// This is less common but may be used in some markets or for consistency with
+/// other FX instruments that quote in this direction.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum NdfQuoteConvention {
+    /// Rate quoted as base currency per settlement currency (e.g., 7.25 CNY per USD).
+    /// Settlement = Notional_base × (1/F_contract - 1/F_fixing)
+    #[default]
+    BasePerSettlement,
+    /// Rate quoted as settlement currency per base currency (e.g., 0.138 USD per CNY).
+    /// Settlement = Notional_base × (F_fixing - F_contract)
+    SettlementPerBase,
+}
+
+impl std::fmt::Display for NdfQuoteConvention {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NdfQuoteConvention::BasePerSettlement => write!(f, "base_per_settlement"),
+            NdfQuoteConvention::SettlementPerBase => write!(f, "settlement_per_base"),
+        }
+    }
+}
+
+impl std::str::FromStr for NdfQuoteConvention {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.to_ascii_lowercase().as_str() {
+            "base_per_settlement" | "basepersettlement" | "bps" => {
+                Ok(NdfQuoteConvention::BasePerSettlement)
+            }
+            "settlement_per_base" | "settlementperbase" | "spb" => {
+                Ok(NdfQuoteConvention::SettlementPerBase)
+            }
+            other => Err(format!("Unknown NDF quote convention: {}", other)),
+        }
+    }
+}
+
 /// Non-Deliverable Forward (NDF) instrument.
 ///
 /// Represents a cash-settled forward contract on a restricted currency pair.
 /// The position is long base currency (restricted) and short settlement currency.
 ///
+/// # Quote Convention
+///
+/// NDFs support two quote conventions via the `quote_convention` field:
+///
+/// - **BasePerSettlement** (default): Rate quoted as base per settlement (e.g., 7.25 CNY/USD)
+/// - **SettlementPerBase**: Rate quoted as settlement per base (e.g., 0.138 USD/CNY)
+///
+/// See [`NdfQuoteConvention`] for details on the settlement formulas.
+///
 /// # Pricing
 ///
 /// ## Pre-Fixing (fixing_rate = None)
-/// Forward rate is estimated via covered interest rate parity or fallback:
-/// ```text
-/// PV = notional × (F_market - contract_rate) × DF_settlement(T)
-/// ```
+/// Forward rate is estimated via covered interest rate parity or fallback.
 ///
 /// ## Post-Fixing (fixing_rate = Some)
-/// Uses the observed fixing rate:
+/// Uses the observed fixing rate for settlement calculation.
+///
+/// The settlement formula depends on `quote_convention`:
+///
+/// **BasePerSettlement:**
 /// ```text
-/// PV = notional × (fixing_rate - contract_rate) × DF_settlement(T)
+/// Settlement = Notional_base × (1/F_contract - 1/F_fixing)
+/// PV = Settlement × DF_settlement(T)
+/// ```
+///
+/// **SettlementPerBase:**
+/// ```text
+/// Settlement = Notional_base × (F_fixing - F_contract)
+/// PV = Settlement × DF_settlement(T)
 /// ```
 ///
 /// # Examples
@@ -71,10 +154,17 @@ pub struct Ndf {
     pub maturity_date: Date,
     /// Notional amount in base currency.
     pub notional: Money,
-    /// Contract forward rate (base per settlement, e.g., 7.25 CNY per USD).
+    /// Contract forward rate. Interpretation depends on `quote_convention`:
+    /// - BasePerSettlement: base per settlement (e.g., 7.25 CNY per USD)
+    /// - SettlementPerBase: settlement per base (e.g., 0.138 USD per CNY)
     pub contract_rate: f64,
     /// Settlement currency discount curve ID.
     pub settlement_curve_id: CurveId,
+    /// Quote convention for contract_rate and fixing_rate.
+    /// Defaults to BasePerSettlement for backward compatibility.
+    #[builder(default)]
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub quote_convention: NdfQuoteConvention,
     /// Optional foreign (base) currency discount curve ID.
     /// If not provided, forward rate estimation uses settlement curve as fallback.
     #[builder(optional)]
@@ -83,7 +173,8 @@ pub struct Ndf {
         serde(default, skip_serializing_if = "Option::is_none")
     )]
     pub foreign_curve_id: Option<CurveId>,
-    /// Observed fixing rate (base per settlement). If Some, NDF is post-fixing.
+    /// Observed fixing rate. Interpretation depends on `quote_convention`.
+    /// If Some, NDF is post-fixing.
     #[builder(optional)]
     #[cfg_attr(
         feature = "serde",
@@ -98,6 +189,7 @@ pub struct Ndf {
     )]
     pub fixing_source: Option<String>,
     /// Optional spot rate override for forward rate calculation.
+    /// Interpretation depends on `quote_convention`.
     #[builder(optional)]
     #[cfg_attr(
         feature = "serde",
@@ -249,6 +341,20 @@ impl Ndf {
     ///
     /// If `fixing_rate` is Some or as_of >= fixing_date:
     /// - Use the observed fixing rate for settlement calculation
+    ///
+    /// # Quote Convention
+    ///
+    /// The settlement formula depends on `quote_convention`:
+    ///
+    /// - **BasePerSettlement**: Settlement = N_base × (1/F_contract - 1/F_fixing)
+    /// - **SettlementPerBase**: Settlement = N_base × (F_fixing - F_contract)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - `as_of >= fixing_date` and `fixing_rate` is None (missing fixing rate)
+    /// - Notional currency doesn't match base currency
+    /// - Required market data is missing
     pub fn npv(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
         // If maturity has passed, value is zero
         if self.maturity_date < as_of {
@@ -264,9 +370,12 @@ impl Ndf {
             // Post-fixing: use observed rate
             fixed_rate
         } else if as_of >= self.fixing_date {
-            // Past fixing date but no rate set - this is an error condition in practice,
-            // but for robustness we use the contract rate (PV = 0)
-            self.contract_rate
+            // Past fixing date but no rate set - this is an error condition
+            return Err(finstack_core::Error::Validation(format!(
+                "NDF {} is past fixing date ({}) but no fixing_rate is set. \
+                 Use with_fixing_rate() to set the observed rate.",
+                self.id, self.fixing_date
+            )));
         } else {
             // Pre-fixing: estimate forward rate
             self.estimate_forward_rate(market, as_of)?
@@ -274,50 +383,62 @@ impl Ndf {
 
         // Validate notional currency
         if self.notional.currency() != self.base_currency {
-            return Err(finstack_core::Error::from(
-                finstack_core::InputError::Invalid,
-            ));
+            return Err(finstack_core::Error::CurrencyMismatch {
+                expected: self.base_currency,
+                actual: self.notional.currency(),
+            });
         }
         let n_base = self.notional.amount();
 
-        // PV = notional_base × (F_effective - F_contract) / F_contract × DF_settlement
-        // Note: For NDF, we convert base currency notional to settlement currency using contract rate
-        // PV = (notional_base / contract_rate) × (F_effective - F_contract) × DF_settlement
-        // Simplified: PV = notional_settlement × (F_effective/F_contract - 1) × DF_settlement
-        //
-        // Alternative convention (more common):
-        // Settlement amount = notional_base × (1/F_contract - 1/F_fixing)
-        // PV = settlement_amount × DF
-        //
-        // Using the second convention:
-        let settlement_amount = n_base * (1.0 / self.contract_rate - 1.0 / effective_forward);
-        let pv = settlement_amount * df_settlement;
+        // Compute settlement amount based on quote convention
+        let settlement_amount = match self.quote_convention {
+            NdfQuoteConvention::BasePerSettlement => {
+                // Rate is base per settlement (e.g., 7.25 CNY per USD)
+                // Settlement = N_base × (1/F_contract - 1/F_fixing)
+                // Positive when F_fixing > F_contract (base currency depreciated)
+                n_base * (1.0 / self.contract_rate - 1.0 / effective_forward)
+            }
+            NdfQuoteConvention::SettlementPerBase => {
+                // Rate is settlement per base (e.g., 0.138 USD per CNY)
+                // Settlement = N_base × (F_fixing - F_contract)
+                // Positive when F_fixing > F_contract (base currency appreciated)
+                n_base * (effective_forward - self.contract_rate)
+            }
+        };
 
+        let pv = settlement_amount * df_settlement;
         Ok(Money::new(pv, self.settlement_currency))
     }
 
     /// Estimate the forward rate when in pre-fixing mode.
+    ///
+    /// The forward rate is estimated in the same convention as `quote_convention`:
+    /// - **BasePerSettlement**: Returns base per settlement (e.g., CNY/USD)
+    /// - **SettlementPerBase**: Returns settlement per base (e.g., USD/CNY)
     fn estimate_forward_rate(&self, market: &MarketContext, as_of: Date) -> Result<f64> {
         use finstack_core::money::fx::FxQuery;
 
-        // Try to get spot rate
+        // Determine which direction to query based on convention
+        let (from_ccy, to_ccy) = match self.quote_convention {
+            NdfQuoteConvention::BasePerSettlement => {
+                // Rate is base/settlement, query base->settlement (returns base per settlement)
+                (self.base_currency, self.settlement_currency)
+            }
+            NdfQuoteConvention::SettlementPerBase => {
+                // Rate is settlement/base, query settlement->base (returns settlement per base)
+                (self.settlement_currency, self.base_currency)
+            }
+        };
+
+        // Try to get spot rate in the appropriate convention
         let spot = if let Some(rate) = self.spot_rate_override {
             rate
         } else if let Some(fx) = market.fx() {
-            // Query for base/settlement rate (e.g., CNY/USD)
-            match (**fx).rate(FxQuery::new(
-                self.base_currency,
-                self.settlement_currency,
-                as_of,
-            )) {
+            match (**fx).rate(FxQuery::new(from_ccy, to_ccy, as_of)) {
                 Ok(fx_rate) => fx_rate.rate,
                 Err(_) => {
-                    // Try inverse
-                    let inverse = (**fx).rate(FxQuery::new(
-                        self.settlement_currency,
-                        self.base_currency,
-                        as_of,
-                    ))?;
+                    // Try inverse and flip
+                    let inverse = (**fx).rate(FxQuery::new(to_ccy, from_ccy, as_of))?;
                     1.0 / inverse.rate
                 }
             }
@@ -334,8 +455,14 @@ impl Ndf {
         if let Some(ref foreign_curve_id) = self.foreign_curve_id {
             if let Ok(foreign_disc) = market.get_discount(foreign_curve_id.as_str()) {
                 let df_foreign = foreign_disc.df_between_dates(as_of, self.maturity_date)?;
-                // F = S × DF_foreign / DF_settlement
-                return Ok(spot * df_foreign / df_settlement);
+                // Forward rate via covered interest rate parity
+                // For BasePerSettlement: F = S × DF_base / DF_settlement
+                // For SettlementPerBase: F = S × DF_settlement / DF_base
+                let forward = match self.quote_convention {
+                    NdfQuoteConvention::BasePerSettlement => spot * df_foreign / df_settlement,
+                    NdfQuoteConvention::SettlementPerBase => spot * df_settlement / df_foreign,
+                };
+                return Ok(forward);
             }
         }
 
@@ -343,6 +470,12 @@ impl Ndf {
         // This is a simplification; in practice you'd use NDF market quotes or basis curves
         // For now, use the settlement curve alone: F = S (no adjustment for restricted currency rate)
         Ok(spot)
+    }
+
+    /// Set the quote convention.
+    pub fn with_quote_convention(mut self, convention: NdfQuoteConvention) -> Self {
+        self.quote_convention = convention;
+        self
     }
 }
 
@@ -522,5 +655,161 @@ mod tests {
         assert_eq!(ndf.id.as_str(), deserialized.id.as_str());
         assert_eq!(ndf.base_currency, deserialized.base_currency);
         assert_eq!(ndf.settlement_currency, deserialized.settlement_currency);
+    }
+
+    #[test]
+    fn test_ndf_quote_convention_default() {
+        let ndf = Ndf::example();
+        assert_eq!(ndf.quote_convention, NdfQuoteConvention::BasePerSettlement);
+    }
+
+    #[test]
+    fn test_ndf_quote_convention_with_builder() {
+        let ndf = Ndf::builder()
+            .id(InstrumentId::new("TEST-NDF"))
+            .base_currency(Currency::CNY)
+            .settlement_currency(Currency::USD)
+            .fixing_date(Date::from_calendar_date(2025, Month::March, 13).expect("valid date"))
+            .maturity_date(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
+            .notional(Money::new(10_000_000.0, Currency::CNY))
+            .contract_rate(0.138) // USD per CNY
+            .quote_convention(NdfQuoteConvention::SettlementPerBase)
+            .settlement_curve_id(CurveId::new("USD-OIS"))
+            .attributes(Attributes::new())
+            .build()
+            .expect("should build");
+
+        assert_eq!(ndf.quote_convention, NdfQuoteConvention::SettlementPerBase);
+    }
+
+    #[test]
+    fn test_ndf_with_quote_convention() {
+        let ndf = Ndf::example().with_quote_convention(NdfQuoteConvention::SettlementPerBase);
+        assert_eq!(ndf.quote_convention, NdfQuoteConvention::SettlementPerBase);
+    }
+
+    #[test]
+    fn test_ndf_quote_convention_display_and_parse() {
+        let bps = NdfQuoteConvention::BasePerSettlement;
+        let spb = NdfQuoteConvention::SettlementPerBase;
+
+        assert_eq!(bps.to_string(), "base_per_settlement");
+        assert_eq!(spb.to_string(), "settlement_per_base");
+
+        assert_eq!(
+            "base_per_settlement"
+                .parse::<NdfQuoteConvention>()
+                .expect("valid convention"),
+            NdfQuoteConvention::BasePerSettlement
+        );
+        assert_eq!(
+            "settlement_per_base"
+                .parse::<NdfQuoteConvention>()
+                .expect("valid convention"),
+            NdfQuoteConvention::SettlementPerBase
+        );
+        assert_eq!(
+            "bps"
+                .parse::<NdfQuoteConvention>()
+                .expect("valid convention"),
+            NdfQuoteConvention::BasePerSettlement
+        );
+        assert_eq!(
+            "spb"
+                .parse::<NdfQuoteConvention>()
+                .expect("valid convention"),
+            NdfQuoteConvention::SettlementPerBase
+        );
+    }
+
+    #[test]
+    fn test_ndf_base_per_settlement_settlement_formula() {
+        // Test the settlement formula for BasePerSettlement convention
+        // Contract rate: 7.25 CNY/USD
+        // Fixing rate: 7.30 CNY/USD (CNY depreciated)
+        // Notional: 10,000,000 CNY
+        //
+        // Expected settlement (in USD):
+        // = 10,000,000 * (1/7.25 - 1/7.30)
+        // = 10,000,000 * (0.13793 - 0.13699)
+        // = 10,000,000 * 0.00094
+        // ≈ 9,430 USD (positive, we receive)
+
+        let contract_rate = 7.25;
+        let fixing_rate = 7.30;
+        let notional = 10_000_000.0;
+
+        let settlement: f64 = notional * (1.0 / contract_rate - 1.0 / fixing_rate);
+        assert!(settlement > 0.0, "Settlement should be positive");
+        assert!(
+            (settlement - 9430.0).abs() < 100.0,
+            "Settlement should be approximately 9,430 USD"
+        );
+    }
+
+    #[test]
+    fn test_ndf_settlement_per_base_settlement_formula() {
+        // Test the settlement formula for SettlementPerBase convention
+        // Contract rate: 0.138 USD/CNY
+        // Fixing rate: 0.140 USD/CNY (CNY appreciated)
+        // Notional: 10,000,000 CNY
+        //
+        // Expected settlement (in USD):
+        // = 10,000,000 * (0.140 - 0.138)
+        // = 10,000,000 * 0.002
+        // = 20,000 USD (positive, we receive)
+
+        let contract_rate = 0.138;
+        let fixing_rate = 0.140;
+        let notional = 10_000_000.0;
+
+        let settlement: f64 = notional * (fixing_rate - contract_rate);
+        assert!(settlement > 0.0, "Settlement should be positive");
+        assert!(
+            (settlement - 20_000.0).abs() < 1.0,
+            "Settlement should be exactly 20,000 USD"
+        );
+    }
+
+    #[test]
+    fn test_ndf_past_fixing_without_rate_errors() {
+        use finstack_core::market_data::context::MarketContext;
+        use finstack_core::market_data::term_structures::DiscountCurve;
+
+        // Create a simple market context
+        let as_of = Date::from_calendar_date(2025, Month::March, 14).expect("valid date");
+        let curve = DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .knots(vec![(0.0, 1.0), (1.0, 0.95)])
+            .build()
+            .expect("should build");
+        let market = MarketContext::new().insert_discount(curve);
+
+        // Create an NDF that's past fixing date but without fixing_rate
+        let ndf = Ndf::builder()
+            .id(InstrumentId::new("TEST-NDF"))
+            .base_currency(Currency::CNY)
+            .settlement_currency(Currency::USD)
+            .fixing_date(Date::from_calendar_date(2025, Month::March, 13).expect("valid date"))
+            .maturity_date(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
+            .notional(Money::new(10_000_000.0, Currency::CNY))
+            .contract_rate(7.25)
+            .settlement_curve_id(CurveId::new("USD-OIS"))
+            .attributes(Attributes::new())
+            .build()
+            .expect("should build");
+
+        // NPV should error because we're past fixing date without a fixing rate
+        let result = ndf.npv(&market, as_of);
+        assert!(
+            result.is_err(),
+            "Should error when past fixing without rate"
+        );
+        let err_msg = result.expect_err("expected an error").to_string();
+        assert!(
+            err_msg.contains("past fixing date"),
+            "Error should mention past fixing date: {}",
+            err_msg
+        );
     }
 }

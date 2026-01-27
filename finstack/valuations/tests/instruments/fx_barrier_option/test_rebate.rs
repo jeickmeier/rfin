@@ -41,7 +41,7 @@ fn test_fx_barrier_rebate_added_to_closed_form_price() {
         .option_type(OptionType::Call)
         .barrier_type(BarrierType::UpAndOut)
         .expiry(expiry)
-        .notional(Money::new(1_000_000.0, Currency::USD))
+        .notional(Money::new(1_000_000.0, Currency::EUR)) // Notional in foreign currency
         .domestic_currency(Currency::USD)
         .foreign_currency(Currency::EUR)
         .day_count(DayCount::Act365F)

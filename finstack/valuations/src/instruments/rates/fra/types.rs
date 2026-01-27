@@ -104,11 +104,21 @@ impl ForwardRateAgreement {
     }
 
     /// Calculate the raw net present value of this FRA (unrounded f64)
+    ///
+    /// # Reset Lag Handling
+    ///
+    /// The fixing date is inferred from `start_date - reset_lag` using **business days**
+    /// when a calendar is available, or weekday-only subtraction otherwise. This aligns
+    /// with market conventions where reset lag is specified in business days (e.g., T-2).
+    ///
+    /// The inferred date is then adjusted according to `fixing_bdc` (defaults to ModifiedFollowing).
     pub fn npv_raw(
         &self,
         context: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
+        use finstack_core::dates::DateExt;
+
         // Settlement for a FRA occurs at the start of the accrual period; past
         // settlement implies zero PV.
         if as_of >= self.start_date {
@@ -117,17 +127,43 @@ impl ForwardRateAgreement {
 
         // Determine fixing date: prefer explicit fixing_date if it looks meaningful,
         // otherwise fall back to inferred date from reset lag.
+        //
+        // IMPORTANT: reset_lag is in BUSINESS DAYS, not calendar days.
+        // Use business-day subtraction when calendar is available.
         let inferred_fixing_date = {
-            let mut inferred = self.start_date - time::Duration::days(self.reset_lag as i64);
             let bdc = self
                 .fixing_bdc
                 .unwrap_or(BusinessDayConvention::ModifiedFollowing);
+
+            // Compute base fixing date by subtracting reset_lag business days
+            let base_fixing_date = if let Some(cal_id) = self.fixing_calendar_id.as_deref() {
+                if let Some(cal) = CalendarRegistry::global().resolve_str(cal_id) {
+                    // Use calendar-aware business day subtraction
+                    self.start_date.add_business_days(-(self.reset_lag), cal)?
+                } else {
+                    // Calendar specified but not found - fall back to weekday-only
+                    tracing::warn!(
+                        instrument_id = %self.id.as_str(),
+                        calendar_id = cal_id,
+                        "FRA fixing calendar not found; using weekday-only reset lag"
+                    );
+                    self.start_date.add_weekdays(-(self.reset_lag))
+                }
+            } else {
+                // No calendar specified - use weekday-only (Mon-Fri) subtraction
+                self.start_date.add_weekdays(-(self.reset_lag))
+            };
+
+            // Apply business day convention adjustment to the resulting date
             if let Some(cal_id) = self.fixing_calendar_id.as_deref() {
                 if let Some(cal) = CalendarRegistry::global().resolve_str(cal_id) {
-                    inferred = adjust(inferred, bdc, cal)?;
+                    adjust(base_fixing_date, bdc, cal)?
+                } else {
+                    base_fixing_date
                 }
+            } else {
+                base_fixing_date
             }
-            inferred
         };
 
         // Prefer explicit fixing_date unless it equals start_date (sentinel for "unset")

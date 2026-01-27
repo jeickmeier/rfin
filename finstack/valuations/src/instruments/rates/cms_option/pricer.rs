@@ -31,6 +31,12 @@ impl CmsOptionPricer {
     }
 
     /// Internal pricing logic
+    ///
+    /// # Time Basis
+    ///
+    /// - Vol surface lookups use the instrument's day_count for time_to_fixing
+    ///   (market convention for vol surfaces).
+    /// - Discount factors use curve-consistent relative DFs via `relative_df_discount_curve`.
     pub(crate) fn price_internal_with_convexity(
         &self,
         inst: &CmsOption,
@@ -38,6 +44,8 @@ impl CmsOptionPricer {
         as_of: Date,
         convexity_scale: f64,
     ) -> Result<Money> {
+        use crate::instruments::common::pricing::time::relative_df_discount_curve;
+
         let mut total_pv = 0.0;
         let discount_curve = curves.get_discount(inst.discount_curve_id.as_ref())?;
 
@@ -66,13 +74,14 @@ impl CmsOptionPricer {
                 self.calculate_forward_swap_rate(inst, curves, as_of, swap_start, swap_end)?;
 
             // 2. Calculate Convexity Adjustment
+            // Time to fixing uses instrument's day_count for vol surface lookup
             let time_to_fixing =
                 inst.day_count
                     .year_fraction(as_of, fixing_date, DayCountCtx::default())?;
 
             // Get volatility
             let vol = if let Some(surface) = vol_surface.as_ref() {
-                surface.value_clamped(time_to_fixing, inst.strike_rate)
+                surface.value_clamped(time_to_fixing.max(0.0), inst.strike_rate)
             } else {
                 0.20
             };
@@ -107,12 +116,8 @@ impl CmsOptionPricer {
                 )
             };
 
-            // 4. Discount to present
-            let df_pay = discount_curve.df(inst.day_count.year_fraction(
-                as_of,
-                payment_date,
-                DayCountCtx::default(),
-            )?);
+            // 4. Discount to present using curve-consistent relative DF
+            let df_pay = relative_df_discount_curve(discount_curve.as_ref(), as_of, payment_date)?;
 
             let period_pv = option_val * accrual_fraction * df_pay;
             total_pv += period_pv;
@@ -133,6 +138,20 @@ impl CmsOptionPricer {
         self.price_internal_with_convexity(inst, curves, as_of, 1.0)
     }
 
+    /// Calculate forward swap rate and annuity.
+    ///
+    /// # Time Basis
+    ///
+    /// Uses curve-consistent time mapping:
+    /// - Discount factors use `relative_df_discount_curve` (curve's own day_count/base_date)
+    /// - Forward rates use `rate_period_on_dates` (forward curve's own day_count/base_date)
+    /// - Accrual fractions use `swap_day_count` (correct for coupon calculation)
+    ///
+    /// # Note on Float Day Count
+    ///
+    /// Currently uses `swap_day_count` for float leg accrual. In a production system,
+    /// CmsOption could have a separate `swap_float_day_count` field to correctly
+    /// handle different fixed/float conventions.
     pub(crate) fn calculate_forward_swap_rate(
         &self,
         inst: &CmsOption,
@@ -141,6 +160,10 @@ impl CmsOptionPricer {
         start: Date,
         end: Date,
     ) -> Result<(f64, f64)> {
+        use crate::instruments::common::pricing::time::{
+            rate_period_on_dates, relative_df_discount_curve,
+        };
+
         // Returns (rate, annuity)
         let disc = market.get_discount(inst.discount_curve_id.as_ref())?;
 
@@ -160,13 +183,12 @@ impl CmsOptionPricer {
             if d == start {
                 continue;
             }
+            // Accrual uses swap_day_count (correct for coupon calculation)
             let accrual =
                 inst.swap_day_count
                     .year_fraction(prev_date, d, DayCountCtx::default())?;
-            let t_pay = inst
-                .day_count
-                .year_fraction(as_of, d, DayCountCtx::default())?;
-            let df = disc.df(t_pay);
+            // DF uses curve-consistent relative DF
+            let df = relative_df_discount_curve(disc.as_ref(), as_of, d)?;
             annuity += accrual * df;
             prev_date = d;
         }
@@ -182,15 +204,9 @@ impl CmsOptionPricer {
             .unwrap_or(&inst.discount_curve_id);
 
         if forward_curve_id == &inst.discount_curve_id {
-            // Single Curve Optimization
-            let t_start = inst
-                .day_count
-                .year_fraction(as_of, start, DayCountCtx::default())?;
-            let t_end = inst
-                .day_count
-                .year_fraction(as_of, end, DayCountCtx::default())?;
-            let df_start = disc.df(t_start);
-            let df_end = disc.df(t_end);
+            // Single Curve Optimization: S = (DF_start - DF_end) / Annuity
+            let df_start = relative_df_discount_curve(disc.as_ref(), as_of, start)?;
+            let df_end = relative_df_discount_curve(disc.as_ref(), as_of, end)?;
             let rate = (df_start - df_end) / annuity;
             Ok((rate, annuity))
         } else {
@@ -211,20 +227,16 @@ impl CmsOptionPricer {
                 if d == start {
                     continue;
                 }
-                // Floating accrual (usually Act/360 or similar, using swap_day_count here)
-                // NOTE: Should ideally have separate float day count, but using swap_day_count for now
+                // Floating accrual (using swap_day_count - see note in docstring)
                 let accrual =
                     inst.swap_day_count
                         .year_fraction(prev_date, d, DayCountCtx::default())?;
-                let t_prev =
-                    inst.day_count
-                        .year_fraction(as_of, prev_date, DayCountCtx::default())?;
-                let t_curr = inst
-                    .day_count
-                    .year_fraction(as_of, d, DayCountCtx::default())?;
 
-                let fwd_rate = fwd_curve.rate_period(t_prev, t_curr);
-                let df = disc.df(t_curr);
+                // Forward rate uses forward curve's time basis
+                let fwd_rate = rate_period_on_dates(fwd_curve.as_ref(), prev_date, d)?;
+
+                // DF uses curve-consistent relative DF
+                let df = relative_df_discount_curve(disc.as_ref(), as_of, d)?;
 
                 pv_float += fwd_rate * accrual * df;
                 prev_date = d;

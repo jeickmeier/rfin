@@ -105,14 +105,28 @@ impl QuantoOption {
             .expect("Example QuantoOption construction should not fail")
     }
     /// Calculate the net present value using Monte Carlo.
+    ///
+    /// **Note:** Monte Carlo pricing is intentionally unsupported for quanto options.
+    /// The analytical quanto model uses a drift adjustment that doesn't translate
+    /// directly to an MC payoff without a 2D correlated process. Use [`Self::npv`]
+    /// for analytical pricing instead.
+    ///
+    /// # Errors
+    ///
+    /// Always returns an error indicating MC is not supported.
     #[cfg(feature = "mc")]
     pub fn npv_mc(
         &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
+        _curves: &finstack_core::market_data::context::MarketContext,
+        _as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        use crate::instruments::quanto_option::pricer;
-        pricer::npv(self, curves, as_of)
+        Err(finstack_core::Error::Validation(
+            "Monte Carlo pricing is not supported for QuantoOption. \
+             The analytical quanto model uses a drift adjustment that cannot be \
+             correctly represented in a simple 1D MC simulation. Use npv() for \
+             analytical pricing instead."
+                .to_string(),
+        ))
     }
 
     /// Calculate the net present value using analytical method (default).
@@ -183,5 +197,60 @@ impl crate::instruments::common::traits::Instrument for QuantoOption {
             None,
             None,
         )
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use crate::instruments::common::traits::CurveDependencies;
+
+    #[test]
+    fn test_quanto_option_example_creation() {
+        let option = QuantoOption::example();
+        assert_eq!(option.id.as_str(), "QUANTO-NKY-USD-CALL");
+        assert_eq!(option.domestic_currency, Currency::USD);
+        assert_eq!(option.foreign_currency, Currency::JPY);
+        assert!(option.correlation < 0.0); // Negative correlation in example
+    }
+
+    #[test]
+    fn test_quanto_option_curve_dependencies() {
+        let option = QuantoOption::example();
+        let deps = option.curve_dependencies();
+
+        // Should include both domestic and foreign discount curves
+        assert_eq!(deps.discount_curves.len(), 2);
+        assert!(deps.discount_curves.iter().any(|c| c.as_str() == "USD-OIS"));
+        assert!(deps.discount_curves.iter().any(|c| c.as_str() == "JPY-OIS"));
+    }
+
+    #[cfg(feature = "mc")]
+    #[test]
+    fn test_quanto_option_mc_is_unsupported() {
+        use finstack_core::market_data::context::MarketContext;
+
+        let option = QuantoOption::example();
+        let market = MarketContext::new();
+        let as_of =
+            Date::from_calendar_date(2024, time::Month::January, 15).expect("valid test date");
+
+        let result = option.npv_mc(&market, as_of);
+
+        // MC should fail with a clear error message
+        assert!(result.is_err());
+        let err = result.expect_err("expected MC error");
+        let err_msg = err.to_string();
+        assert!(
+            err_msg.contains("Monte Carlo pricing is not supported"),
+            "Error message should indicate MC is unsupported: {}",
+            err_msg
+        );
+        assert!(
+            err_msg.contains("npv()"),
+            "Error should suggest using npv() instead: {}",
+            err_msg
+        );
     }
 }

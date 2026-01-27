@@ -10,7 +10,7 @@
 
 - Garman–Kohlhagen (1983) / Black–76 style analytics with continuous foreign/domestic carry.
 - Deterministic inputs from `MarketContext` (discount curves, vol surface, FX spot); no quanto or stochastic volatility.
-- American/Bermudan styles are not explicitly modeled; primary path is European analytic pricing.
+- **European exercise only**: American and Bermudan styles are explicitly rejected and will return a validation error.
 
 ## Usage Example
 
@@ -23,15 +23,15 @@ let pv = option.value(&market_context, as_of_date)?;
 
 ## Limitations / Known Issues
 
+- **European exercise only**: American and Bermudan exercise styles will return a validation error.
 - Assumes log-normal FX dynamics; no support for local-vol or stochastic-vol pricing.
 - Quanto adjustments are not included; cross-currency risks handled via chosen curves only.
-- Early-exercise behavior is not fully modeled; pricing is calibrated to European analytics.
 
 ## Pricing Methodology
 
 - Garman–Kohlhagen (Black–76) analytic pricing with domestic/foreign carry, vol from FX surface or override.
 - Time to expiry from instrument day-count; discounting via domestic curve, foreign curve used for carry.
-- Exercise style primarily European; American/Bermudan not explicitly modeled in calculator.
+- **European exercise only**: Non-European styles are rejected with a validation error.
 
 ## Metrics
 

@@ -403,8 +403,9 @@ impl InterestRateSwap {
         // Decimal values are always finite (no NaN/Infinity), so we just check they're valid
         // by verifying they can be converted to f64 for magnitude checks
 
-        // Reset lag is a signed business-day offset applied to the accrual start to obtain
-        // the reset/fixing date. Market convention for "T-2" is commonly represented as -2.
+        // Reset lag is a positive business-day offset subtracted from the accrual start to obtain
+        // the reset/fixing date. Market convention "T-2" is represented as reset_lag_days = 2,
+        // meaning fixing_date = accrual_start - 2 business days.
         // Guard only against absurd magnitudes that indicate unit mistakes.
         if self.float.reset_lag_days.abs() > 31 {
             return Err(finstack_core::Error::Validation(

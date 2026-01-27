@@ -215,12 +215,61 @@ use crate::instruments::common::models::closed_form::barrier::{
     BarrierType as AnalyticalBarrierType,
 };
 
+/// Validate currency semantics for FX barrier option.
+///
+/// # Currency Conventions
+///
+/// For an FX barrier option on `foreign_currency/domestic_currency` (e.g., EUR/USD):
+/// - Strike and barrier are expressed in domestic currency (quote currency)
+/// - Notional is in foreign currency (base currency) - the amount of foreign currency
+///   being bought/sold
+fn validate_fx_barrier_currencies(inst: &FxBarrierOption) -> finstack_core::Result<()> {
+    // Strike should be in domestic currency
+    if inst.strike.currency() != inst.domestic_currency {
+        return Err(finstack_core::Error::CurrencyMismatch {
+            expected: inst.domestic_currency,
+            actual: inst.strike.currency(),
+        });
+    }
+
+    // Barrier should be in domestic currency
+    if inst.barrier.currency() != inst.domestic_currency {
+        return Err(finstack_core::Error::CurrencyMismatch {
+            expected: inst.domestic_currency,
+            actual: inst.barrier.currency(),
+        });
+    }
+
+    // Notional should be in foreign currency
+    if inst.notional.currency() != inst.foreign_currency {
+        return Err(finstack_core::Error::CurrencyMismatch {
+            expected: inst.foreign_currency,
+            actual: inst.notional.currency(),
+        });
+    }
+
+    // Rebate, if present, should be in domestic currency
+    if let Some(ref rebate) = inst.rebate {
+        if rebate.currency() != inst.domestic_currency {
+            return Err(finstack_core::Error::CurrencyMismatch {
+                expected: inst.domestic_currency,
+                actual: rebate.currency(),
+            });
+        }
+    }
+
+    Ok(())
+}
+
 /// Helper to collect inputs for FX barrier option pricing.
 fn collect_fx_barrier_inputs(
     inst: &FxBarrierOption,
     curves: &MarketContext,
     as_of: Date,
 ) -> finstack_core::Result<(f64, f64, f64, f64, f64)> {
+    // Validate currency semantics first
+    validate_fx_barrier_currencies(inst)?;
+
     let t = inst
         .day_count
         .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;

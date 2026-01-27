@@ -130,17 +130,14 @@ mod choice_tests {
             ))
             .is_some());
 
-        // Quanto: 1 analytical + 1 MC
+        // Quanto: 1 analytical only
+        // Note: MC pricing for QuantoOption was removed because the quanto drift
+        // adjustment model cannot be correctly represented in a simple 1D MC simulation
+        // without a 2D correlated equity/FX process.
         assert!(registry
             .get_pricer(PricerKey::new(
                 InstrumentType::QuantoOption,
                 ModelKey::QuantoBS
-            ))
-            .is_some());
-        assert!(registry
-            .get_pricer(PricerKey::new(
-                InstrumentType::QuantoOption,
-                ModelKey::MonteCarloGBM
             ))
             .is_some());
 

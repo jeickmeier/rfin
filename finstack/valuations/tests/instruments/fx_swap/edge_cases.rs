@@ -72,7 +72,7 @@ fn test_same_near_far_dates() {
 
 #[test]
 fn test_far_before_near() {
-    // Test swap with far date before near date (invalid but should not panic)
+    // Test swap with far date before near date (invalid)
     let dates = TestDates::standard();
     let market = setup_standard_market(dates.as_of);
 
@@ -83,9 +83,15 @@ fn test_far_before_near() {
         1_000_000.0,
     );
 
-    // Should produce a result (even if economically nonsensical)
+    // Should return an error for invalid date ordering
     let result = swap.value(&market, dates.as_of);
-    assert!(result.is_ok(), "Should handle inverted dates gracefully");
+    assert!(result.is_err(), "Should reject inverted dates");
+    let err = result.expect_err("expected validation error");
+    assert!(
+        err.to_string().contains("near_date") && err.to_string().contains("far_date"),
+        "Error should mention date ordering: {}",
+        err
+    );
 }
 
 #[test]

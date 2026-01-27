@@ -280,6 +280,22 @@ impl crate::instruments::common::traits::Instrument for InterestRateOption {
 
 impl InterestRateOption {
     /// Calculate the net present value of this interest rate option
+    ///
+    /// # Time Basis
+    ///
+    /// This implementation uses curve-consistent time mapping:
+    /// - Discount factors use `df_between_dates(as_of, payment_date)` which internally
+    ///   computes times using the discount curve's own base_date and day_count.
+    /// - Forward rates use `rate_period_on_dates` which computes times using
+    ///   the forward curve's own base_date and day_count.
+    /// - Vol surface lookups use the instrument's day_count for time to fixing
+    ///   (market convention for vol surfaces).
+    ///
+    /// # Seasoned Periods
+    ///
+    /// For periods where `fixing_date <= as_of < payment_date`:
+    /// - The caplet/floorlet is valued at intrinsic (the forward is observed/fixed)
+    /// - This avoids losing already-fixed but unpaid caplets
     pub fn npv(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
@@ -287,6 +303,9 @@ impl InterestRateOption {
     ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::cashflow::builder::date_generation::build_dates;
         use crate::instruments::cap_floor::pricing::black as black_ir;
+        use crate::instruments::common::pricing::time::{
+            rate_period_on_dates, relative_df_discount_curve,
+        };
 
         // Get market curves
         let disc_curve = curves.get_discount(self.discount_curve_id.as_ref())?;
@@ -298,30 +317,32 @@ impl InterestRateOption {
         };
 
         let mut total_pv = Money::new(0.0, self.notional.currency());
+        let dc_ctx = finstack_core::dates::DayCountCtx::default();
 
         // Single caplet/floorlet
         if matches!(
             self.rate_option_type,
             RateOptionType::Caplet | RateOptionType::Floorlet
         ) {
-            let t_fix = self.day_count.year_fraction(
-                as_of,
-                self.start_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )?;
-            let t_pay = self.day_count.year_fraction(
-                as_of,
-                self.end_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )?;
-            let tau = self.day_count.year_fraction(
-                self.start_date,
-                self.end_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )?;
+            // Skip entirely settled cashflows (payment date already passed)
+            if self.end_date <= as_of {
+                return Ok(total_pv);
+            }
 
-            let forward = fwd_curve.rate_period(t_fix.max(0.0), t_pay);
-            let df = disc_curve.df(t_pay);
+            // Time to fixing using instrument's day count (for vol surface)
+            let t_fix = self
+                .day_count
+                .year_fraction(as_of, self.start_date, dc_ctx)?;
+
+            // Accrual year fraction
+            let tau = self
+                .day_count
+                .year_fraction(self.start_date, self.end_date, dc_ctx)?;
+
+            // Use curve-consistent helpers for forward rate and discount factor
+            let forward = rate_period_on_dates(fwd_curve.as_ref(), self.start_date, self.end_date)?;
+            let df = relative_df_discount_curve(disc_curve.as_ref(), as_of, self.end_date)?;
+
             let sigma = if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
                 impl_vol
             } else if let Some(vol_surf) = &vol_surface {
@@ -370,49 +391,50 @@ impl InterestRateOption {
         );
         let mut prev = schedule.dates[0];
         for &pay in &schedule.dates[1..] {
-            let t_fix = self.day_count.year_fraction(
-                as_of,
-                prev,
-                finstack_core::dates::DayCountCtx::default(),
-            )?;
-            let t_pay = self.day_count.year_fraction(
-                as_of,
-                pay,
-                finstack_core::dates::DayCountCtx::default(),
-            )?;
-            let tau = self.day_count.year_fraction(
-                prev,
-                pay,
-                finstack_core::dates::DayCountCtx::default(),
-            )?;
-
-            if t_fix > 0.0 {
-                let forward = fwd_curve.rate_period(t_fix, t_pay);
-                let df = disc_curve.df(t_pay);
-                let sigma = if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
-                    impl_vol
-                } else if let Some(vol_surf) = &vol_surface {
-                    vol_surf.value_clamped(t_fix, self.strike_rate)
-                } else {
-                    return Err(finstack_core::InputError::NotFound {
-                        id: "cap_floor_vol_surface".to_string(),
-                    }
-                    .into());
-                };
-
-                let leg_pv = black_ir::price_caplet_floorlet(black_ir::CapletFloorletInputs {
-                    is_cap,
-                    notional: self.notional.amount(),
-                    strike: self.strike_rate,
-                    forward,
-                    discount_factor: df,
-                    volatility: sigma,
-                    time_to_fixing: t_fix,
-                    accrual_year_fraction: tau,
-                    currency: self.notional.currency(),
-                })?;
-                total_pv = (total_pv + leg_pv)?;
+            // Skip entirely settled cashflows (payment date already passed)
+            if pay <= as_of {
+                prev = pay;
+                continue;
             }
+
+            // Time to fixing using instrument's day count (for vol surface lookup)
+            let t_fix = self.day_count.year_fraction(as_of, prev, dc_ctx)?;
+
+            // Accrual year fraction
+            let tau = self.day_count.year_fraction(prev, pay, dc_ctx)?;
+
+            // Use curve-consistent helpers for forward rate and discount factor
+            let forward = rate_period_on_dates(fwd_curve.as_ref(), prev, pay)?;
+            let df = relative_df_discount_curve(disc_curve.as_ref(), as_of, pay)?;
+
+            let sigma = if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
+                impl_vol
+            } else if let Some(vol_surf) = &vol_surface {
+                // For seasoned caplets (t_fix <= 0), use small positive time for vol lookup
+                vol_surf.value_clamped(t_fix.max(1e-6), self.strike_rate)
+            } else {
+                return Err(finstack_core::InputError::NotFound {
+                    id: "cap_floor_vol_surface".to_string(),
+                }
+                .into());
+            };
+
+            // Include ALL periods where payment_date > as_of, including
+            // seasoned periods where fixing_date <= as_of < payment_date.
+            // The Black formula handles t_fix <= 0 by computing intrinsic value.
+            let leg_pv = black_ir::price_caplet_floorlet(black_ir::CapletFloorletInputs {
+                is_cap,
+                notional: self.notional.amount(),
+                strike: self.strike_rate,
+                forward,
+                discount_factor: df,
+                volatility: sigma,
+                time_to_fixing: t_fix,
+                accrual_year_fraction: tau,
+                currency: self.notional.currency(),
+            })?;
+            total_pv = (total_pv + leg_pv)?;
+
             prev = pay;
         }
 

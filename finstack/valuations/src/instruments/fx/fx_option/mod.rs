@@ -89,8 +89,8 @@
 //!
 //! # Implementation Notes
 //!
-//! - European options use analytical Garman-Kohlhagen formula
-//! - American options use binomial trees or LSM
+//! - **European options only**: Uses analytical Garman-Kohlhagen formula
+//! - American and Bermudan exercise styles are **not supported** and will return an error
 //! - Spot delta convention (can convert to forward delta)
 //! - Volatility surface interpolation via SABR when available
 //!

@@ -9,7 +9,9 @@
 ## Methodology & References
 
 - Standard FX swap PV: discount near/far exchanges in each currency, convert foreign leg to domestic via spot/forward, and sum.
-- Forward parity uses `F = S × DF_for / DF_dom` when far rate not supplied.
+- **Spot convention**: The `model_spot` from the FX matrix represents the as_of date spot rate (value date T+2).
+- **Forward parity**: `F = S × (DF_for(far)/DF_for(near)) / (DF_dom(far)/DF_dom(near))` when far rate not supplied.
+- **Settlement handling**: Near leg included if `near_date >= as_of`; far leg included if `far_date >= as_of`.
 - Deterministic discounting; no funding adjustments or cross-currency basis beyond curve inputs.
 
 ## Usage Example

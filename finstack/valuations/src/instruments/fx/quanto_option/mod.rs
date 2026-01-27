@@ -1,7 +1,7 @@
 //! Quanto option instruments with cross-currency adjustments.
 //!
 //! Quanto options provide exposure to a foreign asset with payoff settled
-//! in domestic currency at a fixed exchange rate. The quanto adjustment
+//! in domestic currency at a **fixed** exchange rate. The quanto adjustment
 //! accounts for the correlation between asset and FX rate.
 //!
 //! # Quanto Feature
@@ -9,27 +9,40 @@
 //! For a quanto call on foreign asset with strike K:
 //! - Underlying: Foreign asset with price S (in foreign currency)
 //! - Payoff: Notional_DOM × max(S_T - K, 0) settled in domestic currency
-//! - Fixed FX: No FX risk - always converts at predetermined rate
+//! - Fixed FX: **No FX risk** — the conversion rate is predetermined at trade inception
+//!
+//! This is distinct from a cross-currency option where payoff is converted at
+//! the prevailing FX rate at expiry.
 //!
 //! # Quanto Adjustment
 //!
-//! The quanto drift adjustment modifies the asset drift by:
+//! The quanto drift adjustment modifies the forward price of the asset:
 //!
 //! ```text
-//! Adjusted drift = r_domestic - q_foreign + ρ · σ_asset · σ_FX
+//! Adjusted drift = r_foreign - q - ρ · σ_asset · σ_FX
 //! ```
 //!
-//! where ρ is correlation between asset and FX rate.
+//! where:
+//! - r_foreign = foreign risk-free rate
+//! - q = dividend yield
+//! - ρ = correlation between asset and FX rate
+//! - σ_asset = asset volatility
+//! - σ_FX = FX rate volatility
 //!
-//! Positive correlation (asset and FX move together) increases value.
-//! Negative correlation decreases value.
+//! **Effect of correlation on call values:**
+//! - Negative correlation (asset up ↔ FX down) **increases** the drift and call value
+//! - Positive correlation (asset up ↔ FX up) **decreases** the drift and call value
 //!
 //! # Pricing Model
 //!
-//! Modified Black-Scholes with quanto drift:
-//! - Use domestic rate for discounting
-//! - Apply quanto drift adjustment
+//! Analytical Black-Scholes with quanto drift adjustment:
+//! - Discount at domestic rate r_domestic
+//! - Use quanto-adjusted forward: S × exp((r_foreign - q - ρ·σ_S·σ_FX) × T)
 //! - Use asset volatility σ_asset
+//!
+//! **Note:** Only analytical pricing is supported. Monte Carlo pricing is
+//! intentionally disabled because the payoff and drift parameterization
+//! required for MC would differ materially from the analytical quanto model.
 //!
 //! # References
 //!

@@ -50,7 +50,15 @@ impl FxOptionCalculator {
     }
 
     /// Compute present value using Garman–Kohlhagen.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - `exercise_style` is not European (American/Bermudan not supported)
+    /// - Notional currency doesn't match base currency
+    /// - Required market data is missing
     pub fn npv(&self, inst: &FxOption, curves: &MarketContext, as_of: Date) -> Result<Money> {
+        self.validate_exercise_style(inst)?;
         self.validate_currency(inst)?;
         let (spot, r_d, r_f, sigma, t) = self.collect_inputs(inst, curves, as_of)?;
 
@@ -348,11 +356,26 @@ impl FxOptionCalculator {
     }
 
     #[inline]
+    fn validate_exercise_style(&self, inst: &FxOption) -> Result<()> {
+        use crate::instruments::ExerciseStyle;
+        if inst.exercise_style != ExerciseStyle::European {
+            return Err(finstack_core::Error::Validation(format!(
+                "FxOption only supports European exercise style. \
+                 Got {:?}. American and Bermudan options require \
+                 specialized pricers not yet implemented.",
+                inst.exercise_style
+            )));
+        }
+        Ok(())
+    }
+
+    #[inline]
     fn validate_currency(&self, inst: &FxOption) -> Result<()> {
         if inst.notional.currency() as i32 != inst.base_currency as i32 {
-            return Err(finstack_core::Error::from(
-                finstack_core::InputError::Invalid,
-            ));
+            return Err(finstack_core::Error::CurrencyMismatch {
+                expected: inst.base_currency,
+                actual: inst.notional.currency(),
+            });
         }
         Ok(())
     }
@@ -486,6 +509,12 @@ mod tests {
             .attributes(Attributes::new())
             .build()
             .expect("should succeed")
+    }
+
+    /// Default market context for tests that just need to validate behavior,
+    /// not specific pricing results.
+    fn base_market(as_of: Date) -> MarketContext {
+        market_context(as_of, 1.18, 0.22, 0.03, 0.01)
     }
 
     fn approx_eq(actual: f64, expected: f64, tol: f64) {
@@ -858,6 +887,82 @@ mod tests {
             "Time fractions should differ: t_360={}, t_365={}",
             t_360,
             t_365
+        );
+    }
+
+    #[test]
+    fn test_fx_option_curve_dependencies_includes_both_curves() {
+        use crate::instruments::common::traits::CurveDependencies;
+
+        let option = base_option(date(2025, 6, 15), OptionType::Call);
+        let deps = option.curve_dependencies();
+
+        // Should include both domestic and foreign discount curves
+        assert_eq!(
+            deps.discount_curves.len(),
+            2,
+            "FxOption should depend on both domestic and foreign curves"
+        );
+        assert!(
+            deps.discount_curves
+                .iter()
+                .any(|c| c.as_str() == DOMESTIC_ID),
+            "Should include domestic curve"
+        );
+        assert!(
+            deps.discount_curves
+                .iter()
+                .any(|c| c.as_str() == FOREIGN_ID),
+            "Should include foreign curve"
+        );
+    }
+
+    #[test]
+    fn test_fx_option_rejects_american_exercise_style() {
+        use crate::instruments::ExerciseStyle;
+
+        let as_of = date(2025, 1, 15);
+        let mut option = base_option(date(2025, 6, 15), OptionType::Call);
+        option.exercise_style = ExerciseStyle::American;
+
+        let calc = FxOptionCalculator::new();
+        let market = base_market(as_of);
+        let result = calc.npv(&option, &market, as_of);
+
+        // American exercise should be rejected
+        assert!(result.is_err(), "American exercise should be rejected");
+        let err_msg = result.expect_err("expected an error").to_string();
+        assert!(
+            err_msg.contains("European"),
+            "Error should mention European: {}",
+            err_msg
+        );
+        assert!(
+            err_msg.contains("American"),
+            "Error should mention American: {}",
+            err_msg
+        );
+    }
+
+    #[test]
+    fn test_fx_option_rejects_bermudan_exercise_style() {
+        use crate::instruments::ExerciseStyle;
+
+        let as_of = date(2025, 1, 15);
+        let mut option = base_option(date(2025, 6, 15), OptionType::Call);
+        option.exercise_style = ExerciseStyle::Bermudan;
+
+        let calc = FxOptionCalculator::new();
+        let market = base_market(as_of);
+        let result = calc.npv(&option, &market, as_of);
+
+        // Bermudan exercise should be rejected
+        assert!(result.is_err(), "Bermudan exercise should be rejected");
+        let err_msg = result.expect_err("expected an error").to_string();
+        assert!(
+            err_msg.contains("European"),
+            "Error should mention European: {}",
+            err_msg
         );
     }
 }
