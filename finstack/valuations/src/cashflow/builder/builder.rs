@@ -335,108 +335,174 @@ fn collect_all_dates(inputs: &DateCollectionInputs<'_>) -> finstack_core::Result
     Ok(dates)
 }
 
+// =============================================================================
+// DateProcessor: Encapsulates single-date processing stages
+// =============================================================================
+//
+// This struct groups all context needed for processing a single date in the
+// cashflow schedule build. Each stage is a separate method for clarity and
+// unit testability.
+
+/// Processes cashflows for a single date in the schedule build.
+///
+/// Encapsulates the context and provides methods for each processing stage:
+/// - Coupon emission (fixed and floating)
+/// - Amortization
+/// - PIK capitalization
+/// - Fee emission
+/// - Principal events
+/// - Maturity handling
+struct DateProcessor<'a> {
+    ctx: &'a BuildContext<'a>,
+    amort_setup: &'a AmortizationSetup,
+    resolved_curves: &'a [Option<Arc<ForwardCurve>>],
+}
+
+impl<'a> DateProcessor<'a> {
+    /// Create a new date processor with the given context.
+    fn new(
+        ctx: &'a BuildContext<'a>,
+        amort_setup: &'a AmortizationSetup,
+        resolved_curves: &'a [Option<Arc<ForwardCurve>>],
+    ) -> Self {
+        Self {
+            ctx,
+            amort_setup,
+            resolved_curves,
+        }
+    }
+
+    /// Emit fixed and floating coupons, returning total PIK amount to capitalize.
+    fn emit_coupons(&self, d: Date, state: &mut BuildState) -> finstack_core::Result<f64> {
+        let pik_f = emit_fixed_coupons_on(
+            d,
+            self.ctx.fixed_schedules,
+            &state.outstanding_after,
+            state.outstanding,
+            self.ctx.ccy,
+            &mut state.flows,
+        )?;
+        let pik_fl = emit_float_coupons_on(
+            d,
+            self.ctx.float_schedules,
+            &state.outstanding_after,
+            state.outstanding,
+            self.ctx.ccy,
+            self.resolved_curves,
+            &mut state.flows,
+        )?;
+        Ok(pik_f + pik_fl)
+    }
+
+    /// Emit amortization flows based on the amortization spec.
+    fn emit_amortization(&self, d: Date, state: &mut BuildState) -> finstack_core::Result<()> {
+        let amort_params = AmortizationParams {
+            ccy: self.ctx.ccy,
+            amort_dates: &self.amort_setup.amort_dates,
+            linear_delta: self.amort_setup.linear_delta,
+            percent_per: self.amort_setup.percent_per,
+            step_remaining_map: &self.amort_setup.step_remaining_map,
+        };
+        emit_amortization_on(
+            d,
+            self.ctx.notional,
+            &mut state.outstanding,
+            &amort_params,
+            d == self.ctx.maturity,
+            &mut state.flows,
+        )
+    }
+
+    /// Emit fee flows (periodic and fixed).
+    fn emit_fees(&self, d: Date, state: &mut BuildState) -> finstack_core::Result<()> {
+        emit_fees_on(
+            d,
+            self.ctx.periodic_fees,
+            self.ctx.fixed_fees,
+            state.outstanding,
+            self.ctx.ccy,
+            &mut state.flows,
+        )
+    }
+
+    /// Process custom principal events (draws/repays) for this date.
+    fn process_principal_events(&self, d: Date, state: &mut BuildState) {
+        for ev in self.ctx.principal_events.iter().filter(|ev| ev.date == d) {
+            // Safety: Money amounts from builder are exact Decimal values; direct comparison is safe.
+            if ev.delta.amount() != 0.0 || ev.cash.amount() != 0.0 {
+                // Sign convention depends on flow kind:
+                // - Notional (draws): cash is inflow to borrower, flow is negative (funding outflow)
+                // - Amortization: cash is repayment, flow is positive (inflow to lender)
+                let flow_amount = match ev.kind {
+                    CFKind::Amortization => ev.cash.amount(),
+                    _ => -ev.cash.amount(),
+                };
+                state.flows.push(CashFlow {
+                    date: d,
+                    reset_date: None,
+                    amount: Money::new(flow_amount, ev.cash.currency()),
+                    kind: ev.kind,
+                    accrual_factor: 0.0,
+                    rate: None,
+                });
+                state.outstanding += ev.delta.amount();
+            }
+        }
+    }
+
+    /// Handle maturity redemption: emit final principal repayment if outstanding > 0.
+    fn handle_maturity(&self, d: Date, state: &mut BuildState) {
+        if d == self.ctx.maturity && state.outstanding > 0.0 {
+            state.flows.push(CashFlow {
+                date: d,
+                reset_date: None,
+                amount: Money::new(state.outstanding, self.ctx.ccy),
+                kind: CFKind::Notional,
+                accrual_factor: 0.0,
+                rate: None,
+            });
+            state.outstanding = 0.0;
+        }
+    }
+
+    /// Process all stages for a single date.
+    fn process(&self, d: Date, mut state: BuildState) -> finstack_core::Result<BuildState> {
+        // 1. Coupons
+        let pik_to_add = self.emit_coupons(d, &mut state)?;
+
+        // 2. Amortization
+        self.emit_amortization(d, &mut state)?;
+
+        // 3. PIK capitalization
+        if pik_to_add > 0.0 {
+            state.outstanding += pik_to_add;
+        }
+
+        // 4. Fees
+        self.emit_fees(d, &mut state)?;
+
+        // 5. Principal events
+        self.process_principal_events(d, &mut state);
+
+        // 6. Maturity handling
+        self.handle_maturity(d, &mut state);
+
+        // Record outstanding for this date
+        state.outstanding_after.insert(d, state.outstanding);
+
+        Ok(state)
+    }
+}
+
 fn process_one_date(
     d: Date,
-    mut state: BuildState,
+    state: BuildState,
     ctx: &BuildContext,
     amort_setup: &AmortizationSetup,
     resolved_curves: &[Option<Arc<ForwardCurve>>],
 ) -> finstack_core::Result<BuildState> {
-    // Coupons
-    let pik_f = emit_fixed_coupons_on(
-        d,
-        ctx.fixed_schedules,
-        &state.outstanding_after,
-        state.outstanding,
-        ctx.ccy,
-        &mut state.flows,
-    )?;
-    let pik_fl = emit_float_coupons_on(
-        d,
-        ctx.float_schedules,
-        &state.outstanding_after,
-        state.outstanding,
-        ctx.ccy,
-        resolved_curves,
-        &mut state.flows,
-    )?;
-    let pik_to_add = pik_f + pik_fl;
-
-    // Amortization
-    let amort_params = AmortizationParams {
-        ccy: ctx.ccy,
-        amort_dates: &amort_setup.amort_dates,
-        linear_delta: amort_setup.linear_delta,
-        percent_per: amort_setup.percent_per,
-        step_remaining_map: &amort_setup.step_remaining_map,
-    };
-    emit_amortization_on(
-        d,
-        ctx.notional,
-        &mut state.outstanding,
-        &amort_params,
-        d == ctx.maturity,
-        &mut state.flows,
-    )?;
-
-    // PIK capitalization
-    if pik_to_add > 0.0 {
-        state.outstanding += pik_to_add;
-    }
-
-    // Fees
-    emit_fees_on(
-        d,
-        ctx.periodic_fees,
-        ctx.fixed_fees,
-        state.outstanding,
-        ctx.ccy,
-        &mut state.flows,
-    )?;
-
-    // Principal events (custom draws/repays)
-    // Note: Events at or before issue date are processed in initialize_build_state,
-    // and we skip(1) in the fold, so d is always > issue and no double-processing occurs.
-    for ev in ctx.principal_events.iter().filter(|ev| ev.date == d) {
-        // Safety: Money amounts from builder are exact Decimal values; direct comparison is safe.
-        if ev.delta.amount() != 0.0 || ev.cash.amount() != 0.0 {
-            // Sign convention depends on flow kind:
-            // - Notional (draws): cash is inflow to borrower, flow is negative (funding outflow from lender)
-            // - Amortization: cash is repayment, flow is positive (inflow to lender)
-            let flow_amount = match ev.kind {
-                CFKind::Amortization => ev.cash.amount(),
-                _ => -ev.cash.amount(),
-            };
-            state.flows.push(CashFlow {
-                date: d,
-                reset_date: None,
-                amount: Money::new(flow_amount, ev.cash.currency()),
-                kind: ev.kind,
-                accrual_factor: 0.0,
-                rate: None,
-            });
-            state.outstanding += ev.delta.amount();
-        }
-    }
-
-    // Redemption at maturity: emit final principal repayment if outstanding > 0.
-    // Near-zero amounts (e.g., from f64 drift) are harmless; exact zero is skipped.
-    if d == ctx.maturity && state.outstanding > 0.0 {
-        state.flows.push(CashFlow {
-            date: d,
-            reset_date: None,
-            amount: Money::new(state.outstanding, ctx.ccy),
-            kind: CFKind::Notional,
-            accrual_factor: 0.0,
-            rate: None,
-        });
-        state.outstanding = 0.0;
-    }
-
-    // Record outstanding for this date
-    state.outstanding_after.insert(d, state.outstanding);
-
-    Ok(state)
+    let processor = DateProcessor::new(ctx, amort_setup, resolved_curves);
+    processor.process(d, state)
 }
 
 // -------------------------------------------------------------------------

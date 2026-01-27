@@ -213,51 +213,85 @@ struct PeriodInputs {
     total_yf: f64,
 }
 
+// =============================================================================
+// Helper functions for build_coupon_periods (extracted for clarity)
+// =============================================================================
+
+/// Check if a cashflow kind is a coupon that should be included in accrual.
+fn is_coupon_kind(kind: CFKind, include_pik: bool) -> bool {
+    matches!(kind, CFKind::Fixed | CFKind::Stub | CFKind::FloatReset)
+        || (include_pik && kind == CFKind::PIK)
+}
+
+/// Try to merge a cashflow into the last bucket if dates match.
+/// Returns true if merged, false if a new bucket is needed.
+fn try_merge_into_last_bucket(
+    buckets: &mut [CouponBucket],
+    cf: &finstack_core::cashflow::CashFlow,
+) -> bool {
+    let Some(last) = buckets.last_mut() else {
+        return false;
+    };
+
+    if last.date != cf.date {
+        return false;
+    }
+
+    // Merge based on cashflow kind
+    if cf.kind == CFKind::PIK {
+        last.pik_amount += cf.amount.amount();
+    } else {
+        last.cash_amount += cf.amount.amount();
+        if last.accrual_factor == 0.0 && cf.accrual_factor > 0.0 {
+            last.accrual_factor = cf.accrual_factor;
+        }
+        if last.rate.is_none() {
+            last.rate = cf.rate;
+        }
+    }
+
+    true
+}
+
+/// Create a new coupon bucket from a cashflow.
+fn create_bucket(cf: &finstack_core::cashflow::CashFlow) -> CouponBucket {
+    if cf.kind == CFKind::PIK {
+        CouponBucket {
+            date: cf.date,
+            cash_amount: 0.0,
+            pik_amount: cf.amount.amount(),
+            accrual_factor: 0.0,
+            rate: None,
+        }
+    } else {
+        CouponBucket {
+            date: cf.date,
+            cash_amount: cf.amount.amount(),
+            pik_amount: 0.0,
+            accrual_factor: cf.accrual_factor,
+            rate: cf.rate,
+        }
+    }
+}
+
 /// Build coupon buckets grouped by date from the schedule.
 fn build_coupon_periods(schedule: &CashFlowSchedule, include_pik: bool) -> Vec<Period> {
     let mut buckets: Vec<CouponBucket> = Vec::new();
 
     // Cash and PIK coupon flows are grouped by payment date.
     for cf in &schedule.flows {
-        match cf.kind {
-            CFKind::Fixed | CFKind::Stub | CFKind::FloatReset => {
-                if let Some(last) = buckets.last_mut() {
-                    if last.date == cf.date {
-                        last.cash_amount += cf.amount.amount();
-                        if last.accrual_factor == 0.0 && cf.accrual_factor > 0.0 {
-                            last.accrual_factor = cf.accrual_factor;
-                        }
-                        if last.rate.is_none() {
-                            last.rate = cf.rate;
-                        }
-                        continue;
-                    }
-                }
-                buckets.push(CouponBucket {
-                    date: cf.date,
-                    cash_amount: cf.amount.amount(),
-                    pik_amount: 0.0,
-                    accrual_factor: cf.accrual_factor,
-                    rate: cf.rate,
-                });
-            }
-            CFKind::PIK if include_pik => {
-                if let Some(last) = buckets.last_mut() {
-                    if last.date == cf.date {
-                        last.pik_amount += cf.amount.amount();
-                        continue;
-                    }
-                }
-                buckets.push(CouponBucket {
-                    date: cf.date,
-                    cash_amount: 0.0,
-                    pik_amount: cf.amount.amount(),
-                    accrual_factor: 0.0,
-                    rate: None,
-                });
-            }
-            _ => {}
+        // Skip non-coupon flows
+        if !is_coupon_kind(cf.kind, include_pik) {
+            continue;
         }
+
+        // Try to merge with existing bucket for same date
+        if try_merge_into_last_bucket(&mut buckets, cf) {
+            continue;
+        }
+
+        // Create new bucket
+        buckets.push(create_bucket(cf));
     }
 
     if buckets.is_empty() {

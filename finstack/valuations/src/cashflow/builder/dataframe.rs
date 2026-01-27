@@ -28,6 +28,123 @@ fn amounts_approx_equal(a: f64, b: f64) -> bool {
     (a - b).abs() < max_abs * 1e-9
 }
 
+// =============================================================================
+// Helper functions for DataFrame construction (extracted for testability)
+// =============================================================================
+
+/// Initialize an optional column vector, reusing existing allocation if available.
+///
+/// This helper reduces repetitive initialization code for optional columns
+/// in `PeriodDataFrame`. When `enabled` is true, it clears and reserves
+/// capacity on the existing vector (or creates a new one). When false,
+/// it sets the column to `None`.
+fn init_optional_column<T>(enabled: bool, capacity: usize, existing: &mut Option<Vec<T>>) {
+    *existing = if enabled {
+        let mut vec = existing.take().unwrap_or_default();
+        vec.clear();
+        vec.reserve(capacity);
+        Some(vec)
+    } else {
+        None
+    };
+}
+
+/// Compute the signed year fraction from base date to cashflow date for discounting.
+///
+/// Returns:
+/// - 0.0 if dates are equal
+/// - Positive year fraction if cf_date > base
+/// - Negative year fraction if cf_date < base (historical cashflow)
+fn compute_discount_time(cf_date: Date, base: Date, dc: DayCount, dc_ctx: DayCountCtx<'_>) -> f64 {
+    if cf_date == base {
+        0.0
+    } else if cf_date > base {
+        dc.year_fraction(base, cf_date, dc_ctx).unwrap_or(0.0)
+    } else {
+        -dc.year_fraction(cf_date, base, dc_ctx).unwrap_or(0.0)
+    }
+}
+
+/// Compute notional columns (drawn and undrawn) for accruing cashflows.
+///
+/// Returns `(drawn_notional, undrawn_notional)` where:
+/// - `drawn_notional` is `Some(outstanding)` for interest/fee-like flows, `None` otherwise
+/// - `undrawn_notional` is `Some(limit - outstanding)` if facility_limit provided and currencies match
+fn compute_notional_columns(
+    cf: &finstack_core::cashflow::CashFlow,
+    outstanding_pre: f64,
+    facility_limit: Option<&Money>,
+) -> (Option<f64>, Option<f64>) {
+    use crate::cashflow::primitives::CFKind;
+
+    // Check if this is an accruing flow that should show notional
+    let is_accruing = matches!(
+        cf.kind,
+        CFKind::Fixed
+            | CFKind::Stub
+            | CFKind::FloatReset
+            | CFKind::CommitmentFee
+            | CFKind::UsageFee
+            | CFKind::FacilityFee
+    ) || cf.accrual_factor > 0.0;
+
+    if !is_accruing {
+        return (None, None);
+    }
+
+    let drawn = Some(outstanding_pre);
+    let undrawn = facility_limit.and_then(|limit| {
+        if limit.currency() == cf.amount.currency() {
+            Some((limit.amount() - outstanding_pre).max(0.0))
+        } else {
+            None
+        }
+    });
+
+    (drawn, undrawn)
+}
+
+/// Compute floating rate decomposition (base rate and spread) for a cashflow.
+///
+/// Returns `(base_rate, spread)` where:
+/// - `base_rate` is the forward rate at reset time
+/// - `spread` is the difference between the all-in rate and base rate
+///
+/// Both are `None` if the cashflow is not a floating rate reset or if no forward curve is provided.
+fn compute_floating_decomposition(
+    cf: &finstack_core::cashflow::CashFlow,
+    fwd: Option<&std::sync::Arc<finstack_core::market_data::term_structures::ForwardCurve>>,
+    base: Date,
+    period_start: Date,
+    dc_ctx: DayCountCtx<'_>,
+) -> (Option<f64>, Option<f64>) {
+    use crate::cashflow::primitives::CFKind;
+
+    // Only compute for floating rate resets with a forward curve
+    if !matches!(cf.kind, CFKind::FloatReset) {
+        return (None, None);
+    }
+
+    let Some(fwd) = fwd else {
+        return (None, None);
+    };
+
+    // Compute reset time using forward curve's day count
+    let reset_t = if let Some(reset_date) = cf.reset_date {
+        compute_discount_time(reset_date, base, fwd.day_count(), dc_ctx)
+    } else {
+        // Fallback to period start if no explicit reset date
+        fwd.day_count()
+            .year_fraction(base, period_start, dc_ctx)
+            .unwrap_or(0.0)
+    };
+
+    let base_rate = fwd.rate(reset_t);
+    let spread = cf.rate.map(|rate| rate - base_rate);
+
+    (Some(base_rate), spread)
+}
+
 /// Options for period-aligned DataFrame exports.
 ///
 /// Controls which optional columns are computed and provides configuration
@@ -71,29 +188,45 @@ pub struct PeriodDataFrameOptions<'a> {
 /// All vectors have the same length corresponding to the number of cashflows that
 /// fall within the provided periods.
 ///
-/// ## Columns
+/// # Field Groups
 ///
-/// ### Required columns
-/// - `start_dates`: Period start dates
-/// - `end_dates`: Period end dates (payment dates)
-/// - `pay_dates`: Actual cashflow payment dates
-/// - `reset_dates`: Reset dates for floating rate fixings
-/// - `cf_types`: Cashflow kinds (Fixed, FloatReset, Amortization, etc.)
-/// - `currencies`: Currency for each cashflow
-/// - `amounts`: Cashflow amounts
-/// - `accrual_factors`: Year fractions from cashflow
-/// - `rates`: Effective rates from cashflow
-/// - `discount_factors`: Discount factors from base date
-/// - `pvs`: Present values (amount * DF * survival probability)
+/// The 20 fields are organized into logical groups for clarity:
 ///
-/// Optional columns (Some if requested, None otherwise)
-/// - `notionals`: Outstanding balance for accruing flows
-/// - `undrawn_notionals`: Undrawn balance (facility_limit - outstanding)
-/// - `survival_probs`: Survival probabilities if hazard curve provided
-/// - `unfunded_amounts`: Undrawn amounts if facility_limit provided
-/// - `commitment_amounts`: Facility limit amounts
-/// - `base_rates`: Forward rates if floating decomposition enabled
-/// - `spreads`: Margin over forward rate if floating decomposition enabled
+/// ## Core Date/Time (always present)
+/// - `start_dates`, `end_dates`, `pay_dates` - Period and payment dates
+/// - `reset_dates` - Floating rate fixing dates (may be `None` per row)
+/// - `yr_fraqs`, `days` - Time metrics between dates
+///
+/// ## Cashflow Identity (always present)
+/// - `cf_types` - Cashflow kind (Fixed, FloatReset, Amortization, etc.)
+/// - `currencies` - Currency for each cashflow
+/// - `amounts` - Cashflow amounts (coupons, principal, fees)
+/// - `accrual_factors`, `rates` - Rate calculation inputs
+///
+/// ## Discounting (always computed)
+/// - `discount_factors` - DF from base date to payment dates
+/// - `pvs` - Present values (`amount * DF * survival_prob`)
+/// - `survival_probs` - Optional survival probabilities (if hazard curve provided)
+///
+/// ## Notional Tracking
+/// - `notionals` - Outstanding (drawn) balance for accruing flows
+/// - `undrawn_notionals` - Unused commitment (if `facility_limit` provided)
+/// - `unfunded_amounts`, `commitment_amounts` - Facility-related columns
+///
+/// ## Floating Rate Decomposition (if enabled)
+/// - `base_rates` - Forward rates from index curve
+/// - `spreads` - Margin over forward rate (`rate - base_rate`)
+///
+/// # Usage Notes
+///
+/// - Historical cashflows (`date <= as_of`) are included but contribute zero PV
+/// - Optional columns are `None` when not requested via [`PeriodDataFrameOptions`]
+/// - All computation happens in Rust for deterministic results across bindings
+///
+/// # Python Bindings
+///
+/// The flat field structure is intentional for Python/WASM binding compatibility.
+/// Access fields directly (e.g., `frame.start_dates`, `frame.amounts`).
 #[derive(Clone)]
 pub struct PeriodDataFrame {
     /// Period start dates
@@ -299,54 +432,13 @@ impl CashFlowSchedule {
         out.discount_factors.reserve(capacity);
         out.pvs.reserve(capacity);
 
-        out.undrawn_notionals = if has_facility {
-            let mut vec = out.undrawn_notionals.take().unwrap_or_default();
-            vec.clear();
-            vec.reserve(capacity);
-            Some(vec)
-        } else {
-            None
-        };
-        out.survival_probs = if has_hazard {
-            let mut vec = out.survival_probs.take().unwrap_or_default();
-            vec.clear();
-            vec.reserve(capacity);
-            Some(vec)
-        } else {
-            None
-        };
-        out.unfunded_amounts = if has_facility {
-            let mut vec = out.unfunded_amounts.take().unwrap_or_default();
-            vec.clear();
-            vec.reserve(capacity);
-            Some(vec)
-        } else {
-            None
-        };
-        out.commitment_amounts = if has_facility {
-            let mut vec = out.commitment_amounts.take().unwrap_or_default();
-            vec.clear();
-            vec.reserve(capacity);
-            Some(vec)
-        } else {
-            None
-        };
-        out.base_rates = if include_floating {
-            let mut vec = out.base_rates.take().unwrap_or_default();
-            vec.clear();
-            vec.reserve(capacity);
-            Some(vec)
-        } else {
-            None
-        };
-        out.spreads = if include_floating {
-            let mut vec = out.spreads.take().unwrap_or_default();
-            vec.clear();
-            vec.reserve(capacity);
-            Some(vec)
-        } else {
-            None
-        };
+        // Initialize optional columns using helper to reduce repetition
+        init_optional_column(has_facility, capacity, &mut out.undrawn_notionals);
+        init_optional_column(has_hazard, capacity, &mut out.survival_probs);
+        init_optional_column(has_facility, capacity, &mut out.unfunded_amounts);
+        init_optional_column(has_facility, capacity, &mut out.commitment_amounts);
+        init_optional_column(include_floating, capacity, &mut out.base_rates);
+        init_optional_column(include_floating, capacity, &mut out.spreads);
 
         // Track outstanding drawn balance for Notional column
         let mut outstanding = self.notional.initial;
@@ -399,31 +491,8 @@ impl CashFlowSchedule {
             out.rates.push(cf.rate.unwrap_or(0.0));
 
             // Notional balances for interest/fee-like rows
-            let (notional_drawn, notional_undrawn) = if matches!(
-                cf.kind,
-                CFKind::Fixed
-                    | CFKind::Stub
-                    | CFKind::FloatReset
-                    | CFKind::CommitmentFee
-                    | CFKind::UsageFee
-                    | CFKind::FacilityFee
-            ) || cf.accrual_factor > 0.0
-            {
-                let drawn = Some(outstanding_pre.amount());
-                // Undrawn only available when facility_limit (commitment) is provided
-                let undrawn = if let Some(limit) = facility_limit.as_ref() {
-                    if limit.currency() == cf.amount.currency() {
-                        Some((limit.amount() - outstanding_pre.amount()).max(0.0))
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
-                (drawn, undrawn)
-            } else {
-                (None, None)
-            };
+            let (notional_drawn, notional_undrawn) =
+                compute_notional_columns(cf, outstanding_pre.amount(), facility_limit.as_ref());
             out.notionals.push(notional_drawn);
             if let Some(ref mut undrawn) = out.undrawn_notionals {
                 undrawn.push(notional_undrawn);
@@ -442,25 +511,13 @@ impl CashFlowSchedule {
             out.days.push((cf.date - period.start).whole_days());
 
             // Discount factor using configured discounting basis
-            // Note: Discounting typically uses Act/365F or Act/360 which don't need context,
-            // but we still pass the context for consistency and to support exotic conventions.
             let dc_for_discounting = options.discount_day_count.unwrap_or(dc);
             let disc_dc_ctx = DayCountCtx {
                 calendar: resolved_calendar,
                 frequency: options.frequency,
                 bus_basis: None,
             };
-            let t = if cf.date == base {
-                0.0
-            } else if cf.date > base {
-                dc_for_discounting
-                    .year_fraction(base, cf.date, disc_dc_ctx)
-                    .unwrap_or(0.0)
-            } else {
-                -dc_for_discounting
-                    .year_fraction(cf.date, base, disc_dc_ctx)
-                    .unwrap_or(0.0)
-            };
+            let t = compute_discount_time(cf.date, base, dc_for_discounting, disc_dc_ctx);
             let df = disc_arc.df(t);
             out.discount_factors.push(df);
 
@@ -501,42 +558,23 @@ impl CashFlowSchedule {
                 }
             }
 
-            // Floating decomposition
-            let mut base_rate_opt: Option<f64> = None;
-            let mut spread_opt: Option<f64> = None;
-            if options.include_floating_decomposition && matches!(cf.kind, CFKind::FloatReset) {
-                if let Some(ref fwd) = forward_arc_opt {
-                    // Use the forward curve's day count with our context for consistency
-                    let fwd_dc_ctx = DayCountCtx {
-                        calendar: resolved_calendar,
-                        frequency: options.frequency,
-                        bus_basis: None,
-                    };
-                    let reset_t = if let Some(reset_date) = cf.reset_date {
-                        if reset_date == base {
-                            0.0
-                        } else if reset_date > base {
-                            fwd.day_count()
-                                .year_fraction(base, reset_date, fwd_dc_ctx)
-                                .unwrap_or(0.0)
-                        } else {
-                            -fwd.day_count()
-                                .year_fraction(reset_date, base, fwd_dc_ctx)
-                                .unwrap_or(0.0)
-                        }
-                    } else {
-                        fwd.day_count()
-                            .year_fraction(base, period.start, fwd_dc_ctx)
-                            .unwrap_or(0.0)
-                    };
-                    let b = fwd.rate(reset_t);
-                    base_rate_opt = Some(b);
-                    // Spread = rate - base_rate for floating cashflows
-                    if let Some(rate) = cf.rate {
-                        spread_opt = Some(rate - b);
-                    }
-                }
-            }
+            // Floating decomposition (base rate and spread)
+            let (base_rate_opt, spread_opt) = if options.include_floating_decomposition {
+                let fwd_dc_ctx = DayCountCtx {
+                    calendar: resolved_calendar,
+                    frequency: options.frequency,
+                    bus_basis: None,
+                };
+                compute_floating_decomposition(
+                    cf,
+                    forward_arc_opt.as_ref(),
+                    base,
+                    period.start,
+                    fwd_dc_ctx,
+                )
+            } else {
+                (None, None)
+            };
             if let Some(ref mut br) = out.base_rates {
                 br.push(base_rate_opt);
             }
