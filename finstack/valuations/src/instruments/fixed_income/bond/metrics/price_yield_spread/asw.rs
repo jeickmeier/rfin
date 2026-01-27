@@ -217,14 +217,16 @@ pub fn asw_par_with_forward_config(
 
     let fixed_dc = fixed_leg_day_count.unwrap_or_else(|| bond.cashflow_spec.day_count());
     let ann = fixed_leg_annuity(disc.as_ref(), fixed_dc, &sched)?;
-    if ann == 0.0 || bond.notional.amount() == 0.0 {
+    // Use epsilon check to avoid division by near-zero values that could amplify numerical noise
+    if ann.abs() < 1e-12 || bond.notional.amount().abs() < 1e-12 {
         return Ok(0.0);
     }
 
     let f_base = fwd.base_date();
     let f_dc = fwd.day_count();
     let spread = float_spread_bp * 1e-4;
-    let mut pv_float = 0.0;
+    // Use NeumaierAccumulator for numerical stability with many cashflows (e.g., quarterly FRN over 30Y)
+    let mut pv_float = finstack_core::math::summation::NeumaierAccumulator::new();
     let mut prev = sched[0];
     for &d in &sched[1..] {
         let t1 = f_dc.year_fraction(f_base, prev, finstack_core::dates::DayCountCtx::default())?;
@@ -233,10 +235,10 @@ pub fn asw_par_with_forward_config(
         let rate = fwd.rate_period(t1, t2) + spread;
         let coupon_flt = bond.notional.amount() * rate * yf;
         let df = disc.df_on_date_curve(d)?;
-        pv_float += coupon_flt * df;
+        pv_float.add(coupon_flt * df);
         prev = d;
     }
-    let par_rate = pv_float / (bond.notional.amount() * ann);
+    let par_rate = pv_float.total() / (bond.notional.amount() * ann);
 
     // Equivalent fixed rate from coupon-only PV
     let eq_coupon = if let Some(custom) = &bond.custom_cashflows {
@@ -308,7 +310,8 @@ pub fn asw_market_with_forward_config(
     }
     let fixed_dc = fixed_leg_day_count.unwrap_or_else(|| bond.cashflow_spec.day_count());
     let ann = fixed_leg_annuity(disc.as_ref(), fixed_dc, &sched)?;
-    if ann == 0.0 || bond.notional.amount() == 0.0 {
+    // Use epsilon check to avoid division by near-zero values
+    if ann.abs() < 1e-12 || bond.notional.amount().abs() < 1e-12 {
         return Ok(0.0);
     }
 
@@ -424,7 +427,8 @@ impl MetricCalculator for AssetSwapParCalculator {
         }
         let dc_fixed = self.config.fixed_leg_day_count.unwrap_or(bond_dc);
         let (par_rate, ann) = par_rate_and_annuity_from_discount(disc.as_ref(), dc_fixed, &sched)?;
-        if ann == 0.0 {
+        // Use epsilon check to avoid division by near-zero values
+        if ann.abs() < 1e-12 {
             return Ok(0.0);
         }
         // Use stated coupon for non-custom bonds; for custom bonds, this branch is not reached
@@ -573,7 +577,8 @@ impl MetricCalculator for AssetSwapMarketCalculator {
         let sched: Vec<Date> = builder.build()?.into_iter().collect();
         let dc_fixed = self.config.fixed_leg_day_count.unwrap_or(dc);
         let (par_rate, ann) = par_rate_and_annuity_from_discount(disc.as_ref(), dc_fixed, &sched)?;
-        if ann == 0.0 || notional_amt == 0.0 {
+        // Use epsilon check to avoid division by near-zero values
+        if ann.abs() < 1e-12 || notional_amt.abs() < 1e-12 {
             return Ok(0.0);
         }
         // Equivalent coupon from coupon PV only for custom bonds; otherwise stated coupon

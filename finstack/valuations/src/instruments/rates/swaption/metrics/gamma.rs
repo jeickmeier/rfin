@@ -3,10 +3,23 @@
 //! Computes cash gamma using Black or Normal model gamma with forward swap rate and
 //! underlying swap annuity. Uses SABR-implied vol if parameters are set,
 //! otherwise uses the volatility surface or an override from `PricingOverrides`.
+//!
+//! # Numerical Stability
+//!
+//! Gamma involves division by `sqrt(T)` which approaches infinity as expiry approaches.
+//! This module applies a near-expiry threshold (`EXPIRY_THRESHOLD`) to return zero
+//! for options within ~1 business day of expiry, where gamma is mathematically
+//! undefined for vanilla options.
 
 use crate::instruments::swaption::{Swaption, VolatilityModel};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::Result;
+
+/// Minimum time to expiry (in years) for valid gamma calculation.
+///
+/// Below this threshold, gamma is numerically unstable (division by near-zero sqrt(T))
+/// and economically meaningless for vanilla options. Set to ~1 business day.
+const EXPIRY_THRESHOLD: f64 = 1.0 / 252.0;
 
 /// Gamma calculator for swaptions
 pub struct GammaCalculator;
@@ -22,6 +35,12 @@ impl MetricCalculator for GammaCalculator {
         };
 
         if inputs.sigma <= 0.0 {
+            return Ok(0.0);
+        }
+
+        // Near-expiry guard: gamma is undefined/infinite as T -> 0.
+        // For vanilla options, return 0 when within ~1 business day of expiry.
+        if inputs.time_to_expiry < EXPIRY_THRESHOLD {
             return Ok(0.0);
         }
 

@@ -261,11 +261,18 @@ impl InterestRateSwap {
                             )));
                         }
                         let comp = 1.0 / df_between; // DF(obs_start)/DF(obs_end)
-                        if dcf <= 0.0 {
-                            return Err(finstack_core::Error::Validation(
-                                "Non-positive day-count fraction encountered in compounding step."
-                                    .into(),
-                            ));
+
+                        // Guard against pathological DCF values that could cause numerical issues.
+                        // A minimum threshold of 1e-8 corresponds to ~0.3 seconds in ACT/365,
+                        // which catches same-day observation scenarios from calendar misconfiguration.
+                        const MIN_DCF_THRESHOLD: f64 = 1e-8;
+                        if dcf < MIN_DCF_THRESHOLD {
+                            return Err(finstack_core::Error::Validation(format!(
+                                "Day-count fraction {:.2e} is below minimum threshold ({:.0e}). \
+                                 This may indicate calendar misconfiguration causing same-day observations \
+                                 or invalid date ordering ({} -> {}).",
+                                dcf, MIN_DCF_THRESHOLD, d, step_end
+                            )));
                         }
                         (comp - 1.0) / dcf
                     };
@@ -905,6 +912,119 @@ mod tests {
             pv.amount().is_finite(),
             "PV should be finite, got: {}",
             pv.amount()
+        );
+    }
+
+    /// Test OIS floating leg PV matches analytical identity: PV_float = N × (DF(start) - DF(end))
+    ///
+    /// For single-curve OIS with no lookback, no observation shift, and no spread,
+    /// the compounded floating leg PV should exactly equal the discount factor identity.
+    /// This is a fundamental property of OIS pricing that must hold.
+    ///
+    /// # References
+    ///
+    /// - Hull, J.C. "Options, Futures, and Other Derivatives", Chapter 7
+    /// - The identity follows from: ∏(1 + r_i × dcf_i) = DF(start)/DF(end)
+    ///   when r_i is derived from the discount curve.
+    #[test]
+    fn ois_floating_leg_matches_analytical_identity() {
+        use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
+
+        let as_of = date(2024, 1, 1);
+        let start = date(2024, 3, 1);
+        let end = date(2024, 6, 1);
+
+        // Create a non-flat curve to make the test meaningful
+        let disc_id = CurveId::new("USD-OIS");
+        let disc = DiscountCurve::builder(disc_id.clone())
+            .base_date(as_of)
+            .knots(vec![
+                (0.0, 1.0),
+                (0.25, 0.9925), // ~3% rate
+                (0.5, 0.9850),  // ~3% rate
+                (1.0, 0.9650),  // ~3.5% rate
+            ])
+            .build()
+            .expect("discount curve");
+
+        let _ctx = MarketContext::new().insert_discount(disc.clone());
+
+        // Create an OIS swap with NO lookback, NO observation shift, NO spread.
+        // These are the conditions under which the identity is exact.
+        let swap = InterestRateSwap::builder()
+            .id(InstrumentId::new("OIS-IDENTITY-TEST"))
+            .notional(Money::new(10_000_000.0, Currency::USD))
+            .side(crate::instruments::irs::PayReceive::PayFixed)
+            .fixed(crate::instruments::common::parameters::legs::FixedLegSpec {
+                discount_curve_id: disc_id.clone(),
+                rate: rust_decimal::Decimal::ZERO, // Zero fixed rate for this test
+                freq: Tenor::quarterly(),
+                dc: DayCount::Act360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+                stub: finstack_core::dates::StubKind::None,
+                start,
+                end,
+                par_method: None,
+                compounding_simple: true,
+                payment_delay_days: 0, // No payment delay for exact identity
+            })
+            .float(crate::instruments::common::parameters::legs::FloatLegSpec {
+                discount_curve_id: disc_id.clone(),
+                forward_curve_id: disc_id.clone(), // Single-curve: forward = discount
+                spread_bp: rust_decimal::Decimal::ZERO, // No spread
+                freq: Tenor::quarterly(),
+                dc: DayCount::Act360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+                stub: finstack_core::dates::StubKind::None,
+                reset_lag_days: 0,
+                start,
+                end,
+                compounding: FloatingLegCompounding::CompoundedInArrears {
+                    lookback_days: 0,        // No lookback
+                    observation_shift: None, // No observation shift
+                },
+                fixing_calendar_id: None,
+                payment_delay_days: 0, // No payment delay
+            })
+            .build()
+            .expect("swap");
+
+        // Calculate floating leg PV using the pricer
+        let pv_float = swap
+            .pv_compounded_float_leg(&disc, None, as_of, None)
+            .expect("float leg PV");
+
+        // Calculate analytical identity: N × (DF(start) - DF(end))
+        // Note: This is the PV of receiving the floating leg payments
+        let df_start = disc.df_between_dates(as_of, start).expect("df_start");
+        let df_end = disc.df_between_dates(as_of, end).expect("df_end");
+        let expected_pv = swap.notional.amount() * (df_start - df_end);
+
+        // The identity should hold to high precision (< 1 currency unit on 10MM)
+        let error = (pv_float - expected_pv).abs();
+        assert!(
+            error < 1.0,
+            "OIS floating leg identity violated!\n\
+             Computed PV:  {:.6}\n\
+             Expected PV:  {:.6}\n\
+             Error:        {:.6}\n\
+             DF(start):    {:.6}\n\
+             DF(end):      {:.6}",
+            pv_float,
+            expected_pv,
+            error,
+            df_start,
+            df_end
+        );
+
+        // Additional check: error should be < 0.01% of notional
+        let relative_error = error / swap.notional.amount();
+        assert!(
+            relative_error < 1e-6,
+            "OIS identity relative error too large: {:.2e}",
+            relative_error
         );
     }
 }

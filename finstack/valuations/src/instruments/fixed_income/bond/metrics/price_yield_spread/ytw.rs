@@ -102,6 +102,9 @@ impl MetricCalculator for YtwCalculator {
         let dirty_amt = quote_ctx.dirty_from_clean_pct(clean_px, bond.notional.amount());
         let dirty_now = Money::new(dirty_amt, bond.notional.currency());
 
+        // Build full schedule for accurate outstanding principal on amortizing bonds
+        let schedule = bond.get_full_schedule(&context.curves)?;
+
         // Delegate candidate scanning and YTM solving to shared helper.
         // Use quote_date as the time origin to match market convention.
         let (best_ytm, _best_flows) =
@@ -110,6 +113,7 @@ impl MetricCalculator for YtwCalculator {
                 flows,
                 quote_ctx.quote_date,
                 dirty_now,
+                Some(&schedule),
             )?;
 
         Ok(best_ytm)

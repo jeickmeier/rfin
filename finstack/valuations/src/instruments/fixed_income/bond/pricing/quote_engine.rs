@@ -213,7 +213,8 @@ pub fn par_rate_and_annuity_from_discount(
     }
 
     let ann = fixed_leg_annuity(disc, dc, schedule)?;
-    if ann == 0.0 {
+    // Use epsilon check to avoid division by near-zero values that could amplify numerical noise
+    if ann.abs() < 1e-12 {
         return Ok((0.0, 0.0));
     }
 
@@ -334,6 +335,13 @@ pub enum YieldCompounding {
     ///
     /// The difference vs `Street` convention is typically < 0.5 basis points for
     /// seasoned bonds, but can be 1-2 basis points for new issues with significant stubs.
+    ///
+    /// # Limitation
+    ///
+    /// Stub period detection is **time-based**, using `t < 1/frequency` as the criterion.
+    /// This works correctly for standard bonds but may misclassify stubs on bonds with
+    /// irregular first coupons that don't align with the standard frequency (e.g., a
+    /// long-first stub spanning 8 months on a semi-annual bond).
     TreasuryActual,
 }
 
@@ -362,6 +370,17 @@ pub enum YieldCompounding {
 /// # Errors
 ///
 /// Returns `Err` if the bond frequency is invalid (zero periods).
+///
+/// # Negative Yields
+///
+/// Negative yields are supported for all compounding conventions. However:
+/// - **Extreme negative yields** (< -50%) will log a warning as they often indicate
+///   data or input errors.
+/// - For periodic/annual compounding, yields more negative than `-m` (where `m` is
+///   compounding frequency) would make `(1 + y/m)` negative, leading to `NaN` from
+///   `powf`. Such cases return `Err`.
+/// - Discount factors > 1.0 are mathematically valid for negative rates but unusual
+///   in practice.
 #[inline]
 pub fn df_from_yield(
     ytm: f64,
@@ -372,32 +391,97 @@ pub fn df_from_yield(
     if t <= 0.0 {
         return Ok(1.0);
     }
+
+    // Warn on extreme negative yields which often indicate data errors
+    if ytm < -0.5 {
+        tracing::warn!(
+            ytm = ytm,
+            "Extreme negative yield detected (< -50%). This may indicate a data error."
+        );
+    }
+
     Ok(match comp {
-        YieldCompounding::Simple => 1.0 / (1.0 + ytm * t),
-        YieldCompounding::Annual => (1.0 + ytm).powf(-t),
+        YieldCompounding::Simple => {
+            let denom = 1.0 + ytm * t;
+            // Check for non-positive denominator which would give invalid discount factor
+            if denom <= 0.0 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "Simple interest denominator (1 + y*t) = {} is non-positive for ytm={}, t={}",
+                    denom, ytm, t
+                )));
+            }
+            1.0 / denom
+        }
+        YieldCompounding::Annual => {
+            let base = 1.0 + ytm;
+            if base <= 0.0 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "Annual compounding base (1 + y) = {} is non-positive for ytm={}",
+                    base, ytm
+                )));
+            }
+            base.powf(-t)
+        }
         YieldCompounding::Periodic(m) => {
             let m = m as f64;
-            (1.0 + ytm / m).powf(-m * t)
+            let base = 1.0 + ytm / m;
+            if base <= 0.0 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "Periodic compounding base (1 + y/m) = {} is non-positive for ytm={}, m={}",
+                    base, ytm, m
+                )));
+            }
+            base.powf(-m * t)
         }
         YieldCompounding::Continuous => (-ytm * t).exp(),
         YieldCompounding::Street => {
             let m = periods_per_year(bond_freq)?.max(1.0);
-            (1.0 + ytm / m).powf(-m * t)
+            let base = 1.0 + ytm / m;
+            if base <= 0.0 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "Street compounding base (1 + y/m) = {} is non-positive for ytm={}, m={}",
+                    base, ytm, m
+                )));
+            }
+            base.powf(-m * t)
         }
         YieldCompounding::TreasuryActual => {
             // ISDA/Treasury actual convention:
             // - Use simple interest for the first (potentially irregular) period
             // - Use periodic compounding for subsequent full periods
             //
+            // LIMITATION: Stub period detection is TIME-BASED, not SCHEDULE-AWARE.
             // We identify the first period as t < 1/frequency (i.e., less than
             // one full coupon period). This is a reasonable approximation that
-            // captures the essence of the convention.
+            // captures the essence of the convention for standard bonds.
+            //
+            // For bonds with irregular first coupons that don't align with the
+            // standard frequency (e.g., a long-first stub spanning 8 months on
+            // a semi-annual bond), this heuristic may misclassify the stub.
+            // For exact ISDA compliance with non-standard structures, consider
+            // passing actual stub information from the cashflow schedule.
             let m = periods_per_year(bond_freq)?.max(1.0);
             let period_length = 1.0 / m;
 
+            // Validate periodic compounding base for extreme negative yields
+            let periodic_base = 1.0 + ytm / m;
+            if periodic_base <= 0.0 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "TreasuryActual periodic base (1 + y/m) = {} is non-positive for ytm={}, m={}",
+                    periodic_base, ytm, m
+                )));
+            }
+
             if t <= period_length {
                 // First (potentially stub) period: simple interest
-                1.0 / (1.0 + ytm * t)
+                let denom = 1.0 + ytm * t;
+                if denom <= 0.0 {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "TreasuryActual simple interest denom (1 + y*t) = {} is non-positive for ytm={}, t={}",
+                        denom, ytm, t
+                    )));
+                }
+                1.0 / denom
             } else {
                 // For subsequent periods, we need to compound:
                 // - Simple interest for the first period portion
@@ -413,12 +497,19 @@ pub fn df_from_yield(
 
                 if stub_time > 1e-10 {
                     // Has a stub period
-                    let df_stub = 1.0 / (1.0 + ytm * stub_time);
-                    let df_periodic = (1.0 + ytm / m).powf(-n_full_periods);
+                    let stub_denom = 1.0 + ytm * stub_time;
+                    if stub_denom <= 0.0 {
+                        return Err(finstack_core::Error::Validation(format!(
+                            "TreasuryActual stub denom (1 + y*stub) = {} is non-positive for ytm={}, stub_time={}",
+                            stub_denom, ytm, stub_time
+                        )));
+                    }
+                    let df_stub = 1.0 / stub_denom;
+                    let df_periodic = periodic_base.powf(-n_full_periods);
                     df_stub * df_periodic
                 } else {
                     // No stub, pure periodic
-                    (1.0 + ytm / m).powf(-m * t)
+                    periodic_base.powf(-m * t)
                 }
             }
         }
@@ -515,21 +606,28 @@ fn outstanding_principal_at_date(
 /// where `outstanding_principal` is the remaining principal at the exercise date after
 /// any amortization. This correctly handles amortizing callable bonds and is consistent
 /// with the tree-based OAS pricing.
+///
+/// # Arguments
+///
+/// * `bond` - The bond to calculate YTW for
+/// * `flows` - Holder-view cashflows (coupons + principal)
+/// * `as_of` - Valuation/quote date
+/// * `dirty_price_target` - Target dirty price to match
+/// * `schedule` - Optional full cashflow schedule for accurate outstanding principal
+///   computation on amortizing bonds. When `None`, falls back to original notional.
 pub(crate) fn solve_ytw_from_flows(
     bond: &Bond,
     flows: &[(Date, Money)],
     as_of: Date,
     dirty_price_target: Money,
+    schedule: Option<&crate::cashflow::builder::CashFlowSchedule>,
 ) -> finstack_core::Result<(f64, Vec<(Date, Money)>)> {
     // Generate call/put candidates + maturity
-    // For amortizing bonds, we need the full schedule to compute outstanding principal
-    // at each exercise date. If we can't get it, fall back to original notional.
     let mut candidates: Vec<(Date, Money)> = Vec::new();
 
     if let Some(cp) = &bond.call_put {
         for c in &cp.calls {
             if c.date >= as_of && c.date <= bond.maturity {
-                // Use original notional for now; we'll update with outstanding below
                 candidates.push((
                     c.date,
                     Money::new(c.price_pct_of_par, bond.notional.currency()),
@@ -538,7 +636,6 @@ pub(crate) fn solve_ytw_from_flows(
         }
         for p in &cp.puts {
             if p.date >= as_of && p.date <= bond.maturity {
-                // Use original notional for now; we'll update with outstanding below
                 candidates.push((
                     p.date,
                     Money::new(p.price_pct_of_par, bond.notional.currency()),
@@ -567,14 +664,14 @@ pub(crate) fn solve_ytw_from_flows(
         // - For call/put: use outstanding principal at exercise date × (pct/100)
         let redemption = if pct_or_zero.amount() > 0.0 {
             // This is a call/put candidate, pct_or_zero holds the price_pct_of_par
-            // For now, use original notional as approximation since we don't have
-            // access to full schedule here. The tree engine handles amortizing bonds
-            // correctly with outstanding principal tracking; this is the YTW
-            // approximation path which uses a simplified flow-based approach.
             let pct = pct_or_zero.amount();
-            let outstanding = bond.notional.amount();
-            // Note: For amortizing bonds, this uses original notional as approximation.
-            // The tree engine (OAS calculation) properly tracks outstanding principal.
+            // Use full schedule for accurate outstanding principal when available;
+            // otherwise fall back to original notional (valid for bullet bonds).
+            let outstanding = if let Some(sched) = schedule {
+                outstanding_principal_at_date(sched, exercise_date)
+            } else {
+                bond.notional.amount()
+            };
             Money::new(outstanding * (pct / 100.0), bond.notional.currency())
         } else {
             Money::new(0.0, bond.notional.currency())
@@ -617,9 +714,11 @@ pub fn price_from_ytw(
     as_of: Date,
     dirty_price_target: Money,
 ) -> finstack_core::Result<f64> {
-    // Build holder-view flows and delegate to shared YTW helper
+    // Build holder-view flows and full schedule for accurate amortizing bond handling
     let flows = bond.build_dated_flows(curves, as_of)?;
-    let (best_yield, best_flows) = solve_ytw_from_flows(bond, &flows, as_of, dirty_price_target)?;
+    let schedule = bond.get_full_schedule(curves)?;
+    let (best_yield, best_flows) =
+        solve_ytw_from_flows(bond, &flows, as_of, dirty_price_target, Some(&schedule))?;
 
     // Re-price along the worst-yield path for a consistent price result
     let best_price = price_from_ytm_compounded(
@@ -1041,7 +1140,8 @@ fn price_from_asw_market(
 
     let dc = bond.cashflow_spec.day_count();
     let (par_rate, ann) = par_rate_and_annuity_from_discount(disc.as_ref(), dc, &sched)?;
-    if ann == 0.0 || bond.notional.amount() == 0.0 {
+    // Use epsilon check to avoid division by near-zero values
+    if ann.abs() < 1e-12 || bond.notional.amount().abs() < 1e-12 {
         return Ok(0.0);
     }
 

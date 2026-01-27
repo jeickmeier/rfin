@@ -295,8 +295,14 @@ impl XccySwap {
 
         let mut pv = NeumaierAccumulator::new();
 
-        // Helper to convert a single cashflow to reporting currency
-        let convert_cf = |amount: f64, payment_date: Date| -> Result<f64> {
+        // Helper to convert a single cashflow to reporting currency.
+        //
+        // Note: FxQuery uses payment_date for forward FX rate lookup per CIP conventions.
+        // If FxMatrix only contains spot rates, the conversion is an approximation.
+        // For long-dated cashflows (>1Y), this approximation can be material (>1% error
+        // depending on interest rate differentials).
+        let mut fx_approximation_warned = false;
+        let convert_cf = |amount: f64, payment_date: Date, fx_warned: &mut bool| -> Result<f64> {
             if leg.currency == self.reporting_currency {
                 return Ok(amount);
             }
@@ -305,6 +311,24 @@ impl XccySwap {
                     id: "fx_matrix".to_string(),
                 })
             })?;
+
+            // Warn once if we're converting cashflows >1Y in the future, as spot FX
+            // approximation error grows with tenor (roughly proportional to rate differential × time).
+            let days_forward = (payment_date - as_of).whole_days();
+            if days_forward > 365 && !*fx_warned {
+                tracing::warn!(
+                    instrument_id = %self.id.as_str(),
+                    from_ccy = %leg.currency,
+                    to_ccy = %self.reporting_currency,
+                    payment_date = %payment_date,
+                    days_forward = days_forward,
+                    "XCCY swap FX conversion for cashflow >1Y forward. If FxMatrix provides \
+                     spot rates only, PV may have material approximation error. For accurate \
+                     pricing, provide forward FX rates consistent with covered interest parity."
+                );
+                *fx_warned = true;
+            }
+
             // Use cashflow-date FX (default policy is CashflowDate)
             let rate = fx_matrix
                 .rate(FxQuery::new(
@@ -322,7 +346,7 @@ impl XccySwap {
         {
             let df = disc.df_between_dates(as_of, self.start_date)?;
             let cf_leg_ccy = leg.side.initial_principal_sign() * leg.notional.amount() * df;
-            let cf_rep = convert_cf(cf_leg_ccy, self.start_date)?;
+            let cf_rep = convert_cf(cf_leg_ccy, self.start_date, &mut fx_approximation_warned)?;
             pv.add(cf_rep);
         }
 
@@ -333,7 +357,7 @@ impl XccySwap {
         {
             let df = disc.df_between_dates(as_of, self.maturity_date)?;
             let cf_leg_ccy = leg.side.final_principal_sign() * leg.notional.amount() * df;
-            let cf_rep = convert_cf(cf_leg_ccy, self.maturity_date)?;
+            let cf_rep = convert_cf(cf_leg_ccy, self.maturity_date, &mut fx_approximation_warned)?;
             pv.add(cf_rep);
         }
 
@@ -372,7 +396,7 @@ impl XccySwap {
             let cf_leg_ccy = coupon * df;
 
             // Convert to reporting currency using cashflow-date FX
-            let cf_rep = convert_cf(cf_leg_ccy, payment_date)?;
+            let cf_rep = convert_cf(cf_leg_ccy, payment_date, &mut fx_approximation_warned)?;
             pv.add(cf_rep);
         }
 

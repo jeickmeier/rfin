@@ -50,8 +50,27 @@ pub const BP_TO_DECIMAL: f64 = 1e-4;
 
 /// Minimum threshold for annuity values to avoid divide-by-zero in par spread calculations.
 ///
-/// Set to 1e-12 to catch scenarios where all periods have expired or the annuity
-/// is effectively zero due to extreme discounting.
+/// # Numerical Justification
+///
+/// For a typical swap with $1MM notional:
+/// - 10Y swap with semi-annual payments and DF ~0.80: annuity ≈ 8.0
+/// - 30Y swap with quarterly payments and DF ~0.30: annuity ≈ 15.0
+/// - 1Y swap with annual payment and DF ~0.95: annuity ≈ 0.95
+///
+/// The threshold of 1e-12 is triggered when:
+/// - All periods have expired (no future cashflows)
+/// - Extreme discounting scenarios (e.g., +200% rates over 30Y gives DF ~1e-26)
+/// - Instrument misconfiguration (zero-length accrual periods)
+///
+/// This threshold is very conservative to ensure we catch only pathological cases,
+/// not legitimate stress scenarios. For comparison, a 1bp annuity change on a $1MM
+/// notional would be ~$100, so 1e-12 corresponds to sub-nanodollar precision.
+///
+/// # Usage
+///
+/// Used in par rate and par spread calculations where dividing by annuity is required.
+/// Failing on near-zero annuity is preferable to returning NaN/Inf which would
+/// propagate through downstream calculations.
 pub const ANNUITY_EPSILON: f64 = 1e-12;
 
 /// Compute discount factor at `target` relative to `as_of`, with numerical stability guard.
