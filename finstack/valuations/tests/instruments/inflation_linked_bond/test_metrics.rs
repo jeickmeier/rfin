@@ -11,6 +11,12 @@ use super::common::*;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 
+fn running_under_coverage() -> bool {
+    // `cargo llvm-cov` runs tests with LLVM coverage instrumentation enabled, which can slow down
+    // execution significantly and make time-based assertions flaky.
+    std::env::var_os("LLVM_PROFILE_FILE").is_some() || std::env::var_os("CARGO_LLVM_COV").is_some()
+}
+
 #[test]
 fn test_price_with_metrics_real_yield() {
     // Arrange
@@ -298,6 +304,12 @@ fn test_price_with_metrics_performance() {
     let ilb = sample_tips();
     let (ctx, _) = market_context_with_index();
     let as_of = d(2025, 1, 2);
+
+    if running_under_coverage() {
+        // Coverage builds are expected to be slower; this test is intended to catch performance
+        // regressions in normal, non-instrumented test runs.
+        return;
+    }
 
     let metrics = [
         MetricId::RealYield,
