@@ -57,7 +57,7 @@ fn emit_principal_repayment(
 /// Supports:
 /// - LinearTo: Equal installments over schedule
 /// - StepRemaining: Specific remaining balance targets
-/// - PercentPerPeriod: Percentage of current outstanding
+/// - PercentPerPeriod: Percentage of original notional (capped by remaining)
 /// - CustomPrincipal: Explicit payment amounts by date
 pub(in crate::cashflow::builder) fn emit_amortization_on(
     d: Date,

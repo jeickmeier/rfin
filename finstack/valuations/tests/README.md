@@ -39,22 +39,73 @@ tests/
 │   ├── json_examples/      # JSON instrument examples
 │   └── ...                 # Other instrument directories
 │
-├── models.rs               # Entry point: calibration & term structure tests
-├── models/
-│   ├── common/             # Shared fixtures and helpers
-│   ├── calibration/        # Curve calibration, repricing, tolerances
-│   ├── term_structures/    # Curve properties, forward parity
-│   ├── market/             # Quote schemas, market building, bumps
-│   └── pricer/             # Registry, model keys, batch pricing
+├── calibration.rs          # Entry point: curve calibration tests
+├── calibration/
+│   ├── mod.rs              # Module organization
+│   ├── bootstrap.rs        # Curve bootstrapping determinism
+│   ├── repricing.rs        # Repricing accuracy for calibrated curves
+│   ├── config.rs           # Configuration helpers and validation
+│   ├── finstack_config.rs  # Finstack-specific config integration
+│   ├── serialization.rs    # Serde roundtrip tests
+│   ├── builder.rs          # Calibration builder API tests
+│   ├── hazard_curve.rs     # Hazard/credit curve calibration
+│   ├── inflation.rs        # Inflation curve calibration
+│   ├── swaption_vol.rs     # Swaption volatility surface calibration
+│   ├── base_correlation.rs # Base correlation surface calibration
+│   ├── failure_modes.rs    # Engine error handling
+│   ├── explainability.rs   # Explanation trace generation
+│   ├── validation.rs       # Curve and surface validation
+│   ├── parity_comprehensive.rs # All-types parity verification
+│   ├── bloomberg_accuracy.rs # Bloomberg benchmark accuracy
+│   ├── v2_parity.rs        # V2 API parity tests
+│   ├── tolerances.rs       # Calibration-specific tolerances
+│   └── term_structures/    # Independent term structure property tests
+│       ├── mod.rs
+│       ├── curve_monotonicity.rs  # Discount factor monotonicity
+│       └── forward_parity.rs      # Forward rate parity relationships
 │
-├── risk.rs                 # Entry point: risk metrics & attribution tests
-├── risk/
-│   ├── common/             # Assertions, builders, tolerances
-│   ├── metrics/            # Greeks, DV01, sign conventions, determinism
-│   └── attribution/        # P&L attribution (parallel, waterfall)
+├── market.rs               # Entry point: market data model tests
+├── market/
+│   ├── mod.rs              # Module organization
+│   ├── quote_bumps.rs      # Rate, spread, and vol bump operations
+│   ├── quote_schemas.rs    # Schema validation for quote types
+│   └── build/              # Instrument building from quotes
+│       ├── mod.rs
+│       ├── credit.rs       # CDS instrument building
+│       └── rates.rs        # Deposit/swap/FRA building
+│
+├── metrics.rs              # Entry point: risk metrics tests
+├── metrics/
+│   ├── mod.rs              # Module organization
+│   ├── convergence.rs      # Analytical vs FD Greek convergence
+│   ├── determinism.rs      # Deterministic results for identical inputs
+│   ├── edge_cases.rs       # Boundary conditions and degenerate cases
+│   ├── graceful_metrics_test.rs # Graceful failure handling
+│   ├── greek_relationships.rs   # Mathematical relationships between Greeks
+│   ├── invariants.rs       # Property-based tests for metric invariants
+│   └── sign_conventions.rs # Correct sign conventions for all Greeks
+│
+├── attribution.rs          # Entry point: P&L attribution tests
+├── attribution/
+│   ├── mod.rs              # Module organization
+│   ├── bond_attribution.rs # Bond P&L attribution (carry, roll, spread)
+│   ├── fx_attribution.rs   # FX P&L attribution (spot, forward, basis)
+│   ├── metrics_based_convexity.rs # Convexity P&L attribution
+│   ├── model_params_attribution.rs # Model parameter change attribution
+│   ├── scalars_attribution.rs # Scalar market data attribution
+│   ├── serialization_roundtrip.rs # JSON roundtrip tests
+│   └── json_examples/      # Attribution JSON fixtures
+│
+├── common/                 # Shared utilities across test suites
+│   ├── mod.rs              # Module exports
+│   ├── assertions.rs       # Assertion helpers with better error messages
+│   ├── builders.rs         # Market context and option builders
+│   ├── fixtures.rs         # Standard dates, curves, tolerances
+│   └── tolerances.rs       # Tolerance constants
 │
 ├── integration.rs          # Entry point: end-to-end tests
 └── integration/
+    ├── mod.rs              # Module organization
     ├── e2e/                # Full workflow tests (portfolio pricing, FX)
     ├── golden/             # Golden test framework and data loaders
     │   ├── README.md       # Golden test documentation
@@ -66,15 +117,17 @@ tests/
 
 ## Test Entry Points
 
-The valuations test suite is organized into five main entry points, each with its own `cargo test --test` target:
+The valuations test suite is organized into seven main entry points, each with its own `cargo test --test` target:
 
-| Entry Point | Description | Run Command |
-|-------------|-------------|-------------|
-| `instruments` | Instrument pricing by asset class | `cargo test --test instruments` |
-| `models` | Calibration, term structures, market data | `cargo test --test models` |
-| `cashflows` | Cashflow generation, schedules, covenants | `cargo test --test cashflows` |
-| `risk` | Risk metrics, Greeks, P&L attribution | `cargo test --test risk` |
-| `integration` | E2E workflows, golden tests, serialization | `cargo test --test integration` |
+| Entry Point | Description | Test Count | Run Command |
+|-------------|-------------|------------|-------------|
+| `instruments` | Instrument pricing by asset class | ~500+ | `cargo test --test instruments` |
+| `calibration` | Curve calibration, term structures | 71 | `cargo test --test calibration` |
+| `market` | Market quotes, bumping, building | 20 | `cargo test --test market` |
+| `metrics` | Risk metrics, Greeks, convergence | 48 | `cargo test --test metrics` |
+| `attribution` | P&L attribution (parallel, waterfall) | 32 | `cargo test --test attribution` |
+| `cashflows` | Cashflow generation, schedules, covenants | ~50 | `cargo test --test cashflows` |
+| `integration` | E2E workflows, golden tests, serialization | ~30 | `cargo test --test integration` |
 
 ### Running Specific Test Categories
 
@@ -84,9 +137,11 @@ cargo test -p finstack-valuations
 
 # Run a specific test entry point
 cargo test --test instruments
-cargo test --test models
+cargo test --test calibration
+cargo test --test market
+cargo test --test metrics
+cargo test --test attribution
 cargo test --test cashflows
-cargo test --test risk
 cargo test --test integration
 
 # Run tests for a specific instrument
@@ -95,10 +150,11 @@ cargo test --test instruments irs::
 cargo test --test instruments cds::
 
 # Run specific test categories within an entry point
-cargo test --test risk metrics::
-cargo test --test risk attribution::
-cargo test --test integration e2e::
-cargo test --test integration golden::
+cargo test --test calibration term_structures::
+cargo test --test calibration validation::
+cargo test --test metrics sign_conventions::
+cargo test --test metrics invariants::
+cargo test --test attribution bond_attribution::
 ```
 
 ## Test Organization Patterns
@@ -121,6 +177,20 @@ mod bond;
 mod irs;
 
 // ... other instruments
+```
+
+For test entry points that need shared utilities:
+
+```rust
+//! Calibration test suite entry point
+
+// Shared test utilities
+#[path = "common/mod.rs"]
+mod common;
+
+// Calibration tests
+#[path = "calibration/mod.rs"]
+mod calibration;
 ```
 
 ### Instrument Test Structure
@@ -148,7 +218,20 @@ instrument/
 
 ### Common Test Helpers
 
-The `instruments/common/` directory provides shared utilities:
+The `common/` directory provides shared utilities used by `calibration`, `market`, `metrics`, and other test suites:
+
+```rust
+use crate::common::{
+    fixtures::{base_date, usd_discount_curve, F64_ABS_TOL_STRICT},
+    assertions::{assert_approx_eq, assert_relative_eq},
+    builders::{TestMarketBuilder, TestOptionBuilder},
+    tolerances::{STRICT_TOL, LOOSE_TOL},
+};
+```
+
+### Instrument Common Helpers
+
+The `instruments/common/` directory provides instrument-specific utilities:
 
 ```rust
 use crate::common::test_helpers::{
@@ -254,10 +337,10 @@ assert!(price >= intrinsic - tol);
 
 ### Adding a Calibration Test
 
-1. Create a test file in `models/calibration/`:
+1. Create a test file in `calibration/`:
 
    ```rust
-   // models/calibration/new_calibration_test.rs
+   // calibration/new_calibration_test.rs
    use crate::common::fixtures::*;
 
    #[test]
@@ -273,7 +356,54 @@ assert!(price >= intrinsic - tol);
    }
    ```
 
-2. Add the module to `models/calibration/mod.rs`.
+2. Add the module to `calibration/mod.rs`.
+
+### Adding a Market Test
+
+1. Create a test file in `market/`:
+
+   ```rust
+   // market/new_quote_test.rs
+   use crate::common::fixtures::F64_ABS_TOL_STRICT;
+
+   #[test]
+   fn test_new_quote_schema() {
+       // ...
+   }
+   ```
+
+2. Add the module to `market/mod.rs`.
+
+### Adding a Metrics Test
+
+1. Create a test file in `metrics/`:
+
+   ```rust
+   // metrics/new_greek_test.rs
+   use crate::common::{builders::*, tolerances::*};
+
+   #[test]
+   fn test_new_greek_calculation() {
+       // ...
+   }
+   ```
+
+2. Add the module to `metrics/mod.rs`.
+
+### Adding an Attribution Test
+
+1. Create a test file in `attribution/`:
+
+   ```rust
+   // attribution/new_attribution_test.rs
+
+   #[test]
+   fn test_new_attribution_factor() {
+       // ...
+   }
+   ```
+
+2. Add the module to `attribution/mod.rs`.
 
 ### Adding a Golden Test
 
@@ -295,18 +425,6 @@ assert!(price >= intrinsic - tol);
 3. Cross-reference with QuantLib, Bloomberg, or ISDA Standard Model.
 
 4. Update status to `"certified"` when validated.
-
-### Adding a Risk Test
-
-1. Create test file in appropriate `risk/` subdirectory:
-   - `risk/metrics/` for Greeks and sensitivities
-   - `risk/attribution/` for P&L decomposition
-
-2. Use shared utilities from `risk/common/`:
-
-   ```rust
-   use crate::common::{assertions::*, builders::*, tolerances::*};
-   ```
 
 ## Test Writing Guidelines
 
@@ -364,8 +482,10 @@ cargo test --test instruments --features mc
 |----------|-------------|----------|
 | Unit tests | Internal implementation | Source files (`#[cfg(test)]`) |
 | Instrument tests | Per-instrument pricing & metrics | `instruments/` |
-| Calibration tests | Curve fitting & repricing | `models/calibration/` |
-| Risk tests | Greeks, sensitivities, attribution | `risk/` |
+| Calibration tests | Curve fitting, term structures | `calibration/` |
+| Market tests | Quote schemas, bumping, building | `market/` |
+| Metrics tests | Greeks, sensitivities, convergence | `metrics/` |
+| Attribution tests | P&L decomposition | `attribution/` |
 | Golden tests | External reference validation | `integration/golden/` |
 | Roundtrip tests | Serialization stability | `integration/serialization/` |
 | E2E tests | Full workflow validation | `integration/e2e/` |
@@ -394,6 +514,10 @@ cargo test -p finstack-valuations -- --nocapture
 
 # In release mode (for performance validation)
 cargo test -p finstack-valuations --release
+
+# Run all test entry points explicitly
+cargo test --test instruments --test calibration --test market \
+           --test metrics --test attribution --test cashflows --test integration
 ```
 
 ## Reference Sources

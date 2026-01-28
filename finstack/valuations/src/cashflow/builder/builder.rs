@@ -1171,9 +1171,21 @@ impl CashFlowBuilder {
             fixed_fees,
         ) = compile_schedules_and_fees(self, issue, maturity)?;
 
-        // 2b) Normalize principal events (sorted) and validate date bounds
+        // 2b) Normalize principal events (sorted) and validate currency/date bounds
         let mut principal_events = self.principal_events.clone();
         principal_events.sort_by_key(|ev| ev.date);
+
+        // Reject principal events with currency different from notional.
+        let expected_ccy = notional.initial.currency();
+        if let Some(ev) = principal_events
+            .iter()
+            .find(|ev| ev.delta.currency() != expected_ccy)
+        {
+            return Err(finstack_core::Error::CurrencyMismatch {
+                expected: expected_ccy,
+                actual: ev.delta.currency(),
+            });
+        }
 
         // Reject principal events after maturity (would create post-maturity flows
         // after outstanding has been zeroed out, leading to undefined behavior).

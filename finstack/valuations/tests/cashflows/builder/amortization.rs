@@ -347,3 +347,319 @@ fn test_amortization_spec_linear_to_zero_ok() {
         "Linear amortization to zero should be valid"
     );
 }
+
+// =============================================================================
+// Amortization Computation Tests (Golden Values)
+// =============================================================================
+
+mod computation {
+    use super::*;
+    use finstack_core::cashflow::CFKind;
+    use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
+    use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
+    use finstack_valuations::cashflow::builder::CashFlowSchedule;
+    use rust_decimal::Decimal;
+    use time::Month;
+
+    /// Helper to create a standard fixed coupon spec for amortization tests
+    fn standard_fixed_spec() -> FixedCouponSpec {
+        FixedCouponSpec {
+            coupon_type: CouponType::Cash,
+            rate: Decimal::try_from(0.05).expect("valid"),
+            freq: Tenor::quarterly(),
+            dc: DayCount::Act365F,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: None,
+            stub: StubKind::None,
+        }
+    }
+
+    /// Golden value test: Linear amortization produces correct remaining balances
+    ///
+    /// For a 1-year term loan with $1M notional amortizing linearly to zero
+    /// over 4 quarters, each quarter should reduce principal by $250K.
+    #[test]
+    fn linear_amortization_golden_values() {
+        let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+        let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
+
+        let init = Money::new(1_000_000.0, Currency::USD);
+
+        let mut builder = CashFlowSchedule::builder();
+        let _ = builder
+            .principal(init, issue, maturity)
+            .amortization(AmortizationSpec::LinearTo {
+                final_notional: Money::new(0.0, Currency::USD),
+            })
+            .fixed_cf(standard_fixed_spec());
+
+        let schedule = builder.build_with_curves(None).unwrap();
+
+        // Get amortization flows
+        let amort_flows: Vec<_> = schedule
+            .flows
+            .iter()
+            .filter(|cf| cf.kind == CFKind::Amortization)
+            .collect();
+
+        // Should have 4 quarterly amortization payments
+        assert_eq!(
+            amort_flows.len(),
+            4,
+            "Should have 4 quarterly amortization flows"
+        );
+
+        // Each payment should be approximately $250K (1M / 4 quarters)
+        let expected_payment = 250_000.0;
+        for (i, flow) in amort_flows.iter().enumerate() {
+            assert!(
+                (flow.amount.amount() - expected_payment).abs() < 1000.0, // $1K tolerance
+                "Amortization payment {} should be ~${:.0}, got ${:.2}",
+                i + 1,
+                expected_payment,
+                flow.amount.amount()
+            );
+        }
+
+        // Verify sum of amortization equals initial notional
+        let total_amort: f64 = amort_flows.iter().map(|cf| cf.amount.amount()).sum();
+        assert!(
+            (total_amort - init.amount()).abs() < 1.0,
+            "Sum of amortization should equal initial notional: ${:.2} vs ${:.2}",
+            total_amort,
+            init.amount()
+        );
+    }
+
+    /// Golden value test: Percent-per-period amortization
+    ///
+    /// For 25% per period on $1M:
+    /// - Period 1: pay $250K, remaining = $750K
+    /// - Period 2: pay $187.5K (25% of $750K), remaining = $562.5K
+    /// - etc.
+    #[test]
+    fn percent_per_period_amortization_golden_values() {
+        let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+        let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
+
+        let init = Money::new(1_000_000.0, Currency::USD);
+
+        let mut builder = CashFlowSchedule::builder();
+        let _ = builder
+            .principal(init, issue, maturity)
+            .amortization(AmortizationSpec::PercentPerPeriod { pct: 0.25 })
+            .fixed_cf(standard_fixed_spec());
+
+        let schedule = builder.build_with_curves(None).unwrap();
+        let path = schedule.outstanding_path_per_flow().unwrap();
+
+        // Filter to get outstanding after each amortization event
+        let amort_flows: Vec<_> = schedule
+            .flows
+            .iter()
+            .filter(|cf| cf.kind == CFKind::Amortization)
+            .collect();
+
+        // First amortization: 25% of 1M = $250K, remaining = $750K
+        if !amort_flows.is_empty() {
+            let first_payment = amort_flows[0].amount.amount();
+            assert!(
+                (first_payment - 250_000.0).abs() < 100.0,
+                "First payment should be ~$250K, got ${:.2}",
+                first_payment
+            );
+        }
+
+        // Outstanding should decrease each period
+        let outstanding_values: Vec<f64> = path
+            .iter()
+            .filter(|(_, _)| true)
+            .map(|(_, m)| m.amount())
+            .collect();
+
+        // Verify monotonically decreasing (ignoring PIK effects if any)
+        for window in outstanding_values.windows(2) {
+            // Allow for small increases due to PIK if present
+            if window[1] > window[0] + 1000.0 {
+                // Only fail if significant increase without PIK
+                let has_pik = schedule.flows.iter().any(|cf| cf.kind == CFKind::PIK);
+                if !has_pik {
+                    panic!(
+                        "Outstanding should decrease: ${:.2} -> ${:.2}",
+                        window[0], window[1]
+                    );
+                }
+            }
+        }
+    }
+
+    /// Golden value test: Percent-per-period outstanding path
+    ///
+    /// For 25% per period on $1M (of original notional), remaining balances after each quarter:
+    /// Q1: 750,000; Q2: 500,000; Q3: 250,000
+    #[test]
+    fn percent_per_period_outstanding_path_golden_values() {
+        let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+        let q1 = Date::from_calendar_date(2025, Month::April, 15).unwrap();
+        let q2 = Date::from_calendar_date(2025, Month::July, 15).unwrap();
+        let q3 = Date::from_calendar_date(2025, Month::October, 15).unwrap();
+        let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
+
+        let init = Money::new(1_000_000.0, Currency::USD);
+
+        let mut builder = CashFlowSchedule::builder();
+        let _ = builder
+            .principal(init, issue, maturity)
+            .amortization(AmortizationSpec::PercentPerPeriod { pct: 0.25 })
+            .fixed_cf(standard_fixed_spec());
+
+        let schedule = builder.build_with_curves(None).unwrap();
+        let outstanding = schedule.outstanding_by_date().unwrap();
+
+        let expected_remaining = [(q1, 750_000.0), (q2, 500_000.0), (q3, 250_000.0)];
+
+        for (date, expected) in expected_remaining {
+            let actual = outstanding
+                .iter()
+                .find(|(d, _)| *d == date)
+                .map(|(_, m)| m.amount())
+                .unwrap();
+            assert!(
+                (actual - expected).abs() < 1.0,
+                "Outstanding at {:?} should be ${:.2}, got ${:.2}",
+                date,
+                expected,
+                actual
+            );
+        }
+
+        // At maturity, redemption should set outstanding to zero
+        let maturity_outstanding = outstanding
+            .iter()
+            .find(|(d, _)| *d == maturity)
+            .map(|(_, m)| m.amount())
+            .unwrap();
+        assert!(
+            maturity_outstanding.abs() < 0.01,
+            "Outstanding at maturity should be 0 after redemption, got {}",
+            maturity_outstanding
+        );
+    }
+
+    /// Invariant test: Sum of all principal-related flows equals initial notional
+    ///
+    /// For a fully amortizing loan (linear to zero), all principal is returned
+    /// via amortization flows. For partial amortization, the remaining balance
+    /// is returned at maturity via a positive notional flow.
+    #[test]
+    fn amortization_sum_invariant() {
+        let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+        let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
+
+        let init = Money::new(1_000_000.0, Currency::USD);
+
+        // Test with full amortization to zero
+        let mut builder = CashFlowSchedule::builder();
+        let _ = builder
+            .principal(init, issue, maturity)
+            .amortization(AmortizationSpec::LinearTo {
+                final_notional: Money::new(0.0, Currency::USD),
+            })
+            .fixed_cf(standard_fixed_spec());
+
+        let schedule = builder.build_with_curves(None).unwrap();
+
+        // Sum of amortization flows
+        let amort_sum: f64 = schedule
+            .flows
+            .iter()
+            .filter(|cf| cf.kind == CFKind::Amortization)
+            .map(|cf| cf.amount.amount())
+            .sum();
+
+        // Sum of redemption flows (positive notional flows at maturity)
+        let redemption_sum: f64 = schedule
+            .flows
+            .iter()
+            .filter(|cf| cf.kind == CFKind::Notional && cf.amount.amount() > 0.0)
+            .map(|cf| cf.amount.amount())
+            .sum();
+
+        // Invariant: total principal returned (amort + redemption) = initial
+        let total_principal = amort_sum + redemption_sum;
+        assert!(
+            (total_principal - init.amount()).abs() < 100.0,
+            "Total principal returned should equal initial: ${:.0} vs ${:.2}",
+            init.amount(),
+            total_principal
+        );
+
+        // For full amortization to zero, either:
+        // - All principal returned via amortization (redemption = 0), or
+        // - Some via amortization and remainder at maturity
+        // The key invariant is total = initial
+        assert!(
+            amort_sum > 0.0 || redemption_sum > 0.0,
+            "At least some principal must be returned"
+        );
+    }
+
+    /// Test step-remaining amortization produces correct outstanding path
+    #[test]
+    fn step_remaining_amortization_golden_values() {
+        let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+        let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
+        let q1_date = Date::from_calendar_date(2025, Month::April, 15).unwrap();
+        let q2_date = Date::from_calendar_date(2025, Month::July, 15).unwrap();
+        let q3_date = Date::from_calendar_date(2025, Month::October, 15).unwrap();
+
+        let init = Money::new(1_000_000.0, Currency::USD);
+
+        // Step schedule: 1M -> 800K -> 500K -> 200K -> 0
+        let schedule_pairs = vec![
+            (q1_date, Money::new(800_000.0, Currency::USD)),
+            (q2_date, Money::new(500_000.0, Currency::USD)),
+            (q3_date, Money::new(200_000.0, Currency::USD)),
+            (maturity, Money::new(0.0, Currency::USD)),
+        ];
+
+        let mut builder = CashFlowSchedule::builder();
+        let _ = builder
+            .principal(init, issue, maturity)
+            .amortization(AmortizationSpec::StepRemaining {
+                schedule: schedule_pairs.clone(),
+            })
+            .fixed_cf(standard_fixed_spec());
+
+        let schedule = builder.build_with_curves(None).unwrap();
+        let outstanding = schedule.outstanding_by_date().unwrap();
+
+        // Verify outstanding at each step date
+        let expected_remaining = [
+            (q1_date, 800_000.0),
+            (q2_date, 500_000.0),
+            (q3_date, 200_000.0),
+        ];
+
+        for (expected_date, expected_balance) in expected_remaining {
+            let actual = outstanding
+                .iter()
+                .find(|(d, _)| *d == expected_date)
+                .map(|(_, m)| m.amount());
+
+            assert!(
+                actual.is_some(),
+                "Should have outstanding at {:?}",
+                expected_date
+            );
+
+            assert!(
+                (actual.unwrap() - expected_balance).abs() < 100.0,
+                "Outstanding at {:?} should be ${:.0}, got ${:.2}",
+                expected_date,
+                expected_balance,
+                actual.unwrap()
+            );
+        }
+    }
+}

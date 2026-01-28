@@ -381,3 +381,159 @@ fn sda_multiplier_scales_correctly() {
         "200% SDA terminal should be 6% CDR"
     );
 }
+
+// =============================================================================
+// Property-Based Tests
+// =============================================================================
+
+mod property_tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// Property: PSA SMM is always non-negative for any month and multiplier >= 0
+        #[test]
+        fn psa_smm_non_negative(month in 0u32..500, multiplier in 0.0f64..10.0) {
+            use finstack_valuations::cashflow::builder::PrepaymentModelSpec;
+
+            let model = PrepaymentModelSpec::psa(multiplier);
+            let smm = model.smm(month);
+
+            prop_assert!(
+                smm >= 0.0,
+                "PSA SMM should be non-negative: multiplier={}, month={}, smm={}",
+                multiplier, month, smm
+            );
+        }
+
+        /// Property: PSA SMM is monotonically non-decreasing in month during ramp (0-30)
+        #[test]
+        fn psa_smm_monotonic_during_ramp(month1 in 0u32..30, month2 in 0u32..30) {
+            use finstack_valuations::cashflow::builder::PrepaymentModelSpec;
+
+            let model = PrepaymentModelSpec::psa_100();
+            let smm1 = model.smm(month1);
+            let smm2 = model.smm(month2);
+
+            if month1 <= month2 {
+                prop_assert!(
+                    smm1 <= smm2 + RATE_TOLERANCE,
+                    "PSA SMM should be non-decreasing during ramp: smm({})={} vs smm({})={}",
+                    month1, smm1, month2, smm2
+                );
+            }
+        }
+
+        /// Property: PSA SMM is constant after ramp (month >= 30)
+        #[test]
+        fn psa_smm_constant_after_ramp(month in 30u32..500) {
+            use finstack_valuations::cashflow::builder::PrepaymentModelSpec;
+
+            let model = PrepaymentModelSpec::psa_100();
+            let smm_30 = model.smm(30);
+            let smm_month = model.smm(month);
+
+            prop_assert!(
+                (smm_30 - smm_month).abs() < RATE_TOLERANCE,
+                "PSA SMM should be constant after month 30: smm(30)={} vs smm({})={}",
+                smm_30, month, smm_month
+            );
+        }
+
+        /// Property: Higher PSA multiplier -> higher SMM (monotonicity in multiplier)
+        #[test]
+        fn psa_smm_monotonic_in_multiplier(mult1 in 0.0f64..5.0, mult2 in 0.0f64..5.0, month in 1u32..100) {
+            use finstack_valuations::cashflow::builder::PrepaymentModelSpec;
+
+            let model1 = PrepaymentModelSpec::psa(mult1);
+            let model2 = PrepaymentModelSpec::psa(mult2);
+
+            let smm1 = model1.smm(month);
+            let smm2 = model2.smm(month);
+
+            if mult1 <= mult2 {
+                prop_assert!(
+                    smm1 <= smm2 + RATE_TOLERANCE,
+                    "Higher multiplier should give higher SMM: mult1={}, mult2={}, smm1={}, smm2={}",
+                    mult1, mult2, smm1, smm2
+                );
+            }
+        }
+
+        /// Property: CPR -> SMM -> CPR roundtrip preserves value
+        #[test]
+        fn cpr_smm_roundtrip(cpr in 0.0f64..0.99) {
+            use finstack_valuations::cashflow::builder::{cpr_to_smm, smm_to_cpr};
+
+            let smm = cpr_to_smm(cpr);
+            let cpr_back = smm_to_cpr(smm);
+
+            prop_assert!(
+                (cpr - cpr_back).abs() < FACTOR_TOLERANCE,
+                "CPR roundtrip failed: {} -> {} -> {}",
+                cpr, smm, cpr_back
+            );
+        }
+
+        /// Property: SMM < CPR for all positive rates (monthly < annual)
+        #[test]
+        fn smm_less_than_cpr(cpr in 0.001f64..0.99) {
+            use finstack_valuations::cashflow::builder::cpr_to_smm;
+
+            let smm = cpr_to_smm(cpr);
+
+            prop_assert!(
+                smm < cpr,
+                "SMM should be less than CPR: smm={}, cpr={}",
+                smm, cpr
+            );
+        }
+
+        /// Property: SDA MDR is always non-negative
+        #[test]
+        fn sda_mdr_non_negative(month in 0u32..500, multiplier in 0.0f64..10.0) {
+            use finstack_valuations::cashflow::builder::DefaultModelSpec;
+
+            let model = DefaultModelSpec::sda(multiplier);
+            let mdr = model.mdr(month);
+
+            prop_assert!(
+                mdr >= 0.0,
+                "SDA MDR should be non-negative: multiplier={}, month={}, mdr={}",
+                multiplier, month, mdr
+            );
+        }
+
+        /// Property: SDA MDR reaches terminal rate after month 60
+        #[test]
+        fn sda_mdr_terminal_after_60(month in 60u32..500) {
+            use finstack_valuations::cashflow::builder::{smm_to_cpr, DefaultModelSpec};
+
+            let model = DefaultModelSpec::sda(1.0);
+            let mdr = model.mdr(month);
+            let cdr = smm_to_cpr(mdr);
+
+            // Terminal rate for 100% SDA is 3% CDR
+            prop_assert!(
+                (cdr - 0.03).abs() < RATE_TOLERANCE,
+                "SDA should be at terminal 3% CDR after month 60: month={}, cdr={}",
+                month, cdr
+            );
+        }
+
+        /// Property: Zero PSA multiplier gives zero SMM
+        #[test]
+        fn psa_zero_multiplier_gives_zero(month in 0u32..500) {
+            use finstack_valuations::cashflow::builder::PrepaymentModelSpec;
+
+            let model = PrepaymentModelSpec::psa(0.0);
+            let smm = model.smm(month);
+
+            prop_assert!(
+                smm.abs() < RATE_TOLERANCE,
+                "Zero PSA multiplier should give zero SMM: month={}, smm={}",
+                month, smm
+            );
+        }
+    }
+}

@@ -209,6 +209,70 @@ assert!(price >= intrinsic - tol);
 5. **Isolated** - Tests don't depend on each other
 6. **Fast** - Keep tests quick; use appropriate tolerance for convergence
 7. **Documented** - Complex tests should have explanatory comments
+8. **Provenance** - Document where expected values come from (see below)
+
+## Expected Value Provenance
+
+**Critical**: Every expected value in a test must have documented provenance. This prevents
+"silent corrections" where tests pass by matching incorrect library behavior.
+
+### Good Examples
+
+```rust
+// ✅ Analytical derivation documented
+// Expected: YTM = (100/80)^(1/5) - 1 ≈ 4.56% for 5Y zero-coupon at 80
+let expected_ytm = (100.0 / 80.0_f64).powf(1.0 / 5.0) - 1.0;
+assert!((ytm - expected_ytm).abs() < tolerances::ANALYTICAL);
+
+// ✅ Mathematical invariant (no external reference needed)
+// Put-call parity: C - P = S×e^(-qT) - K×e^(-rT)
+let expected_diff = (forward_spot - pv_strike) * contract_size;
+assert!((actual_diff - expected_diff).abs() < tolerance);
+
+// ✅ External reference with source
+// Expected PV from QuantLib 1.34 test_suite/swaption.cpp line 142
+let quantlib_ref = 15_449.08;
+assert_approx_eq(finstack_pv, quantlib_ref, tolerances::NUMERICAL, "QuantLib parity");
+
+// ✅ Roundtrip test (expected is self-derived)
+// Bootstrap hazard curve → reprice CDS → NPV should be ≈ 0
+let npv = cds.value(&market, as_of).unwrap();
+assert!(npv.amount().abs() < 1.0, "Par spread roundtrip");
+```
+
+### Bad Examples
+
+```rust
+// ❌ No provenance - where does 17_727.07 come from?
+let expected_pv = 17_727.07;
+assert_approx_eq(pv, expected_pv, 0.02, "swaption pricing");
+
+// ❌ "Tolerance hack" that masks a bug
+let expected = result * 1.001; // Silent correction!
+assert!((result - expected).abs() < 0.01);
+
+// ❌ Loose tolerance without explanation
+assert!((pv - expected).abs() < 1000.0); // Why 1000?
+```
+
+### When External Reference Differs
+
+If finstack produces different values than a reference (QuantLib, Bloomberg), document it:
+
+```rust
+// KNOWN DISCREPANCY: QuantLib reference produces 15_449.08
+// Finstack implementation produces 17_727.07 (~15% higher)
+//
+// Root cause analysis:
+// 1. Annuity calculation: Finstack uses quarterly fixed leg,
+//    QuantLib uses semi-annual (market standard).
+// 2. Day count: Finstack uses Act/360; QuantLib uses 30/360.
+//
+// RECOMMENDATION: Update fixtures to align with market conventions.
+//
+// Using finstack baseline for regression testing:
+expected_pv: 17_727.07, // Finstack empirical baseline (not QuantLib reference)
+```
 
 ## Special Notes
 
@@ -219,6 +283,41 @@ Equity instruments include DV01 metrics despite not having direct interest rate 
 - Position values are discounted
 - Forward pricing uses risk-free rates
 - Portfolio-level aggregation mixes equities with fixed income
+
+### Slow Tests
+
+Tests that take longer to run (property-based tests, comprehensive parity checks, multi-scenario
+validation) are gated behind the `slow` feature:
+
+```rust
+#![cfg(feature = "slow")]
+//! Put-call parity tests for equity options.
+
+#[test]
+fn test_put_call_parity_atm() {
+    // Comprehensive parity test...
+}
+```
+
+**When to use `slow` feature:**
+- Property-based tests with 50+ cases
+- Multi-scenario validation loops
+- Parity tests that create multiple instruments per test
+- Calibration roundtrip tests
+- Tests involving Monte Carlo simulation
+
+**Running slow tests:**
+
+```bash
+# Run fast tests only (default CI)
+cargo test --lib instruments
+
+# Run all tests including slow
+cargo test --lib instruments --features slow
+
+# Run slow tests for specific instrument
+cargo test --lib instruments::equity_option --features slow
+```
 
 ### Monte Carlo Tests
 

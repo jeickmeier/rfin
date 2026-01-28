@@ -279,8 +279,11 @@ impl CashFlowSchedule {
 
         let mut outstanding = self.notional.initial;
 
-        // Identify the first date in the schedule (issue date)
-        let first_date = self.flows.first().map(|cf| cf.date);
+        // Identify and skip the initial funding flow (negative notional equal to initial).
+        // This flow is already accounted for in `notional.initial`, and may not be the
+        // earliest flow if there are pre-issue principal events.
+        let mut initial_funding_skipped = false;
+        let initial_amount = self.notional.initial.amount();
 
         let mut i = 0usize;
         while i < self.flows.len() {
@@ -290,12 +293,14 @@ impl CashFlowSchedule {
             while j < self.flows.len() && self.flows[j].date == d {
                 // Skip the initial funding notional flow (negative, equal to -notional.initial)
                 // This is already accounted for in notional.initial
-                let is_initial_funding = first_date == Some(d)
+                let is_initial_funding = !initial_funding_skipped
+                    && self.flows[j].kind == CFKind::Notional
                     && self.flows[j].amount.amount() < 0.0
-                    && amounts_approx_equal(
-                        self.flows[j].amount.amount().abs(),
-                        self.notional.initial.amount(),
-                    );
+                    && initial_amount != 0.0
+                    && amounts_approx_equal(self.flows[j].amount.amount().abs(), initial_amount);
+                if is_initial_funding {
+                    initial_funding_skipped = true;
+                }
 
                 // `outstanding_by_date` is the canonical balance tracker, including
                 // subsequent notional draws/repays as well as Amortization and PIK.

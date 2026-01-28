@@ -326,6 +326,132 @@ fn actact_isma_with_quarterly_frequency() {
 }
 
 // =============================================================================
+// Act/Act ISMA Golden Values (ISDA 2006 Reference)
+// =============================================================================
+
+/// Golden value test for Act/Act ISMA per ISDA 2006.
+///
+/// Reference: ISDA 2006 Definitions, Section 4.16(b)
+///
+/// For Act/Act ISMA (also called Act/Act ICMA), the formula is:
+/// YF = (Days in Accrual Period) / (Frequency × Days in Regular Period)
+///
+/// For a regular semi-annual period (6 months), this equals:
+/// - Full period: actual_days / (2 × actual_days) = 0.5
+///
+/// For a regular quarterly period (3 months):
+/// - Full period: actual_days / (4 × actual_days) = 0.25
+#[test]
+fn actact_isma_golden_value_semi_annual_regular_period() {
+    let dc = DayCount::ActActIsma;
+
+    // Semi-annual: Jan 15 to Jul 15 (regular 6-month period)
+    let ctx = DayCountCtx {
+        frequency: Some(Tenor::semi_annual()),
+        calendar: None,
+        bus_basis: None,
+    };
+
+    let yf = dc
+        .year_fraction(d(2025, 1, 15), d(2025, 7, 15), ctx)
+        .unwrap();
+
+    // For a regular semi-annual period, Act/Act ISMA should give exactly 0.5
+    // The formula: days / (freq × days_in_regular_period)
+    // For a 181-day period with semi-annual frequency: 181 / (2 × 181) = 0.5
+    assert!(
+        (yf - 0.5).abs() < FACTOR_TOLERANCE,
+        "Act/Act ISMA semi-annual regular period should be 0.5, got {}",
+        yf
+    );
+}
+
+#[test]
+fn actact_isma_golden_value_quarterly_regular_period() {
+    let dc = DayCount::ActActIsma;
+
+    // Quarterly: Jan 15 to Apr 15 (regular 3-month period)
+    let ctx = DayCountCtx {
+        frequency: Some(Tenor::quarterly()),
+        calendar: None,
+        bus_basis: None,
+    };
+
+    let yf = dc
+        .year_fraction(d(2025, 1, 15), d(2025, 4, 15), ctx)
+        .unwrap();
+
+    // For a regular quarterly period, Act/Act ISMA should give exactly 0.25
+    assert!(
+        (yf - 0.25).abs() < FACTOR_TOLERANCE,
+        "Act/Act ISMA quarterly regular period should be 0.25, got {}",
+        yf
+    );
+}
+
+#[test]
+fn actact_isma_golden_value_annual_regular_period() {
+    let dc = DayCount::ActActIsma;
+
+    // Annual: Jan 15, 2025 to Jan 15, 2026 (regular annual period)
+    let ctx = DayCountCtx {
+        frequency: Some(Tenor::annual()),
+        calendar: None,
+        bus_basis: None,
+    };
+
+    let yf = dc
+        .year_fraction(d(2025, 1, 15), d(2026, 1, 15), ctx)
+        .unwrap();
+
+    // For a regular annual period, Act/Act ISMA should give exactly 1.0
+    assert!(
+        (yf - 1.0).abs() < FACTOR_TOLERANCE,
+        "Act/Act ISMA annual regular period should be 1.0, got {}",
+        yf
+    );
+}
+
+/// ISDA 2006 Example 4.16(b): Stub period calculation
+///
+/// For a stub period shorter than the regular period:
+/// YF = actual_days / (freq × reference_period_days)
+///
+/// This tests that stub periods are handled correctly.
+#[test]
+fn actact_isma_stub_period_shorter_than_regular() {
+    let dc = DayCount::ActActIsma;
+
+    // Short stub: Feb 15 to Apr 15 (2 months instead of 3 for quarterly)
+    // In a quarterly schedule, the reference period is ~91 days
+    let ctx = DayCountCtx {
+        frequency: Some(Tenor::quarterly()),
+        calendar: None,
+        bus_basis: None,
+    };
+
+    let yf = dc
+        .year_fraction(d(2025, 2, 15), d(2025, 4, 15), ctx)
+        .unwrap();
+
+    // Feb 15 to Apr 15 = 59 days (non-leap year)
+    // Reference quarterly period = ~91 days
+    // Expected: 59 / (4 × 91) ≈ 0.162 (less than 0.25)
+    assert!(
+        yf > 0.0 && yf < 0.25,
+        "Act/Act ISMA short stub should be less than 0.25, got {}",
+        yf
+    );
+
+    // Verify it's approximately 2/3 of a quarter (2 months out of 3)
+    assert!(
+        (yf - 0.167).abs() < 0.02,
+        "Act/Act ISMA 2-month stub should be ~0.167 (2/12), got {}",
+        yf
+    );
+}
+
+// =============================================================================
 // Act/Act ISDA (does not require frequency)
 // =============================================================================
 
