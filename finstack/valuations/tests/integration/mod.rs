@@ -20,20 +20,12 @@
 //! JSON round-trip tests ensuring data integrity:
 //! - `instrument_roundtrip` - All instrument types serialize/deserialize correctly
 //! - `result_roundtrip` - ValuationResult serialization (requires `serde` feature)
-//! - `market_compliance` - Golden tests validating pricing against reference values
 //!
 //! ## [`schema`] - Schema Validation Tests
 //!
 //! Tests ensuring schema files stay synchronized:
 //! - `parity` - JSON schema ↔ Rust type synchronization
 //! - `ts_export` - TypeScript type generation (requires `ts_export` feature)
-//!
-//! ## [`golden`] - Golden Test Framework
-//!
-//! Shared infrastructure for golden test data:
-//! - Test case loaders for European/Asian/Barrier options
-//! - Market compliance fixture loading
-//! - Tolerance-based assertion helpers
 //!
 //! # Running Tests
 //!
@@ -59,6 +51,3 @@ pub mod serialization;
 
 // Schema validation tests
 pub mod schema;
-
-// Golden test framework and data loaders
-pub mod golden;

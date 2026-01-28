@@ -356,7 +356,7 @@ Error: CircularDependency {
 
 **Golden Reference Files**:
 
-- `finstack/valuations/tests/integration/golden/data/market_compliance/fx_spot_dates.json` - FX spot dates validated against ISDA, ECB, NYSE, Bank of England, JPX calendars
+- `finstack/valuations/tests/integration/golden/data/instruments/` - canonical instrument suites
 - Comprehensive test cases with business day breakdowns
 - Legacy behavior documentation for comparison
 
@@ -536,7 +536,7 @@ let option = CdsOption::try_new(/* params */)?;  // Returns Result
 
 ### Examples
 
-- **Golden Tests**: `finstack/valuations/tests/golden/fx_spot_dates.json`
+- **Golden Tests**: `finstack/valuations/tests/integration/golden/data/instruments/`
 - **Integration Tests**: `finstack/valuations/tests/integration/`
 - **Before/After Code**: See migration guide and test files
 

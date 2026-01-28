@@ -16,9 +16,7 @@ from finstack.core.money import Money
 import pytest
 
 # Load golden values
-GOLDEN_VALUES_PATH = (
-    Path(__file__).parent.parent.parent / "finstack/valuations/tests/integration/golden/data/parity/golden_values.json"
-)
+GOLDEN_VALUES_PATH = Path(__file__).parent / "data/golden_values.json"
 with GOLDEN_VALUES_PATH.open() as f:
     GOLDEN_VALUES = json.load(f)
 

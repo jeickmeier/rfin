@@ -188,7 +188,6 @@ Major release addressing critical safety issues and market convention compliance
 **New**:
 
 - `MIGRATION_GUIDE.md` - Comprehensive migration instructions with decision trees
-- `finstack/valuations/tests/integration/golden/data/market_compliance/fx_spot_dates.json` - FX settlement reference dates
 - API documentation for all new methods with examples
 
 **Updated**:
@@ -259,7 +258,7 @@ For comparison with 0.8.0 changes:
 
 ### Test Files
 
-- **Golden Tests**: `finstack/valuations/tests/integration/golden/data/market_compliance/fx_spot_dates.json`
+- **Golden Tests**: `finstack/valuations/tests/integration/golden/data/instruments/`
 - **Integration Tests**: `finstack/valuations/tests/integration/`
 - **Migration Examples**: See test files for before/after patterns
 

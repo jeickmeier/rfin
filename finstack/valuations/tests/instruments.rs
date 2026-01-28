@@ -235,10 +235,6 @@ mod term_loan;
 // Golden Test Vectors
 // ============================================================================
 
-/// Golden test vectors from QuantLib and ISDA Standard Model
-#[path = "instruments/golden/mod.rs"]
-mod golden;
-
 // ============================================================================
 // Market Edge Case Tests
 // ============================================================================
