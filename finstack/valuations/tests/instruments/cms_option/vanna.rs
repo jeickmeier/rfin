@@ -123,6 +123,7 @@ fn test_cms_option_vanna() -> finstack_core::Result<()> {
         swap_fixed_freq: Tenor::semi_annual(),
         swap_float_freq: Tenor::quarterly(),
         swap_day_count: DayCount::Thirty360,
+        swap_float_day_count: Some(DayCount::Act360),
         day_count: DayCount::Thirty360,
         discount_curve_id: CurveId::new("USD-OIS"),
         forward_curve_id: Some(CurveId::new("USD-LIBOR-3M")),

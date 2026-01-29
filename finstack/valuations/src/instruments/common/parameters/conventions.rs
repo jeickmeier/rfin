@@ -141,7 +141,11 @@ impl IRSConvention {
 
     /// Float leg frequency for this convention
     pub fn float_frequency(&self) -> Tenor {
-        Tenor::semi_annual()
+        match self {
+            IRSConvention::USDStandard => Tenor::quarterly(), // SOFR 3M
+            IRSConvention::EURStandard => Tenor::semi_annual(), // EURIBOR 6M
+            IRSConvention::GBPStandard | IRSConvention::JPYStandard => Tenor::semi_annual(),
+        }
     }
 
     /// Business day convention for this convention
@@ -211,5 +215,31 @@ impl std::str::FromStr for IRSConvention {
             "jpy_standard" | "jpy" => Ok(IRSConvention::JPYStandard),
             other => Err(format!("Unknown IRS convention: {}", other)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use finstack_core::dates::Tenor;
+
+    #[test]
+    fn float_frequency_matches_index_tenor() {
+        assert_eq!(
+            IRSConvention::USDStandard.float_frequency(),
+            Tenor::quarterly()
+        );
+        assert_eq!(
+            IRSConvention::EURStandard.float_frequency(),
+            Tenor::semi_annual()
+        );
+        assert_eq!(
+            IRSConvention::GBPStandard.float_frequency(),
+            Tenor::semi_annual()
+        );
+        assert_eq!(
+            IRSConvention::JPYStandard.float_frequency(),
+            Tenor::semi_annual()
+        );
     }
 }

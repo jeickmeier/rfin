@@ -281,7 +281,7 @@ fn test_usd_deposit_friday_trade_with_nyse_calendar() {
         .expect("Valid deposit");
 
     // Compute effective dates
-    let effective_start = dep.effective_start_date(trade_date).unwrap();
+    let effective_start = dep.effective_start_date().unwrap();
     let effective_end = dep.effective_end_date().unwrap();
 
     // Validate effective dates
@@ -293,8 +293,23 @@ fn test_usd_deposit_friday_trade_with_nyse_calendar() {
     // End date should be Feb 7, 2025 (which is a Friday - business day)
     assert_eq!(effective_end, date(2025, 2, 7));
 
-    // Execute - NPV should be computable with adjusted dates
+    // Execute - NPV and metrics should be computable with adjusted dates
     let pv = dep.npv(&ctx, trade_date).unwrap();
+    let metrics = compute_metrics(
+        &dep,
+        &ctx,
+        trade_date,
+        &[
+            MetricId::DfStart,
+            MetricId::DfEnd,
+            MetricId::Yf,
+            MetricId::DepositParRate,
+        ],
+    );
+    let df_s = metrics[&MetricId::DfStart];
+    let df_e = metrics[&MetricId::DfEnd];
+    let yf = metrics[&MetricId::Yf];
+    let par = metrics[&MetricId::DepositParRate];
 
     // Validate - at market rate, PV should be near zero
     assert!(
@@ -303,6 +318,15 @@ fn test_usd_deposit_friday_trade_with_nyse_calendar() {
         pv.amount()
     );
     assert_eq!(pv.currency(), Currency::USD);
+    assert!((df_s - 1.0).abs() < 1e-12, "DF(start): {}", df_s);
+    assert!(df_e > 0.0 && df_e < 1.0, "DF(end): {}", df_e);
+    let expected_par = (df_s / df_e - 1.0) / yf;
+    assert!(
+        (par - expected_par).abs() < RATE_TOLERANCE,
+        "Par rate: {}, expected: {}",
+        par,
+        expected_par
+    );
 }
 
 /// Test that deposit without spot lag uses raw dates.
@@ -329,7 +353,7 @@ fn test_deposit_without_spot_lag_uses_raw_dates() {
         .expect("Valid deposit");
 
     // Effective start should be raw start date since no spot lag specified
-    let effective_start = dep.effective_start_date(trade_date).unwrap();
+    let effective_start = dep.effective_start_date().unwrap();
     assert_eq!(
         effective_start, trade_date,
         "Without spot_lag, effective start should equal raw start"
@@ -364,7 +388,7 @@ fn test_gbp_deposit_t0_settlement() {
         .expect("Valid deposit");
 
     // Effective start should be trade date (T+0)
-    let effective_start = dep.effective_start_date(trade_date).unwrap();
+    let effective_start = dep.effective_start_date().unwrap();
     assert_eq!(
         effective_start, trade_date,
         "GBP T+0 settlement should start on trade date"

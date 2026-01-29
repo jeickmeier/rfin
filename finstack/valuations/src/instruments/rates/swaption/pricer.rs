@@ -77,18 +77,9 @@ impl Pricer for SimpleSwaptionBlackPricer {
         // If model is Black76, we enforce Black pricing regardless of instrument preference
         let pv = match self.model {
             ModelKey::Black76 => {
-                let disc = market
-                    .get_discount(swaption.discount_curve_id.as_ref())
-                    .map_err(|e| {
-                        PricingError::model_failure_ctx(
-                            e.to_string(),
-                            PricingErrorContext::default(),
-                        )
-                    })?;
-
                 // Use SABR if available (implies Black vol in this library), otherwise look up surface
                 if swaption.sabr_params.is_some() {
-                    swaption.price_sabr(disc.as_ref(), as_of).map_err(|e| {
+                    swaption.price_sabr(market, as_of).map_err(|e| {
                         PricingError::model_failure_ctx(
                             e.to_string(),
                             PricingErrorContext::default(),
@@ -135,14 +126,12 @@ impl Pricer for SimpleSwaptionBlackPricer {
                         }
                     };
 
-                    swaption
-                        .price_black(disc.as_ref(), vol, as_of)
-                        .map_err(|e| {
-                            PricingError::model_failure_ctx(
-                                e.to_string(),
-                                PricingErrorContext::default(),
-                            )
-                        })?
+                    swaption.price_black(market, vol, as_of).map_err(|e| {
+                        PricingError::model_failure_ctx(
+                            e.to_string(),
+                            PricingErrorContext::default(),
+                        )
+                    })?
                 }
             }
             // For Discounting or other models, fallback to instrument's internal preference

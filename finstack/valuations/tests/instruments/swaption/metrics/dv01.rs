@@ -7,7 +7,9 @@ use finstack_valuations::metrics::MetricId;
 #[test]
 fn test_dv01_finite_and_reasonable() {
     let (as_of, expiry, swap_start, swap_end) = standard_dates();
-    let swaption = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.05);
+    let mut swaption = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.05);
+    // Align forward and discount curve for rho vs dv01 comparison.
+    swaption.forward_id = swaption.discount_curve_id.clone();
     let market = create_flat_market(as_of, 0.05, 0.30);
 
     let result = swaption

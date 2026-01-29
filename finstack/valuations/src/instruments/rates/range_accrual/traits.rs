@@ -3,6 +3,7 @@
 use crate::instruments::common::traits::EquityDependencies;
 use crate::instruments::range_accrual::RangeAccrual;
 use crate::metrics::{HasDayCount, HasExpiry, HasPricingOverrides};
+use finstack_core::dates::Date;
 
 impl EquityDependencies for RangeAccrual {
     fn equity_dependencies(&self) -> crate::instruments::common::traits::EquityInstrumentDeps {
@@ -25,7 +26,8 @@ impl HasExpiry for RangeAccrual {
         self.observation_dates
             .last()
             .copied()
-            .unwrap_or(self.observation_dates[0])
+            .or(self.payment_date)
+            .unwrap_or(Date::MIN)
     }
 }
 

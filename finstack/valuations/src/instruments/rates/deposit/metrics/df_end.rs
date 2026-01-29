@@ -1,10 +1,10 @@
 use crate::instruments::deposit::Deposit;
 use crate::metrics::{MetricCalculator, MetricContext};
 
-/// Calculates discount factor at end date for deposits.
+/// Calculates discount factor at effective end date for deposits.
 ///
-/// Computes the present value of 1 received at the deposit end date,
-/// using the deposit's discount curve and the instrument day count.
+/// Computes the present value of 1 received at the deposit effective end date,
+/// using the deposit's discount curve.
 pub struct DfEndCalculator;
 
 impl MetricCalculator for DfEndCalculator {
@@ -12,7 +12,8 @@ impl MetricCalculator for DfEndCalculator {
         let deposit: &Deposit = context.instrument_as()?;
 
         let disc = context.curves.get_discount(&deposit.discount_curve_id)?;
+        let effective_end = deposit.effective_end_date()?;
         // Use the curve's own time basis for discounting
-        disc.df_on_date_curve(deposit.end)
+        disc.df_on_date_curve(effective_end)
     }
 }

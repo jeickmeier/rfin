@@ -715,6 +715,14 @@ mod tests {
             .expect("NPV should succeed with mixed day counts");
         assert!(pv.amount() > 0.0, "Call option should have positive value");
 
+        // Rate should be consistent with curve DF under t_vol
+        let df_curve = curves
+            .get_discount(DISC_ID)
+            .expect("discount curve")
+            .df(inputs.t_rate);
+        let df_from_r = (-inputs.r * inputs.t_vol).exp();
+        approx_eq(df_from_r, df_curve, 1e-10);
+
         // Verify greeks are computed correctly
         let greeks = option
             .greeks(&curves, as_of)
@@ -812,6 +820,27 @@ mod tests {
             err_msg.contains("unitless") || err_msg.contains("Price"),
             "Error message should mention the type mismatch, got: {}",
             err_msg
+        );
+    }
+
+    #[test]
+    fn bermudan_pricing_is_rejected_without_schedule() {
+        let as_of = date(2025, 1, 3);
+        let expiry = date(2025, 7, 3);
+        let mut option = base_option(expiry);
+        option.exercise_style = ExerciseStyle::Bermudan;
+        let curves = build_market_context(as_of, 100.0, 0.25, 0.02, 0.01);
+
+        let result = option.npv(&curves, as_of);
+        assert!(
+            result.is_err(),
+            "Expected Bermudan pricing to fail without exercise schedule"
+        );
+
+        let greeks = option.greeks(&curves, as_of);
+        assert!(
+            greeks.is_err(),
+            "Expected Bermudan greeks to fail without exercise schedule"
         );
     }
 }

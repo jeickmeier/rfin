@@ -8,9 +8,8 @@ use finstack_valuations::metrics::MetricId;
 fn test_payer_receiver_symmetry() {
     let (as_of, expiry, swap_start, swap_end) = standard_dates();
     let market = create_flat_market(as_of, 0.05, 0.30);
-    let disc = market.get_discount("USD_OIS").unwrap();
     let forward = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.05)
-        .forward_swap_rate(disc.as_ref(), as_of)
+        .forward_swap_rate(&market, as_of)
         .unwrap();
 
     let payer = create_standard_payer_swaption(expiry, swap_start, swap_end, forward);

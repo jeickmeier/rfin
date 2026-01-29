@@ -468,6 +468,12 @@ pub fn standard_registry() -> &'static MetricRegistry {
             &mut registry,
         );
         // Exotic options
+        crate::instruments::fx_barrier_option::metrics::register_fx_barrier_option_metrics(
+            &mut registry,
+        );
+        crate::instruments::lookback_option::metrics::register_lookback_option_metrics(
+            &mut registry,
+        );
         #[cfg(feature = "mc")]
         {
             crate::instruments::asian_option::metrics::register_asian_option_metrics(&mut registry);
@@ -476,12 +482,6 @@ pub fn standard_registry() -> &'static MetricRegistry {
                 &mut registry,
             );
             crate::instruments::cliquet_option::metrics::register_cliquet_option_metrics(
-                &mut registry,
-            );
-            crate::instruments::fx_barrier_option::metrics::register_fx_barrier_option_metrics(
-                &mut registry,
-            );
-            crate::instruments::lookback_option::metrics::register_lookback_option_metrics(
                 &mut registry,
             );
             crate::instruments::quanto_option::metrics::register_quanto_option_metrics(

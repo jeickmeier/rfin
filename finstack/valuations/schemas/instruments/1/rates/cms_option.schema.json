@@ -46,6 +46,7 @@
             "ytm_bump_decimal": null
           },
           "strike_rate": 0.025,
+          "swap_float_day_count": "Act360",
           "vol_surface_id": "USD-CMS10Y-VOL"
         },
         "type": "cms_option"
@@ -97,6 +98,7 @@
             "ytm_bump_decimal": null
           },
           "strike_rate": 0.025,
+          "swap_float_day_count": "Act360",
           "vol_surface_id": "USD-CMS10Y-VOL"
         },
         "type": "cms_option"

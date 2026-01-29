@@ -38,6 +38,13 @@ pub struct CmsOption {
     pub swap_float_freq: finstack_core::dates::Tenor,
     /// Day count convention of the underlying swap fixed leg
     pub swap_day_count: finstack_core::dates::DayCount,
+    /// Optional day count convention of the underlying swap floating leg
+    #[builder(optional)]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub swap_float_day_count: Option<finstack_core::dates::DayCount>,
 
     /// Discount curve ID for present value calculations
     pub discount_curve_id: CurveId,
@@ -86,6 +93,7 @@ impl CmsOption {
             .swap_fixed_freq(Tenor::semi_annual())
             .swap_float_freq(Tenor::quarterly())
             .swap_day_count(DayCount::Thirty360)
+            .swap_float_day_count_opt(Some(DayCount::Act360))
             .discount_curve_id(CurveId::new("USD-OIS"))
             .forward_curve_id(CurveId::new("USD-LIBOR-3M"))
             .vol_surface_id_opt(Some(CurveId::new("USD-CMS10Y-VOL")))

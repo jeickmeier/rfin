@@ -653,7 +653,16 @@ pub fn schedule_to_periods(
         ));
     }
 
-    let cal = calendar_id.and_then(|id| CalendarRegistry::global().resolve_str(id));
+    let cal = if let Some(id) = calendar_id {
+        Some(CalendarRegistry::global().resolve_str(id).ok_or_else(|| {
+            finstack_core::Error::Validation(format!(
+                "Reset calendar '{}' not found in registry; cannot apply reset lag.",
+                id
+            ))
+        })?)
+    } else {
+        None
+    };
 
     let mut periods = Vec::with_capacity(schedule.dates.len() - 1);
 
@@ -692,6 +701,7 @@ pub fn schedule_to_periods(
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use finstack_core::dates::{ScheduleBuilder, StubKind, Tenor};
     use finstack_core::market_data::term_structures::ForwardCurve;
     use finstack_core::types::CurveId;
     use time::Month;
@@ -940,6 +950,27 @@ mod tests {
         assert!(
             err.to_string().contains("not found"),
             "Error should mention calendar not found: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn schedule_to_periods_missing_reset_calendar_errors() {
+        let start = date(2024, 1, 1);
+        let end = date(2024, 4, 1);
+        let schedule = ScheduleBuilder::new(start, end)
+            .expect("schedule builder")
+            .frequency(Tenor::monthly())
+            .stub_rule(StubKind::None)
+            .build()
+            .expect("schedule");
+
+        let result = schedule_to_periods(&schedule, DayCount::Act360, Some(2), Some("missing"));
+        assert!(result.is_err(), "Should error when reset calendar missing");
+        let err = result.expect_err("should error");
+        assert!(
+            err.to_string().contains("Reset calendar"),
+            "Error should mention reset calendar: {}",
             err
         );
     }

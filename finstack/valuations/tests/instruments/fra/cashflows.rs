@@ -35,14 +35,20 @@ fn test_cashflow_amount_matches_npv() {
     let market = standard_market();
     let fra = TestFraBuilder::new().fixed_rate(0.06).build();
 
-    let npv = fra.npv(&market, BASE_DATE).unwrap();
+    let npv = fra.npv_raw(&market, BASE_DATE).unwrap();
     let flows = fra.build_dated_flows(&market, BASE_DATE).unwrap();
     let (_, amount) = flows[0];
 
-    assert_eq!(
-        amount.amount(),
-        npv.amount(),
-        "Cashflow amount should equal NPV"
+    let disc = market.get_discount(fra.discount_curve_id.as_str()).unwrap();
+    let df = disc
+        .df_between_dates(BASE_DATE, fra.start_date)
+        .expect("discount factor should exist");
+
+    assert_approx_equal(
+        amount.amount() * df,
+        npv,
+        5e-3,
+        "Discounted cashflow amount should equal NPV",
     );
 }
 

@@ -40,8 +40,9 @@ use crate::instruments::common::traits::Attributes;
 /// - `bdc`: Business day convention for date adjustment (default: ModifiedFollowing)
 /// - `calendar_id`: Holiday calendar identifier for business day logic (e.g., "nyse", "target")
 ///
-/// When these fields are set and `as_of` is provided to `build_full_schedule`, the effective
-/// start date is computed as `as_of + spot_lag` adjusted by the business day convention.
+/// When these fields are set, the effective start date is computed as
+/// `start + spot_lag` adjusted by the business day convention. In this case,
+/// `start` is treated as the trade date; otherwise it is the accrual start date.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
@@ -270,17 +271,14 @@ impl Deposit {
 
     /// Compute the effective start date considering spot lag and business day adjustments.
     ///
-    /// If `spot_lag_days` is set, computes the start date as `as_of + spot_lag` business days
+    /// If `spot_lag_days` is set, computes the start date as `start + spot_lag` business days
     /// (or calendar days if no calendar is set), then applies the business day convention.
     ///
     /// If `spot_lag_days` is not set, returns the raw `start` date optionally adjusted by BDC.
     ///
-    /// # Arguments
-    /// * `as_of` - The valuation/trade date
-    ///
     /// # Returns
     /// The effective start date after all adjustments.
-    pub fn effective_start_date(&self, as_of: Date) -> finstack_core::Result<Date> {
+    pub fn effective_start_date(&self) -> finstack_core::Result<Date> {
         let calendar: Option<&dyn HolidayCalendar> = self
             .calendar_id
             .as_deref()
@@ -289,11 +287,11 @@ impl Deposit {
         let bdc = self.bdc.unwrap_or(BusinessDayConvention::ModifiedFollowing);
 
         let base_start = if let Some(lag_days) = self.spot_lag_days {
-            // Compute spot date: as_of + spot_lag business days
+            // Compute spot date: start + spot_lag business days
             if let Some(cal) = calendar {
-                as_of.add_business_days(lag_days, cal)?
+                self.start.add_business_days(lag_days, cal)?
             } else {
-                as_of.add_weekdays(lag_days)
+                self.start.add_weekdays(lag_days)
             }
         } else {
             // Use raw start date
@@ -339,20 +337,15 @@ impl CashflowProvider for Deposit {
     fn build_full_schedule(
         &self,
         _curves: &MarketContext,
-        as_of: Date,
+        _as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
         // Validate deposit parameters before building schedule
         self.validate()?;
 
-        // Compute effective dates with spot lag and business day adjustments
-        // When spot_lag_days is set, compute effective start from as_of
-        // Otherwise, use the raw start/end dates (optionally BDC-adjusted)
-        let effective_start = if self.spot_lag_days.is_some() {
-            self.effective_start_date(as_of)?
-        } else {
-            // Even without spot lag, apply BDC if calendar is set
-            self.effective_start_date(self.start)?
-        };
+        // Compute effective dates with spot lag and business day adjustments.
+        // When spot_lag_days is set, compute effective start from trade date (start).
+        // Otherwise, use the raw start/end dates (optionally BDC-adjusted).
+        let effective_start = self.effective_start_date()?;
         let effective_end = self.effective_end_date()?;
 
         // Validate effective date ordering
@@ -360,15 +353,6 @@ impl CashflowProvider for Deposit {
             return Err(finstack_core::Error::Validation(format!(
                 "Deposit effective end date ({}) must be after effective start date ({})",
                 effective_end, effective_start
-            )));
-        }
-
-        // Validate that effective start is on or after as_of when spot_lag is used
-        // This enforces proper settlement timing
-        if self.spot_lag_days.is_some() && effective_start < as_of {
-            return Err(finstack_core::Error::Validation(format!(
-                "Deposit effective start date ({}) must be on or after as_of date ({}) when spot_lag is specified",
-                effective_start, as_of
             )));
         }
 

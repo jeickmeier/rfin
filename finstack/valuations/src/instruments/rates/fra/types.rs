@@ -103,24 +103,17 @@ impl ForwardRateAgreement {
         Ok(Money::new(pv, self.notional.currency()))
     }
 
-    /// Calculate the raw net present value of this FRA (unrounded f64)
+    /// Settlement amount at period start (undiscounted).
     ///
-    /// # Reset Lag Handling
-    ///
-    /// The fixing date is inferred from `start_date - reset_lag` using **business days**
-    /// when a calendar is available, or weekday-only subtraction otherwise. This aligns
-    /// with market conventions where reset lag is specified in business days (e.g., T-2).
-    ///
-    /// The inferred date is then adjusted according to `fixing_bdc` (defaults to ModifiedFollowing).
-    pub fn npv_raw(
+    /// Returns the cashflow paid at `start_date` using standard FRA settlement
+    /// convention: N * tau * (F - K) / (1 + F * tau), signed by pay/receive.
+    fn settlement_amount_raw(
         &self,
         context: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
         use finstack_core::dates::DateExt;
 
-        // Settlement for a FRA occurs at the start of the accrual period; past
-        // settlement implies zero PV.
         if as_of >= self.start_date {
             return Ok(0.0);
         }
@@ -176,7 +169,6 @@ impl ForwardRateAgreement {
                 self.fixing_date
             };
 
-        let disc = context.get_discount(&self.discount_curve_id)?;
         let fwd = context.get_forward(&self.forward_id)?;
 
         // Time fractions for mapping into the forward curve domain must use the
@@ -220,7 +212,7 @@ impl ForwardRateAgreement {
             return Ok(0.0);
         }
 
-        // Forward rate over the period and DF to settlement (start)
+        // Forward rate over the period
         // If fixing date has passed, prefer observed fixing when available; otherwise
         // anchor projection at the fixing horizon to avoid theta drift.
         let forward_rate = if as_of >= fixing_date {
@@ -233,22 +225,48 @@ impl ForwardRateAgreement {
             fwd.rate_period(t_start, t_end)
         };
 
-        // Discount from as_of date for correct theta calculation.
-        let df_settlement = disc.df_between_dates(as_of, self.start_date)?;
-
         // Market-standard FRA settlement at period start includes the
         // settlement discounting adjustment 1 / (1 + F * tau).
-        // PV = N * DF(T_start) * tau * (F - K) / (1 + F * tau)
         let rate_diff = forward_rate - self.fixed_rate;
         let denom = 1.0_f64 + forward_rate * tau;
-        let pv = if denom.abs() > 1e-12_f64 {
-            self.notional.amount() * rate_diff * tau * df_settlement / denom
+        let settlement = if denom.abs() > 1e-12_f64 {
+            self.notional.amount() * rate_diff * tau / denom
         } else {
             // Fallback safety for pathological inputs
-            self.notional.amount() * rate_diff * tau * df_settlement
+            self.notional.amount() * rate_diff * tau
         };
-        let signed_pv = if self.pay_fixed { -pv } else { pv };
-        Ok(signed_pv)
+
+        Ok(if self.pay_fixed {
+            -settlement
+        } else {
+            settlement
+        })
+    }
+
+    /// Calculate the raw net present value of this FRA (unrounded f64)
+    ///
+    /// # Reset Lag Handling
+    ///
+    /// The fixing date is inferred from `start_date - reset_lag` using **business days**
+    /// when a calendar is available, or weekday-only subtraction otherwise. This aligns
+    /// with market conventions where reset lag is specified in business days (e.g., T-2).
+    ///
+    /// The inferred date is then adjusted according to `fixing_bdc` (defaults to ModifiedFollowing).
+    pub fn npv_raw(
+        &self,
+        context: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        // Settlement for a FRA occurs at the start of the accrual period; past
+        // settlement implies zero PV.
+        if as_of >= self.start_date {
+            return Ok(0.0);
+        }
+
+        let settlement = self.settlement_amount_raw(context, as_of)?;
+        let disc = context.get_discount(&self.discount_curve_id)?;
+        let df_settlement = disc.df_between_dates(as_of, self.start_date)?;
+        Ok(settlement * df_settlement)
     }
 }
 
@@ -367,8 +385,11 @@ impl CashflowProvider for ForwardRateAgreement {
         let flows = if self.start_date <= as_of {
             Vec::new()
         } else {
-            let pv = self.npv(curves, as_of)?;
-            vec![(self.start_date, pv)]
+            let settlement = self.settlement_amount_raw(curves, as_of)?;
+            vec![(
+                self.start_date,
+                Money::new(settlement, self.notional.currency()),
+            )]
         };
 
         Ok(crate::cashflow::traits::schedule_from_dated_flows(

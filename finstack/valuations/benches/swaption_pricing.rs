@@ -185,14 +185,11 @@ fn bench_forward_swap_rate(c: &mut Criterion) {
 
     for (expiry_months, swap_tenor) in [(3, 5), (6, 5), (12, 5), (12, 10)].iter() {
         let swaption = create_swaption(*expiry_months, *swap_tenor);
-        let disc = market.get_discount(&swaption.discount_curve_id).unwrap();
-        let disc = disc.as_ref();
-
         group.bench_with_input(
             BenchmarkId::from_parameter(format!("{}Mx{}Y", expiry_months, swap_tenor)),
             &(expiry_months, swap_tenor),
             |b, _| {
-                b.iter(|| swaption.forward_swap_rate(black_box(disc), black_box(as_of)));
+                b.iter(|| swaption.forward_swap_rate(black_box(&market), black_box(as_of)));
             },
         );
     }

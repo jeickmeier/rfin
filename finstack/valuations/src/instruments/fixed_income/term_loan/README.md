@@ -712,7 +712,7 @@ cargo tarpaulin --packages finstack-valuations --exclude-files "**/tests/*"
 - **Business day adjustments**: Following, Modified Following, Preceding (ISDA)
 - **Floating rate conventions**: SOFR, historical LIBOR, custom indices
 - **OID accounting**: GAAP/IFRS effective interest rate method (via `OidEirSpec` reporting schedules)
-- **PIK capitalization**: Industry-standard treatment (capitalized interest excluded from PV) TODO: Is this correct?
+- **PIK capitalization**: Capitalized interest is excluded from PV and repaid via principal.
 
 ---
 

@@ -19,7 +19,6 @@ pub use bermudan_greeks::{
 pub use delta::DeltaCalculator;
 pub use gamma::GammaCalculator;
 pub use implied_vol::ImpliedVolCalculator;
-pub use rho::RhoCalculator;
 pub use vega::VegaCalculator;
 
 use crate::metrics::MetricRegistry;
@@ -38,7 +37,7 @@ pub fn register_swaption_metrics(registry: &mut MetricRegistry) {
                 crate::instruments::Swaption,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             // Theta is now registered universally in metrics::standard_registry()
-            (Rho, RhoCalculator),
+            (Rho, crate::metrics::GenericRho::<crate::instruments::Swaption>::default()),
             (ImpliedVol, ImpliedVolCalculator),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::Swaption,

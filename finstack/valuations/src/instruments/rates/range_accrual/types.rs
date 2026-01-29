@@ -89,6 +89,16 @@ impl RangeAccrual {
             .build()
             .expect("Example RangeAccrual construction should not fail")
     }
+
+    /// Validate the range accrual parameters.
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        if self.observation_dates.is_empty() {
+            return Err(finstack_core::Error::Validation(
+                "RangeAccrual requires at least one observation date".to_string(),
+            ));
+        }
+        Ok(())
+    }
     /// Calculate the net present value of this range accrual.
     #[cfg(feature = "mc")]
     pub fn npv(
@@ -96,6 +106,7 @@ impl RangeAccrual {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
+        self.validate()?;
         use crate::instruments::range_accrual::pricer;
         pricer::npv(self, curves, as_of)
     }
@@ -139,6 +150,7 @@ impl crate::instruments::common::traits::Instrument for RangeAccrual {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
+        self.validate()?;
         #[cfg(feature = "mc")]
         {
             self.npv(market, as_of)
@@ -158,6 +170,7 @@ impl crate::instruments::common::traits::Instrument for RangeAccrual {
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
+        self.validate()?;
         let base_value = self.value(market, as_of)?;
         crate::instruments::common::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),

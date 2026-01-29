@@ -59,20 +59,10 @@ pub fn npv(inst: &EquityOption, curves: &MarketContext, as_of: Date) -> Result<M
             tree.price_american(&params)?
         }
         ExerciseStyle::Bermudan => {
-            // Bermudan not fully supported in this simplified path, fall back to American (conservative)
-            // or error. American is a safe upper bound for Bermudan.
-            // Ideally we would need the exercise schedule.
-            let tree = BinomialTree::leisen_reimer(201);
-            let params = OptionMarketParams {
-                spot,
-                strike: inst.strike.amount(),
-                rate: r,
-                dividend_yield: q,
-                volatility: sigma,
-                time_to_expiry: t,
-                option_type: inst.option_type,
-            };
-            tree.price_american(&params)?
+            return Err(finstack_core::Error::Validation(
+                "Bermudan equity option requires an exercise schedule; pricing not supported yet"
+                    .to_string(),
+            ));
         }
     };
 
@@ -92,6 +82,7 @@ pub struct EquityOptionInputs {
     /// Spot price of the underlying
     pub spot: f64,
     /// Risk-free rate (from discount curve)
+    /// Effective risk-free rate consistent with `t_vol`
     pub r: f64,
     /// Dividend yield
     pub q: f64,
@@ -140,15 +131,16 @@ pub fn collect_inputs_extended(
     curves: &MarketContext,
     as_of: Date,
 ) -> Result<EquityOptionInputs> {
-    // Discount curve lookup - use curve's own day count for rate time
+    // Discount curve lookup - use curve's own day count for discount factor time
     let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
     let curve_dc = disc_curve.day_count();
     let t_rate = year_fraction(as_of, inst.expiry, curve_dc)?;
-    let r = disc_curve.zero(t_rate);
+    let df = disc_curve.df(t_rate);
 
     // Vol time uses ACT/365F (equity market standard for vol surfaces)
     // This is consistent with how equity volatility is quoted in the market
     let t_vol = year_fraction(as_of, inst.expiry, DayCount::Act365F)?;
+    let r = if t_vol > 0.0 { -df.ln() / t_vol } else { 0.0 };
 
     // Spot from scalar id (unitless or price)
     let spot_scalar = curves.price(&inst.spot_id)?;
@@ -274,88 +266,95 @@ pub fn compute_greeks(
         });
     }
 
-    if let ExerciseStyle::European = inst.exercise_style {
-        let greeks_unit = bs_greeks(
-            spot,
-            inst.strike.amount(),
-            r,
-            q,
-            sigma,
-            t,
-            inst.option_type,
-            TRADING_DAYS_PER_YEAR,
-        );
-        let scale = inst.contract_size;
-        Ok(EquityOptionGreeks {
-            delta: greeks_unit.delta * scale,
-            gamma: greeks_unit.gamma * scale,
-            vega: greeks_unit.vega * scale,
-            theta: greeks_unit.theta * scale,
-            rho: greeks_unit.rho_r * scale,
-        })
-    } else {
-        // American/Bermudan: Use Tree with Finite Differences
-        let tree = BinomialTree::leisen_reimer(201);
-        let params = OptionMarketParams {
-            spot,
-            strike: inst.strike.amount(),
-            rate: r,
-            dividend_yield: q,
-            volatility: sigma,
-            time_to_expiry: t,
-            option_type: inst.option_type,
-        };
+    match inst.exercise_style {
+        ExerciseStyle::European => {
+            let greeks_unit = bs_greeks(
+                spot,
+                inst.strike.amount(),
+                r,
+                q,
+                sigma,
+                t,
+                inst.option_type,
+                TRADING_DAYS_PER_YEAR,
+            );
+            let scale = inst.contract_size;
+            Ok(EquityOptionGreeks {
+                delta: greeks_unit.delta * scale,
+                gamma: greeks_unit.gamma * scale,
+                vega: greeks_unit.vega * scale,
+                theta: greeks_unit.theta * scale,
+                rho: greeks_unit.rho_r * scale,
+            })
+        }
+        ExerciseStyle::American => {
+            // American: Use Tree with Finite Differences
+            let tree = BinomialTree::leisen_reimer(201);
+            let params = OptionMarketParams {
+                spot,
+                strike: inst.strike.amount(),
+                rate: r,
+                dividend_yield: q,
+                volatility: sigma,
+                time_to_expiry: t,
+                option_type: inst.option_type,
+            };
 
-        // Helper to price
-        let price_fn = |p: &OptionMarketParams| -> Result<f64> { tree.price_american(p) };
+            // Helper to price
+            let price_fn = |p: &OptionMarketParams| -> Result<f64> { tree.price_american(p) };
 
-        let base_price = price_fn(&params)?;
+            let base_price = price_fn(&params)?;
 
-        // Delta & Gamma (1% spot bump)
-        let h_s = spot * 0.01;
-        let mut p_up = params.clone();
-        p_up.spot += h_s;
-        let price_up = price_fn(&p_up)?;
-        let mut p_dn = params.clone();
-        p_dn.spot -= h_s;
-        let price_dn = price_fn(&p_dn)?;
+            // Delta & Gamma (1% spot bump)
+            let h_s = spot * 0.01;
+            let mut p_up = params.clone();
+            p_up.spot += h_s;
+            let price_up = price_fn(&p_up)?;
+            let mut p_dn = params.clone();
+            p_dn.spot -= h_s;
+            let price_dn = price_fn(&p_dn)?;
 
-        let delta_unit = (price_up - price_dn) / (2.0 * h_s);
-        let gamma_unit = (price_up - 2.0 * base_price + price_dn) / (h_s * h_s);
+            let delta_unit = (price_up - price_dn) / (2.0 * h_s);
+            let gamma_unit = (price_up - 2.0 * base_price + price_dn) / (h_s * h_s);
 
-        // Vega (1% vol bump)
-        let h_v = 0.01;
-        let mut p_v = params.clone();
-        p_v.volatility += h_v;
-        let price_v = price_fn(&p_v)?;
-        let vega_unit = price_v - base_price;
+            // Vega (1% vol bump)
+            let h_v = 0.01;
+            let mut p_v = params.clone();
+            p_v.volatility += h_v;
+            let price_v = price_fn(&p_v)?;
+            let vega_unit = price_v - base_price;
 
-        // Rho (1% rate bump)
-        let h_r = 0.01;
-        let mut p_r = params.clone();
-        p_r.rate += h_r;
-        let price_r = price_fn(&p_r)?;
-        let rho_unit = price_r - base_price;
+            // Rho (1% rate bump)
+            let h_r = 0.01;
+            let mut p_r = params.clone();
+            p_r.rate += h_r;
+            let price_r = price_fn(&p_r)?;
+            let rho_unit = price_r - base_price;
 
-        // Theta (1 day bump)
-        let dt = 1.0 / 365.25;
-        let theta_unit = if t > dt {
-            let mut p_t = params.clone();
-            p_t.time_to_expiry -= dt;
-            let price_t = price_fn(&p_t)?;
-            price_t - base_price // change per day
-        } else {
-            0.0
-        };
+            // Theta (1 day bump)
+            let dt = 1.0 / 365.25;
+            let theta_unit = if t > dt {
+                let mut p_t = params.clone();
+                p_t.time_to_expiry -= dt;
+                let price_t = price_fn(&p_t)?;
+                price_t - base_price // change per day
+            } else {
+                0.0
+            };
 
-        let scale = inst.contract_size;
-        Ok(EquityOptionGreeks {
-            delta: delta_unit * scale,
-            gamma: gamma_unit * scale,
-            vega: vega_unit * scale,
-            theta: theta_unit * scale,
-            rho: rho_unit * scale,
-        })
+            let scale = inst.contract_size;
+            Ok(EquityOptionGreeks {
+                delta: delta_unit * scale,
+                gamma: gamma_unit * scale,
+                vega: vega_unit * scale,
+                theta: theta_unit * scale,
+                rho: rho_unit * scale,
+            })
+        }
+        ExerciseStyle::Bermudan => Err(finstack_core::Error::Validation(
+            "Bermudan equity option requires an exercise schedule; greeks not supported yet"
+                .to_string(),
+        )),
     }
 }
 

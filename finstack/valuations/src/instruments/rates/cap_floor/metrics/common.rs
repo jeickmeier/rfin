@@ -24,20 +24,14 @@ where
         .curves
         .get_discount(option.discount_curve_id.as_ref())?;
     let fwd_curve = context.curves.get_forward(option.forward_id.as_ref())?;
-    let base_date = disc_curve.base_date();
 
     // Helper to compute contribution for a single period
     let mut accumulate = |start: finstack_core::dates::Date,
                           end: finstack_core::dates::Date|
      -> finstack_core::Result<f64> {
         let t_fix = option.day_count.year_fraction(
-            base_date,
+            context.as_of,
             start,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-        let t_pay = option.day_count.year_fraction(
-            base_date,
-            end,
             finstack_core::dates::DayCountCtx::default(),
         )?;
         let tau = option.day_count.year_fraction(
@@ -50,8 +44,16 @@ where
             return Ok(0.0);
         }
 
-        let forward = fwd_curve.rate_period(t_fix, t_pay);
-        let df = disc_curve.df(t_pay);
+        let forward = crate::instruments::common::pricing::time::rate_period_on_dates(
+            fwd_curve.as_ref(),
+            start,
+            end,
+        )?;
+        let df = crate::instruments::common::pricing::time::relative_df_discount_curve(
+            disc_curve.as_ref(),
+            context.as_of,
+            end,
+        )?;
         let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
         } else {

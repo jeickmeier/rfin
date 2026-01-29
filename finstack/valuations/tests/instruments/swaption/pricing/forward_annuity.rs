@@ -1,17 +1,59 @@
 //! Forward swap rate and annuity calculation tests
 
 use crate::swaption::common::*;
-use finstack_core::market_data::traits::Discounting;
+use finstack_valuations::instruments::rates::swaption::Swaption;
 
 fn expected_forward_rate(
-    swaption: &finstack_valuations::instruments::rates::swaption::Swaption,
-    disc: &dyn Discounting,
+    swaption: &Swaption,
+    market: &finstack_core::market_data::context::MarketContext,
     as_of: finstack_core::dates::Date,
 ) -> f64 {
-    let annuity = swaption.swap_annuity(disc, as_of).unwrap();
-    let df_start = disc.df_between_dates(as_of, swaption.swap_start).unwrap();
-    let df_end = disc.df_between_dates(as_of, swaption.swap_end).unwrap();
-    (df_start - df_end) / annuity
+    let disc = market
+        .get_discount(swaption.discount_curve_id.as_ref())
+        .unwrap();
+    let fwd = market.get_forward(swaption.forward_id.as_ref()).unwrap();
+    let annuity = swaption.swap_annuity(disc.as_ref(), as_of).unwrap();
+
+    let sched = finstack_valuations::cashflow::builder::build_dates(
+        swaption.swap_start,
+        swaption.swap_end,
+        swaption.float_freq,
+        finstack_core::dates::StubKind::None,
+        finstack_core::dates::BusinessDayConvention::Following,
+        None,
+    )
+    .unwrap();
+
+    let mut pv_float = 0.0;
+    let mut prev = swaption.swap_start;
+    for &d in sched.dates.iter().skip(1) {
+        let t_prev = fwd
+            .day_count()
+            .year_fraction(
+                fwd.base_date(),
+                prev,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap();
+        let t_next = fwd
+            .day_count()
+            .year_fraction(
+                fwd.base_date(),
+                d,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap();
+        let accrual = fwd
+            .day_count()
+            .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())
+            .unwrap();
+        let forward = fwd.rate_period(t_prev, t_next);
+        let df = disc.df_between_dates(as_of, d).unwrap();
+        pv_float += accrual * forward * df;
+        prev = d;
+    }
+
+    pv_float / annuity
 }
 
 #[test]
@@ -21,11 +63,10 @@ fn test_forward_swap_rate_calculation() {
     let swaption = create_standard_payer_swaption(expiry, swap_start, swap_end, strike);
 
     let market = create_flat_market(as_of, 0.05, 0.30);
-    let disc = market.get_discount("USD_OIS").unwrap();
 
-    let forward = swaption.forward_swap_rate(disc.as_ref(), as_of).unwrap();
+    let forward = swaption.forward_swap_rate(&market, as_of).unwrap();
 
-    let expected = expected_forward_rate(&swaption, disc.as_ref(), as_of);
+    let expected = expected_forward_rate(&swaption, &market, as_of);
     assert_approx_eq(forward, expected, 1e-8, "Forward swap rate");
 }
 
@@ -90,11 +131,10 @@ fn test_forward_rate_consistency() {
     // Test with different curve levels
     for rate in [0.02, 0.05, 0.08] {
         let market = create_flat_market(as_of, rate, 0.30);
-        let disc = market.get_discount("USD_OIS").unwrap();
 
-        let forward = swaption.forward_swap_rate(disc.as_ref(), as_of).unwrap();
+        let forward = swaption.forward_swap_rate(&market, as_of).unwrap();
 
-        let expected = expected_forward_rate(&swaption, disc.as_ref(), as_of);
+        let expected = expected_forward_rate(&swaption, &market, as_of);
         assert_approx_eq(
             forward,
             expected,

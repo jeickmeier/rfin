@@ -211,3 +211,58 @@ impl Pricer for TermLoanDiscountingPricer {
         Ok(ValuationResult::stamped(loan.id(), as_of, pv))
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use crate::cashflow::builder::specs::CouponType;
+    use crate::instruments::common::discountable::npv_by_date;
+    use finstack_core::cashflow::CFKind;
+    use finstack_core::dates::Date;
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::money::Money;
+    use finstack_core::types::CurveId;
+    use time::Month;
+
+    fn date(y: i32, m: u8, d: u8) -> Date {
+        Date::from_calendar_date(y, Month::try_from(m).expect("month"), d).expect("date")
+    }
+
+    #[test]
+    fn pik_cashflows_are_excluded_from_pv() {
+        let as_of = date(2025, 1, 15);
+        let disc = DiscountCurve::builder(CurveId::new("USD-OIS"))
+            .base_date(as_of)
+            .knots([(0.0, 1.0), (5.0, 0.85)])
+            .build()
+            .expect("discount curve");
+        let market = MarketContext::new().insert_discount(disc.clone());
+
+        let mut loan = TermLoan::example();
+        loan.coupon_type = CouponType::PIK;
+        loan.discount_curve_id = CurveId::new("USD-OIS");
+
+        let schedule = generate_cashflows(&loan, &market, as_of).expect("cashflows");
+        assert!(
+            schedule.flows.iter().any(|cf| cf.kind == CFKind::PIK),
+            "PIK loan should generate PIK cashflows"
+        );
+
+        let pv_excluding =
+            TermLoanDiscountingPricer::price(&loan, &market, as_of).expect("pv excluding PIK");
+
+        let flows_including: Vec<(Date, Money)> = schedule
+            .flows
+            .iter()
+            .map(|cf| (cf.date, cf.amount))
+            .collect();
+        let pv_including = npv_by_date(&disc, as_of, &flows_including).expect("pv including PIK");
+
+        assert!(
+            pv_including.amount() > pv_excluding.amount(),
+            "Including PIK flows should increase PV (excluded by default)"
+        );
+    }
+}

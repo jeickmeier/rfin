@@ -3,7 +3,7 @@
 ## Features
 
 - Options on constant-maturity swap (CMS) rates with configurable tenor, fixing/payment dates, and accrual fractions.
-- Supports fixed/floating leg conventions for the underlying swap (frequencies, day-count) and optional forward curve override.
+- Supports fixed/floating leg conventions for the underlying swap (frequencies, fixed and optional float day-count) and optional forward curve override.
 - Pricing overrides and optional CMS volatility surface for market alignment.
 
 ## Methodology & References

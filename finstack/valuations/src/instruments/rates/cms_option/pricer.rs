@@ -145,13 +145,8 @@ impl CmsOptionPricer {
     /// Uses curve-consistent time mapping:
     /// - Discount factors use `relative_df_discount_curve` (curve's own day_count/base_date)
     /// - Forward rates use `rate_period_on_dates` (forward curve's own day_count/base_date)
-    /// - Accrual fractions use `swap_day_count` (correct for coupon calculation)
-    ///
-    /// # Note on Float Day Count
-    ///
-    /// Currently uses `swap_day_count` for float leg accrual. In a production system,
-    /// CmsOption could have a separate `swap_float_day_count` field to correctly
-    /// handle different fixed/float conventions.
+    /// - Accrual fractions use `swap_day_count` for the fixed leg and
+    ///   `swap_float_day_count` (if provided) for the floating leg.
     pub(crate) fn calculate_forward_swap_rate(
         &self,
         inst: &CmsOption,
@@ -212,6 +207,7 @@ impl CmsOptionPricer {
         } else {
             // Dual Curve: Calculate Float Leg PV
             let fwd_curve = market.get_forward(forward_curve_id.as_ref())?;
+            let float_day_count = inst.swap_float_day_count.unwrap_or(inst.swap_day_count);
             let sched_float = crate::cashflow::builder::build_dates(
                 start,
                 end,
@@ -227,10 +223,9 @@ impl CmsOptionPricer {
                 if d == start {
                     continue;
                 }
-                // Floating accrual (using swap_day_count - see note in docstring)
+                // Floating accrual uses float day count when provided
                 let accrual =
-                    inst.swap_day_count
-                        .year_fraction(prev_date, d, DayCountCtx::default())?;
+                    float_day_count.year_fraction(prev_date, d, DayCountCtx::default())?;
 
                 // Forward rate uses forward curve's time basis
                 let fwd_rate = rate_period_on_dates(fwd_curve.as_ref(), prev_date, d)?;

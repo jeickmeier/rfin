@@ -36,11 +36,11 @@ fn test_black_formula_manual_validation() {
     let pv_inst = swaption.value(&market, as_of).unwrap().amount();
 
     // Manual Black76 calculation
-    let disc = market.get_discount("USD_OIS").unwrap();
     let t = swaption
         .year_fraction(as_of, expiry, swaption.day_count)
         .unwrap();
-    let forward = swaption.forward_swap_rate(disc.as_ref(), as_of).unwrap();
+    let forward = swaption.forward_swap_rate(&market, as_of).unwrap();
+    let disc = market.get_discount("USD_OIS").unwrap();
     let annuity = swaption.swap_annuity(disc.as_ref(), as_of).unwrap();
     let vol = 0.50;
 
@@ -107,8 +107,8 @@ fn test_payer_receiver_put_call_parity() {
     let pv_receiver = receiver.value(&market, as_of).unwrap().amount();
 
     // Compute theoretical parity difference
+    let forward = payer.forward_swap_rate(&market, as_of).unwrap();
     let disc = market.get_discount("USD_OIS").unwrap();
-    let forward = payer.forward_swap_rate(disc.as_ref(), as_of).unwrap();
     let annuity = payer.swap_annuity(disc.as_ref(), as_of).unwrap();
     let theoretical_diff = annuity * (forward - strike) * payer.notional.amount();
 
@@ -143,13 +143,50 @@ fn test_payer_receiver_parity_diagnostics() {
     let payer = create_standard_payer_swaption(expiry, swap_start, swap_end, strike);
     let disc = market.get_discount("USD_OIS").unwrap();
 
-    let forward = payer.forward_swap_rate(disc.as_ref(), as_of).unwrap();
+    let forward = payer.forward_swap_rate(&market, as_of).unwrap();
     let annuity = payer.swap_annuity(disc.as_ref(), as_of).unwrap();
 
     let annuity_check = payer.swap_annuity(disc.as_ref(), as_of).unwrap();
-    let df_start = disc.df_between_dates(as_of, payer.swap_start).unwrap();
-    let df_end = disc.df_between_dates(as_of, payer.swap_end).unwrap();
-    let expected_forward = (df_start - df_end) / annuity_check;
+    let fwd = market.get_forward(payer.forward_id.as_ref()).unwrap();
+    let sched = finstack_valuations::cashflow::builder::build_dates(
+        payer.swap_start,
+        payer.swap_end,
+        payer.float_freq,
+        finstack_core::dates::StubKind::None,
+        finstack_core::dates::BusinessDayConvention::Following,
+        None,
+    )
+    .unwrap();
+
+    let mut pv_float = 0.0;
+    let mut prev = payer.swap_start;
+    for &d in sched.dates.iter().skip(1) {
+        let t_prev = fwd
+            .day_count()
+            .year_fraction(
+                fwd.base_date(),
+                prev,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap();
+        let t_next = fwd
+            .day_count()
+            .year_fraction(
+                fwd.base_date(),
+                d,
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap();
+        let accrual = fwd
+            .day_count()
+            .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())
+            .unwrap();
+        let fwd_rate = fwd.rate_period(t_prev, t_next);
+        let df = disc.df_between_dates(as_of, d).unwrap();
+        pv_float += accrual * fwd_rate * df;
+        prev = d;
+    }
+    let expected_forward = pv_float / annuity_check;
 
     assert_approx_eq(
         forward,

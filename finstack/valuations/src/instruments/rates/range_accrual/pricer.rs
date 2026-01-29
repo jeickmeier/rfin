@@ -49,6 +49,7 @@ impl RangeAccrualMcPricer {
         curves: &MarketContext,
         as_of: Date,
     ) -> Result<finstack_core::money::Money> {
+        inst.validate()?;
         let spot_scalar = curves.price(&inst.spot_id)?;
         let initial_spot = match spot_scalar {
             finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
@@ -67,9 +68,7 @@ impl RangeAccrualMcPricer {
 
         let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
         let r = disc_curve.zero(t);
-        let discount_factor = disc_curve
-            .df_between_dates(as_of, final_date)
-            .unwrap_or(1.0);
+        let discount_factor = disc_curve.df_between_dates(as_of, final_date)?;
 
         let mut q = if let Some(div_id) = &inst.div_yield_id {
             match curves.price(div_id.as_str()) {
@@ -230,6 +229,7 @@ pub fn npv(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) -> Result<M
 pub fn npv_analytic(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) -> Result<Money> {
     use finstack_core::math::special_functions::norm_cdf;
 
+    inst.validate()?;
     let spot_scalar = curves.price(&inst.spot_id)?;
     let initial_spot = match spot_scalar {
         finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
@@ -241,9 +241,7 @@ pub fn npv_analytic(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) ->
         .unwrap_or(inst.observation_dates.last().copied().unwrap_or(as_of));
 
     let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
-    let discount_factor = disc_curve
-        .df_between_dates(as_of, final_date)
-        .unwrap_or(1.0);
+    let discount_factor = disc_curve.df_between_dates(as_of, final_date)?;
 
     let q_yield = if let Some(div_id) = &inst.div_yield_id {
         match curves.price(div_id.as_str()) {

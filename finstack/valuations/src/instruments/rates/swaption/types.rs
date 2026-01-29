@@ -409,11 +409,9 @@ impl Swaption {
 
     /// Compute instrument NPV dispatching to SABR, Black, or Normal as configured.
     pub fn npv(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
-        let disc = curves.get_discount(self.discount_curve_id.as_ref())?;
-
         // 1. SABR model (if enabled) overrides basic model choice
         if self.sabr_params.is_some() {
-            return self.price_sabr(disc.as_ref(), as_of);
+            return self.price_sabr(curves, as_of);
         }
 
         let time_to_expiry = self.year_fraction(as_of, self.expiry, self.day_count)?;
@@ -433,15 +431,15 @@ impl Swaption {
         };
 
         match self.vol_model {
-            VolatilityModel::Black => self.price_black(disc.as_ref(), vol, as_of),
-            VolatilityModel::Normal => self.price_normal(disc.as_ref(), vol, as_of),
+            VolatilityModel::Black => self.price_black(curves, vol, as_of),
+            VolatilityModel::Normal => self.price_normal(curves, vol, as_of),
         }
     }
 
     /// Helper for common pricing logic
     fn price_model_base<F>(
         &self,
-        disc: &dyn Discounting,
+        curves: &MarketContext,
         volatility: f64,
         as_of: Date,
         model_fn: F,
@@ -454,8 +452,9 @@ impl Swaption {
             return Ok(Money::new(0.0, self.notional.currency()));
         }
 
-        let forward_rate = self.forward_swap_rate(disc, as_of)?;
-        let annuity = self.annuity(disc, as_of, forward_rate)?;
+        let disc = curves.get_discount(self.discount_curve_id.as_ref())?;
+        let forward_rate = self.forward_swap_rate(curves, as_of)?;
+        let annuity = self.annuity(disc.as_ref(), as_of, forward_rate)?;
 
         let value = model_fn(
             forward_rate,
@@ -474,11 +473,11 @@ impl Swaption {
     /// Black (lognormal) model PV.
     pub fn price_black(
         &self,
-        disc: &dyn Discounting,
+        curves: &MarketContext,
         volatility: f64,
         as_of: Date,
     ) -> Result<Money> {
-        self.price_model_base(disc, volatility, as_of, |fwd, strike, vol, t, annuity| {
+        self.price_model_base(curves, volatility, as_of, |fwd, strike, vol, t, annuity| {
             // Use stable handling if volatility is near zero
             if vol <= 0.0 || !vol.is_finite() {
                 // Intrinsic value
@@ -512,11 +511,11 @@ impl Swaption {
     /// Bachelier (normal) model PV.
     pub fn price_normal(
         &self,
-        disc: &dyn Discounting,
+        curves: &MarketContext,
         volatility: f64,
         as_of: Date,
     ) -> Result<Money> {
-        self.price_model_base(disc, volatility, as_of, |fwd, strike, vol, t, annuity| {
+        self.price_model_base(curves, volatility, as_of, |fwd, strike, vol, t, annuity| {
             use crate::instruments::common::models::volatility::normal::bachelier_price;
             bachelier_price(self.option_type, fwd, strike, vol, t, annuity)
         })
@@ -540,14 +539,14 @@ impl Swaption {
     ///
     /// - Hagan, P. et al. (2002). "Managing Smile Risk" *Wilmott Magazine*
     /// - Antonov, A. et al. (2015). "SABR/Free Sabr" for normal vol extensions
-    pub fn price_sabr(&self, disc: &dyn Discounting, as_of: Date) -> Result<Money> {
+    pub fn price_sabr(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
         let params: &SABRParameters = self.sabr_params.as_ref().ok_or(Error::Internal)?;
         let model = SABRModel::new(params.clone());
         let time_to_expiry = self.year_fraction(as_of, self.expiry, self.day_count)?;
         if time_to_expiry <= 0.0 {
             return Ok(Money::new(0.0, self.notional.currency()));
         }
-        let forward_rate = self.forward_swap_rate(disc, as_of)?;
+        let forward_rate = self.forward_swap_rate(curves, as_of)?;
 
         // SABR outputs lognormal (Black) volatility
         let sabr_lognormal_vol =
@@ -555,7 +554,7 @@ impl Swaption {
 
         // Dispatch to the appropriate pricing model
         match self.vol_model {
-            VolatilityModel::Black => self.price_black(disc, sabr_lognormal_vol, as_of),
+            VolatilityModel::Black => self.price_black(curves, sabr_lognormal_vol, as_of),
             VolatilityModel::Normal => {
                 // Convert lognormal vol to normal vol approximation
                 // For lognormal: σ_lognormal = σ_normal / (F * sqrt(1 - ln(K/F)²/(2σ²T)))
@@ -571,7 +570,7 @@ impl Swaption {
                     // Fallback for very small rates: use forward directly
                     sabr_lognormal_vol * forward_rate.abs().max(1e-4)
                 };
-                self.price_normal(disc, sabr_normal_vol, as_of)
+                self.price_normal(curves, sabr_normal_vol, as_of)
             }
         }
     }
@@ -668,31 +667,64 @@ impl Swaption {
         Ok((1.0 - df_swap) / forward_rate)
     }
 
-    /// Forward par swap rate implied by discount factors and annuity.
+    /// Forward par swap rate implied by float-leg PV and fixed-leg annuity.
     ///
     /// # Time Basis
     ///
-    /// Uses curve-consistent relative discount factors:
-    /// - DF(as_of → swap_start) and DF(as_of → swap_end) computed using the discount
-    ///   curve's own base_date and day_count.
+    /// Uses curve-consistent time mapping:
+    /// - Discount factors use the discount curve's own base_date/day_count
+    /// - Forward rates use the forward curve's own base_date/day_count
     ///
     /// # Formula
     ///
     /// ```text
-    /// S = (DF_start - DF_end) / Annuity
+    /// S = PV_float / Annuity
     /// ```
     ///
-    /// where Annuity = Σ (accrual_i × DF_i) for all fixed leg payments.
-    pub fn forward_swap_rate(&self, disc: &dyn Discounting, as_of: Date) -> Result<f64> {
-        use crate::instruments::common::pricing::time::relative_df_discounting;
+    /// where:
+    /// - PV_float = Σ (accrual_i × forward_i × DF_i)
+    /// - Annuity = Σ (accrual_i × DF_i) for all fixed leg payments.
+    pub fn forward_swap_rate(&self, curves: &MarketContext, as_of: Date) -> Result<f64> {
+        use crate::instruments::common::pricing::time::{
+            rate_period_on_dates, relative_df_discounting,
+        };
 
-        let df_start = relative_df_discounting(disc, as_of, self.swap_start)?;
-        let df_end = relative_df_discounting(disc, as_of, self.swap_end)?;
-        let annuity = self.swap_annuity(disc, as_of)?;
+        let disc = curves.get_discount(self.discount_curve_id.as_ref())?;
+        let annuity = self.swap_annuity(disc.as_ref(), as_of)?;
         if annuity.abs() < 1e-10 {
             return Ok(0.0);
         }
-        Ok((df_start - df_end) / annuity)
+
+        // Single-curve optimization
+        if self.forward_id == self.discount_curve_id {
+            let df_start = relative_df_discounting(disc.as_ref(), as_of, self.swap_start)?;
+            let df_end = relative_df_discounting(disc.as_ref(), as_of, self.swap_end)?;
+            return Ok((df_start - df_end) / annuity);
+        }
+
+        let fwd = curves.get_forward(self.forward_id.as_ref())?;
+        let fwd_dc = fwd.day_count();
+        let sched = crate::cashflow::builder::build_dates(
+            self.swap_start,
+            self.swap_end,
+            self.float_freq,
+            StubKind::None,
+            BusinessDayConvention::Following,
+            None,
+        )?;
+
+        let mut pv_float = 0.0;
+        let mut prev = self.swap_start;
+        for &d in sched.dates.iter().skip(1) {
+            let accrual =
+                fwd_dc.year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
+            let fwd_rate = rate_period_on_dates(fwd.as_ref(), prev, d)?;
+            let df = relative_df_discounting(disc.as_ref(), as_of, d)?;
+            pv_float += accrual * fwd_rate * df;
+            prev = d;
+        }
+
+        Ok(pv_float / annuity)
     }
 
     /// Resolve volatility from SABR parameters, pricing override, or volatility surface.
@@ -763,7 +795,7 @@ impl Swaption {
             return Ok(None);
         }
 
-        let forward = self.forward_swap_rate(disc.as_ref(), as_of)?;
+        let forward = self.forward_swap_rate(curves, as_of)?;
         let annuity = self.annuity(disc.as_ref(), as_of, forward)?;
         let sigma = self.resolve_volatility(curves, forward, t)?;
 
@@ -1224,36 +1256,63 @@ impl BermudanSwaption {
             .collect()
     }
 
-    /// Forward swap rate at a given exercise date (using discount curve).
+    /// Forward swap rate at a given exercise date (multi-curve).
     ///
     /// For co-terminal swaptions, the swap always matures at `swap_end`.
     /// For non-co-terminal, each exercise date may have different remaining tenor.
     ///
     /// # Time Basis
     ///
-    /// Uses curve-consistent relative discount factors via `relative_df_discounting`:
-    /// - DF from `as_of` to exercise_date and swap_end computed using the discount
-    ///   curve's own base_date and day_count.
+    /// Uses curve-consistent time mapping:
+    /// - Discount factors use the discount curve's own base_date/day_count
+    /// - Forward rates use the forward curve's own base_date/day_count
     pub fn forward_swap_rate(
         &self,
-        disc: &dyn Discounting,
+        curves: &MarketContext,
         as_of: Date,
         exercise_date: Date,
     ) -> Result<f64> {
-        use crate::instruments::common::pricing::time::relative_df_discounting;
+        use crate::instruments::common::pricing::time::{
+            rate_period_on_dates, relative_df_discounting,
+        };
 
-        // Swap starts at exercise date
-        let df_start = relative_df_discounting(disc, as_of, exercise_date)?;
-        let df_end = relative_df_discounting(disc, as_of, self.swap_end)?;
-
-        // Calculate annuity for remaining swap
-        let annuity = self.remaining_annuity(disc, as_of, exercise_date)?;
+        let disc = curves.get_discount(self.discount_curve_id.as_ref())?;
+        let annuity = self.remaining_annuity(disc.as_ref(), as_of, exercise_date)?;
 
         if annuity.abs() < 1e-10 {
             return Ok(0.0);
         }
 
-        Ok((df_start - df_end) / annuity)
+        // Single-curve optimization
+        if self.forward_id == self.discount_curve_id {
+            let df_start = relative_df_discounting(disc.as_ref(), as_of, exercise_date)?;
+            let df_end = relative_df_discounting(disc.as_ref(), as_of, self.swap_end)?;
+            return Ok((df_start - df_end) / annuity);
+        }
+
+        let fwd = curves.get_forward(self.forward_id.as_ref())?;
+        let fwd_dc = fwd.day_count();
+        let sched = crate::cashflow::builder::build_dates(
+            exercise_date,
+            self.swap_end,
+            self.float_freq,
+            StubKind::None,
+            BusinessDayConvention::Following,
+            None,
+        )?;
+
+        let mut pv_float = 0.0;
+        let mut prev = exercise_date;
+        for &d in sched.dates.iter().skip(1) {
+            let accrual =
+                fwd_dc.year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
+            let fwd_rate = rate_period_on_dates(fwd.as_ref(), prev, d)?;
+            let df = relative_df_discounting(disc.as_ref(), as_of, d)?;
+            pv_float += accrual * fwd_rate * df;
+            prev = d;
+        }
+
+        Ok(pv_float / annuity)
     }
 
     /// Calculate annuity for remaining swap payments after exercise date.

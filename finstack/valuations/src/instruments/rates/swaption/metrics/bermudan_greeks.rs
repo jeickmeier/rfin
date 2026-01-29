@@ -27,6 +27,7 @@ use crate::instruments::swaption::pricing::BermudanSwaptionTreeValuator;
 use crate::instruments::swaption::BermudanSwaption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::Date;
+use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::types::{Bps, Percentage, Rate};
 use finstack_core::Result;
@@ -141,22 +142,30 @@ impl MetricCalculator for BermudanDeltaCalculator {
             .downcast_ref::<BermudanSwaption>()
             .ok_or_else(|| finstack_core::Error::Validation("Expected BermudanSwaption".into()))?;
 
-        let disc = context
-            .curves
-            .get_discount(swaption.discount_curve_id.as_str())?;
+        let bump_bp = self.bump_bp.abs();
+        let bump = bump_bp / 10000.0;
+        if bump <= 0.0 {
+            return Ok(0.0);
+        }
 
-        // Base price
-        let base_price = self.price_bermudan(swaption, disc.as_ref(), context.as_of, self.sigma)?;
+        let curves_up = context.curves.bump([MarketBump::Curve {
+            id: swaption.discount_curve_id.clone(),
+            spec: BumpSpec::parallel_bp(bump_bp),
+        }])?;
+        let curves_dn = context.curves.bump([MarketBump::Curve {
+            id: swaption.discount_curve_id.clone(),
+            spec: BumpSpec::parallel_bp(-bump_bp),
+        }])?;
 
-        // Approximate delta using base sensitivity
-        let bump = self.bump_bp / 10000.0;
-        let notional = swaption.notional.amount();
-        let ttm = swaption.time_to_maturity(context.as_of).unwrap_or(0.0);
+        let disc_up = curves_up.get_discount(swaption.discount_curve_id.as_str())?;
+        let disc_dn = curves_dn.get_discount(swaption.discount_curve_id.as_str())?;
 
-        // Rough approximation: delta ≈ -notional * annuity * duration_factor
-        let delta_approx = -base_price * ttm * bump * notional / base_price.max(1.0);
+        let price_up =
+            self.price_bermudan(swaption, disc_up.as_ref(), context.as_of, self.sigma)?;
+        let price_dn =
+            self.price_bermudan(swaption, disc_dn.as_ref(), context.as_of, self.sigma)?;
 
-        Ok(delta_approx)
+        Ok((price_up - price_dn) / (2.0 * bump))
     }
 }
 
@@ -313,6 +322,25 @@ impl BermudanGammaCalculator {
         self.sigma = sigma.as_decimal();
         self
     }
+
+    /// Price Bermudan swaption with given parameters.
+    fn price_bermudan(
+        &self,
+        swaption: &BermudanSwaption,
+        disc: &dyn Discounting,
+        as_of: Date,
+        sigma: f64,
+    ) -> Result<f64> {
+        let ttm = swaption.time_to_maturity(as_of)?;
+        if ttm <= 0.0 {
+            return Ok(0.0);
+        }
+
+        let tree_config = HullWhiteTreeConfig::new(self.kappa, sigma, self.tree_steps);
+        let tree = HullWhiteTree::calibrate(tree_config, disc, ttm)?;
+        let valuator = BermudanSwaptionTreeValuator::new(swaption, &tree, disc, as_of)?;
+        Ok(valuator.price())
+    }
 }
 
 impl MetricCalculator for BermudanGammaCalculator {
@@ -332,19 +360,32 @@ impl MetricCalculator for BermudanGammaCalculator {
             return Ok(0.0);
         }
 
-        // Price at base
-        let tree_config = HullWhiteTreeConfig::new(self.kappa, self.sigma, self.tree_steps);
-        let tree = HullWhiteTree::calibrate(tree_config, disc.as_ref(), ttm)?;
-        let valuator =
-            BermudanSwaptionTreeValuator::new(swaption, &tree, disc.as_ref(), context.as_of)?;
-        let base_price = valuator.price();
+        let bump_bp = self.bump_bp.abs();
+        let bump = bump_bp / 10000.0;
+        if bump <= 0.0 {
+            return Ok(0.0);
+        }
 
-        // Gamma is second derivative - for tree models it's complex to compute properly
-        // This is a simplified approximation
-        let bump = self.bump_bp / 10000.0;
-        let gamma_approx = base_price * ttm * ttm * bump * bump;
+        let base_price = self.price_bermudan(swaption, disc.as_ref(), context.as_of, self.sigma)?;
 
-        Ok(gamma_approx)
+        let curves_up = context.curves.bump([MarketBump::Curve {
+            id: swaption.discount_curve_id.clone(),
+            spec: BumpSpec::parallel_bp(bump_bp),
+        }])?;
+        let curves_dn = context.curves.bump([MarketBump::Curve {
+            id: swaption.discount_curve_id.clone(),
+            spec: BumpSpec::parallel_bp(-bump_bp),
+        }])?;
+
+        let disc_up = curves_up.get_discount(swaption.discount_curve_id.as_str())?;
+        let disc_dn = curves_dn.get_discount(swaption.discount_curve_id.as_str())?;
+
+        let price_up =
+            self.price_bermudan(swaption, disc_up.as_ref(), context.as_of, self.sigma)?;
+        let price_dn =
+            self.price_bermudan(swaption, disc_dn.as_ref(), context.as_of, self.sigma)?;
+
+        Ok((price_up - 2.0 * base_price + price_dn) / (bump * bump))
     }
 }
 

@@ -6,6 +6,7 @@
 use crate::instruments::pricing_overrides::VolSurfaceExtrapolation;
 use crate::instruments::swaption::Swaption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 use finstack_core::Result;
 
 /// Rho calculator for swaptions (per 1bp)
@@ -14,8 +15,6 @@ pub struct RhoCalculator;
 impl MetricCalculator for RhoCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let option: &Swaption = context.instrument_as()?;
-        let disc = context.curves.get_discount(&option.discount_curve_id)?;
-
         // Base price from context
         let base_price = context.base_value.amount();
 
@@ -37,19 +36,22 @@ impl MetricCalculator for RhoCalculator {
             }
         };
 
-        // Create bumped discount curve (+1bp) by modifying knots directly
+        // Create bumped discount curve (+1bp) using MarketContext bump
         let bump_bp = option
             .pricing_overrides
             .rho_bump_decimal
             .unwrap_or(super::config::DISC_BUMP_BP);
-        let bumped_disc = disc.with_parallel_bump(bump_bp)?;
+        let bumped_curves = context.curves.bump([MarketBump::Curve {
+            id: option.discount_curve_id.clone(),
+            spec: BumpSpec::parallel_bp(bump_bp),
+        }])?;
 
         // Reprice with bumped curve using same model path as instrument pricing
         let bumped_price = if option.sabr_params.is_some() {
-            option.price_sabr(&bumped_disc, context.as_of)?.amount()
+            option.price_sabr(&bumped_curves, context.as_of)?.amount()
         } else {
             option
-                .price_black(&bumped_disc, vol, context.as_of)?
+                .price_black(&bumped_curves, vol, context.as_of)?
                 .amount()
         };
 

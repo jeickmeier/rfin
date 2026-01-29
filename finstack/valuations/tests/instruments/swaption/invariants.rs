@@ -42,9 +42,8 @@ fn test_payer_receiver_parity_atm() {
     let swap_end = date!(2030 - 01 - 01);
     let market_rate = 0.05;
     let market = create_flat_market(as_of, market_rate, 0.20);
-    let disc = market.get_discount("USD_OIS").unwrap();
     let forward = create_standard_payer_swaption(expiry, swap_start, swap_end, market_rate)
-        .forward_swap_rate(disc.as_ref(), as_of)
+        .forward_swap_rate(&market, as_of)
         .unwrap();
 
     let payer = create_standard_payer_swaption(expiry, swap_start, swap_end, forward);
@@ -91,7 +90,7 @@ fn test_payer_receiver_parity_itm_otm() {
 
         // Get annuity for theoretical parity check
         let disc = market.get_discount("USD_OIS").unwrap();
-        let forward_rate = payer.forward_swap_rate(disc.as_ref(), as_of).unwrap();
+        let forward_rate = payer.forward_swap_rate(&market, as_of).unwrap();
         let annuity = payer.swap_annuity(disc.as_ref(), as_of).unwrap();
         let notional = payer.notional.amount();
 
@@ -255,7 +254,7 @@ fn test_zero_vol_gives_intrinsic() {
     // With near-zero vol, value should be close to discounted intrinsic
     let disc = market.get_discount("USD_OIS").unwrap();
     let annuity = payer.swap_annuity(disc.as_ref(), as_of).unwrap();
-    let forward = payer.forward_swap_rate(disc.as_ref(), as_of).unwrap();
+    let forward = payer.forward_swap_rate(&market, as_of).unwrap();
     let notional = payer.notional.amount();
     let intrinsic = notional * annuity * (forward - 0.03).max(0.0);
 
@@ -300,7 +299,7 @@ proptest! {
         // Get annuity
         let disc = market.get_discount("USD_OIS").unwrap();
         let annuity = payer.swap_annuity(disc.as_ref(), as_of).unwrap();
-        let forward_rate = payer.forward_swap_rate(disc.as_ref(), as_of).unwrap();
+        let forward_rate = payer.forward_swap_rate(&market, as_of).unwrap();
         let notional = payer.notional.amount();
 
         // Parity: Payer - Receiver = N × A × (F - K)
