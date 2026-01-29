@@ -1,14 +1,13 @@
 //! Commitment fee metric tests.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Tenor};
+use finstack_core::dates::{DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::fixed_income::revolving_credit::{
     BaseRateSpec, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
 };
-use finstack_valuations::metrics::MetricId;
+use finstack_valuations::instruments::Instrument;
 use time::macros::date;
 
 use crate::common::test_helpers::flat_discount_curve;
@@ -29,7 +28,7 @@ fn test_commitment_fee_proportional_to_undrawn() {
         .day_count(DayCount::Act360)
         .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(50.0, 0.0, 0.0)) // Commitment fee only
-        .draw_repay_spec(DrawRepaySpec::Scheduled(vec![]))
+        .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();
@@ -45,7 +44,7 @@ fn test_commitment_fee_proportional_to_undrawn() {
         .day_count(DayCount::Act360)
         .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(50.0, 0.0, 0.0))
-        .draw_repay_spec(DrawRepaySpec::Scheduled(vec![]))
+        .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();

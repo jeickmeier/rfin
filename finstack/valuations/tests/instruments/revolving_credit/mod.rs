@@ -22,15 +22,14 @@
 #[cfg(feature = "mc")]
 pub mod mc;
 
-// Temporarily commented out - API updates needed
-// mod cashflows;
-// mod construction;
-// pub mod metrics;
-// mod pricing;
-// pub mod validation;
 mod basic;
+mod cashflows;
+mod construction;
+pub mod metrics;
+mod pricing;
 mod revolving_credit_acceptance;
 #[cfg(feature = "mc")]
 mod revolving_credit_parity;
 mod revolving_credit_properties;
 mod test_pricing_review;
+pub mod validation;

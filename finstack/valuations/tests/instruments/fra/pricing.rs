@@ -223,8 +223,20 @@ fn test_inverted_curve() {
 
 #[test]
 fn test_negative_rate_environment() {
-    // Skip this test as the curve builder may not support negative rates
-    // This would be a feature enhancement for the curve infrastructure
+    let disc = build_flat_discount_curve(-0.01, BASE_DATE, "USD_OIS");
+    let fwd = build_flat_forward_curve(-0.01, BASE_DATE, "USD_LIBOR_3M");
+    let market = MarketContext::new()
+        .insert_discount(disc)
+        .insert_forward(fwd);
+
+    let fra = TestFraBuilder::new().fixed_rate(-0.01).build();
+    let pv = fra.value(&market, BASE_DATE).unwrap();
+
+    assert_near_zero(
+        pv.amount(),
+        1.0,
+        "At-market FRA should have near-zero PV in negative rates",
+    );
 }
 
 #[test]

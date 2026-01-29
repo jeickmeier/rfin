@@ -1,49 +1,108 @@
 //! Unit tests for risk metrics (Duration, Z-spread, CS01, YTM).
 //!
 //! Tests cover:
-//! - Duration calculations (Macaulay and Modified)
+//! - Duration calculations from dated cashflows
 //! - Z-spread solver convergence
 //! - CS01 price sensitivity
-//! - Spread duration calculations
-//! - YTM solver convergence
-//! - Mathematical relationships between metrics
 
-// Placeholder for duration/spread/ytm calculation tests
-// These would test the math but require full market context setup
+use finstack_core::currency::Currency;
+use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::money::Money;
+use finstack_valuations::instruments::fixed_income::structured_credit::{
+    calculate_tranche_cs01, calculate_tranche_duration, calculate_tranche_z_spread,
+};
+use time::Month;
 
-#[test]
-fn test_cs01_sign_convention() {
-    // CS01 should be positive when price decreases after a spread bump
-    let base_price = 100.0;
-    let bumped_price = 99.985; // Price after +1bp spread bump
-    let bump_size_bp = 1.0;
-    let cs01 = (base_price - bumped_price) / (bump_size_bp * 1e-4);
-    assert!(cs01 > 0.0, "CS01 must be positive when spreads widen");
+fn base_date() -> Date {
+    Date::from_calendar_date(2025, Month::January, 1).unwrap()
+}
+
+fn flat_discount_curve(rate: f64) -> DiscountCurve {
+    let base = base_date();
+    DiscountCurve::builder("USD-OIS")
+        .base_date(base)
+        .day_count(DayCount::Act365F)
+        .knots([
+            (0.0, 1.0),
+            (1.0, (-rate).exp()),
+            (2.0, (-rate * 2.0).exp()),
+            (5.0, (-rate * 5.0).exp()),
+        ])
+        .build()
+        .unwrap()
+}
+
+fn sample_cashflows() -> Vec<(Date, Money)> {
+    vec![
+        (
+            Date::from_calendar_date(2026, Month::January, 1).unwrap(),
+            Money::new(60_000.0, Currency::USD),
+        ),
+        (
+            Date::from_calendar_date(2027, Month::January, 1).unwrap(),
+            Money::new(40_000.0, Currency::USD),
+        ),
+    ]
 }
 
 #[test]
-fn test_spread_duration_relationship_to_cs01() {
-    // Spread duration links price sensitivity (CS01) and price level
-    let base_price = 102.0;
-    let cs01: f64 = 85.0; // Example CS01 (price change per bp)
-    let price_after_bump = base_price - cs01 * 1e-4;
-    let spread_duration: f64 = (base_price - price_after_bump) / (base_price * 1e-4);
-    let expected_duration: f64 = cs01 / base_price;
+fn test_tranche_duration_matches_weighted_pv_time() {
+    let as_of = base_date();
+    let curve = flat_discount_curve(0.05);
+    let flows = sample_cashflows();
+
+    let day_count = DayCount::Act365F;
+    let mut pv = 0.0;
+    let mut weighted_pv = 0.0;
+
+    for (date, amount) in &flows {
+        let t = day_count
+            .year_fraction(as_of, *date, DayCountCtx::default())
+            .unwrap();
+        let df = curve.df_between_dates(as_of, *date).unwrap();
+        let flow_pv = amount.amount() * df;
+        pv += flow_pv;
+        weighted_pv += flow_pv * t;
+    }
+
+    let expected_duration = weighted_pv / pv;
+    let duration =
+        calculate_tranche_duration(&flows, &curve, as_of, Money::new(pv, Currency::USD)).unwrap();
+
     assert!(
-        (spread_duration - expected_duration).abs() < 1e-12_f64,
-        "Spread duration identity should hold"
+        (duration - expected_duration).abs() < 1e-4,
+        "Duration should match PV-weighted average time"
     );
 }
 
 #[test]
-fn test_modified_duration_less_than_macaulay() {
-    // For positive yields: Modified duration < Macaulay duration
-    let macaulay_duration = 5.5;
-    let yield_to_maturity = 0.04;
-    let payments_per_year = 2.0;
-    let modified_duration = macaulay_duration / (1.0 + yield_to_maturity / payments_per_year);
+fn test_z_spread_zero_for_curve_pv() {
+    let as_of = base_date();
+    let curve = flat_discount_curve(0.05);
+    let flows = sample_cashflows();
+
+    let mut pv = 0.0;
+    for (date, amount) in &flows {
+        let df = curve.df_between_dates(as_of, *date).unwrap();
+        pv += amount.amount() * df;
+    }
+
+    let z_spread_bps =
+        calculate_tranche_z_spread(&flows, &curve, Money::new(pv, Currency::USD), as_of).unwrap();
+
     assert!(
-        modified_duration < macaulay_duration,
-        "Modified duration must be less than Macaulay duration for positive yields"
+        z_spread_bps.abs() < 0.1,
+        "Z-spread should be near 0 for curve-implied PV"
     );
+}
+
+#[test]
+fn test_cs01_positive_for_spread_bump() {
+    let as_of = base_date();
+    let curve = flat_discount_curve(0.05);
+    let flows = sample_cashflows();
+
+    let cs01 = calculate_tranche_cs01(&flows, &curve, 0.0, as_of).unwrap();
+    assert!(cs01 > 0.0, "CS01 should be positive for spread bumps");
 }

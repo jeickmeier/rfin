@@ -22,10 +22,17 @@ use finstack_core::HashMap;
 use finstack_valuations::market::quotes::cds_tranche::CdsTrancheQuote;
 use finstack_valuations::market::quotes::ids::QuoteId;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
+use std::env;
 use std::sync::Arc;
 use time::Month;
 
 use super::tolerances;
+
+// Fixture upfronts (percent of tranche notional) generated from a frozen market snapshot.
+// To regenerate after a pricing model change:
+// FINSTACK_REGEN_BASE_CORR_FIXTURES=1 cargo test -p finstack-valuations base_correlation_step_builds_curve_and_updates_credit_index_data -- --nocapture
+const UPFRONT_0_3_PCT: f64 = -5.0;
+const UPFRONT_3_7_PCT: f64 = 4.0;
 
 fn create_discount_curve(base_date: Date) -> DiscountCurve {
     DiscountCurve::builder("USD-OIS")
@@ -107,6 +114,40 @@ fn tranche_upfront_pct(
     (pv / notional) * 100.0
 }
 
+fn fixture_upfronts(
+    base_date: Date,
+    maturity: Date,
+    running_coupon_bp: f64,
+    notional: f64,
+    quote_market: &MarketContext,
+) -> (f64, f64) {
+    if env::var("FINSTACK_REGEN_BASE_CORR_FIXTURES").is_ok() {
+        let upfront_0_3 = tranche_upfront_pct(
+            base_date,
+            maturity,
+            0.0,
+            3.0,
+            running_coupon_bp,
+            notional,
+            quote_market,
+        );
+        let upfront_3_7 = tranche_upfront_pct(
+            base_date,
+            maturity,
+            3.0,
+            7.0,
+            running_coupon_bp,
+            notional,
+            quote_market,
+        );
+        println!("UPFRONT_0_3_PCT={upfront_0_3:.8}");
+        println!("UPFRONT_3_7_PCT={upfront_3_7:.8}");
+        return (upfront_0_3, upfront_3_7);
+    }
+
+    (UPFRONT_0_3_PCT, UPFRONT_3_7_PCT)
+}
+
 #[test]
 fn base_correlation_step_builds_curve_and_updates_credit_index_data() {
     let base_date = Date::from_calendar_date(2025, Month::March, 20).expect("base_date");
@@ -132,20 +173,9 @@ fn base_correlation_step_builds_curve_and_updates_credit_index_data() {
 
     let notional = 1.0;
     let running_coupon_bp = 100.0;
-    let upfront_0_3 = tranche_upfront_pct(
+    let (upfront_0_3, upfront_3_7) = fixture_upfronts(
         base_date,
         maturity,
-        0.0,
-        3.0,
-        running_coupon_bp,
-        notional,
-        &quote_market,
-    );
-    let upfront_3_7 = tranche_upfront_pct(
-        base_date,
-        maturity,
-        3.0,
-        7.0,
         running_coupon_bp,
         notional,
         &quote_market,

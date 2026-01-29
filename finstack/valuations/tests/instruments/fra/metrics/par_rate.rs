@@ -201,6 +201,22 @@ fn test_par_rate_different_day_counts() {
 
 #[test]
 fn test_par_rate_negative_rate_environment() {
-    // Skip this test as the curve builder may not support negative rates
-    // This would be a feature enhancement for the curve infrastructure
+    let disc = build_flat_discount_curve(-0.01, BASE_DATE, "USD_OIS");
+    let fwd = build_flat_forward_curve(-0.01, BASE_DATE, "USD_LIBOR_3M");
+    let market = MarketContext::new()
+        .insert_discount(disc)
+        .insert_forward(fwd);
+
+    let fra = create_standard_fra();
+    let result = fra
+        .price_with_metrics(&market, BASE_DATE, &[MetricId::ParRate])
+        .unwrap();
+    let par_rate = *result.measures.get("par_rate").unwrap();
+
+    assert_approx_equal(
+        par_rate,
+        -0.01,
+        0.0005,
+        "Par rate should match negative forward rate",
+    );
 }

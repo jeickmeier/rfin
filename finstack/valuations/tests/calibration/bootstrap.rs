@@ -1,6 +1,6 @@
 //! Determinism and smoke tests for calibration v2.
 
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, DayCountCtx, Tenor};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
@@ -10,7 +10,7 @@ use finstack_valuations::calibration::api::schema::{
     CalibrationEnvelope, CalibrationPlan, CalibrationStep, DiscountCurveParams, HazardCurveParams,
     StepParams,
 };
-use finstack_valuations::calibration::CalibrationMethod;
+use finstack_valuations::calibration::{CalibrationConfig, CalibrationMethod};
 use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause, IndexId};
 use finstack_valuations::market::quotes::cds::CdsQuote;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
@@ -232,28 +232,83 @@ fn discount_curve_bootstrap_is_order_independent() {
 #[test]
 fn discount_curve_global_solve_smoke_v2() {
     let base_date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
-    let quotes = [
-        (Tenor::parse("6M").unwrap(), 0.03),
-        (Tenor::parse("1Y").unwrap(), 0.031),
-        (Tenor::parse("18M").unwrap(), 0.0315),
+    let currency = Currency::USD;
+
+    let quotes = vec![
+        MarketQuote::Rates(RateQuote::Deposit {
+            id: QuoteId::new("DEP-6M"),
+            index: IndexId::new("USD-Deposit"),
+            pillar: Pillar::Tenor(Tenor::parse("6M").unwrap()),
+            rate: 0.03,
+        }),
+        MarketQuote::Rates(RateQuote::Deposit {
+            id: QuoteId::new("DEP-1Y"),
+            index: IndexId::new("USD-Deposit"),
+            pillar: Pillar::Tenor(Tenor::parse("1Y").unwrap()),
+            rate: 0.031,
+        }),
+        MarketQuote::Rates(RateQuote::Deposit {
+            id: QuoteId::new("DEP-18M"),
+            index: IndexId::new("USD-Deposit"),
+            pillar: Pillar::Tenor(Tenor::parse("18M").unwrap()),
+            rate: 0.0315,
+        }),
     ];
 
-    let dfs: Vec<f64> = quotes
-        .iter()
-        .map(|(tenor, rate)| {
-            let maturity = tenor
-                .add_to_date(base_date, None, BusinessDayConvention::Following)
-                .expect("tenor add");
-            let yf = DayCount::Act360
-                .year_fraction(base_date, maturity, DayCountCtx::default())
-                .unwrap();
-            1.0 / (1.0 + rate * yf)
-        })
-        .collect();
+    let mut quote_sets = finstack_core::HashMap::default();
+    quote_sets.insert("disc".to_string(), quotes);
 
-    assert!(dfs.iter().all(|df| *df > 0.0 && *df < 1.0));
+    let settings = CalibrationConfig {
+        calibration_method: CalibrationMethod::GlobalSolve {
+            use_analytical_jacobian: false,
+        },
+        ..Default::default()
+    };
+
+    let plan = CalibrationPlan {
+        id: "plan".to_string(),
+        description: None,
+        quote_sets,
+        settings: settings.clone(),
+        steps: vec![CalibrationStep {
+            id: "disc".to_string(),
+            quote_set: "disc".to_string(),
+            params: StepParams::Discount(DiscountCurveParams {
+                curve_id: "USD-OIS".into(),
+                currency,
+                base_date,
+                method: CalibrationMethod::GlobalSolve {
+                    use_analytical_jacobian: false,
+                },
+                interpolation: Default::default(),
+                extrapolation: finstack_core::math::interp::ExtrapolationPolicy::FlatForward,
+                pricing_discount_id: None,
+                pricing_forward_id: None,
+                conventions: Default::default(),
+            }),
+        }],
+    };
+
+    let envelope = CalibrationEnvelope {
+        schema: "finstack.calibration/2".to_string(),
+        plan,
+        initial_market: None,
+    };
+
+    let result = engine::execute(&envelope).expect("global solve should succeed");
+    let step = result.result.step_reports.get("disc").expect("step report");
+    assert!(step.success, "global solve should report success");
     assert!(
-        dfs.windows(2).all(|w| w[1] < w[0]),
+        step.max_residual <= settings.discount_curve.validation_tolerance,
+        "max_residual {} exceeds tolerance {}",
+        step.max_residual,
+        settings.discount_curve.validation_tolerance
+    );
+
+    let ctx = MarketContext::try_from(result.result.final_market).expect("restore context");
+    let curve = ctx.get_discount("USD-OIS").expect("discount curve");
+    assert!(
+        curve.dfs().windows(2).all(|w| w[1] < w[0]),
         "discount factors should decay"
     );
 }

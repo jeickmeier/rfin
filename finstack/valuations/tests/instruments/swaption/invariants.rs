@@ -41,12 +41,14 @@ fn test_payer_receiver_parity_atm() {
     let swap_start = expiry;
     let swap_end = date!(2030 - 01 - 01);
     let market_rate = 0.05;
-    let strike = market_rate; // ATM
-
-    let payer = create_standard_payer_swaption(expiry, swap_start, swap_end, strike);
-    let receiver = create_standard_receiver_swaption(expiry, swap_start, swap_end, strike);
-
     let market = create_flat_market(as_of, market_rate, 0.20);
+    let disc = market.get_discount("USD_OIS").unwrap();
+    let forward = create_standard_payer_swaption(expiry, swap_start, swap_end, market_rate)
+        .forward_swap_rate(disc.as_ref(), as_of)
+        .unwrap();
+
+    let payer = create_standard_payer_swaption(expiry, swap_start, swap_end, forward);
+    let receiver = create_standard_receiver_swaption(expiry, swap_start, swap_end, forward);
 
     let pv_payer = payer.value(&market, as_of).unwrap().amount();
     let pv_receiver = receiver.value(&market, as_of).unwrap().amount();
@@ -58,7 +60,7 @@ fn test_payer_receiver_parity_atm() {
     let rel_diff = diff / avg;
 
     assert!(
-        rel_diff < 0.10, // Within 10% (leg convention differences can cause asymmetry)
+        rel_diff < 0.05, // Within 5% when strike matches forward
         "ATM payer-receiver should be close: payer={:.2}, receiver={:.2}, rel_diff={:.2}%",
         pv_payer,
         pv_receiver,
@@ -298,10 +300,11 @@ proptest! {
         // Get annuity
         let disc = market.get_discount("USD_OIS").unwrap();
         let annuity = payer.swap_annuity(disc.as_ref(), as_of).unwrap();
+        let forward_rate = payer.forward_swap_rate(disc.as_ref(), as_of).unwrap();
         let notional = payer.notional.amount();
 
         // Parity: Payer - Receiver = N × A × (F - K)
-        let expected_diff = notional * annuity * (forward - strike);
+        let expected_diff = notional * annuity * (forward_rate - strike);
         let actual_diff = pv_payer - pv_receiver;
 
         // Tolerance scales with notional and annuity

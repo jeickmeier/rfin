@@ -13,6 +13,7 @@
 
 use finstack_core::dates::Date;
 use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::math::interp::InterpStyle;
 use proptest::prelude::*;
 use time::Month;
 
@@ -28,7 +29,9 @@ fn create_discount_curve_for_parity(base_date: Date, rate: f64, curve_id: &str) 
 
     // Allow non-monotonic for zero/negative rates
     if rate.abs() < 1e-10 || rate < 0.0 {
-        builder = builder.allow_non_monotonic();
+        builder = builder
+            .allow_non_monotonic()
+            .set_interp(InterpStyle::Linear);
     }
 
     builder.build().unwrap()
@@ -120,6 +123,42 @@ proptest! {
         prop_assert!(
             rel_error < 1e-10,
             "Forward rate parity: from_zero={:.8}, from_curve={:.8}, rel_err={:.2e}",
+            fwd_from_zero, fwd_from_curve, rel_error
+        );
+    }
+
+    #[test]
+    fn prop_forward_parity_near_zero_and_negative_rates(
+        rate in -0.02..0.02,
+        t1 in 0.25..2.0,
+        t2 in 2.5..5.0,
+    ) {
+        let base_date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+        let curve = create_discount_curve_for_parity(base_date, rate, "FWD-PARITY-ZERO");
+
+        let df = curve.df(t2);
+        let zero = curve.zero(t2);
+        let zero_from_df = -df.ln() / t2;
+        let zero_diff = (zero - zero_from_df).abs();
+        prop_assert!(
+            zero_diff < 1e-12,
+            "Zero rate inconsistency at t={}: zero() = {:.6}, from DF = {:.6}",
+            t2, zero, zero_from_df
+        );
+
+        let z1 = curve.zero(t1);
+        let z2 = curve.zero(t2);
+        let tau = t2 - t1;
+        let fwd_from_zero = (z2 * t2 - z1 * t1) / tau;
+        let fwd_from_curve = curve.forward(t1, t2).expect("forward should succeed");
+        let rel_error = if fwd_from_zero.abs() > 1e-12 {
+            (fwd_from_zero - fwd_from_curve).abs() / fwd_from_zero.abs()
+        } else {
+            (fwd_from_zero - fwd_from_curve).abs()
+        };
+        prop_assert!(
+            rel_error < 1e-10,
+            "Forward parity near zero/neg: from_zero={:.8}, from_curve={:.8}, rel_err={:.2e}",
             fwd_from_zero, fwd_from_curve, rel_error
         );
     }

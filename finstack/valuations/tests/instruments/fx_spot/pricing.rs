@@ -167,19 +167,17 @@ fn test_pricing_consistency_across_dates() {
     );
 }
 
-// #[test]
-// fn test_price_with_metrics_base_value() {
-//     // Test price_with_metrics returns correct structure
-//     let fx = eurusd_with_notional(1_000_000.0, 1.20);
-//     let market = MarketContext::new();
-//
-//     let result = fx
-//         .price_with_metrics(&market, test_date(), &[])
-//         .unwrap();
-//
-//     assert_eq!(result.instrument_id, "EURUSD");
-//     assert_approx_eq(result.value.amount(), 1_200_000.0, EPSILON, "Base value");
-// }
+#[test]
+fn test_price_with_metrics_base_value() {
+    // Test price_with_metrics returns correct structure
+    let fx = eurusd_with_notional(1_000_000.0, 1.20);
+    let market = MarketContext::new();
+
+    let result = fx.price_with_metrics(&market, test_date(), &[]).unwrap();
+
+    assert_eq!(result.instrument_id, "EURUSD");
+    assert_approx_eq(result.value.amount(), 1_200_000.0, EPSILON, "Base value");
+}
 
 #[test]
 fn test_triangulated_rate() {

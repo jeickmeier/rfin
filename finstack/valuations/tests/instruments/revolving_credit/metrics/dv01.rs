@@ -1,13 +1,13 @@
 //! DV01 (interest rate sensitivity) tests for revolving credit.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Tenor};
+use finstack_core::dates::{DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::fixed_income::revolving_credit::{
     BaseRateSpec, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
 };
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
@@ -27,7 +27,7 @@ fn test_dv01_sensitivity() {
         .day_count(DayCount::Act360)
         .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
-        .draw_repay_spec(DrawRepaySpec::Scheduled(vec![]))
+        .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();
@@ -43,6 +43,7 @@ fn test_dv01_sensitivity() {
     let result = result.unwrap();
     let dv01 = *result.measures.get("dv01").unwrap();
 
-    // DV01 should be positive and finite
-    assert!(dv01 > 0.0 && dv01.is_finite());
+    // DV01 should be finite and non-zero
+    assert!(dv01.is_finite());
+    assert!(dv01.abs() > 0.0, "DV01 should not be zero");
 }

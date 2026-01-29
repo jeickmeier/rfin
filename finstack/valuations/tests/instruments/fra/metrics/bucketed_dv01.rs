@@ -10,17 +10,42 @@ use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
+fn sum_bucketed_dv01(result: &finstack_valuations::results::ValuationResult) -> f64 {
+    result
+        .measures
+        .iter()
+        .filter(|(id, _)| id.as_str().starts_with("bucketed_dv01::"))
+        .map(|(_, v)| *v)
+        .sum()
+}
+
 #[test]
 fn test_bucketed_dv01_standard_fra() {
     let market = standard_market();
     let fra = create_standard_fra();
 
     let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::BucketedDv01])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::BucketedDv01, MetricId::Dv01],
+        )
         .unwrap();
 
     // Check that bucketed_dv01 metric exists
     assert!(result.measures.contains_key("bucketed_dv01"));
+
+    let bucket_total = *result.measures.get("bucketed_dv01").unwrap();
+    let bucket_sum = sum_bucketed_dv01(&result);
+    let diff = (bucket_sum - bucket_total).abs();
+    let tol = 1e-6_f64.max(1e-6 * bucket_total.abs());
+    assert!(
+        diff < tol,
+        "Sum of bucketed DV01 should match bucketed total: bucket_sum={}, total={}, diff={}",
+        bucket_sum,
+        bucket_total,
+        diff
+    );
 }
 
 #[test]

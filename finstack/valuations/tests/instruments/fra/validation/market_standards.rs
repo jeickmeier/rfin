@@ -10,6 +10,7 @@
 use crate::fra::common::*;
 use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
+use finstack_core::prelude::MarketContext;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
@@ -249,8 +250,16 @@ fn test_dv01_sign_convention() {
 
 #[test]
 fn test_zero_curve_zero_pv() {
-    // Skip this test as zero rates may cause numerical issues
-    // This edge case can be addressed with curve infrastructure improvements
+    let disc = build_flat_discount_curve(0.0, BASE_DATE, "USD_OIS");
+    let fwd = build_flat_forward_curve(0.0, BASE_DATE, "USD_LIBOR_3M");
+    let market = MarketContext::new()
+        .insert_discount(disc)
+        .insert_forward(fwd);
+
+    let fra = TestFraBuilder::new().fixed_rate(0.0).build();
+    let pv = fra.value(&market, BASE_DATE).unwrap();
+
+    assert_near_zero(pv.amount(), 1.0, "Zero curve should imply near-zero PV");
 }
 
 #[test]

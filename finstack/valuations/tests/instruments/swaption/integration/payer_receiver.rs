@@ -7,18 +7,20 @@ use finstack_valuations::metrics::MetricId;
 #[test]
 fn test_payer_receiver_symmetry() {
     let (as_of, expiry, swap_start, swap_end) = standard_dates();
-    let strike = 0.05;
     let market = create_flat_market(as_of, 0.05, 0.30);
+    let disc = market.get_discount("USD_OIS").unwrap();
+    let forward = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.05)
+        .forward_swap_rate(disc.as_ref(), as_of)
+        .unwrap();
 
-    let payer = create_standard_payer_swaption(expiry, swap_start, swap_end, strike);
-    let receiver = create_standard_receiver_swaption(expiry, swap_start, swap_end, strike);
+    let payer = create_standard_payer_swaption(expiry, swap_start, swap_end, forward);
+    let receiver = create_standard_receiver_swaption(expiry, swap_start, swap_end, forward);
 
     let pv_payer = payer.value(&market, as_of).unwrap().amount();
     let pv_receiver = receiver.value(&market, as_of).unwrap().amount();
 
-    // At ATM, payer and receiver should have similar values (put-call parity-like)
-    // Note: With quarterly fixed/float legs and Act/360, there can be small differences
-    assert_approx_eq(pv_payer, pv_receiver, 0.15, "ATM payer-receiver symmetry");
+    // At ATM (strike = forward), payer and receiver should have similar values
+    assert_approx_eq(pv_payer, pv_receiver, 0.05, "ATM payer-receiver symmetry");
 }
 
 #[test]

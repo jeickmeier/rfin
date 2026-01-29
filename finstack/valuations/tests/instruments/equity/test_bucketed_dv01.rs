@@ -36,6 +36,15 @@ fn build_flat_curve(rate: f64, base_date: Date, curve_id: &str) -> DiscountCurve
         .expect("Failed to build discount curve")
 }
 
+fn sum_bucketed_dv01(result: &finstack_valuations::results::ValuationResult) -> f64 {
+    result
+        .measures
+        .iter()
+        .filter(|(id, _)| id.as_str().starts_with("bucketed_dv01::"))
+        .map(|(_, v)| *v)
+        .sum()
+}
+
 #[test]
 fn test_equity_bucketed_dv01_computed() {
     let as_of = Date::from_calendar_date(2024, Month::January, 1).unwrap();
@@ -52,7 +61,7 @@ fn test_equity_bucketed_dv01_computed() {
         );
 
     let result = equity
-        .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01])
+        .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01, MetricId::Dv01])
         .unwrap();
 
     // BucketedDv01 should be present
@@ -63,6 +72,18 @@ fn test_equity_bucketed_dv01_computed() {
 
     let bucketed_dv01 = *result.measures.get("bucketed_dv01").unwrap();
     assert!(bucketed_dv01.is_finite(), "BucketedDv01 should be finite");
+
+    let dv01 = *result.measures.get("dv01").unwrap();
+    let bucket_sum = sum_bucketed_dv01(&result);
+    let diff = (bucket_sum - dv01).abs();
+    let tol = 1e-6_f64.max(1e-3 * dv01.abs());
+    assert!(
+        diff < tol,
+        "Sum of bucketed DV01 should match parallel DV01: bucket_sum={}, dv01={}, diff={}",
+        bucket_sum,
+        dv01,
+        diff
+    );
 }
 
 #[test]

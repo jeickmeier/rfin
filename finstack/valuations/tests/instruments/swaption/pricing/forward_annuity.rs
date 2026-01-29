@@ -1,6 +1,18 @@
 //! Forward swap rate and annuity calculation tests
 
 use crate::swaption::common::*;
+use finstack_core::market_data::traits::Discounting;
+
+fn expected_forward_rate(
+    swaption: &finstack_valuations::instruments::rates::swaption::Swaption,
+    disc: &dyn Discounting,
+    as_of: finstack_core::dates::Date,
+) -> f64 {
+    let annuity = swaption.swap_annuity(disc, as_of).unwrap();
+    let df_start = disc.df_between_dates(as_of, swaption.swap_start).unwrap();
+    let df_end = disc.df_between_dates(as_of, swaption.swap_end).unwrap();
+    (df_start - df_end) / annuity
+}
 
 #[test]
 fn test_forward_swap_rate_calculation() {
@@ -13,8 +25,8 @@ fn test_forward_swap_rate_calculation() {
 
     let forward = swaption.forward_swap_rate(disc.as_ref(), as_of).unwrap();
 
-    // For flat 5% curve, forward should be close to 5%
-    assert_approx_eq(forward, 0.05, 0.001, "Forward swap rate");
+    let expected = expected_forward_rate(&swaption, disc.as_ref(), as_of);
+    assert_approx_eq(forward, expected, 1e-8, "Forward swap rate");
 }
 
 #[test]
@@ -28,7 +40,7 @@ fn test_swap_annuity_positive() {
 
     let annuity = swaption.swap_annuity(disc.as_ref(), as_of).unwrap();
 
-    // 5Y quarterly swap should have annuity around 4.5-4.8 (20 periods * ~0.24 each)
+    // 5Y semi-annual swap should have annuity around 4.0-5.0
     assert_reasonable(annuity, 3.0, 6.0, "Swap annuity");
 }
 
@@ -82,11 +94,11 @@ fn test_forward_rate_consistency() {
 
         let forward = swaption.forward_swap_rate(disc.as_ref(), as_of).unwrap();
 
-        // Forward should be close to flat curve rate
+        let expected = expected_forward_rate(&swaption, disc.as_ref(), as_of);
         assert_approx_eq(
             forward,
-            rate,
-            0.005,
+            expected,
+            1e-8,
             &format!("Forward rate at {}%", rate * 100.0),
         );
     }

@@ -1,10 +1,29 @@
 //! Tests for implied volatility calculation.
 
 use super::helpers::*;
+use finstack_core::dates::{DayCount, DayCountCtx};
+use finstack_valuations::instruments::common::models::bs_price;
+use finstack_valuations::instruments::market::OptionType;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
+#[allow(clippy::too_many_arguments)]
+fn analytical_call_price(
+    spot: f64,
+    strike: f64,
+    rate: f64,
+    div_yield: f64,
+    vol: f64,
+    as_of: finstack_core::dates::Date,
+    expiry: finstack_core::dates::Date,
+    contract_size: f64,
+) -> f64 {
+    let t = DayCount::Act365F
+        .year_fraction(as_of, expiry, DayCountCtx::default())
+        .unwrap_or(0.0);
+    bs_price(spot, strike, rate, div_yield, vol, t, OptionType::Call) * contract_size
+}
 #[test]
 fn test_implied_vol_recovers_surface_vol() {
     let as_of = date!(2024 - 01 - 01);
@@ -16,8 +35,17 @@ fn test_implied_vol_recovers_surface_vol() {
     let mut call = create_call(as_of, expiry, strike);
     let market = build_standard_market(as_of, spot, vol, 0.05, 0.02);
 
-    // Get market price
-    let market_price = call.value(&market, as_of).unwrap().amount();
+    // Use analytical Black-Scholes price as external reference
+    let market_price = analytical_call_price(
+        spot,
+        strike,
+        0.05,
+        0.02,
+        vol,
+        as_of,
+        expiry,
+        call.contract_size,
+    );
 
     // Set market price in attributes
     call.attributes
@@ -56,7 +84,16 @@ fn test_implied_vol_atm_option() {
     let mut call = create_call(as_of, expiry, strike);
     let market = build_standard_market(as_of, spot, vol, 0.05, 0.0);
 
-    let market_price = call.value(&market, as_of).unwrap().amount();
+    let market_price = analytical_call_price(
+        spot,
+        strike,
+        0.05,
+        0.0,
+        vol,
+        as_of,
+        expiry,
+        call.contract_size,
+    );
     call.attributes
         .meta
         .insert("market_price".to_string(), market_price.to_string());
@@ -87,7 +124,16 @@ fn test_implied_vol_itm_option() {
     let mut call = create_call(as_of, expiry, strike);
     let market = build_standard_market(as_of, spot, vol, 0.05, 0.0);
 
-    let market_price = call.value(&market, as_of).unwrap().amount();
+    let market_price = analytical_call_price(
+        spot,
+        strike,
+        0.05,
+        0.0,
+        vol,
+        as_of,
+        expiry,
+        call.contract_size,
+    );
     call.attributes
         .meta
         .insert("market_price".to_string(), market_price.to_string());
@@ -118,7 +164,16 @@ fn test_implied_vol_otm_option() {
     let mut call = create_call(as_of, expiry, strike);
     let market = build_standard_market(as_of, spot, vol, 0.05, 0.0);
 
-    let market_price = call.value(&market, as_of).unwrap().amount();
+    let market_price = analytical_call_price(
+        spot,
+        strike,
+        0.05,
+        0.0,
+        vol,
+        as_of,
+        expiry,
+        call.contract_size,
+    );
     call.attributes
         .meta
         .insert("market_price".to_string(), market_price.to_string());
@@ -149,7 +204,16 @@ fn test_implied_vol_short_dated() {
     let mut call = create_call(as_of, expiry, strike);
     let market = build_standard_market(as_of, spot, vol, 0.05, 0.0);
 
-    let market_price = call.value(&market, as_of).unwrap().amount();
+    let market_price = analytical_call_price(
+        spot,
+        strike,
+        0.05,
+        0.0,
+        vol,
+        as_of,
+        expiry,
+        call.contract_size,
+    );
     call.attributes
         .meta
         .insert("market_price".to_string(), market_price.to_string());
@@ -180,7 +244,16 @@ fn test_implied_vol_long_dated() {
     let mut call = create_call(as_of, expiry, strike);
     let market = build_standard_market(as_of, spot, vol, 0.05, 0.0);
 
-    let market_price = call.value(&market, as_of).unwrap().amount();
+    let market_price = analytical_call_price(
+        spot,
+        strike,
+        0.05,
+        0.0,
+        vol,
+        as_of,
+        expiry,
+        call.contract_size,
+    );
     call.attributes
         .meta
         .insert("market_price".to_string(), market_price.to_string());
@@ -211,7 +284,16 @@ fn test_implied_vol_high_volatility() {
     let mut call = create_call(as_of, expiry, strike);
     let market = build_standard_market(as_of, spot, vol, 0.05, 0.0);
 
-    let market_price = call.value(&market, as_of).unwrap().amount();
+    let market_price = analytical_call_price(
+        spot,
+        strike,
+        0.05,
+        0.0,
+        vol,
+        as_of,
+        expiry,
+        call.contract_size,
+    );
     call.attributes
         .meta
         .insert("market_price".to_string(), market_price.to_string());
@@ -243,7 +325,16 @@ fn test_implied_vol_low_volatility() {
     let mut call = create_call(as_of, expiry, strike);
     let market = build_standard_market(as_of, spot, vol, 0.05, 0.0);
 
-    let market_price = call.value(&market, as_of).unwrap().amount();
+    let market_price = analytical_call_price(
+        spot,
+        strike,
+        0.05,
+        0.0,
+        vol,
+        as_of,
+        expiry,
+        call.contract_size,
+    );
     call.attributes
         .meta
         .insert("market_price".to_string(), market_price.to_string());
@@ -269,11 +360,21 @@ fn test_implied_vol_returns_zero_for_expired() {
     let expiry = as_of; // Already expired
     let strike = 100.0;
     let spot = 110.0;
+    let vol = 0.25;
 
     let mut call = create_call(as_of, expiry, strike);
     let market = build_standard_market(as_of, spot, 0.25, 0.05, 0.0);
 
-    let market_price = call.value(&market, as_of).unwrap().amount();
+    let market_price = analytical_call_price(
+        spot,
+        strike,
+        0.05,
+        0.0,
+        vol,
+        as_of,
+        expiry,
+        call.contract_size,
+    );
     call.attributes
         .meta
         .insert("market_price".to_string(), market_price.to_string());
@@ -300,7 +401,16 @@ fn test_implied_vol_with_dividends() {
     let mut call = create_call(as_of, expiry, strike);
     let market = build_standard_market(as_of, spot, vol, 0.05, div_yield);
 
-    let market_price = call.value(&market, as_of).unwrap().amount();
+    let market_price = analytical_call_price(
+        spot,
+        strike,
+        0.05,
+        div_yield,
+        vol,
+        as_of,
+        expiry,
+        call.contract_size,
+    );
     call.attributes
         .meta
         .insert("market_price".to_string(), market_price.to_string());

@@ -3,8 +3,10 @@
 //! The goal is to ensure that curves produced by v2 calibration steps can reprice
 //! instruments constructed *outside* the solver to reasonable tolerances.
 
-use finstack_core::dates::Date;
+use finstack_core::dates::{Date, Tenor};
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::scalars::InflationLag;
+use finstack_core::market_data::term_structures::Seniority;
 use finstack_core::math::interp::ExtrapolationPolicy;
 use finstack_core::money::Money;
 use finstack_core::types::{Currency, CurveId};
@@ -12,14 +14,22 @@ use finstack_core::HashMap;
 use finstack_valuations::calibration::api::engine;
 use finstack_valuations::calibration::api::schema::{
     CalibrationEnvelope, CalibrationPlan, CalibrationStep, DiscountCurveParams, ForwardCurveParams,
-    StepParams,
+    HazardCurveParams, InflationCurveParams, StepParams,
 };
 use finstack_valuations::calibration::{CalibrationConfig, CalibrationMethod};
+use finstack_valuations::instruments::rates::inflation_swap::PayReceiveInflation;
+use finstack_valuations::instruments::rates::InflationSwap;
 use finstack_valuations::instruments::ForwardRateAgreement;
 use finstack_valuations::instruments::Instrument;
+use finstack_valuations::market::build_cds_instrument;
 use finstack_valuations::market::build_rate_instrument;
-use finstack_valuations::market::conventions::ids::IndexId;
+use finstack_valuations::market::conventions::ids::{
+    CdsConventionKey, CdsDocClause, IndexId, InflationSwapConventionId,
+};
+use finstack_valuations::market::conventions::ConventionRegistry;
+use finstack_valuations::market::quotes::cds::CdsQuote;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
+use finstack_valuations::market::quotes::inflation::InflationQuote;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::rates::RateQuote;
 use finstack_valuations::market::BuildCtx;
@@ -31,6 +41,8 @@ use super::tolerances;
 
 /// FRA repricing tolerance per $1M notional.
 const FRA_TOLERANCE_DOLLARS: f64 = tolerances::FRA_REPRICE_ABS_TOL_DOLLARS;
+const CDS_TOLERANCE_DOLLARS: f64 = 5.0;
+const INFLATION_TOLERANCE_DOLLARS: f64 = 5.0;
 
 fn run_plan(envelope: &CalibrationEnvelope) -> MarketContext {
     let out = engine::execute(envelope).expect("calibration should succeed");
@@ -126,6 +138,119 @@ fn discount_curve_deposit_repricing() {
         assert!(
             pv.amount().abs() <= tolerances::REPRICE_PV_ABS_TOL_DOLLARS,
             "deposit should reprice within ${}. PV=${:.6}",
+            tolerances::REPRICE_PV_ABS_TOL_DOLLARS,
+            pv.amount(),
+        );
+    }
+}
+
+#[test]
+fn discount_curve_swap_repricing() {
+    let base_date = Date::from_calendar_date(2025, Month::January, 2).unwrap();
+    let currency = Currency::USD;
+
+    let deposit_quotes: Vec<RateQuote> = vec![
+        RateQuote::Deposit {
+            id: QuoteId::new("DEP-1M"),
+            index: IndexId::new("USD-Deposit"),
+            pillar: Pillar::Tenor(Tenor::parse("1M").unwrap()),
+            rate: 0.045,
+        },
+        RateQuote::Deposit {
+            id: QuoteId::new("DEP-3M"),
+            index: IndexId::new("USD-Deposit"),
+            pillar: Pillar::Tenor(Tenor::parse("3M").unwrap()),
+            rate: 0.046,
+        },
+    ];
+
+    let swap_quotes: Vec<RateQuote> = vec![
+        RateQuote::Swap {
+            id: QuoteId::new("OIS-1Y"),
+            index: IndexId::new("USD-OIS"),
+            pillar: Pillar::Tenor(Tenor::parse("1Y").unwrap()),
+            rate: 0.0475,
+            spread_decimal: None,
+        },
+        RateQuote::Swap {
+            id: QuoteId::new("OIS-2Y"),
+            index: IndexId::new("USD-OIS"),
+            pillar: Pillar::Tenor(Tenor::parse("2Y").unwrap()),
+            rate: 0.0485,
+            spread_decimal: None,
+        },
+        RateQuote::Swap {
+            id: QuoteId::new("OIS-5Y"),
+            index: IndexId::new("USD-OIS"),
+            pillar: Pillar::Tenor(Tenor::parse("5Y").unwrap()),
+            rate: 0.0490,
+            spread_decimal: None,
+        },
+    ];
+
+    let mut disc_quotes: Vec<MarketQuote> = deposit_quotes
+        .iter()
+        .cloned()
+        .map(MarketQuote::Rates)
+        .collect();
+    disc_quotes.extend(swap_quotes.iter().cloned().map(MarketQuote::Rates));
+
+    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
+    quote_sets.insert("disc".to_string(), disc_quotes);
+
+    let settings = CalibrationConfig {
+        solver: finstack_valuations::calibration::SolverConfig::brent_default()
+            .with_tolerance(1e-12)
+            .with_max_iterations(200),
+        ..Default::default()
+    };
+
+    let plan = CalibrationPlan {
+        id: "plan".to_string(),
+        description: None,
+        quote_sets,
+        settings,
+        steps: vec![CalibrationStep {
+            id: "disc".to_string(),
+            quote_set: "disc".to_string(),
+            params: StepParams::Discount(DiscountCurveParams {
+                curve_id: CurveId::from("USD-OIS"),
+                currency,
+                base_date,
+                method: CalibrationMethod::Bootstrap,
+                interpolation: Default::default(),
+                extrapolation: ExtrapolationPolicy::FlatForward,
+                pricing_discount_id: None,
+                pricing_forward_id: None,
+                conventions: Default::default(),
+            }),
+        }],
+    };
+
+    let envelope = CalibrationEnvelope {
+        schema: "finstack.calibration/2".to_string(),
+        plan,
+        initial_market: None,
+    };
+
+    let ctx = run_plan(&envelope);
+    let build_ctx = BuildCtx::new(
+        base_date,
+        fixtures::STANDARD_NOTIONAL,
+        [
+            ("discount".to_string(), "USD-OIS".to_string()),
+            ("forward".to_string(), "USD-OIS".to_string()),
+        ]
+        .into_iter()
+        .collect(),
+    );
+
+    for q in &swap_quotes {
+        let inst = build_rate_instrument(q, &build_ctx).expect("build swap instrument");
+        let pv = inst.value(&ctx, base_date).unwrap();
+        assert!(
+            pv.amount().abs() <= tolerances::REPRICE_PV_ABS_TOL_DOLLARS,
+            "swap should reprice within ${}. PV=${:.6}",
             tolerances::REPRICE_PV_ABS_TOL_DOLLARS,
             pv.amount(),
         );
@@ -287,6 +412,277 @@ fn forward_curve_fra_repricing() {
             "fra should reprice within ${}. PV=${:.2}",
             FRA_TOLERANCE_DOLLARS,
             pv.amount()
+        );
+    }
+}
+
+#[test]
+fn hazard_curve_cds_repricing() {
+    let base_date = Date::from_calendar_date(2025, Month::March, 20).unwrap();
+    let currency = Currency::USD;
+
+    let disc_quotes: Vec<RateQuote> = vec![
+        RateQuote::Deposit {
+            id: QuoteId::new("DEP-1M"),
+            index: IndexId::new("USD-Deposit"),
+            pillar: Pillar::Tenor(Tenor::parse("1M").unwrap()),
+            rate: 0.045,
+        },
+        RateQuote::Deposit {
+            id: QuoteId::new("DEP-6M"),
+            index: IndexId::new("USD-Deposit"),
+            pillar: Pillar::Tenor(Tenor::parse("6M").unwrap()),
+            rate: 0.047,
+        },
+    ];
+
+    let cds_quotes: Vec<CdsQuote> = vec![
+        CdsQuote::CdsParSpread {
+            id: QuoteId::new("CDS-1Y"),
+            entity: "REPRICE-ACME".to_string(),
+            pillar: Pillar::Date(Date::from_calendar_date(2026, Month::March, 20).unwrap()),
+            spread_bp: 120.0,
+            recovery_rate: 0.40,
+            convention: CdsConventionKey {
+                currency,
+                doc_clause: CdsDocClause::IsdaNa,
+            },
+        },
+        CdsQuote::CdsParSpread {
+            id: QuoteId::new("CDS-3Y"),
+            entity: "REPRICE-ACME".to_string(),
+            pillar: Pillar::Date(Date::from_calendar_date(2028, Month::March, 20).unwrap()),
+            spread_bp: 160.0,
+            recovery_rate: 0.40,
+            convention: CdsConventionKey {
+                currency,
+                doc_clause: CdsDocClause::IsdaNa,
+            },
+        },
+    ];
+
+    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
+    quote_sets.insert(
+        "disc".to_string(),
+        disc_quotes
+            .iter()
+            .cloned()
+            .map(MarketQuote::Rates)
+            .collect(),
+    );
+    quote_sets.insert(
+        "cds".to_string(),
+        cds_quotes.iter().cloned().map(MarketQuote::Cds).collect(),
+    );
+
+    let plan = CalibrationPlan {
+        id: "plan".to_string(),
+        description: None,
+        quote_sets,
+        settings: Default::default(),
+        steps: vec![
+            CalibrationStep {
+                id: "disc".to_string(),
+                quote_set: "disc".to_string(),
+                params: StepParams::Discount(DiscountCurveParams {
+                    curve_id: "USD-OIS".into(),
+                    currency,
+                    base_date,
+                    method: CalibrationMethod::Bootstrap,
+                    interpolation: Default::default(),
+                    extrapolation: ExtrapolationPolicy::FlatForward,
+                    pricing_discount_id: None,
+                    pricing_forward_id: None,
+                    conventions: Default::default(),
+                }),
+            },
+            CalibrationStep {
+                id: "haz".to_string(),
+                quote_set: "cds".to_string(),
+                params: StepParams::Hazard(HazardCurveParams {
+                    curve_id: "REPRICE-ACME-SENIOR".into(),
+                    entity: "REPRICE-ACME".to_string(),
+                    seniority: Seniority::Senior,
+                    currency,
+                    base_date,
+                    discount_curve_id: "USD-OIS".into(),
+                    recovery_rate: 0.40,
+                    notional: 1.0,
+                    method: CalibrationMethod::Bootstrap,
+                    interpolation: Default::default(),
+                    par_interp: finstack_core::market_data::term_structures::ParInterp::Linear,
+                    doc_clause: None,
+                }),
+            },
+        ],
+    };
+
+    let envelope = CalibrationEnvelope {
+        schema: "finstack.calibration/2".to_string(),
+        plan,
+        initial_market: None,
+    };
+
+    let ctx = run_plan(&envelope);
+
+    let mut curve_ids = HashMap::default();
+    curve_ids.insert("discount".to_string(), "USD-OIS".to_string());
+    curve_ids.insert("credit".to_string(), "REPRICE-ACME-SENIOR".to_string());
+    let build_ctx = BuildCtx::new(base_date, fixtures::STANDARD_NOTIONAL, curve_ids);
+
+    for quote in &cds_quotes {
+        let inst = build_cds_instrument(quote, &build_ctx).expect("build cds instrument");
+        let pv = inst.value(&ctx, base_date).expect("cds valuation");
+        assert!(
+            pv.amount().abs() <= CDS_TOLERANCE_DOLLARS,
+            "cds should reprice within ${}. PV=${:.6}",
+            CDS_TOLERANCE_DOLLARS,
+            pv.amount(),
+        );
+    }
+}
+
+#[test]
+fn inflation_curve_swap_repricing() {
+    let base_date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let currency = Currency::USD;
+    let base_cpi = 100.0;
+
+    let disc_quotes: Vec<RateQuote> = vec![
+        RateQuote::Deposit {
+            id: QuoteId::new("DEP-1M"),
+            index: IndexId::new("USD-Deposit"),
+            pillar: Pillar::Tenor(Tenor::parse("1M").unwrap()),
+            rate: 0.045,
+        },
+        RateQuote::Deposit {
+            id: QuoteId::new("DEP-3M"),
+            index: IndexId::new("USD-Deposit"),
+            pillar: Pillar::Tenor(Tenor::parse("3M").unwrap()),
+            rate: 0.046,
+        },
+    ];
+
+    let infl_quotes: Vec<InflationQuote> = vec![
+        InflationQuote::InflationSwap {
+            maturity: Date::from_calendar_date(2027, Month::January, 15).unwrap(),
+            rate: 0.02,
+            index: "USD-CPI".to_string(),
+            convention: InflationSwapConventionId::new("USD"),
+        },
+        InflationQuote::InflationSwap {
+            maturity: Date::from_calendar_date(2030, Month::January, 15).unwrap(),
+            rate: 0.025,
+            index: "USD-CPI".to_string(),
+            convention: InflationSwapConventionId::new("USD"),
+        },
+    ];
+
+    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
+    quote_sets.insert(
+        "disc".to_string(),
+        disc_quotes
+            .iter()
+            .cloned()
+            .map(MarketQuote::Rates)
+            .collect(),
+    );
+    quote_sets.insert(
+        "infl".to_string(),
+        infl_quotes
+            .iter()
+            .cloned()
+            .map(MarketQuote::Inflation)
+            .collect(),
+    );
+
+    let plan = CalibrationPlan {
+        id: "plan".to_string(),
+        description: None,
+        quote_sets,
+        settings: Default::default(),
+        steps: vec![
+            CalibrationStep {
+                id: "disc".to_string(),
+                quote_set: "disc".to_string(),
+                params: StepParams::Discount(DiscountCurveParams {
+                    curve_id: "USD-OIS".into(),
+                    currency,
+                    base_date,
+                    method: CalibrationMethod::Bootstrap,
+                    interpolation: Default::default(),
+                    extrapolation: ExtrapolationPolicy::FlatForward,
+                    pricing_discount_id: None,
+                    pricing_forward_id: None,
+                    conventions: Default::default(),
+                }),
+            },
+            CalibrationStep {
+                id: "infl".to_string(),
+                quote_set: "infl".to_string(),
+                params: StepParams::Inflation(InflationCurveParams {
+                    curve_id: "USD-CPI".into(),
+                    currency,
+                    base_date,
+                    discount_curve_id: "USD-OIS".into(),
+                    index: "USD-CPI".to_string(),
+                    observation_lag: "3M".to_string(),
+                    base_cpi,
+                    notional: 1.0,
+                    method: CalibrationMethod::Bootstrap,
+                    interpolation: Default::default(),
+                }),
+            },
+        ],
+    };
+
+    let envelope = CalibrationEnvelope {
+        schema: "finstack.calibration/2".to_string(),
+        plan,
+        initial_market: None,
+    };
+
+    let ctx = run_plan(&envelope);
+    let conventions = ConventionRegistry::try_global()
+        .expect("convention registry")
+        .require_inflation_swap(&InflationSwapConventionId::new("USD"))
+        .expect("inflation swap conventions");
+    let lag = conventions
+        .inflation_lag
+        .months()
+        .map(|months| InflationLag::Months(months as u8))
+        .unwrap_or(InflationLag::None);
+
+    for quote in &infl_quotes {
+        let (maturity, rate) = match quote {
+            InflationQuote::InflationSwap { maturity, rate, .. } => (*maturity, *rate),
+            InflationQuote::YoYInflationSwap { .. } => continue,
+        };
+        let swap = InflationSwap::builder()
+            .id(format!("INF-SWAP-{}", maturity).into())
+            .notional(Money::new(fixtures::STANDARD_NOTIONAL, currency))
+            .start(base_date)
+            .maturity(maturity)
+            .fixed_rate(rate)
+            .inflation_index_id("USD-CPI".into())
+            .discount_curve_id("USD-OIS".into())
+            .dc(conventions.day_count)
+            .side(PayReceiveInflation::PayFixed)
+            .lag_override_opt(Some(lag))
+            .base_cpi_opt(Some(base_cpi))
+            .bdc_opt(Some(conventions.business_day_convention))
+            .calendar_id_opt(Some(conventions.calendar_id.clone()))
+            .build()
+            .expect("inflation swap build");
+
+        let pv = swap
+            .value(&ctx, base_date)
+            .expect("inflation swap valuation");
+        assert!(
+            pv.amount().abs() <= INFLATION_TOLERANCE_DOLLARS,
+            "inflation swap should reprice within ${}. PV=${:.6}",
+            INFLATION_TOLERANCE_DOLLARS,
+            pv.amount(),
         );
     }
 }

@@ -1,13 +1,13 @@
 //! Edge case and boundary condition tests for revolving credit.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Tenor};
+use finstack_core::dates::{DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::fixed_income::revolving_credit::{
     BaseRateSpec, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
 };
+use finstack_valuations::instruments::Instrument;
 use time::macros::date;
 
 use crate::common::test_helpers::flat_discount_curve;
@@ -26,7 +26,7 @@ fn test_zero_utilization() {
         .day_count(DayCount::Act360)
         .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
-        .draw_repay_spec(DrawRepaySpec::Scheduled(vec![]))
+        .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();
@@ -55,7 +55,7 @@ fn test_full_utilization() {
         .day_count(DayCount::Act360)
         .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(30.0, 15.0, 10.0))
-        .draw_repay_spec(DrawRepaySpec::Scheduled(vec![]))
+        .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();
@@ -84,7 +84,7 @@ fn test_very_short_commitment_period() {
         .day_count(DayCount::Act360)
         .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(25.0, 10.0, 5.0))
-        .draw_repay_spec(DrawRepaySpec::Scheduled(vec![]))
+        .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();
@@ -113,7 +113,7 @@ fn test_very_long_commitment_period() {
         .day_count(DayCount::Act360)
         .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(30.0, 12.0, 8.0))
-        .draw_repay_spec(DrawRepaySpec::Scheduled(vec![]))
+        .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();

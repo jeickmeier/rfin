@@ -14,11 +14,15 @@ use finstack_valuations::calibration::api::schema::{
 use finstack_valuations::calibration::{
     CalibrationConfig, CalibrationMethod, ResidualWeightingScheme,
 };
+use finstack_valuations::market::build_cds_instrument;
 use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
 use finstack_valuations::market::quotes::cds::CdsQuote;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
+use finstack_valuations::market::BuildCtx;
 use time::Month;
+
+use crate::common::fixtures;
 
 fn create_test_discount_curve(base: Date) -> DiscountCurve {
     DiscountCurve::builder("TEST-DISC")
@@ -576,32 +580,33 @@ fn hazard_calibration_global_solve_sqrt_time_is_not_rougher_than_bootstrap() {
 }
 
 #[test]
-fn hazard_calibration_matches_flat_spread_approximation() {
-    // Approximate reference: for a single CDS quote, a flat hazard rate is
-    // roughly spread / (1 - recovery). This is not exact (discounting + accrual),
-    // but provides an external sanity check on magnitude.
+fn hazard_calibration_reprices_par_spread() {
     let base = Date::from_calendar_date(2025, Month::March, 20).unwrap();
     let currency = Currency::USD;
     let recovery_rate = 0.40;
     let spread_bp = 120.0;
+    let maturity = Date::from_calendar_date(2026, Month::March, 20).unwrap();
 
     let disc = create_test_discount_curve(base);
     let initial_market = MarketContext::new().insert_discount(disc);
 
-    let quotes = vec![MarketQuote::Cds(CdsQuote::CdsParSpread {
+    let cds_quote = CdsQuote::CdsParSpread {
         id: QuoteId::new("CDS-1Y"),
         entity: "APPROX-REF".to_string(),
-        pillar: Pillar::Date(Date::from_calendar_date(2026, Month::March, 20).unwrap()),
+        pillar: Pillar::Date(maturity),
         spread_bp,
         recovery_rate,
         convention: CdsConventionKey {
             currency,
             doc_clause: CdsDocClause::IsdaNa,
         },
-    })];
+    };
 
     let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
-    quote_sets.insert("credit".to_string(), quotes);
+    quote_sets.insert(
+        "credit".to_string(),
+        vec![MarketQuote::Cds(cds_quote.clone())],
+    );
 
     let hazard_id: CurveId = "APPROX-REF-SENIOR".into();
 
@@ -638,20 +643,20 @@ fn hazard_calibration_matches_flat_spread_approximation() {
 
     let result = engine::execute(&envelope).expect("execute");
     let ctx = MarketContext::try_from(result.result.final_market).expect("restore context");
-    let curve = ctx.get_hazard(hazard_id.as_str()).expect("hazard curve");
-    let (first_t, first_lambda) = curve
-        .knot_points()
-        .next()
-        .expect("expected at least one knot");
 
-    let approx_lambda = (spread_bp / 10_000.0) / (1.0 - recovery_rate);
-    let diff = (first_lambda - approx_lambda).abs();
+    let mut curve_ids = HashMap::default();
+    curve_ids.insert("discount".to_string(), "TEST-DISC".to_string());
+    curve_ids.insert("credit".to_string(), hazard_id.as_str().to_string());
+    let build_ctx = BuildCtx::new(base, fixtures::STANDARD_NOTIONAL, curve_ids);
+
+    let instrument = build_cds_instrument(&cds_quote, &build_ctx).expect("cds instrument build");
+
+    let pv = instrument.value(&ctx, base).expect("cds valuation");
+    let tolerance = 5.0;
     assert!(
-        diff < 0.02,
-        "hazard approx mismatch at t={:.2}: lambda={:.4}, approx={:.4}, diff={:.4}",
-        first_t,
-        first_lambda,
-        approx_lambda,
-        diff
+        pv.amount().abs() <= tolerance,
+        "CDS par spread repricing should be within ${}. PV=${:.6}",
+        tolerance,
+        pv.amount(),
     );
 }

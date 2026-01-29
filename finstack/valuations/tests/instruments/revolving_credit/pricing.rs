@@ -1,13 +1,13 @@
 //! Revolving credit deterministic pricing tests (no MC).
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Tenor};
+use finstack_core::dates::{DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::fixed_income::revolving_credit::{
     BaseRateSpec, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
 };
+use finstack_valuations::instruments::Instrument;
 use time::macros::date;
 
 use crate::common::test_helpers::flat_discount_curve;
@@ -26,7 +26,7 @@ fn test_pricing_fixed_utilization() {
         .day_count(DayCount::Act360)
         .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(25.0, 10.0, 0.0))
-        .draw_repay_spec(DrawRepaySpec::Scheduled(vec![]))
+        .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();
@@ -58,7 +58,7 @@ fn test_pricing_zero_utilization() {
         .day_count(DayCount::Act360)
         .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(25.0, 10.0, 0.0))
-        .draw_repay_spec(DrawRepaySpec::Scheduled(vec![]))
+        .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();
@@ -88,7 +88,7 @@ fn test_pricing_full_utilization() {
         .day_count(DayCount::Act360)
         .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(30.0, 15.0, 10.0))
-        .draw_repay_spec(DrawRepaySpec::Scheduled(vec![]))
+        .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();

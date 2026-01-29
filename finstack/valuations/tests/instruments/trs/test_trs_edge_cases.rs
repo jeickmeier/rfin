@@ -149,9 +149,10 @@ fn test_fi_index_trs_builder_validation() {
         ))
         .build();
 
-    // Assert - Builder may enforce validation
-    // Test verifies it doesn't panic
-    assert!(result.is_ok() || result.is_err());
+    assert!(
+        result.is_err(),
+        "Builder should reject missing yield/duration ids"
+    );
 }
 
 // ================================================================================================
@@ -169,9 +170,10 @@ fn test_equity_trs_with_zero_spot_price() {
     // Act
     let result = trs.value(&market, as_of_date());
 
-    // Assert - Should either fail or handle gracefully
-    // Delta calculation would fail with zero spot
-    assert!(result.is_ok() || result.is_err());
+    assert!(
+        result.is_err(),
+        "Zero spot should be rejected by total return leg"
+    );
 }
 
 #[test]
@@ -392,8 +394,10 @@ fn test_equity_trs_with_past_start_date() {
     // Act - Some periods are in the past
     let result = trs.value(&market, as_of);
 
-    // Assert - Should handle past periods
-    assert!(result.is_ok() || result.is_err());
+    assert!(
+        result.is_err(),
+        "Past start date should be rejected as invalid"
+    );
 }
 
 #[test]
@@ -466,8 +470,10 @@ fn test_fi_index_trs_maturity_equals_valuation_date() {
     // Act - Pricing at maturity with past start date
     let result = trs.value(&market, as_of);
 
-    // Assert - May fail due to past periods or succeed with zero value
-    assert!(result.is_ok() || result.is_err());
+    assert!(
+        result.is_err(),
+        "Maturity at valuation should be rejected as invalid"
+    );
 }
 
 // ================================================================================================
@@ -492,8 +498,9 @@ fn test_par_spread_with_tiny_annuity() {
         &[finstack_valuations::metrics::MetricId::ParSpread],
     );
 
-    // Assert - Should either compute or fail gracefully
-    assert!(result.is_ok() || result.is_err());
+    let valuation = result.expect("Tiny annuity should still return par spread");
+    let par_spread = *valuation.measures.get("par_spread").unwrap();
+    assert!(par_spread.is_finite());
 }
 
 #[test]
@@ -511,8 +518,9 @@ fn test_index_delta_with_very_small_spot() {
         &[finstack_valuations::metrics::MetricId::IndexDelta],
     );
 
-    // Assert - May fail with validation error for tiny spot
-    assert!(result.is_ok() || result.is_err());
+    let valuation = result.expect("Tiny but positive spot should still compute delta");
+    let delta = *valuation.measures.get("index_delta").unwrap();
+    assert!(delta.is_finite());
 }
 
 // ================================================================================================

@@ -1,13 +1,16 @@
 //! Revolving credit cashflow generation tests.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Tenor};
+use finstack_core::dates::{DayCount, Tenor};
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::fixed_income::revolving_credit::{
     BaseRateSpec, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
 };
 use time::macros::date;
+
+use crate::common::test_helpers::flat_discount_curve;
 
 #[test]
 fn test_interest_on_drawn_amounts() {
@@ -22,16 +25,23 @@ fn test_interest_on_drawn_amounts() {
         .day_count(DayCount::Act360)
         .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(25.0, 10.0, 0.0))
-        .draw_repay_spec(DrawRepaySpec::Scheduled(vec![]))
+        .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();
 
     // Act
-    let cashflows = facility.cashflows();
+    let market = MarketContext::new().insert_discount(flat_discount_curve(
+        0.03,
+        date!(2025 - 01 - 01),
+        "USD-OIS",
+    ));
+    let cashflows = facility
+        .build_full_schedule(&market, date!(2025 - 01 - 01))
+        .unwrap();
 
     // Assert
-    assert!(!cashflows.is_empty());
+    assert!(!cashflows.flows.is_empty());
     // Should include quarterly interest payments
 }
 
@@ -48,16 +58,23 @@ fn test_commitment_fee_on_undrawn() {
         .day_count(DayCount::Act360)
         .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(50.0, 10.0, 0.0)) // High commitment fee
-        .draw_repay_spec(DrawRepaySpec::Scheduled(vec![]))
+        .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();
 
     // Act
-    let cashflows = facility.cashflows();
+    let market = MarketContext::new().insert_discount(flat_discount_curve(
+        0.03,
+        date!(2025 - 01 - 01),
+        "USD-OIS",
+    ));
+    let cashflows = facility
+        .build_full_schedule(&market, date!(2025 - 01 - 01))
+        .unwrap();
 
     // Assert
-    assert!(!cashflows.is_empty());
+    assert!(!cashflows.flows.is_empty());
     // Should include commitment fees on undrawn portion
 }
 
@@ -74,14 +91,21 @@ fn test_utilization_fee_at_threshold() {
         .day_count(DayCount::Act360)
         .payment_frequency(Tenor::quarterly())
         .fees(RevolvingCreditFees::flat(25.0, 10.0, 15.0)) // Utilization fee above threshold
-        .draw_repay_spec(DrawRepaySpec::Scheduled(vec![]))
+        .draw_repay_spec(DrawRepaySpec::Deterministic(vec![]))
         .discount_curve_id("USD-OIS".into())
         .build()
         .unwrap();
 
     // Act
-    let cashflows = facility.cashflows();
+    let market = MarketContext::new().insert_discount(flat_discount_curve(
+        0.03,
+        date!(2025 - 01 - 01),
+        "USD-OIS",
+    ));
+    let cashflows = facility
+        .build_full_schedule(&market, date!(2025 - 01 - 01))
+        .unwrap();
 
     // Assert
-    assert!(!cashflows.is_empty());
+    assert!(!cashflows.flows.is_empty());
 }

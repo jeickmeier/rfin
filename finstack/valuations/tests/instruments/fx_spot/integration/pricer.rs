@@ -3,6 +3,7 @@
 use super::super::common::*;
 use finstack_core::{currency::Currency, market_data::context::MarketContext, money::Money};
 use finstack_valuations::{
+    instruments::equity::Equity,
     instruments::{fx::fx_spot::FxSpotPricer, Instrument},
     pricer::{InstrumentType, ModelKey, Pricer},
 };
@@ -60,16 +61,20 @@ fn test_pricer_with_various_instruments() {
     }
 }
 
-// Disabled: test needs proper Deposit builder setup
-// #[test]
-// fn test_pricer_wrong_instrument_type_fails() {
-//     // Test that the pricer rejects wrong instrument types
-//     let pricer = FxSpotPricer::new();
-//     let market = MarketContext::new();
-//
-//     // TODO: Create a different instrument type properly
-//     // Should fail with type mismatch
-// }
+#[test]
+fn test_pricer_wrong_instrument_type_fails() {
+    let pricer = FxSpotPricer::new();
+    let market = MarketContext::new();
+    let as_of =
+        finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+
+    let equity = Equity::new("AAPL", "AAPL", Currency::USD)
+        .with_price(100.0)
+        .with_shares(10.0);
+
+    let result = pricer.price_dyn(&equity, &market, as_of);
+    assert!(result.is_err(), "Pricer should reject non-FX instruments");
+}
 
 #[test]
 fn test_pricer_default_constructor() {

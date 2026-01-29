@@ -9,7 +9,9 @@ use finstack_core::currency::Currency;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::common::models::{ShortRateTree, ShortRateTreeConfig};
+use finstack_valuations::instruments::common::models::{
+    NodeState, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel, TreeValuator,
+};
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::Instrument;
 use time::macros::date;
@@ -24,6 +26,25 @@ fn create_flat_curve(base_date: time::Date, rate: f64, curve_id: &str) -> Discou
         .knots(dfs)
         .build()
         .unwrap()
+}
+
+struct ZeroCouponValuator {
+    notional: f64,
+}
+
+impl TreeValuator for ZeroCouponValuator {
+    fn value_at_maturity(&self, _state: &NodeState) -> finstack_core::Result<f64> {
+        Ok(self.notional)
+    }
+
+    fn value_at_node(
+        &self,
+        _state: &NodeState,
+        continuation_value: f64,
+        _dt: f64,
+    ) -> finstack_core::Result<f64> {
+        Ok(continuation_value)
+    }
 }
 
 // =============================================================================
@@ -48,19 +69,24 @@ fn test_tree_calibrates_to_curve() {
     tree.calibrate(&curve, time_to_maturity).unwrap();
 
     // Check that tree produces correct discount factors at key points
-    // Note: Tree pricing may have small numerical differences
     let test_times = [0.5, 1.0, 2.0, 3.0, 5.0];
+    let valuator = ZeroCouponValuator { notional: 1.0 };
+    let market = MarketContext::new();
 
     for &t in &test_times {
-        let curve_df = (-rate * t).exp();
+        let expected_df = (-rate * t).exp();
+        let tree_df = tree
+            .price(StateVariables::default(), t, &market, &valuator)
+            .unwrap();
 
-        // We can't directly get tree DF, but we can price a zero-coupon bond
-        // and compare with expected value
-        println!("Time {}Y: curve DF = {:.6}", t, curve_df);
+        assert!(
+            (tree_df - expected_df).abs() < 1e-3,
+            "Tree DF should match curve DF at t={}: tree_df={}, expected={}",
+            t,
+            tree_df,
+            expected_df
+        );
     }
-
-    // If calibration works, bond pricing should be close to theoretical values
-    // Tree calibration completed successfully
 }
 
 // =============================================================================

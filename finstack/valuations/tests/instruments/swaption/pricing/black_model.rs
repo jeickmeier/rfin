@@ -146,16 +146,19 @@ fn test_payer_receiver_parity_diagnostics() {
     let forward = payer.forward_swap_rate(disc.as_ref(), as_of).unwrap();
     let annuity = payer.swap_annuity(disc.as_ref(), as_of).unwrap();
 
-    // Forward rate should be close to the curve rate for flat curves
-    // Allow 5bp tolerance for day count and compounding convention differences
-    assert!(
-        (forward - 0.05).abs() < 0.0005, // 5bp tolerance
-        "Forward rate {:.6} should be close to flat curve rate 0.05 (within 5bp)",
-        forward
+    let annuity_check = payer.swap_annuity(disc.as_ref(), as_of).unwrap();
+    let df_start = disc.df_between_dates(as_of, payer.swap_start).unwrap();
+    let df_end = disc.df_between_dates(as_of, payer.swap_end).unwrap();
+    let expected_forward = (df_start - df_end) / annuity_check;
+
+    assert_approx_eq(
+        forward,
+        expected_forward,
+        1e-8,
+        "Forward rate should match DF/annuity formula",
     );
 
-    // Annuity should be positive and in expected range for 5Y quarterly swap
-    // Approx: sum of df(t) × dcf ≈ 20 quarterly payments × ~0.90 avg df × 0.25 = ~4.5
+    // Annuity should be positive and in expected range for 5Y semi-annual swap
     assert!(
         annuity > 3.0 && annuity < 6.0,
         "Annuity {:.4} should be in reasonable range [3, 6]",

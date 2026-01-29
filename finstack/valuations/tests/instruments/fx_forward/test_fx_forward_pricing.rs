@@ -156,12 +156,18 @@ fn test_fx_forward_market_forward_rate() {
         .expect("should calculate");
 
     // CIRP: F = S × DF_foreign / DF_domestic
-    // With EUR rate (3%) < USD rate (5%), EUR appreciates vs USD in the forward
-    // F should be slightly less than spot (1.10) since EUR is at premium
+    let spot = 1.10;
+    let usd_curve = market.get_discount("USD-OIS").unwrap();
+    let eur_curve = market.get_discount("EUR-OIS").unwrap();
+    let df_domestic = usd_curve.df_between_dates(as_of, maturity).unwrap();
+    let df_foreign = eur_curve.df_between_dates(as_of, maturity).unwrap();
+    let expected = spot * df_foreign / df_domestic;
+
     assert!(
-        fwd_rate > 1.05 && fwd_rate < 1.15,
-        "Forward rate {} should be near spot",
-        fwd_rate
+        (fwd_rate - expected).abs() < 1e-6,
+        "Forward rate should match CIP: got={}, expected={}",
+        fwd_rate,
+        expected
     );
 }
 
