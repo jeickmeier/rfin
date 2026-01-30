@@ -17,7 +17,7 @@ pub mod underlying;
 
 // Re-export commonly used types for convenience
 pub use contract::{ContractSpec, ScheduleSpec};
-pub use conventions::{BondConvention, IRSConvention};
+pub use conventions::{BondConvention, CommodityConvention, IRSConvention};
 pub use legs::{
     BasisSwapLeg, FinancingLegSpec, FixedLegSpec, FloatLegSpec, ParRateMethod, PayReceive,
     PremiumLegSpec, ProtectionLegSpec, TotalReturnLegSpec,

@@ -5,7 +5,46 @@
 //! - No shared state between threads
 //! - Reproducible results regardless of thread count
 //!
-//! Reference: Salmon, Moraes, Dror, Shaw (2011) - "Parallel Random Numbers: As Easy as 1, 2, 3"
+//! # Algorithm
+//!
+//! Philox uses a simplified Feistel network structure with S-box substitution
+//! via multiplication. The "4x32-10" variant produces 4 32-bit outputs per
+//! iteration using 10 rounds of mixing.
+//!
+//! # Why Philox for Monte Carlo?
+//!
+//! Counter-based PRNGs like Philox are ideal for Monte Carlo simulation:
+//!
+//! 1. **Perfect parallelization**: No mutable shared state between threads
+//! 2. **Reproducibility**: Same seed + counter always gives same result
+//! 3. **Stream splitting**: Each path can have an independent stream
+//! 4. **Fast**: Optimized for modern CPUs, no memory lookups
+//!
+//! # Statistical Quality
+//!
+//! Philox passes all tests in the TestU01 BigCrush suite, the most stringent
+//! battery of statistical tests for PRNGs. It has been validated for use in
+//! high-stakes scientific computing applications.
+//!
+//! # Industry Adoption
+//!
+//! Philox is the default or recommended PRNG in several major frameworks:
+//! - **TensorFlow**: `tf.random.Generator` uses Philox
+//! - **JAX**: `jax.random` uses Threefry/Philox
+//! - **NVIDIA cuRAND**: Philox available as `CURAND_RNG_PHILOX4_32_10`
+//! - **NumPy**: Available via `numpy.random.Philox`
+//!
+//! # References
+//!
+//! - Salmon, J.K., Moraes, M.A., Dror, R.O., & Shaw, D.E. (2011).
+//!   "Parallel Random Numbers: As Easy as 1, 2, 3."
+//!   Proceedings of SC '11 (International Conference for High Performance
+//!   Computing, Networking, Storage and Analysis).
+//!   DOI: 10.1145/2063384.2063405
+//!
+//! - TestU01: L'Ecuyer, P., & Simard, R. (2007).
+//!   "TestU01: A C Library for Empirical Testing of Random Number Generators."
+//!   ACM Transactions on Mathematical Software, 33(4), Article 22.
 
 use super::super::traits::RandomStream;
 use finstack_core::math::random::box_muller_transform;

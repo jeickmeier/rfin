@@ -4,10 +4,11 @@
 //! commodity forward contracts. Pricing uses curve-based forward interpolation
 //! with optional quoted price override.
 
+use crate::instruments::common::parameters::CommodityConvention;
 use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{Attributes, CurveIdVec};
 use finstack_core::currency::Currency;
-use finstack_core::dates::Date;
+use finstack_core::dates::{BusinessDayConvention, Date};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -171,6 +172,55 @@ pub struct CommodityForward {
         serde(default, skip_serializing_if = "Option::is_none")
     )]
     pub contract_month: Option<String>,
+    /// Optional market convention for this commodity.
+    ///
+    /// When set, provides default settlement days and calendar if not
+    /// explicitly specified. See [`CommodityConvention`] for available options.
+    #[builder(optional)]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub convention: Option<CommodityConvention>,
+    /// Settlement lag in business days (T+N).
+    ///
+    /// Defaults to 2 for most commodity markets (T+2). If `convention` is set,
+    /// uses the convention's default unless explicitly overridden here.
+    ///
+    /// # Market Standards
+    ///
+    /// | Market | Settlement |
+    /// |--------|------------|
+    /// | Energy (WTI, Brent, NG) | T+2 |
+    /// | Precious metals | T+2 |
+    /// | Base metals (LME) | T+2 |
+    /// | Power | T+1 |
+    #[builder(optional)]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub settlement_lag_days: Option<u32>,
+    /// Calendar ID for settlement date adjustments.
+    ///
+    /// Used for business day adjustment of the settlement date. If `convention`
+    /// is set, uses the convention's calendar unless explicitly overridden.
+    #[builder(optional)]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub settlement_calendar_id: Option<String>,
+    /// Business day convention for settlement date adjustment.
+    ///
+    /// Defaults to `Following` for energy commodities, `ModifiedFollowing`
+    /// for precious metals.
+    #[builder(optional)]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub settlement_bdc: Option<BusinessDayConvention>,
     /// Attributes for tagging and selection.
     #[builder(default)]
     pub attributes: Attributes,
@@ -199,6 +249,7 @@ impl CommodityForward {
             .discount_curve_id(CurveId::new("USD-OIS"))
             .exchange_opt(Some("NYMEX".to_string()))
             .contract_month_opt(Some("2025M03".to_string()))
+            .convention_opt(Some(CommodityConvention::WTICrude)) // Use WTI convention
             .attributes(
                 Attributes::new()
                     .with_tag("energy")
@@ -349,6 +400,42 @@ impl CommodityForward {
     /// At-market forwards have NPV ≈ 0 at inception.
     pub fn is_at_market(&self) -> bool {
         self.contract_price.is_none()
+    }
+
+    /// Get the effective settlement lag in business days.
+    ///
+    /// Resolution order:
+    /// 1. `settlement_lag_days` if explicitly set
+    /// 2. `convention.settlement_days()` if convention is set
+    /// 3. Default: 2 (T+2, standard for most commodities)
+    pub fn effective_settlement_lag(&self) -> u32 {
+        self.settlement_lag_days
+            .or_else(|| self.convention.map(|c| c.settlement_days()))
+            .unwrap_or(2)
+    }
+
+    /// Get the effective settlement calendar ID.
+    ///
+    /// Resolution order:
+    /// 1. `settlement_calendar_id` if explicitly set
+    /// 2. `convention.calendar_id()` if convention is set
+    /// 3. `None` (no calendar adjustment)
+    pub fn effective_settlement_calendar(&self) -> Option<&str> {
+        self.settlement_calendar_id
+            .as_deref()
+            .or_else(|| self.convention.map(|c| c.calendar_id()))
+    }
+
+    /// Get the effective business day convention for settlement.
+    ///
+    /// Resolution order:
+    /// 1. `settlement_bdc` if explicitly set
+    /// 2. `convention.business_day_convention()` if convention is set
+    /// 3. Default: `Following`
+    pub fn effective_settlement_bdc(&self) -> BusinessDayConvention {
+        self.settlement_bdc
+            .or_else(|| self.convention.map(|c| c.business_day_convention()))
+            .unwrap_or(BusinessDayConvention::Following)
     }
 }
 
@@ -691,6 +778,122 @@ mod tests {
 
         assert_eq!(deps.discount_curves.len(), 1);
         assert_eq!(deps.forward_curves.len(), 1);
+    }
+
+    #[test]
+    fn test_commodity_forward_convention_defaults() {
+        use finstack_core::dates::BusinessDayConvention;
+
+        // Forward with WTI convention
+        let forward = CommodityForward::builder()
+            .id(InstrumentId::new("WTI-CONV-TEST"))
+            .commodity_type("Energy".to_string())
+            .ticker("CL".to_string())
+            .quantity(1000.0)
+            .unit("BBL".to_string())
+            .multiplier(1.0)
+            .settlement_date(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
+            .currency(Currency::USD)
+            .position(Position::Long)
+            .forward_curve_id(CurveId::new("WTI-FORWARD"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .convention_opt(Some(CommodityConvention::WTICrude))
+            .build()
+            .expect("should build");
+
+        // WTI convention: T+2, Following, NYMEX calendar
+        assert_eq!(forward.effective_settlement_lag(), 2);
+        assert_eq!(forward.effective_settlement_calendar(), Some("nymex"));
+        assert_eq!(
+            forward.effective_settlement_bdc(),
+            BusinessDayConvention::Following
+        );
+
+        // Gold convention: T+2, Modified Following, COMEX calendar
+        let gold_forward = CommodityForward::builder()
+            .id(InstrumentId::new("GOLD-CONV-TEST"))
+            .commodity_type("Metal".to_string())
+            .ticker("GC".to_string())
+            .quantity(100.0)
+            .unit("OZ".to_string())
+            .multiplier(1.0)
+            .settlement_date(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
+            .currency(Currency::USD)
+            .position(Position::Long)
+            .forward_curve_id(CurveId::new("GC-FORWARD"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .convention_opt(Some(CommodityConvention::Gold))
+            .build()
+            .expect("should build");
+
+        assert_eq!(gold_forward.effective_settlement_lag(), 2);
+        assert_eq!(gold_forward.effective_settlement_calendar(), Some("comex"));
+        assert_eq!(
+            gold_forward.effective_settlement_bdc(),
+            BusinessDayConvention::ModifiedFollowing
+        );
+    }
+
+    #[test]
+    fn test_commodity_forward_explicit_override_convention() {
+        use finstack_core::dates::BusinessDayConvention;
+
+        // Explicit settlement lag overrides convention
+        let forward = CommodityForward::builder()
+            .id(InstrumentId::new("OVERRIDE-TEST"))
+            .commodity_type("Energy".to_string())
+            .ticker("CL".to_string())
+            .quantity(1000.0)
+            .unit("BBL".to_string())
+            .multiplier(1.0)
+            .settlement_date(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
+            .currency(Currency::USD)
+            .position(Position::Long)
+            .forward_curve_id(CurveId::new("WTI-FORWARD"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .convention_opt(Some(CommodityConvention::WTICrude)) // T+2, Following
+            .settlement_lag_days_opt(Some(1)) // Override to T+1
+            .settlement_bdc_opt(Some(BusinessDayConvention::ModifiedFollowing)) // Override BDC
+            .build()
+            .expect("should build");
+
+        // Explicit values take precedence over convention
+        assert_eq!(forward.effective_settlement_lag(), 1);
+        assert_eq!(
+            forward.effective_settlement_bdc(),
+            BusinessDayConvention::ModifiedFollowing
+        );
+        // Calendar still comes from convention
+        assert_eq!(forward.effective_settlement_calendar(), Some("nymex"));
+    }
+
+    #[test]
+    fn test_commodity_forward_no_convention_defaults() {
+        use finstack_core::dates::BusinessDayConvention;
+
+        // No convention set - should use hardcoded defaults
+        let forward = CommodityForward::builder()
+            .id(InstrumentId::new("NO-CONV-TEST"))
+            .commodity_type("Energy".to_string())
+            .ticker("CL".to_string())
+            .quantity(1000.0)
+            .unit("BBL".to_string())
+            .multiplier(1.0)
+            .settlement_date(Date::from_calendar_date(2025, Month::June, 15).expect("valid date"))
+            .currency(Currency::USD)
+            .position(Position::Long)
+            .forward_curve_id(CurveId::new("WTI-FORWARD"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .build()
+            .expect("should build");
+
+        // Defaults: T+2, Following, no calendar
+        assert_eq!(forward.effective_settlement_lag(), 2);
+        assert_eq!(forward.effective_settlement_calendar(), None);
+        assert_eq!(
+            forward.effective_settlement_bdc(),
+            BusinessDayConvention::Following
+        );
     }
 
     #[cfg(feature = "serde")]

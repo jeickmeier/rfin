@@ -12,6 +12,13 @@ use finstack_core::money::Money;
 use finstack_core::Result;
 
 /// Extracts spot price and dividend yield from market data.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - The spot price cannot be fetched from market data
+/// - A dividend yield ID is provided but the lookup fails (prevents silent configuration errors)
+/// - The dividend yield is a Price scalar instead of Unitless
 fn extract_underlying_data(
     trs: &EquityTotalReturnSwap,
     context: &MarketContext,
@@ -21,17 +28,29 @@ fn extract_underlying_data(
         MarketScalar::Price(p) => p.amount(),
     };
 
-    let div_yield = trs
-        .underlying
-        .div_yield_id
-        .as_ref()
-        .and_then(|id| {
-            context.price(id.as_str()).ok().map(|s| match s {
-                MarketScalar::Unitless(v) => *v,
-                MarketScalar::Price(p) => p.amount(),
-            })
-        })
-        .unwrap_or(0.0);
+    // When a dividend yield ID is explicitly provided, we require the lookup to succeed
+    // and return a unitless scalar. Silent fallback to 0.0 would mask market data
+    // configuration errors.
+    let div_yield = if let Some(ref div_id) = trs.underlying.div_yield_id {
+        let ms = context.price(div_id.as_str()).map_err(|e| {
+            finstack_core::Error::Validation(format!(
+                "Failed to fetch dividend yield '{}': {}",
+                div_id, e
+            ))
+        })?;
+        match ms {
+            MarketScalar::Unitless(v) => *v,
+            MarketScalar::Price(m) => {
+                return Err(finstack_core::Error::Validation(format!(
+                    "Dividend yield '{}' should be a unitless scalar, got Price({})",
+                    div_id,
+                    m.currency()
+                )));
+            }
+        }
+    } else {
+        0.0
+    };
 
     Ok((spot, div_yield))
 }
@@ -40,7 +59,7 @@ fn extract_underlying_data(
 ///
 /// Models the total return as:
 /// - **Price return**: Forward price change using F_t = S_0 * e^{(r-q)t}
-/// - **Dividend return**: Continuous dividend yield approximation (q * dt)
+/// - **Dividend return**: Continuous dividend yield approximation, net of withholding tax
 struct EquityReturnModel<'a> {
     trs: &'a EquityTotalReturnSwap,
     div_yield: f64,
@@ -66,12 +85,15 @@ impl TrsReturnModel for EquityReturnModel<'_> {
         let fwd_end = initial_level * df_end.recip() * (-self.div_yield * t_end).exp();
         let price_return = (fwd_end - fwd_start) / fwd_start;
 
-        // Dividend return component (Income)
-        // Approx: q * dt
-        // For a Total Return Swap, we pay Price Change + Dividends.
-        // This simplistic model assumes 100% dividend pass-through (Gross Return).
+        // Dividend return component (Income), net of withholding tax
+        // Gross dividend return: q * dt
+        // Net dividend return: q * dt * (1 - tax_rate)
+        //
+        // When dividend_tax_rate = 0.0, this is a Gross TRS (100% dividend pass-through)
+        // When dividend_tax_rate > 0.0, this is a Net TRS (reduced by withholding)
         let dt = t_end - t_start;
-        let dividend_return = self.div_yield * dt;
+        let tax_rate = self.trs.dividend_tax_rate.clamp(0.0, 1.0);
+        let dividend_return = self.div_yield * dt * (1.0 - tax_rate);
 
         Ok(price_return + dividend_return)
     }
@@ -97,6 +119,7 @@ impl TrsReturnModel for EquityReturnModel<'_> {
 /// # Errors
 /// Returns an error if:
 /// - The spot price cannot be fetched from market data
+/// - The dividend yield ID is set but lookup fails (prevents silent configuration errors)
 /// - The initial level is non-positive or non-finite
 /// - The discount curve is not found
 pub fn pv_total_return_leg(

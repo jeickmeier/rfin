@@ -18,15 +18,31 @@ pub use crate::instruments::ir_future::Position;
 /// to satisfy the contract. The conversion factor normalizes bonds with different
 /// coupons and maturities to a standard notional bond.
 ///
+/// # Conversion Factor Requirements
+///
+/// **IMPORTANT**: Conversion factors must match the values published by the exchange
+/// (CME for UST, Eurex for Bund, ICE for Gilt). The implementation does **not**
+/// calculate CFs internally - they must be sourced from official exchange publications.
+///
+/// The CF calculation formula (using 6% notional yield for UST/Bund, 4% for Gilt)
+/// is documented in exchange rulebooks:
+/// - **CME**: CBOT US Treasury Futures Contract Specifications
+/// - **Eurex**: Euro-Bund Futures Contract Specifications
+/// - **ICE**: Long Gilt Futures Contract Specifications
+///
+/// Using incorrect CFs will result in material pricing errors for invoice price,
+/// CTD determination, and basis calculations.
+///
 /// # Examples
 ///
 /// ```rust
 /// use finstack_valuations::instruments::fixed_income::bond_future::DeliverableBond;
 /// use finstack_core::types::InstrumentId;
 ///
+/// // CF from CME publication for a specific deliverable bond
 /// let deliverable = DeliverableBond {
 ///     bond_id: InstrumentId::new("US912828XG33"),
-///     conversion_factor: 0.8234,
+///     conversion_factor: 0.8234,  // Must match CME-published value
 /// };
 /// ```
 #[derive(Clone, Debug)]
@@ -34,7 +50,10 @@ pub use crate::instruments::ir_future::Position;
 pub struct DeliverableBond {
     /// Identifier of the deliverable bond
     pub bond_id: InstrumentId,
-    /// Conversion factor for this bond (published by exchange)
+    /// Conversion factor for this bond.
+    ///
+    /// **Must match exchange-published value**. CFs are not calculated internally.
+    /// See struct-level documentation for exchange references.
     pub conversion_factor: f64,
 }
 
@@ -386,8 +405,32 @@ pub struct BondFuture {
     pub deliverable_basket: Vec<DeliverableBond>,
 
     /// Cheapest-to-Deliver (CTD) bond identifier.
-    /// User must specify which bond in the basket to use for pricing.
-    /// In production systems, this would be calculated automatically.
+    ///
+    /// The CTD bond is the deliverable bond that maximizes the implied repo rate
+    /// (or equivalently, minimizes the basis). Users can:
+    ///
+    /// 1. **Specify directly**: Set this to a known CTD bond ID
+    /// 2. **Calculate automatically**: Use [`BondFuture::determine_ctd`] with bond clean prices
+    ///
+    /// # CTD Selection Methodology
+    ///
+    /// The CTD is determined by comparing the **net basis** for each deliverable bond:
+    ///
+    /// ```text
+    /// Net Basis = Clean Price - (Futures Price × Conversion Factor)
+    /// ```
+    ///
+    /// The bond with the **lowest net basis** (or highest implied repo) is the CTD.
+    /// In practice, this is usually the bond with:
+    /// - Highest duration (in a rising rate environment)
+    /// - Lowest duration (in a falling rate environment)
+    /// - Lowest coupon (when yields are above the notional coupon)
+    ///
+    /// # Production Note
+    ///
+    /// For production systems, use [`BondFuture::determine_ctd`] or integrate with
+    /// a real-time CTD analysis service. The CTD can change throughout the day as
+    /// bond prices and repo rates fluctuate.
     pub ctd_bond_id: InstrumentId,
 
     /// Optional embedded CTD bond definition.
@@ -1045,6 +1088,351 @@ impl BondFuture {
         let total_invoice = invoice_per_contract * num_contracts;
 
         Ok(Money::new(total_invoice, self.notional.currency()))
+    }
+
+    /// Determine the Cheapest-to-Deliver (CTD) bond from the deliverable basket.
+    ///
+    /// This method calculates the **net basis** for each deliverable bond and returns
+    /// the bond with the lowest basis (i.e., the cheapest to deliver).
+    ///
+    /// # Net Basis Calculation
+    ///
+    /// ```text
+    /// Net Basis = Clean Price - (Futures Price × Conversion Factor)
+    /// ```
+    ///
+    /// The CTD is the bond that minimizes this value. A lower basis means the bond
+    /// is cheaper relative to its invoice value, making it the optimal choice for
+    /// delivery by the short position holder.
+    ///
+    /// # Arguments
+    ///
+    /// * `bond_clean_prices` - A slice of `(InstrumentId, f64)` tuples containing
+    ///   the clean price (per 100 face) for each bond in the deliverable basket.
+    ///   Bonds not included in this slice are skipped in the CTD calculation.
+    ///
+    /// # Returns
+    ///
+    /// Returns the `InstrumentId` of the CTD bond and its net basis.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - No valid bond prices are provided for any bond in the basket
+    /// - All provided prices are non-positive
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use finstack_valuations::instruments::fixed_income::bond_future::{BondFuture, DeliverableBond, Position};
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::money::Money;
+    /// use finstack_core::types::{CurveId, InstrumentId};
+    /// use time::macros::date;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// // Create a bond future with multiple deliverables
+    /// let bond1_id = InstrumentId::new("US912828XG33");
+    /// let bond2_id = InstrumentId::new("US912828XG34");
+    ///
+    /// let future = BondFuture::ust_10y(
+    ///     InstrumentId::new("TYH5"),
+    ///     Money::new(1_000_000.0, Currency::USD),
+    ///     date!(2025-03-20),
+    ///     date!(2025-03-21),
+    ///     date!(2025-03-31),
+    ///     125.50,
+    ///     Position::Long,
+    ///     vec![
+    ///         DeliverableBond { bond_id: bond1_id.clone(), conversion_factor: 0.8234 },
+    ///         DeliverableBond { bond_id: bond2_id.clone(), conversion_factor: 0.8567 },
+    ///     ],
+    ///     bond1_id.clone(), // Initial CTD guess
+    ///     CurveId::new("USD-TREASURY"),
+    /// )?;
+    ///
+    /// // Determine CTD based on current market prices
+    /// let bond_prices = vec![
+    ///     (bond1_id.clone(), 103.25),  // Clean price per 100 face
+    ///     (bond2_id.clone(), 107.50),
+    /// ];
+    ///
+    /// let (ctd_id, net_basis) = future.determine_ctd(&bond_prices)?;
+    /// println!("CTD bond: {}, Net basis: {:.4}", ctd_id.as_str(), net_basis);
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Production Considerations
+    ///
+    /// - **Accrued Interest**: For precise CTD determination including carry, use
+    ///   [`determine_ctd_with_accrued`](Self::determine_ctd_with_accrued) which accounts
+    ///   for accrued interest and settlement timing.
+    /// - **Repo Rates**: In practice, different bonds may have different financing costs
+    ///   (repo rates). The true CTD analysis should incorporate implied repo calculations.
+    /// - **Timing**: CTD can change intraday as prices move; recalculate periodically.
+    pub fn determine_ctd(
+        &self,
+        bond_clean_prices: &[(InstrumentId, f64)],
+    ) -> finstack_core::Result<(InstrumentId, f64)> {
+        let mut best_ctd: Option<(InstrumentId, f64)> = None;
+
+        for deliverable in &self.deliverable_basket {
+            // Find the clean price for this bond
+            if let Some((_, clean_price)) = bond_clean_prices
+                .iter()
+                .find(|(id, _)| *id == deliverable.bond_id)
+            {
+                if *clean_price <= 0.0 {
+                    continue; // Skip invalid prices
+                }
+
+                // Calculate net basis: Clean Price - (Futures Price × CF)
+                let net_basis = clean_price - (self.quoted_price * deliverable.conversion_factor);
+
+                match &best_ctd {
+                    None => {
+                        best_ctd = Some((deliverable.bond_id.clone(), net_basis));
+                    }
+                    Some((_, current_best_basis)) => {
+                        if net_basis < *current_best_basis {
+                            best_ctd = Some((deliverable.bond_id.clone(), net_basis));
+                        }
+                    }
+                }
+            }
+        }
+
+        best_ctd.ok_or_else(|| {
+            finstack_core::Error::Validation(
+                "No valid bond prices provided for any bond in the deliverable basket".to_string(),
+            )
+        })
+    }
+
+    /// Determine CTD including accrued interest for precise basis calculation.
+    ///
+    /// This method calculates the **gross basis** which includes accrued interest:
+    ///
+    /// ```text
+    /// Gross Basis = (Clean Price + Accrued) - (Futures Price × CF + Accrued_at_delivery)
+    /// ```
+    ///
+    /// For a simplified calculation ignoring carry, this reduces to the net basis
+    /// when accrued at settlement equals current accrued (same-day settlement).
+    ///
+    /// # Arguments
+    ///
+    /// * `bond_prices_with_accrued` - A slice of `(InstrumentId, f64, f64)` tuples:
+    ///   - `InstrumentId`: Bond identifier
+    ///   - `f64` (position 1): Clean price per 100 face
+    ///   - `f64` (position 2): Accrued interest per 100 face
+    ///
+    /// # Returns
+    ///
+    /// Returns the `InstrumentId` of the CTD bond and its gross basis.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use finstack_valuations::instruments::fixed_income::bond_future::{BondFuture, DeliverableBond, Position};
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::money::Money;
+    /// use finstack_core::types::{CurveId, InstrumentId};
+    /// use time::macros::date;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let bond1_id = InstrumentId::new("US912828XG33");
+    /// let bond2_id = InstrumentId::new("US912828XG34");
+    ///
+    /// let future = BondFuture::ust_10y(
+    ///     InstrumentId::new("TYH5"),
+    ///     Money::new(1_000_000.0, Currency::USD),
+    ///     date!(2025-03-20),
+    ///     date!(2025-03-21),
+    ///     date!(2025-03-31),
+    ///     125.50,
+    ///     Position::Long,
+    ///     vec![
+    ///         DeliverableBond { bond_id: bond1_id.clone(), conversion_factor: 0.8234 },
+    ///         DeliverableBond { bond_id: bond2_id.clone(), conversion_factor: 0.8567 },
+    ///     ],
+    ///     bond1_id.clone(),
+    ///     CurveId::new("USD-TREASURY"),
+    /// )?;
+    ///
+    /// // Bond prices with accrued interest
+    /// let bond_data = vec![
+    ///     (bond1_id.clone(), 103.25, 1.25),  // (id, clean price, accrued)
+    ///     (bond2_id.clone(), 107.50, 1.50),
+    /// ];
+    ///
+    /// let (ctd_id, gross_basis) = future.determine_ctd_with_accrued(&bond_data)?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn determine_ctd_with_accrued(
+        &self,
+        bond_prices_with_accrued: &[(InstrumentId, f64, f64)],
+    ) -> finstack_core::Result<(InstrumentId, f64)> {
+        let mut best_ctd: Option<(InstrumentId, f64)> = None;
+
+        for deliverable in &self.deliverable_basket {
+            // Find the price data for this bond
+            if let Some((_, clean_price, accrued)) = bond_prices_with_accrued
+                .iter()
+                .find(|(id, _, _)| *id == deliverable.bond_id)
+            {
+                if *clean_price <= 0.0 {
+                    continue;
+                }
+
+                // Dirty price = Clean + Accrued
+                let dirty_price = clean_price + accrued;
+
+                // Invoice price component (without delivery accrued which would require bond schedule)
+                // Simplified: Net Basis ≈ Clean - (Futures × CF)
+                // For gross basis with carry, we'd need repo rates and delivery date accrued
+                let invoice_component = self.quoted_price * deliverable.conversion_factor;
+
+                // Gross basis (simplified - assumes same accrued at delivery)
+                let gross_basis = dirty_price - (invoice_component + accrued);
+
+                match &best_ctd {
+                    None => {
+                        best_ctd = Some((deliverable.bond_id.clone(), gross_basis));
+                    }
+                    Some((_, current_best)) => {
+                        if gross_basis < *current_best {
+                            best_ctd = Some((deliverable.bond_id.clone(), gross_basis));
+                        }
+                    }
+                }
+            }
+        }
+
+        best_ctd.ok_or_else(|| {
+            finstack_core::Error::Validation(
+                "No valid bond prices provided for any bond in the deliverable basket".to_string(),
+            )
+        })
+    }
+
+    /// Calculate implied repo rate for a specific deliverable bond.
+    ///
+    /// The implied repo rate represents the financing rate implied by the futures price
+    /// and the bond's cash price. It's used to compare the attractiveness of different
+    /// deliverable bonds and to identify arbitrage opportunities.
+    ///
+    /// # Formula
+    ///
+    /// ```text
+    /// Implied Repo = [(Invoice Price / Purchase Price) - 1] × (360 / days_to_delivery)
+    /// ```
+    ///
+    /// Where:
+    /// - Invoice Price = Futures Price × CF + Accrued at Delivery
+    /// - Purchase Price = Clean Price + Accrued Today
+    ///
+    /// # Arguments
+    ///
+    /// * `bond_id` - The identifier of the deliverable bond
+    /// * `clean_price` - Current clean price per 100 face
+    /// * `accrued_today` - Accrued interest per 100 face as of today
+    /// * `accrued_at_delivery` - Accrued interest per 100 face at delivery date
+    /// * `days_to_delivery` - Number of days until delivery
+    ///
+    /// # Returns
+    ///
+    /// The annualized implied repo rate as a decimal (e.g., 0.05 for 5%).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The specified bond is not in the deliverable basket
+    /// - The purchase price is non-positive
+    /// - Days to delivery is zero or negative
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use finstack_valuations::instruments::fixed_income::bond_future::{BondFuture, DeliverableBond, Position};
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::money::Money;
+    /// use finstack_core::types::{CurveId, InstrumentId};
+    /// use time::macros::date;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let bond_id = InstrumentId::new("US912828XG33");
+    /// let future = BondFuture::ust_10y(
+    ///     InstrumentId::new("TYH5"),
+    ///     Money::new(1_000_000.0, Currency::USD),
+    ///     date!(2025-03-20),
+    ///     date!(2025-03-21),
+    ///     date!(2025-03-31),
+    ///     125.50,
+    ///     Position::Long,
+    ///     vec![DeliverableBond { bond_id: bond_id.clone(), conversion_factor: 0.8234 }],
+    ///     bond_id.clone(),
+    ///     CurveId::new("USD-TREASURY"),
+    /// )?;
+    ///
+    /// // Calculate implied repo for the CTD bond
+    /// let implied_repo = future.implied_repo_rate(
+    ///     &bond_id,
+    ///     103.25,  // clean price
+    ///     1.25,    // accrued today
+    ///     1.75,    // accrued at delivery
+    ///     30,      // days to delivery
+    /// )?;
+    ///
+    /// println!("Implied repo rate: {:.2}%", implied_repo * 100.0);
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn implied_repo_rate(
+        &self,
+        bond_id: &InstrumentId,
+        clean_price: f64,
+        accrued_today: f64,
+        accrued_at_delivery: f64,
+        days_to_delivery: i32,
+    ) -> finstack_core::Result<f64> {
+        // Find the conversion factor for this bond
+        let cf = self
+            .deliverable_basket
+            .iter()
+            .find(|db| db.bond_id == *bond_id)
+            .ok_or_else(|| {
+                finstack_core::Error::Validation(format!(
+                    "Bond {} not found in deliverable basket",
+                    bond_id.as_str()
+                ))
+            })?
+            .conversion_factor;
+
+        if days_to_delivery <= 0 {
+            return Err(finstack_core::Error::Validation(
+                "Days to delivery must be positive".to_string(),
+            ));
+        }
+
+        // Purchase price (dirty price today)
+        let purchase_price = clean_price + accrued_today;
+        if purchase_price <= 0.0 {
+            return Err(finstack_core::Error::Validation(
+                "Purchase price must be positive".to_string(),
+            ));
+        }
+
+        // Invoice price at delivery
+        let invoice_price = (self.quoted_price * cf) + accrued_at_delivery;
+
+        // Implied repo rate (money market convention: 360 days)
+        let holding_period_return = (invoice_price / purchase_price) - 1.0;
+        let annualized = holding_period_return * (360.0 / days_to_delivery as f64);
+
+        Ok(annualized)
     }
 }
 

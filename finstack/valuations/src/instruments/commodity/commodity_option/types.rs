@@ -1,7 +1,7 @@
 //! Commodity option instrument definition and pricing logic.
 
 use crate::instruments::common::models::trees::binomial_tree::BinomialTree;
-use crate::instruments::common::parameters::OptionMarketParams;
+use crate::instruments::common::parameters::{CommodityConvention, OptionMarketParams};
 use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{
     Attributes, CurveDependencies, CurveIdVec, Instrument, InstrumentCurves,
@@ -88,6 +88,26 @@ pub struct CommodityOption {
     pub day_count: DayCount,
     /// Pricing overrides (implied vol, tree steps, etc.).
     pub pricing_overrides: PricingOverrides,
+    /// Optional market convention for this commodity.
+    ///
+    /// When set, provides default premium settlement days and calendar.
+    #[builder(optional)]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub convention: Option<CommodityConvention>,
+    /// Premium settlement lag in business days after trade date.
+    ///
+    /// Standard: T+1 for most exchange-traded options, T+2 for OTC.
+    /// If not set and `convention` is provided, uses convention default.
+    /// Otherwise defaults to 1 (T+1).
+    #[builder(optional)]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub premium_settlement_days: Option<u32>,
     /// Attributes for tagging and selection.
     #[builder(default)]
     pub attributes: Attributes,
@@ -290,6 +310,18 @@ impl CommodityOption {
                 ),
             },
         ))
+    }
+
+    /// Get the effective premium settlement lag in business days.
+    ///
+    /// Resolution order:
+    /// 1. `premium_settlement_days` if explicitly set
+    /// 2. `convention.settlement_days()` if convention is set
+    /// 3. Default: 1 (T+1, standard for exchange-traded options)
+    pub fn effective_premium_settlement_days(&self) -> u32 {
+        self.premium_settlement_days
+            .or_else(|| self.convention.map(|c| c.settlement_days()))
+            .unwrap_or(1)
     }
 }
 

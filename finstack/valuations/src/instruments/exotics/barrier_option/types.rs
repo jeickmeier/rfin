@@ -21,9 +21,32 @@ pub enum BarrierType {
     DownAndIn,
 }
 
+/// Default for use_gobet_miri field.
+///
+/// Returns `true` to enable discrete barrier monitoring correction by default.
+/// This matches the recommended production setting.
+fn default_gobet_miri() -> bool {
+    true
+}
+
 /// Barrier option instrument.
 ///
 /// Barrier options are options with a barrier level that can knock in or out.
+///
+/// # Barrier Monitoring
+///
+/// Real-world barriers are typically monitored discretely (e.g., daily closes), not continuously.
+/// Continuous barrier formulas underestimate discrete barrier option values. The `use_gobet_miri`
+/// flag enables the Gobet-Miri discrete monitoring correction (β ≈ 0.5826), which adjusts the
+/// effective barrier level: `H_adj = H × exp(±0.5826 × σ × √Δt)`.
+///
+/// **Recommendation**: Set `use_gobet_miri = true` (the default) for real-world pricing.
+/// Only disable for continuous monitoring benchmarks or academic comparisons.
+///
+/// # References
+///
+/// - Broadie, Glasserman & Kou (1997), "A Continuity Correction for Discrete Barrier Options"
+/// - Gobet (2000), "Weak Approximation of Killed Diffusion Using Euler Schemes"
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
@@ -48,7 +71,24 @@ pub struct BarrierOption {
     pub notional: Money,
     /// Day count convention
     pub day_count: finstack_core::dates::DayCount,
-    /// Whether to use Gobet-Miri continuous barrier adjustment
+    /// Whether to use Gobet-Miri discrete barrier adjustment for Monte Carlo pricing.
+    ///
+    /// When `true` (recommended), applies the Broadie-Glasserman-Kou / Gobet-Miri correction
+    /// to account for discrete barrier monitoring. This adjusts the effective barrier by
+    /// `exp(±0.5826 × σ × √Δt)` where Δt is the time step.
+    ///
+    /// # Default Value
+    ///
+    /// **Defaults to `true`** for both builder and serde deserialization, as this
+    /// reflects real-world discrete monitoring (daily closes). Set to `false` only
+    /// for continuous monitoring benchmarks or academic comparisons.
+    ///
+    /// # Production Recommendation
+    ///
+    /// Always use `true` for production pricing of barrier options. Continuous
+    /// barrier formulas systematically underestimate discrete barrier option values.
+    #[builder(default = default_gobet_miri())]
+    #[cfg_attr(feature = "serde", serde(default = "default_gobet_miri"))]
     pub use_gobet_miri: bool,
     /// Discount curve ID for present value calculations
     pub discount_curve_id: CurveId,
@@ -66,6 +106,8 @@ pub struct BarrierOption {
 
 impl BarrierOption {
     /// Create a canonical example barrier option (up-and-out call).
+    ///
+    /// Note: Uses `use_gobet_miri = true` by default for realistic discrete monitoring.
     pub fn example() -> Self {
         use finstack_core::currency::Currency;
         use finstack_core::dates::DayCount;
@@ -81,7 +123,7 @@ impl BarrierOption {
             .expiry(date!(2024 - 12 - 20))
             .notional(Money::new(100_000.0, Currency::USD))
             .day_count(DayCount::Act365F)
-            .use_gobet_miri(false)
+            .use_gobet_miri(true) // Enable discrete monitoring correction (recommended)
             .discount_curve_id(CurveId::new("USD-OIS"))
             .spot_id("SPX-SPOT".to_string())
             .vol_surface_id(CurveId::new("SPX-VOL"))

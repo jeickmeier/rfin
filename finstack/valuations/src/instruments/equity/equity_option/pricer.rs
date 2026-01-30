@@ -317,19 +317,25 @@ pub fn compute_greeks(
             let delta_unit = (price_up - price_dn) / (2.0 * h_s);
             let gamma_unit = (price_up - 2.0 * base_price + price_dn) / (h_s * h_s);
 
-            // Vega (1% vol bump)
+            // Vega (1% vol bump) - central difference for O(h²) accuracy
             let h_v = 0.01;
-            let mut p_v = params.clone();
-            p_v.volatility += h_v;
-            let price_v = price_fn(&p_v)?;
-            let vega_unit = price_v - base_price;
+            let mut p_v_up = params.clone();
+            p_v_up.volatility += h_v;
+            let price_v_up = price_fn(&p_v_up)?;
+            let mut p_v_dn = params.clone();
+            p_v_dn.volatility = (p_v_dn.volatility - h_v).max(1e-8); // Ensure vol stays positive
+            let price_v_dn = price_fn(&p_v_dn)?;
+            let vega_unit = (price_v_up - price_v_dn) / 2.0; // Per 1% vol change
 
-            // Rho (1% rate bump)
+            // Rho (1% rate bump) - central difference for O(h²) accuracy
             let h_r = 0.01;
-            let mut p_r = params.clone();
-            p_r.rate += h_r;
-            let price_r = price_fn(&p_r)?;
-            let rho_unit = price_r - base_price;
+            let mut p_r_up = params.clone();
+            p_r_up.rate += h_r;
+            let price_r_up = price_fn(&p_r_up)?;
+            let mut p_r_dn = params.clone();
+            p_r_dn.rate -= h_r;
+            let price_r_dn = price_fn(&p_r_dn)?;
+            let rho_unit = (price_r_up - price_r_dn) / 2.0; // Per 1% rate change
 
             // Theta (1 day bump)
             let dt = 1.0 / 365.25;

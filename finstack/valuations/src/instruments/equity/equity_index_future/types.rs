@@ -456,12 +456,20 @@ impl EquityIndexFuture {
         // Get risk-free rate from discount curve
         let r = disc.zero(t);
 
-        // Get dividend yield (default to 0 if not provided)
+        // Get dividend yield
+        // If dividend_yield_id is set, the lookup MUST succeed to prevent silent errors.
+        // If not set, default to 0.0 (appropriate for indices without explicit dividend yield).
         let q = if let Some(ref div_id) = self.dividend_yield_id {
             match context.price(div_id) {
                 Ok(MarketScalar::Unitless(v)) => *v,
                 Ok(MarketScalar::Price(m)) => m.amount(),
-                Err(_) => 0.0,
+                Err(e) => {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "Dividend yield lookup failed for '{}': {}. \
+                         If dividend yield is not needed, set dividend_yield_id to None.",
+                        div_id, e
+                    )));
+                }
             }
         } else {
             0.0
@@ -504,11 +512,18 @@ impl EquityIndexFuture {
         let r = disc.zero(t);
 
         // Get dividend yield
+        // If dividend_yield_id is set, the lookup MUST succeed to prevent silent errors.
         let q = if let Some(ref div_id) = self.dividend_yield_id {
             match context.price(div_id) {
                 Ok(MarketScalar::Unitless(v)) => *v,
                 Ok(MarketScalar::Price(m)) => m.amount(),
-                Err(_) => 0.0,
+                Err(e) => {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "Dividend yield lookup failed for '{}': {}. \
+                         If dividend yield is not needed, set dividend_yield_id to None.",
+                        div_id, e
+                    )));
+                }
             }
         } else {
             0.0

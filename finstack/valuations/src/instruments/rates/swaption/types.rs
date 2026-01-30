@@ -67,10 +67,25 @@ pub enum SwaptionSettlement {
 /// The choice of annuity method affects the settlement amount and can result
 /// in differences of several basis points on notional for steep curves.
 ///
+/// # ⚠️ Production Recommendation
+///
+/// For production systems requiring ISDA compliance, use [`IsdaParPar`](Self::IsdaParPar):
+///
+/// ```rust,ignore
+/// let swaption = Swaption::example()
+///     .with_cash_settlement_method(CashSettlementMethod::IsdaParPar);
+/// ```
+///
+/// The default `ParYield` method is a fast approximation suitable for:
+/// - Quick calculations and screening
+/// - Flat yield curve environments
+/// - Short-dated swaptions where precision is less critical
+///
 /// # References
 ///
 /// - ISDA 2006 Definitions, Section 18.2
 /// - "Interest Rate Models" by Brigo & Mercurio, Chapter 6
+/// - Bloomberg VCUB/SWPM: Uses ISDA Par-Par for production
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
@@ -83,6 +98,9 @@ pub enum CashSettlementMethod {
     ///
     /// This is a closed-form approximation that assumes the forward swap rate
     /// is a constant discount rate. Fast but less accurate for steep curves.
+    ///
+    /// **Note**: This is the default for backwards compatibility, but
+    /// [`IsdaParPar`](Self::IsdaParPar) is recommended for production use.
     #[default]
     ParYield,
 
@@ -96,12 +114,23 @@ pub enum CashSettlementMethod {
     /// matching the PV01 of the underlying swap. This is the most accurate
     /// method and matches professional library implementations.
     ///
-    /// # When to Use
+    /// # ✅ Recommended for Production
     ///
+    /// Use this method for:
     /// - Production pricing requiring ISDA compliance
     /// - Steep yield curve environments
     /// - Long-dated swaptions (> 5Y into > 10Y swap)
+    /// - Trade confirmation matching
     /// - Any situation where cash settlement valuation precision matters
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let swaption = Swaption::builder()
+    ///     // ... other fields ...
+    ///     .cash_settlement_method(CashSettlementMethod::IsdaParPar)
+    ///     .build()?;
+    /// ```
     IsdaParPar,
 
     /// Zero coupon method discounting the single payment to swap maturity.
@@ -244,7 +273,7 @@ impl BermudanSchedule {
             swap_end,
             fixed_freq,
             StubKind::None,
-            BusinessDayConvention::Following,
+            BusinessDayConvention::ModifiedFollowing, // Market standard per ISDA
             None,
         )?;
         // Exercise dates are all coupon dates except the last one (maturity)
@@ -761,7 +790,7 @@ impl Swaption {
             self.swap_end,
             self.fixed_freq,
             StubKind::None,
-            BusinessDayConvention::Following,
+            BusinessDayConvention::ModifiedFollowing, // Market standard per ISDA
             None,
         )?;
         let dates = sched.dates;
@@ -908,7 +937,7 @@ impl Swaption {
             self.swap_end,
             self.float_freq,
             StubKind::None,
-            BusinessDayConvention::Following,
+            BusinessDayConvention::ModifiedFollowing, // Market standard per ISDA
             None,
         )?;
 
@@ -1427,7 +1456,7 @@ impl BermudanSwaption {
             self.swap_end,
             self.fixed_freq,
             StubKind::None,
-            BusinessDayConvention::Following,
+            BusinessDayConvention::ModifiedFollowing, // Market standard per ISDA
             None,
         )?;
 
@@ -1496,7 +1525,7 @@ impl BermudanSwaption {
             self.swap_end,
             self.float_freq,
             StubKind::None,
-            BusinessDayConvention::Following,
+            BusinessDayConvention::ModifiedFollowing, // Market standard per ISDA
             None,
         )?;
 

@@ -196,7 +196,7 @@ pub fn bs_price(
 /// * `sigma` - Volatility σ (annualized)
 /// * `t` - Time to expiration T (in years)
 /// * `option_type` - Call or Put
-/// * `theta_days_per_year` - Day-count basis for theta (e.g., 365.0 for ACT/365)
+/// * `theta_days_per_year` - Day-count basis for theta conversion (see below)
 ///
 /// # Returns
 ///
@@ -204,9 +204,35 @@ pub fn bs_price(
 /// - `delta`: ∂V/∂S (per unit)
 /// - `gamma`: ∂²V/∂S² (per unit)
 /// - `vega`: ∂V/∂σ per 1% vol change
-/// - `theta`: ∂V/∂t per day
+/// - `theta`: ∂V/∂t per day (using specified day-count basis)
 /// - `rho_r`: ∂V/∂r per 1% domestic rate change
 /// - `rho_q`: ∂V/∂q per 1% foreign/dividend rate change
+///
+/// # Theta Day-Count Conventions
+///
+/// The `theta_days_per_year` parameter converts annualized theta to per-day theta.
+/// Choose based on your market convention:
+///
+/// | Convention | Value | Use Case |
+/// |------------|-------|----------|
+/// | ACT/365 | 365.0 | UK Gilts, GBP options, equity options (US) |
+/// | ACT/365.25 | 365.25 | Leap year average, some academic models |
+/// | ACT/360 | 360.0 | Money market, most FX, EUR rates |
+/// | 30/360 | 360.0 | US corporate bonds, some swaps |
+/// | Business days | 252.0 | Trading days only (equity risk systems) |
+///
+/// **Common choices:**
+/// - Equity options: Use 365.0 (calendar days)
+/// - FX options: Use 365.0 or 360.0 depending on currency pair
+/// - IR options: Match the underlying swap's day count
+/// - Risk systems: Often use 252.0 (trading days) for consistency
+///
+/// # Theta Sign Convention
+///
+/// Theta is typically **negative** for long options (time decay hurts).
+/// The returned value represents the daily P&L impact:
+/// - Negative theta: option loses value as time passes
+/// - Positive theta: option gains value (rare, e.g., deep ITM puts with high rates)
 ///
 /// # Examples
 ///
@@ -214,10 +240,14 @@ pub fn bs_price(
 /// use finstack_valuations::instruments::common::models::closed_form::vanilla::{bs_greeks, BsGreeks};
 /// use finstack_valuations::instruments::OptionType;
 ///
+/// // Equity option with calendar day theta
 /// let greeks = bs_greeks(100.0, 100.0, 0.05, 0.02, 0.20, 1.0, OptionType::Call, 365.0);
 /// assert!(greeks.delta > 0.0 && greeks.delta < 1.0); // Call delta in (0, 1)
 /// assert!(greeks.gamma > 0.0); // Gamma always positive
 /// assert!(greeks.vega > 0.0);  // Vega always positive
+///
+/// // FX option with ACT/360 theta
+/// let fx_greeks = bs_greeks(1.10, 1.12, 0.05, 0.03, 0.08, 0.5, OptionType::Put, 360.0);
 /// ```
 #[must_use]
 #[inline]

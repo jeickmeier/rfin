@@ -369,4 +369,92 @@ impl FxOption {
         self.calculator()
             .implied_vol(self, curves, as_of, target_price, initial_guess)
     }
+
+    /// Calculate the at-the-money forward (ATMF) strike.
+    ///
+    /// The ATMF strike is the forward FX rate, calculated using covered interest
+    /// rate parity:
+    ///
+    /// ```text
+    /// K_ATMF = S × DF_foreign(T) / DF_domestic(T)
+    /// ```
+    ///
+    /// This is **not** the same as the Delta-Neutral Straddle (DNS) strike used
+    /// in professional FX markets. For precise ATM DNS, use [`atm_dns_strike`](Self::atm_dns_strike).
+    ///
+    /// # Arguments
+    ///
+    /// * `spot` - Current spot FX rate (domestic per foreign)
+    /// * `df_domestic` - Domestic discount factor to expiry
+    /// * `df_foreign` - Foreign discount factor to expiry
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let spot = 1.10; // EUR/USD
+    /// let df_domestic = 0.97; // USD discount factor
+    /// let df_foreign = 0.98; // EUR discount factor
+    ///
+    /// let k_atmf = FxOption::atm_forward_strike(spot, df_domestic, df_foreign);
+    /// // k_atmf ≈ 1.111 (forward premium for EUR vs USD)
+    /// ```
+    pub fn atm_forward_strike(spot: f64, df_domestic: f64, df_foreign: f64) -> f64 {
+        spot * df_foreign / df_domestic
+    }
+
+    /// Calculate the Delta-Neutral Straddle (DNS) strike.
+    ///
+    /// The DNS strike is the strike where the call delta equals the negative of
+    /// the put delta. This is the interbank convention for "ATM" options.
+    ///
+    /// For spot delta convention:
+    /// ```text
+    /// K_DNS = F × exp(0.5 × σ² × T)
+    /// ```
+    ///
+    /// For forward delta convention (premium-adjusted):
+    /// ```text
+    /// K_DNS = F × exp(-0.5 × σ² × T)
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `forward` - Forward FX rate (use [`atm_forward_strike`](Self::atm_forward_strike))
+    /// * `vol` - ATM volatility (decimal, e.g., 0.10 for 10%)
+    /// * `time_to_expiry` - Time to expiry in years
+    /// * `use_forward_delta` - If true, use forward delta convention (interbank standard)
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let forward = 1.111;
+    /// let vol = 0.10; // 10% vol
+    /// let t = 0.5; // 6 months
+    ///
+    /// // Spot delta DNS (Bloomberg default)
+    /// let k_dns_spot = FxOption::atm_dns_strike(forward, vol, t, false);
+    ///
+    /// // Forward delta DNS (interbank standard)
+    /// let k_dns_fwd = FxOption::atm_dns_strike(forward, vol, t, true);
+    /// ```
+    ///
+    /// # References
+    ///
+    /// - Wystup, U. (2006). *FX Options and Structured Products*. Chapter 2.
+    /// - Clark, I. J. (2011). *Foreign Exchange Option Pricing*. Chapter 3.
+    pub fn atm_dns_strike(
+        forward: f64,
+        vol: f64,
+        time_to_expiry: f64,
+        use_forward_delta: bool,
+    ) -> f64 {
+        let variance = vol * vol * time_to_expiry;
+        if use_forward_delta {
+            // Forward delta convention: K = F × exp(-0.5 × σ² × T)
+            forward * (-0.5 * variance).exp()
+        } else {
+            // Spot delta convention: K = F × exp(+0.5 × σ² × T)
+            forward * (0.5 * variance).exp()
+        }
+    }
 }

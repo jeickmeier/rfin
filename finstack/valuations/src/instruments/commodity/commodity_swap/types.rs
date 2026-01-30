@@ -219,14 +219,21 @@ impl CommoditySwap {
 
     /// Calculate expected average price for a period.
     ///
-    /// Samples the price curve at multiple points within the period and averages.
-    /// Applies index lag if specified (shifts observation window backwards).
+    /// Uses business day weighted averaging for the observation period, which is
+    /// the market standard for commodity swaps. Weekends are excluded from the
+    /// average (no calendar applied yet - just weekday filtering).
     ///
     /// # Arguments
     /// * `price_curve` - The commodity price curve
     /// * `as_of` - Valuation date
     /// * `period_start` - Start of the averaging period
     /// * `period_end` - End of the averaging period
+    ///
+    /// # Averaging Method
+    ///
+    /// For periods up to 40 days, samples every business day (weekday) within
+    /// the observation window. For longer periods, uses weekly sampling to
+    /// balance accuracy and performance.
     ///
     /// # Note on PriceCurve Evaluation
     ///
@@ -252,28 +259,53 @@ impl CommoditySwap {
                 .unwrap_or_else(|_| price_curve.spot_price())
         };
 
+        // Helper to check if date is a weekday (basic business day filter)
+        let is_weekday = |date: Date| -> bool {
+            let wd = date.weekday();
+            wd != time::Weekday::Saturday && wd != time::Weekday::Sunday
+        };
+
         // For past periods (both obs dates <= curve base), use spot price
         let curve_base = price_curve.base_date();
         if obs_end <= curve_base {
             return Ok(price_curve.spot_price());
         }
 
-        // For future periods, sample multiple points and average
-        // Use 3-point averaging: start, middle, end of observation period
-        let obs_mid = obs_start + (obs_end - obs_start) / 2;
+        // Calculate number of calendar days in observation period
+        let period_days = (obs_end - obs_start).whole_days();
 
-        // Sample prices at start, mid, end using date-based evaluation
-        let p_start = get_price(obs_start);
-        let p_mid = get_price(obs_mid);
-        let p_end = get_price(obs_end);
+        // Choose sampling strategy based on period length
+        // For periods <= 40 days: daily business day sampling
+        // For longer periods: weekly sampling (every 5 business days)
+        let step_days = if period_days <= 40 { 1 } else { 7 };
 
-        // Simple average (could use weighted average for more accuracy)
-        Ok((p_start + p_mid + p_end) / 3.0)
+        let mut sum = 0.0;
+        let mut count = 0;
+        let mut current = obs_start;
+
+        while current <= obs_end {
+            // Only include weekdays in the average (basic business day filter)
+            if is_weekday(current) {
+                sum += get_price(current);
+                count += 1;
+            }
+            current += time::Duration::days(step_days);
+        }
+
+        // Ensure we have at least one observation
+        if count == 0 {
+            // Fallback: use midpoint if no weekdays found (shouldn't happen in practice)
+            let mid = obs_start + (obs_end - obs_start) / 2;
+            return Ok(get_price(mid));
+        }
+
+        Ok(sum / count as f64)
     }
 
     /// Generate the payment schedule for this swap.
     pub fn payment_schedule(&self, _as_of: Date) -> Result<Vec<Date>> {
-        let bdc = self.bdc.unwrap_or(BusinessDayConvention::Following);
+        // Market standard: Modified Following for commodity swaps (matches QuantLib/Bloomberg)
+        let bdc = self.bdc.unwrap_or(BusinessDayConvention::ModifiedFollowing);
 
         let mut builder =
             ScheduleBuilder::new(self.start_date, self.end_date)?.frequency(self.payment_frequency);

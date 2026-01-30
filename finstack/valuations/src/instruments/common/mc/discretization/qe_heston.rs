@@ -112,6 +112,35 @@ impl QeHeston {
     }
 
     /// Compute next variance using QE scheme.
+    ///
+    /// # Algorithm
+    ///
+    /// The QE scheme from Andersen (2008) uses a conditional moment-matching
+    /// approach based on the ratio ψ = s²/m² where:
+    /// - m = E[v_{t+Δt} | v_t] (conditional mean)
+    /// - s² = Var[v_{t+Δt} | v_t] (conditional variance)
+    ///
+    /// # Numerical Safeguards
+    ///
+    /// This implementation includes two safeguards not in the original paper:
+    ///
+    /// 1. **ψ clamping**: ψ is clamped to max 10.0 to prevent overflow in the
+    ///    Case A (quadratic) branch. This can occur when:
+    ///    - Very high vol-of-vol (σ_v)
+    ///    - Large time steps (Δt)
+    ///    - Feller condition violated (2κθ < σ_v²)
+    ///
+    ///    The clamp ensures numerical stability without materially affecting
+    ///    results since ψ > 10 would use Case B anyway (exponential mixture).
+    ///
+    /// 2. **Small mean handling**: When m < 1e-8, we force Case B directly
+    ///    to avoid amplified numerical errors from division by near-zero.
+    ///
+    /// # References
+    ///
+    /// - Andersen, L. (2008). "Simple and efficient simulation of the Heston
+    ///   stochastic volatility model." Journal of Computational Finance, 11(3).
+    /// - See Section 3.2.3 for the QE algorithm and Section 4 for numerical issues.
     fn step_variance(
         &self,
         v_t: f64,
@@ -124,22 +153,33 @@ impl QeHeston {
         // Ensure non-negative input
         let v_t = v_t.max(0.0);
 
-        // Compute conditional mean and variance
+        // Compute conditional mean and variance (Andersen 2008, Eq. 17-18)
         let exp_kappa_dt = (-kappa * dt).exp();
         let m = theta + (v_t - theta) * exp_kappa_dt;
         let s2 = v_t * sigma_v * sigma_v * exp_kappa_dt * (1.0 - exp_kappa_dt) / kappa
             + theta * sigma_v * sigma_v * (1.0 - exp_kappa_dt).powi(2) / (2.0 * kappa);
 
-        // Compute ψ = s²/m²
-        // Add safeguards for extreme cases to prevent numerical instability
+        // Compute ψ = s²/m² with numerical safeguards
+        //
+        // Safeguard 1: Clamp ψ to 10.0 maximum
+        // =====================================
+        // Rationale: For ψ > ψ_c (typically 1.5), the QE scheme uses Case B
+        // (exponential mixture). However, the Case A formulas involve terms like
+        // (2/ψ - 1) which become negative for ψ > 2. Clamping to 10.0 ensures
+        // we always use Case B for extreme ψ values, avoiding numerical issues.
+        //
+        // This is a numerical stability enhancement, not a material change to
+        // the algorithm - ψ values this high already force Case B.
+        //
+        // Safeguard 2: Force Case B for tiny mean
+        // =======================================
+        // Rationale: When m → 0, ψ = s²/m² → ∞, but the division itself may
+        // produce overflow or NaN. Forcing Case B directly avoids this.
         let psi = if m > 1e-8 {
             let ratio = s2 / (m * m);
-            // Clamp to prevent overflow in Case A branch and ensure we stay within QE scheme bounds
-            // ψ_c is typically 1.5, so cap at reasonable value to prevent extreme calculations
-            ratio.min(10.0)
+            ratio.min(10.0) // Safeguard 1: clamp to prevent Case A overflow
         } else {
-            // Very small mean: force Case B (exponential) directly
-            // This avoids division by tiny m values which can amplify errors
+            // Safeguard 2: very small mean forces Case B
             self.psi_c + 1.0
         };
 

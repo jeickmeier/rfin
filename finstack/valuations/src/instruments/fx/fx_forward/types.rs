@@ -188,6 +188,112 @@ impl FxForward {
             })
     }
 
+    /// Returns the standard spot settlement days for a currency pair.
+    ///
+    /// # Market Conventions
+    ///
+    /// | Pair | Settlement | Notes |
+    /// |------|------------|-------|
+    /// | USD/CAD | T+1 | Same time zone |
+    /// | USD/TRY | T+1 | Same time zone |
+    /// | USD/RUB | T+1 | Same time zone |
+    /// | USD/PHP | T+1 | Same time zone |
+    /// | Other | T+2 | Standard settlement |
+    ///
+    /// # Arguments
+    ///
+    /// * `base` - Base currency (foreign)
+    /// * `quote` - Quote currency (domestic)
+    ///
+    /// # Returns
+    ///
+    /// Number of business days for spot settlement (1 or 2).
+    pub fn standard_spot_days(base: Currency, quote: Currency) -> u32 {
+        // T+1 pairs (same time zone or specific market conventions)
+        let is_t1 = matches!(
+            (base, quote),
+            // USD/CAD and CAD/USD
+            (Currency::USD, Currency::CAD) | (Currency::CAD, Currency::USD) // Note: USD/TRY, USD/RUB, USD/PHP would also be T+1 when supported
+        );
+
+        if is_t1 {
+            1
+        } else {
+            2
+        }
+    }
+
+    /// Construct an FX forward from trade date with automatic settlement detection.
+    ///
+    /// This is the recommended constructor for production use. It automatically
+    /// determines the correct spot settlement days based on the currency pair.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Instrument identifier
+    /// * `base_currency` - Foreign currency (numerator)
+    /// * `quote_currency` - Domestic currency (denominator)
+    /// * `trade_date` - Trade date
+    /// * `tenor_days` - Days from spot to maturity
+    /// * `notional` - Notional in base currency
+    /// * `domestic_discount_curve_id` - Quote currency discount curve
+    /// * `foreign_discount_curve_id` - Base currency discount curve
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// // USD/CAD forward (T+1 settlement)
+    /// let usdcad = FxForward::from_trade_date_auto(
+    ///     "USDCAD-1M",
+    ///     Currency::USD,
+    ///     Currency::CAD,
+    ///     trade_date,
+    ///     30,
+    ///     notional,
+    ///     "CAD-OIS",
+    ///     "USD-OIS",
+    /// )?;
+    ///
+    /// // EUR/USD forward (T+2 settlement)
+    /// let eurusd = FxForward::from_trade_date_auto(
+    ///     "EURUSD-1M",
+    ///     Currency::EUR,
+    ///     Currency::USD,
+    ///     trade_date,
+    ///     30,
+    ///     notional,
+    ///     "USD-OIS",
+    ///     "EUR-OIS",
+    /// )?;
+    /// ```
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_trade_date_auto(
+        id: impl Into<InstrumentId>,
+        base_currency: Currency,
+        quote_currency: Currency,
+        trade_date: Date,
+        tenor_days: i64,
+        notional: Money,
+        domestic_discount_curve_id: impl Into<CurveId>,
+        foreign_discount_curve_id: impl Into<CurveId>,
+    ) -> finstack_core::Result<Self> {
+        let spot_lag = Self::standard_spot_days(base_currency, quote_currency);
+        Self::from_trade_date(
+            id,
+            base_currency,
+            quote_currency,
+            trade_date,
+            tenor_days,
+            notional,
+            domestic_discount_curve_id,
+            foreign_discount_curve_id,
+            None,
+            None,
+            spot_lag,
+            finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+        )
+    }
+
     /// Construct an FX forward from trade date and tenor using joint calendar spot roll.
     ///
     /// # Arguments
@@ -202,7 +308,8 @@ impl FxForward {
     /// * `foreign_discount_curve_id` - Base currency discount curve
     /// * `base_calendar_id` - Optional base currency calendar
     /// * `quote_calendar_id` - Optional quote currency calendar
-    /// * `spot_lag_days` - Spot lag (typically 2, or 1 for USD/CAD)
+    /// * `spot_lag_days` - Spot lag (typically 2, or 1 for USD/CAD). Use
+    ///   [`standard_spot_days`](Self::standard_spot_days) to determine automatically.
     /// * `bdc` - Business day convention
     #[allow(clippy::too_many_arguments)]
     pub fn from_trade_date(

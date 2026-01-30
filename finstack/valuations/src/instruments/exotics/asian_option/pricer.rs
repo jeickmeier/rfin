@@ -846,11 +846,17 @@ impl Pricer for AsianOptionAnalyticalGeometricPricer {
             ));
         }
 
-        // Seasoned Geometric Analytical not fully supported yet
+        // Seasoned Geometric Asian requires adjusted strike formula not yet implemented.
+        // The adjustment involves: K_eff = (n·K - G_past) / (n - m) where G_past is the
+        // geometric average of past fixings. For now, fall back to Monte Carlo.
         if count > 0 {
             return Err(PricingError::model_failure_ctx(
-                "Seasoned Geometric Asian not supported in Analytical pricer. Use Monte Carlo."
-                    .to_string(),
+                format!(
+                    "Seasoned Geometric Asian analytical pricing not supported ({} of {} fixings already observed). \
+                    For seasoned options, use Monte Carlo pricing via `npv_mc()` method or set \
+                    `averaging_method = Arithmetic` which supports seasoning via Turnbull-Wakeman.",
+                    count, total_fixings
+                ),
                 PricingErrorContext::default(),
             ));
         }

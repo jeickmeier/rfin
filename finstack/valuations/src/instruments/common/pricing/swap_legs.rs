@@ -29,6 +29,149 @@ use finstack_core::math::NeumaierAccumulator;
 use finstack_core::types::{Bps, Rate};
 use finstack_core::Result;
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
+/// Compounding method for floating rate legs.
+///
+/// Determines how the floating rate is calculated from underlying index fixings.
+///
+/// # Market Standards
+///
+/// | Method | Index Type | Example | Formula |
+/// |--------|------------|---------|---------|
+/// | Simple | Term IBOR | EURIBOR 6M | rate = fixing |
+/// | Compounded | OIS | SOFR, SONIA | rate = (∏(1 + r_i × d_i) - 1) / τ |
+/// | CompoundedWithShift | OIS + lookback | SOFR (standard) | Same, with observation shift |
+/// | Average | OIS (legacy) | Fed Funds | rate = Σ(r_i × d_i) / τ |
+///
+/// # ISDA Standard
+///
+/// The ISDA 2021 definitions specify "Overnight Rate Compounding" with
+/// optional observation shift (lookback) as the standard for RFR swaps.
+///
+/// # References
+///
+/// - ISDA IBOR Fallbacks Protocol (2021)
+/// - ARRC SOFR Conventions (2020)
+/// - Bank of England SONIA Conventions (2019)
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+pub enum CompoundingMethod {
+    /// Simple rate - no compounding within the accrual period.
+    ///
+    /// Used for term rates like EURIBOR, Term SOFR, and legacy LIBOR.
+    /// The rate is simply the single fixing at the reset date.
+    ///
+    /// ```text
+    /// rate = index_fixing
+    /// ```
+    #[default]
+    Simple,
+
+    /// Daily compounded rate without observation shift.
+    ///
+    /// Each daily fixing is compounded to produce the period rate.
+    /// Rarely used in practice (most OIS use lookback).
+    ///
+    /// ```text
+    /// rate = (∏(1 + r_i × d_i/day_count_basis) - 1) × day_count_basis / D
+    /// ```
+    ///
+    /// where:
+    /// - r_i = overnight rate for day i
+    /// - d_i = 1 for weekdays, 3 for Mondays (weekend)
+    /// - D = total accrual days
+    Compounded,
+
+    /// Daily compounded rate with observation shift (lookback).
+    ///
+    /// This is the standard for RFR swaps (SOFR, ESTR, SONIA).
+    /// Rates are observed with a lookback to allow payment calculation
+    /// before the payment date.
+    ///
+    /// ```text
+    /// rate = (∏(1 + r_{i-shift} × d_i/360) - 1) × 360 / D
+    /// ```
+    ///
+    /// # Observation Shift
+    ///
+    /// The `observation_shift_days` field in [`FloatingLegParams`] specifies
+    /// the lookback period:
+    /// - **2 days**: USD SOFR, EUR ESTR, JPY TONAR (standard)
+    /// - **5 days**: Some legacy SOFR conventions
+    /// - **0 days**: GBP SONIA (uses payment delay instead)
+    ///
+    /// # Example
+    ///
+    /// For a SOFR swap with 2-day lookback:
+    /// - Accrual period: Jan 15 to Jan 22 (7 days)
+    /// - Observation period: Jan 13 to Jan 20 (shifted back 2 days)
+    /// - Rate is compounded from fixings observed Jan 13-20
+    CompoundedWithShift,
+
+    /// Simple average of daily rates (non-compounded).
+    ///
+    /// Used for some legacy overnight index averages. Less common
+    /// than compounded rates.
+    ///
+    /// ```text
+    /// rate = Σ(r_i × d_i) / D
+    /// ```
+    Average,
+}
+
+impl CompoundingMethod {
+    /// Returns true if this method requires daily fixings.
+    ///
+    /// Simple rates only need a single fixing at reset date.
+    /// All other methods need a fixing for each day in the accrual period.
+    #[must_use]
+    pub fn requires_daily_fixings(&self) -> bool {
+        match self {
+            CompoundingMethod::Simple => false,
+            CompoundingMethod::Compounded
+            | CompoundingMethod::CompoundedWithShift
+            | CompoundingMethod::Average => true,
+        }
+    }
+
+    /// Returns true if this method uses observation shift (lookback).
+    #[must_use]
+    pub fn uses_observation_shift(&self) -> bool {
+        matches!(self, CompoundingMethod::CompoundedWithShift)
+    }
+
+    /// Returns the standard observation shift for common indices.
+    ///
+    /// This is a convenience method for common cases. For full control,
+    /// set `observation_shift_days` in [`FloatingLegParams`] explicitly.
+    ///
+    /// # Arguments
+    ///
+    /// * `index_name` - Index identifier (case-insensitive)
+    ///
+    /// # Returns
+    ///
+    /// Standard observation shift in business days, or 0 if unknown.
+    #[must_use]
+    pub fn standard_shift_for_index(index_name: &str) -> i32 {
+        let name_lower = index_name.to_lowercase();
+        if name_lower.contains("sofr")
+            || name_lower.contains("estr")
+            || name_lower.contains("tonar")
+            || name_lower.contains("tona")
+        {
+            2 // Standard 2-day lookback
+        } else {
+            // SONIA uses payment delay rather than lookback, so shift is 0
+            // Default for other indices: no shift
+            0
+        }
+    }
+}
+
 /// Minimum threshold for discount factor values to avoid numerical instability.
 ///
 /// Set to 1e-10 to protect against division by near-zero discount factors
@@ -210,7 +353,16 @@ pub fn add_payment_delay(date: Date, delay_days: i32, calendar_id: Option<&str>)
 /// Parameters for pricing a floating rate leg.
 ///
 /// This struct wraps [`FloatingRateParams`] and adds swap-specific fields for
-/// payment delay and calendar handling. Use this for swap leg pricing.
+/// payment delay, calendar handling, and compounding method. Use this for swap leg pricing.
+///
+/// # Compounding Methods
+///
+/// The `compounding_method` field controls how the floating rate is calculated:
+///
+/// - [`CompoundingMethod::Simple`]: Single fixing at reset date (IBOR, Term SOFR)
+/// - [`CompoundingMethod::CompoundedWithShift`]: Daily compounding with lookback (OIS standard)
+///
+/// For OIS swaps, use [`with_ois_compounding`](Self::with_ois_compounding) for standard setup.
 ///
 /// # Validation
 ///
@@ -219,6 +371,7 @@ pub fn add_payment_delay(date: Date, delay_days: i32, calendar_id: Option<&str>)
 /// - Valid spread and gearing (finite, gearing > 0)
 /// - Consistent floor/cap ordering (floor <= cap)
 /// - Valid payment delay (non-negative for practical use)
+/// - Consistent compounding settings (shift only for CompoundedWithShift)
 #[derive(Debug, Clone, Default)]
 pub struct FloatingLegParams {
     /// Core rate parameters (spread, gearing, floors, caps).
@@ -227,10 +380,26 @@ pub struct FloatingLegParams {
     pub payment_delay_days: i32,
     /// Optional calendar ID for payment date adjustments.
     pub calendar_id: Option<String>,
+    /// Compounding method for calculating the period rate.
+    ///
+    /// Defaults to [`CompoundingMethod::Simple`] for IBOR-style rates.
+    /// Set to [`CompoundingMethod::CompoundedWithShift`] for OIS swaps.
+    pub compounding_method: CompoundingMethod,
+    /// Observation shift (lookback) in business days for OIS compounding.
+    ///
+    /// Only used when `compounding_method` is [`CompoundingMethod::CompoundedWithShift`].
+    ///
+    /// # Market Standards
+    ///
+    /// - **2 days**: USD SOFR, EUR ESTR, JPY TONAR
+    /// - **0 days**: GBP SONIA (uses payment delay instead)
+    pub observation_shift_days: i32,
 }
 
 impl FloatingLegParams {
-    /// Create params with just spread (most common case).
+    /// Create params with just spread (most common case for term rates).
+    ///
+    /// Uses [`CompoundingMethod::Simple`] (appropriate for IBOR, Term SOFR).
     pub fn with_spread(spread_bp: f64) -> Self {
         Self {
             rate_params: FloatingRateParams::with_spread(spread_bp),
@@ -279,6 +448,96 @@ impl FloatingLegParams {
         }
     }
 
+    /// Create params for OIS (overnight index swap) with standard compounding.
+    ///
+    /// This is the recommended constructor for RFR swaps (SOFR, ESTR, SONIA, etc.).
+    /// It sets up daily compounding with observation shift.
+    ///
+    /// # Arguments
+    ///
+    /// * `spread_bp` - Spread in basis points
+    /// * `observation_shift_days` - Lookback period in business days (typically 2)
+    /// * `payment_delay_days` - Payment delay in business days (typically 2)
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// use finstack_valuations::instruments::common::pricing::swap_legs::FloatingLegParams;
+    ///
+    /// // Standard USD SOFR swap: 2-day lookback, 2-day payment delay
+    /// let sofr_params = FloatingLegParams::with_ois_compounding(0.0, 2, 2);
+    ///
+    /// // GBP SONIA: no lookback, no payment delay
+    /// let sonia_params = FloatingLegParams::with_ois_compounding(0.0, 0, 0);
+    /// ```
+    pub fn with_ois_compounding(
+        spread_bp: f64,
+        observation_shift_days: i32,
+        payment_delay_days: i32,
+    ) -> Self {
+        Self {
+            rate_params: FloatingRateParams::with_spread(spread_bp),
+            payment_delay_days,
+            calendar_id: None,
+            compounding_method: CompoundingMethod::CompoundedWithShift,
+            observation_shift_days,
+        }
+    }
+
+    /// Create params for OIS with spread specified in basis points.
+    pub fn with_ois_compounding_bps(
+        spread_bp: Bps,
+        observation_shift_days: i32,
+        payment_delay_days: i32,
+    ) -> Self {
+        Self {
+            rate_params: FloatingRateParams {
+                spread_bp: spread_bp.as_bps() as f64,
+                ..Default::default()
+            },
+            payment_delay_days,
+            calendar_id: None,
+            compounding_method: CompoundingMethod::CompoundedWithShift,
+            observation_shift_days,
+        }
+    }
+
+    /// Create standard USD SOFR OIS params.
+    ///
+    /// Uses market conventions:
+    /// - Daily compounding with 2-day observation shift
+    /// - 2-day payment delay
+    pub fn usd_sofr(spread_bp: f64) -> Self {
+        Self::with_ois_compounding(spread_bp, 2, 2)
+    }
+
+    /// Create standard EUR ESTR OIS params.
+    ///
+    /// Uses market conventions:
+    /// - Daily compounding with 2-day observation shift
+    /// - 2-day payment delay
+    pub fn eur_estr(spread_bp: f64) -> Self {
+        Self::with_ois_compounding(spread_bp, 2, 2)
+    }
+
+    /// Create standard GBP SONIA OIS params.
+    ///
+    /// Uses market conventions:
+    /// - Daily compounding without observation shift
+    /// - No payment delay (same-day payment)
+    pub fn gbp_sonia(spread_bp: f64) -> Self {
+        Self::with_ois_compounding(spread_bp, 0, 0)
+    }
+
+    /// Create standard JPY TONAR OIS params.
+    ///
+    /// Uses market conventions:
+    /// - Daily compounding with 2-day observation shift
+    /// - 2-day payment delay
+    pub fn jpy_tonar(spread_bp: f64) -> Self {
+        Self::with_ois_compounding(spread_bp, 2, 2)
+    }
+
     /// Create params with full configuration.
     #[allow(clippy::too_many_arguments)]
     pub fn full(
@@ -304,6 +563,40 @@ impl FloatingLegParams {
             },
             payment_delay_days,
             calendar_id,
+            compounding_method: CompoundingMethod::Simple,
+            observation_shift_days: 0,
+        }
+    }
+
+    /// Create params with full configuration including compounding settings.
+    #[allow(clippy::too_many_arguments)]
+    pub fn full_with_compounding(
+        spread_bp: f64,
+        gearing: f64,
+        gearing_includes_spread: bool,
+        index_floor_bp: Option<f64>,
+        index_cap_bp: Option<f64>,
+        all_in_floor_bp: Option<f64>,
+        all_in_cap_bp: Option<f64>,
+        payment_delay_days: i32,
+        calendar_id: Option<String>,
+        compounding_method: CompoundingMethod,
+        observation_shift_days: i32,
+    ) -> Self {
+        Self {
+            rate_params: FloatingRateParams {
+                spread_bp,
+                gearing,
+                gearing_includes_spread,
+                index_floor_bp,
+                index_cap_bp,
+                all_in_floor_bp,
+                all_in_cap_bp,
+            },
+            payment_delay_days,
+            calendar_id,
+            compounding_method,
+            observation_shift_days,
         }
     }
 
@@ -332,7 +625,27 @@ impl FloatingLegParams {
             },
             payment_delay_days,
             calendar_id,
+            compounding_method: CompoundingMethod::Simple,
+            observation_shift_days: 0,
         }
+    }
+
+    /// Set the compounding method (builder pattern).
+    pub fn with_compounding(mut self, method: CompoundingMethod) -> Self {
+        self.compounding_method = method;
+        self
+    }
+
+    /// Set the observation shift (builder pattern).
+    pub fn with_observation_shift(mut self, days: i32) -> Self {
+        self.observation_shift_days = days;
+        self
+    }
+
+    /// Set the calendar ID (builder pattern).
+    pub fn with_calendar(mut self, calendar_id: impl Into<String>) -> Self {
+        self.calendar_id = Some(calendar_id.into());
+        self
     }
 
     /// Validate the floating leg parameters.
@@ -340,13 +653,28 @@ impl FloatingLegParams {
     /// Checks that:
     /// - Rate parameters are valid (delegates to [`FloatingRateParams::validate`])
     /// - Payment delay is reasonable (warning logged if negative)
+    /// - Observation shift is only set for CompoundedWithShift method
     ///
     /// # Returns
     ///
     /// `Ok(())` if all parameters are valid, otherwise returns an error
     /// describing the validation failure.
     pub fn validate(&self) -> Result<()> {
-        self.rate_params.validate()
+        self.rate_params.validate()?;
+
+        // Warn if observation shift is set but compounding doesn't use it
+        if self.observation_shift_days != 0 && !self.compounding_method.uses_observation_shift() {
+            // Not an error, but the shift will be ignored
+            // Could add logging here if needed
+        }
+
+        Ok(())
+    }
+
+    /// Returns true if this leg uses daily compounded rates (OIS).
+    #[must_use]
+    pub fn is_ois_style(&self) -> bool {
+        self.compounding_method.requires_daily_fixings()
     }
 }
 

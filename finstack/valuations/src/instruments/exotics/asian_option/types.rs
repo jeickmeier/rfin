@@ -22,6 +22,49 @@ pub enum AveragingMethod {
 /// Asian options depend on the average price over a period rather than
 /// just the terminal price. Supports both call and put options with
 /// arithmetic or geometric averaging.
+///
+/// # Averaging Methods
+///
+/// - **Arithmetic**: `A = (1/n) × Σ S(t_i)` - Market standard, approximated via Turnbull-Wakeman
+/// - **Geometric**: `G = [Π S(t_i)]^(1/n)` - Closed-form solution available (Kemna-Vorst)
+///
+/// # Fixing Dates and Business Day Conventions
+///
+/// **Important**: The `fixing_dates` field expects dates that have already been adjusted
+/// for business day conventions. In production use, callers should:
+///
+/// 1. Generate the schedule of observation dates (e.g., monthly end-of-month)
+/// 2. Apply the appropriate business day convention (typically Modified Following)
+/// 3. Adjust for the relevant holiday calendar (based on underlying asset's market)
+///
+/// Common conventions by market:
+/// - **US Equity (SPX)**: NYSE calendar, Modified Following
+/// - **FX Options**: Joint calendar of currency pair, Modified Following
+/// - **Commodities**: Exchange-specific calendar
+///
+/// The number of fixing dates directly affects the averaging calculation and pricing.
+/// Typical configurations:
+/// - Daily averaging: ~252 dates per year (trading days)
+/// - Weekly averaging: ~52 dates per year
+/// - Monthly averaging: 12 dates per year (typically month-end)
+///
+/// # Pricing Models
+///
+/// | Averaging | Model | Accuracy |
+/// |-----------|-------|----------|
+/// | Geometric | Kemna-Vorst (1990) | Exact closed-form |
+/// | Arithmetic | Turnbull-Wakeman (1991) | ~1% vs Monte Carlo |
+/// | Either | Monte Carlo | Configurable accuracy |
+///
+/// # Example
+///
+/// ```rust,ignore
+/// // For production: pre-adjust fixing dates using business day logic
+/// let fixing_dates = generate_monthly_schedule(start, end)
+///     .into_iter()
+///     .map(|d| adjust_business_day(d, ModifiedFollowing, &nyse_calendar))
+///     .collect();
+/// ```
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
@@ -38,7 +81,11 @@ pub struct AsianOption {
     pub averaging_method: AveragingMethod,
     /// Option expiry date
     pub expiry: Date,
-    /// Dates on which underlying is observed for averaging
+    /// Dates on which underlying is observed for averaging.
+    ///
+    /// **Note**: These dates should be pre-adjusted for business day conventions.
+    /// The pricer uses these dates directly without further adjustment.
+    /// See struct-level documentation for business day convention guidance.
     pub fixing_dates: Vec<Date>,
     /// Notional amount
     pub notional: Money,
@@ -56,7 +103,11 @@ pub struct AsianOption {
     pub pricing_overrides: PricingOverrides,
     /// Attributes for scenario selection and grouping
     pub attributes: Attributes,
-    /// Past fixings for seasoned options
+    /// Past fixings for seasoned options (date, observed price pairs).
+    ///
+    /// For seasoned options where some averaging observations have already occurred,
+    /// provide the historical fixings here. Only fixings that match dates in
+    /// `fixing_dates` and are on or before the valuation date are considered.
     #[builder(default)]
     pub past_fixings: Vec<(Date, f64)>,
 }

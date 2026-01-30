@@ -1,4 +1,46 @@
 //! Lookback option instrument definition.
+//!
+//! # Monitoring Convention
+//!
+//! **Important**: This implementation uses **continuous monitoring** formulas
+//! (Goldman-Sosin-Gatto closed-form solutions). Real-world lookback options are
+//! typically monitored discretely (e.g., daily closes), which affects pricing.
+//!
+//! ## Continuous vs Discrete Monitoring
+//!
+//! | Aspect | Continuous | Discrete |
+//! |--------|------------|----------|
+//! | Monitoring | Every instant | At specific times (e.g., daily) |
+//! | Pricing | Analytical formulas | Monte Carlo or numerical |
+//! | Value | Higher (more observations) | Lower (fewer opportunities) |
+//! | Greeks | Closed-form | Numerical |
+//!
+//! ## Discrete Monitoring Adjustment
+//!
+//! For daily-monitored lookbacks, the continuous price can be adjusted using
+//! the Broadie-Glasserman-Kou correction factor:
+//!
+//! ```text
+//! M_discrete ≈ M_continuous × exp(0.5826 × σ × √Δt)  [for max]
+//! m_discrete ≈ m_continuous × exp(-0.5826 × σ × √Δt) [for min]
+//! ```
+//!
+//! where:
+//! - `σ` = volatility
+//! - `Δt` = monitoring interval (e.g., 1/252 for daily)
+//! - `0.5826 = -ζ(1/2)/√(2π)` (Riemann zeta constant)
+//!
+//! ## Production Recommendation
+//!
+//! For production pricing of discretely-monitored lookbacks, use Monte Carlo
+//! simulation (`npv_mc`) with the actual monitoring dates rather than the
+//! continuous analytical formulas.
+//!
+//! # References
+//!
+//! - Goldman, M. B., Sosin, H. B., & Gatto, M. A. (1979). "Path Dependent Options."
+//! - Broadie, M., Glasserman, P., & Kou, S. G. (1997). "A Continuity Correction
+//!   for Discrete Barrier Options."
 
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::OptionType;
@@ -11,13 +53,29 @@ use finstack_core::types::{CurveId, InstrumentId};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum LookbackType {
-    /// Fixed strike lookback
+    /// Fixed strike lookback: payoff depends on max/min relative to fixed strike
     FixedStrike,
-    /// Floating strike lookback
+    /// Floating strike lookback: strike is determined by path extremum
     FloatingStrike,
 }
 
 /// Lookback option instrument.
+///
+/// # Monitoring Convention
+///
+/// This instrument uses **continuous monitoring** for analytical pricing. Real-world
+/// lookback options are typically monitored discretely (daily closes). The continuous
+/// formulas provide an upper bound; for accurate discrete pricing, use Monte Carlo.
+///
+/// See module-level documentation for details on discrete monitoring adjustments.
+///
+/// # Observed Extrema
+///
+/// For seasoned options (where some monitoring has already occurred), provide:
+/// - `observed_min`: Minimum spot observed so far (for floating calls / fixed puts)
+/// - `observed_max`: Maximum spot observed so far (for floating puts / fixed calls)
+///
+/// If not provided, the current spot is used as the starting extremum.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]

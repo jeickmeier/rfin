@@ -71,6 +71,24 @@ pub struct EquityTotalReturnSwap {
         serde(default, skip_serializing_if = "Option::is_none")
     )]
     pub margin_spec: Option<OtcMarginSpec>,
+    /// Dividend withholding tax rate for net return calculation.
+    ///
+    /// Specifies the fraction of dividends withheld for tax (e.g., 0.15 for 15% withholding).
+    /// When set to 0.0 (default), the TRS passes through 100% of dividends (gross return).
+    /// When set to a positive value, the dividend return component is reduced:
+    /// ```text
+    /// net_dividend_return = gross_dividend_return × (1 - dividend_tax_rate)
+    /// ```
+    ///
+    /// # Market Context
+    ///
+    /// Withholding tax varies by jurisdiction and investor domicile:
+    /// - US qualified dividends: typically 0% for domestic investors
+    /// - US non-qualified: up to 30% for foreign investors (varies by treaty)
+    /// - European: varies by country (15-30% typical)
+    #[cfg_attr(feature = "serde", serde(default))]
+    #[builder(default)]
+    pub dividend_tax_rate: f64,
     /// Attributes for scenario selection and tagging.
     pub attributes: Attributes,
 }
@@ -169,6 +187,28 @@ impl EquityTotalReturnSwap {
             .build()
     }
 
+    /// Validates the equity TRS configuration.
+    ///
+    /// Checks for common configuration errors:
+    /// - Dividend tax rate set without dividend yield ID
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if validation fails.
+    fn validate(&self) -> Result<()> {
+        // Warn if dividend_tax_rate is set but no dividend yield is provided
+        if self.dividend_tax_rate > 0.0 && self.underlying.div_yield_id.is_none() {
+            return Err(finstack_core::Error::Validation(format!(
+                "EquityTRS '{}' has dividend_tax_rate={:.2}% but no div_yield_id is set. \
+                 Set underlying.div_yield_id to enable dividend return calculation, \
+                 or set dividend_tax_rate to 0.0 if dividends are not applicable.",
+                self.id.as_str(),
+                self.dividend_tax_rate * 100.0
+            )));
+        }
+        Ok(())
+    }
+
     /// Calculates the net present value (NPV) of the equity TRS.
     ///
     /// # Arguments
@@ -177,7 +217,16 @@ impl EquityTotalReturnSwap {
     ///
     /// # Returns
     /// Net present value in the instrument's currency.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Validation fails (e.g., dividend_tax_rate set without div_yield_id)
+    /// - Market data lookup fails
     pub fn npv(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
+        // Validate configuration
+        self.validate()?;
+
         // Calculate total return leg PV
         let total_return_pv = self.pv_total_return_leg(curves, as_of)?;
 

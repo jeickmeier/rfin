@@ -256,6 +256,7 @@ impl JsEquityTotalReturnSwapBuilder {
             schedule,
             side,
             initial_level: self.initial_level,
+            dividend_tax_rate: 0.0, // Default: no withholding tax
             attributes: Default::default(),
             margin_spec: None,
         };
@@ -307,6 +308,7 @@ impl JsEquityTotalReturnSwap {
             schedule: schedule.inner.clone(),
             side,
             initial_level,
+            dividend_tax_rate: 0.0, // Default: no withholding tax
             attributes: Default::default(),
             margin_spec: None,
         };

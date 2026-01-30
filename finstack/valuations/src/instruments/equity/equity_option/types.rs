@@ -1,4 +1,62 @@
 //! Equity option instrument definition and Black–Scholes helpers.
+//!
+//! # Dividend Handling
+//!
+//! This implementation uses a **continuous dividend yield** model (parameter `q` in BSM).
+//! The dividend yield is provided via `div_yield_id` as a unitless scalar representing
+//! the annualized continuous dividend yield.
+//!
+//! ## Continuous vs Discrete Dividends
+//!
+//! **Continuous dividend yield** (implemented here) is appropriate for:
+//! - Index options (e.g., SPX, NDX) where dividend yield is well-defined
+//! - Long-dated options where discrete effects average out
+//! - Options on indices with many constituents and frequent ex-dates
+//!
+//! **Discrete dividends** are important for:
+//! - Single-stock options near ex-dividend dates
+//! - Short-dated options where discrete jumps are material
+//! - High-yield stocks with large dividend payments
+//!
+//! ## Discrete Dividend Adjustment (Not Yet Implemented)
+//!
+//! For stocks with known discrete dividends, use the **spot adjustment method**:
+//! ```text
+//! S_adj = S - Σ D_i × e^{-r × t_i}  (for all dividends D_i at times t_i before expiry)
+//! ```
+//!
+//! This is the QuantLib default approach. Until discrete dividend support is added,
+//! users pricing single-stock options near ex-dividend dates should:
+//!
+//! 1. **Pre-adjust spot externally**: Calculate `S_adj` and pass as the spot price
+//! 2. **Use implied dividend yield**: Back-solve for `q` from market option prices
+//! 3. **Use terminal forward**: If forward prices are available, use `F = S × e^{(r-q)T}`
+//!
+//! ## Example: Manual Discrete Dividend Adjustment
+//!
+//! ```rust,ignore
+//! // Stock at $100, dividend of $2 in 0.25 years, r = 5%, T = 0.5 years
+//! let spot = 100.0;
+//! let dividend = 2.0;
+//! let t_div = 0.25;
+//! let r = 0.05;
+//!
+//! // Adjusted spot for BSM pricing
+//! let s_adj = spot - dividend * (-r * t_div).exp();
+//! // s_adj ≈ 98.01
+//! ```
+//!
+//! # Market Data Validation
+//!
+//! When `div_yield_id` is set, the lookup **must succeed**. A failed lookup returns
+//! an error rather than silently defaulting to zero. This prevents market data
+//! configuration errors from affecting P&L calculations.
+//!
+//! # References
+//!
+//! - Hull, J. C. (2018). *Options, Futures, and Other Derivatives* (10th ed.). Chapter 17.
+//! - Haug, E. G. (2007). *The Complete Guide to Option Pricing Formulas* (2nd ed.). Section 2.8.
+//! - QuantLib: `AnalyticEuropeanEngine` with `DividendVanillaOption`
 
 // pricing formulas are implemented in the pricing engine; keep this module free of direct math imports
 use crate::instruments::common::parameters::underlying::EquityUnderlyingParams;
@@ -49,7 +107,15 @@ pub struct EquityOption {
     pub spot_id: String,
     /// Equity volatility surface ID
     pub vol_surface_id: CurveId,
-    /// Optional dividend yield curve ID
+    /// Optional continuous dividend yield identifier.
+    ///
+    /// The dividend yield should be a unitless scalar representing the annualized
+    /// continuous dividend yield (e.g., 0.02 for 2%). This is used in the BSM model
+    /// as the `q` parameter: `d1 = (ln(S/K) + (r - q + σ²/2)T) / (σ√T)`.
+    ///
+    /// **Important**: If this field is set, the lookup must succeed. A failed lookup
+    /// will return an error rather than silently defaulting to zero, preventing
+    /// market data configuration errors from affecting P&L.
     pub div_yield_id: Option<String>,
     /// Pricing overrides (manual price, yield, spread)
     pub pricing_overrides: PricingOverrides,

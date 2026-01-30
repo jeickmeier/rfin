@@ -1,4 +1,37 @@
 //! Autocallable structured product instrument definition.
+//!
+//! # Barrier Monitoring Convention
+//!
+//! Autocallable barriers are monitored **discretely** at the specified observation dates.
+//! This implementation does NOT apply continuous monitoring or the Broadie-Glasserman-Kou
+//! adjustment for discrete monitoring of continuous barriers.
+//!
+//! ## Why No Adjustment
+//!
+//! The Broadie-Glasserman-Kou adjustment (see reference below) is designed to correct for
+//! discretely sampling a barrier that is contractually monitored continuously:
+//! ```text
+//! H_adj = H × exp(±0.5826 × σ × √Δt)
+//! ```
+//!
+//! However, for autocallables, barriers are typically **contractually discrete** - they
+//! are only checked on specific observation dates as defined in the term sheet. Therefore:
+//! - The `observation_dates` field specifies the exact barrier monitoring dates
+//! - Monte Carlo paths are evaluated exactly at these dates (time grid includes them)
+//! - No adjustment is needed because there is no approximation of continuous monitoring
+//!
+//! ## For Continuously Monitored Barriers
+//!
+//! If you need to price a product with continuous barrier monitoring (e.g., daily close
+//! knock-in/knock-out), you should either:
+//! 1. Apply the BGK adjustment externally to the barrier levels
+//! 2. Use a finer time grid with many intraday steps
+//!
+//! # References
+//!
+//! - Broadie, M., Glasserman, P., & Kou, S. (1997). "A Continuity Correction for
+//!   Discrete Barrier Options." *Mathematical Finance*, 7(4), 325-349.
+//! - Haug, E. G. (2007). *The Complete Guide to Option Pricing Formulas*, Section 4.17.
 
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
@@ -37,10 +70,16 @@ pub struct Autocallable {
     pub id: InstrumentId,
     /// Underlying asset ticker symbol
     pub underlying_ticker: String,
-    /// Observation dates for autocall and coupon checks
+    /// Observation dates for autocall and coupon checks.
+    ///
+    /// Barriers are monitored **discretely** at these exact dates only.
+    /// The Monte Carlo time grid is constructed to include these dates precisely.
     pub observation_dates: Vec<Date>,
-    /// Autocall barrier levels (as ratios of initial spot, e.g., 1.0 = 100%)
-    pub autocall_barriers: Vec<f64>, // Ratios relative to initial spot
+    /// Autocall barrier levels (as ratios of initial spot, e.g., 1.0 = 100%).
+    ///
+    /// Each barrier corresponds to the observation date at the same index.
+    /// If spot ≥ barrier × initial_spot on the observation date, the product autocalls.
+    pub autocall_barriers: Vec<f64>,
     /// Coupon amounts paid if observation barrier is met
     pub coupons: Vec<f64>,
     /// Final barrier level for final payoff determination

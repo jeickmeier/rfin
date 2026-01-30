@@ -215,6 +215,207 @@ fn test_commodity_swap_receive_fixed() {
     );
 }
 
+// =============================================================================
+// Round-trip and Parity Tests
+// =============================================================================
+
+/// Round-trip test: Swap at par fixed price should have NPV ≈ 0
+///
+/// If we set the fixed price equal to the average expected floating price,
+/// the swap should have near-zero NPV at inception.
+#[test]
+fn test_commodity_swap_par_rate_round_trip() {
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let market = create_test_market();
+    let start_date = as_of;
+    let end_date = Date::from_calendar_date(2025, Month::June, 30).unwrap();
+
+    // Step 1: Create a swap with a test fixed price to get the floating leg PV
+    let test_swap = CommoditySwap::builder()
+        .id(InstrumentId::new("PAR-RATE-TEST"))
+        .commodity_type("Energy".to_string())
+        .ticker("NG".to_string())
+        .unit("MMBTU".to_string())
+        .currency(Currency::USD)
+        .notional_quantity(10000.0)
+        .fixed_price(1.0) // Placeholder
+        .floating_index_id(CurveId::new("NG-SPOT-AVG"))
+        .pay_fixed(true)
+        .start_date(start_date)
+        .end_date(end_date)
+        .payment_frequency(Tenor::new(1, TenorUnit::Months))
+        .discount_curve_id(CurveId::new("USD-OIS"))
+        .attributes(Attributes::new())
+        .build()
+        .expect("should build");
+
+    // Get floating and fixed leg PVs
+    let floating_pv = test_swap
+        .floating_leg_pv(&market, as_of)
+        .expect("floating pv");
+    let fixed_leg_pv_per_dollar = test_swap.fixed_leg_pv(&market, as_of).expect("fixed pv");
+
+    // Calculate the par fixed price: F_par = Floating_PV / Fixed_PV_per_dollar
+    // where Fixed_PV_per_dollar is the fixed leg PV assuming fixed_price = 1.0
+    // But our fixed leg PV uses the actual fixed_price, so we need to adjust
+    // Fixed leg PV = ∑ Q × P_fixed × DF, so PV_per_unit = Fixed_PV / P_fixed
+    let fixed_pv_per_unit = fixed_leg_pv_per_dollar / test_swap.fixed_price;
+    let par_fixed_price = floating_pv / fixed_pv_per_unit;
+
+    // Step 2: Create swap at par rate
+    let par_swap = CommoditySwap::builder()
+        .id(InstrumentId::new("PAR-SWAP"))
+        .commodity_type("Energy".to_string())
+        .ticker("NG".to_string())
+        .unit("MMBTU".to_string())
+        .currency(Currency::USD)
+        .notional_quantity(10000.0)
+        .fixed_price(par_fixed_price)
+        .floating_index_id(CurveId::new("NG-SPOT-AVG"))
+        .pay_fixed(true)
+        .start_date(start_date)
+        .end_date(end_date)
+        .payment_frequency(Tenor::new(1, TenorUnit::Months))
+        .discount_curve_id(CurveId::new("USD-OIS"))
+        .attributes(Attributes::new())
+        .build()
+        .expect("should build");
+
+    let npv = par_swap.npv(&market, as_of).expect("should price");
+
+    // Round-trip test: NPV should be near zero
+    // Tolerance: 1bp of floating leg PV
+    let tolerance = floating_pv.abs() * 0.0001;
+    assert!(
+        npv.amount().abs() < tolerance.max(1.0),
+        "Par swap round-trip failed: NPV should be ~0, got {} (par_fixed={:.4})",
+        npv.amount(),
+        par_fixed_price
+    );
+}
+
+/// Test that cashflows sum (discounted) equals NPV
+///
+/// This validates internal consistency of the cashflow generation.
+#[test]
+fn test_commodity_swap_cashflow_npv_consistency() {
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let market = create_test_market();
+
+    let swap = CommoditySwap::builder()
+        .id(InstrumentId::new("CF-NPV-TEST"))
+        .commodity_type("Energy".to_string())
+        .ticker("NG".to_string())
+        .unit("MMBTU".to_string())
+        .currency(Currency::USD)
+        .notional_quantity(10000.0)
+        .fixed_price(3.55)
+        .floating_index_id(CurveId::new("NG-SPOT-AVG"))
+        .pay_fixed(true)
+        .start_date(as_of)
+        .end_date(Date::from_calendar_date(2025, Month::June, 30).unwrap())
+        .payment_frequency(Tenor::new(1, TenorUnit::Months))
+        .discount_curve_id(CurveId::new("USD-OIS"))
+        .attributes(Attributes::new())
+        .build()
+        .expect("should build");
+
+    // Get NPV
+    let npv = swap.npv(&market, as_of).expect("should price");
+
+    // Get cashflows and compute discounted sum
+    let cashflows = swap
+        .cashflows(&market, as_of)
+        .expect("should get cashflows");
+    let disc = market.get_discount("USD-OIS").expect("discount curve");
+
+    let mut cf_pv_sum = 0.0;
+    for (date, cf) in &cashflows {
+        let df = disc
+            .df_between_dates(as_of, *date)
+            .expect("df between dates");
+        cf_pv_sum += cf.amount() * df;
+    }
+
+    // NPV should equal discounted cashflow sum
+    // Tolerance: 0.1% of NPV
+    let tolerance = npv.amount().abs() * 0.001;
+    let error = (npv.amount() - cf_pv_sum).abs();
+
+    assert!(
+        error < tolerance.max(1.0),
+        "Cashflow-NPV consistency failed: NPV={:.6}, CF_PV_sum={:.6}, error={:.6}",
+        npv.amount(),
+        cf_pv_sum,
+        error
+    );
+}
+
+/// Test delta aggregation: sum of period deltas equals total delta
+#[test]
+fn test_commodity_swap_delta_analytical() {
+    use finstack_valuations::metrics::MetricId;
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let market = create_test_market();
+
+    let quantity = 10000.0;
+
+    let swap = CommoditySwap::builder()
+        .id(InstrumentId::new("DELTA-TEST"))
+        .commodity_type("Energy".to_string())
+        .ticker("NG".to_string())
+        .unit("MMBTU".to_string())
+        .currency(Currency::USD)
+        .notional_quantity(quantity)
+        .fixed_price(3.55)
+        .floating_index_id(CurveId::new("NG-SPOT-AVG"))
+        .pay_fixed(true)
+        .start_date(as_of)
+        .end_date(Date::from_calendar_date(2025, Month::June, 30).unwrap())
+        .payment_frequency(Tenor::new(1, TenorUnit::Months))
+        .discount_curve_id(CurveId::new("USD-OIS"))
+        .attributes(Attributes::new())
+        .build()
+        .expect("should build");
+
+    // Get delta from metric calculation
+    use finstack_valuations::instruments::Instrument;
+    let result = swap
+        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .expect("should price with delta");
+
+    let delta = result
+        .measures
+        .get(&MetricId::Delta)
+        .expect("should have delta");
+
+    // Analytical delta for pay-fixed swap: ∑ Q × DF(payment_date)
+    let disc = market.get_discount("USD-OIS").expect("discount curve");
+    let schedule = swap.payment_schedule(as_of).expect("schedule");
+
+    let mut expected_delta = 0.0;
+    for payment_date in schedule {
+        if payment_date >= as_of {
+            let df = disc
+                .df_between_dates(as_of, payment_date)
+                .expect("df between dates");
+            expected_delta += quantity * df; // pay_fixed = +1 sign
+        }
+    }
+
+    // Tolerance: 1% of delta (delta calculation may have some discretization)
+    let tolerance = expected_delta.abs() * 0.01;
+    let error = (delta - expected_delta).abs();
+
+    assert!(
+        error < tolerance,
+        "Delta analytical parity failed: expected {:.2}, got {:.2}, error={:.2}",
+        expected_delta,
+        delta,
+        error
+    );
+}
+
 #[cfg(feature = "serde")]
 #[test]
 fn test_commodity_swap_serialization() {

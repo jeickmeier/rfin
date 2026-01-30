@@ -561,18 +561,64 @@ impl SABRModel {
     }
 }
 
-/// SABR calibration using market prices
+/// SABR calibration using market prices.
+///
+/// # Tolerance Considerations
+///
+/// The default tolerance of 1e-6 provides a balance between speed and accuracy:
+///
+/// | Tolerance | Use Case | Accuracy | Speed |
+/// |-----------|----------|----------|-------|
+/// | 1e-4 | Quick screening | ~0.5 vol bp | Fast |
+/// | 1e-6 | Standard production | ~0.01 vol bp | Moderate |
+/// | 1e-8 | High-precision (BBG VCUB) | ~0.0001 vol bp | Slow |
+/// | 1e-10 | Research/validation | Machine precision | Very slow |
+///
+/// For production vol surfaces where Greeks are computed from the surface,
+/// consider using tighter tolerance (1e-8) to ensure smooth Greeks.
+///
+/// # Gradient Methods
+///
+/// Two gradient computation methods are available:
+///
+/// - **Finite differences** (default): More robust, works for all parameter ranges
+/// - **Analytical**: Faster but may have numerical issues at parameter boundaries
 pub struct SABRCalibrator {
-    /// Tolerance for calibration convergence
+    /// Tolerance for calibration convergence.
+    ///
+    /// Lower values give more accurate calibration but take longer.
+    /// See struct-level docs for guidance on choosing tolerance.
     tolerance: f64,
-    /// Maximum iterations
+    /// Maximum iterations for the optimizer.
     max_iterations: usize,
-    /// Use finite-difference gradients instead of analytical approximations
+    /// Use finite-difference gradients instead of analytical approximations.
     use_fd_gradients: bool,
 }
 
 impl SABRCalibrator {
     /// Create new calibrator with production-ready defaults.
+    ///
+    /// Default settings:
+    /// - **Tolerance**: 1e-6 (standard production accuracy)
+    /// - **Max iterations**: 100
+    /// - **Gradient method**: Finite difference (more robust)
+    ///
+    /// # Production Usage
+    ///
+    /// For high-precision applications (e.g., Greeks computation from vol surface),
+    /// consider using tighter tolerance:
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::common::models::volatility::sabr::SABRCalibrator;
+    ///
+    /// // Standard production
+    /// let _calibrator = SABRCalibrator::new();
+    ///
+    /// // High-precision for Greeks
+    /// let _precise_calibrator = SABRCalibrator::new()
+    ///     .with_tolerance(1e-8)
+    ///     .with_max_iterations(200);
+    /// ```
     ///
     /// By default, uses finite-difference gradients (`use_fd_gradients: true`)
     /// for more accurate calibration at the cost of some performance.
@@ -583,6 +629,21 @@ impl SABRCalibrator {
             tolerance: 1e-6,
             max_iterations: 100,
             use_fd_gradients: true, // Default to FD for production accuracy
+        }
+    }
+
+    /// Create calibrator with high-precision settings.
+    ///
+    /// Uses Bloomberg VCUB-equivalent tolerance (1e-8) for applications
+    /// requiring very accurate vol surface fitting, such as:
+    /// - Greeks computation from interpolated surface
+    /// - Exotic pricing with vol smile dependence
+    /// - Regulatory model validation
+    pub fn high_precision() -> Self {
+        Self {
+            tolerance: 1e-8,
+            max_iterations: 200,
+            use_fd_gradients: true,
         }
     }
 

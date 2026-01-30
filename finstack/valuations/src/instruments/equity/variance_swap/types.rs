@@ -56,7 +56,47 @@ impl PayReceive {
 /// Variance swap instrument.
 ///
 /// A variance swap is a forward contract on realized variance with payoff:
-/// Notional * (Realized Variance - Strike Variance)
+/// ```text
+/// Payoff = Notional_variance × (σ²_realized - K²_variance)
+/// ```
+///
+/// # Notional Conventions
+///
+/// Variance swaps use **variance notional** (in variance units), not vega notional.
+/// The notional represents the P&L per unit of variance point (e.g., per 0.0001 change
+/// in annualized variance).
+///
+/// ## Variance Notional vs Vega Notional
+///
+/// Traders often quote positions in **vega notional** (sensitivity to 1% vol change).
+/// The conversion between notional types is:
+///
+/// ```text
+/// Notional_variance = Notional_vega / (2 × σ_strike)
+/// ```
+///
+/// where `σ_strike` is the strike volatility (square root of strike variance).
+///
+/// ### Example
+///
+/// For a variance swap with strike vol of 20% (strike variance = 0.04):
+/// - Vega notional of $100,000 → Variance notional = $100,000 / (2 × 0.20) = $250,000
+/// - If realized variance is 0.05 (22.4% vol) vs strike 0.04:
+///   - Payoff = $250,000 × (0.05 - 0.04) = $2,500
+///
+/// # Realized Variance Calculation
+///
+/// Uses **log returns** (not simple returns) per market standard:
+/// ```text
+/// σ²_realized = (252/N) × Σ [ln(S_i / S_{i-1})]²
+/// ```
+///
+/// where 252 is the standard trading days per year for equity markets.
+///
+/// # References
+///
+/// - Demeterfi, K. et al. (1999). "More Than You Ever Wanted to Know About Volatility Swaps."
+/// - Carr, P. & Madan, D. (1998). "Towards a Theory of Volatility Trading."
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]

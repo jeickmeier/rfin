@@ -175,8 +175,8 @@ impl Bond {
     /// Create a standard fixed-rate bond (most common use case).
     ///
     /// Creates a bond with semi-annual frequency and 30/360 day count following
-    /// **US market conventions**. For other regional conventions, use
-    /// `::with_convention()` or `::builder()` for full customization.
+    /// **US Corporate bond conventions**. For US Treasuries or other regional
+    /// conventions, use `::with_convention()` or `::builder()` for full customization.
     ///
     /// # Arguments
     ///
@@ -189,36 +189,49 @@ impl Bond {
     ///
     /// # Returns
     ///
-    /// A `Bond` instance with US market conventions (semi-annual, 30/360).
+    /// A `Bond` instance with US Corporate conventions (semi-annual, 30/360).
     ///
     /// # Panics
     ///
     /// Panics if bond construction fails (should not occur with valid inputs).
     ///
-    /// # Regional Bond Conventions (Market Standards Review - Week 5)
+    /// # Regional Bond Conventions
     ///
-    /// ## United States (Default)
+    /// ## US Corporate (Default for this method)
     /// - **Day Count:** 30/360 (US Bond Basis)
     /// - **Tenor:** Semi-annual
-    /// - **Settlement:** T+1 (corporate), T+1 (treasuries)
+    /// - **Settlement:** T+2
     /// - **Calendar:** US (NYSE holidays)
     ///
-    /// ## United Kingdom
-    /// - **Day Count:** ACT/ACT (ISMA/ICMA)
+    /// ## US Treasury (use `BondConvention::USTreasury`)
+    /// - **Day Count:** ACT/ACT ICMA
     /// - **Tenor:** Semi-annual
-    /// - **Settlement:** T+1 (gilts)
+    /// - **Settlement:** T+1
+    /// - **Calendar:** US (Federal Reserve holidays)
+    ///
+    /// ## US Agency (use `BondConvention::USAgency`)
+    /// - **Day Count:** 30/360 (US Bond Basis)
+    /// - **Tenor:** Semi-annual
+    /// - **Settlement:** T+1
+    /// - **Calendar:** US (NYSE holidays)
+    ///
+    /// ## United Kingdom (use `BondConvention::UKGilt`)
+    /// - **Day Count:** ACT/ACT ICMA
+    /// - **Tenor:** Semi-annual
+    /// - **Settlement:** T+1
+    /// - **Ex-coupon:** 7 business days
     /// - **Calendar:** UK (London holidays)
     ///
-    /// ## Europe (Eurozone)
-    /// - **Day Count:** 30E/360 (ICMA, Eurobond basis) or ACT/ACT
+    /// ## Europe (use `BondConvention::GermanBund` or `FrenchOAT`)
+    /// - **Day Count:** ACT/ACT ICMA
     /// - **Tenor:** Annual
-    /// - **Settlement:** T+2 (standard), T+3 (some markets)
-    /// - **Calendar:** TARGET (European Central Bank)
+    /// - **Settlement:** T+2
+    /// - **Calendar:** TARGET2
     ///
-    /// ## Japan
-    /// - **Day Count:** ACT/365 (Fixed)
+    /// ## Japan (use `BondConvention::JGB`)
+    /// - **Day Count:** ACT/365 Fixed
     /// - **Tenor:** Semi-annual
-    /// - **Settlement:** T+3 (JGBs)
+    /// - **Settlement:** T+2
     /// - **Calendar:** Japan holidays
     ///
     /// # Example
@@ -228,12 +241,16 @@ impl Bond {
     /// use finstack_core::currency::Currency;
     /// use time::macros::date;
     ///
-    /// // US Treasury-style bond (default)
+    /// // US Corporate bond (default)
     /// let notional = Money::new(1_000_000.0, Currency::USD);
     /// let issue = date!(2025-01-15);
     /// let maturity = date!(2030-01-15);
-    /// let us_bond = Bond::fixed("US-001", notional, 0.05, issue, maturity, "USD-OIS").unwrap();
-    /// # let _ = us_bond;
+    /// let corp_bond = Bond::fixed("CORP-001", notional, 0.05, issue, maturity, "USD-OIS").unwrap();
+    /// # let _ = corp_bond;
+    ///
+    /// // For US Treasury, use with_convention:
+    /// // let treasury = Bond::with_convention("UST-001", notional, 0.04, issue, maturity,
+    /// //                                       BondConvention::USTreasury, "USD-TREASURY").unwrap();
     /// ```
     /// # Errors
     ///

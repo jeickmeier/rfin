@@ -512,20 +512,34 @@ impl InterestRateSwap {
 
     /// Create a standard USD OIS-discounted IRS using ISDA market conventions.
     ///
-    /// This is the primary convenience constructor used throughout tests and
-    /// examples. It builds a vanilla fixed-vs-floating swap with:
+    /// This is a convenience constructor used throughout tests and examples.
+    /// It builds a vanilla fixed-vs-floating swap with:
     /// - Discount curve: `USD-OIS`
     /// - Forward curve: `USD-SOFR-3M`
     /// - Fixed leg: semi-annual, 30/360, Modified Following
     /// - Float leg: quarterly, ACT/360, Modified Following
     ///
-    /// # Reset Lag
+    /// # ⚠️ Production Note
     ///
-    /// This convenience constructor uses `reset_lag_days: 0`, meaning the reset
-    /// date equals the accrual start date. This simplifies spot-starting swap
-    /// pricing by not requiring historical fixings. For ISDA-standard T-2 reset
-    /// behavior, use the builder pattern with `reset_lag_days: 2` and provide
-    /// historical fixings for seasoned swaps.
+    /// This constructor uses **simplified conventions** for ease of use:
+    /// - `reset_lag_days: 0` (reset date = accrual start)
+    /// - `payment_delay_days: 0` (no payment delay)
+    ///
+    /// **For production pricing**, use [`create_usd_swap_market_standard`](Self::create_usd_swap_market_standard)
+    /// which applies ISDA-standard T-2 reset lag and 2-day payment delay.
+    ///
+    /// # When to Use This Constructor
+    ///
+    /// - Unit tests and examples
+    /// - Spot-starting swaps where historical fixings are not available
+    /// - Quick prototyping and development
+    ///
+    /// # When to Use `create_usd_swap_market_standard`
+    ///
+    /// - Production pricing systems
+    /// - Seasoned swaps requiring historical fixings
+    /// - Matching Bloomberg SWPM or QuantLib outputs
+    /// - Trade confirmation matching
     ///
     /// # Validation
     ///
