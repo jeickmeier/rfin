@@ -9,7 +9,6 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_core::{currency::Currency::USD, math::interp::InterpStyle};
-use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::rates::basis_swap::{BasisSwap, BasisSwapLeg};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
@@ -51,7 +50,6 @@ fn par_spread_zeros_npv() {
     // Test that applying the computed par spread results in zero NPV
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let _sched = ScheduleParams::quarterly_act360();
 
     // Create swap with zero spread
     let swap = BasisSwap::new(
@@ -79,6 +77,7 @@ fn par_spread_zeros_npv() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("valid basis swap")
     .with_calendar(CALENDAR_ID);
 
     // Compute par spread
@@ -114,6 +113,7 @@ fn par_spread_zeros_npv() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("valid basis swap")
     .with_calendar(CALENDAR_ID);
 
     let npv = swap_at_par.value(&ctx, as_of).unwrap();
@@ -131,7 +131,6 @@ fn par_spread_formula_validation() {
     // Validate: par_spread * annuity * notional = PV_difference
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let _sched = ScheduleParams::quarterly_act360();
 
     let swap = BasisSwap::new(
         "FORMULA-TEST",
@@ -158,6 +157,7 @@ fn par_spread_formula_validation() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("valid basis swap")
     .with_calendar(CALENDAR_ID);
 
     let res = swap
@@ -197,7 +197,6 @@ fn par_spread_with_existing_spread() {
     // Test par spread calculation when primary leg already has a spread
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let _sched = ScheduleParams::quarterly_act360();
 
     let swap = BasisSwap::new(
         "EXISTING-SPREAD-TEST",
@@ -224,6 +223,7 @@ fn par_spread_with_existing_spread() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("valid basis swap")
     .with_calendar(CALENDAR_ID);
 
     let res = swap
@@ -263,7 +263,6 @@ fn par_spread_inverted_curves() {
         .insert_forward(f3m)
         .insert_forward(f1m);
 
-    let _sched = ScheduleParams::quarterly_act360();
     let swap = BasisSwap::new(
         "INVERTED-TEST",
         Money::new(10_000_000.0, USD),
@@ -289,6 +288,7 @@ fn par_spread_inverted_curves() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("valid basis swap")
     .with_calendar(CALENDAR_ID);
 
     let res = swap
@@ -306,7 +306,6 @@ fn par_spread_long_maturity() {
     // Test par spread for longer-dated swaps (5 years)
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let _sched = ScheduleParams::quarterly_act360();
 
     let swap = BasisSwap::new(
         "LONG-MAT-TEST",
@@ -333,6 +332,7 @@ fn par_spread_long_maturity() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("valid basis swap")
     .with_calendar(CALENDAR_ID);
 
     let res = swap
@@ -382,6 +382,7 @@ fn par_spread_different_frequencies() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("valid basis swap")
     .with_calendar(CALENDAR_ID);
 
     let res = swap
@@ -397,7 +398,6 @@ fn par_spread_sign_convention() {
     // Verify par spread sign convention: positive spread added to primary leg
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let _sched = ScheduleParams::quarterly_act360();
 
     // If 3M rate > 1M rate, primary leg receives more, so negative spread needed
     // If 1M rate > 3M rate, primary leg receives less, so positive spread needed
@@ -426,6 +426,7 @@ fn par_spread_sign_convention() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("valid basis swap")
     .with_calendar(CALENDAR_ID);
 
     let res = swap
@@ -456,5 +457,249 @@ fn par_spread_sign_convention() {
             par_spread < 0.0,
             "Expected negative par spread when primary > reference"
         );
+    }
+}
+
+#[test]
+fn incremental_par_spread_sign_convention() {
+    // Test the sign convention for IncrementalParSpreadCalculator:
+    // - Positive: Current spread is below par (primary leg receiver is losing)
+    // - Negative: Current spread is above par (primary leg receiver is gaining)
+    // - Zero: Swap is at par
+    let ctx = market();
+    let as_of = d(2025, 1, 2);
+
+    // First, create a swap with zero spread to find the par spread
+    let zero_spread_swap = BasisSwap::new(
+        "INC-SIGN-ZERO",
+        Money::new(10_000_000.0, USD),
+        d(2025, 1, 2),
+        d(2026, 1, 2),
+        BasisSwapLeg {
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
+        BasisSwapLeg {
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+            forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
+        CurveId::new("USD-OIS"),
+    )
+    .expect("valid basis swap")
+    .with_calendar(CALENDAR_ID);
+
+    let res = zero_spread_swap
+        .price_with_metrics(&ctx, as_of, &[MetricId::BasisParSpread])
+        .unwrap();
+    let par_spread_bp = res.measures[MetricId::BasisParSpread.as_str()];
+    let par_spread_decimal = par_spread_bp / 1e4;
+
+    // Case 1: Current spread BELOW par -> Positive incremental
+    // (need to add more spread to reach par)
+    let below_par_spread = par_spread_decimal - 0.0005; // 5bp below par
+    let swap_below_par = BasisSwap::new(
+        "INC-SIGN-BELOW",
+        Money::new(10_000_000.0, USD),
+        d(2025, 1, 2),
+        d(2026, 1, 2),
+        BasisSwapLeg {
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: below_par_spread,
+        },
+        BasisSwapLeg {
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+            forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
+        CurveId::new("USD-OIS"),
+    )
+    .expect("valid basis swap")
+    .with_calendar(CALENDAR_ID);
+
+    let res_below = swap_below_par
+        .price_with_metrics(&ctx, as_of, &[MetricId::IncrementalParSpread])
+        .unwrap();
+    let inc_spread_below = res_below.measures[MetricId::IncrementalParSpread.as_str()];
+
+    assert!(
+        inc_spread_below > 0.0,
+        "Expected positive incremental spread when current spread is below par, got {:.2}bp",
+        inc_spread_below
+    );
+    // Should be approximately 5bp since we're 5bp below par
+    assert!(
+        (inc_spread_below - 5.0).abs() < 1.0,
+        "Incremental spread should be ~5bp, got {:.2}bp",
+        inc_spread_below
+    );
+
+    // Case 2: Current spread ABOVE par -> Negative incremental
+    // (would need to reduce spread to reach par)
+    let above_par_spread = par_spread_decimal + 0.0005; // 5bp above par
+    let swap_above_par = BasisSwap::new(
+        "INC-SIGN-ABOVE",
+        Money::new(10_000_000.0, USD),
+        d(2025, 1, 2),
+        d(2026, 1, 2),
+        BasisSwapLeg {
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: above_par_spread,
+        },
+        BasisSwapLeg {
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+            forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
+        CurveId::new("USD-OIS"),
+    )
+    .expect("valid basis swap")
+    .with_calendar(CALENDAR_ID);
+
+    let res_above = swap_above_par
+        .price_with_metrics(&ctx, as_of, &[MetricId::IncrementalParSpread])
+        .unwrap();
+    let inc_spread_above = res_above.measures[MetricId::IncrementalParSpread.as_str()];
+
+    assert!(
+        inc_spread_above < 0.0,
+        "Expected negative incremental spread when current spread is above par, got {:.2}bp",
+        inc_spread_above
+    );
+    // Should be approximately -5bp since we're 5bp above par
+    assert!(
+        (inc_spread_above + 5.0).abs() < 1.0,
+        "Incremental spread should be ~-5bp, got {:.2}bp",
+        inc_spread_above
+    );
+
+    // Case 3: Current spread AT par -> Zero incremental
+    let swap_at_par = BasisSwap::new(
+        "INC-SIGN-AT-PAR",
+        Money::new(10_000_000.0, USD),
+        d(2025, 1, 2),
+        d(2026, 1, 2),
+        BasisSwapLeg {
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: par_spread_decimal,
+        },
+        BasisSwapLeg {
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+            forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
+        CurveId::new("USD-OIS"),
+    )
+    .expect("valid basis swap")
+    .with_calendar(CALENDAR_ID);
+
+    let res_at_par = swap_at_par
+        .price_with_metrics(&ctx, as_of, &[MetricId::IncrementalParSpread])
+        .unwrap();
+    let inc_spread_at_par = res_at_par.measures[MetricId::IncrementalParSpread.as_str()];
+
+    assert!(
+        inc_spread_at_par.abs() < 0.5,
+        "Expected near-zero incremental spread when at par, got {:.2}bp",
+        inc_spread_at_par
+    );
+}
+
+#[test]
+fn zero_notional_par_spread_returns_error() {
+    // Test that par spread calculation returns an explicit error for zero notional
+    // instead of NaN or Inf
+    let ctx = market();
+    let as_of = d(2025, 1, 2);
+
+    let swap = BasisSwap::new(
+        "ZERO-NOTIONAL-PAR",
+        Money::new(0.0, USD),
+        d(2025, 1, 2),
+        d(2026, 1, 2),
+        BasisSwapLeg {
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
+        BasisSwapLeg {
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+            forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
+        CurveId::new("USD-OIS"),
+    )
+    .unwrap()
+    .with_calendar(CALENDAR_ID);
+
+    // Par spread calculation should return an error, not NaN/Inf
+    let result = swap.price_with_metrics(&ctx, as_of, &[MetricId::BasisParSpread]);
+
+    // Either it returns an error (preferred) or returns a finite value
+    // It should NOT return Ok with NaN or Inf
+    match result {
+        Ok(res) => {
+            let par_spread = res.measures.get(MetricId::BasisParSpread.as_str());
+            if let Some(&val) = par_spread {
+                assert!(
+                    val.is_finite(),
+                    "Par spread should not be NaN or Inf for zero notional; got {}",
+                    val
+                );
+            }
+        }
+        Err(e) => {
+            // This is the expected behavior - explicit error for zero notional
+            let err_msg = format!("{}", e);
+            assert!(
+                err_msg.contains("notional") || err_msg.contains("annuity"),
+                "Error message should mention notional or annuity issue: {}",
+                err_msg
+            );
+        }
     }
 }

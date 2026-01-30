@@ -18,7 +18,7 @@ fn test_standard_fra_construction() {
     assert_eq!(fra.notional.currency(), Currency::USD);
     assert_eq!(fra.fixed_rate, 0.05);
     assert_eq!(fra.day_count, DayCount::Act360);
-    assert!(fra.pay_fixed); // true = receive fixed
+    assert!(fra.receive_fixed); // true = receive fixed rate
 }
 
 #[test]
@@ -53,13 +53,14 @@ fn test_builder_6x12_fra() {
 }
 
 #[test]
-fn test_builder_pay_vs_receive_fixed() {
-    // Note: pay_fixed=true means RECEIVE fixed (confusing naming)
-    let receive_fixed = TestFraBuilder::new().pay_fixed(true).build();
-    let pay_fixed = TestFraBuilder::new().pay_fixed(false).build();
+fn test_builder_receive_vs_pay_fixed() {
+    // receive_fixed = true means receive fixed rate, pay floating
+    // receive_fixed = false means pay fixed rate, receive floating
+    let receive_fixed = TestFraBuilder::new().receive_fixed(true).build();
+    let pay_fixed = TestFraBuilder::new().receive_fixed(false).build();
 
-    assert!(receive_fixed.pay_fixed); // true = receive fixed
-    assert!(!pay_fixed.pay_fixed); // false = pay fixed
+    assert!(receive_fixed.receive_fixed); // true = receive fixed rate
+    assert!(!pay_fixed.receive_fixed); // false = pay fixed rate
 }
 
 #[test]

@@ -2,14 +2,29 @@
 //!
 //! Uses root-finding to solve for the Black volatility that reproduces the
 //! observed market price of the option.
+//!
+//! # Limitations
+//!
+//! This calculator is designed for **single-period caplets/floorlets only**.
+//! For multi-period caps/floors, the implied volatility would require solving
+//! across all caplet contributions (cap stripping), which is not yet implemented.
+//! When applied to a multi-period cap/floor, this calculator uses only the first
+//! period's forward rate, which may not reflect the true flat volatility.
 
 use crate::instruments::cap_floor::pricing::black::{price_caplet_floorlet, CapletFloorletInputs};
 use crate::instruments::cap_floor::{InterestRateOption, RateOptionType};
+use crate::instruments::common::pricing::time::{rate_period_on_dates, relative_df_discount_curve};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::Result;
 
-/// Implied volatility calculator using Black model
+/// Implied volatility calculator using Black model.
+///
+/// # Note
+///
+/// This metric is only accurate for single-period caplets/floorlets.
+/// For multi-period caps/floors, consider using cap stripping or
+/// bootstrapping techniques to extract per-caplet implied volatilities.
 pub struct ImpliedVolCalculator;
 
 impl MetricCalculator for ImpliedVolCalculator {
@@ -23,17 +38,16 @@ impl MetricCalculator for ImpliedVolCalculator {
             })
         })?;
 
-        // Get forward rate from market context
+        // Get curves from market context
         let forward_curve = context.curves.get_forward(&option.forward_id)?;
         let discount_curve = context.curves.get_discount(&option.discount_curve_id)?;
+        let dc_ctx = finstack_core::dates::DayCountCtx::default();
 
-        // For single period caplet/floorlet, use simple calculation
+        // Use instrument day count for time-to-fixing (consistent with pricing and vol surface lookup)
         let time_to_fixing = if option.start_date > context.as_of {
-            forward_curve.day_count().year_fraction(
-                context.as_of,
-                option.start_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )?
+            option
+                .day_count
+                .year_fraction(context.as_of, option.start_date, dc_ctx)?
         } else {
             0.0
         };
@@ -42,13 +56,12 @@ impl MetricCalculator for ImpliedVolCalculator {
             return Ok(0.0); // Expired option has no vol
         }
 
-        let forward_rate = forward_curve.rate(time_to_fixing);
-        let time_to_payment = forward_curve.day_count().year_fraction(
-            context.as_of,
-            option.end_date,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-        let discount_factor = discount_curve.df(time_to_payment);
+        // Use curve-consistent helpers for forward rate and discount factor
+        // (same as in the main pricing implementation)
+        let forward_rate =
+            rate_period_on_dates(forward_curve.as_ref(), option.start_date, option.end_date)?;
+        let discount_factor =
+            relative_df_discount_curve(discount_curve.as_ref(), context.as_of, option.end_date)?;
 
         let accrual_fraction = option.day_count.year_fraction(
             option.start_date,

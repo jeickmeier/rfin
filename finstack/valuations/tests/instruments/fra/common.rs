@@ -100,7 +100,7 @@ pub fn create_standard_fra() -> ForwardRateAgreement {
     ForwardRateAgreement {
         id: "FRA_TEST".into(),
         notional: Money::new(1_000_000.0, Currency::USD),
-        fixing_date: fixing,
+        fixing_date: Some(fixing),
         start_date: start,
         end_date: end,
         fixed_rate: 0.05, // At-market: 5% = forward rate
@@ -111,7 +111,7 @@ pub fn create_standard_fra() -> ForwardRateAgreement {
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
-        pay_fixed: true, // true = receive fixed (confusing naming!)
+        receive_fixed: true, // true = receive fixed rate, pay floating
         attributes: Default::default(),
     }
 }
@@ -121,7 +121,7 @@ pub fn create_standard_fra() -> ForwardRateAgreement {
 pub struct TestFraBuilder {
     id: String,
     notional: Money,
-    fixing_date: Date,
+    fixing_date: Option<Date>,
     start_date: Date,
     end_date: Date,
     fixed_rate: f64,
@@ -129,7 +129,7 @@ pub struct TestFraBuilder {
     reset_lag: i32,
     discount_curve_id: String,
     forward_id: String,
-    pay_fixed: bool,
+    receive_fixed: bool,
 }
 
 impl Default for TestFraBuilder {
@@ -138,7 +138,7 @@ impl Default for TestFraBuilder {
         Self {
             id: "FRA_TEST".to_string(),
             notional: Money::new(1_000_000.0, Currency::USD),
-            fixing_date: fixing,
+            fixing_date: Some(fixing),
             start_date: start,
             end_date: end,
             fixed_rate: 0.05, // At-market: 5% = forward rate
@@ -146,7 +146,7 @@ impl Default for TestFraBuilder {
             reset_lag: 2,
             discount_curve_id: "USD_OIS".to_string(),
             forward_id: "USD_LIBOR_3M".to_string(),
-            pay_fixed: true, // true = receive fixed
+            receive_fixed: true, // true = receive fixed rate
         }
     }
 }
@@ -167,7 +167,7 @@ impl TestFraBuilder {
     }
 
     pub fn dates(mut self, fixing: Date, start: Date, end: Date) -> Self {
-        self.fixing_date = fixing;
+        self.fixing_date = Some(fixing);
         self.start_date = start;
         self.end_date = end;
         self
@@ -189,9 +189,17 @@ impl TestFraBuilder {
         self
     }
 
-    pub fn pay_fixed(mut self, pay: bool) -> Self {
-        self.pay_fixed = pay;
+    /// Set the FRA direction: true = receive fixed rate, false = pay fixed rate.
+    pub fn receive_fixed(mut self, receive: bool) -> Self {
+        self.receive_fixed = receive;
         self
+    }
+
+    /// Deprecated alias for `receive_fixed()`.
+    #[deprecated(since = "0.9.0", note = "Use receive_fixed() instead")]
+    #[allow(dead_code)]
+    pub fn pay_fixed(self, receive: bool) -> Self {
+        self.receive_fixed(receive)
     }
 
     pub fn build(self) -> ForwardRateAgreement {
@@ -209,7 +217,7 @@ impl TestFraBuilder {
             observed_fixing: None,
             discount_curve_id: self.discount_curve_id.into(),
             forward_id: self.forward_id.into(),
-            pay_fixed: self.pay_fixed,
+            receive_fixed: self.receive_fixed,
             attributes: Default::default(),
         }
     }

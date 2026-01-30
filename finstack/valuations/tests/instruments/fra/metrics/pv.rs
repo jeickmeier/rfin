@@ -41,7 +41,7 @@ fn test_pv_off_market_positive() {
     let market = standard_market();
     let fra = TestFraBuilder::new()
         .fixed_rate(0.06) // above market
-        .pay_fixed(true) // true = receive fixed
+        .receive_fixed(true) // true = receive fixed
         .build();
 
     let result = fra.price_with_metrics(&market, BASE_DATE, &[]).unwrap();
@@ -56,7 +56,7 @@ fn test_pv_off_market_negative() {
     let market = standard_market();
     let fra = TestFraBuilder::new()
         .fixed_rate(0.04) // below market
-        .pay_fixed(true) // true = receive fixed
+        .receive_fixed(true) // true = receive fixed
         .build();
 
     let result = fra.price_with_metrics(&market, BASE_DATE, &[]).unwrap();

@@ -107,6 +107,66 @@ pub struct FxForward {
 }
 
 impl FxForward {
+    /// Validate the FX forward parameters.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - `base_currency` equals `quote_currency` (must be different currencies)
+    /// - `notional.currency()` does not match `base_currency`
+    /// - `contract_rate` is provided but is not positive
+    /// - `spot_rate_override` is provided but is not positive
+    pub fn validate(&self) -> Result<()> {
+        // Currencies must be different
+        if self.base_currency == self.quote_currency {
+            return Err(finstack_core::Error::Validation(format!(
+                "FX forward base_currency ({}) must differ from quote_currency ({})",
+                self.base_currency, self.quote_currency
+            )));
+        }
+
+        // Notional must be in base currency
+        if self.notional.currency() != self.base_currency {
+            return Err(finstack_core::Error::Validation(format!(
+                "FX forward notional currency ({}) must match base_currency ({})",
+                self.notional.currency(),
+                self.base_currency
+            )));
+        }
+
+        // Contract rate must be positive if provided
+        if let Some(rate) = self.contract_rate {
+            if rate <= 0.0 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "FX forward contract_rate must be positive, got {}",
+                    rate
+                )));
+            }
+            if !rate.is_finite() {
+                return Err(finstack_core::Error::Validation(
+                    "FX forward contract_rate must be finite".to_string(),
+                ));
+            }
+        }
+
+        // Spot rate override must be positive if provided
+        if let Some(rate) = self.spot_rate_override {
+            if rate <= 0.0 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "FX forward spot_rate_override must be positive, got {}",
+                    rate
+                )));
+            }
+            if !rate.is_finite() {
+                return Err(finstack_core::Error::Validation(
+                    "FX forward spot_rate_override must be finite".to_string(),
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
     /// Create a canonical example FX forward for testing and documentation.
     ///
     /// Returns a 6-month EUR/USD forward with realistic parameters.
@@ -192,13 +252,56 @@ impl FxForward {
 
     /// Create an FX forward with forward points instead of outright rate.
     ///
-    /// Forward points are the difference between the forward rate and spot rate,
-    /// typically quoted in pips (1/10000 for most pairs).
+    /// Forward points represent the interest rate differential between the two
+    /// currencies and are added to the spot rate to obtain the forward rate.
+    ///
+    /// # Market Convention
+    ///
+    /// In the FX market, forward points are typically quoted in "pips" (1/10000
+    /// for most pairs). For example, for EUR/USD:
+    /// - Market quote: "50 pips" or "+50"
+    /// - Decimal value: 0.0050 (50 × 0.0001)
+    ///
+    /// This method expects forward points in **decimal form**, not pip form.
+    /// To convert from pips: `forward_points = pips × pip_size` where
+    /// `pip_size = 0.0001` for most pairs (0.01 for JPY pairs).
     ///
     /// # Arguments
     ///
     /// * `spot_rate` - Current spot rate (quote per base)
-    /// * `forward_points` - Forward points (in same units as spot, e.g., 0.0050 for 50 pips)
+    /// * `forward_points` - Forward points in decimal form (e.g., 0.0050 for 50 pips
+    ///   on a standard pair, or 0.50 for 50 pips on a JPY pair)
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # use finstack_valuations::instruments::fx::fx_forward::FxForward;
+    /// # use finstack_core::currency::Currency;
+    /// # use finstack_core::dates::Date;
+    /// # use finstack_core::money::Money;
+    /// # use finstack_core::types::{CurveId, InstrumentId};
+    /// # use time::Month;
+    /// // EUR/USD spot at 1.1000, forward points quoted as "50" (pips)
+    /// let spot = 1.1000;
+    /// let pips = 50.0;
+    /// let pip_size = 0.0001; // Standard pip size for EUR/USD
+    /// let forward_points = pips * pip_size; // = 0.0050
+    ///
+    /// let forward = FxForward::builder()
+    ///     .id(InstrumentId::new("EURUSD-FWD"))
+    ///     .base_currency(Currency::EUR)
+    ///     .quote_currency(Currency::USD)
+    ///     .maturity_date(Date::from_calendar_date(2025, Month::June, 15).unwrap())
+    ///     .notional(Money::new(1_000_000.0, Currency::EUR))
+    ///     .domestic_discount_curve_id(CurveId::new("USD-OIS"))
+    ///     .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
+    ///     .build()
+    ///     .unwrap()
+    ///     .with_forward_points(spot, forward_points);
+    ///
+    /// // Contract rate = 1.1000 + 0.0050 = 1.1050
+    /// assert!((forward.contract_rate.unwrap() - 1.1050).abs() < 1e-10);
+    /// ```
     pub fn with_forward_points(mut self, spot_rate: f64, forward_points: f64) -> Self {
         self.contract_rate = Some(spot_rate + forward_points);
         self.spot_rate_override = Some(spot_rate);
@@ -210,11 +313,25 @@ impl FxForward {
     /// Uses covered interest rate parity to compute the market forward rate,
     /// then values the position based on the difference between market and
     /// contract rates.
+    ///
+    /// # Expired Forwards
+    ///
+    /// Returns zero PV for forwards where maturity is on or before the valuation
+    /// date. This treats the forward as fully settled with no remaining value.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if validation fails (see [`validate`](Self::validate)) or
+    /// if required market data is not available.
     pub fn npv(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
         use finstack_core::money::fx::FxQuery;
 
-        // If maturity has passed, value is zero
-        if self.maturity_date < as_of {
+        // Validate instrument parameters upfront
+        self.validate()?;
+
+        // If maturity has passed or is today, the forward is settled with zero remaining value.
+        // This aligns with the pricer's behavior which rejects maturity <= as_of.
+        if self.maturity_date <= as_of {
             return Ok(Money::new(0.0, self.quote_currency));
         }
 
@@ -247,12 +364,6 @@ impl FxForward {
         // Contract rate (if None, at-market forward has zero PV)
         let contract_fwd = self.contract_rate.unwrap_or(market_forward);
 
-        // Validate notional currency
-        if self.notional.currency() != self.base_currency {
-            return Err(finstack_core::Error::from(
-                finstack_core::InputError::Invalid,
-            ));
-        }
         let n_base = self.notional.amount();
 
         // PV = notional × (F_market - F_contract) × DF_domestic
@@ -263,8 +374,21 @@ impl FxForward {
     }
 
     /// Compute the market forward rate via covered interest rate parity.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The maturity date is on or before the valuation date
+    /// - Required discount curves are not found
+    /// - FX rate is not available and no spot override is set
     pub fn market_forward_rate(&self, market: &MarketContext, as_of: Date) -> Result<f64> {
         use finstack_core::money::fx::FxQuery;
+
+        if self.maturity_date <= as_of {
+            return Err(finstack_core::Error::from(
+                finstack_core::InputError::Invalid,
+            ));
+        }
 
         let domestic_disc = market.get_discount(self.domestic_discount_curve_id.as_str())?;
         let foreign_disc = market.get_discount(self.foreign_discount_curve_id.as_str())?;
@@ -365,7 +489,7 @@ impl HasDiscountCurve for FxForward {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
+#[allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]
 mod tests {
     use super::*;
     use time::Month;
@@ -449,5 +573,111 @@ mod tests {
         assert_eq!(forward.id.as_str(), deserialized.id.as_str());
         assert_eq!(forward.base_currency, deserialized.base_currency);
         assert_eq!(forward.quote_currency, deserialized.quote_currency);
+    }
+
+    #[test]
+    fn test_validation_same_currency_fails() {
+        let forward = FxForward {
+            id: InstrumentId::new("TEST"),
+            base_currency: Currency::EUR,
+            quote_currency: Currency::EUR, // Same as base - invalid
+            maturity_date: Date::from_calendar_date(2025, Month::June, 15).expect("valid date"),
+            notional: Money::new(1_000_000.0, Currency::EUR),
+            contract_rate: None,
+            domestic_discount_curve_id: CurveId::new("EUR-OIS"),
+            foreign_discount_curve_id: CurveId::new("EUR-OIS"),
+            spot_rate_override: None,
+            base_calendar_id: None,
+            quote_calendar_id: None,
+            attributes: Attributes::new(),
+        };
+
+        let result = forward.validate();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("must differ from quote_currency"));
+    }
+
+    #[test]
+    fn test_validation_notional_currency_mismatch_fails() {
+        let forward = FxForward {
+            id: InstrumentId::new("TEST"),
+            base_currency: Currency::EUR,
+            quote_currency: Currency::USD,
+            maturity_date: Date::from_calendar_date(2025, Month::June, 15).expect("valid date"),
+            notional: Money::new(1_000_000.0, Currency::USD), // Wrong currency
+            contract_rate: None,
+            domestic_discount_curve_id: CurveId::new("USD-OIS"),
+            foreign_discount_curve_id: CurveId::new("EUR-OIS"),
+            spot_rate_override: None,
+            base_calendar_id: None,
+            quote_calendar_id: None,
+            attributes: Attributes::new(),
+        };
+
+        let result = forward.validate();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("must match base_currency"));
+    }
+
+    #[test]
+    fn test_validation_negative_contract_rate_fails() {
+        let forward = FxForward {
+            id: InstrumentId::new("TEST"),
+            base_currency: Currency::EUR,
+            quote_currency: Currency::USD,
+            maturity_date: Date::from_calendar_date(2025, Month::June, 15).expect("valid date"),
+            notional: Money::new(1_000_000.0, Currency::EUR),
+            contract_rate: Some(-1.10), // Negative rate - invalid
+            domestic_discount_curve_id: CurveId::new("USD-OIS"),
+            foreign_discount_curve_id: CurveId::new("EUR-OIS"),
+            spot_rate_override: None,
+            base_calendar_id: None,
+            quote_calendar_id: None,
+            attributes: Attributes::new(),
+        };
+
+        let result = forward.validate();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("contract_rate must be positive"));
+    }
+
+    #[test]
+    fn test_validation_negative_spot_override_fails() {
+        let forward = FxForward {
+            id: InstrumentId::new("TEST"),
+            base_currency: Currency::EUR,
+            quote_currency: Currency::USD,
+            maturity_date: Date::from_calendar_date(2025, Month::June, 15).expect("valid date"),
+            notional: Money::new(1_000_000.0, Currency::EUR),
+            contract_rate: Some(1.10),
+            domestic_discount_curve_id: CurveId::new("USD-OIS"),
+            foreign_discount_curve_id: CurveId::new("EUR-OIS"),
+            spot_rate_override: Some(-1.10), // Negative rate - invalid
+            base_calendar_id: None,
+            quote_calendar_id: None,
+            attributes: Attributes::new(),
+        };
+
+        let result = forward.validate();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("spot_rate_override must be positive"));
+    }
+
+    #[test]
+    fn test_validation_valid_forward_passes() {
+        let forward = FxForward::example();
+        assert!(forward.validate().is_ok());
     }
 }

@@ -11,7 +11,7 @@ pub mod par_spread;
 pub mod pv;
 
 pub use annuity::AnnuityCalculator;
-pub use par_spread::ParSpreadCalculator;
+pub use par_spread::{IncrementalParSpreadCalculator, ParSpreadCalculator};
 pub use pv::PvCalculator;
 
 use crate::metrics::{MetricId, MetricRegistry};
@@ -58,6 +58,7 @@ pub fn register_basis_swap_metrics(registry: &mut MetricRegistry) {
         metrics: [
             (Dv01, crate::metrics::UnifiedDv01Calculator::<crate::instruments::BasisSwap>::new(crate::metrics::Dv01CalculatorConfig::parallel_per_curve())),
             (BasisParSpread, ParSpreadCalculator),
+            (IncrementalParSpread, IncrementalParSpreadCalculator),
             // Theta is now registered universally in metrics::standard_registry()
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::BasisSwap,

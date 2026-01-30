@@ -402,7 +402,7 @@ fn forward_curve_fra_repricing() {
             .reset_lag(2)
             .discount_curve_id("USD-OIS".into())
             .forward_id("USD-SOFR-3M".into())
-            .pay_fixed(false)
+            .receive_fixed(false)
             .build()
             .unwrap();
 

@@ -66,7 +66,7 @@ pub struct PyForwardRateAgreementBuilder {
     forward_curve_id: Option<CurveId>,
     day_count: finstack_core::dates::DayCount,
     reset_lag: i32,
-    pay_fixed: bool,
+    receive_fixed: bool,
 }
 
 impl PyForwardRateAgreementBuilder {
@@ -83,7 +83,7 @@ impl PyForwardRateAgreementBuilder {
             forward_curve_id: None,
             day_count: finstack_core::dates::DayCount::Act360,
             reset_lag: 2,
-            pay_fixed: true,
+            receive_fixed: true,
         }
     }
 
@@ -242,9 +242,17 @@ impl PyForwardRateAgreementBuilder {
         slf
     }
 
+    /// Set the FRA direction: True = receive fixed rate, False = pay fixed rate.
+    #[pyo3(text_signature = "($self, receive_fixed)")]
+    fn receive_fixed(mut slf: PyRefMut<'_, Self>, receive_fixed: bool) -> PyRefMut<'_, Self> {
+        slf.receive_fixed = receive_fixed;
+        slf
+    }
+
+    /// Deprecated alias for receive_fixed(). Use receive_fixed() instead.
     #[pyo3(text_signature = "($self, pay_fixed)")]
     fn pay_fixed(mut slf: PyRefMut<'_, Self>, pay_fixed: bool) -> PyRefMut<'_, Self> {
-        slf.pay_fixed = pay_fixed;
+        slf.receive_fixed = pay_fixed;
         slf
     }
 
@@ -298,7 +306,7 @@ impl PyForwardRateAgreementBuilder {
             .reset_lag(slf.reset_lag)
             .discount_curve_id(discount)
             .forward_id(forward)
-            .pay_fixed(slf.pay_fixed)
+            .receive_fixed(slf.receive_fixed)
             .build()
             .map(PyForwardRateAgreement::new)
             .map_err(core_to_py)
@@ -359,13 +367,19 @@ impl PyForwardRateAgreement {
         self.inner.reset_lag
     }
 
-    /// Whether the FRA pays fixed / receives floating.
+    /// Whether the FRA receives fixed rate / pays floating rate.
     ///
     /// Returns:
-    ///     bool: ``True`` when the FRA position pays fixed.
+    ///     bool: ``True`` when the FRA position receives fixed rate.
+    #[getter]
+    fn receive_fixed(&self) -> bool {
+        self.inner.receive_fixed
+    }
+
+    /// Deprecated alias for receive_fixed. Use receive_fixed instead.
     #[getter]
     fn pay_fixed(&self) -> bool {
-        self.inner.pay_fixed
+        self.inner.receive_fixed
     }
 
     /// Discount curve identifier.
@@ -389,10 +403,14 @@ impl PyForwardRateAgreement {
     /// Fixing date for the reference rate.
     ///
     /// Returns:
-    ///     datetime.date: Date on which the floating rate is observed.
+    ///     Optional[datetime.date]: Date on which the floating rate is observed,
+    ///     or None if inferred from start_date - reset_lag.
     #[getter]
-    fn fixing_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        date_to_py(py, self.inner.fixing_date)
+    fn fixing_date(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+        match self.inner.fixing_date {
+            Some(date) => date_to_py(py, date).map(Some),
+            None => Ok(None),
+        }
     }
 
     /// Start date of the accrual period.

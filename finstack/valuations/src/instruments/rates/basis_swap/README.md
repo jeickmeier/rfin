@@ -38,12 +38,14 @@ let swap = BasisSwap::new(
     primary,
     reference,
     CurveId::new("USD-OIS"),
-);
+)?;  // Returns Result<BasisSwap, Error>
 let pv = swap.value(&market_context, Date::from_calendar_date(2024, Month::January, 3)?)?;
 ```
 
 ## Limitations / Known Issues
 
+- **No notional exchange**: This instrument models the coupon exchange only; initial and final notional exchanges are not supported. For cross-currency basis swaps or structures requiring principal exchange, use a custom instrument or combine with notional cashflows.
+- **Single-currency only**: Both legs use the same notional currency. For cross-currency basis swaps (XCCY), a dedicated cross-currency swap instrument is required.
 - No convexity or funding-value adjustment; deterministic forwards/discount factors only.
 - Assumes a single discount curve for both legs; CSA-specific multi-curve discounting must be modeled externally.
 - Does not include optional early termination or compounding conventions beyond the provided leg specs.

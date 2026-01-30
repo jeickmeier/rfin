@@ -66,10 +66,11 @@ impl MetricCalculator for CollateralPrice01Calculator {
         let pv_down = repo.value(&ctx_down, as_of)?.amount();
 
         // CollateralPrice01 = (PV_up - PV_down) / (2 * bump_size)
-        // Result is per 1% change in collateral price
-        let bump_size = current_price * COLLATERAL_PRICE_BUMP_PCT;
-        let collateral_price01 = if bump_size.abs() > 1e-10 {
-            (pv_up - pv_down) / (2.0 * bump_size) * current_price // Scale to per 1% of price
+        // Result is PV change per 1% change in collateral price
+        // bump_size = current_price * 0.01, so dividing by (2 * bump_size) normalizes
+        // to "per unit price move" and then multiplying by 0.01 gives "per 1% move"
+        let collateral_price01 = if current_price.abs() > 1e-10 {
+            (pv_up - pv_down) / (2.0 * COLLATERAL_PRICE_BUMP_PCT)
         } else {
             0.0
         };

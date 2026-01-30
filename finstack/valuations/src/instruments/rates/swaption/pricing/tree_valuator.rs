@@ -50,7 +50,16 @@ pub struct BermudanSwaptionTreeValuator<'a> {
     tree: &'a HullWhiteTree,
     /// Reference to the discount curve
     discount_curve: &'a dyn Discounting,
-    /// Valuation date
+    /// Valuation date.
+    ///
+    /// Stored for potential future use in:
+    /// - Theta calculations (time decay from as_of to as_of + 1 day)
+    /// - Exercise boundary reporting with actual dates
+    /// - Diagnostic output including the valuation date
+    ///
+    /// Currently the valuator uses pre-computed year fractions for all calculations,
+    /// so this field is not actively used in pricing. It is retained for API
+    /// consistency and future extensibility.
     _as_of: Date,
     /// Exercise step indices (mapped from exercise dates)
     exercise_steps: HashSet<usize>,

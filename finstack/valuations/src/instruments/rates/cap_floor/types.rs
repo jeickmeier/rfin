@@ -9,6 +9,18 @@ use finstack_core::types::{CurveId, InstrumentId, Rate};
 
 use super::parameters::InterestRateOptionParams;
 
+/// Minimum time-to-fixing for vol surface lookup (in years).
+///
+/// When a caplet is at or past its fixing date (`t_fix <= 0`), the vol surface lookup
+/// still requires a positive time input. This constant provides a small floor (~8.6 hours)
+/// to avoid numerical issues while still returning a near-expiry volatility.
+///
+/// The choice of 1e-6 years is small enough to not materially affect the volatility lookup
+/// but large enough to avoid potential division-by-zero or log(0) issues in vol surface
+/// interpolation. For seasoned caplets, the Black formula will use intrinsic value anyway,
+/// so the exact vol returned is not critical.
+const MIN_VOL_LOOKUP_TIME: f64 = 1e-6;
+
 /// Type of interest rate option
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -346,7 +358,8 @@ impl InterestRateOption {
             let sigma = if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
                 impl_vol
             } else if let Some(vol_surf) = &vol_surface {
-                vol_surf.value_clamped(t_fix.max(0.0), self.strike_rate)
+                // Use MIN_VOL_LOOKUP_TIME floor for seasoned caplets (t_fix <= 0)
+                vol_surf.value_clamped(t_fix.max(MIN_VOL_LOOKUP_TIME), self.strike_rate)
             } else {
                 return Err(finstack_core::InputError::NotFound {
                     id: "cap_floor_vol_surface".to_string(),
@@ -410,8 +423,8 @@ impl InterestRateOption {
             let sigma = if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
                 impl_vol
             } else if let Some(vol_surf) = &vol_surface {
-                // For seasoned caplets (t_fix <= 0), use small positive time for vol lookup
-                vol_surf.value_clamped(t_fix.max(1e-6), self.strike_rate)
+                // Use MIN_VOL_LOOKUP_TIME floor for seasoned caplets (t_fix <= 0)
+                vol_surf.value_clamped(t_fix.max(MIN_VOL_LOOKUP_TIME), self.strike_rate)
             } else {
                 return Err(finstack_core::InputError::NotFound {
                     id: "cap_floor_vol_surface".to_string(),

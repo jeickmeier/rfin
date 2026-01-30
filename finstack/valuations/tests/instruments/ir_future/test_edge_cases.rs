@@ -68,9 +68,9 @@ fn test_zero_face_value() {
 
     let future = create_standard_future(start, end).with_contract_specs(specs);
 
-    // Should handle zero face value gracefully (contracts_scale = 1.0)
+    // Zero face value means zero contracts, so PV should be zero
     let pv = future.npv(&market).unwrap();
-    assert!(pv.amount().is_finite());
+    assert_eq!(pv.amount(), 0.0, "Zero face value should result in zero PV");
 }
 
 #[test]

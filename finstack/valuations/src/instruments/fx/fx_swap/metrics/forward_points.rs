@@ -5,11 +5,15 @@
 //! rate is either provided or derived from covered interest parity using the
 //! discount curves.
 
+use crate::instruments::fx_swap::pricing_helper::FxSwapPricingContext;
 use crate::instruments::fx_swap::FxSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::money::fx::FxQuery;
 
 /// Forward points (far rate - near rate).
+///
+/// Forward points represent the interest rate differential between the two
+/// currencies expressed in FX terms. When domestic rates exceed foreign rates,
+/// forward points are positive (forward at premium).
 pub struct ForwardPoints;
 
 impl MetricCalculator for ForwardPoints {
@@ -18,56 +22,9 @@ impl MetricCalculator for ForwardPoints {
         let curves = context.curves.clone();
         let as_of = context.as_of;
 
-        let domestic_disc = curves.get_discount(fx_swap.domestic_discount_curve_id.as_str())?;
-        let foreign_disc = curves.get_discount(fx_swap.foreign_discount_curve_id.as_str())?;
+        // Use shared pricing context for consistent calculations
+        let ctx = FxSwapPricingContext::build(fx_swap, &curves, as_of)?;
 
-        // Use curve-consistent discount factors on dates (relative to as_of)
-        let df_dom_near = domestic_disc.df_between_dates(as_of, fx_swap.near_date)?;
-        let df_dom_far = domestic_disc.df_between_dates(as_of, fx_swap.far_date)?;
-        let df_for_near = foreign_disc.df_between_dates(as_of, fx_swap.near_date)?;
-        let df_for_far = foreign_disc.df_between_dates(as_of, fx_swap.far_date)?;
-
-        // Resolve near spot rate
-        let near_rate = match fx_swap.near_rate {
-            Some(rate) => rate,
-            None => {
-                let fx_matrix = curves.fx().ok_or_else(|| {
-                    finstack_core::Error::from(finstack_core::InputError::NotFound {
-                        id: "fx_matrix".to_string(),
-                    })
-                })?;
-                fx_matrix
-                    .as_ref()
-                    .rate(FxQuery::new(
-                        fx_swap.base_currency,
-                        fx_swap.quote_currency,
-                        as_of,
-                    ))?
-                    .rate
-            }
-        };
-
-        // Resolve far forward rate from curves when not provided
-        // Covered interest parity: F = S × (DF_for_far/DF_for_near) / (DF_dom_far/DF_dom_near)
-        // When r_dom > r_for, forward is at premium (F > S) as required by no-arbitrage.
-        // Derivation: F = S × (1 + r_dom × T) / (1 + r_for × T) = S × DF_for / DF_dom
-        let far_rate = match fx_swap.far_rate {
-            Some(rate) => rate,
-            None => {
-                let dom_ratio = if df_dom_near.abs() > 1e-12 {
-                    df_dom_far / df_dom_near
-                } else {
-                    1.0
-                };
-                let for_ratio = if df_for_near.abs() > 1e-12 {
-                    df_for_far / df_for_near
-                } else {
-                    1.0
-                };
-                near_rate * for_ratio / dom_ratio
-            }
-        };
-
-        Ok(far_rate - near_rate)
+        Ok(ctx.forward_points())
     }
 }

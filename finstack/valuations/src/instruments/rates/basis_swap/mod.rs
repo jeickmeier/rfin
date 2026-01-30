@@ -16,9 +16,11 @@
 //! Present value is the difference between projected floating legs:
 //!
 //! ```text
-//! PV = PV(Primary leg) - PV(Reference leg + spread)
-//!    = Σ N·τᵢ·Fwd₁(tᵢ)·DF(tᵢ) - Σ N·τⱼ·[Fwd₂(tⱼ) + spread]·DF(tⱼ)
+//! PV = PV(Primary leg + spread) - PV(Reference leg)
+//!    = Σ N·τᵢ·[Fwd₁(tᵢ) + spread]·DF(tᵢ) - Σ N·τⱼ·Fwd₂(tⱼ)·DF(tⱼ)
 //! ```
+//!
+//! Note: By convention, the spread is added to the **primary leg** (not the reference leg).
 //!
 //! # Multi-Curve Calibration
 //!

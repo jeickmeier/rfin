@@ -6,7 +6,7 @@
 //!
 //! # Structure
 //!
-//! - **Fixed leg**: Pay or receive fixed breakeven rate
+//! - **Fixed leg**: Pay or receive fixed breakeven rate (compounded)
 //! - **Inflation leg**: Pay or receive cumulative CPI growth
 //! - **No interim payments**: Single payment at maturity
 //!
@@ -14,20 +14,23 @@
 //!
 //! ```text
 //! Inflation leg = Notional × [CPI(T)/CPI(0) - 1]
-//! Fixed leg = Notional × Breakeven_rate × T
+//! Fixed leg     = Notional × [(1 + fixed_rate)^τ - 1]
 //! ```
 //!
-//! Net payment = Inflation leg - Fixed leg (for receiver)
+//! where τ is the year fraction from start to maturity using the instrument's day count.
 //!
-//! # Breakeven Inflation Rate
+//! Net payment = Inflation leg - Fixed leg (for PayFixed side)
 //!
-//! The fixed rate that makes PV = 0:
+//! # Breakeven Inflation Rate (Par Rate)
+//!
+//! The fixed rate K that makes PV = 0:
 //!
 //! ```text
-//! Breakeven = [DF_nominal(T) / DF_real(T) - 1] / T
+//! (1 + K)^τ = CPI(T) / CPI(0)
+//! K = [CPI(T) / CPI(0)]^(1/τ) - 1
 //! ```
 //!
-//! where DF_nominal and DF_real are nominal and real discount factors.
+//! This is the annualized compound inflation rate implied by the inflation curve.
 //!
 //! # Inflation Indexation
 //!

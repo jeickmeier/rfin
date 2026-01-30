@@ -58,7 +58,7 @@ impl Pricer for FxSpotPricer {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
+#[allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]
 mod tests {
     use super::*;
     use crate::instruments::fx_spot::FxSpot;
@@ -67,7 +67,9 @@ mod tests {
     use finstack_core::market_data::context::MarketContext;
 
     fn create_test_fx_spot() -> FxSpot {
-        FxSpot::new("EURUSD".into(), Currency::EUR, Currency::USD).with_rate(1.05)
+        FxSpot::new("EURUSD".into(), Currency::EUR, Currency::USD)
+            .with_rate(1.05)
+            .expect("valid rate")
     }
 
     #[test]
@@ -107,10 +109,12 @@ mod tests {
 
     #[test]
     fn test_fx_spot_pricing_with_different_rates() {
-        let fx_spot_high =
-            FxSpot::new("GBPUSD".into(), Currency::GBP, Currency::USD).with_rate(1.25);
-        let fx_spot_low =
-            FxSpot::new("USDJPY".into(), Currency::USD, Currency::JPY).with_rate(110.0);
+        let fx_spot_high = FxSpot::new("GBPUSD".into(), Currency::GBP, Currency::USD)
+            .with_rate(1.25)
+            .expect("valid rate");
+        let fx_spot_low = FxSpot::new("USDJPY".into(), Currency::USD, Currency::JPY)
+            .with_rate(110.0)
+            .expect("valid rate");
 
         let market = MarketContext::new();
         let pricer = FxSpotPricer::new();
@@ -133,10 +137,24 @@ mod tests {
     }
 
     #[test]
-    fn test_fx_spot_pricing_error_handling() {
-        // Test with invalid FX spot (zero rate)
+    fn test_fx_spot_zero_rate_rejected() {
+        // Test that zero rate is rejected by with_rate
+        let result = FxSpot::new("EURUSD".into(), Currency::EUR, Currency::USD).with_rate(0.0);
+
+        assert!(result.is_err(), "Zero rate should be rejected");
+        let err = result.unwrap_err();
+        let err_msg = format!("{:?}", err);
+        assert!(
+            err_msg.contains("zero") || err_msg.contains("spot_rate"),
+            "Error should mention zero rate"
+        );
+    }
+
+    #[test]
+    fn test_fx_spot_pricing_with_unchecked_zero_rate() {
+        // Test pricing with zero rate using unchecked variant (for edge case testing)
         let fx_spot_zero =
-            FxSpot::new("EURUSD".into(), Currency::EUR, Currency::USD).with_rate(0.0);
+            FxSpot::new("EURUSD".into(), Currency::EUR, Currency::USD).with_rate_unchecked(0.0);
 
         let market = MarketContext::new();
         let pricer = FxSpotPricer::new();
@@ -145,19 +163,10 @@ mod tests {
 
         let result = pricer.price_dyn(&fx_spot_zero, &market, as_of);
 
-        match result {
-            Ok(valuation) => {
-                // Even with zero rate, should return a valid valuation
-                assert_eq!(valuation.instrument_id, "EURUSD");
-                assert_eq!(valuation.value.amount(), 0.0);
-            }
-            Err(error) => {
-                // If it returns an error, ensure the error message is meaningful
-                let error_msg = format!("{}", error);
-                assert!(!error_msg.is_empty());
-                assert!(error_msg.len() > 10);
-            }
-        }
+        // With zero rate, should return zero PV
+        let valuation = result.expect("Should price with zero rate");
+        assert_eq!(valuation.instrument_id, "EURUSD");
+        assert_eq!(valuation.value.amount(), 0.0);
     }
 
     #[test]
@@ -194,7 +203,9 @@ mod tests {
             .expect("Valid test date");
 
         for (id, base, quote, rate) in test_cases {
-            let fx_spot = FxSpot::new(id.into(), base, quote).with_rate(rate);
+            let fx_spot = FxSpot::new(id.into(), base, quote)
+                .with_rate(rate)
+                .expect("valid rate");
             let result = pricer.price_dyn(&fx_spot, &market, as_of);
 
             assert!(result.is_ok(), "Failed to price FX spot {}", id);
@@ -265,10 +276,12 @@ mod tests {
     #[test]
     fn test_fx_spot_pricing_edge_cases() {
         // Test with very small and very large rates
-        let fx_spot_small =
-            FxSpot::new("TEST1".into(), Currency::USD, Currency::JPY).with_rate(0.001);
-        let fx_spot_large =
-            FxSpot::new("TEST2".into(), Currency::JPY, Currency::USD).with_rate(10000.0);
+        let fx_spot_small = FxSpot::new("TEST1".into(), Currency::USD, Currency::JPY)
+            .with_rate(0.001)
+            .expect("valid rate");
+        let fx_spot_large = FxSpot::new("TEST2".into(), Currency::JPY, Currency::USD)
+            .with_rate(10000.0)
+            .expect("valid rate");
 
         let market = MarketContext::new();
         let pricer = FxSpotPricer::new();

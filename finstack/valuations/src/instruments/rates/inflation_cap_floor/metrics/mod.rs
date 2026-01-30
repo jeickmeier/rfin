@@ -2,7 +2,17 @@
 //!
 //! Provides metric calculators specific to `InflationCapFloor`, split into focused files.
 //! Metrics are registered via `register_inflation_cap_floor_metrics`.
+//!
+//! # Available Metrics
+//!
+//! - **Inflation01**: Sensitivity to 1bp parallel shift in inflation curve
+//! - **Gamma**: Second derivative (convexity) with respect to inflation rate
+//! - **Vega**: Sensitivity to 1% absolute shift in volatility surface
+//! - **Dv01**: Sensitivity to 1bp shift in discount curve
+//! - **BucketedDv01**: Key-rate sensitivities to discount curve
+//! - **Theta**: Time decay (1-day roll)
 
+mod gamma;
 mod inflation01;
 mod vega;
 
@@ -17,6 +27,12 @@ pub fn register_inflation_cap_floor_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::Inflation01,
         Arc::new(inflation01::Inflation01Calculator),
+        &[InstrumentType::InflationCapFloor],
+    );
+
+    registry.register_metric(
+        MetricId::Gamma,
+        Arc::new(gamma::GammaCalculator),
         &[InstrumentType::InflationCapFloor],
     );
 

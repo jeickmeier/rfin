@@ -5,6 +5,17 @@
 //! as inflation rates move.
 //!
 //! Uses numerical differentiation with 1bp bumps to the inflation curve.
+//!
+//! # Mathematical Definition
+//!
+//! Convexity is the second derivative of PV with respect to inflation rate:
+//! ```text
+//! Convexity = d²PV / dπ² ≈ (PV_up + PV_down - 2×PV_base) / bump²
+//! ```
+//!
+//! Note: Convexity is typically non-zero even for at-market (par) swaps where
+//! PV = 0. This is because the curvature of the PV function exists regardless
+//! of the current PV level.
 
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::inflation_swap::InflationSwap;
@@ -16,6 +27,12 @@ use finstack_core::Result;
 const INFLATION_BUMP_BP: f64 = 0.0001;
 
 /// Calculates inflation convexity for inflation swaps.
+///
+/// Uses central finite differences for numerical stability:
+/// `Convexity ≈ (PV(+bump) + PV(-bump) - 2×PV_base) / bump²`
+///
+/// Note: Returns non-zero convexity even for par swaps (where base PV = 0),
+/// since convexity measures the curvature of the PV function, not its level.
 pub struct InflationConvexityCalculator;
 
 impl MetricCalculator for InflationConvexityCalculator {
@@ -52,12 +69,11 @@ impl MetricCalculator for InflationConvexityCalculator {
         }])?;
         let pv_down = swap.value(&curves_down, as_of)?.amount();
 
-        if base_pv == 0.0 {
-            return Ok(0.0);
-        }
-
         // InflationConvexity = (PV_up + PV_down - 2×PV_base) / (bump²)
         // This gives the second derivative normalized per (basis point)²
+        //
+        // Note: This formula is valid even when base_pv = 0 (par swaps).
+        // Convexity measures curvature, not absolute level.
         let inflation_convexity = (pv_up + pv_down - 2.0 * base_pv) / (bump_bp * bump_bp);
 
         Ok(inflation_convexity)

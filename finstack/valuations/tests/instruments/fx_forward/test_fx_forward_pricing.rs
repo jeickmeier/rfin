@@ -189,9 +189,35 @@ fn test_fx_forward_expired() {
         .build()
         .expect("should build");
 
-    // Instrument trait value method should return zero for expired forward
+    // Expired forward should return zero PV (settled trade)
     let npv = forward.value(&market, as_of).expect("should price");
-    assert_eq!(npv.amount(), 0.0);
+    assert_eq!(npv.amount(), 0.0, "Expired forward should have zero PV");
+}
+
+#[test]
+fn test_fx_forward_same_day_maturity() {
+    let as_of = Date::from_calendar_date(2024, Month::July, 15).expect("valid date");
+    let market = create_test_market(as_of);
+
+    let forward = FxForward::builder()
+        .id(InstrumentId::new("EURUSD-SAMEDAY"))
+        .base_currency(Currency::EUR)
+        .quote_currency(Currency::USD)
+        .maturity_date(as_of)
+        .notional(Money::new(1_000_000.0, Currency::EUR))
+        .domestic_discount_curve_id(CurveId::new("USD-OIS"))
+        .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
+        .attributes(Attributes::new())
+        .build()
+        .expect("should build");
+
+    // Same-day maturity should return zero PV
+    let npv = forward.value(&market, as_of).expect("should price");
+    assert_eq!(
+        npv.amount(),
+        0.0,
+        "Same-day maturity forward should have zero PV"
+    );
 }
 
 #[test]

@@ -34,7 +34,7 @@
 //! accrual period length. For STIR futures on SOFR, adjustments are typically
 //! sourced from broker screens or implied from listed options.
 use crate::cashflow::traits::CashflowProvider;
-use crate::constants::PERCENT_TO_DECIMAL;
+use crate::constants::{ONE_BASIS_POINT, PERCENT_TO_DECIMAL};
 // Params-based constructor removed; build via builder instead.
 use crate::instruments::common::traits::Attributes;
 use finstack_core::dates::{Date, DayCount};
@@ -213,17 +213,34 @@ impl InterestRateFuture {
     }
 
     /// Calculates the raw present value of the interest rate future (f64)
+    ///
+    /// # Day Count Conventions
+    ///
+    /// This method intentionally uses two different day count bases:
+    /// - **Forward curve projection**: Uses the forward curve's own day count to compute
+    ///   time-to-fixing and forward rate period. This ensures consistency with how the
+    ///   curve was bootstrapped.
+    /// - **Accrual calculation**: Uses the instrument's day count (`self.day_count`) for
+    ///   the accrual period `tau`. This matches the contract's settlement convention.
+    ///
+    /// This is standard market practice: curves are interpolated in their native basis,
+    /// while cashflow accruals use the instrument's contractual basis.
+    ///
+    /// # No Discounting
+    ///
+    /// Futures are marked-to-market daily with variation margin, so no discounting is
+    /// applied. The PV represents the current mark-to-market gain/loss versus the
+    /// quoted entry price.
     pub fn npv_raw(&self, context: &MarketContext) -> finstack_core::Result<f64> {
         use finstack_core::dates::DayCountCtx;
 
-        let disc = context.get_discount(&self.discount_curve_id)?;
+        // Validate discount curve exists (required for curve dependencies, even though
+        // futures don't discount due to daily margining)
+        let _disc = context.get_discount(&self.discount_curve_id)?;
         let fwd = context.get_forward(&self.forward_id)?;
 
-        // Base date for mapping to curve time
-        let _base_date = disc.base_date();
-
-        // Time to fixing and rate period for forward rate calculation should use
-        // the forward curve's day-count basis to avoid basis mismatches.
+        // Time to fixing and rate period for forward rate calculation use the forward
+        // curve's day-count basis for consistency with curve construction.
         let fwd_dc = fwd.day_count();
         let fwd_base = fwd.base_date();
         let t_fixing = fwd_dc
@@ -246,7 +263,8 @@ impl InterestRateFuture {
             self.calculate_convexity_adjusted_rate(context, forward_rate, t_fixing, t_start, t_end)?
         };
 
-        // Implied rate from price and accrual over the underlying period
+        // Implied rate from price and accrual over the underlying period.
+        // The accrual uses the instrument's day count (contract convention).
         let implied_rate = self.implied_rate();
         let tau = self
             .day_count
@@ -262,11 +280,12 @@ impl InterestRateFuture {
             Position::Short => -1.0,
         };
 
-        // Scale by contracts: notional may represent multiples of face value
-        let contracts_scale = if self.contract_specs.face_value != 0.0 {
+        // Scale by contracts: notional may represent multiples of face value.
+        // Zero face value means zero exposure (no contracts).
+        let contracts_scale = if self.contract_specs.face_value > 0.0 {
             self.notional.amount() / self.contract_specs.face_value
         } else {
-            1.0
+            0.0
         };
 
         let pv_per_contract = (implied_rate - adjusted_rate) * self.contract_specs.face_value * tau;
@@ -286,10 +305,31 @@ impl InterestRateFuture {
                 finstack_core::dates::DayCountCtx::default(),
             )?
             .max(0.0);
-        Ok(self.contract_specs.face_value * tau * 1e-4 * (self.contract_specs.tick_size / 1e-4))
+        // tick_value = Face × tau × tick_size (tick_size is already in decimal form)
+        Ok(self.contract_specs.face_value
+            * tau
+            * ONE_BASIS_POINT
+            * (self.contract_specs.tick_size / ONE_BASIS_POINT))
     }
 
-    /// Calculate convexity adjusted rate using volatility surface or fallback
+    /// Calculate convexity adjusted rate using volatility surface.
+    ///
+    /// Uses the Hull-White 1-factor model approximation:
+    /// ```text
+    /// Convexity Adjustment ≈ 0.5 × σ² × T_fixing × (T_fixing + τ)
+    /// ```
+    ///
+    /// This assumes zero mean reversion (a → 0). The full HW formula is:
+    /// ```text
+    /// CA = σ² × B(0,T₁) × B(0,T₂) where B(0,T) = (1 - exp(-aT)) / a
+    /// ```
+    /// For a → 0, B(0,T) → T, giving the simplified formula above.
+    ///
+    /// # Arguments
+    /// * `forward_rate` - The unadjusted forward rate from the curve
+    /// * `t_fixing` - Time to fixing date in years (from curve base)
+    /// * `t_start` - Time to period start in years
+    /// * `t_end` - Time to period end in years (must be >= t_start)
     fn calculate_convexity_adjusted_rate(
         &self,
         context: &MarketContext,
@@ -300,7 +340,7 @@ impl InterestRateFuture {
     ) -> finstack_core::Result<f64> {
         let vol_estimate = if let Some(vol_id) = &self.volatility_id {
             // Use provided volatility surface
-            // Strike for vol lookup is the forward rate
+            // Strike for vol lookup is the forward rate (ATM)
             let surface = context.surface(vol_id)?;
             surface.value_checked(t_fixing, forward_rate)?
         } else {
@@ -314,10 +354,11 @@ impl InterestRateFuture {
             ));
         };
 
-        let tau_len = t_end - t_start;
-        // Convexity adjustment ≈ 0.5 * σ² * T1 * T2
-        // Where T1 is time to fixing, T2 is time to maturity (fixing + accrual)
-        // Or more precisely in HW: (1-exp(-aT1))/a * ... but for small a, T1*T2 is good approx
+        // Validate period dates are not inverted (t_end should be >= t_start after clamping)
+        let tau_len = (t_end - t_start).max(0.0);
+
+        // Convexity adjustment ≈ 0.5 × σ² × T₁ × T₂
+        // where T₁ = time to fixing, T₂ = time to maturity (fixing + accrual period)
         let convexity = 0.5 * vol_estimate * vol_estimate * t_fixing * (t_fixing + tau_len);
         Ok(forward_rate + convexity)
     }

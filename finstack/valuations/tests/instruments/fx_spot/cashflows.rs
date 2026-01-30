@@ -110,6 +110,7 @@ fn test_settlement_lag_custom() {
         .with_notional(Money::new(1_000_000.0, Currency::EUR))
         .unwrap()
         .with_rate(1.20)
+        .expect("test rate")
         .with_settlement(d(2025, 1, 16)); // T+1
 
     let market = MarketContext::new();
@@ -162,6 +163,7 @@ fn test_settlement_zero_notional() {
         .with_notional(Money::new(0.0, Currency::EUR))
         .unwrap()
         .with_rate(1.20)
+        .expect("test rate")
         .with_settlement(d(2025, 1, 17));
     let market = MarketContext::new();
 
@@ -214,6 +216,7 @@ fn test_settlement_lag_negative() {
         .with_notional(Money::new(1_000_000.0, Currency::EUR))
         .unwrap()
         .with_rate(1.20)
+        .expect("test rate")
         .with_settlement(d(2025, 1, 15)); // Past date
 
     let market = MarketContext::new();
@@ -231,6 +234,7 @@ fn test_calendar_aware_settlement_lag() {
         .with_notional(Money::new(1_000_000.0, Currency::EUR))
         .unwrap()
         .with_rate(1.20)
+        .expect("test rate")
         .with_calendar_id("NewYork")
         .with_settlement(d(2025, 1, 17)); // T+2
 

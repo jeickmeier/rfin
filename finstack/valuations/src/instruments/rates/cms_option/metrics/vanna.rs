@@ -1,10 +1,11 @@
 use crate::instruments::cms_option::pricer::{convexity_adjustment, CmsOptionPricer};
 use crate::instruments::cms_option::types::CmsOption;
-use crate::instruments::common::models::{d1_black76, d2_black76};
+use crate::instruments::common::models::d1_d2_black76;
+use crate::instruments::common::pricing::time::relative_df_discount_curve;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::{DateExt, DayCountCtx};
 use finstack_core::math::norm_pdf;
-use finstack_core::Result;
+use finstack_core::{InputError, Result};
 
 /// Vanna calculator for CMS options.
 ///
@@ -14,6 +15,10 @@ use finstack_core::Result;
 /// Uses an analytical approximation:
 /// Vanna = d(Vega)/d(SwapRate)
 /// Accounts for convexity adjustment sensitivity.
+///
+/// # Errors
+///
+/// Returns an error if vol_surface_id is not provided.
 pub struct VannaCalculator;
 
 impl MetricCalculator for VannaCalculator {
@@ -26,11 +31,14 @@ impl MetricCalculator for VannaCalculator {
         let mut total_vanna = 0.0;
         let discount_curve = curves.get_discount(inst.discount_curve_id.as_ref())?;
 
-        // Get volatility surface if present
-        let vol_surface = if let Some(vol_id) = &inst.vol_surface_id {
-            Some(curves.surface(vol_id.as_str())?)
-        } else {
-            None
+        // Volatility surface is required for CMS option Greeks
+        let vol_surface = match &inst.vol_surface_id {
+            Some(vol_id) => curves.surface(vol_id.as_str())?,
+            None => {
+                return Err(finstack_core::Error::from(InputError::NotFound {
+                    id: "vol_surface_id is required for CMS option vanna calculation".to_string(),
+                }));
+            }
         };
 
         for (i, &fixing_date) in inst.fixing_dates.iter().enumerate() {
@@ -58,16 +66,14 @@ impl MetricCalculator for VannaCalculator {
                 continue;
             }
 
-            let vol = if let Some(surface) = vol_surface.as_ref() {
-                surface.value_clamped(time_to_fixing, inst.strike_rate)
-            } else {
-                0.20
-            };
+            let vol = vol_surface.value_clamped(time_to_fixing, inst.strike_rate);
 
             // 3. Convexity Adjustment Derivative
-            // Convexity = 0.5 * vol^2 * T * swap_tenor / (1 + 0.03 * swap_tenor)
-            // d(Convexity)/d(Vol) = 2 * Convexity / Vol
-            let conv_adj = convexity_adjustment(vol, time_to_fixing, inst.cms_tenor);
+            // Convexity = 0.5 * vol^2 * T * G(S)
+            // where G(S) = swap_tenor / (1 + S * swap_tenor)^2
+            // d(Convexity)/d(Vol) = vol * T * G(S) = 2 * Convexity / Vol
+            let conv_adj =
+                convexity_adjustment(vol, time_to_fixing, inst.cms_tenor, forward_swap_rate);
             let d_conv_d_vol = if vol.abs() > 1e-10 {
                 2.0 * conv_adj / vol
             } else {
@@ -77,18 +83,13 @@ impl MetricCalculator for VannaCalculator {
             let adjusted_rate = forward_swap_rate + conv_adj;
 
             // 4. Black-76 Vanna and Gamma
-            // Vanna_Black = - exp(-rT) * N'(d1) * d2 / sigma
-            // Gamma_Black = exp(-rT) * N'(d1) / (F * sigma * sqrt(T))
-            // Note: We use df_pay instead of exp(-rT) for discounting to present.
+            // Vanna_Black = - N'(d1) * d2 / sigma
+            // Gamma_Black = N'(d1) / (F * sigma * sqrt(T))
+            // Discount factor uses curve-consistent relative DF
+            let df_pay = relative_df_discount_curve(discount_curve.as_ref(), as_of, payment_date)?;
 
-            let df_pay = discount_curve.df(inst.day_count.year_fraction(
-                as_of,
-                payment_date,
-                DayCountCtx::default(),
-            )?);
-
-            let d1 = d1_black76(adjusted_rate, inst.strike_rate, vol, time_to_fixing);
-            let d2 = d2_black76(adjusted_rate, inst.strike_rate, vol, time_to_fixing);
+            // Use combined d1_d2 for efficiency
+            let (d1, d2) = d1_d2_black76(adjusted_rate, inst.strike_rate, vol, time_to_fixing);
             let nd1_prime = norm_pdf(d1);
 
             let sqrt_t = time_to_fixing.sqrt();

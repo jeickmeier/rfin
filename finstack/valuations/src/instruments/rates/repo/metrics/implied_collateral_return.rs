@@ -2,11 +2,18 @@
 //!
 //! Computes an implied annualized return based on the ratio of current
 //! collateral value to required collateral, normalized by time to maturity.
+//!
+//! # Market Standard
+//!
+//! Uses business-day adjusted maturity date for consistency with PV and
+//! other metric calculations.
 
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::Result;
 
 /// Calculate implied collateral return (mark-to-market gain/loss on collateral).
+///
+/// Uses business-day adjusted maturity for consistency with PV calculations.
 pub struct ImpliedCollateralReturnCalculator;
 
 impl MetricCalculator for ImpliedCollateralReturnCalculator {
@@ -27,9 +34,12 @@ impl MetricCalculator for ImpliedCollateralReturnCalculator {
             .copied()
             .unwrap_or(0.0);
 
+        // Use adjusted maturity for consistency with PV and interest calculations
+        let (_, adj_maturity) = repo.adjusted_dates()?;
+
         let ttm = repo.day_count.year_fraction(
             context.as_of,
-            repo.maturity,
+            adj_maturity,
             finstack_core::dates::DayCountCtx::default(),
         )?;
 

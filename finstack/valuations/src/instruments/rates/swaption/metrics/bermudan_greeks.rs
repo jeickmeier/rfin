@@ -409,21 +409,62 @@ pub struct ExerciseProbabilityProfile {
 }
 
 impl ExerciseProbabilityProfile {
-    /// Create from tree valuator.
+    /// Create from tree valuator using actual computed exercise probabilities.
     ///
-    /// Note: Full implementation would require tracking state prices through
-    /// the optimal exercise decisions. This is a placeholder.
+    /// Uses the risk-neutral exercise probabilities computed during backward
+    /// induction in the Hull-White tree. These probabilities represent the
+    /// optimal exercise strategy under the risk-neutral measure.
+    ///
+    /// # Arguments
+    /// * `valuator` - The tree valuator that has computed the optimal exercise boundary
+    /// * `exercise_times` - Exercise dates as year fractions (used for validation)
+    ///
+    /// # Returns
+    /// An `ExerciseProbabilityProfile` with actual computed probabilities
     pub fn from_valuator(
-        _valuator: &BermudanSwaptionTreeValuator,
+        valuator: &BermudanSwaptionTreeValuator,
         exercise_times: Vec<f64>,
     ) -> Self {
-        // Placeholder implementation
-        let n = exercise_times.len();
-        let uniform_prob = if n > 0 { 1.0 / n as f64 } else { 0.0 };
+        // Get actual exercise probabilities from the tree valuator
+        let tree_probs = valuator.exercise_probabilities();
 
-        let conditional_probs = vec![uniform_prob; n];
-        let cumulative_probs: Vec<f64> = (1..=n).map(|i| i as f64 * uniform_prob).collect();
-        let expected_exercise_time = exercise_times.iter().sum::<f64>() / n.max(1) as f64;
+        let n = exercise_times.len();
+        if n == 0 || tree_probs.is_empty() {
+            return Self {
+                exercise_times,
+                conditional_probs: Vec::new(),
+                cumulative_probs: Vec::new(),
+                expected_exercise_time: 0.0,
+            };
+        }
+
+        // Extract marginal probabilities (probability of exercise at each date)
+        // tree_probs returns Vec<(time, probability)>
+        let marginal_probs: Vec<f64> = tree_probs.iter().map(|(_, p)| *p).collect();
+
+        // Compute conditional probabilities: P(exercise at t | survived to t)
+        // conditional_prob[i] = marginal_prob[i] / (1 - cumulative_prob[i-1])
+        let mut conditional_probs = Vec::with_capacity(n);
+        let mut cumulative_probs = Vec::with_capacity(n);
+        let mut cumulative = 0.0;
+
+        for &marginal in &marginal_probs {
+            let survival = 1.0 - cumulative;
+            let conditional = if survival > 1e-10 {
+                marginal / survival
+            } else {
+                0.0
+            };
+            conditional_probs.push(conditional);
+
+            cumulative += marginal;
+            // Clamp cumulative to [0, 1] to handle numerical noise
+            cumulative_probs.push(cumulative.min(1.0));
+        }
+
+        // Expected exercise time = Σ t_i × P(exercise at t_i)
+        // For non-exercised paths, we include remaining probability at terminal date
+        let expected_exercise_time: f64 = tree_probs.iter().map(|(t, p)| t * p).sum();
 
         Self {
             exercise_times,
@@ -504,7 +545,8 @@ mod tests {
     }
 
     #[test]
-    fn test_exercise_probability_profile() {
+    fn test_exercise_probability_profile_construction() {
+        // Test manual construction of profile
         let times = vec![1.0, 2.0, 3.0];
         let profile = ExerciseProbabilityProfile {
             exercise_times: times.clone(),
@@ -515,5 +557,102 @@ mod tests {
 
         assert_eq!(profile.exercise_times.len(), 3);
         assert!((profile.cumulative_probs[2] - 1.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_exercise_probability_profile_from_valuator() {
+        // Integration test: verify from_valuator uses actual tree probabilities
+        use crate::instruments::common::models::trees::HullWhiteTreeConfig;
+        use crate::instruments::swaption::{
+            BermudanSchedule, BermudanSwaption, BermudanType, SwaptionSettlement,
+        };
+        use finstack_core::currency::Currency;
+        use finstack_core::dates::{DayCount, Tenor};
+        use finstack_core::market_data::term_structures::DiscountCurve;
+        use finstack_core::math::interp::InterpStyle;
+        use finstack_core::money::Money;
+        use finstack_core::types::{CurveId, InstrumentId};
+        use time::Month;
+
+        // Create test discount curve
+        let curve = DiscountCurve::builder("USD-OIS")
+            .base_date(Date::from_calendar_date(2025, Month::January, 1).expect("Valid date"))
+            .knots([
+                (0.0, 1.0),
+                (0.5, 0.985),
+                (1.0, 0.97),
+                (2.0, 0.94),
+                (5.0, 0.85),
+            ])
+            .set_interp(InterpStyle::LogLinear)
+            .build()
+            .expect("Valid curve");
+
+        // Create test Bermudan swaption
+        let swap_start = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
+        let swap_end = Date::from_calendar_date(2028, Month::January, 1).expect("Valid date");
+        let first_exercise = Date::from_calendar_date(2026, Month::January, 1).expect("Valid date");
+
+        let swaption = BermudanSwaption {
+            id: InstrumentId::new("TEST-BERM"),
+            option_type: crate::instruments::common::parameters::OptionType::Call,
+            notional: Money::new(10_000_000.0, Currency::USD),
+            strike_rate: 0.03,
+            swap_start,
+            swap_end,
+            fixed_freq: Tenor::semi_annual(),
+            float_freq: Tenor::quarterly(),
+            day_count: DayCount::Thirty360,
+            settlement: SwaptionSettlement::Physical,
+            discount_curve_id: CurveId::new("USD-OIS"),
+            forward_id: CurveId::new("USD-SOFR"),
+            vol_surface_id: CurveId::new("USD-VOL"),
+            bermudan_schedule: BermudanSchedule::co_terminal(
+                first_exercise,
+                swap_end,
+                Tenor::semi_annual(),
+            )
+            .expect("valid Bermudan schedule"),
+            bermudan_type: BermudanType::CoTerminal,
+            pricing_overrides: Default::default(),
+            attributes: Default::default(),
+        };
+
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
+        let ttm = swaption.time_to_maturity(as_of).expect("Valid ttm");
+
+        let tree_config = HullWhiteTreeConfig::new(0.03, 0.01, 30);
+        let tree = HullWhiteTree::calibrate(tree_config, &curve, ttm).expect("Valid tree");
+        let valuator = BermudanSwaptionTreeValuator::new(&swaption, &tree, &curve, as_of)
+            .expect("Valid valuator");
+
+        let exercise_times = swaption
+            .exercise_times(as_of)
+            .expect("Valid exercise times");
+        let profile = ExerciseProbabilityProfile::from_valuator(&valuator, exercise_times.clone());
+
+        // Verify profile has correct structure
+        assert_eq!(profile.exercise_times.len(), exercise_times.len());
+        assert_eq!(profile.conditional_probs.len(), exercise_times.len());
+        assert_eq!(profile.cumulative_probs.len(), exercise_times.len());
+
+        // Cumulative probabilities should be non-decreasing
+        for i in 1..profile.cumulative_probs.len() {
+            assert!(
+                profile.cumulative_probs[i] >= profile.cumulative_probs[i - 1] - 1e-10,
+                "Cumulative probs should be non-decreasing"
+            );
+        }
+
+        // Conditional probabilities should be in [0, 1]
+        for &p in &profile.conditional_probs {
+            assert!(
+                (0.0..=1.0 + 1e-10).contains(&p),
+                "Conditional probs should be in [0, 1]"
+            );
+        }
+
+        // Expected exercise time should be reasonable
+        assert!(profile.expected_exercise_time >= 0.0);
     }
 }

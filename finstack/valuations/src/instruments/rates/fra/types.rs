@@ -13,11 +13,35 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId, Rate};
 use time::macros::date;
 
+// =============================================================================
+// Constants
+// =============================================================================
+
+/// Minimum denominator for settlement adjustment to avoid division issues.
+/// When 1 + F × τ is below this threshold, the forward rate is considered invalid.
+const MIN_SETTLEMENT_DENOM: f64 = 1e-12;
+
+/// Minimum period length (in year fractions) for a valid FRA.
+const MIN_PERIOD_LENGTH: f64 = 1e-12;
+
+/// Minimum reasonable forward rate for validation warnings (-10%).
+const MIN_REASONABLE_RATE: f64 = -0.10;
+
+/// Maximum reasonable forward rate for validation warnings (50%).
+const MAX_REASONABLE_RATE: f64 = 0.50;
+
 /// Forward Rate Agreement instrument.
 ///
 /// A FRA is a forward contract on an interest rate. The holder receives
 /// the difference between the realized rate and the fixed rate, paid at
 /// the start of the interest period (FRA convention).
+///
+/// # Direction Convention
+///
+/// - `receive_fixed = true`: Receive fixed rate, pay floating rate.
+///   When forward rate > fixed rate, PV is negative (you're paying more than receiving).
+/// - `receive_fixed = false`: Pay fixed rate, receive floating rate.
+///   When forward rate > fixed rate, PV is positive (you're receiving more than paying).
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
@@ -26,8 +50,13 @@ pub struct ForwardRateAgreement {
     pub id: InstrumentId,
     /// Notional amount
     pub notional: Money,
-    /// Rate fixing date (start of interest period)
-    pub fixing_date: Date,
+    /// Rate fixing date. If `None`, inferred from `start_date - reset_lag` business days.
+    #[builder(optional)]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub fixing_date: Option<Date>,
     /// Interest period start date
     pub start_date: Date,
     /// Interest period end date
@@ -63,8 +92,14 @@ pub struct ForwardRateAgreement {
     pub discount_curve_id: CurveId,
     /// Forward curve identifier
     pub forward_id: CurveId,
-    /// Pay/receive flag (true = receive fixed, pay floating)
-    pub pay_fixed: bool,
+    /// Direction: true = receive fixed rate, pay floating rate.
+    ///
+    /// # Deprecated Alias
+    ///
+    /// Previously named `pay_fixed` with inverted semantics. The old name is preserved
+    /// for JSON/serde compatibility but the field now correctly represents "receive fixed".
+    #[cfg_attr(feature = "serde", serde(alias = "pay_fixed"))]
+    pub receive_fixed: bool,
     /// Attributes for scenario selection
     pub attributes: Attributes,
 }
@@ -86,14 +121,13 @@ impl ForwardRateAgreement {
             .reset_lag(2)
             .discount_curve_id(CurveId::new("USD-OIS"))
             .forward_id(CurveId::new("USD-SOFR-3M"))
-            .pay_fixed(true)
+            .receive_fixed(true)
             .attributes(Attributes::new())
             .build()
             .unwrap_or_else(|_| unreachable!("Example FRA with valid constants should never fail"))
     }
 
-    /// Calculate the net present value of this FRA
-    /// Calculate the net present value of this FRA (rounded Money)
+    /// Calculate the net present value of this FRA (rounded Money).
     pub fn npv(
         &self,
         context: &finstack_core::market_data::context::MarketContext,
@@ -106,7 +140,12 @@ impl ForwardRateAgreement {
     /// Settlement amount at period start (undiscounted).
     ///
     /// Returns the cashflow paid at `start_date` using standard FRA settlement
-    /// convention: N * tau * (F - K) / (1 + F * tau), signed by pay/receive.
+    /// convention: N × τ × (F - K) / (1 + F × τ), signed by direction.
+    ///
+    /// # Errors
+    ///
+    /// - Returns error if fixing date has passed but no `observed_fixing` is provided
+    /// - Returns error if settlement denominator is pathological (forward rate ≈ -1/τ)
     fn settlement_amount_raw(
         &self,
         context: &finstack_core::market_data::context::MarketContext,
@@ -118,56 +157,48 @@ impl ForwardRateAgreement {
             return Ok(0.0);
         }
 
-        // Determine fixing date: prefer explicit fixing_date if it looks meaningful,
-        // otherwise fall back to inferred date from reset lag.
+        // Determine fixing date: use explicit fixing_date if provided,
+        // otherwise infer from start_date - reset_lag business days.
         //
         // IMPORTANT: reset_lag is in BUSINESS DAYS, not calendar days.
-        // Use business-day subtraction when calendar is available.
-        let inferred_fixing_date = {
-            let bdc = self
-                .fixing_bdc
-                .unwrap_or(BusinessDayConvention::ModifiedFollowing);
+        let fixing_date = match self.fixing_date {
+            Some(explicit_date) => explicit_date,
+            None => {
+                let bdc = self
+                    .fixing_bdc
+                    .unwrap_or(BusinessDayConvention::ModifiedFollowing);
 
-            // Compute base fixing date by subtracting reset_lag business days
-            let base_fixing_date = if let Some(cal_id) = self.fixing_calendar_id.as_deref() {
-                if let Some(cal) = CalendarRegistry::global().resolve_str(cal_id) {
-                    // Use calendar-aware business day subtraction
-                    self.start_date.add_business_days(-(self.reset_lag), cal)?
+                // Compute base fixing date by subtracting reset_lag business days
+                let base_fixing_date = if let Some(cal_id) = self.fixing_calendar_id.as_deref() {
+                    if let Some(cal) = CalendarRegistry::global().resolve_str(cal_id) {
+                        // Use calendar-aware business day subtraction
+                        self.start_date.add_business_days(-(self.reset_lag), cal)?
+                    } else {
+                        // Calendar specified but not found - fall back to weekday-only
+                        tracing::warn!(
+                            instrument_id = %self.id.as_str(),
+                            calendar_id = cal_id,
+                            "FRA fixing calendar not found; using weekday-only reset lag"
+                        );
+                        self.start_date.add_weekdays(-(self.reset_lag))
+                    }
                 } else {
-                    // Calendar specified but not found - fall back to weekday-only
-                    tracing::warn!(
-                        instrument_id = %self.id.as_str(),
-                        calendar_id = cal_id,
-                        "FRA fixing calendar not found; using weekday-only reset lag"
-                    );
+                    // No calendar specified - use weekday-only (Mon-Fri) subtraction
                     self.start_date.add_weekdays(-(self.reset_lag))
-                }
-            } else {
-                // No calendar specified - use weekday-only (Mon-Fri) subtraction
-                self.start_date.add_weekdays(-(self.reset_lag))
-            };
+                };
 
-            // Apply business day convention adjustment to the resulting date
-            if let Some(cal_id) = self.fixing_calendar_id.as_deref() {
-                if let Some(cal) = CalendarRegistry::global().resolve_str(cal_id) {
-                    adjust(base_fixing_date, bdc, cal)?
+                // Apply business day convention adjustment to the resulting date
+                if let Some(cal_id) = self.fixing_calendar_id.as_deref() {
+                    if let Some(cal) = CalendarRegistry::global().resolve_str(cal_id) {
+                        adjust(base_fixing_date, bdc, cal)?
+                    } else {
+                        base_fixing_date
+                    }
                 } else {
                     base_fixing_date
                 }
-            } else {
-                base_fixing_date
             }
         };
-
-        // Prefer explicit fixing_date unless it equals start_date (sentinel for "unset")
-        // or equals the inferred date (no override intended)
-        let fixing_date =
-            if self.fixing_date == self.start_date || self.fixing_date == inferred_fixing_date {
-                inferred_fixing_date
-            } else {
-                // Respect explicit fixing date provided by caller
-                self.fixing_date
-            };
 
         let fwd = context.get_forward(&self.forward_id)?;
 
@@ -175,13 +206,6 @@ impl ForwardRateAgreement {
         // forward curve's own day-count/time basis, not the instrument accrual basis.
         let fwd_base = fwd.base_date();
         let fwd_dc = fwd.day_count();
-        let t_fixing = fwd_dc
-            .year_fraction(
-                fwd_base,
-                fixing_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )?
-            .max(0.0);
         let t_start = fwd_dc
             .year_fraction(
                 fwd_base,
@@ -206,37 +230,59 @@ impl ForwardRateAgreement {
                 finstack_core::dates::DayCountCtx::default(),
             )?
             .max(0.0);
-        // If the accrual length is zero, PV is zero. When fixing is in the past,
-        // continue to project using forwards unless an observed fixing is wired.
-        if tau == 0.0 {
+
+        // Zero-length period produces zero settlement
+        if tau < MIN_PERIOD_LENGTH {
             return Ok(0.0);
         }
 
         // Forward rate over the period
-        // If fixing date has passed, prefer observed fixing when available; otherwise
-        // anchor projection at the fixing horizon to avoid theta drift.
+        // If fixing date has passed, require observed fixing to avoid ambiguity
         let forward_rate = if as_of >= fixing_date {
-            if let Some(obs) = self.observed_fixing {
-                obs
-            } else {
-                fwd.rate_period(t_start.max(t_fixing), t_end)
-            }
+            self.observed_fixing.ok_or_else(|| {
+                finstack_core::Error::Validation(format!(
+                    "FRA '{}': fixing date {} has passed (as_of={}) but no observed_fixing provided",
+                    self.id, fixing_date, as_of
+                ))
+            })?
         } else {
             fwd.rate_period(t_start, t_end)
         };
 
+        // Warn if forward rate is outside reasonable bounds (likely data error)
+        if !(MIN_REASONABLE_RATE..=MAX_REASONABLE_RATE).contains(&forward_rate) {
+            tracing::warn!(
+                instrument_id = %self.id.as_str(),
+                forward_rate,
+                min_bound = MIN_REASONABLE_RATE,
+                max_bound = MAX_REASONABLE_RATE,
+                "FRA forward rate outside typical bounds; possible market data error"
+            );
+        }
+
         // Market-standard FRA settlement at period start includes the
-        // settlement discounting adjustment 1 / (1 + F * tau).
+        // settlement discounting adjustment 1 / (1 + F × τ).
         let rate_diff = forward_rate - self.fixed_rate;
         let denom = 1.0_f64 + forward_rate * tau;
-        let settlement = if denom.abs() > 1e-12_f64 {
-            self.notional.amount() * rate_diff * tau / denom
-        } else {
-            // Fallback safety for pathological inputs
-            self.notional.amount() * rate_diff * tau
-        };
 
-        Ok(if self.pay_fixed {
+        // Denominator near zero indicates pathological forward rate (F ≈ -1/τ)
+        if denom.abs() <= MIN_SETTLEMENT_DENOM {
+            return Err(finstack_core::Error::Validation(format!(
+                "FRA '{}': settlement denominator near zero (forward_rate={}, tau={}); \
+                 forward rate implies F ≈ {:.2}% which is pathological",
+                self.id,
+                forward_rate,
+                tau,
+                -100.0 / tau
+            )));
+        }
+
+        let settlement = self.notional.amount() * rate_diff * tau / denom;
+
+        // Apply direction: receive_fixed means we receive K and pay F
+        // When F > K: rate_diff > 0, settlement > 0 (we owe money)
+        // So negate when receive_fixed = true
+        Ok(if self.receive_fixed {
             -settlement
         } else {
             settlement
@@ -281,6 +327,18 @@ impl ForwardRateAgreementBuilder {
     pub fn observed_fixing_rate(mut self, rate: Rate) -> Self {
         self.observed_fixing = Some(rate.as_decimal());
         self
+    }
+
+    /// Deprecated alias for `receive_fixed()`.
+    ///
+    /// This method exists for backward compatibility. New code should use
+    /// `receive_fixed()` which has clearer semantics.
+    #[deprecated(
+        since = "0.9.0",
+        note = "Use receive_fixed() instead; pay_fixed was misnamed"
+    )]
+    pub fn pay_fixed(self, receive_fixed: bool) -> Self {
+        self.receive_fixed(receive_fixed)
     }
 }
 
@@ -458,7 +516,7 @@ mod tests {
             .reset_lag(2)
             .discount_curve_id("DISC".into())
             .forward_id("FWD-3M".into())
-            .pay_fixed(false) // Receive fixed, pay floating
+            .receive_fixed(false) // Pay fixed, receive floating
             .build()
             .expect("FRA builder should succeed in test");
 
@@ -512,7 +570,7 @@ mod tests {
             .reset_lag(2)
             .discount_curve_id("DISC".into())
             .forward_id("FWD-3M".into())
-            .pay_fixed(true)
+            .receive_fixed(true)
             .build()
             .expect("Builder failed");
 

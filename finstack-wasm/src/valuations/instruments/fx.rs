@@ -82,7 +82,7 @@ impl JsFxSpotBuilder {
             inst = inst.with_settlement(date);
         }
         if let Some(rate) = self.spot_rate {
-            inst = inst.with_rate(rate);
+            inst = inst.with_rate(rate).map_err(|e| js_error(e.to_string()))?;
         }
         if let Some(money) = self.notional {
             inst = inst
@@ -149,7 +149,7 @@ impl JsFxSpot {
             inst = inst.with_settlement(date.inner());
         }
         if let Some(rate) = spot_rate {
-            inst = inst.with_rate(rate);
+            inst = inst.with_rate(rate).map_err(|e| js_error(e.to_string()))?;
         }
         if let Some(money) = notional {
             inst = inst

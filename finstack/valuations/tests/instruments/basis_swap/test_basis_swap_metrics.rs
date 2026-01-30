@@ -4,7 +4,6 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_core::{currency::Currency::USD, math::interp::InterpStyle};
-use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::rates::basis_swap::{BasisSwap, BasisSwapLeg};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
@@ -58,7 +57,6 @@ fn market() -> MarketContext {
 }
 
 fn swap() -> BasisSwap {
-    let _sched = ScheduleParams::quarterly_act360();
     BasisSwap::new(
         "BASIS-TEST",
         Money::new(10_000_000.0, USD),
@@ -84,6 +82,7 @@ fn swap() -> BasisSwap {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("valid basis swap")
     .with_calendar(CALENDAR_ID)
 }
 

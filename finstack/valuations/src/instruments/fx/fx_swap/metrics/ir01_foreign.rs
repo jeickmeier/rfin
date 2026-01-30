@@ -1,121 +1,82 @@
 //! Foreign IR01 for FX Swaps.
 //!
 //! Computes sensitivity to a 1bp parallel bump in the foreign (base) discount curve
-//! by revaluing with bumped foreign discount factors.
+//! using central finite difference for O(h²) accuracy.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::fx_swap::pricing_helper::FxSwapPricingContext;
 use crate::instruments::fx_swap::FxSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::money::fx::FxQuery;
+use finstack_core::Result;
 
 /// Foreign IR01 (sensitivity to 1bp parallel shift in foreign curve).
+///
+/// Uses central finite difference:
+/// IR01 = (PV(for_rates + 1bp) - PV(for_rates - 1bp)) / 2
 pub struct ForeignIR01;
 
+/// Standard 1bp bump for IR01 calculation.
+const IR01_BUMP: f64 = 0.0001;
+
 impl MetricCalculator for ForeignIR01 {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let fx_swap: &FxSwap = context.instrument_as()?;
         let curves = context.curves.clone();
         let as_of = context.as_of;
-        let original_pv = fx_swap.value(&curves, as_of)?;
 
-        let domestic_disc = curves.get_discount(fx_swap.domestic_discount_curve_id.as_str())?;
+        // Use shared pricing context for consistent calculations
+        let ctx = FxSwapPricingContext::build(fx_swap, &curves, as_of)?;
+
         let foreign_disc = curves.get_discount(fx_swap.foreign_discount_curve_id.as_str())?;
 
-        // Settlement checks
-        let include_near = fx_swap.near_date >= as_of;
-        let include_far = fx_swap.far_date >= as_of;
-
-        let df_dom_near = domestic_disc.df_between_dates(as_of, fx_swap.near_date)?;
-        let df_dom_far = domestic_disc.df_between_dates(as_of, fx_swap.far_date)?;
-        let df_for_near = foreign_disc.df_between_dates(as_of, fx_swap.near_date)?;
-        let df_for_far = foreign_disc.df_between_dates(as_of, fx_swap.far_date)?;
-
-        // Bump foreign curve by 1bp relative to as_of
-        let bump = 0.0001;
-
-        let t_near = foreign_disc
-            .day_count()
-            .year_fraction(
-                as_of,
-                fx_swap.near_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )
-            .unwrap_or(0.0);
-        let df_for_near_b = df_for_near * (-bump * t_near).exp();
-
+        // Calculate year fractions for bump application
+        // Use consistent error propagation (no unwrap_or fallback)
+        let t_near = foreign_disc.day_count().year_fraction(
+            as_of,
+            fx_swap.near_date,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
         let t_far = foreign_disc.day_count().year_fraction(
             as_of,
             fx_swap.far_date,
             finstack_core::dates::DayCountCtx::default(),
         )?;
-        let df_for_far_b = df_for_far * (-bump * t_far).exp();
 
-        // Resolve near rate at as_of
-        let fx_matrix = curves.fx().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::InputError::NotFound {
-                id: "fx_matrix".to_string(),
-            })
-        })?;
-        let near_rate = match fx_swap.near_rate {
-            Some(rate) => rate,
-            None => {
-                fx_matrix
-                    .as_ref()
-                    .rate(FxQuery::new(
-                        fx_swap.base_currency,
-                        fx_swap.quote_currency,
-                        as_of,
-                    ))?
-                    .rate
-            }
+        // Helper to calculate PV with bumped foreign DFs
+        let calculate_pv = |bump: f64| -> Result<f64> {
+            // Apply parallel bump: df_bumped = df * exp(-bump * t)
+            let df_for_near_b = ctx.df_for_near * (-bump * t_near).exp();
+            let df_for_far_b = ctx.df_for_far * (-bump * t_far).exp();
+
+            // Far rate uses bumped foreign DF in parity if not fixed
+            let far_rate = match fx_swap.far_rate {
+                Some(rate) => rate,
+                None => ctx.calculate_cip_forward_with_bumped_dfs(
+                    ctx.contract_near_rate,
+                    ctx.df_dom_near,
+                    ctx.df_dom_far,
+                    df_for_near_b,
+                    df_for_far_b,
+                )?,
+            };
+
+            // Foreign leg PV with bumped DFs
+            let pv_for_leg = ctx.pv_foreign_leg_base_with_dfs(df_for_near_b, df_for_far_b);
+
+            // Domestic leg PV (unchanged DFs, but far rate may have changed)
+            let pv_dom_leg = ctx.pv_domestic_leg_with_params(
+                ctx.contract_near_rate,
+                far_rate,
+                ctx.df_dom_near,
+                ctx.df_dom_far,
+            );
+
+            Ok(pv_for_leg * ctx.model_spot + pv_dom_leg)
         };
 
-        // Far rate uses bumped foreign df in parity: F = S × DF_for / DF_dom
-        // Only needed if not fixed
-        let far_rate = match fx_swap.far_rate {
-            Some(rate) => rate,
-            None => {
-                let dom_ratio = if df_dom_near.abs() > 1e-12 {
-                    df_dom_far / df_dom_near
-                } else {
-                    1.0
-                };
-                let for_ratio = if df_for_near_b.abs() > 1e-12 {
-                    df_for_far_b / df_for_near_b
-                } else {
-                    1.0
-                };
-                near_rate * for_ratio / dom_ratio
-            }
-        };
+        // Central finite difference
+        let pv_up = calculate_pv(IR01_BUMP)?;
+        let pv_down = calculate_pv(-IR01_BUMP)?;
 
-        let base_amt = fx_swap.base_notional.amount();
-
-        let mut pv_for_leg = 0.0;
-        if include_near {
-            pv_for_leg += base_amt * df_for_near_b;
-        }
-        if include_far {
-            pv_for_leg -= base_amt * df_for_far_b;
-        }
-
-        let mut pv_dom_leg = 0.0;
-        if include_near {
-            pv_dom_leg -= base_amt * near_rate * df_dom_near;
-        }
-        if include_far {
-            pv_dom_leg += base_amt * far_rate * df_dom_far;
-        }
-
-        let spot = (**fx_matrix)
-            .rate(FxQuery::new(
-                fx_swap.base_currency,
-                fx_swap.quote_currency,
-                as_of,
-            ))?
-            .rate;
-
-        let bumped_pv = pv_for_leg * spot + pv_dom_leg;
-        Ok(bumped_pv - original_pv.amount())
+        Ok((pv_up - pv_down) / 2.0)
     }
 }

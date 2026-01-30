@@ -22,10 +22,10 @@ impl MetricCalculator for RhoCalculator {
         let as_of = context.as_of;
         let base_pv = context.base_value.amount();
 
+        // Use payment_date if provided, otherwise fall back to last observation date
         let final_date = instrument
-            .observation_dates
-            .last()
-            .copied()
+            .payment_date
+            .or_else(|| instrument.observation_dates.last().copied())
             .unwrap_or(as_of);
         let t = instrument.day_count.year_fraction(
             as_of,

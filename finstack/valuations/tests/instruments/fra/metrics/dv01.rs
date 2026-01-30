@@ -107,7 +107,7 @@ fn test_dv01_scales_with_tenor() {
 #[test]
 fn test_dv01_receive_fixed_negative() {
     let market = standard_market();
-    let fra = TestFraBuilder::new().pay_fixed(true).build(); // true = receive fixed
+    let fra = TestFraBuilder::new().receive_fixed(true).build(); // true = receive fixed
 
     let result = fra
         .price_with_metrics(&market, BASE_DATE, &[MetricId::Dv01])
@@ -122,7 +122,7 @@ fn test_dv01_receive_fixed_negative() {
 #[test]
 fn test_dv01_pay_fixed_positive() {
     let market = standard_market();
-    let fra = TestFraBuilder::new().pay_fixed(false).build(); // false = pay fixed
+    let fra = TestFraBuilder::new().receive_fixed(false).build(); // false = pay fixed
 
     let result = fra
         .price_with_metrics(&market, BASE_DATE, &[MetricId::Dv01])

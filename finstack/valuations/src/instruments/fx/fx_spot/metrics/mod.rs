@@ -82,6 +82,7 @@ mod tests {
             .with_notional(Money::new(5_000_000.0, Currency::EUR))
             .expect("should succeed")
             .with_rate(1.24)
+            .expect("should succeed")
     }
 
     fn context_for(inst: FxSpot, as_of: Date) -> MetricContext {

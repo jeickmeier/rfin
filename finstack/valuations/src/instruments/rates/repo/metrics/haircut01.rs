@@ -9,11 +9,28 @@
 //! ```
 //! Where bump_size is 1bp (0.0001).
 //!
-//! # Note
-//! Haircut affects the required collateral value, which impacts margin requirements
-//! but doesn't directly affect PV in a simple repo model. However, it may affect
-//! valuation in more complex models with margin calls. This metric measures the
-//! sensitivity by repricing with bumped haircut values.
+//! # Important Limitation
+//!
+//! In the current simple repo model, haircut affects the **required collateral value**
+//! but does **not** directly affect the PV calculation. The repo PV is computed from:
+//! - Initial cash outflow at start
+//! - Discounted repayment (principal + interest) at maturity
+//!
+//! Neither of these cashflows depends on the haircut parameter. Therefore, this metric
+//! will return approximately **zero** for standard repos.
+//!
+//! The metric becomes meaningful in more sophisticated models that incorporate:
+//! - Margin call cashflows based on collateral coverage
+//! - Collateral funding costs
+//! - Credit valuation adjustments (CVA) sensitive to overcollateralization
+//!
+//! # Alternative Use
+//!
+//! For sensitivity of collateral requirements to haircut changes, use the
+//! `RequiredCollateral` metric with manual haircut perturbation, or compute:
+//! ```text
+//! d(RequiredCollateral)/d(haircut) = Cash / (1 - haircut)^2
+//! ```
 
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::repo::Repo;

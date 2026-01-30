@@ -17,7 +17,8 @@ fn test_same_currency_pair() {
     let fx = FxSpot::new(InstrumentId::new("USDUSD"), Currency::USD, Currency::USD)
         .with_notional(Money::new(1_000_000.0, Currency::USD))
         .unwrap()
-        .with_rate(1.0);
+        .with_rate(1.0)
+        .expect("test rate");
 
     let market = MarketContext::new();
     let pv = fx.npv(&market, test_date()).unwrap();
@@ -68,7 +69,8 @@ fn test_negative_notional() {
     let fx = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
         .with_notional(Money::new(-1_000_000.0, Currency::EUR))
         .unwrap()
-        .with_rate(1.20);
+        .with_rate(1.20)
+        .expect("test rate");
 
     let market = MarketContext::new();
     let pv = fx.npv(&market, test_date()).unwrap();
@@ -284,6 +286,7 @@ fn test_extreme_settlement_lag() {
         .with_notional(Money::new(1_000_000.0, Currency::EUR))
         .unwrap()
         .with_rate(1.20)
+        .expect("test rate")
         .with_settlement(far_future);
 
     let market = MarketContext::new();
@@ -308,7 +311,7 @@ fn test_default_notional_with_various_rates() {
     let market = MarketContext::new();
 
     for rate in [0.1, 1.0, 10.0, 100.0, 1000.0] {
-        let fx = sample_eurusd().with_rate(rate);
+        let fx = sample_eurusd().with_rate(rate).expect("test rate");
         let pv = fx.npv(&market, test_date()).unwrap();
 
         assert_approx_eq(pv.amount(), rate, EPSILON, &format!("Rate {}", rate));

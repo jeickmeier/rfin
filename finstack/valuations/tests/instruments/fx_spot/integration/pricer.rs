@@ -43,13 +43,15 @@ fn test_pricer_with_various_instruments() {
             sample_gbpusd()
                 .with_notional(Money::new(500_000.0, Currency::GBP))
                 .unwrap()
-                .with_rate(1.40),
+                .with_rate(1.40)
+                .expect("test rate"),
         ),
         Box::new(
             sample_usdjpy()
                 .with_notional(Money::new(100_000.0, Currency::USD))
                 .unwrap()
-                .with_rate(110.0),
+                .with_rate(110.0)
+                .expect("test rate"),
         ),
     ];
 

@@ -42,18 +42,9 @@ impl Pricer for FxForwardDiscountingPricer {
     ) -> PricingResult<ValuationResult> {
         let fwd = expect_inst::<FxForward>(instrument, InstrumentType::FxForward)?;
 
-        // Validate maturity
-        if fwd.maturity_date <= as_of {
-            return Err(PricingError::invalid_input_ctx(
-                format!(
-                    "FX forward maturity {} must be after valuation date {}",
-                    fwd.maturity_date, as_of
-                ),
-                PricingErrorContext::default(),
-            ));
-        }
-
-        // Delegate to instrument's npv method
+        // Delegate to instrument's npv method.
+        // Note: npv() returns zero PV for expired forwards (maturity <= as_of),
+        // which is the expected behavior for settled trades.
         let pv = fwd.npv(market, as_of).map_err(|e| {
             PricingError::model_failure_ctx(
                 format!("FX forward pricing failed: {}", e),
@@ -185,9 +176,46 @@ mod tests {
             .expect("valid");
 
         let pricer = FxForwardDiscountingPricer;
-        let result = pricer.price_dyn(&fwd, &market, as_of);
+        let result = pricer
+            .price_dyn(&fwd, &market, as_of)
+            .expect("should price expired forward");
 
-        // Should return error for expired forward
-        assert!(result.is_err());
+        // Expired forward should return zero PV (settled trade)
+        assert_eq!(
+            result.value.amount(),
+            0.0,
+            "Expired forward should have zero PV"
+        );
+        assert_eq!(result.value.currency(), Currency::USD);
+    }
+
+    #[test]
+    fn test_fx_forward_same_day_maturity() {
+        let as_of = Date::from_calendar_date(2024, Month::July, 15).expect("valid date");
+        let market = create_test_market(as_of);
+
+        // Forward maturing on valuation date
+        let fwd = FxForward::builder()
+            .id(InstrumentId::new("TEST"))
+            .base_currency(Currency::EUR)
+            .quote_currency(Currency::USD)
+            .maturity_date(as_of)
+            .notional(Money::new(1_000_000.0, Currency::EUR))
+            .domestic_discount_curve_id(CurveId::new("USD-OIS"))
+            .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
+            .build()
+            .expect("valid");
+
+        let pricer = FxForwardDiscountingPricer;
+        let result = pricer
+            .price_dyn(&fwd, &market, as_of)
+            .expect("should price same-day maturity");
+
+        // Same-day maturity should return zero PV
+        assert_eq!(
+            result.value.amount(),
+            0.0,
+            "Same-day maturity forward should have zero PV"
+        );
     }
 }

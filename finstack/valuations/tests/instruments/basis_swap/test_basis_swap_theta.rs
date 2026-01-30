@@ -8,7 +8,6 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_core::{currency::Currency::USD, math::interp::InterpStyle};
-use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::rates::basis_swap::{BasisSwap, BasisSwapLeg};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
@@ -110,8 +109,6 @@ fn theta_is_finite() {
     // Basic test that theta calculation produces finite result
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let _sched = ScheduleParams::quarterly_act360();
-
     let swap = BasisSwap::new(
         "THETA-FINITE",
         Money::new(10_000_000.0, USD),
@@ -137,6 +134,7 @@ fn theta_is_finite() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
     let res = swap
@@ -153,8 +151,6 @@ fn theta_matches_pv_change() {
     let ctx = market();
     let as_of = d(2025, 1, 2);
     let next_day = d(2025, 1, 3);
-    let _sched = ScheduleParams::quarterly_act360();
-
     let swap = BasisSwap::new(
         "THETA-PV-MATCH",
         Money::new(10_000_000.0, USD),
@@ -180,6 +176,7 @@ fn theta_matches_pv_change() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
     // Get theta
@@ -214,8 +211,6 @@ fn theta_sign_convention() {
     // Test theta sign: typically positive (gain value as time passes due to discounting)
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let _sched = ScheduleParams::quarterly_act360();
-
     let swap = BasisSwap::new(
         "THETA-SIGN",
         Money::new(10_000_000.0, USD),
@@ -241,6 +236,7 @@ fn theta_sign_convention() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
     let res = swap
@@ -261,8 +257,6 @@ fn theta_sign_convention() {
 fn theta_decreases_near_maturity() {
     // Test that theta magnitude decreases as maturity approaches
     let ctx = market();
-    let _sched = ScheduleParams::quarterly_act360();
-
     let swap = BasisSwap::new(
         "THETA-NEAR-MAT",
         Money::new(10_000_000.0, USD),
@@ -288,6 +282,7 @@ fn theta_decreases_near_maturity() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
     // Theta early in life
@@ -317,8 +312,6 @@ fn theta_at_par() {
     // Test theta for at-par swap (zero NPV)
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let _sched = ScheduleParams::quarterly_act360();
-
     // First, find the par spread
     let swap_zero = BasisSwap::new(
         "THETA-PAR-ZERO",
@@ -345,6 +338,7 @@ fn theta_at_par() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
     let res = swap_zero
@@ -378,6 +372,7 @@ fn theta_at_par() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
     let res_par = swap_at_par
@@ -394,8 +389,6 @@ fn theta_with_long_maturity() {
     // Test theta for long-dated swap
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let _sched = ScheduleParams::quarterly_act360();
-
     let swap = BasisSwap::new(
         "THETA-LONG",
         Money::new(10_000_000.0, USD),
@@ -421,6 +414,7 @@ fn theta_with_long_maturity() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
     let res = swap
@@ -435,8 +429,6 @@ fn theta_with_long_maturity() {
 fn theta_consistency_across_dates() {
     // Test that theta remains consistent when valuating at different dates
     let ctx = market();
-    let _sched = ScheduleParams::quarterly_act360();
-
     let swap = BasisSwap::new(
         "THETA-CONSISTENCY",
         Money::new(10_000_000.0, USD),
@@ -462,6 +454,7 @@ fn theta_consistency_across_dates() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
     let dates = vec![d(2025, 1, 2), d(2025, 2, 2), d(2025, 3, 2), d(2025, 4, 2)];
@@ -489,8 +482,6 @@ fn theta_multi_year() {
     // at several points during the swap's life.
 
     let ctx = market();
-    let _sched = ScheduleParams::quarterly_act360();
-
     let swap = BasisSwap::new(
         "THETA-MULTI-YEAR",
         Money::new(10_000_000.0, USD),
@@ -516,6 +507,7 @@ fn theta_multi_year() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
     // Test theta accuracy at several dates during the swap's life
@@ -561,8 +553,6 @@ fn theta_zero_at_maturity() {
     // Test that theta approaches zero at maturity
     let ctx = market();
     let maturity = d(2025, 12, 31);
-    let _sched = ScheduleParams::quarterly_act360();
-
     let swap = BasisSwap::new(
         "THETA-AT-MAT",
         Money::new(10_000_000.0, USD),
@@ -588,6 +578,7 @@ fn theta_zero_at_maturity() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
     let res = swap

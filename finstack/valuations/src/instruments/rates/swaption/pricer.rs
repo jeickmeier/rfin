@@ -159,30 +159,84 @@ pub enum BermudanPricingMethod {
 }
 
 /// Hull-White model parameters for Bermudan swaption pricing.
+///
+/// # Calibration Requirements
+///
+/// **Important**: The default parameters (κ=3%, σ=1%) are generic starting values
+/// and should **not** be used directly for production pricing. For accurate
+/// Bermudan swaption valuation:
+///
+/// 1. **Calibrate to co-terminal Europeans**: Fit κ and σ to match co-terminal
+///    European swaption prices from the volatility surface. The co-terminal
+///    swaptions share the same underlying swap end date as the Bermudan.
+///
+/// 2. **Mean reversion (κ)**: Controls the term structure of volatility. Higher κ
+///    reduces volatility at longer tenors. Typical calibrated values: 1-10%.
+///
+/// 3. **Volatility (σ)**: Short rate volatility. Should be calibrated to match
+///    ATM swaption implied volatilities. Typical values: 50-200 bps.
+///
+/// # Impact of Uncalibrated Parameters
+///
+/// Using uncalibrated defaults can produce Bermudan premium errors of 10-30%
+/// of the early exercise value, which may be material for risk management.
+///
+/// # Example: Calibration Workflow
+///
+/// ```text
+/// // 1. Get European swaption prices from vol surface for co-terminal expiries
+/// // 2. Use optimizer to find κ, σ that minimize pricing error
+/// // 3. Create calibrated HullWhiteParams
+/// let calibrated_params = HullWhiteParams::new(calibrated_kappa, calibrated_sigma);
+/// let pricer = BermudanSwaptionPricer::tree_pricer(calibrated_params);
+/// ```
+///
+/// # References
+///
+/// - Hull, J. & White, A. (1990). "Pricing Interest-Rate-Derivative Securities."
+///   *Review of Financial Studies*, 3(4), 573-592.
+/// - Brigo, D. & Mercurio, F. (2006). *Interest Rate Models - Theory and Practice*.
+///   Chapter 4: One-factor Short-Rate Models.
 #[derive(Clone, Debug)]
 pub struct HullWhiteParams {
-    /// Mean reversion speed (κ)
+    /// Mean reversion speed (κ).
+    ///
+    /// Controls how quickly short rates revert to the long-term mean.
+    /// Higher values reduce volatility at longer maturities.
+    /// Typical calibrated values: 0.01 to 0.10 (1% to 10%).
     pub kappa: f64,
-    /// Short rate volatility (σ)
+    /// Short rate volatility (σ).
+    ///
+    /// Instantaneous volatility of the short rate process.
+    /// Should be calibrated to match ATM swaption implied volatilities.
+    /// Typical calibrated values: 0.005 to 0.02 (50 to 200 bps).
     pub sigma: f64,
 }
 
 impl Default for HullWhiteParams {
+    /// Returns generic default parameters for testing and initialization.
+    ///
+    /// **Warning**: These defaults (κ=3%, σ=1%) are not calibrated and should
+    /// not be used for production pricing. See struct-level documentation
+    /// for calibration requirements.
     fn default() -> Self {
         Self {
-            kappa: 0.03, // 3% mean reversion
-            sigma: 0.01, // 100 bps volatility
+            kappa: 0.03, // 3% mean reversion (uncalibrated default)
+            sigma: 0.01, // 100 bps volatility (uncalibrated default)
         }
     }
 }
 
 impl HullWhiteParams {
-    /// Create new Hull-White parameters.
+    /// Create new Hull-White parameters with specified values.
+    ///
+    /// For production use, these should be calibrated to co-terminal
+    /// European swaption prices from the volatility surface.
     pub fn new(kappa: f64, sigma: f64) -> Self {
         Self { kappa, sigma }
     }
 
-    /// Create tree configuration.
+    /// Create tree configuration with specified number of steps.
     pub fn to_tree_config(&self, steps: usize) -> HullWhiteTreeConfig {
         HullWhiteTreeConfig::new(self.kappa, self.sigma, steps)
     }

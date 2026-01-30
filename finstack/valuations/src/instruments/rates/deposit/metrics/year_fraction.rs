@@ -5,8 +5,13 @@ use crate::metrics::{MetricCalculator, MetricContext};
 ///
 /// Computes the time period between effective start and end dates using the deposit's
 /// day count convention. This is fundamental for all other deposit calculations.
-/// Errors are propagated (e.g., inverted dates for conventions that enforce it)
-/// to avoid silently masking invalid inputs.
+///
+/// # Validation
+///
+/// Explicitly validates that `effective_end > effective_start` before computing
+/// the year fraction. This defensive check catches malformed instruments early
+/// with a clear error message, rather than propagating a negative year fraction
+/// that could cause confusing downstream errors.
 ///
 /// See unit tests and `examples/` for usage.
 pub struct YearFractionCalculator;
@@ -16,6 +21,17 @@ impl MetricCalculator for YearFractionCalculator {
         let deposit: &Deposit = context.instrument_as()?;
         let effective_start = deposit.effective_start_date()?;
         let effective_end = deposit.effective_end_date()?;
+
+        // Defensive check: ensure effective dates are properly ordered.
+        // This catches malformed instruments before they produce confusing
+        // negative year fractions that propagate to par rate calculations.
+        if effective_end <= effective_start {
+            return Err(finstack_core::Error::Validation(format!(
+                "YearFraction: effective end date ({}) must be after effective start date ({})",
+                effective_end, effective_start
+            )));
+        }
+
         deposit.day_count.year_fraction(
             effective_start,
             effective_end,

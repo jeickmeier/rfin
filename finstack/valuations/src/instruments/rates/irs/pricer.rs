@@ -215,6 +215,18 @@ impl InterestRateSwap {
                         step_end.add_weekdays(total_shift)
                     };
 
+                    // Validate observation period ordering after applying shifts.
+                    // Large negative shifts (e.g., lookback > period length) could invert the
+                    // observation window, leading to negative year fractions or invalid rate lookups.
+                    if obs_end <= obs_start {
+                        return Err(finstack_core::Error::Validation(format!(
+                            "Invalid observation period after applying shift: obs_start={}, obs_end={}, \
+                             total_shift={} days. This may indicate lookback exceeds the daily step size \
+                             or an invalid observation_shift configuration.",
+                            obs_start, obs_end, total_shift
+                        )));
+                    }
+
                     // Seasoned compounded swaps: for observation dates before `as_of`,
                     // require explicit fixings (do not silently extrapolate).
                     let r = if obs_start < as_of {
@@ -245,7 +257,11 @@ impl InterestRateSwap {
                                 DayCountCtx::default(),
                             )?
                         };
-                        if t1 > t0 {
+                        // Use rate_period only when the time interval is meaningful.
+                        // For very small intervals (< 1 day in year fraction terms), the
+                        // interpolation may be noisy; fall back to spot rate.
+                        const MIN_PERIOD_YF: f64 = 1.0 / 366.0; // ~1 day minimum
+                        if t1 - t0 >= MIN_PERIOD_YF {
                             proj.rate_period(t0, t1)
                         } else {
                             proj.rate(t0)
@@ -283,6 +299,13 @@ impl InterestRateSwap {
             };
 
             // Coupon amount: N * [(compound_factor - 1) + spread * total_dcf]
+            //
+            // Per ISDA 2021 Definitions Section 4.5 (Compounding), the spread is applied as
+            // simple interest on the full accrual period day count fraction, NOT compounded
+            // with the index rate. This is the market standard for SOFR, SONIA, and €STR swaps.
+            // Some legacy conventions (pre-2021 SONIA) applied spread on compounded amounts,
+            // but ISDA 2021 standardized the simple spread approach.
+            //
             // Note: alpha_total is cf.accrual_factor from builder
             let interest = self.notional.amount() * (compound_factor - 1.0);
             let spread_bp_f64 = decimal_to_f64(self.float.spread_bp, "float leg spread_bp")?;
@@ -332,7 +355,13 @@ impl InterestRateSwap {
     ) -> finstack_core::Result<f64> {
         let sched = crate::instruments::irs::cashflow::fixed_leg_schedule(self)?;
 
-        // Convert cashflow schedule to LegPeriod iterator for shared pricing
+        // Convert cashflow schedule to LegPeriod iterator for shared pricing.
+        //
+        // Note: For fixed legs, `accrual_start` and `accrual_end` are both set to the payment
+        // date because the actual year fraction is pre-computed by the cashflow builder and
+        // stored in `cf.accrual_factor`. The shared pricing function uses `period.year_fraction`
+        // directly rather than recomputing from dates. This avoids redundant date arithmetic
+        // while preserving the `LegPeriod` interface for consistency with floating leg pricing.
         let periods = sched
             .flows
             .iter()
@@ -341,8 +370,8 @@ impl InterestRateSwap {
                     || cf.kind == crate::cashflow::primitives::CFKind::Stub
             })
             .map(|cf| LegPeriod {
-                accrual_start: cf.date, // For fixed leg, we use the payment date
-                accrual_end: cf.date,
+                accrual_start: cf.date, // Placeholder; year_fraction is pre-computed
+                accrual_end: cf.date,   // Placeholder; year_fraction is pre-computed
                 reset_date: None,
                 year_fraction: cf.accrual_factor,
             });

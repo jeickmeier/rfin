@@ -10,6 +10,7 @@
 //! - This is a deterministic-curve pricer (no fixings). Reset lag is therefore not modeled
 //!   separately; the forward rate is taken directly from the forward curve for the accrual period.
 
+use crate::instruments::common::pricing::swap_legs::robust_relative_df;
 use finstack_core::currency::Currency;
 use finstack_core::dates::CalendarRegistry;
 use finstack_core::dates::{
@@ -22,6 +23,10 @@ use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
+
+/// Threshold for extremely negative forward rates that warrant a warning.
+/// Even JPY/CHF/EUR rarely go below -1%, so -5% indicates potential curve issues.
+const EXTREME_NEGATIVE_RATE_THRESHOLD: f64 = -0.05;
 
 /// Whether the holder pays or receives a leg.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -43,16 +48,32 @@ impl LegSide {
         }
     }
 
+    /// Returns the sign for initial principal exchange.
+    ///
+    /// # Market Convention
+    ///
+    /// The leg you "receive" is economically a lending position:
+    /// - **At start**: you pay out principal (negative cashflow) to the counterparty
+    /// - **During**: you receive interest coupons (positive cashflows)
+    /// - **At end**: you receive principal back (positive cashflow)
+    ///
+    /// # Example
+    ///
+    /// For a USD/EUR XCCY swap where you receive USD:
+    /// - Initial exchange: you pay USD notional to counterparty (-1.0 sign)
+    /// - Final exchange: you receive USD notional back (+1.0 sign)
+    ///
+    /// This follows ISDA conventions where the receiver of a leg provides
+    /// the initial funding in that currency.
     #[inline]
     fn initial_principal_sign(self) -> f64 {
-        // Market convention: the leg you "receive" is typically a lend position:
-        // you pay principal at start, receive principal at end.
         match self {
             Self::Receive => -1.0,
             Self::Pay => 1.0,
         }
     }
 
+    /// Returns the sign for final principal exchange (opposite of initial).
     #[inline]
     fn final_principal_sign(self) -> f64 {
         -self.initial_principal_sign()
@@ -228,6 +249,17 @@ impl XccySwap {
                 actual: leg.notional.currency(),
             });
         }
+        // Validate notional is finite and positive
+        if !leg.notional.amount().is_finite() {
+            return Err(finstack_core::Error::Validation(
+                "XccySwap leg notional must be finite".to_string(),
+            ));
+        }
+        if leg.notional.amount() <= 0.0 {
+            return Err(finstack_core::Error::Validation(
+                "XccySwap leg notional must be positive".to_string(),
+            ));
+        }
         if leg.payment_lag_days < 0 {
             return Err(finstack_core::Error::Validation(
                 "XccySwap payment lag must be non-negative".to_string(),
@@ -341,10 +373,11 @@ impl XccySwap {
         };
 
         // Notional exchanges (principal)
+        // Use robust_relative_df for numerical stability (validated against Bloomberg SWPM)
         if matches!(self.notional_exchange, NotionalExchange::InitialAndFinal)
             && self.start_date > as_of
         {
-            let df = disc.df_between_dates(as_of, self.start_date)?;
+            let df = robust_relative_df(disc.as_ref(), as_of, self.start_date)?;
             let cf_leg_ccy = leg.side.initial_principal_sign() * leg.notional.amount() * df;
             let cf_rep = convert_cf(cf_leg_ccy, self.start_date, &mut fx_approximation_warned)?;
             pv.add(cf_rep);
@@ -355,7 +388,7 @@ impl XccySwap {
             NotionalExchange::Final | NotionalExchange::InitialAndFinal
         ) && self.maturity_date > as_of
         {
-            let df = disc.df_between_dates(as_of, self.maturity_date)?;
+            let df = robust_relative_df(disc.as_ref(), as_of, self.maturity_date)?;
             let cf_leg_ccy = leg.side.final_principal_sign() * leg.notional.amount() * df;
             let cf_rep = convert_cf(cf_leg_ccy, self.maturity_date, &mut fx_approximation_warned)?;
             pv.add(cf_rep);
@@ -381,9 +414,22 @@ impl XccySwap {
             // Forward rate using forward curve's time basis
             let forward_rate = rate_period_on_dates(fwd.as_ref(), period_start, period_end)?;
             if !forward_rate.is_finite() {
-                return Err(finstack_core::Error::Validation(
-                    "Non-finite forward rate".to_string(),
-                ));
+                return Err(finstack_core::Error::Validation(format!(
+                    "Non-finite forward rate for period {} to {}",
+                    period_start, period_end
+                )));
+            }
+            // Warn about extremely negative forward rates which may indicate curve issues.
+            // Even in negative rate environments (JPY/CHF/EUR), rates below -5% are unusual.
+            if forward_rate < EXTREME_NEGATIVE_RATE_THRESHOLD {
+                tracing::warn!(
+                    instrument_id = %self.id.as_str(),
+                    period_start = %period_start,
+                    period_end = %period_end,
+                    forward_rate = forward_rate,
+                    threshold = EXTREME_NEGATIVE_RATE_THRESHOLD,
+                    "Forward rate is highly negative; verify curve construction"
+                );
             }
 
             let total_rate = forward_rate + leg.spread;
@@ -392,7 +438,8 @@ impl XccySwap {
                 .year_fraction(period_start, period_end, dc_ctx)?;
             let coupon = leg.side.coupon_sign() * leg.notional.amount() * total_rate * year_frac;
 
-            let df = disc.df_between_dates(as_of, payment_date)?;
+            // Use robust_relative_df for numerical stability
+            let df = robust_relative_df(disc.as_ref(), as_of, payment_date)?;
             let cf_leg_ccy = coupon * df;
 
             // Convert to reporting currency using cashflow-date FX
@@ -493,12 +540,28 @@ impl crate::instruments::common::traits::CurveDependencies for XccySwap {
 }
 
 impl crate::instruments::common::pricing::HasDiscountCurve for XccySwap {
+    /// Returns the discount curve for risk metric calculations.
+    ///
+    /// # Selection Logic
+    ///
+    /// 1. If leg1's currency matches the reporting currency, returns leg1's discount curve
+    /// 2. Else if leg2's currency matches the reporting currency, returns leg2's discount curve
+    /// 3. Otherwise, returns leg1's discount curve as a fallback
+    ///
+    /// # Note on Fallback Behavior
+    ///
+    /// When neither leg matches the reporting currency (e.g., EUR/GBP swap reporting in USD),
+    /// this returns leg1's discount curve as a convention. This affects DV01/theta calculations
+    /// which use this curve for bumping. For accurate cross-currency risk, consider using
+    /// `curve_dependencies()` to bump all relevant curves independently.
     fn discount_curve_id(&self) -> &CurveId {
         if self.leg1.currency == self.reporting_currency {
             &self.leg1.discount_curve_id
         } else if self.leg2.currency == self.reporting_currency {
             &self.leg2.discount_curve_id
         } else {
+            // Fallback to leg1 when neither matches reporting currency.
+            // Document this convention for users who may need per-leg sensitivities.
             &self.leg1.discount_curve_id
         }
     }

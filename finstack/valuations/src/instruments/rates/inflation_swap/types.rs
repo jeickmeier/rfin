@@ -154,13 +154,35 @@ impl InflationSwap {
     /// Apply lag to a date according to the instrument's lag policy.
     ///
     /// Uses `lag_override` if set, otherwise falls back to `default_lag`.
+    ///
+    /// # Supported Lag Types
+    ///
+    /// - `InflationLag::None`: No lag applied
+    /// - `InflationLag::Months(n)`: Subtract n months from the date
+    /// - `InflationLag::Days(n)`: Subtract n days from the date
+    ///
+    /// # Note
+    ///
+    /// The `InflationLag` enum is `#[non_exhaustive]`, so unknown variants
+    /// fall back to no lag with a debug assertion. This ensures forward
+    /// compatibility while catching unexpected variants in development.
     pub(crate) fn apply_lag(&self, date: Date, default_lag: InflationLag) -> Date {
         let lag_policy = self.lag_override.unwrap_or(default_lag);
         match lag_policy {
             InflationLag::None => date,
             InflationLag::Months(m) => date.add_months(-(m as i32)),
             InflationLag::Days(d) => date - time::Duration::days(d as i64),
-            _ => date,
+            // InflationLag is #[non_exhaustive], so we must handle unknown variants.
+            // Debug assert to catch new variants during development.
+            #[allow(unreachable_patterns)]
+            unknown => {
+                debug_assert!(
+                    false,
+                    "Unhandled InflationLag variant: {:?}. Falling back to no lag.",
+                    unknown
+                );
+                date
+            }
         }
     }
 
@@ -239,6 +261,23 @@ impl InflationSwap {
     /// Compute signed year fraction (positive if end > start, negative if end < start).
     ///
     /// This is needed for inflation curve lookups where dates may be before the base date.
+    ///
+    /// # Day Count Convention
+    ///
+    /// Uses `Act365F` (Actual/365 Fixed) regardless of the instrument's `dc` field because:
+    ///
+    /// 1. **Inflation curves use time in years**: Inflation curve knots are expressed in
+    ///    year fractions from the base date. Using a consistent day count ensures proper
+    ///    interpolation alignment.
+    ///
+    /// 2. **Market convention**: Inflation curves are typically constructed with Act365F
+    ///    or Act/Act, making Act365F a reasonable default for curve time calculations.
+    ///
+    /// 3. **Separation of concerns**: The instrument's `dc` field controls fixed leg
+    ///    accrual calculation, while inflation curve lookups use curve-native conventions.
+    ///
+    /// Note: The instrument's `dc` field is used for fixed leg compounding
+    /// (see `pv_fixed_leg`), while this function is used only for inflation curve lookups.
     fn signed_year_fraction(start: Date, end: Date) -> f64 {
         if end >= start {
             DayCount::Act365F
@@ -547,15 +586,34 @@ impl YoYInflationSwap {
         InflationLag::None
     }
 
+    /// Apply lag to a date.
+    ///
+    /// # Note
+    ///
+    /// The `InflationLag` enum is `#[non_exhaustive]`, so unknown variants
+    /// fall back to no lag with a debug assertion.
     fn apply_lag(date: Date, lag: InflationLag) -> Date {
         match lag {
             InflationLag::None => date,
             InflationLag::Months(m) => date.add_months(-(m as i32)),
             InflationLag::Days(d) => date - time::Duration::days(d as i64),
-            _ => date,
+            // InflationLag is #[non_exhaustive], so we must handle unknown variants.
+            #[allow(unreachable_patterns)]
+            unknown => {
+                debug_assert!(
+                    false,
+                    "Unhandled InflationLag variant: {:?}. Falling back to no lag.",
+                    unknown
+                );
+                date
+            }
         }
     }
 
+    /// Compute signed year fraction for inflation curve lookups.
+    ///
+    /// Uses Act365F for inflation curve time calculations (see `InflationSwap::signed_year_fraction`
+    /// for detailed rationale). The instrument's `dc` field is used for fixed leg accrual only.
     fn signed_year_fraction(start: Date, end: Date) -> f64 {
         if end >= start {
             DayCount::Act365F
@@ -661,6 +719,57 @@ impl YoYInflationSwap {
     pub fn npv(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         let pv = self.npv_raw(curves, as_of)?;
         Ok(Money::new(pv, self.notional.currency()))
+    }
+
+    /// Fixed rate that sets the swap's present value to zero (par rate / breakeven).
+    ///
+    /// For a YoY inflation swap, the par rate K satisfies:
+    /// ```text
+    /// Sum_i [ DF_i × (CPI_i / CPI_{i-1} - 1) ] = Sum_i [ DF_i × K × accrual_i ]
+    ///
+    /// K = Sum_i [ DF_i × (CPI_i / CPI_{i-1} - 1) ] / Sum_i [ DF_i × accrual_i ]
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Discount curve is not found
+    /// - Inflation curve/index is not found
+    /// - Any CPI value is non-positive
+    /// - The annuity (sum of discounted accruals) is zero
+    pub fn par_rate(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
+        let disc = curves.get_discount(self.discount_curve_id.as_str())?;
+
+        let mut sum_infl_pv = 0.0_f64;
+        let mut sum_annuity = 0.0_f64;
+
+        for (start, end, pay) in self.schedule()? {
+            let accrual = self.dc.year_fraction(start, end, DayCountCtx::default())?;
+
+            let cpi_start = self.cpi_value(curves, as_of, start)?;
+            if cpi_start <= 0.0 {
+                return Err(finstack_core::InputError::NonPositiveValue.into());
+            }
+            let cpi_end = self.cpi_value(curves, as_of, end)?;
+
+            let t_discount = disc
+                .day_count()
+                .year_fraction(as_of, pay, DayCountCtx::default())?;
+            let df = disc.df(t_discount);
+
+            // Inflation leg contribution: DF × (CPI_end / CPI_start - 1)
+            sum_infl_pv += df * (cpi_end / cpi_start - 1.0);
+
+            // Annuity contribution: DF × accrual
+            sum_annuity += df * accrual;
+        }
+
+        if sum_annuity.abs() < 1e-15 {
+            // Degenerate case: no accrual periods
+            return Ok(0.0);
+        }
+
+        Ok(sum_infl_pv / sum_annuity)
     }
 }
 

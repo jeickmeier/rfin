@@ -91,7 +91,7 @@ fn test_positive_cashflow_for_in_the_money() {
     let market = standard_market(); // 5% market
     let fra = TestFraBuilder::new()
         .fixed_rate(0.06) // receive 6% (above market)
-        .pay_fixed(true) // true = receive fixed
+        .receive_fixed(true) // receive fixed rate
         .build();
 
     let flows = fra.build_dated_flows(&market, BASE_DATE).unwrap();
@@ -108,7 +108,7 @@ fn test_negative_cashflow_for_out_of_the_money() {
     let market = standard_market(); // 5% market
     let fra = TestFraBuilder::new()
         .fixed_rate(0.04) // receive 4% (below market)
-        .pay_fixed(true) // true = receive fixed
+        .receive_fixed(true) // receive fixed rate
         .build();
 
     let flows = fra.build_dated_flows(&market, BASE_DATE).unwrap();

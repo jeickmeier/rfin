@@ -145,14 +145,33 @@ impl CmsPayoff {
         )
     }
 
-    /// Compute convexity adjustment (simplified approximation).
+    /// Compute convexity adjustment using Hagan (2003) methodology.
     ///
-    /// Convexity adjustment accounts for the difference between CMS rate
-    /// and forward swap rate due to volatility.
+    /// The convexity adjustment accounts for the measure change from the annuity
+    /// measure (where the forward swap rate is a martingale) to the payment measure
+    /// (where the CMS rate is a martingale).
+    ///
+    /// # Arguments
+    ///
+    /// * `volatility` - Swap rate volatility (annualized, decimal form)
+    /// * `time_to_fixing` - Time to fixing date in years
+    /// * `swap_tenor` - Tenor of the underlying CMS swap in years
+    /// * `forward_rate` - Current forward swap rate (decimal form)
+    ///
+    /// # Note
+    ///
+    /// In Monte Carlo pricing using Hull-White, the convexity is captured through
+    /// the path dynamics. This function is useful for analytical approximations
+    /// or for comparison/validation purposes.
     ///
     /// Delegates to `ForwardSwapRate::convexity_adjustment`.
-    pub fn compute_convexity_adjustment(volatility: f64, tenor: f64, swap_tenor: f64) -> f64 {
-        ForwardSwapRate::convexity_adjustment(volatility, tenor, swap_tenor)
+    pub fn compute_convexity_adjustment(
+        volatility: f64,
+        time_to_fixing: f64,
+        swap_tenor: f64,
+        forward_rate: f64,
+    ) -> f64 {
+        ForwardSwapRate::convexity_adjustment(volatility, time_to_fixing, swap_tenor, forward_rate)
     }
 }
 

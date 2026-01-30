@@ -360,3 +360,102 @@ fn test_multiple_currencies_independent() {
     assert_eq!(pv_usd.currency(), Currency::USD);
     assert_eq!(pv_eur.currency(), Currency::EUR);
 }
+
+/// Test that validation catches BDC-induced effective date crossover.
+///
+/// This tests an edge case where the raw dates are valid (end > start),
+/// but after business day adjustments the effective dates become invalid
+/// (effective_end <= effective_start).
+///
+/// Scenario:
+/// - Start: Friday Jan 3, 2025
+/// - End: Monday Jan 6, 2025 (just 1 business day later)
+/// - Spot lag: 2 business days (T+2)
+/// - Calendar: NYSE
+///
+/// With T+2 spot lag from Friday Jan 3:
+/// - Effective start = Tuesday Jan 7, 2025
+/// - Effective end = Monday Jan 6, 2025 (no adjustment needed, already business day)
+///
+/// This results in effective_end < effective_start, which should fail validation.
+#[test]
+fn test_bdc_adjustment_causes_effective_date_crossover() {
+    use finstack_core::dates::BusinessDayConvention;
+    use finstack_core::types::InstrumentId;
+
+    let base = date(2025, 1, 3); // Friday
+    let ctx = ctx_with_standard_disc(base, "USD-OIS");
+
+    // Build deposit with dates that are valid raw but invalid after adjustments
+    let dep = Deposit::builder()
+        .id(InstrumentId::new("DEP-CROSSOVER"))
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .start(date(2025, 1, 3)) // Friday - trade date
+        .end(date(2025, 1, 6)) // Monday - just 1 business day after Friday
+        .day_count(DayCount::Act360)
+        .quote_rate_opt(Some(0.03))
+        .discount_curve_id(CurveId::new("USD-OIS"))
+        .spot_lag_days_opt(Some(2)) // T+2: Friday + 2 biz days = Tuesday Jan 7
+        .bdc_opt(Some(BusinessDayConvention::ModifiedFollowing))
+        .calendar_id_opt(Some("nyse".to_string()))
+        .build()
+        .unwrap();
+
+    // Validate should fail because effective_start (Jan 7) > effective_end (Jan 6)
+    let result = dep.validate();
+    assert!(
+        result.is_err(),
+        "Validation should fail when BDC adjustments cause date crossover"
+    );
+
+    let err_msg = result.unwrap_err().to_string();
+    assert!(
+        err_msg.contains("effective") && err_msg.contains("after"),
+        "Error should mention effective dates: {}",
+        err_msg
+    );
+
+    // Also verify that npv() fails (it calls validate internally)
+    let pv_result = dep.npv(&ctx, base);
+    assert!(
+        pv_result.is_err(),
+        "NPV should fail for deposit with invalid effective dates"
+    );
+}
+
+/// Test that extreme quote rates trigger warnings but don't fail validation.
+///
+/// Rates outside [-10%, 100%] are unusual but may be intentional (e.g., stress testing).
+/// The validation should log a warning but not reject the instrument.
+#[test]
+fn test_extreme_rate_warning_but_valid() {
+    let base = date(2025, 1, 1);
+    let ctx = ctx_with_standard_disc(base, "USD-OIS");
+
+    // Test with very high rate (200% = 20000 bps)
+    let dep_high = DepositBuilder::new(base)
+        .end(date(2025, 7, 1))
+        .quote_rate(2.0) // 200% - triggers warning
+        .build();
+
+    // Should validate and price successfully (warning logged but not blocking)
+    assert!(
+        dep_high.validate().is_ok(),
+        "Extreme rate should validate (with warning)"
+    );
+    let pv_high = dep_high.npv(&ctx, base);
+    assert!(pv_high.is_ok(), "Extreme rate deposit should price");
+
+    // Test with very negative rate (-20% = -2000 bps)
+    let dep_low = DepositBuilder::new(base)
+        .end(date(2025, 7, 1))
+        .quote_rate(-0.2) // -20% - triggers warning
+        .build();
+
+    assert!(
+        dep_low.validate().is_ok(),
+        "Extreme negative rate should validate (with warning)"
+    );
+    let pv_low = dep_low.npv(&ctx, base);
+    assert!(pv_low.is_ok(), "Extreme negative rate deposit should price");
+}

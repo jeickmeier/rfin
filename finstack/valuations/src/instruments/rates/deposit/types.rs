@@ -241,16 +241,26 @@ impl crate::instruments::common::traits::CurveDependencies for Deposit {
     }
 }
 
+/// Minimum reasonable deposit rate (-10% = -1000 bps).
+/// Rates below this are likely data errors or misconfigured instruments.
+const MIN_REASONABLE_RATE: f64 = -0.10;
+
+/// Maximum reasonable deposit rate (100% = 10000 bps).
+/// Rates above this are likely data errors or misconfigured instruments.
+const MAX_REASONABLE_RATE: f64 = 1.0;
+
 impl Deposit {
     /// Validate the deposit parameters.
     ///
     /// Checks that:
-    /// - End date is after start date
+    /// - End date is after start date (raw dates)
+    /// - Effective end date is after effective start date (after BDC adjustments)
     /// - Notional is positive
+    /// - Quote rate (if set) is within reasonable bounds (logs warning if not)
     ///
     /// This is called automatically during cashflow generation and pricing.
     pub fn validate(&self) -> finstack_core::Result<()> {
-        // Validate date ordering
+        // Validate raw date ordering first (fast check)
         if self.end <= self.start {
             return Err(finstack_core::Error::Validation(format!(
                 "Deposit end date ({}) must be after start date ({})",
@@ -264,6 +274,35 @@ impl Deposit {
                 "Deposit notional must be positive, got {}",
                 self.notional.amount()
             )));
+        }
+
+        // Validate effective date ordering (catches BDC-induced inversions)
+        // This is important when spot lag + calendar adjustments could cause issues
+        let effective_start = self.effective_start_date()?;
+        let effective_end = self.effective_end_date()?;
+        if effective_end <= effective_start {
+            return Err(finstack_core::Error::Validation(format!(
+                "Deposit effective end date ({}) must be after effective start date ({}) \
+                 after business day adjustments",
+                effective_end, effective_start
+            )));
+        }
+
+        // Warn about extreme rates (don't fail, as they may be intentional)
+        if let Some(r) = self.quote_rate {
+            if !(MIN_REASONABLE_RATE..=MAX_REASONABLE_RATE).contains(&r) {
+                tracing::warn!(
+                    deposit_id = %self.id,
+                    quote_rate = r,
+                    min_bound = MIN_REASONABLE_RATE,
+                    max_bound = MAX_REASONABLE_RATE,
+                    "Deposit quote rate {:.4} ({:.0} bps) is outside typical range [{:.0}%, {:.0}%]",
+                    r,
+                    r * 10000.0,
+                    MIN_REASONABLE_RATE * 100.0,
+                    MAX_REASONABLE_RATE * 100.0
+                );
+            }
         }
 
         Ok(())
@@ -340,6 +379,7 @@ impl CashflowProvider for Deposit {
         _as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
         // Validate deposit parameters before building schedule
+        // (includes effective date ordering check)
         self.validate()?;
 
         // Compute effective dates with spot lag and business day adjustments.
@@ -347,14 +387,6 @@ impl CashflowProvider for Deposit {
         // Otherwise, use the raw start/end dates (optionally BDC-adjusted).
         let effective_start = self.effective_start_date()?;
         let effective_end = self.effective_end_date()?;
-
-        // Validate effective date ordering
-        if effective_end <= effective_start {
-            return Err(finstack_core::Error::Validation(format!(
-                "Deposit effective end date ({}) must be after effective start date ({})",
-                effective_end, effective_start
-            )));
-        }
 
         // True single-period deposit: two flows with simple interest
         // Use effective dates for proper accrual calculation

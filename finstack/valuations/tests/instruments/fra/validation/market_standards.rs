@@ -116,7 +116,7 @@ fn test_sign_convention_receive_fixed_positive_when_above_market() {
 
     let fra = TestFraBuilder::new()
         .fixed_rate(0.06) // receive 6% (above market)
-        .pay_fixed(true) // true = receive fixed
+        .receive_fixed(true) // true = receive fixed
         .build();
 
     let pv = fra.value(&market, BASE_DATE).unwrap();
@@ -134,7 +134,7 @@ fn test_sign_convention_pay_fixed_negative_when_above_market() {
 
     let fra = TestFraBuilder::new()
         .fixed_rate(0.06) // pay 6%
-        .pay_fixed(false) // false = pay fixed
+        .receive_fixed(false) // false = pay fixed
         .build();
 
     let pv = fra.value(&market, BASE_DATE).unwrap();
@@ -225,8 +225,8 @@ fn test_dv01_sign_convention() {
     // Standard convention: receive fixed → negative DV01, pay fixed → positive DV01
     let market = standard_market();
 
-    let receive_fixed = TestFraBuilder::new().pay_fixed(true).build(); // true = receive fixed
-    let pay_fixed = TestFraBuilder::new().pay_fixed(false).build(); // false = pay fixed
+    let receive_fixed = TestFraBuilder::new().receive_fixed(true).build(); // true = receive fixed
+    let pay_fixed = TestFraBuilder::new().receive_fixed(false).build(); // false = pay fixed
 
     let result_receive = receive_fixed
         .price_with_metrics(&market, BASE_DATE, &[MetricId::Dv01])

@@ -1,6 +1,8 @@
 //! IR Future convexity adjustment tests.
 
 use super::utils::*;
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::term_structures::VolSurface;
 use finstack_valuations::instruments::rates::ir_future::{FutureContractSpecs, Position};
 
 #[test]
@@ -138,4 +140,236 @@ fn test_large_convexity_adjustment() {
     // Should still produce valid result
     assert!(pv.amount().is_finite());
     assert!(pv.amount().abs() < 1_000_000.0);
+}
+
+/// Build a flat volatility surface for testing convexity adjustments.
+fn build_flat_vol_surface(vol: f64, surface_id: &str) -> VolSurface {
+    VolSurface::builder(surface_id)
+        .expiries(&[0.25, 1.0, 2.0, 5.0, 10.0])
+        .strikes(&[0.01, 0.03, 0.05, 0.07, 0.10])
+        .row(&[vol, vol, vol, vol, vol])
+        .row(&[vol, vol, vol, vol, vol])
+        .row(&[vol, vol, vol, vol, vol])
+        .row(&[vol, vol, vol, vol, vol])
+        .row(&[vol, vol, vol, vol, vol])
+        .build()
+        .unwrap()
+}
+
+#[test]
+fn test_volatility_based_convexity_adjustment() {
+    // Use far forward dates where convexity adjustment is more material
+    let (as_of, start, end) = far_forward_dates();
+
+    // Build market with volatility surface
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD_OIS");
+    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD_LIBOR_3M");
+    let vol_surface = build_flat_vol_surface(0.20, "USD_SWAPTION_VOL"); // 20% vol
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve)
+        .insert_surface(vol_surface);
+
+    // Create future with volatility-based convexity (no explicit adjustment)
+    let mut future = create_custom_future(
+        "VOL_CONVEX",
+        1_000_000.0,
+        start,
+        start,
+        end,
+        95.0, // 5% implied rate
+        Position::Long,
+    );
+    future.contract_specs.convexity_adjustment = None; // Use vol-based calculation
+    future.volatility_id = Some("USD_SWAPTION_VOL".into());
+
+    let pv = future.npv(&market).unwrap();
+
+    // Should produce valid result
+    assert!(
+        pv.amount().is_finite(),
+        "Vol-based convexity should produce finite PV"
+    );
+
+    // Compare with zero convexity to verify adjustment is applied
+    let mut future_zero_ca = create_custom_future(
+        "ZERO_CA",
+        1_000_000.0,
+        start,
+        start,
+        end,
+        95.0,
+        Position::Long,
+    );
+    future_zero_ca.contract_specs.convexity_adjustment = Some(0.0);
+
+    let pv_zero_ca = future_zero_ca.npv(&market).unwrap().amount();
+
+    // Convexity adjustment should make a difference (positive adjustment reduces PV for long)
+    // For 2-year forward with 20% vol: CA ≈ 0.5 × 0.20² × 2 × 2.25 ≈ 9bp
+    assert_ne!(
+        pv.amount(),
+        pv_zero_ca,
+        "Vol-based convexity should differ from zero adjustment"
+    );
+    assert!(
+        pv.amount() < pv_zero_ca,
+        "Positive convexity adjustment should reduce PV for long position"
+    );
+}
+
+#[test]
+fn test_volatility_based_convexity_increases_with_maturity() {
+    let as_of = time::macros::date!(2024 - 01 - 01);
+
+    // Build market with volatility surface
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD_OIS");
+    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD_LIBOR_3M");
+    let vol_surface = build_flat_vol_surface(0.15, "USD_SWAPTION_VOL"); // 15% vol
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve)
+        .insert_surface(vol_surface);
+
+    // Near-dated future (6 months forward)
+    let near_start = time::macros::date!(2024 - 07 - 01);
+    let near_end = time::macros::date!(2024 - 10 - 01);
+    let mut near_future = create_custom_future(
+        "NEAR",
+        1_000_000.0,
+        near_start,
+        near_start,
+        near_end,
+        95.0,
+        Position::Long,
+    );
+    near_future.contract_specs.convexity_adjustment = None;
+    near_future.volatility_id = Some("USD_SWAPTION_VOL".into());
+
+    // Far-dated future (3 years forward)
+    let far_start = time::macros::date!(2027 - 01 - 01);
+    let far_end = time::macros::date!(2027 - 04 - 01);
+    let mut far_future = create_custom_future(
+        "FAR",
+        1_000_000.0,
+        far_start,
+        far_start,
+        far_end,
+        95.0,
+        Position::Long,
+    );
+    far_future.contract_specs.convexity_adjustment = None;
+    far_future.volatility_id = Some("USD_SWAPTION_VOL".into());
+
+    // Calculate PVs with vol-based convexity
+    let pv_near = near_future.npv(&market).unwrap().amount();
+    let pv_far = far_future.npv(&market).unwrap().amount();
+
+    // Also calculate with zero convexity for comparison
+    let mut near_zero = create_custom_future(
+        "NEAR_Z",
+        1_000_000.0,
+        near_start,
+        near_start,
+        near_end,
+        95.0,
+        Position::Long,
+    );
+    near_zero.contract_specs.convexity_adjustment = Some(0.0);
+
+    let mut far_zero = create_custom_future(
+        "FAR_Z",
+        1_000_000.0,
+        far_start,
+        far_start,
+        far_end,
+        95.0,
+        Position::Long,
+    );
+    far_zero.contract_specs.convexity_adjustment = Some(0.0);
+
+    let pv_near_zero = near_zero.npv(&market).unwrap().amount();
+    let pv_far_zero = far_zero.npv(&market).unwrap().amount();
+
+    // Convexity impact: difference between zero-CA and vol-based
+    let near_convexity_impact = pv_near_zero - pv_near;
+    let far_convexity_impact = pv_far_zero - pv_far;
+
+    // Far-dated future should have larger convexity impact
+    // (CA scales with T_fixing² approximately)
+    assert!(
+        far_convexity_impact > near_convexity_impact,
+        "Far-dated future should have larger convexity impact: {} vs {}",
+        far_convexity_impact,
+        near_convexity_impact
+    );
+}
+
+#[test]
+fn test_volatility_based_convexity_increases_with_vol() {
+    let (as_of, start, end) = far_forward_dates();
+
+    // Build base curves
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD_OIS");
+    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD_LIBOR_3M");
+
+    // Low volatility market
+    let low_vol_surface = build_flat_vol_surface(0.10, "USD_SWAPTION_VOL"); // 10% vol
+    let low_vol_market = MarketContext::new()
+        .insert_discount(disc_curve.clone())
+        .insert_forward(fwd_curve.clone())
+        .insert_surface(low_vol_surface);
+
+    // High volatility market
+    let high_vol_surface = build_flat_vol_surface(0.30, "USD_SWAPTION_VOL"); // 30% vol
+    let high_vol_market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve)
+        .insert_surface(high_vol_surface);
+
+    // Create future with vol-based convexity
+    let mut future = create_custom_future(
+        "VOL_TEST",
+        1_000_000.0,
+        start,
+        start,
+        end,
+        95.0,
+        Position::Long,
+    );
+    future.contract_specs.convexity_adjustment = None;
+    future.volatility_id = Some("USD_SWAPTION_VOL".into());
+
+    let pv_low_vol = future.npv(&low_vol_market).unwrap().amount();
+    let pv_high_vol = future.npv(&high_vol_market).unwrap().amount();
+
+    // Higher vol should result in larger convexity adjustment
+    // For long position, larger CA means lower PV
+    assert!(
+        pv_high_vol < pv_low_vol,
+        "Higher vol should produce lower PV due to larger convexity adjustment: {} vs {}",
+        pv_high_vol,
+        pv_low_vol
+    );
+
+    // The impact should scale roughly with vol² (CA ∝ σ²)
+    // With 3x vol, expect ~9x convexity impact
+    // Get zero-CA baseline
+    let mut future_zero =
+        create_custom_future("ZERO", 1_000_000.0, start, start, end, 95.0, Position::Long);
+    future_zero.contract_specs.convexity_adjustment = Some(0.0);
+    let pv_zero = future_zero.npv(&low_vol_market).unwrap().amount();
+
+    let low_vol_impact = pv_zero - pv_low_vol;
+    let high_vol_impact = pv_zero - pv_high_vol;
+
+    // High vol impact should be roughly 9x low vol impact (30%/10%)² = 9
+    let ratio = high_vol_impact / low_vol_impact;
+    assert!(
+        ratio > 7.0 && ratio < 11.0,
+        "Convexity impact ratio should be ~9 (σ² scaling): got {}",
+        ratio
+    );
 }

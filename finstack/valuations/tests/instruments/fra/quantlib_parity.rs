@@ -104,7 +104,7 @@ fn quantlib_parity_fra_at_market_valuation() {
     let fra = ForwardRateAgreement {
         id: "FRA_3x6".into(),
         notional: Money::new(notional, Currency::USD),
-        fixing_date: fixing,
+        fixing_date: Some(fixing),
         start_date: start,
         end_date: end,
         fixed_rate: strike,
@@ -115,7 +115,7 @@ fn quantlib_parity_fra_at_market_valuation() {
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
-        pay_fixed: true, // receive fixed
+        receive_fixed: true, // receive fixed rate
         attributes: Default::default(),
     };
 
@@ -148,7 +148,7 @@ fn quantlib_parity_fra_off_market_valuation() {
     let fra = ForwardRateAgreement {
         id: "FRA_3x6".into(),
         notional: Money::new(notional, Currency::USD),
-        fixing_date: fixing,
+        fixing_date: Some(fixing),
         start_date: start,
         end_date: end,
         fixed_rate: strike,
@@ -159,7 +159,7 @@ fn quantlib_parity_fra_off_market_valuation() {
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
-        pay_fixed: true, // receive fixed
+        receive_fixed: true, // receive fixed rate
         attributes: Default::default(),
     };
 
@@ -208,7 +208,7 @@ fn quantlib_parity_fra_implied_rate() {
     let fra = ForwardRateAgreement {
         id: "FRA_3x6".into(),
         notional: Money::new(1_000_000.0, Currency::USD),
-        fixing_date: fixing,
+        fixing_date: Some(fixing),
         start_date: start,
         end_date: end,
         fixed_rate: 0.05, // Will be overridden by par rate calculation
@@ -219,7 +219,7 @@ fn quantlib_parity_fra_implied_rate() {
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
-        pay_fixed: true,
+        receive_fixed: true,
         attributes: Default::default(),
     };
 
@@ -264,7 +264,7 @@ fn quantlib_parity_fra_settlement_adjustment() {
     let fra = ForwardRateAgreement {
         id: "FRA_3x6".into(),
         notional: Money::new(notional, Currency::USD),
-        fixing_date: fixing,
+        fixing_date: Some(fixing),
         start_date: start,
         end_date: end,
         fixed_rate: strike,
@@ -275,7 +275,7 @@ fn quantlib_parity_fra_settlement_adjustment() {
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
-        pay_fixed: true,
+        receive_fixed: true,
         attributes: Default::default(),
     };
 
@@ -300,7 +300,7 @@ fn quantlib_parity_fra_settlement_adjustment() {
     // With settlement adjustment: 1 / (1 + F × τ) = 1 / (1 + 0.10 × 0.2528) ≈ 0.9753
     // PV_adjusted = PV_naive × 0.9753 ≈ -2,404
     //
-    // With pay_fixed=true (receive fixed), sign is negated: ≈ +2,404
+    // With receive_fixed=true (receive fixed), sign is negated: ≈ +2,404
 
     // QuantLib produces value accounting for exact settlement adjustment
     let expected_range_low = 2000.0;
@@ -336,7 +336,7 @@ fn quantlib_parity_fra_buy_sell_symmetry() {
     let fra_receive = ForwardRateAgreement {
         id: "FRA_RECEIVE".into(),
         notional: Money::new(1_000_000.0, Currency::USD),
-        fixing_date: fixing,
+        fixing_date: Some(fixing),
         start_date: start,
         end_date: end,
         fixed_rate: strike,
@@ -347,7 +347,7 @@ fn quantlib_parity_fra_buy_sell_symmetry() {
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
-        pay_fixed: true, // receive fixed
+        receive_fixed: true, // receive fixed rate
         attributes: Default::default(),
     };
 
@@ -355,7 +355,7 @@ fn quantlib_parity_fra_buy_sell_symmetry() {
     let fra_pay = ForwardRateAgreement {
         id: "FRA_PAY".into(),
         notional: Money::new(1_000_000.0, Currency::USD),
-        fixing_date: fixing,
+        fixing_date: Some(fixing),
         start_date: start,
         end_date: end,
         fixed_rate: strike,
@@ -366,7 +366,7 @@ fn quantlib_parity_fra_buy_sell_symmetry() {
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
-        pay_fixed: false, // pay fixed
+        receive_fixed: false, // pay fixed rate
         attributes: Default::default(),
     };
 
@@ -402,7 +402,7 @@ fn quantlib_parity_fra_standard_tenor_3x6() {
     let fra = ForwardRateAgreement {
         id: "FRA_3x6".into(),
         notional: Money::new(1_000_000.0, Currency::USD),
-        fixing_date: start,
+        fixing_date: Some(start),
         start_date: start,
         end_date: end,
         fixed_rate: 0.05,
@@ -413,7 +413,7 @@ fn quantlib_parity_fra_standard_tenor_3x6() {
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
-        pay_fixed: true,
+        receive_fixed: true,
         attributes: Default::default(),
     };
 
@@ -436,7 +436,7 @@ fn quantlib_parity_fra_standard_tenor_6x9() {
     let fra = ForwardRateAgreement {
         id: "FRA_6x9".into(),
         notional: Money::new(1_000_000.0, Currency::USD),
-        fixing_date: start,
+        fixing_date: Some(start),
         start_date: start,
         end_date: end,
         fixed_rate: 0.05,
@@ -447,7 +447,7 @@ fn quantlib_parity_fra_standard_tenor_6x9() {
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
-        pay_fixed: true,
+        receive_fixed: true,
         attributes: Default::default(),
     };
 
@@ -469,7 +469,7 @@ fn quantlib_parity_fra_standard_tenor_6x12() {
     let fra = ForwardRateAgreement {
         id: "FRA_6x12".into(),
         notional: Money::new(1_000_000.0, Currency::USD),
-        fixing_date: start,
+        fixing_date: Some(start),
         start_date: start,
         end_date: end,
         fixed_rate: 0.05,
@@ -480,7 +480,7 @@ fn quantlib_parity_fra_standard_tenor_6x12() {
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
-        pay_fixed: true,
+        receive_fixed: true,
         attributes: Default::default(),
     };
 
@@ -509,7 +509,7 @@ fn quantlib_parity_fra_dv01_sign_convention() {
     let fra_receive = ForwardRateAgreement {
         id: "FRA_RECEIVE".into(),
         notional: Money::new(1_000_000.0, Currency::USD),
-        fixing_date: start,
+        fixing_date: Some(start),
         start_date: start,
         end_date: end,
         fixed_rate: 0.05,
@@ -520,14 +520,14 @@ fn quantlib_parity_fra_dv01_sign_convention() {
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
-        pay_fixed: true, // receive fixed
+        receive_fixed: true, // receive fixed rate
         attributes: Default::default(),
     };
 
     let fra_pay = ForwardRateAgreement {
         id: "FRA_PAY".into(),
         notional: Money::new(1_000_000.0, Currency::USD),
-        fixing_date: start,
+        fixing_date: Some(start),
         start_date: start,
         end_date: end,
         fixed_rate: 0.05,
@@ -538,7 +538,7 @@ fn quantlib_parity_fra_dv01_sign_convention() {
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
-        pay_fixed: false, // pay fixed
+        receive_fixed: false, // pay fixed rate
         attributes: Default::default(),
     };
 
@@ -586,7 +586,7 @@ fn quantlib_parity_fra_day_count_act360_vs_act365() {
     let fra_360 = ForwardRateAgreement {
         id: "FRA_ACT360".into(),
         notional: Money::new(1_000_000.0, Currency::USD),
-        fixing_date: start,
+        fixing_date: Some(start),
         start_date: start,
         end_date: end,
         fixed_rate: 0.06, // Off-market for visible difference
@@ -597,14 +597,14 @@ fn quantlib_parity_fra_day_count_act360_vs_act365() {
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
-        pay_fixed: true,
+        receive_fixed: true,
         attributes: Default::default(),
     };
 
     let fra_365 = ForwardRateAgreement {
         id: "FRA_ACT365".into(),
         notional: Money::new(1_000_000.0, Currency::USD),
-        fixing_date: start,
+        fixing_date: Some(start),
         start_date: start,
         end_date: end,
         fixed_rate: 0.06,
@@ -615,7 +615,7 @@ fn quantlib_parity_fra_day_count_act360_vs_act365() {
         observed_fixing: None,
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
-        pay_fixed: true,
+        receive_fixed: true,
         attributes: Default::default(),
     };
 

@@ -3,6 +3,17 @@
 //! A basis swap exchanges two floating rate payments with different tenors,
 //! capturing the basis spread between them (e.g., 3M vs 6M).
 //!
+//! # Sign Convention
+//!
+//! NPV is computed from the perspective of **receiving the primary leg** (with spread)
+//! and **paying the reference leg**:
+//!
+//! - **Positive NPV**: Primary leg receiver is in-the-money
+//! - **Negative NPV**: Primary leg receiver is out-of-the-money
+//!
+//! This convention aligns with ISDA standards where the spread-receiving party
+//! is considered "long" the basis swap.
+//!
 //! # Shared Infrastructure
 //!
 //! This module delegates to the shared swap leg pricing infrastructure in
@@ -99,6 +110,14 @@ pub struct BasisSwap {
     pub allow_calendar_fallback: bool,
     /// Stub handling convention for irregular periods.
     pub stub_kind: StubKind,
+    /// Allow both legs to reference the same forward curve.
+    ///
+    /// When `false` (default), having identical forward curves on both legs produces
+    /// a validation error, as this is almost always a configuration mistake (NPV would
+    /// equal spread × annuity by construction). Set to `true` only for testing or
+    /// deliberate same-index spread trades.
+    #[serde(default)]
+    pub allow_same_curve: bool,
     /// Attributes for instrument selection and tagging.
     pub attributes: crate::instruments::common::traits::Attributes,
 }
@@ -116,7 +135,13 @@ impl BasisSwap {
     /// * `discount_curve_id` — Discount curve identifier for present value calculations
     ///
     /// # Returns
-    /// A new `BasisSwap` instance with default calendar and stub settings.
+    /// A new `BasisSwap` instance with default calendar and stub settings, or an error if
+    /// validation fails.
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - `start_date >= maturity_date` (invalid swap tenor)
+    /// - Both legs reference the same forward curve (use `with_allow_same_curve(true)` to override)
     pub fn new(
         id: impl Into<String>,
         notional: Money,
@@ -125,9 +150,61 @@ impl BasisSwap {
         primary_leg: BasisSwapLeg,
         reference_leg: BasisSwapLeg,
         discount_curve_id: impl Into<CurveId>,
-    ) -> Self {
-        Self {
-            id: InstrumentId::new(id.into()),
+    ) -> Result<Self> {
+        let id_str = id.into();
+
+        // Validate dates
+        if start_date >= maturity_date {
+            return Err(finstack_core::Error::Validation(format!(
+                "BasisSwap '{}' has start_date ({}) >= maturity_date ({}); \
+                 swap must have positive tenor",
+                id_str, start_date, maturity_date
+            )));
+        }
+
+        // Validate different forward curves (unless explicitly allowed)
+        if primary_leg.forward_curve_id == reference_leg.forward_curve_id {
+            return Err(finstack_core::Error::Validation(format!(
+                "BasisSwap '{}' has identical forward curves on both legs ({}). \
+                 A same-index basis swap has NPV = spread × annuity by construction. \
+                 If this is intentional, use .with_allow_same_curve(true).",
+                id_str,
+                primary_leg.forward_curve_id.as_str()
+            )));
+        }
+
+        // Validate payment and reset lags are non-negative
+        if primary_leg.payment_lag_days < 0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "BasisSwap '{}' primary leg has negative payment_lag_days ({}); \
+                 payment lag must be non-negative",
+                id_str, primary_leg.payment_lag_days
+            )));
+        }
+        if primary_leg.reset_lag_days < 0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "BasisSwap '{}' primary leg has negative reset_lag_days ({}); \
+                 reset lag must be non-negative",
+                id_str, primary_leg.reset_lag_days
+            )));
+        }
+        if reference_leg.payment_lag_days < 0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "BasisSwap '{}' reference leg has negative payment_lag_days ({}); \
+                 payment lag must be non-negative",
+                id_str, reference_leg.payment_lag_days
+            )));
+        }
+        if reference_leg.reset_lag_days < 0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "BasisSwap '{}' reference leg has negative reset_lag_days ({}); \
+                 reset lag must be non-negative",
+                id_str, reference_leg.reset_lag_days
+            )));
+        }
+
+        Ok(Self {
+            id: InstrumentId::new(id_str),
             notional,
             start_date,
             maturity_date,
@@ -137,8 +214,9 @@ impl BasisSwap {
             calendar_id: None,
             allow_calendar_fallback: false,
             stub_kind: StubKind::None,
+            allow_same_curve: false,
             attributes: crate::instruments::common::traits::Attributes::default(),
-        }
+        })
     }
 
     /// Sets the calendar for business day adjustments.
@@ -174,16 +252,159 @@ impl BasisSwap {
         self
     }
 
+    /// Allow (or disallow) same forward curve on both legs.
+    ///
+    /// By default, having identical forward curves on both legs is a validation error
+    /// since NPV would equal spread × annuity by construction. Enable this only for
+    /// testing or deliberate same-index spread trades.
+    ///
+    /// Note: This method is typically used with `new_unchecked()` since `new()` validates
+    /// curve uniqueness at construction time.
+    pub fn with_allow_same_curve(mut self, allow: bool) -> Self {
+        self.allow_same_curve = allow;
+        self
+    }
+
+    /// Creates a basis swap without curve uniqueness validation.
+    ///
+    /// Use this constructor when you intentionally want both legs to reference the
+    /// same forward curve (e.g., for testing or same-index spread trades).
+    ///
+    /// # Arguments
+    /// Same as `new()`.
+    ///
+    /// # Returns
+    /// A new `BasisSwap` instance, or an error if date validation fails.
+    ///
+    /// # Example
+    /// ```rust
+    /// # use finstack_core::{dates::*, money::Money, currency::Currency, types::CurveId};
+    /// # use finstack_valuations::instruments::rates::basis_swap::{BasisSwap, BasisSwapLeg};
+    /// # use time::Month;
+    /// # let leg = BasisSwapLeg {
+    /// #     forward_curve_id: CurveId::new("SOFR"),
+    /// #     frequency: Tenor::quarterly(),
+    /// #     day_count: DayCount::Act360,
+    /// #     bdc: BusinessDayConvention::ModifiedFollowing,
+    /// #     spread: 0.0005,
+    /// #     payment_lag_days: 0,
+    /// #     reset_lag_days: 0,
+    /// # };
+    /// // Same-curve swap for testing spread sensitivity
+    /// let swap = BasisSwap::new_allowing_same_curve(
+    ///     "TEST_SAME_CURVE",
+    ///     Money::new(1_000_000.0, Currency::USD),
+    ///     Date::from_calendar_date(2024, Month::January, 3).unwrap(),
+    ///     Date::from_calendar_date(2025, Month::January, 3).unwrap(),
+    ///     leg.clone(),
+    ///     BasisSwapLeg { spread: 0.0, ..leg },
+    ///     CurveId::new("OIS"),
+    /// );
+    /// ```
+    pub fn new_allowing_same_curve(
+        id: impl Into<String>,
+        notional: Money,
+        start_date: Date,
+        maturity_date: Date,
+        primary_leg: BasisSwapLeg,
+        reference_leg: BasisSwapLeg,
+        discount_curve_id: impl Into<CurveId>,
+    ) -> Result<Self> {
+        let id_str = id.into();
+
+        // Validate dates only
+        if start_date >= maturity_date {
+            return Err(finstack_core::Error::Validation(format!(
+                "BasisSwap '{}' has start_date ({}) >= maturity_date ({}); \
+                 swap must have positive tenor",
+                id_str, start_date, maturity_date
+            )));
+        }
+
+        // Log warning for same curve but don't error
+        if primary_leg.forward_curve_id == reference_leg.forward_curve_id {
+            tracing::warn!(
+                instrument_id = %id_str,
+                forward_curve_id = %primary_leg.forward_curve_id.as_str(),
+                "BasisSwap created with same forward curve on both legs; \
+                 NPV will equal spread × annuity by construction"
+            );
+        }
+
+        // Validate payment and reset lags are non-negative
+        if primary_leg.payment_lag_days < 0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "BasisSwap '{}' primary leg has negative payment_lag_days ({}); \
+                 payment lag must be non-negative",
+                id_str, primary_leg.payment_lag_days
+            )));
+        }
+        if primary_leg.reset_lag_days < 0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "BasisSwap '{}' primary leg has negative reset_lag_days ({}); \
+                 reset lag must be non-negative",
+                id_str, primary_leg.reset_lag_days
+            )));
+        }
+        if reference_leg.payment_lag_days < 0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "BasisSwap '{}' reference leg has negative payment_lag_days ({}); \
+                 payment lag must be non-negative",
+                id_str, reference_leg.payment_lag_days
+            )));
+        }
+        if reference_leg.reset_lag_days < 0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "BasisSwap '{}' reference leg has negative reset_lag_days ({}); \
+                 reset lag must be non-negative",
+                id_str, reference_leg.reset_lag_days
+            )));
+        }
+
+        Ok(Self {
+            id: InstrumentId::new(id_str),
+            notional,
+            start_date,
+            maturity_date,
+            primary_leg,
+            reference_leg,
+            discount_curve_id: discount_curve_id.into(),
+            calendar_id: None,
+            allow_calendar_fallback: false,
+            stub_kind: StubKind::None,
+            allow_same_curve: true,
+            attributes: crate::instruments::common::traits::Attributes::default(),
+        })
+    }
+
     fn resolve_calendar(&self) -> Result<Option<&'static dyn HolidayCalendar>> {
         match self.calendar_id.as_deref() {
             Some(id) => {
                 if let Some(cal) = CalendarRegistry::global().resolve_str(id) {
                     Ok(Some(cal))
                 } else if self.allow_calendar_fallback {
+                    // Calculate potential impact for warning message
+                    let max_lag_days = self
+                        .primary_leg
+                        .payment_lag_days
+                        .max(self.reference_leg.payment_lag_days);
+                    let impact_note = if max_lag_days > 0 {
+                        format!(
+                            " Payment lags (up to {} days) will be applied as calendar days, \
+                             which may shift payment dates by several business days versus market convention. \
+                             This could affect NPV by several basis points.",
+                            max_lag_days
+                        )
+                    } else {
+                        String::new()
+                    };
                     tracing::warn!(
                         instrument_id = %self.id.as_str(),
                         calendar_id = id,
-                        "Calendar not found; falling back to unadjusted schedule and calendar-day lags"
+                        max_payment_lag_days = max_lag_days,
+                        "Calendar '{}' not found; falling back to unadjusted schedule and calendar-day lags.{}",
+                        id,
+                        impact_note
                     );
                     Ok(None)
                 } else {
@@ -196,9 +417,24 @@ impl BasisSwap {
             }
             None => {
                 if self.allow_calendar_fallback {
+                    let max_lag_days = self
+                        .primary_leg
+                        .payment_lag_days
+                        .max(self.reference_leg.payment_lag_days);
+                    let impact_note = if max_lag_days > 0 {
+                        format!(
+                            " Payment lags (up to {} days) will be applied as calendar days, \
+                             which may shift payment dates versus market convention.",
+                            max_lag_days
+                        )
+                    } else {
+                        String::new()
+                    };
                     tracing::warn!(
                         instrument_id = %self.id.as_str(),
-                        "No calendar_id set; falling back to unadjusted schedule and calendar-day lags"
+                        max_payment_lag_days = max_lag_days,
+                        "No calendar_id set; falling back to unadjusted schedule and calendar-day lags.{}",
+                        impact_note
                     );
                     Ok(None)
                 } else {
@@ -263,6 +499,32 @@ impl BasisSwap {
             return Err(finstack_core::Error::Validation(
                 "BasisSwap leg lags must be non-negative".to_string(),
             ));
+        }
+
+        // Validate spread is in reasonable range (±5000bp = ±50%)
+        // Values beyond this are almost certainly data errors
+        const MAX_SPREAD_DECIMAL: f64 = 0.50; // 5000bp
+        if leg.spread.abs() > MAX_SPREAD_DECIMAL {
+            return Err(finstack_core::Error::Validation(format!(
+                "BasisSwap leg spread {} ({:.0}bp) exceeds maximum threshold of ±{}bp. \
+                 Spread should be in decimal form (e.g., 0.0005 for 5bp, not 5.0). \
+                 If this is intentional for stress testing, consider using a dedicated stress API.",
+                leg.spread,
+                leg.spread * 10000.0,
+                MAX_SPREAD_DECIMAL * 10000.0
+            )));
+        }
+
+        // Warn on spreads outside typical market range (±500bp)
+        const TYPICAL_SPREAD_DECIMAL: f64 = 0.05; // 500bp
+        if leg.spread.abs() > TYPICAL_SPREAD_DECIMAL {
+            tracing::warn!(
+                instrument_id = %self.id.as_str(),
+                spread_bp = leg.spread * 10000.0,
+                "BasisSwap leg spread {:.0}bp is outside typical market range (±500bp). \
+                 Verify this is intentional and not a unit conversion error.",
+                leg.spread * 10000.0
+            );
         }
 
         // Get curves
@@ -359,6 +621,13 @@ impl BasisSwap {
     ///
     /// # Returns
     /// The discounted accrual sum as a floating point value.
+    ///
+    /// # Note on Payment Lag Handling
+    ///
+    /// Payment dates are computed consistently with `pv_float_leg()`:
+    /// - If a calendar is resolved, business day adjustment is applied
+    /// - If calendar fallback is enabled and no calendar found, calendar days are used
+    /// - If calendar fallback is disabled and no calendar found, an error is returned
     pub fn annuity_for_leg(
         &self,
         leg: &BasisSwapLeg,
@@ -379,35 +648,49 @@ impl BasisSwap {
         }
 
         let disc = curves.get_discount(&self.discount_curve_id)?;
+        let cal = self.resolve_calendar()?;
 
-        // Build periods from schedule
-        let mut periods = Vec::with_capacity(schedule.dates.len() - 1);
+        // Compute annuity directly, applying payment lag consistently with pv_float_leg()
+        let dc_ctx = DayCountCtx::default();
+        let mut annuity = 0.0;
         let mut prev = schedule.dates[0];
 
         for &d in &schedule.dates[1..] {
-            // Calculate year fraction for the period
-            let yf = leg
-                .day_count
-                .year_fraction(prev, d, DayCountCtx::default())?;
+            // Apply payment lag consistently with pv_float_leg()
+            let payment_date = if leg.payment_lag_days == 0 {
+                d
+            } else if let Some(cal) = cal {
+                d.add_business_days(leg.payment_lag_days, cal)?
+            } else {
+                // Fallback mode: calendar days (same as pv_float_leg)
+                d + time::Duration::days(leg.payment_lag_days as i64)
+            };
 
-            periods.push(LegPeriod {
-                accrual_start: prev,
-                accrual_end: d,
-                reset_date: None,
-                year_fraction: yf,
-            });
+            // Only include future payments (same condition as pv_float_leg)
+            if payment_date > as_of {
+                let yf = leg.day_count.year_fraction(prev, d, dc_ctx)?;
+                let df = crate::instruments::common::pricing::swap_legs::robust_relative_df(
+                    disc.as_ref(),
+                    as_of,
+                    payment_date,
+                )?;
+                annuity += yf * df;
+            }
 
             prev = d;
         }
 
-        // Use shared annuity function with robust discounting
-        crate::instruments::common::pricing::swap_legs::leg_annuity(
-            periods.into_iter(),
-            disc.as_ref(),
-            as_of,
-            leg.payment_lag_days,
-            self.calendar_id.as_deref(),
-        )
+        // Guard against zero annuity which would cause divide-by-zero in par spread calculations
+        const ANNUITY_EPSILON: f64 = 1e-12;
+        if annuity < ANNUITY_EPSILON {
+            return Err(finstack_core::Error::Validation(format!(
+                "BasisSwap annuity ({:.2e}) is below minimum threshold ({:.2e}). \
+                 This may indicate all periods have expired or extreme discounting scenarios.",
+                annuity, ANNUITY_EPSILON
+            )));
+        }
+
+        Ok(annuity)
     }
 
     /// Compute the net present value (NPV) of the basis swap.
@@ -417,7 +700,24 @@ impl BasisSwap {
     /// * `as_of` — Valuation date
     ///
     /// # Returns
+    ///
     /// The NPV as the difference between primary and reference leg PVs.
+    ///
+    /// # Sign Convention
+    ///
+    /// NPV is computed from the perspective of **receiving the primary leg** (which
+    /// typically includes the spread) and **paying the reference leg**:
+    ///
+    /// ```text
+    /// NPV = PV(primary leg with spread) - PV(reference leg)
+    /// ```
+    ///
+    /// - **Positive NPV**: The primary leg receiver is in-the-money
+    /// - **Negative NPV**: The primary leg receiver is out-of-the-money
+    /// - **Zero NPV**: The swap is at par (fair value)
+    ///
+    /// This convention aligns with standard market practice where the spread-receiving
+    /// party is considered "long" the basis swap.
     pub fn npv(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
         // Build schedules
         let primary_schedule = self.leg_schedule(&self.primary_leg)?;
@@ -428,7 +728,7 @@ impl BasisSwap {
         let reference_pv =
             self.pv_float_leg(&self.reference_leg, &reference_schedule, curves, as_of)?;
 
-        // Return net PV
+        // NPV from perspective of receiving primary leg (with spread), paying reference leg
         primary_pv - reference_pv
     }
 }
@@ -590,15 +890,20 @@ mod tests {
             reference_leg,
             CurveId::new("OIS"),
         )
+        .expect("should succeed")
         .with_calendar("usny");
 
         // Price the swap
         let pv = swap.value(&context, base_date).expect("should succeed");
 
-        // The PV should be close to zero if the spread correctly prices the basis
+        // The 3M leg has rate 3.00% while 6M leg has rate 3.05%.
+        // With a 5bp (0.0005) spread on the primary (3M) leg, the PV reflects the basis.
+        // Expected PV ≈ (primary_rate + spread - reference_rate) × notional × annuity
+        // ≈ (0.03 + 0.0005 - 0.0305) × 1_000_000 × ~1 ≈ -450 to -500
+        // Use 600 tolerance to account for day count and discounting effects.
         assert!(
-            pv.amount().abs() < 1000.0,
-            "PV should be small: {}",
+            pv.amount().abs() < 600.0,
+            "PV should be small for near-par swap: {}",
             pv.amount()
         );
     }
@@ -657,7 +962,8 @@ mod tests {
             primary_leg,
             reference_leg,
             CurveId::new("OIS"),
-        );
+        )
+        .expect("should succeed");
 
         let err = swap.value(&context, base_date).expect_err("should fail");
         assert!(
@@ -728,6 +1034,7 @@ mod tests {
             reference_leg.clone(),
             CurveId::new("OIS"),
         )
+        .expect("should succeed")
         .with_calendar("usny");
 
         let swap_with_lag = BasisSwap::new(
@@ -739,6 +1046,7 @@ mod tests {
             reference_leg,
             CurveId::new("OIS"),
         )
+        .expect("should succeed")
         .with_calendar("usny");
 
         let pv_no_lag = swap_no_lag
@@ -753,6 +1061,354 @@ mod tests {
             "Expected payment lag to change PV: no_lag={}, with_lag={}",
             pv_no_lag.amount(),
             pv_with_lag.amount()
+        );
+    }
+
+    #[test]
+    fn test_basis_swap_rejects_invalid_dates() {
+        let primary_leg = BasisSwapLeg {
+            forward_curve_id: CurveId::new("3M-SOFR"),
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+        };
+        let reference_leg = BasisSwapLeg {
+            forward_curve_id: CurveId::new("6M-SOFR"),
+            ..primary_leg.clone()
+        };
+
+        // Test start_date == maturity_date
+        let err = BasisSwap::new(
+            "INVALID_DATES",
+            Money::new(1_000_000.0, Currency::USD),
+            date(2024, 1, 3),
+            date(2024, 1, 3), // Same date
+            primary_leg.clone(),
+            reference_leg.clone(),
+            CurveId::new("OIS"),
+        )
+        .expect_err("should fail for equal dates");
+        assert!(
+            format!("{err}").contains("start_date") && format!("{err}").contains("maturity_date"),
+            "Expected date validation error, got: {err}"
+        );
+
+        // Test start_date > maturity_date
+        let err = BasisSwap::new(
+            "INVERTED_DATES",
+            Money::new(1_000_000.0, Currency::USD),
+            date(2025, 1, 3),
+            date(2024, 1, 3), // Earlier maturity
+            primary_leg,
+            reference_leg,
+            CurveId::new("OIS"),
+        )
+        .expect_err("should fail for inverted dates");
+        assert!(
+            format!("{err}").contains("positive tenor"),
+            "Expected positive tenor error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn test_basis_swap_rejects_same_curve_by_default() {
+        let leg = BasisSwapLeg {
+            forward_curve_id: CurveId::new("SOFR"),
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0005,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+        };
+
+        let err = BasisSwap::new(
+            "SAME_CURVE",
+            Money::new(1_000_000.0, Currency::USD),
+            date(2024, 1, 3),
+            date(2025, 1, 3),
+            leg.clone(),
+            BasisSwapLeg { spread: 0.0, ..leg },
+            CurveId::new("OIS"),
+        )
+        .expect_err("should fail for same forward curve");
+
+        assert!(
+            format!("{err}").contains("identical forward curves"),
+            "Expected same-curve error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn test_basis_swap_allows_same_curve_when_explicit() {
+        let base_date = date(2024, 1, 1);
+
+        let discount_curve = DiscountCurve::builder("OIS")
+            .base_date(base_date)
+            .knots(vec![(0.0, 1.0), (1.0, 0.98)])
+            .build()
+            .expect("should succeed");
+        let forward = ForwardCurve::builder("SOFR", 0.25)
+            .base_date(base_date)
+            .knots(vec![(0.0, 0.03), (1.0, 0.03)])
+            .build()
+            .expect("should succeed");
+
+        let context = MarketContext::new()
+            .insert_discount(discount_curve)
+            .insert_forward(forward);
+
+        let leg = BasisSwapLeg {
+            forward_curve_id: CurveId::new("SOFR"),
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0010, // 10bp spread
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+        };
+
+        // Use the explicit same-curve constructor
+        let swap = BasisSwap::new_allowing_same_curve(
+            "SAME_CURVE_OK",
+            Money::new(1_000_000.0, Currency::USD),
+            date(2024, 1, 3),
+            date(2025, 1, 3),
+            leg.clone(),
+            BasisSwapLeg { spread: 0.0, ..leg },
+            CurveId::new("OIS"),
+        )
+        .expect("should succeed with explicit allow")
+        .with_calendar("usny");
+
+        // Should price successfully
+        let pv = swap.value(&context, base_date).expect("should succeed");
+
+        // For same-curve swap, PV = spread × notional × annuity
+        // With 10bp spread on $1M notional for ~1Y, expect PV ≈ 1000 × 0.0010 × ~0.98 ≈ ~980
+        assert!(
+            (pv.amount() - 980.0).abs() < 100.0,
+            "Same-curve swap PV should be spread × annuity: {}",
+            pv.amount()
+        );
+    }
+
+    #[test]
+    fn test_par_spread_zeroes_npv() {
+        use crate::instruments::common::traits::Instrument;
+        use crate::metrics::MetricId;
+
+        let base_date = date(2024, 1, 1);
+        let start_date = date(2024, 1, 3);
+        let maturity = date(2026, 1, 3); // 2Y swap for more interesting basis
+
+        // Create curves with a basis between 3M and 6M
+        let discount_curve = DiscountCurve::builder("OIS")
+            .base_date(base_date)
+            .knots(vec![(0.0, 1.0), (1.0, 0.97), (2.0, 0.94), (3.0, 0.91)])
+            .build()
+            .expect("should succeed");
+
+        let forward_3m = ForwardCurve::builder("3M-SOFR", 0.25)
+            .base_date(base_date)
+            .knots(vec![(0.0, 0.030), (1.0, 0.032), (2.0, 0.034)])
+            .build()
+            .expect("should succeed");
+
+        let forward_6m = ForwardCurve::builder("6M-SOFR", 0.5)
+            .base_date(base_date)
+            .knots(vec![(0.0, 0.031), (1.0, 0.033), (2.0, 0.035)])
+            .build()
+            .expect("should succeed");
+
+        let context = MarketContext::new()
+            .insert_discount(discount_curve)
+            .insert_forward(forward_3m)
+            .insert_forward(forward_6m);
+
+        // Create swap with zero spread initially
+        let primary_leg = BasisSwapLeg {
+            forward_curve_id: CurveId::new("3M-SOFR"),
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0, // Start at zero spread
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+        };
+
+        let reference_leg = BasisSwapLeg {
+            forward_curve_id: CurveId::new("6M-SOFR"),
+            frequency: Tenor::semi_annual(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+        };
+
+        let swap = BasisSwap::new(
+            "PAR_SPREAD_TEST",
+            Money::new(10_000_000.0, Currency::USD),
+            start_date,
+            maturity,
+            primary_leg.clone(),
+            reference_leg.clone(),
+            CurveId::new("OIS"),
+        )
+        .expect("should succeed")
+        .with_calendar("usny");
+
+        // Get the par spread using metrics
+        let result = swap
+            .price_with_metrics(
+                &context,
+                base_date,
+                &[MetricId::BasisParSpread, MetricId::AnnuityPrimary],
+            )
+            .expect("should succeed");
+
+        let par_spread_bp = *result
+            .measures
+            .get(MetricId::BasisParSpread.as_str())
+            .expect("should have par spread");
+
+        // Convert bp to decimal
+        let par_spread_decimal = par_spread_bp / 10000.0;
+
+        // Create a new swap with the par spread applied
+        let primary_leg_at_par = BasisSwapLeg {
+            spread: par_spread_decimal,
+            ..primary_leg
+        };
+
+        let swap_at_par = BasisSwap::new(
+            "PAR_SPREAD_VERIFY",
+            Money::new(10_000_000.0, Currency::USD),
+            start_date,
+            maturity,
+            primary_leg_at_par,
+            reference_leg,
+            CurveId::new("OIS"),
+        )
+        .expect("should succeed")
+        .with_calendar("usny");
+
+        // Verify NPV is now zero
+        let pv_at_par = swap_at_par
+            .value(&context, base_date)
+            .expect("should succeed");
+
+        // NPV should be very close to zero (within rounding tolerance)
+        assert!(
+            pv_at_par.amount().abs() < 1.0, // Less than $1 on a $10M notional
+            "Swap at par spread should have ~zero NPV: got {} (par spread was {:.2}bp)",
+            pv_at_par.amount(),
+            par_spread_bp
+        );
+    }
+
+    #[test]
+    fn test_basis_swap_rejects_negative_lags() {
+        let valid_leg = BasisSwapLeg {
+            forward_curve_id: CurveId::new("3M-SOFR"),
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+        };
+        let reference_leg = BasisSwapLeg {
+            forward_curve_id: CurveId::new("6M-SOFR"),
+            ..valid_leg.clone()
+        };
+
+        // Test negative payment_lag_days on primary leg
+        let primary_neg_payment = BasisSwapLeg {
+            payment_lag_days: -1,
+            ..valid_leg.clone()
+        };
+        let err = BasisSwap::new(
+            "NEG_PAY_PRIMARY",
+            Money::new(1_000_000.0, Currency::USD),
+            date(2024, 1, 3),
+            date(2025, 1, 3),
+            primary_neg_payment,
+            reference_leg.clone(),
+            CurveId::new("OIS"),
+        )
+        .expect_err("should fail for negative payment lag");
+        assert!(
+            format!("{err}").contains("payment_lag_days")
+                && format!("{err}").contains("non-negative"),
+            "Expected negative payment lag error, got: {err}"
+        );
+
+        // Test negative reset_lag_days on primary leg
+        let primary_neg_reset = BasisSwapLeg {
+            reset_lag_days: -1,
+            ..valid_leg.clone()
+        };
+        let err = BasisSwap::new(
+            "NEG_RESET_PRIMARY",
+            Money::new(1_000_000.0, Currency::USD),
+            date(2024, 1, 3),
+            date(2025, 1, 3),
+            primary_neg_reset,
+            reference_leg.clone(),
+            CurveId::new("OIS"),
+        )
+        .expect_err("should fail for negative reset lag");
+        assert!(
+            format!("{err}").contains("reset_lag_days")
+                && format!("{err}").contains("non-negative"),
+            "Expected negative reset lag error, got: {err}"
+        );
+
+        // Test negative payment_lag_days on reference leg
+        let ref_neg_payment = BasisSwapLeg {
+            payment_lag_days: -2,
+            ..reference_leg.clone()
+        };
+        let err = BasisSwap::new(
+            "NEG_PAY_REF",
+            Money::new(1_000_000.0, Currency::USD),
+            date(2024, 1, 3),
+            date(2025, 1, 3),
+            valid_leg.clone(),
+            ref_neg_payment,
+            CurveId::new("OIS"),
+        )
+        .expect_err("should fail for negative reference leg payment lag");
+        assert!(
+            format!("{err}").contains("payment_lag_days")
+                && format!("{err}").contains("reference leg"),
+            "Expected negative reference leg payment lag error, got: {err}"
+        );
+
+        // Test negative reset_lag_days on reference leg
+        let ref_neg_reset = BasisSwapLeg {
+            reset_lag_days: -3,
+            ..reference_leg
+        };
+        let err = BasisSwap::new(
+            "NEG_RESET_REF",
+            Money::new(1_000_000.0, Currency::USD),
+            date(2024, 1, 3),
+            date(2025, 1, 3),
+            valid_leg,
+            ref_neg_reset,
+            CurveId::new("OIS"),
+        )
+        .expect_err("should fail for negative reference leg reset lag");
+        assert!(
+            format!("{err}").contains("reset_lag_days")
+                && format!("{err}").contains("reference leg"),
+            "Expected negative reference leg reset lag error, got: {err}"
         );
     }
 }

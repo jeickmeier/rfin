@@ -9,7 +9,6 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_core::{currency::Currency::USD, math::interp::InterpStyle};
-use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::rates::basis_swap::{BasisSwap, BasisSwapLeg};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
@@ -69,8 +68,6 @@ fn dv01_per_curve_breakdown() {
     // Test that DV01 provides per-curve breakdown via bucketed series
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let _sched = ScheduleParams::quarterly_act360();
-
     let swap = BasisSwap::new(
         "DV01-NET-TEST",
         Money::new(10_000_000.0, USD),
@@ -96,6 +93,7 @@ fn dv01_per_curve_breakdown() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
     let res = swap
@@ -141,8 +139,6 @@ fn dv01_scales_with_notional() {
     // Test that DV01 scales linearly with notional
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let _sched = ScheduleParams::quarterly_act360();
-
     let notionals = vec![1_000_000.0, 5_000_000.0, 10_000_000.0];
     let mut dv01s = Vec::new();
 
@@ -172,6 +168,7 @@ fn dv01_scales_with_notional() {
             },
             CurveId::new("USD-OIS"),
         )
+        .expect("valid basis swap")
         .with_calendar(CALENDAR_ID);
 
         let res = swap
@@ -208,8 +205,6 @@ fn dv01_sign_convention() {
     // Test DV01 sign convention: positive DV01 means profit from rate increase
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let _sched = ScheduleParams::quarterly_act360();
-
     let swap = BasisSwap::new(
         "DV01-SIGN-TEST",
         Money::new(10_000_000.0, USD),
@@ -235,6 +230,7 @@ fn dv01_sign_convention() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
     let res = swap
@@ -268,8 +264,6 @@ fn dv01_sign_convention() {
 fn dv01_vs_numerical_bump() {
     // Validate DV01 against numerical rate bump
     let as_of = d(2025, 1, 2);
-    let _sched = ScheduleParams::quarterly_act360();
-
     // Base market
     let ctx_base = market();
 
@@ -298,6 +292,7 @@ fn dv01_vs_numerical_bump() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
     // Calculate DV01 using metric (use primary forward curve sensitivity)
@@ -325,8 +320,6 @@ fn annuity_positive_and_increasing() {
     // Test that annuity is positive and increases with maturity
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let _sched = ScheduleParams::quarterly_act360();
-
     let maturities = vec![
         d(2026, 1, 2), // 1 year
         d(2027, 1, 2), // 2 years
@@ -361,6 +354,7 @@ fn annuity_positive_and_increasing() {
             },
             CurveId::new("USD-OIS"),
         )
+        .expect("valid basis swap")
         .with_calendar(CALENDAR_ID);
 
         let res = swap
@@ -384,8 +378,6 @@ fn bucketed_dv01_sums_to_total() {
     // Test that sum of bucketed DV01s approximately equals total DV01
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let _sched = ScheduleParams::quarterly_act360();
-
     let swap = BasisSwap::new(
         "BUCKETED-DV01-TEST",
         Money::new(10_000_000.0, USD),
@@ -411,6 +403,7 @@ fn bucketed_dv01_sums_to_total() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
     let res = swap
@@ -429,7 +422,6 @@ fn dv01_leg_components_reasonable() {
     // Test that individual leg DV01s are reasonable relative to notional
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let _sched = ScheduleParams::quarterly_act360();
     let notional = 10_000_000.0;
 
     let swap = BasisSwap::new(
@@ -457,6 +449,7 @@ fn dv01_leg_components_reasonable() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
     let res = swap
@@ -520,8 +513,6 @@ fn sensitivity_to_spread() {
     // Test that PV changes appropriately with spread changes
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let _sched = ScheduleParams::quarterly_act360();
-
     let spreads = vec![0.0, 0.0010, 0.0020]; // 0bp, 10bp, 20bp
     let mut npvs = Vec::new();
 
@@ -551,6 +542,7 @@ fn sensitivity_to_spread() {
             },
             CurveId::new("USD-OIS"),
         )
+        .expect("valid basis swap")
         .with_calendar(CALENDAR_ID);
 
         let npv = swap.value(&ctx, as_of).unwrap().amount();
@@ -580,6 +572,137 @@ fn sensitivity_to_spread() {
         "Spread sensitivity should be linear, got ratio {}",
         ratio
     );
+}
+
+/// Invariant test: Annuity with payment lag should differ from annuity without lag.
+///
+/// This test verifies that the shared `leg_annuity` function correctly applies
+/// payment delays when computing discount factors. With a steep discount curve,
+/// later payment dates should result in lower discount factors and thus lower annuity.
+#[test]
+fn annuity_with_payment_lag_differs_from_no_lag() {
+    // Use a steep discount curve so payment timing matters
+    let disc = DiscountCurve::builder("USD-OIS")
+        .base_date(d(2025, 1, 2))
+        .knots(vec![
+            (0.0, 1.0),
+            (0.5, 0.92), // Steep discounting
+            (1.0, 0.85),
+            (2.0, 0.72),
+        ])
+        .set_interp(InterpStyle::LogLinear)
+        .build()
+        .unwrap();
+    let f3m = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+        .base_date(d(2025, 1, 2))
+        .knots(vec![(0.0, 0.02), (1.0, 0.022), (2.0, 0.024)])
+        .set_interp(InterpStyle::Linear)
+        .build()
+        .unwrap();
+    let f1m = ForwardCurve::builder("USD-SOFR-1M", 1.0 / 12.0)
+        .base_date(d(2025, 1, 2))
+        .knots(vec![(0.0, 0.019), (1.0, 0.021), (2.0, 0.023)])
+        .set_interp(InterpStyle::Linear)
+        .build()
+        .unwrap();
+
+    let ctx = MarketContext::new()
+        .insert_discount(disc)
+        .insert_forward(f3m)
+        .insert_forward(f1m);
+
+    let as_of = d(2025, 1, 2);
+
+    // Swap with NO payment lag
+    let swap_no_lag = BasisSwap::new(
+        "ANNUITY-NO-LAG",
+        Money::new(10_000_000.0, USD),
+        d(2025, 1, 2),
+        d(2027, 1, 2),
+        BasisSwapLeg {
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
+        BasisSwapLeg {
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+            forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
+        CurveId::new("USD-OIS"),
+    )
+    .expect("swap construction")
+    .with_calendar(CALENDAR_ID);
+
+    // Swap WITH payment lag (10 business days)
+    let swap_with_lag = BasisSwap::new(
+        "ANNUITY-WITH-LAG",
+        Money::new(10_000_000.0, USD),
+        d(2025, 1, 2),
+        d(2027, 1, 2),
+        BasisSwapLeg {
+            payment_lag_days: 10,
+            reset_lag_days: 0,
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
+        BasisSwapLeg {
+            payment_lag_days: 10,
+            reset_lag_days: 0,
+            forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
+        CurveId::new("USD-OIS"),
+    )
+    .expect("swap construction")
+    .with_calendar(CALENDAR_ID);
+
+    // Compute annuities
+    let res_no_lag = swap_no_lag
+        .price_with_metrics(&ctx, as_of, &[MetricId::AnnuityPrimary])
+        .unwrap();
+    let res_with_lag = swap_with_lag
+        .price_with_metrics(&ctx, as_of, &[MetricId::AnnuityPrimary])
+        .unwrap();
+
+    let annuity_no_lag = res_no_lag.measures[MetricId::AnnuityPrimary.as_str()];
+    let annuity_with_lag = res_with_lag.measures[MetricId::AnnuityPrimary.as_str()];
+
+    // INVARIANT: With payment lag, payments occur later, so discount factors are lower
+    // Therefore annuity WITH lag should be LOWER than annuity WITHOUT lag
+    assert!(
+        annuity_with_lag < annuity_no_lag,
+        "Annuity with payment lag ({}) should be lower than without lag ({}) \
+         because later payments have lower discount factors",
+        annuity_with_lag,
+        annuity_no_lag
+    );
+
+    // The difference should be meaningful (not just numerical noise)
+    let diff_pct = (annuity_no_lag - annuity_with_lag) / annuity_no_lag * 100.0;
+    assert!(
+        diff_pct > 0.1,
+        "Annuity difference should be meaningful (> 0.1%), got {:.4}%",
+        diff_pct
+    );
+
+    // Also verify both annuities are positive and reasonable
+    assert!(annuity_no_lag > 0.0, "Annuity should be positive");
+    assert!(annuity_with_lag > 0.0, "Annuity should be positive");
 }
 
 #[test]
@@ -613,6 +736,7 @@ fn test_bucketed_dv01_per_curve() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
     let res = swap

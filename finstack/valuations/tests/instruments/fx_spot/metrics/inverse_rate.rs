@@ -71,7 +71,8 @@ fn test_inverse_rate_zero_notional_returns_zero() {
     let fx = sample_eurusd()
         .with_notional(Money::new(0.0, Currency::EUR))
         .unwrap()
-        .with_rate(1.20);
+        .with_rate(1.20)
+        .expect("test rate");
     let mut ctx = create_context(fx, test_date());
     let calc = InverseRateCalculator;
 
@@ -118,7 +119,8 @@ fn test_inverse_rate_large_rate() {
     let fx = sample_usdjpy()
         .with_notional(Money::new(100_000.0, Currency::USD))
         .unwrap()
-        .with_rate(110.0);
+        .with_rate(110.0)
+        .expect("test rate");
     let mut ctx = create_context(fx, test_date());
     let calc = InverseRateCalculator;
 

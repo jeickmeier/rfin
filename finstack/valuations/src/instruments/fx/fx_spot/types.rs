@@ -149,13 +149,21 @@ impl FxSpot {
     /// - The explicit `settlement` date if provided (adjusted for business days if calendar set)
     /// - `as_of + settlement_lag_days` business days otherwise (default: T+2)
     ///
-    /// If the settlement date is in the past (`settle_date <= as_of`), returns zero
+    /// If the settlement date is on or before `as_of` (`settle_date <= as_of`), returns zero
     /// since the trade has already settled.
+    ///
+    /// # Settlement Date Boundary Convention
+    ///
+    /// This uses **end-of-day** semantics: if `settle_date == as_of`, the trade is
+    /// considered settled and returns zero value. This is the standard convention
+    /// for overnight valuations where settlement occurs during the business day.
+    /// For intraday valuations where you need value on settlement day, use
+    /// `as_of = settle_date - 1 day`.
     pub fn npv(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
         // Compute effective settlement date
         let settle_date = self.effective_settlement_date(as_of)?;
 
-        // If already settled, return zero
+        // If settlement is on or before as_of, trade has settled (end-of-day convention)
         if settle_date <= as_of {
             return Ok(Money::new(0.0, self.quote));
         }
@@ -233,8 +241,51 @@ impl FxSpot {
         self
     }
 
-    /// Set the spot rate
-    pub fn with_rate(mut self, rate: f64) -> Self {
+    /// Set the spot rate with validation.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the rate is negative or zero, as FX rates must be positive.
+    /// A zero rate would imply one currency is worthless, and negative rates are
+    /// economically meaningless for spot FX.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use finstack_core::{currency::Currency, types::InstrumentId};
+    /// use finstack_valuations::instruments::FxSpot;
+    ///
+    /// let spot = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
+    ///     .with_rate(1.10)
+    ///     .expect("valid rate");
+    /// ```
+    pub fn with_rate(mut self, rate: f64) -> finstack_core::Result<Self> {
+        if rate < 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "FX spot rate cannot be negative (got {}). FX rates must be positive.",
+                rate
+            )));
+        }
+        if rate == 0.0 {
+            return Err(finstack_core::Error::Validation(
+                "FX spot rate cannot be zero. A zero rate implies the base currency is worthless."
+                    .to_string(),
+            ));
+        }
+        self.spot_rate = Some(rate);
+        Ok(self)
+    }
+
+    /// Set the spot rate without validation (unchecked).
+    ///
+    /// **Warning**: This method bypasses rate validation. Use [`with_rate`] for
+    /// normal usage. This method exists for testing edge cases or when the rate
+    /// has already been validated externally.
+    ///
+    /// # Safety
+    ///
+    /// Caller is responsible for ensuring the rate is valid (positive, non-zero).
+    pub fn with_rate_unchecked(mut self, rate: f64) -> Self {
         self.spot_rate = Some(rate);
         self
     }
@@ -281,6 +332,47 @@ impl FxSpot {
     /// Standard FX pair name (e.g., "EURUSD")
     pub fn pair_name(&self) -> String {
         format!("{}{}", self.base, self.quote)
+    }
+
+    /// Create an FX spot with T+1 settlement (used for USD/CAD and other same-day pairs).
+    ///
+    /// Per market convention, USD/CAD settles T+1 rather than the standard T+2.
+    /// This convenience method creates an FX spot with the appropriate settlement lag.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use finstack_core::{currency::Currency, types::InstrumentId};
+    /// use finstack_valuations::instruments::FxSpot;
+    ///
+    /// // USD/CAD with standard T+1 settlement
+    /// let usd_cad = FxSpot::new_t1(
+    ///     InstrumentId::new("USDCAD"),
+    ///     Currency::USD,
+    ///     Currency::CAD,
+    /// );
+    /// ```
+    pub fn new_t1(id: InstrumentId, base: Currency, quote: Currency) -> Self {
+        Self::new(id, base, quote).with_settlement_lag_days(1)
+    }
+
+    /// Check if this is a same-region pair that typically settles T+1.
+    ///
+    /// Returns `true` for pairs like USD/CAD, USD/MXN that conventionally
+    /// settle in one business day rather than the standard T+2.
+    ///
+    /// Note: This is informational only and does not affect settlement calculation.
+    /// Use [`new_t1`] or [`with_settlement_lag_days(1)`] to set T+1 settlement.
+    pub fn is_t1_pair(&self) -> bool {
+        // USD/CAD and USD/MXN are the most common T+1 pairs
+        let pair = (self.base, self.quote);
+        matches!(
+            pair,
+            (Currency::USD, Currency::CAD)
+                | (Currency::CAD, Currency::USD)
+                | (Currency::USD, Currency::MXN)
+                | (Currency::MXN, Currency::USD)
+        )
     }
 }
 
@@ -400,7 +492,7 @@ impl CashflowProvider for FxSpot {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
+#[allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]
 mod tests {
     use super::*;
     use time::Month;
@@ -419,8 +511,9 @@ mod tests {
 
     #[test]
     fn test_fx_spot_with_explicit_rate() {
-        let spot =
-            FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD).with_rate(1.10);
+        let spot = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
+            .with_rate(1.10)
+            .expect("valid rate");
 
         let market = MarketContext::new();
         let as_of = date(2025, Month::January, 15);
@@ -476,7 +569,8 @@ mod tests {
         let settle_date = date(2025, Month::January, 10);
         let spot = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
             .with_settlement(settle_date)
-            .with_rate(1.10);
+            .with_rate(1.10)
+            .expect("valid rate");
 
         let market = MarketContext::new();
         let as_of = date(2025, Month::January, 15); // After settlement
@@ -499,7 +593,8 @@ mod tests {
         let spot = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
             .with_notional(Money::new(1_000_000.0, Currency::EUR))
             .expect("valid notional")
-            .with_rate(1.10);
+            .with_rate(1.10)
+            .expect("valid rate");
 
         let market = MarketContext::new();
         let as_of = date(2025, Month::January, 15);
@@ -507,5 +602,84 @@ mod tests {
 
         // 1,000,000 EUR * 1.10 = 1,100,000 USD
         assert!((pv.amount() - 1_100_000.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn test_fx_spot_rejects_negative_rate() {
+        let result =
+            FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD).with_rate(-1.10);
+        assert!(result.is_err(), "Should reject negative rate");
+
+        let err = result.unwrap_err();
+        let err_msg = format!("{:?}", err);
+        assert!(
+            err_msg.contains("negative") || err_msg.contains("spot_rate"),
+            "Error should mention negative rate"
+        );
+    }
+
+    #[test]
+    fn test_fx_spot_rejects_zero_rate() {
+        let result =
+            FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD).with_rate(0.0);
+        assert!(result.is_err(), "Should reject zero rate");
+
+        let err = result.unwrap_err();
+        let err_msg = format!("{:?}", err);
+        assert!(
+            err_msg.contains("zero") || err_msg.contains("spot_rate"),
+            "Error should mention zero rate"
+        );
+    }
+
+    #[test]
+    fn test_fx_spot_new_t1() {
+        let spot = FxSpot::new_t1(InstrumentId::new("USDCAD"), Currency::USD, Currency::CAD);
+
+        // Wednesday -> should settle Thursday (T+1 weekdays)
+        let as_of = date(2025, Month::January, 15); // Wednesday
+        let settle = spot
+            .effective_settlement_date(as_of)
+            .expect("should compute");
+        assert_eq!(settle, date(2025, Month::January, 16)); // Thursday (T+1)
+    }
+
+    #[test]
+    fn test_fx_spot_is_t1_pair() {
+        let usd_cad = FxSpot::new(InstrumentId::new("USDCAD"), Currency::USD, Currency::CAD);
+        assert!(usd_cad.is_t1_pair(), "USD/CAD should be T+1 pair");
+
+        let cad_usd = FxSpot::new(InstrumentId::new("CADUSD"), Currency::CAD, Currency::USD);
+        assert!(cad_usd.is_t1_pair(), "CAD/USD should be T+1 pair");
+
+        let eur_usd = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD);
+        assert!(!eur_usd.is_t1_pair(), "EUR/USD should NOT be T+1 pair");
+    }
+
+    #[test]
+    fn test_fx_spot_negative_settlement_lag() {
+        // Negative lag for historical valuations (T-1)
+        let spot = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
+            .with_settlement_lag_days(-1);
+
+        // Wednesday with T-1 -> should settle Tuesday
+        let as_of = date(2025, Month::January, 15); // Wednesday
+        let settle = spot
+            .effective_settlement_date(as_of)
+            .expect("should compute");
+        assert_eq!(settle, date(2025, Month::January, 14)); // Tuesday (T-1)
+    }
+
+    #[test]
+    fn test_fx_spot_zero_settlement_lag() {
+        // T+0 same-day settlement
+        let spot = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
+            .with_settlement_lag_days(0);
+
+        let as_of = date(2025, Month::January, 15);
+        let settle = spot
+            .effective_settlement_date(as_of)
+            .expect("should compute");
+        assert_eq!(settle, as_of, "T+0 should settle same day");
     }
 }

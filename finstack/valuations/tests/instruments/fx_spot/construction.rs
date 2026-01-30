@@ -21,7 +21,7 @@ fn test_basic_construction() {
 
 #[test]
 fn test_construction_with_rate() {
-    let fx = sample_eurusd().with_rate(1.18);
+    let fx = sample_eurusd().with_rate(1.18).expect("test rate");
 
     assert_eq!(fx.spot_rate, Some(1.18));
 }
@@ -75,6 +75,7 @@ fn test_construction_full_builder() {
         .with_notional(Money::new(5_000_000.0, Currency::GBP))
         .unwrap()
         .with_rate(1.32)
+        .expect("test rate")
         .with_settlement(d(2025, 1, 17))
         .with_bdc(BusinessDayConvention::ModifiedFollowing)
         .with_calendar_id("London");
@@ -168,6 +169,7 @@ fn test_clone_preserves_all_fields() {
         .with_notional(Money::new(1_000_000.0, Currency::EUR))
         .unwrap()
         .with_rate(1.18)
+        .expect("test rate")
         .with_settlement(d(2025, 1, 17));
 
     let cloned = fx.clone();

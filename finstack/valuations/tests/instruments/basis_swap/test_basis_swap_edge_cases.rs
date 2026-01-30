@@ -9,7 +9,6 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_core::{currency::Currency::USD, math::interp::InterpStyle};
-use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::rates::basis_swap::{BasisSwap, BasisSwapLeg};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
@@ -51,7 +50,6 @@ fn zero_notional() {
     // Test swap with zero notional
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let _sched = ScheduleParams::quarterly_act360();
 
     let swap = BasisSwap::new(
         "ZERO-NOTIONAL",
@@ -78,26 +76,30 @@ fn zero_notional() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
+    // Request metrics that work with zero notional (not BasisParSpread, which now
+    // correctly returns an error for zero notional to avoid NaN/Inf)
     let res = swap
         .price_with_metrics(
             &ctx,
             as_of,
-            &[
-                MetricId::Dv01,
-                MetricId::PvPrimary,
-                MetricId::PvReference,
-                MetricId::BasisParSpread,
-            ],
+            &[MetricId::Dv01, MetricId::PvPrimary, MetricId::PvReference],
         )
         .unwrap();
 
-    // All metrics should be zero or finite
+    // All metrics should be zero for zero notional
     assert_eq!(res.measures[MetricId::Dv01.as_str()], 0.0);
     assert_eq!(res.measures[MetricId::PvPrimary.as_str()], 0.0);
     assert_eq!(res.measures[MetricId::PvReference.as_str()], 0.0);
-    // Par spread may be NaN/Inf with zero notional (division by zero), so we skip the finite check
+
+    // BasisParSpread should return an explicit error for zero notional (tested separately)
+    let par_spread_result = swap.price_with_metrics(&ctx, as_of, &[MetricId::BasisParSpread]);
+    assert!(
+        par_spread_result.is_err(),
+        "BasisParSpread should error for zero notional"
+    );
 }
 
 #[test]
@@ -105,7 +107,6 @@ fn very_small_notional() {
     // Test swap with very small notional
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let _sched = ScheduleParams::quarterly_act360();
 
     let swap = BasisSwap::new(
         "SMALL-NOTIONAL",
@@ -132,6 +133,7 @@ fn very_small_notional() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
     let npv = swap.value(&ctx, as_of).unwrap();
@@ -144,7 +146,6 @@ fn very_large_notional() {
     // Test swap with very large notional
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let _sched = ScheduleParams::quarterly_act360();
 
     let swap = BasisSwap::new(
         "LARGE-NOTIONAL",
@@ -171,6 +172,7 @@ fn very_large_notional() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
     let res = swap
@@ -197,7 +199,6 @@ fn very_short_maturity() {
     // Test swap with very short maturity (1 month)
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let _sched = ScheduleParams::quarterly_act360();
 
     let swap = BasisSwap::new(
         "SHORT-MAT",
@@ -224,6 +225,7 @@ fn very_short_maturity() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
     let npv = swap.value(&ctx, as_of);
@@ -235,7 +237,6 @@ fn very_long_maturity() {
     // Test swap with very long maturity (30 years)
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let _sched = ScheduleParams::quarterly_act360();
 
     let swap = BasisSwap::new(
         "LONG-MAT",
@@ -262,6 +263,7 @@ fn very_long_maturity() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
     let res = swap
@@ -278,7 +280,6 @@ fn extreme_positive_spread() {
     // Test with extremely large positive spread (1000bp)
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let _sched = ScheduleParams::quarterly_act360();
 
     let swap = BasisSwap::new(
         "EXTREME-SPREAD",
@@ -305,6 +306,7 @@ fn extreme_positive_spread() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
     let npv = swap.value(&ctx, as_of).unwrap();
@@ -317,7 +319,6 @@ fn extreme_negative_spread() {
     // Test with extremely large negative spread (-1000bp)
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let _sched = ScheduleParams::quarterly_act360();
 
     let swap = BasisSwap::new(
         "EXTREME-NEG-SPREAD",
@@ -344,6 +345,7 @@ fn extreme_negative_spread() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
     let npv = swap.value(&ctx, as_of).unwrap();
@@ -380,7 +382,6 @@ fn flat_curves_zero_rates() {
         .insert_forward(f3m)
         .insert_forward(f1m);
 
-    let _sched = ScheduleParams::quarterly_act360();
     let swap = BasisSwap::new(
         "ZERO-RATES",
         Money::new(10_000_000.0, USD),
@@ -406,6 +407,7 @@ fn flat_curves_zero_rates() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
     let npv = swap.value(&ctx, d(2025, 1, 2)).unwrap();
@@ -441,7 +443,6 @@ fn negative_rates() {
         .insert_forward(f3m)
         .insert_forward(f1m);
 
-    let _sched = ScheduleParams::quarterly_act360();
     let swap = BasisSwap::new(
         "NEG-RATES",
         Money::new(10_000_000.0, USD),
@@ -467,6 +468,7 @@ fn negative_rates() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
     let res = swap
@@ -487,7 +489,6 @@ fn valuation_at_maturity() {
     // Test valuation when as_of date equals maturity
     let ctx = market();
     let maturity = d(2026, 1, 2);
-    let _sched = ScheduleParams::quarterly_act360();
 
     let swap = BasisSwap::new(
         "AT-MATURITY",
@@ -514,6 +515,7 @@ fn valuation_at_maturity() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
     let npv = swap.value(&ctx, maturity).unwrap();
@@ -527,7 +529,6 @@ fn valuation_after_maturity() {
     let ctx = market();
     let maturity = d(2026, 1, 2);
     let after_maturity = d(2026, 6, 1);
-    let _sched = ScheduleParams::quarterly_act360();
 
     let swap = BasisSwap::new(
         "AFTER-MATURITY",
@@ -554,6 +555,7 @@ fn valuation_after_maturity() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
     let npv = swap.value(&ctx, after_maturity).unwrap();
@@ -563,12 +565,12 @@ fn valuation_after_maturity() {
 
 #[test]
 fn identical_forward_curves() {
-    // Test when both legs reference the same forward curve
+    // Test when both legs reference the same forward curve.
+    // Must use new_allowing_same_curve() since new() rejects identical curves.
     let ctx = market();
     let as_of = d(2025, 1, 2);
-    let _sched = ScheduleParams::quarterly_act360();
 
-    let swap = BasisSwap::new(
+    let swap = BasisSwap::new_allowing_same_curve(
         "IDENTICAL-CURVES",
         Money::new(10_000_000.0, USD),
         d(2025, 1, 2),
@@ -593,6 +595,7 @@ fn identical_forward_curves() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction with same curves allowed")
     .with_calendar(CALENDAR_ID);
 
     let res = swap
@@ -650,7 +653,6 @@ fn steep_curve() {
         .insert_forward(f3m)
         .insert_forward(f1m);
 
-    let _sched = ScheduleParams::quarterly_act360();
     let swap = BasisSwap::new(
         "STEEP-CURVE",
         Money::new(10_000_000.0, USD),
@@ -676,6 +678,7 @@ fn steep_curve() {
         },
         CurveId::new("USD-OIS"),
     )
+    .expect("swap construction")
     .with_calendar(CALENDAR_ID);
 
     let res = swap
@@ -683,4 +686,171 @@ fn steep_curve() {
         .unwrap();
 
     assert!(res.measures[MetricId::Dv01.as_str()].is_finite());
+}
+
+#[test]
+fn seasoned_swap_requires_fixings() {
+    // Test that a seasoned swap (as_of after reset but before payment) requires historical fixings
+    //
+    // For a quarterly swap:
+    // - Period: 2025-01-02 to 2025-04-02
+    // - Reset date: 2025-01-02 (period start with reset_lag=0)
+    // - Payment date: 2025-04-02 (period end)
+    //
+    // Valuation at 2025-02-15 is AFTER reset (needs fixing) but BEFORE payment (period still active)
+    let disc = DiscountCurve::builder("USD-OIS")
+        .base_date(d(2025, 2, 15)) // Base date matches valuation
+        .knots(vec![(0.0, 1.0), (0.5, 0.99), (1.0, 0.98), (5.0, 0.90)])
+        .set_interp(InterpStyle::LogLinear)
+        .build()
+        .unwrap();
+    let f3m = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+        .base_date(d(2025, 2, 15))
+        .knots(vec![(0.0, 0.02), (0.5, 0.021), (1.0, 0.022), (5.0, 0.025)])
+        .set_interp(InterpStyle::Linear)
+        .build()
+        .unwrap();
+    let f1m = ForwardCurve::builder("USD-SOFR-1M", 1.0 / 12.0)
+        .base_date(d(2025, 2, 15))
+        .knots(vec![(0.0, 0.019), (0.5, 0.020), (1.0, 0.021), (5.0, 0.024)])
+        .set_interp(InterpStyle::Linear)
+        .build()
+        .unwrap();
+
+    let ctx = MarketContext::new()
+        .insert_discount(disc)
+        .insert_forward(f3m)
+        .insert_forward(f1m);
+
+    // Create a swap where we're in the middle of a period
+    let swap = BasisSwap::new(
+        "SEASONED-NO-FIX",
+        Money::new(10_000_000.0, USD),
+        d(2025, 1, 2), // Started early January
+        d(2026, 7, 2),
+        BasisSwapLeg {
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
+        BasisSwapLeg {
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+            forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
+        CurveId::new("USD-OIS"),
+    )
+    .expect("swap construction")
+    .with_calendar(CALENDAR_ID);
+
+    // Valuation date 2025-02-15 is AFTER the Q1 reset (2025-01-02) but BEFORE the Q1 payment (2025-04-02)
+    // This means we need a fixing for the 2025-01-02 reset
+    let result = swap.value(&ctx, d(2025, 2, 15));
+    assert!(
+        result.is_err(),
+        "Expected error for seasoned swap without fixings"
+    );
+    let err_msg = format!("{}", result.unwrap_err());
+    assert!(
+        err_msg.contains("fixing") || err_msg.contains("Seasoned"),
+        "Error should mention fixings requirement: {}",
+        err_msg
+    );
+}
+
+#[test]
+fn seasoned_swap_with_fixings_succeeds() {
+    // Test that a seasoned swap prices correctly when fixings are provided
+    let disc = DiscountCurve::builder("USD-OIS")
+        .base_date(d(2025, 1, 2))
+        .knots(vec![(0.0, 1.0), (0.5, 0.99), (1.0, 0.98), (2.0, 0.96)])
+        .set_interp(InterpStyle::LogLinear)
+        .build()
+        .unwrap();
+    let f3m = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+        .base_date(d(2025, 1, 2))
+        .knots(vec![(0.0, 0.02), (0.5, 0.021), (1.0, 0.022), (2.0, 0.023)])
+        .set_interp(InterpStyle::Linear)
+        .build()
+        .unwrap();
+    let f1m = ForwardCurve::builder("USD-SOFR-1M", 1.0 / 12.0)
+        .base_date(d(2025, 1, 2))
+        .knots(vec![(0.0, 0.019), (0.5, 0.020), (1.0, 0.021), (2.0, 0.022)])
+        .set_interp(InterpStyle::Linear)
+        .build()
+        .unwrap();
+
+    // Historical fixings for the past reset dates
+    let fix_3m = finstack_core::market_data::scalars::ScalarTimeSeries::new(
+        "FIXING:USD-SOFR-3M",
+        vec![
+            (d(2024, 7, 2), 0.0195),  // First reset
+            (d(2024, 10, 2), 0.0198), // Second reset
+        ],
+        None,
+    )
+    .expect("fixings series");
+    let fix_1m = finstack_core::market_data::scalars::ScalarTimeSeries::new(
+        "FIXING:USD-SOFR-1M",
+        vec![
+            (d(2024, 7, 2), 0.0185),  // First reset
+            (d(2024, 10, 2), 0.0188), // Second reset
+        ],
+        None,
+    )
+    .expect("fixings series");
+
+    let ctx = MarketContext::new()
+        .insert_discount(disc)
+        .insert_forward(f3m)
+        .insert_forward(f1m)
+        .insert_series(fix_3m)
+        .insert_series(fix_1m);
+
+    let swap = BasisSwap::new(
+        "SEASONED-WITH-FIX",
+        Money::new(10_000_000.0, USD),
+        d(2024, 7, 2), // Started 6 months ago
+        d(2026, 7, 2),
+        BasisSwapLeg {
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0005, // 5bp spread
+        },
+        BasisSwapLeg {
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+            forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            spread: 0.0,
+        },
+        CurveId::new("USD-OIS"),
+    )
+    .expect("swap construction")
+    .with_calendar(CALENDAR_ID);
+
+    // Should succeed with fixings
+    let result = swap.value(&ctx, d(2025, 1, 2));
+    assert!(
+        result.is_ok(),
+        "Expected success with fixings: {:?}",
+        result
+    );
+
+    let npv = result.unwrap();
+    assert!(npv.amount().is_finite(), "NPV should be finite");
 }

@@ -43,6 +43,7 @@ mod tests {
             .with_notional(Money::new(1_250_000.0, Currency::EUR))
             .expect("should succeed")
             .with_rate(1.18)
+            .expect("should succeed")
     }
 
     #[test]

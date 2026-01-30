@@ -54,6 +54,7 @@ fn test_theta_zero_notional() {
         .with_notional(Money::new(0.0, Currency::EUR))
         .unwrap()
         .with_rate(1.20)
+        .expect("test rate")
         .with_settlement(d(2025, 1, 17));
     let market = market_full();
     let theta = theta_for(fx, &market, test_date());
@@ -70,6 +71,7 @@ fn test_theta_calculation_completes() {
             .with_notional(Money::new(2_000_000.0, Currency::GBP))
             .unwrap()
             .with_rate(1.40)
+            .expect("test rate")
             .with_settlement(d(2025, 3, 15)),
     ];
 

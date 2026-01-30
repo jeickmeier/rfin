@@ -30,7 +30,15 @@ fn test_standard_usd_3m_deposit() {
     let par = compute_metric(&dep, &ctx, base, MetricId::DepositParRate);
 
     // Validate - at market rate, PV should be near zero
-    assert!(pv.amount().abs() < 100_000.0, "PV: {}", pv.amount());
+    // For a $10mm deposit at par rate, PV should be < $1000 (< 10bp of notional).
+    // Note: We use 10bp tolerance because the test curve uses continuous compounding
+    // while deposits use simple interest (ACT/360), creating a small basis.
+    // In production, curves would be calibrated to reprice deposits exactly.
+    assert!(
+        pv.amount().abs() < 1000.0,
+        "PV at market rate should be < $1000 (10bp), got: {}",
+        pv.amount()
+    );
     assert!((par - 0.02).abs() < 0.005, "Par rate: {}", par);
 }
 

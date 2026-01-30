@@ -16,7 +16,7 @@
       "reset_lag": 2,
       "discount_curve_id": "USD-OIS",
       "forward_id": "USD-SOFR-3M",
-      "pay_fixed": true,
+      "receive_fixed": true,
       "attributes": {
         "tags": [],
         "meta": {}

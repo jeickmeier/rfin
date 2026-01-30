@@ -206,8 +206,10 @@ impl FxSwap {
     /// - `near_date > far_date` (invalid date ordering)
     /// - Notional currency doesn't match base currency
     /// - Required market data is missing (FX matrix and no near_rate override)
+    /// - Explicit contract rates are non-positive
+    /// - Discount factors are near-zero (degenerate market data)
     pub fn npv(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
-        use finstack_core::money::fx::FxQuery;
+        use super::pricing_helper::FxSwapPricingContext;
 
         // Validate date ordering
         if self.near_date > self.far_date {
@@ -222,101 +224,19 @@ impl FxSwap {
             return Ok(Money::new(0.0, self.quote_currency));
         }
 
-        // Curves
-        let domestic_disc = curves.get_discount(self.domestic_discount_curve_id.as_str())?;
-        let foreign_disc = curves.get_discount(self.foreign_discount_curve_id.as_str())?;
-
-        // Settlement checks
-        let include_near = self.near_date >= as_of;
-        let include_far = self.far_date >= as_of;
-
-        // Discount factors from as_of for correct theta (curve-consistent date mapping).
-        // Only calculate near leg DFs if near leg hasn't settled yet.
-        let (df_dom_near, df_for_near) = if include_near {
-            (
-                domestic_disc.df_between_dates(as_of, self.near_date)?,
-                foreign_disc.df_between_dates(as_of, self.near_date)?,
-            )
-        } else {
-            // Near leg has settled - use placeholder values that won't affect calculations
-            // since include_near will be false
-            (1.0, 1.0)
-        };
-        let df_dom_far = domestic_disc.df_between_dates(as_of, self.far_date)?;
-        let df_for_far = foreign_disc.df_between_dates(as_of, self.far_date)?;
-
-        // Resolve model spot from FX matrix if available; otherwise fall back to contract near rate
-        let model_spot = if let Some(fx) = curves.fx() {
-            (**fx)
-                .rate(FxQuery::new(self.base_currency, self.quote_currency, as_of))?
-                .rate
-        } else if let Some(rate) = self.near_rate {
-            rate
-        } else {
-            return Err(finstack_core::Error::from(
-                finstack_core::InputError::NotFound {
-                    id: "fx_matrix".to_string(),
-                },
-            ));
-        };
-
-        // Contract rates default to model when not provided explicitly
-        let contract_spot = self.near_rate.unwrap_or(model_spot);
-
-        // Calculate model forward only if far leg is active or needed.
-        // Covered interest parity: F = S × (DF_for_far/DF_for_near) / (DF_dom_far/DF_dom_near)
-        // When r_dom > r_for, forward is at premium (F > S) as required by no-arbitrage.
-        // Derivation: F = S × (1 + r_dom × T) / (1 + r_for × T) = S × DF_for / DF_dom
-        let dom_ratio = if df_dom_near.abs() > 1e-12 {
-            df_dom_far / df_dom_near
-        } else {
-            1.0
-        };
-        let for_ratio = if df_for_near.abs() > 1e-12 {
-            df_for_far / df_for_near
-        } else {
-            1.0
-        };
-        let model_fwd = model_spot * for_ratio / dom_ratio;
-        let contract_fwd = self.far_rate.unwrap_or(model_fwd);
-
-        // Currency safety
+        // Currency safety check before expensive calculations
         if self.base_notional.currency() != self.base_currency {
             return Err(finstack_core::Error::CurrencyMismatch {
                 expected: self.base_currency,
                 actual: self.base_notional.currency(),
             });
         }
-        let n_base = self.base_notional.amount();
 
-        // Leg PV decomposition in quote currency:
-        // - Foreign leg: receive base currency at near, pay base currency at far
-        // - Domestic leg: pay quote currency at near, receive quote currency at far
-        // - Foreign leg discounted with foreign curve, then converted to quote currency
-        // - Domestic leg discounted with domestic curve using contract rates
+        // Build pricing context (handles rate validation and CIP forward calculation)
+        let ctx = FxSwapPricingContext::build(self, curves, as_of)?;
 
-        // Foreign leg PV in base currency, then convert to quote currency
-        // Only include flows that have not settled
-        let mut pv_foreign_leg_base = 0.0;
-        if include_near {
-            pv_foreign_leg_base += n_base * df_for_near;
-        }
-        if include_far {
-            pv_foreign_leg_base -= n_base * df_for_far;
-        }
-        let pv_foreign_dom = pv_foreign_leg_base * model_spot;
-
-        // Domestic leg PV in quote currency using contract rates
-        let mut pv_dom_leg = 0.0;
-        if include_near {
-            pv_dom_leg += -n_base * contract_spot * df_dom_near;
-        }
-        if include_far {
-            pv_dom_leg += n_base * contract_fwd * df_dom_far;
-        }
-
-        // Sum domestic and converted foreign legs
-        let total_pv = pv_foreign_dom + pv_dom_leg;
+        // Calculate total PV using the helper
+        let total_pv = ctx.total_pv();
         Ok(Money::new(total_pv, self.quote_currency))
     }
 

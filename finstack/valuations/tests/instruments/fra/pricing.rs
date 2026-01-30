@@ -34,7 +34,7 @@ fn test_receive_fixed_off_market_positive_pv() {
 
     let fra = TestFraBuilder::new()
         .fixed_rate(0.06) // 6% fixed
-        .pay_fixed(true) // true = receive fixed
+        .receive_fixed(true) // receive fixed rate
         .build();
 
     let pv = fra.value(&market, BASE_DATE).unwrap();
@@ -52,7 +52,7 @@ fn test_receive_fixed_off_market_negative_pv() {
 
     let fra = TestFraBuilder::new()
         .fixed_rate(0.04) // 4% fixed
-        .pay_fixed(true) // true = receive fixed
+        .receive_fixed(true) // receive fixed rate
         .build();
 
     let pv = fra.value(&market, BASE_DATE).unwrap();
@@ -70,7 +70,7 @@ fn test_pay_fixed_off_market_positive_pv() {
 
     let fra = TestFraBuilder::new()
         .fixed_rate(0.04) // 4% fixed
-        .pay_fixed(false) // false = pay fixed
+        .receive_fixed(false) // pay fixed rate
         .build();
 
     let pv = fra.value(&market, BASE_DATE).unwrap();
@@ -85,7 +85,7 @@ fn test_pay_fixed_off_market_negative_pv() {
 
     let fra = TestFraBuilder::new()
         .fixed_rate(0.06) // 6% fixed
-        .pay_fixed(false) // false = pay fixed
+        .receive_fixed(false) // pay fixed rate
         .build();
 
     let pv = fra.value(&market, BASE_DATE).unwrap();

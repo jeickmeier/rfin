@@ -31,7 +31,7 @@ fn test_quote_amount_equals_npv() {
 
 #[test]
 fn test_quote_amount_default_notional() {
-    let fx = sample_eurusd().with_rate(1.18);
+    let fx = sample_eurusd().with_rate(1.18).expect("test rate");
     let market = MarketContext::new();
     let result = fx.price_with_metrics(&market, test_date(), &[]).unwrap();
 
@@ -69,7 +69,8 @@ fn test_quote_amount_various_currencies() {
     let gbp_fx = sample_gbpusd()
         .with_notional(Money::new(500_000.0, Currency::GBP))
         .unwrap()
-        .with_rate(1.40);
+        .with_rate(1.40)
+        .expect("test rate");
     let gbp_result = gbp_fx
         .price_with_metrics(&market, test_date(), &[])
         .unwrap();
@@ -84,7 +85,8 @@ fn test_quote_amount_various_currencies() {
     let jpy_fx = sample_usdjpy()
         .with_notional(Money::new(100_000.0, Currency::USD))
         .unwrap()
-        .with_rate(110.0);
+        .with_rate(110.0)
+        .expect("test rate");
     let jpy_result = jpy_fx
         .price_with_metrics(&market, test_date(), &[])
         .unwrap();
@@ -101,7 +103,8 @@ fn test_quote_amount_zero_notional() {
     let fx = sample_eurusd()
         .with_notional(Money::new(0.0, Currency::EUR))
         .unwrap()
-        .with_rate(1.20);
+        .with_rate(1.20)
+        .expect("test rate");
     let market = MarketContext::new();
     let result = fx.price_with_metrics(&market, test_date(), &[]).unwrap();
 

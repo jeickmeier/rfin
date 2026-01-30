@@ -167,24 +167,51 @@ impl ForwardSwapRate {
         }
     }
 
-    /// Compute convexity adjustment for CMS rate (simplified approximation).
+    /// Compute convexity adjustment for CMS rate using Hagan (2003) methodology.
     ///
-    /// Convexity adjustment accounts for the difference between CMS rate
-    /// and forward swap rate due to volatility.
+    /// The convexity adjustment accounts for the measure change from the annuity
+    /// measure (where the forward swap rate is a martingale) to the payment measure
+    /// (where the CMS rate is a martingale).
+    ///
+    /// # Formula
+    ///
+    /// ```text
+    /// Convexity_Adjustment = 0.5 * σ² * T * G(S)
+    /// where G(S) = swap_tenor / (1 + S * swap_tenor)²
+    /// ```
     ///
     /// # Arguments
     ///
-    /// * `volatility` - Swap rate volatility
-    /// * `tenor` - Time to fixing date
-    /// * `swap_tenor` - Tenor of the CMS swap
+    /// * `volatility` - Swap rate volatility (annualized, decimal form)
+    /// * `time_to_fixing` - Time to fixing date in years
+    /// * `swap_tenor` - Tenor of the underlying CMS swap in years
+    /// * `forward_rate` - Current forward swap rate (decimal form)
     ///
     /// # Returns
     ///
     /// Convexity adjustment to add to forward swap rate
-    pub fn convexity_adjustment(volatility: f64, tenor: f64, swap_tenor: f64) -> f64 {
-        // Simplified convexity adjustment
-        // More sophisticated: use full volatility smile and correlation
-        0.5 * volatility * volatility * tenor * swap_tenor / (1.0 + 0.03 * swap_tenor)
+    ///
+    /// # Note
+    ///
+    /// In Monte Carlo pricing using Hull-White, the convexity is captured through
+    /// the path dynamics. This function is useful for analytical approximations
+    /// or for comparison/validation purposes.
+    ///
+    /// # References
+    ///
+    /// - Hagan, P. S. (2003). "Convexity Conundrums: Pricing CMS Swaps, Caps, and Floors."
+    pub fn convexity_adjustment(
+        volatility: f64,
+        time_to_fixing: f64,
+        swap_tenor: f64,
+        forward_rate: f64,
+    ) -> f64 {
+        // G(S) = swap_tenor / (1 + S * swap_tenor)²
+        let denominator = 1.0 + forward_rate * swap_tenor;
+        let annuity_sensitivity = swap_tenor / (denominator * denominator);
+
+        // Convexity adjustment = 0.5 * σ² * T * G(S)
+        0.5 * volatility * volatility * time_to_fixing * annuity_sensitivity
     }
 }
 
@@ -227,12 +254,37 @@ mod tests {
 
     #[test]
     fn test_convexity_adjustment() {
-        let adj = ForwardSwapRate::convexity_adjustment(0.20, 1.0, 10.0);
+        // Parameters: 20% vol, 1Y to fixing, 10Y swap tenor, 3% forward rate
+        let adj = ForwardSwapRate::convexity_adjustment(0.20, 1.0, 10.0, 0.03);
 
         // Should be positive (convexity adjustment increases CMS rate)
         assert!(adj > 0.0);
-        // With 20% vol, 1Y tenor, 10Y swap: 0.5 * 0.04 * 10 / 1.3 ≈ 0.154
-        assert!(adj < 0.2); // Should be reasonable size
-        assert!((adj - 0.15384615384615388).abs() < 1e-6); // Check exact value
+
+        // Expected: 0.5 * 0.04 * 1.0 * G(0.03)
+        // G(0.03) = 10 / (1 + 0.03 * 10)^2 = 10 / 1.3^2 = 10 / 1.69 ≈ 5.917
+        // Adj = 0.5 * 0.04 * 1.0 * 5.917 ≈ 0.1183
+        let expected = 0.5 * 0.04 * 1.0 * (10.0 / (1.3 * 1.3));
+        assert!(
+            (adj - expected).abs() < 1e-10,
+            "Expected {}, got {}",
+            expected,
+            adj
+        );
+    }
+
+    #[test]
+    fn test_convexity_adjustment_rate_sensitivity() {
+        // Higher forward rate should give smaller convexity adjustment
+        let vol = 0.20;
+        let time = 1.0;
+        let swap_tenor = 10.0;
+
+        let adj_low_rate = ForwardSwapRate::convexity_adjustment(vol, time, swap_tenor, 0.01);
+        let adj_high_rate = ForwardSwapRate::convexity_adjustment(vol, time, swap_tenor, 0.05);
+
+        assert!(
+            adj_low_rate > adj_high_rate,
+            "Convexity adjustment should decrease as forward rate increases"
+        );
     }
 }

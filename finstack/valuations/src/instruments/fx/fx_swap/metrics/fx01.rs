@@ -1,91 +1,67 @@
 //! FX01 for FX Swaps.
 //!
-//! Computes sensitivity to a 1bp bump in the spot FX rate by revaluing with
-//! a bumped spot while respecting instrument overrides for near/far rates.
+//! Computes sensitivity to a 1bp absolute bump in the spot FX rate using
+//! central finite difference for O(h²) accuracy.
+//!
+//! # FX01 vs FX Delta
+//!
+//! - **FX01**: Sensitivity to a **1bp absolute** move in spot rate (0.0001).
+//!   Uses central difference: (PV(S+0.0001) - PV(S-0.0001)) / 2
+//!   Useful for small perturbation analysis and hedge ratio calculation.
+//!
+//! - **FX Delta**: Sensitivity to a **1% relative** move in spot rate.
+//!   See [`fx_delta::FxDeltaCalculator`] for details.
+//!   Useful for normalized risk comparison across different spot levels.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::fx_swap::pricing_helper::FxSwapPricingContext;
 use crate::instruments::fx_swap::FxSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::money::fx::FxQuery;
+use finstack_core::Result;
 
-/// FX01 (sensitivity to 1bp shift in spot rate).
+/// FX01 (sensitivity to 1bp absolute shift in spot rate).
+///
+/// Uses central finite difference for O(h²) accuracy:
+/// FX01 = (PV(S + 0.0001) - PV(S - 0.0001)) / 2
 pub struct FX01;
 
+/// Standard 1bp absolute bump for FX01 calculation.
+const FX01_BUMP: f64 = 0.0001;
+
 impl MetricCalculator for FX01 {
-    fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
+    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let fx_swap: &FxSwap = context.instrument_as()?;
         let curves = context.curves.clone();
         let as_of = context.as_of;
 
-        let original_pv = fx_swap.value(&curves, as_of)?;
+        // Use shared pricing context for consistent calculations
+        let ctx = FxSwapPricingContext::build(fx_swap, &curves, as_of)?;
 
-        let domestic_disc = curves.get_discount(fx_swap.domestic_discount_curve_id.as_str())?;
-        let foreign_disc = curves.get_discount(fx_swap.foreign_discount_curve_id.as_str())?;
+        // Helper to calculate PV for a given spot rate
+        let calculate_pv = |spot: f64| -> Result<f64> {
+            // Recompute near/far rates with bumped spot when not fixed
+            let near_rate = fx_swap.near_rate.unwrap_or(spot);
 
-        let df_dom_near = domestic_disc.df_between_dates(as_of, fx_swap.near_date)?;
-        let df_dom_far = domestic_disc.df_between_dates(as_of, fx_swap.far_date)?;
-        let df_for_near = foreign_disc.df_between_dates(as_of, fx_swap.near_date)?;
-        let df_for_far = foreign_disc.df_between_dates(as_of, fx_swap.far_date)?;
+            // Recompute forward with bumped spot
+            let model_fwd = FxSwapPricingContext::calculate_cip_forward(
+                spot,
+                ctx.df_dom_near,
+                ctx.df_dom_far,
+                ctx.df_for_near,
+                ctx.df_for_far,
+            )?;
 
-        // Settlement checks
-        let include_near = fx_swap.near_date >= as_of;
-        let include_far = fx_swap.far_date >= as_of;
+            let far_rate = fx_swap.far_rate.unwrap_or(model_fwd);
 
-        let fx_matrix = curves.fx().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::InputError::NotFound {
-                id: "fx_matrix".to_string(),
-            })
-        })?;
-
-        // Original spot
-        let original_spot = fx_matrix
-            .as_ref()
-            .rate(FxQuery::new(
-                fx_swap.base_currency,
-                fx_swap.quote_currency,
-                as_of,
-            ))?
-            .rate;
-
-        // 1bp bump
-        let bump = 0.0001;
-        let bumped_spot = original_spot + bump;
-
-        // Recompute near/far rates with bumped spot when not fixed
-        // Covered interest parity: F = S × DF_for / DF_dom
-        let near_rate = fx_swap.near_rate.unwrap_or(bumped_spot);
-        let dom_ratio = if df_dom_near.abs() > 1e-12 {
-            df_dom_far / df_dom_near
-        } else {
-            1.0
+            Ok(ctx.total_pv_with_spot(spot, near_rate, far_rate))
         };
-        let for_ratio = if df_for_near.abs() > 1e-12 {
-            df_for_far / df_for_near
-        } else {
-            1.0
-        };
-        let bumped_fwd = bumped_spot * for_ratio / dom_ratio;
-        let far_rate = fx_swap.far_rate.unwrap_or(bumped_fwd);
 
-        let base_amt = fx_swap.base_notional.amount();
+        // Central finite difference with 1bp absolute bump
+        let pv_up = calculate_pv(ctx.model_spot + FX01_BUMP)?;
+        let pv_down = calculate_pv(ctx.model_spot - FX01_BUMP)?;
 
-        let mut pv_for_leg = 0.0;
-        if include_near {
-            pv_for_leg += base_amt * df_for_near;
-        }
-        if include_far {
-            pv_for_leg -= base_amt * df_for_far;
-        }
+        // FX01 = (PV_up - PV_down) / 2 (per 1bp move)
+        let fx01 = (pv_up - pv_down) / 2.0;
 
-        let mut pv_dom_leg = 0.0;
-        if include_near {
-            pv_dom_leg -= base_amt * near_rate * df_dom_near;
-        }
-        if include_far {
-            pv_dom_leg += base_amt * far_rate * df_dom_far;
-        }
-
-        let bumped_pv = pv_for_leg * bumped_spot + pv_dom_leg;
-        Ok(bumped_pv - original_pv.amount())
+        Ok(fx01)
     }
 }

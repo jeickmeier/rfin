@@ -1,4 +1,17 @@
 //! Range accrual Monte Carlo and Analytical pricers.
+//!
+//! This module provides two pricing methods:
+//!
+//! 1. **Static Replication (Default)**: Uses digital call spread replication to price
+//!    the range accrual analytically. Captures volatility skew/smile naturally.
+//!
+//! 2. **Monte Carlo**: Path-dependent simulation for complex cases or when explicitly
+//!    requested via `mc_seed_scenario` override.
+//!
+//! Both methods support:
+//! - Absolute or relative bounds (via `BoundsType`)
+//! - Quanto drift adjustment (requires `quanto_correlation` and `fx_vol_surface_id`)
+//! - Historical fixings for mid-life valuations (via `past_fixings_in_range`)
 
 #[cfg(feature = "mc")]
 use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
@@ -26,6 +39,23 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 #[cfg(feature = "mc")]
 use finstack_core::Result;
+
+/// Helper to get FX spot for quanto vol lookup.
+/// Falls back to 1.0 if fx_spot_id is not provided (ATM approximation).
+#[cfg(feature = "mc")]
+fn get_fx_spot(inst: &RangeAccrual, curves: &MarketContext) -> f64 {
+    if let Some(ref fx_spot_id) = inst.fx_spot_id {
+        match curves.price(fx_spot_id.as_str()) {
+            Ok(ms) => match ms {
+                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+                finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
+            },
+            Err(_) => 1.0, // Fallback to ATM approximation
+        }
+    } else {
+        1.0 // ATM approximation when no FX spot provided
+    }
+}
 
 /// Range accrual Monte Carlo pricer.
 #[cfg(feature = "mc")]
@@ -56,14 +86,32 @@ impl RangeAccrualMcPricer {
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
         };
 
+        // Compute effective bounds based on BoundsType
+        let effective_lower = inst.effective_lower_bound(initial_spot);
+        let effective_upper = inst.effective_upper_bound(initial_spot);
+
         let final_date = inst
             .payment_date
             .unwrap_or(inst.observation_dates.last().copied().unwrap_or(as_of));
         let t = inst
             .day_count
             .year_fraction(as_of, final_date, DayCountCtx::default())?;
-        if t <= 0.0 {
-            return Ok(Money::new(0.0, inst.notional.currency()));
+
+        // Count future observations only
+        let future_obs_count = inst
+            .observation_dates
+            .iter()
+            .filter(|&&date| {
+                inst.day_count
+                    .year_fraction(as_of, date, DayCountCtx::default())
+                    .unwrap_or(0.0)
+                    > 0.0
+            })
+            .count();
+
+        // If no future observations, return value based on past fixings only
+        if future_obs_count == 0 || t <= 0.0 {
+            return compute_past_only_value(inst);
         }
 
         let disc_curve = curves.get_discount(inst.discount_curve_id.as_str())?;
@@ -83,23 +131,16 @@ impl RangeAccrualMcPricer {
         };
 
         let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
-        let sigma = vol_surface.value_clamped(t, initial_spot); // value_clamped handles bounds
+        let sigma = vol_surface.value_clamped(t, initial_spot);
 
-        // Quanto Adjustment
+        // Quanto Adjustment using FX spot for vol lookup
         if let Some(rho) = inst.quanto_correlation {
             if let Some(ref fx_vol_id) = inst.fx_vol_surface_id {
                 let fx_vol_surface = curves.surface(fx_vol_id.as_str())?;
-                // Assume FX vol at strike 1.0 (or spot) roughly.
-                // If we knew FX spot, we'd use it. Without it, 1.0 is a common proxy for normalized FX surfaces or ATM.
-                let sigma_fx = fx_vol_surface.value_clamped(t, 1.0);
+                let fx_spot = get_fx_spot(inst, curves);
+                let sigma_fx = fx_vol_surface.value_clamped(t, fx_spot);
 
-                // Drift adjustment: r_d - r_f - q - rho * sigma_S * sigma_FX
-                // The 'q' parameter in GbmParams is subtracted from r.
-                // Drift = r - q_param.
-                // Desired Drift = r - q_real - rho * sigma_S * sigma_FX
-                // => r - q_param = r - q_real - rho * sigma_S * sigma_FX
-                // => q_param = q_real + rho * sigma_S * sigma_FX
-
+                // Drift adjustment: q_param = q_real + rho * sigma_S * sigma_FX
                 q += rho * sigma * sigma_fx;
             }
         }
@@ -110,44 +151,42 @@ impl RangeAccrualMcPricer {
         let steps_per_year = self.config.steps_per_year;
         let num_steps = ((t * steps_per_year).round() as usize).max(self.config.min_steps);
 
-        // Map observation dates to times
+        // Map only future observation dates to times (filter out past observations)
         let observation_times: Vec<f64> = inst
             .observation_dates
             .iter()
-            .map(|&date| {
-                inst.day_count
+            .filter_map(|&date| {
+                let t_obs = inst
+                    .day_count
                     .year_fraction(as_of, date, DayCountCtx::default())
-                    .unwrap_or(0.0)
+                    .unwrap_or(0.0);
+                if t_obs > 0.0 {
+                    Some(t_obs)
+                } else {
+                    None
+                }
             })
             .collect();
 
-        let payoff = RangeAccrualPayoff::new(
+        // Create payoff with effective bounds and historical fixing info
+        let payoff = RangeAccrualPayoff::new_with_history(
             observation_times,
-            inst.lower_bound,
-            inst.upper_bound,
+            effective_lower,
+            effective_upper,
             inst.coupon_rate,
             inst.notional.amount(),
             inst.notional.currency(),
+            inst.past_fixings_in_range.unwrap_or(0),
+            inst.total_past_observations.unwrap_or(0),
         );
 
         // Derive deterministic seed from instrument ID and scenario
-        #[cfg(feature = "mc")]
         use crate::instruments::common::models::monte_carlo::seed;
 
         let seed = if let Some(ref scenario) = inst.pricing_overrides.mc_seed_scenario {
-            #[cfg(feature = "mc")]
-            {
-                seed::derive_seed(&inst.id, scenario)
-            }
-            #[cfg(not(feature = "mc"))]
-            42
+            seed::derive_seed(&inst.id, scenario)
         } else {
-            #[cfg(feature = "mc")]
-            {
-                seed::derive_seed(&inst.id, "base")
-            }
-            #[cfg(not(feature = "mc"))]
-            self.config.seed
+            seed::derive_seed(&inst.id, "base")
         };
 
         let mut config = self.config.clone();
@@ -164,6 +203,20 @@ impl RangeAccrualMcPricer {
         )?;
 
         Ok(result.mean)
+    }
+}
+
+/// Compute value when only past fixings exist (no future observations).
+#[cfg(feature = "mc")]
+fn compute_past_only_value(inst: &RangeAccrual) -> Result<Money> {
+    match (inst.past_fixings_in_range, inst.total_past_observations) {
+        (Some(in_range), Some(total)) if total > 0 => {
+            let accrual_fraction = in_range as f64 / total as f64;
+            let fv = inst.notional.amount() * inst.coupon_rate * accrual_fraction;
+            // No discounting needed - payment date is in the past or at as_of
+            Ok(Money::new(fv, inst.notional.currency()))
+        }
+        _ => Ok(Money::new(0.0, inst.notional.currency())),
     }
 }
 
@@ -225,6 +278,11 @@ pub fn npv(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) -> Result<M
 ///
 /// Replicates the range accrual as a sum of digital options (binary call spreads).
 /// Captures volatility skew/smile and term structure naturally from the surface.
+///
+/// This method:
+/// - Uses effective bounds based on `BoundsType` (absolute or relative to initial spot)
+/// - Applies quanto drift adjustment using FX spot for vol lookup when available
+/// - Includes historical fixings in the accrual calculation for mid-life valuations
 #[cfg(feature = "mc")]
 pub fn npv_analytic(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) -> Result<Money> {
     use finstack_core::math::special_functions::norm_cdf;
@@ -235,6 +293,10 @@ pub fn npv_analytic(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) ->
         finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
         finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
     };
+
+    // Compute effective bounds based on BoundsType
+    let effective_lower = inst.effective_lower_bound(initial_spot);
+    let effective_upper = inst.effective_upper_bound(initial_spot);
 
     let final_date = inst
         .payment_date
@@ -255,48 +317,32 @@ pub fn npv_analytic(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) ->
         0.0
     };
 
-    // Term structure of rates: we should ideally look up rate for each observation.
-    // Simplified: Use zero rate to observation date.
-
     let vol_surface = curves.surface(inst.vol_surface_id.as_str())?;
 
-    // Quanto Logic (adjust q_yield)
-    // Note: For Static Replication, we adjust the Forward Price.
-    // E[S_T] in Payment Measure = S_0 * exp((r - q - rho*sig*sig_fx)*T)
-    // So we just add the drift term to q_yield effectively.
-    if let Some(_rho) = inst.quanto_correlation {
-        if let Some(ref fx_vol_id) = inst.fx_vol_surface_id {
-            let _fx_vol_surface = curves.surface(fx_vol_id.as_str())?;
-            // Using ATM/1.0 vol approximation for the drift adjustment
-            // Ideally this would be time-dependent, but for drift adjustment it's usually fine.
-            // We'll look up at maturity or average? Let's use maturity for simplicity or look up per step.
-            // We'll do it per step inside loop for better term structure support.
-        }
-    }
+    // Get FX spot for quanto vol lookup (uses actual spot if available, else 1.0)
+    let fx_spot = get_fx_spot(inst, curves);
 
-    let mut total_prob = 0.0;
-    let n_obs = inst.observation_dates.len();
-    if n_obs == 0 {
+    // Count observations and track past/future split
+    let n_total_obs = inst.observation_dates.len();
+    if n_total_obs == 0 {
         return Ok(Money::new(0.0, inst.notional.currency()));
     }
+
+    // Count future observations
+    let mut future_obs_count = 0usize;
+    let mut total_expected_in_range = 0.0;
 
     for &date in &inst.observation_dates {
         let t_obs = inst
             .day_count
             .year_fraction(as_of, date, DayCountCtx::default())?;
+
         if t_obs <= 0.0 {
-            // Past observation. If we had history we'd check it.
-            // Assuming valuation as of today implies we only care about future?
-            // Or assuming past is "in range"?
-            // Convention: Past fixings should be provided or we assume 1 (or 0).
-            // Code usually prices "remaining value". If the user wants full value including accrued,
-            // they need to handle past fixings separately.
-            // For now, we assume t<=0 means known outcome, but we don't have history.
-            // We'll skip (assume 0) or assume 1?
-            // Let's skip contribution (0).
+            // Past observation - skip (handled via past_fixings_in_range)
             continue;
         }
 
+        future_obs_count += 1;
         let r_obs = disc_curve.zero(t_obs);
 
         // Quanto drift adjustment specific to this horizon
@@ -304,24 +350,19 @@ pub fn npv_analytic(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) ->
         if let Some(rho) = inst.quanto_correlation {
             if let Some(ref fx_vol_id) = inst.fx_vol_surface_id {
                 let fx_vol_surface = curves.surface(fx_vol_id.as_str())?;
-                // Vol of Asset (S) for drift adj: use ATM
+                // Vol of Asset (S) for drift adj: use ATM at current spot
                 let sig_s = vol_surface.value_clamped(t_obs, initial_spot);
-                // Vol of FX for drift adj: use ATM (strike 1.0 proxy)
-                let sig_fx = fx_vol_surface.value_clamped(t_obs, 1.0);
+                // Vol of FX for drift adj: use ATM at FX spot
+                let sig_fx = fx_vol_surface.value_clamped(t_obs, fx_spot);
                 drift_adj = rho * sig_s * sig_fx;
             }
         }
 
         // Forward Price F = S * exp((r - q - drift_adj) * t)
-        // Note: drift_adj is subtracted from drift of S.
-        // Risk neutral S drift is (r - q).
-        // Payment measure S drift is (r - q - rho*sig*sig_fx).
         let forward = initial_spot * ((r_obs - q_yield - drift_adj) * t_obs).exp();
 
         // Digital Call Probability P(S > K) = N(d2)
         // d2 = (ln(F/K) - 0.5*sigma^2*t) / (sigma*sqrt(t))
-        // We use sigma at strike K
-
         let calc_prob_above = |strike: f64| -> finstack_core::Result<f64> {
             let vol = vol_surface.value_clamped(t_obs, strike);
             let std_dev = vol * t_obs.sqrt();
@@ -337,22 +378,32 @@ pub fn npv_analytic(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) ->
             }
         };
 
-        let p_lower = calc_prob_above(inst.lower_bound)?;
-        let p_upper = calc_prob_above(inst.upper_bound)?;
+        let p_lower = calc_prob_above(effective_lower)?;
+        let p_upper = calc_prob_above(effective_upper)?;
 
         // Prob in range [L, U] = P(S > L) - P(S > U)
-        let p_in_range = p_lower - p_upper;
-
-        // Clamp to [0, 1] for numerical noise
-        let p_clamped = p_in_range.clamp(0.0, 1.0);
-
-        total_prob += p_clamped;
+        let p_in_range = (p_lower - p_upper).clamp(0.0, 1.0);
+        total_expected_in_range += p_in_range;
     }
 
-    // Average probability * Coupon * Notional * DF
-    // Note: Range Accrual usually pays Coupon * (DaysRange / TotalDays).
-    // So we sum probabilities (expected days) and divide by total days.
-    let expected_fraction = total_prob / (n_obs as f64);
+    // Include historical fixings in the total
+    // Total observations = past observations + future observations
+    let past_in_range = inst.past_fixings_in_range.unwrap_or(0) as f64;
+    let total_past_obs = inst.total_past_observations.unwrap_or(0);
+
+    // Total observations across full life of instrument
+    let total_obs_count = total_past_obs + future_obs_count;
+    if total_obs_count == 0 {
+        return Ok(Money::new(0.0, inst.notional.currency()));
+    }
+
+    // Expected total days in range = known past + expected future
+    let expected_total_in_range = past_in_range + total_expected_in_range;
+
+    // Accrual fraction = expected days in range / total days
+    let expected_fraction = expected_total_in_range / (total_obs_count as f64);
+
+    // Future value and present value
     let fv = inst.notional.amount() * inst.coupon_rate * expected_fraction;
     let pv = fv * discount_factor;
 

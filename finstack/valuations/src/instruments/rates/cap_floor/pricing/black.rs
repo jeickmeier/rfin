@@ -9,12 +9,26 @@
 //! - **Zero/negative forward**: Returns error (Black model undefined)
 //! - **Negative time to fixing**: Returns intrinsic value (option already fixed)
 //!
+//! # Delta Sign Convention
+//!
+//! The [`delta`] function returns the **forward delta** (sensitivity to forward rate changes):
+//! - **Caplet delta**: Positive, in range \[0, 1\]. A caplet benefits from higher forwards.
+//! - **Floorlet delta**: Negative, in range \[-1, 0\]. A floorlet benefits from lower forwards.
+//!
+//! The delta is computed as:
+//! - Caplet: `N(d₁)` where N is the standard normal CDF
+//! - Floorlet: `-N(-d₁) = N(d₁) - 1`
+//!
+//! This is the "per-unit forward delta" convention. When aggregated across periods in
+//! [`aggregate_over_caplets`](super::super::metrics::common::aggregate_over_caplets),
+//! the result is scaled by `notional × accrual × discount_factor`.
+//!
 //! # References
 //!
 //! - Black, F. (1976). "The pricing of commodity contracts."
 //!   *Journal of Financial Economics*, 3(1-2), 167-179.
 
-use crate::instruments::common::models::{d1 as bs_d1, d2 as bs_d2};
+use crate::instruments::common::models::{d1_black76, d2_black76};
 use finstack_core::currency::Currency;
 use finstack_core::math::{norm_cdf, norm_pdf};
 use finstack_core::money::Money;
@@ -114,8 +128,8 @@ pub fn price_caplet_floorlet(inputs: CapletFloorletInputs) -> finstack_core::Res
         );
     }
 
-    let d1 = bs_d1(forward, strike, 0.0, sigma, t_fix, 0.0);
-    let d2 = bs_d2(forward, strike, 0.0, sigma, t_fix, 0.0);
+    let d1 = d1_black76(forward, strike, sigma, t_fix);
+    let d2 = d2_black76(forward, strike, sigma, t_fix);
 
     // Check for NaN in d1/d2 which can happen with extreme inputs
     if !d1.is_finite() || !d2.is_finite() {
@@ -150,6 +164,17 @@ pub fn price_caplet_floorlet(inputs: CapletFloorletInputs) -> finstack_core::Res
 }
 
 /// Black forward delta (per unit forward).
+///
+/// Returns the sensitivity of the option price to changes in the forward rate.
+///
+/// # Sign Convention
+///
+/// - **Caplet**: Returns `N(d₁)`, positive in \[0, 1\]. Higher forwards increase caplet value.
+/// - **Floorlet**: Returns `-N(-d₁) = N(d₁) - 1`, negative in \[-1, 0\]. Lower forwards increase floorlet value.
+///
+/// At expiry or with zero volatility, returns the intrinsic delta:
+/// - Caplet: 1 if ITM (F > K), 0 if OTM
+/// - Floorlet: -1 if ITM (F < K), 0 if OTM
 pub fn delta(is_cap: bool, strike: f64, forward: f64, sigma: f64, t_fix: f64) -> f64 {
     if t_fix <= 0.0 || sigma <= 0.0 {
         if is_cap {
@@ -158,7 +183,7 @@ pub fn delta(is_cap: bool, strike: f64, forward: f64, sigma: f64, t_fix: f64) ->
             return if forward < strike { -1.0 } else { 0.0 };
         }
     }
-    let d1 = bs_d1(forward, strike, 0.0, sigma, t_fix, 0.0);
+    let d1 = d1_black76(forward, strike, sigma, t_fix);
     if is_cap {
         norm_cdf(d1)
     } else {
@@ -167,21 +192,27 @@ pub fn delta(is_cap: bool, strike: f64, forward: f64, sigma: f64, t_fix: f64) ->
 }
 
 /// Black forward gamma (per unit forward).
+///
+/// Returns the second derivative of option price with respect to forward rate.
+/// Gamma is always non-negative for long options.
 pub fn gamma(strike: f64, forward: f64, sigma: f64, t_fix: f64) -> f64 {
     if t_fix <= 0.0 || sigma <= 0.0 || forward <= 0.0 {
         return 0.0;
     }
-    let d1 = bs_d1(forward, strike, 0.0, sigma, t_fix, 0.0);
+    let d1 = d1_black76(forward, strike, sigma, t_fix);
     norm_pdf(d1) / (forward * sigma * t_fix.sqrt())
 }
 
 /// Black vega per 1% vol.
+///
+/// Returns the sensitivity of option price to a 1% (absolute) change in volatility.
+/// Vega is always non-negative for long options.
 pub fn vega_per_pct(strike: f64, forward: f64, sigma: f64, t_fix: f64) -> f64 {
     if t_fix <= 0.0 || forward <= 0.0 {
         return 0.0;
     }
     let d1 = if sigma > 0.0 {
-        bs_d1(forward, strike, 0.0, sigma, t_fix, 0.0)
+        d1_black76(forward, strike, sigma, t_fix)
     } else {
         0.0
     };

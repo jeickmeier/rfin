@@ -184,7 +184,7 @@ impl PyFxSpotBuilder {
             inst.settlement_lag_days = Some(lag);
         }
         if let Some(rate) = slf.spot_rate {
-            inst = inst.with_rate(rate);
+            inst = inst.with_rate(rate).map_err(core_to_py)?;
         }
         if let Some(money) = slf.notional {
             inst = inst.with_notional(money).map_err(core_to_py)?;

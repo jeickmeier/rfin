@@ -5,6 +5,7 @@
 - Options on interest rate swaps with configurable payer/receiver, strike, tenor, exercise style, and settlement (cash/physical).
 - Supports Black lognormal or normal (Bachelier) volatility models plus optional SABR parameters and vol surface lookup.
 - Helper methods for forward swap rate, annuity, and example builder; integrates pricing overrides (implied vol, quotes).
+- **Bermudan swaption support** with Hull-White tree and LSMC pricing methods.
 
 ## Methodology & References
 
@@ -14,6 +15,8 @@
 
 ## Usage Example
 
+### European Swaption
+
 ```rust
 use finstack_valuations::instruments::rates::swaption::Swaption;
 
@@ -21,26 +24,68 @@ let swaption = Swaption::example();
 let pv = swaption.value(&market_context, as_of_date)?;
 ```
 
+### Bermudan Swaption
+
+```rust
+use finstack_valuations::instruments::rates::swaption::{
+    BermudanSwaption, BermudanSwaptionPricer, HullWhiteParams,
+};
+
+// Create a 10NC2 Bermudan swaption (10-year swap, callable after 2 years)
+let swaption = BermudanSwaption::example();
+
+// Create pricer with Hull-White tree
+// Note: For production, calibrate HW parameters to co-terminal Europeans
+let pricer = BermudanSwaptionPricer::tree_pricer(HullWhiteParams::default())
+    .with_tree_steps(100);
+
+let result = pricer.price_dyn(&swaption, &market_context, as_of_date)?;
+```
+
+## Supported Exercise Styles
+
+| Style | Implementation | Pricing Method |
+|-------|---------------|----------------|
+| European | `Swaption` | Black-76, Bachelier, SABR |
+| Bermudan | `BermudanSwaption` | Hull-White tree, LSMC |
+| American | Planned | - |
+
 ## Limitations / Known Issues
 
-- Bermudan exercise not modeled; structure assumes European expiry.
 - No stochastic rates/vol beyond SABR-implied vol; quanto/FX effects are out of scope.
 - Settlement type toggles payout only; actual underlying swap execution must be handled externally for physical settlement.
+- Hull-White parameters should be calibrated to co-terminal European swaptions for accurate Bermudan pricing.
 
 ## Pricing Methodology
 
+### European Swaptions
+
 - Prices via Black–76 by default using forward swap rate/annuity; SABR-implied vol used when parameters provided; normal model available via pricer key.
-- Discounting on chosen curve; strike rate solved from spec; exercise style assumed European.
+- Discounting on chosen curve; strike rate solved from spec.
 - Vol surface lookup with clamping; optional implied vol override in pricing overrides.
 
+### Bermudan Swaptions
+
+- **Hull-White Tree**: Industry-standard trinomial tree with backward induction and optimal exercise at each node.
+- **LSMC**: Longstaff-Schwartz Monte Carlo with polynomial basis functions (requires `mc` feature).
+- Exercise boundary and risk-neutral exercise probabilities computed during pricing.
+
 ## Metrics
+
+### European Swaption Metrics
 
 - PV plus swaption Greeks (delta/vega/theta/rho) from Black/normal formulas; gamma via bump-and-revalue.
 - DV01/CS01 inherit from underlying swap sensitivities through forward/annuity mapping.
 - Implied vol solver and par/forward strike reporting for calibration.
 
+### Bermudan Swaption Metrics
+
+- Delta, gamma, vega via bump-and-revalue on the Hull-White tree.
+- Exercise probability profile showing risk-neutral exercise distribution.
+- Bermudan premium (Bermudan value minus first-exercise European value).
+
 ## Future Enhancements
 
-- Add Bermudan/cancellable swaption support with tree/LSMC methods.
-- Support stochastic rate models (HW/LMM) and smile-consistent pricing beyond SABR interpolation.
+- Support stochastic rate models (LMM) and smile-consistent Bermudan pricing.
 - Provide callable CMS/INF structures interop and more settlement-style options.
+- Add ISDA-compliant exact cash settlement calculation.

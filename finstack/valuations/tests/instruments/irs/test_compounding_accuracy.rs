@@ -344,3 +344,284 @@ fn test_seasoned_compounded_swap_with_fixings_prices() {
     let pv = irs.value(&ctx, as_of).unwrap().amount();
     assert!(pv.is_finite(), "PV should be finite");
 }
+
+/// Test that compounded swap with spread in near-zero rate environment prices correctly.
+///
+/// Per ISDA 2021 Section 4.5, spread is applied as simple interest (not compounded),
+/// so even with near-zero index rates, the spread contribution should be stable.
+#[test]
+fn test_compounded_swap_with_spread_near_zero_rates() {
+    let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let cal = CalendarRegistry::global()
+        .resolve_str("USNY")
+        .expect("USNY calendar");
+    let start = base.add_business_days(2, cal).unwrap();
+
+    // Near-zero discount curve (0.1% rate)
+    let disc = DiscountCurve::builder("DISC")
+        .base_date(base)
+        .knots([(0.0, 1.0), (1.0, 0.999)])
+        .set_interp(InterpStyle::LogLinear)
+        .allow_non_monotonic() // Allow for very flat curves
+        .build()
+        .unwrap();
+
+    // Near-zero forward curve
+    let fwd = ForwardCurve::builder("FWD", 0.0)
+        .base_date(base)
+        .knots([(0.0, 0.001), (1.0, 0.001)]) // 0.1% flat
+        .set_interp(InterpStyle::Linear)
+        .build()
+        .unwrap();
+
+    let ctx = MarketContext::new()
+        .insert_discount(disc)
+        .insert_forward(fwd);
+
+    // Create swap with significant spread (50bp) on near-zero rate
+    let irs = InterestRateSwap::builder()
+        .id("TEST-SPREAD-ZERO".into())
+        .notional(Money::new(10_000_000.0, Currency::USD))
+        .side(PayReceive::PayFixed)
+        .fixed(FixedLegSpec {
+            discount_curve_id: "DISC".into(),
+            rate: rust_decimal::Decimal::try_from(0.005).expect("valid"), // 0.5% fixed
+            freq: Tenor::annual(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: Some("USNY".into()),
+            start,
+            end: start.add_months(12),
+            payment_delay_days: 0,
+            stub: finstack_core::dates::StubKind::None,
+            par_method: None,
+            compounding_simple: true,
+        })
+        .float(FloatLegSpec {
+            discount_curve_id: "DISC".into(),
+            forward_curve_id: "FWD".into(),
+            freq: Tenor::annual(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: Some("USNY".into()),
+            start,
+            end: start.add_months(12),
+            compounding: FloatingLegCompounding::CompoundedInArrears {
+                lookback_days: 0,
+                observation_shift: None,
+            },
+            payment_delay_days: 0,
+            spread_bp: rust_decimal::Decimal::try_from(50.0).expect("valid"), // 50bp spread
+            fixing_calendar_id: None,
+            stub: finstack_core::dates::StubKind::None,
+            reset_lag_days: 0,
+        })
+        .build()
+        .unwrap();
+
+    let pv = irs.value(&ctx, base);
+    assert!(pv.is_ok(), "Near-zero rate swap should price: {:?}", pv);
+
+    let pv_val = pv.unwrap().amount();
+    assert!(pv_val.is_finite(), "PV should be finite");
+
+    // Float leg has ~0.1% index + 0.5% spread = ~0.6% all-in rate
+    // Fixed leg pays 0.5%
+    // PayFixed NPV = Float - Fixed should be slightly positive
+    // (receiving 0.6%, paying 0.5% on ~10MM for 1Y = ~10k profit)
+    assert!(
+        pv_val > 0.0,
+        "PayFixed with higher float all-in rate should have positive NPV, got {}",
+        pv_val
+    );
+}
+
+/// Test that compounded swap with spread in negative rate environment prices correctly.
+///
+/// Negative rates are realistic in EUR/JPY/CHF markets. The spread contribution
+/// should still be stable per ISDA 2021 convention.
+#[test]
+fn test_compounded_swap_with_spread_negative_rates() {
+    let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let cal = CalendarRegistry::global()
+        .resolve_str("USNY")
+        .expect("USNY calendar");
+    let start = base.add_business_days(2, cal).unwrap();
+
+    // Negative rate discount curve (-0.5%)
+    // DF > 1 for future dates when rates are negative
+    let disc = DiscountCurve::builder("DISC")
+        .base_date(base)
+        .knots([(0.0, 1.0), (1.0, 1.005)]) // exp(-(-0.005)*1) ≈ 1.005
+        .set_interp(InterpStyle::LogLinear)
+        .allow_non_monotonic() // Negative rates cause DF > 1
+        .build()
+        .unwrap();
+
+    // Negative forward curve
+    let fwd = ForwardCurve::builder("FWD", 0.0)
+        .base_date(base)
+        .knots([(0.0, -0.005), (1.0, -0.005)]) // -0.5% flat
+        .set_interp(InterpStyle::Linear)
+        .build()
+        .unwrap();
+
+    let ctx = MarketContext::new()
+        .insert_discount(disc)
+        .insert_forward(fwd);
+
+    // Create swap with spread (100bp) on negative rate
+    let irs = InterestRateSwap::builder()
+        .id("TEST-SPREAD-NEG".into())
+        .notional(Money::new(10_000_000.0, Currency::USD))
+        .side(PayReceive::PayFixed)
+        .fixed(FixedLegSpec {
+            discount_curve_id: "DISC".into(),
+            rate: rust_decimal::Decimal::try_from(0.005).expect("valid"), // 0.5% fixed
+            freq: Tenor::annual(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: Some("USNY".into()),
+            start,
+            end: start.add_months(12),
+            payment_delay_days: 0,
+            stub: finstack_core::dates::StubKind::None,
+            par_method: None,
+            compounding_simple: true,
+        })
+        .float(FloatLegSpec {
+            discount_curve_id: "DISC".into(),
+            forward_curve_id: "FWD".into(),
+            freq: Tenor::annual(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: Some("USNY".into()),
+            start,
+            end: start.add_months(12),
+            compounding: FloatingLegCompounding::CompoundedInArrears {
+                lookback_days: 0,
+                observation_shift: None,
+            },
+            payment_delay_days: 0,
+            spread_bp: rust_decimal::Decimal::try_from(100.0).expect("valid"), // 100bp spread
+            fixing_calendar_id: None,
+            stub: finstack_core::dates::StubKind::None,
+            reset_lag_days: 0,
+        })
+        .build()
+        .unwrap();
+
+    let pv = irs.value(&ctx, base);
+    assert!(
+        pv.is_ok(),
+        "Negative rate swap should price: {:?}",
+        pv.err()
+    );
+
+    let pv_val = pv.unwrap().amount();
+    assert!(pv_val.is_finite(), "PV should be finite");
+
+    // Float leg has -0.5% index + 1% spread = 0.5% all-in rate
+    // Fixed leg pays 0.5%
+    // PayFixed NPV = Float - Fixed should be approximately zero
+    assert!(
+        pv_val.abs() < 1000.0, // Within ~1bp on 10MM notional
+        "PayFixed with matching float all-in rate should have near-zero NPV, got {}",
+        pv_val
+    );
+}
+
+/// Test that observation shift pushing dates before curve base date uses fixings correctly.
+///
+/// When observation shift is large enough to push observation dates before the curve
+/// base date, the pricer should require and use historical fixings for those dates.
+#[test]
+fn test_observation_shift_before_curve_base_date() {
+    // Curve base date is 2025-01-10, but swap starts 2025-01-03
+    // With a large observation shift, observations could be pushed to the curve base date
+    let base = Date::from_calendar_date(2025, Month::January, 10).unwrap();
+    let start = Date::from_calendar_date(2025, Month::January, 3).unwrap();
+    let cal = CalendarRegistry::global()
+        .resolve_str("USNY")
+        .expect("USNY calendar");
+
+    let disc = DiscountCurve::builder("DISC")
+        .base_date(base)
+        .knots([(0.0, 1.0), (1.0, 0.95)])
+        .set_interp(InterpStyle::LogLinear)
+        .build()
+        .unwrap();
+
+    let fwd = ForwardCurve::builder("FWD", 0.0)
+        .base_date(base)
+        .knots([(0.0, 0.05), (1.0, 0.05)])
+        .set_interp(InterpStyle::Linear)
+        .build()
+        .unwrap();
+
+    // Build fixings from swap start up to curve base date
+    let mut obs: Vec<(Date, f64)> = Vec::new();
+    let mut d = start;
+    while d < base {
+        obs.push((d, 0.05));
+        d = d.add_business_days(1, cal).unwrap();
+    }
+    let fixings = ScalarTimeSeries::new("FIXING:FWD", obs, None).unwrap();
+
+    let ctx = MarketContext::new()
+        .insert_discount(disc)
+        .insert_forward(fwd)
+        .insert_series(fixings);
+
+    // Create a swap that's already partially into its first period
+    let irs = InterestRateSwap::builder()
+        .id("TEST-OBS-SHIFT".into())
+        .notional(Money::new(10_000_000.0, Currency::USD))
+        .side(PayReceive::ReceiveFixed)
+        .fixed(FixedLegSpec {
+            discount_curve_id: "DISC".into(),
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
+            freq: Tenor::monthly(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: Some("USNY".into()),
+            start,
+            end: start.add_months(1),
+            payment_delay_days: 0,
+            stub: finstack_core::dates::StubKind::None,
+            par_method: None,
+            compounding_simple: true,
+        })
+        .float(FloatLegSpec {
+            discount_curve_id: "DISC".into(),
+            forward_curve_id: "FWD".into(),
+            freq: Tenor::monthly(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::Following,
+            calendar_id: Some("USNY".into()),
+            start,
+            end: start.add_months(1),
+            compounding: FloatingLegCompounding::CompoundedInArrears {
+                lookback_days: 0,
+                observation_shift: None, // No shift needed, as_of is after start
+            },
+            payment_delay_days: 0,
+            spread_bp: rust_decimal::Decimal::ZERO,
+            fixing_calendar_id: Some("USNY".into()),
+            stub: finstack_core::dates::StubKind::None,
+            reset_lag_days: 0,
+        })
+        .build()
+        .unwrap();
+
+    // Should price successfully using fixings for dates before base
+    let pv = irs.value(&ctx, base);
+    assert!(
+        pv.is_ok(),
+        "Swap with observations before curve base should price with fixings: {:?}",
+        pv.err()
+    );
+
+    let pv_val = pv.unwrap().amount();
+    assert!(pv_val.is_finite(), "PV should be finite");
+}

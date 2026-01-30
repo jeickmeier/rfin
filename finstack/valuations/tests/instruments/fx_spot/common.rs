@@ -72,6 +72,7 @@ pub fn eurusd_with_notional(notional: f64, rate: f64) -> FxSpot {
         .with_notional(Money::new(notional, Currency::EUR))
         .unwrap()
         .with_rate(rate)
+        .unwrap()
 }
 
 /// Create GBPUSD FX spot

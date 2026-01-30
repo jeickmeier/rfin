@@ -157,6 +157,10 @@ pub struct FloatLegSpec {
 }
 
 /// Specification for basis swap legs (floating vs floating)
+///
+/// A basis swap leg represents one side of a floating-for-floating interest rate swap,
+/// where two parties exchange payments linked to different floating rate indices
+/// (e.g., 3M SOFR vs 6M SOFR).
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct BasisSwapLeg {
@@ -168,12 +172,49 @@ pub struct BasisSwapLeg {
     pub day_count: DayCount,
     /// Business day convention for date adjustments
     pub bdc: BusinessDayConvention,
-    /// Optional spread in decimal form (e.g., 0.0005 for 5 basis points)
+    /// Spread added to the floating rate, in **decimal** form (not basis points).
+    ///
+    /// # Units
+    ///
+    /// - `0.0005` represents 5 basis points (5bp)
+    /// - `0.01` represents 100 basis points (1%)
+    /// - `-0.001` represents -10 basis points
+    ///
+    /// # Typical Market Range
+    ///
+    /// Basis spreads in liquid markets typically range from -50bp to +50bp (-0.005 to +0.005).
+    /// Values outside ±5000bp (±50%, i.e., |spread| > 0.50) are considered extreme and
+    /// will trigger a validation warning during pricing.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::rates::basis_swap::BasisSwapLeg;
+    /// use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
+    /// use finstack_core::types::CurveId;
+    ///
+    /// let leg = BasisSwapLeg {
+    ///     forward_curve_id: CurveId::new("USD-SOFR-3M"),
+    ///     frequency: Tenor::quarterly(),
+    ///     day_count: DayCount::Act360,
+    ///     bdc: BusinessDayConvention::ModifiedFollowing,
+    ///     spread: 0.0005, // 5bp spread
+    ///     payment_lag_days: 0,
+    ///     reset_lag_days: 2,
+    /// };
+    /// ```
     pub spread: f64,
-    /// Payment lag in business days (default: 0)
+    /// Payment lag in business days after period end (default: 0).
+    ///
+    /// E.g., `payment_lag_days: 2` means payment occurs 2 business days after the
+    /// accrual period end date.
     #[cfg_attr(feature = "serde", serde(default))]
     pub payment_lag_days: i32,
-    /// Reset lag in business days (default: 0)
+    /// Reset lag in business days before period start (default: 0).
+    ///
+    /// E.g., `reset_lag_days: 2` means the rate fixing occurs 2 business days before
+    /// the accrual period start date. This follows standard market convention where
+    /// fixing typically precedes the accrual period.
     #[cfg_attr(feature = "serde", serde(default))]
     pub reset_lag_days: i32,
 }

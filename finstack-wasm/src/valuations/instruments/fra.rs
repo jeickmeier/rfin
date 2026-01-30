@@ -23,7 +23,7 @@ pub struct JsForwardRateAgreementBuilder {
     forward_curve: Option<String>,
     day_count: Option<finstack_core::dates::DayCount>,
     reset_lag: Option<i32>,
-    pay_fixed: Option<bool>,
+    receive_fixed: Option<bool>,
 }
 
 #[wasm_bindgen(js_class = ForwardRateAgreementBuilder)]
@@ -90,9 +90,17 @@ impl JsForwardRateAgreementBuilder {
         self
     }
 
+    /// Set the FRA direction: true = receive fixed rate, false = pay fixed rate.
+    #[wasm_bindgen(js_name = receiveFixed)]
+    pub fn receive_fixed(mut self, receive_fixed: bool) -> JsForwardRateAgreementBuilder {
+        self.receive_fixed = Some(receive_fixed);
+        self
+    }
+
+    /// Deprecated alias for receiveFixed(). Use receiveFixed() instead.
     #[wasm_bindgen(js_name = payFixed)]
     pub fn pay_fixed(mut self, pay_fixed: bool) -> JsForwardRateAgreementBuilder {
-        self.pay_fixed = Some(pay_fixed);
+        self.receive_fixed = Some(pay_fixed);
         self
     }
 
@@ -136,8 +144,8 @@ impl JsForwardRateAgreementBuilder {
         if let Some(lag) = self.reset_lag {
             builder = builder.reset_lag(lag);
         }
-        if let Some(pay) = self.pay_fixed {
-            builder = builder.pay_fixed(pay);
+        if let Some(receive) = self.receive_fixed {
+            builder = builder.receive_fixed(receive);
         }
 
         builder
@@ -181,7 +189,7 @@ impl JsForwardRateAgreement {
     /// @param forward_curve - Forward curve ID
     /// @param day_count - Optional day count (if omitted, library default applies)
     /// @param reset_lag - Optional reset lag in days
-    /// @param pay_fixed - Optional direction (true pays fixed)
+    /// @param receive_fixed - Optional direction (true = receive fixed rate)
     /// @returns A new `ForwardRateAgreement`
     /// @throws {Error} If inputs are invalid
     ///
@@ -217,7 +225,7 @@ impl JsForwardRateAgreement {
         forward_curve: &str,
         day_count: Option<JsDayCount>,
         reset_lag: Option<i32>,
-        pay_fixed: Option<bool>,
+        receive_fixed: Option<bool>,
     ) -> Result<JsForwardRateAgreement, JsValue> {
         web_sys::console::warn_1(&JsValue::from_str(
             "ForwardRateAgreement constructor is deprecated; use ForwardRateAgreementBuilder instead.",
@@ -238,8 +246,8 @@ impl JsForwardRateAgreement {
         if let Some(lag) = reset_lag {
             builder = builder.reset_lag(lag);
         }
-        if let Some(pay) = pay_fixed {
-            builder = builder.pay_fixed(pay);
+        if let Some(receive) = receive_fixed {
+            builder = builder.receive_fixed(receive);
         }
 
         builder
@@ -315,8 +323,8 @@ impl JsForwardRateAgreement {
     }
 
     #[wasm_bindgen(getter, js_name = fixingDate)]
-    pub fn fixing_date(&self) -> JsDate {
-        JsDate::from_core(self.inner.fixing_date)
+    pub fn fixing_date(&self) -> Option<JsDate> {
+        self.inner.fixing_date.map(JsDate::from_core)
     }
 
     #[wasm_bindgen(getter, js_name = startDate)]

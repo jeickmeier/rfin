@@ -2,6 +2,32 @@
 //!
 //! Prices YoY inflation caps/floors using Black-76 (lognormal) or
 //! Bachelier (normal) on the forward YoY inflation rate.
+//!
+//! # Inflation Rate Convention
+//!
+//! This module computes **period inflation rates** based on the schedule's accrual periods:
+//!
+//! ```text
+//! forward_rate = (CPI_end / CPI_start - 1) / accrual_fraction
+//! ```
+//!
+//! For annual frequency, this equals the true Year-over-Year (YoY) rate. For other
+//! frequencies (semi-annual, quarterly), the rate is annualized over the shorter period.
+//!
+//! **Important**: If you need true YoY rates regardless of payment frequency (i.e.,
+//! `CPI(T) / CPI(T - 1 year) - 1`), ensure the schedule uses annual frequency or
+//! adjust the CPI observation dates accordingly.
+//!
+//! # Volatility Convention
+//!
+//! The volatility surface must match the pricing model convention:
+//! - **Black-76 (lognormal)**: Vol surface should contain lognormal vols (percentage of rate)
+//! - **Bachelier (normal)**: Vol surface should contain normal vols (absolute rate terms)
+//!
+//! # Observation Lag
+//!
+//! Inflation indices typically have an observation lag (e.g., 3 months for US CPI).
+//! The lag is applied to both CPI lookups and the fixing date used for volatility.
 
 use crate::instruments::cap_floor::pricing::black as black_ir;
 use crate::instruments::common::models::volatility::normal::bachelier_price;
@@ -132,6 +158,10 @@ impl InflationCapFloor {
         Ok(())
     }
 
+    /// Minimum reasonable CPI value for developed market indices.
+    /// Used to catch data errors that could cause numerical instability.
+    const MIN_REASONABLE_CPI: f64 = 50.0;
+
     fn effective_lag(&self, curves: &MarketContext) -> InflationLag {
         if let Some(lag) = self.lag_override {
             return lag;
@@ -147,8 +177,22 @@ impl InflationCapFloor {
             InflationLag::None => date,
             InflationLag::Months(m) => date.add_months(-(m as i32)),
             InflationLag::Days(d) => date - Duration::days(d as i64),
-            _ => date,
+            other => {
+                tracing::warn!(
+                    lag = ?other,
+                    "Unknown InflationLag variant; treating as no lag"
+                );
+                date
+            }
         }
+    }
+
+    /// Compute the lag-adjusted fixing date for a given observation date.
+    ///
+    /// This is the single source of truth for lag application, used both
+    /// for CPI lookups and volatility time-to-fixing calculations.
+    fn lagged_fixing_date(&self, curves: &MarketContext, date: Date) -> Date {
+        Self::apply_lag(date, self.effective_lag(curves))
     }
 
     fn signed_year_fraction(start: Date, end: Date) -> f64 {
@@ -179,17 +223,39 @@ impl InflationCapFloor {
         as_of: Date,
         date: Date,
     ) -> finstack_core::Result<f64> {
+        // First try to get historical fixing from the index
         if let Some(index) = curves.inflation_index(self.inflation_index_id.as_str()) {
             if let Ok(value) = index.value_on(date) {
-                return Ok(value);
+                return Self::validate_cpi_value(value, date);
             }
         }
 
-        let lag = self.effective_lag(curves);
-        let lagged_date = Self::apply_lag(date, lag);
+        // Fall back to curve projection with lag adjustment
+        let lagged_date = self.lagged_fixing_date(curves, date);
         let curve = curves.get_inflation(self.inflation_index_id.as_str())?;
         let t = Self::signed_year_fraction(as_of, lagged_date);
-        Ok(curve.cpi(t))
+        let value = curve.cpi(t);
+        Self::validate_cpi_value(value, date)
+    }
+
+    /// Validate that a CPI value is reasonable and won't cause numerical issues.
+    fn validate_cpi_value(value: f64, date: Date) -> finstack_core::Result<f64> {
+        if value <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "CPI value must be positive; got {:.4} on {}",
+                value, date
+            )));
+        }
+        if value < Self::MIN_REASONABLE_CPI {
+            tracing::warn!(
+                cpi = value,
+                date = %date,
+                min_reasonable = Self::MIN_REASONABLE_CPI,
+                "CPI value is below minimum reasonable threshold for developed markets; \
+                 this may indicate a data error"
+            );
+        }
+        Ok(value)
     }
 
     fn schedule(&self) -> finstack_core::Result<Vec<(Date, Date, Date)>> {
@@ -227,6 +293,11 @@ impl InflationCapFloor {
     }
 
     /// Price using an explicit model key (Black-76 or Normal).
+    ///
+    /// # Model Selection
+    ///
+    /// - **Black-76**: Standard for positive inflation expectations. Requires `forward > 0` and `strike > 0`.
+    /// - **Normal (Bachelier)**: Use when deflation is possible or strike is at/below zero.
     pub fn npv_with_model(
         &self,
         curves: &MarketContext,
@@ -241,7 +312,6 @@ impl InflationCapFloor {
         };
 
         let mut total_pv = Money::new(0.0, self.notional.currency());
-        let lag = self.effective_lag(curves);
 
         for (start, end, pay) in self.schedule()? {
             if pay <= as_of {
@@ -255,17 +325,20 @@ impl InflationCapFloor {
                 continue;
             }
 
+            // CPI values are validated inside cpi_value()
             let cpi_start = self.cpi_value(curves, as_of, start)?;
             let cpi_end = self.cpi_value(curves, as_of, end)?;
-            if cpi_start <= 0.0 || cpi_end <= 0.0 {
-                return Err(finstack_core::InputError::NonPositiveValue.into());
-            }
 
+            // Period inflation rate (annualized over the accrual period)
+            // Note: For true YoY rates, use annual frequency
             let forward_rate = (cpi_end / cpi_start - 1.0) / accrual;
-            let fixing_date = Self::apply_lag(end, lag);
-            let t_fix =
-                self.day_count
-                    .signed_year_fraction(as_of, fixing_date, DayCountCtx::default())?;
+
+            // Use consolidated lag method for fixing date
+            let fixing_date = self.lagged_fixing_date(curves, end);
+
+            // Time-to-fixing uses ACT/365F (standard option market convention)
+            // regardless of the instrument's accrual day count
+            let t_fix = Self::signed_year_fraction(as_of, fixing_date);
 
             let t_pay = disc
                 .day_count()
@@ -301,8 +374,20 @@ impl InflationCapFloor {
                     Money::new(premium, self.notional.currency())
                 }
                 _ => {
-                    if t_fix > 0.0 && (forward_rate <= 0.0 || self.strike_rate <= 0.0) {
-                        return Err(finstack_core::InputError::Invalid.into());
+                    // Black-76 model requires positive forward and strike
+                    if t_fix > 0.0 && forward_rate <= 0.0 {
+                        return Err(finstack_core::Error::Validation(format!(
+                            "Black model requires positive forward inflation rate (got {:.4}%). \
+                             Use ModelKey::Normal for deflation scenarios.",
+                            forward_rate * 100.0
+                        )));
+                    }
+                    if t_fix > 0.0 && self.strike_rate <= 0.0 {
+                        return Err(finstack_core::Error::Validation(format!(
+                            "Black model requires positive strike (got {:.4}%). \
+                             Use ModelKey::Normal for zero/negative strikes.",
+                            self.strike_rate * 100.0
+                        )));
                     }
                     black_ir::price_caplet_floorlet(black_ir::CapletFloorletInputs {
                         is_cap: self.option_type.is_cap(),

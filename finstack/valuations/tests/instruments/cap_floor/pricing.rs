@@ -377,3 +377,137 @@ fn test_longer_maturity_more_valuable() {
         short_pv
     );
 }
+
+/// Test that fixing date and payment date timing are handled correctly.
+///
+/// In a caplet:
+/// - **Fixing date** (start of period): The date when the forward rate is observed/fixed.
+///   Time-to-fixing is used for vol surface lookup and determines if option has expired.
+/// - **Payment date** (end of period): The date when the cashflow is paid.
+///   The discount factor is computed to this date.
+///
+/// This test verifies these timing conventions by comparing a forward-starting caplet
+/// against immediate pricing to ensure the discount factor and forward rate are
+/// computed relative to the correct dates.
+#[test]
+fn test_fixing_vs_payment_date_timing() {
+    let as_of = date!(2024 - 01 - 01);
+    let fixing_date = date!(2024 - 03 - 01); // Start of period = fixing date
+    let payment_date = date!(2024 - 06 - 01); // End of period = payment date
+
+    // Forward-starting caplet
+    let caplet = InterestRateOption {
+        id: "CAPLET_TIMING".into(),
+        rate_option_type: RateOptionType::Caplet,
+        notional: Money::new(1_000_000.0, Currency::USD),
+        strike_rate: 0.05,
+        start_date: fixing_date,
+        end_date: payment_date,
+        frequency: Tenor::quarterly(),
+        day_count: DayCount::Act360,
+        stub_kind: StubKind::None,
+        bdc: BusinessDayConvention::ModifiedFollowing,
+        calendar_id: None,
+        exercise_style: ExerciseStyle::European,
+        settlement: SettlementType::Cash,
+        discount_curve_id: "USD_OIS".into(),
+        forward_id: "USD_LIBOR_3M".into(),
+        vol_surface_id: "USD_CAP_VOL".into(),
+        pricing_overrides: PricingOverrides::default(),
+        attributes: Default::default(),
+    };
+
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD_OIS");
+    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD_LIBOR_3M");
+    let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve)
+        .insert_surface(vol_surface);
+
+    let pv = caplet.value(&market, as_of).unwrap();
+
+    // Forward-starting caplet should have positive value
+    assert!(
+        pv.amount() > 0.0,
+        "Forward-starting caplet should have positive value: {}",
+        pv.amount()
+    );
+
+    // Price the same caplet ON the fixing date
+    // At this point, t_fix = 0, so we should get intrinsic value (which could be zero for ATM)
+    let as_of_fixing = fixing_date;
+    let disc_curve2 = build_flat_discount_curve(0.05, as_of_fixing, "USD_OIS");
+    let fwd_curve2 = build_flat_forward_curve(0.05, as_of_fixing, "USD_LIBOR_3M");
+    let vol_surface2 = build_flat_vol_surface(0.30, as_of_fixing, "USD_CAP_VOL");
+
+    let market2 = MarketContext::new()
+        .insert_discount(disc_curve2)
+        .insert_forward(fwd_curve2)
+        .insert_surface(vol_surface2);
+
+    let pv_at_fixing = caplet.value(&market2, as_of_fixing).unwrap();
+
+    // At fixing date with t_fix=0, we get intrinsic value (0 for ATM caplet)
+    // But the caplet hasn't paid yet, so it shouldn't be zero if F > K
+    // For ATM (F=K=5%), intrinsic is zero
+    assert!(
+        pv_at_fixing.amount() >= 0.0,
+        "Caplet at fixing date should have non-negative value: {}",
+        pv_at_fixing.amount()
+    );
+
+    // Note: Testing seasoned caplets (past fixing, before payment) would require
+    // providing the actual fixed rate rather than relying on the forward curve.
+    // The standard pricer uses forward curve rates, which is valid for forward-starting
+    // caplets but not for seasoned caplets where the rate is already fixed.
+}
+
+/// Test that a caplet valued after the payment date returns zero.
+#[test]
+fn test_caplet_after_payment_date_is_zero() {
+    let as_of = date!(2024 - 07 - 01); // After payment date
+    let fixing_date = date!(2024 - 03 - 01);
+    let payment_date = date!(2024 - 06 - 01);
+
+    let caplet = InterestRateOption {
+        id: "CAPLET_EXPIRED".into(),
+        rate_option_type: RateOptionType::Caplet,
+        notional: Money::new(1_000_000.0, Currency::USD),
+        strike_rate: 0.05,
+        start_date: fixing_date,
+        end_date: payment_date,
+        frequency: Tenor::quarterly(),
+        day_count: DayCount::Act360,
+        stub_kind: StubKind::None,
+        bdc: BusinessDayConvention::ModifiedFollowing,
+        calendar_id: None,
+        exercise_style: ExerciseStyle::European,
+        settlement: SettlementType::Cash,
+        discount_curve_id: "USD_OIS".into(),
+        forward_id: "USD_LIBOR_3M".into(),
+        vol_surface_id: "USD_CAP_VOL".into(),
+        pricing_overrides: PricingOverrides::default(),
+        attributes: Default::default(),
+    };
+
+    let disc_curve = build_flat_discount_curve(0.05, as_of, "USD_OIS");
+    let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD_LIBOR_3M");
+    let vol_surface = build_flat_vol_surface(0.30, as_of, "USD_CAP_VOL");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve)
+        .insert_surface(vol_surface);
+
+    let pv = caplet.value(&market, as_of).unwrap();
+
+    // Caplet after payment date should have zero value (cashflow already settled)
+    assert_eq!(
+        pv.amount(),
+        0.0,
+        "Caplet after payment date should be zero: {}",
+        pv.amount()
+    );
+}

@@ -28,15 +28,22 @@ pub fn date(y: i32, m: u8, d: u8) -> Date {
 /// # Arguments
 /// * `base` - Base date for the curve
 /// * `id` - Curve identifier
-/// * `rate` - Annual discount rate (e.g., 0.02 for 2%)
+/// * `rate` - Annual continuously compounded rate (e.g., 0.02 for 2%)
+///
+/// Uses continuously compounded discounting: DF(t) = exp(-rate * t)
+/// This produces smooth interpolation at any tenor.
+/// For deposits priced at their quoted rate, the PV will be approximately zero
+/// (small differences due to simple vs continuous compounding conventions).
 pub fn ctx_with_flat_rate(base: Date, id: &str, rate: f64) -> MarketContext {
     let disc = DiscountCurve::builder(id)
         .base_date(base)
         .knots([
             (0.0, 1.0),
-            (1.0, (1.0 - rate)),
-            (2.0, (1.0 - rate * 2.0)),
-            (5.0, (1.0 - rate * 5.0)),
+            (0.25, (-rate * 0.25).exp()),
+            (0.5, (-rate * 0.5).exp()),
+            (1.0, (-rate).exp()),
+            (2.0, (-rate * 2.0).exp()),
+            (5.0, (-rate * 5.0).exp()),
         ])
         .build()
         .unwrap();

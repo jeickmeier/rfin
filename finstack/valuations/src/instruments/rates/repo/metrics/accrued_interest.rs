@@ -4,34 +4,56 @@
 //! date using the instrument's configured day count and effective rate. The
 //! metric returns the currency amount (same units as the cash leg) so it can
 //! be combined with other cash-based measures.
+//!
+//! # Market Standard
+//!
+//! Uses business-day adjusted dates for consistency with PV and interest
+//! amount calculations. This ensures accrued interest aligns with the
+//! actual accrual period used in pricing.
 
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Calculator for repo accrued interest (currency amount).
+///
+/// Uses business-day adjusted start and maturity dates for consistency
+/// with PV calculations.
 pub struct AccruedInterestCalculator;
 
 impl MetricCalculator for AccruedInterestCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let as_of = context.as_of;
-        let (discount_curve_id, day_count, start_date, maturity, notional_amount, effective_rate) = {
+        let (
+            discount_curve_id,
+            day_count,
+            adj_start,
+            adj_maturity,
+            notional_amount,
+            effective_rate,
+        ) = {
             let repo = context.instrument_as::<crate::instruments::repo::Repo>()?;
+            // Use adjusted dates for consistency with PV and interest_amount()
+            let (adj_start, adj_maturity) = repo.adjusted_dates()?;
             (
                 repo.discount_curve_id.to_owned(),
                 repo.day_count,
-                repo.start_date,
-                repo.maturity,
+                adj_start,
+                adj_maturity,
                 repo.cash_amount.amount(),
                 repo.effective_rate(),
             )
         };
 
-        let accrued_amount = if as_of <= start_date {
+        let accrued_amount = if as_of <= adj_start {
             0.0
         } else {
-            let accrual_end = if as_of >= maturity { maturity } else { as_of };
+            let accrual_end = if as_of >= adj_maturity {
+                adj_maturity
+            } else {
+                as_of
+            };
             let accrual_fraction = day_count.year_fraction(
-                start_date,
+                adj_start,
                 accrual_end,
                 finstack_core::dates::DayCountCtx::default(),
             )?;

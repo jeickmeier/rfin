@@ -216,7 +216,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
                 .reset_lag(reset_lag)
                 .discount_curve_id(CurveId::new(discount_id))
                 .forward_id(CurveId::new(forward_id))
-                .pay_fixed(true)
+                .receive_fixed(true)
                 .fixing_calendar_id_opt(Some(conv.market_calendar_id.clone()))
                 .fixing_bdc_opt(Some(conv.market_business_day_convention))
                 .attributes(Default::default())
@@ -633,21 +633,23 @@ mod tests {
             .downcast_ref::<ForwardRateAgreement>()
             .expect("Expected ForwardRateAgreement");
 
-        // The fixing date should be BEFORE the start date (T-2 semantics)
-        assert!(
-            fra.fixing_date < fra.start_date,
-            "Fixing date {} should be before start date {} (T-minus semantics)",
-            fra.fixing_date,
-            fra.start_date
-        );
+        // If fixing_date is provided, it should be BEFORE the start date (T-2 semantics)
+        if let Some(fixing_date) = fra.fixing_date {
+            assert!(
+                fixing_date < fra.start_date,
+                "Fixing date {} should be before start date {} (T-minus semantics)",
+                fixing_date,
+                fra.start_date
+            );
 
-        // Verify it's approximately 2 business days before (exact depends on calendar)
-        let days_diff = (fra.start_date - fra.fixing_date).whole_days();
-        assert!(
-            (2..=4).contains(&days_diff),
-            "Fixing date should be ~2 business days before start, got {} calendar days",
-            days_diff
-        );
+            // Verify it's approximately 2 business days before (exact depends on calendar)
+            let days_diff = (fra.start_date - fixing_date).whole_days();
+            assert!(
+                (2..=4).contains(&days_diff),
+                "Fixing date should be ~2 business days before start, got {} calendar days",
+                days_diff
+            );
+        }
 
         Ok(())
     }

@@ -12,6 +12,9 @@
 use crate::instruments::fra::ForwardRateAgreement;
 use crate::metrics::{MetricCalculator, MetricContext};
 
+/// Minimum period length (in year fractions) for computing par rate.
+const MIN_PERIOD_LENGTH: f64 = 1e-12;
+
 /// Par rate for FRAs (fixed rate that zeroes PV).
 pub struct FraParRateCalculator;
 
@@ -41,8 +44,12 @@ impl MetricCalculator for FraParRateCalculator {
             )?
             .max(t_start);
 
-        if (t_end - t_start).abs() < 1e-12 {
-            return Ok(0.0);
+        let period_length = t_end - t_start;
+        if period_length.abs() < MIN_PERIOD_LENGTH {
+            return Err(finstack_core::Error::Validation(format!(
+                "FRA '{}': period length is zero or near-zero ({:.2e}); cannot compute par rate",
+                fra.id, period_length
+            )));
         }
 
         Ok(fwd.rate_period(t_start, t_end))

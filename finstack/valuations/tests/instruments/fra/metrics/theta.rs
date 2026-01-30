@@ -91,7 +91,7 @@ fn test_theta_sign_convention() {
     let market = standard_market(); // 5%
     let fra = TestFraBuilder::new()
         .fixed_rate(0.06) // receive 6%
-        .pay_fixed(false)
+        .receive_fixed(false)
         .build();
 
     let result = fra

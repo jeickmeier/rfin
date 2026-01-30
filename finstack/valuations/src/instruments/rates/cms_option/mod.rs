@@ -41,7 +41,7 @@
 //! - [`metrics`] for CMS option risk metrics
 
 pub(crate) mod metrics;
-pub(crate) mod pricer;
+pub mod pricer;
 pub(crate) mod types;
 
 pub use types::CmsOption;

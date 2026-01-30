@@ -549,8 +549,15 @@ impl MetricId {
     /// DV01 of reference leg
     pub const Dv01Reference: Self = Self(Cow::Borrowed("dv01_reference"));
 
-    /// Par spread for basis swap
+    /// Par spread for basis swap (absolute: the spread that would set NPV to zero)
     pub const BasisParSpread: Self = Self(Cow::Borrowed("basis_par_spread"));
+
+    /// Incremental par spread for basis swap (par spread minus current spread)
+    ///
+    /// Returns the additional spread (in basis points) needed on top of the current
+    /// spread to bring the basis swap NPV to zero. Positive values indicate the
+    /// current spread is below par; negative values indicate above par.
+    pub const IncrementalParSpread: Self = Self(Cow::Borrowed("incremental_par_spread"));
 
     // ========================================================================
     // Repo Metrics
@@ -878,6 +885,7 @@ impl MetricId {
         MetricId::Dv01Primary,
         MetricId::Dv01Reference,
         MetricId::BasisParSpread,
+        MetricId::IncrementalParSpread,
         MetricId::CollateralValue,
         MetricId::RequiredCollateral,
         MetricId::CollateralCoverage,

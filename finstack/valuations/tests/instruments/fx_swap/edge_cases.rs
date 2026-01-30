@@ -294,7 +294,7 @@ fn test_extreme_contract_rates() {
 
 #[test]
 fn test_negative_contract_rates() {
-    // Test swap with negative rates (e.g., NIRP environment)
+    // Test that negative FX rates are rejected (FX rates must be positive)
     let dates = TestDates::standard();
     let market = setup_standard_market(dates.as_of);
 
@@ -304,13 +304,19 @@ fn test_negative_contract_rates() {
         dates.far_date_1y,
         1_000_000.0,
         1.10,
-        -0.05, // Negative far rate (unusual but technically possible)
+        -0.05, // Negative far rate - should be rejected
     );
 
-    let pv = swap.value(&market, dates.as_of).unwrap();
+    let result = swap.value(&market, dates.as_of);
 
-    // Should handle negative rates
-    assert!(pv.amount().is_finite(), "Should handle negative rates");
+    // Negative FX rates are invalid and should be rejected
+    assert!(result.is_err(), "Negative FX rate should be rejected");
+    let err_msg = result.unwrap_err().to_string();
+    assert!(
+        err_msg.contains("positive"),
+        "Error should mention rate must be positive: {}",
+        err_msg
+    );
 }
 
 #[test]

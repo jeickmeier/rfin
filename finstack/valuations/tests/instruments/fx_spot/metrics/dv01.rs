@@ -105,12 +105,14 @@ fn test_dv01_custom_settlement_lag() {
         .with_notional(Money::new(1_000_000.0, Currency::EUR))
         .unwrap()
         .with_rate(1.20)
+        .expect("test rate")
         .with_settlement(d(2025, 1, 16)); // T+1
 
     let fx2 = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
         .with_notional(Money::new(1_000_000.0, Currency::EUR))
         .unwrap()
         .with_rate(1.20)
+        .expect("test rate")
         .with_settlement(d(2025, 1, 20)); // T+5
 
     let dv01_1 = dv01_for(fx1, test_date());
@@ -131,6 +133,7 @@ fn test_dv01_various_currencies() {
         .with_notional(Money::new(1_000_000.0, Currency::GBP))
         .unwrap()
         .with_rate(1.40)
+        .expect("test rate")
         .with_settlement(settlement);
 
     let dv01_eur = dv01_for(eur_fx, test_date());
@@ -146,6 +149,7 @@ fn test_dv01_zero_notional() {
         .with_notional(Money::new(0.0, Currency::EUR))
         .unwrap()
         .with_rate(1.20)
+        .expect("test rate")
         .with_settlement(d(2025, 1, 17));
     let dv01 = dv01_for(fx, test_date());
     assert_eq!(dv01, 0.0, "FX Spot DV01 should be 0");

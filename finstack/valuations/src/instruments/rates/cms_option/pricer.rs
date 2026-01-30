@@ -2,15 +2,29 @@
 //!
 //! Implements the standard market model for CMS caps/floors:
 //! 1. Calculate forward swap rate for each fixing.
-//! 2. Apply convexity adjustment (approximated using Hull-White formula or similar).
+//! 2. Apply convexity adjustment using Hagan (2003) methodology.
 //! 3. Price the option on the adjusted rate using Black-76.
 //!
-//! Reference:
+//! # Convexity Adjustment
+//!
+//! The convexity adjustment accounts for the difference between the CMS rate
+//! (which is a martingale under the payment measure) and the forward swap rate
+//! (martingale under the annuity measure). Per Hagan (2003), the adjustment
+//! depends on the annuity sensitivity to rate changes:
+//!
+//! ```text
+//! CMS_Rate ≈ Forward_Swap_Rate + Convexity_Adjustment
+//! Convexity_Adjustment = 0.5 * σ² * T * G(S)
+//! where G(S) ≈ swap_tenor / (1 + S * swap_tenor)²
+//! ```
+//!
+//! # Reference
+//!
 //! - Hagan, P. S. (2003). "Convexity Conundrums: Pricing CMS Swaps, Caps, and Floors."
 //! - Hull, J. (2018). "Options, Futures, and Other Derivatives."
 
 use crate::instruments::cms_option::types::CmsOption;
-use crate::instruments::common::models::{d1_black76, d2_black76};
+use crate::instruments::common::models::d1_d2_black76;
 use crate::instruments::common::traits::Instrument;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
@@ -19,7 +33,7 @@ use crate::results::ValuationResult;
 use finstack_core::dates::{BusinessDayConvention, Date, DateExt, DayCountCtx, StubKind};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::Result;
+use finstack_core::{InputError, Result};
 
 /// Convexity-adjusted Black pricer for CMS options.
 pub struct CmsOptionPricer;
@@ -37,6 +51,12 @@ impl CmsOptionPricer {
     /// - Vol surface lookups use the instrument's day_count for time_to_fixing
     ///   (market convention for vol surfaces).
     /// - Discount factors use curve-consistent relative DFs via `relative_df_discount_curve`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Vol surface is not provided (required for CMS option pricing)
+    /// - Forward swap rate is non-positive (would cause NaN in Black-76)
     pub(crate) fn price_internal_with_convexity(
         &self,
         inst: &CmsOption,
@@ -49,11 +69,14 @@ impl CmsOptionPricer {
         let mut total_pv = 0.0;
         let discount_curve = curves.get_discount(inst.discount_curve_id.as_ref())?;
 
-        // Get volatility surface if present
-        let vol_surface = if let Some(vol_id) = &inst.vol_surface_id {
-            Some(curves.surface(vol_id.as_str())?)
-        } else {
-            None
+        // Volatility surface is required for CMS option pricing
+        let vol_surface = match &inst.vol_surface_id {
+            Some(vol_id) => curves.surface(vol_id.as_str())?,
+            None => {
+                return Err(finstack_core::Error::from(InputError::NotFound {
+                    id: "vol_surface_id is required for CMS option pricing".to_string(),
+                }));
+            }
         };
 
         for (i, &fixing_date) in inst.fixing_dates.iter().enumerate() {
@@ -73,22 +96,27 @@ impl CmsOptionPricer {
             let (forward_swap_rate, _) =
                 self.calculate_forward_swap_rate(inst, curves, as_of, swap_start, swap_end)?;
 
+            // Validate forward rate for Black-76 (must be positive for log calculation)
+            if forward_swap_rate <= 0.0 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "Forward swap rate {} is non-positive for fixing date {}; \
+                     Black-76 requires positive forward rates",
+                    forward_swap_rate, fixing_date
+                )));
+            }
+
             // 2. Calculate Convexity Adjustment
             // Time to fixing uses instrument's day_count for vol surface lookup
             let time_to_fixing =
                 inst.day_count
                     .year_fraction(as_of, fixing_date, DayCountCtx::default())?;
 
-            // Get volatility
-            let vol = if let Some(surface) = vol_surface.as_ref() {
-                surface.value_clamped(time_to_fixing.max(0.0), inst.strike_rate)
-            } else {
-                0.20
-            };
+            // Get volatility from surface
+            let vol = vol_surface.value_clamped(time_to_fixing.max(0.0), inst.strike_rate);
 
-            // Convexity adjustment
+            // Convexity adjustment using Hagan (2003) formula with forward rate
             let raw_convexity_adj = if time_to_fixing > 0.0 {
-                convexity_adjustment(vol, time_to_fixing, inst.cms_tenor)
+                convexity_adjustment(vol, time_to_fixing, inst.cms_tenor, forward_swap_rate)
             } else {
                 0.0
             };
@@ -189,7 +217,11 @@ impl CmsOptionPricer {
         }
 
         if annuity.abs() < 1e-10 {
-            return Ok((0.0, 0.0));
+            return Err(finstack_core::Error::Validation(format!(
+                "Annuity is near-zero ({}) for swap from {} to {}; \
+                 check curve or schedule configuration",
+                annuity, start, end
+            )));
         }
 
         // Check if single curve or dual curve
@@ -257,8 +289,8 @@ impl CmsOptionPricer {
             };
         }
 
-        let d1 = d1_black76(forward, strike, vol, t);
-        let d2 = d2_black76(forward, strike, vol, t);
+        // Use combined d1_d2_black76 for efficiency (computes shared intermediates once)
+        let (d1, d2) = d1_d2_black76(forward, strike, vol, t);
 
         match option_type {
             crate::instruments::OptionType::Call => {
@@ -311,22 +343,51 @@ pub fn npv(inst: &CmsOption, curves: &MarketContext, as_of: Date) -> Result<Mone
     pricer.price_internal(inst, curves, as_of)
 }
 
-/// Compute convexity adjustment for CMS rate (simplified approximation).
+/// Compute convexity adjustment for CMS rate using Hagan (2003) methodology.
 ///
-/// Convexity adjustment accounts for the difference between CMS rate
-/// and forward swap rate due to volatility.
+/// The convexity adjustment accounts for the measure change from the annuity
+/// measure (where the forward swap rate is a martingale) to the payment measure
+/// (where the CMS rate is a martingale).
+///
+/// # Formula
+///
+/// Per Hagan (2003) "Convexity Conundrums", the adjustment is:
+///
+/// ```text
+/// Convexity_Adjustment = 0.5 * σ² * T * G(S)
+/// where G(S) = ∂²(1/A(S))/∂S² ≈ swap_tenor / (1 + S * swap_tenor)²
+/// ```
+///
+/// The G(S) term represents the sensitivity of the inverse annuity to the
+/// swap rate. Using the actual forward rate rather than a hardcoded value
+/// ensures the adjustment is state-dependent and more accurate.
 ///
 /// # Arguments
 ///
-/// * `volatility` - Swap rate volatility
-/// * `tenor` - Time to fixing date
-/// * `swap_tenor` - Tenor of the CMS swap
+/// * `volatility` - Swap rate volatility (annualized, decimal form e.g. 0.20 for 20%)
+/// * `time_to_fixing` - Time to fixing date in years
+/// * `swap_tenor` - Tenor of the underlying CMS swap in years (e.g., 10.0 for 10Y)
+/// * `forward_rate` - Current forward swap rate (decimal form e.g. 0.03 for 3%)
 ///
 /// # Returns
 ///
-/// Convexity adjustment to add to forward swap rate
-pub(crate) fn convexity_adjustment(volatility: f64, tenor: f64, swap_tenor: f64) -> f64 {
-    // Simplified convexity adjustment
-    // More sophisticated: use full volatility smile and correlation
-    0.5 * volatility * volatility * tenor * swap_tenor / (1.0 + 0.03 * swap_tenor)
+/// Convexity adjustment to add to forward swap rate (in decimal form)
+///
+/// # References
+///
+/// - Hagan, P. S. (2003). "Convexity Conundrums: Pricing CMS Swaps, Caps, and Floors."
+///   Wilmott Magazine, March, 38-44.
+pub fn convexity_adjustment(
+    volatility: f64,
+    time_to_fixing: f64,
+    swap_tenor: f64,
+    forward_rate: f64,
+) -> f64 {
+    // G(S) = swap_tenor / (1 + S * swap_tenor)²
+    // This approximates the second derivative of 1/Annuity with respect to swap rate
+    let denominator = 1.0 + forward_rate * swap_tenor;
+    let annuity_sensitivity = swap_tenor / (denominator * denominator);
+
+    // Convexity adjustment = 0.5 * σ² * T * G(S)
+    0.5 * volatility * volatility * time_to_fixing * annuity_sensitivity
 }

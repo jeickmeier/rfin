@@ -25,7 +25,7 @@ fn create_context(fx: FxSpot, as_of: Date) -> MetricContext {
 
 #[test]
 fn test_base_amount_default_notional() {
-    let fx = sample_eurusd().with_rate(1.20);
+    let fx = sample_eurusd().with_rate(1.20).expect("test rate");
     let mut ctx = create_context(fx, test_date());
     let calc = BaseAmountCalculator;
 
@@ -61,7 +61,8 @@ fn test_base_amount_various_currencies() {
     let gbp_fx = sample_gbpusd()
         .with_notional(Money::new(2_500_000.0, Currency::GBP))
         .unwrap()
-        .with_rate(1.40);
+        .with_rate(1.40)
+        .expect("test rate");
     let mut gbp_ctx = create_context(gbp_fx, test_date());
     assert_approx_eq(
         calc.calculate(&mut gbp_ctx).unwrap(),
@@ -76,7 +77,8 @@ fn test_base_amount_zero_notional() {
     let fx = sample_eurusd()
         .with_notional(Money::new(0.0, Currency::EUR))
         .unwrap()
-        .with_rate(1.20);
+        .with_rate(1.20)
+        .expect("test rate");
     let mut ctx = create_context(fx, test_date());
     let calc = BaseAmountCalculator;
 

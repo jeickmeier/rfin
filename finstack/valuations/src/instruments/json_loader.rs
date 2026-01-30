@@ -958,6 +958,7 @@ mod tests {
             reference_leg,
             CurveId::new("USD-OIS"),
         )
+        .expect("BasisSwap construction should succeed in test")
         .with_calendar("USGS");
 
         let json = InstrumentJson::BasisSwap(swap.clone());
@@ -982,6 +983,7 @@ mod tests {
             .with_notional(Money::new(1_000_000.0, Currency::EUR))
             .expect("FxSpot notional should be valid")
             .with_rate(1.10)
+            .expect("FxSpot rate should be valid")
             .with_settlement(
                 Date::from_calendar_date(2024, Month::January, 15).expect("Valid test date"),
             )
