@@ -9,6 +9,7 @@
 
 use crate::instruments::cds::CreditDefaultSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
+use finstack_core::dates::DayCountCtx;
 use finstack_core::Result;
 
 /// Expected Loss calculator for single-name CDS.
@@ -17,25 +18,35 @@ pub struct ExpectedLossCalculator;
 impl MetricCalculator for ExpectedLossCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let cds: &CreditDefaultSwap = context.instrument_as()?;
+        let as_of = context.as_of;
 
         // Get hazard curve from protection leg
         let hazard = context
             .curves
             .get_hazard(cds.protection.credit_curve_id.as_str())?;
+
+        // If already at/after maturity, no forward expected loss (under deterministic recovery).
+        if as_of >= cds.premium.end {
+            return Ok(0.0);
+        }
+
+        // Use hazard curve's day-count for the survival time axis.
+        let dc = hazard.day_count();
         let base_date = hazard.base_date();
+        let t_asof = dc.year_fraction(base_date, as_of, DayCountCtx::default())?;
+        let t_maturity = dc.year_fraction(base_date, cds.premium.end, DayCountCtx::default())?;
 
-        // Calculate time to maturity in years
-        let t_maturity = cds.premium.dc.year_fraction(
-            base_date,
-            cds.premium.end,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-
-        // Survival probability to maturity
-        let survival_prob = hazard.sp(t_maturity);
+        // Conditional survival to maturity given survival to as_of.
+        let sp_asof = hazard.sp(t_asof);
+        let sp_maturity = hazard.sp(t_maturity);
+        let survival_cond = if sp_asof > 0.0 {
+            sp_maturity / sp_asof
+        } else {
+            0.0
+        };
 
         // Default probability
-        let default_prob = 1.0 - survival_prob;
+        let default_prob = (1.0 - survival_cond).clamp(0.0, 1.0);
 
         // Loss given default
         let lgd = 1.0 - cds.protection.recovery_rate;

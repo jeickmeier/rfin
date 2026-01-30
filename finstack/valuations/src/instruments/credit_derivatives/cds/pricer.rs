@@ -68,6 +68,7 @@ use finstack_core::money::Money;
 use finstack_core::{Error, Result};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
+use time::Duration;
 
 /// Numerical integration method for protection leg.
 ///
@@ -395,6 +396,17 @@ pub struct CDSPricer {
     config: CDSPricerConfig,
 }
 
+#[derive(Clone, Copy)]
+struct AodInputs<'a> {
+    cds: &'a CreditDefaultSwap,
+    spread: f64,
+    start_date: Date,
+    end_date: Date,
+    as_of: Date,
+    disc: &'a DiscountCurve,
+    surv: &'a HazardCurve,
+}
+
 impl Default for CDSPricer {
     fn default() -> Self {
         Self::new()
@@ -496,37 +508,23 @@ impl CDSPricer {
         let t_end = haz_t(surv, protection_end)?;
 
         let recovery = cds.protection.recovery_rate;
-        let delay_years =
-            (cds.protection.settlement_delay as f64) / self.config.business_days_per_year;
+        // Settlement delay is specified in (approx) business days; we translate to calendar
+        // days for discounting on actual dates. This is an approximation when no explicit
+        // CDS calendar is available on the protection leg spec.
+        let delay_days = ((cds.protection.settlement_delay as f64) * 365.0
+            / self.config.business_days_per_year)
+            .round() as i64;
 
         // Compute survival at as_of for conditioning
         let sp_asof = surv.sp(t_asof);
 
-        // Compute DF at as_of for relative discounting
-        // Note: We use hazard curve's time axis for consistency in integration
-        let df_asof = disc.df(t_asof);
-
         let protection_pv = match self.config.integration_method {
             IntegrationMethod::Midpoint => self.protection_leg_midpoint_cond(
-                t_start,
-                t_end,
-                recovery,
-                delay_years,
-                sp_asof,
-                df_asof,
-                disc,
-                surv,
+                t_start, t_end, recovery, delay_days, sp_asof, as_of, disc, surv,
             )?,
             IntegrationMethod::GaussianQuadrature => {
                 match self.protection_leg_gaussian_quadrature_cond(
-                    t_start,
-                    t_end,
-                    recovery,
-                    delay_years,
-                    sp_asof,
-                    df_asof,
-                    disc,
-                    surv,
+                    t_start, t_end, recovery, delay_days, sp_asof, as_of, disc, surv,
                 ) {
                     Ok(pv) => pv,
                     Err(e) => {
@@ -538,28 +536,14 @@ impl CDSPricer {
                             "Integration failed, falling back to midpoint method"
                         );
                         self.protection_leg_midpoint_cond(
-                            t_start,
-                            t_end,
-                            recovery,
-                            delay_years,
-                            sp_asof,
-                            df_asof,
-                            disc,
-                            surv,
+                            t_start, t_end, recovery, delay_days, sp_asof, as_of, disc, surv,
                         )?
                     }
                 }
             }
             IntegrationMethod::AdaptiveSimpson => {
                 match self.protection_leg_adaptive_simpson_cond(
-                    t_start,
-                    t_end,
-                    recovery,
-                    delay_years,
-                    sp_asof,
-                    df_asof,
-                    disc,
-                    surv,
+                    t_start, t_end, recovery, delay_days, sp_asof, as_of, disc, surv,
                 ) {
                     Ok(pv) => pv,
                     Err(e) => {
@@ -571,37 +555,16 @@ impl CDSPricer {
                             "Integration failed, falling back to midpoint method"
                         );
                         self.protection_leg_midpoint_cond(
-                            t_start,
-                            t_end,
-                            recovery,
-                            delay_years,
-                            sp_asof,
-                            df_asof,
-                            disc,
-                            surv,
+                            t_start, t_end, recovery, delay_days, sp_asof, as_of, disc, surv,
                         )?
                     }
                 }
             }
             IntegrationMethod::IsdaExact => self.protection_leg_isda_exact_cond(
-                t_start,
-                t_end,
-                recovery,
-                delay_years,
-                sp_asof,
-                df_asof,
-                disc,
-                surv,
+                t_start, t_end, recovery, delay_days, sp_asof, as_of, disc, surv,
             )?,
             IntegrationMethod::IsdaStandardModel => self.protection_leg_isda_standard_model_cond(
-                t_start,
-                t_end,
-                recovery,
-                delay_years,
-                sp_asof,
-                df_asof,
-                disc,
-                surv,
+                t_start, t_end, recovery, delay_days, sp_asof, as_of, disc, surv,
             )?,
         };
 
@@ -666,14 +629,15 @@ impl CDSPricer {
 
             if self.config.include_accrual {
                 // Accrual-on-default contribution for this period
-                premium_pv += self.calculate_accrual_on_default_dates(
+                premium_pv += self.accrual_on_default_isda_midpoint(AodInputs {
+                    cds,
                     spread,
-                    start_date.max(as_of),
+                    start_date: start_date.max(as_of),
                     end_date,
                     as_of,
                     disc,
                     surv,
-                )?;
+                })?;
             }
         }
 
@@ -686,79 +650,29 @@ impl CDSPricer {
     /// - Discounting using discount curve's day-count relative to as_of
     /// - Survival using hazard curve's day-count with conditional probability from as_of
     /// - Accrual fraction within the period
-    fn calculate_accrual_on_default_dates(
-        &self,
-        spread: f64,
-        start_date: Date,
-        end_date: Date,
-        as_of: Date,
-        disc: &DiscountCurve,
-        surv: &HazardCurve,
-    ) -> Result<f64> {
-        // Compute times using respective curve day-counts
-        let t_asof_disc = disc_t(disc, as_of)?;
-        let t_start_disc = disc_t(disc, start_date)?;
-        let t_end_disc = disc_t(disc, end_date)?;
-
-        let t_asof_haz = haz_t(surv, as_of)?;
-        let t_start_haz = haz_t(surv, start_date)?;
-        let t_end_haz = haz_t(surv, end_date)?;
-
-        // Period length in hazard curve's time axis (used for integration steps)
-        let period_length = t_end_haz - t_start_haz;
-        if period_length <= 0.0 {
+    fn accrual_on_default_isda_midpoint(&self, inp: AodInputs<'_>) -> Result<f64> {
+        // ISDA midpoint approximation for accrual-on-default, using **dates**:
+        //
+        // AoD ≈ spread * (0.5 * τ_remaining) * DF(as_of→pay) * P(default in (start, end] | survived to as_of)
+        //
+        // Important: `start_date` is already `max(period_start, as_of)` in all call sites,
+        // so this implements a "clean" AoD (does not include already-accrued premium before `as_of`).
+        if inp.end_date <= inp.start_date {
             return Ok(0.0);
         }
 
-        // Survival at as_of for conditioning
-        let sp_asof = surv.sp(t_asof_haz);
-        if sp_asof <= credit::SURVIVAL_PROBABILITY_FLOOR {
-            return Ok(0.0); // Already defaulted (or effectively defaulted)
-        }
+        // Remaining accrual fraction uses the instrument premium day count convention.
+        let tau_remaining = self.year_fraction(inp.start_date, inp.end_date, inp.cds.premium.dc)?;
 
-        // DF at as_of for relative discounting
-        let df_asof = disc.df(t_asof_disc);
-        if df_asof <= 0.0 {
-            return Ok(0.0);
-        }
+        // Conditional default probability between start and end (conditioned on survival to as_of).
+        let sp_start = sp_cond_to(inp.surv, inp.as_of, inp.start_date)?;
+        let sp_end = sp_cond_to(inp.surv, inp.as_of, inp.end_date)?;
+        let default_prob = (sp_start - sp_end).max(0.0);
 
-        match self.config.integration_method {
-            IntegrationMethod::Midpoint => self.accrual_on_default_midpoint_dates(
-                spread,
-                t_start_haz,
-                t_end_haz,
-                t_start_disc,
-                t_end_disc,
-                sp_asof,
-                df_asof,
-                disc,
-                surv,
-            ),
-            IntegrationMethod::GaussianQuadrature | IntegrationMethod::AdaptiveSimpson => self
-                .accrual_on_default_adaptive_dates(
-                    spread,
-                    t_start_haz,
-                    t_end_haz,
-                    t_start_disc,
-                    t_end_disc,
-                    sp_asof,
-                    df_asof,
-                    disc,
-                    surv,
-                ),
-            IntegrationMethod::IsdaExact | IntegrationMethod::IsdaStandardModel => self
-                .accrual_on_default_isda_dates(
-                    spread,
-                    t_start_haz,
-                    t_end_haz,
-                    t_start_disc,
-                    t_end_disc,
-                    sp_asof,
-                    df_asof,
-                    disc,
-                    surv,
-                ),
-        }
+        // Discount to the *premium payment date* (end_date) from as_of.
+        let df = df_asof_to(inp.disc, inp.as_of, inp.end_date)?;
+
+        Ok(inp.spread * 0.5 * tau_remaining * default_prob * df)
     }
 
     /// Midpoint method for AoD with proper time-axis handling
@@ -1301,13 +1215,13 @@ impl CDSPricer {
         t_start: f64,
         t_end: f64,
         recovery: f64,
-        delay_years: f64,
+        delay_days: i64,
         sp_asof: f64,
-        df_asof: f64,
+        as_of: Date,
         disc: &DiscountCurve,
         surv: &HazardCurve,
     ) -> Result<f64> {
-        if sp_asof <= credit::SURVIVAL_PROBABILITY_FLOOR || df_asof <= numerical::DIVISION_EPSILON {
+        if sp_asof <= credit::SURVIVAL_PROBABILITY_FLOOR {
             return Ok(0.0);
         }
 
@@ -1329,8 +1243,10 @@ impl CDSPricer {
             let sp2 = surv.sp(t2) / sp_asof;
             let default_prob = sp1 - sp2;
 
-            // Relative discount factor from as_of
-            let df = disc.df(t_mid + delay_years) / df_asof;
+            // Discount on actual dates (supports discount/hazard curves with different day-counts).
+            let default_date = date_from_hazard_time(surv, t_mid);
+            let settle_date = default_date + Duration::days(delay_days);
+            let df = df_asof_to(disc, as_of, settle_date)?;
 
             protection_pv += lgd * default_prob * df;
         }
@@ -1344,9 +1260,9 @@ impl CDSPricer {
         t_start: f64,
         t_end: f64,
         recovery: f64,
-        delay_years: f64,
+        delay_days: i64,
         sp_asof: f64,
-        df_asof: f64,
+        as_of: Date,
         disc: &DiscountCurve,
         surv: &HazardCurve,
     ) -> Result<f64> {
@@ -1356,7 +1272,7 @@ impl CDSPricer {
                 t_start, t_end
             )));
         }
-        if sp_asof <= credit::SURVIVAL_PROBABILITY_FLOOR || df_asof <= numerical::DIVISION_EPSILON {
+        if sp_asof <= credit::SURVIVAL_PROBABILITY_FLOOR {
             return Ok(0.0);
         }
 
@@ -1365,8 +1281,10 @@ impl CDSPricer {
         let integrand = |t: f64| {
             // Conditional default density
             let density = approx_default_density(surv, t, h, t_start, t_end) / sp_asof;
-            // Relative DF from as_of
-            let df = disc.df(t + delay_years) / df_asof;
+            // Discount on actual dates
+            let default_date = date_from_hazard_time(surv, t);
+            let settle_date = default_date + Duration::days(delay_days);
+            let df = df_asof_to(disc, as_of, settle_date).unwrap_or(0.0);
             lgd * density * df
         };
         gauss_legendre_integrate(integrand, t_start, t_end, self.config.validated_gl_order())
@@ -1379,9 +1297,9 @@ impl CDSPricer {
         t_start: f64,
         t_end: f64,
         recovery: f64,
-        delay_years: f64,
+        delay_days: i64,
         sp_asof: f64,
-        df_asof: f64,
+        as_of: Date,
         disc: &DiscountCurve,
         surv: &HazardCurve,
     ) -> Result<f64> {
@@ -1391,7 +1309,7 @@ impl CDSPricer {
                 t_start, t_end
             )));
         }
-        if sp_asof <= credit::SURVIVAL_PROBABILITY_FLOOR || df_asof <= numerical::DIVISION_EPSILON {
+        if sp_asof <= credit::SURVIVAL_PROBABILITY_FLOOR {
             return Ok(0.0);
         }
 
@@ -1400,8 +1318,10 @@ impl CDSPricer {
         let integrand = |t: f64| {
             // Conditional default density
             let density = approx_default_density(surv, t, h, t_start, t_end) / sp_asof;
-            // Relative DF from as_of
-            let df = disc.df(t + delay_years) / df_asof;
+            // Discount on actual dates
+            let default_date = date_from_hazard_time(surv, t);
+            let settle_date = default_date + Duration::days(delay_days);
+            let df = df_asof_to(disc, as_of, settle_date).unwrap_or(0.0);
             lgd * density * df
         };
         adaptive_simpson(
@@ -1420,9 +1340,9 @@ impl CDSPricer {
         t_start: f64,
         t_end: f64,
         recovery: f64,
-        delay_years: f64,
+        delay_days: i64,
         sp_asof: f64,
-        df_asof: f64,
+        as_of: Date,
         disc: &DiscountCurve,
         surv: &HazardCurve,
     ) -> Result<f64> {
@@ -1432,7 +1352,7 @@ impl CDSPricer {
                 t_start, t_end
             )));
         }
-        if sp_asof <= credit::SURVIVAL_PROBABILITY_FLOOR || df_asof <= numerical::DIVISION_EPSILON {
+        if sp_asof <= credit::SURVIVAL_PROBABILITY_FLOOR {
             return Ok(0.0);
         }
 
@@ -1453,8 +1373,9 @@ impl CDSPricer {
             if sp1 > sp2 && sp1 > 0.0 {
                 let hazard_rate = -(sp2 / sp1).ln() / dt;
                 let avg_t = (t1 + t2) * 0.5;
-                // Relative DF from as_of
-                let df_mid = disc.df(avg_t + delay_years) / df_asof;
+                let default_date = date_from_hazard_time(surv, avg_t);
+                let settle_date = default_date + Duration::days(delay_days);
+                let df_mid = df_asof_to(disc, as_of, settle_date)?;
 
                 if hazard_rate.abs() > numerical::ZERO_TOLERANCE {
                     integral += (sp1 - sp2) * df_mid;
@@ -1474,9 +1395,9 @@ impl CDSPricer {
         t_start: f64,
         t_end: f64,
         recovery: f64,
-        delay_years: f64,
+        delay_days: i64,
         sp_asof: f64,
-        df_asof: f64,
+        as_of: Date,
         disc: &DiscountCurve,
         surv: &HazardCurve,
     ) -> Result<f64> {
@@ -1486,7 +1407,7 @@ impl CDSPricer {
                 t_start, t_end
             )));
         }
-        if sp_asof <= credit::SURVIVAL_PROBABILITY_FLOOR || df_asof <= numerical::DIVISION_EPSILON {
+        if sp_asof <= credit::SURVIVAL_PROBABILITY_FLOOR {
             return Ok(0.0);
         }
 
@@ -1509,8 +1430,10 @@ impl CDSPricer {
                 let hazard_rate = -(sp2 / sp1).ln() / dt;
 
                 // Relative discount factors from as_of
-                let df1 = disc.df(t1 + delay_years) / df_asof;
-                let df2 = disc.df(t2 + delay_years) / df_asof;
+                let d1 = date_from_hazard_time(surv, t1) + Duration::days(delay_days);
+                let d2 = date_from_hazard_time(surv, t2) + Duration::days(delay_days);
+                let df1 = df_asof_to(disc, as_of, d1)?;
+                let df2 = df_asof_to(disc, as_of, d2)?;
 
                 // Piecewise constant interest rate (allow negative rates)
                 let interest_rate = if df1 > 0.0 && df2 > 0.0 {
@@ -1661,14 +1584,15 @@ impl CDSPricer {
                 ann += unit_spread * accrual * sp * df;
 
                 // AoD part per unit spread in this period
-                ann += self.calculate_accrual_on_default_dates(
-                    unit_spread,
-                    start_date.max(as_of),
+                ann += self.accrual_on_default_isda_midpoint(AodInputs {
+                    cds,
+                    spread: unit_spread,
+                    start_date: start_date.max(as_of),
                     end_date,
                     as_of,
                     disc,
                     surv,
-                )?;
+                })?;
             }
             ann
         } else {
@@ -1722,14 +1646,15 @@ impl CDSPricer {
             per_bp_pv += ONE_BASIS_POINT * accrual * sp * df;
 
             if self.config.include_accrual {
-                per_bp_pv += self.calculate_accrual_on_default_dates(
-                    ONE_BASIS_POINT,
-                    start_date.max(as_of),
+                per_bp_pv += self.accrual_on_default_isda_midpoint(AodInputs {
+                    cds,
+                    spread: ONE_BASIS_POINT,
+                    start_date: start_date.max(as_of),
                     end_date,
                     as_of,
                     disc,
                     surv,
-                )?;
+                })?;
             }
         }
         Ok(per_bp_pv)
@@ -1896,6 +1821,24 @@ fn haz_t(surv: &HazardCurve, date: Date) -> Result<f64> {
         date,
         finstack_core::dates::DayCountCtx::default(),
     )
+}
+
+/// Approximate inverse mapping from hazard-curve time (years) to a calendar date.
+///
+/// This is exact for ACT/365F and ACT/360 hazard curve day-counts (since the forward
+/// mapping uses actual day counts), and a reasonable approximation for other
+/// conventions. The resulting date is used only for discounting on actual dates.
+#[inline]
+fn date_from_hazard_time(surv: &HazardCurve, t: f64) -> Date {
+    let t = t.max(0.0);
+    let days_per_year = match surv.day_count() {
+        DayCount::Act360 => 360.0,
+        DayCount::Act365F => 365.0,
+        // Fallback for less common conventions; used only for discount-date mapping.
+        _ => 365.0,
+    };
+    let days = (t * days_per_year).round() as i64;
+    surv.base_date() + Duration::days(days)
 }
 
 /// Compute discount factor from as_of to date using curve's time axis.

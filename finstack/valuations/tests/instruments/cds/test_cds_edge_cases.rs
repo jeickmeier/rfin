@@ -112,6 +112,20 @@ fn test_negative_spread() {
     // Should not panic with negative spread
     let npv = cds.value(&market, as_of);
     assert!(npv.is_ok(), "Negative spread should be handled");
+
+    // Premium leg PV should reflect the negative spread (i.e., be negative).
+    let prem_pv = cds
+        .pv_premium_leg(
+            market.get_discount("USD_OIS").unwrap().as_ref(),
+            market.get_hazard("CORP").unwrap().as_ref(),
+            as_of,
+        )
+        .unwrap()
+        .amount();
+    assert!(
+        prem_pv < 0.0,
+        "Negative spread should produce negative premium-leg PV"
+    );
 }
 
 #[test]
@@ -456,18 +470,41 @@ fn test_metrics_with_zero_notional() {
         .unwrap();
 
     // All notional-dependent metrics should be zero
-    assert_eq!(*result.measures.get("risky_pv01").unwrap(), 0.0);
+    for k in ["cs01", "risky_pv01", "expected_loss", "jump_to_default"] {
+        let v = *result.measures.get(k).unwrap();
+        assert!(
+            v.abs() < 1e-12,
+            "Expected metric {} to be 0.0 for zero notional, got {}",
+            k,
+            v
+        );
+    }
 }
 
 #[test]
-fn test_par_spread_with_mismatched_curves() {
+fn test_par_spread_with_mismatched_curves_errors() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
-    let (disc, hazard) = build_curves(as_of);
+    let (_disc, _hazard) = build_curves(as_of);
 
     let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+        // Intentionally insert under IDs that *do not* match the instrument's curve IDs.
+        .insert_discount(
+            DiscountCurve::builder("USD_OIS_ACTUAL")
+                .base_date(as_of)
+                .day_count(DayCount::Act360)
+                .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.78), (10.0, 0.61)])
+                .build()
+                .unwrap(),
+        )
+        .insert_hazard(
+            HazardCurve::builder("CORP_ACTUAL")
+                .base_date(as_of)
+                .recovery_rate(0.40)
+                .knots([(0.0, 0.01), (1.0, 0.01), (5.0, 0.015), (10.0, 0.02)])
+                .build()
+                .unwrap(),
+        );
 
     let cds = finstack_valuations::test_utils::cds_buy_protection(
         "MISMATCH_TEST",
@@ -475,14 +512,17 @@ fn test_par_spread_with_mismatched_curves() {
         100.0,
         as_of,
         end,
-        "USD_OIS",
-        "CORP",
+        "USD_OIS_REQUESTED",
+        "CORP_REQUESTED",
     )
     .expect("CDS construction should succeed");
 
-    // Should handle par spread calculation even with different curve IDs
+    // With mismatched curve IDs, valuation must error (missing curve dependency).
     let result = cds.price_with_metrics(&market, as_of, &[MetricId::ParSpread]);
-    assert!(result.is_ok(), "Should handle par spread calculation");
+    assert!(
+        result.is_err(),
+        "Expected error when instrument curve IDs are missing from the market"
+    );
 }
 
 #[test]
@@ -689,7 +729,8 @@ fn test_settlement_delay_zero_is_valid() {
 
 #[test]
 fn test_recovery_rate_bounds_not_enforced() {
-    // Recovery rates outside [0,1] are allowed (though unrealistic)
+    // Recovery rate is part of instrument validation and must be in [0,1].
+    // This test ensures invalid recovery rates fail loudly (rather than producing NaNs).
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
     let (disc, hazard) = build_curves(as_of);
@@ -698,7 +739,7 @@ fn test_recovery_rate_bounds_not_enforced() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    // Test with negative recovery (unrealistic but shouldn't crash)
+    // Test with negative recovery (invalid)
     let mut cds = finstack_valuations::test_utils::cds_buy_protection(
         "NEG_RECOVERY",
         Money::new(10_000_000.0, Currency::USD),
@@ -712,9 +753,8 @@ fn test_recovery_rate_bounds_not_enforced() {
     cds.protection.recovery_rate = -0.2;
 
     let result = cds.value(&market, as_of);
-    // Should not crash (though result may be economically meaningless)
     assert!(
-        result.is_ok() || result.is_err(),
-        "Should handle out-of-bounds recovery"
+        result.is_err(),
+        "Expected validation error for recovery_rate outside [0,1]"
     );
 }

@@ -53,14 +53,19 @@ fn build_flat_hazard(
 
 #[test]
 fn test_par_spread_approximation() {
-    // Market standard approximation: Par Spread ≈ Hazard Rate × (1 - Recovery)
+    // Market standard approximation (credit triangle):
+    //
+    //   Par Spread (decimal) ≈ Hazard Rate × (1 - Recovery)
+    //   Par Spread (bp)      ≈ Hazard Rate × (1 - Recovery) × 10_000
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
     let hazard_rate = 0.01; // 1% hazard rate
     let recovery = 0.40;
 
-    let disc_curve = build_flat_discount(0.05, as_of, "USD_OIS");
+    // Use ~zero discounting to make the discrete-coupon ISDA model closer to the continuous
+    // credit-triangle approximation, so we can tighten expected values.
+    let disc_curve = build_flat_discount(0.0, as_of, "USD_OIS");
     let hazard_curve = build_flat_hazard(hazard_rate, recovery, as_of, "CORP_HAZARD");
 
     let market = MarketContext::new()
@@ -85,12 +90,13 @@ fn test_par_spread_approximation() {
 
     let par_spread = *result.measures.get("par_spread").unwrap();
 
-    // Expected: 0.01 × 0.6 = 0.006 = 60 bps
-    // Allow reasonable range due to discounting and term structure effects
+    // Expected: 0.01 × 0.6 × 10_000 = 60 bp
+    let expected_triangle_bp = hazard_rate * (1.0 - recovery) * 10_000.0;
     assert!(
-        par_spread > 40.0 && par_spread < 100.0,
-        "Par spread={:.2} bps outside expected range 40-100 bps for 1% hazard, 40% recovery",
-        par_spread
+        (par_spread - expected_triangle_bp).abs() < 15.0,
+        "Par spread={:.2} bp should be close to credit triangle {:.2} bp (|diff|<15bp)",
+        par_spread,
+        expected_triangle_bp
     );
 }
 
@@ -371,10 +377,10 @@ fn test_expected_loss_formula_validation() {
 
     let expected_loss = *result.measures.get("expected_loss").unwrap();
 
-    // Calculate time to maturity using the same day count as the pricer
-    let t_maturity = cds
-        .premium
-        .dc
+    // Calculate time to maturity using the hazard curve's time axis (what ExpectedLoss uses).
+    let hazard = market.get_hazard("CORP_HAZARD").unwrap();
+    let t_maturity = hazard
+        .day_count()
         .year_fraction(as_of, end, finstack_core::dates::DayCountCtx::default())
         .unwrap();
 

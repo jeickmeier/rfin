@@ -402,10 +402,10 @@ fn test_par_spread_gives_zero_npv() {
     // Set spread to par (convert f64 to Decimal)
     cds.premium.spread_bp = Decimal::try_from(par_spread).expect("valid par_spread");
 
-    // NPV should be near zero
+    // NPV should be near zero (allowing for float->Decimal conversion / rounding).
     let npv = cds.value(&market, as_of).unwrap();
     assert!(
-        npv.amount().abs() < 10000.0,
+        npv.amount().abs() < 500.0,
         "NPV at par spread should be near zero, got {}",
         npv.amount()
     );
@@ -650,7 +650,7 @@ fn test_higher_recovery_decreases_protection_value() {
 }
 
 #[test]
-fn test_zero_spread_gives_negative_npv_for_buyer() {
+fn test_zero_spread_gives_positive_npv_for_buyer() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 

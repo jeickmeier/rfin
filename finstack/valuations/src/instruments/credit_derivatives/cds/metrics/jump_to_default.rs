@@ -29,6 +29,7 @@
 //! (unlike bond coupons which may be forgiven). This calculator includes the
 //! accrued premium in the JTD to give a more accurate P&L impact.
 
+use crate::instruments::cds::CDSPricer;
 use crate::instruments::cds::{CreditDefaultSwap, PayReceive};
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::DayCountCtx;
@@ -93,38 +94,30 @@ fn calculate_accrued_premium(
     cds: &CreditDefaultSwap,
     as_of: finstack_core::dates::Date,
 ) -> Result<f64> {
-    // Find the last coupon date before as_of
+    // Find the last scheduled coupon date before as_of, respecting:
+    // - IMM dates if configured by the pricer (default)
+    // - Business day adjustments via `calendar_id`
+    // - Stubs via the instrument spec
     let premium_start = cds.premium.start;
     let premium_end = cds.premium.end;
 
-    // If as_of is before the premium start, no accrued
-    if as_of <= premium_start {
+    if as_of <= premium_start || as_of >= premium_end {
         return Ok(0.0);
     }
 
-    // If as_of is after the premium end, no more accrual
-    if as_of >= premium_end {
+    let pricer = CDSPricer::new();
+    let schedule = pricer.generate_schedule(cds, as_of)?;
+    if schedule.is_empty() {
         return Ok(0.0);
     }
 
-    // Generate schedule to find the last coupon date
-    // Use a simplified approach: calculate which period we're in
-    // Tenor provides months() method which returns Some(n) for month-based tenors
-    let freq_months = cds.premium.freq.months().unwrap_or(3) as i32; // Default to quarterly if not month-based
-
-    // Find the most recent coupon date before as_of
-    use finstack_core::dates::DateExt;
-    let mut last_coupon = premium_start;
-
-    // Iterate forward to find the bracketing period
-    loop {
-        let next_coupon = last_coupon.add_months(freq_months);
-        if next_coupon > as_of {
+    // Find the most recent date in schedule <= as_of (should exist since schedule[0] = start)
+    let mut last_coupon = schedule[0];
+    for &d in &schedule {
+        if d <= as_of {
+            last_coupon = d;
+        } else {
             break;
-        }
-        last_coupon = next_coupon;
-        if last_coupon >= premium_end {
-            return Ok(0.0);
         }
     }
 

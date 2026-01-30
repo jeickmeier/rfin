@@ -952,6 +952,7 @@ impl CreditDefaultSwap {
         surv: &HazardCurve,
         as_of: Date,
     ) -> finstack_core::Result<Money> {
+        self.validate()?;
         let pricer = CDSPricer::new();
         pricer.pv_premium_leg(self, disc, surv, as_of)
     }
@@ -963,6 +964,7 @@ impl CreditDefaultSwap {
         surv: &HazardCurve,
         as_of: Date,
     ) -> finstack_core::Result<Money> {
+        self.validate()?;
         let pricer = CDSPricer::new();
         pricer.pv_protection_leg(self, disc, surv, as_of)
     }
@@ -974,6 +976,7 @@ impl CreditDefaultSwap {
         surv: &HazardCurve,
         as_of: Date,
     ) -> finstack_core::Result<f64> {
+        self.validate()?;
         let pricer = CDSPricer::new();
         pricer.par_spread(self, disc, surv, as_of)
     }
@@ -985,6 +988,7 @@ impl CreditDefaultSwap {
         surv: &HazardCurve,
         as_of: Date,
     ) -> finstack_core::Result<f64> {
+        self.validate()?;
         let pricer = CDSPricer::new();
         pricer.risky_annuity(self, disc, surv, as_of)
     }
@@ -996,6 +1000,7 @@ impl CreditDefaultSwap {
         surv: &HazardCurve,
         as_of: Date,
     ) -> finstack_core::Result<f64> {
+        self.validate()?;
         let pricer = CDSPricer::new();
         pricer.risky_pv01(self, disc, surv, as_of)
     }
@@ -1017,6 +1022,7 @@ impl CreditDefaultSwap {
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
+        self.validate()?;
         let disc = market.get_discount(&self.premium.discount_curve_id)?;
         let surv = market.get_hazard(&self.protection.credit_curve_id)?;
         let pricer = CDSPricer::new();

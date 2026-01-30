@@ -237,7 +237,9 @@ fn test_higher_gl_order_increases_accuracy() {
         .unwrap()
         .amount();
 
-    // Test different GL orders
+    // Test different GL orders and ensure higher order is not worse than lower order.
+    // (We don't require strict monotonicity, but 16-point should be at least as good as 2-point.)
+    let mut errors = Vec::new();
     for order in [2, 4, 8, 16] {
         let pricer = CDSPricer::with_config(CDSPricerConfig {
             integration_method: IntegrationMethod::GaussianQuadrature,
@@ -252,14 +254,23 @@ fn test_higher_gl_order_increases_accuracy() {
 
         let rel_error = ((pv - ref_pv) / ref_pv).abs();
 
-        // Higher orders should be more accurate (lower error)
         assert!(
             rel_error < 0.1,
             "GL order {} has excessive error: {:.2}%",
             order,
             rel_error * 100.0
         );
+        errors.push((order, rel_error));
     }
+
+    let err_2 = errors.iter().find(|(o, _)| *o == 2).unwrap().1;
+    let err_16 = errors.iter().find(|(o, _)| *o == 16).unwrap().1;
+    assert!(
+        err_16 <= err_2 + 1e-12,
+        "Expected GL(16) to be at least as accurate as GL(2): err16={}, err2={}",
+        err_16,
+        err_2
+    );
 }
 
 #[test]
