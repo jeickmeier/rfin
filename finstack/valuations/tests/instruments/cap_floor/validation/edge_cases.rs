@@ -71,6 +71,7 @@ fn test_zero_vol_itm_cap() {
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
+        vol_type: Default::default(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };
@@ -112,6 +113,7 @@ fn test_zero_vol_otm_cap() {
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
+        vol_type: Default::default(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };
@@ -157,6 +159,7 @@ fn test_very_high_strike() {
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
+        vol_type: Default::default(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };
@@ -199,6 +202,7 @@ fn test_very_low_strike_floor() {
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
+        vol_type: Default::default(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };
@@ -241,6 +245,7 @@ fn test_very_short_maturity() {
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
+        vol_type: Default::default(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };
@@ -283,6 +288,7 @@ fn test_expired_cap() {
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
+        vol_type: Default::default(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };
@@ -330,6 +336,7 @@ fn test_zero_notional() {
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
+        vol_type: Default::default(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };
@@ -376,6 +383,7 @@ fn test_very_high_vol() {
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
+        vol_type: Default::default(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };

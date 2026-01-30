@@ -159,10 +159,6 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
     ///
     /// For a payer swaption: max(0, (S - K) × A × N)
     /// For a receiver swaption: max(0, (K - S) × A × N)
-    /// Compute exercise value at a node.
-    ///
-    /// For a payer swaption: max(0, (S - K) × A × N)
-    /// For a receiver swaption: max(0, (K - S) × A × N)
     fn exercise_value(&self, step: usize, node_idx: usize) -> f64 {
         let t = self.tree.time_at_step(step);
 

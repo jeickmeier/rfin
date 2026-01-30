@@ -8,8 +8,10 @@
 //! - `market_validation`: ISDA standards and market benchmarks
 //! - `edge_cases`: Boundary conditions and error handling
 //! - `credit_derivatives_edge_cases`: Recovery boundary, survival floor tests
+//! - `conventions`: Calendar and settlement delay validation
 
 mod test_cds_construction;
+mod test_cds_conventions;
 mod test_cds_edge_cases;
 mod test_cds_integration_methods;
 mod test_cds_market_validation;

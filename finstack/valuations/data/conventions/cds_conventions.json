@@ -1,7 +1,7 @@
 {
   "schema": "finstack.instruments.cds.conventions.registry.v2",
   "namespace": "instruments.cds.market_conventions",
-  "version": 2,
+  "version": 3,
   "entries": [
     {
       "ids": [
@@ -37,7 +37,7 @@
         "payment_frequency": "3M",
         "business_day_convention": "modified_following",
         "stub_convention": "ShortFront",
-        "settlement_days": 3,
+        "settlement_days": 1,
         "calendar_id": "target2"
       }
     },

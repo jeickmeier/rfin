@@ -118,6 +118,6 @@ pub use pricer::{
 #[doc(hidden)]
 pub use pricing::BermudanSwaptionTreeValuator;
 pub use types::{
-    BermudanSchedule, BermudanSwaption, BermudanType, GreekInputs, Swaption, SwaptionExercise,
-    SwaptionSettlement, VolatilityModel,
+    BermudanSchedule, BermudanSwaption, BermudanType, CashSettlementMethod, GreekInputs, Swaption,
+    SwaptionExercise, SwaptionSettlement, VolatilityModel,
 };

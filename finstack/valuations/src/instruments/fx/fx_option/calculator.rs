@@ -298,12 +298,17 @@ impl FxOptionCalculator {
     }
 
     /// Compute greeks with calculator configuration.
+    ///
+    /// Returns both spot delta (Bloomberg default) and forward delta (interbank convention).
+    /// Use `delta_forward` for professional FX option hedging and vol surface interpolation.
     pub fn compute_greeks(
         &self,
         inst: &FxOption,
         curves: &MarketContext,
         as_of: Date,
     ) -> Result<FxOptionGreeks> {
+        use crate::instruments::common::models::d1;
+
         self.validate_currency(inst)?;
         let (spot, r_d, r_f, sigma, t) = self.collect_inputs(inst, curves, as_of)?;
 
@@ -329,6 +334,7 @@ impl FxOptionCalculator {
             let scale = inst.notional.amount();
             return Ok(FxOptionGreeks {
                 delta: delta_unit * scale,
+                delta_forward: delta_unit * scale, // Same at expiry
                 ..Default::default()
             });
         }
@@ -344,9 +350,19 @@ impl FxOptionCalculator {
             self.config.theta_days_per_year,
         );
 
+        // Compute forward delta: N(d1) for call, -N(-d1) for put (no foreign rate discount)
+        // This is the professional interbank market convention for G10 FX options.
+        // Spot delta = e^(-r_f * T) × N(d1), Forward delta = N(d1)
+        let d1_val = d1(spot, inst.strike, r_d, sigma, t, r_f);
+        let delta_forward_unit = match inst.option_type {
+            OptionType::Call => finstack_core::math::norm_cdf(d1_val),
+            OptionType::Put => -finstack_core::math::norm_cdf(-d1_val),
+        };
+
         let scale = inst.notional.amount();
         Ok(FxOptionGreeks {
             delta: greeks_unit.delta * scale,
+            delta_forward: delta_forward_unit * scale,
             gamma: greeks_unit.gamma * scale,
             vega: greeks_unit.vega * scale,
             theta: greeks_unit.theta * scale,
@@ -384,8 +400,17 @@ impl FxOptionCalculator {
 /// Cash greeks for an FX option (scaled by notional amount).
 #[derive(Clone, Copy, Debug, Default)]
 pub struct FxOptionGreeks {
-    /// Delta: sensitivity to spot FX rate
+    /// Delta: sensitivity to spot FX rate (spot delta convention).
+    ///
+    /// Spot delta = e^(-r_f × T) × N(d1) for calls, -e^(-r_f × T) × N(-d1) for puts.
+    /// This is the Bloomberg default convention.
     pub delta: f64,
+    /// Forward delta: sensitivity using interbank convention.
+    ///
+    /// Forward delta = N(d1) for calls, -N(-d1) for puts (no foreign rate discounting).
+    /// This is the professional interbank market convention for G10 FX options.
+    /// Use this for hedging and vol surface interpolation in dealer markets.
+    pub delta_forward: f64,
     /// Gamma: rate of change of delta with respect to spot
     pub gamma: f64,
     /// Vega: sensitivity to 1% change in volatility

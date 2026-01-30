@@ -59,9 +59,19 @@
 //!
 //! # Fixing Conventions
 //!
-//! - Fixing typically occurs T-2 before settlement
+//! - Fixing typically occurs T-2 before settlement (T-1 for KRW, PHP)
 //! - Fixing source determines the official rate used
 //! - Once fixed, the NDF becomes a simple cash flow
+//!
+//! Use [`NdfFixingSource`] for type-safe fixing source specification:
+//!
+//! | Currency | Fixing Source | Enum Variant |
+//! |----------|---------------|--------------|
+//! | CNY | PBOC | `NdfFixingSource::Pboc` |
+//! | CNH | CNHFIX | `NdfFixingSource::Cnhfix` |
+//! | INR | RBI | `NdfFixingSource::Rbi` |
+//! | KRW | KFTC | `NdfFixingSource::Kftc` |
+//! | BRL | PTAX | `NdfFixingSource::Ptax` |
 //!
 //! # Examples
 //!
@@ -86,7 +96,7 @@ pub(crate) mod pricer;
 mod types;
 
 pub use pricer::NdfDiscountingPricer;
-pub use types::{Ndf, NdfQuoteConvention};
+pub use types::{Ndf, NdfFixingSource, NdfQuoteConvention};
 
 /// Metrics submodule for NDF risk measures.
 pub(crate) mod metrics;

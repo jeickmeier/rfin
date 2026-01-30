@@ -67,6 +67,7 @@ fn create_cap(as_of: Date, end: Date, strike: f64) -> InterestRateOption {
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
+        vol_type: Default::default(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     }
@@ -90,6 +91,7 @@ fn create_floor(as_of: Date, end: Date, strike: f64) -> InterestRateOption {
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
+        vol_type: Default::default(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     }
@@ -253,6 +255,7 @@ fn test_caplet_floorlet_parity() {
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
+        vol_type: Default::default(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };
@@ -274,6 +277,7 @@ fn test_caplet_floorlet_parity() {
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
+        vol_type: Default::default(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };

@@ -67,6 +67,7 @@ fn create_standard_cap(as_of: Date, end: Date, strike: f64) -> InterestRateOptio
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
+        vol_type: Default::default(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     }
@@ -90,6 +91,7 @@ fn create_standard_floor(as_of: Date, end: Date, strike: f64) -> InterestRateOpt
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
+        vol_type: Default::default(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     }
@@ -315,6 +317,7 @@ fn test_caplet_delta() {
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
+        vol_type: Default::default(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };

@@ -83,4 +83,4 @@ pub(crate) mod pricing;
 mod types;
 
 pub use parameters::InterestRateOptionParams;
-pub use types::{InterestRateOption, RateOptionType};
+pub use types::{CapFloorVolType, InterestRateOption, RateOptionType};

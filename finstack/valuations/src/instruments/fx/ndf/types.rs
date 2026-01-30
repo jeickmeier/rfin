@@ -80,6 +80,152 @@ impl std::str::FromStr for NdfQuoteConvention {
     }
 }
 
+/// Official NDF fixing source/benchmark.
+///
+/// NDF settlements reference official fixing rates published by central banks
+/// or designated fixing bodies. Using the correct fixing source is critical
+/// for proper settlement calculations.
+///
+/// # Market Standards
+///
+/// | Currency | Fixing Source | Publisher | Settlement |
+/// |----------|---------------|-----------|------------|
+/// | CNY | PBOC | People's Bank of China | USD T+2 |
+/// | CNH | CNHFIX | Treasury Markets Association (HK) | USD T+2 |
+/// | INR | RBI | Reserve Bank of India | USD T+2 |
+/// | KRW | KFTC | Korea Financial Telecommunications | USD T+1 |
+/// | BRL | PTAX | Banco Central do Brasil | USD T+2 |
+/// | TWD | TAIFX | Taipei Forex Inc. | USD T+2 |
+/// | PHP | PHP BVAL | Bankers Association of the Philippines | USD T+1 |
+/// | IDR | JISDOR | Bank Indonesia | USD T+2 |
+/// | MYR | BNM | Bank Negara Malaysia | USD T+2 |
+///
+/// # Example
+///
+/// ```rust
+/// use finstack_valuations::instruments::fx::ndf::{Ndf, NdfFixingSource};
+/// use finstack_core::currency::Currency;
+/// use finstack_core::dates::Date;
+/// use finstack_core::money::Money;
+/// use finstack_core::types::{CurveId, InstrumentId};
+/// use time::Month;
+///
+/// let ndf = Ndf::builder()
+///     .id(InstrumentId::new("USDCNY-NDF"))
+///     .base_currency(Currency::CNY)
+///     .settlement_currency(Currency::USD)
+///     .fixing_date(Date::from_calendar_date(2025, Month::March, 13).unwrap())
+///     .maturity_date(Date::from_calendar_date(2025, Month::March, 15).unwrap())
+///     .notional(Money::new(10_000_000.0, Currency::CNY))
+///     .contract_rate(7.25)
+///     .settlement_curve_id(CurveId::new("USD-OIS"))
+///     .fixing_source_enum_opt(Some(NdfFixingSource::Pboc))
+///     .build()
+///     .expect("Valid NDF");
+/// ```
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum NdfFixingSource {
+    /// PBOC - People's Bank of China CNY/USD fixing.
+    /// Published daily at 9:15 AM Beijing time.
+    Pboc,
+    /// CNHFIX - Treasury Markets Association CNH/USD fixing (offshore CNY).
+    /// Published daily at 11:15 AM Hong Kong time.
+    Cnhfix,
+    /// RBI - Reserve Bank of India INR/USD reference rate.
+    /// Published daily around 1:30 PM Mumbai time.
+    Rbi,
+    /// KFTC - Korea Financial Telecommunications and Clearings Institute.
+    /// KRW/USD fixing published at 3:30 PM Seoul time.
+    Kftc,
+    /// PTAX - Banco Central do Brasil BRL/USD reference rate.
+    /// Published daily, settlement uses PTAX 800 (closing rate).
+    Ptax,
+    /// TAIFX - Taipei Forex Inc. TWD/USD fixing.
+    /// Published daily at 11:00 AM Taipei time.
+    Taifx,
+    /// BVAL - Bankers Association of the Philippines PHP/USD reference rate.
+    /// Also known as PHP BVAL or PDEx.
+    PhpBval,
+    /// JISDOR - Jakarta Interbank Spot Dollar Rate (Bank Indonesia).
+    /// IDR/USD fixing published daily at 10:00 AM Jakarta time.
+    Jisdor,
+    /// BNM - Bank Negara Malaysia MYR/USD fixing.
+    /// Published daily at 3:30 PM Kuala Lumpur time.
+    Bnm,
+    /// Custom or other fixing source (specify in fixing_source string field).
+    Other,
+}
+
+impl NdfFixingSource {
+    /// Get the typical currency for this fixing source.
+    ///
+    /// Note: CNHFIX returns CNY since offshore CNY (CNH) is typically
+    /// represented as CNY in most currency enums.
+    pub fn typical_currency(&self) -> Option<Currency> {
+        match self {
+            NdfFixingSource::Pboc => Some(Currency::CNY),
+            // CNHFIX is for offshore CNY, typically mapped to CNY
+            NdfFixingSource::Cnhfix => Some(Currency::CNY),
+            NdfFixingSource::Rbi => Some(Currency::INR),
+            NdfFixingSource::Kftc => Some(Currency::KRW),
+            NdfFixingSource::Ptax => Some(Currency::BRL),
+            NdfFixingSource::Taifx => Some(Currency::TWD),
+            NdfFixingSource::PhpBval => Some(Currency::PHP),
+            NdfFixingSource::Jisdor => Some(Currency::IDR),
+            NdfFixingSource::Bnm => Some(Currency::MYR),
+            NdfFixingSource::Other => None,
+        }
+    }
+
+    /// Get the typical fixing offset (business days before settlement).
+    /// Most NDFs fix T-2, but some (KRW, PHP) fix T-1.
+    pub fn typical_fixing_offset(&self) -> i64 {
+        match self {
+            NdfFixingSource::Kftc => 1,    // KRW fixes T-1
+            NdfFixingSource::PhpBval => 1, // PHP fixes T-1
+            _ => 2,                        // Most currencies fix T-2
+        }
+    }
+}
+
+impl std::fmt::Display for NdfFixingSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            NdfFixingSource::Pboc => write!(f, "PBOC"),
+            NdfFixingSource::Cnhfix => write!(f, "CNHFIX"),
+            NdfFixingSource::Rbi => write!(f, "RBI"),
+            NdfFixingSource::Kftc => write!(f, "KFTC"),
+            NdfFixingSource::Ptax => write!(f, "PTAX"),
+            NdfFixingSource::Taifx => write!(f, "TAIFX"),
+            NdfFixingSource::PhpBval => write!(f, "PHP_BVAL"),
+            NdfFixingSource::Jisdor => write!(f, "JISDOR"),
+            NdfFixingSource::Bnm => write!(f, "BNM"),
+            NdfFixingSource::Other => write!(f, "OTHER"),
+        }
+    }
+}
+
+impl std::str::FromStr for NdfFixingSource {
+    type Err = String;
+
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+        match s.to_ascii_uppercase().as_str() {
+            "PBOC" => Ok(NdfFixingSource::Pboc),
+            "CNHFIX" | "CNH_FIX" => Ok(NdfFixingSource::Cnhfix),
+            "RBI" => Ok(NdfFixingSource::Rbi),
+            "KFTC" => Ok(NdfFixingSource::Kftc),
+            "PTAX" => Ok(NdfFixingSource::Ptax),
+            "TAIFX" => Ok(NdfFixingSource::Taifx),
+            "PHP_BVAL" | "PHPBVAL" | "BVAL" | "PDEX" => Ok(NdfFixingSource::PhpBval),
+            "JISDOR" => Ok(NdfFixingSource::Jisdor),
+            "BNM" => Ok(NdfFixingSource::Bnm),
+            "OTHER" => Ok(NdfFixingSource::Other),
+            other => Err(format!("Unknown NDF fixing source: {}", other)),
+        }
+    }
+}
+
 /// Non-Deliverable Forward (NDF) instrument.
 ///
 /// Represents a cash-settled forward contract on a restricted currency pair.
@@ -181,13 +327,26 @@ pub struct Ndf {
         serde(default, skip_serializing_if = "Option::is_none")
     )]
     pub fixing_rate: Option<f64>,
-    /// Fixing source/benchmark (e.g., "CNHFIX", "RBI", "PTAX").
+    /// Fixing source/benchmark as string (e.g., "CNHFIX", "RBI", "PTAX").
+    ///
+    /// **Deprecated**: Use `fixing_source_enum` for type-safe fixing source specification.
+    /// This field is retained for backward compatibility with legacy data.
     #[builder(optional)]
     #[cfg_attr(
         feature = "serde",
         serde(default, skip_serializing_if = "Option::is_none")
     )]
     pub fixing_source: Option<String>,
+    /// Official fixing source/benchmark enum for type-safe specification.
+    ///
+    /// Use this field instead of `fixing_source` for validated fixing sources.
+    /// See [`NdfFixingSource`] for supported benchmarks and their typical currencies.
+    #[builder(optional)]
+    #[cfg_attr(
+        feature = "serde",
+        serde(default, skip_serializing_if = "Option::is_none")
+    )]
+    pub fixing_source_enum: Option<NdfFixingSource>,
     /// Optional spot rate override for forward rate calculation.
     /// Interpretation depends on `quote_convention`.
     #[builder(optional)]
@@ -234,7 +393,7 @@ impl Ndf {
             .notional(Money::new(10_000_000.0, Currency::CNY))
             .contract_rate(7.25)
             .settlement_curve_id(CurveId::new("USD-OIS"))
-            .fixing_source_opt(Some("CNHFIX".to_string()))
+            .fixing_source_enum_opt(Some(NdfFixingSource::Pboc))
             .attributes(
                 Attributes::new()
                     .with_tag("ndf")
@@ -242,6 +401,63 @@ impl Ndf {
             )
             .build()
             .expect("Example NDF construction should not fail")
+    }
+
+    /// Validate that the fixing source is appropriate for the base currency.
+    ///
+    /// Returns an error if the fixing source enum is set and doesn't match
+    /// the expected currency for that benchmark.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use finstack_valuations::instruments::fx::ndf::{Ndf, NdfFixingSource};
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::dates::Date;
+    /// use finstack_core::money::Money;
+    /// use finstack_core::types::{CurveId, InstrumentId};
+    /// use time::Month;
+    ///
+    /// // This is valid: CNY with PBOC fixing
+    /// let ndf_cny = Ndf::builder()
+    ///     .id(InstrumentId::new("USDCNY"))
+    ///     .base_currency(Currency::CNY)
+    ///     .settlement_currency(Currency::USD)
+    ///     .fixing_date(Date::from_calendar_date(2025, Month::March, 13).unwrap())
+    ///     .maturity_date(Date::from_calendar_date(2025, Month::March, 15).unwrap())
+    ///     .notional(Money::new(10_000_000.0, Currency::CNY))
+    ///     .contract_rate(7.25)
+    ///     .settlement_curve_id(CurveId::new("USD-OIS"))
+    ///     .fixing_source_enum_opt(Some(NdfFixingSource::Pboc))
+    ///     .build()
+    ///     .unwrap();
+    /// assert!(ndf_cny.validate_fixing_source().is_ok());
+    /// ```
+    pub fn validate_fixing_source(&self) -> Result<()> {
+        if let Some(fixing_source) = &self.fixing_source_enum {
+            if let Some(expected_ccy) = fixing_source.typical_currency() {
+                if expected_ccy != self.base_currency {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "Fixing source {} is typically used for {} but NDF base currency is {}. \
+                         Consider using the appropriate fixing source for this currency.",
+                        fixing_source, expected_ccy, self.base_currency
+                    )));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Get the effective fixing source as a string.
+    ///
+    /// Returns the enum display name if `fixing_source_enum` is set,
+    /// otherwise returns the `fixing_source` string if set.
+    pub fn effective_fixing_source(&self) -> Option<String> {
+        if let Some(fixing_enum) = &self.fixing_source_enum {
+            Some(fixing_enum.to_string())
+        } else {
+            self.fixing_source.clone()
+        }
     }
 
     /// Construct an NDF from trade date and tenor using standard fixing offset.
@@ -810,6 +1026,156 @@ mod tests {
             err_msg.contains("past fixing date"),
             "Error should mention past fixing date: {}",
             err_msg
+        );
+    }
+
+    #[test]
+    fn test_ndf_fixing_source_enum_display_and_parse() {
+        // Test display
+        assert_eq!(NdfFixingSource::Pboc.to_string(), "PBOC");
+        assert_eq!(NdfFixingSource::Cnhfix.to_string(), "CNHFIX");
+        assert_eq!(NdfFixingSource::Rbi.to_string(), "RBI");
+        assert_eq!(NdfFixingSource::Kftc.to_string(), "KFTC");
+        assert_eq!(NdfFixingSource::Ptax.to_string(), "PTAX");
+
+        // Test parse
+        assert_eq!(
+            "PBOC".parse::<NdfFixingSource>().expect("valid source"),
+            NdfFixingSource::Pboc
+        );
+        assert_eq!(
+            "CNHFIX".parse::<NdfFixingSource>().expect("valid source"),
+            NdfFixingSource::Cnhfix
+        );
+        assert_eq!(
+            "cnh_fix".parse::<NdfFixingSource>().expect("valid source"),
+            NdfFixingSource::Cnhfix
+        );
+        assert_eq!(
+            "RBI".parse::<NdfFixingSource>().expect("valid source"),
+            NdfFixingSource::Rbi
+        );
+    }
+
+    #[test]
+    fn test_ndf_fixing_source_typical_currency() {
+        assert_eq!(
+            NdfFixingSource::Pboc.typical_currency(),
+            Some(Currency::CNY)
+        );
+        // CNHFIX maps to CNY (offshore CNY uses same currency code in most systems)
+        assert_eq!(
+            NdfFixingSource::Cnhfix.typical_currency(),
+            Some(Currency::CNY)
+        );
+        assert_eq!(NdfFixingSource::Rbi.typical_currency(), Some(Currency::INR));
+        assert_eq!(
+            NdfFixingSource::Kftc.typical_currency(),
+            Some(Currency::KRW)
+        );
+        assert_eq!(
+            NdfFixingSource::Ptax.typical_currency(),
+            Some(Currency::BRL)
+        );
+        assert_eq!(NdfFixingSource::Other.typical_currency(), None);
+    }
+
+    #[test]
+    fn test_ndf_fixing_source_typical_fixing_offset() {
+        // Most currencies fix T-2
+        assert_eq!(NdfFixingSource::Pboc.typical_fixing_offset(), 2);
+        assert_eq!(NdfFixingSource::Rbi.typical_fixing_offset(), 2);
+        assert_eq!(NdfFixingSource::Ptax.typical_fixing_offset(), 2);
+
+        // KRW and PHP fix T-1
+        assert_eq!(NdfFixingSource::Kftc.typical_fixing_offset(), 1);
+        assert_eq!(NdfFixingSource::PhpBval.typical_fixing_offset(), 1);
+    }
+
+    #[test]
+    fn test_ndf_validate_fixing_source_valid() {
+        let ndf = Ndf::builder()
+            .id(InstrumentId::new("USDCNY"))
+            .base_currency(Currency::CNY)
+            .settlement_currency(Currency::USD)
+            .fixing_date(Date::from_calendar_date(2025, Month::March, 13).expect("valid date"))
+            .maturity_date(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
+            .notional(Money::new(10_000_000.0, Currency::CNY))
+            .contract_rate(7.25)
+            .settlement_curve_id(CurveId::new("USD-OIS"))
+            .fixing_source_enum_opt(Some(NdfFixingSource::Pboc))
+            .attributes(Attributes::new())
+            .build()
+            .expect("should build");
+
+        // CNY with PBOC is valid
+        assert!(ndf.validate_fixing_source().is_ok());
+    }
+
+    #[test]
+    fn test_ndf_validate_fixing_source_mismatch_warns() {
+        let ndf = Ndf::builder()
+            .id(InstrumentId::new("USDINR"))
+            .base_currency(Currency::INR)
+            .settlement_currency(Currency::USD)
+            .fixing_date(Date::from_calendar_date(2025, Month::March, 13).expect("valid date"))
+            .maturity_date(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
+            .notional(Money::new(10_000_000.0, Currency::INR))
+            .contract_rate(83.50)
+            .settlement_curve_id(CurveId::new("USD-OIS"))
+            .fixing_source_enum_opt(Some(NdfFixingSource::Pboc)) // Wrong! PBOC is for CNY
+            .attributes(Attributes::new())
+            .build()
+            .expect("should build");
+
+        // INR with PBOC is a mismatch
+        let result = ndf.validate_fixing_source();
+        assert!(result.is_err(), "Should warn about fixing source mismatch");
+        let err_msg = result.expect_err("expected an error").to_string();
+        assert!(
+            err_msg.contains("CNY") && err_msg.contains("INR"),
+            "Error should mention currency mismatch: {}",
+            err_msg
+        );
+    }
+
+    #[test]
+    fn test_ndf_effective_fixing_source() {
+        // With enum set
+        let ndf_enum = Ndf::builder()
+            .id(InstrumentId::new("USDCNY"))
+            .base_currency(Currency::CNY)
+            .settlement_currency(Currency::USD)
+            .fixing_date(Date::from_calendar_date(2025, Month::March, 13).expect("valid date"))
+            .maturity_date(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
+            .notional(Money::new(10_000_000.0, Currency::CNY))
+            .contract_rate(7.25)
+            .settlement_curve_id(CurveId::new("USD-OIS"))
+            .fixing_source_enum_opt(Some(NdfFixingSource::Pboc))
+            .attributes(Attributes::new())
+            .build()
+            .expect("should build");
+
+        assert_eq!(ndf_enum.effective_fixing_source(), Some("PBOC".to_string()));
+
+        // With string set
+        let ndf_string = Ndf::builder()
+            .id(InstrumentId::new("USDCNY"))
+            .base_currency(Currency::CNY)
+            .settlement_currency(Currency::USD)
+            .fixing_date(Date::from_calendar_date(2025, Month::March, 13).expect("valid date"))
+            .maturity_date(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
+            .notional(Money::new(10_000_000.0, Currency::CNY))
+            .contract_rate(7.25)
+            .settlement_curve_id(CurveId::new("USD-OIS"))
+            .fixing_source_opt(Some("CustomSource".to_string()))
+            .attributes(Attributes::new())
+            .build()
+            .expect("should build");
+
+        assert_eq!(
+            ndf_string.effective_fixing_source(),
+            Some("CustomSource".to_string())
         );
     }
 }

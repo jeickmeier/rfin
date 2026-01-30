@@ -67,11 +67,11 @@ fn test_swaption_cash_annuity_zero_forward_and_invalid_freq() {
     let expected = swaption
         .year_fraction(swaption.swap_start, swaption.swap_end, swaption.day_count)
         .unwrap();
-    let annuity = swaption.cash_annuity(0.0).unwrap();
+    let annuity = swaption.cash_annuity_par_yield(0.0).unwrap();
     assert_approx_eq(annuity, expected, 1e-8, "cash annuity zero rate");
 
     swaption.fixed_freq = Tenor::new(0, TenorUnit::Months);
-    assert!(swaption.cash_annuity(0.02).is_err());
+    assert!(swaption.cash_annuity_par_yield(0.02).is_err());
 }
 
 #[test]

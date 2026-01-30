@@ -73,6 +73,7 @@ fn test_black_model_symmetry() {
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
+        vol_type: Default::default(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };
@@ -130,6 +131,7 @@ fn test_vega_gamma_relation() {
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
+        vol_type: Default::default(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };
@@ -185,6 +187,7 @@ fn test_delta_by_finite_difference() {
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
+        vol_type: Default::default(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };
@@ -268,6 +271,7 @@ fn test_vega_by_finite_difference() {
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
+        vol_type: Default::default(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };
@@ -353,6 +357,7 @@ fn test_numerical_stability_extreme_params() {
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
+        vol_type: Default::default(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };

@@ -67,6 +67,7 @@ fn create_standard_cap(_as_of: Date, start: Date, end: Date, strike: f64) -> Int
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
+        vol_type: Default::default(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     }
@@ -131,6 +132,7 @@ fn test_floor_forward_pv01() {
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
+        vol_type: Default::default(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };

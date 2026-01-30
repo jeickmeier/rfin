@@ -9,6 +9,60 @@ use finstack_core::types::{CurveId, InstrumentId, Rate};
 
 use super::parameters::InterestRateOptionParams;
 
+/// Volatility convention for cap/floor pricing.
+///
+/// The volatility type determines how the input volatility is interpreted
+/// and which pricing model is used:
+///
+/// # Lognormal (Black-Scholes)
+///
+/// The standard market convention where volatility is expressed as a
+/// proportion of the forward rate. Uses the Black (1976) formula.
+///
+/// **Constraints**: Requires positive forward rates and strikes.
+///
+/// # Normal (Bachelier)
+///
+/// Volatility expressed in absolute rate terms (e.g., 50bp = 0.50%).
+/// Uses the Bachelier model, which naturally handles negative rates.
+///
+/// **Use case**: EUR/CHF markets with negative rates.
+///
+/// # Market Convention Notes
+///
+/// - **USD**: Historically lognormal, shifting to normal post-SOFR
+/// - **EUR**: Predominantly normal since negative rates became common
+/// - **GBP/JPY**: Mixed, check dealer quotes
+///
+/// Always verify the vol convention with your data provider as using
+/// the wrong type will produce materially incorrect prices.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+pub enum CapFloorVolType {
+    /// Lognormal (Black) volatility - percentage of forward rate.
+    ///
+    /// Standard market convention. Volatility is typically quoted as a
+    /// decimal (e.g., 0.20 for 20% vol).
+    #[default]
+    Lognormal,
+
+    /// Normal (Bachelier) volatility - absolute rate terms.
+    ///
+    /// Volatility is quoted in the same units as rates (e.g., 0.0050 for 50bp).
+    /// Required for negative rate environments.
+    Normal,
+}
+
+impl std::fmt::Display for CapFloorVolType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CapFloorVolType::Lognormal => write!(f, "lognormal"),
+            CapFloorVolType::Normal => write!(f, "normal"),
+        }
+    }
+}
+
 /// Minimum time-to-fixing for vol surface lookup (in years).
 ///
 /// When a caplet is at or past its fixing date (`t_fix <= 0`), the vol surface lookup
@@ -72,6 +126,16 @@ pub struct InterestRateOption {
     pub forward_id: CurveId,
     /// Volatility surface identifier
     pub vol_surface_id: CurveId,
+    /// Volatility type convention (lognormal/Black or normal/Bachelier).
+    ///
+    /// **Critical**: This must match the convention of your vol surface data.
+    /// Using lognormal vol with a normal surface (or vice versa) will produce
+    /// incorrect prices.
+    ///
+    /// - `Lognormal` (default): Standard Black model, requires positive rates/strikes
+    /// - `Normal`: Bachelier model, handles negative rates
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub vol_type: CapFloorVolType,
     /// Pricing overrides (including implied volatility)
     pub pricing_overrides: PricingOverrides,
     /// Additional attributes
@@ -106,6 +170,7 @@ impl InterestRateOption {
             discount_curve_id: discount_curve_id.into(),
             forward_id: forward_id.into(),
             vol_surface_id: vol_surface_id.into(),
+            vol_type: CapFloorVolType::default(),
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
         }
@@ -162,13 +227,14 @@ impl InterestRateOption {
             frequency,
             day_count,
             stub_kind: StubKind::None,
-            bdc: BusinessDayConvention::Following,
+            bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
             exercise_style: ExerciseStyle::European,
             settlement: SettlementType::Cash,
             discount_curve_id: discount_curve_id.into(),
             forward_id: forward_id.into(),
             vol_surface_id: vol_surface_id.into(),
+            vol_type: CapFloorVolType::default(),
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
         }
@@ -225,16 +291,33 @@ impl InterestRateOption {
             frequency,
             day_count,
             stub_kind: StubKind::None,
-            bdc: BusinessDayConvention::Following,
+            bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
             exercise_style: ExerciseStyle::European,
             settlement: SettlementType::Cash,
             discount_curve_id: discount_curve_id.into(),
             forward_id: forward_id.into(),
             vol_surface_id: vol_surface_id.into(),
+            vol_type: CapFloorVolType::default(),
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
         }
+    }
+
+    /// Set the volatility type convention.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use finstack_valuations::instruments::rates::cap_floor::{InterestRateOption, CapFloorVolType};
+    ///
+    /// // Create a floor with normal volatility for EUR market
+    /// let floor = InterestRateOption::new_floor(/* ... */)
+    ///     .with_vol_type(CapFloorVolType::Normal);
+    /// ```
+    pub fn with_vol_type(mut self, vol_type: CapFloorVolType) -> Self {
+        self.vol_type = vol_type;
+        self
     }
 }
 
@@ -588,7 +671,7 @@ mod tests {
             end_date,
             Tenor::quarterly(),
             StubKind::None,
-            BusinessDayConvention::Following,
+            BusinessDayConvention::ModifiedFollowing,
             None,
         )
         .expect("schedule");

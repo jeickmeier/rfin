@@ -135,6 +135,7 @@ fn test_caplet_creation() {
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),
         vol_surface_id: "USD_CAP_VOL".into(),
+        vol_type: Default::default(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };
@@ -166,6 +167,7 @@ fn test_floorlet_creation() {
         discount_curve_id: "EUR_OIS".into(),
         forward_id: "EUR_EURIBOR_6M".into(),
         vol_surface_id: "EUR_CAP_VOL".into(),
+        vol_type: Default::default(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };

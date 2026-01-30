@@ -341,6 +341,8 @@ struct SwapConfig<'a> {
     disc_curve: &'a str,
     fwd_curve: &'a str,
     reset_lag_days: i32,
+    /// Payment delay in business days after period end.
+    payment_delay_days: i32,
     sched: IRSScheduleConfig,
 }
 
@@ -546,8 +548,9 @@ impl InterestRateSwap {
             disc_curve: "USD-OIS",
             fwd_curve: "USD-SOFR-3M",
             // Use 0 for convenience constructor to avoid requiring historical fixings.
-            // For T-2 reset behavior, use the builder with reset_lag_days: 2.
+            // For T-2 reset behavior, use create_usd_swap_market_standard().
             reset_lag_days: 0,
+            payment_delay_days: 0,
             sched: IRSScheduleConfig::usd_isda_standard(),
         };
 
@@ -564,6 +567,87 @@ impl InterestRateSwap {
         side: PayReceive,
     ) -> finstack_core::Result<Self> {
         Self::create_usd_swap(id, notional, fixed_rate.as_decimal(), start, end, side)
+    }
+
+    /// Create a USD IRS with full ISDA market-standard conventions.
+    ///
+    /// This constructor uses **production-ready** conventions that match
+    /// professional trading systems and market confirmations:
+    ///
+    /// - **Reset lag**: T-2 (2 business days before period start)
+    /// - **Payment delay**: 2 business days after period end
+    /// - **Fixed leg**: Semi-annual, 30/360, Modified Following
+    /// - **Float leg**: Quarterly, ACT/360, Modified Following
+    /// - **Calendar**: USNY (US New York banking holidays)
+    ///
+    /// # Historical Fixings
+    ///
+    /// For seasoned swaps where `as_of` is after the first reset date, you must
+    /// provide historical fixings in the `MarketContext` under the key
+    /// `FIXING:{forward_curve_id}` (e.g., `FIXING:USD-SOFR-3M`).
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
+    /// use finstack_core::{dates::Date, money::Money, currency::Currency, types::InstrumentId};
+    ///
+    /// let swap = InterestRateSwap::create_usd_swap_market_standard(
+    ///     InstrumentId::new("IRS-5Y-USD-001"),
+    ///     Money::new(10_000_000.0, Currency::USD),
+    ///     0.035, // 3.5% fixed rate
+    ///     Date::from_calendar_date(2025, time::Month::January, 15).unwrap(),
+    ///     Date::from_calendar_date(2030, time::Month::January, 15).unwrap(),
+    ///     PayReceive::PayFixed,
+    /// )?;
+    /// # Ok::<(), finstack_core::Error>(())
+    /// ```
+    ///
+    /// # References
+    ///
+    /// - ISDA 2006/2021 Definitions
+    /// - ARRC (Alternative Reference Rates Committee) SOFR conventions
+    /// - Bloomberg SWPM function documentation
+    pub fn create_usd_swap_market_standard(
+        id: InstrumentId,
+        notional: Money,
+        fixed_rate: f64,
+        start: Date,
+        end: Date,
+        side: PayReceive,
+    ) -> finstack_core::Result<Self> {
+        let config = SwapConfig {
+            disc_curve: "USD-OIS",
+            fwd_curve: "USD-SOFR-3M",
+            // Market-standard T-2 reset (2 business days before accrual start)
+            reset_lag_days: 2,
+            // Market-standard 2 business day payment delay
+            payment_delay_days: 2,
+            sched: IRSScheduleConfig::usd_isda_standard(),
+        };
+
+        Self::create_swap_with_config(id, notional, fixed_rate, start, end, side, config)
+    }
+
+    /// Create a USD IRS with market-standard conventions using a typed fixed rate.
+    ///
+    /// See [`create_usd_swap_market_standard`](Self::create_usd_swap_market_standard) for details.
+    pub fn create_usd_swap_market_standard_rate(
+        id: InstrumentId,
+        notional: Money,
+        fixed_rate: Rate,
+        start: Date,
+        end: Date,
+        side: PayReceive,
+    ) -> finstack_core::Result<Self> {
+        Self::create_usd_swap_market_standard(
+            id,
+            notional,
+            fixed_rate.as_decimal(),
+            start,
+            end,
+            side,
+        )
     }
 
     /// Create a canonical example IRS for testing and documentation.
@@ -664,7 +748,7 @@ impl InterestRateSwap {
             end,
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_delay_days: config.payment_delay_days,
         };
         let float = FloatLegSpec {
             discount_curve_id: finstack_core::types::CurveId::from(config.disc_curve),
@@ -680,7 +764,7 @@ impl InterestRateSwap {
             end,
             compounding: Default::default(),
             fixing_calendar_id: None,
-            payment_delay_days: 0,
+            payment_delay_days: config.payment_delay_days,
         };
         let swap = Self::builder()
             .id(id)
@@ -815,6 +899,7 @@ mod tests {
             disc_curve: "USD-OIS",
             fwd_curve: "USD-SOFR-3M",
             reset_lag_days: 2,
+            payment_delay_days: 2,
             sched: IRSScheduleConfig::usd_isda_standard(),
         };
 

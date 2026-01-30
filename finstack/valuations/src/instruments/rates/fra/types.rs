@@ -42,8 +42,18 @@ const MAX_REASONABLE_RATE: f64 = 0.50;
 ///   When forward rate > fixed rate, PV is negative (you're paying more than receiving).
 /// - `receive_fixed = false`: Pay fixed rate, receive floating rate.
 ///   When forward rate > fixed rate, PV is positive (you're receiving more than paying).
+///
+/// # Migration from `pay_fixed`
+///
+/// Prior versions used `pay_fixed` with opposite semantics. The deserializer
+/// handles this by:
+/// 1. Detecting the legacy `pay_fixed` field
+/// 2. Logging a deprecation warning
+/// 3. Inverting the value to maintain correct trade economics
+///
+/// **Action Required**: Update JSON/configs to use `receive_fixed` with correct semantics.
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct ForwardRateAgreement {
     /// Unique identifier
@@ -93,15 +103,98 @@ pub struct ForwardRateAgreement {
     /// Forward curve identifier
     pub forward_id: CurveId,
     /// Direction: true = receive fixed rate, pay floating rate.
-    ///
-    /// # Deprecated Alias
-    ///
-    /// Previously named `pay_fixed` with inverted semantics. The old name is preserved
-    /// for JSON/serde compatibility but the field now correctly represents "receive fixed".
-    #[cfg_attr(feature = "serde", serde(alias = "pay_fixed"))]
     pub receive_fixed: bool,
     /// Attributes for scenario selection
     pub attributes: Attributes,
+}
+
+/// Custom deserializer for ForwardRateAgreement that handles the `pay_fixed` → `receive_fixed`
+/// migration with proper semantic inversion.
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for ForwardRateAgreement {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        /// Helper struct that matches the JSON structure, accepting either field name.
+        #[derive(serde::Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct FraHelper {
+            id: InstrumentId,
+            notional: Money,
+            #[serde(default)]
+            fixing_date: Option<Date>,
+            start_date: Date,
+            end_date: Date,
+            fixed_rate: f64,
+            day_count: DayCount,
+            reset_lag: i32,
+            #[serde(default)]
+            fixing_calendar_id: Option<String>,
+            #[serde(default)]
+            fixing_bdc: Option<BusinessDayConvention>,
+            #[serde(default)]
+            observed_fixing: Option<f64>,
+            discount_curve_id: CurveId,
+            forward_id: CurveId,
+            /// New field name with correct semantics
+            #[serde(default)]
+            receive_fixed: Option<bool>,
+            /// Legacy field name with inverted semantics (DEPRECATED)
+            #[serde(default)]
+            pay_fixed: Option<bool>,
+            attributes: Attributes,
+        }
+
+        let helper = FraHelper::deserialize(deserializer)?;
+
+        // Determine receive_fixed value, handling the semantic inversion for pay_fixed
+        let receive_fixed = match (helper.receive_fixed, helper.pay_fixed) {
+            (Some(rf), None) => rf,
+            (None, Some(pf)) => {
+                // DEPRECATED: pay_fixed has inverted semantics
+                // pay_fixed=true meant "pay fixed, receive floating" which is receive_fixed=false
+                tracing::warn!(
+                    instrument_id = %helper.id.as_str(),
+                    pay_fixed = pf,
+                    computed_receive_fixed = !pf,
+                    "FRA uses deprecated 'pay_fixed' field. This field has inverted semantics \
+                     and will be removed in a future version. Please migrate to 'receive_fixed'. \
+                     pay_fixed=true → receive_fixed=false (pay fixed, receive floating); \
+                     pay_fixed=false → receive_fixed=true (receive fixed, pay floating)"
+                );
+                // Invert the value to correct the semantics
+                !pf
+            }
+            (Some(_), Some(_)) => {
+                return Err(serde::de::Error::custom(
+                    "FRA cannot have both 'receive_fixed' and 'pay_fixed' fields; \
+                     remove the deprecated 'pay_fixed' field",
+                ));
+            }
+            (None, None) => {
+                return Err(serde::de::Error::missing_field("receive_fixed"));
+            }
+        };
+
+        Ok(ForwardRateAgreement {
+            id: helper.id,
+            notional: helper.notional,
+            fixing_date: helper.fixing_date,
+            start_date: helper.start_date,
+            end_date: helper.end_date,
+            fixed_rate: helper.fixed_rate,
+            day_count: helper.day_count,
+            reset_lag: helper.reset_lag,
+            fixing_calendar_id: helper.fixing_calendar_id,
+            fixing_bdc: helper.fixing_bdc,
+            observed_fixing: helper.observed_fixing,
+            discount_curve_id: helper.discount_curve_id,
+            forward_id: helper.forward_id,
+            receive_fixed,
+            attributes: helper.attributes,
+        })
+    }
 }
 
 impl ForwardRateAgreement {

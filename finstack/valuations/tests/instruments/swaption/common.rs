@@ -84,6 +84,7 @@ pub fn create_standard_payer_swaption(
         day_count: DayCount::Thirty360,
         exercise: SwaptionExercise::European,
         settlement: SwaptionSettlement::Physical,
+        cash_settlement_method: Default::default(),
         vol_model: VolatilityModel::Black,
         discount_curve_id: "USD_OIS".into(),
         forward_id: "USD_LIBOR_3M".into(),

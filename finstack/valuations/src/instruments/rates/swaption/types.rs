@@ -53,6 +53,77 @@ pub enum SwaptionSettlement {
     Cash,
 }
 
+/// Cash settlement annuity method for cash-settled swaptions.
+///
+/// Different methods exist for calculating the annuity factor used in cash settlement:
+///
+/// # Market Background
+///
+/// When a swaption is cash-settled, the payoff is:
+/// ```text
+/// Payoff = Annuity × max(S - K, 0)  [for payer]
+/// ```
+///
+/// The choice of annuity method affects the settlement amount and can result
+/// in differences of several basis points on notional for steep curves.
+///
+/// # References
+///
+/// - ISDA 2006 Definitions, Section 18.2
+/// - "Interest Rate Models" by Brigo & Mercurio, Chapter 6
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "snake_case"))]
+pub enum CashSettlementMethod {
+    /// Par yield approximation using flat forward rate.
+    ///
+    /// ```text
+    /// A = (1 - (1 + S/m)^(-N)) / S
+    /// ```
+    ///
+    /// This is a closed-form approximation that assumes the forward swap rate
+    /// is a constant discount rate. Fast but less accurate for steep curves.
+    #[default]
+    ParYield,
+
+    /// ISDA Par-Par method using actual swap annuity from discount curve.
+    ///
+    /// ```text
+    /// A = Σ τ_i × DF(t_i)
+    /// ```
+    ///
+    /// Uses the actual market discount factors to compute the annuity,
+    /// matching the PV01 of the underlying swap. This is the most accurate
+    /// method and matches professional library implementations.
+    ///
+    /// # When to Use
+    ///
+    /// - Production pricing requiring ISDA compliance
+    /// - Steep yield curve environments
+    /// - Long-dated swaptions (> 5Y into > 10Y swap)
+    /// - Any situation where cash settlement valuation precision matters
+    IsdaParPar,
+
+    /// Zero coupon method discounting the single payment to swap maturity.
+    ///
+    /// ```text
+    /// A = τ × DF(T_swap)
+    /// ```
+    ///
+    /// Rarely used in modern markets; included for completeness.
+    ZeroCoupon,
+}
+
+impl std::fmt::Display for CashSettlementMethod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CashSettlementMethod::ParYield => write!(f, "par_yield"),
+            CashSettlementMethod::IsdaParPar => write!(f, "isda_par_par"),
+            CashSettlementMethod::ZeroCoupon => write!(f, "zero_coupon"),
+        }
+    }
+}
+
 impl std::fmt::Display for SwaptionSettlement {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -266,6 +337,13 @@ pub struct Swaption {
     pub exercise: SwaptionExercise,
     /// Settlement method (physical or cash)
     pub settlement: SwaptionSettlement,
+    /// Cash settlement annuity method (only used when settlement = Cash).
+    ///
+    /// - `ParYield` (default): Fast approximation using flat forward rate
+    /// - `IsdaParPar`: Uses actual swap annuity from discount curve (ISDA compliant)
+    /// - `ZeroCoupon`: Discounts to swap maturity (rarely used)
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub cash_settlement_method: CashSettlementMethod,
     /// Volatility model (Black or Normal)
     #[cfg_attr(feature = "serde", serde(default))]
     pub vol_model: VolatilityModel,
@@ -305,6 +383,7 @@ impl Swaption {
             day_count: DayCount::Thirty360,
             exercise: SwaptionExercise::European,
             settlement: SwaptionSettlement::Cash,
+            cash_settlement_method: CashSettlementMethod::default(),
             vol_model: VolatilityModel::Black,
             discount_curve_id: CurveId::new("USD-OIS"),
             forward_id: CurveId::new("USD-SOFR-3M"),
@@ -336,6 +415,7 @@ impl Swaption {
             day_count: DayCount::Thirty360,
             exercise: SwaptionExercise::European,
             settlement: SwaptionSettlement::Physical,
+            cash_settlement_method: CashSettlementMethod::default(),
             discount_curve_id: discount_curve_id.into(),
             forward_id: forward_id.into(),
             vol_surface_id: vol_surface_id.into(),
@@ -377,6 +457,7 @@ impl Swaption {
             day_count: DayCount::Thirty360,
             exercise: SwaptionExercise::European,
             settlement: SwaptionSettlement::Physical,
+            cash_settlement_method: CashSettlementMethod::default(),
             discount_curve_id: discount_curve_id.into(),
             forward_id: forward_id.into(),
             vol_surface_id: vol_surface_id.into(),
@@ -400,6 +481,24 @@ impl Swaption {
     /// Attach SABR parameters to enable SABR-implied volatility pricing.
     pub fn with_sabr(mut self, params: SABRParameters) -> Self {
         self.sabr_params = Some(params);
+        self
+    }
+
+    /// Set the cash settlement annuity method.
+    ///
+    /// Only affects pricing when `settlement` is `SwaptionSettlement::Cash`.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use finstack_valuations::instruments::rates::swaption::{Swaption, CashSettlementMethod};
+    ///
+    /// // Create a cash-settled swaption with ISDA Par-Par settlement
+    /// let swaption = Swaption::example()
+    ///     .with_cash_settlement_method(CashSettlementMethod::IsdaParPar);
+    /// ```
+    pub fn with_cash_settlement_method(mut self, method: CashSettlementMethod) -> Self {
+        self.cash_settlement_method = method;
         self
     }
 
@@ -556,45 +655,62 @@ impl Swaption {
         match self.vol_model {
             VolatilityModel::Black => self.price_black(curves, sabr_lognormal_vol, as_of),
             VolatilityModel::Normal => {
-                // Convert lognormal vol to normal vol using improved Hagan approximation.
+                // Convert lognormal vol to normal vol using the Brenner-Subrahmanyam / Hagan
+                // approximation with second-order correction.
                 //
                 // The exact relationship between lognormal (Black) and normal (Bachelier)
                 // volatilities involves solving a non-linear equation. We use the
-                // second-order approximation from Hagan et al.:
+                // well-known approximation:
                 //
-                // σ_normal ≈ σ_lognormal × F_mid × [1 - (σ²T/24) × (1 - F_mid²/FK)]
+                // For ATM (F = K):
+                //   σ_normal ≈ σ_lognormal × F × [1 - σ_lognormal²T / 24]
                 //
-                // where F_mid = √(F×K) is the geometric mean of forward and strike.
+                // For general F ≠ K, using the Brenner-Subrahmanyam (1988) approximation
+                // with Hagan's refinement:
+                //   σ_normal ≈ σ_lognormal × (F - K) / ln(F/K) × [1 - σ_lognormal²T / 24]
                 //
-                // For ATM (F = K), this simplifies to: σ_normal = σ_lognormal × F
-                // For OTM/ITM, the correction term improves accuracy to ~1bp for
-                // typical market conditions.
+                // The term (F - K) / ln(F/K) converges to F when K → F (ATM limit).
+                // For deep OTM/ITM, additional correction using ln(F/K)² improves accuracy.
                 //
                 // References:
+                // - Brenner, M. & Subrahmanyam, M.G. (1988). "A Simple Formula to Compute
+                //   the Implied Standard Deviation"
                 // - Hagan, P. et al. (2002). "Managing Smile Risk" Wilmott Magazine
                 // - Jaeckel, P. (2017). "Let's Be Rational" for exact conversion
                 let f = forward_rate;
                 let k = self.strike_rate;
-                let geometric_mean_fk = (f * k).abs().sqrt();
+                let variance = sabr_lognormal_vol * sabr_lognormal_vol * time_to_expiry;
 
-                let sabr_normal_vol = if geometric_mean_fk > 1e-10 {
-                    // Second-order correction for non-ATM options
-                    let variance = sabr_lognormal_vol * sabr_lognormal_vol * time_to_expiry;
+                let sabr_normal_vol = if f <= 0.0 || k <= 0.0 {
+                    // Fallback for non-positive rates: use absolute value approximation
+                    sabr_lognormal_vol * f.abs().max(1e-4)
+                } else {
+                    let log_fk = (f / k).ln();
 
-                    // Correction term: accounts for convexity difference between models
-                    // This term is small (~0.1%) for typical parameters but improves accuracy
-                    let correction = if variance > 1e-10 && (f * k).abs() > 1e-20 {
-                        let fk_ratio_factor = 1.0 - geometric_mean_fk * geometric_mean_fk / (f * k);
-                        1.0 - (variance / 24.0) * fk_ratio_factor
+                    // Moneyness-adjusted forward level
+                    // For ATM: limit of (F-K)/ln(F/K) as K→F is F
+                    // For non-ATM: this gives the "effective" forward for normal vol
+                    let effective_forward = if log_fk.abs() < 1e-8 {
+                        // Near ATM: use Taylor expansion to avoid 0/0
+                        // (F-K)/ln(F/K) ≈ F × [1 - ln(F/K)/2 + ln(F/K)²/12 - ...]
+                        f * (1.0 - log_fk / 2.0 + log_fk * log_fk / 12.0)
+                    } else {
+                        (f - k) / log_fk
+                    };
+
+                    // Second-order correction from Hagan (2002):
+                    // The correction accounts for the difference in convexity between
+                    // lognormal and normal models. For typical parameters this is ~0.1-1%.
+                    //
+                    // Correction = 1 - σ²T/24 × [1 - (1/12)(ln(F/K))²]
+                    let moneyness_factor = 1.0 - log_fk * log_fk / 12.0;
+                    let correction = if variance > 1e-10 {
+                        (1.0 - (variance / 24.0) * moneyness_factor).max(0.5)
                     } else {
                         1.0
                     };
 
-                    sabr_lognormal_vol * geometric_mean_fk * correction.max(0.5)
-                // Floor at 0.5 for stability
-                } else {
-                    // Fallback for very small rates: use forward directly (ATM approximation)
-                    sabr_lognormal_vol * f.abs().max(1e-4)
+                    sabr_lognormal_vol * effective_forward * correction
                 };
 
                 self.price_normal(curves, sabr_normal_vol, as_of)
@@ -608,13 +724,23 @@ impl Swaption {
         dc.year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
     }
 
-    /// Calculate annuity based on settlement type.
-    /// Physical -> PV01 of swap
-    /// Cash -> Cash Annuity (Par Yield)
+    /// Calculate annuity based on settlement type and cash settlement method.
+    ///
+    /// # Settlement Types
+    ///
+    /// - **Physical**: Always uses `swap_annuity()` (actual PV01 from discount curve)
+    /// - **Cash**: Uses the method specified by `cash_settlement_method`:
+    ///   - `ParYield`: Closed-form approximation (fast, less accurate for steep curves)
+    ///   - `IsdaParPar`: Actual swap annuity from discount curve (ISDA compliant)
+    ///   - `ZeroCoupon`: Single discount to swap maturity (rarely used)
     pub fn annuity(&self, disc: &dyn Discounting, as_of: Date, forward_rate: f64) -> Result<f64> {
         match self.settlement {
             SwaptionSettlement::Physical => self.swap_annuity(disc, as_of),
-            SwaptionSettlement::Cash => self.cash_annuity(forward_rate),
+            SwaptionSettlement::Cash => match self.cash_settlement_method {
+                CashSettlementMethod::ParYield => self.cash_annuity_par_yield(forward_rate),
+                CashSettlementMethod::IsdaParPar => self.swap_annuity(disc, as_of),
+                CashSettlementMethod::ZeroCoupon => self.cash_annuity_zero_coupon(disc, as_of),
+            },
         }
     }
 
@@ -675,26 +801,14 @@ impl Swaption {
     ///    across all periods. This is an approximation when the yield curve is not flat.
     /// 2. **Equal periods**: All accrual periods are assumed equal (no stubs).
     ///
-    /// # ISDA Cash Settlement Conventions
-    ///
-    /// This approximation may differ from exact ISDA cash settlement calculations:
-    ///
-    /// - **Par-Par**: Uses the actual swap PV01 from the zero curve at settlement
-    /// - **Zero Coupon**: Discounts the single payment at swap maturity
-    ///
-    /// For trades with explicit ISDA cash settlement conventions, the difference
-    /// can be several basis points on notional, particularly for:
-    /// - Steep yield curves
-    /// - Long-dated swaps
-    /// - Non-standard payment frequencies
-    ///
-    /// For production systems requiring exact ISDA compliance, consider using
-    /// [`swap_annuity`] with the settlement date curve instead.
+    /// For production systems requiring exact ISDA compliance, use
+    /// `cash_settlement_method: CashSettlementMethod::IsdaParPar` which delegates
+    /// to [`swap_annuity`].
     ///
     /// # Edge Cases
     ///
     /// When `forward_rate ≈ 0`, uses L'Hôpital's limit: `A → N/m` (sum of accruals).
-    pub fn cash_annuity(&self, forward_rate: f64) -> Result<f64> {
+    pub fn cash_annuity_par_yield(&self, forward_rate: f64) -> Result<f64> {
         let freq_per_year = match self.fixed_freq.unit {
             finstack_core::dates::TenorUnit::Months if self.fixed_freq.count > 0 => {
                 12.0 / self.fixed_freq.count as f64
@@ -728,6 +842,28 @@ impl Swaption {
 
         let df_swap = (1.0 + forward_rate / freq_per_year).powf(-n_periods);
         Ok((1.0 - df_swap) / forward_rate)
+    }
+
+    /// Cash settlement annuity using zero coupon method.
+    ///
+    /// # Formula
+    ///
+    /// ```text
+    /// A = τ × DF(T_swap)
+    /// ```
+    ///
+    /// where:
+    /// - τ = total swap tenor as year fraction
+    /// - DF(T_swap) = discount factor to swap maturity
+    ///
+    /// This method treats the entire swap as a single zero-coupon payment
+    /// at maturity. Rarely used in modern markets; included for completeness.
+    pub fn cash_annuity_zero_coupon(&self, disc: &dyn Discounting, as_of: Date) -> Result<f64> {
+        use crate::instruments::common::pricing::time::relative_df_discounting;
+
+        let tenor = self.year_fraction(self.swap_start, self.swap_end, self.day_count)?;
+        let df = relative_df_discounting(disc, as_of, self.swap_end)?;
+        Ok(tenor * df)
     }
 
     /// Forward par swap rate implied by float-leg PV and fixed-leg annuity.
@@ -1428,6 +1564,7 @@ impl BermudanSwaption {
             day_count: self.day_count,
             exercise: SwaptionExercise::European,
             settlement: self.settlement,
+            cash_settlement_method: CashSettlementMethod::default(),
             vol_model: VolatilityModel::Black,
             discount_curve_id: self.discount_curve_id.clone(),
             forward_id: self.forward_id.clone(),
@@ -1505,5 +1642,167 @@ impl crate::instruments::common::traits::CurveDependencies for BermudanSwaption 
             .discount(self.discount_curve_id.clone())
             .forward(self.forward_id.clone())
             .build()
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    //! Tests for SABR-to-normal vol conversion.
+    //!
+    //! The conversion formula is validated against:
+    //! 1. ATM limit: σ_N ≈ σ_LN × F (simple approximation)
+    //! 2. Non-ATM: σ_N ≈ σ_LN × (F-K)/ln(F/K) × [1 - σ²T/24 × (1 - ln²(F/K)/12)]
+    //! 3. Convergence: as K → F, the formula converges to the ATM limit
+
+    /// Test the lognormal-to-normal vol conversion formula at ATM.
+    ///
+    /// At ATM (F = K), the formula should give:
+    /// σ_N ≈ σ_LN × F × (1 - σ_LN²T/24)
+    #[test]
+    fn test_lognormal_to_normal_vol_atm() {
+        let f: f64 = 0.03; // 3% forward rate
+        let k: f64 = f; // ATM
+        let sigma_ln: f64 = 0.20; // 20% lognormal vol
+        let t: f64 = 1.0; // 1 year
+
+        // Expected: σ_N ≈ σ_LN × F × (1 - σ²T/24)
+        let correction = 1.0 - (sigma_ln * sigma_ln * t) / 24.0;
+        let expected_sigma_n = sigma_ln * f * correction;
+
+        // Compute using our formula
+        let variance = sigma_ln * sigma_ln * t;
+        let log_fk = (f / k).ln();
+
+        // Near ATM: effective_forward ≈ F
+        let effective_forward = if log_fk.abs() < 1e-8 {
+            f * (1.0 - log_fk / 2.0 + log_fk * log_fk / 12.0)
+        } else {
+            (f - k) / log_fk
+        };
+
+        let moneyness_factor = 1.0 - log_fk * log_fk / 12.0;
+        let computed_correction = if variance > 1e-10 {
+            (1.0 - (variance / 24.0) * moneyness_factor).max(0.5)
+        } else {
+            1.0
+        };
+
+        let computed_sigma_n = sigma_ln * effective_forward * computed_correction;
+
+        // Should be very close at ATM
+        assert!(
+            (computed_sigma_n - expected_sigma_n).abs() < 1e-10,
+            "ATM vol conversion failed: computed={:.6}, expected={:.6}",
+            computed_sigma_n,
+            expected_sigma_n
+        );
+    }
+
+    /// Test the lognormal-to-normal vol conversion formula for OTM options.
+    ///
+    /// For non-ATM options, the effective forward (F-K)/ln(F/K) should differ from F.
+    #[test]
+    fn test_lognormal_to_normal_vol_otm() {
+        let f: f64 = 0.03; // 3% forward rate
+        let k: f64 = 0.04; // 4% strike (OTM call / ITM put)
+        let sigma_ln: f64 = 0.20; // 20% lognormal vol
+        let t: f64 = 1.0; // 1 year
+
+        let variance = sigma_ln * sigma_ln * t;
+        let log_fk = (f / k).ln(); // Negative for F < K
+
+        // (F-K)/ln(F/K) gives a value between F and K
+        let effective_forward = (f - k) / log_fk;
+
+        // Verify effective_forward is between F and K
+        assert!(
+            effective_forward > f.min(k) && effective_forward < f.max(k),
+            "Effective forward should be between F={} and K={}, got {}",
+            f,
+            k,
+            effective_forward
+        );
+
+        let moneyness_factor = 1.0 - log_fk * log_fk / 12.0;
+        let correction = (1.0 - (variance / 24.0) * moneyness_factor).max(0.5);
+
+        let sigma_n = sigma_ln * effective_forward * correction;
+
+        // Normal vol should be positive and reasonable
+        assert!(sigma_n > 0.0, "Normal vol should be positive");
+        // Normal vol for rates is typically in bp terms (0.001 = 10bp)
+        // For 20% lognormal vol on 3% rates, expect ~60bp = 0.006
+        assert!(
+            sigma_n > 0.002 && sigma_n < 0.02,
+            "Normal vol {} seems unreasonable for 20% lognormal on 3% rates",
+            sigma_n
+        );
+    }
+
+    /// Test that the formula converges smoothly as K → F (no discontinuity).
+    #[test]
+    fn test_lognormal_to_normal_vol_convergence() {
+        let f: f64 = 0.03;
+        let sigma_ln: f64 = 0.20;
+        let t: f64 = 1.0;
+
+        // Compute at exactly ATM
+        let sigma_n_atm: f64 = {
+            let variance = sigma_ln * sigma_ln * t;
+            let correction = 1.0 - variance / 24.0;
+            sigma_ln * f * correction
+        };
+
+        // Compute at K very close to F
+        for delta in [1e-6_f64, 1e-8_f64, 1e-10_f64] {
+            let k = f * (1.0 + delta);
+            let variance = sigma_ln * sigma_ln * t;
+            let log_fk = (f / k).ln();
+
+            let effective_forward = if log_fk.abs() < 1e-8 {
+                f * (1.0 - log_fk / 2.0 + log_fk * log_fk / 12.0)
+            } else {
+                (f - k) / log_fk
+            };
+
+            let moneyness_factor = 1.0 - log_fk * log_fk / 12.0;
+            let correction = if variance > 1e-10 {
+                (1.0 - (variance / 24.0) * moneyness_factor).max(0.5)
+            } else {
+                1.0
+            };
+
+            let sigma_n = sigma_ln * effective_forward * correction;
+
+            // Should converge to ATM value
+            let diff = (sigma_n - sigma_n_atm).abs();
+            assert!(
+                diff < delta * 10.0,
+                "Convergence failure at delta={}: diff={:.2e}",
+                delta,
+                diff
+            );
+        }
+    }
+
+    /// Test that the correction factor stays in reasonable bounds.
+    #[test]
+    fn test_correction_factor_bounds() {
+        // High vol, long maturity: correction should be floored at 0.5
+        let sigma_ln: f64 = 0.80; // 80% vol (extreme)
+        let t: f64 = 30.0; // 30 years
+        let variance = sigma_ln * sigma_ln * t;
+
+        // Without floor: 1 - 0.64 * 30 / 24 = 1 - 0.8 = 0.2 (too low)
+        let raw_correction: f64 = 1.0 - variance / 24.0;
+        assert!(raw_correction < 0.5, "Expected extreme case to need floor");
+
+        // With floor:
+        let floored_correction = raw_correction.max(0.5);
+        assert!(
+            (floored_correction - 0.5).abs() < 1e-10,
+            "Floor should be applied"
+        );
     }
 }

@@ -110,17 +110,38 @@ pub struct FxSpot {
     /// Optional notional amount in base currency (defaults to 1)
     #[builder(optional)]
     pub notional: Option<Money>,
-    /// Business day convention to apply when adjusting settlement (default: Following)
+    /// Business day convention to apply when adjusting settlement (default: ModifiedFollowing)
+    ///
+    /// Note: Default changed from `Following` to `ModifiedFollowing` in v0.8.0 to align
+    /// with ISDA standard FX settlement conventions.
     pub bdc: BusinessDayConvention,
-    /// Optional holiday calendar identifier used for business-day logic
+    /// Optional holiday calendar identifier used for business-day logic.
+    ///
+    /// **Deprecated**: Use `base_calendar_id` and `quote_calendar_id` for proper joint
+    /// calendar support. This field is retained for backward compatibility and will be
+    /// used as a fallback if the currency-specific fields are not set.
     #[builder(optional)]
     pub calendar_id: Option<String>,
+    /// Optional base currency calendar for joint calendar settlement adjustment.
+    ///
+    /// Per market convention, FX settlement uses the joint calendar of both currencies.
+    /// A date is a good business day only if it's valid in both calendars.
+    #[builder(optional)]
+    pub base_calendar_id: Option<String>,
+    /// Optional quote currency calendar for joint calendar settlement adjustment.
+    ///
+    /// Per market convention, FX settlement uses the joint calendar of both currencies.
+    /// A date is a good business day only if it's valid in both calendars.
+    #[builder(optional)]
+    pub quote_calendar_id: Option<String>,
     /// Attributes for scenario selection and tagging
     pub attributes: Attributes,
 }
 
 impl FxSpot {
-    /// Create a new FX spot instrument
+    /// Create a new FX spot instrument.
+    ///
+    /// Default business day convention is `ModifiedFollowing` per ISDA standard.
     pub fn new(id: InstrumentId, base: Currency, quote: Currency) -> Self {
         Self {
             id,
@@ -130,8 +151,10 @@ impl FxSpot {
             settlement_lag_days: None,
             spot_rate: None,
             notional: None,
-            bdc: BusinessDayConvention::Following,
+            bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
+            base_calendar_id: None,
+            quote_calendar_id: None,
             attributes: Attributes::new(),
         }
     }
@@ -208,10 +231,33 @@ impl FxSpot {
     /// Compute the effective settlement date for this FX spot.
     ///
     /// Returns the settlement date adjusted for business days according to the
-    /// configured calendar and business day convention.
+    /// configured calendars and business day convention.
+    ///
+    /// # Joint Calendar Support
+    ///
+    /// When both `base_calendar_id` and `quote_calendar_id` are provided, settlement
+    /// uses joint calendar logic: a date is valid only if it's a business day in both
+    /// currencies' calendars. This matches professional FX settlement conventions.
+    ///
+    /// Falls back to single calendar (`calendar_id`) for backward compatibility if
+    /// the joint calendar fields are not set.
     pub fn effective_settlement_date(&self, as_of: Date) -> Result<Date> {
+        use crate::instruments::common::fx_dates::{adjust_joint_calendar, roll_spot_date};
+
+        // Check if we should use joint calendar logic
+        let use_joint_calendar =
+            self.base_calendar_id.is_some() || self.quote_calendar_id.is_some();
+
         if let Some(date) = self.settlement {
-            if let Some(id) = self.calendar_id.as_deref() {
+            // Explicit settlement date provided - adjust for business days
+            if use_joint_calendar {
+                adjust_joint_calendar(
+                    date,
+                    self.bdc,
+                    self.base_calendar_id.as_deref(),
+                    self.quote_calendar_id.as_deref(),
+                )
+            } else if let Some(id) = self.calendar_id.as_deref() {
                 if let Some(cal) = calendar_by_id(id) {
                     adjust(date, self.bdc, cal)
                 } else {
@@ -221,9 +267,19 @@ impl FxSpot {
                 Ok(date)
             }
         } else {
-            // Compute T+N in a calendar-aware way if a calendar is available
+            // Compute T+N from as_of date
             let lag_days = self.settlement_lag_days.unwrap_or(2);
-            if let Some(id) = self.calendar_id.as_deref() {
+
+            if use_joint_calendar {
+                // Use joint calendar spot roll
+                roll_spot_date(
+                    as_of,
+                    lag_days as u32,
+                    self.bdc,
+                    self.base_calendar_id.as_deref(),
+                    self.quote_calendar_id.as_deref(),
+                )
+            } else if let Some(id) = self.calendar_id.as_deref() {
                 if let Some(cal) = calendar_by_id(id) {
                     as_of.add_business_days(lag_days, cal)
                 } else {
@@ -313,8 +369,41 @@ impl FxSpot {
     }
 
     /// Set the holiday calendar identifier used for settlement adjustment
+    /// Set the holiday calendar identifier used for settlement adjustment (deprecated).
+    ///
+    /// **Deprecated**: Use `with_base_calendar_id` and `with_quote_calendar_id` for
+    /// proper joint calendar support per FX market conventions.
     pub fn with_calendar_id(mut self, id: impl Into<String>) -> Self {
         self.calendar_id = Some(id.into());
+        self
+    }
+
+    /// Set the base currency calendar for joint calendar settlement adjustment.
+    ///
+    /// Per market convention, FX settlement uses the joint calendar of both currencies.
+    /// A date is a good business day only if it's valid in both calendars.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use finstack_core::{currency::Currency, types::InstrumentId};
+    /// use finstack_valuations::instruments::FxSpot;
+    ///
+    /// let eur_usd = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
+    ///     .with_base_calendar_id("TARGET")    // ECB TARGET calendar for EUR
+    ///     .with_quote_calendar_id("USNY");    // US New York calendar for USD
+    /// ```
+    pub fn with_base_calendar_id(mut self, id: impl Into<String>) -> Self {
+        self.base_calendar_id = Some(id.into());
+        self
+    }
+
+    /// Set the quote currency calendar for joint calendar settlement adjustment.
+    ///
+    /// Per market convention, FX settlement uses the joint calendar of both currencies.
+    /// A date is a good business day only if it's valid in both calendars.
+    pub fn with_quote_calendar_id(mut self, id: impl Into<String>) -> Self {
+        self.quote_calendar_id = Some(id.into());
         self
     }
 
@@ -358,13 +447,20 @@ impl FxSpot {
 
     /// Check if this is a same-region pair that typically settles T+1.
     ///
-    /// Returns `true` for pairs like USD/CAD, USD/MXN that conventionally
+    /// Returns `true` for pairs like USD/CAD, USD/MXN, USD/TRY that conventionally
     /// settle in one business day rather than the standard T+2.
+    ///
+    /// # Market Convention Reference
+    ///
+    /// Per Bloomberg/Reuters FX settlement conventions:
+    /// - **USD/CAD**: North American same-day zone (T+1)
+    /// - **USD/MXN**: North American same-day zone (T+1)
+    /// - **USD/TRY**: Turkish Lira settles T+1 per Istanbul market convention
     ///
     /// Note: This is informational only and does not affect settlement calculation.
     /// Use [`new_t1`] or [`with_settlement_lag_days(1)`] to set T+1 settlement.
     pub fn is_t1_pair(&self) -> bool {
-        // USD/CAD and USD/MXN are the most common T+1 pairs
+        // USD/CAD, USD/MXN, and USD/TRY are the most common T+1 pairs
         let pair = (self.base, self.quote);
         matches!(
             pair,
@@ -372,6 +468,8 @@ impl FxSpot {
                 | (Currency::CAD, Currency::USD)
                 | (Currency::USD, Currency::MXN)
                 | (Currency::MXN, Currency::USD)
+                | (Currency::USD, Currency::TRY)
+                | (Currency::TRY, Currency::USD)
         )
     }
 }
@@ -651,6 +749,15 @@ mod tests {
 
         let cad_usd = FxSpot::new(InstrumentId::new("CADUSD"), Currency::CAD, Currency::USD);
         assert!(cad_usd.is_t1_pair(), "CAD/USD should be T+1 pair");
+
+        let usd_mxn = FxSpot::new(InstrumentId::new("USDMXN"), Currency::USD, Currency::MXN);
+        assert!(usd_mxn.is_t1_pair(), "USD/MXN should be T+1 pair");
+
+        let usd_try = FxSpot::new(InstrumentId::new("USDTRY"), Currency::USD, Currency::TRY);
+        assert!(usd_try.is_t1_pair(), "USD/TRY should be T+1 pair");
+
+        let try_usd = FxSpot::new(InstrumentId::new("TRYUSD"), Currency::TRY, Currency::USD);
+        assert!(try_usd.is_t1_pair(), "TRY/USD should be T+1 pair");
 
         let eur_usd = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD);
         assert!(!eur_usd.is_t1_pair(), "EUR/USD should NOT be T+1 pair");

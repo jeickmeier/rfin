@@ -43,7 +43,7 @@ impl InterestRateOptionParams {
             frequency,
             day_count,
             stub_kind: StubKind::None,
-            bdc: BusinessDayConvention::Following,
+            bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
         }
     }
@@ -62,7 +62,7 @@ impl InterestRateOptionParams {
             frequency,
             day_count,
             stub_kind: StubKind::None,
-            bdc: BusinessDayConvention::Following,
+            bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
         }
     }
@@ -76,7 +76,7 @@ impl InterestRateOptionParams {
             frequency,
             day_count,
             stub_kind: StubKind::None,
-            bdc: BusinessDayConvention::Following,
+            bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
         }
     }
@@ -95,7 +95,7 @@ impl InterestRateOptionParams {
             frequency,
             day_count,
             stub_kind: StubKind::None,
-            bdc: BusinessDayConvention::Following,
+            bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
         }
     }

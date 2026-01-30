@@ -1,4 +1,33 @@
 //! FX option instrument implementation using Garman–Kohlhagen model.
+//!
+//! # ATM Convention
+//!
+//! **Important**: This implementation does not include an ATM strike calculation.
+//! When constructing FX options, the strike must be provided explicitly.
+//!
+//! In professional FX option markets, "ATM" typically refers to the **Delta-Neutral
+//! Straddle (DNS)** strike, not the forward rate. The DNS strike is defined as the
+//! strike where the call delta equals the negative of the put delta:
+//!
+//! ```text
+//! ATM DNS: Strike where Δ_call = -Δ_put
+//! ```
+//!
+//! For forward delta (interbank convention), this gives a strike slightly different
+//! from the forward rate due to vol smile effects.
+//!
+//! If you need to construct an ATM option, you should:
+//! 1. Compute the forward rate: `F = S × DF_foreign / DF_domestic`
+//! 2. Use the forward rate as the strike for approximate ATM (ATMF convention)
+//! 3. For precise ATM DNS, solve for the strike where `Δ_call = -Δ_put`
+//!
+//! # Delta Convention
+//!
+//! The calculator provides both:
+//! - **Spot delta** (`delta`): Bloomberg default, includes foreign rate discounting
+//! - **Forward delta** (`delta_forward`): Interbank convention, no discounting
+//!
+//! Use `delta_forward` for professional FX option hedging and vol surface interpolation.
 
 use crate::instruments::common::parameters::FxUnderlyingParams;
 use crate::instruments::common::traits::Attributes;
@@ -39,7 +68,12 @@ pub struct FxOption {
     pub base_currency: Currency,
     /// Quote currency (domestic currency)
     pub quote_currency: Currency,
-    /// Strike exchange rate
+    /// Strike exchange rate (quote per base).
+    ///
+    /// **Note on ATM convention**: Professional FX markets define ATM as the
+    /// Delta-Neutral Straddle (DNS) strike, not the forward rate. See module
+    /// documentation for details. If constructing an "ATM" option, compute
+    /// the forward rate or DNS strike externally.
     pub strike: f64,
     /// Option type (call or put on base currency)
     pub option_type: OptionType,

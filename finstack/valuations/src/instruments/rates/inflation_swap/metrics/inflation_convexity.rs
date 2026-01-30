@@ -16,6 +16,11 @@
 //! Note: Convexity is typically non-zero even for at-market (par) swaps where
 //! PV = 0. This is because the curvature of the PV function exists regardless
 //! of the current PV level.
+//!
+//! # Units
+//!
+//! The bump is applied as a percentage shift to the inflation curve (0.01% = 1bp).
+//! The convexity result is normalized per (basis point)² = per (0.01%)².
 
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::inflation_swap::InflationSwap;
@@ -23,8 +28,8 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 use finstack_core::Result;
 
-/// Standard inflation curve bump: 1bp (0.0001)
-const INFLATION_BUMP_BP: f64 = 0.0001;
+/// Standard inflation curve bump: 1bp = 0.01% (as percentage for BumpSpec)
+const INFLATION_BUMP_PCT: f64 = 0.01;
 
 /// Calculates inflation convexity for inflation swaps.
 ///
@@ -47,22 +52,19 @@ impl MetricCalculator for InflationConvexityCalculator {
         // Get base value
         let base_pv = context.base_value.amount();
 
-        // Bump size: 1bp for numerical convexity
-        let bump_bp = INFLATION_BUMP_BP;
-
         // Get the inflation index/curve ID
         let inflation_curve_id = &swap.inflation_index_id;
 
-        // Create bumped curves (up)
-        let bump_spec_up = BumpSpec::inflation_shift_pct(bump_bp * 100.0); // Convert bp to percent
+        // Create bumped curves (up by 1bp = 0.01%)
+        let bump_spec_up = BumpSpec::inflation_shift_pct(INFLATION_BUMP_PCT);
         let curves_up = context.curves.bump([MarketBump::Curve {
             id: inflation_curve_id.clone(),
             spec: bump_spec_up,
         }])?;
         let pv_up = swap.value(&curves_up, as_of)?.amount();
 
-        // Create bumped curves (down)
-        let bump_spec_down = BumpSpec::inflation_shift_pct(-bump_bp * 100.0);
+        // Create bumped curves (down by 1bp = 0.01%)
+        let bump_spec_down = BumpSpec::inflation_shift_pct(-INFLATION_BUMP_PCT);
         let curves_down = context.curves.bump([MarketBump::Curve {
             id: inflation_curve_id.clone(),
             spec: bump_spec_down,
@@ -70,11 +72,14 @@ impl MetricCalculator for InflationConvexityCalculator {
         let pv_down = swap.value(&curves_down, as_of)?.amount();
 
         // InflationConvexity = (PV_up + PV_down - 2×PV_base) / (bump²)
-        // This gives the second derivative normalized per (basis point)²
+        //
+        // The bump is 1bp = 0.01% = 0.0001 in decimal form.
+        // For convexity per bp², we divide by (0.0001)² = 1e-8.
         //
         // Note: This formula is valid even when base_pv = 0 (par swaps).
         // Convexity measures curvature, not absolute level.
-        let inflation_convexity = (pv_up + pv_down - 2.0 * base_pv) / (bump_bp * bump_bp);
+        const BUMP_DECIMAL: f64 = 0.0001; // 1bp in decimal
+        let inflation_convexity = (pv_up + pv_down - 2.0 * base_pv) / (BUMP_DECIMAL * BUMP_DECIMAL);
 
         Ok(inflation_convexity)
     }

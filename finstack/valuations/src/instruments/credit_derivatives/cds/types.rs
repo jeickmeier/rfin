@@ -16,11 +16,14 @@
 //!
 //! ## Regional Convention Summary
 //!
-//! | Region | Convention | Day Count | Payment Frequency | Calendar |
-//! |--------|-----------|-----------|-------------------|----------|
-//! | North America | `IsdaNa` | ACT/360 | Quarterly | NYC |
-//! | Europe | `IsdaEu` | ACT/360 | Quarterly | London |
-//! | Asia | `IsdaAs` | ACT/365F | Quarterly | Tokyo |
+//! | Region | Convention | Day Count | Payment Frequency | Settlement | Calendar |
+//! |--------|-----------|-----------|-------------------|------------|----------|
+//! | North America | `IsdaNa` | ACT/360 | Quarterly | T+3 | NYSE |
+//! | Europe | `IsdaEu` | ACT/360 | Quarterly | T+1 | TARGET2 |
+//! | Asia | `IsdaAs` | ACT/365F | Quarterly | T+3 | Tokyo |
+//!
+//! **Note**: European CDS settlement changed from T+3 to T+1 on June 20, 2009 as part of the
+//! ISDA "Big Bang" protocol. This implementation uses the post-2009 T+1 standard.
 //!
 //! ## Example: Explicit Convention Selection
 //!
@@ -181,8 +184,8 @@ impl CDSConvention {
     ///
     /// # Currency Mapping
     ///
-    /// - **USD, CAD**: North American (`IsdaNa`) - T+3, ACT/360, NYC calendar
-    /// - **EUR, GBP, CHF**: European (`IsdaEu`) - T+3, ACT/360, TARGET2 calendar
+    /// - **USD, CAD**: North American (`IsdaNa`) - T+3, ACT/360, NYSE calendar
+    /// - **EUR, GBP, CHF**: European (`IsdaEu`) - T+1, ACT/360, TARGET2 calendar (post-2009 Big Bang)
     /// - **JPY, AUD, HKD, SGD**: Asian (`IsdaAs`) - T+3, ACT/365F, Tokyo calendar
     /// - **Other**: North American (default)
     ///

@@ -9,16 +9,21 @@
 //!
 //! Gamma measures the convexity of the option's value with respect to inflation,
 //! which is important for hedging and risk management.
+//!
+//! # Units
+//!
+//! - Bump: 1bp = 0.01% applied to inflation curve via `BumpSpec::inflation_shift_pct`
+//! - Result: Gamma per (basis point)² = per (0.01%)²
 
 use crate::instruments::inflation_cap_floor::InflationCapFloor;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 use finstack_core::Result;
 
-/// Inflation curve bump size for gamma calculation: 1bp = 0.01%.
+/// Inflation curve bump size: 1bp = 0.01% (as percentage for BumpSpec).
 const GAMMA_BUMP_PCT: f64 = 0.01;
 
-/// Bump size in decimal terms for scaling the result.
+/// Bump size in decimal terms for scaling the result: 1bp = 0.0001.
 const GAMMA_BUMP_DECIMAL: f64 = 0.0001;
 
 /// Gamma calculator for inflation cap/floor options.
@@ -38,7 +43,7 @@ impl MetricCalculator for GammaCalculator {
             return Ok(0.0);
         }
 
-        // Bump up by 1bp
+        // Bump up by 1bp = 0.01%
         let bump_spec_up = BumpSpec::inflation_shift_pct(GAMMA_BUMP_PCT);
         let curves_up = context.curves.as_ref().bump([MarketBump::Curve {
             id: option.inflation_index_id.clone(),
@@ -46,7 +51,7 @@ impl MetricCalculator for GammaCalculator {
         }])?;
         let pv_up = option.npv(&curves_up, as_of)?.amount();
 
-        // Bump down by 1bp
+        // Bump down by 1bp = 0.01%
         let bump_spec_down = BumpSpec::inflation_shift_pct(-GAMMA_BUMP_PCT);
         let curves_down = context.curves.as_ref().bump([MarketBump::Curve {
             id: option.inflation_index_id.clone(),
@@ -56,6 +61,9 @@ impl MetricCalculator for GammaCalculator {
 
         // Second derivative via central difference:
         // Gamma = (PV_up - 2*PV_base + PV_down) / h²
+        //
+        // Where h = 1bp = 0.0001 in decimal form.
+        // This gives gamma per (basis point)².
         let h_squared = GAMMA_BUMP_DECIMAL * GAMMA_BUMP_DECIMAL;
         Ok((pv_up - 2.0 * base_pv + pv_down) / h_squared)
     }
