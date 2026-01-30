@@ -12,7 +12,9 @@
 use super::test_utils::*;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::credit_derivatives::cds::PayReceive;
+use finstack_valuations::instruments::credit_derivatives::cds::{
+    PayReceive, RECOVERY_SENIOR_UNSECURED,
+};
 use finstack_valuations::instruments::credit_derivatives::cds_index::{CDSIndex, IndexPricing};
 use finstack_valuations::instruments::Instrument;
 use time::macros::date;
@@ -102,8 +104,14 @@ fn test_single_curve_par_spread() {
     let par_spread = idx.par_spread(&ctx, as_of).unwrap();
 
     assert_positive(par_spread, "Par spread");
-    // For ~1.5% hazard, 40% recovery: spread ≈ 90 bps
-    assert_in_range(par_spread, 50.0, 150.0, "Par spread in reasonable range");
+    // Flat hazard approximation: spread ≈ hazard × (1 - recovery) × 10,000
+    let expected = flat_hazard_par_spread_bps(STANDARD_HAZARD_RATE, RECOVERY_SENIOR_UNSECURED);
+    assert_in_range(
+        par_spread,
+        expected * 0.85,
+        expected * 1.15,
+        "Par spread near flat-hazard analytic",
+    );
 }
 
 #[test]
@@ -171,20 +179,14 @@ fn test_single_curve_buy_vs_sell_protection() {
     let npv_buy = idx_buy.value(&ctx, as_of).unwrap();
     let npv_sell = idx_sell.value(&ctx, as_of).unwrap();
 
-    // Buy and sell protection should have opposite signs
+    // Buy and sell protection should offset to ~0
+    let sum = npv_buy.amount() + npv_sell.amount();
     assert!(
-        npv_buy.amount() * npv_sell.amount() < 0.0,
-        "Buy and sell protection NPVs should have opposite signs: buy={}, sell={}",
+        sum.abs() < 1.0,
+        "Buy + sell NPV should net to ~0: buy={}, sell={}, sum={}",
         npv_buy.amount(),
-        npv_sell.amount()
-    );
-
-    // Magnitudes should be approximately equal
-    assert_relative_eq(
-        npv_buy.amount().abs(),
-        npv_sell.amount().abs(),
-        0.01,
-        "Buy/sell NPV magnitudes",
+        npv_sell.amount(),
+        sum
     );
 }
 

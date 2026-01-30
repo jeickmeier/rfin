@@ -16,6 +16,8 @@ use finstack_valuations::instruments::credit_derivatives::cds_index::{
 };
 use finstack_valuations::instruments::CreditParams;
 
+pub const STANDARD_HAZARD_RATE: f64 = 0.015;
+
 /// Create a flat discount curve for testing
 pub fn flat_discount_curve(id: &str, base: Date, rate: f64) -> DiscountCurve {
     let df_10y = (-rate * 10.0).exp();
@@ -42,7 +44,12 @@ pub fn flat_hazard_curve(id: &str, base: Date, recovery: f64, hazard_rate: f64) 
 /// Create a standard market context for testing
 pub fn standard_market_context(base: Date) -> MarketContext {
     let disc = flat_discount_curve("USD-OIS", base, 0.03);
-    let hz = flat_hazard_curve("HZ-INDEX", base, RECOVERY_SENIOR_UNSECURED, 0.015);
+    let hz = flat_hazard_curve(
+        "HZ-INDEX",
+        base,
+        RECOVERY_SENIOR_UNSECURED,
+        STANDARD_HAZARD_RATE,
+    );
 
     MarketContext::new().insert_discount(disc).insert_hazard(hz)
 }
@@ -54,12 +61,22 @@ pub fn multi_constituent_market_context(base: Date, num_constituents: usize) -> 
 
     for i in 0..num_constituents {
         let hz_id = format!("HZ{}", i + 1);
-        let hz = flat_hazard_curve(&hz_id, base, RECOVERY_SENIOR_UNSECURED, 0.015);
+        let hz = flat_hazard_curve(
+            &hz_id,
+            base,
+            RECOVERY_SENIOR_UNSECURED,
+            STANDARD_HAZARD_RATE,
+        );
         ctx = ctx.insert_hazard(hz);
     }
 
     // Add index-level hazard
-    let hz_index = flat_hazard_curve("HZ-INDEX", base, RECOVERY_SENIOR_UNSECURED, 0.015);
+    let hz_index = flat_hazard_curve(
+        "HZ-INDEX",
+        base,
+        RECOVERY_SENIOR_UNSECURED,
+        STANDARD_HAZARD_RATE,
+    );
     ctx = ctx.insert_hazard(hz_index);
 
     ctx
@@ -129,6 +146,11 @@ pub fn standard_constituents_index(
         "HZ-INDEX",
     )
     .expect("valid test parameters")
+}
+
+/// Analytical par spread for a flat hazard rate and constant recovery (bps)
+pub fn flat_hazard_par_spread_bps(hazard_rate: f64, recovery: f64) -> f64 {
+    hazard_rate * (1.0 - recovery) * 10000.0
 }
 
 /// Assert money values are approximately equal (within tolerance)

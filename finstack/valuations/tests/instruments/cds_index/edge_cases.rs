@@ -96,8 +96,10 @@ fn test_at_maturity() {
     let ctx = standard_market_context(as_of);
 
     let result = idx.value(&ctx, as_of);
-    // Should handle gracefully
-    assert!(result.is_ok() || result.is_err());
+    assert!(
+        result.is_err(),
+        "Pricing at maturity should return an error (no remaining protection period)"
+    );
 }
 
 #[test]
@@ -345,8 +347,9 @@ fn test_index_factor_greater_than_one() {
     let ctx = standard_market_context(as_of);
     let result = idx.value(&ctx, as_of);
 
-    // May work but give unusual results
-    assert!(result.is_ok() || result.is_err());
+    assert!(result.is_ok(), "Index factor > 1.0 should still price");
+    let npv = result.unwrap();
+    assert!(npv.amount().is_finite(), "NPV should be finite");
 }
 
 #[test]

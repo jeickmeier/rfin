@@ -8,6 +8,7 @@
 //! - Metric context and registry integration
 
 use super::test_utils::*;
+use finstack_valuations::instruments::credit_derivatives::cds::RECOVERY_SENIOR_UNSECURED;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
@@ -45,7 +46,13 @@ fn test_metric_par_spread() {
     let par_spread = *result.measures.get("par_spread").unwrap();
 
     assert_positive(par_spread, "Par spread metric");
-    assert_in_range(par_spread, 50.0, 150.0, "Par spread range");
+    let expected = flat_hazard_par_spread_bps(STANDARD_HAZARD_RATE, RECOVERY_SENIOR_UNSECURED);
+    assert_in_range(
+        par_spread,
+        expected * 0.85,
+        expected * 1.15,
+        "Par spread near flat-hazard analytic",
+    );
 }
 
 #[test]
@@ -303,6 +310,11 @@ fn test_par_spread_reasonable_range() {
         .unwrap();
     let par_spread = *result.measures.get("par_spread").unwrap();
 
-    // For investment-grade with ~1.5% hazard: 50-150 bps
-    assert_in_range(par_spread, 20.0, 200.0, "Par spread market range");
+    let expected = flat_hazard_par_spread_bps(STANDARD_HAZARD_RATE, RECOVERY_SENIOR_UNSECURED);
+    assert_in_range(
+        par_spread,
+        expected * 0.85,
+        expected * 1.15,
+        "Par spread near flat-hazard analytic",
+    );
 }

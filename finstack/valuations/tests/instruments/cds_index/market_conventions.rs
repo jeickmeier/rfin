@@ -88,7 +88,7 @@ fn test_itraxx_europe_standard_conventions() {
         &CDSIndexConstructionParams::new(
             standard_construction_params(10_000_000.0).notional,
             PayReceive::PayFixed,
-            CDSConvention::IsdaNa,
+            CDSConvention::IsdaEu,
         ),
         start,
         end,
@@ -98,8 +98,7 @@ fn test_itraxx_europe_standard_conventions() {
     )
     .expect("valid test parameters");
 
-    assert_eq!(idx.convention, CDSConvention::IsdaNa);
-    // Note: Would be CDSConvention::IsdaEu if that variant exists
+    assert_eq!(idx.convention, CDSConvention::IsdaEu);
 }
 
 #[test]

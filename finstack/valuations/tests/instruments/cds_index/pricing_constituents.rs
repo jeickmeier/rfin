@@ -10,6 +10,7 @@
 //! - Weight validation and normalization
 
 use super::test_utils::*;
+use finstack_valuations::instruments::credit_derivatives::cds::RECOVERY_SENIOR_UNSECURED;
 use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndexConstituentParam;
 use finstack_valuations::instruments::credit_derivatives::cds_index::{CDSIndex, IndexPricing};
 use finstack_valuations::instruments::CreditParams;
@@ -84,7 +85,13 @@ fn test_constituents_par_spread() {
     let par_spread = idx.par_spread(&ctx, as_of).unwrap();
 
     assert_positive(par_spread, "Par spread");
-    assert_in_range(par_spread, 50.0, 150.0, "Par spread range");
+    let expected = flat_hazard_par_spread_bps(STANDARD_HAZARD_RATE, RECOVERY_SENIOR_UNSECURED);
+    assert_in_range(
+        par_spread,
+        expected * 0.85,
+        expected * 1.15,
+        "Par spread near flat-hazard analytic",
+    );
 }
 
 #[test]

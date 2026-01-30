@@ -369,11 +369,19 @@ fn test_pv01_alias() {
     let ctx = standard_market_context(as_of);
 
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::custom("pv01")])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::RiskyPv01, MetricId::custom("pv01")],
+        )
         .unwrap();
 
-    // Should have pv01 metric
-    assert!(result.measures.contains_key("pv01"));
+    let rpv01 = *result
+        .measures
+        .get("risky_pv01")
+        .expect("risky_pv01 present");
+    let pv01 = *result.measures.get("pv01").expect("pv01 alias present");
+    assert_relative_eq(rpv01, pv01, 1e-8, "pv01 alias should match risky_pv01");
 }
 
 #[test]

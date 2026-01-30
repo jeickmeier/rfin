@@ -189,7 +189,7 @@ fn test_weight_sum_validation() {
 
     let weight_sum: f64 = idx.constituents.iter().map(|c| c.weight).sum();
     assert!(
-        (weight_sum - 1.0).abs() < 0.01,
+        (weight_sum - 1.0).abs() < 1e-8,
         "Weight sum = {}",
         weight_sum
     );

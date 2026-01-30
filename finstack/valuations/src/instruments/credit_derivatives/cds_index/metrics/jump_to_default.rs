@@ -1,14 +1,14 @@
 //! Jump-to-Default metric for CDS Index.
 //!
-//! Calculates the instantaneous loss if one constituent in the index defaults immediately.
+//! Calculates the instantaneous loss if a single constituent defaults immediately.
 //!
 //! ## Methodology
 //!
 //! ### When constituents data is available:
 //! ```text
-//! JTD = Σ(Weight_i × Notional × (1 - Recovery_i))
+//! JTD_avg = (1 / N) × Σ(Weight_i × Notional × (1 - Recovery_i))
 //! ```
-//! Returns the impact of each constituent defaulting (can compute per-name JTD).
+//! Returns the **average** per-name default impact (single-name JTD).
 //!
 //! ### When using index-level curve only (simplified):
 //! ```text
@@ -37,19 +37,24 @@ impl MetricCalculator for JumpToDefaultCalculator {
 
         // Check if we have constituent data for more accurate calculation
         if !index.constituents.is_empty() {
-            // Use constituent-specific weights and recoveries
-            let mut total_jtd = 0.0;
+            // Average per-name JTD using constituent-specific weights and recoveries
+            let n = index.constituents.len() as f64;
+            let sum_w: f64 = index.constituents.iter().map(|c| c.weight).sum();
+            let norm = if sum_w > 0.0 { sum_w } else { 1.0 };
 
+            let mut weighted_lgd = 0.0;
             for constituent in &index.constituents {
                 let lgd = 1.0 - constituent.credit.recovery_rate;
-                let constituent_jtd = constituent.weight * index.notional.amount() * lgd;
-                total_jtd += constituent_jtd;
+                weighted_lgd += (constituent.weight / norm) * lgd;
             }
+
+            let scale = index.index_factor;
+            let avg_jtd = index.notional.amount() * scale * weighted_lgd / n;
 
             // Apply sign based on position
             let signed_jtd = match index.side {
-                PayReceive::PayFixed => total_jtd,
-                PayReceive::ReceiveFixed => -total_jtd,
+                PayReceive::PayFixed => avg_jtd,
+                PayReceive::ReceiveFixed => -avg_jtd,
             };
 
             Ok(signed_jtd)
@@ -61,7 +66,8 @@ impl MetricCalculator for JumpToDefaultCalculator {
             let lgd = 1.0 - index.protection.recovery_rate;
 
             // Single name default impact
-            let single_name_jtd = avg_weight * index.notional.amount() * lgd;
+            let scale = index.index_factor;
+            let single_name_jtd = avg_weight * index.notional.amount() * scale * lgd;
 
             // Apply sign based on position
             let signed_jtd = match index.side {
