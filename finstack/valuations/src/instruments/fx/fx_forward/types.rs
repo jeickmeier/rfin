@@ -415,71 +415,6 @@ impl FxForward {
         self
     }
 
-    /// Compute present value in quote currency.
-    ///
-    /// Uses covered interest rate parity to compute the market forward rate,
-    /// then values the position based on the difference between market and
-    /// contract rates.
-    ///
-    /// # Expired Forwards
-    ///
-    /// Returns zero PV for forwards where maturity is on or before the valuation
-    /// date. This treats the forward as fully settled with no remaining value.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if validation fails (see [`validate`](Self::validate)) or
-    /// if required market data is not available.
-    pub fn npv(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
-        use finstack_core::money::fx::FxQuery;
-
-        // Validate instrument parameters upfront
-        self.validate()?;
-
-        // If maturity has passed or is today, the forward is settled with zero remaining value.
-        // This aligns with the pricer's behavior which rejects maturity <= as_of.
-        if self.maturity_date <= as_of {
-            return Ok(Money::new(0.0, self.quote_currency));
-        }
-
-        // Get discount curves
-        let domestic_disc = market.get_discount(self.domestic_discount_curve_id.as_str())?;
-        let foreign_disc = market.get_discount(self.foreign_discount_curve_id.as_str())?;
-
-        // Discount factors from as_of to maturity
-        let df_domestic = domestic_disc.df_between_dates(as_of, self.maturity_date)?;
-        let df_foreign = foreign_disc.df_between_dates(as_of, self.maturity_date)?;
-
-        // Resolve spot rate
-        let spot = if let Some(rate) = self.spot_rate_override {
-            rate
-        } else if let Some(fx) = market.fx() {
-            (**fx)
-                .rate(FxQuery::new(self.base_currency, self.quote_currency, as_of))?
-                .rate
-        } else {
-            return Err(finstack_core::Error::from(
-                finstack_core::InputError::NotFound {
-                    id: "fx_matrix".to_string(),
-                },
-            ));
-        };
-
-        // Compute market forward rate via CIRP: F = S × DF_foreign / DF_domestic
-        let market_forward = spot * df_foreign / df_domestic;
-
-        // Contract rate (if None, at-market forward has zero PV)
-        let contract_fwd = self.contract_rate.unwrap_or(market_forward);
-
-        let n_base = self.notional.amount();
-
-        // PV = notional × (F_market - F_contract) × DF_domestic
-        // Long base currency means we profit when market forward > contract forward
-        let pv = n_base * (market_forward - contract_fwd) * df_domestic;
-
-        Ok(Money::new(pv, self.quote_currency))
-    }
-
     /// Compute the market forward rate via covered interest rate parity.
     ///
     /// # Errors
@@ -560,7 +495,52 @@ impl crate::instruments::common::traits::Instrument for FxForward {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.npv(market, as_of)
+        use finstack_core::money::fx::FxQuery;
+
+        // Validate instrument parameters upfront
+        self.validate()?;
+
+        // If maturity has passed or is today, the forward is settled with zero remaining value.
+        if self.maturity_date <= as_of {
+            return Ok(finstack_core::money::Money::new(0.0, self.quote_currency));
+        }
+
+        // Get discount curves
+        let domestic_disc = market.get_discount(self.domestic_discount_curve_id.as_str())?;
+        let foreign_disc = market.get_discount(self.foreign_discount_curve_id.as_str())?;
+
+        // Discount factors from as_of to maturity
+        let df_domestic = domestic_disc.df_between_dates(as_of, self.maturity_date)?;
+        let df_foreign = foreign_disc.df_between_dates(as_of, self.maturity_date)?;
+
+        // Resolve spot rate
+        let spot = if let Some(rate) = self.spot_rate_override {
+            rate
+        } else if let Some(fx) = market.fx() {
+            (**fx)
+                .rate(FxQuery::new(self.base_currency, self.quote_currency, as_of))?
+                .rate
+        } else {
+            return Err(finstack_core::Error::from(
+                finstack_core::InputError::NotFound {
+                    id: "fx_matrix".to_string(),
+                },
+            ));
+        };
+
+        // Compute market forward rate via CIRP: F = S × DF_foreign / DF_domestic
+        let market_forward = spot * df_foreign / df_domestic;
+
+        // Contract rate (if None, at-market forward has zero PV)
+        let contract_fwd = self.contract_rate.unwrap_or(market_forward);
+
+        let n_base = self.notional.amount();
+
+        // PV = notional × (F_market - F_contract) × DF_domestic
+        // Long base currency means we profit when market forward > contract forward
+        let pv = n_base * (market_forward - contract_fwd) * df_domestic;
+
+        Ok(finstack_core::money::Money::new(pv, self.quote_currency))
     }
 
     fn price_with_metrics(

@@ -7,6 +7,7 @@ use crate::utils::json::{from_js_value, to_js_value};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fx::ndf::Ndf;
+use finstack_valuations::prelude::InstrumentNpvExt;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = NdfBuilder)]

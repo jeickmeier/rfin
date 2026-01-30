@@ -4,7 +4,7 @@
 //! fixed and floating leg calculations with discounting.
 
 use crate::instruments::commodity_swap::CommoditySwap;
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common::traits::{Instrument, InstrumentNpvExt};
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };

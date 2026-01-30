@@ -5,7 +5,7 @@ use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, SettlementType};
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId, Rate};
+use finstack_core::types::{CurveId, InstrumentId};
 
 use super::parameters::InterestRateOptionParams;
 
@@ -203,43 +203,6 @@ impl InterestRateOption {
         )
     }
 
-    /// Create a cap instrument using a typed strike rate.
-    #[allow(clippy::too_many_arguments)]
-    pub fn new_cap_rate(
-        id: impl Into<InstrumentId>,
-        notional: Money,
-        strike_rate: Rate,
-        start_date: Date,
-        end_date: Date,
-        frequency: Tenor,
-        day_count: DayCount,
-        discount_curve_id: impl Into<CurveId>,
-        forward_id: impl Into<CurveId>,
-        vol_surface_id: impl Into<CurveId>,
-    ) -> Self {
-        Self {
-            id: id.into(),
-            rate_option_type: RateOptionType::Cap,
-            notional,
-            strike_rate: strike_rate.as_decimal(),
-            start_date,
-            end_date,
-            frequency,
-            day_count,
-            stub_kind: StubKind::None,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: None,
-            exercise_style: ExerciseStyle::European,
-            settlement: SettlementType::Cash,
-            discount_curve_id: discount_curve_id.into(),
-            forward_id: forward_id.into(),
-            vol_surface_id: vol_surface_id.into(),
-            vol_type: CapFloorVolType::default(),
-            pricing_overrides: PricingOverrides::default(),
-            attributes: Attributes::new(),
-        }
-    }
-
     /// Create a floor instrument using parameter structs
     #[allow(clippy::too_many_arguments)]
     pub fn new_floor(
@@ -265,43 +228,6 @@ impl InterestRateOption {
             forward_id.into(),
             vol_surface_id,
         )
-    }
-
-    /// Create a floor instrument using a typed strike rate.
-    #[allow(clippy::too_many_arguments)]
-    pub fn new_floor_rate(
-        id: impl Into<InstrumentId>,
-        notional: Money,
-        strike_rate: Rate,
-        start_date: Date,
-        end_date: Date,
-        frequency: Tenor,
-        day_count: DayCount,
-        discount_curve_id: impl Into<CurveId>,
-        forward_id: impl Into<CurveId>,
-        vol_surface_id: impl Into<CurveId>,
-    ) -> Self {
-        Self {
-            id: id.into(),
-            rate_option_type: RateOptionType::Floor,
-            notional,
-            strike_rate: strike_rate.as_decimal(),
-            start_date,
-            end_date,
-            frequency,
-            day_count,
-            stub_kind: StubKind::None,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: None,
-            exercise_style: ExerciseStyle::European,
-            settlement: SettlementType::Cash,
-            discount_curve_id: discount_curve_id.into(),
-            forward_id: forward_id.into(),
-            vol_surface_id: vol_surface_id.into(),
-            vol_type: CapFloorVolType::default(),
-            pricing_overrides: PricingOverrides::default(),
-            attributes: Attributes::new(),
-        }
     }
 
     /// Set the volatility type convention.
@@ -351,51 +277,6 @@ impl crate::instruments::common::traits::Instrument for InterestRateOption {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.npv(curves, as_of)
-    }
-
-    fn price_with_metrics(
-        &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-        metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(curves, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
-            std::sync::Arc::new(self.clone()),
-            std::sync::Arc::new(curves.clone()),
-            as_of,
-            base_value,
-            metrics,
-            None,
-            None,
-        )
-    }
-}
-
-impl InterestRateOption {
-    /// Calculate the net present value of this interest rate option
-    ///
-    /// # Time Basis
-    ///
-    /// This implementation uses curve-consistent time mapping:
-    /// - Discount factors use `df_between_dates(as_of, payment_date)` which internally
-    ///   computes times using the discount curve's own base_date and day_count.
-    /// - Forward rates use `rate_period_on_dates` which computes times using
-    ///   the forward curve's own base_date and day_count.
-    /// - Vol surface lookups use the instrument's day_count for time to fixing
-    ///   (market convention for vol surfaces).
-    ///
-    /// # Seasoned Periods
-    ///
-    /// For periods where `fixing_date <= as_of < payment_date`:
-    /// - The caplet/floorlet is valued at intrinsic (the forward is observed/fixed)
-    /// - This avoids losing already-fixed but unpaid caplets
-    pub fn npv(
-        &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::cashflow::builder::date_generation::build_dates;
         use crate::instruments::cap_floor::pricing::black as black_ir;
         use crate::instruments::common::pricing::time::{
@@ -411,7 +292,7 @@ impl InterestRateOption {
             None
         };
 
-        let mut total_pv = Money::new(0.0, self.notional.currency());
+        let mut total_pv = finstack_core::money::Money::new(0.0, self.notional.currency());
         let dc_ctx = finstack_core::dates::DayCountCtx::default();
 
         // Single caplet/floorlet
@@ -536,6 +417,24 @@ impl InterestRateOption {
 
         Ok(total_pv)
     }
+
+    fn price_with_metrics(
+        &self,
+        curves: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+        metrics: &[crate::metrics::MetricId],
+    ) -> finstack_core::Result<crate::results::ValuationResult> {
+        let base_value = self.value(curves, as_of)?;
+        crate::instruments::common::helpers::build_with_metrics_dyn(
+            std::sync::Arc::new(self.clone()),
+            std::sync::Arc::new(curves.clone()),
+            as_of,
+            base_value,
+            metrics,
+            None,
+            None,
+        )
+    }
 }
 
 impl crate::instruments::common::traits::CurveDependencies for InterestRateOption {
@@ -563,6 +462,7 @@ impl crate::instruments::common::pricing::HasForwardCurves for InterestRateOptio
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::instruments::common::traits::Instrument;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::surfaces::VolSurface;
@@ -656,10 +556,10 @@ mod tests {
         );
 
         let cap_pv = cap
-            .npv(&ctx, base_date)
+            .value(&ctx, base_date)
             .expect("cap pricing should succeed");
         let floor_pv = floor
-            .npv(&ctx, base_date)
+            .value(&ctx, base_date)
             .expect("floor pricing should succeed");
 
         // Calculate expected forward swap value: sum of DF * tau * (F - K)
@@ -750,8 +650,8 @@ mod tests {
                 "TEST-VOL",
             );
 
-            let cap_pv = cap.npv(&ctx, base_date).expect("cap pricing");
-            let floor_pv = floor.npv(&ctx, base_date).expect("floor pricing");
+            let cap_pv = cap.value(&ctx, base_date).expect("cap pricing");
+            let floor_pv = floor.value(&ctx, base_date).expect("floor pricing");
 
             // Option prices must be non-negative
             assert!(

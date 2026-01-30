@@ -11,7 +11,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId, Rate};
+use finstack_core::types::{CurveId, InstrumentId};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
@@ -204,32 +204,6 @@ impl InterestRateSwap {
         Ok(swap)
     }
 
-    /// Create a term-rate swap using a typed fixed rate.
-    #[allow(clippy::too_many_arguments)]
-    pub fn create_term_swap_with_conventions_rate(
-        id: InstrumentId,
-        notional: Money,
-        fixed_rate: Rate,
-        start: Date,
-        end: Date,
-        side: PayReceive,
-        discount_curve_id: CurveId,
-        forward_curve_id: CurveId,
-        conventions: IrsLegConventions,
-    ) -> finstack_core::Result<Self> {
-        Self::create_term_swap_with_conventions(
-            id,
-            notional,
-            fixed_rate.as_decimal(),
-            start,
-            end,
-            side,
-            discount_curve_id,
-            forward_curve_id,
-            conventions,
-        )
-    }
-
     /// Create an **OIS / overnight RFR** swap with compounded-in-arrears floating compounding.
     ///
     /// This constructor enforces that the floating leg uses `CompoundedInArrears` compounding.
@@ -305,34 +279,6 @@ impl InterestRateSwap {
         };
         swap.validate()?;
         Ok(swap)
-    }
-
-    /// Create an OIS swap using a typed fixed rate.
-    #[allow(clippy::too_many_arguments)]
-    pub fn create_ois_swap_with_conventions_rate(
-        id: InstrumentId,
-        notional: Money,
-        fixed_rate: Rate,
-        start: Date,
-        end: Date,
-        side: PayReceive,
-        discount_curve_id: CurveId,
-        projection_curve_id: CurveId,
-        ois_compounding: FloatingLegCompounding,
-        conventions: IrsLegConventions,
-    ) -> finstack_core::Result<Self> {
-        Self::create_ois_swap_with_conventions(
-            id,
-            notional,
-            fixed_rate.as_decimal(),
-            start,
-            end,
-            side,
-            discount_curve_id,
-            projection_curve_id,
-            ois_compounding,
-            conventions,
-        )
     }
 }
 
@@ -571,18 +517,6 @@ impl InterestRateSwap {
         Self::create_swap_with_config(id, notional, fixed_rate, start, end, side, config)
     }
 
-    /// Create a standard USD OIS-discounted IRS using a typed fixed rate.
-    pub fn create_usd_swap_rate(
-        id: InstrumentId,
-        notional: Money,
-        fixed_rate: Rate,
-        start: Date,
-        end: Date,
-        side: PayReceive,
-    ) -> finstack_core::Result<Self> {
-        Self::create_usd_swap(id, notional, fixed_rate.as_decimal(), start, end, side)
-    }
-
     /// Create a USD IRS with full ISDA market-standard conventions.
     ///
     /// This constructor uses **production-ready** conventions that match
@@ -641,27 +575,6 @@ impl InterestRateSwap {
         };
 
         Self::create_swap_with_config(id, notional, fixed_rate, start, end, side, config)
-    }
-
-    /// Create a USD IRS with market-standard conventions using a typed fixed rate.
-    ///
-    /// See [`create_usd_swap_market_standard`](Self::create_usd_swap_market_standard) for details.
-    pub fn create_usd_swap_market_standard_rate(
-        id: InstrumentId,
-        notional: Money,
-        fixed_rate: Rate,
-        start: Date,
-        end: Date,
-        side: PayReceive,
-    ) -> finstack_core::Result<Self> {
-        Self::create_usd_swap_market_standard(
-            id,
-            notional,
-            fixed_rate.as_decimal(),
-            start,
-            end,
-            side,
-        )
     }
 
     /// Create a canonical example IRS for testing and documentation.
@@ -828,7 +741,7 @@ impl crate::instruments::common::traits::Instrument for InterestRateSwap {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        crate::instruments::irs::pricer::npv(self, curves, as_of)
+        crate::instruments::irs::pricer::compute_pv(self, curves, as_of)
     }
 
     fn value_raw(
@@ -836,7 +749,7 @@ impl crate::instruments::common::traits::Instrument for InterestRateSwap {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        crate::instruments::irs::pricer::npv_raw(self, curves, as_of)
+        crate::instruments::irs::pricer::compute_pv_raw(self, curves, as_of)
     }
 
     fn price_with_metrics(

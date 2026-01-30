@@ -7,6 +7,7 @@
 //! implementation regardless of whether spot_price_id is present.
 
 use crate::instruments::commodity::commodity_option::CommodityOption;
+use crate::instruments::common::traits::InstrumentNpvExt;
 use crate::metrics::bump_sizes;
 use crate::metrics::{bump_surface_vol_absolute, MetricCalculator, MetricContext};
 use finstack_core::Result;

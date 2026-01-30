@@ -9,6 +9,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fx::ndf::Ndf;
 use finstack_valuations::instruments::Attributes;
+use finstack_valuations::prelude::InstrumentNpvExt;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};

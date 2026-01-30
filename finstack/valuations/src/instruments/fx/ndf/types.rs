@@ -545,87 +545,6 @@ impl Ndf {
         self.fixing_rate.is_some()
     }
 
-    /// Compute present value in settlement currency.
-    ///
-    /// # Pre-Fixing Mode
-    ///
-    /// If `fixing_rate` is None and as_of < fixing_date:
-    /// - Estimate forward rate via CIRP if foreign curve available
-    /// - Otherwise use settlement curve fallback (simplified model for restricted currencies)
-    ///
-    /// # Post-Fixing Mode
-    ///
-    /// If `fixing_rate` is Some or as_of >= fixing_date:
-    /// - Use the observed fixing rate for settlement calculation
-    ///
-    /// # Quote Convention
-    ///
-    /// The settlement formula depends on `quote_convention`:
-    ///
-    /// - **BasePerSettlement**: Settlement = N_base × (1/F_contract - 1/F_fixing)
-    /// - **SettlementPerBase**: Settlement = N_base × (F_fixing - F_contract)
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - `as_of >= fixing_date` and `fixing_rate` is None (missing fixing rate)
-    /// - Notional currency doesn't match base currency
-    /// - Required market data is missing
-    pub fn npv(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
-        // If maturity has passed, value is zero
-        if self.maturity_date < as_of {
-            return Ok(Money::new(0.0, self.settlement_currency));
-        }
-
-        // Get settlement discount curve
-        let settlement_disc = market.get_discount(self.settlement_curve_id.as_str())?;
-        let df_settlement = settlement_disc.df_between_dates(as_of, self.maturity_date)?;
-
-        // Determine the forward rate to use
-        let effective_forward = if let Some(fixed_rate) = self.fixing_rate {
-            // Post-fixing: use observed rate
-            fixed_rate
-        } else if as_of >= self.fixing_date {
-            // Past fixing date but no rate set - this is an error condition
-            return Err(finstack_core::Error::Validation(format!(
-                "NDF {} is past fixing date ({}) but no fixing_rate is set. \
-                 Use with_fixing_rate() to set the observed rate.",
-                self.id, self.fixing_date
-            )));
-        } else {
-            // Pre-fixing: estimate forward rate
-            self.estimate_forward_rate(market, as_of)?
-        };
-
-        // Validate notional currency
-        if self.notional.currency() != self.base_currency {
-            return Err(finstack_core::Error::CurrencyMismatch {
-                expected: self.base_currency,
-                actual: self.notional.currency(),
-            });
-        }
-        let n_base = self.notional.amount();
-
-        // Compute settlement amount based on quote convention
-        let settlement_amount = match self.quote_convention {
-            NdfQuoteConvention::BasePerSettlement => {
-                // Rate is base per settlement (e.g., 7.25 CNY per USD)
-                // Settlement = N_base × (1/F_contract - 1/F_fixing)
-                // Positive when F_fixing > F_contract (base currency depreciated)
-                n_base * (1.0 / self.contract_rate - 1.0 / effective_forward)
-            }
-            NdfQuoteConvention::SettlementPerBase => {
-                // Rate is settlement per base (e.g., 0.138 USD per CNY)
-                // Settlement = N_base × (F_fixing - F_contract)
-                // Positive when F_fixing > F_contract (base currency appreciated)
-                n_base * (effective_forward - self.contract_rate)
-            }
-        };
-
-        let pv = settlement_amount * df_settlement;
-        Ok(Money::new(pv, self.settlement_currency))
-    }
-
     /// Estimate the forward rate when in pre-fixing mode.
     ///
     /// The forward rate is estimated in the same convention as `quote_convention`:
@@ -738,7 +657,58 @@ impl crate::instruments::common::traits::Instrument for Ndf {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.npv(market, as_of)
+        // If maturity has passed, value is zero
+        if self.maturity_date < as_of {
+            return Ok(Money::new(0.0, self.settlement_currency));
+        }
+
+        // Get settlement discount curve
+        let settlement_disc = market.get_discount(self.settlement_curve_id.as_str())?;
+        let df_settlement = settlement_disc.df_between_dates(as_of, self.maturity_date)?;
+
+        // Determine the forward rate to use
+        let effective_forward = if let Some(fixed_rate) = self.fixing_rate {
+            // Post-fixing: use observed rate
+            fixed_rate
+        } else if as_of >= self.fixing_date {
+            // Past fixing date but no rate set - this is an error condition
+            return Err(finstack_core::Error::Validation(format!(
+                "NDF {} is past fixing date ({}) but no fixing_rate is set. \
+                 Use with_fixing_rate() to set the observed rate.",
+                self.id, self.fixing_date
+            )));
+        } else {
+            // Pre-fixing: estimate forward rate
+            self.estimate_forward_rate(market, as_of)?
+        };
+
+        // Validate notional currency
+        if self.notional.currency() != self.base_currency {
+            return Err(finstack_core::Error::CurrencyMismatch {
+                expected: self.base_currency,
+                actual: self.notional.currency(),
+            });
+        }
+        let n_base = self.notional.amount();
+
+        // Compute settlement amount based on quote convention
+        let settlement_amount = match self.quote_convention {
+            NdfQuoteConvention::BasePerSettlement => {
+                // Rate is base per settlement (e.g., 7.25 CNY per USD)
+                // Settlement = N_base × (1/F_contract - 1/F_fixing)
+                // Positive when F_fixing > F_contract (base currency depreciated)
+                n_base * (1.0 / self.contract_rate - 1.0 / effective_forward)
+            }
+            NdfQuoteConvention::SettlementPerBase => {
+                // Rate is settlement per base (e.g., 0.138 USD per CNY)
+                // Settlement = N_base × (F_fixing - F_contract)
+                // Positive when F_fixing > F_contract (base currency appreciated)
+                n_base * (effective_forward - self.contract_rate)
+            }
+        };
+
+        let pv = settlement_amount * df_settlement;
+        Ok(Money::new(pv, self.settlement_currency))
     }
 
     fn price_with_metrics(
@@ -989,6 +959,7 @@ mod tests {
 
     #[test]
     fn test_ndf_past_fixing_without_rate_errors() {
+        use crate::instruments::common::traits::Instrument;
         use finstack_core::market_data::context::MarketContext;
         use finstack_core::market_data::term_structures::DiscountCurve;
 
@@ -1015,8 +986,8 @@ mod tests {
             .build()
             .expect("should build");
 
-        // NPV should error because we're past fixing date without a fixing rate
-        let result = ndf.npv(&market, as_of);
+        // value() should error because we're past fixing date without a fixing rate
+        let result = ndf.value(&market, as_of);
         assert!(
             result.is_err(),
             "Should error when past fixing without rate"

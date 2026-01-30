@@ -12,6 +12,7 @@ use finstack_core::dates::{DayCount, Tenor};
 use finstack_valuations::instruments::rates::inflation_swap::{
     PayReceiveInflation, YoYInflationSwap,
 };
+use finstack_valuations::prelude::InstrumentNpvExt;
 use finstack_valuations::pricer::InstrumentType;
 use js_sys::Array;
 use wasm_bindgen::prelude::*;

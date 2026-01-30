@@ -11,6 +11,7 @@ use finstack_valuations::instruments::credit_derivatives::cds_index::{
     CDSIndexConstituentParam, CDSIndexConstructionParams, CDSIndexParams,
 };
 use finstack_valuations::instruments::CreditParams;
+use finstack_valuations::instruments::InstrumentNpvExt;
 use time::Month;
 
 use crate::common::test_helpers::flat_discount_curve;

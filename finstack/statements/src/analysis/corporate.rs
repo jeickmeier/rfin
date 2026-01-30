@@ -14,6 +14,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity::dcf_equity::{DiscountedCashFlow, TerminalValueSpec};
 use finstack_valuations::instruments::{Attributes, Instrument};
+use finstack_valuations::prelude::InstrumentNpvExt;
 use serde_json::json;
 
 /// Corporate valuation result containing DCF outputs.

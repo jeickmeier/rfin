@@ -23,7 +23,11 @@ use finstack_core::Result;
 const TRADING_DAYS_PER_YEAR: f64 = 252.0;
 
 /// Present value using Black–Scholes; result currency is the strike currency.
-pub fn npv(inst: &EquityOption, curves: &MarketContext, as_of: Date) -> Result<Money> {
+pub(crate) fn compute_pv(
+    inst: &EquityOption,
+    curves: &MarketContext,
+    as_of: Date,
+) -> Result<Money> {
     let (spot, r, q, sigma, t) = collect_inputs(inst, curves, as_of)?;
 
     if t <= 0.0 {
@@ -467,7 +471,7 @@ impl crate::pricer::Pricer for SimpleEquityOptionBlackPricer {
 
         // Use the provided as_of date for consistency
         // Compute present value using the engine
-        let pv = npv(equity_option, market, as_of).map_err(|e| {
+        let pv = compute_pv(equity_option, market, as_of).map_err(|e| {
             crate::pricer::PricingError::model_failure_ctx(
                 e.to_string(),
                 crate::pricer::PricingErrorContext::default(),

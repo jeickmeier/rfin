@@ -13,7 +13,7 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::inflation_swap::{
     InflationSwapBuilder, PayReceiveInflation,
 };
-use finstack_valuations::instruments::{Attributes, Instrument};
+use finstack_valuations::instruments::{Attributes, Instrument, InstrumentNpvExt};
 use time::Month;
 
 #[test]

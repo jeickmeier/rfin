@@ -10,6 +10,7 @@ use finstack_valuations::instruments::equity::equity_index_future::{
     EquityFutureSpecs, EquityIndexFuture,
 };
 use finstack_valuations::instruments::Attributes;
+use finstack_valuations::prelude::InstrumentNpvExt;
 use wasm_bindgen::prelude::*;
 
 /// Contract specifications for equity index futures.

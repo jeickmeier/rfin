@@ -6,6 +6,7 @@
 //!
 //! Where Gamma(S) is computed at current spot, and Gamma(S±h) at bumped spots.
 
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::equity_option::EquityOption;
 use crate::metrics::{bump_scalar_price, bump_sizes};
 use crate::metrics::{MetricCalculator, MetricContext};
@@ -42,17 +43,17 @@ impl MetricCalculator for SpeedCalculator {
         // Compute gamma at S + h
         let curves_up_up =
             bump_scalar_price(&context.curves, &option.spot_id, 2.0 * bump_sizes::SPOT)?;
-        let pv_up_up = option.npv(&curves_up_up, as_of)?.amount();
+        let pv_up_up = option.value(&curves_up_up, as_of)?.amount();
         let curves_up = bump_scalar_price(&context.curves, &option.spot_id, bump_sizes::SPOT)?;
-        let pv_up = option.npv(&curves_up, as_of)?.amount();
+        let pv_up = option.value(&curves_up, as_of)?.amount();
         let gamma_up = (pv_up_up - 2.0 * pv_up + base_pv) / (spot_bump * spot_bump);
 
         // Compute gamma at S - h
         let curves_down = bump_scalar_price(&context.curves, &option.spot_id, -bump_sizes::SPOT)?;
-        let pv_down = option.npv(&curves_down, as_of)?.amount();
+        let pv_down = option.value(&curves_down, as_of)?.amount();
         let curves_down_down =
             bump_scalar_price(&context.curves, &option.spot_id, -2.0 * bump_sizes::SPOT)?;
-        let pv_down_down = option.npv(&curves_down_down, as_of)?.amount();
+        let pv_down_down = option.value(&curves_down_down, as_of)?.amount();
         let gamma_down = (base_pv - 2.0 * pv_down + pv_down_down) / (spot_bump * spot_bump);
 
         // Speed = (Gamma(S+h) - Gamma(S-h)) / (2h)

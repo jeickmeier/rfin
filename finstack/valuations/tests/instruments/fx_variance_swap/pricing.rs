@@ -8,7 +8,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity::variance_swap::RealizedVarMethod;
 use finstack_valuations::instruments::fx::fx_variance_swap::{FxVarianceSwapBuilder, PayReceive};
-use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::{Attributes, Instrument};
 use finstack_valuations::test_utils::{date, flat_discount_with_tenor, flat_vol_surface};
 use std::sync::Arc;
 
@@ -82,6 +82,6 @@ fn test_forward_variance_flat_surface() {
         .build()
         .unwrap();
 
-    let pv = fair_swap.npv(&ctx, as_of).unwrap();
+    let pv = fair_swap.value(&ctx, as_of).unwrap();
     assert!(pv.amount().abs() < 1e-6 * fair_swap.notional.amount());
 }

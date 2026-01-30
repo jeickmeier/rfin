@@ -22,6 +22,7 @@
 //! the full sensitivity across both legs.
 
 use crate::instruments::cds::CreditDefaultSwap;
+use crate::instruments::common::traits::InstrumentNpvExt;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

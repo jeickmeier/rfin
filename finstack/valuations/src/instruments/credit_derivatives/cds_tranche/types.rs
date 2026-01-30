@@ -221,12 +221,6 @@ impl CdsTranche {
         }
     }
 
-    /// Calculate the net present value of this CDS tranche
-    pub fn npv(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
-        let pricer = pricer::CDSTranchePricer::new();
-        pricer.price_tranche(self, curves, as_of)
-    }
-
     /// Calculate upfront amount for the tranche
     pub fn upfront(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
         let pricer = pricer::CDSTranchePricer::new();
@@ -349,8 +343,8 @@ impl Instrument for CdsTranche {
     // === Pricing Methods ===
 
     fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
-        // Call the instrument's own NPV method
-        self.npv(curves, as_of)
+        let pricer = pricer::CDSTranchePricer::new();
+        pricer.price_tranche(self, curves, as_of)
     }
 
     fn price_with_metrics(

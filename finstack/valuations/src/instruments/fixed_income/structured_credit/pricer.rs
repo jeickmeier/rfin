@@ -50,7 +50,7 @@ impl StructuredCredit {
 
         for swap in &self.hedge_swaps {
             // Use the IRS pricer to value each swap
-            let swap_npv = crate::instruments::irs::pricer::npv(swap, context, as_of)?;
+            let swap_npv = crate::instruments::irs::pricer::compute_pv(swap, context, as_of)?;
 
             // Convert to deal currency if needed (simplified - assumes same currency)
             total_hedge_npv = total_hedge_npv.checked_add(swap_npv)?;

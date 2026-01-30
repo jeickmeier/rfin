@@ -9,6 +9,7 @@
 //! - Only as fallback: bumps `spot_price_id` (if present) to propagate via cost-of-carry
 
 use crate::instruments::commodity::commodity_option::CommodityOption;
+use crate::instruments::common::traits::InstrumentNpvExt;
 use crate::metrics::bump_sizes;
 use crate::metrics::{
     bump_scalar_price, bump_surface_vol_absolute, MetricCalculator, MetricContext,

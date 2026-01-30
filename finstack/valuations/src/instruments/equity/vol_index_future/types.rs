@@ -198,30 +198,6 @@ impl VolatilityIndexFuture {
         }
     }
 
-    /// Calculate the present value of this volatility index future.
-    ///
-    /// # Formula
-    /// ```text
-    /// NPV = (Quoted_Price - Forward_Vol) × Multiplier × Contracts × Position_Sign
-    /// ```
-    ///
-    /// Note: Unlike equity or commodity futures, VIX futures are not discounted
-    /// because the underlying (VIX) is already a measure of forward-looking
-    /// volatility. The mark-to-market is essentially the difference between
-    /// the quoted price and the fair forward level, scaled by contract terms.
-    ///
-    /// # Arguments
-    ///
-    /// * `context` - Market context with vol index curves
-    ///
-    /// # Returns
-    ///
-    /// Present value as Money in the notional currency.
-    pub fn npv(&self, context: &MarketContext) -> finstack_core::Result<Money> {
-        let pv = self.npv_raw(context)?;
-        Ok(Money::new(pv, self.notional.currency()))
-    }
-
     /// Calculate the raw present value as f64.
     pub fn npv_raw(&self, context: &MarketContext) -> finstack_core::Result<f64> {
         // Get the vol index curve
@@ -316,7 +292,11 @@ impl crate::instruments::common::traits::Instrument for VolatilityIndexFuture {
     }
 
     fn value(&self, curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
-        self.npv(curves)
+        let pv = self.npv_raw(curves)?;
+        Ok(finstack_core::money::Money::new(
+            pv,
+            self.notional.currency(),
+        ))
     }
 
     fn value_raw(&self, curves: &MarketContext, _as_of: Date) -> finstack_core::Result<f64> {
@@ -388,6 +368,7 @@ impl crate::instruments::common::traits::CurveDependencies for VolatilityIndexFu
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::instruments::common::traits::Instrument;
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::market_data::term_structures::VolatilityIndexCurve;
     use time::Month;
@@ -418,6 +399,7 @@ mod tests {
     #[test]
     fn test_at_market_future() {
         let market = setup_market();
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
 
         // Create a future at the forward price (should have zero NPV)
         let future = VolatilityIndexFuture::builder()
@@ -433,7 +415,7 @@ mod tests {
             .build()
             .expect("valid future");
 
-        let npv = future.npv(&market).expect("npv calculation");
+        let npv = future.value(&market, as_of).expect("value calculation");
         // At forward price, NPV should be approximately zero
         assert!(
             npv.amount().abs() < 100.0,
@@ -445,6 +427,7 @@ mod tests {
     #[test]
     fn test_long_position_benefits_from_high_quote() {
         let market = setup_market();
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
 
         // Long position with quoted price above forward
         let future = VolatilityIndexFuture::builder()
@@ -460,7 +443,7 @@ mod tests {
             .build()
             .expect("valid future");
 
-        let npv = future.npv(&market).expect("npv calculation");
+        let npv = future.value(&market, as_of).expect("value calculation");
         // Long at 22, forward at ~20, so positive PV (we locked in high price to sell)
         assert!(
             npv.amount() > 0.0,
@@ -471,6 +454,7 @@ mod tests {
     #[test]
     fn test_short_position_benefits_from_low_forward() {
         let market = setup_market();
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
 
         // Short position with quoted price above forward
         let future = VolatilityIndexFuture::builder()
@@ -486,7 +470,7 @@ mod tests {
             .build()
             .expect("valid future");
 
-        let npv = future.npv(&market).expect("npv calculation");
+        let npv = future.value(&market, as_of).expect("value calculation");
         // Short at 22, forward at ~20, so negative PV (we sold cheap)
         assert!(
             npv.amount() < 0.0,

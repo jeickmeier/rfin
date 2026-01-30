@@ -192,7 +192,7 @@ fn geometric_analytical_errors_when_seasoned_and_not_expired() -> finstack_core:
         .expect_err("seasoned geometric analytical should error");
     assert!(err
         .to_string()
-        .contains("Seasoned Geometric Asian not supported"));
+        .contains("Seasoned Geometric Asian analytical pricing not supported"));
     Ok(())
 }
 

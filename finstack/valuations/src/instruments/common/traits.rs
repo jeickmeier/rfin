@@ -1116,6 +1116,43 @@ pub trait Instrument: Send + Sync {
 // Note: Methods formerly on the `Attributable` trait are now default methods on `Instrument`.
 
 // -----------------------------------------------------------------------------
+// Instrument NPV Extension
+// -----------------------------------------------------------------------------
+
+/// Extension trait providing `npv()` as an alias for `value()`.
+///
+/// This trait is automatically implemented for all types implementing `Instrument`,
+/// providing a convenient `npv()` method that delegates to `value()`. This maintains
+/// backwards compatibility with code that uses `npv()` while the canonical method
+/// is `value()`.
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use finstack_valuations::instruments::{Bond, Instrument, InstrumentNpvExt};
+///
+/// let bond = Bond::example();
+/// let market = MarketContext::new();
+/// let as_of = date!(2025-01-01);
+///
+/// // Both are equivalent:
+/// let pv1 = bond.value(&market, as_of)?;
+/// let pv2 = bond.npv(&market, as_of)?;
+/// ```
+pub trait InstrumentNpvExt: Instrument {
+    /// Calculate the present value (alias for `value()`).
+    ///
+    /// This method delegates to [`Instrument::value()`] and exists for backwards
+    /// compatibility with code that uses `npv()` as the pricing method name.
+    fn npv(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
+        self.value(market, as_of)
+    }
+}
+
+/// Blanket implementation of `InstrumentNpvExt` for all `Instrument` types.
+impl<T: Instrument + ?Sized> InstrumentNpvExt for T {}
+
+// -----------------------------------------------------------------------------
 // Curve Dependencies
 // -----------------------------------------------------------------------------
 

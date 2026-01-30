@@ -159,75 +159,6 @@ impl FxSpot {
         }
     }
 
-    /// Compute present value in the instrument's quote currency.
-    ///
-    /// If an explicit `spot_rate` is set on the instrument, that is used directly
-    /// to compute `quote_amount = base_notional.amount() * spot_rate`.
-    /// Otherwise, the rate is obtained from the `MarketContext`'s `FxMatrix`.
-    ///
-    /// # Settlement Date Handling
-    ///
-    /// When using `FxConversionPolicy::CashflowDate`, the FX rate query uses the
-    /// effective settlement date rather than `as_of`. The settlement date is:
-    /// - The explicit `settlement` date if provided (adjusted for business days if calendar set)
-    /// - `as_of + settlement_lag_days` business days otherwise (default: T+2)
-    ///
-    /// If the settlement date is on or before `as_of` (`settle_date <= as_of`), returns zero
-    /// since the trade has already settled.
-    ///
-    /// # Settlement Date Boundary Convention
-    ///
-    /// This uses **end-of-day** semantics: if `settle_date == as_of`, the trade is
-    /// considered settled and returns zero value. This is the standard convention
-    /// for overnight valuations where settlement occurs during the business day.
-    /// For intraday valuations where you need value on settlement day, use
-    /// `as_of = settle_date - 1 day`.
-    pub fn npv(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
-        // Compute effective settlement date
-        let settle_date = self.effective_settlement_date(as_of)?;
-
-        // If settlement is on or before as_of, trade has settled (end-of-day convention)
-        if settle_date <= as_of {
-            return Ok(Money::new(0.0, self.quote));
-        }
-
-        if let Some(rate) = self.spot_rate {
-            let quote_amount = self.effective_notional().amount() * rate;
-            return Ok(Money::new(quote_amount, self.quote));
-        }
-
-        let matrix = market.fx().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::InputError::NotFound {
-                id: "fx_matrix".to_string(),
-            })
-        })?;
-
-        struct MatrixProvider<'a> {
-            m: &'a finstack_core::money::fx::FxMatrix,
-        }
-
-        impl FxProvider for MatrixProvider<'_> {
-            fn rate(
-                &self,
-                from: Currency,
-                to: Currency,
-                on: Date,
-                policy: finstack_core::money::fx::FxConversionPolicy,
-            ) -> finstack_core::Result<finstack_core::money::fx::FxRate> {
-                let result = self.m.rate(finstack_core::money::fx::FxQuery::with_policy(
-                    from, to, on, policy,
-                ))?;
-                Ok(result.rate)
-            }
-        }
-
-        let provider = MatrixProvider { m: matrix.as_ref() };
-        let policy = finstack_core::money::fx::FxConversionPolicy::CashflowDate;
-        // Use settlement date for the FX conversion when using CashflowDate policy
-        self.effective_notional()
-            .convert(self.quote, settle_date, &provider, policy)
-    }
-
     /// Compute the effective settlement date for this FX spot.
     ///
     /// Returns the settlement date adjusted for business days according to the
@@ -504,7 +435,49 @@ impl crate::instruments::common::traits::Instrument for FxSpot {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.npv(market, as_of)
+        // Compute effective settlement date
+        let settle_date = self.effective_settlement_date(as_of)?;
+
+        // If settlement is on or before as_of, trade has settled (end-of-day convention)
+        if settle_date <= as_of {
+            return Ok(finstack_core::money::Money::new(0.0, self.quote));
+        }
+
+        if let Some(rate) = self.spot_rate {
+            let quote_amount = self.effective_notional().amount() * rate;
+            return Ok(finstack_core::money::Money::new(quote_amount, self.quote));
+        }
+
+        let matrix = market.fx().ok_or_else(|| {
+            finstack_core::Error::from(finstack_core::InputError::NotFound {
+                id: "fx_matrix".to_string(),
+            })
+        })?;
+
+        struct MatrixProvider<'a> {
+            m: &'a finstack_core::money::fx::FxMatrix,
+        }
+
+        impl FxProvider for MatrixProvider<'_> {
+            fn rate(
+                &self,
+                from: finstack_core::currency::Currency,
+                to: finstack_core::currency::Currency,
+                on: finstack_core::dates::Date,
+                policy: finstack_core::money::fx::FxConversionPolicy,
+            ) -> finstack_core::Result<finstack_core::money::fx::FxRate> {
+                let result = self.m.rate(finstack_core::money::fx::FxQuery::with_policy(
+                    from, to, on, policy,
+                ))?;
+                Ok(result.rate)
+            }
+        }
+
+        let provider = MatrixProvider { m: matrix.as_ref() };
+        let policy = finstack_core::money::fx::FxConversionPolicy::CashflowDate;
+        // Use settlement date for the FX conversion when using CashflowDate policy
+        self.effective_notional()
+            .convert(self.quote, settle_date, &provider, policy)
     }
 
     fn price_with_metrics(
@@ -593,6 +566,7 @@ impl CashflowProvider for FxSpot {
 #[allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]
 mod tests {
     use super::*;
+    use crate::instruments::common::traits::Instrument;
     use time::Month;
 
     fn date(year: i32, month: Month, day: u8) -> Date {
@@ -616,7 +590,7 @@ mod tests {
         let market = MarketContext::new();
         let as_of = date(2025, Month::January, 15);
         let pv = spot
-            .npv(&market, as_of)
+            .value(&market, as_of)
             .expect("should price with explicit rate");
 
         // 1 EUR * 1.10 = 1.10 USD
@@ -672,7 +646,7 @@ mod tests {
 
         let market = MarketContext::new();
         let as_of = date(2025, Month::January, 15); // After settlement
-        let pv = spot.npv(&market, as_of).expect("should price");
+        let pv = spot.value(&market, as_of).expect("should price");
 
         assert_eq!(pv.amount(), 0.0, "Should return zero when settled");
     }
@@ -696,7 +670,7 @@ mod tests {
 
         let market = MarketContext::new();
         let as_of = date(2025, Month::January, 15);
-        let pv = spot.npv(&market, as_of).expect("should price");
+        let pv = spot.value(&market, as_of).expect("should price");
 
         // 1,000,000 EUR * 1.10 = 1,100,000 USD
         assert!((pv.amount() - 1_100_000.0).abs() < 1e-6);

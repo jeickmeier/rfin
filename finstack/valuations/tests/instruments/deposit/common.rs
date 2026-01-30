@@ -10,6 +10,7 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::rates::deposit::Deposit;
+pub use finstack_valuations::instruments::InstrumentNpvExt;
 use finstack_valuations::metrics::{MetricContext, MetricId, MetricRegistry};
 use std::sync::Arc;
 

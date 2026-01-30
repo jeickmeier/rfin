@@ -13,6 +13,7 @@ use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::FinancingLegSpec;
 use finstack_valuations::instruments::{EquityUnderlyingParams, IndexUnderlyingParams};
 use finstack_valuations::instruments::{TrsScheduleSpec, TrsSide};
+use finstack_valuations::prelude::InstrumentNpvExt;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};

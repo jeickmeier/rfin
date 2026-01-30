@@ -9,6 +9,7 @@
 //! Only computed if fx_vol_id is provided. Returns 0 if FX volatility
 //! surface is not available.
 
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::quanto_option::QuantoOption;
 use crate::metrics::bump_sizes;
 use crate::metrics::{MetricCalculator, MetricContext};
@@ -49,7 +50,7 @@ impl MetricCalculator for FxVegaCalculator {
         curves_bumped = curves_bumped.insert_surface(bumped_surface);
 
         // Reprice with bumped FX vol
-        let pv_bumped = option.npv(&curves_bumped, as_of)?.amount();
+        let pv_bumped = option.value(&curves_bumped, as_of)?.amount();
 
         // FX Vega = (PV_bumped - PV_base) / bump_size (in vol units)
         let fx_vega = (pv_bumped - base_pv) / bump_sizes::VOLATILITY;

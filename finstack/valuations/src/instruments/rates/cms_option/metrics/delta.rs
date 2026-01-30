@@ -6,6 +6,7 @@
 //! Delta = PV(forward_curve + 1bp) - PV(base)
 
 use crate::instruments::cms_option::CmsOption;
+use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 use finstack_core::Result;
@@ -33,7 +34,7 @@ impl MetricCalculator for DeltaCalculator {
         }])?;
 
         // Reprice
-        let pv_bumped = option.npv(&curves_bumped, context.as_of)?.amount();
+        let pv_bumped = option.value(&curves_bumped, context.as_of)?.amount();
 
         // Delta = Change in PV
         Ok(pv_bumped - base_pv)

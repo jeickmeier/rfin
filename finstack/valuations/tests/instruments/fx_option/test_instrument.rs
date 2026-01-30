@@ -219,7 +219,7 @@ fn test_instrument_trait_value() {
 }
 
 #[test]
-fn test_npv_method() {
+fn test_value_method_returns_positive_pv() {
     // Arrange
     let as_of = date!(2024 - 01 - 01);
     let expiry = date!(2025 - 01 - 01);
@@ -227,7 +227,7 @@ fn test_npv_method() {
     let market = build_market_context(as_of, MarketParams::atm());
 
     // Act
-    let pv = call.npv(&market, as_of).unwrap();
+    let pv = call.value(&market, as_of).unwrap();
 
     // Assert
     assert!(pv.amount() > 0.0);
@@ -235,16 +235,16 @@ fn test_npv_method() {
 }
 
 #[test]
-fn test_value_and_npv_equivalent() {
+fn test_value_method_consistency() {
     // Arrange
     let as_of = date!(2024 - 01 - 01);
     let expiry = date!(2025 - 01 - 01);
     let call = build_call_option(as_of, expiry, 1.20, 1_000_000.0);
     let market = build_market_context(as_of, MarketParams::atm());
 
-    // Act
+    // Act: Call value() twice to verify consistency
     let pv1 = call.value(&market, as_of).unwrap();
-    let pv2 = call.npv(&market, as_of).unwrap();
+    let pv2 = call.value(&market, as_of).unwrap();
 
     // Assert: Should be identical
     assert_eq!(pv1.amount(), pv2.amount());
@@ -277,7 +277,7 @@ fn test_implied_vol_method() {
     let market = build_market_context(as_of, MarketParams::atm());
 
     // Act
-    let pv = call.npv(&market, as_of).unwrap();
+    let pv = call.value(&market, as_of).unwrap();
     let iv = call.implied_vol(&market, as_of, pv.amount(), None).unwrap();
 
     // Assert

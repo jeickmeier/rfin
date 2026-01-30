@@ -87,7 +87,7 @@ mod tests {
 
     fn context_for(inst: FxSpot, as_of: Date) -> MetricContext {
         let base_value = inst
-            .npv(&MarketContext::new(), as_of)
+            .value(&MarketContext::new(), as_of)
             .expect("should succeed");
         let instrument_arc: Arc<dyn Instrument> = Arc::new(inst);
         MetricContext::new(
@@ -113,7 +113,7 @@ mod tests {
         let fx = sample_fx();
         let as_of = d(2025, 1, 15);
         let base_value = fx
-            .npv(&MarketContext::new(), as_of)
+            .value(&MarketContext::new(), as_of)
             .expect("should succeed");
         let result = fx
             .price_with_metrics(&MarketContext::new(), as_of, &[])

@@ -10,6 +10,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_option::CommodityOption;
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::PricingOverrides;
+use finstack_valuations::prelude::InstrumentNpvExt;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = CommodityOptionBuilder)]

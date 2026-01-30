@@ -7,6 +7,7 @@
 //!
 //! Where Delta(σ) is computed by bumping both spot and vol.
 
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::equity_option::EquityOption;
 use crate::metrics::bump_surface_vol_absolute;
 use crate::metrics::{bump_scalar_price, bump_sizes};
@@ -51,10 +52,10 @@ impl MetricCalculator for VannaCalculator {
         // Delta at vol_up: (PV(S+h, σ+h) - PV(S-h, σ+h)) / (2h_S)
         let curves_up_vol_up =
             bump_scalar_price(&curves_vol_up, &option.spot_id, bump_sizes::SPOT)?;
-        let pv_up_vol_up = option.npv(&curves_up_vol_up, as_of)?.amount();
+        let pv_up_vol_up = option.value(&curves_up_vol_up, as_of)?.amount();
         let curves_down_vol_up =
             bump_scalar_price(&curves_vol_up, &option.spot_id, -bump_sizes::SPOT)?;
-        let pv_down_vol_up = option.npv(&curves_down_vol_up, as_of)?.amount();
+        let pv_down_vol_up = option.value(&curves_down_vol_up, as_of)?.amount();
         let delta_vol_up = (pv_up_vol_up - pv_down_vol_up) / (2.0 * spot_bump);
 
         // Compute delta at vol_down
@@ -67,10 +68,10 @@ impl MetricCalculator for VannaCalculator {
         // Delta at vol_down: (PV(S+h, σ-h) - PV(S-h, σ-h)) / (2h_S)
         let curves_up_vol_down =
             bump_scalar_price(&curves_vol_down, &option.spot_id, bump_sizes::SPOT)?;
-        let pv_up_vol_down = option.npv(&curves_up_vol_down, as_of)?.amount();
+        let pv_up_vol_down = option.value(&curves_up_vol_down, as_of)?.amount();
         let curves_down_vol_down =
             bump_scalar_price(&curves_vol_down, &option.spot_id, -bump_sizes::SPOT)?;
-        let pv_down_vol_down = option.npv(&curves_down_vol_down, as_of)?.amount();
+        let pv_down_vol_down = option.value(&curves_down_vol_down, as_of)?.amount();
         let delta_vol_down = (pv_up_vol_down - pv_down_vol_down) / (2.0 * spot_bump);
 
         // Vanna = ∂Δ/∂σ ≈ (Δ(σ+Δσ) - Δ(σ-Δσ)) / (2Δσ)

@@ -8,7 +8,7 @@ use finstack_core::money::fx::{FxMatrix, SimpleFxProvider};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fx::ndf::Ndf;
-use finstack_valuations::instruments::{Attributes, Instrument};
+use finstack_valuations::instruments::{Attributes, Instrument, InstrumentNpvExt};
 use finstack_valuations::pricer::{create_standard_registry, InstrumentType, ModelKey};
 use std::sync::Arc;
 use time::Month;

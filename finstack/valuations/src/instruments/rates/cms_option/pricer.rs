@@ -338,7 +338,7 @@ impl Pricer for CmsOptionPricer {
 }
 
 /// Present value using Convexity Adjusted Black.
-pub fn npv(inst: &CmsOption, curves: &MarketContext, as_of: Date) -> Result<Money> {
+pub(crate) fn compute_pv(inst: &CmsOption, curves: &MarketContext, as_of: Date) -> Result<Money> {
     let pricer = CmsOptionPricer::new();
     pricer.price_internal(inst, curves, as_of)
 }

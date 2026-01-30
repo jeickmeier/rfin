@@ -52,7 +52,7 @@ impl Pricer for EquityIndexFutureDiscountingPricer {
             })?;
 
         // Calculate NPV
-        let pv = future.npv(market, as_of).map_err(|e| {
+        let pv = future.value(market, as_of).map_err(|e| {
             PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
         })?;
 

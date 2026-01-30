@@ -7,6 +7,7 @@
 //!
 //! Or equivalently: (PV(σ+h) - 2*PV(σ) + PV(σ-h)) / h²
 
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::equity_option::EquityOption;
 use crate::metrics::bump_sizes;
 use crate::metrics::bump_surface_vol_absolute;
@@ -40,7 +41,7 @@ impl MetricCalculator for VolgaCalculator {
             option.vol_surface_id.as_str(),
             vol_bump_abs,
         )?;
-        let pv_vol_up = option.npv(&curves_vol_up, as_of)?.amount();
+        let pv_vol_up = option.value(&curves_vol_up, as_of)?.amount();
 
         // Bump vol down
         let curves_vol_down = bump_surface_vol_absolute(
@@ -48,7 +49,7 @@ impl MetricCalculator for VolgaCalculator {
             option.vol_surface_id.as_str(),
             -vol_bump_abs,
         )?;
-        let pv_vol_down = option.npv(&curves_vol_down, as_of)?.amount();
+        let pv_vol_down = option.value(&curves_vol_down, as_of)?.amount();
 
         // Volga (Vomma) = ∂²V/∂σ² ≈ (V(σ+Δσ) - 2V(σ) + V(σ-Δσ)) / (Δσ)²
         //

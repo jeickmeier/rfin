@@ -220,16 +220,6 @@ impl ForwardRateAgreement {
             .unwrap_or_else(|_| unreachable!("Example FRA with valid constants should never fail"))
     }
 
-    /// Calculate the net present value of this FRA (rounded Money).
-    pub fn npv(
-        &self,
-        context: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<Money> {
-        let pv = self.npv_raw(context, as_of)?;
-        Ok(Money::new(pv, self.notional.currency()))
-    }
-
     /// Settlement amount at period start (undiscounted).
     ///
     /// Returns the cashflow paid at `start_date` using standard FRA settlement
@@ -466,8 +456,11 @@ impl crate::instruments::common::traits::Instrument for ForwardRateAgreement {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        // Call the instrument's own NPV method
-        self.npv(curves, as_of)
+        let pv = self.npv_raw(curves, as_of)?;
+        Ok(finstack_core::money::Money::new(
+            pv,
+            self.notional.currency(),
+        ))
     }
 
     fn value_raw(

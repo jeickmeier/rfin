@@ -215,24 +215,6 @@ impl Equity {
         self.shares.unwrap_or(1.0)
     }
 
-    /// Calculate the net present value of this equity position
-    ///
-    /// For spot equities, this is simply Spot Price * Shares.
-    /// Any dividend adjustments or forward pricing should be handled via specific metrics
-    /// or forward instrument types.
-    pub fn npv(
-        &self,
-        curves: &MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<Money> {
-        let spot_px = self.price_per_share(curves, as_of)?;
-
-        Ok(Money::new(
-            spot_px.amount() * self.effective_shares(),
-            self.currency,
-        ))
-    }
-
     /// Resolve price per share for the equity
     pub fn price_per_share(
         &self,
@@ -351,7 +333,12 @@ impl crate::instruments::common::traits::Instrument for Equity {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.npv(market, as_of)
+        let spot_px = self.price_per_share(market, as_of)?;
+
+        Ok(finstack_core::money::Money::new(
+            spot_px.amount() * self.effective_shares(),
+            self.currency,
+        ))
     }
 
     fn price_with_metrics(

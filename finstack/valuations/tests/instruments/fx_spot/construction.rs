@@ -16,7 +16,8 @@ fn test_basic_construction() {
     assert!(fx.settlement.is_none());
     assert!(fx.spot_rate.is_none());
     assert!(fx.notional.is_none());
-    assert_eq!(fx.bdc, BusinessDayConvention::Following);
+    // Default BDC is ModifiedFollowing per ISDA FX settlement standard
+    assert_eq!(fx.bdc, BusinessDayConvention::ModifiedFollowing);
 }
 
 #[test]

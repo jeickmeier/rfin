@@ -4,6 +4,7 @@
 //! at `as_of + period` (default 1D) holding market curves and vol surface fixed.
 
 use crate::instruments::cap_floor::InterestRateOption;
+use crate::instruments::common::traits::Instrument;
 use crate::metrics::calculate_theta_date;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::Result;
@@ -59,7 +60,7 @@ impl MetricCalculator for ThetaCalculator {
         let base_pv = context.base_value.amount();
 
         // Reprice at rolled date with same market context
-        let bumped = option.npv(&context.curves, rolled_date)?;
+        let bumped = option.value(&context.curves, rolled_date)?;
 
         Ok(bumped.amount() - base_pv)
     }

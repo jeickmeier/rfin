@@ -23,7 +23,7 @@ fn test_quote_amount_equals_npv() {
     let fx = eurusd_with_notional(2_000_000.0, 1.22);
     let market = MarketContext::new();
     let result = fx.price_with_metrics(&market, test_date(), &[]).unwrap();
-    let direct_npv = fx.npv(&market, test_date()).unwrap();
+    let direct_npv = fx.value(&market, test_date()).unwrap();
 
     let quote_amt = result.value.amount();
     assert_approx_eq(quote_amt, direct_npv.amount(), EPSILON, "Equals NPV");

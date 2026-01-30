@@ -13,7 +13,7 @@ use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_valuations::instruments::equity::equity_option::EquityOption;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::{Instrument, InstrumentNpvExt};
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 use finstack_valuations::test_utils::{
     date, equity_option_european_call, flat_discount_with_tenor, flat_vol_surface,

@@ -535,18 +535,26 @@ impl InterestRateSwap {
 /// let as_of = Date::from_calendar_date(2024, Month::January, 1)
 ///     .map_err(|e| finstack_core::Error::Validation(format!("{}", e)))?;
 ///
-/// let npv = pricer::npv(&irs, &context, as_of)?;
+/// let npv = pricer::compute_pv(&irs, &context, as_of)?;
 /// println!("Swap NPV: {}", npv);
 /// # Ok(())
 /// # }
 /// ```
-pub fn npv(irs: &InterestRateSwap, context: &MarketContext, as_of: Date) -> Result<Money> {
-    let npv_val = npv_raw(irs, context, as_of)?;
+pub(crate) fn compute_pv(
+    irs: &InterestRateSwap,
+    context: &MarketContext,
+    as_of: Date,
+) -> Result<Money> {
+    let npv_val = compute_pv_raw(irs, context, as_of)?;
     Ok(Money::new(npv_val, irs.notional.currency()))
 }
 
 /// Compute the raw Net Present Value (f64) without rounding.
-pub fn npv_raw(irs: &InterestRateSwap, context: &MarketContext, as_of: Date) -> Result<f64> {
+pub(crate) fn compute_pv_raw(
+    irs: &InterestRateSwap,
+    context: &MarketContext,
+    as_of: Date,
+) -> Result<f64> {
     let disc = context.get_discount(irs.fixed.discount_curve_id.as_ref())?;
     let pv_fixed = irs.pv_fixed_leg(disc.as_ref(), as_of)?;
 

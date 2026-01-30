@@ -13,6 +13,7 @@ use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_valuations::instruments::rates::xccy_swap::{
     LegSide, NotionalExchange, XccySwap, XccySwapLeg,
 };
+use finstack_valuations::prelude::InstrumentNpvExt;
 use finstack_valuations::pricer::InstrumentType;
 use js_sys::Array;
 use wasm_bindgen::prelude::*;

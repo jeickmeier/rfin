@@ -27,7 +27,7 @@ impl Pricer for DcfPricer {
             .downcast_ref::<DiscountedCashFlow>()
             .ok_or_else(|| PricingError::type_mismatch(InstrumentType::DCF, instrument.key()))?;
 
-        let equity_value = dcf.npv(market, as_of).map_err(|e| {
+        let equity_value = dcf.value(market, as_of).map_err(|e| {
             PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
         })?;
 

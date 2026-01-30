@@ -60,7 +60,7 @@ fn test_fx_forward_pricing_at_market() {
         .build()
         .expect("should build");
 
-    let npv = forward.npv(&market, as_of).expect("should price");
+    let npv = forward.value(&market, as_of).expect("should price");
 
     // At-market forward should have PV ≈ 0
     assert!(
@@ -92,7 +92,7 @@ fn test_fx_forward_pricing_favorable_contract_rate() {
         .build()
         .expect("should build");
 
-    let npv = forward.npv(&market, as_of).expect("should price");
+    let npv = forward.value(&market, as_of).expect("should price");
 
     // Contract rate below market forward means positive PV
     assert!(
@@ -123,7 +123,7 @@ fn test_fx_forward_pricing_unfavorable_contract_rate() {
         .build()
         .expect("should build");
 
-    let npv = forward.npv(&market, as_of).expect("should price");
+    let npv = forward.value(&market, as_of).expect("should price");
 
     // Contract rate above market forward means negative PV
     assert!(
@@ -241,7 +241,7 @@ fn test_fx_forward_with_spot_override() {
         .build()
         .expect("should build");
 
-    let npv = forward.npv(&market, as_of).expect("should price");
+    let npv = forward.value(&market, as_of).expect("should price");
 
     // With spot override matching contract rate, forward rate will differ from contract
     // due to interest rate differential, so PV won't be exactly zero
@@ -274,7 +274,7 @@ fn test_fx_forward_with_forward_points() {
     assert_eq!(forward.spot_rate_override, Some(1.10));
     assert!((forward.contract_rate.unwrap() - 1.105).abs() < 1e-10);
 
-    let npv = forward.npv(&market, as_of).expect("should price");
+    let npv = forward.value(&market, as_of).expect("should price");
     assert_eq!(npv.currency(), Currency::USD);
 }
 

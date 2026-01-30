@@ -4,6 +4,7 @@
 //! bump equity volatility surface, reprice, and compute (PV_vol_up - PV_base) / bump_size.
 //! Vega is per 1% volatility move.
 
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::quanto_option::QuantoOption;
 use crate::metrics::bump_sizes;
 use crate::metrics::bump_surface_vol_absolute;
@@ -37,7 +38,7 @@ impl MetricCalculator for VegaCalculator {
         )?;
 
         // Reprice with bumped vol
-        let pv_bumped = option.npv(&curves_bumped, as_of)?.amount();
+        let pv_bumped = option.value(&curves_bumped, as_of)?.amount();
 
         // Vega = (PV_bumped - PV_base) / bump_size (in vol units)
         let vega = (pv_bumped - base_pv) / bump_sizes::VOLATILITY;

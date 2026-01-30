@@ -17,7 +17,7 @@ use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Teno
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::money::Money;
-use finstack_core::types::{CurveId, InstrumentId, Rate};
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::{Error, Result};
 
 use super::parameters::SwaptionParams;
@@ -534,35 +534,6 @@ impl Swaption {
     // ============================================================================
     // Pricing Methods (moved from engine for direct access)
     // ============================================================================
-
-    /// Compute instrument NPV dispatching to SABR, Black, or Normal as configured.
-    pub fn npv(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
-        // 1. SABR model (if enabled) overrides basic model choice
-        if self.sabr_params.is_some() {
-            return self.price_sabr(curves, as_of);
-        }
-
-        let time_to_expiry = self.year_fraction(as_of, self.expiry, self.day_count)?;
-        let vol_surface = curves.surface(self.vol_surface_id.as_str())?;
-        let vol = if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
-            impl_vol
-        } else {
-            match self.pricing_overrides.vol_surface_extrapolation {
-                VolSurfaceExtrapolation::Clamp | VolSurfaceExtrapolation::LinearInVariance => {
-                    // LinearInVariance falls back to Clamp until surface impl is ready
-                    vol_surface.value_clamped(time_to_expiry, self.strike_rate)
-                }
-                VolSurfaceExtrapolation::Error => {
-                    vol_surface.value_checked(time_to_expiry, self.strike_rate)?
-                }
-            }
-        };
-
-        match self.vol_model {
-            VolatilityModel::Black => self.price_black(curves, vol, as_of),
-            VolatilityModel::Normal => self.price_normal(curves, vol, as_of),
-        }
-    }
 
     /// Helper for common pricing logic
     fn price_model_base<F>(
@@ -1082,7 +1053,33 @@ impl crate::instruments::common::traits::Instrument for Swaption {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.npv(curves, as_of)
+        use crate::instruments::pricing_overrides::VolSurfaceExtrapolation;
+
+        // 1. SABR model (if enabled) overrides basic model choice
+        if self.sabr_params.is_some() {
+            return self.price_sabr(curves, as_of);
+        }
+
+        let time_to_expiry = self.year_fraction(as_of, self.expiry, self.day_count)?;
+        let vol_surface = curves.surface(self.vol_surface_id.as_str())?;
+        let vol = if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
+            impl_vol
+        } else {
+            match self.pricing_overrides.vol_surface_extrapolation {
+                VolSurfaceExtrapolation::Clamp | VolSurfaceExtrapolation::LinearInVariance => {
+                    // LinearInVariance falls back to Clamp until surface impl is ready
+                    vol_surface.value_clamped(time_to_expiry, self.strike_rate)
+                }
+                VolSurfaceExtrapolation::Error => {
+                    vol_surface.value_checked(time_to_expiry, self.strike_rate)?
+                }
+            }
+        };
+
+        match self.vol_model {
+            VolatilityModel::Black => self.price_black(curves, vol, as_of),
+            VolatilityModel::Normal => self.price_normal(curves, vol, as_of),
+        }
     }
 
     fn price_with_metrics(
@@ -1271,40 +1268,6 @@ impl BermudanSwaption {
         }
     }
 
-    /// Create a new Bermudan payer swaption using a typed strike rate.
-    #[allow(clippy::too_many_arguments)]
-    pub fn new_payer_rate(
-        id: impl Into<InstrumentId>,
-        notional: Money,
-        strike_rate: Rate,
-        swap_start: Date,
-        swap_end: Date,
-        bermudan_schedule: BermudanSchedule,
-        discount_curve_id: impl Into<CurveId>,
-        forward_id: impl Into<CurveId>,
-        vol_surface_id: impl Into<CurveId>,
-    ) -> Self {
-        Self {
-            id: id.into(),
-            option_type: OptionType::Call,
-            notional,
-            strike_rate: strike_rate.as_decimal(),
-            swap_start,
-            swap_end,
-            fixed_freq: Tenor::semi_annual(),
-            float_freq: Tenor::quarterly(),
-            day_count: DayCount::Thirty360,
-            settlement: SwaptionSettlement::Physical,
-            discount_curve_id: discount_curve_id.into(),
-            forward_id: forward_id.into(),
-            vol_surface_id: vol_surface_id.into(),
-            bermudan_schedule,
-            bermudan_type: BermudanType::CoTerminal,
-            pricing_overrides: PricingOverrides::default(),
-            attributes: Attributes::default(),
-        }
-    }
-
     /// Create a new Bermudan receiver swaption (right to receive fixed).
     #[allow(clippy::too_many_arguments)]
     pub fn new_receiver(
@@ -1323,40 +1286,6 @@ impl BermudanSwaption {
             option_type: OptionType::Put,
             notional,
             strike_rate,
-            swap_start,
-            swap_end,
-            fixed_freq: Tenor::semi_annual(),
-            float_freq: Tenor::quarterly(),
-            day_count: DayCount::Thirty360,
-            settlement: SwaptionSettlement::Physical,
-            discount_curve_id: discount_curve_id.into(),
-            forward_id: forward_id.into(),
-            vol_surface_id: vol_surface_id.into(),
-            bermudan_schedule,
-            bermudan_type: BermudanType::CoTerminal,
-            pricing_overrides: PricingOverrides::default(),
-            attributes: Attributes::default(),
-        }
-    }
-
-    /// Create a new Bermudan receiver swaption using a typed strike rate.
-    #[allow(clippy::too_many_arguments)]
-    pub fn new_receiver_rate(
-        id: impl Into<InstrumentId>,
-        notional: Money,
-        strike_rate: Rate,
-        swap_start: Date,
-        swap_end: Date,
-        bermudan_schedule: BermudanSchedule,
-        discount_curve_id: impl Into<CurveId>,
-        forward_id: impl Into<CurveId>,
-        vol_surface_id: impl Into<CurveId>,
-    ) -> Self {
-        Self {
-            id: id.into(),
-            option_type: OptionType::Put,
-            notional,
-            strike_rate: strike_rate.as_decimal(),
             swap_start,
             swap_end,
             fixed_freq: Tenor::semi_annual(),

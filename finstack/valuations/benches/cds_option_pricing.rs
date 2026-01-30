@@ -18,6 +18,7 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOption;
 use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionParams;
 use finstack_valuations::instruments::{CreditParams, OptionType};
+use finstack_valuations::prelude::InstrumentNpvExt;
 use std::hint::black_box;
 use time::Month;
 

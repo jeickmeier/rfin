@@ -106,16 +106,6 @@ impl CliquetOption {
                 unreachable!("Example CliquetOption with valid constants should never fail")
             })
     }
-    /// Calculate the net present value of this cliquet option.
-    #[cfg(feature = "mc")]
-    pub fn npv(
-        &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::money::Money> {
-        use crate::instruments::cliquet_option::pricer;
-        pricer::npv(self, curves, as_of)
-    }
 }
 
 impl crate::instruments::common::traits::Instrument for CliquetOption {
@@ -150,7 +140,8 @@ impl crate::instruments::common::traits::Instrument for CliquetOption {
     ) -> finstack_core::Result<finstack_core::money::Money> {
         #[cfg(feature = "mc")]
         {
-            self.npv(market, as_of)
+            use crate::instruments::cliquet_option::pricer;
+            pricer::compute_pv(self, market, as_of)
         }
         #[cfg(not(feature = "mc"))]
         {

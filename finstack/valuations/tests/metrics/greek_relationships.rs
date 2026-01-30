@@ -19,6 +19,7 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::equity::equity_option::EquityOption;
 use finstack_valuations::instruments::market::{ExerciseStyle, OptionType};
 use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::InstrumentNpvExt;
 use finstack_valuations::instruments::{PricingOverrides, SettlementType};
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 use std::sync::Arc;

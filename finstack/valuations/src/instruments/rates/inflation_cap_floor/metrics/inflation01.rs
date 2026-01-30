@@ -11,6 +11,7 @@
 //! Inflation01 = (PV_up - PV_down) / (2 × bump_size)
 //! ```
 
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::inflation_cap_floor::InflationCapFloor;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
@@ -40,7 +41,7 @@ impl MetricCalculator for Inflation01Calculator {
             id: option.inflation_index_id.clone(),
             spec: bump_spec_up,
         }])?;
-        let pv_up = option.npv(&curves_up, as_of)?.amount();
+        let pv_up = option.value(&curves_up, as_of)?.amount();
 
         // Bump down by 1bp (-0.01%)
         let bump_spec_down = BumpSpec::inflation_shift_pct(-INFLATION_BUMP_PCT);
@@ -48,7 +49,7 @@ impl MetricCalculator for Inflation01Calculator {
             id: option.inflation_index_id.clone(),
             spec: bump_spec_down,
         }])?;
-        let pv_down = option.npv(&curves_down, as_of)?.amount();
+        let pv_down = option.value(&curves_down, as_of)?.amount();
 
         // Central difference: (PV_up - PV_down) / (2 × bump_size)
         Ok((pv_up - pv_down) / (2.0 * INFLATION_BUMP_DECIMAL))

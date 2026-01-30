@@ -248,23 +248,6 @@ impl VolatilityIndexOption {
         }
     }
 
-    /// Calculate the present value of this volatility index option.
-    ///
-    /// Uses the Black model with the forward volatility level as underlying.
-    ///
-    /// # Arguments
-    ///
-    /// * `context` - Market context with vol index curves and surfaces
-    /// * `as_of` - Valuation date for time to expiry calculation
-    ///
-    /// # Returns
-    ///
-    /// Present value as Money in the notional currency.
-    pub fn npv(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
-        let pv = self.npv_raw(context, as_of)?;
-        Ok(Money::new(pv, self.notional.currency()))
-    }
-
     /// Calculate the raw present value as f64.
     ///
     /// # Arguments
@@ -573,7 +556,11 @@ impl crate::instruments::common::traits::Instrument for VolatilityIndexOption {
     }
 
     fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
-        self.npv(curves, as_of)
+        let pv = self.npv_raw(curves, as_of)?;
+        Ok(finstack_core::money::Money::new(
+            pv,
+            self.notional.currency(),
+        ))
     }
 
     fn value_raw(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
@@ -643,6 +630,7 @@ impl crate::instruments::common::traits::CurveDependencies for VolatilityIndexOp
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::instruments::common::traits::Instrument;
     use finstack_core::market_data::surfaces::VolSurface;
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::market_data::term_structures::VolatilityIndexCurve;
@@ -702,7 +690,7 @@ mod tests {
             .build()
             .expect("valid option");
 
-        let npv = option.npv(&market, as_of).expect("npv calculation");
+        let npv = option.value(&market, as_of).expect("value calculation");
         assert!(npv.amount() > 0.0, "ATM call should have positive value");
     }
 

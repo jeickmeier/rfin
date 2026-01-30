@@ -7,6 +7,7 @@
 //! the recovery rate in the CreditIndexData.
 
 use crate::instruments::cds_tranche::CdsTranche;
+use crate::instruments::common::traits::InstrumentNpvExt;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

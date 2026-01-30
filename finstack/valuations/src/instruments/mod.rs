@@ -236,7 +236,7 @@ pub use exotics::{
 pub use common::period_pv::PeriodizedPvExt;
 pub use common::traits::{
     Attributes, CurveDependencies, CurveIdVec, EquityDependencies, EquityInstrumentDeps,
-    Instrument, InstrumentCurves, PricingOptions,
+    Instrument, InstrumentCurves, InstrumentNpvExt, PricingOptions,
 };
 
 // === Parameter Types ===

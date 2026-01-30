@@ -117,28 +117,6 @@ impl DiscountedCashFlow {
         let days = (end - start).whole_days() as f64;
         days / 365.25
     }
-
-    /// Calculate NPV (equity value) using market context.
-    pub fn npv(&self, _market: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
-        // Validate terminal value configuration (Gordon Growth requires WACC > g)
-        if let TerminalValueSpec::GordonGrowth { growth_rate } = &self.terminal_value {
-            if self.wacc <= *growth_rate {
-                return Err(CoreError::Validation(format!(
-                    "DCF terminal growth rate ({:.6}) must be strictly less than WACC ({:.6})",
-                    growth_rate, self.wacc
-                )));
-            }
-        }
-
-        // For now, use the internal WACC-based calculation with WACC as the discount rate.
-        let pv_explicit = self.calculate_pv_explicit_flows();
-        let terminal_value = self.calculate_terminal_value();
-        let pv_terminal = self.discount_terminal_value(terminal_value);
-        let enterprise_value = pv_explicit + pv_terminal;
-        let equity_value = enterprise_value - self.net_debt;
-
-        Ok(Money::new(equity_value, self.currency))
-    }
 }
 
 impl Instrument for DiscountedCashFlow {
@@ -166,8 +144,28 @@ impl Instrument for DiscountedCashFlow {
         Box::new(self.clone())
     }
 
-    fn value(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
-        self.npv(market, as_of)
+    fn value(&self, _market: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
+        // Validate terminal value configuration (Gordon Growth requires WACC > g)
+        if let TerminalValueSpec::GordonGrowth { growth_rate } = &self.terminal_value {
+            if self.wacc <= *growth_rate {
+                return Err(CoreError::Validation(format!(
+                    "DCF terminal growth rate ({:.6}) must be strictly less than WACC ({:.6})",
+                    growth_rate, self.wacc
+                )));
+            }
+        }
+
+        // For now, use the internal WACC-based calculation with WACC as the discount rate.
+        let pv_explicit = self.calculate_pv_explicit_flows();
+        let terminal_value = self.calculate_terminal_value();
+        let pv_terminal = self.discount_terminal_value(terminal_value);
+        let enterprise_value = pv_explicit + pv_terminal;
+        let equity_value = enterprise_value - self.net_debt;
+
+        Ok(finstack_core::money::Money::new(
+            equity_value,
+            self.currency,
+        ))
     }
 
     fn price_with_metrics(
@@ -297,7 +295,7 @@ mod tests {
         let market = MarketContext::new();
         let as_of = dcf.valuation_date;
 
-        let money = dcf.npv(&market, as_of).expect("npv should succeed");
+        let money = dcf.value(&market, as_of).expect("value should succeed");
         let npv = money.amount();
 
         // Manual NPV:
@@ -343,7 +341,7 @@ mod tests {
         let market = MarketContext::new();
         let as_of = valuation_date;
 
-        let result = dcf.npv(&market, as_of);
+        let result = dcf.value(&market, as_of);
         assert!(
             result.is_err(),
             "expected validation error when WACC <= growth"

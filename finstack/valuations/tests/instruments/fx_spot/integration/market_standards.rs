@@ -46,7 +46,7 @@ fn test_standard_major_currency_pairs() {
             .with_notional(Money::new(1_000_000.0, base))
             .unwrap();
 
-        let pv = fx.npv(&market, as_of).unwrap();
+        let pv = fx.value(&market, as_of).unwrap();
         assert_eq!(pv.currency(), quote);
 
         let expected_pv = 1_000_000.0 * expected_rate;
@@ -69,7 +69,7 @@ fn test_standard_notional_sizes() {
 
     for (notional, desc) in notionals {
         let fx = eurusd_with_notional(notional, rate);
-        let pv = fx.npv(&market, test_date()).unwrap();
+        let pv = fx.value(&market, test_date()).unwrap();
 
         let expected = notional * rate;
         assert_approx_eq(pv.amount(), expected, LARGE_EPSILON, desc);
@@ -81,7 +81,7 @@ fn test_spot_rate_market_convention() {
     // Spot rate convention: base per quote (e.g., EUR/USD = USD per 1 EUR)
     let fx = eurusd_with_notional(1.0, 1.20); // 1 EUR = 1.20 USD
     let market = MarketContext::new();
-    let pv = fx.npv(&market, test_date()).unwrap();
+    let pv = fx.value(&market, test_date()).unwrap();
 
     assert_eq!(pv.amount(), 1.20, "1 EUR = 1.20 USD");
 }
@@ -99,8 +99,8 @@ fn test_cross_rate_consistency() {
         .with_notional(Money::new(1.0, Currency::GBP))
         .unwrap();
 
-    let eur_usd_rate = eur_usd.npv(&market, as_of).unwrap().amount(); // 1.20
-    let gbp_usd_rate = gbp_usd.npv(&market, as_of).unwrap().amount(); // 1.40
+    let eur_usd_rate = eur_usd.value(&market, as_of).unwrap().amount(); // 1.20
+    let gbp_usd_rate = gbp_usd.value(&market, as_of).unwrap().amount(); // 1.40
 
     let expected_eur_gbp = eur_usd_rate / gbp_usd_rate; // 1.20 / 1.40
 
@@ -108,7 +108,7 @@ fn test_cross_rate_consistency() {
         .with_notional(Money::new(1.0, Currency::EUR))
         .unwrap();
 
-    let eur_gbp_rate = eur_gbp.npv(&market, as_of).unwrap().amount();
+    let eur_gbp_rate = eur_gbp.value(&market, as_of).unwrap().amount();
 
     assert_approx_eq(
         eur_gbp_rate,
@@ -131,8 +131,8 @@ fn test_inverse_pair_consistency() {
         .with_notional(Money::new(1.0, Currency::USD))
         .unwrap();
 
-    let eur_usd_rate = eur_usd.npv(&market, as_of).unwrap().amount();
-    let usd_eur_rate = usd_eur.npv(&market, as_of).unwrap().amount();
+    let eur_usd_rate = eur_usd.value(&market, as_of).unwrap().amount();
+    let usd_eur_rate = usd_eur.value(&market, as_of).unwrap().amount();
 
     let product = eur_usd_rate * usd_eur_rate;
     assert_approx_eq(product, 1.0, LARGE_EPSILON, "Inverse pair consistency");
@@ -145,10 +145,10 @@ fn test_pip_value_calculation() {
     let fx = eurusd_with_notional(100_000.0, 1.2000);
     let market = MarketContext::new();
 
-    let pv1 = fx.npv(&market, test_date()).unwrap().amount();
+    let pv1 = fx.value(&market, test_date()).unwrap().amount();
 
     let fx_plus_pip = eurusd_with_notional(100_000.0, 1.2001);
-    let pv2 = fx_plus_pip.npv(&market, test_date()).unwrap().amount();
+    let pv2 = fx_plus_pip.value(&market, test_date()).unwrap().amount();
 
     let pip_value = pv2 - pv1;
 
@@ -162,11 +162,11 @@ fn test_basis_point_sensitivity() {
     let fx = eurusd_with_notional(1_000_000.0, 1.20);
     let market = MarketContext::new();
 
-    let pv_base = fx.npv(&market, test_date()).unwrap().amount();
+    let pv_base = fx.value(&market, test_date()).unwrap().amount();
 
     // 1 bp change in rate
     let fx_shifted = eurusd_with_notional(1_000_000.0, 1.20 * 1.0001);
-    let pv_shifted = fx_shifted.npv(&market, test_date()).unwrap().amount();
+    let pv_shifted = fx_shifted.value(&market, test_date()).unwrap().amount();
 
     let sensitivity = pv_shifted - pv_base;
 
@@ -191,14 +191,14 @@ fn test_triangular_arbitrage_absence() {
     let eur_usd = sample_eurusd()
         .with_notional(Money::new(1.0, Currency::EUR))
         .unwrap()
-        .npv(&market, as_of)
+        .value(&market, as_of)
         .unwrap()
         .amount();
 
     let usd_jpy = sample_usdjpy()
         .with_notional(Money::new(1.0, Currency::USD))
         .unwrap()
-        .npv(&market, as_of)
+        .value(&market, as_of)
         .unwrap()
         .amount();
 
@@ -207,7 +207,7 @@ fn test_triangular_arbitrage_absence() {
     let eur_jpy = FxSpot::new(InstrumentId::new("EURJPY"), Currency::EUR, Currency::JPY)
         .with_notional(Money::new(1.0, Currency::EUR))
         .unwrap()
-        .npv(&market, as_of)
+        .value(&market, as_of)
         .unwrap()
         .amount();
 
@@ -225,7 +225,7 @@ fn test_zero_value_at_par() {
     // This is not zero-value like a swap at par, but confirms pricing logic
     let fx = eurusd_with_notional(1_000_000.0, 1.20);
     let market = MarketContext::new();
-    let pv = fx.npv(&market, test_date()).unwrap();
+    let pv = fx.value(&market, test_date()).unwrap();
 
     assert_eq!(pv.currency(), Currency::USD);
     assert_approx_eq(pv.amount(), 1_200_000.0, EPSILON, "PV at spot");

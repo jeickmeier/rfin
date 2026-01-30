@@ -394,24 +394,6 @@ impl EquityIndexFuture {
         self.contract_specs.multiplier * self.quantity * self.position_sign()
     }
 
-    /// Calculate the present value of this equity index future.
-    ///
-    /// Uses mark-to-market if `quoted_price` is available, otherwise
-    /// calculates fair value using the cost-of-carry model.
-    ///
-    /// # Arguments
-    ///
-    /// * `context` - Market context with curves and prices
-    /// * `as_of` - Valuation date
-    ///
-    /// # Returns
-    ///
-    /// Present value as Money in the instrument's currency.
-    pub fn npv(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
-        let pv = self.npv_raw(context, as_of)?;
-        Ok(Money::new(pv, self.currency))
-    }
-
     /// Calculate the raw present value as f64.
     pub fn npv_raw(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
         // If expired, value is zero
@@ -564,7 +546,8 @@ impl crate::instruments::common::traits::Instrument for EquityIndexFuture {
     }
 
     fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
-        self.npv(curves, as_of)
+        let pv = self.npv_raw(curves, as_of)?;
+        Ok(finstack_core::money::Money::new(pv, self.currency))
     }
 
     fn value_raw(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {

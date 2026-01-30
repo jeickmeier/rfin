@@ -10,7 +10,7 @@ use finstack_valuations::instruments::equity::equity_index_future::{
     EquityFutureSpecs, EquityIndexFuture,
 };
 use finstack_valuations::instruments::rates::ir_future::Position;
-use finstack_valuations::instruments::{Attributes, Instrument};
+use finstack_valuations::instruments::{Attributes, Instrument, InstrumentNpvExt};
 use finstack_valuations::pricer::{create_standard_registry, ModelKey};
 use time::Month;
 

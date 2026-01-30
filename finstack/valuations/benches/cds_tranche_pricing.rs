@@ -22,6 +22,7 @@ use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTrancheParams;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
+use finstack_valuations::prelude::InstrumentNpvExt;
 use std::hint::black_box;
 use std::sync::Arc;
 use time::Month;

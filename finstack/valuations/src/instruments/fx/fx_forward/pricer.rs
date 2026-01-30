@@ -42,10 +42,10 @@ impl Pricer for FxForwardDiscountingPricer {
     ) -> PricingResult<ValuationResult> {
         let fwd = expect_inst::<FxForward>(instrument, InstrumentType::FxForward)?;
 
-        // Delegate to instrument's npv method.
-        // Note: npv() returns zero PV for expired forwards (maturity <= as_of),
+        // Delegate to instrument's value method.
+        // Note: value() returns zero PV for expired forwards (maturity <= as_of),
         // which is the expected behavior for settled trades.
-        let pv = fwd.npv(market, as_of).map_err(|e| {
+        let pv = fwd.value(market, as_of).map_err(|e| {
             PricingError::model_failure_ctx(
                 format!("FX forward pricing failed: {}", e),
                 PricingErrorContext::default(),

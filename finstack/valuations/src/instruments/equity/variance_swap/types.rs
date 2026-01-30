@@ -176,54 +176,6 @@ impl VarianceSwap {
         Ok(())
     }
 
-    /// Calculate present value of the variance swap.
-    pub fn npv(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
-        // Validate as_of alignment with market data
-        self.validate_as_of(context, as_of)?;
-
-        // Get discount curve
-        let disc = context.get_discount(self.discount_curve_id.as_str())?;
-
-        // If expired, compute final payoff from realized variance (if any prices)
-        if as_of >= self.maturity {
-            let prices = self.get_historical_prices(context, as_of)?;
-            if prices.is_empty() {
-                return Ok(Money::new(0.0, self.notional.currency()));
-            }
-
-            let realized_var = realized_variance(
-                &prices,
-                self.realized_var_method,
-                self.annualization_factor(),
-            );
-            return Ok(self.payoff(realized_var));
-        }
-
-        // If not yet started, value using forward (implied) variance and discount
-        if as_of < self.start_date {
-            let forward_var = self.remaining_forward_variance(context, as_of)?;
-            let undiscounted = self.payoff(forward_var);
-            let t = self
-                .day_count
-                .year_fraction(as_of, self.maturity, Default::default())?;
-            let df = disc.df(t);
-            return Ok(undiscounted * df);
-        }
-
-        // Partially observed: blend realized-to-date with forward for remaining using observation counts
-        let realized = self.partial_realized_variance(context, as_of)?;
-        let forward = self.remaining_forward_variance(context, as_of)?;
-        let w = self.realized_fraction_by_observations(as_of);
-        let expected_var = realized * w + forward * (1.0 - w);
-        let undiscounted = self.payoff(expected_var);
-
-        let t = self
-            .day_count
-            .year_fraction(as_of, self.maturity, Default::default())?;
-        let df = disc.df(t);
-        Ok(undiscounted * df)
-    }
-
     /// Get the discount curve ID for this variance swap.
     pub fn discount_curve_id(&self) -> &CurveId {
         &self.discount_curve_id
@@ -589,7 +541,53 @@ impl crate::instruments::common::traits::Instrument for VarianceSwap {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.npv(curves, as_of)
+        // Validate as_of alignment with market data
+        self.validate_as_of(curves, as_of)?;
+
+        // Get discount curve
+        let disc = curves.get_discount(self.discount_curve_id.as_str())?;
+
+        // If expired, compute final payoff from realized variance (if any prices)
+        if as_of >= self.maturity {
+            let prices = self.get_historical_prices(curves, as_of)?;
+            if prices.is_empty() {
+                return Ok(finstack_core::money::Money::new(
+                    0.0,
+                    self.notional.currency(),
+                ));
+            }
+
+            let realized_var = realized_variance(
+                &prices,
+                self.realized_var_method,
+                self.annualization_factor(),
+            );
+            return Ok(self.payoff(realized_var));
+        }
+
+        // If not yet started, value using forward (implied) variance and discount
+        if as_of < self.start_date {
+            let forward_var = self.remaining_forward_variance(curves, as_of)?;
+            let undiscounted = self.payoff(forward_var);
+            let t = self
+                .day_count
+                .year_fraction(as_of, self.maturity, Default::default())?;
+            let df = disc.df(t);
+            return Ok(undiscounted * df);
+        }
+
+        // Partially observed: blend realized-to-date with forward for remaining using observation counts
+        let realized = self.partial_realized_variance(curves, as_of)?;
+        let forward = self.remaining_forward_variance(curves, as_of)?;
+        let w = self.realized_fraction_by_observations(as_of);
+        let expected_var = realized * w + forward * (1.0 - w);
+        let undiscounted = self.payoff(expected_var);
+
+        let t = self
+            .day_count
+            .year_fraction(as_of, self.maturity, Default::default())?;
+        let df = disc.df(t);
+        Ok(undiscounted * df)
     }
 
     fn price_with_metrics(

@@ -76,7 +76,8 @@ fn test_convention_eu_mappings() {
     let conv = CDSConvention::IsdaEu;
     assert_eq!(conv.day_count(), DayCount::Act360);
     assert_eq!(conv.frequency(), Tenor::quarterly());
-    assert_eq!(conv.settlement_delay(), 3);
+    // EU settlement changed from T+3 to T+1 on June 20, 2009 (ISDA Big Bang)
+    assert_eq!(conv.settlement_delay(), 1);
 }
 
 #[test]

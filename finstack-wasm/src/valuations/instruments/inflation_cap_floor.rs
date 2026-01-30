@@ -13,6 +13,7 @@ use finstack_valuations::instruments::rates::inflation_cap_floor::{
     InflationCapFloor, InflationCapFloorType,
 };
 use finstack_valuations::instruments::PricingOverrides;
+use finstack_valuations::prelude::InstrumentNpvExt;
 use finstack_valuations::pricer::InstrumentType;
 use js_sys::Array;
 use wasm_bindgen::prelude::*;

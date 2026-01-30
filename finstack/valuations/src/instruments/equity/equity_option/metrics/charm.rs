@@ -8,6 +8,7 @@
 //! Where Delta(t) is computed by bumping spot at current time,
 //! and Delta(t+h) is computed by bumping spot at a later time.
 
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::equity_option::EquityOption;
 use crate::metrics::{bump_scalar_price, bump_sizes};
 use crate::metrics::{MetricCalculator, MetricContext};
@@ -43,19 +44,19 @@ impl MetricCalculator for CharmCalculator {
 
         // Compute delta at current time
         let curves_up = bump_scalar_price(&context.curves, &option.spot_id, bump_sizes::SPOT)?;
-        let pv_up = option.npv(&curves_up, as_of)?.amount();
+        let pv_up = option.value(&curves_up, as_of)?.amount();
         let curves_down = bump_scalar_price(&context.curves, &option.spot_id, -bump_sizes::SPOT)?;
-        let pv_down = option.npv(&curves_down, as_of)?.amount();
+        let pv_down = option.value(&curves_down, as_of)?.amount();
         let delta_t = (pv_up - pv_down) / (2.0 * spot_bump);
 
         // Compute delta at time + 1 day
         let rolled_date = as_of + time::Duration::days(time_bump_days as i64);
         let curves_up_future =
             bump_scalar_price(&context.curves, &option.spot_id, bump_sizes::SPOT)?;
-        let pv_up_future = option.npv(&curves_up_future, rolled_date)?.amount();
+        let pv_up_future = option.value(&curves_up_future, rolled_date)?.amount();
         let curves_down_future =
             bump_scalar_price(&context.curves, &option.spot_id, -bump_sizes::SPOT)?;
-        let pv_down_future = option.npv(&curves_down_future, rolled_date)?.amount();
+        let pv_down_future = option.value(&curves_down_future, rolled_date)?.amount();
         let delta_t_future = (pv_up_future - pv_down_future) / (2.0 * spot_bump);
 
         // Charm = (Delta(t+h) - Delta(t)) / h

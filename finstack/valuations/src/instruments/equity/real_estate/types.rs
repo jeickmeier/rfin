@@ -87,27 +87,6 @@ pub struct RealEstateAsset {
 }
 
 impl RealEstateAsset {
-    /// Calculate NPV using the selected valuation method.
-    pub fn npv(&self, _market: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
-        if let Some(appraisal) = &self.appraisal_value {
-            if appraisal.currency() != self.currency {
-                return Err(CoreError::Validation(format!(
-                    "Appraisal currency {} does not match instrument currency {}",
-                    appraisal.currency(),
-                    self.currency
-                )));
-            }
-            return Ok(*appraisal);
-        }
-
-        let value = match self.valuation_method {
-            RealEstateValuationMethod::Dcf => self.npv_dcf()?,
-            RealEstateValuationMethod::DirectCap => self.npv_direct_cap()?,
-        };
-
-        Ok(Money::new(value, self.currency))
-    }
-
     fn npv_dcf(&self) -> finstack_core::Result<f64> {
         let discount_rate = self
             .discount_rate
@@ -215,8 +194,24 @@ impl Instrument for RealEstateAsset {
         Box::new(self.clone())
     }
 
-    fn value(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
-        self.npv(market, as_of)
+    fn value(&self, _market: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
+        if let Some(appraisal) = &self.appraisal_value {
+            if appraisal.currency() != self.currency {
+                return Err(CoreError::Validation(format!(
+                    "Appraisal currency {} does not match instrument currency {}",
+                    appraisal.currency(),
+                    self.currency
+                )));
+            }
+            return Ok(*appraisal);
+        }
+
+        let value = match self.valuation_method {
+            RealEstateValuationMethod::Dcf => self.npv_dcf()?,
+            RealEstateValuationMethod::DirectCap => self.npv_direct_cap()?,
+        };
+
+        Ok(finstack_core::money::Money::new(value, self.currency))
     }
 
     fn price_with_metrics(

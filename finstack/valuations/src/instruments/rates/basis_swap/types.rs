@@ -692,45 +692,6 @@ impl BasisSwap {
 
         Ok(annuity)
     }
-
-    /// Compute the net present value (NPV) of the basis swap.
-    ///
-    /// # Arguments
-    /// * `curves` — Market context containing all necessary curves
-    /// * `as_of` — Valuation date
-    ///
-    /// # Returns
-    ///
-    /// The NPV as the difference between primary and reference leg PVs.
-    ///
-    /// # Sign Convention
-    ///
-    /// NPV is computed from the perspective of **receiving the primary leg** (which
-    /// typically includes the spread) and **paying the reference leg**:
-    ///
-    /// ```text
-    /// NPV = PV(primary leg with spread) - PV(reference leg)
-    /// ```
-    ///
-    /// - **Positive NPV**: The primary leg receiver is in-the-money
-    /// - **Negative NPV**: The primary leg receiver is out-of-the-money
-    /// - **Zero NPV**: The swap is at par (fair value)
-    ///
-    /// This convention aligns with standard market practice where the spread-receiving
-    /// party is considered "long" the basis swap.
-    pub fn npv(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
-        // Build schedules
-        let primary_schedule = self.leg_schedule(&self.primary_leg)?;
-        let reference_schedule = self.leg_schedule(&self.reference_leg)?;
-
-        // Calculate PV for each leg
-        let primary_pv = self.pv_float_leg(&self.primary_leg, &primary_schedule, curves, as_of)?;
-        let reference_pv =
-            self.pv_float_leg(&self.reference_leg, &reference_schedule, curves, as_of)?;
-
-        // NPV from perspective of receiving primary leg (with spread), paying reference leg
-        primary_pv - reference_pv
-    }
 }
 
 // Attributable implementation is provided by the impl_instrument! macro
@@ -766,7 +727,17 @@ impl crate::instruments::common::traits::Instrument for BasisSwap {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.npv(curves, as_of)
+        // Build schedules
+        let primary_schedule = self.leg_schedule(&self.primary_leg)?;
+        let reference_schedule = self.leg_schedule(&self.reference_leg)?;
+
+        // Calculate PV for each leg
+        let primary_pv = self.pv_float_leg(&self.primary_leg, &primary_schedule, curves, as_of)?;
+        let reference_pv =
+            self.pv_float_leg(&self.reference_leg, &reference_schedule, curves, as_of)?;
+
+        // NPV from perspective of receiving primary leg (with spread), paying reference leg
+        primary_pv - reference_pv
     }
 
     fn price_with_metrics(

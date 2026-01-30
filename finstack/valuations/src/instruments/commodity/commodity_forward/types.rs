@@ -10,7 +10,6 @@ use crate::instruments::common::traits::{Attributes, CurveIdVec};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
 use smallvec::smallvec;
@@ -284,34 +283,6 @@ impl CommodityForward {
     ///
     /// Present value in the instrument's currency.
     ///
-    /// # At-Market Behavior
-    ///
-    /// When `contract_price = None`, the forward is at-market and NPV ≈ 0,
-    /// similar to entering a new futures position at the current market price.
-    pub fn npv(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
-        // If settlement has passed, value is zero
-        if self.settlement_date < as_of {
-            return Ok(Money::new(0.0, self.currency));
-        }
-
-        // Get market forward price F from quoted price or curve
-        let forward_price = self.forward_price(market, as_of)?;
-
-        // Get contract price K (entry price). If None, treat as at-market (K = F)
-        let contract_price = self.contract_price.unwrap_or(forward_price);
-
-        // Get discount factor
-        let disc = market.get_discount(self.discount_curve_id.as_str())?;
-        let df = disc.df_between_dates(as_of, self.settlement_date)?;
-
-        // NPV = sign(position) × (F - K) × Q × M × DF
-        let price_diff = forward_price - contract_price;
-        let notional_qty = self.quantity * self.multiplier;
-        let pv = self.position.sign() * price_diff * notional_qty * df;
-
-        Ok(Money::new(pv, self.currency))
-    }
-
     /// Get the market forward price for this contract.
     ///
     /// Uses `quoted_price` if provided, otherwise interpolates from the
@@ -478,7 +449,27 @@ impl crate::instruments::common::traits::Instrument for CommodityForward {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.npv(market, as_of)
+        // If settlement has passed, value is zero
+        if self.settlement_date < as_of {
+            return Ok(finstack_core::money::Money::new(0.0, self.currency));
+        }
+
+        // Get market forward price F from quoted price or curve
+        let forward_price = self.forward_price(market, as_of)?;
+
+        // Get contract price K (entry price). If None, treat as at-market (K = F)
+        let contract_price = self.contract_price.unwrap_or(forward_price);
+
+        // Get discount factor
+        let disc = market.get_discount(self.discount_curve_id.as_str())?;
+        let df = disc.df_between_dates(as_of, self.settlement_date)?;
+
+        // NPV = sign(position) × (F - K) × Q × M × DF
+        let price_diff = forward_price - contract_price;
+        let notional_qty = self.quantity * self.multiplier;
+        let pv = self.position.sign() * price_diff * notional_qty * df;
+
+        Ok(finstack_core::money::Money::new(pv, self.currency))
     }
 
     fn price_with_metrics(
@@ -524,6 +515,7 @@ impl crate::instruments::common::pricing::HasForwardCurves for CommodityForward 
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::instruments::common::traits::InstrumentNpvExt;
     use finstack_core::market_data::term_structures::{DiscountCurve, PriceCurve};
     use time::Month;
 

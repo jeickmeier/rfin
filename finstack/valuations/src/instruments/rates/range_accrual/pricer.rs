@@ -258,7 +258,11 @@ impl Pricer for RangeAccrualMcPricer {
 
 /// Present value using Monte Carlo.
 #[cfg(feature = "mc")]
-pub fn npv(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) -> Result<Money> {
+pub(crate) fn compute_pv(
+    inst: &RangeAccrual,
+    curves: &MarketContext,
+    as_of: Date,
+) -> Result<Money> {
     // If explicit model choice is not MC, prefer Analytic Static Replication
     // (Currently assuming Analytic is the "Standard" for simple range accruals)
     // We can add a flag in PricingOverrides if the user wants to force MC.

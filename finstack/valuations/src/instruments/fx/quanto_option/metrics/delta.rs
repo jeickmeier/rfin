@@ -3,6 +3,7 @@
 //! Computes delta (equity spot sensitivity) using finite differences:
 //! bump equity spot price up and down, reprice, and compute (PV_up - PV_down) / (2 * bump_size).
 
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::quanto_option::QuantoOption;
 use crate::metrics::{bump_scalar_price, bump_sizes};
 use crate::metrics::{MetricCalculator, MetricContext};
@@ -37,11 +38,11 @@ impl MetricCalculator for DeltaCalculator {
 
         // Bump equity spot up
         let curves_up = bump_scalar_price(&context.curves, &option.spot_id, bump_sizes::SPOT)?;
-        let pv_up = option.npv(&curves_up, as_of)?.amount();
+        let pv_up = option.value(&curves_up, as_of)?.amount();
 
         // Bump equity spot down
         let curves_down = bump_scalar_price(&context.curves, &option.spot_id, -bump_sizes::SPOT)?;
-        let pv_down = option.npv(&curves_down, as_of)?.amount();
+        let pv_down = option.value(&curves_down, as_of)?.amount();
 
         // Central difference: delta = (PV_up - PV_down) / (2 * h)
         let delta = (pv_up - pv_down) / (2.0 * bump_size);

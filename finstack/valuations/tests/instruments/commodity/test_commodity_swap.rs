@@ -7,6 +7,7 @@ use finstack_core::market_data::term_structures::{DiscountCurve, PriceCurve};
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
 use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::InstrumentNpvExt;
 use time::Month;
 
 /// Helper to create a test market context with discount and price curves.

@@ -8,6 +8,7 @@
 //! - Positive Rho means the instrument gains value when rates go up
 
 use crate::instruments::cap_floor::InterestRateOption;
+use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 use finstack_core::Result;
@@ -28,7 +29,7 @@ impl MetricCalculator for RhoCalculator {
         }])?;
 
         // Reprice with bumped discount curve (vol held constant)
-        let bumped = option.npv(&bumped_ctx, context.as_of)?;
+        let bumped = option.value(&bumped_ctx, context.as_of)?;
 
         // Rho per 1bp
         let rho = bumped.amount() - base;

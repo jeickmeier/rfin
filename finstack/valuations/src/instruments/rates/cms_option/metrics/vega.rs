@@ -5,6 +5,7 @@
 //! Vega is per 1% volatility move.
 
 use crate::instruments::cms_option::CmsOption;
+use crate::instruments::common::traits::Instrument;
 use crate::metrics::bump_sizes;
 use crate::metrics::bump_surface_vol_absolute;
 use crate::metrics::{MetricCalculator, MetricContext};
@@ -50,7 +51,7 @@ impl MetricCalculator for VegaCalculator {
         )?;
 
         // Reprice with bumped vol
-        let pv_bumped = option.npv(&curves_bumped, as_of)?.amount();
+        let pv_bumped = option.value(&curves_bumped, as_of)?.amount();
 
         // Vega = (PV(σ+Δσ) - PV(σ)) / Δσ  (Δσ in absolute vol units).
         let vega = (pv_bumped - base_pv) / bump_sizes::VOLATILITY;

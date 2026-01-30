@@ -2,6 +2,7 @@
 //!
 //! Computes inflation sensitivity using finite differences on the inflation curve.
 
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::inflation_swap::YoYInflationSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
@@ -23,14 +24,14 @@ impl MetricCalculator for YoYInflation01Calculator {
             id: swap.inflation_index_id.clone(),
             spec: bump_spec,
         }])?;
-        let pv_up = swap.npv(&curves_up, as_of)?.amount();
+        let pv_up = swap.value(&curves_up, as_of)?.amount();
 
         let bump_spec_down = BumpSpec::inflation_shift_pct(-INFLATION_BUMP_BP * 100.0);
         let curves_down = context.curves.as_ref().bump([MarketBump::Curve {
             id: swap.inflation_index_id.clone(),
             spec: bump_spec_down,
         }])?;
-        let pv_down = swap.npv(&curves_down, as_of)?.amount();
+        let pv_down = swap.value(&curves_down, as_of)?.amount();
 
         Ok((pv_up - pv_down) / (2.0 * INFLATION_BUMP_BP))
     }

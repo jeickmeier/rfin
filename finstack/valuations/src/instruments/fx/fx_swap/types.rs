@@ -10,10 +10,8 @@ use crate::instruments::common::parameters::FxUnderlyingParams;
 use crate::instruments::common::traits::Attributes;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
-use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_core::Result;
 
 use super::parameters::FxSwapParams;
 
@@ -162,84 +160,6 @@ impl FxSwap {
         }
     }
 
-    /// Compute present value in quote currency.
-    ///
-    /// Provides deterministic PV for `FxSwap` instruments following the library
-    /// standards. The valuation computes the PV of both legs using discount curves
-    /// and converts the foreign-leg PV to the domestic (quote) currency using the
-    /// applicable spot rate.
-    ///
-    /// # Spot Rate Convention
-    ///
-    /// The `model_spot` rate sourced from the FX matrix represents the **as_of date**
-    /// spot rate, which corresponds to the **near leg value date** (typically T+2).
-    /// When computing the forward rate via covered interest rate parity, the discount
-    /// factors use the near_date as the base reference:
-    ///
-    /// ```text
-    /// F = S × (DF_for(far)/DF_for(near)) / (DF_dom(far)/DF_dom(near))
-    /// ```
-    ///
-    /// This ensures consistency with standard FX swap quoting conventions where
-    /// the forward points reflect the interest rate differential from near to far.
-    ///
-    /// # Pricing Formula
-    ///
-    /// - Let base be the foreign currency and quote the domestic pricing currency
-    /// - Near and far settlement dates: `near_date`, `far_date`
-    /// - Base notional amount `N_base`
-    /// - If `near_rate` is None, source spot from `FxMatrix`
-    /// - If `far_rate` is None, compute forward via CIRP formula above
-    /// - Foreign leg PV (in base): `N_base × DF_for(near) - N_base × DF_for(far)`
-    /// - Domestic leg PV (in quote): `-N_base × S × DF_dom(near) + N_base × F × DF_dom(far)`
-    /// - Total PV in quote: `PV_for × model_spot + PV_dom`
-    ///
-    /// # Leg Settlement
-    ///
-    /// - Near leg: included if `near_date >= as_of`
-    /// - Far leg: included if `far_date >= as_of`
-    /// - If both legs have settled (`as_of > far_date`), returns PV = 0
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - `near_date > far_date` (invalid date ordering)
-    /// - Notional currency doesn't match base currency
-    /// - Required market data is missing (FX matrix and no near_rate override)
-    /// - Explicit contract rates are non-positive
-    /// - Discount factors are near-zero (degenerate market data)
-    pub fn npv(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
-        use super::pricing_helper::FxSwapPricingContext;
-
-        // Validate date ordering
-        if self.near_date > self.far_date {
-            return Err(finstack_core::Error::Validation(format!(
-                "FxSwap near_date ({}) must be <= far_date ({})",
-                self.near_date, self.far_date
-            )));
-        }
-
-        // If fully settled, return zero
-        if as_of > self.far_date {
-            return Ok(Money::new(0.0, self.quote_currency));
-        }
-
-        // Currency safety check before expensive calculations
-        if self.base_notional.currency() != self.base_currency {
-            return Err(finstack_core::Error::CurrencyMismatch {
-                expected: self.base_currency,
-                actual: self.base_notional.currency(),
-            });
-        }
-
-        // Build pricing context (handles rate validation and CIP forward calculation)
-        let ctx = FxSwapPricingContext::build(self, curves, as_of)?;
-
-        // Calculate total PV using the helper
-        let total_pv = ctx.total_pv();
-        Ok(Money::new(total_pv, self.quote_currency))
-    }
-
     // Builder entrypoint is provided via derive
 }
 
@@ -273,7 +193,38 @@ impl crate::instruments::common::traits::Instrument for FxSwap {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.npv(curves, as_of)
+        use super::pricing_helper::FxSwapPricingContext;
+
+        // Validate date ordering
+        if self.near_date > self.far_date {
+            return Err(finstack_core::Error::Validation(format!(
+                "FxSwap near_date ({}) must be <= far_date ({})",
+                self.near_date, self.far_date
+            )));
+        }
+
+        // If fully settled, return zero
+        if as_of > self.far_date {
+            return Ok(finstack_core::money::Money::new(0.0, self.quote_currency));
+        }
+
+        // Currency safety check before expensive calculations
+        if self.base_notional.currency() != self.base_currency {
+            return Err(finstack_core::Error::CurrencyMismatch {
+                expected: self.base_currency,
+                actual: self.base_notional.currency(),
+            });
+        }
+
+        // Build pricing context (handles rate validation and CIP forward calculation)
+        let ctx = FxSwapPricingContext::build(self, curves, as_of)?;
+
+        // Calculate total PV using the helper
+        let total_pv = ctx.total_pv();
+        Ok(finstack_core::money::Money::new(
+            total_pv,
+            self.quote_currency,
+        ))
     }
 
     fn price_with_metrics(
@@ -314,7 +265,8 @@ impl crate::instruments::common::traits::CurveDependencies for FxSwap {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common::traits::CurveDependencies;
+    use crate::instruments::common::traits::{CurveDependencies, Instrument};
+    use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::DiscountCurve;
     use time::Month;
 
@@ -378,7 +330,7 @@ mod tests {
             .build()
             .expect("should build");
 
-        let result = swap.npv(&market, as_of);
+        let result = swap.value(&market, as_of);
         assert!(result.is_err(), "Should reject invalid date ordering");
         let err_msg = result.expect_err("expected an error").to_string();
         assert!(
@@ -394,7 +346,7 @@ mod tests {
         let market = base_market(as_of);
         let swap = FxSwap::example(); // far_date is 2024-07-05
 
-        let pv = swap.npv(&market, as_of).expect("should price");
+        let pv = swap.value(&market, as_of).expect("should price");
         assert_eq!(pv.amount(), 0.0, "Fully settled swap should have zero PV");
     }
 
@@ -407,7 +359,7 @@ mod tests {
         // Example has near_date=2024-01-05, far_date=2024-07-05
 
         // Should only include far leg since near has settled
-        let result = swap.npv(&market, as_of);
+        let result = swap.value(&market, as_of);
         assert!(
             result.is_ok(),
             "Should price when near settled but far active: {:?}",

@@ -205,13 +205,6 @@ impl InterestRateFuture {
     ///
     /// PV = (R_implied - R_model_adj) × FaceValue × tau(period_start, period_end) × contracts × position_sign
     ///
-    /// Uses discount/forward curves from the MarketContext and applies convexity adjustments.
-    /// Calculates the present value of the interest rate future (rounded Money)
-    pub fn npv(&self, context: &MarketContext) -> finstack_core::Result<Money> {
-        let pv = self.npv_raw(context)?;
-        Ok(Money::new(pv, self.notional.currency()))
-    }
-
     /// Calculates the raw present value of the interest rate future (f64)
     ///
     /// # Day Count Conventions
@@ -394,7 +387,11 @@ impl crate::instruments::common::traits::Instrument for InterestRateFuture {
         curves: &finstack_core::market_data::context::MarketContext,
         _as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.npv(curves)
+        let pv = self.npv_raw(curves)?;
+        Ok(finstack_core::money::Money::new(
+            pv,
+            self.notional.currency(),
+        ))
     }
 
     fn value_raw(

@@ -3,6 +3,7 @@
 //! Computes gamma using finite differences: bump equity spot up and down,
 //! reprice, and compute (PV_up - 2*PV_base + PV_down) / h².
 
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::quanto_option::QuantoOption;
 use crate::metrics::{bump_scalar_price, bump_sizes};
 use crate::metrics::{MetricCalculator, MetricContext};
@@ -38,11 +39,11 @@ impl MetricCalculator for GammaCalculator {
 
         // Bump equity spot up
         let curves_up = bump_scalar_price(&context.curves, &option.spot_id, bump_sizes::SPOT)?;
-        let pv_up = option.npv(&curves_up, as_of)?.amount();
+        let pv_up = option.value(&curves_up, as_of)?.amount();
 
         // Bump equity spot down
         let curves_down = bump_scalar_price(&context.curves, &option.spot_id, -bump_sizes::SPOT)?;
-        let pv_down = option.npv(&curves_down, as_of)?.amount();
+        let pv_down = option.value(&curves_down, as_of)?.amount();
 
         // Gamma = (PV_up - 2*PV_base + PV_down) / h²
         let gamma = (pv_up - 2.0 * base_pv + pv_down) / (bump_size * bump_size);

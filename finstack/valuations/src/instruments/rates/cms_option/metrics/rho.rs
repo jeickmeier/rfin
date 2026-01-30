@@ -9,6 +9,7 @@
 //! - Positive Rho means the instrument gains value when rates go up
 
 use crate::instruments::cms_option::CmsOption;
+use crate::instruments::common::traits::Instrument;
 use crate::metrics::bump_discount_curve_parallel;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
@@ -38,7 +39,7 @@ impl MetricCalculator for RhoCalculator {
             bump_discount_curve_parallel(&context.curves, &option.discount_curve_id, bump_bp)?;
 
         // Reprice with bumped curve
-        let pv_bumped = option.npv(&curves_bumped, as_of)?.amount();
+        let pv_bumped = option.value(&curves_bumped, as_of)?.amount();
 
         // Rho = PV(rate + 1bp) − PV(base)
         let rho = pv_bumped - base_pv;

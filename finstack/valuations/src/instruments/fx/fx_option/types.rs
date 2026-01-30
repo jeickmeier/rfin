@@ -58,7 +58,7 @@ fn default_fx_underlying(base_currency: Currency, quote_currency: Currency) -> F
     finstack_valuations_macros::FinancialBuilder,
     finstack_valuations_macros::Instrument,
 )]
-#[instrument(key = "FxOption", price_fn = "npv")]
+#[instrument(key = "FxOption", price_fn = "value")]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct FxOption {
@@ -332,21 +332,12 @@ impl FxOption {
     }
 
     /// Compute present value using Garman–Kohlhagen model.
-    pub fn npv(
-        &self,
-        market: &finstack_core::market_data::context::MarketContext,
-        as_of: Date,
-    ) -> Result<Money> {
-        self.calculator().npv(self, market, as_of)
-    }
-
-    /// Compute present value (alias for npv, used by instrument trait).
     pub fn value(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
         as_of: Date,
     ) -> Result<Money> {
-        self.npv(market, as_of)
+        self.calculator().npv(self, market, as_of)
     }
 
     /// Compute greeks using Garman–Kohlhagen model.

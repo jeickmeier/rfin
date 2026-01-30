@@ -408,11 +408,6 @@ impl InflationCapFloor {
 
         Ok(total_pv)
     }
-
-    /// Default NPV using Black-76 (lognormal) model.
-    pub fn npv(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
-        self.npv_with_model(curves, as_of, ModelKey::Black76)
-    }
 }
 
 impl InflationCapFloorBuilder {
@@ -449,7 +444,7 @@ impl crate::instruments::common::traits::Instrument for InflationCapFloor {
     }
 
     fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
-        self.npv(curves, as_of)
+        self.npv_with_model(curves, as_of, crate::pricer::ModelKey::Black76)
     }
 
     fn price_with_metrics(

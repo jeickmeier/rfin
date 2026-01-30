@@ -170,47 +170,6 @@ impl FxVarianceSwap {
         Ok(spot)
     }
 
-    /// Calculate present value of the FX variance swap.
-    pub fn npv(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
-        self.validate_as_of(context, as_of)?;
-
-        let dom = context.get_discount(self.domestic_discount_curve_id.as_str())?;
-
-        if as_of >= self.maturity {
-            let prices = self.get_historical_prices(context, as_of)?;
-            if prices.is_empty() {
-                return Ok(Money::new(0.0, self.notional.currency()));
-            }
-            let realized_var = realized_variance(
-                &prices,
-                self.realized_var_method,
-                self.annualization_factor(),
-            );
-            return Ok(self.payoff(realized_var));
-        }
-
-        if as_of < self.start_date {
-            let forward_var = self.remaining_forward_variance(context, as_of)?;
-            let undiscounted = self.payoff(forward_var);
-            let t = self
-                .day_count
-                .year_fraction(as_of, self.maturity, DayCountCtx::default())?;
-            let df = dom.df(t.max(0.0));
-            return Ok(undiscounted * df);
-        }
-
-        let realized = self.partial_realized_variance(context, as_of)?;
-        let forward = self.remaining_forward_variance(context, as_of)?;
-        let w = self.realized_fraction_by_observations(as_of);
-        let expected_var = realized * w + forward * (1.0 - w);
-        let undiscounted = self.payoff(expected_var);
-        let t = self
-            .day_count
-            .year_fraction(as_of, self.maturity, DayCountCtx::default())?;
-        let df = dom.df(t.max(0.0));
-        Ok(undiscounted * df)
-    }
-
     /// Calculate payoff given realized variance.
     pub fn payoff(&self, realized_variance: f64) -> Money {
         let variance_diff = realized_variance - self.strike_variance;
@@ -480,8 +439,44 @@ impl InstrumentTrait for FxVarianceSwap {
         Box::new(self.clone())
     }
 
-    fn value(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
-        self.npv(curves, as_of)
+    fn value(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
+        self.validate_as_of(context, as_of)?;
+
+        let dom = context.get_discount(self.domestic_discount_curve_id.as_str())?;
+
+        if as_of >= self.maturity {
+            let prices = self.get_historical_prices(context, as_of)?;
+            if prices.is_empty() {
+                return Ok(Money::new(0.0, self.notional.currency()));
+            }
+            let realized_var = realized_variance(
+                &prices,
+                self.realized_var_method,
+                self.annualization_factor(),
+            );
+            return Ok(self.payoff(realized_var));
+        }
+
+        if as_of < self.start_date {
+            let forward_var = self.remaining_forward_variance(context, as_of)?;
+            let undiscounted = self.payoff(forward_var);
+            let t = self
+                .day_count
+                .year_fraction(as_of, self.maturity, DayCountCtx::default())?;
+            let df = dom.df(t.max(0.0));
+            return Ok(undiscounted * df);
+        }
+
+        let realized = self.partial_realized_variance(context, as_of)?;
+        let forward = self.remaining_forward_variance(context, as_of)?;
+        let w = self.realized_fraction_by_observations(as_of);
+        let expected_var = realized * w + forward * (1.0 - w);
+        let undiscounted = self.payoff(expected_var);
+        let t = self
+            .day_count
+            .year_fraction(as_of, self.maturity, DayCountCtx::default())?;
+        let df = dom.df(t.max(0.0));
+        Ok(undiscounted * df)
     }
 
     fn price_with_metrics(

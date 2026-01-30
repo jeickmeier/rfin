@@ -73,13 +73,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use super::parameters::EquityOptionParams;
 
 /// Equity option instrument
-#[derive(
-    Clone,
-    Debug,
-    finstack_valuations_macros::FinancialBuilder,
-    finstack_valuations_macros::Instrument,
-)]
-#[instrument(key = "EquityOption", price_fn = "npv")]
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct EquityOption {
@@ -322,16 +316,6 @@ impl EquityOption {
         }
     }
 
-    /// Calculate the net present value of this equity option
-    pub fn npv(
-        &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::money::Money> {
-        use crate::instruments::equity_option::pricer;
-        pricer::npv(self, curves, as_of)
-    }
-
     /// Calculate Greeks for this equity option
     pub fn greeks(
         &self,
@@ -496,10 +480,72 @@ impl EquityOption {
     }
 }
 
+impl crate::instruments::common::traits::Instrument for EquityOption {
+    fn id(&self) -> &str {
+        self.id.as_str()
+    }
+
+    fn key(&self) -> crate::pricer::InstrumentType {
+        crate::pricer::InstrumentType::EquityOption
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+        &self.attributes
+    }
+
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+        &mut self.attributes
+    }
+
+    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+        Box::new(self.clone())
+    }
+
+    fn spot_id(&self) -> Option<&str> {
+        Some(&self.spot_id)
+    }
+
+    fn vol_surface_id(&self) -> Option<finstack_core::types::CurveId> {
+        Some(self.vol_surface_id.clone())
+    }
+
+    fn value(
+        &self,
+        curves: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::money::Money> {
+        use crate::instruments::equity_option::pricer;
+        pricer::compute_pv(self, curves, as_of)
+    }
+
+    fn price_with_metrics(
+        &self,
+        curves: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+        metrics: &[crate::metrics::MetricId],
+    ) -> finstack_core::Result<crate::results::ValuationResult> {
+        let base_value = self.value(curves, as_of)?;
+        crate::instruments::common::helpers::build_with_metrics_dyn(
+            std::sync::Arc::new(self.clone()),
+            std::sync::Arc::new(curves.clone()),
+            as_of,
+            base_value,
+            metrics,
+            None,
+            None,
+        )
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::instruments::common::traits::Instrument;
     use crate::instruments::equity_option::pricer;
     use crate::instruments::{
         common::traits::Attributes, ExerciseStyle, OptionType, PricingOverrides, SettlementType,
@@ -602,7 +648,7 @@ mod tests {
         let curves = build_market_context(as_of, 105.0, 0.22, 0.03, 0.01);
 
         let price = option
-            .npv(&curves, as_of)
+            .value(&curves, as_of)
             .expect("NPV calculation should succeed in test");
         let (spot, r, q, sigma, t) = pricer::collect_inputs(&option, &curves, as_of)
             .expect("Input collection should succeed in test");
@@ -673,7 +719,7 @@ mod tests {
         let option = base_option(expiry);
         let curves = build_market_context(as_of, 100.0, 0.30, 0.02, 0.01);
 
-        let npv = option.npv(&curves, as_of).expect("should succeed");
+        let npv = option.value(&curves, as_of).expect("should succeed");
         let implied = option
             .implied_vol(&curves, as_of, npv.amount())
             .expect("should succeed");
@@ -685,7 +731,9 @@ mod tests {
             ..Default::default()
         };
         override_option.pricing_overrides = overrides;
-        let override_price = override_option.npv(&curves, as_of).expect("should succeed");
+        let override_price = override_option
+            .value(&curves, as_of)
+            .expect("should succeed");
         let (spot, r, q, _, t) =
             pricer::collect_inputs(&override_option, &curves, as_of).expect("should succeed");
         let expected = pricer::price_bs_unit(
@@ -709,7 +757,7 @@ mod tests {
         option.contract_size = 50.0;
         let curves = build_market_context(as_of, 120.0, 0.25, 0.01, 0.0);
 
-        let pv = option.npv(&curves, as_of).expect("should succeed");
+        let pv = option.value(&curves, as_of).expect("should succeed");
         assert_eq!(pv.amount(), (120.0 - 100.0) * 50.0);
 
         let greeks = option.greeks(&curves, as_of).expect("should succeed");
@@ -777,7 +825,7 @@ mod tests {
 
         // Verify pricing works and produces reasonable values
         let pv = option
-            .npv(&curves, as_of)
+            .value(&curves, as_of)
             .expect("NPV should succeed with mixed day counts");
         assert!(pv.amount() > 0.0, "Call option should have positive value");
 
@@ -838,7 +886,7 @@ mod tests {
         // Note: NOT inserting dividend yield
 
         // Pricing should fail with a validation error
-        let result = option.npv(&curves, as_of);
+        let result = option.value(&curves, as_of);
         assert!(
             result.is_err(),
             "Expected pricing to fail when div_yield_id is set but missing from market context"
@@ -874,7 +922,7 @@ mod tests {
             .insert_price(DIV_ID, MarketScalar::Price(Money::new(0.02, Currency::USD)));
 
         // Pricing should fail with a validation error about wrong scalar type
-        let result = option.npv(&curves, as_of);
+        let result = option.value(&curves, as_of);
         assert!(
             result.is_err(),
             "Expected pricing to fail when div_yield_id returns Price instead of Unitless"
@@ -897,7 +945,7 @@ mod tests {
         option.exercise_style = ExerciseStyle::Bermudan;
         let curves = build_market_context(as_of, 100.0, 0.25, 0.02, 0.01);
 
-        let result = option.npv(&curves, as_of);
+        let result = option.value(&curves, as_of);
         assert!(
             result.is_err(),
             "Expected Bermudan pricing to fail without exercise schedule"

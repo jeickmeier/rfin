@@ -102,15 +102,6 @@ impl CmsOption {
             .build()
             .expect("Example CmsOption construction should not fail")
     }
-    /// Calculate the net present value of this CMS option.
-    pub fn npv(
-        &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::money::Money> {
-        use crate::instruments::cms_option::pricer;
-        pricer::npv(self, curves, as_of)
-    }
 }
 
 impl CmsOptionBuilder {
@@ -151,7 +142,7 @@ impl crate::instruments::common::traits::Instrument for CmsOption {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.npv(market, as_of)
+        crate::instruments::cms_option::pricer::compute_pv(self, market, as_of)
     }
 
     fn price_with_metrics(

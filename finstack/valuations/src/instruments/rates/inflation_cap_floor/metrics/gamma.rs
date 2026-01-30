@@ -15,6 +15,7 @@
 //! - Bump: 1bp = 0.01% applied to inflation curve via `BumpSpec::inflation_shift_pct`
 //! - Result: Gamma per (basis point)² = per (0.01%)²
 
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::inflation_cap_floor::InflationCapFloor;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
@@ -49,7 +50,7 @@ impl MetricCalculator for GammaCalculator {
             id: option.inflation_index_id.clone(),
             spec: bump_spec_up,
         }])?;
-        let pv_up = option.npv(&curves_up, as_of)?.amount();
+        let pv_up = option.value(&curves_up, as_of)?.amount();
 
         // Bump down by 1bp = 0.01%
         let bump_spec_down = BumpSpec::inflation_shift_pct(-GAMMA_BUMP_PCT);
@@ -57,7 +58,7 @@ impl MetricCalculator for GammaCalculator {
             id: option.inflation_index_id.clone(),
             spec: bump_spec_down,
         }])?;
-        let pv_down = option.npv(&curves_down, as_of)?.amount();
+        let pv_down = option.value(&curves_down, as_of)?.amount();
 
         // Second derivative via central difference:
         // Gamma = (PV_up - 2*PV_base + PV_down) / h²

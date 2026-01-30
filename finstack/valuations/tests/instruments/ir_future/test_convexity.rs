@@ -23,7 +23,7 @@ fn test_strict_convexity_error() {
     future.contract_specs.convexity_adjustment = None;
     future.volatility_id = None;
 
-    let result = future.npv(&market);
+    let result = future.npv(&market, as_of);
 
     // Should fail because strict mode requires explicit adjustment or vol surface
     assert!(result.is_err());
@@ -42,7 +42,7 @@ fn test_automatic_convexity_far_forward_error() {
         create_custom_future("FAR", 1_000_000.0, start, start, end, 97.50, Position::Long);
     future.contract_specs.convexity_adjustment = None;
 
-    let result = future.npv(&market);
+    let result = future.npv(&market, as_of);
 
     // Should fail in strict mode
     assert!(result.is_err());
@@ -63,7 +63,7 @@ fn test_explicit_convexity_adjustment() {
 
     let future = create_standard_future(start, end).with_contract_specs(specs_with_ca);
 
-    let pv = future.npv(&market).unwrap();
+    let pv = future.npv(&market, as_of).unwrap();
     assert!(pv.amount().is_finite());
 }
 
@@ -78,7 +78,7 @@ fn test_convexity_impact() {
         ..FutureContractSpecs::default()
     };
     let with_zero_ca = create_standard_future(start, end).with_contract_specs(specs_zero_ca);
-    let pv_zero_ca = with_zero_ca.npv(&market).unwrap().amount();
+    let pv_zero_ca = with_zero_ca.npv(&market, as_of).unwrap().amount();
 
     // Case 2: Explicit Positive Adjustment
     let specs_pos_ca = FutureContractSpecs {
@@ -86,7 +86,7 @@ fn test_convexity_impact() {
         ..FutureContractSpecs::default()
     };
     let with_pos_ca = create_standard_future(start, end).with_contract_specs(specs_pos_ca);
-    let pv_pos_ca = with_pos_ca.npv(&market).unwrap().amount();
+    let pv_pos_ca = with_pos_ca.npv(&market, as_of).unwrap().amount();
 
     // PV should be lower with positive convexity adjustment (Long Future: PV ~ Rate_implied - (Rate_fwd + Conv))
     // If Conv is positive, AdjustedRate is higher, so (Implied - Adjusted) is smaller.
@@ -113,8 +113,8 @@ fn test_convexity_adjustment_sign() {
     let fut_pos = create_standard_future(start, end).with_contract_specs(positive_ca);
     let fut_neg = create_standard_future(start, end).with_contract_specs(negative_ca);
 
-    let pv_pos = fut_pos.npv(&market).unwrap().amount();
-    let pv_neg = fut_neg.npv(&market).unwrap().amount();
+    let pv_pos = fut_pos.npv(&market, as_of).unwrap().amount();
+    let pv_neg = fut_neg.npv(&market, as_of).unwrap().amount();
 
     // Different convexity adjustments should produce different valuations
     assert_ne!(
@@ -135,7 +135,7 @@ fn test_large_convexity_adjustment() {
 
     let future = create_standard_future(start, end).with_contract_specs(large_ca);
 
-    let pv = future.npv(&market).unwrap();
+    let pv = future.npv(&market, as_of).unwrap();
 
     // Should still produce valid result
     assert!(pv.amount().is_finite());
@@ -184,7 +184,7 @@ fn test_volatility_based_convexity_adjustment() {
     future.contract_specs.convexity_adjustment = None; // Use vol-based calculation
     future.volatility_id = Some("USD_SWAPTION_VOL".into());
 
-    let pv = future.npv(&market).unwrap();
+    let pv = future.npv(&market, as_of).unwrap();
 
     // Should produce valid result
     assert!(
@@ -204,7 +204,7 @@ fn test_volatility_based_convexity_adjustment() {
     );
     future_zero_ca.contract_specs.convexity_adjustment = Some(0.0);
 
-    let pv_zero_ca = future_zero_ca.npv(&market).unwrap().amount();
+    let pv_zero_ca = future_zero_ca.npv(&market, as_of).unwrap().amount();
 
     // Convexity adjustment should make a difference (positive adjustment reduces PV for long)
     // For 2-year forward with 20% vol: CA ≈ 0.5 × 0.20² × 2 × 2.25 ≈ 9bp
@@ -264,8 +264,8 @@ fn test_volatility_based_convexity_increases_with_maturity() {
     far_future.volatility_id = Some("USD_SWAPTION_VOL".into());
 
     // Calculate PVs with vol-based convexity
-    let pv_near = near_future.npv(&market).unwrap().amount();
-    let pv_far = far_future.npv(&market).unwrap().amount();
+    let pv_near = near_future.npv(&market, as_of).unwrap().amount();
+    let pv_far = far_future.npv(&market, as_of).unwrap().amount();
 
     // Also calculate with zero convexity for comparison
     let mut near_zero = create_custom_future(
@@ -290,8 +290,8 @@ fn test_volatility_based_convexity_increases_with_maturity() {
     );
     far_zero.contract_specs.convexity_adjustment = Some(0.0);
 
-    let pv_near_zero = near_zero.npv(&market).unwrap().amount();
-    let pv_far_zero = far_zero.npv(&market).unwrap().amount();
+    let pv_near_zero = near_zero.npv(&market, as_of).unwrap().amount();
+    let pv_far_zero = far_zero.npv(&market, as_of).unwrap().amount();
 
     // Convexity impact: difference between zero-CA and vol-based
     let near_convexity_impact = pv_near_zero - pv_near;
@@ -342,8 +342,8 @@ fn test_volatility_based_convexity_increases_with_vol() {
     future.contract_specs.convexity_adjustment = None;
     future.volatility_id = Some("USD_SWAPTION_VOL".into());
 
-    let pv_low_vol = future.npv(&low_vol_market).unwrap().amount();
-    let pv_high_vol = future.npv(&high_vol_market).unwrap().amount();
+    let pv_low_vol = future.npv(&low_vol_market, as_of).unwrap().amount();
+    let pv_high_vol = future.npv(&high_vol_market, as_of).unwrap().amount();
 
     // Higher vol should result in larger convexity adjustment
     // For long position, larger CA means lower PV
@@ -360,7 +360,7 @@ fn test_volatility_based_convexity_increases_with_vol() {
     let mut future_zero =
         create_custom_future("ZERO", 1_000_000.0, start, start, end, 95.0, Position::Long);
     future_zero.contract_specs.convexity_adjustment = Some(0.0);
-    let pv_zero = future_zero.npv(&low_vol_market).unwrap().amount();
+    let pv_zero = future_zero.npv(&low_vol_market, as_of).unwrap().amount();
 
     let low_vol_impact = pv_zero - pv_low_vol;
     let high_vol_impact = pv_zero - pv_high_vol;

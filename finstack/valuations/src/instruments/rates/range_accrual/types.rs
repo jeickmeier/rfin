@@ -271,17 +271,6 @@ impl RangeAccrual {
             BoundsType::RelativeToInitialSpot => initial_spot * self.upper_bound,
         }
     }
-    /// Calculate the net present value of this range accrual.
-    #[cfg(feature = "mc")]
-    pub fn npv(
-        &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.validate()?;
-        use crate::instruments::range_accrual::pricer;
-        pricer::npv(self, curves, as_of)
-    }
 }
 
 impl RangeAccrualBuilder {
@@ -325,7 +314,7 @@ impl crate::instruments::common::traits::Instrument for RangeAccrual {
         self.validate()?;
         #[cfg(feature = "mc")]
         {
-            self.npv(market, as_of)
+            crate::instruments::range_accrual::pricer::compute_pv(self, market, as_of)
         }
         #[cfg(not(feature = "mc"))]
         {

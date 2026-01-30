@@ -9,6 +9,7 @@
 //! settled in another currency. FX delta measures sensitivity to changes
 //! in the FX exchange rate between these currencies.
 
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::quanto_option::QuantoOption;
 use crate::metrics::{bump_scalar_price, bump_sizes};
 use crate::metrics::{MetricCalculator, MetricContext};
@@ -50,12 +51,12 @@ impl MetricCalculator for FxDeltaCalculator {
 
         // Bump FX rate up
         let curves_up = bump_scalar_price(context.curves.as_ref(), fx_rate_id, bump_sizes::SPOT)?;
-        let pv_up = option.npv(&curves_up, as_of)?.amount();
+        let pv_up = option.value(&curves_up, as_of)?.amount();
 
         // Bump FX rate down
         let curves_down =
             bump_scalar_price(context.curves.as_ref(), fx_rate_id, -bump_sizes::SPOT)?;
-        let pv_down = option.npv(&curves_down, as_of)?.amount();
+        let pv_down = option.value(&curves_down, as_of)?.amount();
 
         // Central difference: fx_delta = (PV_up - PV_down) / (2 * h)
         let fx_delta = (pv_up - pv_down) / (2.0 * bump_size);

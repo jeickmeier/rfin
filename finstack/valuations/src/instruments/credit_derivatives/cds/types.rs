@@ -1010,17 +1010,6 @@ impl CreditDefaultSwap {
         pricer.risky_pv01(self, disc, surv, as_of)
     }
 
-    /// Calculate the net present value of this CDS
-    /// Calculate the net present value of this CDS
-    pub fn npv(
-        &self,
-        market: &MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<Money> {
-        let npv_amount = self.npv_raw(market, as_of)?;
-        Ok(Money::new(npv_amount, self.notional.currency()))
-    }
-
     /// Calculate the raw net present value of this CDS (f64)
     pub fn npv_raw(
         &self,
@@ -1112,7 +1101,11 @@ impl crate::instruments::common::traits::Instrument for CreditDefaultSwap {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.npv(market, as_of)
+        let npv_amount = self.npv_raw(market, as_of)?;
+        Ok(finstack_core::money::Money::new(
+            npv_amount,
+            self.notional.currency(),
+        ))
     }
 
     fn value_raw(

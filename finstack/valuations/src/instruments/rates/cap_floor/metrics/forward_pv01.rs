@@ -1,6 +1,7 @@
 //! Forward curve PV01 for interest rate options (per 1bp parallel bump of forward curve).
 
 use crate::instruments::cap_floor::InterestRateOption;
+use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::Result;
@@ -41,7 +42,7 @@ impl MetricCalculator for ForwardPv01Calculator {
         let bumped_ctx = context.curves.as_ref().clone().insert_forward(bumped_fwd);
 
         // Reprice with bumped forward curve
-        let bumped = option.npv(&bumped_ctx, context.as_of)?;
+        let bumped = option.value(&bumped_ctx, context.as_of)?;
 
         Ok(bumped.amount() - base)
     }

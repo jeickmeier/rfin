@@ -13,6 +13,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fx::fx_variance_swap::{FxVarianceSwap, PayReceive};
 use finstack_valuations::instruments::Attributes;
+use finstack_valuations::prelude::InstrumentNpvExt;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule, PyType};

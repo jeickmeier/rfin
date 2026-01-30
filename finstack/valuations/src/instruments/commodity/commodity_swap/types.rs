@@ -145,22 +145,6 @@ impl CommoditySwap {
             .expect("Example commodity swap construction should not fail")
     }
 
-    /// Calculate the net present value of this commodity swap.
-    pub fn npv(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
-        let fixed_leg_pv = self.fixed_leg_pv(market, as_of)?;
-        let floating_leg_pv = self.floating_leg_pv(market, as_of)?;
-
-        let npv = if self.pay_fixed {
-            // Pay fixed, receive floating
-            floating_leg_pv - fixed_leg_pv
-        } else {
-            // Receive fixed, pay floating
-            fixed_leg_pv - floating_leg_pv
-        };
-
-        Ok(Money::new(npv, self.currency))
-    }
-
     /// Calculate the present value of the fixed leg.
     pub fn fixed_leg_pv(&self, market: &MarketContext, as_of: Date) -> Result<f64> {
         let disc = market.get_discount(self.discount_curve_id.as_str())?;
@@ -404,7 +388,18 @@ impl crate::instruments::common::traits::Instrument for CommoditySwap {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.npv(market, as_of)
+        let fixed_leg_pv = self.fixed_leg_pv(market, as_of)?;
+        let floating_leg_pv = self.floating_leg_pv(market, as_of)?;
+
+        let npv = if self.pay_fixed {
+            // Pay fixed, receive floating
+            floating_leg_pv - fixed_leg_pv
+        } else {
+            // Receive fixed, pay floating
+            fixed_leg_pv - floating_leg_pv
+        };
+
+        Ok(finstack_core::money::Money::new(npv, self.currency))
     }
 
     fn price_with_metrics(
@@ -446,6 +441,7 @@ impl crate::instruments::common::pricing::HasForwardCurves for CommoditySwap {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::instruments::common::traits::InstrumentNpvExt;
     use finstack_core::market_data::term_structures::{DiscountCurve, PriceCurve};
     use time::Month;
 

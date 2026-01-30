@@ -4,7 +4,7 @@
 //! curve-based forward price interpolation with discounting.
 
 use crate::instruments::commodity_forward::CommodityForward;
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common::traits::{Instrument, InstrumentNpvExt};
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };

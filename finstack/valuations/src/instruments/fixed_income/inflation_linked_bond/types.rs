@@ -1,7 +1,6 @@
 //! Inflation-Linked Bond (ILB) types and implementation.
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
-use crate::instruments::common::discountable::Discountable;
 use crate::instruments::common::traits::Attributes;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{
@@ -925,16 +924,6 @@ impl InflationLinkedBond {
         // Modified duration in years per 1 delta in yield: D = - (1/P) * dP/dy
         let p0 = base_clean.max(1e-6);
         Ok(-(dp_dy / p0))
-    }
-
-    /// Present value using standard cashflow discounting
-    pub fn npv(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
-        let flows = self.build_schedule(curves, as_of)?;
-        let disc = curves.get_discount(&self.discount_curve_id)?;
-        let base_date = disc.base_date();
-        // Use curve basis for time mapping
-        let dc = disc.day_count();
-        flows.npv(disc.as_ref(), base_date, Some(dc))
     }
 }
 

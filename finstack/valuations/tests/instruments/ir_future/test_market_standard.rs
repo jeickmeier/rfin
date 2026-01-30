@@ -6,7 +6,7 @@
 use super::utils::*;
 use finstack_core::dates::DayCount;
 use finstack_valuations::instruments::rates::ir_future::{FutureContractSpecs, Position};
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::{Instrument, InstrumentNpvExt};
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
@@ -30,8 +30,8 @@ fn test_pnl_attribution_rate_move() {
         Position::Long,
     );
 
-    let pv_5pct = future.npv(&market_5pct).unwrap().amount();
-    let pv_6pct = future.npv(&market_6pct).unwrap().amount();
+    let pv_5pct = future.npv(&market_5pct, as_of).unwrap().amount();
+    let pv_6pct = future.npv(&market_6pct, as_of).unwrap().amount();
 
     // Long position should lose when rates increase (prices fall)
     assert!(
@@ -72,8 +72,8 @@ fn test_dv01_finite_difference() {
 
     let future = create_standard_future(start, end);
 
-    let pv_base = future.npv(&market_base).unwrap().amount();
-    let pv_up = future.npv(&market_up).unwrap().amount();
+    let pv_base = future.npv(&market_base, as_of).unwrap().amount();
+    let pv_up = future.npv(&market_up, as_of).unwrap().amount();
 
     // Finite difference DV01
     let dv01_fd = pv_up - pv_base;
@@ -130,7 +130,7 @@ fn test_eurodollar_convention() {
     let future = create_standard_future(start, end).with_contract_specs(ed_specs);
 
     // Should price reasonably
-    let pv = future.npv(&market).unwrap();
+    let pv = future.npv(&market, as_of).unwrap();
     assert!(pv.amount().is_finite());
 
     // Tick value should be reasonable (actual value depends on exact dates)
@@ -147,7 +147,7 @@ fn test_sofr_convention() {
     let sofr_specs = create_sofr_specs();
     let future = create_standard_future(start, end).with_contract_specs(sofr_specs);
 
-    let pv = future.npv(&market).unwrap();
+    let pv = future.npv(&market, as_of).unwrap();
     assert!(pv.amount().is_finite());
 }
 
@@ -185,8 +185,8 @@ fn test_convexity_increases_with_maturity() {
     );
 
     // With automatic convexity, both should price
-    let pv_short = short_future.npv(&market).unwrap();
-    let pv_long = long_future.npv(&market).unwrap();
+    let pv_short = short_future.npv(&market, as_of).unwrap();
+    let pv_long = long_future.npv(&market, as_of).unwrap();
 
     assert!(pv_short.amount().is_finite());
     assert!(pv_long.amount().is_finite());
@@ -222,8 +222,8 @@ fn test_portfolio_hedging_scenario() {
         Position::Short,
     );
 
-    let pv_long = long_10.npv(&market).unwrap().amount();
-    let pv_short = short_10.npv(&market).unwrap().amount();
+    let pv_long = long_10.npv(&market, as_of).unwrap().amount();
+    let pv_short = short_10.npv(&market, as_of).unwrap().amount();
     let pv_portfolio = pv_long + pv_short;
 
     // Perfect hedge should net to zero
@@ -244,7 +244,7 @@ fn test_rate_scenario_parallel_shift() {
     let mut pvs = Vec::new();
     for rate in &rates {
         let market = build_standard_market(as_of, *rate);
-        let pv = future.npv(&market).unwrap().amount();
+        let pv = future.npv(&market, as_of).unwrap().amount();
         pvs.push(pv);
     }
 
@@ -276,8 +276,8 @@ fn test_basis_point_value() {
 
     // Move market by 1bp
     let market_up_1bp = build_standard_market(as_of, 0.0501);
-    let pv_base = future.npv(&market).unwrap().amount();
-    let pv_up = future.npv(&market_up_1bp).unwrap().amount();
+    let pv_base = future.npv(&market, as_of).unwrap().amount();
+    let pv_up = future.npv(&market_up_1bp, as_of).unwrap().amount();
     let actual_change = pv_up - pv_base;
 
     // Magnitudes should match (signs may differ based on convention)
@@ -300,7 +300,7 @@ fn test_day_count_impact() {
     for dc in &day_counts {
         let mut future = create_standard_future(start, end);
         future.day_count = *dc;
-        let pv = future.npv(&market).unwrap().amount();
+        let pv = future.npv(&market, as_of).unwrap().amount();
         pvs.push(pv);
     }
 

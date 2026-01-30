@@ -144,24 +144,7 @@ impl BarrierOption {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::instruments::barrier_option::pricer;
-        pricer::npv(self, curves, as_of)
-    }
-
-    /// Calculate the net present value using analytical method (default).
-    /// Uses Reiner-Rubinstein continuous monitoring formulas.
-    pub fn npv(
-        &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::money::Money> {
-        use crate::instruments::barrier_option::pricer::BarrierOptionAnalyticalPricer;
-        use crate::pricer::Pricer;
-
-        let pricer = BarrierOptionAnalyticalPricer::new();
-        let result = pricer
-            .price_dyn(self, curves, as_of)
-            .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
-        Ok(result.value)
+        pricer::compute_pv(self, curves, as_of)
     }
 }
 
@@ -195,8 +178,14 @@ impl crate::instruments::common::traits::Instrument for BarrierOption {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        // Default to analytical pricing
-        self.npv(market, as_of)
+        use crate::instruments::barrier_option::pricer::BarrierOptionAnalyticalPricer;
+        use crate::pricer::Pricer;
+
+        let pricer = BarrierOptionAnalyticalPricer::new();
+        let result = pricer
+            .price_dyn(self, market, as_of)
+            .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
+        Ok(result.value)
     }
 
     fn price_with_metrics(

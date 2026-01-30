@@ -13,6 +13,7 @@ use finstack_core::dates::DayCount;
 use finstack_valuations::instruments::equity::real_estate::{
     RealEstateAsset, RealEstateValuationMethod,
 };
+use finstack_valuations::prelude::InstrumentNpvExt;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 

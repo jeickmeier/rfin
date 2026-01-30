@@ -65,8 +65,8 @@ impl Pricer for NdfDiscountingPricer {
             ));
         }
 
-        // Delegate to instrument's npv method
-        let pv = ndf.npv(market, as_of).map_err(|e| {
+        // Delegate to instrument's value method
+        let pv = ndf.value(market, as_of).map_err(|e| {
             PricingError::model_failure_ctx(
                 format!("NDF pricing failed: {}", e),
                 PricingErrorContext::default(),

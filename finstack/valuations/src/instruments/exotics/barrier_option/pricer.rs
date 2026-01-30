@@ -354,7 +354,7 @@ impl Pricer for BarrierOptionMcPricer {
 
 /// Present value using Monte Carlo.
 #[cfg(feature = "mc")]
-pub fn npv(
+pub(crate) fn compute_pv(
     inst: &BarrierOption,
     curves: &MarketContext,
     as_of: Date,

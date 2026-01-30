@@ -14,6 +14,7 @@
 //! with separate domestic and foreign discount curves, separate rho metrics
 //! would be implemented.
 
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::fx_barrier_option::FxBarrierOption;
 use crate::metrics::bump_discount_curve_parallel;
 use crate::metrics::{MetricCalculator, MetricContext};
@@ -47,7 +48,7 @@ impl MetricCalculator for RhoCalculator {
         )?;
 
         // Reprice with bumped curve
-        let pv_bumped = option.npv(&curves_bumped, as_of)?.amount();
+        let pv_bumped = option.value(&curves_bumped, as_of)?.amount();
 
         // Rho = PV(rate + 1bp) − PV(base)
         let rho = pv_bumped - base_pv;

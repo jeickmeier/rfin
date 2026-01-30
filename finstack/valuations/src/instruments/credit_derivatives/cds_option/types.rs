@@ -266,16 +266,6 @@ impl CdsOption {
         Ok(self)
     }
 
-    /// Calculate the net present value of this CDS option
-    pub fn npv(
-        &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::money::Money> {
-        let pricer = crate::instruments::cds_option::pricer::CdsOptionPricer::default();
-        pricer.npv(self, curves, as_of)
-    }
-
     /// Extract common pricing inputs for Greek calculations.
     ///
     /// This helper consolidates the repeated logic for computing:
@@ -484,7 +474,8 @@ impl crate::instruments::common::traits::Instrument for CdsOption {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.npv(curves, as_of)
+        let pricer = crate::instruments::cds_option::pricer::CdsOptionPricer::default();
+        pricer.npv(self, curves, as_of)
     }
 
     fn price_with_metrics(

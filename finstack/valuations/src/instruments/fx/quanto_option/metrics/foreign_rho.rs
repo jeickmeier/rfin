@@ -8,6 +8,7 @@
 //! - Rho = PV(rate + 1bp) − PV(base)
 //! - Positive Rho means the instrument gains value when rates go up
 
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::quanto_option::QuantoOption;
 use crate::metrics::bump_discount_curve_parallel;
 use crate::metrics::{MetricCalculator, MetricContext};
@@ -41,7 +42,7 @@ impl MetricCalculator for ForeignRhoCalculator {
         )?;
 
         // Reprice with bumped curve
-        let pv_bumped = option.npv(&curves_bumped, as_of)?.amount();
+        let pv_bumped = option.value(&curves_bumped, as_of)?.amount();
 
         // Rho = PV(rate + 1bp) − PV(base)
         let rho = pv_bumped - base_pv;

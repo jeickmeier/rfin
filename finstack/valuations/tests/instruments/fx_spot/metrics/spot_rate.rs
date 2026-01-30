@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 fn create_context(fx: FxSpot, as_of: Date) -> MetricContext {
     let market = MarketContext::new();
-    let base_value = fx.npv(&market, as_of).unwrap();
+    let base_value = fx.value(&market, as_of).unwrap();
     let instrument: Arc<dyn Instrument> = Arc::new(fx);
     MetricContext::new(
         instrument,

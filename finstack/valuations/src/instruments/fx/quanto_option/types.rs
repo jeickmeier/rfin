@@ -128,23 +128,6 @@ impl QuantoOption {
                 .to_string(),
         ))
     }
-
-    /// Calculate the net present value using analytical method (default).
-    /// Uses quanto-adjusted Black-Scholes with correlation and FX vol.
-    pub fn npv(
-        &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::money::Money> {
-        use crate::instruments::quanto_option::pricer::QuantoOptionAnalyticalPricer;
-        use crate::pricer::Pricer;
-
-        let pricer = QuantoOptionAnalyticalPricer::new();
-        let result = pricer
-            .price_dyn(self, curves, as_of)
-            .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
-        Ok(result.value)
-    }
 }
 
 impl crate::instruments::common::traits::Instrument for QuantoOption {
@@ -177,8 +160,14 @@ impl crate::instruments::common::traits::Instrument for QuantoOption {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        // Default to analytical pricing
-        self.npv(market, as_of)
+        use crate::instruments::quanto_option::pricer::QuantoOptionAnalyticalPricer;
+        use crate::pricer::Pricer;
+
+        let pricer = QuantoOptionAnalyticalPricer::new();
+        let result = pricer
+            .price_dyn(self, market, as_of)
+            .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
+        Ok(result.value)
     }
 
     fn price_with_metrics(

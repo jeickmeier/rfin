@@ -13,6 +13,7 @@
 //! For options, dividend yield affects the forward price: F = S * exp((r - q) * T).
 //! Higher dividend yield reduces the forward, making calls less valuable and puts more valuable.
 
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::equity_option::EquityOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
@@ -69,7 +70,7 @@ impl MetricCalculator for DividendRiskCalculator {
             }
         };
         curves_up = curves_up.insert_price(div_yield_id.as_str(), new_value_up);
-        let pv_up = option.npv(&curves_up, as_of)?.amount();
+        let pv_up = option.value(&curves_up, as_of)?.amount();
 
         // Bump down
         let mut curves_down = context.curves.as_ref().clone();
@@ -92,7 +93,7 @@ impl MetricCalculator for DividendRiskCalculator {
             }
         };
         curves_down = curves_down.insert_price(div_yield_id.as_str(), new_value_down);
-        let pv_down = option.npv(&curves_down, as_of)?.amount();
+        let pv_down = option.value(&curves_down, as_of)?.amount();
 
         // Dividend01 = (PV_up - PV_down) / (2 * bump_size)
         // Result is per 1bp (0.0001) change in dividend yield

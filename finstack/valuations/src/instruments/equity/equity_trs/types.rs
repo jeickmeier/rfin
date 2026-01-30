@@ -209,39 +209,6 @@ impl EquityTotalReturnSwap {
         Ok(())
     }
 
-    /// Calculates the net present value (NPV) of the equity TRS.
-    ///
-    /// # Arguments
-    /// * `curves` — Market context containing curves and market data
-    /// * `as_of` — Valuation date
-    ///
-    /// # Returns
-    /// Net present value in the instrument's currency.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if:
-    /// - Validation fails (e.g., dividend_tax_rate set without div_yield_id)
-    /// - Market data lookup fails
-    pub fn npv(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
-        // Validate configuration
-        self.validate()?;
-
-        // Calculate total return leg PV
-        let total_return_pv = self.pv_total_return_leg(curves, as_of)?;
-
-        // Calculate financing leg PV
-        let financing_pv = self.pv_financing_leg(curves, as_of)?;
-
-        // Net PV depends on side
-        let net_pv = match self.side {
-            TrsSide::ReceiveTotalReturn => (total_return_pv - financing_pv)?,
-            TrsSide::PayTotalReturn => (financing_pv - total_return_pv)?,
-        };
-
-        Ok(net_pv)
-    }
-
     /// Calculates the present value of the total return leg.
     ///
     /// # Arguments
@@ -323,7 +290,22 @@ impl crate::instruments::common::traits::Instrument for EquityTotalReturnSwap {
     }
 
     fn value(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
-        self.npv(curves, as_of)
+        // Validate configuration
+        self.validate()?;
+
+        // Calculate total return leg PV
+        let total_return_pv = self.pv_total_return_leg(curves, as_of)?;
+
+        // Calculate financing leg PV
+        let financing_pv = self.pv_financing_leg(curves, as_of)?;
+
+        // Net PV depends on side
+        let net_pv = match self.side {
+            TrsSide::ReceiveTotalReturn => (total_return_pv - financing_pv)?,
+            TrsSide::PayTotalReturn => (financing_pv - total_return_pv)?,
+        };
+
+        Ok(net_pv)
     }
 
     fn price_with_metrics(

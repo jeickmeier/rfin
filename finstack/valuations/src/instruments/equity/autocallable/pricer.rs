@@ -271,7 +271,11 @@ impl Pricer for AutocallableMcPricer {
 
 /// Present value using Monte Carlo.
 #[cfg(feature = "mc")]
-pub fn npv(inst: &Autocallable, curves: &MarketContext, as_of: Date) -> Result<Money> {
+pub(crate) fn compute_pv(
+    inst: &Autocallable,
+    curves: &MarketContext,
+    as_of: Date,
+) -> Result<Money> {
     let pricer = AutocallableMcPricer::new();
     pricer.price_internal(inst, curves, as_of)
 }

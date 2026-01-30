@@ -29,7 +29,7 @@ impl Pricer for RealEstateAssetDiscountingPricer {
                 PricingError::type_mismatch(InstrumentType::RealEstateAsset, instrument.key())
             })?;
 
-        let value = asset.npv(market, as_of).map_err(|e| {
+        let value = asset.value(market, as_of).map_err(|e| {
             PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
         })?;
 

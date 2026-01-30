@@ -101,8 +101,6 @@ pub(crate) mod pricer;
 mod types;
 
 pub use compounding::FloatingLegCompounding;
-#[doc(hidden)]
-pub use pricer::npv;
 pub use types::{
     FixedLegSpec, FloatLegSpec, InterestRateSwap, IrsLegConventions, ParRateMethod, PayReceive,
 };

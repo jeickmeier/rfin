@@ -144,66 +144,6 @@ impl CommodityOption {
             .expect("Example commodity option construction should not fail")
     }
 
-    /// Calculate the net present value of this commodity option.
-    ///
-    /// # Post-Expiry Behavior
-    ///
-    /// If `as_of > expiry`, the option is treated as fully settled and returns 0.
-    /// At expiry (`as_of == expiry`), the intrinsic value is returned.
-    pub fn npv(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
-        // Post-expiry: option is fully settled, value is 0
-        if as_of > self.expiry {
-            return Ok(Money::new(0.0, self.currency));
-        }
-
-        let t = self.time_to_expiry(as_of)?;
-        if t <= 0.0 {
-            // At expiry: return intrinsic value
-            let underlying = if let Some(spot) = self.spot_price(market)? {
-                spot
-            } else {
-                self.forward_price(market, as_of)?
-            };
-            let intrinsic = self.intrinsic_value(underlying);
-            return Ok(Money::new(
-                intrinsic * self.quantity * self.multiplier,
-                self.currency,
-            ));
-        }
-
-        let inputs = self.collect_inputs(market, as_of)?;
-
-        let unit_price = match self.exercise_style {
-            ExerciseStyle::European => black76_unit_price(
-                inputs.forward,
-                self.strike,
-                inputs.sigma,
-                inputs.t,
-                inputs.df,
-                self.option_type,
-            ),
-            ExerciseStyle::American | ExerciseStyle::Bermudan => {
-                let steps = self.pricing_overrides.tree_steps.unwrap_or(201);
-                let tree = BinomialTree::leisen_reimer_odd(steps);
-                let params = OptionMarketParams {
-                    spot: inputs.spot,
-                    strike: self.strike,
-                    rate: inputs.r,
-                    dividend_yield: inputs.q,
-                    volatility: inputs.sigma,
-                    time_to_expiry: inputs.t,
-                    option_type: self.option_type,
-                };
-                tree.price_american(&params)?
-            }
-        };
-
-        Ok(Money::new(
-            unit_price * self.quantity * self.multiplier,
-            self.currency,
-        ))
-    }
-
     fn intrinsic_value(&self, underlying: f64) -> f64 {
         match self.option_type {
             OptionType::Call => (underlying - self.strike).max(0.0),
@@ -409,7 +349,57 @@ impl Instrument for CommodityOption {
     }
 
     fn value(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
-        self.npv(market, as_of)
+        // Post-expiry: option is fully settled, value is 0
+        if as_of > self.expiry {
+            return Ok(Money::new(0.0, self.currency));
+        }
+
+        let t = self.time_to_expiry(as_of)?;
+        if t <= 0.0 {
+            // At expiry: return intrinsic value
+            let underlying = if let Some(spot) = self.spot_price(market)? {
+                spot
+            } else {
+                self.forward_price(market, as_of)?
+            };
+            let intrinsic = self.intrinsic_value(underlying);
+            return Ok(Money::new(
+                intrinsic * self.quantity * self.multiplier,
+                self.currency,
+            ));
+        }
+
+        let inputs = self.collect_inputs(market, as_of)?;
+
+        let unit_price = match self.exercise_style {
+            ExerciseStyle::European => black76_unit_price(
+                inputs.forward,
+                self.strike,
+                inputs.sigma,
+                inputs.t,
+                inputs.df,
+                self.option_type,
+            ),
+            ExerciseStyle::American | ExerciseStyle::Bermudan => {
+                let steps = self.pricing_overrides.tree_steps.unwrap_or(201);
+                let tree = BinomialTree::leisen_reimer_odd(steps);
+                let params = OptionMarketParams {
+                    spot: inputs.spot,
+                    strike: self.strike,
+                    rate: inputs.r,
+                    dividend_yield: inputs.q,
+                    volatility: inputs.sigma,
+                    time_to_expiry: inputs.t,
+                    option_type: self.option_type,
+                };
+                tree.price_american(&params)?
+            }
+        };
+
+        Ok(Money::new(
+            unit_price * self.quantity * self.multiplier,
+            self.currency,
+        ))
     }
 
     fn price_with_metrics(

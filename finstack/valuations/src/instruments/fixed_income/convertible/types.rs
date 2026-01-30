@@ -175,15 +175,6 @@ impl ConvertibleBond {
             })
     }
 
-    /// Calculate the net present value of this convertible bond
-    pub fn npv(
-        &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::money::Money> {
-        pricer::price_convertible_bond(self, curves, pricer::ConvertibleTreeType::default(), as_of)
-    }
-
     /// Calculate parity ratio of this convertible bond
     pub fn parity(
         &self,
@@ -334,7 +325,7 @@ impl crate::instruments::common::traits::Instrument for ConvertibleBond {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.npv(curves, as_of)
+        pricer::price_convertible_bond(self, curves, pricer::ConvertibleTreeType::default(), as_of)
     }
 
     fn price_with_metrics(

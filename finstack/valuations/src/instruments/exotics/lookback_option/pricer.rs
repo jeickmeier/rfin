@@ -218,7 +218,7 @@ impl Pricer for LookbackOptionMcPricer {
 
 /// Present value using Monte Carlo.
 #[cfg(feature = "mc")]
-pub fn npv(
+pub(crate) fn compute_pv(
     inst: &LookbackOption,
     curves: &MarketContext,
     as_of: Date,

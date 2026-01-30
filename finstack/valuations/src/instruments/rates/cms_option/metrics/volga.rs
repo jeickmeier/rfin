@@ -4,6 +4,7 @@
 //! Volga measures how vega changes with volatility.
 
 use crate::instruments::cms_option::CmsOption;
+use crate::instruments::common::traits::Instrument;
 use crate::metrics::bump_sizes;
 use crate::metrics::bump_surface_vol_absolute;
 use crate::metrics::{MetricCalculator, MetricContext};
@@ -43,11 +44,11 @@ impl MetricCalculator for VolgaCalculator {
 
         let curves_vol_up =
             bump_surface_vol_absolute(&context.curves, vol_surface_id.as_str(), vol_bump)?;
-        let pv_vol_up = option.npv(&curves_vol_up, as_of)?.amount();
+        let pv_vol_up = option.value(&curves_vol_up, as_of)?.amount();
 
         let curves_vol_down =
             bump_surface_vol_absolute(&context.curves, vol_surface_id.as_str(), -vol_bump)?;
-        let pv_vol_down = option.npv(&curves_vol_down, as_of)?.amount();
+        let pv_vol_down = option.value(&curves_vol_down, as_of)?.amount();
 
         let volga = (pv_vol_up - 2.0 * base_pv + pv_vol_down) / (vol_bump * vol_bump);
         Ok(volga)

@@ -17,6 +17,7 @@
 //! where the bump is applied to the hazard curve (parallel shift).
 
 use crate::instruments::cds_option::CdsOption;
+use crate::instruments::common::traits::InstrumentNpvExt;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::Result;

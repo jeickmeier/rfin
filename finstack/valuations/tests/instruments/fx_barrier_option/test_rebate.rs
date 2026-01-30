@@ -9,7 +9,7 @@ use finstack_valuations::instruments::common::models::closed_form::barrier::{
 };
 use finstack_valuations::instruments::exotics::barrier_option::BarrierType;
 use finstack_valuations::instruments::fx::fx_barrier_option::FxBarrierOption;
-use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::{Attributes, Instrument};
 use finstack_valuations::instruments::{OptionType, PricingOverrides};
 use finstack_valuations::test_utils::{date, flat_discount_with_tenor, flat_vol_surface};
 
@@ -58,8 +58,8 @@ fn test_fx_barrier_rebate_added_to_closed_form_price() {
     let mut rebate_option = base_option.clone();
     rebate_option.rebate = Some(rebate);
 
-    let base_pv = base_option.npv(&market, as_of).expect("Base PV");
-    let rebate_pv = rebate_option.npv(&market, as_of).expect("Rebate PV");
+    let base_pv = base_option.value(&market, as_of).expect("Base PV");
+    let rebate_pv = rebate_option.value(&market, as_of).expect("Rebate PV");
 
     let t = DayCount::Act365F
         .year_fraction(as_of, expiry, DayCountCtx::default())

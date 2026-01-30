@@ -449,31 +449,6 @@ impl XccySwap {
 
         Ok(Money::new(pv.total(), self.reporting_currency))
     }
-
-    /// Net PV (reporting currency): PV(leg1) + PV(leg2).
-    ///
-    /// # FX Conversion Strategy
-    ///
-    /// Each cashflow is converted to reporting currency using the FX rate at its
-    /// payment date (via `FxQuery` with default `CashflowDate` policy). This is
-    /// the market-standard approach that respects covered interest parity.
-    ///
-    /// If `FxMatrix` only provides spot rates, the conversion is an approximation.
-    /// The documentation notes that `FxMatrix` is expected to provide cashflow-date
-    /// forward/spot consistent with the policy.
-    pub fn npv(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
-        self.validate_leg(&self.leg1)?;
-        self.validate_leg(&self.leg2)?;
-
-        let s1 = self.leg_schedule(&self.leg1)?;
-        let s2 = self.leg_schedule(&self.leg2)?;
-
-        // Each leg's PV is computed and converted to reporting currency per-cashflow
-        let pv1_rep = self.pv_leg_in_reporting_ccy(&self.leg1, &s1, market, as_of)?;
-        let pv2_rep = self.pv_leg_in_reporting_ccy(&self.leg2, &s2, market, as_of)?;
-
-        pv1_rep + pv2_rep
-    }
 }
 
 impl crate::instruments::common::traits::Instrument for XccySwap {
@@ -506,7 +481,17 @@ impl crate::instruments::common::traits::Instrument for XccySwap {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
-        self.npv(market, as_of)
+        self.validate_leg(&self.leg1)?;
+        self.validate_leg(&self.leg2)?;
+
+        let s1 = self.leg_schedule(&self.leg1)?;
+        let s2 = self.leg_schedule(&self.leg2)?;
+
+        // Each leg's PV is computed and converted to reporting currency per-cashflow
+        let pv1_rep = self.pv_leg_in_reporting_ccy(&self.leg1, &s1, market, as_of)?;
+        let pv2_rep = self.pv_leg_in_reporting_ccy(&self.leg2, &s2, market, as_of)?;
+
+        pv1_rep + pv2_rep
     }
 
     fn price_with_metrics(

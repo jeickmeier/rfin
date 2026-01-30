@@ -413,30 +413,6 @@ impl InflationSwap {
 
         Ok(index_ratio.powf(1.0 / tau) - 1.0)
     }
-
-    /// Net present value of the instrument via legs.
-    ///
-    /// Computes PV(inflation leg) - PV(fixed leg) for PayFixed side,
-    /// or PV(fixed leg) - PV(inflation leg) for ReceiveFixed side.
-    ///
-    /// For matured swaps (as_of >= maturity), returns zero PV.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if either leg PV calculation fails.
-    pub fn npv(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
-        // Matured swaps have zero PV
-        if as_of >= self.maturity {
-            return Ok(Money::new(0.0, self.notional.currency()));
-        }
-
-        let pv_fixed = self.pv_fixed_leg(curves, as_of)?;
-        let pv_inflation = self.pv_inflation_leg(curves, as_of)?;
-        match self.side {
-            PayReceiveInflation::ReceiveFixed => pv_fixed - pv_inflation,
-            PayReceiveInflation::PayFixed => pv_inflation - pv_fixed,
-        }
-    }
 }
 
 impl InflationSwapBuilder {
@@ -477,7 +453,20 @@ impl crate::instruments::common::traits::Instrument for InflationSwap {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.npv(curves, as_of)
+        // Matured swaps have zero PV
+        if as_of >= self.maturity {
+            return Ok(finstack_core::money::Money::new(
+                0.0,
+                self.notional.currency(),
+            ));
+        }
+
+        let pv_fixed = self.pv_fixed_leg(curves, as_of)?;
+        let pv_inflation = self.pv_inflation_leg(curves, as_of)?;
+        match self.side {
+            PayReceiveInflation::ReceiveFixed => pv_fixed - pv_inflation,
+            PayReceiveInflation::PayFixed => pv_inflation - pv_fixed,
+        }
     }
 
     fn price_with_metrics(
@@ -715,12 +704,6 @@ impl YoYInflationSwap {
         Ok(pv)
     }
 
-    /// Calculates the present value of the YoY inflation swap.
-    pub fn npv(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
-        let pv = self.npv_raw(curves, as_of)?;
-        Ok(Money::new(pv, self.notional.currency()))
-    }
-
     /// Fixed rate that sets the swap's present value to zero (par rate / breakeven).
     ///
     /// For a YoY inflation swap, the par rate K satisfies:
@@ -811,7 +794,11 @@ impl crate::instruments::common::traits::Instrument for YoYInflationSwap {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.npv(curves, as_of)
+        let pv = self.npv_raw(curves, as_of)?;
+        Ok(finstack_core::money::Money::new(
+            pv,
+            self.notional.currency(),
+        ))
     }
 
     fn value_raw(

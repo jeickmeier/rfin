@@ -55,19 +55,29 @@ fn test_irs_convention_usd() {
     // Arrange
     let conv = IRSConvention::USDStandard;
 
-    // Assert
+    // Assert - USD SOFR OIS is the post-LIBOR standard
     assert_eq!(conv.fixed_day_count(), DayCount::Thirty360);
     assert_eq!(conv.float_day_count(), DayCount::Act360);
     assert_eq!(conv.fixed_frequency(), Tenor::semi_annual());
-    assert_eq!(conv.disc_curve_id(), "USD-OIS");
+    assert_eq!(conv.disc_curve_id(), "USD-SOFR");
 }
 
 #[test]
 fn test_irs_convention_eur() {
-    // Arrange
+    // Arrange - EUR Standard is ESTR OIS (annual float with daily compounding)
     let conv = IRSConvention::EURStandard;
 
-    // Assert
+    // Assert - ESTR OIS uses annual payment frequency (not semi-annual like EURIBOR)
+    assert_eq!(conv.fixed_frequency(), Tenor::annual());
+    assert_eq!(conv.float_frequency(), Tenor::annual());
+}
+
+#[test]
+fn test_irs_convention_eur_euribor() {
+    // Arrange - EUR EURIBOR is the legacy IBOR convention with semi-annual float
+    let conv = IRSConvention::EURIborStandard;
+
+    // Assert - EURIBOR 6M uses semi-annual payment frequency
     assert_eq!(conv.fixed_frequency(), Tenor::annual());
     assert_eq!(conv.float_frequency(), Tenor::semi_annual());
 }

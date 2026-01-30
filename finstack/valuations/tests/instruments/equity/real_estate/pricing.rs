@@ -8,7 +8,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity::real_estate::{
     RealEstateAsset, RealEstateValuationMethod,
 };
-use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::{Attributes, InstrumentNpvExt};
 use finstack_valuations::test_utils::date;
 
 #[test]

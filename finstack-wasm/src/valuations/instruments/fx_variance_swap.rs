@@ -10,6 +10,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fx::fx_variance_swap::{FxVarianceSwap, PayReceive};
 use finstack_valuations::instruments::Attributes;
+use finstack_valuations::prelude::InstrumentNpvExt;
 use wasm_bindgen::prelude::*;
 
 /// Pay/receive side for variance swap.

@@ -4,6 +4,7 @@
 //! bump correlation between equity and FX, reprice, and compute (PV_corr_up - PV_base) / bump_size.
 //! Correlation01 is per 1% correlation move.
 
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::quanto_option::QuantoOption;
 use crate::metrics::bump_sizes;
 use crate::metrics::{MetricCalculator, MetricContext};
@@ -37,7 +38,7 @@ impl MetricCalculator for Correlation01Calculator {
         option_bumped.correlation = new_correlation;
 
         // Reprice with bumped correlation
-        let pv_bumped = option_bumped.npv(&context.curves, as_of)?.amount();
+        let pv_bumped = option_bumped.value(&context.curves, as_of)?.amount();
 
         // Correlation01 = (PV_bumped - PV_base) / bump_size
         let correlation01 = (pv_bumped - base_pv) / bump;

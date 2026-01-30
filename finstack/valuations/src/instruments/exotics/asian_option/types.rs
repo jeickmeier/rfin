@@ -156,7 +156,7 @@ impl AsianOption {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::instruments::asian_option::pricer;
-        pricer::npv(self, curves, as_of)
+        pricer::compute_pv(self, curves, as_of)
     }
 
     /// Get the accumulated state (sum, log_sum_product, count) for seasoned options.
@@ -176,36 +176,6 @@ impl AsianOption {
             }
         }
         (sum, product_log, count)
-    }
-
-    /// Calculate the net present value using analytical method (default).
-    /// Uses geometric closed-form for geometric averaging, Turnbull-Wakeman for arithmetic.
-    pub fn npv(
-        &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::money::Money> {
-        use crate::instruments::asian_option::pricer::{
-            AsianOptionAnalyticalGeometricPricer, AsianOptionSemiAnalyticalTwPricer,
-        };
-        use crate::pricer::Pricer;
-
-        match self.averaging_method {
-            AveragingMethod::Geometric => {
-                let pricer = AsianOptionAnalyticalGeometricPricer::new();
-                let result = pricer
-                    .price_dyn(self, curves, as_of)
-                    .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
-                Ok(result.value)
-            }
-            AveragingMethod::Arithmetic => {
-                let pricer = AsianOptionSemiAnalyticalTwPricer::new();
-                let result = pricer
-                    .price_dyn(self, curves, as_of)
-                    .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
-                Ok(result.value)
-            }
-        }
     }
 }
 
@@ -239,8 +209,27 @@ impl crate::instruments::common::traits::Instrument for AsianOption {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        // Default to analytical pricing
-        self.npv(market, as_of)
+        use crate::instruments::asian_option::pricer::{
+            AsianOptionAnalyticalGeometricPricer, AsianOptionSemiAnalyticalTwPricer,
+        };
+        use crate::pricer::Pricer;
+
+        match self.averaging_method {
+            AveragingMethod::Geometric => {
+                let pricer = AsianOptionAnalyticalGeometricPricer::new();
+                let result = pricer
+                    .price_dyn(self, market, as_of)
+                    .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
+                Ok(result.value)
+            }
+            AveragingMethod::Arithmetic => {
+                let pricer = AsianOptionSemiAnalyticalTwPricer::new();
+                let result = pricer
+                    .price_dyn(self, market, as_of)
+                    .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
+                Ok(result.value)
+            }
+        }
     }
 
     fn price_with_metrics(

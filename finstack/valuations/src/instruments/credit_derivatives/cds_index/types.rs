@@ -265,16 +265,6 @@ impl CDSIndex {
         self
     }
 
-    /// Calculate the net present value of this CDS Index
-    pub fn npv(
-        &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<finstack_core::money::Money> {
-        let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
-        pricer.npv(self, curves, as_of)
-    }
-
     /// Calculate protection leg PV
     pub fn pv_protection_leg(
         &self,
@@ -356,7 +346,8 @@ impl crate::instruments::common::traits::Instrument for CDSIndex {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.npv(curves, as_of)
+        let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
+        pricer.npv(self, curves, as_of)
     }
 
     fn price_with_metrics(
