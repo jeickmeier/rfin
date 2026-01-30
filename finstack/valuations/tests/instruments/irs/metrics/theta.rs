@@ -31,9 +31,20 @@ fn build_curves(rate: f64, base_date: Date) -> MarketContext {
         .build()
         .unwrap();
 
+    // Provide fixings for theta calculations where the rolled as_of date
+    // puts the first reset in the past. Since we use a flat rate, the fixing
+    // is at the same level.
+    let fixings = finstack_core::market_data::scalars::ScalarTimeSeries::new(
+        "FIXING:USD_LIBOR_3M",
+        vec![(base_date, rate)], // Fixing on base_date at the flat rate
+        None,
+    )
+    .expect("fixings series");
+
     MarketContext::new()
         .insert_discount(disc_curve)
         .insert_forward(fwd_curve)
+        .insert_series(fixings)
 }
 
 fn create_swap(as_of: Date, end: Date, fixed_rate: rust_decimal::Decimal) -> InterestRateSwap {
@@ -65,7 +76,7 @@ fn create_swap(as_of: Date, end: Date, fixed_rate: rust_decimal::Decimal) -> Int
             calendar_id: None,
             fixing_calendar_id: None,
             stub: StubKind::None,
-            reset_lag_days: 2,
+            reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
             start: as_of,

@@ -37,6 +37,7 @@
 //! ```
 
 use crate::cashflow::traits::DatedFlows;
+use crate::constants::BASIS_POINTS_PER_UNIT;
 use crate::instruments::common::traits::{Attributes, CurveIdVec};
 use crate::instruments::PricingOverrides;
 use crate::margin::types::OtcMarginSpec;
@@ -922,13 +923,13 @@ impl CreditDefaultSwap {
             return Ok(vec![]);
         }
 
-        // Convert spread_bp to f64 for calculation (bps to decimal: /10000)
+        // Convert spread_bp to f64 for calculation (bps to decimal)
         let spread_decimal = self.premium.spread_bp.to_f64().ok_or_else(|| {
             finstack_core::Error::Validation(format!(
                 "spread_bp {} cannot be converted to f64",
                 self.premium.spread_bp
             ))
-        })? / 10000.0;
+        })? / BASIS_POINTS_PER_UNIT;
 
         let mut flows = Vec::with_capacity(dates.len() - 1);
         let mut prev = dates[0];

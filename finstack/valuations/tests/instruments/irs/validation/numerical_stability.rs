@@ -314,7 +314,7 @@ fn test_expired_swap_handling() {
             calendar_id: None,
             fixing_calendar_id: None,
             stub: StubKind::None,
-            reset_lag_days: 2,
+            reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
             start,
@@ -387,7 +387,7 @@ fn test_very_short_swap_1_month() {
             calendar_id: None,
             fixing_calendar_id: None,
             stub: StubKind::None,
-            reset_lag_days: 2,
+            reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
             start: as_of,

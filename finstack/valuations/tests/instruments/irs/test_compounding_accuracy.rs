@@ -136,9 +136,36 @@ fn test_payment_delay_sensitivity() {
         .build()
         .unwrap();
 
+    // Provide fixings for seasoned swap - example() creates a swap starting 2024-01-01
+    // but we're pricing on 2025-01-01, so past resets need fixings
+    let fixings = finstack_core::market_data::scalars::ScalarTimeSeries::new(
+        "FIXING:FWD",
+        vec![
+            (
+                Date::from_calendar_date(2024, Month::January, 1).unwrap(),
+                0.05,
+            ),
+            (
+                Date::from_calendar_date(2024, Month::April, 1).unwrap(),
+                0.05,
+            ),
+            (
+                Date::from_calendar_date(2024, Month::July, 1).unwrap(),
+                0.05,
+            ),
+            (
+                Date::from_calendar_date(2024, Month::October, 1).unwrap(),
+                0.05,
+            ),
+        ],
+        None,
+    )
+    .expect("fixings series");
+
     let ctx = MarketContext::new()
         .insert_discount(disc)
-        .insert_forward(fwd);
+        .insert_forward(fwd)
+        .insert_series(fixings);
 
     let mut irs = InterestRateSwap::example().unwrap();
     irs.fixed.discount_curve_id = "DISC".into();

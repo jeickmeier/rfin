@@ -171,11 +171,15 @@ fn par_rate_pv_based(
         )));
     }
 
+    // Look up historical fixings for seasoned swaps
+    let fixings_id = format!("FIXING:{}", irs.float.forward_curve_id.as_str());
+    let fixings = ctx.curves.series(&fixings_id).ok();
+
     // Reuse the pricer's PV logic based on compounding type
     let pv_float = match irs.float.compounding {
         FloatingLegCompounding::Simple => {
             let fwd = ctx.curves.get_forward(&irs.float.forward_curve_id)?;
-            irs.pv_float_leg(disc, fwd.as_ref(), as_of)?
+            irs.pv_float_leg(disc, fwd.as_ref(), as_of, fixings)?
         }
         FloatingLegCompounding::CompoundedInArrears { .. } => {
             let proj = if irs.is_single_curve_ois() {
@@ -183,8 +187,6 @@ fn par_rate_pv_based(
             } else {
                 Some(ctx.curves.get_forward(&irs.float.forward_curve_id)?)
             };
-            let fixings_id = format!("FIXING:{}", irs.float.forward_curve_id.as_str());
-            let fixings = ctx.curves.series(&fixings_id).ok();
             irs.pv_compounded_float_leg(disc, proj.as_deref(), as_of, fixings)?
         }
     };

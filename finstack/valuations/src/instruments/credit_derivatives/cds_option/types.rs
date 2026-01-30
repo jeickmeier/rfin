@@ -298,17 +298,9 @@ impl CdsOption {
             return Ok(None);
         }
 
-        // Forward spread in bp
-        let hazard_curve = curves.get_hazard(&self.credit_curve_id)?;
-        let current_tenor = self
-            .day_count
-            .year_fraction(as_of, self.cds_maturity, ctx)?;
-        let fwd_bp = if current_tenor > 0.0 {
-            use finstack_core::market_data::term_structures::ParInterp;
-            hazard_curve.quoted_spread_bp(current_tenor, ParInterp::Linear)
-        } else {
-            self.strike_spread_bp
-        };
+        // Forward spread in bp (consistent with pricing engine)
+        let pricer = crate::instruments::cds_option::pricer::CdsOptionPricer::default();
+        let fwd_bp = pricer.forward_spread_bp(self, curves, as_of)?;
 
         // Volatility (use override if present, else surface)
         let sigma = if let Some(v) = self.pricing_overrides.implied_volatility {
@@ -320,7 +312,6 @@ impl CdsOption {
         };
 
         // Risky annuity
-        let pricer = crate::instruments::cds_option::pricer::CdsOptionPricer::default();
         let risky_annuity = pricer.risky_annuity(self, curves, as_of)?;
 
         Ok(Some(CdsOptionPricingInputs {
@@ -334,7 +325,7 @@ impl CdsOption {
     /// Calculate delta of this CDS option.
     ///
     /// Delta measures the sensitivity of the option value to changes in the forward spread.
-    /// Returns the dollar value change per 100% change in spread.
+    /// Returns the dollar value change per unit spread (i.e., per 100%).
     pub fn delta(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
@@ -357,7 +348,8 @@ impl CdsOption {
 
     /// Calculate gamma of this CDS option.
     ///
-    /// Gamma measures the rate of change of delta with respect to the forward spread.
+    /// Gamma measures the rate of change of delta with respect to the forward spread
+    /// per unit spread.
     pub fn gamma(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,

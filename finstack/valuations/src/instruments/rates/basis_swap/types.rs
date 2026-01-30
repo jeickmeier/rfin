@@ -327,6 +327,10 @@ impl BasisSwap {
             self.calendar_id.clone(),
         );
 
+        // Look up historical fixings for seasoned swaps
+        let fixings_id = format!("FIXING:{}", leg.forward_curve_id.as_str());
+        let fixings = context.series(&fixings_id).ok();
+
         // Use shared pricing function
         let pv = crate::instruments::common::pricing::swap_legs::pv_floating_leg(
             periods.into_iter(),
@@ -335,6 +339,7 @@ impl BasisSwap {
             disc.as_ref(),
             fwd.as_ref(),
             valuation_date,
+            fixings,
         )?;
 
         Ok(Money::new(pv, currency))

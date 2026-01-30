@@ -335,7 +335,7 @@ fn test_equity_tranche_parameters() {
     );
 
     assert_absolute_eq(params.attach_pct, 0.0, 0.01, "Equity attachment");
-    assert_absolute_eq(params.detach_pct, 0.03, 0.01, "Equity detachment");
+    assert_absolute_eq(params.detach_pct, 3.0, 0.01, "Equity detachment");
 }
 
 #[test]
@@ -350,8 +350,8 @@ fn test_mezzanine_tranche_parameters() {
         500.0,
     );
 
-    assert_absolute_eq(params.attach_pct, 0.03, 0.01, "Mezzanine attachment");
-    assert_absolute_eq(params.detach_pct, 0.07, 0.01, "Mezzanine detachment");
+    assert_absolute_eq(params.attach_pct, 3.0, 0.01, "Mezzanine attachment");
+    assert_absolute_eq(params.detach_pct, 7.0, 0.01, "Mezzanine detachment");
 }
 
 // ==================== Gaussian Copula Methodology Tests ====================

@@ -14,7 +14,7 @@
 
 use crate::calibration::bumps::hazard::{bump_hazard_shift, bump_hazard_spreads};
 use crate::calibration::bumps::BumpRequest;
-use crate::constants::credit;
+use crate::constants::{credit, BASIS_POINTS_PER_UNIT};
 use crate::instruments::cds::pricer::{CDSPricer, CDSPricerConfig};
 use crate::instruments::cds::{CreditDefaultSwap, PayReceive};
 use crate::instruments::cds_index::{CDSIndex, IndexPricing};
@@ -169,7 +169,7 @@ impl CDSIndexPricer {
                     // Denominator already expresses PV per 1bp, so return in bp directly.
                     prot_sum.amount() / denom_sum
                 } else {
-                    prot_sum.amount() / denom_sum * 10000.0
+                    prot_sum.amount() / denom_sum * BASIS_POINTS_PER_UNIT
                 };
                 Ok(par)
             }

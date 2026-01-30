@@ -45,6 +45,30 @@
 //! To use Bloomberg CDSW-style calculations, set `par_spread_uses_full_premium = true`
 //! in the [`CDSPricerConfig`].
 //!
+//! # Day Count Convention Handling
+//!
+//! The CDS pricer uses **multiple day count conventions** for different purposes,
+//! following market standard practice:
+//!
+//! | Calculation | Day Count Source | Rationale |
+//! |-------------|------------------|-----------|
+//! | **Accrual fraction** | Instrument premium leg (`premium.dc`) | ACT/360 for NA, ACT/365F for Asia |
+//! | **Survival time axis** | Hazard curve (`surv.day_count()`) | Consistent with curve construction |
+//! | **Discount time axis** | Discount curve (`disc.day_count()`) | Consistent with yield curve |
+//!
+//! ## Accrual-on-Default (AoD) Day Count
+//!
+//! The accrual-on-default calculation uses the **instrument's premium leg day count**
+//! for the accrual fraction (the portion of coupon accrued before default), while
+//! the default timing within the period uses the **hazard curve's day count** for
+//! survival probability interpolation.
+//!
+//! For most NA CDS (ACT/360 premium on ACT/360 hazard curves), this is identical.
+//! For Asian CDS (ACT/365F premium on ACT/360 hazard curves), there can be a small
+//! (~1%) difference in AoD contribution. This is the expected behavior as:
+//! - The premium accrual represents the contractual payment calculation
+//! - The survival probability represents the market's view of default timing
+//!
 //! ## References
 //!
 //! - ISDA CDS Standard Model (Markit, 2009)
@@ -54,12 +78,13 @@
 // Key items: CDSPricer, CDSPricerConfig, IntegrationMethod, CDSBootstrapper.
 #![allow(dead_code)]
 use crate::constants::{
-    credit, isda, numerical, time as time_constants, NUMERICAL_TOLERANCE, ONE_BASIS_POINT,
+    credit, isda, numerical, time as time_constants, BASIS_POINTS_PER_UNIT, NUMERICAL_TOLERANCE,
+    ONE_BASIS_POINT,
 };
 use crate::instruments::cds::{CreditDefaultSwap, PayReceive};
 use finstack_core::currency::Currency;
 use finstack_core::dates::DateExt;
-use finstack_core::dates::{adjust, next_cds_date, Date, DayCount};
+use finstack_core::dates::{adjust, next_cds_date, Date, DayCount, HolidayCalendar};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::math::solver::{BrentSolver, Solver};
@@ -509,23 +534,38 @@ impl CDSPricer {
         let t_end = haz_t(surv, protection_end)?;
 
         let recovery = cds.protection.recovery_rate;
-        // Settlement delay is specified in (approx) business days; we translate to calendar
-        // days for discounting on actual dates. This is an approximation when no explicit
-        // CDS calendar is available on the protection leg spec.
-        let delay_days = ((cds.protection.settlement_delay as f64) * 365.0
-            / self.config.business_days_per_year)
-            .round() as i64;
+        let calendar = cds
+            .premium
+            .calendar_id
+            .as_deref()
+            .and_then(finstack_core::dates::calendar::calendar_by_id);
 
         // Compute survival at as_of for conditioning
         let sp_asof = surv.sp(t_asof);
 
         let protection_pv = match self.config.integration_method {
             IntegrationMethod::Midpoint => self.protection_leg_midpoint_cond(
-                t_start, t_end, recovery, delay_days, sp_asof, as_of, disc, surv,
+                t_start,
+                t_end,
+                recovery,
+                cds.protection.settlement_delay,
+                calendar,
+                sp_asof,
+                as_of,
+                disc,
+                surv,
             )?,
             IntegrationMethod::GaussianQuadrature => {
                 match self.protection_leg_gaussian_quadrature_cond(
-                    t_start, t_end, recovery, delay_days, sp_asof, as_of, disc, surv,
+                    t_start,
+                    t_end,
+                    recovery,
+                    cds.protection.settlement_delay,
+                    calendar,
+                    sp_asof,
+                    as_of,
+                    disc,
+                    surv,
                 ) {
                     Ok(pv) => pv,
                     Err(e) => {
@@ -537,14 +577,30 @@ impl CDSPricer {
                             "Integration failed, falling back to midpoint method"
                         );
                         self.protection_leg_midpoint_cond(
-                            t_start, t_end, recovery, delay_days, sp_asof, as_of, disc, surv,
+                            t_start,
+                            t_end,
+                            recovery,
+                            cds.protection.settlement_delay,
+                            calendar,
+                            sp_asof,
+                            as_of,
+                            disc,
+                            surv,
                         )?
                     }
                 }
             }
             IntegrationMethod::AdaptiveSimpson => {
                 match self.protection_leg_adaptive_simpson_cond(
-                    t_start, t_end, recovery, delay_days, sp_asof, as_of, disc, surv,
+                    t_start,
+                    t_end,
+                    recovery,
+                    cds.protection.settlement_delay,
+                    calendar,
+                    sp_asof,
+                    as_of,
+                    disc,
+                    surv,
                 ) {
                     Ok(pv) => pv,
                     Err(e) => {
@@ -556,16 +612,40 @@ impl CDSPricer {
                             "Integration failed, falling back to midpoint method"
                         );
                         self.protection_leg_midpoint_cond(
-                            t_start, t_end, recovery, delay_days, sp_asof, as_of, disc, surv,
+                            t_start,
+                            t_end,
+                            recovery,
+                            cds.protection.settlement_delay,
+                            calendar,
+                            sp_asof,
+                            as_of,
+                            disc,
+                            surv,
                         )?
                     }
                 }
             }
             IntegrationMethod::IsdaExact => self.protection_leg_isda_exact_cond(
-                t_start, t_end, recovery, delay_days, sp_asof, as_of, disc, surv,
+                t_start,
+                t_end,
+                recovery,
+                cds.protection.settlement_delay,
+                calendar,
+                sp_asof,
+                as_of,
+                disc,
+                surv,
             )?,
             IntegrationMethod::IsdaStandardModel => self.protection_leg_isda_standard_model_cond(
-                t_start, t_end, recovery, delay_days, sp_asof, as_of, disc, surv,
+                t_start,
+                t_end,
+                recovery,
+                cds.protection.settlement_delay,
+                calendar,
+                sp_asof,
+                as_of,
+                disc,
+                surv,
             )?,
         };
 
@@ -1216,7 +1296,8 @@ impl CDSPricer {
         t_start: f64,
         t_end: f64,
         recovery: f64,
-        delay_days: i64,
+        settlement_delay: u16,
+        calendar: Option<&dyn HolidayCalendar>,
         sp_asof: f64,
         as_of: Date,
         disc: &DiscountCurve,
@@ -1246,7 +1327,12 @@ impl CDSPricer {
 
             // Discount on actual dates (supports discount/hazard curves with different day-counts).
             let default_date = date_from_hazard_time(surv, t_mid);
-            let settle_date = default_date + Duration::days(delay_days);
+            let settle_date = self::settlement_date(
+                default_date,
+                settlement_delay,
+                calendar,
+                self.config.business_days_per_year,
+            )?;
             let df = df_asof_to(disc, as_of, settle_date)?;
 
             protection_pv += lgd * default_prob * df;
@@ -1261,7 +1347,8 @@ impl CDSPricer {
         t_start: f64,
         t_end: f64,
         recovery: f64,
-        delay_days: i64,
+        settlement_delay: u16,
+        calendar: Option<&dyn HolidayCalendar>,
         sp_asof: f64,
         as_of: Date,
         disc: &DiscountCurve,
@@ -1288,7 +1375,18 @@ impl CDSPricer {
             let density = approx_default_density(surv, t, h, t_start, t_end) / sp_asof;
             // Discount on actual dates
             let default_date = date_from_hazard_time(surv, t);
-            let settle_date = default_date + Duration::days(delay_days);
+            let settle_date = match self::settlement_date(
+                default_date,
+                settlement_delay,
+                calendar,
+                self.config.business_days_per_year,
+            ) {
+                Ok(date) => date,
+                Err(e) => {
+                    *df_error.borrow_mut() = Some(e);
+                    return 0.0;
+                }
+            };
             let df = match df_asof_to(disc, as_of, settle_date) {
                 Ok(df) => df,
                 Err(e) => {
@@ -1313,7 +1411,8 @@ impl CDSPricer {
         t_start: f64,
         t_end: f64,
         recovery: f64,
-        delay_days: i64,
+        settlement_delay: u16,
+        calendar: Option<&dyn HolidayCalendar>,
         sp_asof: f64,
         as_of: Date,
         disc: &DiscountCurve,
@@ -1340,7 +1439,18 @@ impl CDSPricer {
             let density = approx_default_density(surv, t, h, t_start, t_end) / sp_asof;
             // Discount on actual dates
             let default_date = date_from_hazard_time(surv, t);
-            let settle_date = default_date + Duration::days(delay_days);
+            let settle_date = match self::settlement_date(
+                default_date,
+                settlement_delay,
+                calendar,
+                self.config.business_days_per_year,
+            ) {
+                Ok(date) => date,
+                Err(e) => {
+                    *df_error.borrow_mut() = Some(e);
+                    return 0.0;
+                }
+            };
             let df = match df_asof_to(disc, as_of, settle_date) {
                 Ok(df) => df,
                 Err(e) => {
@@ -1370,7 +1480,8 @@ impl CDSPricer {
         t_start: f64,
         t_end: f64,
         recovery: f64,
-        delay_days: i64,
+        settlement_delay: u16,
+        calendar: Option<&dyn HolidayCalendar>,
         sp_asof: f64,
         as_of: Date,
         disc: &DiscountCurve,
@@ -1404,7 +1515,12 @@ impl CDSPricer {
                 let hazard_rate = -(sp2 / sp1).ln() / dt;
                 let avg_t = (t1 + t2) * 0.5;
                 let default_date = date_from_hazard_time(surv, avg_t);
-                let settle_date = default_date + Duration::days(delay_days);
+                let settle_date = self::settlement_date(
+                    default_date,
+                    settlement_delay,
+                    calendar,
+                    self.config.business_days_per_year,
+                )?;
                 let df_mid = df_asof_to(disc, as_of, settle_date)?;
 
                 if hazard_rate.abs() > numerical::ZERO_TOLERANCE {
@@ -1425,7 +1541,8 @@ impl CDSPricer {
         t_start: f64,
         t_end: f64,
         recovery: f64,
-        delay_days: i64,
+        settlement_delay: u16,
+        calendar: Option<&dyn HolidayCalendar>,
         sp_asof: f64,
         as_of: Date,
         disc: &DiscountCurve,
@@ -1460,8 +1577,18 @@ impl CDSPricer {
                 let hazard_rate = -(sp2 / sp1).ln() / dt;
 
                 // Relative discount factors from as_of
-                let d1 = date_from_hazard_time(surv, t1) + Duration::days(delay_days);
-                let d2 = date_from_hazard_time(surv, t2) + Duration::days(delay_days);
+                let d1 = self::settlement_date(
+                    date_from_hazard_time(surv, t1),
+                    settlement_delay,
+                    calendar,
+                    self.config.business_days_per_year,
+                )?;
+                let d2 = self::settlement_date(
+                    date_from_hazard_time(surv, t2),
+                    settlement_delay,
+                    calendar,
+                    self.config.business_days_per_year,
+                )?;
                 let df1 = df_asof_to(disc, as_of, d1)?;
                 let df2 = df_asof_to(disc, as_of, d2)?;
 
@@ -1639,7 +1766,7 @@ impl CDSPricer {
         }
 
         // Result in Basis Points
-        Ok(protection_pv.amount() / (denom * cds.notional.amount()) * 10000.0)
+        Ok(protection_pv.amount() / (denom * cds.notional.amount()) * BASIS_POINTS_PER_UNIT)
     }
 
     /// Premium leg PV per 1 bp of spread, including accrual-on-default if configured.
@@ -1741,7 +1868,7 @@ impl CDSPricer {
         as_of: Date,
     ) -> Result<f64> {
         let risky_annuity = self.risky_annuity(cds, disc, surv, as_of)?;
-        Ok(risky_annuity * cds.notional.amount() / 10000.0)
+        Ok(risky_annuity * cds.notional.amount() / BASIS_POINTS_PER_UNIT)
     }
 
     /// Instrument NPV from the perspective of the `PayReceive` side.
@@ -1864,11 +1991,37 @@ fn date_from_hazard_time(surv: &HazardCurve, t: f64) -> Date {
     let days_per_year = match surv.day_count() {
         DayCount::Act360 => 360.0,
         DayCount::Act365F => 365.0,
+        DayCount::Act365L | DayCount::ActAct | DayCount::ActActIsma => 365.25,
+        DayCount::Thirty360 | DayCount::ThirtyE360 => 360.0,
+        DayCount::Bus252 => 252.0,
         // Fallback for less common conventions; used only for discount-date mapping.
-        _ => 365.0,
+        _ => 365.25,
     };
     let days = (t * days_per_year).round() as i64;
     surv.base_date() + Duration::days(days)
+}
+
+/// Resolve settlement date for a default occurring on `default_date`.
+#[inline]
+fn settlement_date(
+    default_date: Date,
+    settlement_delay: u16,
+    calendar: Option<&dyn HolidayCalendar>,
+    business_days_per_year: f64,
+) -> Result<Date> {
+    if settlement_delay == 0 {
+        return Ok(default_date);
+    }
+
+    if let Some(cal) = calendar {
+        return default_date.add_business_days(settlement_delay as i32, cal);
+    }
+
+    // Fallback: approximate business days into calendar days.
+    let delay_days = ((settlement_delay as f64) * credit::CALENDAR_DAYS_PER_YEAR
+        / business_days_per_year)
+        .round() as i64;
+    Ok(default_date + Duration::days(delay_days))
 }
 
 /// Compute discount factor from as_of to date using curve's time axis.
@@ -2135,7 +2288,7 @@ impl CDSBootstrapper {
         // Initial guess using credit triangle approximation: h ~ S / (1-R)
         // Or use the last bootstrapped hazard rate if available
         let lgd = (1.0 - cds.protection.recovery_rate).max(numerical::DIVISION_EPSILON);
-        let implied_hazard = target_spread_bps / 10000.0 / lgd;
+        let implied_hazard = target_spread_bps / BASIS_POINTS_PER_UNIT / lgd;
 
         let initial_guess = if let Some(&(_, last_h)) = existing_knots.last() {
             last_h

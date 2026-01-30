@@ -88,8 +88,14 @@ impl MetricCalculator for AnnuityCalculator {
         let payment_delay = irs.fixed.payment_delay_days;
 
         for &d in &dates[1..] {
-            // Only include future cashflows
-            if d <= as_of {
+            // Apply payment delay: actual payment occurs payment_delay_days after period end
+            // Use shared helper for holiday-aware business day adjustment (strict)
+            let payment_date =
+                add_payment_delay(d, payment_delay, irs.fixed.calendar_id.as_deref())?;
+
+            // Only include cashflows where the payment has not yet settled
+            // (payment_date <= as_of means the payment has been made)
+            if payment_date <= as_of {
                 prev = d;
                 continue;
             }
@@ -99,11 +105,6 @@ impl MetricCalculator for AnnuityCalculator {
                 d,
                 finstack_core::dates::DayCountCtx::default(),
             )?;
-
-            // Apply payment delay: actual payment occurs payment_delay_days after period end
-            // Use shared helper for holiday-aware business day adjustment (strict)
-            let payment_date =
-                add_payment_delay(d, payment_delay, irs.fixed.calendar_id.as_deref())?;
 
             // Use shared helper - handles epsilon validation and relative DF calculation
             let df = crate::instruments::irs::pricer::relative_df(&disc, as_of, payment_date)?;

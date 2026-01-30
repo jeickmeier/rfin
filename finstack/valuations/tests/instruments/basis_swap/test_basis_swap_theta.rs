@@ -57,10 +57,52 @@ fn market() -> MarketContext {
         .set_interp(InterpStyle::Linear)
         .build()
         .unwrap();
+    // Provide fixings for theta calculations and seasoned swaps.
+    // These cover quarterly reset dates for multi-year swaps (2025-2028).
+    let fix_3m = finstack_core::market_data::scalars::ScalarTimeSeries::new(
+        "FIXING:USD-SOFR-3M",
+        vec![
+            (d(2025, 1, 2), 0.02),
+            (d(2025, 4, 2), 0.021),
+            (d(2025, 7, 2), 0.022),
+            (d(2025, 10, 2), 0.023),
+            (d(2026, 1, 2), 0.024),
+            (d(2026, 4, 2), 0.024),
+            (d(2026, 7, 2), 0.024),
+            (d(2026, 10, 2), 0.024),
+            (d(2027, 1, 4), 0.024), // Jan 2 falls on weekend, so Jan 4
+            (d(2027, 4, 2), 0.024),
+            (d(2027, 7, 2), 0.024),
+            (d(2027, 10, 4), 0.024), // Oct 2 falls on weekend
+        ],
+        None,
+    )
+    .expect("fixings series");
+    let fix_1m = finstack_core::market_data::scalars::ScalarTimeSeries::new(
+        "FIXING:USD-SOFR-1M",
+        vec![
+            (d(2025, 1, 2), 0.019),
+            (d(2025, 4, 2), 0.020),
+            (d(2025, 7, 2), 0.021),
+            (d(2025, 10, 2), 0.022),
+            (d(2026, 1, 2), 0.023),
+            (d(2026, 4, 2), 0.023),
+            (d(2026, 7, 2), 0.023),
+            (d(2026, 10, 2), 0.023),
+            (d(2027, 1, 4), 0.023),
+            (d(2027, 4, 2), 0.023),
+            (d(2027, 7, 2), 0.023),
+            (d(2027, 10, 4), 0.023),
+        ],
+        None,
+    )
+    .expect("fixings series");
     MarketContext::new()
         .insert_discount(disc)
         .insert_forward(f3m)
         .insert_forward(f1m)
+        .insert_series(fix_3m)
+        .insert_series(fix_1m)
 }
 
 #[test]

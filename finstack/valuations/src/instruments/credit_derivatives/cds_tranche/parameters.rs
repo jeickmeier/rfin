@@ -1,6 +1,6 @@
 //! CDS Tranche specific parameters.
 
-use finstack_core::{dates::Date, money::Money};
+use finstack_core::{dates::Date, money::Money, Error, Result};
 
 /// CDS Tranche specific parameters.
 ///
@@ -49,8 +49,35 @@ impl CDSTrancheParams {
         }
     }
 
-    /// Set the accumulated loss
-    pub fn with_accumulated_loss(mut self, loss: f64) -> Self {
+    /// Set the accumulated loss with validation.
+    ///
+    /// # Arguments
+    ///
+    /// * `loss` - Accumulated realized loss as a fraction of portfolio notional.
+    ///   Must be in range [0.0, 1.0].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if loss is outside the valid range [0.0, 1.0].
+    pub fn with_accumulated_loss(mut self, loss: f64) -> Result<Self> {
+        if !(0.0..=1.0).contains(&loss) {
+            return Err(Error::Validation(format!(
+                "accumulated_loss must be in [0.0, 1.0], got {}",
+                loss
+            )));
+        }
+        self.accumulated_loss = loss;
+        Ok(self)
+    }
+
+    /// Set the accumulated loss without validation (internal use only).
+    ///
+    /// # Safety
+    ///
+    /// Caller must ensure `loss` is in [0.0, 1.0]. Use `with_accumulated_loss()`
+    /// for validated construction.
+    #[doc(hidden)]
+    pub fn with_accumulated_loss_unchecked(mut self, loss: f64) -> Self {
         self.accumulated_loss = loss;
         self
     }
@@ -67,7 +94,7 @@ impl CDSTrancheParams {
             index_name,
             series,
             0.0,
-            0.03,
+            3.0,
             notional,
             maturity,
             running_coupon_bp,
@@ -85,11 +112,41 @@ impl CDSTrancheParams {
         Self::new(
             index_name,
             series,
-            0.03,
-            0.07,
+            3.0,
+            7.0,
             notional,
             maturity,
             running_coupon_bp,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use finstack_core::currency::Currency;
+    use time::macros::date;
+
+    #[test]
+    fn test_tranche_helper_units_are_percent_points() {
+        let params = CDSTrancheParams::equity_tranche(
+            "CDX.NA.IG",
+            42,
+            Money::new(1_000_000.0, Currency::USD),
+            date!(2029 - 12 - 20),
+            100.0,
+        );
+        assert!((params.attach_pct - 0.0).abs() < 1e-12);
+        assert!((params.detach_pct - 3.0).abs() < 1e-12);
+
+        let mezz = CDSTrancheParams::mezzanine_tranche(
+            "CDX.NA.IG",
+            42,
+            Money::new(1_000_000.0, Currency::USD),
+            date!(2029 - 12 - 20),
+            100.0,
+        );
+        assert!((mezz.attach_pct - 3.0).abs() < 1e-12);
+        assert!((mezz.detach_pct - 7.0).abs() < 1e-12);
     }
 }

@@ -76,7 +76,9 @@ fn create_standard_swap(as_of: Date, end: Date) -> InterestRateSwap {
             calendar_id: None,
             fixing_calendar_id: None,
             stub: StubKind::None,
-            reset_lag_days: 2,
+            // Use reset_lag_days: 0 for spot-starting swaps to avoid needing historical fixings.
+            // With reset_lag > 0, the first reset date would be before as_of, requiring fixings.
+            reset_lag_days: 0,
             compounding: Default::default(),
             payment_delay_days: 0,
             start: as_of,

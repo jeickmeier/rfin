@@ -53,7 +53,7 @@ fn test_irs_at_par_npv_zero() {
             calendar_id: None,
             fixing_calendar_id: None,
             stub: StubKind::None,
-            reset_lag_days: 2,
+            reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
             start: as_of,
@@ -109,7 +109,7 @@ fn test_irs_receive_fixed_below_market() {
             calendar_id: None,
             fixing_calendar_id: None,
             stub: StubKind::None,
-            reset_lag_days: 2,
+            reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
             start: as_of,
@@ -164,7 +164,7 @@ fn test_irs_receive_fixed_above_market() {
             calendar_id: None,
             fixing_calendar_id: None,
             stub: StubKind::None,
-            reset_lag_days: 2,
+            reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
             start: as_of,
@@ -217,7 +217,7 @@ fn test_irs_pay_vs_receive_opposite_signs() {
         calendar_id: None,
         fixing_calendar_id: None,
         stub: StubKind::None,
-        reset_lag_days: 2,
+        reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
         compounding: Default::default(),
         payment_delay_days: 0,
         start: as_of,

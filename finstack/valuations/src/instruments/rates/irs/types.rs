@@ -151,9 +151,17 @@ impl InterestRateSwap {
         forward_curve_id: CurveId,
         conventions: IrsLegConventions,
     ) -> finstack_core::Result<Self> {
+        let rate_decimal = Decimal::try_from(fixed_rate).map_err(|_| {
+            finstack_core::Error::Validation(format!(
+                "Invalid fixed rate: {} cannot be converted to Decimal. \
+                 Check for NaN, infinity, or values exceeding Decimal range.",
+                fixed_rate
+            ))
+        })?;
+
         let fixed = FixedLegSpec {
             discount_curve_id: discount_curve_id.clone(),
-            rate: Decimal::try_from(fixed_rate).unwrap_or(Decimal::ZERO),
+            rate: rate_decimal,
             freq: conventions.fixed_freq,
             dc: conventions.fixed_dc,
             bdc: conventions.bdc,
@@ -246,9 +254,17 @@ impl InterestRateSwap {
             ));
         }
 
+        let rate_decimal = Decimal::try_from(fixed_rate).map_err(|_| {
+            finstack_core::Error::Validation(format!(
+                "Invalid fixed rate: {} cannot be converted to Decimal. \
+                 Check for NaN, infinity, or values exceeding Decimal range.",
+                fixed_rate
+            ))
+        })?;
+
         let fixed = FixedLegSpec {
             discount_curve_id: discount_curve_id.clone(),
-            rate: Decimal::try_from(fixed_rate).unwrap_or(Decimal::ZERO),
+            rate: rate_decimal,
             freq: conventions.fixed_freq,
             dc: conventions.fixed_dc,
             bdc: conventions.bdc,
@@ -499,7 +515,15 @@ impl InterestRateSwap {
     /// - Discount curve: `USD-OIS`
     /// - Forward curve: `USD-SOFR-3M`
     /// - Fixed leg: semi-annual, 30/360, Modified Following
-    /// - Float leg: quarterly, ACT/360, Modified Following, 2-day reset lag
+    /// - Float leg: quarterly, ACT/360, Modified Following
+    ///
+    /// # Reset Lag
+    ///
+    /// This convenience constructor uses `reset_lag_days: 0`, meaning the reset
+    /// date equals the accrual start date. This simplifies spot-starting swap
+    /// pricing by not requiring historical fixings. For ISDA-standard T-2 reset
+    /// behavior, use the builder pattern with `reset_lag_days: 2` and provide
+    /// historical fixings for seasoned swaps.
     ///
     /// # Validation
     ///
@@ -521,7 +545,9 @@ impl InterestRateSwap {
         let config = SwapConfig {
             disc_curve: "USD-OIS",
             fwd_curve: "USD-SOFR-3M",
-            reset_lag_days: 2,
+            // Use 0 for convenience constructor to avoid requiring historical fixings.
+            // For T-2 reset behavior, use the builder with reset_lag_days: 2.
+            reset_lag_days: 0,
             sched: IRSScheduleConfig::usd_isda_standard(),
         };
 
@@ -586,7 +612,8 @@ impl InterestRateSwap {
                 bdc: BusinessDayConvention::ModifiedFollowing,
                 calendar_id: None,
                 stub: StubKind::None,
-                reset_lag_days: 2,
+                // Use 0 for example to avoid requiring historical fixings
+                reset_lag_days: 0,
                 start: Date::from_calendar_date(2024, time::Month::January, 1).map_err(|e| {
                     finstack_core::Error::Validation(format!("Invalid example start date: {}", e))
                 })?,
@@ -617,9 +644,17 @@ impl InterestRateSwap {
         side: PayReceive,
         config: SwapConfig<'_>,
     ) -> finstack_core::Result<Self> {
+        let rate_decimal = Decimal::try_from(fixed_rate).map_err(|_| {
+            finstack_core::Error::Validation(format!(
+                "Invalid fixed rate: {} cannot be converted to Decimal. \
+                 Check for NaN, infinity, or values exceeding Decimal range.",
+                fixed_rate
+            ))
+        })?;
+
         let fixed = FixedLegSpec {
             discount_curve_id: finstack_core::types::CurveId::from(config.disc_curve),
-            rate: Decimal::try_from(fixed_rate).unwrap_or(Decimal::ZERO),
+            rate: rate_decimal,
             freq: config.sched.fixed_freq,
             dc: config.sched.fixed_dc,
             bdc: config.sched.bdc,

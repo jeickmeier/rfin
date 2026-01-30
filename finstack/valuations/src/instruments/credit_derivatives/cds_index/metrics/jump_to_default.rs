@@ -26,10 +26,27 @@
 use crate::instruments::cds::PayReceive;
 use crate::instruments::cds_index::CDSIndex;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::Result;
+use finstack_core::{Error, Result};
 
 /// Jump-to-default calculator for CDS Index.
 pub struct JumpToDefaultCalculator;
+
+fn infer_constituent_count(index_name: &str) -> Option<f64> {
+    let name = index_name.to_ascii_lowercase();
+    if name.contains("cdx") && name.contains("na") && name.contains("ig") {
+        Some(125.0)
+    } else if name.contains("cdx") && name.contains("na") && name.contains("hy") {
+        Some(100.0)
+    } else if name.contains("itraxx") && name.contains("crossover") {
+        Some(75.0)
+    } else if name.contains("itraxx") {
+        Some(125.0)
+    } else if name.contains("cdx.em") || name.contains("cdx em") || name.contains("cdxem") {
+        Some(40.0)
+    } else {
+        None
+    }
+}
 
 impl MetricCalculator for JumpToDefaultCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
@@ -61,7 +78,13 @@ impl MetricCalculator for JumpToDefaultCalculator {
         } else {
             // Simplified calculation using index-level parameters
             // Assume equal-weighted constituents
-            let num_constituents = 125.0; // Default for standard indices (CDX IG, iTraxx)
+            let num_constituents = infer_constituent_count(&index.index_name).ok_or_else(|| {
+                Error::Validation(format!(
+                    "Cannot infer constituent count for index '{}'. Provide constituents or use \
+                     a standard index name (e.g., CDX.NA.IG, CDX.NA.HY, iTraxx Europe).",
+                    index.index_name
+                ))
+            })?;
             let avg_weight = 1.0 / num_constituents;
             let lgd = 1.0 - index.protection.recovery_rate;
 

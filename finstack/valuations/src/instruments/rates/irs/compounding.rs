@@ -5,34 +5,52 @@
 //!
 //! # Implementation Notes
 //!
-//! ## Compounded-in-Arrears Approximation
+//! ## Compounded-in-Arrears (Full Daily Compounding)
 //!
 //! For overnight-indexed swaps (OIS) with `CompoundedInArrears` compounding,
-//! the current implementation uses the **discount curve identity**:
+//! the implementation uses **full daily compounding** per ISDA 2021:
 //!
 //! ```text
-//! PV_float = N × (DF(start) - DF(end)) + spread_annuity
+//! Coupon = N × [∏(1 + r_i × dcf_i) - 1] + spread × accrual
 //! ```
 //!
-//! This identity is **exact** when the forward curve matches the discount curve
-//! (i.e., single-curve OIS pricing). For multi-curve scenarios with basis
-//! spreads, this is an approximation that may differ from true daily compounding
-//! by a few basis points.
+//! where the product is taken over daily observations in the accrual period.
 //!
-//! The true daily compounding formula per ISDA 2021 is:
+//! ## Fast Path for Unseasoned Single-Curve OIS
 //!
+//! When all of the following conditions are met, the discount curve identity
+//! is used as an optimization:
+//!
+//! - Swap is unseasoned (`as_of <= accrual_start`)
+//! - No lookback or observation shift (`lookback_days = 0`, `observation_shift = None`)
+//! - Forward curve ID matches discount curve ID (single-curve)
+//!
+//! In this case:
 //! ```text
-//! Coupon = N × [∏(1 + r_i × dcf_i) - 1]
+//! ∏(1 + r_i × dcf_i) = DF(start) / DF(end)
 //! ```
 //!
-//! where the product is taken over daily observations. This requires daily
-//! fixing data and is computationally more expensive.
+//! This identity is exact and avoids iterating over daily observations.
 //!
 //! ## Lookback and Observation Shift
 //!
-//! The `lookback_days` and `observation_shift` parameters are stored for
-//! documentation and future implementation but do not currently affect
-//! the pricing calculation when using the discount curve identity.
+//! The `lookback_days` and `observation_shift` parameters are fully supported:
+//!
+//! - **Lookback**: Shifts observation dates back from the accrual period. For example,
+//!   with `lookback_days = 2`, observations for the period Jan 1-Apr 1 would be
+//!   taken from Dec 28-Mar 28 (2 business days earlier).
+//!
+//! - **Observation Shift**: Additional adjustment to observation dates. The total
+//!   shift is computed as `-lookback_days + observation_shift`.
+//!
+//! When lookback/shift is non-zero, the fast path is disabled and full daily
+//! compounding is performed with shifted observation dates.
+//!
+//! ## Seasoned Swaps
+//!
+//! For seasoned swaps where `as_of` falls within an accrual period, historical
+//! fixings are required for observation dates before `as_of`. Provide fixings
+//! via `ScalarTimeSeries` with id `FIXING:{forward_curve_id}`.
 //!
 //! # References
 //!

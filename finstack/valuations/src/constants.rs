@@ -209,6 +209,14 @@ pub mod credit {
     /// Value: 0.1% annualized volatility.
     pub const MIN_VOLATILITY_GREEKS: f64 = 0.001;
 
+    /// Minimum forward spread (in decimal, not bp) for CDS option Black formula.
+    ///
+    /// Below this threshold, the log(forward/strike) in d1/d2 becomes numerically
+    /// unstable or undefined. Returns zero option value when violated.
+    ///
+    /// Value: 1e-8 (equivalent to 0.0001 bp, effectively zero spread)
+    pub const MIN_FORWARD_SPREAD: f64 = 1e-8;
+
     /// Minimum hazard rate for bootstrapping (0.1 bp annualized).
     ///
     /// Acts as lower bound for root-finding bracket.
@@ -234,4 +242,9 @@ pub mod credit {
     /// Portfolios with this many or fewer constituents use exact convolution
     /// for higher accuracy; larger pools use saddle-point approximation.
     pub const SMALL_POOL_THRESHOLD: usize = 16;
+
+    /// Calendar days per year for settlement delay calculations.
+    ///
+    /// Used when converting business days to calendar days without a calendar.
+    pub const CALENDAR_DAYS_PER_YEAR: f64 = 365.0;
 }

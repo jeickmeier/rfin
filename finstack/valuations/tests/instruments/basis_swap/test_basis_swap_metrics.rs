@@ -35,10 +35,26 @@ fn market() -> MarketContext {
         .set_interp(InterpStyle::Linear)
         .build()
         .unwrap();
+    // Provide fixings for theta calculations where the rolled as_of date
+    // puts the first reset in the past.
+    let fix_3m = finstack_core::market_data::scalars::ScalarTimeSeries::new(
+        "FIXING:USD-SOFR-3M",
+        vec![(d(2025, 1, 2), 0.02)],
+        None,
+    )
+    .expect("fixings series");
+    let fix_1m = finstack_core::market_data::scalars::ScalarTimeSeries::new(
+        "FIXING:USD-SOFR-1M",
+        vec![(d(2025, 1, 2), 0.019)],
+        None,
+    )
+    .expect("fixings series");
     MarketContext::new()
         .insert_discount(disc)
         .insert_forward(f3m)
         .insert_forward(f1m)
+        .insert_series(fix_3m)
+        .insert_series(fix_1m)
 }
 
 fn swap() -> BasisSwap {

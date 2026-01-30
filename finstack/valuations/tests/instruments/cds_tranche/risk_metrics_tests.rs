@@ -329,11 +329,14 @@ fn test_jump_to_default_scales_with_notional() {
     let market = standard_market_context();
     let as_of = base_date();
 
-    let mut tranche_10mm = mezzanine_tranche();
+    // Use equity tranches because mezzanine (3-7%) has zero JTD with standard setup:
+    // For 125 names, individual default loss = 1/125 × 0.6 = 0.48%, which doesn't
+    // reach the 3% attachment point. Equity tranches (0-3%) always have non-zero JTD.
+    let mut tranche_10mm = equity_tranche();
     tranche_10mm.notional =
         finstack_core::money::Money::new(10_000_000.0, finstack_core::currency::Currency::USD);
 
-    let mut tranche_20mm = mezzanine_tranche();
+    let mut tranche_20mm = equity_tranche();
     tranche_20mm.notional =
         finstack_core::money::Money::new(20_000_000.0, finstack_core::currency::Currency::USD);
 

@@ -29,7 +29,7 @@
 //! (unlike bond coupons which may be forgiven). This calculator includes the
 //! accrued premium in the JTD to give a more accurate P&L impact.
 
-use crate::instruments::cds::CDSPricer;
+use crate::constants::BASIS_POINTS_PER_UNIT;
 use crate::instruments::cds::{CreditDefaultSwap, PayReceive};
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::DayCountCtx;
@@ -105,8 +105,15 @@ fn calculate_accrued_premium(
         return Ok(0.0);
     }
 
-    let pricer = CDSPricer::new();
-    let schedule = pricer.generate_schedule(cds, as_of)?;
+    let schedule = crate::cashflow::builder::build_dates(
+        cds.premium.start,
+        cds.premium.end,
+        cds.premium.freq,
+        cds.premium.stub,
+        cds.premium.bdc,
+        cds.premium.calendar_id.as_deref(),
+    )?
+    .dates;
     if schedule.is_empty() {
         return Ok(0.0);
     }
@@ -127,8 +134,8 @@ fn calculate_accrued_premium(
             .dc
             .year_fraction(last_coupon, as_of, DayCountCtx::default())?;
 
-    // Spread in decimal
-    let spread = cds.premium.spread_bp.to_f64().unwrap_or(0.0) / 10_000.0;
+    // Spread in decimal (convert from basis points)
+    let spread = cds.premium.spread_bp.to_f64().unwrap_or(0.0) / BASIS_POINTS_PER_UNIT;
 
     // Accrued premium = Notional × Spread × Accrual Fraction
     let accrued = cds.notional.amount() * spread * accrual_fraction;

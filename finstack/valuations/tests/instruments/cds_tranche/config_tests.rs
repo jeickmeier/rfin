@@ -6,10 +6,14 @@
 //! - CS01 bump units
 //! - Heterogeneous calculation methods
 //! - Configuration parameter bounds
+//! - Accumulated loss validation
 
+use finstack_core::currency::Currency;
+use finstack_core::money::Money;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::{
-    CDSTranchePricerConfig, Cs01BumpUnits, HeteroMethod,
+    CDSTrancheParams, CDSTranchePricerConfig, Cs01BumpUnits, HeteroMethod,
 };
+use time::macros::date;
 
 // ==================== Default Configuration Tests ====================
 
@@ -305,4 +309,129 @@ fn test_config_independent_after_clone() {
         config2.quadrature_order, 7,
         "Cloned config should not be affected"
     );
+}
+
+// ==================== Accumulated Loss Validation Tests ====================
+
+#[test]
+fn test_accumulated_loss_valid_zero() {
+    // Arrange
+    let params = CDSTrancheParams::equity_tranche(
+        "CDX.NA.IG",
+        42,
+        Money::new(1_000_000.0, Currency::USD),
+        date!(2029 - 12 - 20),
+        500.0,
+    );
+
+    // Act
+    let result = params.with_accumulated_loss(0.0);
+
+    // Assert
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap().accumulated_loss, 0.0);
+}
+
+#[test]
+fn test_accumulated_loss_valid_mid_range() {
+    // Arrange
+    let params = CDSTrancheParams::equity_tranche(
+        "CDX.NA.IG",
+        42,
+        Money::new(1_000_000.0, Currency::USD),
+        date!(2029 - 12 - 20),
+        500.0,
+    );
+
+    // Act
+    let result = params.with_accumulated_loss(0.5);
+
+    // Assert
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap().accumulated_loss, 0.5);
+}
+
+#[test]
+fn test_accumulated_loss_valid_one() {
+    // Arrange
+    let params = CDSTrancheParams::equity_tranche(
+        "CDX.NA.IG",
+        42,
+        Money::new(1_000_000.0, Currency::USD),
+        date!(2029 - 12 - 20),
+        500.0,
+    );
+
+    // Act
+    let result = params.with_accumulated_loss(1.0);
+
+    // Assert
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap().accumulated_loss, 1.0);
+}
+
+#[test]
+fn test_accumulated_loss_invalid_negative() {
+    // Arrange
+    let params = CDSTrancheParams::equity_tranche(
+        "CDX.NA.IG",
+        42,
+        Money::new(1_000_000.0, Currency::USD),
+        date!(2029 - 12 - 20),
+        500.0,
+    );
+
+    // Act
+    let result = params.with_accumulated_loss(-0.01);
+
+    // Assert
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(
+        err.to_string().contains("accumulated_loss"),
+        "Error should mention accumulated_loss: {}",
+        err
+    );
+}
+
+#[test]
+fn test_accumulated_loss_invalid_greater_than_one() {
+    // Arrange
+    let params = CDSTrancheParams::equity_tranche(
+        "CDX.NA.IG",
+        42,
+        Money::new(1_000_000.0, Currency::USD),
+        date!(2029 - 12 - 20),
+        500.0,
+    );
+
+    // Act
+    let result = params.with_accumulated_loss(1.01);
+
+    // Assert
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(
+        err.to_string().contains("accumulated_loss"),
+        "Error should mention accumulated_loss: {}",
+        err
+    );
+}
+
+#[test]
+fn test_accumulated_loss_invalid_large_value() {
+    // Arrange
+    let params = CDSTrancheParams::equity_tranche(
+        "CDX.NA.IG",
+        42,
+        Money::new(1_000_000.0, Currency::USD),
+        date!(2029 - 12 - 20),
+        500.0,
+    );
+
+    // Act
+    let result = params.with_accumulated_loss(2.5);
+
+    // Assert
+    assert!(result.is_err());
 }

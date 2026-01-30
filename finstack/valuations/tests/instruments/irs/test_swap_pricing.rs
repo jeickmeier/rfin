@@ -58,9 +58,23 @@ fn create_test_market(base_date: Date) -> MarketContext {
         .build()
         .unwrap();
 
+    // Provide fixings for seasoned swap tests where as_of > start
+    let fixings = finstack_core::market_data::scalars::ScalarTimeSeries::new(
+        "FIXING:USD-SOFR-3M",
+        vec![
+            (
+                Date::from_calendar_date(2025, Month::January, 15).unwrap(),
+                0.035,
+            ), // First reset fixing
+        ],
+        None,
+    )
+    .expect("fixings series");
+
     MarketContext::new()
         .insert_discount(disc)
         .insert_forward(fwd)
+        .insert_series(fixings)
 }
 
 #[test]

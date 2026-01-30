@@ -22,6 +22,7 @@
 use crate::cashflow::builder::rate_helpers::FloatingRateParams;
 use finstack_core::dates::CalendarRegistry;
 use finstack_core::dates::{Date, DateExt, DayCount, DayCountCtx, Schedule};
+use finstack_core::market_data::scalars::ScalarTimeSeries;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::math::NeumaierAccumulator;
@@ -368,7 +369,8 @@ pub struct LegPeriod {
 ///
 /// This is the Bloomberg-validated implementation from IRS pricing, generalized to work
 /// with any swap instrument. It handles:
-/// - Forward rate projection from the curve
+/// - Forward rate projection from the curve (for future resets)
+/// - Historical fixings for past resets (seasoned instruments)
 /// - Spread, gearing, floors and caps
 /// - Payment delay adjustment
 /// - Numerical stability via Kahan summation
@@ -382,6 +384,8 @@ pub struct LegPeriod {
 /// * `disc` - Discount curve for PV calculation
 /// * `fwd` - Forward curve for rate projection
 /// * `as_of` - Valuation date
+/// * `fixings` - Optional historical fixings for seasoned instruments. Required when
+///   `reset_date < as_of` for any period; if missing, returns an error.
 ///
 /// # Returns
 ///
@@ -393,6 +397,7 @@ pub struct LegPeriod {
 /// Returns an error if:
 /// - Parameter validation fails (contradictory floors/caps, invalid gearing)
 /// - Forward rate projection fails
+/// - Historical fixings are required but not provided or missing for a reset date
 /// - Discount factor calculation fails due to numerical instability
 /// - Date calculations fail
 pub fn pv_floating_leg<I>(
@@ -402,6 +407,7 @@ pub fn pv_floating_leg<I>(
     disc: &DiscountCurve,
     fwd: &ForwardCurve,
     as_of: Date,
+    fixings: Option<&ScalarTimeSeries>,
 ) -> Result<f64>
 where
     I: Iterator<Item = LegPeriod>,
@@ -413,30 +419,62 @@ where
     let mut acc = NeumaierAccumulator::new();
 
     for period in periods {
-        // Skip settled cashflows
-        if period.accrual_end <= as_of {
-            continue;
-        }
-
-        let reset_date = period.reset_date.unwrap_or(period.accrual_start);
-
-        // Project forward rate using the validated rate_helpers implementation
-        let forward_rate = crate::cashflow::builder::rate_helpers::project_floating_rate(
-            reset_date,
-            period.accrual_end,
-            fwd,
-            &params.rate_params,
-        )?;
-
-        // Coupon amount
-        let coupon_amount = notional * forward_rate * period.year_fraction;
-
-        // Apply payment delay (strict: calendar must resolve if specified)
+        // Apply payment delay to determine the actual payment date
         let payment_date = add_payment_delay(
             period.accrual_end,
             params.payment_delay_days,
             params.calendar_id.as_deref(),
         )?;
+
+        // Skip cashflows where the payment has already settled
+        // (payment_date <= as_of means the payment has been made)
+        if payment_date <= as_of {
+            continue;
+        }
+
+        let reset_date = period.reset_date.unwrap_or(period.accrual_start);
+
+        // Determine the index rate: use historical fixing if reset is in the past,
+        // otherwise project from the forward curve
+        let index_rate = if reset_date < as_of {
+            // Past reset: require historical fixing
+            let series = fixings.ok_or_else(|| {
+                finstack_core::Error::Validation(format!(
+                    "Seasoned floating leg requires fixings for reset date {} (before as_of {}). \
+                     Provide ScalarTimeSeries with historical index observations.",
+                    reset_date, as_of
+                ))
+            })?;
+            series.value_on_exact(reset_date)?
+        } else {
+            // Future reset: project from forward curve
+            let fwd_dc = fwd.day_count();
+            let fwd_base = fwd.base_date();
+            let t0 = if reset_date <= fwd_base {
+                0.0
+            } else {
+                fwd_dc.year_fraction(fwd_base, reset_date, DayCountCtx::default())?
+            };
+            let t1 = if period.accrual_end <= fwd_base {
+                0.0
+            } else {
+                fwd_dc.year_fraction(fwd_base, period.accrual_end, DayCountCtx::default())?
+            };
+            if t1 > t0 {
+                fwd.rate_period(t0, t1)
+            } else {
+                fwd.rate(t0)
+            }
+        };
+
+        // Apply floors, caps, gearing, and spread using the rate helpers
+        let all_in_rate = crate::cashflow::builder::rate_helpers::calculate_floating_rate(
+            index_rate,
+            &params.rate_params,
+        );
+
+        // Coupon amount
+        let coupon_amount = notional * all_in_rate * period.year_fraction;
 
         // Discount from as_of for correct theta
         let df = robust_relative_df(disc, as_of, payment_date)?;
@@ -548,20 +586,21 @@ where
     let mut acc = NeumaierAccumulator::new();
 
     for period in periods {
-        // Skip settled cashflows
-        if period.accrual_end <= as_of {
-            continue;
-        }
-
-        // Fixed coupon amount
-        let coupon_amount = notional * params.rate * period.year_fraction;
-
-        // Apply payment delay (strict: calendar must resolve if specified)
+        // Apply payment delay to determine the actual payment date
         let payment_date = add_payment_delay(
             period.accrual_end,
             params.payment_delay_days,
             params.calendar_id.as_deref(),
         )?;
+
+        // Skip cashflows where the payment has already settled
+        // (payment_date <= as_of means the payment has been made)
+        if payment_date <= as_of {
+            continue;
+        }
+
+        // Fixed coupon amount
+        let coupon_amount = notional * params.rate * period.year_fraction;
 
         // Discount from as_of for correct theta
         let df = robust_relative_df(disc, as_of, payment_date)?;
@@ -789,6 +828,7 @@ mod tests {
             &disc,
             &fwd,
             base_date,
+            None, // No fixings needed - all resets are on or after as_of
         )
         .expect("should price");
 
@@ -829,6 +869,7 @@ mod tests {
             &disc,
             &fwd,
             base_date,
+            None,
         );
         assert!(
             result.is_err(),
@@ -869,8 +910,156 @@ mod tests {
             &disc,
             &fwd,
             base_date,
+            None,
         );
         assert!(result.is_err(), "Should reject zero gearing");
+    }
+
+    #[test]
+    fn pv_floating_leg_seasoned_requires_fixings() {
+        let base_date = date(2024, 1, 1);
+        let disc = test_discount_curve(base_date);
+        let fwd = test_forward_curve(base_date);
+
+        // Reset date is before as_of, so fixings are required
+        let as_of = date(2024, 2, 15);
+        let periods = vec![LegPeriod {
+            accrual_start: date(2024, 1, 1),
+            accrual_end: date(2024, 4, 1),
+            reset_date: Some(date(2024, 1, 1)), // Reset is before as_of
+            year_fraction: 0.25,
+        }];
+
+        let params = FloatingLegParams::with_spread(100.0);
+        let result = pv_floating_leg(
+            periods.into_iter(),
+            1_000_000.0,
+            &params,
+            &disc,
+            &fwd,
+            as_of,
+            None, // No fixings provided - should fail
+        );
+        assert!(
+            result.is_err(),
+            "Should require fixings for seasoned floating leg"
+        );
+        let err = result.expect_err("should error");
+        assert!(
+            err.to_string().contains("fixings") || err.to_string().contains("Seasoned"),
+            "Error should mention fixings: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn pv_floating_leg_seasoned_uses_fixings() {
+        use finstack_core::market_data::scalars::ScalarTimeSeries;
+
+        let base_date = date(2024, 1, 1);
+        let disc = test_discount_curve(base_date);
+        let fwd = test_forward_curve(base_date);
+
+        // Reset date is before as_of
+        let as_of = date(2024, 2, 15);
+        let periods = vec![LegPeriod {
+            accrual_start: date(2024, 1, 1),
+            accrual_end: date(2024, 4, 1),
+            reset_date: Some(date(2024, 1, 1)),
+            year_fraction: 0.25,
+        }];
+
+        // Provide fixings
+        let fixing_rate = 0.04; // 4% fixing
+        let fixings = ScalarTimeSeries::new(
+            "FIXING:TEST-FWD",
+            vec![(date(2024, 1, 1), fixing_rate)],
+            None,
+        )
+        .expect("fixings series");
+
+        let params = FloatingLegParams::with_spread(100.0); // 100 bps spread
+        let pv = pv_floating_leg(
+            periods.into_iter(),
+            1_000_000.0,
+            &params,
+            &disc,
+            &fwd,
+            as_of,
+            Some(&fixings),
+        )
+        .expect("should price with fixings");
+
+        // PV should be based on fixing + spread = 4% + 1% = 5%
+        // 1,000,000 × 0.05 × 0.25 × DF ≈ 12,500 × ~0.97 ≈ 12,125
+        assert!(
+            pv > 10_000.0 && pv < 15_000.0,
+            "PV should be reasonable: {}",
+            pv
+        );
+    }
+
+    #[test]
+    fn pv_floating_leg_payment_delay_affects_skip() {
+        let base_date = date(2024, 1, 1);
+        let disc = test_discount_curve(base_date);
+        let fwd = test_forward_curve(base_date);
+
+        // as_of is between accrual_end and payment_date
+        // Accrual ends Apr 1, payment is Apr 3 (with 2-day delay)
+        let as_of = date(2024, 4, 2);
+        let periods = vec![LegPeriod {
+            accrual_start: date(2024, 1, 1),
+            accrual_end: date(2024, 4, 1), // Accrual ends Apr 1
+            reset_date: Some(date(2024, 1, 1)),
+            year_fraction: 0.25,
+        }];
+
+        // Without payment delay - should skip the period (accrual_end <= as_of would be true in old logic)
+        let params_no_delay = FloatingLegParams::with_spread(100.0);
+
+        // Provide fixings since reset_date < as_of
+        let fixings =
+            ScalarTimeSeries::new("FIXING:TEST-FWD", vec![(date(2024, 1, 1), 0.03)], None)
+                .expect("fixings series");
+
+        let pv_no_delay = pv_floating_leg(
+            periods.clone().into_iter(),
+            1_000_000.0,
+            &params_no_delay,
+            &disc,
+            &fwd,
+            as_of,
+            Some(&fixings),
+        )
+        .expect("should price");
+
+        // Payment date = Apr 1 (no delay) <= as_of (Apr 2), so should be 0
+        assert!(
+            pv_no_delay.abs() < 1e-10,
+            "No-delay PV should be ~0 (payment already settled): {}",
+            pv_no_delay
+        );
+
+        // With 2-day payment delay - should NOT skip (payment_date = Apr 3 > as_of = Apr 2)
+        let params_with_delay = FloatingLegParams::with_spread_and_delay(100.0, 2);
+        let pv_with_delay = pv_floating_leg(
+            periods.into_iter(),
+            1_000_000.0,
+            &params_with_delay,
+            &disc,
+            &fwd,
+            as_of,
+            Some(&fixings),
+        )
+        .expect("should price");
+
+        // Payment date = Apr 3 > as_of (Apr 2), so should have positive PV
+        assert!(
+            pv_with_delay > 0.0,
+            "With-delay PV should be positive (payment not yet settled): {}",
+            pv_with_delay
+        );
     }
 
     #[test]

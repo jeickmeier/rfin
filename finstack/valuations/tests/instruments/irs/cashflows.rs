@@ -118,7 +118,7 @@ fn test_irs_fixed_leg_quarterly_schedule() {
             calendar_id: None,
             fixing_calendar_id: None,
             stub: StubKind::None,
-            reset_lag_days: 2,
+            reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
             start: date!(2024 - 01 - 01),
@@ -170,7 +170,7 @@ fn test_irs_fixed_leg_semiannual_schedule() {
             calendar_id: None,
             fixing_calendar_id: None,
             stub: StubKind::None,
-            reset_lag_days: 2,
+            reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
             start: date!(2024 - 01 - 01),
@@ -243,7 +243,7 @@ fn test_irs_stub_front() {
             calendar_id: None,
             fixing_calendar_id: None,
             stub: StubKind::ShortFront,
-            reset_lag_days: 2,
+            reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
             start: date!(2024 - 01 - 15),
@@ -291,7 +291,7 @@ fn test_irs_stub_back() {
             calendar_id: None,
             fixing_calendar_id: None,
             stub: StubKind::ShortBack,
-            reset_lag_days: 2,
+            reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
             start: date!(2024 - 01 - 01),
@@ -421,7 +421,7 @@ fn test_irs_different_frequencies() {
             calendar_id: None,
             fixing_calendar_id: None,
             stub: StubKind::None,
-            reset_lag_days: 2,
+            reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
             start: date!(2024 - 01 - 01),
@@ -470,7 +470,7 @@ fn test_irs_calendar_adjustments() {
             calendar_id: Some("usny".to_string()),
             fixing_calendar_id: Some("usny".to_string()),
             stub: StubKind::None,
-            reset_lag_days: 2,
+            reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
             start: date!(2024 - 01 - 01),

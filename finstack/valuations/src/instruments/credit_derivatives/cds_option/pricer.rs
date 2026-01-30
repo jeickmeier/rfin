@@ -177,6 +177,12 @@ impl CdsOptionPricer {
     ///
     /// Note: `risky_annuity` should be the Present Value (at pricing date) of the annuity.
     /// The formula does not apply an additional discount factor.
+    ///
+    /// # Numerical Stability
+    ///
+    /// When the forward spread is below `credit::MIN_FORWARD_SPREAD`, the Black formula's
+    /// log(forward/strike) becomes numerically unstable. In this case, the option value
+    /// is returned as zero (the forward is effectively at or below zero).
     pub fn credit_option_price(
         &self,
         option: &CdsOption,
@@ -205,8 +211,25 @@ impl CdsOptionPricer {
 
         let forward = forward_spread_bp / self.config.bp_per_unit;
         let strike = option.strike_spread_bp / self.config.bp_per_unit;
-        if forward <= 0.0 || strike <= 0.0 {
+
+        // Guard against invalid strike
+        if strike <= 0.0 {
             return Ok(Money::new(0.0, option.notional.currency()));
+        }
+
+        // Guard against numerically unstable forward values.
+        // The Black formula requires positive forward for log(F/K).
+        // When forward → 0:
+        //   - Call (payer): worthless, return 0
+        //   - Put (receiver): converges to K × RPV01 × Notional (full intrinsic)
+        if forward < credit::MIN_FORWARD_SPREAD {
+            return match option.option_type {
+                OptionType::Put => Ok(Money::new(
+                    scale * strike * risky_annuity * option.notional.amount(),
+                    option.notional.currency(),
+                )),
+                OptionType::Call => Ok(Money::new(0.0, option.notional.currency())),
+            };
         }
 
         // Use models::black helpers with forward-style inputs (r=q=0)
@@ -231,7 +254,7 @@ impl CdsOptionPricer {
         Ok(Money::new(value, option.notional.currency()))
     }
 
-    /// Delta for CDS option w.r.t. forward spread (per unit notional and bp basis handled by caller).
+    /// Delta for CDS option w.r.t. forward spread (per unit spread).
     ///
     /// Note: Requires `risky_annuity` (PV of annuity) to scale the result properly.
     pub fn delta(
@@ -278,7 +301,7 @@ impl CdsOptionPricer {
         }
     }
 
-    /// Gamma per bp of spread.
+    /// Gamma per unit spread.
     ///
     /// Returns 0.0 when time-to-expiry or volatility are too small for stable
     /// numerical calculation (denominator approaches zero).
@@ -306,8 +329,7 @@ impl CdsOptionPricer {
             return 0.0;
         }
         let d1 = d1(forward, strike, 0.0, sigma, t, 0.0);
-        scale * risky_annuity * norm_pdf(d1)
-            / (forward * self.config.bp_per_unit * sigma * t.sqrt())
+        scale * risky_annuity * norm_pdf(d1) / (forward * sigma * t.sqrt())
     }
 
     /// Vega per 1% vol change.
@@ -340,7 +362,7 @@ impl CdsOptionPricer {
         } else {
             0.0
         };
-        scale * risky_annuity * forward * self.config.bp_per_unit * norm_pdf(d1) * t.sqrt() / 100.0
+        scale * risky_annuity * forward * norm_pdf(d1) * t.sqrt() / 100.0
     }
 
     /// Analytical theta per day using Black-76 formula.
@@ -349,6 +371,10 @@ impl CdsOptionPricer {
     ///
     /// This is the analytical approximation that only captures the Black formula
     /// time decay (dBlack/dt) but not the risky annuity decay (dA/dt).
+    ///
+    /// Note: the pricing formula uses a PV'd risky annuity, so there is no
+    /// separate discounting term in the Black expression. The `r` parameter
+    /// is ignored and should be supplied as 0.0.
     /// For complete theta including annuity decay, use [`theta_finite_diff`](Self::theta_finite_diff).
     pub fn theta_analytical(
         &self,
@@ -373,7 +399,6 @@ impl CdsOptionPricer {
             return 0.0;
         }
         let d1 = d1(forward, strike, 0.0, sigma, t, 0.0);
-        let d2 = d2(forward, strike, 0.0, sigma, t, 0.0);
         let sqrt_t = t.sqrt();
 
         // Theta = dV/dt.
@@ -385,15 +410,13 @@ impl CdsOptionPricer {
         match option.option_type {
             OptionType::Call => {
                 let term1 = -forward * norm_pdf(d1) * sigma / (2.0 * sqrt_t);
-                let term2 = -r * strike * (-r * t).exp() * norm_cdf(d2);
-                scale * risky_annuity * (term1 + term2) * self.config.bp_per_unit
-                    / self.config.theta_days_per_year
+                let _ = r;
+                scale * risky_annuity * term1 / self.config.theta_days_per_year
             }
             OptionType::Put => {
                 let term1 = -forward * norm_pdf(d1) * sigma / (2.0 * sqrt_t);
-                let term2 = r * strike * (-r * t).exp() * norm_cdf(-d2);
-                scale * risky_annuity * (term1 + term2) * self.config.bp_per_unit
-                    / self.config.theta_days_per_year
+                let _ = r;
+                scale * risky_annuity * term1 / self.config.theta_days_per_year
             }
         }
     }

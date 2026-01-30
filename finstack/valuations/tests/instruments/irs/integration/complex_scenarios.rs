@@ -43,10 +43,20 @@ fn build_flat_curves(disc_rate: f64, fwd_rate: f64, base_date: Date) -> MarketCo
         .build()
         .unwrap();
 
+    // Provide fixings for theta calculations where the rolled as_of date
+    // puts the first reset in the past.
+    let fixings = finstack_core::market_data::scalars::ScalarTimeSeries::new(
+        "FIXING:USD-SOFR-3M",
+        vec![(base_date, fwd_rate)], // Fixing on base_date at the flat rate
+        None,
+    )
+    .expect("fixings series");
+
     MarketContext::new()
         .insert_discount(disc_curve)
         .insert_forward(fwd_curve)
         .insert_forward(fwd_curve_6m)
+        .insert_series(fixings)
 }
 
 fn create_swap(as_of: Date, end: Date, fixed_rate: f64, side: PayReceive) -> InterestRateSwap {
@@ -78,7 +88,8 @@ fn create_swap(as_of: Date, end: Date, fixed_rate: f64, side: PayReceive) -> Int
             calendar_id: None,
             fixing_calendar_id: None,
             stub: StubKind::None,
-            reset_lag_days: 2,
+            // Use reset_lag_days: 0 for spot-starting swaps to avoid needing historical fixings.
+            reset_lag_days: 0,
             compounding: Default::default(),
             payment_delay_days: 0,
             start: as_of,
@@ -285,7 +296,8 @@ fn test_swap_with_large_spread() {
 
 #[test]
 fn test_swap_seasoned() {
-    // Swap evaluated after inception (seasoned swap)
+    // Swap traded in January, evaluated in June (truly seasoned swap)
+    let start = date!(2024 - 01 - 01); // Trade date
     let as_of = date!(2024 - 06 - 01); // Evaluation date
     let end = date!(2028 - 01 - 01);
 
@@ -307,9 +319,21 @@ fn test_swap_seasoned() {
         .build()
         .unwrap();
 
+    // Provide fixings for past reset dates (quarterly from Jan through Apr)
+    let fixings = finstack_core::market_data::scalars::ScalarTimeSeries::new(
+        "FIXING:USD-SOFR-3M",
+        vec![
+            (date!(2024 - 01 - 01), 0.04), // Q1 reset at 4% (old rate)
+            (date!(2024 - 04 - 01), 0.05), // Q2 reset at 5% (rate started rising)
+        ],
+        None,
+    )
+    .expect("fixings series");
+
     let market = MarketContext::new()
         .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+        .insert_forward(fwd_curve)
+        .insert_series(fixings);
 
     let swap = InterestRateSwap {
         id: "SEASONED_SWAP".into(),
@@ -326,7 +350,7 @@ fn test_swap_seasoned() {
             par_method: None,
             compounding_simple: true,
             payment_delay_days: 0,
-            start: as_of, // Use as_of instead of start to avoid invalid time range
+            start,
             end,
         },
         float: finstack_valuations::instruments::FloatLegSpec {
@@ -339,10 +363,11 @@ fn test_swap_seasoned() {
             calendar_id: None,
             fixing_calendar_id: None,
             stub: StubKind::None,
-            reset_lag_days: 2,
+            // Use 0 since we're providing fixings anyway and it simplifies the test
+            reset_lag_days: 0,
             compounding: Default::default(),
             payment_delay_days: 0,
-            start: as_of, // Use as_of instead of start to avoid invalid time range
+            start,
             end,
         },
         margin_spec: None,

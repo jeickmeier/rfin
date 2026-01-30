@@ -155,9 +155,21 @@ fn test_par_rate_discount_ratio_rejects_seasoned_swap() {
     let disc_curve = build_flat_discount_curve(0.05, as_of, "USD-OIS");
     let fwd_curve = build_flat_forward_curve(0.05, as_of, "USD-SOFR-3M");
 
+    // Provide fixings for past reset dates (quarterly from Jan 1 through Apr 1)
+    let fixings = finstack_core::market_data::scalars::ScalarTimeSeries::new(
+        "FIXING:USD-SOFR-3M",
+        vec![
+            (date!(2024 - 01 - 01), 0.05), // Q1 reset at 5%
+            (date!(2024 - 04 - 01), 0.05), // Q2 reset at 5%
+        ],
+        None,
+    )
+    .expect("fixings series");
+
     let market = MarketContext::new()
         .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+        .insert_forward(fwd_curve)
+        .insert_series(fixings);
 
     let mut swap = InterestRateSwap::create_usd_swap(
         "SWAP_PAR_SEASONED".into(),
@@ -343,7 +355,7 @@ fn test_irs_receive_vs_pay_fixed() {
         bdc: BusinessDayConvention::ModifiedFollowing,
         calendar_id: None,
         stub: StubKind::None,
-        reset_lag_days: 2,
+        reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
         compounding: Default::default(),
         payment_delay_days: 0,
         start: as_of,
@@ -428,7 +440,7 @@ fn test_irs_rate_sensitivity() {
         bdc: BusinessDayConvention::ModifiedFollowing,
         calendar_id: None,
         stub: StubKind::None,
-        reset_lag_days: 2,
+        reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
         compounding: Default::default(),
         payment_delay_days: 0,
         start: as_of,
@@ -526,7 +538,7 @@ fn test_irs_leg_pvs_consistency() {
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
             stub: StubKind::None,
-            reset_lag_days: 2,
+            reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
             start: as_of,
@@ -597,7 +609,7 @@ fn test_daycount_convention_impact_on_annuity() {
             calendar_id: None,
             fixing_calendar_id: None,
             stub: StubKind::None,
-            reset_lag_days: 2,
+            reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
             start: as_of,
@@ -635,7 +647,7 @@ fn test_daycount_convention_impact_on_annuity() {
             calendar_id: None,
             fixing_calendar_id: None,
             stub: StubKind::None,
-            reset_lag_days: 2,
+            reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
             start: as_of,
@@ -718,9 +730,22 @@ fn test_irs_t_minus_2_fixing_calendar_isda_standard() {
         .build()
         .unwrap();
 
+    // Provide fixings for T-2 reset dates that fall before as_of
+    // For a spot-starting swap on Jan 2, 2024 with T-2 reset lag,
+    // the first reset is Dec 28, 2023 (2 business days before, accounting for NY holiday)
+    let fixings = finstack_core::market_data::scalars::ScalarTimeSeries::new(
+        "FIXING:USD-SOFR-3M",
+        vec![
+            (date!(2023 - 12 - 28), 0.05), // First reset fixing at 5%
+        ],
+        None,
+    )
+    .expect("fixings series");
+
     let market = MarketContext::new()
         .insert_discount(disc_curve)
-        .insert_forward(fwd_curve);
+        .insert_forward(fwd_curve)
+        .insert_series(fixings);
 
     // Create ISDA-standard USD swap with explicit fixing calendar
     let swap = InterestRateSwap::builder()
@@ -927,7 +952,7 @@ fn test_irs_forward_curve_daycount_used_for_projection() {
             calendar_id: None,
             fixing_calendar_id: None,
             stub: StubKind::None,
-            reset_lag_days: 2,
+            reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
             start,
@@ -964,7 +989,7 @@ fn test_irs_forward_curve_daycount_used_for_projection() {
             calendar_id: None,
             fixing_calendar_id: None,
             stub: StubKind::None,
-            reset_lag_days: 2,
+            reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
             start,

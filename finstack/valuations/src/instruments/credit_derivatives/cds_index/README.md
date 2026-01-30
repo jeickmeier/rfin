@@ -41,6 +41,8 @@ let par = index.par_spread(&market_context, as_of)?;
 
 - PV, par spread, index RPV01, upfront for given quote, and CS01 (parallel/bucketed) via constituent aggregation.
 - Leg PV breakdown (premium vs protection) and accrued components.
+- Expected loss uses constituents (if provided) with per-name curves/recoveries; otherwise index-level curve.
+- Jump-to-default uses constituent weights when present; otherwise infers name count from standard index name.
 - Weight diagnostics (sum/normalization) for data quality checks.
 
 ## Future Enhancements

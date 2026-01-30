@@ -48,7 +48,7 @@
 //! * Base correlation model can have small arbitrage inconsistencies at curve knots
 
 use crate::cashflow::builder::build_dates;
-use crate::constants::credit;
+use crate::constants::{credit, BASIS_POINTS_PER_UNIT};
 use crate::instruments::cds_tranche::{CdsTranche, TrancheSide};
 use crate::instruments::common::traits::Instrument;
 use finstack_core::dates::next_cds_date;
@@ -56,16 +56,22 @@ use finstack_core::dates::{Date, DateExt, StubKind};
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::market_data::{context::MarketContext, term_structures::CreditIndexData};
 use finstack_core::math::binomial_probability;
-use finstack_core::math::{norm_cdf, norm_pdf, standard_normal_inv_cdf, GaussHermiteQuadrature};
+use finstack_core::math::{
+    norm_cdf, norm_pdf, standard_normal_inv_cdf, student_t_inv_cdf, GaussHermiteQuadrature,
+};
 use finstack_core::money::Money;
 use finstack_core::types::Percentage;
-use finstack_core::Result;
+use finstack_core::{Error, Result};
 
 // Calendar imports for business day settlement
 use finstack_core::dates::CalendarRegistry;
 use finstack_core::dates::HolidayCalendar;
 
 // Recovery model import for optional stochastic recovery
+use super::copula::{
+    Copula, CopulaSpec, GaussianCopula, MultiFactorCopula, RandomFactorLoadingCopula,
+    StudentTCopula,
+};
 use super::recovery::RecoveryModel;
 
 #[cfg(test)]
@@ -473,6 +479,52 @@ impl CDSTranchePricer {
             10 => GaussHermiteQuadrature::order_10(),
             _ => GaussHermiteQuadrature::order_7(),
         }
+    }
+
+    fn build_copula(&self) -> Box<dyn Copula> {
+        match &self.params.copula_spec {
+            CopulaSpec::Gaussian => Box::new(GaussianCopula::with_quadrature_order(
+                self.params.quadrature_order,
+            )),
+            CopulaSpec::StudentT { degrees_of_freedom } => {
+                Box::new(StudentTCopula::with_quadrature_order(
+                    *degrees_of_freedom,
+                    self.params.quadrature_order,
+                ))
+            }
+            CopulaSpec::RandomFactorLoading { loading_volatility } => {
+                Box::new(RandomFactorLoadingCopula::with_quadrature_order(
+                    *loading_volatility,
+                    self.params.quadrature_order,
+                ))
+            }
+            CopulaSpec::MultiFactor { num_factors } => {
+                Box::new(MultiFactorCopula::new(*num_factors))
+            }
+        }
+    }
+
+    fn default_threshold_for_copula(&self, default_prob: f64) -> f64 {
+        let eps = self.params.probability_clip;
+        let p = default_prob.max(eps).min(1.0 - eps);
+        match &self.params.copula_spec {
+            CopulaSpec::StudentT { degrees_of_freedom } => {
+                student_t_inv_cdf(p, *degrees_of_freedom)
+            }
+            _ => standard_normal_inv_cdf(p),
+        }
+    }
+
+    fn conditional_default_prob_copula(
+        &self,
+        copula: &dyn Copula,
+        default_threshold: f64,
+        factor_realization: &[f64],
+        correlation: f64,
+    ) -> f64 {
+        copula
+            .conditional_default_prob(default_threshold, factor_realization, correlation)
+            .clamp(0.0, 1.0)
     }
     /// Create a new Gaussian Copula model with default parameters.
     pub fn new() -> Self {
@@ -885,39 +937,69 @@ impl CDSTranchePricer {
                 self.params.recovery_spec.as_ref().map(|spec| spec.build());
 
             let detachment_notional = detachment_pct / 100.0;
-            let quad = self.select_quadrature();
             let maturity_years = self.years_from_base(index_data, maturity)?;
             let default_prob = self.get_default_probability(index_data, maturity_years)?;
-            let default_threshold = standard_normal_inv_cdf(default_prob);
-            let integrand = |z: f64| {
-                let p = self.conditional_default_probability_enhanced(
-                    default_threshold,
-                    correlation,
-                    z,
-                );
+            let correlation = self.smooth_correlation_boundary(correlation);
 
-                // Use stochastic recovery if configured, otherwise constant
-                let recovery_rate = match &recovery_model {
-                    Some(model) => model.conditional_recovery(z),
-                    None => base_recovery,
+            if self.params.copula_spec.is_gaussian() {
+                let quad = self.select_quadrature();
+                let default_threshold = standard_normal_inv_cdf(default_prob);
+                let integrand = |z: f64| {
+                    let p = self.conditional_default_probability_enhanced(
+                        default_threshold,
+                        correlation,
+                        z,
+                    );
+
+                    // Use stochastic recovery if configured, otherwise constant
+                    let recovery_rate = match &recovery_model {
+                        Some(model) => model.conditional_recovery(z),
+                        None => base_recovery,
+                    };
+
+                    self.conditional_equity_tranche_loss(
+                        num_constituents,
+                        detachment_notional,
+                        p,
+                        recovery_rate,
+                    )
                 };
-
-                self.conditional_equity_tranche_loss(
-                    num_constituents,
-                    detachment_notional,
-                    p,
-                    recovery_rate,
-                )
-            };
-            let expected_loss = if !(self.params.adaptive_integration_low
-                ..=self.params.adaptive_integration_high)
-                .contains(&correlation)
-            {
-                quad.integrate_adaptive(integrand, self.params.numerical_tolerance)
+                let expected_loss = if !(self.params.adaptive_integration_low
+                    ..=self.params.adaptive_integration_high)
+                    .contains(&correlation)
+                {
+                    quad.integrate_adaptive(integrand, self.params.numerical_tolerance)
+                } else {
+                    quad.integrate(integrand)
+                };
+                Ok(expected_loss)
             } else {
-                quad.integrate(integrand)
-            };
-            Ok(expected_loss)
+                let copula = self.build_copula();
+                let copula_ref = copula.as_ref();
+                let default_threshold = self.default_threshold_for_copula(default_prob);
+                let expected_loss = copula_ref.integrate_fn(&|factors| {
+                    let p = self.conditional_default_prob_copula(
+                        copula_ref,
+                        default_threshold,
+                        factors,
+                        correlation,
+                    );
+
+                    let z = factors.first().copied().unwrap_or(0.0);
+                    let recovery_rate = match &recovery_model {
+                        Some(model) => model.conditional_recovery(z),
+                        None => base_recovery,
+                    };
+
+                    self.conditional_equity_tranche_loss(
+                        num_constituents,
+                        detachment_notional,
+                        p,
+                        recovery_rate,
+                    )
+                });
+                Ok(expected_loss)
+            }
         }
     }
 
@@ -937,6 +1019,7 @@ impl CDSTranchePricer {
         // Precompute unconditional PD_i(t)
         let t = self.years_from_base(index_data, maturity)?;
         let tranche_width = detachment_pct / 100.0;
+        let correlation = self.smooth_correlation_boundary(correlation);
 
         // Quadrature setup
         let quad = self.select_quadrature();
@@ -999,58 +1082,154 @@ impl CDSTranchePricer {
                 self.params.recovery_spec.as_ref().map(|spec| spec.build());
 
             let default_prob = self.get_default_probability(index_data, t)?;
-            let default_threshold = standard_normal_inv_cdf(default_prob);
-            let integrand = |z: f64| {
-                let p = self.conditional_default_probability_enhanced(
-                    default_threshold,
-                    correlation,
-                    z,
-                );
+            let default_threshold = self.default_threshold_for_copula(default_prob);
 
-                // Use stochastic recovery if configured, otherwise constant
+            if self.params.copula_spec.is_gaussian() {
+                let integrand = |z: f64| {
+                    let p = self.conditional_default_probability_enhanced(
+                        default_threshold,
+                        correlation,
+                        z,
+                    );
+
+                    // Use stochastic recovery if configured, otherwise constant
+                    let recovery = match &recovery_model {
+                        Some(model) => model.conditional_recovery(z),
+                        None => base_recovery,
+                    };
+
+                    self.conditional_equity_tranche_loss(
+                        num_constituents,
+                        detachment_notional,
+                        p,
+                        recovery,
+                    )
+                };
+                let expected_loss = if !(self.params.adaptive_integration_low
+                    ..=self.params.adaptive_integration_high)
+                    .contains(&correlation)
+                {
+                    quad.integrate_adaptive(integrand, self.params.numerical_tolerance)
+                } else {
+                    quad.integrate(integrand)
+                };
+                return Ok(expected_loss);
+            }
+
+            let copula = self.build_copula();
+            let copula_ref = copula.as_ref();
+            let expected_loss = copula_ref.integrate_fn(&|factors| {
+                let p = self.conditional_default_prob_copula(
+                    copula_ref,
+                    default_threshold,
+                    factors,
+                    correlation,
+                );
+                let z = factors.first().copied().unwrap_or(0.0);
                 let recovery = match &recovery_model {
                     Some(model) => model.conditional_recovery(z),
                     None => base_recovery,
                 };
-
                 self.conditional_equity_tranche_loss(
                     num_constituents,
                     detachment_notional,
                     p,
                     recovery,
                 )
-            };
-            let expected_loss = if !(self.params.adaptive_integration_low
-                ..=self.params.adaptive_integration_high)
-                .contains(&correlation)
-            {
-                quad.integrate_adaptive(integrand, self.params.numerical_tolerance)
-            } else {
-                quad.integrate(integrand)
-            };
+            });
             return Ok(expected_loss);
         }
 
-        // Build probit thresholds for heterogeneous path
-        let eps = self.params.probability_clip;
-        let probit_i: Vec<f64> = pd_i
+        let use_gaussian = self.params.copula_spec.is_gaussian();
+        let thresholds: Vec<f64> = pd_i
             .iter()
-            .map(|&p| standard_normal_inv_cdf(p.max(eps).min(1.0 - eps)))
+            .map(|&p| self.default_threshold_for_copula(p))
             .collect();
 
+        // Prefer exact convolution for small pools to reduce SPA error
+        let n_const = index_data.num_constituents as usize;
+
+        if use_gaussian {
+            // Integrand over common factor Z using heterogeneous LGD and weights
+            let integrand = |factors: &[f64]| -> f64 {
+                let z = factors.first().copied().unwrap_or(0.0);
+                let sqrt_rho = correlation.sqrt();
+                let sqrt_1mr = (1.0 - correlation).sqrt();
+                let mut mean = 0.0;
+                let mut var = 0.0;
+
+                for i in 0..thresholds.len() {
+                    let th = thresholds[i];
+                    let cthr = (th - sqrt_rho * z) / sqrt_1mr;
+                    let p = norm_cdf(cthr).clamp(0.0, 1.0);
+
+                    let w = weight_i[i] * lgd_i[i];
+                    mean += w * p;
+                    var += w * w * p * (1.0 - p);
+                }
+
+                // SPA/normal approximation for E[min(L, K)] with K = detachment_notional
+                let k = tranche_width;
+                if var <= self.params.spa_variance_floor {
+                    return mean.min(k);
+                }
+                let s = var.sqrt();
+                let a = (k - mean) / s;
+                mean * norm_cdf(a) + s * norm_pdf(a) + k * (1.0 - norm_cdf(a))
+            };
+
+            let el = if n_const <= credit::SMALL_POOL_THRESHOLD {
+                self.hetero_exact_convolution_full(
+                    detachment_pct,
+                    correlation,
+                    &thresholds,
+                    &lgd_i,
+                    &weight_i,
+                )?
+            } else {
+                match self.params.hetero_method {
+                    HeteroMethod::Spa => {
+                        if !(self.params.adaptive_integration_low
+                            ..=self.params.adaptive_integration_high)
+                            .contains(&correlation)
+                        {
+                            quad.integrate_adaptive(
+                                |z| integrand(&[z]),
+                                self.params.numerical_tolerance,
+                            )
+                        } else {
+                            quad.integrate(|z| integrand(&[z]))
+                        }
+                    }
+                    HeteroMethod::ExactConvolution => self.hetero_exact_convolution_full(
+                        detachment_pct,
+                        correlation,
+                        &thresholds,
+                        &lgd_i,
+                        &weight_i,
+                    )?,
+                }
+            };
+
+            return Ok(el);
+        }
+
+        let copula = self.build_copula();
+        let copula_ref = copula.as_ref();
+
         // Integrand over common factor Z using heterogeneous LGD and weights
-        let integrand = |z: f64| -> f64 {
-            let sqrt_rho = correlation.sqrt();
-            let sqrt_1mr = (1.0 - correlation).sqrt();
+        let integrand = |factors: &[f64]| -> f64 {
             let mut mean = 0.0;
             let mut var = 0.0;
 
-            for i in 0..probit_i.len() {
-                let th = probit_i[i];
-                let cthr = (th - sqrt_rho * z) / sqrt_1mr;
-                let p = norm_cdf(cthr).clamp(0.0, 1.0);
+            for i in 0..thresholds.len() {
+                let p = self.conditional_default_prob_copula(
+                    copula_ref,
+                    thresholds[i],
+                    factors,
+                    correlation,
+                );
 
-                // Use per-issuer weight and LGD
                 let w = weight_i[i] * lgd_i[i];
                 mean += w * p;
                 var += w * w * p * (1.0 - p);
@@ -1063,44 +1242,30 @@ impl CDSTranchePricer {
             }
             let s = var.sqrt();
             let a = (k - mean) / s;
-            // E[min(L, K)] ≈ m Φ(a) + s φ(a) + K [1 − Φ(a)]
             mean * norm_cdf(a) + s * norm_pdf(a) + k * (1.0 - norm_cdf(a))
         };
 
-        // Prefer exact convolution for small pools to reduce SPA error
-        let n_const = index_data.num_constituents as usize;
         let el = if n_const <= credit::SMALL_POOL_THRESHOLD {
             self.hetero_exact_convolution_full(
                 detachment_pct,
                 correlation,
-                &probit_i,
+                &thresholds,
                 &lgd_i,
                 &weight_i,
-            )
+            )?
         } else {
             match self.params.hetero_method {
-                HeteroMethod::Spa => {
-                    if !(self.params.adaptive_integration_low
-                        ..=self.params.adaptive_integration_high)
-                        .contains(&correlation)
-                    {
-                        quad.integrate_adaptive(integrand, self.params.numerical_tolerance)
-                    } else {
-                        quad.integrate(integrand)
-                    }
-                }
-                HeteroMethod::ExactConvolution => {
-                    // Exact convolution with full heterogeneity
-                    self.hetero_exact_convolution_full(
-                        detachment_pct,
-                        correlation,
-                        &probit_i,
-                        &lgd_i,
-                        &weight_i,
-                    )
-                }
+                HeteroMethod::Spa => copula_ref.integrate_fn(&integrand),
+                HeteroMethod::ExactConvolution => self.hetero_exact_convolution_full(
+                    detachment_pct,
+                    correlation,
+                    &thresholds,
+                    &lgd_i,
+                    &weight_i,
+                )?,
             }
         };
+
         Ok(el)
     }
 
@@ -1114,35 +1279,115 @@ impl CDSTranchePricer {
         &self,
         detachment_pct: f64,
         correlation: f64,
-        probit_i: &[f64],
+        thresholds: &[f64],
         lgd_i: &[f64],
         weight_i: &[f64],
-    ) -> f64 {
+    ) -> Result<f64> {
         let k = detachment_pct / 100.0;
         let grid_step = self.params.grid_step.max(self.params.grid_step_min);
         let max_points = (k / grid_step).ceil() as usize + 2;
 
+        let use_gaussian = self.params.copula_spec.is_gaussian();
+        let copula = if use_gaussian {
+            None
+        } else {
+            Some(self.build_copula())
+        };
+        let copula_ref = copula.as_ref().map(|model| model.as_ref());
+
         if max_points > self.params.max_grid_points {
             // Performance guard: fall back to SPA approximation with heterogeneous vectors
-            return self.hetero_spa_full(probit_i, correlation, k, lgd_i, weight_i);
+            return self.hetero_spa_full(thresholds, correlation, k, lgd_i, weight_i, copula_ref);
         }
 
-        let quad = self.select_quadrature();
         let sqrt_rho = correlation.sqrt();
         let sqrt_1mr = (1.0 - correlation).sqrt();
+        let quad = self.select_quadrature();
 
-        let integrand = |z: f64| {
+        if use_gaussian {
+            let integrand = |factors: &[f64]| {
+                let z = factors.first().copied().unwrap_or(0.0);
+                // Start with delta at 0 loss
+                let mut pmf = vec![0.0f64; 1];
+                pmf[0] = 1.0;
+
+                for i in 0..thresholds.len() {
+                    let th = thresholds[i];
+                    let lgd = lgd_i[i];
+                    let weight = weight_i[i];
+
+                    let cthr = (th - sqrt_rho * z) / sqrt_1mr;
+                    let p = norm_cdf(cthr).clamp(0.0, 1.0);
+
+                    // Per-issuer loss contribution
+                    let loss_exact = weight * lgd / grid_step;
+                    let loss_floor = loss_exact.floor() as usize;
+                    let frac = loss_exact - loss_floor as f64;
+
+                    let new_len = pmf.len() + loss_floor + 2;
+                    let mut next = vec![0.0f64; new_len.min(max_points)];
+
+                    for (j, &mass) in pmf.iter().enumerate() {
+                        // No default case
+                        if j < next.len() {
+                            next[j] += mass * (1.0 - p);
+                        }
+
+                        // Default case: distribute mass between floor and ceiling bins
+                        let j_floor = j + loss_floor;
+                        let j_ceil = j_floor + 1;
+
+                        if j_floor < next.len() {
+                            next[j_floor] += mass * p * (1.0 - frac);
+                        }
+                        if j_ceil < next.len() && frac > 0.0 {
+                            next[j_ceil] += mass * p * frac;
+                        } else if j_floor < next.len() && frac > 0.0 {
+                            next[j_floor] += mass * p * frac;
+                        }
+                    }
+
+                    pmf = next;
+                    if pmf.len() > max_points {
+                        pmf.truncate(max_points);
+                    }
+                }
+
+                // Compute E[min(L, K)] from pmf
+                let mut terms: Vec<f64> = Vec::with_capacity(pmf.len());
+                for (i, mass) in pmf.iter().enumerate() {
+                    let l = (i as f64) * grid_step;
+                    terms.push(mass * l.min(k));
+                }
+                finstack_core::math::neumaier_sum(terms.iter().copied())
+            };
+
+            let value = if !(self.params.adaptive_integration_low
+                ..=self.params.adaptive_integration_high)
+                .contains(&correlation)
+            {
+                quad.integrate_adaptive(|z| integrand(&[z]), self.params.numerical_tolerance)
+            } else {
+                quad.integrate(|z| integrand(&[z]))
+            };
+
+            return Ok(value);
+        }
+
+        let copula_ref = copula_ref.ok_or_else(|| {
+            Error::Validation("Copula must be set for non-Gaussian convolution.".to_string())
+        })?;
+        let integrand = |factors: &[f64]| {
             // Start with delta at 0 loss
             let mut pmf = vec![0.0f64; 1];
             pmf[0] = 1.0;
 
-            for i in 0..probit_i.len() {
-                let th = probit_i[i];
+            for i in 0..thresholds.len() {
+                let th = thresholds[i];
                 let lgd = lgd_i[i];
                 let weight = weight_i[i];
 
-                let cthr = (th - sqrt_rho * z) / sqrt_1mr;
-                let p = norm_cdf(cthr).clamp(0.0, 1.0);
+                let p = self.conditional_default_prob_copula(copula_ref, th, factors, correlation);
 
                 // Per-issuer loss contribution
                 let loss_exact = weight * lgd / grid_step;
@@ -1187,35 +1432,72 @@ impl CDSTranchePricer {
             finstack_core::math::neumaier_sum(terms.iter().copied())
         };
 
-        if !(self.params.adaptive_integration_low..=self.params.adaptive_integration_high)
-            .contains(&correlation)
-        {
-            quad.integrate_adaptive(integrand, self.params.numerical_tolerance)
-        } else {
-            quad.integrate(integrand)
-        }
+        Ok(copula_ref.integrate_fn(&integrand))
     }
 
     /// SPA fallback with full heterogeneous vectors.
     fn hetero_spa_full(
         &self,
-        probit_i: &[f64],
+        thresholds: &[f64],
         correlation: f64,
         k: f64,
         lgd_i: &[f64],
         weight_i: &[f64],
-    ) -> f64 {
+        copula: Option<&dyn Copula>,
+    ) -> Result<f64> {
         let quad = self.select_quadrature();
-        let integrand = |z: f64| -> f64 {
-            let sqrt_rho = correlation.sqrt();
-            let sqrt_1mr = (1.0 - correlation).sqrt();
+        let use_gaussian = copula.is_none();
+        if use_gaussian {
+            let integrand = |factors: &[f64]| -> f64 {
+                let z = factors.first().copied().unwrap_or(0.0);
+                let sqrt_rho = correlation.sqrt();
+                let sqrt_1mr = (1.0 - correlation).sqrt();
+                let mut mean = 0.0;
+                let mut var = 0.0;
+
+                for i in 0..thresholds.len() {
+                    let th = thresholds[i];
+                    let cthr = (th - sqrt_rho * z) / sqrt_1mr;
+                    let p = norm_cdf(cthr).clamp(0.0, 1.0);
+                    let w = weight_i[i] * lgd_i[i];
+                    mean += w * p;
+                    var += w * w * p * (1.0 - p);
+                }
+
+                if var <= self.params.spa_variance_floor {
+                    return mean.min(k);
+                }
+                let s = var.sqrt();
+                let a = (k - mean) / s;
+                mean * norm_cdf(a) + s * norm_pdf(a) + k * (1.0 - norm_cdf(a))
+            };
+
+            let value = if !(self.params.adaptive_integration_low
+                ..=self.params.adaptive_integration_high)
+                .contains(&correlation)
+            {
+                quad.integrate_adaptive(|z| integrand(&[z]), self.params.numerical_tolerance)
+            } else {
+                quad.integrate(|z| integrand(&[z]))
+            };
+
+            return Ok(value);
+        }
+
+        let copula_ref = copula.ok_or_else(|| {
+            Error::Validation("Copula must be set for non-Gaussian SPA.".to_string())
+        })?;
+        let integrand = |factors: &[f64]| -> f64 {
             let mut mean = 0.0;
             let mut var = 0.0;
 
-            for i in 0..probit_i.len() {
-                let th = probit_i[i];
-                let cthr = (th - sqrt_rho * z) / sqrt_1mr;
-                let p = norm_cdf(cthr).clamp(0.0, 1.0);
+            for i in 0..thresholds.len() {
+                let p = self.conditional_default_prob_copula(
+                    copula_ref,
+                    thresholds[i],
+                    factors,
+                    correlation,
+                );
                 let w = weight_i[i] * lgd_i[i];
                 mean += w * p;
                 var += w * w * p * (1.0 - p);
@@ -1229,13 +1511,7 @@ impl CDSTranchePricer {
             mean * norm_cdf(a) + s * norm_pdf(a) + k * (1.0 - norm_cdf(a))
         };
 
-        if !(self.params.adaptive_integration_low..=self.params.adaptive_integration_high)
-            .contains(&correlation)
-        {
-            quad.integrate_adaptive(integrand, self.params.numerical_tolerance)
-        } else {
-            quad.integrate(integrand)
-        }
+        Ok(copula_ref.integrate_fn(&integrand))
     }
 
     /// Calculate conditional default probability given market factor Z.
@@ -1377,7 +1653,7 @@ impl CDSTranchePricer {
         discount_curve: &dyn Discounting,
         as_of: Date,
     ) -> Result<f64> {
-        let coupon = tranche.running_coupon_bp / 10000.0; // Convert bp to decimal
+        let coupon = tranche.running_coupon_bp / BASIS_POINTS_PER_UNIT; // Convert bp to decimal
         let tranche_notional = tranche.notional.amount();
 
         // Generate payment schedule and expected loss curve
@@ -1426,25 +1702,25 @@ impl CDSTranchePricer {
                 continue;
             }
 
-            // Accrual-on-default: reduce accrual by configured fraction of incremental loss (if enabled)
-            let effective_notional = if self.params.accrual_on_default_enabled {
+            // Base coupon accrual paid at period end
+            let discount_factor = discount_curve.df(t);
+            pv_premium += coupon * accrual_period * discount_factor * outstanding_notional;
+
+            // Accrual-on-default: apply mid-period discounting to the AoD adjustment only
+            if self.params.accrual_on_default_enabled {
                 let aod_adjustment =
                     self.params.aod_allocation_fraction * tranche_notional * delta_el_fraction;
-                (outstanding_notional - aod_adjustment).max(0.0)
-            } else {
-                outstanding_notional
-            };
-
-            // Discount at end or midpoint depending on config
-            let df_time = if self.params.mid_period_protection {
-                let t_start = self.years_from_base(index_data, period_start)?;
-                (t_start + t) * 0.5
-            } else {
-                t
-            };
-            let discount_factor = discount_curve.df(df_time);
-
-            pv_premium += coupon * accrual_period * discount_factor * effective_notional;
+                if aod_adjustment > 0.0 {
+                    let df_time = if self.params.mid_period_protection {
+                        let t_start = self.years_from_base(index_data, period_start)?;
+                        (t_start + t) * 0.5
+                    } else {
+                        t
+                    };
+                    let discount_factor_aod = discount_curve.df(df_time);
+                    pv_premium -= coupon * accrual_period * discount_factor_aod * aod_adjustment;
+                }
+            }
             prev_el_fraction = el_fraction;
         }
 
@@ -1950,50 +2226,52 @@ impl CDSTranchePricer {
 
         let num_constituents = index_data.num_constituents as usize;
         let base_weight = 1.0 / (num_constituents as f64);
-        let base_lgd = 1.0 - index_data.recovery_rate;
+        let base_recovery = index_data.recovery_rate;
+        let width = detach_frac - attach_frac;
+        let current_loss = tranche.accumulated_loss;
 
         // Collect JTD impacts for all names
         let mut impacts: Vec<f64> = Vec::with_capacity(num_constituents);
         let mut impacting_count = 0;
 
-        // Check if we have issuer-specific data
-        let has_issuer_curves = index_data.has_issuer_curves();
+        let loss_in_tranche_before = (current_loss - attach_frac).clamp(0.0, width);
 
-        for _i in 0..num_constituents {
-            // For now, assume uniform weights. In a full implementation,
-            // we would get issuer-specific weights and recovery rates.
-            let individual_weight = base_weight;
-            let loss_given_default = if has_issuer_curves {
-                // Could use issuer-specific recovery here if available
-                base_lgd
-            } else {
-                base_lgd
-            };
+        if index_data.has_issuer_curves() {
+            if let Some(curves) = &index_data.issuer_credit_curves {
+                let mut sorted_ids: Vec<&String> = curves.keys().collect();
+                sorted_ids.sort();
+                for id in sorted_ids {
+                    let individual_weight = index_data.get_issuer_weight(id);
+                    let recovery = index_data.get_issuer_recovery(id);
+                    let individual_loss = individual_weight * (1.0 - recovery);
 
-            let individual_loss = individual_weight * loss_given_default;
-
-            // Check if this loss hits the tranche layer
-            if individual_loss <= attach_frac {
-                // Loss doesn't reach the tranche
-                impacts.push(0.0);
-                continue;
+                    let loss_in_tranche_after =
+                        (current_loss + individual_loss - attach_frac).clamp(0.0, width);
+                    let incremental = (loss_in_tranche_after - loss_in_tranche_before).max(0.0);
+                    let impact_amount = if incremental > 0.0 {
+                        impacting_count += 1;
+                        tranche_notional * (incremental / width)
+                    } else {
+                        0.0
+                    };
+                    impacts.push(impact_amount);
+                }
             }
+        } else {
+            for _i in 0..num_constituents {
+                let individual_loss = base_weight * (1.0 - base_recovery);
 
-            impacting_count += 1;
-
-            // Calculate how much of the individual loss hits the tranche
-            let tranche_hit = if individual_loss >= detach_frac {
-                // Loss fully exhausts the tranche
-                tranche_width
-            } else {
-                // Loss partially hits the tranche
-                individual_loss - attach_frac
-            };
-
-            // Convert to tranche notional impact
-            let impact_on_tranche_fraction = tranche_hit / tranche_width;
-            let impact_amount = impact_on_tranche_fraction * tranche_notional;
-            impacts.push(impact_amount);
+                let loss_in_tranche_after =
+                    (current_loss + individual_loss - attach_frac).clamp(0.0, width);
+                let incremental = (loss_in_tranche_after - loss_in_tranche_before).max(0.0);
+                let impact_amount = if incremental > 0.0 {
+                    impacting_count += 1;
+                    tranche_notional * (incremental / width)
+                } else {
+                    0.0
+                };
+                impacts.push(impact_amount);
+            }
         }
 
         // Calculate min, max, average
@@ -2095,7 +2373,7 @@ impl CDSTranchePricer {
         let _ = index_data; // Mark as used (could compute expected loss here)
 
         // Calculate accrued premium
-        let coupon = tranche.running_coupon_bp / 10000.0;
+        let coupon = tranche.running_coupon_bp / BASIS_POINTS_PER_UNIT;
         let accrued = coupon * accrual_fraction * outstanding_notional;
 
         Ok(accrued)
@@ -2448,6 +2726,62 @@ mod tests {
         assert_eq!(pv.currency(), Currency::USD);
         // PV should be finite (could be positive or negative)
         assert!(pv.amount().is_finite());
+    }
+
+    #[test]
+    fn test_equity_helper_matches_explicit_params_pv() {
+        let model = CDSTranchePricer::new();
+        let market_ctx = sample_market_context();
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let maturity = Date::from_calendar_date(2030, Month::January, 1).expect("Valid test date");
+        let schedule_params = crate::cashflow::builder::ScheduleParams::quarterly_act360();
+
+        let helper_params = CDSTrancheParams::equity_tranche(
+            "CDX.NA.IG.42",
+            42,
+            Money::new(10_000_000.0, Currency::USD),
+            maturity,
+            500.0,
+        );
+        let helper_tranche = CdsTranche::new(
+            "CDX_IG42_0_3_HELPER",
+            &helper_params,
+            &schedule_params,
+            finstack_core::types::CurveId::from("USD-OIS"),
+            finstack_core::types::CurveId::from("CDX.NA.IG.42"),
+            TrancheSide::SellProtection,
+        );
+
+        let explicit_params = CDSTrancheParams::new(
+            "CDX.NA.IG.42",
+            42,
+            0.0,
+            3.0,
+            Money::new(10_000_000.0, Currency::USD),
+            maturity,
+            500.0,
+        );
+        let explicit_tranche = CdsTranche::new(
+            "CDX_IG42_0_3_EXPLICIT",
+            &explicit_params,
+            &schedule_params,
+            finstack_core::types::CurveId::from("USD-OIS"),
+            finstack_core::types::CurveId::from("CDX.NA.IG.42"),
+            TrancheSide::SellProtection,
+        );
+
+        let pv_helper = model
+            .price_tranche(&helper_tranche, &market_ctx, as_of)
+            .expect("Tranche pricing should succeed in test")
+            .amount();
+        let pv_explicit = model
+            .price_tranche(&explicit_tranche, &market_ctx, as_of)
+            .expect("Tranche pricing should succeed in test")
+            .amount();
+
+        let diff = (pv_helper - pv_explicit).abs();
+        let scale = pv_explicit.abs().max(1.0);
+        assert!(diff < 1e-8 * scale);
     }
 
     #[test]

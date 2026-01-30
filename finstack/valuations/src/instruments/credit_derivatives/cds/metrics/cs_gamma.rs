@@ -5,6 +5,7 @@
 //!
 //! Uses numerical differentiation with 1bp bumps to the hazard curve.
 
+use crate::constants::BASIS_POINTS_PER_UNIT;
 use crate::instruments::cds::CreditDefaultSwap;
 use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
@@ -67,7 +68,7 @@ impl MetricCalculator for CsGammaCalculator {
         // This gives the correct convexity measure even at par.
 
         // Convert bump from bp to decimal
-        let bump_decimal = bump_bp / 10_000.0;
+        let bump_decimal = bump_bp / BASIS_POINTS_PER_UNIT;
 
         // CS-Gamma = (PV_up + PV_down - 2×PV_base) / (bump²)
         // This gives the second derivative normalized per (basis point)²

@@ -40,6 +40,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 ///
 /// Projects forward rates and discounts floating coupon payments. Automatically
 /// detects OIS swaps (overnight compounding) and uses the appropriate pricing method.
+/// For seasoned swaps with past resets, uses historical fixings if available.
 pub struct FloatLegPvCalculator;
 
 impl MetricCalculator for FloatLegPvCalculator {
@@ -50,10 +51,14 @@ impl MetricCalculator for FloatLegPvCalculator {
         // Use the same discount curve as the main IRS pricer (fixed-leg curve)
         let disc = context.curves.get_discount(&irs.fixed.discount_curve_id)?;
 
+        // Look up historical fixings for seasoned swaps
+        let fixings_id = format!("FIXING:{}", irs.float.forward_curve_id.as_str());
+        let fixings = context.curves.series(&fixings_id).ok();
+
         let pv_money = match irs.float.compounding {
             FloatingLegCompounding::Simple => {
                 let fwd = context.curves.get_forward(&irs.float.forward_curve_id)?;
-                irs.pv_float_leg(&disc, fwd.as_ref(), as_of)?
+                irs.pv_float_leg(&disc, fwd.as_ref(), as_of, fixings)?
             }
             FloatingLegCompounding::CompoundedInArrears { .. } => {
                 // Compounded RFR swap (single-curve or multi-curve).
@@ -65,8 +70,6 @@ impl MetricCalculator for FloatLegPvCalculator {
                 } else {
                     Some(context.curves.get_forward(&irs.float.forward_curve_id)?)
                 };
-                let fixings_id = format!("FIXING:{}", irs.float.forward_curve_id.as_str());
-                let fixings = context.curves.series(&fixings_id).ok();
                 irs.pv_compounded_float_leg(&disc, proj.as_deref(), as_of, fixings)?
             }
         };

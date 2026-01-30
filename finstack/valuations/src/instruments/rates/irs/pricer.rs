@@ -377,6 +377,8 @@ impl InterestRateSwap {
     /// * `disc` - Discount curve for discounting cashflows
     /// * `fwd` - Forward curve for projecting floating rates
     /// * `as_of` - Valuation date (only future cashflows are included)
+    /// * `fixings` - Optional historical fixings for seasoned swaps. Required when
+    ///   `reset_date < as_of` for any period; if missing, returns an error.
     ///
     /// # Returns
     ///
@@ -389,6 +391,8 @@ impl InterestRateSwap {
     /// - Forward rates are projected using the forward curve's day count convention
     ///   and base date, ensuring consistency with curve construction.
     /// - Accrual fractions use the floating leg's day count convention (e.g., ACT/360).
+    /// - For seasoned swaps with past resets, historical fixings are used instead of
+    ///   forward projection.
     ///
     /// # Numerical Stability
     ///
@@ -398,13 +402,15 @@ impl InterestRateSwap {
     ///
     /// # Errors
     ///
-    /// Returns a validation error if the valuation date discount factor is below
-    /// the numerical stability threshold (DF_EPSILON = 1e-10).
+    /// Returns a validation error if:
+    /// - The valuation date discount factor is below the numerical stability threshold
+    /// - Historical fixings are required but not provided or missing for a reset date
     pub(crate) fn pv_float_leg(
         &self,
         disc: &finstack_core::market_data::term_structures::DiscountCurve,
         fwd: &finstack_core::market_data::term_structures::ForwardCurve,
         as_of: Date,
+        fixings: Option<&ScalarTimeSeries>,
     ) -> finstack_core::Result<f64> {
         // Build the floating-leg schedule via the shared cashflow builder so reset
         // lags, calendars, and stub handling stay centralized.
@@ -451,6 +457,7 @@ impl InterestRateSwap {
             disc,
             fwd,
             as_of,
+            fixings,
         )
     }
 }
@@ -514,11 +521,16 @@ pub fn npv_raw(irs: &InterestRateSwap, context: &MarketContext, as_of: Date) -> 
     let disc = context.get_discount(irs.fixed.discount_curve_id.as_ref())?;
     let pv_fixed = irs.pv_fixed_leg(disc.as_ref(), as_of)?;
 
+    // Look up historical fixings for seasoned swaps (both Simple and Compounded paths)
+    let fixings_id = format!("FIXING:{}", irs.float.forward_curve_id.as_str());
+    let fixings = context.series(&fixings_id).ok();
+
     let pv_float = match irs.float.compounding {
         FloatingLegCompounding::Simple => {
-            // Term-rate swap: requires forward curve for float leg pricing
+            // Term-rate swap: requires forward curve for float leg pricing.
+            // For seasoned swaps with past resets, historical fixings are used.
             let fwd = context.get_forward(irs.float.forward_curve_id.as_ref())?;
-            irs.pv_float_leg(disc.as_ref(), fwd.as_ref(), as_of)?
+            irs.pv_float_leg(disc.as_ref(), fwd.as_ref(), as_of, fixings)?
         }
         FloatingLegCompounding::CompoundedInArrears { .. } => {
             // Compounded RFR swap (single-curve or multi-curve).
@@ -532,8 +544,6 @@ pub fn npv_raw(irs: &InterestRateSwap, context: &MarketContext, as_of: Date) -> 
             } else {
                 Some(context.get_forward(irs.float.forward_curve_id.as_ref())?)
             };
-            let fixings_id = format!("FIXING:{}", irs.float.forward_curve_id.as_str());
-            let fixings = context.series(&fixings_id).ok();
             irs.pv_compounded_float_leg(disc.as_ref(), proj.as_deref(), as_of, fixings)?
         }
     };
