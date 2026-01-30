@@ -111,7 +111,7 @@
 //!
 //! # Implementation Notes
 //!
-//! - Follows ISDA CDS Standard Model v1.8.2 conventions exactly
+//! - Aligns with ISDA CDS Standard Model v1.8.2 conventions for deterministic curves
 //! - Accrual-on-default using midpoint approximation (ISDA standard)
 //! - Hazard rate curve bootstrapped from CDS spreads
 //! - Recovery rate typically assumed constant at 40%

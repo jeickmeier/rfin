@@ -7,6 +7,7 @@
 //! - PD (Probability of Default) = 1 - Survival Probability to maturity
 //! - LGD (Loss Given Default) = 1 - Recovery Rate
 
+use crate::constants::credit;
 use crate::instruments::cds::CreditDefaultSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::DayCountCtx;
@@ -38,12 +39,11 @@ impl MetricCalculator for ExpectedLossCalculator {
 
         // Conditional survival to maturity given survival to as_of.
         let sp_asof = hazard.sp(t_asof);
+        if sp_asof <= credit::SURVIVAL_PROBABILITY_FLOOR {
+            return Ok(0.0);
+        }
         let sp_maturity = hazard.sp(t_maturity);
-        let survival_cond = if sp_asof > 0.0 {
-            sp_maturity / sp_asof
-        } else {
-            0.0
-        };
+        let survival_cond = sp_maturity / sp_asof;
 
         // Default probability
         let default_prob = (1.0 - survival_cond).clamp(0.0, 1.0);

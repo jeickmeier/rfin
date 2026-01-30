@@ -68,6 +68,7 @@ use finstack_core::money::Money;
 use finstack_core::{Error, Result};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
+use std::cell::RefCell;
 use time::Duration;
 
 /// Numerical integration method for protection leg.
@@ -112,7 +113,7 @@ pub enum IntegrationMethod {
     ///
     /// The recommended method for production CDS pricing. Uses analytical
     /// formulas assuming piecewise-constant hazard rates between curve knots,
-    /// matching ISDA Standard Model v1.8.2 exactly.
+    /// aligned with ISDA Standard Model v1.8.2 for the provided curve inputs.
     IsdaStandardModel,
 }
 
@@ -1278,16 +1279,31 @@ impl CDSPricer {
 
         let h = (t_end - t_start) * numerical::INTEGRATION_STEP_FACTOR;
         let lgd = 1.0 - recovery;
+        let df_error: RefCell<Option<Error>> = RefCell::new(None);
         let integrand = |t: f64| {
+            if df_error.borrow().is_some() {
+                return 0.0;
+            }
             // Conditional default density
             let density = approx_default_density(surv, t, h, t_start, t_end) / sp_asof;
             // Discount on actual dates
             let default_date = date_from_hazard_time(surv, t);
             let settle_date = default_date + Duration::days(delay_days);
-            let df = df_asof_to(disc, as_of, settle_date).unwrap_or(0.0);
+            let df = match df_asof_to(disc, as_of, settle_date) {
+                Ok(df) => df,
+                Err(e) => {
+                    *df_error.borrow_mut() = Some(e);
+                    0.0
+                }
+            };
             lgd * density * df
         };
-        gauss_legendre_integrate(integrand, t_start, t_end, self.config.validated_gl_order())
+        let result =
+            gauss_legendre_integrate(integrand, t_start, t_end, self.config.validated_gl_order())?;
+        if let Some(err) = df_error.into_inner() {
+            return Err(err);
+        }
+        Ok(result)
     }
 
     /// Adaptive Simpson method with conditional survival and relative discounting
@@ -1315,22 +1331,36 @@ impl CDSPricer {
 
         let h = (t_end - t_start) * numerical::INTEGRATION_STEP_FACTOR;
         let lgd = 1.0 - recovery;
+        let df_error: RefCell<Option<Error>> = RefCell::new(None);
         let integrand = |t: f64| {
+            if df_error.borrow().is_some() {
+                return 0.0;
+            }
             // Conditional default density
             let density = approx_default_density(surv, t, h, t_start, t_end) / sp_asof;
             // Discount on actual dates
             let default_date = date_from_hazard_time(surv, t);
             let settle_date = default_date + Duration::days(delay_days);
-            let df = df_asof_to(disc, as_of, settle_date).unwrap_or(0.0);
+            let df = match df_asof_to(disc, as_of, settle_date) {
+                Ok(df) => df,
+                Err(e) => {
+                    *df_error.borrow_mut() = Some(e);
+                    0.0
+                }
+            };
             lgd * density * df
         };
-        adaptive_simpson(
+        let result = adaptive_simpson(
             integrand,
             t_start,
             t_end,
             self.config.tolerance,
             self.config.adaptive_max_depth,
-        )
+        )?;
+        if let Some(err) = df_error.into_inner() {
+            return Err(err);
+        }
+        Ok(result)
     }
 
     /// ISDA exact method with conditional survival and relative discounting
@@ -2096,7 +2126,7 @@ impl CDSBootstrapper {
                 Ok(curve) => curve,
                 Err(_) => return f64::NAN, // Signal invalid region to solver
             };
-            match pricer.par_spread(cds, disc, &surv, disc.base_date()) {
+            match pricer.par_spread(cds, disc, &surv, base_date) {
                 Ok(spread) => spread - target_spread_bps,
                 Err(_) => f64::NAN, // Signal invalid region to solver
             }

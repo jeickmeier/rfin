@@ -37,7 +37,7 @@
 //! ```
 
 use crate::cashflow::traits::DatedFlows;
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common::traits::{Attributes, CurveIdVec};
 use crate::instruments::PricingOverrides;
 use crate::margin::types::OtcMarginSpec;
 use finstack_core::currency::Currency;
@@ -48,6 +48,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{Bps, InstrumentId};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
+use smallvec::smallvec;
 use time::macros::date;
 
 use crate::instruments::cds::pricer::CDSPricer;
@@ -1032,7 +1033,7 @@ impl CreditDefaultSwap {
             pricer.pv_protection_leg_raw(self, disc.as_ref(), surv.as_ref(), as_of)?;
         let premium_pv = pricer.pv_premium_leg_raw(self, disc.as_ref(), surv.as_ref(), as_of)?;
 
-        // Calculate Upfront PV
+        // Calculate dated upfront PV
         let upfront_pv = if let Some((dt, amount)) = self.upfront {
             if dt >= as_of {
                 let df = disc.df_between_dates(as_of, dt)?;
@@ -1044,17 +1045,24 @@ impl CreditDefaultSwap {
             0.0
         };
 
+        // PV adjustment upfront (already discounted at as_of, no sign flip)
+        let upfront_adjustment = self
+            .pricing_overrides
+            .upfront_payment
+            .map(|m| m.amount())
+            .unwrap_or(0.0);
+
         // Apply sign convention based on side
         // Base NPV = Protection (received) - Premium (paid) [as Buyer]
         // Upfront: Positive amount is paid by Buyer. So it reduces Buyer NPV.
         let npv_amount = match self.side {
             PayReceive::PayFixed => {
                 // Protection buyer: pays premium, receives protection, pays upfront (if positive)
-                protection_pv - premium_pv - upfront_pv
+                protection_pv - premium_pv - upfront_pv + upfront_adjustment
             }
             PayReceive::ReceiveFixed => {
                 // Protection seller: receives premium, pays protection, receives upfront (if positive)
-                premium_pv - protection_pv + upfront_pv
+                premium_pv - protection_pv + upfront_pv + upfront_adjustment
             }
         };
 
@@ -1069,6 +1077,14 @@ impl crate::instruments::common::traits::Instrument for CreditDefaultSwap {
 
     fn key(&self) -> crate::pricer::InstrumentType {
         crate::pricer::InstrumentType::CDS
+    }
+
+    fn required_discount_curves(&self) -> CurveIdVec {
+        smallvec![self.premium.discount_curve_id.clone()]
+    }
+
+    fn required_hazard_curves(&self) -> CurveIdVec {
+        smallvec![self.protection.credit_curve_id.clone()]
     }
 
     fn as_any(&self) -> &dyn ::std::any::Any {

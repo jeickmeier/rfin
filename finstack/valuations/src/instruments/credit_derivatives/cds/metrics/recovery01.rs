@@ -39,9 +39,9 @@ impl MetricCalculator for Recovery01Calculator {
         cds_down.protection.recovery_rate = (base_recovery - RECOVERY_BUMP).clamp(0.0, 1.0);
         let pv_down = cds_down.npv(&context.curves, as_of)?.amount();
 
-        // Recovery01 = (PV_up - PV_down) / (2 * bump_size)
-        // Since bump is 1%, divide by 2 to get per 1% move
-        let recovery01 = (pv_up - pv_down) / (2.0 * RECOVERY_BUMP);
+        // Recovery01 = (PV_up - PV_down) / 2
+        // This returns the PV change for a 1% (100bp) recovery move.
+        let recovery01 = (pv_up - pv_down) / 2.0;
 
         Ok(recovery01)
     }
