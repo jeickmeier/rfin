@@ -59,7 +59,7 @@ impl CashflowProvider for Bond {
             self.get_full_schedule(curves)?
         };
 
-        // Filter flows to holder view, preserving CashFlow objects with CFKind
+        // Filter flows to holder view, preserving CashFlow objects with CFKind.
         let filtered_flows: Vec<crate::cashflow::primitives::CashFlow> = schedule
             .flows
             .iter()
@@ -71,7 +71,7 @@ impl CashflowProvider for Bond {
                     CFKind::Amortization => Some(*cf),
                     // Include positive notional (redemption)
                     CFKind::Notional if cf.amount.amount() > 0.0 => Some(*cf),
-                    // Exclude others
+                    // Exclude others (initial notional, fees, PIK, etc.)
                     _ => None,
                 }
             })

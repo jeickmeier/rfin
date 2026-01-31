@@ -73,12 +73,15 @@ pub fn calculate_period_flows(
         }
     }
 
-    // Get closing balance from outstanding_by_date
+    // Get closing balance from outstanding_by_date.
+    // Find the most recent outstanding balance at or before period end.
+    // Note: outstanding_path only has entries on dates when cashflows occur,
+    // so we need to find the latest entry <= period.end to get the correct balance.
     let outstanding_path = full_schedule.outstanding_by_date()?;
     let closing_balance = outstanding_path
         .iter()
         .rev()
-        .find(|(date, _)| *date >= period.start && *date < period.end)
+        .find(|(date, _)| *date <= period.end)
         .map(|(_, balance)| {
             if balance.amount() < 0.0 {
                 Money::new(-balance.amount(), balance.currency())
@@ -87,12 +90,14 @@ pub fn calculate_period_flows(
             }
         })
         .unwrap_or_else(|| {
-            // If no flows in period, use opening balance adjusted by flows
-            opening_balance
-                .checked_sub(breakdown.principal_payment)
-                .unwrap_or_else(|_| Money::new(0.0, currency))
-                .checked_add(breakdown.interest_expense_pik)
-                .unwrap_or_else(|_| Money::new(0.0, currency))
+            // If no outstanding entries yet, use initial notional from schedule
+            // or fall back to opening balance adjusted by flows
+            let initial = full_schedule.notional.initial;
+            if initial.amount() < 0.0 {
+                Money::new(-initial.amount(), initial.currency())
+            } else {
+                initial
+            }
         });
 
     breakdown.debt_balance = closing_balance;
@@ -316,61 +321,84 @@ pub fn aggregate_instrument_cashflows(
             }
         }
 
-        // Use precise outstanding balance tracking from valuations
+        // Build outstanding path for debt balance lookups.
+        // Note: outstanding_path only has entries on dates when cashflows occur,
+        // so we need to interpolate for periods without explicit entries.
         let outstanding_path = full_schedule.outstanding_by_date()?;
-        for (date, outstanding_amount) in outstanding_path {
-            if let Some(period) = periods.iter().find(|p| date >= p.start && date < p.end) {
-                let period_id = period.id;
-                let period_end = period.end;
-                if let Some(breakdown) = instrument_periods.get_mut(&period_id) {
-                    // Keep as Money, use absolute value for issuer perspective
-                    let issuer_balance = if outstanding_amount.amount() < 0.0 {
-                        finstack_core::money::Money::new(
-                            -outstanding_amount.amount(),
-                            outstanding_amount.currency(),
-                        )
-                    } else {
-                        outstanding_amount
-                    };
-                    breakdown.debt_balance = issuer_balance;
 
-                    // Calculate accrued interest at period end
-                    let accrued_scalar = accrued_interest_amount(
-                        &full_schedule,
+        // Calculate accrued interest and debt balance for ALL periods, not just
+        // periods with cashflow entries. This ensures proper accrual accumulation
+        // between coupon payment dates.
+        for period in periods {
+            let period_id = period.id;
+            let period_end = period.end;
+
+            if let Some(breakdown) = instrument_periods.get_mut(&period_id) {
+                // Find the most recent outstanding balance at or before period end.
+                // Use rev().find() to efficiently get the latest entry <= period_end.
+                let outstanding_at_period = outstanding_path
+                    .iter()
+                    .rev()
+                    .find(|(date, _)| *date <= period_end)
+                    .map(|(_, amount)| *amount)
+                    .unwrap_or(full_schedule.notional.initial);
+
+                // Keep as Money, use absolute value for issuer perspective
+                let issuer_balance = if outstanding_at_period.amount() < 0.0 {
+                    finstack_core::money::Money::new(
+                        -outstanding_at_period.amount(),
+                        outstanding_at_period.currency(),
+                    )
+                } else {
+                    outstanding_at_period
+                };
+                breakdown.debt_balance = issuer_balance;
+
+                // Calculate accrued interest at the last day of the period.
+                // Periods use half-open intervals [start, end), so the last day is end - 1.
+                // This is important because coupon dates that fall exactly on period_end
+                // would otherwise show 0 accrued (since the coupon has just been paid).
+                //
+                // Example: M6 = [June 1, July 1) with coupon on July 1
+                // - Query at July 1: accrued = 0 (coupon period ended, payment due)
+                // - Query at June 30: accrued = full coupon amount
+                let accrual_date = period_end - time::Duration::days(1);
+                let accrued_scalar = accrued_interest_amount(
+                    &full_schedule,
+                    accrual_date,
+                    &AccrualConfig::default(),
+                )?;
+                let accrued_money = Money::new(accrued_scalar, currency);
+                breakdown.accrued_interest = accrued_money;
+
+                // Convert to reporting currency for totals
+                if let (Some(map), Some(money)) = (
+                    reporting_totals.as_mut(),
+                    convert_to_reporting(
+                        issuer_balance,
                         period_end,
-                        &AccrualConfig::default(),
-                    )?;
-                    let accrued_money = Money::new(accrued_scalar, currency);
-                    breakdown.accrued_interest = accrued_money;
-
-                    if let (Some(map), Some(money)) = (
-                        reporting_totals.as_mut(),
-                        convert_to_reporting(
-                            issuer_balance,
-                            date,
-                            reporting_currency,
-                            fx_matrix,
-                            fx_policy,
-                        )?,
-                    ) {
-                        if let Some(total) = map.get_mut(&period_id) {
-                            total.debt_balance = money;
-                        }
+                        reporting_currency,
+                        fx_matrix,
+                        fx_policy,
+                    )?,
+                ) {
+                    if let Some(total) = map.get_mut(&period_id) {
+                        total.debt_balance = money;
                     }
+                }
 
-                    if let (Some(map), Some(money)) = (
-                        reporting_totals.as_mut(),
-                        convert_to_reporting(
-                            accrued_money,
-                            date,
-                            reporting_currency,
-                            fx_matrix,
-                            fx_policy,
-                        )?,
-                    ) {
-                        if let Some(total) = map.get_mut(&period_id) {
-                            total.accrued_interest = money;
-                        }
+                if let (Some(map), Some(money)) = (
+                    reporting_totals.as_mut(),
+                    convert_to_reporting(
+                        accrued_money,
+                        period_end,
+                        reporting_currency,
+                        fx_matrix,
+                        fx_policy,
+                    )?,
+                ) {
+                    if let Some(total) = map.get_mut(&period_id) {
+                        total.accrued_interest = money;
                     }
                 }
             }

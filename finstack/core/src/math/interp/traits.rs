@@ -143,12 +143,29 @@ pub trait InterpolationStrategy: Send + Sync + Debug {
     /// Build strategy-specific state from raw knots and values.
     ///
     /// # Arguments
+    ///
     /// * `knots` – strictly ascending knot times (already validated by caller).
     /// * `values` – corresponding values (already validated by caller).
     /// * `extrapolation` – extrapolation policy.
     ///
     /// # Errors
-    /// Strategy-specific validation errors (e.g., non-monotone for MonotoneConvex).
+    ///
+    /// Returns [`crate::Error`] when strategy-specific validation fails:
+    ///
+    /// - [`InputError::NonMonotonicKnots`](crate::error::InputError::NonMonotonicKnots):
+    ///   Values violate monotonicity requirement (MonotoneConvex strategy)
+    /// - [`InputError::TooFewPoints`](crate::error::InputError::TooFewPoints):
+    ///   Insufficient knots for the strategy (e.g., cubic requires ≥ 4 points)
+    /// - [`InputError::NonPositiveValue`](crate::error::InputError::NonPositiveValue):
+    ///   Log-based strategies require positive values for logarithm
+    /// - [`InputError::Invalid`](crate::error::InputError::Invalid):
+    ///   General validation failure (non-finite values, degenerate segments)
+    ///
+    /// # Implementation Note
+    ///
+    /// Callers (typically `Interpolator<S>`) should validate knots are strictly
+    /// ascending before calling this method. This method handles only
+    /// strategy-specific validation such as monotonicity or positivity constraints.
     fn from_raw(
         knots: &[f64],
         values: &[f64],

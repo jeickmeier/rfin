@@ -31,9 +31,10 @@ use serde::{Deserialize, Serialize};
 ///     .insert(period, CashflowBreakdown {
 ///         interest_expense_cash: Money::new(10_000.0, Currency::USD),
 ///         interest_expense_pik: Money::new(2_500.0, Currency::USD),
-///        principal_payment: Money::new(100_000.0, Currency::USD),
-///        fees: Money::new(0.0, Currency::USD),
-///        debt_balance: Money::new(4_900_000.0, Currency::USD),
+///         principal_payment: Money::new(100_000.0, Currency::USD),
+///         fees: Money::new(0.0, Currency::USD),
+///         debt_balance: Money::new(4_900_000.0, Currency::USD),
+///         accrued_interest: Money::new(5_000.0, Currency::USD),
 ///     });
 /// cs.totals.insert(period, CashflowBreakdown {
 ///     interest_expense_cash: Money::new(10_000.0, Currency::USD),
@@ -41,6 +42,7 @@ use serde::{Deserialize, Serialize};
 ///     principal_payment: Money::new(100_000.0, Currency::USD),
 ///     fees: Money::new(0.0, Currency::USD),
 ///     debt_balance: Money::new(4_900_000.0, Currency::USD),
+///     accrued_interest: Money::new(5_000.0, Currency::USD),
 /// });
 ///
 /// assert_eq!(cs.get_total_interest(&period).unwrap(), 12_500.0);

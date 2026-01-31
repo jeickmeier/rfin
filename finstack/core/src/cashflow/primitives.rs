@@ -17,46 +17,136 @@ use crate::money::Money;
 ///
 /// Used to distinguish between different types of cashflows for
 /// proper sequencing, risk calculation, and accounting treatment.
+///
+/// # Sign Convention
+///
 /// The enum itself is **view agnostic**: individual instruments are
-/// responsible for mapping these kinds into a holder or issuer view
-/// (e.g. whether amortization appears as a positive or negative amount
-/// in their simplified cashflow schedules).
+/// responsible for mapping these kinds into a holder or issuer view.
+/// By convention in this crate:
+///
+/// | Kind | Holder View (Long) | Issuer View (Short) |
+/// |------|-------------------|---------------------|
+/// | Interest (Fixed/Float) | Positive (receive) | Negative (pay) |
+/// | Notional (initial) | Negative (pay) | Positive (receive) |
+/// | Notional (final) | Positive (receive) | Negative (pay) |
+/// | Amortization | Positive (receive) | Negative (pay) |
+/// | PIK | Increases notional | Increases liability |
+/// | Fee | Negative (pay) | Positive (receive) |
+///
+/// When constructing cashflow schedules, instruments should apply the appropriate
+/// sign based on the economic perspective being represented.
+///
+/// # Cashflow Categories
+///
+/// Variants are grouped by category:
+/// - **Interest**: `Fixed`, `FloatReset`, `Stub`
+/// - **Fees**: `Fee`, `CommitmentFee`, `UsageFee`, `FacilityFee`
+/// - **Principal**: `Notional`, `PIK`, `Amortization`, `PrePayment`
+/// - **Revolving**: `RevolvingDraw`, `RevolvingRepayment`
+/// - **Credit Events**: `DefaultedNotional`, `Recovery`
+/// - **Margin/Collateral**: `InitialMarginPost`, `VariationMarginPay`, etc.
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum CFKind {
     /// Fixed-rate coupon cash-flow.
+    ///
+    /// Periodic interest payment calculated as: `notional × rate × accrual_factor`.
+    /// The `rate` field on [`CashFlow`] stores the coupon rate used.
     Fixed,
-    /// Floating-rate reset (index fixing).
+
+    /// Floating-rate coupon cash-flow (or index fixing event).
+    ///
+    /// Interest payment based on a reference rate (e.g., SOFR, EURIBOR) plus spread.
+    /// The `reset_date` field on [`CashFlow`] indicates when the rate was fixed.
+    /// The `rate` field stores the all-in rate (index + spread) if known.
     FloatReset,
 
-    /// Up-front fee or cost.
+    /// Up-front fee or cost paid at inception.
+    ///
+    /// One-time fee paid at trade date or settlement date, such as origination fees,
+    /// arrangement fees, or underwriting fees.
     Fee,
-    /// Generic fee cash-flow.
+
+    /// Commitment fee on undrawn balance.
+    ///
+    /// Periodic fee charged on the undrawn portion of a revolving facility.
+    /// Typically quoted in basis points per annum on the unused commitment.
     CommitmentFee,
+
     /// Usage fee on drawn balance.
+    ///
+    /// Additional fee charged when facility utilization exceeds a threshold,
+    /// common in leveraged loan facilities.
     UsageFee,
+
     /// Facility fee on total commitment.
+    ///
+    /// Fee charged on the entire committed amount regardless of utilization,
+    /// covering the lender's cost of keeping the facility available.
     FacilityFee,
 
-    /// Principal exchange / notional flow.
+    /// Principal exchange or notional flow.
+    ///
+    /// Used for initial notional payment (at inception), final notional repayment
+    /// (at maturity), or intermediate notional exchanges in cross-currency swaps.
+    /// For bonds: initial = purchase price, final = par redemption.
     Notional,
-    /// Payment-in-kind interest capitalization (adds to principal).
+
+    /// Payment-in-kind interest capitalization.
+    ///
+    /// Interest that is added to the outstanding principal rather than paid in cash.
+    /// Creates a new notional amount: `new_notional = old_notional + PIK_interest`.
+    /// The amount field represents the interest capitalized.
     PIK,
-    /// Amortization principal repayment (reduces principal).
+
+    /// Scheduled amortization (principal repayment).
+    ///
+    /// Reduces the outstanding principal per the amortization schedule.
+    /// Amount is positive from holder perspective (principal returned).
+    /// After amortization: `remaining_notional = previous_notional - amortization`.
     Amortization,
-    /// Prepayment of principal (early return of principal in structured credit).
+
+    /// Prepayment of principal (unscheduled early repayment).
+    ///
+    /// Voluntary or mandatory early return of principal, common in:
+    /// - Mortgage-backed securities (borrower refinancing)
+    /// - CLO/CDO structures (collateral prepayments)
+    /// - Callable bonds (issuer exercise)
     PrePayment,
-    /// Revolving Draw
+
+    /// Revolving facility draw (borrowing).
+    ///
+    /// Increase in outstanding principal when borrower draws on a revolving facility.
+    /// From holder (lender) view: negative (cash out to borrower).
+    /// Increases the drawn balance used for interest calculations.
     RevolvingDraw,
-    /// Revolving Repayment
+
+    /// Revolving facility repayment.
+    ///
+    /// Decrease in outstanding principal when borrower repays revolving facility.
+    /// From holder (lender) view: positive (cash in from borrower).
+    /// Restores availability under the commitment.
     RevolvingRepayment,
 
-    /// Defaulted notional (principal that has defaulted).
+    /// Defaulted notional (principal written down due to credit event).
+    ///
+    /// Represents the portion of principal that has experienced a credit event
+    /// (failure to pay, bankruptcy, restructuring). Amount reflects the
+    /// write-down from par.
     DefaultedNotional,
-    /// Recovery cashflow (amount recovered from defaulted principal).
+
+    /// Recovery cashflow from defaulted principal.
+    ///
+    /// Amount recovered through workout, liquidation, or settlement of defaulted
+    /// debt. Typically expressed as a percentage of defaulted notional
+    /// (recovery rate × defaulted amount).
     Recovery,
 
-    /// Irregular stub period.
+    /// Irregular stub period interest.
+    ///
+    /// Interest payment for a non-standard accrual period at the beginning (front stub)
+    /// or end (back stub) of a schedule. May be short stub (< regular period) or
+    /// long stub (> regular period). Accrual factor reflects actual period length.
     Stub,
 
     // -------------------------------------------------------------------------
