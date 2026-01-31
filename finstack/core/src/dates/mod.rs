@@ -73,7 +73,6 @@ mod imm;
 mod tenor;
 
 pub mod fx;
-pub use fx::*;
 
 pub use tenor::{Tenor, TenorUnit};
 

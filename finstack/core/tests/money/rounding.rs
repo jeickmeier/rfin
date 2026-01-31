@@ -13,7 +13,7 @@ fn money_display_respects_output_scale() {
     cfg.rounding.output_scale = CurrencyScalePolicy {
         overrides: Default::default(),
     };
-    let m = Money::new(1.23456, (Currency::USD, &cfg));
+    let m = Money::new_with_config(1.23456, Currency::USD, &cfg);
     // default USD decimals is 2 by ISO; override output to 3 for the test
     let mut cfg = FinstackConfig::default();
     cfg.rounding.mode = RoundingMode::AwayFromZero;

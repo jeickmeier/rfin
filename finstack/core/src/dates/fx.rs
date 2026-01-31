@@ -273,7 +273,7 @@ pub fn roll_spot_date(
 /// ```
 /// # use finstack_core::dates::{create_date, BusinessDayConvention};
 /// # use time::Month;
-/// # use finstack_core::dates::fx::{ResolvedCalendarPair, add_joint_business_days_with_calendars};
+/// # use finstack_core::dates::fx::ResolvedCalendarPair;
 /// // Resolve once
 /// let cals = ResolvedCalendarPair::resolve(Some("nyse"), Some("gblo"))
 ///     .expect("Valid calendars");
@@ -281,7 +281,8 @@ pub fn roll_spot_date(
 /// // Use many times without registry lookup overhead
 /// for _ in 0..1000 {
 ///     let start = create_date(2024, Month::January, 15).unwrap();
-///     let _result = add_joint_business_days_with_calendars(start, 2, &cals)
+///     let _result = cals
+///         .add_joint_business_days(start, 2)
 ///         .expect("valid joint calendar roll");
 /// }
 /// ```
@@ -308,89 +309,78 @@ impl ResolvedCalendarPair {
         self.base.as_holiday_calendar().is_business_day(date)
             && self.quote.as_holiday_calendar().is_business_day(date)
     }
-}
 
-/// Add N business days using pre-resolved calendars.
-///
-/// This is the batch-optimized variant of [`add_joint_business_days`]. Use this
-/// when processing many dates with the same calendar pair to avoid repeated
-/// registry lookups.
-///
-/// # Arguments
-///
-/// * `start` - Starting date
-/// * `n_days` - Number of joint business days to add
-/// * `calendars` - Pre-resolved calendar pair
-///
-/// # Returns
-///
-/// The date that is `n_days` joint business days after `start`.
-#[inline]
-pub fn add_joint_business_days_with_calendars(
-    start: Date,
-    n_days: u32,
-    calendars: &ResolvedCalendarPair,
-) -> Result<Date> {
-    let mut date = start;
-    let mut count = 0u32;
-    let max_iters: u32 = (n_days.saturating_mul(10).saturating_add(25)).max(1000);
-    let mut iters: u32 = 0;
+    /// Add N business days using pre-resolved calendars.
+    ///
+    /// This is the batch-optimized variant of [`add_joint_business_days`]. Use this
+    /// when processing many dates with the same calendar pair to avoid repeated
+    /// registry lookups.
+    ///
+    /// # Arguments
+    ///
+    /// * `start` - Starting date
+    /// * `n_days` - Number of joint business days to add
+    ///
+    /// # Returns
+    ///
+    /// The date that is `n_days` joint business days after `start`.
+    pub fn add_joint_business_days(&self, start: Date, n_days: u32) -> Result<Date> {
+        let mut date = start;
+        let mut count = 0u32;
+        let max_iters: u32 = (n_days.saturating_mul(10).saturating_add(25)).max(1000);
+        let mut iters: u32 = 0;
 
-    while count < n_days && iters < max_iters {
-        date += Duration::days(1);
-        if calendars.is_joint_business_day(date) {
-            count += 1;
+        while count < n_days && iters < max_iters {
+            date += Duration::days(1);
+            if self.is_joint_business_day(date) {
+                count += 1;
+            }
+            iters += 1;
         }
-        iters += 1;
+
+        if iters >= max_iters {
+            return Err(Error::Input(
+                crate::error::InputError::JointCalendarIterationLimitExceeded {
+                    start,
+                    n_days,
+                    max_iters,
+                },
+            ));
+        }
+
+        Ok(date)
     }
 
-    if iters >= max_iters {
-        return Err(Error::Input(
-            crate::error::InputError::JointCalendarIterationLimitExceeded {
-                start,
-                n_days,
-                max_iters,
+    /// Adjust a date using pre-resolved calendars.
+    ///
+    /// This is the batch-optimized variant of [`adjust_joint_calendar`].
+    ///
+    /// # Arguments
+    ///
+    /// * `date` - Date to adjust
+    /// * `bdc` - Business day convention
+    ///
+    /// # Returns
+    ///
+    /// The adjusted date that is a business day on both calendars.
+    pub fn adjust_joint_calendar(&self, date: Date, bdc: BusinessDayConvention) -> Result<Date> {
+        let mut d = date;
+        for _ in 0..JOINT_CALENDAR_MAX_ITERATIONS {
+            let adj_base = adjust(d, bdc, self.base.as_holiday_calendar())?;
+            let adj_quote = adjust(adj_base, bdc, self.quote.as_holiday_calendar())?;
+            if adj_quote == d {
+                return Ok(adj_quote);
+            }
+            d = adj_quote;
+        }
+        Err(Error::Input(
+            crate::error::InputError::JointCalendarNonConvergent {
+                date,
+                convention: bdc,
+                max_iterations: JOINT_CALENDAR_MAX_ITERATIONS as u32,
             },
-        ));
+        ))
     }
-
-    Ok(date)
-}
-
-/// Adjust a date using pre-resolved calendars.
-///
-/// This is the batch-optimized variant of [`adjust_joint_calendar`].
-///
-/// # Arguments
-///
-/// * `date` - Date to adjust
-/// * `bdc` - Business day convention
-/// * `calendars` - Pre-resolved calendar pair
-///
-/// # Returns
-///
-/// The adjusted date that is a business day on both calendars.
-pub fn adjust_joint_calendar_with_calendars(
-    date: Date,
-    bdc: BusinessDayConvention,
-    calendars: &ResolvedCalendarPair,
-) -> Result<Date> {
-    let mut d = date;
-    for _ in 0..JOINT_CALENDAR_MAX_ITERATIONS {
-        let adj_base = adjust(d, bdc, calendars.base.as_holiday_calendar())?;
-        let adj_quote = adjust(adj_base, bdc, calendars.quote.as_holiday_calendar())?;
-        if adj_quote == d {
-            return Ok(adj_quote);
-        }
-        d = adj_quote;
-    }
-    Err(Error::Input(
-        crate::error::InputError::JointCalendarNonConvergent {
-            date,
-            convention: bdc,
-            max_iterations: JOINT_CALENDAR_MAX_ITERATIONS as u32,
-        },
-    ))
 }
 
 #[cfg(test)]

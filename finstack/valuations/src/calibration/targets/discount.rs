@@ -10,11 +10,12 @@ use crate::calibration::validation::RateBoundsPolicy;
 use crate::calibration::CalibrationReport;
 use crate::market::quotes::market_quote::ExtractQuotes;
 use crate::market::quotes::market_quote::MarketQuote;
+use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
-use finstack_core::types::{Currency, CurveId};
+use finstack_core::types::CurveId;
 use finstack_core::Result;
 use std::cell::RefCell;
 

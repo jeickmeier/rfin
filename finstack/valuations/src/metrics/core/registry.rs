@@ -485,7 +485,7 @@ mod tests {
     use crate::results::ValuationResult;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::context::MarketContext;
-    use finstack_core::money::{Money, Try};
+    use finstack_core::money::Money;
     use std::sync::Arc;
     use time::Date;
 
@@ -515,7 +515,7 @@ mod tests {
         }
 
         fn value(&self, _ctx: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
-            Money::new(100.0, Try(Currency::USD))
+            Money::try_new(100.0, Currency::USD)
         }
 
         fn as_any(&self) -> &dyn std::any::Any {
@@ -590,7 +590,7 @@ mod tests {
         let instrument = Arc::new(MockInstrument::new(InstrumentType::Bond));
         let market = Arc::new(MarketContext::new());
         let as_of = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
-        let base_value = Money::new(100.0, Try(Currency::USD)).unwrap();
+        let base_value = Money::try_new(100.0, Currency::USD).unwrap();
         MetricContext::new(
             instrument,
             market,

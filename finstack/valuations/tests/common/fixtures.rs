@@ -8,11 +8,11 @@
 //! For tolerance constants, use the `tolerances` module instead of defining
 //! new constants here. This module re-exports common tolerances for convenience.
 
+use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
-use finstack_core::types::Currency;
 use time::Month;
 
 // Re-export tolerances from the canonical location

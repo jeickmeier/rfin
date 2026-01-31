@@ -2,7 +2,7 @@
 
 use super::utils::*;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::VolSurface;
+use finstack_core::market_data::surfaces::VolSurface;
 use finstack_valuations::instruments::rates::ir_future::{FutureContractSpecs, Position};
 
 #[test]

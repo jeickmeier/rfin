@@ -1,5 +1,6 @@
 //! Integration test for base correlation calibration (v2).
 
+use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
@@ -7,7 +8,7 @@ use finstack_core::market_data::term_structures::{
     BaseCorrelationCurve, CreditIndexData, HazardCurve,
 };
 use finstack_core::money::Money;
-use finstack_core::types::{Currency, CurveId};
+use finstack_core::types::CurveId;
 use finstack_valuations::calibration::api::engine;
 use finstack_valuations::calibration::api::schema::{
     BaseCorrelationParams, CalibrationEnvelope, CalibrationPlan, CalibrationStep, StepParams,

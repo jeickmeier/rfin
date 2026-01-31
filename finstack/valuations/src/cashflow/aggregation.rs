@@ -13,9 +13,9 @@
 //! PVs in f64, sum, then construct `Money` from the final result.
 
 use finstack_core::cashflow::{CFKind, CashFlow};
+use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx, Period, PeriodId};
 use finstack_core::money::Money;
-use finstack_core::types::Currency;
 
 use indexmap::IndexMap;
 

@@ -293,11 +293,11 @@ where
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use finstack_core::currency::Currency;
     use finstack_core::dates::DayCount;
     use finstack_core::market_data::scalars::MarketScalar;
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::money::Money;
-    use finstack_core::types::Currency;
     use time::macros::date;
 
     #[test]

@@ -30,7 +30,7 @@ fn resolve_bump_targets(
     nodes: &[(String, f64)],
     knots: &[f64],
     match_mode: TenorMatchMode,
-    as_of: finstack_core::types::Date,
+    as_of: finstack_core::dates::Date,
     day_count: DayCount,
 ) -> Result<BumpTargetResult> {
     let mut targets = Vec::new();

@@ -435,7 +435,7 @@ mod tests {
             quote_set: "rates".to_string(),
             params: StepParams::Discount(DiscountCurveParams {
                 curve_id: CurveId::from("USD-OIS"),
-                currency: finstack_core::types::Currency::USD,
+                currency: finstack_core::currency::Currency::USD,
                 base_date: time::Date::from_calendar_date(2025, Month::January, 15)
                     .expect("valid test date"),
                 method: CalibrationMethod::Bootstrap,

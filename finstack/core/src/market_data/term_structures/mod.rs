@@ -112,15 +112,16 @@ mod price_curve;
 /// Volatility index forward curves (VIX, VXN, VSTOXX).
 mod vol_index_curve;
 
-// Re-export for ergonomic access
-pub use base_correlation::*;
-pub use credit_index::*;
-pub use discount_curve::*;
-pub use flat::*;
-pub use forward_curve::*;
-pub use hazard_curve::*;
-pub use inflation::*;
-pub use price_curve::*;
-pub use vol_index_curve::*;
-// Re-export the relocated volatility surface
-pub use crate::market_data::surfaces::{VolSurface, VolSurfaceBuilder};
+// Re-export for ergonomic access (curated list)
+pub use base_correlation::{
+    ArbitrageCheckResult, ArbitrageViolation, BaseCorrelationCurve, BaseCorrelationCurveBuilder,
+    SmoothingMethod,
+};
+pub use credit_index::{CreditIndexData, CreditIndexDataBuilder};
+pub use discount_curve::{DiscountCurve, DiscountCurveBuilder, DEFAULT_MIN_FORWARD_TENOR};
+pub use flat::FlatCurve;
+pub use forward_curve::{ForwardCurve, ForwardCurveBuilder};
+pub use hazard_curve::{HazardCurve, HazardCurveBuilder, ParInterp, Seniority};
+pub use inflation::{InflationCurve, InflationCurveBuilder};
+pub use price_curve::{PriceCurve, PriceCurveBuilder};
+pub use vol_index_curve::{VolatilityIndexCurve, VolatilityIndexCurveBuilder};

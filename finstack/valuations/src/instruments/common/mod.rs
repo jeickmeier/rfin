@@ -49,8 +49,7 @@ pub use discountable::Discountable;
 pub use finstack_core::dates::fx::resolve_calendar;
 #[doc(hidden)]
 pub use fx_dates::{
-    add_joint_business_days, add_joint_business_days_with_calendars, adjust_joint_calendar,
-    adjust_joint_calendar_with_calendars, roll_spot_date, ResolvedCalendarPair,
+    add_joint_business_days, adjust_joint_calendar, roll_spot_date, ResolvedCalendarPair,
 };
 #[doc(hidden)]
 pub use helpers::validate_currency_consistency;

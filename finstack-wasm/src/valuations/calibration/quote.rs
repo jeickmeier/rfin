@@ -172,7 +172,7 @@ impl JsCreditQuote {
         currency: &str,
         doc_clause: &str,
     ) -> Result<JsCreditQuote, JsValue> {
-        use finstack_core::types::Currency;
+        use finstack_core::currency::Currency;
         use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
 
         let ccy: Currency = currency
@@ -266,7 +266,7 @@ impl JsCdsTrancheQuote {
         currency: &str,
         doc_clause: &str,
     ) -> Result<JsCdsTrancheQuote, JsValue> {
-        use finstack_core::types::Currency;
+        use finstack_core::currency::Currency;
 
         let ccy: Currency = currency
             .parse::<Currency>()

@@ -9,11 +9,11 @@ use crate::calibration::CalibrationConfig;
 use crate::market::quotes::ids::{Pillar, QuoteId};
 use crate::market::quotes::market_quote::MarketQuote;
 use crate::market::quotes::rates::RateQuote;
+use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::ExtrapolationPolicy;
-use finstack_core::types::Currency;
 
 /// Bump a discount curve by shocking rate quotes and re-calibrating.
 ///

@@ -1,6 +1,6 @@
 //! Tests for calibration configuration helpers and validation rules.
 
-use finstack_core::types::Currency;
+use finstack_core::currency::Currency;
 use finstack_valuations::calibration::{
     CalibrationConfig, RateBounds, RateBoundsPolicy, ValidationConfig,
 };

@@ -889,10 +889,11 @@ fn to_basis_points(value: f64) -> u64 {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use finstack_core::currency::Currency;
     use finstack_core::dates::Date;
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::DiscountCurve;
-    use finstack_core::types::{Currency, CurveId};
+    use finstack_core::types::CurveId;
     use time::Month;
 
     fn date(year: i32, month: Month, day: u8) -> Date {

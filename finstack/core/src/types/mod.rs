@@ -25,11 +25,3 @@ pub use rates::{Bps, Percentage, Rate};
 pub use ratings::{
     moodys_warf_factor, CreditRating, NotchedRating, RatingFactorTable, RatingLabel, RatingNotch,
 };
-
-// Re-export commonly used types from other modules for convenience
-pub use crate::currency::Currency;
-pub use crate::dates::{Date, OffsetDateTime, PrimitiveDateTime};
-
-// Type aliases for common usage patterns
-/// Convenient type alias for timestamps
-pub type Timestamp = crate::dates::OffsetDateTime;

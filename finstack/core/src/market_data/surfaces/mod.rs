@@ -28,5 +28,5 @@
 
 mod vol_surface;
 
-// Re-export for ergonomic access
-pub use vol_surface::*;
+// Re-export for ergonomic access (curated list)
+pub use vol_surface::{VolSurface, VolSurfaceBuilder};

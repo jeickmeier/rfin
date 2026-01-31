@@ -1,6 +1,7 @@
 //! Failure mode coverage for plan-driven calibration preflight checks.
 
 use crate::common::fixtures;
+use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::{InflationIndex, InflationInterpolation, InflationLag};
@@ -9,7 +10,6 @@ use finstack_core::market_data::term_structures::CreditIndexData;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::term_structures::{HazardCurve, ParInterp};
 use finstack_core::math::interp::InterpStyle;
-use finstack_core::types::Currency;
 use finstack_core::HashMap;
 use finstack_valuations::calibration::api::engine;
 use finstack_valuations::calibration::api::schema::{

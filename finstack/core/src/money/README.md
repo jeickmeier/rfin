@@ -52,8 +52,12 @@ All public APIs are documented with examples in the Rustdoc comments; this READM
 - **Construction**
   - `Money::new(amount: f64, currency: Currency)`
     Uses ISO‑4217 minor units and **bankers rounding** by default.
-  - `Money::new(amount: f64, (currency: Currency, cfg: &FinstackConfig))`
+  - `Money::new_with_config(amount: f64, currency: Currency, cfg: &FinstackConfig)`
     Uses ingest‑scale and rounding mode from `cfg`.
+  - `Money::try_new(amount: f64, currency: Currency)`
+    Fallible constructor that returns `Result<Money, Error>`.
+  - `Money::try_new_with_config(amount: f64, currency: Currency, cfg: &FinstackConfig)`
+    Fallible constructor using explicit rounding config.
   - `From<(f64, Currency)>`, `From<(i64, Currency)>`, `From<(u64, Currency)>` for convenient tuple construction.
   - `money!(amount, USD)` macro shorthand.
 - **Accessors**

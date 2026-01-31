@@ -236,10 +236,30 @@ impl InterestRateOption {
     ///
     /// ```rust,no_run
     /// use finstack_valuations::instruments::rates::cap_floor::{InterestRateOption, CapFloorVolType};
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::dates::{create_date, DayCount, Tenor};
+    /// use finstack_core::money::Money;
+    /// use finstack_core::types::{CurveId, InstrumentId};
+    /// use time::Month;
     ///
+    /// # fn main() -> finstack_core::Result<()> {
     /// // Create a floor with normal volatility for EUR market
-    /// let floor = InterestRateOption::new_floor(/* ... */)
+    /// let floor = InterestRateOption::new_floor(
+    ///     InstrumentId::new("EUR-FLOOR-001"),
+    ///     Money::new(1_000_000.0, Currency::EUR),
+    ///     0.02,
+    ///     create_date(2026, Month::January, 1)?,
+    ///     create_date(2027, Month::January, 1)?,
+    ///     Tenor::quarterly(),
+    ///     DayCount::Act365F,
+    ///     CurveId::new("EUR-OIS"),
+    ///     CurveId::new("EUR-ESTR-3M"),
+    ///     CurveId::new("EUR-CAPFLOOR-VOL"),
+    /// )
     ///     .with_vol_type(CapFloorVolType::Normal);
+    /// # let _ = floor;
+    /// # Ok(())
+    /// # }
     /// ```
     pub fn with_vol_type(mut self, vol_type: CapFloorVolType) -> Self {
         self.vol_type = vol_type;

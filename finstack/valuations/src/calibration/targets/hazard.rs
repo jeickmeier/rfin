@@ -549,9 +549,10 @@ mod tests {
     use crate::calibration::solver::traits::BootstrapTarget;
     use finstack_core::dates::Date;
 
+    use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::ParInterp;
     use finstack_core::math::interp::InterpStyle;
-    use finstack_core::types::{Currency, CurveId};
+    use finstack_core::types::CurveId;
     use time::Month;
 
     fn base_params() -> HazardCurveParams {

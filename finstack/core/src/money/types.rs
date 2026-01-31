@@ -66,8 +66,8 @@ fn format_with_separators(int_str: &str) -> String {
 /// Values are stored using a fixed-point representation derived from ISO 4217
 /// decimal places.
 ///
-/// When you need configurable rounding during ingestion, use [`Money::new`] with
-/// a configuration argument: `Money::new(amount, (currency, &cfg))`.
+/// When you need configurable rounding during ingestion, use
+/// [`Money::new_with_config`].
 ///
 /// # Examples
 /// ```rust
@@ -83,83 +83,6 @@ fn format_with_separators(int_str: &str) -> String {
 pub struct Money {
     amount: AmountRepr,
     currency: Currency,
-}
-
-// -------------------------------------------------------------------------
-// `Money::new` argument helpers (sealed)
-// -------------------------------------------------------------------------
-
-mod sealed_money_new_arg {
-    pub trait Sealed {}
-}
-
-/// Wrapper to request a *fallible* construction pathway for [`Money::new`].
-///
-/// This is primarily used to validate untrusted `f64` input (rejecting NaN/∞)
-/// without panicking.
-///
-/// # Examples
-/// ```rust
-/// use finstack_core::currency::Currency;
-/// use finstack_core::money::{Money, Try};
-///
-/// let m = Money::new(10.0, Try(Currency::USD))?;
-/// # Ok::<(), finstack_core::Error>(())
-/// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Try<T>(pub T);
-
-/// Internal trait used to support optional construction parameters under a
-/// single `Money::new(...)` entrypoint.
-///
-/// This trait is **sealed** and cannot be implemented outside `finstack_core`.
-pub trait MoneyNewArg: sealed_money_new_arg::Sealed {
-    /// Return type of `Money::new(amount, arg)`.
-    type Output;
-
-    /// Construct a `Money` (or `Result<Money, Error>`) from an amount and an argument.
-    fn construct(amount: f64, arg: Self) -> Self::Output;
-}
-
-impl sealed_money_new_arg::Sealed for Currency {}
-impl sealed_money_new_arg::Sealed for (Currency, &FinstackConfig) {}
-impl sealed_money_new_arg::Sealed for Try<Currency> {}
-impl sealed_money_new_arg::Sealed for Try<(Currency, &FinstackConfig)> {}
-
-impl MoneyNewArg for Currency {
-    type Output = Money;
-
-    #[inline]
-    fn construct(amount: f64, currency: Self) -> Self::Output {
-        Money::new_impl(amount, currency, None, "Money::new")
-    }
-}
-
-impl MoneyNewArg for (Currency, &FinstackConfig) {
-    type Output = Money;
-
-    #[inline]
-    fn construct(amount: f64, (currency, cfg): Self) -> Self::Output {
-        Money::new_impl(amount, currency, Some(cfg), "Money::new")
-    }
-}
-
-impl MoneyNewArg for Try<Currency> {
-    type Output = Result<Money, Error>;
-
-    #[inline]
-    fn construct(amount: f64, Try(currency): Self) -> Self::Output {
-        Money::try_new_impl(amount, currency, None)
-    }
-}
-
-impl MoneyNewArg for Try<(Currency, &FinstackConfig)> {
-    type Output = Result<Money, Error>;
-
-    #[inline]
-    fn construct(amount: f64, Try((currency, cfg)): Self) -> Self::Output {
-        Money::try_new_impl(amount, currency, Some(cfg))
-    }
 }
 
 impl Money {
@@ -233,25 +156,12 @@ impl Money {
         format!("{} {}", self.currency(), value)
     }
 
-    /// Create a new [`Money`] value with optional construction parameters.
-    ///
-    /// This single entrypoint supports:
-    ///
-    /// - `Money::new(amount, currency)`:
-    ///   - Ingest rounding uses ISO-4217 minor units for `currency` and **bankers rounding**.
-    ///   - Panics if `amount` is non-finite (NaN/∞).
-    /// - `Money::new(amount, (currency, &cfg))`:
-    ///   - Ingest rounding uses `cfg.ingest_scale(currency)` and `cfg.rounding.mode`.
-    ///   - Panics if `amount` is non-finite (NaN/∞).
-    /// - `Money::new(amount, Try(currency))`:
-    ///   - Same rounding as the default path, but returns `Result` instead of panicking.
-    /// - `Money::new(amount, Try((currency, &cfg)))`:
-    ///   - Same as the config path, but returns `Result` instead of panicking.
+    /// Create a new [`Money`] value using ISO-4217 minor units and bankers rounding.
     ///
     /// # Panics
     ///
-    /// The infallible forms panic if `amount` is not finite (NaN or infinity).
-    /// Use [`Try`] to request a fallible pathway that returns `Result` instead.
+    /// Panics if `amount` is not finite (NaN or infinity). Use [`Money::try_new`]
+    /// for a fallible constructor.
     ///
     /// # Examples
     /// ```rust
@@ -262,12 +172,32 @@ impl Money {
     /// assert_eq!(format!("{}", amt), "USD 10.01");
     /// ```
     #[inline]
-    #[allow(clippy::new_ret_no_self)]
-    pub fn new<A>(amount: f64, arg: A) -> A::Output
-    where
-        A: MoneyNewArg,
-    {
-        A::construct(amount, arg)
+    pub fn new(amount: f64, currency: Currency) -> Self {
+        Self::new_impl(amount, currency, None, "Money::new")
+    }
+
+    /// Create a new [`Money`] value using an explicit configuration for rounding.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `amount` is not finite (NaN or infinity). Use
+    /// [`Money::try_new_with_config`] for a fallible constructor.
+    pub fn new_with_config(amount: f64, currency: Currency, cfg: &FinstackConfig) -> Self {
+        Self::new_impl(amount, currency, Some(cfg), "Money::new_with_config")
+    }
+
+    /// Fallible constructor using ISO-4217 minor units and bankers rounding.
+    pub fn try_new(amount: f64, currency: Currency) -> Result<Self, Error> {
+        Self::try_new_impl(amount, currency, None)
+    }
+
+    /// Fallible constructor using an explicit configuration for rounding.
+    pub fn try_new_with_config(
+        amount: f64,
+        currency: Currency,
+        cfg: &FinstackConfig,
+    ) -> Result<Self, Error> {
+        Self::try_new_impl(amount, currency, Some(cfg))
     }
 
     #[inline]
@@ -908,19 +838,19 @@ mod tests {
     }
 
     // -------------------------------------------------------------------------
-    // Fallible constructor tests (Money::new(..., Try(...)))
+    // Fallible constructor tests (Money::try_new / Money::try_new_with_config)
     // -------------------------------------------------------------------------
 
     #[test]
     fn try_new_succeeds_for_finite_values() {
-        let m = Money::new(123.45, Try(Currency::USD)).expect("Finite value should succeed");
+        let m = Money::try_new(123.45, Currency::USD).expect("Finite value should succeed");
         assert!((m.amount() - 123.45).abs() < 1e-10);
         assert_eq!(m.currency(), Currency::USD);
     }
 
     #[test]
     fn try_new_returns_error_for_nan() {
-        let result = Money::new(f64::NAN, Try(Currency::USD));
+        let result = Money::try_new(f64::NAN, Currency::USD);
         assert!(result.is_err());
         assert!(matches!(
             result,
@@ -932,7 +862,7 @@ mod tests {
 
     #[test]
     fn try_new_returns_error_for_positive_infinity() {
-        let result = Money::new(f64::INFINITY, Try(Currency::EUR));
+        let result = Money::try_new(f64::INFINITY, Currency::EUR);
         assert!(result.is_err());
         assert!(matches!(
             result,
@@ -944,7 +874,7 @@ mod tests {
 
     #[test]
     fn try_new_returns_error_for_negative_infinity() {
-        let result = Money::new(f64::NEG_INFINITY, Try(Currency::GBP));
+        let result = Money::try_new(f64::NEG_INFINITY, Currency::GBP);
         assert!(result.is_err());
         assert!(matches!(
             result,
@@ -958,26 +888,27 @@ mod tests {
     fn try_new_with_config_succeeds_for_finite_values() {
         let mut cfg = FinstackConfig::default();
         cfg.rounding.ingest_scale.overrides.insert(Currency::USD, 3);
-        let m = Money::new(1.2345, Try((Currency::USD, &cfg))).expect("Finite should succeed");
+        let m =
+            Money::try_new_with_config(1.2345, Currency::USD, &cfg).expect("Finite should succeed");
         assert!((m.amount() - 1.234).abs() < 1e-9);
     }
 
     #[test]
     fn try_new_with_config_returns_error_for_non_finite() {
         let cfg = FinstackConfig::default();
-        let result = Money::new(f64::NAN, Try((Currency::USD, &cfg)));
+        let result = Money::try_new_with_config(f64::NAN, Currency::USD, &cfg);
         assert!(result.is_err());
     }
 
     #[test]
     fn try_new_handles_zero() {
-        let m = Money::new(0.0, Try(Currency::USD)).expect("Zero should succeed");
+        let m = Money::try_new(0.0, Currency::USD).expect("Zero should succeed");
         assert_eq!(m.amount(), 0.0);
     }
 
     #[test]
     fn try_new_handles_negative_zero() {
-        let m = Money::new(-0.0, Try(Currency::USD)).expect("Negative zero should succeed");
+        let m = Money::try_new(-0.0, Currency::USD).expect("Negative zero should succeed");
         // -0.0 == 0.0 in floating point
         assert_eq!(m.amount(), 0.0);
     }
@@ -985,7 +916,7 @@ mod tests {
     #[test]
     fn try_new_handles_very_small_values() {
         let small = 1e-15;
-        let m = Money::new(small, Try(Currency::USD)).expect("Small value should succeed");
+        let m = Money::try_new(small, Currency::USD).expect("Small value should succeed");
         // Value will be rounded to currency decimals (2 for USD), so it becomes 0
         assert_eq!(m.amount(), 0.0);
     }
@@ -993,7 +924,7 @@ mod tests {
     #[test]
     fn try_new_handles_large_finite_values() {
         let large = 1e15;
-        let m = Money::new(large, Try(Currency::USD)).expect("Large finite value should succeed");
+        let m = Money::try_new(large, Currency::USD).expect("Large finite value should succeed");
         assert!(m.amount() > 0.0);
     }
 

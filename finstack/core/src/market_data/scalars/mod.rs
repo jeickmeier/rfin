@@ -44,6 +44,8 @@ mod primitives;
 /// Inflation index data (CPI/RPI) with lagging and seasonality support.
 mod inflation_index;
 
-// Re-export for ergonomic access
-pub use inflation_index::*;
-pub use primitives::*;
+// Re-export for ergonomic access (curated list)
+pub use inflation_index::{
+    InflationIndex, InflationIndexBuilder, InflationInterpolation, InflationLag,
+};
+pub use primitives::{MarketScalar, ScalarTimeSeries, SeriesInterpolation};

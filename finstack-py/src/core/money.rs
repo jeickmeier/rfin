@@ -99,7 +99,11 @@ impl PyMoney {
         config: &PyFinstackConfig,
     ) -> PyResult<Self> {
         let ccy = extract_currency(&currency).context("currency")?;
-        Ok(Self::new(Money::new(amount, (ccy, &config.inner))))
+        Ok(Self::new(Money::new_with_config(
+            amount,
+            ccy,
+            &config.inner,
+        )))
     }
 
     #[classmethod]

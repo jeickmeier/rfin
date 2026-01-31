@@ -3,13 +3,14 @@
 //! The goal is to ensure that curves produced by v2 calibration steps can reprice
 //! instruments constructed *outside* the solver to reasonable tolerances.
 
+use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::InflationLag;
 use finstack_core::market_data::term_structures::Seniority;
 use finstack_core::math::interp::ExtrapolationPolicy;
 use finstack_core::money::Money;
-use finstack_core::types::{Currency, CurveId};
+use finstack_core::types::CurveId;
 use finstack_core::HashMap;
 use finstack_valuations::calibration::api::engine;
 use finstack_valuations::calibration::api::schema::{

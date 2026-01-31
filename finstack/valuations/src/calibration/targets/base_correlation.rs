@@ -159,7 +159,7 @@ fn compute_upfront_money(
     detachment: f64,
     upfront_pct: f64,
     notional: f64,
-    currency: finstack_core::types::Currency,
+    currency: finstack_core::currency::Currency,
 ) -> Money {
     let attachment_pct = normalize_pct(attachment);
     let detachment_pct = normalize_pct(detachment);

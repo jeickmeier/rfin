@@ -17,8 +17,8 @@ use time::Month;
 // Comprehensive quote-to-instrument construction test for V2 calibration engine.
 // Verifies that all quote types can be successfully converted to calibration instruments.
 
+use finstack_core::currency::Currency;
 use finstack_core::dates::DateExt; // Imports DateExt
-use finstack_core::types::Currency;
 use finstack_core::HashMap;
 
 // Helper to create date validly
