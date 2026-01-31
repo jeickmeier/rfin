@@ -86,6 +86,27 @@
 //!   - Wichura, M. J. (1988). "Algorithm AS 241: The Percentage Points of the
 //!     Normal Distribution." *Applied Statistics*, 37(3), 477-484.
 
+use std::sync::LazyLock;
+
+use statrs::distribution::Normal;
+
+/// Static standard normal distribution N(0, 1) for performance.
+///
+/// Creating `Normal::new(0.0, 1.0)` on every call to `norm_cdf`, `norm_pdf`, etc.
+/// is wasteful in hot paths (Black-Scholes pricing, Monte Carlo, copula models).
+/// This static instance is initialized once and reused across all calls.
+///
+/// # Safety Justification for `expect`
+///
+/// The standard normal N(0, 1) is mathematically guaranteed to be valid:
+/// - mean = 0.0 is finite
+/// - std_dev = 1.0 is finite and positive
+///
+/// The `statrs::Normal::new` constructor only fails for non-finite or non-positive std_dev.
+#[allow(clippy::expect_used)]
+static STANDARD_NORMAL: LazyLock<Normal> =
+    LazyLock::new(|| Normal::new(0.0, 1.0).expect("Standard normal N(0,1) is always valid"));
+
 /// Error function.
 ///
 /// Computes the error function using the highly accurate implementation from `statrs`.
@@ -176,15 +197,11 @@ pub fn erf(x: f64) -> f64 {
 ///
 /// # Implementation
 ///
-/// This is a thin wrapper around `statrs::distribution::Normal::cdf`.
+/// Uses a static standard normal distribution instance for performance in hot paths.
 #[inline]
 pub fn norm_cdf(x: f64) -> f64 {
-    use statrs::distribution::{ContinuousCDF, Normal};
-    // Standard normal: mean=0, std_dev=1
-    match Normal::new(0.0, 1.0) {
-        Ok(n) => n.cdf(x),
-        Err(_) => f64::NAN,
-    }
+    use statrs::distribution::ContinuousCDF;
+    STANDARD_NORMAL.cdf(x)
 }
 
 /// Standard normal probability density function φ(x).
@@ -232,15 +249,11 @@ pub fn norm_cdf(x: f64) -> f64 {
 ///
 /// # Implementation
 ///
-/// This is a thin wrapper around `statrs::distribution::Normal::pdf`.
+/// Uses a static standard normal distribution instance for performance in hot paths.
 #[inline]
 pub fn norm_pdf(x: f64) -> f64 {
-    use statrs::distribution::{Continuous, Normal};
-    // Standard normal: mean=0, std_dev=1
-    match Normal::new(0.0, 1.0) {
-        Ok(n) => n.pdf(x),
-        Err(_) => f64::NAN,
-    }
+    use statrs::distribution::Continuous;
+    STANDARD_NORMAL.pdf(x)
 }
 
 /// Inverse standard normal cumulative distribution function.
@@ -273,14 +286,11 @@ pub fn norm_pdf(x: f64) -> f64 {
 ///
 /// # Implementation
 ///
-/// This is a thin wrapper around `statrs::distribution::Normal::inverse_cdf`.
+/// Uses a static standard normal distribution instance for performance in hot paths.
+#[inline]
 pub fn standard_normal_inv_cdf(p: f64) -> f64 {
-    use statrs::distribution::{ContinuousCDF, Normal};
-    // Standard normal: mean=0, std_dev=1
-    match Normal::new(0.0, 1.0) {
-        Ok(n) => n.inverse_cdf(p),
-        Err(_) => f64::NAN,
-    }
+    use statrs::distribution::ContinuousCDF;
+    STANDARD_NORMAL.inverse_cdf(p)
 }
 
 /// Student-t cumulative distribution function.

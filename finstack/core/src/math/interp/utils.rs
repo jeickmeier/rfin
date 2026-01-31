@@ -57,15 +57,20 @@ pub fn validate_knots(knots: &[f64]) -> crate::Result<()> {
 }
 
 /// Locate segment index `i` such that `xs[i] <= x <= xs[i+1]`.
+///
+/// # Performance Note
+///
+/// This function assumes knots (`xs`) are already validated as finite at construction
+/// time via [`validate_knots`]. We only check that the input `x` is finite, avoiding
+/// an O(n) scan on every interpolation call.
 #[inline(always)]
 pub fn locate_segment(xs: &[f64], x: f64) -> Result<usize, Error> {
-    let (first, last) = match (xs.first(), xs.last()) {
-        (Some(&f), Some(&l)) => (f, l),
-        _ => return Err(InputError::TooFewPoints.into()),
-    };
-    if !x.is_finite() || xs.iter().any(|k| !k.is_finite()) {
+    // Only validate input x - knots are guaranteed finite by construction
+    if !x.is_finite() {
         return Err(InputError::Invalid.into());
     }
+    let first = *xs.first().ok_or(InputError::TooFewPoints)?;
+    let last = *xs.last().ok_or(InputError::TooFewPoints)?;
     if x < first || x > last {
         return Err(Error::InterpOutOfBounds);
     }

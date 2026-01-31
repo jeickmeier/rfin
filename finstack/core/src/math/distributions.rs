@@ -156,10 +156,34 @@ use super::random::RandomNumberGenerator;
 /// - Johnson, N. L., Kotz, S., & Kemp, A. W. (1993). *Univariate Discrete Distributions*
 ///   (2nd ed.). Wiley. Chapter 3.
 pub fn binomial_distribution(n: usize, p: f64) -> Vec<f64> {
-    let mut dist = Vec::with_capacity(n + 1);
-    for k in 0..=n {
-        dist.push(binomial_probability(n, k, p));
+    use statrs::distribution::{Binomial, Discrete};
+
+    // Handle edge cases that would require special treatment
+    if p <= 0.0 {
+        // All probability on k=0
+        let mut dist = vec![0.0; n + 1];
+        dist[0] = 1.0;
+        return dist;
     }
+    if p >= 1.0 {
+        // All probability on k=n
+        let mut dist = vec![0.0; n + 1];
+        dist[n] = 1.0;
+        return dist;
+    }
+
+    // Create the Binomial distribution once and reuse for all k values
+    // This avoids n+1 allocations of the distribution object
+    let mut dist = match Binomial::new(p, n as u64) {
+        Ok(binom) => (0..=n as u64).map(|k| binom.pmf(k)).collect::<Vec<_>>(),
+        Err(_) => {
+            // Fallback: shouldn't happen after edge case checks, but be defensive
+            let mut fallback = vec![0.0; n + 1];
+            fallback[0] = 1.0;
+            return fallback;
+        }
+    };
+
     // Normalize (should already sum to ~1, but defensive for numerical edge cases)
     let sum: f64 = dist.iter().sum();
     if sum > 0.0 && (sum - 1.0).abs() > 1e-10 {
