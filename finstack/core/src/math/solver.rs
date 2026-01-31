@@ -91,6 +91,26 @@ pub enum BracketHint {
     Spread,
     /// Yield-to-maturity: similar to rates, initial bracket ±0.02
     Ytm,
+    /// Internal Rate of Return (IRR/XIRR): typically in [-0.5, 1.0], initial bracket ±0.5
+    ///
+    /// IRR calculations can have roots across a very wide range:
+    /// - Private equity/VC: +100% to +500% returns are common
+    /// - Distressed investments: -50% to -90% returns possible
+    /// - Typical investments: -10% to +30%
+    ///
+    /// The larger bracket (±0.5) allows the solver to find roots across this
+    /// wide range while still converging quickly for typical cases.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use finstack_core::math::solver::{BrentSolver, BracketHint, Solver};
+    ///
+    /// let solver = BrentSolver::new()
+    ///     .with_bracket_hint(BracketHint::Xirr)
+    ///     .with_bracket_bounds(-0.99, 10.0);  // Allow up to 1000% returns
+    /// ```
+    Xirr,
     /// Custom bracket size
     Custom(f64),
 }
@@ -104,6 +124,7 @@ impl BracketHint {
             BracketHint::Rate => 0.02,
             BracketHint::Spread => 0.005,
             BracketHint::Ytm => 0.02,
+            BracketHint::Xirr => 0.5,
             BracketHint::Custom(size) => size,
         }
     }
@@ -1226,5 +1247,48 @@ mod tests {
             result.is_err(),
             "Should fail when root is outside bracket bounds"
         );
+    }
+
+    #[test]
+    fn test_bracket_hint_xirr() {
+        // Test that BracketHint::Xirr produces the expected bracket size
+        assert_eq!(BracketHint::Xirr.to_bracket_size(), 0.5);
+
+        // Test IRR-like problem with wide range of possible roots
+        // NPV = -100 + 250/(1+r)^1 = 0 => r = 1.5 (150% return)
+        let solver = BrentSolver::new()
+            .with_bracket_hint(BracketHint::Xirr)
+            .with_bracket_bounds(-0.99, 10.0); // Allow extreme returns
+
+        let npv = |r: f64| -100.0 + 250.0 / (1.0 + r);
+        let irr = solver.solve(npv, 0.1).expect("Should find IRR");
+        assert!(
+            (irr - 1.5).abs() < 1e-10,
+            "Expected IRR of 1.5 (150%), got {}",
+            irr
+        );
+
+        // Test negative IRR scenario
+        // NPV = -100 + 50/(1+r)^1 = 0 => r = -0.5 (-50% return)
+        let npv_loss = |r: f64| -100.0 + 50.0 / (1.0 + r);
+        let irr_loss = solver
+            .solve(npv_loss, 0.1)
+            .expect("Should find negative IRR");
+        assert!(
+            (irr_loss - (-0.5)).abs() < 1e-10,
+            "Expected IRR of -0.5 (-50%), got {}",
+            irr_loss
+        );
+    }
+
+    #[test]
+    fn test_all_bracket_hints() {
+        // Verify all bracket hints produce reasonable values
+        assert_eq!(BracketHint::ImpliedVol.to_bracket_size(), 0.2);
+        assert_eq!(BracketHint::Rate.to_bracket_size(), 0.02);
+        assert_eq!(BracketHint::Spread.to_bracket_size(), 0.005);
+        assert_eq!(BracketHint::Ytm.to_bracket_size(), 0.02);
+        assert_eq!(BracketHint::Xirr.to_bracket_size(), 0.5);
+        assert_eq!(BracketHint::Custom(0.123).to_bracket_size(), 0.123);
     }
 }

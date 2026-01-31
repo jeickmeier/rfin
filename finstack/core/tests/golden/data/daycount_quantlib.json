@@ -1,0 +1,327 @@
+{
+  "meta": {
+    "suite_id": "daycount_quantlib_parity",
+    "description": "Day count convention tests validated against QuantLib output. Covers ISDA 2006 Definitions edge cases for 30/360 US (Bond Basis), 30E/360 (Eurobond), Act/Act ISDA, and Act/365L (AFB).",
+    "reference_source": {
+      "name": "QuantLib",
+      "version": "1.32",
+      "vendor": "QuantLib Project",
+      "url": "https://www.quantlib.org/",
+      "notes": "Values computed using QuantLib::Thirty360, QuantLib::ActualActual, and QuantLib::Actual365Fixed conventions"
+    },
+    "isda_reference": {
+      "document": "2006 ISDA Definitions",
+      "sections": ["4.16(d) Actual/360", "4.16(e) Actual/365 Fixed", "4.16(f) 30/360", "4.16(g) 30E/360", "4.16(b) Actual/Actual"]
+    },
+    "generated": {
+      "at": "2026-01-30T00:00:00Z",
+      "by": "Market Standards Audit - finstack"
+    },
+    "status": "certified",
+    "schema_version": 1
+  },
+  "cases": [
+    {
+      "id": "thirty360_us_eom_feb28_to_mar31_non_leap",
+      "description": "30/360 US: Feb 28 (last day of Feb in non-leap year) to Mar 31. ISDA 4.16(f) EOM rule applies.",
+      "convention": "Thirty360",
+      "start_date": "2025-02-28",
+      "end_date": "2025-03-31",
+      "expected": {
+        "days_30_360": 30,
+        "year_fraction": 0.08333333333333333,
+        "tolerance": 1e-14
+      },
+      "notes": "Feb 28 (EOM) -> D1=30, Mar 31 -> D2=30 (since D1_adj=30). Days = 30-30+30 = 30"
+    },
+    {
+      "id": "thirty360_us_eom_feb29_to_mar31_leap",
+      "description": "30/360 US: Feb 29 (last day of Feb in leap year) to Mar 31. ISDA 4.16(f) EOM rule applies.",
+      "convention": "Thirty360",
+      "start_date": "2024-02-29",
+      "end_date": "2024-03-31",
+      "expected": {
+        "days_30_360": 30,
+        "year_fraction": 0.08333333333333333,
+        "tolerance": 1e-14
+      },
+      "notes": "Feb 29 (EOM in leap year) -> D1=30, Mar 31 -> D2=30. Days = 30"
+    },
+    {
+      "id": "thirty360_us_not_eom_feb27_to_mar31",
+      "description": "30/360 US: Feb 27 (NOT last day of Feb) to Mar 31. EOM rule does NOT apply.",
+      "convention": "Thirty360",
+      "start_date": "2025-02-27",
+      "end_date": "2025-03-31",
+      "expected": {
+        "days_30_360": 34,
+        "year_fraction": 0.09444444444444444,
+        "tolerance": 1e-14
+      },
+      "notes": "Feb 27 -> D1=27 (no EOM), Mar 31 -> D2=31 (D1_adj!=30). Days = 31-27+30 = 34"
+    },
+    {
+      "id": "thirty360_us_eom_feb28_to_feb28_next_year",
+      "description": "30/360 US: Feb 28 to Feb 28 (next year), both EOM. Should equal exactly 1.0 year.",
+      "convention": "Thirty360",
+      "start_date": "2024-02-28",
+      "end_date": "2025-02-28",
+      "expected": {
+        "days_30_360": 360,
+        "year_fraction": 1.0,
+        "tolerance": 1e-14
+      },
+      "notes": "Both dates are last day of Feb -> D1=30, D2=30. Full year = 360 days"
+    },
+    {
+      "id": "thirty360_us_eom_feb29_to_feb28_next_year",
+      "description": "30/360 US: Feb 29 (leap) to Feb 28 (non-leap next year). Both are EOM.",
+      "convention": "Thirty360",
+      "start_date": "2024-02-29",
+      "end_date": "2025-02-28",
+      "expected": {
+        "days_30_360": 360,
+        "year_fraction": 1.0,
+        "tolerance": 1e-14
+      },
+      "notes": "Feb 29 (EOM leap) to Feb 28 (EOM non-leap) -> both D=30. Full year"
+    },
+    {
+      "id": "thirty360_us_jan31_to_feb28",
+      "description": "30/360 US: Jan 31 to Feb 28. D1=31 triggers adjustment, but D2 is Feb EOM.",
+      "convention": "Thirty360",
+      "start_date": "2025-01-31",
+      "end_date": "2025-02-28",
+      "expected": {
+        "days_30_360": 28,
+        "year_fraction": 0.07777777777777778,
+        "tolerance": 1e-14
+      },
+      "notes": "Jan 31 -> D1=30 (31 rule). Feb 28 EOM, but D1 was not Feb EOM, so D2=28. Days = 28-30+30 = 28"
+    },
+    {
+      "id": "thirty360_e_vs_us_key_difference",
+      "description": "Key test showing difference between 30/360 US and 30E/360: Jan 15 to Mar 31.",
+      "convention": "comparison",
+      "start_date": "2025-01-15",
+      "end_date": "2025-03-31",
+      "expected": {
+        "us_days": 76,
+        "us_year_fraction": 0.21111111111111111,
+        "euro_days": 75,
+        "euro_year_fraction": 0.20833333333333334,
+        "difference_days": 1,
+        "tolerance": 1e-14
+      },
+      "notes": "US: D1=15, D2=31 (D1_adj!=30) -> 76 days. Euro: D1=15, D2=30 (always adjust 31) -> 75 days"
+    },
+    {
+      "id": "thirty360_e_feb28_not_adjusted",
+      "description": "30E/360: Feb 28 is NOT adjusted (no EOM rule in European convention).",
+      "convention": "ThirtyE360",
+      "start_date": "2025-02-28",
+      "end_date": "2025-03-31",
+      "expected": {
+        "days_30_360": 32,
+        "year_fraction": 0.08888888888888889,
+        "tolerance": 1e-14
+      },
+      "notes": "Euro: Feb 28 -> D1=28 (no EOM rule), Mar 31 -> D2=30. Days = 30-28+30 = 32"
+    },
+    {
+      "id": "actact_isda_spanning_leap_year",
+      "description": "Act/Act ISDA: Period spanning leap year boundary (Jul 1, 2024 to Jan 1, 2026).",
+      "convention": "ActAct",
+      "start_date": "2024-07-01",
+      "end_date": "2026-01-01",
+      "expected": {
+        "year_fraction": 1.5027322404371585,
+        "tolerance": 1e-12
+      },
+      "notes": "Split: 184/366 (H2 2024) + 365/365 (2025). Total = 184/366 + 1.0 ≈ 1.5027"
+    },
+    {
+      "id": "actact_isda_within_leap_year",
+      "description": "Act/Act ISDA: Period entirely within leap year.",
+      "convention": "ActAct",
+      "start_date": "2024-01-01",
+      "end_date": "2024-07-01",
+      "expected": {
+        "year_fraction": 0.49726775956284153,
+        "tolerance": 1e-12
+      },
+      "notes": "182 days in 366-day year = 182/366 ≈ 0.4973"
+    },
+    {
+      "id": "actact_isda_within_non_leap_year",
+      "description": "Act/Act ISDA: Period entirely within non-leap year.",
+      "convention": "ActAct",
+      "start_date": "2025-01-01",
+      "end_date": "2025-07-01",
+      "expected": {
+        "year_fraction": 0.4958904109589041,
+        "tolerance": 1e-12
+      },
+      "notes": "181 days in 365-day year = 181/365 ≈ 0.4959"
+    },
+    {
+      "id": "act365l_contains_feb29",
+      "description": "Act/365L: Period containing Feb 29 uses 366 denominator.",
+      "convention": "Act365L",
+      "start_date": "2024-01-01",
+      "end_date": "2024-03-01",
+      "expected": {
+        "actual_days": 60,
+        "denominator": 366,
+        "year_fraction": 0.16393442622950818,
+        "tolerance": 1e-14
+      },
+      "notes": "60 actual days, Feb 29 in range -> 60/366"
+    },
+    {
+      "id": "act365l_does_not_contain_feb29",
+      "description": "Act/365L: Period NOT containing Feb 29 uses 365 denominator.",
+      "convention": "Act365L",
+      "start_date": "2024-03-01",
+      "end_date": "2024-06-01",
+      "expected": {
+        "actual_days": 92,
+        "denominator": 365,
+        "year_fraction": 0.25205479452054796,
+        "tolerance": 1e-14
+      },
+      "notes": "92 actual days, no Feb 29 in range -> 92/365"
+    },
+    {
+      "id": "act365l_period_before_feb29_in_leap_year",
+      "description": "Act/365L: Period in leap year but before Feb 29 uses 365.",
+      "convention": "Act365L",
+      "start_date": "2024-01-01",
+      "end_date": "2024-02-28",
+      "expected": {
+        "actual_days": 58,
+        "denominator": 365,
+        "year_fraction": 0.15890410958904111,
+        "tolerance": 1e-14
+      },
+      "notes": "58 actual days, Feb 29 NOT in [Jan 1, Feb 28] -> 58/365"
+    },
+    {
+      "id": "act360_standard",
+      "description": "Act/360: Standard money market convention.",
+      "convention": "Act360",
+      "start_date": "2025-01-01",
+      "end_date": "2025-04-01",
+      "expected": {
+        "actual_days": 90,
+        "year_fraction": 0.25,
+        "tolerance": 1e-14
+      },
+      "notes": "90 actual days / 360 = 0.25"
+    },
+    {
+      "id": "act365f_standard",
+      "description": "Act/365 Fixed: GBP money market convention.",
+      "convention": "Act365F",
+      "start_date": "2025-01-01",
+      "end_date": "2026-01-01",
+      "expected": {
+        "actual_days": 365,
+        "year_fraction": 1.0,
+        "tolerance": 1e-14
+      },
+      "notes": "365 actual days / 365 = 1.0 (always uses 365 denominator)"
+    },
+    {
+      "id": "actact_icma_full_semi_annual_period",
+      "description": "Act/Act ICMA: Full semi-annual coupon period. ICMA Rule 251.",
+      "convention": "ActActIsma",
+      "start_date": "2025-01-15",
+      "end_date": "2025-07-15",
+      "frequency": "6M",
+      "expected": {
+        "year_fraction": 0.5,
+        "tolerance": 1e-12
+      },
+      "notes": "Full 6-month period with semi-annual frequency = 0.5 year fraction exactly"
+    },
+    {
+      "id": "actact_icma_full_quarterly_period",
+      "description": "Act/Act ICMA: Full quarterly coupon period.",
+      "convention": "ActActIsma",
+      "start_date": "2025-01-01",
+      "end_date": "2025-04-01",
+      "frequency": "3M",
+      "expected": {
+        "year_fraction": 0.25,
+        "tolerance": 1e-12
+      },
+      "notes": "Full 3-month period with quarterly frequency = 0.25 year fraction exactly"
+    },
+    {
+      "id": "actact_icma_full_annual_period",
+      "description": "Act/Act ICMA: Full annual coupon period.",
+      "convention": "ActActIsma",
+      "start_date": "2025-01-01",
+      "end_date": "2026-01-01",
+      "frequency": "1Y",
+      "expected": {
+        "year_fraction": 1.0,
+        "tolerance": 1e-12
+      },
+      "notes": "Full 1-year period with annual frequency = 1.0 year fraction exactly"
+    },
+    {
+      "id": "actact_icma_short_front_stub",
+      "description": "Act/Act ICMA: Short front stub (irregular first period). Common in bond markets.",
+      "convention": "ActActIsma",
+      "start_date": "2025-03-15",
+      "end_date": "2025-07-15",
+      "frequency": "6M",
+      "expected": {
+        "year_fraction": 0.33152173913043478,
+        "tolerance": 1e-12
+      },
+      "notes": "4 months in 6-month coupon period Mar 15 - Sep 15. 122 days / 184 days * 0.5 = 0.33152..."
+    },
+    {
+      "id": "actact_icma_long_first_coupon",
+      "description": "Act/Act ICMA: Long first coupon spanning multiple quasi-periods.",
+      "convention": "ActActIsma",
+      "start_date": "2025-01-15",
+      "end_date": "2026-01-15",
+      "frequency": "6M",
+      "expected": {
+        "year_fraction": 1.0,
+        "tolerance": 1e-6
+      },
+      "notes": "Two full semi-annual periods = 2 × 0.5 = 1.0"
+    },
+    {
+      "id": "actact_icma_spanning_leap_year",
+      "description": "Act/Act ICMA: Period spanning leap year with semi-annual frequency.",
+      "convention": "ActActIsma",
+      "start_date": "2024-01-15",
+      "end_date": "2024-07-15",
+      "frequency": "6M",
+      "expected": {
+        "year_fraction": 0.5,
+        "tolerance": 1e-12
+      },
+      "notes": "Full semi-annual period in leap year still equals 0.5 (ICMA uses coupon-period basis)"
+    },
+    {
+      "id": "actact_icma_monthly_frequency",
+      "description": "Act/Act ICMA: Monthly frequency (less common but valid).",
+      "convention": "ActActIsma",
+      "start_date": "2025-01-01",
+      "end_date": "2025-02-01",
+      "frequency": "1M",
+      "expected": {
+        "year_fraction": 0.08333333333333333,
+        "tolerance": 1e-12
+      },
+      "notes": "Full monthly period = 1/12 ≈ 0.0833"
+    }
+  ]
+}

@@ -9,6 +9,7 @@ against known reference values.
 golden/
 ├── README.md           # This file
 └── data/
+    ├── daycount_quantlib.json  # Day count convention QuantLib parity tests
     └── realized_variance.json  # Variance estimator golden tests
 ```
 
@@ -39,6 +40,18 @@ All fixtures use the canonical golden suite JSON format:
 ```
 
 ## Suites
+
+### `daycount_quantlib.json`
+
+Day count convention tests validated against QuantLib output:
+- **30/360 US (Bond Basis)**: ISDA 2006 §4.16(f) end-of-month rules
+- **30E/360 (Eurobond)**: ISDA 2006 §4.16(g) - no Feb EOM rule
+- **Act/Act ISDA**: Year boundary splitting
+- **Act/365L (AFB)**: Feb 29 detection logic
+
+**Reference Sources**:
+- QuantLib 1.32 (quantlib.org)
+- ISDA (2006). "2006 ISDA Definitions." Sections 4.16(b), 4.16(d)-(g).
 
 ### `realized_variance.json`
 

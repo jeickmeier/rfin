@@ -38,6 +38,38 @@
 //! - **Option pricing**: Discount expected payoffs
 //! - **Risk metrics**: DV01, duration, convexity calculation
 //!
+//! # Extrapolation Behavior and Limitations
+//!
+//! The curve supports two extrapolation policies via [`ExtrapolationPolicy`]:
+//!
+//! - **`FlatZero`** (conservative): Returns the discount factor at the boundary knot.
+//!   Beyond the last knot, this implies zero forward rates. Use for risk management
+//!   where you want to avoid assumptions about unobserved rates.
+//!
+//! - **`FlatForward`** (default): Extends the curve using the forward rate at the
+//!   boundary. This is the market standard for production curves.
+//!
+//! ## Warning: Ultra-Long Tenor Extrapolation
+//!
+//! When extrapolating significantly beyond the last curve knot (e.g., pricing a 50Y
+//! instrument from a 10Y curve), be aware of the following limitations:
+//!
+//! 1. **Model uncertainty**: Extrapolated forward rates are not market-implied.
+//!    For tenors 2× beyond the last knot, consider the extrapolation unreliable.
+//!
+//! 2. **Risk sensitivity**: Greeks computed in extrapolated regions may be
+//!    misleading. The curve has no sensitivity to rates beyond its last pillar.
+//!
+//! 3. **Regulatory considerations**: Basel III/IV and Solvency II have specific
+//!    requirements for ultra-long rate extrapolation (Smith-Wilson, UFR methods).
+//!    This implementation does not include regulatory extrapolation methods.
+//!
+//! **Best practice**: If you frequently price instruments beyond your curve's last
+//! pillar, either:
+//! - Extend the curve with appropriate long-dated instruments (e.g., 30Y, 50Y swaps)
+//! - Use a regulatory-compliant extrapolation method for insurance/pension valuations
+//! - Apply explicit haircuts or uncertainty bands to extrapolated values
+//!
 //! ## Example
 //! ```rust
 //! use finstack_core::market_data::term_structures::DiscountCurve;
@@ -310,17 +342,47 @@ impl DiscountCurve {
 
     /// Simple interest (money market) zero rate.
     ///
-    /// This is the rate used in money market instruments (LIBOR, SOFR for tenors < 1Y)
-    /// where interest accrues linearly without compounding.
+    /// Returns the simple interest rate (no compounding) implied by the discount factor.
+    /// This is the standard convention for money market instruments with tenors under 1 year,
+    /// including deposits, CDs, T-bills, and short-term rate fixings.
     ///
-    /// Formula: `r_simple = (1/DF - 1) / t`
+    /// # Compounding Convention
     ///
-    /// Derived from: `DF(t) = 1 / (1 + r × t)`
+    /// **Simple interest means NO compounding.** Interest accrues linearly:
+    /// - Future Value = Principal × (1 + rate × time)
+    /// - This differs from annually compounded rates which compound once per year
+    ///
+    /// # Formula
+    ///
+    /// ```text
+    /// r_simple = (1/DF - 1) / t
+    /// ```
+    ///
+    /// Derived from the simple interest present value formula: `DF(t) = 1 / (1 + r × t)`
+    ///
+    /// # Market Standards
+    ///
+    /// Simple interest is the market convention for:
+    /// - **USD**: SOFR, Fed Funds, T-bills, CDs, deposits (< 1Y tenor)
+    /// - **EUR**: €STR, Euribor fixings
+    /// - **GBP**: SONIA
+    /// - **Most markets**: Interbank deposits, repo rates
+    ///
+    /// **Day count**: Typically paired with ACT/360 (USD, EUR) or ACT/365F (GBP).
     ///
     /// # Bloomberg Equivalent
     ///
     /// This matches Bloomberg's simple interest zero rate output when compounding
-    /// is set to "Simple" in curve display screens.
+    /// is set to "Simple" in curve display screens (e.g., SWPM, SWCV).
+    ///
+    /// # Comparison with Other Rate Conventions
+    ///
+    /// For a given discount factor at time t:
+    /// - `zero()` returns continuously compounded rate: `r_cc = -ln(DF) / t`
+    /// - `zero_annual()` returns annually compounded: `r_annual = DF^(-1/t) - 1`
+    /// - `zero_simple()` returns simple interest: `r_simple = (1/DF - 1) / t`
+    ///
+    /// For positive rates and t > 0: `r_simple > r_annual > r_cc`
     ///
     /// # Example
     ///
