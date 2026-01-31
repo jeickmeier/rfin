@@ -7,7 +7,7 @@ use crate::instruments::common::helpers::instrument_to_arc;
 use crate::instruments::common::traits::Instrument;
 use crate::metrics::core::registry::StrictMode;
 use crate::metrics::risk::MarketHistory;
-use crate::metrics::sensitivities::dv01::format_bucket_label;
+use crate::metrics::sensitivities::config::format_bucket_label;
 use crate::metrics::{standard_registry, MetricContext, MetricId};
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;

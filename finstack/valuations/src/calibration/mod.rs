@@ -76,23 +76,30 @@ pub mod bumps;
 /// Shared constants (tolerances, magic numbers).
 pub(crate) mod constants;
 
-/// Convexity adjustment logic.
-// Re-exports: Configuration (kept public but not part of the supported surface)
-#[doc(hidden)]
+// =============================================================================
+// Public Re-exports
+// =============================================================================
+//
+// These types form the supported public API for calibration configuration.
+// They are used by wasm/py bindings and external consumers.
+
+/// Configuration types for calibration.
 pub use config::{
     CalibrationConfig, CalibrationMethod, DiscountCurveSolveConfig, HazardCurveSolveConfig,
     InflationCurveSolveConfig, RatesStepConventions, ResidualWeightingScheme,
-    CALIBRATION_CONFIG_KEY,
 };
-#[doc(hidden)]
+
+/// Solver configuration (Brent/Newton).
 pub use solver::SolverConfig;
-#[doc(hidden)]
+
+/// Validation types for curves and surfaces.
 pub use validation::curves::CurveValidator;
-#[doc(hidden)]
 pub use validation::surfaces::SurfaceValidator;
-#[doc(hidden)]
 pub use validation::{RateBounds, RateBoundsPolicy, ValidationConfig, ValidationMode};
 
-// Re-exports: Reports (internal)
-#[doc(hidden)]
+/// Calibration diagnostics and results.
 pub use report::CalibrationReport;
+
+// Internal/advanced re-exports (not part of typical usage)
+#[doc(hidden)]
+pub use config::CALIBRATION_CONFIG_KEY;

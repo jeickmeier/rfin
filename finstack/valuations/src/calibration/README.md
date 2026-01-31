@@ -46,6 +46,68 @@ fn run_calibration(plan: CalibrationPlan) -> finstack_core::Result<()> {
 }
 ```
 
+## Configuration Guide
+
+### Tolerance Semantics
+
+Calibration involves two distinct tolerance concepts that control different aspects:
+
+1. **Solver Tolerance** (`config.solver.tolerance()`):
+   - Controls when the numerical solver (Brent/Newton) terminates
+   - This is an algorithmic convergence criterion in parameter space
+   - The solver stops when successive parameter estimates differ by less than this tolerance
+   - Default: `1e-12`
+
+2. **Validation Tolerance** (`config.discount_curve.validation_tolerance`, etc.):
+   - Controls whether calibration is considered *successful*
+   - After the solver converges, final residuals are compared against this tolerance
+   - If any residual exceeds `validation_tolerance`, calibration is marked as failed
+   - Default: `1e-8` (suitable for per-unit-notional residuals)
+
+**Why two tolerances?**
+
+- Solver tolerance ensures numerical convergence but doesn't guarantee economic fit
+- Validation tolerance ensures the calibrated curve actually prices instruments correctly
+- For well-behaved problems, solver tolerance of `1e-12` with validation tolerance of `1e-8` works well: the solver finds a precise root, and we verify it prices accurately
+
+### Configuration Hierarchy
+
+Settings can be specified at multiple levels with the following precedence:
+
+1. **Step-level** (`CalibrationStep.params.method`): Per-instrument-type overrides (highest priority)
+2. **Plan-level** (`CalibrationPlan.settings`): Plan-wide defaults
+3. **Global defaults** (`CalibrationConfig::default()`): Fallback values
+
+Step-level settings always take precedence over plan-level settings. For example:
+
+```rust
+// Plan-level default: Bootstrap
+let plan = CalibrationPlan {
+    settings: CalibrationConfig::default(), // Uses Bootstrap by default
+    steps: vec![
+        CalibrationStep {
+            // Step-level override: GlobalSolve for this specific curve
+            params: StepParams::Discount(DiscountCurveParams {
+                method: CalibrationMethod::GlobalSolve { use_analytical_jacobian: true },
+                ..
+            }),
+            ..
+        }
+    ],
+    ..
+};
+```
+
+### Recommended Settings
+
+| Use Case | Solver Tolerance | Validation Tolerance | Method |
+|----------|------------------|---------------------|--------|
+| Production risk systems | `1e-12` | `1e-8` | Bootstrap |
+| Real-time pricing | `1e-6` | `1e-4` | Bootstrap |
+| Interactive exploration | `1e-4` | `1e-2` | Bootstrap |
+| Smooth curve fitting | `1e-10` | `1e-8` | GlobalSolve |
+| Distressed credit | `1e-10` | `1e-6` | Bootstrap |
+
 ## Adding New Features
 
 ### Adding a New Calibration Target

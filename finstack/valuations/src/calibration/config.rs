@@ -108,7 +108,16 @@ pub struct HazardCurveSolveConfig {
     /// Weighting scheme for global solve residuals.
     #[serde(default)]
     pub weighting_scheme: ResidualWeightingScheme,
-    /// Tolerance for determining calibration success (applied to residuals).
+    /// Tolerance for determining calibration *success* (applied to residuals).
+    ///
+    /// After the solver converges, the final residuals are compared against this
+    /// tolerance. If `max_residual > validation_tolerance`, the calibration report
+    /// will have `success = false` even if the solver converged.
+    ///
+    /// This is distinct from `solver.tolerance()` which controls when the numerical
+    /// solver terminates. See [`CalibrationConfig`] for a full explanation.
+    ///
+    /// Default: `1e-8` (suitable for per-unit-notional residuals).
     pub validation_tolerance: f64,
 }
 
@@ -161,7 +170,16 @@ pub struct InflationCurveSolveConfig {
     /// Weighting scheme for global solve residuals.
     #[serde(default)]
     pub weighting_scheme: ResidualWeightingScheme,
-    /// Tolerance for determining calibration success (applied to residuals).
+    /// Tolerance for determining calibration *success* (applied to residuals).
+    ///
+    /// After the solver converges, the final residuals are compared against this
+    /// tolerance. If `max_residual > validation_tolerance`, the calibration report
+    /// will have `success = false` even if the solver converged.
+    ///
+    /// This is distinct from `solver.tolerance()` which controls when the numerical
+    /// solver terminates. See [`CalibrationConfig`] for a full explanation.
+    ///
+    /// Default: `1e-8` (suitable for per-unit-notional residuals).
     pub validation_tolerance: f64,
 }
 
@@ -230,7 +248,16 @@ pub struct DiscountCurveSolveConfig {
     /// Step size (h) for finite-difference Jacobian calculation.
     #[serde(default)]
     pub jacobian_step_size: f64,
-    /// Tolerance for determining calibration success (applied to residuals).
+    /// Tolerance for determining calibration *success* (applied to residuals).
+    ///
+    /// After the solver converges, the final residuals are compared against this
+    /// tolerance. If `max_residual > validation_tolerance`, the calibration report
+    /// will have `success = false` even if the solver converged.
+    ///
+    /// This is distinct from `solver.tolerance()` which controls when the numerical
+    /// solver terminates. See [`CalibrationConfig`] for a full explanation.
+    ///
+    /// Default: `1e-8` (suitable for per-unit-notional residuals).
     pub validation_tolerance: f64,
 }
 
@@ -263,7 +290,39 @@ impl Default for DiscountCurveSolveConfig {
 /// This struct consolidates all settings for solvers, validation, and market-regime
 /// specific bounds. It is typically derived from a `FinstackConfig` extension section.
 ///
+/// # Tolerance Semantics
+///
+/// Calibration involves two distinct tolerance concepts:
+///
+/// 1. **Solver Tolerance** ([`solver.tolerance()`](SolverConfig::tolerance)):
+///    Controls when the numerical solver (Brent/Newton) terminates. This is an
+///    algorithmic convergence criterion in x-space (parameter space). The solver
+///    stops when successive parameter estimates differ by less than this tolerance.
+///
+/// 2. **Validation Tolerance** (e.g., [`discount_curve.validation_tolerance`](DiscountCurveSolveConfig::validation_tolerance)):
+///    Controls whether calibration is considered *successful*. After the solver
+///    converges, the final residuals are compared against this tolerance. If any
+///    residual exceeds `validation_tolerance`, the calibration is marked as failed
+///    even if the solver converged.
+///
+/// **Why two tolerances?**
+/// - Solver tolerance ensures numerical convergence but doesn't guarantee economic fit.
+/// - Validation tolerance ensures the calibrated curve actually prices instruments correctly.
+/// - For well-behaved problems, solver tolerance of `1e-12` with validation tolerance of
+///   `1e-8` works well: the solver finds a precise root, and we verify it prices accurately.
+///
+/// # Configuration Hierarchy
+///
+/// Settings can be specified at multiple levels with the following precedence:
+///
+/// 1. **Step-level** (`CalibrationStep.params.method`): Per-instrument-type overrides
+/// 2. **Plan-level** (`CalibrationPlan.settings`): Plan-wide defaults
+/// 3. **Global defaults** (`CalibrationConfig::default()`): Fallback values
+///
+/// Step-level settings always take precedence over plan-level settings.
+///
 /// # Examples
+///
 /// ```rust
 /// use finstack_valuations::calibration::CalibrationConfig;
 ///
@@ -272,6 +331,11 @@ impl Default for DiscountCurveSolveConfig {
 ///
 /// // Create a conservative config for high-precision risk systems
 /// let conservative = CalibrationConfig::conservative();
+///
+/// // Customize tolerance settings
+/// let custom = CalibrationConfig::default()
+///     .with_tolerance(1e-14)  // Solver convergence tolerance
+///     .with_max_iterations(200);
 /// ```
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
@@ -301,6 +365,11 @@ pub struct CalibrationConfig {
     #[serde(default)]
     pub rate_bounds: RateBounds,
     /// High-level calibration method (bootstrap vs global solve).
+    ///
+    /// **Note**: When using the plan-driven API, this field is typically overwritten
+    /// by the step-level `params.method` for each calibration step. The step-level
+    /// method always takes precedence. This field serves as runtime state passed
+    /// from calibration targets to the underlying solvers.
     #[serde(default)]
     pub calibration_method: CalibrationMethod,
 

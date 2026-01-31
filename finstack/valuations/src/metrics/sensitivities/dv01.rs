@@ -414,31 +414,8 @@ where
     }
 }
 
-// =============================================================================
-// Helper Functions
-// =============================================================================
-
-/// Standard IR bucket labels matching standard_ir_dv01_buckets() order.
-const IR_BUCKET_LABELS: [&str; 11] = [
-    "3m", "6m", "1y", "2y", "3y", "5y", "7y", "10y", "15y", "20y", "30y",
-];
-
-/// Generate bucket label from years.
-#[inline]
-pub fn format_bucket_label(years: f64) -> String {
-    let standard_buckets = standard_ir_dv01_buckets();
-    for (i, &bucket_time) in standard_buckets.iter().enumerate() {
-        if (years - bucket_time).abs() < 0.01 {
-            return IR_BUCKET_LABELS[i].to_string();
-        }
-    }
-
-    if years < 1.0 {
-        format!("{:.0}m", (years * 12.0).round())
-    } else {
-        format!("{:.0}y", years)
-    }
-}
+// Re-export for backward compatibility and convenience
+pub use super::config::format_bucket_label;
 
 /// Calculate DV01 from PV changes (high-precision f64 version).
 ///

@@ -15,6 +15,44 @@ pub const SENSITIVITIES_CONFIG_KEY_V1: &str = "valuations.sensitivities.v1";
 pub const STANDARD_BUCKETS_YEARS: [f64; 11] =
     [0.25, 0.5, 1.0, 2.0, 3.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0];
 
+/// Standard bucket labels corresponding to [`STANDARD_BUCKETS_YEARS`].
+pub const STANDARD_BUCKET_LABELS: [&str; 11] = [
+    "3m", "6m", "1y", "2y", "3y", "5y", "7y", "10y", "15y", "20y", "30y",
+];
+
+/// Format a bucket time (in years) as a human-readable label.
+///
+/// For standard buckets (0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30 years),
+/// returns the canonical label ("3m", "6m", "1y", etc.).
+/// For non-standard buckets, dynamically formats as "{N}m" or "{N}y".
+///
+/// # Examples
+///
+/// ```
+/// use finstack_valuations::metrics::sensitivities::config::format_bucket_label;
+///
+/// assert_eq!(format_bucket_label(0.25), "3m");
+/// assert_eq!(format_bucket_label(1.0), "1y");
+/// assert_eq!(format_bucket_label(10.0), "10y");
+/// assert_eq!(format_bucket_label(0.75), "9m"); // non-standard
+/// ```
+#[inline]
+pub fn format_bucket_label(years: f64) -> String {
+    // Check if this matches a standard bucket (with small tolerance for floating point)
+    for (i, &bucket_time) in STANDARD_BUCKETS_YEARS.iter().enumerate() {
+        if (years - bucket_time).abs() < 0.01 {
+            return STANDARD_BUCKET_LABELS[i].to_string();
+        }
+    }
+
+    // Fall back to dynamic formatting for non-standard buckets
+    if years < 1.0 {
+        format!("{:.0}m", (years * 12.0).round())
+    } else {
+        format!("{:.0}y", years)
+    }
+}
+
 /// Resolved (fully-populated) sensitivities configuration.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SensitivitiesConfig {
