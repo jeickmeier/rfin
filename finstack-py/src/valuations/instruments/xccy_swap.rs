@@ -1,6 +1,13 @@
+//! Cross-Currency Swap instrument bindings.
+//!
+//! ## WASM Parity Note
+//!
+//! All logic must stay in Rust to ensure WASM bindings can share the same functionality.
+//! This module only handles type conversion and builder ergonomics - no business logic
+//! or financial calculations belong here.
+
+use crate::core::common::args::{BusinessDayConventionArg, CurrencyArg, DayCountArg, TenorArg};
 use crate::core::currency::PyCurrency;
-use crate::core::dates::calendar::PyBusinessDayConvention;
-use crate::core::dates::daycount::PyDayCount;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::errors::PyContext;
 use crate::valuations::common::PyInstrumentType;
@@ -12,10 +19,10 @@ use finstack_valuations::instruments::rates::xccy_swap::{
     LegSide, NotionalExchange, XccySwap, XccySwapLeg,
 };
 use finstack_valuations::instruments::Attributes;
-use pyo3::exceptions::{PyTypeError, PyValueError};
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use pyo3::{Bound, Py, PyRef, PyRefMut};
+use pyo3::{Bound, Py, PyRefMut};
 use std::fmt;
 use std::sync::Arc;
 
@@ -150,17 +157,6 @@ impl PyCrossCurrencySwapBuilder {
         }
     }
 
-    fn parse_currency(value: &Bound<'_, PyAny>) -> PyResult<Currency> {
-        if let Ok(py_ccy) = value.extract::<PyRef<PyCurrency>>() {
-            Ok(py_ccy.inner)
-        } else if let Ok(code) = value.extract::<&str>() {
-            code.parse::<Currency>()
-                .map_err(|_| PyValueError::new_err("Invalid currency code"))
-        } else {
-            Err(PyTypeError::new_err("expects str or Currency"))
-        }
-    }
-
     fn parse_leg_side(value: &str) -> PyResult<LegSide> {
         match value.to_lowercase().as_str() {
             "pay" => Ok(LegSide::Pay),
@@ -182,70 +178,6 @@ impl PyCrossCurrencySwapBuilder {
                 other
             ))),
         }
-    }
-
-    fn parse_frequency(value: &Bound<'_, PyAny>) -> PyResult<Tenor> {
-        if let Ok(name) = value.extract::<&str>() {
-            let normalized = name.to_lowercase();
-            return match normalized.as_str() {
-                "annual" | "1y" | "yearly" => Ok(Tenor::annual()),
-                "semiannual" | "semi_annual" | "6m" | "semi" => Ok(Tenor::semi_annual()),
-                "quarterly" | "qtr" | "3m" => Ok(Tenor::quarterly()),
-                "monthly" | "1m" => Ok(Tenor::monthly()),
-                other => Err(PyValueError::new_err(format!(
-                    "Unsupported frequency '{}'",
-                    other
-                ))),
-            };
-        }
-        if let Ok(payments) = value.extract::<u32>() {
-            return Tenor::from_payments_per_year(payments)
-                .map_err(|msg| PyValueError::new_err(msg.to_string()));
-        }
-        Err(PyTypeError::new_err("expects str or int payments_per_year"))
-    }
-
-    fn parse_day_count(value: &Bound<'_, PyAny>) -> PyResult<DayCount> {
-        if let Ok(py_dc) = value.extract::<PyRef<PyDayCount>>() {
-            return Ok(py_dc.inner);
-        }
-        if let Ok(name) = value.extract::<&str>() {
-            return match name.to_lowercase().as_str() {
-                "act_360" | "act/360" => Ok(DayCount::Act360),
-                "act_365f" | "act/365f" | "act365f" => Ok(DayCount::Act365F),
-                "act_act" | "act/act" | "actact" => Ok(DayCount::ActAct),
-                "thirty_360" | "30/360" | "30e/360" => Ok(DayCount::Thirty360),
-                other => Err(PyValueError::new_err(format!(
-                    "Unsupported day count '{}'",
-                    other
-                ))),
-            };
-        }
-        Err(PyTypeError::new_err("expects DayCount or str"))
-    }
-
-    fn parse_bdc(value: &Bound<'_, PyAny>) -> PyResult<BusinessDayConvention> {
-        if let Ok(py_bdc) = value.extract::<PyRef<PyBusinessDayConvention>>() {
-            return Ok(py_bdc.inner);
-        }
-        if let Ok(name) = value.extract::<&str>() {
-            return match name.to_lowercase().as_str() {
-                "following" => Ok(BusinessDayConvention::Following),
-                "modified_following" | "mod_following" => {
-                    Ok(BusinessDayConvention::ModifiedFollowing)
-                }
-                "preceding" => Ok(BusinessDayConvention::Preceding),
-                "modified_preceding" | "mod_preceding" => {
-                    Ok(BusinessDayConvention::ModifiedPreceding)
-                }
-                "unadjusted" => Ok(BusinessDayConvention::Unadjusted),
-                other => Err(PyValueError::new_err(format!(
-                    "Unsupported business day convention '{}'",
-                    other
-                ))),
-            };
-        }
-        Err(PyTypeError::new_err("expects BusinessDayConvention or str"))
     }
 }
 
@@ -278,12 +210,12 @@ impl PyCrossCurrencySwapBuilder {
     }
 
     #[pyo3(text_signature = "($self, currency)")]
-    fn reporting_currency<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        currency: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.reporting_currency = Some(Self::parse_currency(&currency)?);
-        Ok(slf)
+    fn reporting_currency(
+        mut slf: PyRefMut<'_, Self>,
+        currency: CurrencyArg,
+    ) -> PyRefMut<'_, Self> {
+        slf.reporting_currency = Some(currency.0);
+        slf
     }
 
     /// Set notional exchange convention ("none", "final", or "initial_and_final").
@@ -299,26 +231,21 @@ impl PyCrossCurrencySwapBuilder {
     // Leg 1 methods
 
     #[pyo3(text_signature = "($self, currency)")]
-    fn leg1_currency<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        currency: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.leg1_currency = Some(Self::parse_currency(&currency)?);
-        Ok(slf)
+    fn leg1_currency(mut slf: PyRefMut<'_, Self>, currency: CurrencyArg) -> PyRefMut<'_, Self> {
+        slf.leg1_currency = Some(currency.0);
+        slf
     }
 
     #[pyo3(text_signature = "($self, amount, currency)")]
-    fn leg1_notional<'py>(
-        mut slf: PyRefMut<'py, Self>,
+    fn leg1_notional(
+        mut slf: PyRefMut<'_, Self>,
         amount: f64,
-        currency: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        if amount <= 0.0 {
-            return Err(PyValueError::new_err("notional must be positive"));
-        }
+        currency: CurrencyArg,
+    ) -> PyRefMut<'_, Self> {
+        // Let Rust validation handle notional checks
         slf.leg1_notional_amount = Some(amount);
-        slf.leg1_currency = Some(Self::parse_currency(&currency)?);
-        Ok(slf)
+        slf.leg1_currency = Some(currency.0);
+        slf
     }
 
     #[pyo3(text_signature = "($self, side)")]
@@ -340,30 +267,21 @@ impl PyCrossCurrencySwapBuilder {
     }
 
     #[pyo3(text_signature = "($self, frequency)")]
-    fn leg1_frequency<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        frequency: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.leg1_frequency = Self::parse_frequency(&frequency)?;
-        Ok(slf)
+    fn leg1_frequency(mut slf: PyRefMut<'_, Self>, frequency: TenorArg) -> PyRefMut<'_, Self> {
+        slf.leg1_frequency = frequency.0;
+        slf
     }
 
     #[pyo3(text_signature = "($self, day_count)")]
-    fn leg1_day_count<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        day_count: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.leg1_day_count = Self::parse_day_count(&day_count)?;
-        Ok(slf)
+    fn leg1_day_count(mut slf: PyRefMut<'_, Self>, day_count: DayCountArg) -> PyRefMut<'_, Self> {
+        slf.leg1_day_count = day_count.0;
+        slf
     }
 
     #[pyo3(text_signature = "($self, bdc)")]
-    fn leg1_bdc<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        bdc: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.leg1_bdc = Self::parse_bdc(&bdc)?;
-        Ok(slf)
+    fn leg1_bdc(mut slf: PyRefMut<'_, Self>, bdc: BusinessDayConventionArg) -> PyRefMut<'_, Self> {
+        slf.leg1_bdc = bdc.0;
+        slf
     }
 
     /// Set leg 1 spread (decimal, e.g., 0.0001 = 1bp).
@@ -391,26 +309,21 @@ impl PyCrossCurrencySwapBuilder {
     // Leg 2 methods
 
     #[pyo3(text_signature = "($self, currency)")]
-    fn leg2_currency<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        currency: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.leg2_currency = Some(Self::parse_currency(&currency)?);
-        Ok(slf)
+    fn leg2_currency(mut slf: PyRefMut<'_, Self>, currency: CurrencyArg) -> PyRefMut<'_, Self> {
+        slf.leg2_currency = Some(currency.0);
+        slf
     }
 
     #[pyo3(text_signature = "($self, amount, currency)")]
-    fn leg2_notional<'py>(
-        mut slf: PyRefMut<'py, Self>,
+    fn leg2_notional(
+        mut slf: PyRefMut<'_, Self>,
         amount: f64,
-        currency: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        if amount <= 0.0 {
-            return Err(PyValueError::new_err("notional must be positive"));
-        }
+        currency: CurrencyArg,
+    ) -> PyRefMut<'_, Self> {
+        // Let Rust validation handle notional checks
         slf.leg2_notional_amount = Some(amount);
-        slf.leg2_currency = Some(Self::parse_currency(&currency)?);
-        Ok(slf)
+        slf.leg2_currency = Some(currency.0);
+        slf
     }
 
     #[pyo3(text_signature = "($self, side)")]
@@ -432,30 +345,21 @@ impl PyCrossCurrencySwapBuilder {
     }
 
     #[pyo3(text_signature = "($self, frequency)")]
-    fn leg2_frequency<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        frequency: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.leg2_frequency = Self::parse_frequency(&frequency)?;
-        Ok(slf)
+    fn leg2_frequency(mut slf: PyRefMut<'_, Self>, frequency: TenorArg) -> PyRefMut<'_, Self> {
+        slf.leg2_frequency = frequency.0;
+        slf
     }
 
     #[pyo3(text_signature = "($self, day_count)")]
-    fn leg2_day_count<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        day_count: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.leg2_day_count = Self::parse_day_count(&day_count)?;
-        Ok(slf)
+    fn leg2_day_count(mut slf: PyRefMut<'_, Self>, day_count: DayCountArg) -> PyRefMut<'_, Self> {
+        slf.leg2_day_count = day_count.0;
+        slf
     }
 
     #[pyo3(text_signature = "($self, bdc)")]
-    fn leg2_bdc<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        bdc: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.leg2_bdc = Self::parse_bdc(&bdc)?;
-        Ok(slf)
+    fn leg2_bdc(mut slf: PyRefMut<'_, Self>, bdc: BusinessDayConventionArg) -> PyRefMut<'_, Self> {
+        slf.leg2_bdc = bdc.0;
+        slf
     }
 
     /// Set leg 2 spread (decimal, e.g., 0.0001 = 1bp).

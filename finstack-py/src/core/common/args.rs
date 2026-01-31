@@ -1,12 +1,24 @@
+//! Centralized argument extraction types for Python bindings.
+//!
+//! This module provides `FromPyObject` implementations for common financial types,
+//! enabling flexible argument parsing across instrument builders and other bindings.
+//!
+//! ## WASM Parity Note
+//!
+//! All logic must stay in Rust to ensure WASM bindings can share the same functionality.
+//! These types only handle type conversion - no business logic or validation beyond
+//! type parsing belongs here.
+
 use crate::core::common::labels::normalize_label;
 use crate::core::currency::PyCurrency;
+use crate::core::dates::schedule::{PyFrequency, PyStubKind};
 use crate::core::dates::PyDayCount;
 use crate::core::math::interp::{PyExtrapolationPolicy, PyInterpStyle};
 use crate::errors::{unknown_business_day_convention, unknown_rounding_mode};
 use finstack_core::config::RoundingMode;
 use finstack_core::currency::Currency;
-use finstack_core::dates::BusinessDayConvention;
 use finstack_core::dates::DayCount;
+use finstack_core::dates::{BusinessDayConvention, StubKind, Tenor};
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
@@ -161,6 +173,96 @@ impl<'py> FromPyObject<'py> for ExtrapolationPolicyArg {
         }
         Err(PyTypeError::new_err(
             "Expected ExtrapolationPolicy or string identifier",
+        ))
+    }
+}
+
+/// Flexible tenor/frequency argument extraction.
+///
+/// Accepts:
+/// - `Frequency` (PyFrequency) instance
+/// - String labels: "annual", "semi_annual", "quarterly", "monthly", "biweekly", "weekly", "daily"
+/// - Tenor shorthand: "1y", "6m", "3m", "1m", "2w", "1w", "1d"
+/// - Integer payments per year: 1, 2, 4, 12, etc.
+pub struct TenorArg(pub Tenor);
+
+impl<'py> FromPyObject<'py> for TenorArg {
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+        // Try Frequency wrapper first
+        if let Ok(py_freq) = obj.extract::<PyRef<PyFrequency>>() {
+            return Ok(TenorArg(py_freq.inner));
+        }
+        // Try string parsing
+        if let Ok(name) = obj.extract::<&str>() {
+            let normalized = normalize_label(name);
+            let tenor = match normalized.as_str() {
+                "annual" | "1y" | "yearly" => Tenor::annual(),
+                "semiannual" | "semi_annual" | "6m" | "semi" => Tenor::semi_annual(),
+                "quarterly" | "qtr" | "3m" => Tenor::quarterly(),
+                "monthly" | "1m" => Tenor::monthly(),
+                "biweekly" | "2w" => Tenor::biweekly(),
+                "weekly" | "1w" => Tenor::weekly(),
+                "daily" | "1d" => Tenor::daily(),
+                other => {
+                    // Try parsing as payments per year
+                    if let Ok(payments) = other.parse::<u32>() {
+                        return Tenor::from_payments_per_year(payments)
+                            .map(TenorArg)
+                            .map_err(|msg| {
+                                pyo3::exceptions::PyValueError::new_err(msg.to_string())
+                            });
+                    }
+                    return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                        "Unknown frequency/tenor: {other}"
+                    )));
+                }
+            };
+            return Ok(TenorArg(tenor));
+        }
+        // Try integer payments per year
+        if let Ok(payments) = obj.extract::<u32>() {
+            return Tenor::from_payments_per_year(payments)
+                .map(TenorArg)
+                .map_err(|msg| pyo3::exceptions::PyValueError::new_err(msg.to_string()));
+        }
+        Err(PyTypeError::new_err(
+            "Expected Frequency, string identifier, or payments per year (int)",
+        ))
+    }
+}
+
+/// Flexible stub kind argument extraction.
+///
+/// Accepts:
+/// - `StubKind` (PyStubKind) instance
+/// - String labels: "none", "short_front", "short_back", "long_front", "long_back"
+pub struct StubKindArg(pub StubKind);
+
+impl<'py> FromPyObject<'py> for StubKindArg {
+    fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+        // Try StubKind wrapper first
+        if let Ok(py_stub) = obj.extract::<PyRef<PyStubKind>>() {
+            return Ok(StubKindArg(py_stub.inner));
+        }
+        // Try string parsing
+        if let Ok(name) = obj.extract::<&str>() {
+            let normalized = normalize_label(name);
+            let stub = match normalized.as_str() {
+                "none" => StubKind::None,
+                "short_front" | "shortfront" => StubKind::ShortFront,
+                "short_back" | "shortback" => StubKind::ShortBack,
+                "long_front" | "longfront" => StubKind::LongFront,
+                "long_back" | "longback" => StubKind::LongBack,
+                other => {
+                    return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                        "Unknown stub kind: {other}"
+                    )));
+                }
+            };
+            return Ok(StubKindArg(stub));
+        }
+        Err(PyTypeError::new_err(
+            "Expected StubKind or string identifier",
         ))
     }
 }

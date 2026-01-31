@@ -1,3 +1,12 @@
+//! Instrument bindings for Python.
+//!
+//! ## WASM Parity Note
+//!
+//! All logic must stay in Rust to ensure WASM bindings can share the same functionality.
+//! These modules only handle type conversion and builder ergonomics - no business logic
+//! or financial calculations belong here. Argument parsing has been centralized in
+//! `crate::core::common::args` to ensure consistent behavior across all instruments.
+
 mod agency_mbs;
 mod asian_option;
 mod autocallable;

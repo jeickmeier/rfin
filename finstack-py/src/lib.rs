@@ -1,3 +1,17 @@
+//! Python bindings for the finstack library.
+//!
+//! ## WASM Parity Note
+//!
+//! All business logic must stay in Rust core crates to ensure WASM bindings can share
+//! the same functionality. These Python bindings only handle:
+//! - Type conversion (Python → Rust, Rust → Python)
+//! - Wrapper construction and accessor methods
+//! - Error mapping to Python exceptions
+//! - Ergonomic helpers (operator overloading, flexible argument parsing)
+//!
+//! No financial calculations, validation logic, or algorithms should be implemented here.
+//! Centralized argument extraction types are in `crate::core::common::args`.
+
 #![allow(clippy::all)]
 
 use pyo3::prelude::*;

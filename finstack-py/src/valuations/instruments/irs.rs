@@ -1,7 +1,14 @@
-use crate::core::currency::PyCurrency;
-use crate::core::dates::calendar::PyBusinessDayConvention;
-use crate::core::dates::daycount::PyDayCount;
-use crate::core::dates::schedule::{PyFrequency, PyStubKind};
+//! Interest Rate Swap instrument bindings.
+//!
+//! ## WASM Parity Note
+//!
+//! All logic must stay in Rust to ensure WASM bindings can share the same functionality.
+//! This module only handles type conversion and builder ergonomics - no business logic
+//! or financial calculations belong here.
+
+use crate::core::common::args::{
+    BusinessDayConventionArg, CurrencyArg, DayCountArg, StubKindArg, TenorArg,
+};
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::PyMoney;
 use crate::errors::{core_to_py, PyContext};
@@ -14,12 +21,10 @@ use finstack_valuations::instruments::rates::irs::{
     FixedLegSpec, FloatLegSpec, InterestRateSwap, PayReceive,
 };
 use pyo3::basic::CompareOp;
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use pyo3::{
-    exceptions::{PyTypeError, PyValueError},
-    Bound, Py, PyRef, PyRefMut,
-};
+use pyo3::{Bound, Py, PyRef, PyRefMut};
 use std::fmt;
 use std::sync::Arc;
 
@@ -211,108 +216,6 @@ impl PyInterestRateSwapBuilder {
         Ok(())
     }
 
-    fn parse_currency(value: &Bound<'_, PyAny>) -> PyResult<Currency> {
-        if let Ok(py_ccy) = value.extract::<PyRef<PyCurrency>>() {
-            Ok(py_ccy.inner)
-        } else if let Ok(code) = value.extract::<&str>() {
-            code.parse::<Currency>()
-                .map_err(|_| PyValueError::new_err("Invalid currency code"))
-        } else {
-            Err(PyTypeError::new_err("currency() expects Currency or str"))
-        }
-    }
-
-    fn parse_frequency(value: &Bound<'_, PyAny>) -> PyResult<Tenor> {
-        if let Ok(py_freq) = value.extract::<PyRef<PyFrequency>>() {
-            return Ok((*py_freq).inner);
-        }
-        if let Ok(name) = value.extract::<&str>() {
-            let normalized = name.to_lowercase();
-            return match normalized.as_str() {
-                "annual" | "1y" | "yearly" => Ok(Tenor::annual()),
-                "semiannual" | "semi_annual" | "semi" | "6m" => Ok(Tenor::semi_annual()),
-                "quarterly" | "qtr" | "3m" => Ok(Tenor::quarterly()),
-                "monthly" | "1m" => Ok(Tenor::monthly()),
-                "biweekly" | "2w" => Ok(Tenor::biweekly()),
-                "weekly" | "1w" => Ok(Tenor::weekly()),
-                "daily" | "1d" => Ok(Tenor::daily()),
-                other => Tenor::from_payments_per_year(other.parse::<u32>().map_err(|_| {
-                    PyValueError::new_err("frequency expects Tenor, name, or payments per year")
-                })?)
-                .map_err(|msg| PyValueError::new_err(msg.to_string())),
-            };
-        }
-        if let Ok(payments) = value.extract::<u32>() {
-            return Tenor::from_payments_per_year(payments)
-                .map_err(|msg| PyValueError::new_err(msg.to_string()));
-        }
-        Err(PyTypeError::new_err(
-            "frequency expects Tenor, str, or int payments_per_year",
-        ))
-    }
-
-    fn parse_day_count(value: &Bound<'_, PyAny>) -> PyResult<DayCount> {
-        if let Ok(py_dc) = value.extract::<PyRef<PyDayCount>>() {
-            return Ok(py_dc.inner);
-        }
-        if let Ok(name) = value.extract::<&str>() {
-            return match name.to_lowercase().as_str() {
-                "act_360" | "act/360" => Ok(DayCount::Act360),
-                "act_365f" | "act/365f" | "act365f" => Ok(DayCount::Act365F),
-                "act_act" | "act/act" | "actact" => Ok(DayCount::ActAct),
-                "thirty_360" | "30/360" | "30e/360" => Ok(DayCount::Thirty360),
-                other => Err(PyValueError::new_err(format!(
-                    "Unsupported day count '{other}'"
-                ))),
-            };
-        }
-        Err(PyTypeError::new_err("day_count expects DayCount or str"))
-    }
-
-    fn parse_bdc(value: &Bound<'_, PyAny>) -> PyResult<BusinessDayConvention> {
-        if let Ok(py_bdc) = value.extract::<PyRef<PyBusinessDayConvention>>() {
-            return Ok(py_bdc.inner);
-        }
-        if let Ok(name) = value.extract::<&str>() {
-            return match name.to_lowercase().as_str() {
-                "following" => Ok(BusinessDayConvention::Following),
-                "modified_following" | "mod_following" | "modifiedfollowing" => {
-                    Ok(BusinessDayConvention::ModifiedFollowing)
-                }
-                "preceding" => Ok(BusinessDayConvention::Preceding),
-                "modified_preceding" | "mod_preceding" | "modifiedpreceding" => {
-                    Ok(BusinessDayConvention::ModifiedPreceding)
-                }
-                "unadjusted" => Ok(BusinessDayConvention::Unadjusted),
-                other => Err(PyValueError::new_err(format!(
-                    "Unsupported business day convention '{other}'"
-                ))),
-            };
-        }
-        Err(PyTypeError::new_err(
-            "bdc expects BusinessDayConvention or str",
-        ))
-    }
-
-    fn parse_stub(value: &Bound<'_, PyAny>) -> PyResult<StubKind> {
-        if let Ok(py_stub) = value.extract::<PyRef<PyStubKind>>() {
-            return Ok(py_stub.inner);
-        }
-        if let Ok(name) = value.extract::<&str>() {
-            return match name.to_lowercase().as_str() {
-                "none" => Ok(StubKind::None),
-                "short_front" => Ok(StubKind::ShortFront),
-                "short_back" => Ok(StubKind::ShortBack),
-                "long_front" => Ok(StubKind::LongFront),
-                "long_back" => Ok(StubKind::LongBack),
-                other => Err(PyValueError::new_err(format!(
-                    "Unsupported stub kind '{other}'"
-                ))),
-            };
-        }
-        Err(PyTypeError::new_err("stub expects StubKind or str"))
-    }
-
     fn parse_side(value: &Bound<'_, PyAny>) -> PyResult<PayReceive> {
         if let Ok(py_side) = value.extract::<PyRef<PyPayReceive>>() {
             return Ok(py_side.inner);
@@ -322,7 +225,9 @@ impl PyInterestRateSwapBuilder {
                 .parse::<PayReceive>()
                 .map_err(|e| PyValueError::new_err(e));
         }
-        Err(PyTypeError::new_err("side expects PayReceive or str label"))
+        Err(pyo3::exceptions::PyTypeError::new_err(
+            "side expects PayReceive or str label",
+        ))
     }
 }
 
@@ -335,21 +240,16 @@ impl PyInterestRateSwapBuilder {
     }
 
     #[pyo3(text_signature = "($self, amount)")]
-    fn notional(mut slf: PyRefMut<'_, Self>, amount: f64) -> PyResult<PyRefMut<'_, Self>> {
-        if amount <= 0.0 {
-            return Err(PyValueError::new_err("notional must be positive"));
-        }
+    fn notional(mut slf: PyRefMut<'_, Self>, amount: f64) -> PyRefMut<'_, Self> {
+        // Let Rust validation in InterestRateSwap::builder().build() handle validation
         slf.pending_notional_amount = Some(amount);
-        Ok(slf)
+        slf
     }
 
     #[pyo3(text_signature = "($self, currency)")]
-    fn currency<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        currency: &Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.pending_currency = Some(Self::parse_currency(currency)?);
-        Ok(slf)
+    fn currency(mut slf: PyRefMut<'_, Self>, currency: CurrencyArg) -> PyRefMut<'_, Self> {
+        slf.pending_currency = Some(currency.0);
+        slf
     }
 
     #[pyo3(text_signature = "($self, money)")]
@@ -369,12 +269,10 @@ impl PyInterestRateSwapBuilder {
     }
 
     #[pyo3(text_signature = "($self, rate)")]
-    fn fixed_rate(mut slf: PyRefMut<'_, Self>, rate: f64) -> PyResult<PyRefMut<'_, Self>> {
-        if rate < 0.0 {
-            return Err(PyValueError::new_err("fixed_rate must be non-negative"));
-        }
+    fn fixed_rate(mut slf: PyRefMut<'_, Self>, rate: f64) -> PyRefMut<'_, Self> {
+        // Let Rust validation handle negative rate checks
         slf.fixed_rate = Some(rate);
-        Ok(slf)
+        slf
     }
 
     #[pyo3(text_signature = "($self, spread_bp)")]
@@ -414,68 +312,46 @@ impl PyInterestRateSwapBuilder {
     }
 
     #[pyo3(text_signature = "($self, frequency)")]
-    fn fixed_frequency<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        frequency: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.fixed_frequency = Self::parse_frequency(&frequency)?;
-        Ok(slf)
+    fn fixed_frequency(mut slf: PyRefMut<'_, Self>, frequency: TenorArg) -> PyRefMut<'_, Self> {
+        slf.fixed_frequency = frequency.0;
+        slf
     }
 
     #[pyo3(text_signature = "($self, frequency)")]
-    fn float_frequency<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        frequency: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.float_frequency = Self::parse_frequency(&frequency)?;
-        Ok(slf)
+    fn float_frequency(mut slf: PyRefMut<'_, Self>, frequency: TenorArg) -> PyRefMut<'_, Self> {
+        slf.float_frequency = frequency.0;
+        slf
     }
 
     #[pyo3(text_signature = "($self, frequency)")]
-    fn frequency<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        frequency: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        let parsed = Self::parse_frequency(&frequency)?;
-        slf.fixed_frequency = parsed;
-        slf.float_frequency = parsed;
-        Ok(slf)
+    fn frequency(mut slf: PyRefMut<'_, Self>, frequency: TenorArg) -> PyRefMut<'_, Self> {
+        slf.fixed_frequency = frequency.0;
+        slf.float_frequency = frequency.0;
+        slf
     }
 
     #[pyo3(text_signature = "($self, day_count)")]
-    fn fixed_day_count<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        day_count: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.fixed_day_count = Self::parse_day_count(&day_count)?;
-        Ok(slf)
+    fn fixed_day_count(mut slf: PyRefMut<'_, Self>, day_count: DayCountArg) -> PyRefMut<'_, Self> {
+        slf.fixed_day_count = day_count.0;
+        slf
     }
 
     #[pyo3(text_signature = "($self, day_count)")]
-    fn float_day_count<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        day_count: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.float_day_count = Self::parse_day_count(&day_count)?;
-        Ok(slf)
+    fn float_day_count(mut slf: PyRefMut<'_, Self>, day_count: DayCountArg) -> PyRefMut<'_, Self> {
+        slf.float_day_count = day_count.0;
+        slf
     }
 
     #[pyo3(text_signature = "($self, bdc)")]
-    fn bdc<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        bdc: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.bdc = Self::parse_bdc(&bdc)?;
-        Ok(slf)
+    fn bdc(mut slf: PyRefMut<'_, Self>, bdc: BusinessDayConventionArg) -> PyRefMut<'_, Self> {
+        slf.bdc = bdc.0;
+        slf
     }
 
     #[pyo3(text_signature = "($self, stub)")]
-    fn stub<'py>(
-        mut slf: PyRefMut<'py, Self>,
-        stub: Bound<'py, PyAny>,
-    ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.stub = Self::parse_stub(&stub)?;
-        Ok(slf)
+    fn stub(mut slf: PyRefMut<'_, Self>, stub: StubKindArg) -> PyRefMut<'_, Self> {
+        slf.stub = stub.0;
+        slf
     }
 
     #[pyo3(text_signature = "($self, calendar_id=None)", signature = (calendar_id=None))]
