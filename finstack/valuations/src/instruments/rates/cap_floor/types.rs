@@ -430,7 +430,7 @@ impl crate::instruments::common::traits::Instrument for InterestRateOption {
                 accrual_year_fraction: tau,
                 currency: self.notional.currency(),
             })?;
-            total_pv = (total_pv + leg_pv)?;
+            total_pv = total_pv.checked_add(leg_pv)?;
 
             prev = pay;
         }

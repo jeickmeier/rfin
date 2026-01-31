@@ -491,7 +491,7 @@ impl crate::instruments::common::traits::Instrument for XccySwap {
         let pv1_rep = self.pv_leg_in_reporting_ccy(&self.leg1, &s1, market, as_of)?;
         let pv2_rep = self.pv_leg_in_reporting_ccy(&self.leg2, &s2, market, as_of)?;
 
-        pv1_rep + pv2_rep
+        pv1_rep.checked_add(pv2_rep)
     }
 
     fn price_with_metrics(

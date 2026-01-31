@@ -277,7 +277,7 @@ impl HazardBondEngine {
         }
 
         let pv_rec_money = Money::new(pv_rec, ccy);
-        let total = (pv_cf + pv_rec_money)?;
+        let total = pv_cf.checked_add(pv_rec_money)?;
         Ok(total)
     }
 }

@@ -228,7 +228,7 @@ fn test_equity_trs_npv_equals_legs_difference() {
     let fin_pv = trs.pv_financing_leg(&market, as_of).unwrap();
 
     // Assert - NPV = TR leg - Financing leg (for receive side)
-    let expected_npv = (tr_pv - fin_pv).unwrap();
+    let expected_npv = tr_pv.checked_sub(fin_pv).unwrap();
     assert_money_approx_eq(
         npv,
         expected_npv,

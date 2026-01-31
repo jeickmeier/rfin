@@ -194,12 +194,6 @@ pub fn bachelier_gamma(forward: f64, strike: f64, sigma_n: f64, t: f64) -> f64 {
     norm_pdf(d) / st
 }
 
-/// Legacy alias for `bachelier_call` (backward compatibility).
-#[inline]
-pub fn bachelier_price(forward: f64, strike: f64, sigma_n: f64, t: f64) -> f64 {
-    bachelier_call(forward, strike, sigma_n, t)
-}
-
 // =============================================================================
 // Black-76 (Lognormal) Model
 // =============================================================================
@@ -366,12 +360,6 @@ pub fn black_gamma(forward: f64, strike: f64, sigma: f64, t: f64) -> f64 {
     norm_pdf(d1) / (forward * st)
 }
 
-/// Legacy alias for `black_call` (backward compatibility).
-#[inline]
-pub fn black_price(forward: f64, strike: f64, sigma: f64, t: f64) -> f64 {
-    black_call(forward, strike, sigma, t)
-}
-
 // =============================================================================
 // Shifted Black Model
 // =============================================================================
@@ -404,12 +392,6 @@ pub fn black_shifted_put(forward: f64, strike: f64, sigma: f64, t: f64, shift: f
 #[inline]
 pub fn black_shifted_vega(forward: f64, strike: f64, sigma: f64, t: f64, shift: f64) -> f64 {
     black_vega(forward + shift, strike + shift, sigma, t)
-}
-
-/// Legacy alias for `black_shifted_call` (backward compatibility).
-#[inline]
-pub fn black_shifted_price(forward: f64, strike: f64, sigma: f64, t: f64, shift: f64) -> f64 {
-    black_shifted_call(forward, strike, sigma, t, shift)
 }
 
 // =============================================================================
@@ -858,24 +840,6 @@ mod tests {
             forward - strike_itm
         );
         assert_eq!(black_call(forward, strike_otm, 0.0, t), 0.0);
-    }
-
-    #[test]
-    fn test_legacy_aliases() {
-        let forward = 0.05;
-        let strike = 0.04;
-        let sigma = 0.20;
-        let t = 1.0;
-
-        // Legacy aliases should match new functions
-        assert_eq!(
-            bachelier_price(forward, strike, sigma, t),
-            bachelier_call(forward, strike, sigma, t)
-        );
-        assert_eq!(
-            black_price(forward, strike, sigma, t),
-            black_call(forward, strike, sigma, t)
-        );
     }
 
     // =========================================================================

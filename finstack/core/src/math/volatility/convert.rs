@@ -1,5 +1,5 @@
 use super::conventions::{validate_forward_for_convention, VolatilityConvention};
-use super::pricing::{bachelier_price, black_price, black_shifted_price};
+use super::pricing::{bachelier_call, black_call, black_shifted_call};
 use crate::error::InputError;
 use crate::math::{BrentSolver, Solver};
 use crate::Result;
@@ -130,11 +130,9 @@ pub fn convert_atm_volatility(
 
     // Compute price under source convention (ATM: strike = forward)
     let price_from = match from_convention {
-        VolatilityConvention::Normal => bachelier_price(f, f, vol, t),
-        VolatilityConvention::Lognormal => black_price(f, f, vol, t),
-        VolatilityConvention::ShiftedLognormal { shift } => {
-            black_shifted_price(f, f, vol, t, shift)
-        }
+        VolatilityConvention::Normal => bachelier_call(f, f, vol, t),
+        VolatilityConvention::Lognormal => black_call(f, f, vol, t),
+        VolatilityConvention::ShiftedLognormal { shift } => black_shifted_call(f, f, vol, t, shift),
     };
 
     // Initial guess derived from ATM approximations
@@ -144,10 +142,10 @@ pub fn convert_atm_volatility(
     let objective = |sigma: f64| -> f64 {
         let sigma_pos = sigma.abs();
         let p = match to_convention {
-            VolatilityConvention::Normal => bachelier_price(f, f, sigma_pos, t),
-            VolatilityConvention::Lognormal => black_price(f, f, sigma_pos, t),
+            VolatilityConvention::Normal => bachelier_call(f, f, sigma_pos, t),
+            VolatilityConvention::Lognormal => black_call(f, f, sigma_pos, t),
             VolatilityConvention::ShiftedLognormal { shift } => {
-                black_shifted_price(f, f, sigma_pos, t, shift)
+                black_shifted_call(f, f, sigma_pos, t, shift)
             }
         };
         p - price_from
@@ -250,16 +248,16 @@ fn compute_initial_guess(
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
-    use super::super::pricing::{bachelier_price, black_price, black_shifted_price};
+    use super::super::pricing::{bachelier_call, black_call, black_shifted_call};
     use super::VolatilityConvention;
     use super::*;
 
     fn atm_price(convention: VolatilityConvention, forward: f64, vol: f64, t: f64) -> f64 {
         match convention {
-            VolatilityConvention::Normal => bachelier_price(forward, forward, vol, t),
-            VolatilityConvention::Lognormal => black_price(forward, forward, vol, t),
+            VolatilityConvention::Normal => bachelier_call(forward, forward, vol, t),
+            VolatilityConvention::Lognormal => black_call(forward, forward, vol, t),
             VolatilityConvention::ShiftedLognormal { shift } => {
-                black_shifted_price(forward, forward, vol, t, shift)
+                black_shifted_call(forward, forward, vol, t, shift)
             }
         }
     }

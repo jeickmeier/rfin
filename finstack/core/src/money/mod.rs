@@ -16,7 +16,7 @@
 //!
 //! let gross = Money::new(125.25, Currency::USD);
 //! let tax   = Money::new(10.00, Currency::USD);
-//! let total = (gross + tax)?;
+//! let total = gross.checked_add(tax)?;
 //! assert_eq!(format!("{}", total), "USD 135.25");
 //! # Ok(())
 //! # }

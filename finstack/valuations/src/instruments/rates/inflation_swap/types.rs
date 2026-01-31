@@ -464,8 +464,8 @@ impl crate::instruments::common::traits::Instrument for InflationSwap {
         let pv_fixed = self.pv_fixed_leg(curves, as_of)?;
         let pv_inflation = self.pv_inflation_leg(curves, as_of)?;
         match self.side {
-            PayReceiveInflation::ReceiveFixed => pv_fixed - pv_inflation,
-            PayReceiveInflation::PayFixed => pv_inflation - pv_fixed,
+            PayReceiveInflation::ReceiveFixed => pv_fixed.checked_sub(pv_inflation),
+            PayReceiveInflation::PayFixed => pv_inflation.checked_sub(pv_fixed),
         }
     }
 

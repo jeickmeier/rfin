@@ -73,7 +73,7 @@ pub fn npv_by_date(
         }
         let df = disc.df_between_dates(as_of, *d)?;
 
-        total = (total + (*amt * df))?;
+        total = total.checked_add(*amt * df)?;
     }
 
     Ok(total)
@@ -129,7 +129,7 @@ pub fn npv_by_date_pricing_view(
         }
         let df = disc.df_between_dates(as_of, *d)?;
 
-        total = (total + (*amt * df))?;
+        total = total.checked_add(*amt * df)?;
     }
 
     Ok(total)

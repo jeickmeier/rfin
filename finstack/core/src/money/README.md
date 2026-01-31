@@ -71,25 +71,7 @@ All public APIs are documented with examples in the Rustdoc comments; this READM
 - **Arithmetic**
   - Checked: `checked_add`, `checked_sub` return `Result<Money, Error>`.
   - Scalar: `impl Mul<f64>`, `Div<f64>` and corresponding `*Assign` variants keep the currency intact.
-  - Trait‑based addition/subtraction:
-    - `impl Add for Money` → `Result<Money, Error>`.
-    - `impl Sub for Money` → `Result<Money, Error>`.
-    - `AddAssign` / `SubAssign` assert same‑currency and panic on mismatch.
-
-> **Style note**: The `Add` and `Sub` trait implementations return `Result<Money, Error>`,
-> which is **unusual in Rust** (typically `Add::Output = Self`). This design enforces
-> currency safety at compile‑time ergonomics cost. Because `a + b` returning `Result`
-> can surprise readers, **prefer the explicit `checked_add` / `checked_sub` methods**
-> in application code for clarity:
->
-> ```rust
-> // Recommended: explicit about Result return
-> let total = notional.checked_add(fees)?;
->
-> // Also valid, but less obvious that it returns Result
-> let total = (notional + fees)?;
-> ```
->
+  - In‑place: `AddAssign` / `SubAssign` assert same‑currency and panic on mismatch.
 - **FX conversion**
   - `Money::convert(to: Currency, on: Date, provider: &impl FxProvider, policy: FxConversionPolicy) -> Result<Money>`:
     - No‑op when `self.currency == to`.
@@ -107,7 +89,7 @@ assert_eq!(notional.currency(), Currency::EUR);
 assert_eq!(format!("{}", notional), "EUR 1000000.00");
 
 let fees = Money::new(2_500.0, Currency::EUR);
-let total = (notional + fees).expect("currencies must match");
+let total = notional.checked_add(fees).expect("currencies must match");
 assert_eq!(total.currency(), Currency::EUR);
 ```
 

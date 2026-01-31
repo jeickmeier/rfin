@@ -134,7 +134,8 @@ impl CashflowBreakdown {
     #[allow(clippy::expect_used)] // Type invariant: all Money fields have same currency
     pub fn interest_expense_total(&self) -> Money {
         // SAFETY: Both values in a CashflowBreakdown have the same currency by construction
-        (self.interest_expense_cash + self.interest_expense_pik)
+        self.interest_expense_cash
+            .checked_add(self.interest_expense_pik)
             .expect("CashflowBreakdown values should have same currency")
     }
 }

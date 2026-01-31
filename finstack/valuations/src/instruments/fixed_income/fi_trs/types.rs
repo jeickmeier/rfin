@@ -263,8 +263,8 @@ impl crate::instruments::common::traits::Instrument for FIIndexTotalReturnSwap {
 
         // Net PV depends on side
         let net_pv = match self.side {
-            TrsSide::ReceiveTotalReturn => (total_return_pv - financing_pv)?,
-            TrsSide::PayTotalReturn => (financing_pv - total_return_pv)?,
+            TrsSide::ReceiveTotalReturn => total_return_pv.checked_sub(financing_pv)?,
+            TrsSide::PayTotalReturn => financing_pv.checked_sub(total_return_pv)?,
         };
 
         Ok(net_pv)

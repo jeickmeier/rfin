@@ -72,7 +72,7 @@ fn main() -> finstack_core::Result<()> {
     let tax      = Money::new(9.90, eur);
 
     // Checked arithmetic refuses to mix currencies
-    let total = (subtotal + tax)?;
+    let total = subtotal.checked_add(tax)?;
     assert_eq!(format!("{}", total), "EUR 59.40");
 
     Ok(())

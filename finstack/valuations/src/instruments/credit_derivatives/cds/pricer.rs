@@ -1922,14 +1922,14 @@ impl CDSPricer {
                 // Sign convention: positive upfront is paid by buyer
                 pv = match cds.side {
                     PayReceive::PayFixed => pv.checked_sub(upfront_pv)?,
-                    PayReceive::ReceiveFixed => (pv + upfront_pv)?,
+                    PayReceive::ReceiveFixed => pv.checked_add(upfront_pv)?,
                 };
             }
         }
 
         // 2. Handle PV adjustment upfront (added directly without discounting)
         if let Some(upfront) = cds.pricing_overrides.upfront_payment {
-            pv = (pv + upfront)?;
+            pv = pv.checked_add(upfront)?;
         }
 
         Ok(pv)

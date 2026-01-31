@@ -147,7 +147,8 @@ Everything is accessible via `finstack_core::math`, which re‑exports the most 
   - `solve_with_derivative` lets callers supply an analytic derivative for better performance and robustness.
 - **`MultiSolver`** and **`LevenbergMarquardtSolver`**:
   - `minimize` for scalar objectives with optional box constraints.
-  - `solve_system` convenience for residual‑based systems, internally converted to least‑squares.
+  - `solve_system_with_dim_stats` for residual‑based systems, internally converted to least‑squares.
+  - `solve_system_with_jacobian_stats` when analytic Jacobian is available (2× faster).
   - `AnalyticalDerivatives` trait allows exact gradients/Jacobians when available.
 
 These solvers are used extensively throughout the project (e.g., IRR/XIRR, implied vols, curve calibration) and are the preferred way to do numeric solving instead of ad‑hoc loops.

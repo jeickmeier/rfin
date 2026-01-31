@@ -215,7 +215,7 @@ fn calculate_instrument_pnl(
         let pv_old = instrument.value(market, old_date).ok();
         let pv_new = instrument.value(market, new_date).ok();
         if let (Some(old), Some(new)) = (pv_old, pv_new) {
-            let diff = (new - old)?;
+            let diff = new.checked_sub(old)?;
             pv_change_by_ccy.insert(diff.currency(), diff);
         }
 

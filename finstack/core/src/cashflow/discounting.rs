@@ -233,7 +233,7 @@ pub fn npv<D: Discounting + ?Sized>(
         let t = day_count.signed_year_fraction(base, *d, ctx)?;
         let df = disc.df(t);
         let disc_amt = *amt * df;
-        total = (total + disc_amt)?;
+        total = total.checked_add(disc_amt)?;
     }
     Ok(total)
 }

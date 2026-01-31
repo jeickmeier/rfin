@@ -403,7 +403,7 @@ impl InflationCapFloor {
                 }
             };
 
-            total_pv = (total_pv + leg_pv)?;
+            total_pv = total_pv.checked_add(leg_pv)?;
         }
 
         Ok(total_pv)

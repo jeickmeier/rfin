@@ -33,7 +33,7 @@ fn explicit_convert_and_add() {
     let eur_in_usd = eur
         .convert(Currency::USD, d, &prov, FxConversionPolicy::CashflowDate)
         .unwrap();
-    let sum = (usd + eur_in_usd).unwrap();
+    let sum = usd.checked_add(eur_in_usd).unwrap();
     // Expected: 100 + 90*1.2 = 208
     assert!((sum.amount() - 208.0).abs() < 1e-9);
 }
@@ -42,7 +42,7 @@ fn explicit_convert_and_add() {
 fn cross_currency_add_fails_without_convert() {
     let usd = Money::new(10.0, Currency::USD);
     let eur = Money::new(10.0, Currency::EUR);
-    assert!((usd + eur).is_err());
+    assert!(usd.checked_add(eur).is_err());
 }
 
 #[test]

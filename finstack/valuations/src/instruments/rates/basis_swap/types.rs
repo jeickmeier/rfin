@@ -737,7 +737,7 @@ impl crate::instruments::common::traits::Instrument for BasisSwap {
             self.pv_float_leg(&self.reference_leg, &reference_schedule, curves, as_of)?;
 
         // NPV from perspective of receiving primary leg (with spread), paying reference leg
-        primary_pv - reference_pv
+        primary_pv.checked_sub(reference_pv)
     }
 
     fn price_with_metrics(

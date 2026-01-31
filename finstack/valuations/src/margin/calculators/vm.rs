@@ -188,7 +188,7 @@ impl VmCalculator {
                         self.csa.vm_params.threshold,
                         self.csa.vm_params.mta,
                     ));
-                    current_collateral = (current_collateral + result.delivery_amount)?;
+                    current_collateral = current_collateral.checked_add(result.delivery_amount)?;
                 } else if result.return_amount.amount() > 0.0 {
                     calls.push(MarginCall::vm_return(
                         *date,

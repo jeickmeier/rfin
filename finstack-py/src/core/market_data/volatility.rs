@@ -5,7 +5,7 @@
 //! - Pricing functions: `bachelier_price`, `black_price`, `black_shifted_price`
 //! - `convert_atm_volatility`: utility to convert ATM volatility between conventions
 use finstack_core::math::volatility::{
-    bachelier_price, black_price, black_shifted_price, convert_atm_volatility, VolatilityConvention,
+    bachelier_call, black_call, black_shifted_call, convert_atm_volatility, VolatilityConvention,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
@@ -111,7 +111,7 @@ impl PyVolatilityConvention {
     text_signature = "(forward, strike, sigma_n, t)"
 )]
 pub fn py_bachelier_price(forward: f64, strike: f64, sigma_n: f64, t: f64) -> f64 {
-    bachelier_price(forward, strike, sigma_n, t)
+    bachelier_call(forward, strike, sigma_n, t)
 }
 
 /// Compute the price of a call option under the Black (Lognormal) model.
@@ -135,7 +135,7 @@ pub fn py_bachelier_price(forward: f64, strike: f64, sigma_n: f64, t: f64) -> f6
 ///     Option price.
 #[pyfunction(name = "black_price", text_signature = "(forward, strike, sigma, t)")]
 pub fn py_black_price(forward: f64, strike: f64, sigma: f64, t: f64) -> f64 {
-    black_price(forward, strike, sigma, t)
+    black_call(forward, strike, sigma, t)
 }
 
 /// Compute the price of a call option under the Shifted Black model.
@@ -162,7 +162,7 @@ pub fn py_black_price(forward: f64, strike: f64, sigma: f64, t: f64) -> f64 {
     text_signature = "(forward, strike, sigma, t, shift)"
 )]
 pub fn py_black_shifted_price(forward: f64, strike: f64, sigma: f64, t: f64, shift: f64) -> f64 {
-    black_shifted_price(forward, strike, sigma, t, shift)
+    black_shifted_call(forward, strike, sigma, t, shift)
 }
 
 /// Convert ATM volatility between conventions by equating option prices.

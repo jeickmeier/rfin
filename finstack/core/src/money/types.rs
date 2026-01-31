@@ -26,7 +26,7 @@ use crate::currency::Currency;
 use crate::dates::Date;
 use crate::error::{Error, InputError, NonFiniteKind};
 use core::fmt;
-use core::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign};
+use core::ops::{AddAssign, Div, DivAssign, Mul, MulAssign, SubAssign};
 
 use super::rounding::{
     amount_from_repr, repr_add, repr_div_f64, repr_mul_f64, repr_sub, round_f64,
@@ -371,9 +371,6 @@ impl Money {
     /// // Preferred: explicit about Result return
     /// let sum = lhs.checked_add(rhs).expect("Currency match should succeed");
     /// assert_eq!(sum.amount(), 75.0);
-    ///
-    /// // Also valid, but less obvious that it returns Result
-    /// // let sum = (lhs + rhs)?;
     /// ```
     #[must_use = "returns new Money if currencies match"]
     #[inline]
@@ -403,9 +400,6 @@ impl Money {
     /// // Preferred: explicit about Result return
     /// let diff = lhs.checked_sub(rhs).expect("Currency match should succeed");
     /// assert_eq!(diff.amount(), 25.0);
-    ///
-    /// // Also valid, but less obvious that it returns Result
-    /// // let diff = (lhs - rhs)?;
     /// ```
     #[must_use = "returns new Money if currencies match"]
     #[inline]
@@ -549,40 +543,6 @@ impl Div<f64> for Money {
             amount: repr_div_f64(self.amount, rhs),
             currency: self.currency,
         }
-    }
-}
-
-/// **Note**: This `Add` implementation returns `Result<Money, Error>`, which is
-/// unusual in Rust (typically `Add::Output = Self`). This design enforces currency
-/// safety but can surprise readers. Prefer [`Money::checked_add`] in application
-/// code for clarity.
-impl Add for Money {
-    type Output = Result<Self, Error>;
-
-    #[inline]
-    fn add(self, rhs: Self) -> Self::Output {
-        ensure_same_currency(&self, &rhs)?;
-        Ok(Self {
-            amount: repr_add(self.amount, rhs.amount),
-            currency: self.currency,
-        })
-    }
-}
-
-/// **Note**: This `Sub` implementation returns `Result<Money, Error>`, which is
-/// unusual in Rust (typically `Sub::Output = Self`). This design enforces currency
-/// safety but can surprise readers. Prefer [`Money::checked_sub`] in application
-/// code for clarity.
-impl Sub for Money {
-    type Output = Result<Self, Error>;
-
-    #[inline]
-    fn sub(self, rhs: Self) -> Self::Output {
-        ensure_same_currency(&self, &rhs)?;
-        Ok(Self {
-            amount: repr_sub(self.amount, rhs.amount),
-            currency: self.currency,
-        })
     }
 }
 
@@ -733,7 +693,9 @@ mod tests {
     fn checked_ops() {
         let a = Money::new(50.0, Currency::USD);
         let b = Money::new(25.0, Currency::USD);
-        let c = (a + b).expect("Currency match should succeed in test");
+        let c = a
+            .checked_add(b)
+            .expect("Currency match should succeed in test");
         assert_eq!(c.amount(), 75.0);
     }
 
@@ -741,7 +703,7 @@ mod tests {
     fn currency_mismatch_error() {
         let usd = Money::new(10.0, Currency::USD);
         let eur = Money::new(10.0, Currency::EUR);
-        assert!((usd + eur).is_err());
+        assert!(usd.checked_add(eur).is_err());
     }
 
     #[test]

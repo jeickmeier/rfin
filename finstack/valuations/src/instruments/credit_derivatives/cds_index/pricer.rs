@@ -95,7 +95,7 @@ impl CDSIndexPricer {
             PayReceive::ReceiveFixed => pv_premium.checked_sub(pv_protection)?,
         };
         if let Some(upfront) = index.pricing_overrides.upfront_payment {
-            pv = (pv + upfront)?;
+            pv = pv.checked_add(upfront)?;
         }
         Ok(pv)
     }
@@ -140,8 +140,12 @@ impl CDSIndexPricer {
                 for cds in self.constituent_cdss(index)? {
                     let disc = curves.get_discount(&cds.premium.discount_curve_id)?;
                     let surv = curves.get_hazard(&cds.protection.credit_curve_id)?;
-                    prot_sum = (prot_sum
-                        + pricer.pv_protection_leg(&cds, disc.as_ref(), surv.as_ref(), as_of)?)?;
+                    prot_sum = prot_sum.checked_add(pricer.pv_protection_leg(
+                        &cds,
+                        disc.as_ref(),
+                        surv.as_ref(),
+                        as_of,
+                    )?)?;
                     let denom_per_unit = match self.config.par_spread_method {
                         ParSpreadMethod::RiskyAnnuity => {
                             pricer.risky_annuity(&cds, disc.as_ref(), surv.as_ref(), as_of)?
@@ -306,10 +310,18 @@ impl CDSIndexPricer {
                 for cds in self.constituent_cdss(index)? {
                     let disc = curves.get_discount(&cds.premium.discount_curve_id)?;
                     let surv = curves.get_hazard(&cds.protection.credit_curve_id)?;
-                    prot_sum = (prot_sum
-                        + pricer.pv_protection_leg(&cds, disc.as_ref(), surv.as_ref(), as_of)?)?;
-                    prem_sum = (prem_sum
-                        + pricer.pv_premium_leg(&cds, disc.as_ref(), surv.as_ref(), as_of)?)?;
+                    prot_sum = prot_sum.checked_add(pricer.pv_protection_leg(
+                        &cds,
+                        disc.as_ref(),
+                        surv.as_ref(),
+                        as_of,
+                    )?)?;
+                    prem_sum = prem_sum.checked_add(pricer.pv_premium_leg(
+                        &cds,
+                        disc.as_ref(),
+                        surv.as_ref(),
+                        as_of,
+                    )?)?;
                 }
                 Ok((prot_sum, prem_sum))
             }

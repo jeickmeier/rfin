@@ -55,7 +55,7 @@ impl MetricCalculator for GpIrrCalculator {
                     .copied()
                     .unwrap_or_else(|| Money::new(0.0, row.to_gp.currency()));
 
-                if let Ok(new_amount) = existing + row.to_gp {
+                if let Ok(new_amount) = existing.checked_add(row.to_gp) {
                     gp_flows_by_date.insert(row.date, new_amount);
                 }
             }

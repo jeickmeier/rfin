@@ -67,7 +67,7 @@ pub const MIN_VALID_RATE: f64 = -0.999;
 ///
 /// # Required Methods
 ///
-/// - [`irr`](Self::irr) - Calculate IRR with default day count (deprecated for dated flows)
+/// - [`irr`](Self::irr) - Calculate IRR (for dated flows, prefer `irr_with_daycount` for explicit control)
 /// - [`irr_with_daycount`](Self::irr_with_daycount) - Calculate IRR with specific day count
 ///
 /// # Provided Implementations

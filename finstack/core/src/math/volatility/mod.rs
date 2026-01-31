@@ -37,17 +37,17 @@ pub use convert::convert_atm_volatility;
 
 // Bachelier (normal) model - EUR swaptions, negative rates
 pub use pricing::{
-    bachelier_call, bachelier_delta_call, bachelier_delta_put, bachelier_gamma, bachelier_price,
-    bachelier_put, bachelier_vega,
+    bachelier_call, bachelier_delta_call, bachelier_delta_put, bachelier_gamma, bachelier_put,
+    bachelier_vega,
 };
 
 // Black-76 (lognormal) model - USD/GBP swaptions, caps/floors
 pub use pricing::{
-    black_call, black_delta_call, black_delta_put, black_gamma, black_price, black_put, black_vega,
+    black_call, black_delta_call, black_delta_put, black_gamma, black_put, black_vega,
 };
 
 // Shifted Black model - low/negative rate environments
-pub use pricing::{black_shifted_call, black_shifted_price, black_shifted_put, black_shifted_vega};
+pub use pricing::{black_shifted_call, black_shifted_put, black_shifted_vega};
 
 // Implied volatility initial guess approximations
 pub use pricing::{

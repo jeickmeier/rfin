@@ -288,7 +288,10 @@ impl PyMoney {
     ///     If currencies differ.
     fn checked_add(&self, other: Bound<'_, PyAny>) -> PyResult<Self> {
         let rhs = extract_money(&other).context("other")?;
-        (self.inner + rhs).map(Self::new).map_err(core_to_py)
+        self.inner
+            .checked_add(rhs)
+            .map(Self::new)
+            .map_err(core_to_py)
     }
 
     #[pyo3(text_signature = "(self, other)")]
@@ -310,7 +313,10 @@ impl PyMoney {
     ///     If currencies differ.
     fn checked_sub(&self, other: Bound<'_, PyAny>) -> PyResult<Self> {
         let rhs = extract_money(&other).context("other")?;
-        (self.inner - rhs).map(Self::new).map_err(core_to_py)
+        self.inner
+            .checked_sub(rhs)
+            .map(Self::new)
+            .map_err(core_to_py)
     }
 
     fn __repr__(&self) -> String {
@@ -376,7 +382,10 @@ impl PyMoney {
 
     fn __add__(&self, other: Bound<'_, PyAny>) -> PyResult<Self> {
         let rhs = extract_money(&other).context("other")?;
-        (self.inner + rhs).map(Self::new).map_err(core_to_py)
+        self.inner
+            .checked_add(rhs)
+            .map(Self::new)
+            .map_err(core_to_py)
     }
 
     /// Reflected addition: ``other + self``.
@@ -392,13 +401,18 @@ impl PyMoney {
     ///     If currencies differ.
     fn __sub__(&self, other: Bound<'_, PyAny>) -> PyResult<Self> {
         let rhs = extract_money(&other).context("other")?;
-        (self.inner - rhs).map(Self::new).map_err(core_to_py)
+        self.inner
+            .checked_sub(rhs)
+            .map(Self::new)
+            .map_err(core_to_py)
     }
 
     /// Reflected subtraction: ``other - self``.
     fn __rsub__(&self, other: Bound<'_, PyAny>) -> PyResult<Self> {
         let rhs = extract_money(&other).context("other")?;
-        (rhs - self.inner).map(Self::new).map_err(core_to_py)
+        rhs.checked_sub(self.inner)
+            .map(Self::new)
+            .map_err(core_to_py)
     }
 
     /// Scale this amount by a floating-point factor.

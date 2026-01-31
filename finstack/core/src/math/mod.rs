@@ -35,7 +35,6 @@
 //! | **Simple minimization** | `minimize()` | Scalar objective function |
 //! | **With known Jacobian** | `solve_system_with_jacobian_stats()` | 2× faster convergence |
 //!
-//! **Note:** `solve_system()` is deprecated. Use `solve_system_with_dim_stats()` instead.
 //!
 //! ### Performance Trade-offs
 //!
