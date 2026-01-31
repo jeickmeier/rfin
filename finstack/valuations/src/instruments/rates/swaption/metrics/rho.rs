@@ -36,11 +36,7 @@ impl MetricCalculator for RhoCalculator {
             }
         };
 
-        // Create bumped discount curve (+1bp) using MarketContext bump
-        let bump_bp = option
-            .pricing_overrides
-            .rho_bump_decimal
-            .unwrap_or(super::config::DISC_BUMP_BP);
+        let bump_bp = option.pricing_overrides.rho_bump_bp();
         let bumped_curves = context.curves.bump([MarketBump::Curve {
             id: option.discount_curve_id.clone(),
             spec: BumpSpec::parallel_bp(bump_bp),

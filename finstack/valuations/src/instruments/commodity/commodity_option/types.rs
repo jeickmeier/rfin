@@ -444,3 +444,292 @@ impl crate::instruments::common::pricing::HasForwardCurves for CommodityOption {
         vec![self.forward_curve_id.clone()]
     }
 }
+
+impl crate::instruments::common::traits::OptionDeltaProvider for CommodityOption {
+    fn option_delta(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
+        use finstack_core::math::special_functions::norm_cdf;
+
+        let t = self
+            .day_count
+            .year_fraction(as_of, self.expiry, DayCountCtx::default())?
+            .max(0.0);
+        if t <= 0.0 {
+            let forward = self.forward_price(market, as_of)?;
+            let intrinsic = match self.option_type {
+                OptionType::Call => {
+                    if forward > self.strike {
+                        1.0
+                    } else {
+                        0.0
+                    }
+                }
+                OptionType::Put => {
+                    if forward < self.strike {
+                        -1.0
+                    } else {
+                        0.0
+                    }
+                }
+            };
+            return Ok(intrinsic * self.quantity * self.multiplier);
+        }
+
+        let sigma = if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
+            impl_vol
+        } else {
+            let surface = market.surface(self.vol_surface_id.as_str())?;
+            surface.value_clamped(t, self.strike)
+        };
+        if sigma <= 0.0 {
+            return Ok(0.0);
+        }
+
+        let forward = self.forward_price(market, as_of)?;
+        let disc = market.get_discount(self.discount_curve_id.as_str())?;
+        let df = disc.df_between_dates(as_of, self.expiry)?;
+        let d1 = crate::instruments::common::models::d1_black76(forward, self.strike, sigma, t);
+        let nd1 = norm_cdf(d1);
+
+        let delta_unit = match self.option_type {
+            OptionType::Call => df * nd1,
+            OptionType::Put => df * (nd1 - 1.0),
+        };
+        Ok(delta_unit * self.quantity * self.multiplier)
+    }
+}
+
+impl crate::instruments::common::traits::OptionVegaProvider for CommodityOption {
+    fn option_vega(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
+        use finstack_core::math::special_functions::norm_pdf;
+
+        let t = self
+            .day_count
+            .year_fraction(as_of, self.expiry, DayCountCtx::default())?
+            .max(0.0);
+        if t <= 0.0 {
+            return Ok(0.0);
+        }
+
+        let sigma = if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
+            impl_vol
+        } else {
+            let surface = market.surface(self.vol_surface_id.as_str())?;
+            surface.value_clamped(t, self.strike)
+        };
+        if sigma <= 0.0 {
+            return Ok(0.0);
+        }
+
+        let forward = self.forward_price(market, as_of)?;
+        let disc = market.get_discount(self.discount_curve_id.as_str())?;
+        let df = disc.df_between_dates(as_of, self.expiry)?;
+        let d1 = crate::instruments::common::models::d1_black76(forward, self.strike, sigma, t);
+        let vega_abs = df * forward * norm_pdf(d1) * t.sqrt();
+        Ok(vega_abs * 0.01 * self.quantity * self.multiplier)
+    }
+}
+
+impl crate::instruments::common::traits::OptionGammaProvider for CommodityOption {
+    fn option_gamma(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
+        use crate::instruments::common::traits::Instrument;
+
+        #[derive(Debug)]
+        enum ForwardDriver {
+            QuotedForward(f64),
+            PriceCurve,
+            SpotScalar(String),
+        }
+
+        let driver = if let Some(fwd) = self.quoted_forward {
+            ForwardDriver::QuotedForward(fwd)
+        } else if market
+            .get_price_curve(self.forward_curve_id.as_str())
+            .is_ok()
+        {
+            ForwardDriver::PriceCurve
+        } else if let Some(ref spot_id) = self.spot_price_id {
+            ForwardDriver::SpotScalar(spot_id.clone())
+        } else {
+            return Err(finstack_core::Error::Validation(
+                "Cannot compute gamma: no quoted_forward, PriceCurve, or spot_price_id available"
+                    .to_string(),
+            ));
+        };
+
+        let bump_pct = crate::metrics::bump_sizes::SPOT;
+        let forward_price = self.forward_price(market, as_of)?;
+        let bump_size = forward_price * bump_pct;
+        if bump_size <= 0.0 {
+            return Ok(0.0);
+        }
+
+        let pv_base = self.value(market, as_of)?.amount();
+
+        let (pv_up, pv_down) = match driver {
+            ForwardDriver::QuotedForward(fwd) => {
+                let mut up = self.clone();
+                up.quoted_forward = Some(fwd * (1.0 + bump_pct));
+                let pv_up = up.value(market, as_of)?.amount();
+
+                let mut down = self.clone();
+                down.quoted_forward = Some(fwd * (1.0 - bump_pct));
+                let pv_down = down.value(market, as_of)?.amount();
+                (pv_up, pv_down)
+            }
+            ForwardDriver::PriceCurve => {
+                use finstack_core::market_data::bumps::{
+                    BumpMode, BumpSpec, BumpType, BumpUnits, MarketBump,
+                };
+                let curve_id = CurveId::new(self.forward_curve_id.as_str());
+                let up = market.bump([MarketBump::Curve {
+                    id: curve_id.clone(),
+                    spec: BumpSpec {
+                        bump_type: BumpType::Parallel,
+                        mode: BumpMode::Additive,
+                        units: BumpUnits::Percent,
+                        value: bump_pct * 100.0,
+                    },
+                }])?;
+                let pv_up = self.value(&up, as_of)?.amount();
+
+                let down = market.bump([MarketBump::Curve {
+                    id: curve_id,
+                    spec: BumpSpec {
+                        bump_type: BumpType::Parallel,
+                        mode: BumpMode::Additive,
+                        units: BumpUnits::Percent,
+                        value: -bump_pct * 100.0,
+                    },
+                }])?;
+                let pv_down = self.value(&down, as_of)?.amount();
+                (pv_up, pv_down)
+            }
+            ForwardDriver::SpotScalar(ref spot_id) => {
+                let up = crate::metrics::bump_scalar_price(market, spot_id, bump_pct)?;
+                let down = crate::metrics::bump_scalar_price(market, spot_id, -bump_pct)?;
+                let pv_up = self.value(&up, as_of)?.amount();
+                let pv_down = self.value(&down, as_of)?.amount();
+                (pv_up, pv_down)
+            }
+        };
+
+        Ok((pv_up - 2.0 * pv_base + pv_down) / (bump_size * bump_size))
+    }
+}
+
+impl crate::instruments::common::traits::OptionVannaProvider for CommodityOption {
+    fn option_vanna(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
+        use crate::instruments::common::traits::InstrumentNpvExt;
+
+        #[derive(Debug)]
+        enum ForwardDriver {
+            QuotedForward(f64),
+            PriceCurve,
+            SpotScalar(String),
+        }
+
+        let driver = if let Some(fwd) = self.quoted_forward {
+            ForwardDriver::QuotedForward(fwd)
+        } else if market
+            .get_price_curve(self.forward_curve_id.as_str())
+            .is_ok()
+        {
+            ForwardDriver::PriceCurve
+        } else if let Some(ref spot_id) = self.spot_price_id {
+            ForwardDriver::SpotScalar(spot_id.clone())
+        } else {
+            return Err(finstack_core::Error::Validation(
+                "Cannot compute vanna: no quoted_forward, PriceCurve, or spot_price_id available"
+                    .to_string(),
+            ));
+        };
+
+        let fwd_bump_pct = crate::metrics::bump_sizes::SPOT;
+        let vol_bump = crate::metrics::bump_sizes::VOLATILITY;
+
+        let forward_price = self.forward_price(market, as_of)?;
+        let fwd_bump_size = forward_price * fwd_bump_pct;
+        if fwd_bump_size <= 0.0 {
+            return Ok(0.0);
+        }
+
+        let pv_with_bumps = |fwd_bump_pct: f64, vol_bump: f64| -> finstack_core::Result<f64> {
+            match driver {
+                ForwardDriver::QuotedForward(fwd) => {
+                    let mut inst = self.clone();
+                    inst.quoted_forward = Some(fwd * (1.0 + fwd_bump_pct));
+                    let bumped = crate::metrics::bump_surface_vol_absolute(
+                        market,
+                        self.vol_surface_id.as_str(),
+                        vol_bump,
+                    )?;
+                    Ok(inst.npv(&bumped, as_of)?.amount())
+                }
+                ForwardDriver::PriceCurve => {
+                    use finstack_core::market_data::bumps::{
+                        BumpMode, BumpSpec, BumpType, BumpUnits, MarketBump,
+                    };
+                    let curve_id = CurveId::new(self.forward_curve_id.as_str());
+                    let bumped_price = market.bump([MarketBump::Curve {
+                        id: curve_id,
+                        spec: BumpSpec {
+                            bump_type: BumpType::Parallel,
+                            mode: BumpMode::Additive,
+                            units: BumpUnits::Percent,
+                            value: fwd_bump_pct * 100.0,
+                        },
+                    }])?;
+                    let bumped = crate::metrics::bump_surface_vol_absolute(
+                        &bumped_price,
+                        self.vol_surface_id.as_str(),
+                        vol_bump,
+                    )?;
+                    Ok(self.npv(&bumped, as_of)?.amount())
+                }
+                ForwardDriver::SpotScalar(ref spot_id) => {
+                    let bumped_spot =
+                        crate::metrics::bump_scalar_price(market, spot_id, fwd_bump_pct)?;
+                    let bumped = crate::metrics::bump_surface_vol_absolute(
+                        &bumped_spot,
+                        self.vol_surface_id.as_str(),
+                        vol_bump,
+                    )?;
+                    Ok(self.npv(&bumped, as_of)?.amount())
+                }
+            }
+        };
+
+        let pv_up_up = pv_with_bumps(fwd_bump_pct, vol_bump)?;
+        let pv_up_dn = pv_with_bumps(fwd_bump_pct, -vol_bump)?;
+        let pv_dn_up = pv_with_bumps(-fwd_bump_pct, vol_bump)?;
+        let pv_dn_dn = pv_with_bumps(-fwd_bump_pct, -vol_bump)?;
+
+        Ok((pv_up_up - pv_up_dn - pv_dn_up + pv_dn_dn) / (4.0 * fwd_bump_size * vol_bump))
+    }
+}
+
+impl crate::instruments::common::traits::OptionVolgaProvider for CommodityOption {
+    fn option_volga(
+        &self,
+        market: &MarketContext,
+        as_of: Date,
+        base_pv: f64,
+    ) -> finstack_core::Result<f64> {
+        use crate::instruments::common::traits::Instrument;
+
+        let vol_bump = crate::metrics::bump_sizes::VOLATILITY;
+        let up = crate::metrics::bump_surface_vol_absolute(
+            market,
+            self.vol_surface_id.as_str(),
+            vol_bump,
+        )?;
+        let dn = crate::metrics::bump_surface_vol_absolute(
+            market,
+            self.vol_surface_id.as_str(),
+            -vol_bump,
+        )?;
+        let pv_up = self.value(&up, as_of)?.amount();
+        let pv_dn = self.value(&dn, as_of)?.amount();
+        Ok((pv_up - 2.0 * base_pv + pv_dn) / (vol_bump * vol_bump))
+    }
+}

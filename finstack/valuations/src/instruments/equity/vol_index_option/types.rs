@@ -526,6 +526,22 @@ impl VolatilityIndexOption {
     }
 }
 
+// ================================================================================================
+// Option risk metric providers (metrics adapters)
+// ================================================================================================
+
+impl crate::instruments::common::traits::OptionDeltaProvider for VolatilityIndexOption {
+    fn option_delta(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
+        self.delta(market, as_of)
+    }
+}
+
+impl crate::instruments::common::traits::OptionVegaProvider for VolatilityIndexOption {
+    fn option_vega(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
+        self.vega(market, as_of)
+    }
+}
+
 // =============================================================================
 // Trait Implementations
 // =============================================================================

@@ -144,6 +144,7 @@ pub mod asian;
 pub mod barrier;
 pub mod greeks;
 pub mod heston;
+pub mod implied_vol;
 pub mod lookback;
 pub mod quanto;
 pub mod vanilla;
@@ -162,6 +163,7 @@ pub use greeks::{
     bs_put_greeks, bs_put_rho, bs_put_theta, bs_vega,
 };
 pub use heston::{heston_call_price_fourier, heston_put_price_fourier, HestonParams};
+pub use implied_vol::{black76_implied_vol, bs_implied_vol};
 pub use lookback::{
     fixed_strike_lookback_call, fixed_strike_lookback_put, floating_strike_lookback_call,
     floating_strike_lookback_put,

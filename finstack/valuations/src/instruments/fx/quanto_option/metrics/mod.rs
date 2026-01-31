@@ -5,25 +5,11 @@
 
 #[cfg(feature = "mc")]
 mod correlation01;
-#[cfg(feature = "mc")]
-mod delta;
 // mod dv01; // removed - using GenericParallelDv01
-#[cfg(feature = "mc")]
-mod foreign_rho;
 #[cfg(feature = "mc")]
 mod fx_delta;
 #[cfg(feature = "mc")]
 mod fx_vega;
-#[cfg(feature = "mc")]
-mod gamma;
-#[cfg(feature = "mc")]
-mod rho;
-#[cfg(feature = "mc")]
-mod vanna;
-#[cfg(feature = "mc")]
-mod vega;
-#[cfg(feature = "mc")]
-mod volga;
 
 #[cfg(feature = "mc")]
 use crate::metrics::{MetricId, MetricRegistry};
@@ -41,19 +27,19 @@ pub fn register_quanto_option_metrics(registry: &mut MetricRegistry) {
             registry: registry,
             instrument: InstrumentType::QuantoOption,
             metrics: [
-                (Delta, delta::DeltaCalculator),
-                (Gamma, gamma::GammaCalculator),
-                (Vega, vega::VegaCalculator),
-                (Rho, rho::RhoCalculator),
-                (ForeignRho, foreign_rho::ForeignRhoCalculator),
+                (Delta, crate::metrics::OptionDeltaCalculator::<crate::instruments::quanto_option::QuantoOption>::default()),
+                (Gamma, crate::metrics::OptionGammaCalculator::<crate::instruments::quanto_option::QuantoOption>::default()),
+                (Vega, crate::metrics::OptionVegaCalculator::<crate::instruments::quanto_option::QuantoOption>::default()),
+                (Rho, crate::metrics::OptionRhoCalculator::<crate::instruments::quanto_option::QuantoOption>::default()),
+                (ForeignRho, crate::metrics::OptionForeignRhoCalculator::<crate::instruments::quanto_option::QuantoOption>::default()),
                 (Dv01, crate::metrics::UnifiedDv01Calculator::<
                     crate::instruments::quanto_option::QuantoOption,
                 >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
                 (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                     crate::instruments::quanto_option::QuantoOption,
                 >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
-                (Vanna, vanna::VannaCalculator),
-                (Volga, volga::VolgaCalculator),
+                (Vanna, crate::metrics::OptionVannaCalculator::<crate::instruments::quanto_option::QuantoOption>::default()),
+                (Volga, crate::metrics::OptionVolgaCalculator::<crate::instruments::quanto_option::QuantoOption>::default()),
                 // Theta is now registered universally in metrics::standard_registry()
             ]
         }

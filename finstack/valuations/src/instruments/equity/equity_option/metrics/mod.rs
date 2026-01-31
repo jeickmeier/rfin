@@ -6,16 +6,9 @@
 
 mod charm;
 mod color;
-mod delta;
 mod dividend_risk;
-mod gamma;
 mod implied_vol;
-mod rho;
 mod speed;
-mod theta;
-mod vanna;
-mod vega;
-mod volga;
 
 use crate::metrics::MetricRegistry;
 
@@ -36,9 +29,9 @@ pub fn register_equity_option_metrics(registry: &mut MetricRegistry) {
         registry: registry,
         instrument: InstrumentType::EquityOption,
         metrics: [
-            (Delta, delta::DeltaCalculator),
-            (Gamma, gamma::GammaCalculator),
-            (Vega, vega::VegaCalculator),
+            (Delta, crate::metrics::OptionDeltaCalculator::<crate::instruments::EquityOption>::default()),
+            (Gamma, crate::metrics::OptionGammaCalculator::<crate::instruments::EquityOption>::default()),
+            (Vega, crate::metrics::OptionVegaCalculator::<crate::instruments::EquityOption>::default()),
             (BucketedVega, crate::metrics::KeyRateVega::<
                 crate::instruments::EquityOption,
             >::standard()),
@@ -48,11 +41,11 @@ pub fn register_equity_option_metrics(registry: &mut MetricRegistry) {
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::EquityOption,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
-            (Theta, theta::ThetaCalculator),
-            (Rho, rho::RhoCalculator),
+            (Theta, crate::metrics::OptionThetaCalculator::<crate::instruments::EquityOption>::default()),
+            (Rho, crate::metrics::OptionRhoCalculator::<crate::instruments::EquityOption>::default()),
             (ImpliedVol, implied_vol::ImpliedVolCalculator),
-            (Vanna, vanna::VannaCalculator),
-            (Volga, volga::VolgaCalculator),
+            (Vanna, crate::metrics::OptionVannaCalculator::<crate::instruments::EquityOption>::default()),
+            (Volga, crate::metrics::OptionVolgaCalculator::<crate::instruments::EquityOption>::default()),
             (Charm, charm::CharmCalculator),
             (Color, color::ColorCalculator),
             (Speed, speed::SpeedCalculator),

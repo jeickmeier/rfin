@@ -117,6 +117,253 @@ impl FxBarrierOption {
     }
 }
 
+// ================================================================================================
+// Option risk metric providers (metrics adapters)
+// ================================================================================================
+
+impl crate::instruments::common::traits::OptionDeltaProvider for FxBarrierOption {
+    fn option_delta(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        use crate::instruments::common::traits::Instrument;
+
+        let t = self.day_count.year_fraction(
+            as_of,
+            self.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
+        if t <= 0.0 {
+            return Ok(0.0);
+        }
+
+        let spot_scalar = market.price(&self.fx_spot_id)?;
+        let current_spot = match spot_scalar {
+            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+            finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
+        };
+        let bump_size = current_spot * crate::metrics::bump_sizes::SPOT;
+        if bump_size <= 0.0 {
+            return Ok(0.0);
+        }
+
+        let up = crate::metrics::bump_scalar_price(
+            market,
+            &self.fx_spot_id,
+            crate::metrics::bump_sizes::SPOT,
+        )?;
+        let pv_up = self.value(&up, as_of)?.amount();
+        let down = crate::metrics::bump_scalar_price(
+            market,
+            &self.fx_spot_id,
+            -crate::metrics::bump_sizes::SPOT,
+        )?;
+        let pv_down = self.value(&down, as_of)?.amount();
+
+        Ok((pv_up - pv_down) / (2.0 * bump_size))
+    }
+}
+
+impl crate::instruments::common::traits::OptionGammaProvider for FxBarrierOption {
+    fn option_gamma(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        use crate::instruments::common::traits::Instrument;
+
+        let t = self.day_count.year_fraction(
+            as_of,
+            self.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
+        if t <= 0.0 {
+            return Ok(0.0);
+        }
+
+        let base_pv = self.value(market, as_of)?.amount();
+
+        let spot_scalar = market.price(&self.fx_spot_id)?;
+        let current_spot = match spot_scalar {
+            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+            finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
+        };
+        let bump_size = current_spot * crate::metrics::bump_sizes::SPOT;
+        if bump_size <= 0.0 {
+            return Ok(0.0);
+        }
+
+        let up = crate::metrics::bump_scalar_price(
+            market,
+            &self.fx_spot_id,
+            crate::metrics::bump_sizes::SPOT,
+        )?;
+        let pv_up = self.value(&up, as_of)?.amount();
+        let down = crate::metrics::bump_scalar_price(
+            market,
+            &self.fx_spot_id,
+            -crate::metrics::bump_sizes::SPOT,
+        )?;
+        let pv_down = self.value(&down, as_of)?.amount();
+
+        Ok((pv_up - 2.0 * base_pv + pv_down) / (bump_size * bump_size))
+    }
+}
+
+impl crate::instruments::common::traits::OptionVegaProvider for FxBarrierOption {
+    fn option_vega(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        use crate::instruments::common::traits::Instrument;
+
+        let t = self.day_count.year_fraction(
+            as_of,
+            self.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
+        if t <= 0.0 {
+            return Ok(0.0);
+        }
+
+        let base_pv = self.value(market, as_of)?.amount();
+        let bumped = crate::metrics::bump_surface_vol_absolute(
+            market,
+            self.fx_vol_id.as_str(),
+            crate::metrics::bump_sizes::VOLATILITY,
+        )?;
+        let pv_bumped = self.value(&bumped, as_of)?.amount();
+        Ok((pv_bumped - base_pv) / crate::metrics::bump_sizes::VOLATILITY)
+    }
+}
+
+impl crate::instruments::common::traits::OptionRhoProvider for FxBarrierOption {
+    fn option_rho_bp(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        use crate::instruments::common::traits::Instrument;
+
+        let t = self.day_count.year_fraction(
+            as_of,
+            self.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
+        if t <= 0.0 {
+            return Ok(0.0);
+        }
+
+        let base_pv = self.value(market, as_of)?.amount();
+        let bump_bp = self.pricing_overrides.rho_bump_bp();
+        let bumped = crate::metrics::bump_discount_curve_parallel(
+            market,
+            &self.domestic_discount_curve_id,
+            bump_bp,
+        )?;
+        let pv_bumped = self.value(&bumped, as_of)?.amount();
+        Ok(pv_bumped - base_pv)
+    }
+}
+
+impl crate::instruments::common::traits::OptionVannaProvider for FxBarrierOption {
+    fn option_vanna(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        use crate::instruments::common::traits::Instrument;
+
+        let t = self.day_count.year_fraction(
+            as_of,
+            self.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
+        if t <= 0.0 {
+            return Ok(0.0);
+        }
+
+        let spot_scalar = market.price(&self.fx_spot_id)?;
+        let current_spot = match spot_scalar {
+            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+            finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
+        };
+
+        let spot_bump = current_spot * crate::metrics::bump_sizes::SPOT;
+        if spot_bump <= 0.0 {
+            return Ok(0.0);
+        }
+        let vol_bump = crate::metrics::bump_sizes::VOLATILITY;
+
+        // Delta at vol_up (central diff in spot)
+        let curves_vol_up =
+            crate::metrics::bump_surface_vol_absolute(market, self.fx_vol_id.as_str(), vol_bump)?;
+        let curves_up = crate::metrics::bump_scalar_price(
+            &curves_vol_up,
+            &self.fx_spot_id,
+            crate::metrics::bump_sizes::SPOT,
+        )?;
+        let curves_dn = crate::metrics::bump_scalar_price(
+            &curves_vol_up,
+            &self.fx_spot_id,
+            -crate::metrics::bump_sizes::SPOT,
+        )?;
+        let pv_up = self.value(&curves_up, as_of)?.amount();
+        let pv_dn = self.value(&curves_dn, as_of)?.amount();
+        let delta_vol_up = (pv_up - pv_dn) / (2.0 * spot_bump);
+
+        // Delta at vol_down
+        let curves_vol_dn =
+            crate::metrics::bump_surface_vol_absolute(market, self.fx_vol_id.as_str(), -vol_bump)?;
+        let curves_up = crate::metrics::bump_scalar_price(
+            &curves_vol_dn,
+            &self.fx_spot_id,
+            crate::metrics::bump_sizes::SPOT,
+        )?;
+        let curves_dn = crate::metrics::bump_scalar_price(
+            &curves_vol_dn,
+            &self.fx_spot_id,
+            -crate::metrics::bump_sizes::SPOT,
+        )?;
+        let pv_up = self.value(&curves_up, as_of)?.amount();
+        let pv_dn = self.value(&curves_dn, as_of)?.amount();
+        let delta_vol_dn = (pv_up - pv_dn) / (2.0 * spot_bump);
+
+        Ok((delta_vol_up - delta_vol_dn) / (2.0 * vol_bump))
+    }
+}
+
+impl crate::instruments::common::traits::OptionVolgaProvider for FxBarrierOption {
+    fn option_volga(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+        base_pv: f64,
+    ) -> finstack_core::Result<f64> {
+        use crate::instruments::common::traits::Instrument;
+
+        let t = self.day_count.year_fraction(
+            as_of,
+            self.expiry,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
+        if t <= 0.0 {
+            return Ok(0.0);
+        }
+
+        let vol_bump = crate::metrics::bump_sizes::VOLATILITY;
+        let up =
+            crate::metrics::bump_surface_vol_absolute(market, self.fx_vol_id.as_str(), vol_bump)?;
+        let dn =
+            crate::metrics::bump_surface_vol_absolute(market, self.fx_vol_id.as_str(), -vol_bump)?;
+        let pv_up = self.value(&up, as_of)?.amount();
+        let pv_dn = self.value(&dn, as_of)?.amount();
+        Ok((pv_up - 2.0 * base_pv + pv_dn) / (vol_bump * vol_bump))
+    }
+}
+
 impl crate::instruments::common::traits::Instrument for FxBarrierOption {
     fn id(&self) -> &str {
         self.id.as_str()

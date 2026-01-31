@@ -56,7 +56,11 @@ pub enum VolSurfaceExtrapolation {
 pub struct PricingOverrides {
     /// Quoted clean price for bond yield calculations
     pub quoted_clean_price: Option<f64>,
-    /// Rho bump size in decimal (default 0.0001 = 1bp)
+    /// Rho bump size in **decimal rate** units (default `0.0001 = 1bp`).
+    ///
+    /// Note: internal curve-bump APIs often take bump sizes in **bp** units (`1.0 = 1bp`).
+    /// Prefer using [`PricingOverrides::rho_bump_bp`] when wiring into `BumpSpec::parallel_bp`
+    /// or `metrics::bump_discount_curve_parallel` to avoid unit mistakes.
     pub rho_bump_decimal: Option<f64>,
     /// Vega bump size in decimal (default 0.01 = 1%)
     pub vega_bump_decimal: Option<f64>,
@@ -145,6 +149,20 @@ pub struct PricingOverrides {
     /// For credit instruments, this translates to a wider/tighter spread.
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     pub scenario_spread_shock_bp: Option<f64>,
+}
+
+impl PricingOverrides {
+    /// Rho bump size expressed in **basis points** (bp) suitable for curve bump APIs.
+    ///
+    /// Conversions:
+    /// - `0.0001` (decimal) = `1.0` (bp)
+    /// - `0.0010` (decimal) = `10.0` (bp)
+    ///
+    /// This helper exists to prevent accidental \(10{,}000\times\) unit errors when
+    /// calling APIs that expect bp units.
+    pub fn rho_bump_bp(&self) -> f64 {
+        self.rho_bump_decimal.unwrap_or(0.0001) * 10000.0
+    }
 }
 
 impl PricingOverrides {

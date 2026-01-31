@@ -9,9 +9,6 @@
 //! - DV01 (interest rate sensitivity)
 //! - Theta (time decay)
 
-mod delta;
-mod vega;
-
 use crate::metrics::MetricRegistry;
 
 /// Register all VolatilityIndexOption metrics with the registry.
@@ -21,8 +18,8 @@ pub fn register_vol_index_option_metrics(registry: &mut MetricRegistry) {
         registry: registry,
         instrument: InstrumentType::VolatilityIndexOption,
         metrics: [
-            (Delta, delta::DeltaCalculator),
-            (Vega, vega::VegaCalculator),
+            (Delta, crate::metrics::OptionDeltaCalculator::<crate::instruments::vol_index_option::VolatilityIndexOption>::default()),
+            (Vega, crate::metrics::OptionVegaCalculator::<crate::instruments::vol_index_option::VolatilityIndexOption>::default()),
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::vol_index_option::VolatilityIndexOption,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),

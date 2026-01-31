@@ -8,7 +8,6 @@ use crate::instruments::common::parameters::OptionType;
 use crate::instruments::fx_option::FxOption;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -262,39 +261,24 @@ impl FxOptionCalculator {
     ) -> Result<f64> {
         self.validate_currency(inst)?;
         let (spot, r_d, r_f, t) = self.collect_inputs_no_vol(inst, curves, as_of)?;
-        if t <= 0.0 || spot <= 0.0 {
+        if t <= 0.0 || spot <= 0.0 || inst.notional.amount() <= 0.0 {
             return Ok(0.0);
         }
 
-        let price_for_sigma = |sigma: f64| -> f64 {
-            if sigma <= 0.0 {
-                return f64::NAN;
-            }
-            let unit_price = price_gk_core(spot, inst.strike, r_d, r_f, sigma, t, inst.option_type);
-            unit_price * inst.notional.amount()
-        };
+        // Solve per-unit then scale back: PV = unit_price * notional_base.
+        // Using the shared closed-form implied vol utility removes duplicated solvers.
+        let target_unit = target_price / inst.notional.amount();
+        let _ = initial_guess; // future: warm-start the bracket
 
-        let target = target_price;
-        let f = |x: f64| -> f64 {
-            let sigma = x.exp();
-            price_for_sigma(sigma) - target
-        };
-
-        // Initial guess: override or surface vol else config default
-        let sigma0 = if let Some(v) = inst.pricing_overrides.implied_volatility {
-            v
-        } else {
-            curves
-                .surface(inst.vol_surface_id.as_str())
-                .ok()
-                .map(|s| s.value_clamped(t, inst.strike))
-                .unwrap_or(self.config.iv_initial_guess)
-        };
-        let x0 = (initial_guess.unwrap_or(sigma0.max(1e-6))).ln();
-
-        let solver = BrentSolver::new().with_tolerance(1e-10);
-        let root = solver.solve(f, x0)?;
-        Ok(root.exp())
+        Ok(crate::instruments::common::models::bs_implied_vol(
+            spot,
+            inst.strike,
+            r_d,
+            r_f,
+            t,
+            inst.option_type,
+            target_unit,
+        ))
     }
 
     /// Compute greeks with calculator configuration.

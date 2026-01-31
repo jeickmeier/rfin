@@ -15,46 +15,25 @@
 //! This ensures greeks are consistent with the Black-76 pricing model, regardless of
 //! how the forward price is specified in the market data.
 
-mod delta;
-mod gamma;
-mod vanna;
-mod vega;
-mod volga;
-
 use crate::metrics::{MetricId, MetricRegistry};
 use crate::pricer::InstrumentType;
 use std::sync::Arc;
 
 /// Register commodity option metrics with the registry.
 pub fn register_commodity_option_metrics(registry: &mut MetricRegistry) {
-    registry.register_metric(
-        MetricId::Delta,
-        Arc::new(delta::DeltaCalculator),
-        &[InstrumentType::CommodityOption],
-    );
-    registry.register_metric(
-        MetricId::Vega,
-        Arc::new(vega::VegaCalculator),
-        &[InstrumentType::CommodityOption],
-    );
-    // Forward-based gamma: bumps quoted_forward > PriceCurve > spot_price_id
-    registry.register_metric(
-        MetricId::Gamma,
-        Arc::new(gamma::GammaCalculator),
-        &[InstrumentType::CommodityOption],
-    );
-    // Forward-based vanna: bumps quoted_forward > PriceCurve > spot_price_id
-    registry.register_metric(
-        MetricId::Vanna,
-        Arc::new(vanna::VannaCalculator),
-        &[InstrumentType::CommodityOption],
-    );
-    // Use commodity-specific volga (vol-only, same for spot or forward-based)
-    registry.register_metric(
-        MetricId::Volga,
-        Arc::new(volga::VolgaCalculator),
-        &[InstrumentType::CommodityOption],
-    );
+    crate::register_metrics! {
+        registry: registry,
+        instrument: InstrumentType::CommodityOption,
+        metrics: [
+            // Forward-based greeks implemented via provider traits on CommodityOption.
+            (Delta, crate::metrics::OptionDeltaCalculator::<crate::instruments::CommodityOption>::default()),
+            (Gamma, crate::metrics::OptionGammaCalculator::<crate::instruments::CommodityOption>::default()),
+            (Vega, crate::metrics::OptionVegaCalculator::<crate::instruments::CommodityOption>::default()),
+            (Vanna, crate::metrics::OptionVannaCalculator::<crate::instruments::CommodityOption>::default()),
+            (Volga, crate::metrics::OptionVolgaCalculator::<crate::instruments::CommodityOption>::default()),
+        ]
+    }
+
     registry.register_metric(
         MetricId::Dv01,
         Arc::new(crate::metrics::UnifiedDv01Calculator::<

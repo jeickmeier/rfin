@@ -22,13 +22,14 @@ pub mod volatility;
 // Re-export commonly used items from submodules for convenience
 pub use closed_form::{
     arithmetic_asian_call_tw, arithmetic_asian_put_tw, barrier_call_continuous,
-    barrier_put_continuous, bs_call_delta, bs_call_greeks, bs_call_rho, bs_call_theta, bs_gamma,
-    bs_greeks, bs_price, bs_put_delta, bs_put_greeks, bs_put_rho, bs_put_theta, bs_vega,
-    down_in_call, down_out_call, fixed_strike_lookback_call, fixed_strike_lookback_put,
-    floating_strike_lookback_call, floating_strike_lookback_put, geometric_asian_call,
-    geometric_asian_put, heston_call_price_fourier, heston_put_price_fourier, quanto_call,
-    quanto_call_simple, quanto_drift_adjustment, quanto_put, quanto_put_simple, up_in_call,
-    up_out_call, AsianGreeks, AsianPriceResult, BarrierType, BsGreeks, HestonParams, ONE_PERCENT,
+    barrier_put_continuous, black76_implied_vol, bs_call_delta, bs_call_greeks, bs_call_rho,
+    bs_call_theta, bs_gamma, bs_greeks, bs_implied_vol, bs_price, bs_put_delta, bs_put_greeks,
+    bs_put_rho, bs_put_theta, bs_vega, down_in_call, down_out_call, fixed_strike_lookback_call,
+    fixed_strike_lookback_put, floating_strike_lookback_call, floating_strike_lookback_put,
+    geometric_asian_call, geometric_asian_put, heston_call_price_fourier, heston_put_price_fourier,
+    quanto_call, quanto_call_simple, quanto_drift_adjustment, quanto_put, quanto_put_simple,
+    up_in_call, up_out_call, AsianGreeks, AsianPriceResult, BarrierType, BsGreeks, HestonParams,
+    ONE_PERCENT,
 };
 pub use correlation::{
     joint_probabilities, ConstantRecovery, Copula, CopulaSpec, CorrelatedBernoulli,

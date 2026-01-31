@@ -449,3 +449,155 @@ impl FxOption {
         }
     }
 }
+
+impl crate::instruments::common::traits::OptionDeltaProvider for FxOption {
+    fn option_delta(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        Ok(self.compute_greeks(market, as_of)?.delta)
+    }
+}
+
+impl crate::instruments::common::traits::OptionGammaProvider for FxOption {
+    fn option_gamma(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        Ok(self.compute_greeks(market, as_of)?.gamma)
+    }
+}
+
+impl crate::instruments::common::traits::OptionVegaProvider for FxOption {
+    fn option_vega(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        Ok(self.compute_greeks(market, as_of)?.vega)
+    }
+}
+
+impl crate::instruments::common::traits::OptionThetaProvider for FxOption {
+    fn option_theta(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        Ok(self.compute_greeks(market, as_of)?.theta)
+    }
+}
+
+impl crate::instruments::common::traits::OptionRhoProvider for FxOption {
+    fn option_rho_bp(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        // FxOptionGreeks::rho_domestic is per 1% rate move; metrics expose per 1bp.
+        Ok(self.compute_greeks(market, as_of)?.rho_domestic / 100.0)
+    }
+}
+
+impl crate::instruments::common::traits::OptionForeignRhoProvider for FxOption {
+    fn option_foreign_rho_bp(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        // FxOptionGreeks::rho_foreign is per 1% rate move; metrics expose per 1bp.
+        Ok(self.compute_greeks(market, as_of)?.rho_foreign / 100.0)
+    }
+}
+
+impl crate::instruments::common::traits::OptionVannaProvider for FxOption {
+    fn option_vanna(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        let t = self
+            .day_count
+            .year_fraction(
+                as_of,
+                self.expiry,
+                finstack_core::dates::DayCountCtx::default(),
+            )?
+            .max(0.0);
+        if t <= 0.0 {
+            return Ok(0.0);
+        }
+
+        // Match the existing FX option vanna/volga metric conventions (tests rely on this):
+        // - bump a single surface point by ±1% (relative to the surface value at (t, K))
+        // - divide by the corresponding absolute Δσ = sigma * bump_pct
+        let surf = market.surface(self.vol_surface_id.as_str())?;
+        let sigma = surf.value_clamped(t, self.strike);
+        if sigma <= 0.0 {
+            return Ok(0.0);
+        }
+
+        let vol_bump_pct: f64 = 0.01;
+        let delta_sigma = (sigma * vol_bump_pct).abs().max(1e-12);
+
+        let curves_up = {
+            let bumped = surf.bump_point(t, self.strike, vol_bump_pct)?;
+            market.clone().insert_surface(bumped)
+        };
+        let curves_dn = {
+            let bumped = surf.bump_point(t, self.strike, -vol_bump_pct)?;
+            market.clone().insert_surface(bumped)
+        };
+
+        let delta_up = self.compute_greeks(&curves_up, as_of)?.delta;
+        let delta_dn = self.compute_greeks(&curves_dn, as_of)?.delta;
+
+        Ok((delta_up - delta_dn) / (2.0 * delta_sigma))
+    }
+}
+
+impl crate::instruments::common::traits::OptionVolgaProvider for FxOption {
+    fn option_volga(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+        _base_pv: f64,
+    ) -> finstack_core::Result<f64> {
+        let t = self
+            .day_count
+            .year_fraction(
+                as_of,
+                self.expiry,
+                finstack_core::dates::DayCountCtx::default(),
+            )?
+            .max(0.0);
+        if t <= 0.0 {
+            return Ok(0.0);
+        }
+
+        let surf = market.surface(self.vol_surface_id.as_str())?;
+        let sigma = surf.value_clamped(t, self.strike);
+        if sigma <= 0.0 {
+            return Ok(0.0);
+        }
+
+        let vol_bump_pct: f64 = 0.01;
+        let delta_sigma = (sigma * vol_bump_pct).abs().max(1e-12);
+
+        let curves_up = {
+            let bumped = surf.bump_point(t, self.strike, vol_bump_pct)?;
+            market.clone().insert_surface(bumped)
+        };
+        let curves_dn = {
+            let bumped = surf.bump_point(t, self.strike, -vol_bump_pct)?;
+            market.clone().insert_surface(bumped)
+        };
+
+        // Existing convention: compute volga from vega(σ±) differences and scale by 0.01.
+        let vega_up = self.compute_greeks(&curves_up, as_of)?.vega;
+        let vega_dn = self.compute_greeks(&curves_dn, as_of)?.vega;
+        Ok((vega_up - vega_dn) / (2.0 * delta_sigma) * 0.01)
+    }
+}

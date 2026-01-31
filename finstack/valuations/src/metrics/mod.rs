@@ -204,6 +204,8 @@ mod sensitivities;
 pub use core::ids::MetricId;
 pub use core::registry::MetricRegistry;
 pub use core::traits::{MetricCalculator, MetricContext, Structured2D, Structured3D};
+/// Format a standard risk bucket (years) as a human-readable label.
+pub use sensitivities::config::format_bucket_label;
 /// Parse simple period strings (e.g., "1D", "2W") to day counts.
 pub use sensitivities::theta::parse_period_days;
 
@@ -222,6 +224,10 @@ pub(crate) use sensitivities::dv01::{Dv01CalculatorConfig, UnifiedDv01Calculator
 pub(crate) use sensitivities::fd_greeks::{
     GenericFdDelta, GenericFdGamma, GenericFdVanna, GenericFdVega, GenericFdVolga, HasDayCount,
     HasExpiry, HasPricingOverrides,
+};
+pub(crate) use sensitivities::option_greeks::{
+    OptionDeltaCalculator, OptionForeignRhoCalculator, OptionGammaCalculator, OptionRhoCalculator,
+    OptionThetaCalculator, OptionVannaCalculator, OptionVegaCalculator, OptionVolgaCalculator,
 };
 pub(crate) use sensitivities::rho::GenericRho;
 pub(crate) use sensitivities::theta::{

@@ -391,6 +391,12 @@ impl EquityOption {
         if t <= 0.0 {
             return Ok(0.0);
         }
+        if market_price <= 0.0 {
+            return Ok(0.0);
+        }
+        if self.contract_size <= 0.0 {
+            return Ok(0.0);
+        }
 
         // Collect inputs except vol
         let (spot, r, q, _sigma, _t) = {
@@ -398,85 +404,180 @@ impl EquityOption {
             let (spot, r, q, sigma, t) = pricer::collect_inputs(self, curves, as_of)?;
             (spot, r, q, sigma, t)
         };
+        let k = self.strike.amount();
+        let target_unit = market_price / self.contract_size;
+        Ok(crate::instruments::common::models::bs_implied_vol(
+            spot,
+            k,
+            r,
+            q,
+            t,
+            self.option_type,
+            target_unit,
+        ))
+    }
+}
 
-        if market_price <= 0.0 {
+impl crate::instruments::common::traits::OptionDeltaProvider for EquityOption {
+    fn option_delta(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        Ok(self.greeks(market, as_of)?.delta)
+    }
+}
+
+impl crate::instruments::common::traits::OptionGammaProvider for EquityOption {
+    fn option_gamma(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        Ok(self.greeks(market, as_of)?.gamma)
+    }
+}
+
+impl crate::instruments::common::traits::OptionVegaProvider for EquityOption {
+    fn option_vega(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        Ok(self.greeks(market, as_of)?.vega)
+    }
+}
+
+impl crate::instruments::common::traits::OptionThetaProvider for EquityOption {
+    fn option_theta(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        Ok(self.greeks(market, as_of)?.theta)
+    }
+}
+
+impl crate::instruments::common::traits::OptionRhoProvider for EquityOption {
+    fn option_rho_bp(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        // EquityOptionGreeks::rho is per 1% rate move; metrics expose per 1bp.
+        Ok(self.greeks(market, as_of)?.rho / 100.0)
+    }
+}
+
+impl crate::instruments::common::traits::OptionVannaProvider for EquityOption {
+    fn option_vanna(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<f64> {
+        use crate::instruments::common::traits::Instrument;
+
+        // Match the public metric test/reference conventions:
+        // - Spot bump: ±1% (relative, on the spot scalar)
+        // - Vol bump: ±1 vol point (absolute, parallel surface bump)
+        let spot_scalar = market.price(&self.spot_id)?;
+        let spot = match spot_scalar {
+            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+            finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
+        };
+        let spot_bump_abs = spot * crate::metrics::bump_sizes::SPOT;
+        if spot_bump_abs <= 0.0 {
             return Ok(0.0);
         }
 
-        // Solve for sigma using bracketed bisection
-        let k = self.strike.amount();
-        let price_at = |sigma: f64| -> f64 {
-            if sigma <= 0.0 {
-                return 0.0;
-            }
-            use crate::instruments::equity_option::pricer;
-            pricer::price_bs_unit(spot, k, r, q, sigma, t, self.option_type) * self.contract_size
-        };
+        let vol_bump_abs = crate::metrics::bump_sizes::VOLATILITY;
 
-        const MIN_VOL: f64 = 1e-6;
-        const MAX_VOL_BRACKET: f64 = 10.0;
-        const SOLVER_TOL: f64 = 1e-8;
-        const SOLVER_MAX_ITER: usize = 100;
+        let curves_vol_up = crate::metrics::bump_surface_vol_absolute(
+            market,
+            self.vol_surface_id.as_str(),
+            vol_bump_abs,
+        )?;
+        let curves_vol_dn = crate::metrics::bump_surface_vol_absolute(
+            market,
+            self.vol_surface_id.as_str(),
+            -vol_bump_abs,
+        )?;
 
-        let mut lo = MIN_VOL;
-        let mut hi = 3.0;
-        let tol = SOLVER_TOL;
-        let max_iter = SOLVER_MAX_ITER;
+        // Delta at sigma+:
+        let pv_su = self
+            .value(
+                &crate::metrics::bump_scalar_price(
+                    &curves_vol_up,
+                    &self.spot_id,
+                    crate::metrics::bump_sizes::SPOT,
+                )?,
+                as_of,
+            )?
+            .amount();
+        let pv_sd = self
+            .value(
+                &crate::metrics::bump_scalar_price(
+                    &curves_vol_up,
+                    &self.spot_id,
+                    -crate::metrics::bump_sizes::SPOT,
+                )?,
+                as_of,
+            )?
+            .amount();
+        let delta_up = (pv_su - pv_sd) / (2.0 * spot_bump_abs);
 
-        let mut f_lo = price_at(lo) - market_price;
-        let mut f_hi = price_at(hi) - market_price;
-        if f_lo * f_hi > 0.0 {
-            let mut tries = 0;
-            while f_lo * f_hi > 0.0 && hi < MAX_VOL_BRACKET && tries < 10 {
-                hi *= 1.5;
-                f_hi = price_at(hi) - market_price;
-                tries += 1;
-            }
-            if f_lo * f_hi > 0.0 {
-                return Ok(0.0);
-            }
-        }
+        // Delta at sigma-:
+        let pv_su = self
+            .value(
+                &crate::metrics::bump_scalar_price(
+                    &curves_vol_dn,
+                    &self.spot_id,
+                    crate::metrics::bump_sizes::SPOT,
+                )?,
+                as_of,
+            )?
+            .amount();
+        let pv_sd = self
+            .value(
+                &crate::metrics::bump_scalar_price(
+                    &curves_vol_dn,
+                    &self.spot_id,
+                    -crate::metrics::bump_sizes::SPOT,
+                )?,
+                as_of,
+            )?
+            .amount();
+        let delta_dn = (pv_su - pv_sd) / (2.0 * spot_bump_abs);
 
-        let mut mid = 0.5 * (lo + hi);
-        for _ in 0..max_iter {
-            mid = 0.5 * (lo + hi);
-            let f_mid = price_at(mid) - market_price;
-            if f_mid.abs() < tol || (hi - lo) < tol {
-                return Ok(mid);
-            }
+        Ok((delta_up - delta_dn) / (2.0 * vol_bump_abs))
+    }
+}
 
-            // Guarded Newton step using closed-form vega
-            let vega_per_1pct = {
-                let d1 = crate::instruments::common::models::d1(spot, k, r, mid, t, q);
-                let exp_q_t = (-q * t).exp();
-                let sqrt_t = t.sqrt();
-                spot * exp_q_t * finstack_core::math::norm_pdf(d1) * sqrt_t / 100.0
-            } * self.contract_size;
-            let vega_abs = vega_per_1pct * 100.0;
-            if vega_abs.abs() > 1e-12 {
-                let newton = mid - f_mid / vega_abs;
-                if newton.is_finite() && newton > lo && newton < hi {
-                    mid = newton;
-                    let f_new = price_at(mid) - market_price;
-                    if f_lo * f_new <= 0.0 {
-                        hi = mid;
-                    } else {
-                        lo = mid;
-                        f_lo = f_new;
-                    }
-                    continue;
-                }
-            }
+impl crate::instruments::common::traits::OptionVolgaProvider for EquityOption {
+    fn option_volga(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+        base_pv: f64,
+    ) -> finstack_core::Result<f64> {
+        use crate::instruments::common::traits::Instrument;
 
-            if f_lo * f_mid <= 0.0 {
-                hi = mid;
-            } else {
-                lo = mid;
-                f_lo = f_mid;
-            }
-        }
+        let vol_bump_abs = crate::metrics::bump_sizes::VOLATILITY;
+        let curves_vol_up = crate::metrics::bump_surface_vol_absolute(
+            market,
+            self.vol_surface_id.as_str(),
+            vol_bump_abs,
+        )?;
+        let curves_vol_dn = crate::metrics::bump_surface_vol_absolute(
+            market,
+            self.vol_surface_id.as_str(),
+            -vol_bump_abs,
+        )?;
 
-        Ok(mid)
+        let pv_up = self.value(&curves_vol_up, as_of)?.amount();
+        let pv_dn = self.value(&curves_vol_dn, as_of)?.amount();
+
+        Ok((pv_up - 2.0 * base_pv + pv_dn) / (vol_bump_abs * vol_bump_abs))
     }
 }
 

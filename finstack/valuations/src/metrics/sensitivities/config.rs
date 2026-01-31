@@ -29,7 +29,7 @@ pub const STANDARD_BUCKET_LABELS: [&str; 11] = [
 /// # Examples
 ///
 /// ```
-/// use finstack_valuations::metrics::sensitivities::config::format_bucket_label;
+/// use finstack_valuations::metrics::format_bucket_label;
 ///
 /// assert_eq!(format_bucket_label(0.25), "3m");
 /// assert_eq!(format_bucket_label(1.0), "1y");
