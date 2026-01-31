@@ -12,6 +12,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::{fx::FxQuery, Money};
 use finstack_valuations::cashflow::primitives::CFKind;
 use finstack_valuations::cashflow::CashflowProvider;
+use finstack_valuations::cashflow::{accrued_interest_amount, AccrualConfig};
 use finstack_valuations::instruments::{Bond, InterestRateSwap, TermLoan};
 use indexmap::IndexMap;
 use serde::Deserialize;
@@ -95,6 +96,12 @@ pub fn calculate_period_flows(
         });
 
     breakdown.debt_balance = closing_balance;
+
+    // Calculate accrued interest at period end
+    // Note: detailed accrual config (day count, compounding) comes from the schedule itself
+    let accrued_scalar =
+        accrued_interest_amount(&full_schedule, period.end, &AccrualConfig::default())?;
+    breakdown.accrued_interest = Money::new(accrued_scalar, currency);
 
     Ok((breakdown, closing_balance))
 }
@@ -312,11 +319,9 @@ pub fn aggregate_instrument_cashflows(
         // Use precise outstanding balance tracking from valuations
         let outstanding_path = full_schedule.outstanding_by_date()?;
         for (date, outstanding_amount) in outstanding_path {
-            if let Some(period_id) = periods
-                .iter()
-                .find(|p| date >= p.start && date < p.end)
-                .map(|p| p.id)
-            {
+            if let Some(period) = periods.iter().find(|p| date >= p.start && date < p.end) {
+                let period_id = period.id;
+                let period_end = period.end;
                 if let Some(breakdown) = instrument_periods.get_mut(&period_id) {
                     // Keep as Money, use absolute value for issuer perspective
                     let issuer_balance = if outstanding_amount.amount() < 0.0 {
@@ -328,6 +333,15 @@ pub fn aggregate_instrument_cashflows(
                         outstanding_amount
                     };
                     breakdown.debt_balance = issuer_balance;
+
+                    // Calculate accrued interest at period end
+                    let accrued_scalar = accrued_interest_amount(
+                        &full_schedule,
+                        period_end,
+                        &AccrualConfig::default(),
+                    )?;
+                    let accrued_money = Money::new(accrued_scalar, currency);
+                    breakdown.accrued_interest = accrued_money;
 
                     if let (Some(map), Some(money)) = (
                         reporting_totals.as_mut(),
@@ -341,6 +355,21 @@ pub fn aggregate_instrument_cashflows(
                     ) {
                         if let Some(total) = map.get_mut(&period_id) {
                             total.debt_balance = money;
+                        }
+                    }
+
+                    if let (Some(map), Some(money)) = (
+                        reporting_totals.as_mut(),
+                        convert_to_reporting(
+                            accrued_money,
+                            date,
+                            reporting_currency,
+                            fx_matrix,
+                            fx_policy,
+                        )?,
+                    ) {
+                        if let Some(total) = map.get_mut(&period_id) {
+                            total.accrued_interest = money;
                         }
                     }
                 }
@@ -361,6 +390,7 @@ pub fn aggregate_instrument_cashflows(
                     total.principal_payment += breakdown.principal_payment;
                     total.debt_balance += breakdown.debt_balance;
                     total.fees += breakdown.fees;
+                    total.accrued_interest += breakdown.accrued_interest;
                 }
             }
         }

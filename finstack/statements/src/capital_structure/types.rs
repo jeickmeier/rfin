@@ -93,6 +93,9 @@ pub struct CashflowBreakdown {
 
     /// Outstanding debt balance at period end
     pub debt_balance: Money,
+
+    /// Accrued interest not yet paid (liability)
+    pub accrued_interest: Money,
 }
 
 impl CashflowBreakdown {
@@ -104,6 +107,7 @@ impl CashflowBreakdown {
             principal_payment: Money::new(0.0, currency),
             fees: Money::new(0.0, currency),
             debt_balance: Money::new(0.0, currency),
+            accrued_interest: Money::new(0.0, currency),
         }
     }
 
@@ -254,6 +258,17 @@ impl CapitalStructureCashflows {
         })
     }
 
+    /// Get accrued interest for a specific instrument and period.
+    ///
+    /// # Arguments
+    /// * `instrument_id` - Instrument identifier
+    /// * `period_id` - Period to inspect
+    pub fn get_accrued_interest(&self, instrument_id: &str, period_id: &PeriodId) -> Result<f64> {
+        self.get_instrument_field(instrument_id, period_id, "accrued interest", |cf| {
+            cf.accrued_interest.amount()
+        })
+    }
+
     /// Get total interest expense (cash + PIK) across all instruments for a period.
     ///
     /// # Arguments
@@ -294,6 +309,14 @@ impl CapitalStructureCashflows {
         self.reporting_total(period_id, |cf| cf.debt_balance.amount())
     }
 
+    /// Get total accrued interest across all instruments for a period.
+    ///
+    /// # Arguments
+    /// * `period_id` - Period to inspect
+    pub fn get_total_accrued_interest(&self, period_id: &PeriodId) -> Result<f64> {
+        self.reporting_total(period_id, |cf| cf.accrued_interest.amount())
+    }
+
     /// Helper to fetch reporting totals with better error messages.
     fn reporting_total(
         &self,
@@ -332,6 +355,7 @@ mod tests {
         assert_eq!(cf.principal_payment.amount(), 0.0);
         assert_eq!(cf.fees.amount(), 0.0);
         assert_eq!(cf.debt_balance.amount(), 0.0);
+        assert_eq!(cf.accrued_interest.amount(), 0.0);
     }
 
     #[test]
@@ -362,6 +386,7 @@ mod tests {
             principal_payment: Money::new(100_000.0, Currency::USD),
             debt_balance: Money::new(1_000_000.0, Currency::USD),
             fees: Money::new(0.0, Currency::USD),
+            accrued_interest: Money::new(2_500.0, Currency::USD),
         };
 
         let mut period_map = IndexMap::new();
@@ -391,6 +416,12 @@ mod tests {
                 .expect("balance"),
             1_000_000.0
         );
+        assert_eq!(
+            cs_cf
+                .get_accrued_interest("BOND-001", &period_id)
+                .expect("accrued"),
+            2_500.0
+        );
 
         // Test total accessors
         assert_eq!(
@@ -410,6 +441,12 @@ mod tests {
                 .get_total_debt_balance(&period_id)
                 .expect("total balance"),
             1_000_000.0
+        );
+        assert_eq!(
+            cs_cf
+                .get_total_accrued_interest(&period_id)
+                .expect("total accrued"),
+            2_500.0
         );
 
         // Test missing instrument
