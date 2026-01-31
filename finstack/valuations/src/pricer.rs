@@ -1477,20 +1477,24 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         )
     );
 
-    // Commodity Forward
+    // Commodity Forward - uses GenericInstrumentPricer (implements HasDiscountCurve)
     register_pricer!(
         registry,
         CommodityForward,
         Discounting,
-        crate::instruments::commodity_forward::CommodityForwardDiscountingPricer
+        crate::instruments::common::GenericInstrumentPricer::<
+            crate::instruments::CommodityForward,
+        >::discounting(InstrumentType::CommodityForward)
     );
 
-    // Commodity Swap
+    // Commodity Swap - uses GenericInstrumentPricer (implements HasDiscountCurve)
     register_pricer!(
         registry,
         CommoditySwap,
         Discounting,
-        crate::instruments::commodity_swap::CommoditySwapDiscountingPricer
+        crate::instruments::common::GenericInstrumentPricer::<
+            crate::instruments::CommoditySwap,
+        >::discounting(InstrumentType::CommoditySwap)
     );
 
     // Commodity Option
@@ -1792,20 +1796,24 @@ pub fn register_equity_pricers(registry: &mut PricerRegistry) {
         crate::instruments::variance_swap::pricer::SimpleVarianceSwapDiscountingPricer::default()
     );
 
-    // Equity Index Future
+    // Equity Index Future - uses GenericInstrumentPricer
     register_pricer!(
         registry,
         EquityIndexFuture,
         Discounting,
-        crate::instruments::equity_index_future::EquityIndexFutureDiscountingPricer
+        crate::instruments::common::GenericInstrumentPricer::<
+            crate::instruments::EquityIndexFuture,
+        >::discounting(InstrumentType::EquityIndexFuture)
     );
 
-    // Real Estate Asset
+    // Real Estate Asset - uses GenericInstrumentPricer (implements HasDiscountCurve)
     register_pricer!(
         registry,
         RealEstateAsset,
         Discounting,
-        crate::instruments::equity::real_estate::pricer::RealEstateAssetDiscountingPricer
+        crate::instruments::common::GenericInstrumentPricer::<
+            crate::instruments::RealEstateAsset,
+        >::discounting(InstrumentType::RealEstateAsset)
     );
 }
 
@@ -1859,20 +1867,24 @@ pub fn register_fx_pricers(registry: &mut PricerRegistry) {
         crate::instruments::fx_variance_swap::pricer::SimpleFxVarianceSwapDiscountingPricer::default()
     );
 
-    // FX Forward
+    // FX Forward - uses GenericInstrumentPricer (implements HasDiscountCurve)
     register_pricer!(
         registry,
         FxForward,
         Discounting,
-        crate::instruments::fx_forward::FxForwardDiscountingPricer
+        crate::instruments::common::GenericInstrumentPricer::<
+            crate::instruments::FxForward,
+        >::discounting(InstrumentType::FxForward)
     );
 
-    // NDF (Non-Deliverable Forward)
+    // NDF (Non-Deliverable Forward) - uses GenericInstrumentPricer (implements HasDiscountCurve)
     register_pricer!(
         registry,
         Ndf,
         Discounting,
-        crate::instruments::ndf::NdfDiscountingPricer
+        crate::instruments::common::GenericInstrumentPricer::<crate::instruments::Ndf>::discounting(
+            InstrumentType::Ndf
+        )
     );
 
     // FX Barrier Option
