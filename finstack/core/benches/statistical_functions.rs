@@ -279,7 +279,7 @@ fn bench_beta_sampling(c: &mut Criterion) {
         let mut rng = Pcg64Rng::new(42);
         b.iter(|| {
             let result = sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 1.0, 1.0);
-            black_box(result);
+            let _ = black_box(result);
         })
     });
 
@@ -287,7 +287,7 @@ fn bench_beta_sampling(c: &mut Criterion) {
         let mut rng = Pcg64Rng::new(42);
         b.iter(|| {
             let result = sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 2.0, 2.0);
-            black_box(result);
+            let _ = black_box(result);
         })
     });
 
@@ -295,7 +295,7 @@ fn bench_beta_sampling(c: &mut Criterion) {
         let mut rng = Pcg64Rng::new(42);
         b.iter(|| {
             let result = sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 4.0, 2.0);
-            black_box(result);
+            let _ = black_box(result);
         })
     });
 
@@ -304,7 +304,7 @@ fn bench_beta_sampling(c: &mut Criterion) {
         let mut rng = Pcg64Rng::new(42);
         b.iter(|| {
             let result = sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 0.5, 0.5);
-            black_box(result);
+            let _ = black_box(result);
         })
     });
 
@@ -314,7 +314,10 @@ fn bench_beta_sampling(c: &mut Criterion) {
             let mut rng = Pcg64Rng::new(42);
             b.iter(|| {
                 let samples: Vec<f64> = (0..size)
-                    .map(|_| sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 4.0, 2.0))
+                    .map(|_| {
+                        sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 4.0, 2.0)
+                            .expect("Beta(4,2) should succeed")
+                    })
                     .collect();
                 black_box(samples);
             })

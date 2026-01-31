@@ -473,9 +473,9 @@ impl CDSTranchePricer {
 impl CDSTranchePricer {
     #[inline]
     fn select_quadrature(&self) -> GaussHermiteQuadrature {
-        GaussHermiteQuadrature::new(self.params.quadrature_order as usize).unwrap_or_else(|| {
+        GaussHermiteQuadrature::new(self.params.quadrature_order as usize).unwrap_or_else(|_| {
             GaussHermiteQuadrature::new(7)
-                .unwrap_or_else(|| unreachable!("7 is a valid Gauss-Hermite order"))
+                .unwrap_or_else(|_| unreachable!("7 is a valid Gauss-Hermite order"))
         })
     }
 

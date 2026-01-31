@@ -385,7 +385,7 @@ mod quadrature_equivalence {
 
         for order in unsupported {
             assert!(
-                GaussHermiteQuadrature::new(order).is_none(),
+                GaussHermiteQuadrature::new(order).is_err(),
                 "Order {} should be unsupported",
                 order
             );

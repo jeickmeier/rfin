@@ -503,14 +503,14 @@ mod serde_tests {
         // Test all supported orders
         for order in [5, 7, 10, 15, 20] {
             let quad = GaussHermiteQuadrature::new(order);
-            assert!(quad.is_some(), "Order {} should be supported", order);
+            assert!(quad.is_ok(), "Order {} should be supported", order);
             assert_eq!(quad.unwrap().points.len(), order);
         }
 
         // Test unsupported orders
         for order in [1, 3, 8, 12, 25, 32] {
             let quad = GaussHermiteQuadrature::new(order);
-            assert!(quad.is_none(), "Order {} should not be supported", order);
+            assert!(quad.is_err(), "Order {} should not be supported", order);
         }
     }
 

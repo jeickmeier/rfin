@@ -55,8 +55,9 @@
 //! let mut rng = Pcg64Rng::new(42);
 //!
 //! // Sample default time with 5% annual hazard rate (expected: 20 years)
-//! let default_time = sample_exponential(&mut rng as &mut dyn RandomNumberGenerator, 0.05);
+//! let default_time = sample_exponential(&mut rng as &mut dyn RandomNumberGenerator, 0.05)?;
 //! assert!(default_time >= 0.0);
+//! # Ok::<(), finstack_core::Error>(())
 //! ```
 //!
 //! ## Log-Normal for asset price simulation
@@ -69,8 +70,9 @@
 //! let mut rng = Pcg64Rng::new(42);
 //!
 //! // Sample price factor: S_T = S_0 * exp((μ-σ²/2)T + σ√T Z)
-//! let price_factor = sample_lognormal(&mut rng as &mut dyn RandomNumberGenerator, 0.0, 0.2);
+//! let price_factor = sample_lognormal(&mut rng as &mut dyn RandomNumberGenerator, 0.0, 0.2)?;
 //! assert!(price_factor > 0.0);
+//! # Ok::<(), finstack_core::Error>(())
 //! ```
 //!
 //! ## Student's t for heavy-tailed simulation
@@ -83,8 +85,9 @@
 //! let mut rng = Pcg64Rng::new(42);
 //!
 //! // Sample from t(5) - heavier tails than Normal
-//! let t = sample_student_t(&mut rng as &mut dyn RandomNumberGenerator, 5.0);
+//! let t = sample_student_t(&mut rng as &mut dyn RandomNumberGenerator, 5.0)?;
 //! assert!(t.is_finite());
+//! # Ok::<(), finstack_core::Error>(())
 //! ```
 //!
 //! # References
@@ -340,6 +343,10 @@ pub fn log_factorial(n: usize) -> f64 {
 ///
 /// Random sample x ∈ [0, 1] from Beta(α, β)
 ///
+/// # Errors
+///
+/// Returns [`Error::Validation`](crate::Error::Validation) if α ≤ 0 or β ≤ 0.
+///
 /// # Algorithm
 ///
 /// Uses the gamma ratio method (Devroye, 1986):
@@ -365,12 +372,13 @@ pub fn log_factorial(n: usize) -> f64 {
 /// let mut rng = Pcg64Rng::new(42);
 ///
 /// // Sample recovery rate: Beta(4, 2) peaked around 65%
-/// let recovery = sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 4.0, 2.0);
+/// let recovery = sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 4.0, 2.0)?;
 /// assert!(recovery >= 0.0 && recovery <= 1.0);
 ///
 /// // Uniform distribution: Beta(1, 1)
-/// let uniform = sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 1.0, 1.0);
+/// let uniform = sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 1.0, 1.0)?;
 /// assert!(uniform >= 0.0 && uniform <= 1.0);
+/// # Ok::<(), finstack_core::Error>(())
 /// ```
 ///
 /// # References
@@ -381,21 +389,39 @@ pub fn log_factorial(n: usize) -> f64 {
 ///   Chapter 9 (Beta distribution sampling via gamma ratio).
 /// - Marsaglia, G., & Tsang, W. W. (2000). "A Simple Method for Generating Gamma
 ///   Variables." *ACM Transactions on Mathematical Software*, 26(3), 363-372.
-pub fn sample_beta(rng: &mut dyn RandomNumberGenerator, alpha: f64, beta: f64) -> f64 {
+pub fn sample_beta(
+    rng: &mut dyn RandomNumberGenerator,
+    alpha: f64,
+    beta: f64,
+) -> crate::Result<f64> {
+    if alpha <= 0.0 {
+        return Err(crate::Error::Validation(format!(
+            "Beta α parameter must be positive, got: {}",
+            alpha
+        )));
+    }
+    if beta <= 0.0 {
+        return Err(crate::Error::Validation(format!(
+            "Beta β parameter must be positive, got: {}",
+            beta
+        )));
+    }
+
     // Special case: Beta(1, 1) = Uniform[0, 1]
     if alpha == 1.0 && beta == 1.0 {
-        return rng.uniform();
+        return Ok(rng.uniform());
     }
 
     // Use gamma ratio method: X/(X+Y) ~ Beta(α, β) where X ~ Gamma(α), Y ~ Gamma(β)
-    let x = sample_gamma(rng, alpha);
-    let y = sample_gamma(rng, beta);
+    // We use the unchecked version since we've already validated α, β > 0
+    let x = sample_gamma_unchecked(rng, alpha);
+    let y = sample_gamma_unchecked(rng, beta);
 
     // Guard against division by zero (extremely rare, but defensive)
     if x + y == 0.0 {
-        return 0.5; // Fallback to mean for degenerate case
+        return Ok(0.5); // Fallback to mean for degenerate case
     }
-    x / (x + y)
+    Ok(x / (x + y))
 }
 
 // ============================================================================
@@ -432,6 +458,10 @@ pub fn sample_beta(rng: &mut dyn RandomNumberGenerator, alpha: f64, beta: f64) -
 ///
 /// Random sample x ∈ [0, ∞) from Exponential(λ)
 ///
+/// # Errors
+///
+/// Returns [`Error::Validation`](crate::Error::Validation) if λ ≤ 0.
+///
 /// # Use Cases
 ///
 /// - **Default timing**: Time to default with constant hazard rate λ
@@ -449,26 +479,29 @@ pub fn sample_beta(rng: &mut dyn RandomNumberGenerator, alpha: f64, beta: f64) -
 /// let mut rng = Pcg64Rng::new(42);
 ///
 /// // Sample default time with 5% annual hazard rate
-/// let default_time = sample_exponential(&mut rng as &mut dyn RandomNumberGenerator, 0.05);
+/// let default_time = sample_exponential(&mut rng as &mut dyn RandomNumberGenerator, 0.05)?;
 /// assert!(default_time >= 0.0);
 ///
 /// // Expected mean is 1/λ = 20 years
+/// # Ok::<(), finstack_core::Error>(())
 /// ```
 ///
 /// # References
 ///
 /// - Johnson, N. L., Kotz, S., & Balakrishnan, N. (1994). *Continuous Univariate
 ///   Distributions, Volume 1* (2nd ed.). Wiley. Chapter 19 (Exponential distribution).
-pub fn sample_exponential(rng: &mut dyn RandomNumberGenerator, lambda: f64) -> f64 {
-    assert!(
-        lambda > 0.0,
-        "Exponential rate parameter λ must be positive"
-    );
+pub fn sample_exponential(rng: &mut dyn RandomNumberGenerator, lambda: f64) -> crate::Result<f64> {
+    if lambda <= 0.0 {
+        return Err(crate::Error::Validation(format!(
+            "Exponential rate parameter λ must be positive, got: {}",
+            lambda
+        )));
+    }
 
     // Inverse CDF method: X = -ln(U) / λ
     // Clamp u away from 0 to prevent ln(0) = -∞
     let u = rng.uniform().max(f64::MIN_POSITIVE);
-    -u.ln() / lambda
+    Ok(-u.ln() / lambda)
 }
 
 /// Probability density function (PDF) of the Exponential distribution.
@@ -582,37 +615,48 @@ pub fn exponential_cdf(x: f64, lambda: f64) -> f64 {
 ///
 /// Quantile x such that F(x; λ) = p
 ///
+/// # Errors
+///
+/// Returns [`Error::Validation`](crate::Error::Validation) if:
+/// - p ∉ [0, 1)
+/// - λ ≤ 0
+///
 /// # Examples
 ///
 /// ```rust
 /// use finstack_core::math::distributions::{exponential_quantile, exponential_cdf};
 ///
 /// // Median of Exp(1) is ln(2) ≈ 0.693
-/// let median = exponential_quantile(0.5, 1.0);
+/// let median = exponential_quantile(0.5, 1.0)?;
 /// assert!((median - 0.6931471805599453).abs() < 1e-10);
 ///
 /// // Round-trip: CDF(quantile(p)) = p
 /// let p = 0.75;
-/// let x = exponential_quantile(p, 2.0);
+/// let x = exponential_quantile(p, 2.0)?;
 /// assert!((exponential_cdf(x, 2.0) - p).abs() < 1e-10);
+/// # Ok::<(), finstack_core::Error>(())
 /// ```
-#[must_use]
-pub fn exponential_quantile(p: f64, lambda: f64) -> f64 {
+pub fn exponential_quantile(p: f64, lambda: f64) -> crate::Result<f64> {
     use statrs::distribution::{ContinuousCDF, Exp};
 
-    assert!(
-        (0.0..1.0).contains(&p),
-        "Probability p must be in [0, 1), got {}",
-        p
-    );
-    assert!(
-        lambda > 0.0,
-        "Exponential rate parameter λ must be positive"
-    );
+    if !(0.0..1.0).contains(&p) {
+        return Err(crate::Error::Validation(format!(
+            "Probability p must be in [0, 1), got: {}",
+            p
+        )));
+    }
+    if lambda <= 0.0 {
+        return Err(crate::Error::Validation(format!(
+            "Exponential rate parameter λ must be positive, got: {}",
+            lambda
+        )));
+    }
 
     match Exp::new(lambda) {
-        Ok(exp) => exp.inverse_cdf(p),
-        Err(_) => f64::NAN,
+        Ok(exp) => Ok(exp.inverse_cdf(p)),
+        Err(_) => Err(crate::Error::Validation(
+            "Failed to create exponential distribution".to_string(),
+        )),
     }
 }
 
@@ -629,7 +673,7 @@ pub fn exponential_quantile(p: f64, lambda: f64) -> f64 {
 /// # Mathematical Definition
 ///
 /// ```text
-/// LogNormal(μ, σ) with σ > 0:
+/// LogNormal(μ, σ) with σ ≥ 0:
 /// - Support: (0, ∞)
 /// - If X ~ LogNormal(μ, σ), then ln(X) ~ Normal(μ, σ²)
 /// - Mean: exp(μ + σ²/2)
@@ -661,11 +705,15 @@ pub fn exponential_quantile(p: f64, lambda: f64) -> f64 {
 ///
 /// * `rng` - Random number generator implementing [`RandomNumberGenerator`]
 /// * `mu` - Location parameter (mean of underlying normal). Practical range: [-10, 10]
-/// * `sigma` - Scale parameter (std dev of underlying normal, σ > 0). Practical range: [0.01, 3.0]
+/// * `sigma` - Scale parameter (std dev of underlying normal, σ ≥ 0). Practical range: [0.01, 3.0]
 ///
 /// # Returns
 ///
 /// Random sample x ∈ (0, ∞) from LogNormal(μ, σ)
+///
+/// # Errors
+///
+/// Returns [`Error::Validation`](crate::Error::Validation) if σ < 0.
 ///
 /// # Use Cases
 ///
@@ -684,21 +732,31 @@ pub fn exponential_quantile(p: f64, lambda: f64) -> f64 {
 /// let mut rng = Pcg64Rng::new(42);
 ///
 /// // Sample asset price ratio (current price = 100)
-/// let price_factor = sample_lognormal(&mut rng as &mut dyn RandomNumberGenerator, 0.0, 0.2);
+/// let price_factor = sample_lognormal(&mut rng as &mut dyn RandomNumberGenerator, 0.0, 0.2)?;
 /// let new_price = 100.0 * price_factor;
 /// assert!(new_price > 0.0);
+/// # Ok::<(), finstack_core::Error>(())
 /// ```
 ///
 /// # References
 ///
 /// - Johnson, N. L., Kotz, S., & Balakrishnan, N. (1994). *Continuous Univariate
 ///   Distributions, Volume 1* (2nd ed.). Wiley. Chapter 14 (Lognormal distribution).
-pub fn sample_lognormal(rng: &mut dyn RandomNumberGenerator, mu: f64, sigma: f64) -> f64 {
-    assert!(sigma >= 0.0, "Log-normal σ must be non-negative");
+pub fn sample_lognormal(
+    rng: &mut dyn RandomNumberGenerator,
+    mu: f64,
+    sigma: f64,
+) -> crate::Result<f64> {
+    if sigma < 0.0 {
+        return Err(crate::Error::Validation(format!(
+            "Log-normal σ must be non-negative, got: {}",
+            sigma
+        )));
+    }
 
     // X = exp(μ + σ*Z) where Z ~ N(0,1)
     let z = rng.normal(0.0, 1.0);
-    (mu + sigma * z).exp()
+    Ok((mu + sigma * z).exp())
 }
 
 /// Probability density function (PDF) of the Log-Normal distribution.
@@ -810,7 +868,7 @@ pub fn lognormal_cdf(x: f64, mu: f64, sigma: f64) -> f64 {
 ///
 /// # Arguments
 ///
-/// * `p` - Probability in (0, 1)
+/// * `p` - Probability in [0, 1)
 /// * `mu` - Location parameter (mean of underlying normal)
 /// * `sigma` - Scale parameter (std dev of underlying normal, σ > 0)
 ///
@@ -818,34 +876,48 @@ pub fn lognormal_cdf(x: f64, mu: f64, sigma: f64) -> f64 {
 ///
 /// Quantile x such that F(x; μ, σ) = p
 ///
+/// # Errors
+///
+/// Returns [`Error::Validation`](crate::Error::Validation) if:
+/// - p ∉ [0, 1)
+/// - σ ≤ 0
+///
 /// # Examples
 ///
 /// ```rust
 /// use finstack_core::math::distributions::{lognormal_quantile, lognormal_cdf};
 ///
 /// // Median is exp(μ)
-/// let median = lognormal_quantile(0.5, 0.0, 1.0);
+/// let median = lognormal_quantile(0.5, 0.0, 1.0)?;
 /// assert!((median - 1.0).abs() < 1e-10);
 ///
 /// // Round-trip test
 /// let p = 0.75;
-/// let x = lognormal_quantile(p, 0.5, 0.3);
+/// let x = lognormal_quantile(p, 0.5, 0.3)?;
 /// assert!((lognormal_cdf(x, 0.5, 0.3) - p).abs() < 1e-10);
+/// # Ok::<(), finstack_core::Error>(())
 /// ```
-#[must_use]
-pub fn lognormal_quantile(p: f64, mu: f64, sigma: f64) -> f64 {
+pub fn lognormal_quantile(p: f64, mu: f64, sigma: f64) -> crate::Result<f64> {
     use statrs::distribution::{ContinuousCDF, LogNormal};
 
-    assert!(
-        (0.0..1.0).contains(&p) || p == 1.0,
-        "Probability p must be in (0, 1), got {}",
-        p
-    );
-    assert!(sigma > 0.0, "Log-normal σ must be positive");
+    if !(0.0..1.0).contains(&p) {
+        return Err(crate::Error::Validation(format!(
+            "Probability p must be in [0, 1), got: {}",
+            p
+        )));
+    }
+    if sigma <= 0.0 {
+        return Err(crate::Error::Validation(format!(
+            "Log-normal σ must be positive, got: {}",
+            sigma
+        )));
+    }
 
     match LogNormal::new(mu, sigma) {
-        Ok(ln) => ln.inverse_cdf(p),
-        Err(_) => f64::NAN,
+        Ok(ln) => Ok(ln.inverse_cdf(p)),
+        Err(_) => Err(crate::Error::Validation(
+            "Failed to create log-normal distribution".to_string(),
+        )),
     }
 }
 
@@ -867,6 +939,10 @@ pub fn lognormal_quantile(p: f64, mu: f64, sigma: f64) -> f64 {
 ///
 /// Random sample from Gamma(shape, 1)
 ///
+/// # Errors
+///
+/// Returns [`Error::Validation`](crate::Error::Validation) if shape ≤ 0.
+///
 /// # Algorithm
 ///
 /// Uses Marsaglia & Tsang's rejection method for shape ≥ 1, with Ahrens-Dieter
@@ -880,22 +956,35 @@ pub fn lognormal_quantile(p: f64, mu: f64, sigma: f64) -> f64 {
 /// use finstack_core::math::RandomNumberGenerator;
 ///
 /// let mut rng = Pcg64Rng::new(42);
-/// let sample = sample_gamma(&mut rng as &mut dyn RandomNumberGenerator, 2.0);
+/// let sample = sample_gamma(&mut rng as &mut dyn RandomNumberGenerator, 2.0)?;
 /// assert!(sample >= 0.0);
+/// # Ok::<(), finstack_core::Error>(())
 /// ```
 ///
 /// # References
 ///
 /// - Marsaglia, G., & Tsang, W. W. (2000). "A Simple Method for Generating Gamma
 ///   Variables." *ACM Transactions on Mathematical Software*, 26(3), 363-372.
-pub fn sample_gamma(rng: &mut dyn RandomNumberGenerator, shape: f64) -> f64 {
+pub fn sample_gamma(rng: &mut dyn RandomNumberGenerator, shape: f64) -> crate::Result<f64> {
+    if shape <= 0.0 {
+        return Err(crate::Error::Validation(format!(
+            "Gamma shape parameter must be positive, got: {}",
+            shape
+        )));
+    }
+
+    Ok(sample_gamma_unchecked(rng, shape))
+}
+
+/// Internal unchecked gamma sampling (assumes shape > 0).
+fn sample_gamma_unchecked(rng: &mut dyn RandomNumberGenerator, shape: f64) -> f64 {
     if shape < 1.0 {
         // Ahrens-Dieter transformation for shape < 1:
         // If X ~ Gamma(shape + 1), then X * U^(1/shape) ~ Gamma(shape)
         let u = rng.uniform();
         // Clamp u away from 0 to prevent ln(0) issues
         let u_safe = u.max(1e-300);
-        return sample_gamma(rng, shape + 1.0) * u_safe.powf(1.0 / shape);
+        return sample_gamma_unchecked(rng, shape + 1.0) * u_safe.powf(1.0 / shape);
     }
 
     // Marsaglia-Tsang method for shape >= 1
@@ -963,6 +1052,10 @@ pub fn sample_gamma(rng: &mut dyn RandomNumberGenerator, shape: f64) -> f64 {
 ///
 /// Random sample x ∈ [0, ∞) from χ²(k)
 ///
+/// # Errors
+///
+/// Returns [`Error::Validation`](crate::Error::Validation) if df ≤ 0.
+///
 /// # Use Cases
 ///
 /// - **Variance estimation**: Sum of squared residuals / σ² ~ χ²(n-p)
@@ -980,19 +1073,26 @@ pub fn sample_gamma(rng: &mut dyn RandomNumberGenerator, shape: f64) -> f64 {
 /// let mut rng = Pcg64Rng::new(42);
 ///
 /// // Sample chi-squared with 5 degrees of freedom
-/// let x = sample_chi_squared(&mut rng as &mut dyn RandomNumberGenerator, 5.0);
+/// let x = sample_chi_squared(&mut rng as &mut dyn RandomNumberGenerator, 5.0)?;
 /// assert!(x >= 0.0);
+/// # Ok::<(), finstack_core::Error>(())
 /// ```
 ///
 /// # References
 ///
 /// - Johnson, N. L., Kotz, S., & Balakrishnan, N. (1994). *Continuous Univariate
 ///   Distributions, Volume 1* (2nd ed.). Wiley. Chapter 18 (Chi-squared distribution).
-pub fn sample_chi_squared(rng: &mut dyn RandomNumberGenerator, df: f64) -> f64 {
-    assert!(df > 0.0, "Chi-squared degrees of freedom must be positive");
+pub fn sample_chi_squared(rng: &mut dyn RandomNumberGenerator, df: f64) -> crate::Result<f64> {
+    if df <= 0.0 {
+        return Err(crate::Error::Validation(format!(
+            "Chi-squared degrees of freedom must be positive, got: {}",
+            df
+        )));
+    }
 
     // χ²(k) = Gamma(k/2, 2) = 2 * Gamma(k/2, 1)
-    2.0 * sample_gamma(rng, df / 2.0)
+    // We use unchecked since df > 0 implies df/2 > 0
+    Ok(2.0 * sample_gamma_unchecked(rng, df / 2.0))
 }
 
 /// Probability density function (PDF) of the Chi-Squared distribution.
@@ -1100,34 +1200,48 @@ pub fn chi_squared_cdf(x: f64, df: f64) -> f64 {
 ///
 /// Quantile x such that F(x; k) = p
 ///
+/// # Errors
+///
+/// Returns [`Error::Validation`](crate::Error::Validation) if:
+/// - p ∉ [0, 1)
+/// - df ≤ 0
+///
 /// # Examples
 ///
 /// ```rust
 /// use finstack_core::math::distributions::{chi_squared_quantile, chi_squared_cdf};
 ///
 /// // 95th percentile for df=1 is approximately 3.841
-/// let x_95 = chi_squared_quantile(0.95, 1.0);
+/// let x_95 = chi_squared_quantile(0.95, 1.0)?;
 /// assert!((x_95 - 3.841).abs() < 0.01);
 ///
 /// // Round-trip test
 /// let p = 0.90;
-/// let x = chi_squared_quantile(p, 5.0);
+/// let x = chi_squared_quantile(p, 5.0)?;
 /// assert!((chi_squared_cdf(x, 5.0) - p).abs() < 1e-10);
+/// # Ok::<(), finstack_core::Error>(())
 /// ```
-#[must_use]
-pub fn chi_squared_quantile(p: f64, df: f64) -> f64 {
+pub fn chi_squared_quantile(p: f64, df: f64) -> crate::Result<f64> {
     use statrs::distribution::{ChiSquared, ContinuousCDF};
 
-    assert!(
-        (0.0..1.0).contains(&p),
-        "Probability p must be in [0, 1), got {}",
-        p
-    );
-    assert!(df > 0.0, "Chi-squared degrees of freedom must be positive");
+    if !(0.0..1.0).contains(&p) {
+        return Err(crate::Error::Validation(format!(
+            "Probability p must be in [0, 1), got: {}",
+            p
+        )));
+    }
+    if df <= 0.0 {
+        return Err(crate::Error::Validation(format!(
+            "Chi-squared degrees of freedom must be positive, got: {}",
+            df
+        )));
+    }
 
     match ChiSquared::new(df) {
-        Ok(chi2) => chi2.inverse_cdf(p),
-        Err(_) => f64::NAN,
+        Ok(chi2) => Ok(chi2.inverse_cdf(p)),
+        Err(_) => Err(crate::Error::Validation(
+            "Failed to create chi-squared distribution".to_string(),
+        )),
     }
 }
 
@@ -1164,6 +1278,10 @@ pub fn chi_squared_quantile(p: f64, df: f64) -> f64 {
 ///
 /// Random sample from t(ν)
 ///
+/// # Errors
+///
+/// Returns [`Error::Validation`](crate::Error::Validation) if df ≤ 0.
+///
 /// # Use Cases
 ///
 /// - **Equity returns**: Fat-tailed return distributions (df ≈ 4-6)
@@ -1181,26 +1299,33 @@ pub fn chi_squared_quantile(p: f64, df: f64) -> f64 {
 /// let mut rng = Pcg64Rng::new(42);
 ///
 /// // Sample from t-distribution with 5 degrees of freedom
-/// let t = sample_student_t(&mut rng as &mut dyn RandomNumberGenerator, 5.0);
+/// let t = sample_student_t(&mut rng as &mut dyn RandomNumberGenerator, 5.0)?;
 /// assert!(t.is_finite());
 ///
 /// // Higher df approaches Normal
-/// let t_high_df = sample_student_t(&mut rng as &mut dyn RandomNumberGenerator, 100.0);
+/// let t_high_df = sample_student_t(&mut rng as &mut dyn RandomNumberGenerator, 100.0)?;
 /// assert!(t_high_df.is_finite());
+/// # Ok::<(), finstack_core::Error>(())
 /// ```
 ///
 /// # References
 ///
 /// - Johnson, N. L., Kotz, S., & Balakrishnan, N. (1995). *Continuous Univariate
 ///   Distributions, Volume 2* (2nd ed.). Wiley. Chapter 28 (Student's t distribution).
-pub fn sample_student_t(rng: &mut dyn RandomNumberGenerator, df: f64) -> f64 {
-    assert!(df > 0.0, "Student's t degrees of freedom must be positive");
+pub fn sample_student_t(rng: &mut dyn RandomNumberGenerator, df: f64) -> crate::Result<f64> {
+    if df <= 0.0 {
+        return Err(crate::Error::Validation(format!(
+            "Student's t degrees of freedom must be positive, got: {}",
+            df
+        )));
+    }
 
     // T = Z / sqrt(V/ν) where Z ~ N(0,1), V ~ χ²(ν)
     let z = rng.normal(0.0, 1.0);
-    let v = sample_chi_squared(rng, df);
+    // We use unchecked gamma since df > 0 implies df/2 > 0
+    let v = 2.0 * sample_gamma_unchecked(rng, df / 2.0);
 
-    z / (v / df).sqrt()
+    Ok(z / (v / df).sqrt())
 }
 
 #[cfg(test)]
@@ -1260,12 +1385,16 @@ mod tests {
         let mut rng = Pcg64Rng::new(42);
 
         // Test uniform case (alpha=1, beta=1)
-        let uniform_sample = sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 1.0, 1.0);
+        let uniform_sample = sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 1.0, 1.0)
+            .expect("Beta(1,1) should succeed");
         assert!((0.0..=1.0).contains(&uniform_sample));
 
         // Test that samples are in [0, 1]
         let samples: Vec<f64> = (0..100)
-            .map(|_| sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 2.0, 2.0))
+            .map(|_| {
+                sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 2.0, 2.0)
+                    .expect("Beta(2,2) should succeed")
+            })
             .collect();
         for sample in samples {
             assert!((0.0..=1.0).contains(&sample));
@@ -1293,6 +1422,7 @@ mod tests {
                     alpha,
                     beta_param,
                 )
+                .expect("Beta(4,2) should succeed")
             })
             .collect();
 
@@ -1327,7 +1457,10 @@ mod tests {
         // Test with shape parameters < 1 (uses Ahrens-Dieter transformation)
         let mut rng = Pcg64Rng::new(9999);
         let samples: Vec<f64> = (0..1000)
-            .map(|_| sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 0.5, 0.5))
+            .map(|_| {
+                sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 0.5, 0.5)
+                    .expect("Beta(0.5,0.5) should succeed")
+            })
             .collect();
 
         // All samples should be in [0, 1]
@@ -1346,6 +1479,21 @@ mod tests {
             "Beta(0.5, 0.5) mean: expected ~0.5, got {:.4}",
             sample_mean
         );
+    }
+
+    #[test]
+    fn test_sample_beta_validation() {
+        use super::super::random::Pcg64Rng;
+
+        let mut rng = Pcg64Rng::new(42);
+
+        // Invalid alpha
+        assert!(sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 0.0, 1.0).is_err());
+        assert!(sample_beta(&mut rng as &mut dyn RandomNumberGenerator, -1.0, 1.0).is_err());
+
+        // Invalid beta
+        assert!(sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 1.0, 0.0).is_err());
+        assert!(sample_beta(&mut rng as &mut dyn RandomNumberGenerator, 1.0, -1.0).is_err());
     }
 
     #[test]
@@ -1443,7 +1591,8 @@ mod tests {
 
         // All samples should be non-negative
         for _ in 0..100 {
-            let x = sample_exponential(&mut rng as &mut dyn RandomNumberGenerator, lambda);
+            let x = sample_exponential(&mut rng as &mut dyn RandomNumberGenerator, lambda)
+                .expect("Exponential(2.0) should succeed");
             assert!(
                 x >= 0.0,
                 "Exponential sample should be non-negative, got {}",
@@ -1461,7 +1610,10 @@ mod tests {
         let n_samples = 10_000;
 
         let samples: Vec<f64> = (0..n_samples)
-            .map(|_| sample_exponential(&mut rng as &mut dyn RandomNumberGenerator, lambda))
+            .map(|_| {
+                sample_exponential(&mut rng as &mut dyn RandomNumberGenerator, lambda)
+                    .expect("Exponential(0.5) should succeed")
+            })
             .collect();
 
         let sample_mean = samples.iter().sum::<f64>() / n_samples as f64;
@@ -1474,6 +1626,17 @@ mod tests {
             expected_mean,
             sample_mean
         );
+    }
+
+    #[test]
+    fn test_sample_exponential_validation() {
+        use super::super::random::Pcg64Rng;
+
+        let mut rng = Pcg64Rng::new(42);
+
+        // Invalid lambda
+        assert!(sample_exponential(&mut rng as &mut dyn RandomNumberGenerator, 0.0).is_err());
+        assert!(sample_exponential(&mut rng as &mut dyn RandomNumberGenerator, -1.0).is_err());
     }
 
     #[test]
@@ -1506,7 +1669,7 @@ mod tests {
         let test_probs = [0.1, 0.25, 0.5, 0.75, 0.9];
 
         for &p in &test_probs {
-            let x = exponential_quantile(p, lambda);
+            let x = exponential_quantile(p, lambda).expect("Valid p and lambda");
             let p_back = exponential_cdf(x, lambda);
             assert!(
                 (p - p_back).abs() < 1e-10,
@@ -1516,6 +1679,18 @@ mod tests {
                 p_back
             );
         }
+    }
+
+    #[test]
+    fn test_exponential_quantile_validation() {
+        // Invalid p
+        assert!(exponential_quantile(-0.1, 1.0).is_err());
+        assert!(exponential_quantile(1.0, 1.0).is_err());
+        assert!(exponential_quantile(1.5, 1.0).is_err());
+
+        // Invalid lambda
+        assert!(exponential_quantile(0.5, 0.0).is_err());
+        assert!(exponential_quantile(0.5, -1.0).is_err());
     }
 
     // ========================================================================
@@ -1530,7 +1705,8 @@ mod tests {
 
         // All samples should be positive
         for _ in 0..100 {
-            let x = sample_lognormal(&mut rng as &mut dyn RandomNumberGenerator, 0.0, 0.5);
+            let x = sample_lognormal(&mut rng as &mut dyn RandomNumberGenerator, 0.0, 0.5)
+                .expect("LogNormal(0, 0.5) should succeed");
             assert!(x > 0.0, "Log-normal sample should be positive, got {}", x);
         }
     }
@@ -1548,7 +1724,10 @@ mod tests {
         let expected_mean = (mu + sigma * sigma / 2.0).exp();
 
         let samples: Vec<f64> = (0..n_samples)
-            .map(|_| sample_lognormal(&mut rng as &mut dyn RandomNumberGenerator, mu, sigma))
+            .map(|_| {
+                sample_lognormal(&mut rng as &mut dyn RandomNumberGenerator, mu, sigma)
+                    .expect("LogNormal(0, 0.5) should succeed")
+            })
             .collect();
 
         let sample_mean = samples.iter().sum::<f64>() / n_samples as f64;
@@ -1560,6 +1739,19 @@ mod tests {
             expected_mean,
             sample_mean
         );
+    }
+
+    #[test]
+    fn test_sample_lognormal_validation() {
+        use super::super::random::Pcg64Rng;
+
+        let mut rng = Pcg64Rng::new(42);
+
+        // Invalid sigma (negative)
+        assert!(sample_lognormal(&mut rng as &mut dyn RandomNumberGenerator, 0.0, -0.1).is_err());
+
+        // sigma = 0 is valid (degenerate distribution)
+        assert!(sample_lognormal(&mut rng as &mut dyn RandomNumberGenerator, 0.0, 0.0).is_ok());
     }
 
     #[test]
@@ -1592,7 +1784,7 @@ mod tests {
         let test_probs = [0.1, 0.25, 0.5, 0.75, 0.9];
 
         for &p in &test_probs {
-            let x = lognormal_quantile(p, mu, sigma);
+            let x = lognormal_quantile(p, mu, sigma).expect("Valid p, mu, sigma");
             let p_back = lognormal_cdf(x, mu, sigma);
             assert!(
                 (p - p_back).abs() < 1e-10,
@@ -1602,6 +1794,18 @@ mod tests {
                 p_back
             );
         }
+    }
+
+    #[test]
+    fn test_lognormal_quantile_validation() {
+        // Invalid p
+        assert!(lognormal_quantile(-0.1, 0.0, 1.0).is_err());
+        assert!(lognormal_quantile(1.0, 0.0, 1.0).is_err());
+        assert!(lognormal_quantile(1.5, 0.0, 1.0).is_err());
+
+        // Invalid sigma
+        assert!(lognormal_quantile(0.5, 0.0, 0.0).is_err());
+        assert!(lognormal_quantile(0.5, 0.0, -1.0).is_err());
     }
 
     // ========================================================================
@@ -1616,7 +1820,8 @@ mod tests {
 
         // All samples should be non-negative
         for _ in 0..100 {
-            let x = sample_gamma(&mut rng as &mut dyn RandomNumberGenerator, 2.0);
+            let x = sample_gamma(&mut rng as &mut dyn RandomNumberGenerator, 2.0)
+                .expect("Gamma(2.0) should succeed");
             assert!(x >= 0.0, "Gamma sample should be non-negative, got {}", x);
         }
     }
@@ -1629,7 +1834,8 @@ mod tests {
         let mut rng = Pcg64Rng::new(42);
 
         for _ in 0..100 {
-            let x = sample_gamma(&mut rng as &mut dyn RandomNumberGenerator, 0.5);
+            let x = sample_gamma(&mut rng as &mut dyn RandomNumberGenerator, 0.5)
+                .expect("Gamma(0.5) should succeed");
             assert!(
                 x >= 0.0,
                 "Gamma(0.5) sample should be non-negative, got {}",
@@ -1647,7 +1853,10 @@ mod tests {
         let n_samples = 10_000;
 
         let samples: Vec<f64> = (0..n_samples)
-            .map(|_| sample_gamma(&mut rng as &mut dyn RandomNumberGenerator, shape))
+            .map(|_| {
+                sample_gamma(&mut rng as &mut dyn RandomNumberGenerator, shape)
+                    .expect("Gamma(3.0) should succeed")
+            })
             .collect();
 
         let sample_mean = samples.iter().sum::<f64>() / n_samples as f64;
@@ -1662,6 +1871,17 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_sample_gamma_validation() {
+        use super::super::random::Pcg64Rng;
+
+        let mut rng = Pcg64Rng::new(42);
+
+        // Invalid shape
+        assert!(sample_gamma(&mut rng as &mut dyn RandomNumberGenerator, 0.0).is_err());
+        assert!(sample_gamma(&mut rng as &mut dyn RandomNumberGenerator, -1.0).is_err());
+    }
+
     // ========================================================================
     // Chi-Squared Distribution Tests
     // ========================================================================
@@ -1674,7 +1894,8 @@ mod tests {
 
         // All samples should be non-negative
         for _ in 0..100 {
-            let x = sample_chi_squared(&mut rng as &mut dyn RandomNumberGenerator, 5.0);
+            let x = sample_chi_squared(&mut rng as &mut dyn RandomNumberGenerator, 5.0)
+                .expect("Chi-squared(5.0) should succeed");
             assert!(
                 x >= 0.0,
                 "Chi-squared sample should be non-negative, got {}",
@@ -1692,7 +1913,10 @@ mod tests {
         let n_samples = 10_000;
 
         let samples: Vec<f64> = (0..n_samples)
-            .map(|_| sample_chi_squared(&mut rng as &mut dyn RandomNumberGenerator, df))
+            .map(|_| {
+                sample_chi_squared(&mut rng as &mut dyn RandomNumberGenerator, df)
+                    .expect("Chi-squared(5.0) should succeed")
+            })
             .collect();
 
         let sample_mean = samples.iter().sum::<f64>() / n_samples as f64;
@@ -1705,6 +1929,17 @@ mod tests {
             df,
             sample_mean
         );
+    }
+
+    #[test]
+    fn test_sample_chi_squared_validation() {
+        use super::super::random::Pcg64Rng;
+
+        let mut rng = Pcg64Rng::new(42);
+
+        // Invalid df
+        assert!(sample_chi_squared(&mut rng as &mut dyn RandomNumberGenerator, 0.0).is_err());
+        assert!(sample_chi_squared(&mut rng as &mut dyn RandomNumberGenerator, -1.0).is_err());
     }
 
     #[test]
@@ -1732,7 +1967,7 @@ mod tests {
         let test_probs = [0.1, 0.25, 0.5, 0.75, 0.9];
 
         for &p in &test_probs {
-            let x = chi_squared_quantile(p, df);
+            let x = chi_squared_quantile(p, df).expect("Valid p and df");
             let p_back = chi_squared_cdf(x, df);
             assert!(
                 (p - p_back).abs() < 1e-10,
@@ -1743,6 +1978,18 @@ mod tests {
                 p_back
             );
         }
+    }
+
+    #[test]
+    fn test_chi_squared_quantile_validation() {
+        // Invalid p
+        assert!(chi_squared_quantile(-0.1, 5.0).is_err());
+        assert!(chi_squared_quantile(1.0, 5.0).is_err());
+        assert!(chi_squared_quantile(1.5, 5.0).is_err());
+
+        // Invalid df
+        assert!(chi_squared_quantile(0.5, 0.0).is_err());
+        assert!(chi_squared_quantile(0.5, -1.0).is_err());
     }
 
     // ========================================================================
@@ -1757,7 +2004,8 @@ mod tests {
 
         // All samples should be finite
         for _ in 0..100 {
-            let t = sample_student_t(&mut rng as &mut dyn RandomNumberGenerator, 5.0);
+            let t = sample_student_t(&mut rng as &mut dyn RandomNumberGenerator, 5.0)
+                .expect("StudentT(5.0) should succeed");
             assert!(
                 t.is_finite(),
                 "Student's t sample should be finite, got {}",
@@ -1775,7 +2023,10 @@ mod tests {
         let n_samples = 10_000;
 
         let samples: Vec<f64> = (0..n_samples)
-            .map(|_| sample_student_t(&mut rng as &mut dyn RandomNumberGenerator, df))
+            .map(|_| {
+                sample_student_t(&mut rng as &mut dyn RandomNumberGenerator, df)
+                    .expect("StudentT(10.0) should succeed")
+            })
             .collect();
 
         let sample_mean = samples.iter().sum::<f64>() / n_samples as f64;
@@ -1798,12 +2049,18 @@ mod tests {
 
         // t(3) should have heavier tails than t(30)
         let samples_t3: Vec<f64> = (0..n_samples)
-            .map(|_| sample_student_t(&mut rng as &mut dyn RandomNumberGenerator, 3.0))
+            .map(|_| {
+                sample_student_t(&mut rng as &mut dyn RandomNumberGenerator, 3.0)
+                    .expect("StudentT(3.0) should succeed")
+            })
             .collect();
 
         let mut rng2 = Pcg64Rng::new(12345);
         let samples_t30: Vec<f64> = (0..n_samples)
-            .map(|_| sample_student_t(&mut rng2 as &mut dyn RandomNumberGenerator, 30.0))
+            .map(|_| {
+                sample_student_t(&mut rng2 as &mut dyn RandomNumberGenerator, 30.0)
+                    .expect("StudentT(30.0) should succeed")
+            })
             .collect();
 
         // Count extreme values (|x| > 3)
@@ -1827,15 +2084,32 @@ mod tests {
         let mut rng2 = Pcg64Rng::new(42);
 
         let samples1: Vec<f64> = (0..10)
-            .map(|_| sample_student_t(&mut rng1 as &mut dyn RandomNumberGenerator, 5.0))
+            .map(|_| {
+                sample_student_t(&mut rng1 as &mut dyn RandomNumberGenerator, 5.0)
+                    .expect("StudentT(5.0) should succeed")
+            })
             .collect();
         let samples2: Vec<f64> = (0..10)
-            .map(|_| sample_student_t(&mut rng2 as &mut dyn RandomNumberGenerator, 5.0))
+            .map(|_| {
+                sample_student_t(&mut rng2 as &mut dyn RandomNumberGenerator, 5.0)
+                    .expect("StudentT(5.0) should succeed")
+            })
             .collect();
 
         // Same seed should produce identical sequences
         for (s1, s2) in samples1.iter().zip(samples2.iter()) {
             assert_eq!(s1, s2, "Student's t sampling should be deterministic");
         }
+    }
+
+    #[test]
+    fn test_sample_student_t_validation() {
+        use super::super::random::Pcg64Rng;
+
+        let mut rng = Pcg64Rng::new(42);
+
+        // Invalid df
+        assert!(sample_student_t(&mut rng as &mut dyn RandomNumberGenerator, 0.0).is_err());
+        assert!(sample_student_t(&mut rng as &mut dyn RandomNumberGenerator, -5.0).is_err());
     }
 }

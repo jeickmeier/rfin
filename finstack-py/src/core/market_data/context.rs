@@ -208,7 +208,7 @@ impl PyMarketContext {
     /// -------
     /// None
     fn insert_fx(&mut self, fx_matrix: &PyFxMatrix) -> PyResult<()> {
-        self.inner = std::mem::take(&mut self.inner).insert_fx_arc(fx_matrix.inner.clone());
+        self.inner = std::mem::take(&mut self.inner).insert_fx(fx_matrix.inner.clone());
         Ok(())
     }
 

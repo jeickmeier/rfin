@@ -622,7 +622,7 @@ impl MarketSnapshot {
 
         // Always preserve FX, surfaces, and scalars from current market
         if let Some(fx) = current_market.fx() {
-            new_market = new_market.insert_fx_arc(Arc::clone(fx));
+            new_market = new_market.insert_fx(Arc::clone(fx));
         }
         new_market.replace_surfaces_mut(current_market.surfaces_snapshot());
         new_market = copy_scalars(current_market, new_market);
@@ -773,10 +773,10 @@ fn copy_scalars(from: &MarketContext, mut to: MarketContext) -> MarketContext {
         to = to.insert_series(series.clone());
     }
     for (id, index) in from.inflation_indices_iter() {
-        to = to.insert_inflation_index_arc(id.as_str(), Arc::clone(index));
+        to = to.insert_inflation_index(id.as_str(), Arc::clone(index));
     }
     for (_id, schedule) in from.dividends_iter() {
-        to = to.insert_dividends_arc(Arc::clone(schedule));
+        to = to.insert_dividends(Arc::clone(schedule));
     }
     to
 }
@@ -792,7 +792,10 @@ fn copy_scalars(from: &MarketContext, mut to: MarketContext) -> MarketContext {
 ///
 /// New market context with replaced FX matrix.
 pub fn restore_fx(market: &MarketContext, fx: Option<Arc<FxMatrix>>) -> MarketContext {
-    market.clone().set_fx_arc_option(fx)
+    match fx {
+        Some(fx) => market.clone().insert_fx(fx),
+        None => market.clone().clear_fx(),
+    }
 }
 
 /// Replace volatility surfaces in a market context.
@@ -847,7 +850,7 @@ pub fn restore_scalars(market: &MarketContext, snapshot: &ScalarsSnapshot) -> Ma
 
     // Copy FX and surfaces
     if let Some(fx) = market.fx() {
-        new_market = new_market.insert_fx_arc(Arc::clone(fx));
+        new_market = new_market.insert_fx(Arc::clone(fx));
     }
     new_market.replace_surfaces_mut(market.surfaces_snapshot());
 
@@ -859,10 +862,10 @@ pub fn restore_scalars(market: &MarketContext, snapshot: &ScalarsSnapshot) -> Ma
         new_market = new_market.insert_series(series.clone());
     }
     for (id, index) in &snapshot.inflation_indices {
-        new_market = new_market.insert_inflation_index_arc(id.as_str(), Arc::clone(index));
+        new_market = new_market.insert_inflation_index(id.as_str(), Arc::clone(index));
     }
     for schedule in snapshot.dividends.values() {
-        new_market = new_market.insert_dividends_arc(Arc::clone(schedule));
+        new_market = new_market.insert_dividends(Arc::clone(schedule));
     }
 
     new_market

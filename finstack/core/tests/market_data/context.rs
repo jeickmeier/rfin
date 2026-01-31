@@ -405,8 +405,8 @@ fn market_context_surface_and_dividends_arc_variants_preserve_identity() {
     );
 
     let ctx = MarketContext::new()
-        .insert_surface_arc(Arc::clone(&surface))
-        .insert_dividends_arc(Arc::clone(&dividends));
+        .insert_surface(Arc::clone(&surface))
+        .insert_dividends(Arc::clone(&dividends));
 
     let got_surface = ctx.surface("EQ-VOL").unwrap();
     assert_eq!(got_surface.id(), surface.id());
@@ -715,11 +715,11 @@ fn market_context_insert_and_stats_setters_cover_remaining_paths() {
             .unwrap()
             .with_interpolation(InflationInterpolation::Linear),
     );
-    ctx = ctx.insert_inflation_index_arc("US-CPI", idx);
+    ctx = ctx.insert_inflation_index("US-CPI", idx);
 
     let divs =
         Arc::new(DividendSchedule::new("AAPL-DIVS").add_cash(date, Money::new(1.0, Currency::USD)));
-    ctx = ctx.insert_dividends_arc(divs);
+    ctx = ctx.insert_dividends(divs);
 
     assert_eq!(ctx.prices_iter().count(), 1);
     assert_eq!(ctx.series_iter().count(), 1);

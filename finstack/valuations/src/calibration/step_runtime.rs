@@ -62,7 +62,7 @@ pub(crate) fn apply_output(
             *context = std::mem::take(context).insert(curve);
         }
         StepOutput::Surface(surface) => {
-            *context = std::mem::take(context).insert_surface_arc(surface);
+            *context = std::mem::take(context).insert_surface(surface);
         }
     }
 

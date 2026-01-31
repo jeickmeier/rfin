@@ -121,13 +121,18 @@ impl MarketContext {
 
     /// Insert a volatility surface.
     ///
+    /// Accepts either an owned [`VolSurface`] or an `Arc<VolSurface>`.
+    /// When passing an owned value, it will be wrapped in an `Arc` automatically.
+    /// When passing an `Arc`, it is used directly (enabling surface sharing between contexts).
+    ///
     /// # Parameters
-    /// - `surface`: built [`VolSurface`]
+    /// - `surface`: a [`VolSurface`] or `Arc<VolSurface>`
     ///
     /// # Examples
     /// ```rust
     /// # use finstack_core::market_data::context::MarketContext;
     /// # use finstack_core::market_data::surfaces::VolSurface;
+    /// # use std::sync::Arc;
     /// # let surface = VolSurface::builder("IR-Swaption")
     /// #     .expiries(&[1.0, 2.0])
     /// #     .strikes(&[90.0, 100.0])
@@ -135,36 +140,40 @@ impl MarketContext {
     /// #     .row(&[0.2, 0.2])
     /// #     .build()
     /// #     .expect("... builder should succeed");
+    /// // Owned value (wrapped in Arc automatically)
     /// let ctx = MarketContext::new().insert_surface(surface);
     /// assert_eq!(ctx.stats().surface_count, 1);
+    ///
+    /// // Pre-wrapped Arc (for sharing across contexts)
+    /// # let surface2 = VolSurface::builder("EQ-Vol")
+    /// #     .expiries(&[1.0, 2.0])
+    /// #     .strikes(&[90.0, 100.0])
+    /// #     .row(&[0.2, 0.2])
+    /// #     .row(&[0.2, 0.2])
+    /// #     .build()
+    /// #     .expect("... builder should succeed");
+    /// let shared = Arc::new(surface2);
+    /// let ctx2 = MarketContext::new().insert_surface(Arc::clone(&shared));
     /// ```
-    pub fn insert_surface(mut self, surface: VolSurface) -> Self {
-        let id = surface.id().to_owned();
-        self.surfaces.insert(id, Arc::new(surface));
+    pub fn insert_surface(mut self, surface: impl Into<Arc<VolSurface>>) -> Self {
+        let arc_surface = surface.into();
+        let id = arc_surface.id().to_owned();
+        self.surfaces.insert(id, arc_surface);
         self
     }
 
-    /// Insert a shared volatility surface.
-    pub fn insert_surface_arc(mut self, surface: Arc<VolSurface>) -> Self {
-        let id = surface.id().to_owned();
-        self.surfaces.insert(id, surface);
-        self
-    }
-
-    /// Insert a shared dividend schedule.
+    /// Insert a dividend schedule.
+    ///
+    /// Accepts either an owned [`DividendSchedule`] or an `Arc<DividendSchedule>`.
+    /// When passing an owned value, it will be wrapped in an `Arc` automatically.
+    /// When passing an `Arc`, it is used directly (enabling schedule sharing between contexts).
     ///
     /// # Parameters
-    /// - `schedule`: a [`DividendSchedule`] built via its builder
-    pub fn insert_dividends(mut self, schedule: DividendSchedule) -> Self {
-        let id = schedule.id.to_owned();
-        self.dividends.insert(id, Arc::new(schedule));
-        self
-    }
-
-    /// Insert a shared dividend schedule.
-    pub fn insert_dividends_arc(mut self, schedule: Arc<DividendSchedule>) -> Self {
-        let id = schedule.id.to_owned();
-        self.dividends.insert(id, schedule);
+    /// - `schedule`: a [`DividendSchedule`] or `Arc<DividendSchedule>` built via its builder
+    pub fn insert_dividends(mut self, schedule: impl Into<Arc<DividendSchedule>>) -> Self {
+        let arc_schedule = schedule.into();
+        let id = arc_schedule.id.to_owned();
+        self.dividends.insert(id, arc_schedule);
         self
     }
 
@@ -190,9 +199,13 @@ impl MarketContext {
 
     /// Insert an inflation index.
     ///
+    /// Accepts either an owned [`InflationIndex`] or an `Arc<InflationIndex>`.
+    /// When passing an owned value, it will be wrapped in an `Arc` automatically.
+    /// When passing an `Arc`, it is used directly (enabling index sharing between contexts).
+    ///
     /// # Parameters
     /// - `id`: identifier stored as [`CurveId`]
-    /// - `index`: inflation index object
+    /// - `index`: an [`InflationIndex`] or `Arc<InflationIndex>`
     ///
     /// # Examples
     /// ```rust
@@ -200,6 +213,7 @@ impl MarketContext {
     /// use finstack_core::market_data::scalars::{InflationIndex, InflationInterpolation};
     /// use finstack_core::currency::Currency;
     /// use finstack_core::dates::Date;
+    /// use std::sync::Arc;
     /// use time::Month;
     ///
     /// let observations = vec![
@@ -211,21 +225,24 @@ impl MarketContext {
     ///     .with_interpolation(InflationInterpolation::Linear);
     /// let ctx = MarketContext::new().insert_inflation_index("US-CPI", index);
     /// assert!(ctx.inflation_index("US-CPI").is_some());
+    ///
+    /// // With Arc for sharing
+    /// # let observations2 = vec![
+    /// #     (Date::from_calendar_date(2024, Month::January, 31).expect("Valid date"), 100.0),
+    /// #     (Date::from_calendar_date(2024, Month::February, 29).expect("Valid date"), 101.0),
+    /// # ];
+    /// # let index2 = InflationIndex::new("EU-HICP", observations2, Currency::EUR)
+    /// #     .expect("InflationIndex creation should succeed");
+    /// let shared = Arc::new(index2);
+    /// let ctx2 = MarketContext::new().insert_inflation_index("EU-HICP", Arc::clone(&shared));
     /// ```
-    pub fn insert_inflation_index(mut self, id: impl AsRef<str>, index: InflationIndex) -> Self {
-        self.inflation_indices
-            .insert(CurveId::from(id.as_ref()), Arc::new(index));
-        self
-    }
-
-    /// Insert a shared inflation index.
-    pub fn insert_inflation_index_arc(
+    pub fn insert_inflation_index(
         mut self,
         id: impl AsRef<str>,
-        index: Arc<InflationIndex>,
+        index: impl Into<Arc<InflationIndex>>,
     ) -> Self {
         self.inflation_indices
-            .insert(CurveId::from(id.as_ref()), index);
+            .insert(CurveId::from(id.as_ref()), index.into());
         self
     }
 
@@ -270,8 +287,12 @@ impl MarketContext {
 
     /// Insert an FX matrix.
     ///
+    /// Accepts either an owned [`FxMatrix`] or an `Arc<FxMatrix>`.
+    /// When passing an owned value, it will be wrapped in an `Arc` automatically.
+    /// When passing an `Arc`, it is used directly (enabling FX matrix sharing between contexts).
+    ///
     /// # Parameters
-    /// - `fx`: [`FxMatrix`] instance used for currency conversions
+    /// - `fx`: [`FxMatrix`] or `Arc<FxMatrix>` instance used for currency conversions
     ///
     /// # Examples
     /// ```rust
@@ -295,24 +316,50 @@ impl MarketContext {
     ///     }
     /// }
     ///
+    /// // Owned value
     /// let fx = FxMatrix::new(Arc::new(StaticFx));
     /// let ctx = MarketContext::new().insert_fx(fx);
     /// assert!(ctx.fx().is_some());
+    ///
+    /// // Pre-wrapped Arc for sharing
+    /// # struct StaticFx2;
+    /// # impl FxProvider for StaticFx2 {
+    /// #     fn rate(&self, _from: Currency, _to: Currency, _on: Date, _policy: FxConversionPolicy) -> finstack_core::Result<f64> { Ok(1.2) }
+    /// # }
+    /// let shared_fx = Arc::new(FxMatrix::new(Arc::new(StaticFx2)));
+    /// let ctx2 = MarketContext::new().insert_fx(Arc::clone(&shared_fx));
     /// ```
-    pub fn insert_fx(mut self, fx: FxMatrix) -> Self {
-        self.fx = Some(Arc::new(fx));
+    pub fn insert_fx(mut self, fx: impl Into<Arc<FxMatrix>>) -> Self {
+        self.fx = Some(fx.into());
         self
     }
 
-    /// Insert an already-shared FX matrix.
-    pub fn insert_fx_arc(mut self, fx: Arc<FxMatrix>) -> Self {
-        self.fx = Some(fx);
-        self
-    }
-
-    /// Replace the FX matrix, allowing `None` to clear it.
-    pub fn set_fx_arc_option(mut self, fx: Option<Arc<FxMatrix>>) -> Self {
-        self.fx = fx;
+    /// Clear the FX matrix from this context.
+    ///
+    /// After calling this method, `ctx.fx()` will return `None`.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::market_data::context::MarketContext;
+    /// use finstack_core::money::fx::{FxMatrix, FxProvider, FxConversionPolicy};
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::dates::Date;
+    /// use std::sync::Arc;
+    ///
+    /// struct StaticFx;
+    /// impl FxProvider for StaticFx {
+    ///     fn rate(&self, _: Currency, _: Currency, _: Date, _: FxConversionPolicy) -> finstack_core::Result<f64> { Ok(1.0) }
+    /// }
+    ///
+    /// let fx = FxMatrix::new(Arc::new(StaticFx));
+    /// let ctx = MarketContext::new().insert_fx(fx);
+    /// assert!(ctx.fx().is_some());
+    ///
+    /// let ctx = ctx.clear_fx();
+    /// assert!(ctx.fx().is_none());
+    /// ```
+    pub fn clear_fx(mut self) -> Self {
+        self.fx = None;
         self
     }
 

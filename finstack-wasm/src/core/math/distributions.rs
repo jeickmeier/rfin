@@ -141,7 +141,7 @@ pub fn chi_squared_cdf_js(x: f64, df: f64) -> f64 {
 /// ```
 #[wasm_bindgen(js_name = chiSquaredQuantile)]
 pub fn chi_squared_quantile_js(p: f64, df: f64) -> f64 {
-    chi_squared_quantile(p, df)
+    chi_squared_quantile(p, df).unwrap_or(f64::NAN)
 }
 
 // =============================================================================
@@ -193,7 +193,7 @@ pub fn lognormal_cdf_js(x: f64, mu: f64, sigma: f64) -> f64 {
 /// ```
 #[wasm_bindgen(js_name = lognormalQuantile)]
 pub fn lognormal_quantile_js(p: f64, mu: f64, sigma: f64) -> f64 {
-    lognormal_quantile(p, mu, sigma)
+    lognormal_quantile(p, mu, sigma).unwrap_or(f64::NAN)
 }
 
 // =============================================================================
@@ -242,5 +242,5 @@ pub fn exponential_cdf_js(x: f64, lambda: f64) -> f64 {
 /// ```
 #[wasm_bindgen(js_name = exponentialQuantile)]
 pub fn exponential_quantile_js(p: f64, lambda: f64) -> f64 {
-    exponential_quantile(p, lambda)
+    exponential_quantile(p, lambda).unwrap_or(f64::NAN)
 }

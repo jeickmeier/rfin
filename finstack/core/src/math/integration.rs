@@ -54,6 +54,7 @@ use crate::Error;
 ///
 /// These are pre-computed for common quadrature orders to avoid runtime
 /// computation of the nodes and weights.
+#[derive(Debug)]
 pub struct GaussHermiteQuadrature {
     /// Quadrature points (x-coordinates)
     pub points: &'static [f64],
@@ -97,11 +98,8 @@ impl<'de> serde::Deserialize<'de> for GaussHermiteQuadrature {
 
         let data = QuadratureData::deserialize(deserializer)?;
 
-        GaussHermiteQuadrature::new(data.order).ok_or_else(|| {
-            serde::de::Error::custom(format!(
-                "Invalid quadrature order: {}. Supported orders: 5, 7, 10, 15, 20",
-                data.order
-            ))
+        GaussHermiteQuadrature::new(data.order).map_err(|e| {
+            serde::de::Error::custom(format!("Invalid quadrature order {}: {}", data.order, e))
         })
     }
 }
@@ -116,7 +114,7 @@ impl GaussHermiteQuadrature {
     /// * `order` - Quadrature order (supported: 5, 7, 10, 15, 20)
     ///
     /// # Returns
-    /// `Some(Self)` if order is supported, `None` otherwise.
+    /// `Ok(Self)` if order is supported, `Err` with descriptive message otherwise.
     ///
     /// # Precision Guidelines
     ///
@@ -128,30 +126,39 @@ impl GaussHermiteQuadrature {
     /// | 15 | Degree 29 | High-precision Heston pricing |
     /// | 20 | Degree 39 | Long-dated options, high vol-of-vol |
     ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Validation`](crate::Error::Validation) if the order is not
+    /// one of the supported values (5, 7, 10, 15, 20).
+    ///
     /// # Example
     ///
     /// ```rust
     /// use finstack_core::math::integration::GaussHermiteQuadrature;
     ///
-    /// let quad = GaussHermiteQuadrature::new(7).expect("7 is a supported order");
+    /// let quad = GaussHermiteQuadrature::new(7)?;
     /// let integral = quad.integrate(|x| x * x);
     /// assert!((integral - 1.0).abs() < 0.1); // E[X²] = 1 for standard normal
     ///
     /// // High-precision quadrature for demanding applications
-    /// let high_precision = GaussHermiteQuadrature::new(20).expect("20 is supported");
+    /// let high_precision = GaussHermiteQuadrature::new(20)?;
     ///
-    /// // Unsupported orders return None
-    /// assert!(GaussHermiteQuadrature::new(3).is_none());
+    /// // Unsupported orders return Err
+    /// assert!(GaussHermiteQuadrature::new(3).is_err());
+    /// # Ok::<(), finstack_core::Error>(())
     /// ```
     #[allow(deprecated)]
-    pub fn new(order: usize) -> Option<Self> {
+    pub fn new(order: usize) -> crate::Result<Self> {
         match order {
-            5 => Some(Self::order_5()),
-            7 => Some(Self::order_7()),
-            10 => Some(Self::order_10()),
-            15 => Some(Self::order_15()),
-            20 => Some(Self::order_20()),
-            _ => None,
+            5 => Ok(Self::order_5()),
+            7 => Ok(Self::order_7()),
+            10 => Ok(Self::order_10()),
+            15 => Ok(Self::order_15()),
+            20 => Ok(Self::order_20()),
+            _ => Err(crate::Error::Validation(format!(
+                "Unsupported Gauss-Hermite quadrature order: {}. Supported orders are: 5, 7, 10, 15, 20",
+                order
+            ))),
         }
     }
 
@@ -430,11 +437,14 @@ impl GaussHermiteQuadrature {
     where
         F2: Fn(f64) -> f64 + Copy,
     {
+        // Internal helper that unwraps known-valid orders (5, 7, 10, 15, 20)
         let quad = |order: usize| {
-            GaussHermiteQuadrature::new(order).unwrap_or_else(|| {
+            // SAFETY: We only call this with orders 5, 7, 10, 15, 20 which are all valid
+            GaussHermiteQuadrature::new(order).unwrap_or_else(|_| {
                 debug_assert!(false, "Invalid Gauss-Hermite order: {order}");
-                GaussHermiteQuadrature::new(20)
-                    .unwrap_or_else(|| unreachable!("20 is a valid Gauss-Hermite order"))
+                // Fallback to order 20 which is guaranteed valid
+                #[allow(deprecated)]
+                GaussHermiteQuadrature::order_20()
             })
         };
         let base = self.integrate(f);
@@ -1092,5 +1102,43 @@ mod tests {
             .expect("Adaptive Simpson should succeed in test");
         // Exact integral = (1 - cos(10π))/10 = 0
         assert!(result.abs() < 1e-2);
+    }
+
+    #[test]
+    fn test_gauss_hermite_new_returns_result() {
+        // Valid orders should succeed
+        assert!(GaussHermiteQuadrature::new(5).is_ok());
+        assert!(GaussHermiteQuadrature::new(7).is_ok());
+        assert!(GaussHermiteQuadrature::new(10).is_ok());
+        assert!(GaussHermiteQuadrature::new(15).is_ok());
+        assert!(GaussHermiteQuadrature::new(20).is_ok());
+
+        // Invalid orders should return Err with helpful message
+        let err = GaussHermiteQuadrature::new(3);
+        assert!(err.is_err());
+        let msg = err
+            .expect_err("Expected error for unsupported order")
+            .to_string();
+        assert!(msg.contains("3"), "Error should mention the invalid order");
+        assert!(
+            msg.contains("Supported orders") || msg.contains("5, 7, 10, 15, 20"),
+            "Error should list supported orders"
+        );
+
+        assert!(GaussHermiteQuadrature::new(42).is_err());
+        assert!(GaussHermiteQuadrature::new(100).is_err());
+    }
+
+    #[test]
+    fn test_gauss_hermite_new_integration() {
+        // Test that new() returns a working quadrature
+        let quad = GaussHermiteQuadrature::new(10).expect("Order 10 is supported");
+        let integral = quad.integrate(|x| x * x);
+        // E[X²] = 1 for standard normal
+        assert!(
+            (integral - 1.0).abs() < 0.01,
+            "E[X²] should be ~1, got {}",
+            integral
+        );
     }
 }

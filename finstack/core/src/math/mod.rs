@@ -89,6 +89,7 @@
 //! assert_eq!(variance(&data), 1.25);
 //! ```
 
+pub mod compounding;
 pub mod distributions;
 pub mod integration;
 pub mod interp;
@@ -126,6 +127,7 @@ pub use probability::{correlation_bounds, joint_probabilities, CorrelatedBernoul
 pub use random::sobol::{SobolRng, MAX_SOBOL_DIMENSION};
 pub use random::{box_muller_transform, Pcg64Rng, RandomNumberGenerator};
 // Raw root finding functions are no longer exported - use trait-based solvers instead
+pub use compounding::Compounding;
 pub use solver::{BracketHint, BrentSolver, NewtonSolver, Solver};
 pub use solver_multi::{AnalyticalDerivatives, LevenbergMarquardtSolver, MultiSolver};
 pub use special_functions::{

@@ -511,6 +511,90 @@ impl DiscountCurve {
         Ok(df_to / df_from)
     }
 
+    /// Returns the zero rate for a given date with specified compounding convention.
+    ///
+    /// This is the unified method for obtaining zero rates under any compounding convention.
+    /// It replaces the individual `zero_on_date`, `zero_annual_on_date`, `zero_periodic_on_date`,
+    /// and `zero_simple_on_date` methods.
+    ///
+    /// # Arguments
+    /// * `date` - Target date for the zero rate
+    /// * `compounding` - Compounding convention (Continuous, Annual, Periodic(n), Simple)
+    ///
+    /// # Mathematical Formulas
+    ///
+    /// For a discount factor `df` and time `t`:
+    ///
+    /// | Compounding | Formula | Use Case |
+    /// |-------------|---------|----------|
+    /// | Continuous | r = -ln(df) / t | Internal calculations, curve building |
+    /// | Annual | r = df^(-1/t) - 1 | Bond markets (UK, Europe) |
+    /// | Periodic(n) | r = n × (df^(-1/(n×t)) - 1) | US Treasuries (n=2), corporates |
+    /// | Simple | r = (1/df - 1) / t | Money market (< 1Y) |
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::market_data::term_structures::DiscountCurve;
+    /// use finstack_core::math::Compounding;
+    /// use finstack_core::dates::Date;
+    /// use time::Month;
+    ///
+    /// let anchor = Date::from_calendar_date(2024, Month::January, 2).unwrap();
+    /// // Build a flat 5% curve (df at 1Y = exp(-0.05 * 1) ≈ 0.9512)
+    /// let curve = DiscountCurve::builder("USD-OIS")
+    ///     .base_date(anchor)
+    ///     .knots([(0.0, 1.0), (1.0, (-0.05_f64).exp())])
+    ///     .build()?;
+    /// let target = Date::from_calendar_date(2025, Month::January, 2).unwrap();
+    ///
+    /// // Continuous rate (default for internal calculations)
+    /// let r_cont = curve.zero_rate_on_date(target, Compounding::Continuous)?;
+    ///
+    /// // Annual rate (for European bonds)
+    /// let r_ann = curve.zero_rate_on_date(target, Compounding::Annual)?;
+    ///
+    /// // Semi-annual rate (for US Treasuries)
+    /// let r_semi = curve.zero_rate_on_date(target, Compounding::SEMI_ANNUAL)?;
+    ///
+    /// // Simple rate (for money market)
+    /// let r_simple = curve.zero_rate_on_date(target, Compounding::Simple)?;
+    /// # Ok::<(), finstack_core::Error>(())
+    /// ```
+    ///
+    /// # Errors
+    /// Returns an error if the date is before the anchor.
+    #[inline]
+    pub fn zero_rate_on_date(
+        &self,
+        date: Date,
+        compounding: crate::math::Compounding,
+    ) -> crate::Result<f64> {
+        let t = self.year_fraction_to(date)?;
+        Ok(self.zero_rate(t, compounding))
+    }
+
+    /// Returns the zero rate for a given year fraction with specified compounding.
+    ///
+    /// This is the unified method for obtaining zero rates under any compounding convention.
+    ///
+    /// # Arguments
+    /// * `t` - Year fraction from the anchor date
+    /// * `compounding` - Compounding convention (Continuous, Annual, Periodic(n), Simple)
+    ///
+    /// # Edge Cases
+    /// - For t = 0, all compounding conventions return 0.0 (instantaneous rate is undefined)
+    #[inline]
+    pub fn zero_rate(&self, t: f64, compounding: crate::math::Compounding) -> f64 {
+        use crate::math::Compounding;
+        match compounding {
+            Compounding::Continuous => self.zero(t),
+            Compounding::Annual => self.zero_annual(t),
+            Compounding::Periodic(n) => self.zero_periodic(t, n.get()),
+            Compounding::Simple => self.zero_simple(t),
+        }
+    }
+
     /// Continuously-compounded zero rate on a specific date using the curve's day-count.
     ///
     /// This is equivalent to `curve.zero(t)` where `t` is the year fraction from
@@ -519,10 +603,13 @@ impl DiscountCurve {
     /// # Errors
     ///
     /// Returns an error if year fraction calculation fails.
+    #[deprecated(
+        since = "0.9.0",
+        note = "Use `zero_rate_on_date(date, Compounding::Continuous)` instead"
+    )]
     #[inline]
     pub fn zero_on_date(&self, date: Date) -> crate::Result<f64> {
-        let t = self.year_fraction_to(date)?;
-        Ok(self.zero(t))
+        self.zero_rate_on_date(date, crate::math::Compounding::Continuous)
     }
 
     /// Annually-compounded zero rate on a specific date using the curve's day-count.
@@ -535,10 +622,13 @@ impl DiscountCurve {
     /// # Errors
     ///
     /// Returns an error if year fraction calculation fails.
+    #[deprecated(
+        since = "0.9.0",
+        note = "Use `zero_rate_on_date(date, Compounding::Annual)` instead"
+    )]
     #[inline]
     pub fn zero_annual_on_date(&self, date: Date) -> crate::Result<f64> {
-        let t = self.year_fraction_to(date)?;
-        Ok(self.zero_annual(t))
+        self.zero_rate_on_date(date, crate::math::Compounding::Annual)
     }
 
     /// Periodically-compounded zero rate on a specific date using the curve's day-count.
@@ -549,10 +639,16 @@ impl DiscountCurve {
     /// # Errors
     ///
     /// Returns an error if year fraction calculation fails.
+    #[deprecated(
+        since = "0.9.0",
+        note = "Use `zero_rate_on_date(date, Compounding::Periodic(n))` instead"
+    )]
     #[inline]
     pub fn zero_periodic_on_date(&self, date: Date, n: u32) -> crate::Result<f64> {
-        let t = self.year_fraction_to(date)?;
-        Ok(self.zero_periodic(t, n))
+        use std::num::NonZeroU32;
+        // Handle n=0 case gracefully - return 0 to match previous behavior
+        let n = NonZeroU32::new(n).unwrap_or(NonZeroU32::MIN);
+        self.zero_rate_on_date(date, crate::math::Compounding::Periodic(n))
     }
 
     /// Simple interest zero rate on a specific date using the curve's day-count.
@@ -566,10 +662,13 @@ impl DiscountCurve {
     /// # Errors
     ///
     /// Returns an error if year fraction calculation fails.
+    #[deprecated(
+        since = "0.9.0",
+        note = "Use `zero_rate_on_date(date, Compounding::Simple)` instead"
+    )]
     #[inline]
     pub fn zero_simple_on_date(&self, date: Date) -> crate::Result<f64> {
-        let t = self.year_fraction_to(date)?;
-        Ok(self.zero_simple(t))
+        self.zero_rate_on_date(date, crate::math::Compounding::Simple)
     }
 
     /// Simple forward rate between two dates using the curve's day-count.

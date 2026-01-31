@@ -369,6 +369,7 @@ impl PyDiscountCurve {
     /// -------
     /// float
     ///     Continuously compounded zero rate at the supplied date.
+    #[allow(deprecated)]
     #[pyo3(text_signature = "(self, date)")]
     fn zero_on_date(&self, date: Bound<'_, PyAny>) -> PyResult<f64> {
         let d = py_to_date(&date).context("date")?;
@@ -396,6 +397,7 @@ impl PyDiscountCurve {
     /// >>> from datetime import date
     /// >>> curve.zero_annual_on_date(date(2026, 12, 14))
     /// 0.0342  # ~3.42% annual rate
+    #[allow(deprecated)]
     #[pyo3(text_signature = "(self, date)")]
     fn zero_annual_on_date(&self, date: Bound<'_, PyAny>) -> PyResult<f64> {
         let d = py_to_date(&date).context("date")?;
@@ -417,6 +419,7 @@ impl PyDiscountCurve {
     /// -------
     /// float
     ///     Periodically compounded zero rate at the supplied date.
+    #[allow(deprecated)]
     #[pyo3(text_signature = "(self, date, n)")]
     fn zero_periodic_on_date(&self, date: Bound<'_, PyAny>, n: u32) -> PyResult<f64> {
         let d = py_to_date(&date).context("date")?;

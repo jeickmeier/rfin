@@ -278,7 +278,7 @@ impl JsMarketContext {
 
     #[wasm_bindgen(js_name = insertFx)]
     pub fn insert_fx(&mut self, matrix: &JsFxMatrix) {
-        self.inner = std::mem::take(&mut self.inner).insert_fx_arc(matrix.inner());
+        self.inner = std::mem::take(&mut self.inner).insert_fx(matrix.inner());
     }
 
     #[wasm_bindgen(js_name = mapCollateral)]

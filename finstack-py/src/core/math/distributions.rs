@@ -151,15 +151,9 @@ pub fn log_factorial_py(value: usize) -> PyResult<f64> {
 /// ValueError
 ///     If ``alpha`` or ``beta`` are not positive.
 pub fn sample_beta_py(alpha: f64, beta: f64, seed: Option<u64>) -> PyResult<f64> {
-    if alpha <= 0.0 || beta <= 0.0 {
-        return Err(PyValueError::new_err("alpha and beta must be positive"));
-    }
     let mut rng = Pcg64Rng::new(seed.unwrap_or(42));
-    Ok(core_sample_beta(
-        &mut rng as &mut dyn RandomNumberGenerator,
-        alpha,
-        beta,
-    ))
+    core_sample_beta(&mut rng as &mut dyn RandomNumberGenerator, alpha, beta)
+        .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 // Exponential distribution functions
@@ -220,13 +214,7 @@ pub fn exponential_cdf_py(x: f64, lambda_: f64) -> PyResult<f64> {
 ///     >>> exponential_quantile(0.5, 1.0)
 ///     0.6931471805599453
 pub fn exponential_quantile_py(p: f64, lambda_: f64) -> PyResult<f64> {
-    if !(0.0..=1.0).contains(&p) {
-        return Err(PyValueError::new_err("p must be in [0, 1]"));
-    }
-    if lambda_ <= 0.0 {
-        return Err(PyValueError::new_err("lambda must be positive"));
-    }
-    Ok(core_exponential_quantile(p, lambda_))
+    core_exponential_quantile(p, lambda_).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 #[pyfunction(name = "sample_exponential", text_signature = "(lambda_, seed=None)")]
@@ -249,14 +237,9 @@ pub fn exponential_quantile_py(p: f64, lambda_: f64) -> PyResult<f64> {
 /// >>> from finstack.core.math.distributions import sample_exponential
 /// >>> sample_exponential(1.0, seed=42)  # doctest: +SKIP
 pub fn sample_exponential_py(lambda_: f64, seed: Option<u64>) -> PyResult<f64> {
-    if lambda_ <= 0.0 {
-        return Err(PyValueError::new_err("lambda must be positive"));
-    }
     let mut rng = Pcg64Rng::new(seed.unwrap_or(42));
-    Ok(core_sample_exponential(
-        &mut rng as &mut dyn RandomNumberGenerator,
-        lambda_,
-    ))
+    core_sample_exponential(&mut rng as &mut dyn RandomNumberGenerator, lambda_)
+        .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 // Lognormal distribution functions
@@ -319,13 +302,7 @@ pub fn lognormal_cdf_py(x: f64, mu: f64, sigma: f64) -> PyResult<f64> {
 ///     >>> lognormal_quantile(0.5, 0.0, 1.0)
 ///     1.0
 pub fn lognormal_quantile_py(p: f64, mu: f64, sigma: f64) -> PyResult<f64> {
-    if !(0.0..=1.0).contains(&p) {
-        return Err(PyValueError::new_err("p must be in [0, 1]"));
-    }
-    if sigma <= 0.0 {
-        return Err(PyValueError::new_err("sigma must be positive"));
-    }
-    Ok(core_lognormal_quantile(p, mu, sigma))
+    core_lognormal_quantile(p, mu, sigma).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 #[pyfunction(name = "sample_lognormal", text_signature = "(mu, sigma, seed=None)")]
@@ -350,15 +327,9 @@ pub fn lognormal_quantile_py(p: f64, mu: f64, sigma: f64) -> PyResult<f64> {
 /// >>> from finstack.core.math.distributions import sample_lognormal
 /// >>> sample_lognormal(0.0, 1.0, seed=42)  # doctest: +SKIP
 pub fn sample_lognormal_py(mu: f64, sigma: f64, seed: Option<u64>) -> PyResult<f64> {
-    if sigma <= 0.0 {
-        return Err(PyValueError::new_err("sigma must be positive"));
-    }
     let mut rng = Pcg64Rng::new(seed.unwrap_or(42));
-    Ok(core_sample_lognormal(
-        &mut rng as &mut dyn RandomNumberGenerator,
-        mu,
-        sigma,
-    ))
+    core_sample_lognormal(&mut rng as &mut dyn RandomNumberGenerator, mu, sigma)
+        .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 // Chi-squared distribution functions
@@ -417,13 +388,7 @@ pub fn chi_squared_cdf_py(x: f64, df: f64) -> PyResult<f64> {
 ///     >>> from finstack.core.math.distributions import chi_squared_quantile
 ///     >>> chi_squared_quantile(0.95, 2.0)  # doctest: +SKIP
 pub fn chi_squared_quantile_py(p: f64, df: f64) -> PyResult<f64> {
-    if !(0.0..=1.0).contains(&p) {
-        return Err(PyValueError::new_err("p must be in [0, 1]"));
-    }
-    if df <= 0.0 {
-        return Err(PyValueError::new_err("df must be positive"));
-    }
-    Ok(core_chi_squared_quantile(p, df))
+    core_chi_squared_quantile(p, df).map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 #[pyfunction(name = "sample_chi_squared", text_signature = "(df, seed=None)")]
@@ -446,14 +411,9 @@ pub fn chi_squared_quantile_py(p: f64, df: f64) -> PyResult<f64> {
 /// >>> from finstack.core.math.distributions import sample_chi_squared
 /// >>> sample_chi_squared(2.0, seed=42)  # doctest: +SKIP
 pub fn sample_chi_squared_py(df: f64, seed: Option<u64>) -> PyResult<f64> {
-    if df <= 0.0 {
-        return Err(PyValueError::new_err("df must be positive"));
-    }
     let mut rng = Pcg64Rng::new(seed.unwrap_or(42));
-    Ok(core_sample_chi_squared(
-        &mut rng as &mut dyn RandomNumberGenerator,
-        df,
-    ))
+    core_sample_chi_squared(&mut rng as &mut dyn RandomNumberGenerator, df)
+        .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 // Gamma and Student-t sampling functions
@@ -477,14 +437,9 @@ pub fn sample_chi_squared_py(df: f64, seed: Option<u64>) -> PyResult<f64> {
 /// >>> from finstack.core.math.distributions import sample_gamma
 /// >>> sample_gamma(2.0, seed=42)  # doctest: +SKIP
 pub fn sample_gamma_py(shape: f64, seed: Option<u64>) -> PyResult<f64> {
-    if shape <= 0.0 {
-        return Err(PyValueError::new_err("shape must be positive"));
-    }
     let mut rng = Pcg64Rng::new(seed.unwrap_or(42));
-    Ok(core_sample_gamma(
-        &mut rng as &mut dyn RandomNumberGenerator,
-        shape,
-    ))
+    core_sample_gamma(&mut rng as &mut dyn RandomNumberGenerator, shape)
+        .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 #[pyfunction(name = "sample_student_t", text_signature = "(df, seed=None)")]
@@ -507,14 +462,9 @@ pub fn sample_gamma_py(shape: f64, seed: Option<u64>) -> PyResult<f64> {
 /// >>> from finstack.core.math.distributions import sample_student_t
 /// >>> sample_student_t(10.0, seed=42)  # doctest: +SKIP
 pub fn sample_student_t_py(df: f64, seed: Option<u64>) -> PyResult<f64> {
-    if df <= 0.0 {
-        return Err(PyValueError::new_err("df must be positive"));
-    }
     let mut rng = Pcg64Rng::new(seed.unwrap_or(42));
-    Ok(core_sample_student_t(
-        &mut rng as &mut dyn RandomNumberGenerator,
-        df,
-    ))
+    core_sample_student_t(&mut rng as &mut dyn RandomNumberGenerator, df)
+        .map_err(|e| PyValueError::new_err(e.to_string()))
 }
 
 pub(crate) fn register<'py>(
