@@ -35,6 +35,16 @@ pub enum IndexPricing {
     Constituents,
 }
 
+/// Par spread denominator method for indices in constituents mode.
+/// Method for computing par spread of a CDS index.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ParSpreadMethod {
+    /// Par spread computed using risky annuity (RPV01) method
+    RiskyAnnuity,
+    /// Par spread with full premium and accrual-on-default
+    FullPremiumAoD,
+}
+
 /// Constituent in a CDS index with weight and credit parameters.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -43,6 +53,59 @@ pub struct CDSIndexConstituent {
     pub credit: CreditParams,
     /// Weight of the issuer in the index notional (e.g., 1/125.0 for CDX IG)
     pub weight: f64,
+}
+
+/// Per-constituent result entry for index-level analytics.
+#[derive(Clone, Debug)]
+pub struct ConstituentResult<T> {
+    /// Hazard curve identifier for the constituent.
+    pub credit_curve_id: CurveId,
+    /// Recovery rate used for the constituent.
+    pub recovery_rate: f64,
+    /// Raw weight supplied on the index definition.
+    pub weight_raw: f64,
+    /// Effective weight used after optional normalization.
+    pub weight_effective: f64,
+    /// Computed value for the constituent.
+    pub value: T,
+}
+
+/// Aggregate result for index-level analytics.
+///
+/// In `SingleCurve` mode, `constituents` is empty.
+#[derive(Clone, Debug)]
+pub struct IndexResult<T> {
+    /// Total aggregated value.
+    pub total: T,
+    /// Optional per-constituent breakdown.
+    pub constituents: Vec<ConstituentResult<T>>,
+}
+
+impl<T> IndexResult<T> {
+    /// Construct a single-curve result with no breakdown.
+    pub fn single_curve(total: T) -> Self {
+        Self {
+            total,
+            constituents: Vec::new(),
+        }
+    }
+}
+
+/// Detailed par spread result for CDS indices.
+///
+/// Note: constituent par spreads are informational and are not additive.
+#[derive(Clone, Debug)]
+pub struct IndexParSpreadResult {
+    /// Total par spread in basis points.
+    pub total_spread_bp: f64,
+    /// Per-constituent par spreads in basis points (informational).
+    pub constituents_spread_bp: Vec<ConstituentResult<f64>>,
+    /// Par spread denominator methodology.
+    pub method: ParSpreadMethod,
+    /// Aggregated protection PV used in the total calculation.
+    pub numerator_protection_pv: Money,
+    /// Aggregated denominator used in the total calculation.
+    pub denominator: f64,
 }
 
 /// CDS Index instrument definition
@@ -313,6 +376,66 @@ impl CDSIndex {
     ) -> finstack_core::Result<f64> {
         let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
         pricer.cs01(self, curves, as_of)
+    }
+
+    /// Calculate NPV with per-constituent breakdown (if applicable).
+    pub fn npv_detailed(
+        &self,
+        curves: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<IndexResult<Money>> {
+        let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
+        pricer.npv_detailed(self, curves, as_of)
+    }
+
+    /// Calculate protection leg PV with per-constituent breakdown.
+    pub fn pv_protection_leg_detailed(
+        &self,
+        curves: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<IndexResult<Money>> {
+        let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
+        pricer.pv_protection_leg_detailed(self, curves, as_of)
+    }
+
+    /// Calculate premium leg PV with per-constituent breakdown.
+    pub fn pv_premium_leg_detailed(
+        &self,
+        curves: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<IndexResult<Money>> {
+        let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
+        pricer.pv_premium_leg_detailed(self, curves, as_of)
+    }
+
+    /// Calculate par spread with per-constituent breakdown.
+    pub fn par_spread_detailed(
+        &self,
+        curves: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<IndexParSpreadResult> {
+        let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
+        pricer.par_spread_detailed(self, curves, as_of)
+    }
+
+    /// Calculate risky PV01 with per-constituent breakdown.
+    pub fn risky_pv01_detailed(
+        &self,
+        curves: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<IndexResult<f64>> {
+        let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
+        pricer.risky_pv01_detailed(self, curves, as_of)
+    }
+
+    /// Calculate CS01 with per-constituent breakdown.
+    pub fn cs01_detailed(
+        &self,
+        curves: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<IndexResult<f64>> {
+        let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
+        pricer.cs01_detailed(self, curves, as_of)
     }
 }
 

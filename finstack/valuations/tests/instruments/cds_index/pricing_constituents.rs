@@ -10,9 +10,13 @@
 //! - Weight validation and normalization
 
 use super::test_utils::*;
+use finstack_core::money::Money;
+use finstack_valuations::constants::BASIS_POINTS_PER_UNIT;
 use finstack_valuations::instruments::credit_derivatives::cds::RECOVERY_SENIOR_UNSECURED;
 use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndexConstituentParam;
-use finstack_valuations::instruments::credit_derivatives::cds_index::{CDSIndex, IndexPricing};
+use finstack_valuations::instruments::credit_derivatives::cds_index::{
+    CDSIndex, IndexPricing, ParSpreadMethod,
+};
 use finstack_valuations::instruments::CreditParams;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::InstrumentNpvExt;
@@ -400,4 +404,125 @@ fn test_constituents_large_basket() {
     assert!(result.is_ok());
 
     assert_eq!(idx.constituents.len(), 125);
+}
+
+#[test]
+fn test_constituents_detailed_additive_metrics() {
+    let start = date!(2025 - 01 - 01);
+    let end = date!(2030 - 01 - 01);
+    let as_of = start;
+
+    let idx = standard_constituents_index("CDX-DETAIL-ADD", start, end, 10_000_000.0, 5);
+    let ctx = multi_constituent_market_context(as_of, 5);
+
+    let npv = idx.npv_detailed(&ctx, as_of).unwrap();
+    let npv_sum = npv
+        .constituents
+        .iter()
+        .fold(Money::new(0.0, npv.total.currency()), |acc, c| {
+            acc.checked_add(c.value).unwrap()
+        });
+    assert_money_approx_eq(npv.total, npv_sum, 1e-6, "NPV total equals sum");
+
+    let pv_prot = idx.pv_protection_leg_detailed(&ctx, as_of).unwrap();
+    let pv_prot_sum = pv_prot
+        .constituents
+        .iter()
+        .fold(Money::new(0.0, pv_prot.total.currency()), |acc, c| {
+            acc.checked_add(c.value).unwrap()
+        });
+    assert_money_approx_eq(
+        pv_prot.total,
+        pv_prot_sum,
+        1e-6,
+        "Protection leg PV total equals sum",
+    );
+
+    let pv_prem = idx.pv_premium_leg_detailed(&ctx, as_of).unwrap();
+    let pv_prem_sum = pv_prem
+        .constituents
+        .iter()
+        .fold(Money::new(0.0, pv_prem.total.currency()), |acc, c| {
+            acc.checked_add(c.value).unwrap()
+        });
+    assert_money_approx_eq(
+        pv_prem.total,
+        pv_prem_sum,
+        1e-6,
+        "Premium leg PV total equals sum",
+    );
+
+    let rpv01 = idx.risky_pv01_detailed(&ctx, as_of).unwrap();
+    let rpv01_sum: f64 = rpv01.constituents.iter().map(|c| c.value).sum();
+    assert_relative_eq(rpv01.total, rpv01_sum, 1e-10, "Risky PV01 total equals sum");
+
+    let cs01 = idx.cs01_detailed(&ctx, as_of).unwrap();
+    let cs01_sum: f64 = cs01.constituents.iter().map(|c| c.value).sum();
+    assert_relative_eq(cs01.total, cs01_sum, 1e-10, "CS01 total equals sum");
+}
+
+#[test]
+fn test_constituents_detailed_weights_and_ids() {
+    let start = date!(2025 - 01 - 01);
+    let end = date!(2030 - 01 - 01);
+    let as_of = start;
+
+    let idx = standard_constituents_index("CDX-DETAIL-WGT", start, end, 10_000_000.0, 3);
+    let ctx = multi_constituent_market_context(as_of, 3);
+
+    let detailed = idx.risky_pv01_detailed(&ctx, as_of).unwrap();
+    let weight_sum: f64 = detailed
+        .constituents
+        .iter()
+        .map(|c| c.weight_effective)
+        .sum();
+    assert_relative_eq(weight_sum, 1.0, 1e-12, "Effective weights sum to 1");
+
+    for (i, c) in detailed.constituents.iter().enumerate() {
+        let expected_curve = format!("HZ{}", i + 1);
+        assert_eq!(c.credit_curve_id.as_str(), expected_curve);
+        assert_relative_eq(c.weight_raw, 1.0 / 3.0, 1e-12, "Raw weight");
+        assert_relative_eq(c.weight_effective, 1.0 / 3.0, 1e-12, "Effective weight");
+        assert!(c.recovery_rate > 0.0 && c.recovery_rate < 1.0);
+    }
+}
+
+#[test]
+fn test_constituents_par_spread_detailed_non_additive() {
+    let start = date!(2025 - 01 - 01);
+    let end = date!(2030 - 01 - 01);
+    let as_of = start;
+
+    let idx = standard_constituents_index("CDX-DETAIL-PAR", start, end, 10_000_000.0, 5);
+    let ctx = multi_constituent_market_context(as_of, 5);
+
+    let detailed = idx.par_spread_detailed(&ctx, as_of).unwrap();
+    assert_eq!(detailed.constituents_spread_bp.len(), 5);
+
+    let sum_spreads: f64 = detailed
+        .constituents_spread_bp
+        .iter()
+        .map(|c| c.value)
+        .sum();
+    assert_relative_eq(
+        sum_spreads,
+        detailed.total_spread_bp * 5.0,
+        1e-10,
+        "Sum of constituent par spreads equals N * total",
+    );
+
+    let expected_total = match detailed.method {
+        ParSpreadMethod::RiskyAnnuity => {
+            detailed.numerator_protection_pv.amount() / detailed.denominator * BASIS_POINTS_PER_UNIT
+        }
+        ParSpreadMethod::FullPremiumAoD => {
+            detailed.numerator_protection_pv.amount() / detailed.denominator
+        }
+    };
+    assert_relative_eq(
+        detailed.total_spread_bp,
+        expected_total,
+        1e-12,
+        "Par spread total consistent with numerator/denominator",
+    );
 }

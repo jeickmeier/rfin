@@ -95,6 +95,7 @@ pub(crate) mod pricer;
 mod types;
 
 pub use parameters::{CDSIndexConstituentParam, CDSIndexConstructionParams, CDSIndexParams};
-pub use types::CDSIndex;
-pub use types::CDSIndexConstituent;
-pub use types::IndexPricing;
+pub use types::{
+    CDSIndex, CDSIndexConstituent, ConstituentResult, IndexParSpreadResult, IndexPricing,
+    IndexResult, ParSpreadMethod,
+};
