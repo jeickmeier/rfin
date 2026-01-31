@@ -62,7 +62,6 @@
 //!   Atlantic Financial Press. Volume 1, Chapter 3.
 
 use crate::dates::{Date, DayCount, DayCountCtx};
-use crate::market_data::term_structures::FlatCurve;
 use crate::market_data::traits::Discounting;
 use crate::math::NeumaierAccumulator;
 use crate::money::Money;
@@ -239,115 +238,6 @@ pub fn npv<D: Discounting + ?Sized>(
     Ok(total)
 }
 
-/// Calculate Net Present Value (NPV) using a constant discount rate.
-///
-/// **Convenience wrapper** over [`npv()`] that creates a [`FlatCurve`] internally.
-/// For production use with market curves, prefer [`npv()`] directly.
-///
-/// # Deprecation
-///
-/// This function is deprecated. Use [`npv()`] with a [`FlatCurve`] instead for explicit,
-/// consistent API patterns:
-///
-/// ```rust
-/// use finstack_core::cashflow::npv;
-/// use finstack_core::market_data::term_structures::FlatCurve;
-/// use finstack_core::dates::{Date, DayCount};
-/// use finstack_core::money::Money;
-/// use finstack_core::currency::Currency;
-/// use time::Month;
-///
-/// let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
-/// let flows = vec![(
-///     Date::from_calendar_date(2026, Month::January, 1).expect("Valid date"),
-///     Money::new(105.0, Currency::USD),
-/// )];
-///
-/// // Migration: replace npv_constant with npv + FlatCurve
-/// let rate: f64 = 0.05;
-/// let continuous_rate = (1.0 + rate).ln();
-/// let curve = FlatCurve::new(continuous_rate, base, DayCount::Act365F, "NPV");
-/// let pv = npv(&curve, base, Some(DayCount::Act365F), &flows)?;
-/// # Ok::<(), finstack_core::Error>(())
-/// ```
-///
-/// # When to Use
-///
-/// This function is useful for:
-/// - Quick NPV calculations with a single assumed rate
-/// - Performance attribution and IRR validation
-/// - Testing and educational examples
-/// - Verifying XIRR calculations (NPV at IRR should be ~0)
-///
-/// # When NOT to Use
-///
-/// For production pricing, prefer [`npv()`] with a proper market curve:
-/// - Market curves capture the term structure of interest rates
-/// - Flat rate assumptions can introduce significant pricing errors
-/// - Real instruments require bootstrapped curves for accurate valuation
-///
-/// # Arguments
-///
-/// * `cash_flows` - Vector of (date, money) tuples
-/// * `discount_rate` - Annual discount rate as decimal (0.05 = 5%)
-/// * `base_date` - Base date for discounting
-/// * `day_count` - Day count convention
-///
-/// # Returns
-///
-/// Present value as a [`Money`] amount in the same currency as the input flows.
-///
-/// # Errors
-///
-/// Returns `Err` when:
-/// - [`InputError::TooFewPoints`](crate::error::InputError::TooFewPoints): The `cash_flows`
-///   slice is empty
-/// - Day count year fraction calculation fails
-/// - [`Error::CurrencyMismatch`](crate::Error::CurrencyMismatch): Cashflows have
-///   mixed currencies
-///
-/// # Example
-///
-/// ```rust
-/// # #[allow(deprecated)]
-/// use finstack_core::cashflow::npv_constant;
-/// use finstack_core::dates::{Date, DayCount};
-/// use finstack_core::money::Money;
-/// use finstack_core::currency::Currency;
-/// use time::Month;
-///
-/// let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
-/// let cf = (
-///     Date::from_calendar_date(2026, Month::January, 1).expect("Valid date"),
-///     Money::new(105.0, Currency::USD)
-/// );
-///
-/// // Discount at 5%
-/// # #[allow(deprecated)]
-/// let pv = npv_constant(&[cf], 0.05, base, DayCount::Act365F)?;
-/// assert!((pv.amount() - 100.0).abs() < 0.1);
-/// # Ok::<(), finstack_core::Error>(())
-/// ```
-#[deprecated(
-    since = "0.9.0",
-    note = "Use `npv()` with a `FlatCurve` instead. Example: \
-            `let curve = FlatCurve::new((1.0 + rate).ln(), base, dc, \"id\"); npv(&curve, base, Some(dc), &flows)`"
-)]
-pub fn npv_constant(
-    cash_flows: &[(Date, Money)],
-    discount_rate: f64,
-    base_date: Date,
-    day_count: DayCount,
-) -> crate::Result<Money> {
-    // Convert annually compounded rate to continuously compounded rate.
-    // FlatCurve expects continuously compounded rates: r_cont = ln(1 + r_annual)
-    let continuous_rate = (1.0 + discount_rate).ln();
-    let curve = FlatCurve::new(continuous_rate, base_date, day_count, "INTERNAL-NPV");
-
-    // Delegate to the shared discounting logic (use explicit day_count since FlatCurve was constructed with it)
-    npv(&curve, base_date, Some(day_count), cash_flows)
-}
-
 /// Compute NPV of dated scalar cashflows using a flat annual discount rate.
 ///
 /// This is a convenience helper for performance analytics and bindings that work in
@@ -415,31 +305,28 @@ where
 }
 
 #[cfg(test)]
-#[allow(
-    clippy::expect_used,
-    clippy::panic,
-    clippy::indexing_slicing,
-    deprecated
-)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
     use crate::currency::Currency;
     use crate::dates::create_date;
+    use crate::market_data::term_structures::FlatCurve;
     use crate::market_data::traits::TermStructure;
     use crate::types::CurveId;
     use time::Month;
 
-    struct FlatCurve {
+    /// Test helper: creates a flat curve with DF=1.0 for all times (0% rate).
+    struct ZeroRateCurve {
         id: CurveId,
     }
 
-    impl TermStructure for FlatCurve {
+    impl TermStructure for ZeroRateCurve {
         fn id(&self) -> &CurveId {
             &self.id
         }
     }
 
-    impl Discounting for FlatCurve {
+    impl Discounting for ZeroRateCurve {
         fn base_date(&self) -> Date {
             Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date")
         }
@@ -450,7 +337,7 @@ mod tests {
 
     #[test]
     fn tuples_discountable_paths_through() {
-        let curve = FlatCurve {
+        let curve = ZeroRateCurve {
             id: CurveId::new("USD-OIS"),
         };
         let base = curve.base_date();
@@ -467,7 +354,7 @@ mod tests {
 
     #[test]
     fn tuples_discountable_with_explicit_dc() {
-        let curve = FlatCurve {
+        let curve = ZeroRateCurve {
             id: CurveId::new("USD-OIS"),
         };
         let base = curve.base_date();
@@ -484,7 +371,7 @@ mod tests {
 
     #[test]
     fn npv_errors_on_empty_flows() {
-        let curve = FlatCurve {
+        let curve = ZeroRateCurve {
             id: CurveId::new("USD-OIS"),
         };
         let base = curve.base_date();
@@ -494,29 +381,35 @@ mod tests {
     }
 
     #[test]
-    fn test_npv_simple() {
+    fn test_npv_simple_with_flat_curve() {
+        let base = create_date(2024, Month::January, 1).expect("Valid test date");
         let flows = vec![
-            (
-                create_date(2024, Month::January, 1).expect("Valid test date"),
-                Money::new(-100000.0, Currency::USD),
-            ),
+            (base, Money::new(-100000.0, Currency::USD)),
             (
                 create_date(2025, Month::January, 1).expect("Valid test date"),
                 Money::new(110000.0, Currency::USD),
             ),
         ];
-        let base = flows[0].0;
-        let npv_5pct = npv_constant(&flows, 0.05, base, DayCount::Act365F)
-            .expect("NPV calculation should succeed in test");
+        let rate: f64 = 0.05;
+        let dc = DayCount::Act365F;
+
+        // Create FlatCurve with continuous rate
+        let continuous_rate = (1.0 + rate).ln();
+        let curve = FlatCurve::new(continuous_rate, base, dc, "NPV-TEST");
+
+        let pv =
+            npv(&curve, base, Some(dc), &flows).expect("NPV calculation should succeed in test");
+
         // NPV should be positive (profitable at 5% discount rate)
         // Approximately: -100000 + 110000/(1.05) ≈ 4761.90
-        assert!(npv_5pct.amount() > 4700.0 && npv_5pct.amount() < 4800.0);
+        assert!(pv.amount() > 4700.0 && pv.amount() < 4800.0);
     }
 
     #[test]
-    fn test_npv_amounts_matches_money_npv_constant() {
+    fn test_npv_amounts_matches_money_npv() {
+        let base = create_date(2024, Month::January, 1).expect("Valid test date");
         let dates = [
-            create_date(2024, Month::January, 1).expect("Valid test date"),
+            base,
             create_date(2025, Month::January, 1).expect("Valid test date"),
         ];
         let amounts = [-100000.0, 110000.0];
@@ -527,16 +420,23 @@ mod tests {
             (dates[1], Money::new(amounts[1], Currency::USD)),
         ];
 
-        let pv_amounts =
-            npv_amounts(&amount_flows, 0.05, None, None).expect("npv_amounts should succeed");
+        let rate: f64 = 0.05;
+        let dc = DayCount::Act365F;
 
-        let pv_money = npv_constant(&money_flows, 0.05, dates[0], DayCount::Act365F)
-            .expect("npv_constant should succeed")
+        // Scalar NPV via npv_amounts
+        let pv_amounts =
+            npv_amounts(&amount_flows, rate, None, None).expect("npv_amounts should succeed");
+
+        // Money NPV via npv with FlatCurve
+        let continuous_rate = (1.0 + rate).ln();
+        let curve = FlatCurve::new(continuous_rate, base, dc, "TEST");
+        let pv_money = npv(&curve, base, Some(dc), &money_flows)
+            .expect("npv should succeed")
             .amount();
 
         assert!(
             (pv_amounts - pv_money).abs() < 1e-10,
-            "npv_amounts should match npv_constant: {} vs {}",
+            "npv_amounts should match npv: {} vs {}",
             pv_amounts,
             pv_money
         );
@@ -544,20 +444,22 @@ mod tests {
 
     #[test]
     fn test_npv_zero_discount() {
+        let base = create_date(2024, Month::January, 1).expect("Valid test date");
         let flows = vec![
-            (
-                create_date(2024, Month::January, 1).expect("Valid test date"),
-                Money::new(-100.0, Currency::USD),
-            ),
+            (base, Money::new(-100.0, Currency::USD)),
             (
                 create_date(2025, Month::January, 1).expect("Valid test date"),
                 Money::new(100.0, Currency::USD),
             ),
         ];
-        let base = flows[0].0;
-        let npv_zero = npv_constant(&flows, 0.0, base, DayCount::Act365F)
-            .expect("NPV calculation should succeed in test");
-        assert_eq!(npv_zero.amount(), 0.0);
+        let dc = DayCount::Act365F;
+
+        // Create FlatCurve with 0% rate (continuous rate = ln(1) = 0)
+        let curve = FlatCurve::new(0.0, base, dc, "ZERO-RATE");
+
+        let pv =
+            npv(&curve, base, Some(dc), &flows).expect("NPV calculation should succeed in test");
+        assert_eq!(pv.amount(), 0.0);
     }
 
     #[test]
@@ -573,56 +475,30 @@ mod tests {
                 Money::new(55.0, Currency::USD),
             ), // future relative to base
         ];
+        let rate: f64 = 0.05;
+        let dc = DayCount::Act365F;
+
+        let continuous_rate = (1.0 + rate).ln();
+        let curve = FlatCurve::new(continuous_rate, base, dc, "TEST");
+
         // Should not error; just compute signed year fractions
-        let pv = npv_constant(&flows, 0.05, base, DayCount::Act365F)
-            .expect("NPV calculation should succeed in test");
+        let pv =
+            npv(&curve, base, Some(dc), &flows).expect("NPV calculation should succeed in test");
         // With positive rate and inflow slightly bigger than outflow, PV should be > 0
         assert!(pv.amount() > 0.0);
     }
 
     #[test]
-    fn test_npv_errors_on_empty_flows_now() {
-        let flows: Vec<(Date, Money)> = vec![];
+    fn test_npv_errors_on_empty_flows_with_flat_curve() {
         let base = create_date(2025, Month::January, 1).expect("Valid date");
-        let err = npv_constant(&flows, 0.05, base, DayCount::Act365F)
-            .expect_err("Should fail with empty flows");
-        let _ = format!("{}", err);
-    }
-
-    #[test]
-    fn test_npv_constant_equivalence_with_flat_curve() {
-        // Test that npv_constant produces identical results to npv() with FlatCurve
-        let base = create_date(2025, Month::January, 1).expect("Valid test date");
-        let flows = vec![
-            (
-                create_date(2025, Month::July, 1).expect("Valid test date"),
-                Money::new(1000.0, Currency::USD),
-            ),
-            (
-                create_date(2026, Month::January, 1).expect("Valid test date"),
-                Money::new(1000.0, Currency::USD),
-            ),
-        ];
-        let rate = 0.05;
+        let flows: Vec<(Date, Money)> = vec![];
         let dc = DayCount::Act365F;
 
-        // Method 1: npv_constant (convenience)
-        let pv1 =
-            npv_constant(&flows, rate, base, dc).expect("npv_constant should succeed in test");
+        let continuous_rate = (1.05_f64).ln();
+        let curve = FlatCurve::new(continuous_rate, base, dc, "TEST");
 
-        // Method 2: Manual FlatCurve + npv (canonical)
-        let continuous_rate = (1.0 + rate).ln();
-        let curve =
-            crate::market_data::term_structures::FlatCurve::new(continuous_rate, base, dc, "TEST");
-        let pv2 = npv(&curve, base, Some(dc), &flows).expect("npv should succeed in test");
-
-        // Should produce identical results
-        assert!(
-            (pv1.amount() - pv2.amount()).abs() < 1e-10,
-            "npv_constant and npv with FlatCurve should be equivalent: {} vs {}",
-            pv1.amount(),
-            pv2.amount()
-        );
+        let err = npv(&curve, base, Some(dc), &flows).expect_err("Should fail with empty flows");
+        let _ = format!("{}", err);
     }
 
     #[test]
@@ -631,7 +507,7 @@ mod tests {
         // A 30Y quarterly swap has 120 cashflows where naive summation can
         // accumulate floating-point errors of ~1e-10 to 1e-9 of total PV.
         // With Neumaier summation, we should maintain much higher precision.
-        let curve = FlatCurve {
+        let curve = ZeroRateCurve {
             id: CurveId::new("PRECISION-TEST"),
         };
         let base = curve.base_date();

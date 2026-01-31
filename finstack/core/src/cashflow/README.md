@@ -27,7 +27,7 @@ This module focuses on **small, composable types** and **deterministic numerics*
   - Curve‑based present value helpers:
     - `trait Discountable`: generic NPV interface for `AsRef<[(Date, Money)]>`.
     - `npv`: NPV with optional day count; uses the curve's day count when `None` (recommended for par-rate consistency).
-    - `npv_constant`: NPV using a constant discount rate.
+    - `npv_amounts`: NPV for scalar (f64) cashflows using a flat discount rate.
   - Integrates with `market_data::traits::Discounting` and `dates::DayCount`.
 - **`xirr.rs`**
   - **Internal Rate of Return**:
@@ -125,12 +125,12 @@ assert!((pv_explicit.amount() - pv_trait.amount()).abs() < 1e-12);
 
 To ensure **par-rate consistency** between metrics and NPV, use `npv(&curve, base, None, &flows)` so the curve's own `day_count` is used.
 
-### NPV with a Constant Discount Rate
+### NPV with a Flat Discount Rate
 
-For **project or investment analysis** where a single discount rate is sufficient, use `discounting::npv_constant`:
+For **project or investment analysis** where a single discount rate is sufficient, use `npv_amounts`:
 
 ```rust
-use finstack_core::cashflow::discounting::npv_constant;
+use finstack_core::cashflow::npv_amounts;
 use finstack_core::dates::DayCount;
 use time::macros::date;
 
@@ -140,7 +140,7 @@ let cashflows = vec![
     (date!(2026 - 01 - 01), 110_000.0),
 ];
 
-let pv = npv_constant(&cashflows, 0.05, base, DayCount::Act365F)?;
+let pv = npv_amounts(&cashflows, 0.05, Some(base), Some(DayCount::Act365F))?;
 assert!(pv > 0.0); // positive NPV at 5% hurdle rate
 # Ok::<(), finstack_core::Error>(())
 ```

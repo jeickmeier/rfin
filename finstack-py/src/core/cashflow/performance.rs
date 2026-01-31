@@ -1,8 +1,5 @@
 //! Performance measurement utilities: IRR and NPV calculations.
 //!
-// Allow deprecated npv_constant until migration to npv with FlatCurve
-#![allow(deprecated)]
-//!
 //! This module provides time-value-of-money analytics for investment performance
 //! measurement, including Net Present Value (NPV) and Internal Rate of Return (IRR)
 //! calculations.
@@ -138,36 +135,28 @@ pub fn py_npv(
     base_date: Option<Bound<'_, PyAny>>,
     day_count: Option<Bound<'_, PyAny>>,
 ) -> PyResult<f64> {
-    // Convert Python dates to Rust dates and amounts to Money
-    let mut money_flows: Vec<(finstack_core::dates::Date, finstack_core::money::Money)> =
-        Vec::with_capacity(cash_flows.len());
+    // Convert Python dates to Rust dates with amounts
+    let mut flows: Vec<(finstack_core::dates::Date, f64)> = Vec::with_capacity(cash_flows.len());
 
     for (idx, (date, amount)) in cash_flows.into_iter().enumerate() {
         let field = format!("cash_flows[{idx}].date");
         let rust_date = py_to_date(&date).context(&field)?;
-        let money =
-            finstack_core::money::Money::new(amount, finstack_core::currency::Currency::USD);
-        money_flows.push((rust_date, money));
+        flows.push((rust_date, amount));
     }
 
     // Default base date logic matches old behavior (first flow date)
     let base = base_date
         .map(|d| py_to_date(&d).context("base_date"))
         .transpose()?
-        .or_else(|| money_flows.first().map(|(d, _)| *d))
-        .ok_or_else(|| {
-            pyo3::exceptions::PyValueError::new_err("No cashflows provided to determine base date")
-        })?;
+        .or_else(|| flows.first().map(|(d, _)| *d));
 
-    // Parse day count from input if provided, otherwise use Act365F
+    // Parse day count from input if provided
     let dc = match day_count {
-        Some(dc_any) => parse_day_count(dc_any)?,
-        None => finstack_core::dates::DayCount::Act365F,
+        Some(dc_any) => Some(parse_day_count(dc_any)?),
+        None => None,
     };
 
-    finstack_core::cashflow::npv_constant(&money_flows, discount_rate, base, dc)
-        .map(|m| m.amount())
-        .map_err(core_to_py)
+    finstack_core::cashflow::npv_amounts(&flows, discount_rate, base, dc).map_err(core_to_py)
 }
 
 /// Calculate IRR (Internal Rate of Return) for evenly-spaced periodic cashflows.

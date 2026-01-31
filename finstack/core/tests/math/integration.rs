@@ -83,7 +83,7 @@ fn test_financial_application_option_payoff() {
     };
 
     // Use Gauss-Hermite for integration over normal distribution
-    let quad = GaussHermiteQuadrature::order_10();
+    let quad = GaussHermiteQuadrature::new(10).expect("valid order");
     let result = quad.integrate(f);
 
     // Result should be positive (call option value component)
@@ -155,7 +155,7 @@ fn test_financial_yield_curve_integration() {
 
 #[test]
 fn test_gauss_hermite_adaptive_low_tolerance() {
-    let quad = GaussHermiteQuadrature::order_5();
+    let quad = GaussHermiteQuadrature::new(5).expect("valid order");
     let f = |x: f64| x * x;
 
     let result = quad.integrate_adaptive(f, 1e-10);
@@ -169,7 +169,7 @@ fn test_gauss_hermite_adaptive_low_tolerance() {
 
 #[test]
 fn test_gauss_hermite_adaptive_high_tolerance() {
-    let quad = GaussHermiteQuadrature::order_7();
+    let quad = GaussHermiteQuadrature::new(7).expect("valid order");
     let f = |x: f64| x * x * x * x; // x^4
 
     let result = quad.integrate_adaptive(f, 1e-2);
@@ -184,7 +184,7 @@ fn test_gauss_hermite_adaptive_high_tolerance() {
 #[test]
 fn test_gauss_hermite_adaptive_order_10_no_refinement() {
     // Order 10 shouldn't refine (it's already the highest)
-    let quad = GaussHermiteQuadrature::order_10();
+    let quad = GaussHermiteQuadrature::new(10).expect("valid order");
     let f = |x: f64| x * x;
 
     let base = quad.integrate(f);
@@ -196,7 +196,7 @@ fn test_gauss_hermite_adaptive_order_10_no_refinement() {
 
 #[test]
 fn test_gauss_hermite_constant_function() {
-    let quad = GaussHermiteQuadrature::order_7();
+    let quad = GaussHermiteQuadrature::new(7).expect("valid order");
 
     // Integrate constant function
     let result = quad.integrate(|_x| 5.0);
@@ -207,7 +207,7 @@ fn test_gauss_hermite_constant_function() {
 
 #[test]
 fn test_gauss_hermite_linear_function() {
-    let quad = GaussHermiteQuadrature::order_7();
+    let quad = GaussHermiteQuadrature::new(7).expect("valid order");
 
     // Integrate odd function x over symmetric domain
     let result = quad.integrate(|x| x);
@@ -218,7 +218,7 @@ fn test_gauss_hermite_linear_function() {
 
 #[test]
 fn test_gauss_hermite_high_order_polynomial() {
-    let quad = GaussHermiteQuadrature::order_10();
+    let quad = GaussHermiteQuadrature::new(10).expect("valid order");
 
     // x^6 over standard normal = 15 (formula: (2n-1)!! for x^(2n))
     let result = quad.integrate(|x| x.powi(6));
@@ -447,9 +447,9 @@ fn test_convergence_behavior() {
 
 #[test]
 fn test_gauss_hermite_serde() {
-    let quad5 = GaussHermiteQuadrature::order_5();
-    let quad7 = GaussHermiteQuadrature::order_7();
-    let quad10 = GaussHermiteQuadrature::order_10();
+    let quad5 = GaussHermiteQuadrature::new(5).expect("valid order");
+    let quad7 = GaussHermiteQuadrature::new(7).expect("valid order");
+    let quad10 = GaussHermiteQuadrature::new(10).expect("valid order");
 
     // Serialize
     let json5 = serde_json::to_string(&quad5).unwrap();

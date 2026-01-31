@@ -24,9 +24,10 @@
 //! use finstack_core::math::integration::GaussHermiteQuadrature;
 //!
 //! // Integrate x² over standard normal (expected value = 1.0)
-//! let quad = GaussHermiteQuadrature::order_7();
+//! let quad = GaussHermiteQuadrature::new(7)?;
 //! let integral = quad.integrate(|x| x * x);
 //! assert!((integral - 1.0).abs() < 0.1);
+//! # Ok::<(), finstack_core::Error>(())
 //! ```
 //!
 //! # References
@@ -104,11 +105,153 @@ impl<'de> serde::Deserialize<'de> for GaussHermiteQuadrature {
     }
 }
 
+// Pre-computed Gauss-Hermite quadrature points and weights.
+// Nodes and weights computed using numpy.polynomial.hermite.hermgauss(N)
+// then adjusted for probabilist's Hermite (physicist's nodes / sqrt(2), weights / sqrt(pi))
+
+static GAUSS_HERMITE_5_POINTS: &[f64] = &[
+    -2.0201828704560856,
+    -0.9585724646138185,
+    0.0,
+    0.9585724646138185,
+    2.0201828704560856,
+];
+static GAUSS_HERMITE_5_WEIGHTS: &[f64] = &[
+    0.019_953_242_059_045_913,
+    0.393_619_323_152_241_2,
+    0.945_308_720_482_941_9,
+    0.393_619_323_152_241_2,
+    0.019_953_242_059_045_913,
+];
+
+static GAUSS_HERMITE_7_POINTS: &[f64] = &[
+    -2.6519613568352334,
+    -1.6735516287674718,
+    -0.8162878828589647,
+    0.0,
+    0.8162878828589647,
+    1.6735516287674718,
+    2.6519613568352334,
+];
+static GAUSS_HERMITE_7_WEIGHTS: &[f64] = &[
+    0.0009717812450995192,
+    0.05451558281912703,
+    0.4256072526101278,
+    0.8102646175568073,
+    0.4256072526101278,
+    0.05451558281912703,
+    0.0009717812450995192,
+];
+
+static GAUSS_HERMITE_10_POINTS: &[f64] = &[
+    -3.4361591188377376,
+    -2.5327316742327897,
+    -1.7566836492998817,
+    -1.0366108297895136,
+    -0.3429013272237046,
+    0.3429013272237046,
+    1.0366108297895136,
+    1.7566836492998817,
+    2.5327316742327897,
+    3.4361591188377376,
+];
+static GAUSS_HERMITE_10_WEIGHTS: &[f64] = &[
+    7.640_432_855_232_62e-6,
+    0.001_343_645_746_781_272_8,
+    0.033_874_394_455_481_063,
+    0.240_138_611_082_314_67,
+    0.610_862_633_735_325_8,
+    0.610_862_633_735_325_8,
+    0.240_138_611_082_314_67,
+    0.033_874_394_455_481_063,
+    0.001_343_645_746_781_272_8,
+    7.640_432_855_232_62e-6,
+];
+
+static GAUSS_HERMITE_15_POINTS: &[f64] = &[
+    -4.499_990_707_309_392,
+    -3.669_950_373_404_453,
+    -2.967_166_927_905_603,
+    -2.325_732_486_173_858,
+    -1.719_992_575_186_489,
+    -1.136_115_585_210_921,
+    -0.565_069_583_255_576,
+    0.0,
+    0.565_069_583_255_576,
+    1.136_115_585_210_921,
+    1.719_992_575_186_489,
+    2.325_732_486_173_858,
+    2.967_166_927_905_603,
+    3.669_950_373_404_453,
+    4.499_990_707_309_392,
+];
+static GAUSS_HERMITE_15_WEIGHTS: &[f64] = &[
+    1.522_475_804_253_517e-9,
+    1.059_115_547_711_067e-6,
+    1.000_044_412_325_025e-4,
+    2.778_068_842_912_776e-3,
+    3.078_003_387_254_608e-2,
+    1.584_889_157_959_357e-1,
+    4.120_286_874_988_986e-1,
+    5.641_003_087_264_175e-1,
+    4.120_286_874_988_986e-1,
+    1.584_889_157_959_357e-1,
+    3.078_003_387_254_608e-2,
+    2.778_068_842_912_776e-3,
+    1.000_044_412_325_025e-4,
+    1.059_115_547_711_067e-6,
+    1.522_475_804_253_517e-9,
+];
+
+static GAUSS_HERMITE_20_POINTS: &[f64] = &[
+    -5.387_480_890_011_233,
+    -4.603_682_449_550_744,
+    -3.944_764_040_115_625,
+    -3.347_854_567_383_216,
+    -2.788_806_058_428_13,
+    -2.254_974_002_089_276,
+    -1.738_537_712_116_586,
+    -1.234_076_215_395_323,
+    -0.737_473_728_545_394,
+    -0.245_340_708_300_901,
+    0.245_340_708_300_901,
+    0.737_473_728_545_394,
+    1.234_076_215_395_323,
+    1.738_537_712_116_586,
+    2.254_974_002_089_276,
+    2.788_806_058_428_13,
+    3.347_854_567_383_216,
+    3.944_764_040_115_625,
+    4.603_682_449_550_744,
+    5.387_480_890_011_233,
+];
+static GAUSS_HERMITE_20_WEIGHTS: &[f64] = &[
+    2.229_393_645_534_151e-13,
+    4.399_340_992_273_181e-10,
+    1.086_069_370_769_281e-7,
+    7.802_556_478_532_064e-6,
+    2.283_386_360_163_528e-4,
+    3.243_773_342_237_853e-3,
+    2.481_052_088_746_361e-2,
+    1.090_172_060_200_233e-1,
+    2.866_755_053_628_342e-1,
+    4.622_436_696_006_101e-1,
+    4.622_436_696_006_101e-1,
+    2.866_755_053_628_342e-1,
+    1.090_172_060_200_233e-1,
+    2.481_052_088_746_361e-2,
+    3.243_773_342_237_853e-3,
+    2.283_386_360_163_528e-4,
+    7.802_556_478_532_064e-6,
+    1.086_069_370_769_281e-7,
+    4.399_340_992_273_181e-10,
+    2.229_393_645_534_151e-13,
+];
+
 impl GaussHermiteQuadrature {
     /// Create a Gauss-Hermite quadrature with the specified order.
     ///
-    /// This is the canonical constructor for Gauss-Hermite quadrature. Use this
-    /// method instead of the deprecated `order_N()` constructors.
+    /// This is the canonical constructor for Gauss-Hermite quadrature.
     ///
     /// # Arguments
     /// * `order` - Quadrature order (supported: 5, 7, 10, 15, 20)
@@ -147,245 +290,32 @@ impl GaussHermiteQuadrature {
     /// assert!(GaussHermiteQuadrature::new(3).is_err());
     /// # Ok::<(), finstack_core::Error>(())
     /// ```
-    #[allow(deprecated)]
     pub fn new(order: usize) -> crate::Result<Self> {
         match order {
-            5 => Ok(Self::order_5()),
-            7 => Ok(Self::order_7()),
-            10 => Ok(Self::order_10()),
-            15 => Ok(Self::order_15()),
-            20 => Ok(Self::order_20()),
+            5 => Ok(Self {
+                points: GAUSS_HERMITE_5_POINTS,
+                weights: GAUSS_HERMITE_5_WEIGHTS,
+            }),
+            7 => Ok(Self {
+                points: GAUSS_HERMITE_7_POINTS,
+                weights: GAUSS_HERMITE_7_WEIGHTS,
+            }),
+            10 => Ok(Self {
+                points: GAUSS_HERMITE_10_POINTS,
+                weights: GAUSS_HERMITE_10_WEIGHTS,
+            }),
+            15 => Ok(Self {
+                points: GAUSS_HERMITE_15_POINTS,
+                weights: GAUSS_HERMITE_15_WEIGHTS,
+            }),
+            20 => Ok(Self {
+                points: GAUSS_HERMITE_20_POINTS,
+                weights: GAUSS_HERMITE_20_WEIGHTS,
+            }),
             _ => Err(crate::Error::Validation(format!(
                 "Unsupported Gauss-Hermite quadrature order: {}. Supported orders are: 5, 7, 10, 15, 20",
                 order
             ))),
-        }
-    }
-
-    /// Get the 5-point Gauss-Hermite quadrature.
-    ///
-    /// This provides a good balance between accuracy and performance
-    /// for most applications.
-    ///
-    /// # Deprecation
-    ///
-    /// Use [`GaussHermiteQuadrature::new(5)`](Self::new) instead for a unified API.
-    #[deprecated(
-        since = "0.9.0",
-        note = "Use `GaussHermiteQuadrature::new(5).expect(\"valid order\")` instead"
-    )]
-    pub fn order_5() -> Self {
-        Self {
-            points: &[
-                -2.0201828704560856,
-                -0.9585724646138185,
-                0.0,
-                0.9585724646138185,
-                2.0201828704560856,
-            ],
-            weights: &[
-                0.019_953_242_059_045_913,
-                0.393_619_323_152_241_2,
-                0.945_308_720_482_941_9,
-                0.393_619_323_152_241_2,
-                0.019_953_242_059_045_913,
-            ],
-        }
-    }
-
-    /// Get the 7-point Gauss-Hermite quadrature.
-    ///
-    /// Higher accuracy for more demanding applications where precision
-    /// is critical and computational cost is acceptable.
-    ///
-    /// # Deprecation
-    ///
-    /// Use [`GaussHermiteQuadrature::new(7)`](Self::new) instead for a unified API.
-    #[deprecated(
-        since = "0.9.0",
-        note = "Use `GaussHermiteQuadrature::new(7).expect(\"valid order\")` instead"
-    )]
-    pub fn order_7() -> Self {
-        Self {
-            points: &[
-                -2.6519613568352334,
-                -1.6735516287674718,
-                -0.8162878828589647,
-                0.0,
-                0.8162878828589647,
-                1.6735516287674718,
-                2.6519613568352334,
-            ],
-            weights: &[
-                0.0009717812450995192,
-                0.05451558281912703,
-                0.4256072526101278,
-                0.8102646175568073,
-                0.4256072526101278,
-                0.05451558281912703,
-                0.0009717812450995192,
-            ],
-        }
-    }
-
-    /// Get the 10-point Gauss-Hermite quadrature.
-    ///
-    /// High accuracy for demanding applications where very precise
-    /// integration is required.
-    ///
-    /// # Deprecation
-    ///
-    /// Use [`GaussHermiteQuadrature::new(10)`](Self::new) instead for a unified API.
-    #[deprecated(
-        since = "0.9.0",
-        note = "Use `GaussHermiteQuadrature::new(10).expect(\"valid order\")` instead"
-    )]
-    pub fn order_10() -> Self {
-        Self {
-            points: &[
-                -3.4361591188377376,
-                -2.5327316742327897,
-                -1.7566836492998817,
-                -1.0366108297895136,
-                -0.3429013272237046,
-                0.3429013272237046,
-                1.0366108297895136,
-                1.7566836492998817,
-                2.5327316742327897,
-                3.4361591188377376,
-            ],
-            weights: &[
-                7.640_432_855_232_62e-6,
-                0.001_343_645_746_781_272_8,
-                0.033_874_394_455_481_063,
-                0.240_138_611_082_314_67,
-                0.610_862_633_735_325_8,
-                0.610_862_633_735_325_8,
-                0.240_138_611_082_314_67,
-                0.033_874_394_455_481_063,
-                0.001_343_645_746_781_272_8,
-                7.640_432_855_232_62e-6,
-            ],
-        }
-    }
-
-    /// Get the 15-point Gauss-Hermite quadrature.
-    ///
-    /// Very high accuracy for Heston model pricing and other demanding
-    /// characteristic function integrations.
-    ///
-    /// Exact for polynomials up to degree 29.
-    ///
-    /// # Deprecation
-    ///
-    /// Use [`GaussHermiteQuadrature::new(15)`](Self::new) instead for a unified API.
-    #[deprecated(
-        since = "0.9.0",
-        note = "Use `GaussHermiteQuadrature::new(15).expect(\"valid order\")` instead"
-    )]
-    pub fn order_15() -> Self {
-        // Nodes and weights computed using numpy.polynomial.hermite.hermgauss(15)
-        // then adjusted for probabilist's Hermite (physicist's nodes / sqrt(2), weights / sqrt(pi))
-        Self {
-            points: &[
-                -4.499_990_707_309_392,
-                -3.669_950_373_404_453,
-                -2.967_166_927_905_603,
-                -2.325_732_486_173_858,
-                -1.719_992_575_186_489,
-                -1.136_115_585_210_921,
-                -0.565_069_583_255_576,
-                0.0,
-                0.565_069_583_255_576,
-                1.136_115_585_210_921,
-                1.719_992_575_186_489,
-                2.325_732_486_173_858,
-                2.967_166_927_905_603,
-                3.669_950_373_404_453,
-                4.499_990_707_309_392,
-            ],
-            weights: &[
-                1.522_475_804_253_517e-9,
-                1.059_115_547_711_067e-6,
-                1.000_044_412_325_025e-4,
-                2.778_068_842_912_776e-3,
-                3.078_003_387_254_608e-2,
-                1.584_889_157_959_357e-1,
-                4.120_286_874_988_986e-1,
-                5.641_003_087_264_175e-1,
-                4.120_286_874_988_986e-1,
-                1.584_889_157_959_357e-1,
-                3.078_003_387_254_608e-2,
-                2.778_068_842_912_776e-3,
-                1.000_044_412_325_025e-4,
-                1.059_115_547_711_067e-6,
-                1.522_475_804_253_517e-9,
-            ],
-        }
-    }
-
-    /// Get the 20-point Gauss-Hermite quadrature.
-    ///
-    /// Extremely high accuracy for long-dated options, high vol-of-vol regimes,
-    /// and characteristic function integration requiring precision beyond 1e-10.
-    ///
-    /// Exact for polynomials up to degree 39.
-    ///
-    /// # Deprecation
-    ///
-    /// Use [`GaussHermiteQuadrature::new(20)`](Self::new) instead for a unified API.
-    #[deprecated(
-        since = "0.9.0",
-        note = "Use `GaussHermiteQuadrature::new(20).expect(\"valid order\")` instead"
-    )]
-    pub fn order_20() -> Self {
-        // Nodes and weights computed using numpy.polynomial.hermite.hermgauss(20)
-        // adjusted for probabilist's convention
-        Self {
-            points: &[
-                -5.387_480_890_011_233,
-                -4.603_682_449_550_744,
-                -3.944_764_040_115_625,
-                -3.347_854_567_383_216,
-                -2.788_806_058_428_13,
-                -2.254_974_002_089_276,
-                -1.738_537_712_116_586,
-                -1.234_076_215_395_323,
-                -0.737_473_728_545_394,
-                -0.245_340_708_300_901,
-                0.245_340_708_300_901,
-                0.737_473_728_545_394,
-                1.234_076_215_395_323,
-                1.738_537_712_116_586,
-                2.254_974_002_089_276,
-                2.788_806_058_428_13,
-                3.347_854_567_383_216,
-                3.944_764_040_115_625,
-                4.603_682_449_550_744,
-                5.387_480_890_011_233,
-            ],
-            weights: &[
-                2.229_393_645_534_151e-13,
-                4.399_340_992_273_181e-10,
-                1.086_069_370_769_281e-7,
-                7.802_556_478_532_064e-6,
-                2.283_386_360_163_528e-4,
-                3.243_773_342_237_853e-3,
-                2.481_052_088_746_361e-2,
-                1.090_172_060_200_233e-1,
-                2.866_755_053_628_342e-1,
-                4.622_436_696_006_101e-1,
-                4.622_436_696_006_101e-1,
-                2.866_755_053_628_342e-1,
-                1.090_172_060_200_233e-1,
-                2.481_052_088_746_361e-2,
-                3.243_773_342_237_853e-3,
-                2.283_386_360_163_528e-4,
-                7.802_556_478_532_064e-6,
-                1.086_069_370_769_281e-7,
-                4.399_340_992_273_181e-10,
-                2.229_393_645_534_151e-13,
-            ],
         }
     }
 
@@ -443,8 +373,10 @@ impl GaussHermiteQuadrature {
             GaussHermiteQuadrature::new(order).unwrap_or_else(|_| {
                 debug_assert!(false, "Invalid Gauss-Hermite order: {order}");
                 // Fallback to order 20 which is guaranteed valid
-                #[allow(deprecated)]
-                GaussHermiteQuadrature::order_20()
+                Self {
+                    points: GAUSS_HERMITE_20_POINTS,
+                    weights: GAUSS_HERMITE_20_WEIGHTS,
+                }
             })
         };
         let base = self.integrate(f);
@@ -1014,18 +946,13 @@ where
 }
 
 #[cfg(test)]
-#[allow(
-    clippy::expect_used,
-    clippy::panic,
-    clippy::indexing_slicing,
-    deprecated
-)]
+#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_gauss_hermite_quadrature_normalization() {
-        let quad = GaussHermiteQuadrature::order_5();
+        let quad = GaussHermiteQuadrature::new(5).expect("Order 5 is supported");
 
         // Test that integrating 1 over standard normal gives approximately 1
         let integral = quad.integrate(|_x| 1.0);
@@ -1034,7 +961,7 @@ mod tests {
 
     #[test]
     fn test_gauss_hermite_quadrature_polynomial() {
-        let quad = GaussHermiteQuadrature::order_7();
+        let quad = GaussHermiteQuadrature::new(7).expect("Order 7 is supported");
 
         // Test that integrating x^2 over standard normal gives 1 (variance)
         let integral = quad.integrate(|x| x * x);
@@ -1050,9 +977,9 @@ mod tests {
         // Test that higher order gives better accuracy for polynomial
         let f = |x: f64| x * x * x * x; // x^4 function
 
-        let quad5 = GaussHermiteQuadrature::order_5();
-        let quad7 = GaussHermiteQuadrature::order_7();
-        let quad10 = GaussHermiteQuadrature::order_10();
+        let quad5 = GaussHermiteQuadrature::new(5).expect("Order 5 is supported");
+        let quad7 = GaussHermiteQuadrature::new(7).expect("Order 7 is supported");
+        let quad10 = GaussHermiteQuadrature::new(10).expect("Order 10 is supported");
 
         let integral5 = quad5.integrate(f);
         let integral7 = quad7.integrate(f);

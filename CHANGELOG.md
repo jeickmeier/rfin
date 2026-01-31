@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+The following deprecated APIs have been removed. See the migration guide below.
+
+#### Cashflow Module
+- `npv_constant()` - Use `npv()` with a `FlatCurve` or `npv_amounts()` for scalar flows
+
+#### Math Module (Integration)
+- `GaussHermiteQuadrature::order_5()` - Use `GaussHermiteQuadrature::new(5)?`
+- `GaussHermiteQuadrature::order_7()` - Use `GaussHermiteQuadrature::new(7)?`
+- `GaussHermiteQuadrature::order_10()` - Use `GaussHermiteQuadrature::new(10)?`
+- `GaussHermiteQuadrature::order_15()` - Use `GaussHermiteQuadrature::new(15)?`
+- `GaussHermiteQuadrature::order_20()` - Use `GaussHermiteQuadrature::new(20)?`
+
+#### Discount Curve
+- `DiscountCurve::zero_on_date()` - Use `zero_rate_on_date(date, Compounding::Continuous)`
+- `DiscountCurve::zero_annual_on_date()` - Use `zero_rate_on_date(date, Compounding::Annual)`
+- `DiscountCurve::zero_periodic_on_date()` - Use `zero_rate_on_date(date, Compounding::Periodic(n))`
+- `DiscountCurve::zero_simple_on_date()` - Use `zero_rate_on_date(date, Compounding::Simple)`
+
+### Migration Guide
+
+#### NPV Calculations
+
+```rust
+// Before (deprecated)
+let pv = npv_constant(&flows, 0.05, base, DayCount::Act365F)?;
+
+// After (canonical)
+// Option 1: Use npv with FlatCurve for Money flows
+let curve = FlatCurve::new((1.0 + 0.05).ln(), base, DayCount::Act365F, "id");
+let pv = npv(&curve, base, Some(DayCount::Act365F), &flows)?;
+
+// Option 2: Use npv_amounts for scalar flows (simpler)
+let pv = npv_amounts(&scalar_flows, 0.05, Some(base), Some(DayCount::Act365F))?;
+```
+
+#### Quadrature
+
+```rust
+// Before (deprecated)
+let quad = GaussHermiteQuadrature::order_10();
+
+// After (canonical)
+let quad = GaussHermiteQuadrature::new(10)?;
+```
+
+#### Zero Rates
+
+```rust
+// Before (deprecated)
+let r_cont = curve.zero_on_date(date)?;
+let r_ann = curve.zero_annual_on_date(date)?;
+let r_semi = curve.zero_periodic_on_date(date, 2)?;
+let r_simple = curve.zero_simple_on_date(date)?;
+
+// After (canonical)
+use finstack_core::math::Compounding;
+
+let r_cont = curve.zero_rate_on_date(date, Compounding::Continuous)?;
+let r_ann = curve.zero_rate_on_date(date, Compounding::Annual)?;
+let r_semi = curve.zero_rate_on_date(date, Compounding::SEMI_ANNUAL)?;
+let r_simple = curve.zero_rate_on_date(date, Compounding::Simple)?;
+```
+
 ### Breaking
 
 - Removed legacy attribution curve helpers and deprecated CDS option constructors.

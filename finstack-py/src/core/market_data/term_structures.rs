@@ -369,11 +369,12 @@ impl PyDiscountCurve {
     /// -------
     /// float
     ///     Continuously compounded zero rate at the supplied date.
-    #[allow(deprecated)]
     #[pyo3(text_signature = "(self, date)")]
     fn zero_on_date(&self, date: Bound<'_, PyAny>) -> PyResult<f64> {
         let d = py_to_date(&date).context("date")?;
-        Ok(self.inner.zero_on_date(d).map_err(core_to_py)?)
+        self.inner
+            .zero_rate_on_date(d, finstack_core::math::Compounding::Continuous)
+            .map_err(core_to_py)
     }
 
     /// Annually compounded zero rate on a calendar date.
@@ -397,11 +398,12 @@ impl PyDiscountCurve {
     /// >>> from datetime import date
     /// >>> curve.zero_annual_on_date(date(2026, 12, 14))
     /// 0.0342  # ~3.42% annual rate
-    #[allow(deprecated)]
     #[pyo3(text_signature = "(self, date)")]
     fn zero_annual_on_date(&self, date: Bound<'_, PyAny>) -> PyResult<f64> {
         let d = py_to_date(&date).context("date")?;
-        Ok(self.inner.zero_annual_on_date(d).map_err(core_to_py)?)
+        self.inner
+            .zero_rate_on_date(d, finstack_core::math::Compounding::Annual)
+            .map_err(core_to_py)
     }
 
     /// Periodically compounded zero rate on a calendar date.
@@ -419,11 +421,15 @@ impl PyDiscountCurve {
     /// -------
     /// float
     ///     Periodically compounded zero rate at the supplied date.
-    #[allow(deprecated)]
     #[pyo3(text_signature = "(self, date, n)")]
     fn zero_periodic_on_date(&self, date: Bound<'_, PyAny>, n: u32) -> PyResult<f64> {
+        use std::num::NonZeroU32;
         let d = py_to_date(&date).context("date")?;
-        Ok(self.inner.zero_periodic_on_date(d, n).map_err(core_to_py)?)
+        // Handle n=0 case gracefully - return 0 to match previous behavior
+        let n = NonZeroU32::new(n).unwrap_or(NonZeroU32::MIN);
+        self.inner
+            .zero_rate_on_date(d, finstack_core::math::Compounding::Periodic(n))
+            .map_err(core_to_py)
     }
 
     /// Forward rate between two calendar dates.

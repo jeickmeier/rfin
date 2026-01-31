@@ -444,7 +444,7 @@ mod serde_tests {
 
     #[test]
     fn gauss_hermite_quadrature_order_5() {
-        let quad5 = GaussHermiteQuadrature::order_5();
+        let quad5 = GaussHermiteQuadrature::new(5).expect("valid order");
         let json = serde_json::to_string(&quad5).unwrap();
         let deserialized: GaussHermiteQuadrature = serde_json::from_str(&json).unwrap();
         assert_eq!(quad5.points.len(), deserialized.points.len());
@@ -453,7 +453,7 @@ mod serde_tests {
 
     #[test]
     fn gauss_hermite_quadrature_order_7() {
-        let quad7 = GaussHermiteQuadrature::order_7();
+        let quad7 = GaussHermiteQuadrature::new(7).expect("valid order");
         let json = serde_json::to_string(&quad7).unwrap();
         let deserialized: GaussHermiteQuadrature = serde_json::from_str(&json).unwrap();
         assert_eq!(quad7.points.len(), deserialized.points.len());
@@ -462,19 +462,20 @@ mod serde_tests {
 
     #[test]
     fn gauss_hermite_quadrature_order_10() {
-        let quad10 = GaussHermiteQuadrature::order_10();
+        let quad10 = GaussHermiteQuadrature::new(10).expect("valid order");
         let json = serde_json::to_string(&quad10).unwrap();
         let deserialized: GaussHermiteQuadrature = serde_json::from_str(&json).unwrap();
         assert_eq!(quad10.points.len(), deserialized.points.len());
         assert_eq!(quad10.weights.len(), deserialized.weights.len());
 
-        let quad5_json = serde_json::to_string(&GaussHermiteQuadrature::order_5()).unwrap();
+        let quad5_json =
+            serde_json::to_string(&GaussHermiteQuadrature::new(5).expect("valid order")).unwrap();
         assert!(quad5_json.contains("\"order\":5"));
     }
 
     #[test]
     fn gauss_hermite_quadrature_order_15() {
-        let quad15 = GaussHermiteQuadrature::order_15();
+        let quad15 = GaussHermiteQuadrature::new(15).expect("valid order");
         assert_eq!(quad15.points.len(), 15);
         assert_eq!(quad15.weights.len(), 15);
 
@@ -487,7 +488,7 @@ mod serde_tests {
 
     #[test]
     fn gauss_hermite_quadrature_order_20() {
-        let quad20 = GaussHermiteQuadrature::order_20();
+        let quad20 = GaussHermiteQuadrature::new(20).expect("valid order");
         assert_eq!(quad20.points.len(), 20);
         assert_eq!(quad20.weights.len(), 20);
 
@@ -519,9 +520,9 @@ mod serde_tests {
         // Test that higher orders give better accuracy for E[X^4] = 3 (standard normal)
         let f = |x: f64| x.powi(4);
 
-        let quad10 = GaussHermiteQuadrature::order_10();
-        let quad15 = GaussHermiteQuadrature::order_15();
-        let quad20 = GaussHermiteQuadrature::order_20();
+        let quad10 = GaussHermiteQuadrature::new(10).expect("valid order");
+        let quad15 = GaussHermiteQuadrature::new(15).expect("valid order");
+        let quad20 = GaussHermiteQuadrature::new(20).expect("valid order");
 
         let result10 = quad10.integrate(f);
         let result15 = quad15.integrate(f);
@@ -568,7 +569,7 @@ mod serde_tests {
 
     #[test]
     fn quadrature_functional_equivalence() {
-        let quad_orig = GaussHermiteQuadrature::order_7();
+        let quad_orig = GaussHermiteQuadrature::new(7).expect("valid order");
         let json = serde_json::to_string(&quad_orig).unwrap();
         let quad_deser: GaussHermiteQuadrature = serde_json::from_str(&json).unwrap();
 

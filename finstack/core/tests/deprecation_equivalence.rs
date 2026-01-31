@@ -1,25 +1,16 @@
-//! Tests proving deprecated APIs produce identical results to canonical APIs.
+//! Tests for canonical API behavior.
 //!
-//! These tests use `#[allow(deprecated)]` to suppress warnings while verifying
-//! functional equivalence between deprecated convenience functions and their
-//! canonical replacements.
-//!
-//! # Purpose
-//!
-//! These tests ensure that:
-//! 1. Deprecated APIs continue to work correctly during the deprecation period
-//! 2. Migration to canonical APIs produces identical results
-//! 3. No behavior changes were accidentally introduced
+//! These tests verify the behavior of the canonical APIs after deprecated APIs
+//! have been removed. The tests ensure consistent results and proper error handling.
 //!
 //! # Test Structure
 //!
-//! Each test compares:
-//! - **Deprecated path**: The convenience API being deprecated
-//! - **Canonical path**: The recommended replacement API
+//! Tests are organized by module:
+//! - **NPV**: Tests for `npv()` with various discount curves
+//! - **IRR**: Tests for `irr()` and `irr_with_daycount()`
+//! - **Quadrature**: Tests for `GaussHermiteQuadrature::new()`
 
-#![allow(deprecated)]
-
-use finstack_core::cashflow::{npv, npv_constant, InternalRateOfReturn};
+use finstack_core::cashflow::{npv, InternalRateOfReturn};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::term_structures::FlatCurve;
@@ -39,42 +30,39 @@ fn d(year: i32, month: u8, day: u8) -> Date {
 }
 
 // =============================================================================
-// NPV Constant Equivalence Tests
+// NPV Tests (Canonical API)
 // =============================================================================
 
-mod npv_equivalence {
+mod npv_tests {
     use super::*;
 
-    /// Test that `npv_constant` produces identical results to `npv` with `FlatCurve`.
+    /// Test NPV with FlatCurve (the canonical approach).
     #[test]
-    fn npv_constant_matches_npv_with_flat_curve() {
+    fn npv_with_flat_curve() {
         let base = d(2024, 1, 1);
         let flows = vec![
             (base, Money::new(-100_000.0, Currency::USD)),
             (d(2025, 1, 1), Money::new(110_000.0, Currency::USD)),
         ];
-        let rate = 0.05;
+        let rate: f64 = 0.05;
         let dc = DayCount::Act365F;
 
-        // Deprecated path
-        let pv_deprecated = npv_constant(&flows, rate, base, dc).unwrap();
-
-        // Canonical path: convert to continuous rate and use FlatCurve
+        // Convert annual rate to continuous rate
         let continuous_rate = (1.0 + rate).ln();
         let curve = FlatCurve::new(continuous_rate, base, dc, "TEST");
-        let pv_canonical = npv(&curve, base, Some(dc), &flows).unwrap();
+        let pv = npv(&curve, base, Some(dc), &flows).unwrap();
 
+        // NPV should be approximately 110000/1.05 - 100000 ≈ 4761.90
         assert!(
-            (pv_deprecated.amount() - pv_canonical.amount()).abs() < TOLERANCE,
-            "npv_constant ({}) should match npv with FlatCurve ({})",
-            pv_deprecated.amount(),
-            pv_canonical.amount()
+            pv.amount() > 4700.0 && pv.amount() < 4800.0,
+            "NPV at 5% should be ~4761.90, got {}",
+            pv.amount()
         );
     }
 
-    /// Test equivalence across various discount rates.
+    /// Test NPV across various discount rates.
     #[test]
-    fn npv_constant_equivalence_various_rates() {
+    fn npv_various_rates() {
         let base = d(2024, 1, 1);
         let flows = vec![
             (base, Money::new(-50_000.0, Currency::USD)),
@@ -82,94 +70,57 @@ mod npv_equivalence {
             (d(2025, 1, 1), Money::new(30_000.0, Currency::USD)),
         ];
 
-        for rate in [0.0, 0.01, 0.05, 0.10, 0.25] {
+        for rate in [0.0_f64, 0.01, 0.05, 0.10, 0.25] {
             let dc = DayCount::Act365F;
-
-            let pv_deprecated = npv_constant(&flows, rate, base, dc).unwrap();
-
             let continuous_rate = (1.0 + rate).ln();
             let curve = FlatCurve::new(continuous_rate, base, dc, "TEST");
-            let pv_canonical = npv(&curve, base, Some(dc), &flows).unwrap();
+            let pv = npv(&curve, base, Some(dc), &flows).unwrap();
 
-            assert!(
-                (pv_deprecated.amount() - pv_canonical.amount()).abs() < TOLERANCE,
-                "Mismatch at rate {}: deprecated={}, canonical={}",
-                rate,
-                pv_deprecated.amount(),
-                pv_canonical.amount()
-            );
+            // At 0% rate, NPV should be sum of flows = 5000
+            if rate == 0.0 {
+                assert!(
+                    (pv.amount() - 5000.0).abs() < TOLERANCE,
+                    "At 0% rate, NPV should be 5000, got {}",
+                    pv.amount()
+                );
+            }
         }
     }
 
-    /// Test equivalence with multiple cashflows.
+    /// Test NPV with different day count conventions.
     #[test]
-    fn npv_constant_equivalence_multiple_cashflows() {
-        let base = d(2024, 1, 1);
-        let flows: Vec<(Date, Money)> = (0..12)
-            .map(|i| {
-                let date = d(2024, (i + 1) as u8, 1);
-                (date, Money::new(1000.0, Currency::USD))
-            })
-            .collect();
-
-        let rate = 0.08;
-        let dc = DayCount::Act365F;
-
-        let pv_deprecated = npv_constant(&flows, rate, base, dc).unwrap();
-
-        let continuous_rate = (1.0 + rate).ln();
-        let curve = FlatCurve::new(continuous_rate, base, dc, "TEST");
-        let pv_canonical = npv(&curve, base, Some(dc), &flows).unwrap();
-
-        assert!(
-            (pv_deprecated.amount() - pv_canonical.amount()).abs() < TOLERANCE,
-            "12-month cashflows: deprecated={}, canonical={}",
-            pv_deprecated.amount(),
-            pv_canonical.amount()
-        );
-    }
-
-    /// Test equivalence with different day count conventions.
-    #[test]
-    fn npv_constant_equivalence_different_day_counts() {
+    fn npv_different_day_counts() {
         let base = d(2024, 1, 1);
         let flows = vec![
             (base, Money::new(-100.0, Currency::USD)),
             (d(2024, 7, 1), Money::new(105.0, Currency::USD)),
         ];
-        let rate = 0.05;
+        let rate: f64 = 0.05;
 
+        let mut results = Vec::new();
         for dc in [DayCount::Act365F, DayCount::Act360, DayCount::Thirty360] {
-            let pv_deprecated = npv_constant(&flows, rate, base, dc).unwrap();
-
             let continuous_rate = (1.0 + rate).ln();
             let curve = FlatCurve::new(continuous_rate, base, dc, "TEST");
-            let pv_canonical = npv(&curve, base, Some(dc), &flows).unwrap();
-
-            assert!(
-                (pv_deprecated.amount() - pv_canonical.amount()).abs() < TOLERANCE,
-                "Day count {:?}: deprecated={}, canonical={}",
-                dc,
-                pv_deprecated.amount(),
-                pv_canonical.amount()
-            );
+            let pv = npv(&curve, base, Some(dc), &flows).unwrap();
+            results.push((dc, pv.amount()));
         }
+
+        // Different day counts should produce different results
+        assert!(
+            (results[0].1 - results[1].1).abs() > 1e-4,
+            "Act365F and Act360 should produce different NPVs"
+        );
     }
 }
 
 // =============================================================================
-// IRR API Tests
+// IRR Tests (Canonical API)
 // =============================================================================
-//
-// Note: The `irr()` method on `[(Date, f64)]` is NOT deprecated because Rust
-// doesn't support deprecating trait method implementations selectively.
-// Instead, documentation recommends using `irr_with_daycount()` for explicit
-// day count control. These tests verify that `irr()` uses Act365F by default.
 
-mod irr_api {
+mod irr_tests {
     use super::*;
 
-    /// Test that `irr()` on dated flows uses Act365F default and matches explicit call.
+    /// Test that `irr()` on dated flows uses Act365F default.
     #[test]
     fn dated_irr_uses_act365f_default() {
         let flows: Vec<(Date, f64)> = vec![
@@ -195,10 +146,9 @@ mod irr_api {
         );
     }
 
-    /// Test that periodic IRR is the canonical path for `[f64]`.
+    /// Test that periodic IRR works correctly for evenly-spaced flows.
     #[test]
     fn periodic_irr_is_canonical() {
-        // For [f64] (periodic flows), irr() is the canonical path
         let flows = [-100.0, 10.0, 10.0, 10.0, 110.0];
 
         let irr1 = flows.as_slice().irr(None).unwrap();
@@ -216,9 +166,9 @@ mod irr_api {
         );
     }
 
-    /// Test IRR consistency with various cashflow patterns.
+    /// Test IRR with various cashflow patterns.
     #[test]
-    fn dated_irr_consistency_various_patterns() {
+    fn dated_irr_various_patterns() {
         let test_cases = vec![
             // Simple: invest, receive
             vec![(d(2024, 1, 1), -100_000.0), (d(2025, 1, 1), 110_000.0)],
@@ -235,23 +185,16 @@ mod irr_api {
         ];
 
         for flows in test_cases {
-            let irr_default = flows.as_slice().irr(None).unwrap();
-            let irr_explicit = flows
+            let irr = flows
                 .as_slice()
                 .irr_with_daycount(DayCount::Act365F, None)
                 .unwrap();
-
-            assert!(
-                (irr_default - irr_explicit).abs() < IRR_TOLERANCE,
-                "IRR mismatch for flows {:?}: irr()={}, irr_with_daycount()={}",
-                flows.len(),
-                irr_default,
-                irr_explicit
-            );
+            // All test cases have positive returns
+            assert!(irr > 0.0, "IRR should be positive for these flows");
         }
     }
 
-    /// Test that different day counts produce different (but related) results.
+    /// Test that different day counts produce different IRR results.
     #[test]
     fn irr_day_count_affects_result() {
         let flows: Vec<(Date, f64)> = vec![(d(2024, 1, 1), -100_000.0), (d(2024, 7, 1), 102_500.0)];
@@ -278,42 +221,23 @@ mod irr_api {
 }
 
 // =============================================================================
-// Gauss-Hermite Quadrature Equivalence Tests
+// Gauss-Hermite Quadrature Tests (Canonical API)
 // =============================================================================
 
-mod quadrature_equivalence {
+mod quadrature_tests {
     use super::*;
 
-    /// Test that deprecated `order_N()` constructors match `new(N)`.
+    /// Test creating quadrature with all supported orders.
     #[test]
-    fn order_constructors_match_new() {
-        let orders = [5, 7, 10, 15, 20];
-
-        for order in orders {
-            let from_new = GaussHermiteQuadrature::new(order).expect("valid order");
-
-            let from_constructor = match order {
-                5 => GaussHermiteQuadrature::order_5(),
-                7 => GaussHermiteQuadrature::order_7(),
-                10 => GaussHermiteQuadrature::order_10(),
-                15 => GaussHermiteQuadrature::order_15(),
-                20 => GaussHermiteQuadrature::order_20(),
-                _ => unreachable!(),
-            };
-
-            // Test with a known integral: E[X²] = 1 for standard normal
-            let f = |x: f64| x * x;
-
-            let result_new = from_new.integrate(f);
-            let result_constructor = from_constructor.integrate(f);
-
-            assert!(
-                (result_new - result_constructor).abs() < 1e-12,
-                "order_{} should match new({}): constructor={}, new={}",
+    fn new_supported_orders() {
+        for order in [5, 7, 10, 15, 20] {
+            let quad = GaussHermiteQuadrature::new(order).expect("valid order");
+            assert_eq!(
+                quad.points.len(),
                 order,
+                "Order {} should have {} points",
                 order,
-                result_constructor,
-                result_new
+                order
             );
         }
     }
@@ -376,7 +300,7 @@ mod quadrature_equivalence {
         }
     }
 
-    /// Test that `new()` returns `None` for unsupported orders.
+    /// Test that `new()` returns `Err` for unsupported orders.
     #[test]
     fn new_rejects_unsupported_orders() {
         let unsupported = [

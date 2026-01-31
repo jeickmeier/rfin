@@ -1,6 +1,3 @@
-// Allow deprecated order_N() until migration to new() constructor
-#![allow(deprecated)]
-
 use crate::core::error::js_error;
 use finstack_core::math::integration as core_integration;
 use finstack_core::math::integration::GaussHermiteQuadrature;
@@ -78,9 +75,9 @@ impl JsGaussHermiteQuadrature {
     /// Gauss-Hermite quadrature is optimal for integrals of the form:
     /// ∫_{-∞}^∞ f(x) * e^(-x²) dx
     ///
-    /// @param {number} order - Quadrature order (5, 7, or 10)
+    /// @param {number} order - Quadrature order (5, 7, 10, 15, or 20)
     /// @returns {GaussHermiteQuadrature} Quadrature rule with specified order
-    /// @throws {Error} If order is not 5, 7, or 10
+    /// @throws {Error} If order is not 5, 7, 10, 15, or 20
     ///
     /// @example
     /// ```javascript
@@ -94,12 +91,9 @@ impl JsGaussHermiteQuadrature {
     /// ```
     #[wasm_bindgen(constructor)]
     pub fn new(order: usize) -> Result<JsGaussHermiteQuadrature, JsValue> {
-        match order {
-            5 => Ok(Self::from_inner(GaussHermiteQuadrature::order_5())),
-            7 => Ok(Self::from_inner(GaussHermiteQuadrature::order_7())),
-            10 => Ok(Self::from_inner(GaussHermiteQuadrature::order_10())),
-            _ => Err(js_error("Supported orders are 5, 7, or 10")),
-        }
+        GaussHermiteQuadrature::new(order)
+            .map(Self::from_inner)
+            .map_err(|e| js_error(e.to_string()))
     }
 
     /// Create a 5-point Gauss-Hermite quadrature rule.
@@ -112,24 +106,24 @@ impl JsGaussHermiteQuadrature {
     /// console.log(quad.order);  // 5
     /// ```
     #[wasm_bindgen(js_name = order5)]
-    pub fn order_5() -> JsGaussHermiteQuadrature {
-        Self::from_inner(GaussHermiteQuadrature::order_5())
+    pub fn order_5() -> Result<JsGaussHermiteQuadrature, JsValue> {
+        Self::new(5)
     }
 
     /// Create a 7-point Gauss-Hermite quadrature rule.
     ///
     /// @returns {GaussHermiteQuadrature} 7-point quadrature rule
     #[wasm_bindgen(js_name = order7)]
-    pub fn order_7() -> JsGaussHermiteQuadrature {
-        Self::from_inner(GaussHermiteQuadrature::order_7())
+    pub fn order_7() -> Result<JsGaussHermiteQuadrature, JsValue> {
+        Self::new(7)
     }
 
     /// Create a 10-point Gauss-Hermite quadrature rule.
     ///
     /// @returns {GaussHermiteQuadrature} 10-point quadrature rule
     #[wasm_bindgen(js_name = order10)]
-    pub fn order_10() -> JsGaussHermiteQuadrature {
-        Self::from_inner(GaussHermiteQuadrature::order_10())
+    pub fn order_10() -> Result<JsGaussHermiteQuadrature, JsValue> {
+        Self::new(10)
     }
 
     /// Number of quadrature points in this rule.

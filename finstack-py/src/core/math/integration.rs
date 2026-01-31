@@ -1,6 +1,3 @@
-// Allow deprecated order_N() until migration to new() constructor
-#![allow(deprecated)]
-
 use finstack_core::math::integration as core_integration;
 use finstack_core::math::integration::GaussHermiteQuadrature;
 use pyo3::prelude::*;
@@ -17,13 +14,13 @@ use super::callable::CallableAdapter;
 )]
 /// Pre-computed Gauss-Hermite nodes and weights for standard-normal integration.
 ///
-/// Provides 5, 7, or 10-point quadrature rules for evaluating expectations under
+/// Provides 5, 7, 10, 15, or 20-point quadrature rules for evaluating expectations under
 /// the standard normal density. Useful for approximating integrals of the form
 /// ``E[f(Z)]`` where ``Z ~ N(0, 1)``.
 ///
 /// Examples:
 ///     >>> from finstack.core.math.integration import GaussHermiteQuadrature
-///     >>> quad = GaussHermiteQuadrature.order_7()
+///     >>> quad = GaussHermiteQuadrature(7)
 ///     >>> quad.order
 ///     7
 ///     >>> quad.integrate(lambda x: x * x)
@@ -34,6 +31,29 @@ pub struct PyGaussHermiteQuadrature {
 
 #[pymethods]
 impl PyGaussHermiteQuadrature {
+    #[new]
+    #[pyo3(text_signature = "(order)")]
+    /// Create a Gauss-Hermite quadrature rule with the specified order.
+    ///
+    /// Args:
+    ///     order (int): The quadrature order. Supported values: 5, 7, 10, 15, 20.
+    ///
+    /// Returns:
+    ///     GaussHermiteQuadrature: Quadrature rule with the specified number of
+    ///     evaluation points and corresponding weights.
+    ///
+    /// Raises:
+    ///     ValueError: If order is not one of the supported values.
+    ///
+    /// Examples:
+    ///     >>> quad = GaussHermiteQuadrature(10)
+    ///     >>> quad.order
+    ///     10
+    pub fn new(order: usize) -> PyResult<Self> {
+        let inner = GaussHermiteQuadrature::new(order).map_err(core_to_py)?;
+        Ok(Self { inner })
+    }
+
     #[classmethod]
     #[pyo3(text_signature = "(/)")]
     /// Create the 5-point Gauss-Hermite quadrature rule.
@@ -41,10 +61,11 @@ impl PyGaussHermiteQuadrature {
     /// Returns:
     ///     GaussHermiteQuadrature: Quadrature rule with five evaluation points and
     ///     corresponding weights.
-    pub fn order_5(_cls: &Bound<'_, PyType>) -> Self {
-        Self {
-            inner: GaussHermiteQuadrature::order_5(),
-        }
+    ///
+    /// Note:
+    ///     Prefer using ``GaussHermiteQuadrature(5)`` for consistency.
+    pub fn order_5(_cls: &Bound<'_, PyType>) -> PyResult<Self> {
+        Self::new(5)
     }
 
     #[classmethod]
@@ -54,10 +75,11 @@ impl PyGaussHermiteQuadrature {
     /// Returns:
     ///     GaussHermiteQuadrature: Quadrature rule with seven evaluation points and
     ///     corresponding weights.
-    pub fn order_7(_cls: &Bound<'_, PyType>) -> Self {
-        Self {
-            inner: GaussHermiteQuadrature::order_7(),
-        }
+    ///
+    /// Note:
+    ///     Prefer using ``GaussHermiteQuadrature(7)`` for consistency.
+    pub fn order_7(_cls: &Bound<'_, PyType>) -> PyResult<Self> {
+        Self::new(7)
     }
 
     #[classmethod]
@@ -67,10 +89,11 @@ impl PyGaussHermiteQuadrature {
     /// Returns:
     ///     GaussHermiteQuadrature: Quadrature rule with ten evaluation points and
     ///     corresponding weights.
-    pub fn order_10(_cls: &Bound<'_, PyType>) -> Self {
-        Self {
-            inner: GaussHermiteQuadrature::order_10(),
-        }
+    ///
+    /// Note:
+    ///     Prefer using ``GaussHermiteQuadrature(10)`` for consistency.
+    pub fn order_10(_cls: &Bound<'_, PyType>) -> PyResult<Self> {
+        Self::new(10)
     }
 
     #[getter]

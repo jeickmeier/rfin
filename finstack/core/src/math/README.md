@@ -155,7 +155,7 @@ These solvers are used extensively throughout the project (e.g., IRR/XIRR, impli
 ### Integration and Interpolation
 
 - **Integration**:
-  - Use `GaussHermiteQuadrature::order_5/7/10()` and `.integrate` for expectations under a standard normal.
+  - Use `GaussHermiteQuadrature::new(order)?` (supported orders: 5, 7, 10, 15, 20) and `.integrate` for expectations under a standard normal.
   - Use `gauss_legendre_integrate*`, `trapezoidal_rule`, `simpson_rule`, or `adaptive_simpson` for scalar integrals on finite intervals.
 - **Interpolation**:
   - Use `LinearDf`, `LogLinearDf`, `MonotoneConvex`, or `CubicHermite` as high‑level interpolation wrappers.
@@ -240,9 +240,10 @@ assert!((result[1] - 3.0).abs() < 1e-6);
 use finstack_core::math::integration::GaussHermiteQuadrature;
 
 // Integrate x^2 under standard normal: E[X^2] = 1
-let quad = GaussHermiteQuadrature::order_7();
+let quad = GaussHermiteQuadrature::new(7)?;
 let integral = quad.integrate(|x| x * x);
 assert!((integral - 1.0).abs() < 1e-3);
+# Ok::<(), finstack_core::Error>(())
 ```
 
 ### 4. Interpolating a Discount Curve
