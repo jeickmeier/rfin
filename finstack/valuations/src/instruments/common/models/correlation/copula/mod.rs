@@ -225,12 +225,11 @@ pub(crate) const DEFAULT_QUADRATURE_ORDER: u8 = 7;
 
 /// Select quadrature based on order.
 pub(crate) fn select_quadrature(order: u8) -> GaussHermiteQuadrature {
-    match order {
-        5 => GaussHermiteQuadrature::order_5(),
-        7 => GaussHermiteQuadrature::order_7(),
-        10 => GaussHermiteQuadrature::order_10(),
-        _ => GaussHermiteQuadrature::order_7(),
-    }
+    GaussHermiteQuadrature::new(order as usize).unwrap_or_else(|| {
+        GaussHermiteQuadrature::new(DEFAULT_QUADRATURE_ORDER as usize).unwrap_or_else(|| {
+            unreachable!("DEFAULT_QUADRATURE_ORDER must be a valid Gauss-Hermite order")
+        })
+    })
 }
 
 #[cfg(test)]

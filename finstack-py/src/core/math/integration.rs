@@ -1,3 +1,6 @@
+// Allow deprecated order_N() until migration to new() constructor
+#![allow(deprecated)]
+
 use finstack_core::math::integration as core_integration;
 use finstack_core::math::integration::GaussHermiteQuadrature;
 use pyo3::prelude::*;

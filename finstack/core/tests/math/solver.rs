@@ -5,6 +5,8 @@
 //! - Newton solver tests
 //! - Serialization tests
 
+#![allow(deprecated)] // Allow deprecated order_N() calls for testing
+
 use finstack_core::math::solver::{BrentSolver, NewtonSolver, Solver};
 
 // ============================================================================

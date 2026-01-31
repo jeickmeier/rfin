@@ -1,3 +1,6 @@
+// Allow deprecated order_N() until migration to new() constructor
+#![allow(deprecated)]
+
 use crate::core::error::js_error;
 use finstack_core::math::integration as core_integration;
 use finstack_core::math::integration::GaussHermiteQuadrature;

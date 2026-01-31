@@ -473,12 +473,10 @@ impl CDSTranchePricer {
 impl CDSTranchePricer {
     #[inline]
     fn select_quadrature(&self) -> GaussHermiteQuadrature {
-        match self.params.quadrature_order {
-            5 => GaussHermiteQuadrature::order_5(),
-            7 => GaussHermiteQuadrature::order_7(),
-            10 => GaussHermiteQuadrature::order_10(),
-            _ => GaussHermiteQuadrature::order_7(),
-        }
+        GaussHermiteQuadrature::new(self.params.quadrature_order as usize).unwrap_or_else(|| {
+            GaussHermiteQuadrature::new(7)
+                .unwrap_or_else(|| unreachable!("7 is a valid Gauss-Hermite order"))
+        })
     }
 
     fn build_copula(&self) -> Box<dyn Copula> {

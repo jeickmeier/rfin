@@ -78,6 +78,7 @@ mod primitives;
 mod xirr;
 
 pub use discounting::npv_amounts;
+#[allow(deprecated)]
 pub use discounting::{npv, npv_constant, Discountable};
 pub use primitives::{CFKind, CashFlow};
 pub use xirr::InternalRateOfReturn;

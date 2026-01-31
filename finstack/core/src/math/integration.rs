@@ -97,25 +97,23 @@ impl<'de> serde::Deserialize<'de> for GaussHermiteQuadrature {
 
         let data = QuadratureData::deserialize(deserializer)?;
 
-        match data.order {
-            5 => Ok(GaussHermiteQuadrature::order_5()),
-            7 => Ok(GaussHermiteQuadrature::order_7()),
-            10 => Ok(GaussHermiteQuadrature::order_10()),
-            15 => Ok(GaussHermiteQuadrature::order_15()),
-            20 => Ok(GaussHermiteQuadrature::order_20()),
-            _ => Err(serde::de::Error::custom(format!(
+        GaussHermiteQuadrature::new(data.order).ok_or_else(|| {
+            serde::de::Error::custom(format!(
                 "Invalid quadrature order: {}. Supported orders: 5, 7, 10, 15, 20",
                 data.order
-            ))),
-        }
+            ))
+        })
     }
 }
 
 impl GaussHermiteQuadrature {
     /// Create a Gauss-Hermite quadrature with the specified order.
     ///
+    /// This is the canonical constructor for Gauss-Hermite quadrature. Use this
+    /// method instead of the deprecated `order_N()` constructors.
+    ///
     /// # Arguments
-    /// * `order` - Quadrature order (supported: 5, 7, 10, 15, 20, 32)
+    /// * `order` - Quadrature order (supported: 5, 7, 10, 15, 20)
     ///
     /// # Returns
     /// `Some(Self)` if order is supported, `None` otherwise.
@@ -129,7 +127,6 @@ impl GaussHermiteQuadrature {
     /// | 10 | Degree 19 | General Monte Carlo validation |
     /// | 15 | Degree 29 | High-precision Heston pricing |
     /// | 20 | Degree 39 | Long-dated options, high vol-of-vol |
-    /// | 32 | Degree 63 | Research, reference values |
     ///
     /// # Example
     ///
@@ -146,6 +143,7 @@ impl GaussHermiteQuadrature {
     /// // Unsupported orders return None
     /// assert!(GaussHermiteQuadrature::new(3).is_none());
     /// ```
+    #[allow(deprecated)]
     pub fn new(order: usize) -> Option<Self> {
         match order {
             5 => Some(Self::order_5()),
@@ -161,6 +159,14 @@ impl GaussHermiteQuadrature {
     ///
     /// This provides a good balance between accuracy and performance
     /// for most applications.
+    ///
+    /// # Deprecation
+    ///
+    /// Use [`GaussHermiteQuadrature::new(5)`](Self::new) instead for a unified API.
+    #[deprecated(
+        since = "0.9.0",
+        note = "Use `GaussHermiteQuadrature::new(5).expect(\"valid order\")` instead"
+    )]
     pub fn order_5() -> Self {
         Self {
             points: &[
@@ -184,6 +190,14 @@ impl GaussHermiteQuadrature {
     ///
     /// Higher accuracy for more demanding applications where precision
     /// is critical and computational cost is acceptable.
+    ///
+    /// # Deprecation
+    ///
+    /// Use [`GaussHermiteQuadrature::new(7)`](Self::new) instead for a unified API.
+    #[deprecated(
+        since = "0.9.0",
+        note = "Use `GaussHermiteQuadrature::new(7).expect(\"valid order\")` instead"
+    )]
     pub fn order_7() -> Self {
         Self {
             points: &[
@@ -211,6 +225,14 @@ impl GaussHermiteQuadrature {
     ///
     /// High accuracy for demanding applications where very precise
     /// integration is required.
+    ///
+    /// # Deprecation
+    ///
+    /// Use [`GaussHermiteQuadrature::new(10)`](Self::new) instead for a unified API.
+    #[deprecated(
+        since = "0.9.0",
+        note = "Use `GaussHermiteQuadrature::new(10).expect(\"valid order\")` instead"
+    )]
     pub fn order_10() -> Self {
         Self {
             points: &[
@@ -246,6 +268,14 @@ impl GaussHermiteQuadrature {
     /// characteristic function integrations.
     ///
     /// Exact for polynomials up to degree 29.
+    ///
+    /// # Deprecation
+    ///
+    /// Use [`GaussHermiteQuadrature::new(15)`](Self::new) instead for a unified API.
+    #[deprecated(
+        since = "0.9.0",
+        note = "Use `GaussHermiteQuadrature::new(15).expect(\"valid order\")` instead"
+    )]
     pub fn order_15() -> Self {
         // Nodes and weights computed using numpy.polynomial.hermite.hermgauss(15)
         // then adjusted for probabilist's Hermite (physicist's nodes / sqrt(2), weights / sqrt(pi))
@@ -293,6 +323,14 @@ impl GaussHermiteQuadrature {
     /// and characteristic function integration requiring precision beyond 1e-10.
     ///
     /// Exact for polynomials up to degree 39.
+    ///
+    /// # Deprecation
+    ///
+    /// Use [`GaussHermiteQuadrature::new(20)`](Self::new) instead for a unified API.
+    #[deprecated(
+        since = "0.9.0",
+        note = "Use `GaussHermiteQuadrature::new(20).expect(\"valid order\")` instead"
+    )]
     pub fn order_20() -> Self {
         // Nodes and weights computed using numpy.polynomial.hermite.hermgauss(20)
         // adjusted for probabilist's convention
@@ -392,11 +430,18 @@ impl GaussHermiteQuadrature {
     where
         F2: Fn(f64) -> f64 + Copy,
     {
+        let quad = |order: usize| {
+            GaussHermiteQuadrature::new(order).unwrap_or_else(|| {
+                debug_assert!(false, "Invalid Gauss-Hermite order: {order}");
+                GaussHermiteQuadrature::new(20)
+                    .unwrap_or_else(|| unreachable!("20 is a valid Gauss-Hermite order"))
+            })
+        };
         let base = self.integrate(f);
         match self.points.len() {
             20 => base,
             15 => {
-                let v20 = GaussHermiteQuadrature::order_20().integrate(f);
+                let v20 = quad(20).integrate(f);
                 if (v20 - base).abs() <= tolerance {
                     base
                 } else {
@@ -404,27 +449,27 @@ impl GaussHermiteQuadrature {
                 }
             }
             10 => {
-                let v15 = GaussHermiteQuadrature::order_15().integrate(f);
+                let v15 = quad(15).integrate(f);
                 if (v15 - base).abs() <= tolerance {
                     v15
                 } else {
-                    GaussHermiteQuadrature::order_20().integrate(f)
+                    quad(20).integrate(f)
                 }
             }
             7 => {
-                let v10 = GaussHermiteQuadrature::order_10().integrate(f);
+                let v10 = quad(10).integrate(f);
                 if (v10 - base).abs() <= tolerance {
                     v10
                 } else {
-                    GaussHermiteQuadrature::order_15().integrate(f)
+                    quad(15).integrate(f)
                 }
             }
             5 => {
-                let v7 = GaussHermiteQuadrature::order_7().integrate(f);
+                let v7 = quad(7).integrate(f);
                 if (v7 - base).abs() <= tolerance {
                     v7
                 } else {
-                    GaussHermiteQuadrature::order_10().integrate(f)
+                    quad(10).integrate(f)
                 }
             }
             _ => base,
@@ -959,7 +1004,12 @@ where
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
+#[allow(
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing,
+    deprecated
+)]
 mod tests {
     use super::*;
 

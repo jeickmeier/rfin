@@ -283,9 +283,9 @@ fn bench_gauss_legendre_adaptive(c: &mut Criterion) {
 fn bench_gauss_hermite(c: &mut Criterion) {
     let mut group = c.benchmark_group("integration_gauss_hermite");
 
-    let quad5 = GaussHermiteQuadrature::order_5();
-    let quad7 = GaussHermiteQuadrature::order_7();
-    let quad10 = GaussHermiteQuadrature::order_10();
+    let quad5 = GaussHermiteQuadrature::new(5).expect("5 is valid order");
+    let quad7 = GaussHermiteQuadrature::new(7).expect("7 is valid order");
+    let quad10 = GaussHermiteQuadrature::new(10).expect("10 is valid order");
 
     // Polynomial integral over normal distribution
     let x_squared = |x: f64| x * x;

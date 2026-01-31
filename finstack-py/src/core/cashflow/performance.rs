@@ -1,5 +1,8 @@
 //! Performance measurement utilities: IRR and NPV calculations.
 //!
+// Allow deprecated npv_constant until migration to npv with FlatCurve
+#![allow(deprecated)]
+//!
 //! This module provides time-value-of-money analytics for investment performance
 //! measurement, including Net Present Value (NPV) and Internal Rate of Return (IRR)
 //! calculations.

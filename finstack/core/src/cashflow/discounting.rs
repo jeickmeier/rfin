@@ -244,6 +244,33 @@ pub fn npv<D: Discounting + ?Sized>(
 /// **Convenience wrapper** over [`npv()`] that creates a [`FlatCurve`] internally.
 /// For production use with market curves, prefer [`npv()`] directly.
 ///
+/// # Deprecation
+///
+/// This function is deprecated. Use [`npv()`] with a [`FlatCurve`] instead for explicit,
+/// consistent API patterns:
+///
+/// ```rust
+/// use finstack_core::cashflow::npv;
+/// use finstack_core::market_data::term_structures::FlatCurve;
+/// use finstack_core::dates::{Date, DayCount};
+/// use finstack_core::money::Money;
+/// use finstack_core::currency::Currency;
+/// use time::Month;
+///
+/// let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
+/// let flows = vec![(
+///     Date::from_calendar_date(2026, Month::January, 1).expect("Valid date"),
+///     Money::new(105.0, Currency::USD),
+/// )];
+///
+/// // Migration: replace npv_constant with npv + FlatCurve
+/// let rate: f64 = 0.05;
+/// let continuous_rate = (1.0 + rate).ln();
+/// let curve = FlatCurve::new(continuous_rate, base, DayCount::Act365F, "NPV");
+/// let pv = npv(&curve, base, Some(DayCount::Act365F), &flows)?;
+/// # Ok::<(), finstack_core::Error>(())
+/// ```
+///
 /// # When to Use
 ///
 /// This function is useful for:
@@ -282,6 +309,7 @@ pub fn npv<D: Discounting + ?Sized>(
 /// # Example
 ///
 /// ```rust
+/// # #[allow(deprecated)]
 /// use finstack_core::cashflow::npv_constant;
 /// use finstack_core::dates::{Date, DayCount};
 /// use finstack_core::money::Money;
@@ -295,10 +323,16 @@ pub fn npv<D: Discounting + ?Sized>(
 /// );
 ///
 /// // Discount at 5%
+/// # #[allow(deprecated)]
 /// let pv = npv_constant(&[cf], 0.05, base, DayCount::Act365F)?;
 /// assert!((pv.amount() - 100.0).abs() < 0.1);
 /// # Ok::<(), finstack_core::Error>(())
 /// ```
+#[deprecated(
+    since = "0.9.0",
+    note = "Use `npv()` with a `FlatCurve` instead. Example: \
+            `let curve = FlatCurve::new((1.0 + rate).ln(), base, dc, \"id\"); npv(&curve, base, Some(dc), &flows)`"
+)]
 pub fn npv_constant(
     cash_flows: &[(Date, Money)],
     discount_rate: f64,
@@ -381,7 +415,12 @@ where
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
+#[allow(
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing,
+    deprecated
+)]
 mod tests {
     use super::*;
     use crate::currency::Currency;
