@@ -296,12 +296,23 @@ impl CurveStorage {
             Self::Inflation(original) => {
                 // Special handling for TriangularKeyRate bumps on InflationCurve
                 if let BumpType::TriangularKeyRate { target_bucket, .. } = spec.bump_type {
-                    let delta = spec.additive_fraction().ok_or_else(|| {
-                        crate::error::InputError::UnsupportedBump {
-                            reason: "InflationCurve key-rate bump requires additive fraction"
-                                .to_string(),
+                    // Only support additive bumps for this special case
+                    let (delta, is_multiplicative) =
+                        spec.resolve_standard_values().ok_or_else(|| {
+                            crate::error::InputError::UnsupportedBump {
+                                reason: "InflationCurve key-rate bump requires additive bump"
+                                    .to_string(),
+                            }
+                        })?;
+
+                    if is_multiplicative {
+                        return Err(crate::error::InputError::UnsupportedBump {
+                            reason:
+                                "InflationCurve key-rate bump does not support multiplicative bumps"
+                                    .to_string(),
                         }
-                    })?;
+                        .into());
+                    }
                     let mut points: Vec<(f64, f64)> = original
                         .knots()
                         .iter()

@@ -59,7 +59,7 @@
 use crate::{
     error::InputError,
     market_data::{
-        bumps::{BumpMode, BumpSpec, BumpUnits, Bumpable},
+        bumps::{BumpSpec, Bumpable},
         traits::TermStructure,
     },
     math::interp::utils::locate_segment,
@@ -369,30 +369,21 @@ impl Bumpable for VolSurface {
             .into());
         }
 
-        let bumped_vols: Vec<f64> = match (spec.mode, spec.units) {
-            (BumpMode::Additive, BumpUnits::RateBp | BumpUnits::Percent | BumpUnits::Fraction) => {
-                let delta =
-                    spec.additive_fraction()
-                        .ok_or_else(|| InputError::UnsupportedBump {
-                            reason: "VolSurface additive bump failed to compute fraction"
-                                .to_string(),
-                        })?;
-                self.vols.iter().map(|&v| (v + delta).max(0.0)).collect()
+        let (raw_val, is_multiplicative) = spec.resolve_standard_values().ok_or_else(|| {
+            InputError::UnsupportedBump {
+                reason: format!(
+                    "VolSurface only supports Additive/{{RateBp,Percent,Fraction}} or Multiplicative/Factor, got {:?}/{:?}",
+                    spec.mode, spec.units
+                ),
             }
-            (BumpMode::Multiplicative, BumpUnits::Factor) => self
-                .vols
-                .iter()
-                .map(|&v| (v * spec.value).max(0.0))
-                .collect(),
-            _ => {
-                return Err(InputError::UnsupportedBump {
-                    reason: format!(
-                        "VolSurface only supports Additive/{{RateBp,Percent,Fraction}} or Multiplicative/Factor, got {:?}/{:?}",
-                        spec.mode, spec.units
-                    ),
-                }
-                .into());
-            }
+        })?;
+
+        let bumped_vols: Vec<f64> = if is_multiplicative {
+            // Factor bump: new_vol = vol * factor
+            self.vols.iter().map(|&v| (v * raw_val).max(0.0)).collect()
+        } else {
+            // Additive bump: new_vol = vol + delta
+            self.vols.iter().map(|&v| (v + raw_val).max(0.0)).collect()
         };
 
         Ok(Self {

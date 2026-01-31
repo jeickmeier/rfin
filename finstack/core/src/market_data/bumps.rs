@@ -192,33 +192,7 @@ impl BumpSpec {
     }
 
     /// If additive, return the bump as a normalized fraction (e.g., 100bp -> 0.01, 2% -> 0.02).
-    pub(crate) fn additive_fraction(&self) -> Option<f64> {
-        if self.mode != BumpMode::Additive {
-            return None;
-        }
-        let frac = match self.units {
-            BumpUnits::RateBp => self.value / 10_000.0,
-            BumpUnits::Percent => self.value / 100.0,
-            BumpUnits::Fraction => self.value,
-            BumpUnits::Factor => return None,
-        };
-        Some(frac)
-    }
-
-    /// Ensure the bump specification is Additive/RateBp.
-    pub fn validate_additive_bp(&self, context: &str) -> crate::Result<()> {
-        if self.mode != BumpMode::Additive || self.units != BumpUnits::RateBp {
-            return Err(crate::error::InputError::UnsupportedBump {
-                reason: format!(
-                    "{} only supports Additive/RateBp bumps, got {:?}/{:?}",
-                    context, self.mode, self.units
-                ),
-            }
-            .into());
-        }
-        Ok(())
-    }
-
+    ///
     /// Ensure the bump type is Parallel.
     pub fn validate_parallel(&self, context: &str) -> crate::Result<()> {
         if !matches!(self.bump_type, BumpType::Parallel) {
@@ -228,6 +202,25 @@ impl BumpSpec {
             .into());
         }
         Ok(())
+    }
+
+    /// Resolve standard bump units to a raw magnitude and a flag indicating if it is multiplicative.
+    ///
+    /// This handles the common logic found in curve bump implementations:
+    /// - Additive/RateBp -> value / 10,000, not multiplicative
+    /// - Additive/Percent -> value / 100, not multiplicative
+    /// - Additive/Fraction -> value, not multiplicative
+    /// - Multiplicative/Factor -> value, is multiplicative
+    ///
+    /// Returns `None` for other combinations (e.g. Multiplicative/Percent which isn't standard everywhere yet).
+    pub fn resolve_standard_values(&self) -> Option<(f64, bool)> {
+        match (self.mode, self.units) {
+            (BumpMode::Additive, BumpUnits::RateBp) => Some((self.value / 10_000.0, false)),
+            (BumpMode::Additive, BumpUnits::Percent) => Some((self.value / 100.0, false)),
+            (BumpMode::Additive, BumpUnits::Fraction) => Some((self.value, false)),
+            (BumpMode::Multiplicative, BumpUnits::Factor) => Some((self.value, true)),
+            _ => None,
+        }
     }
 }
 
@@ -326,10 +319,28 @@ pub trait Bumpable: Sized {
 
 impl Bumpable for DiscountCurve {
     fn apply_bump(&self, spec: BumpSpec) -> crate::Result<Self> {
-        spec.validate_additive_bp("DiscountCurve")?;
+        let (val, is_multiplicative) = spec.resolve_standard_values().ok_or_else(|| {
+            crate::error::InputError::UnsupportedBump {
+                reason: format!(
+                    "DiscountCurve only supports Additive/{{RateBp,Percent,Fraction}} bumps, got {:?}/{:?}",
+                    spec.mode, spec.units
+                ),
+            }
+        })?;
+
+        if is_multiplicative {
+            return Err(crate::error::InputError::UnsupportedBump {
+                reason: "DiscountCurve does not support Multiplicative bumps".to_string(),
+            }
+            .into());
+        }
+
+        // Internal DiscountCurve methods expect bump in Basis Points (BP).
+        // Convert normalized value back to BP.
+        let bp = val * 10_000.0;
 
         match spec.bump_type {
-            BumpType::Parallel => self.with_parallel_bump(spec.value),
+            BumpType::Parallel => self.with_parallel_bump(bp),
             BumpType::TriangularKeyRate {
                 prev_bucket,
                 target_bucket,
@@ -338,7 +349,7 @@ impl Bumpable for DiscountCurve {
                 prev_bucket,
                 target_bucket,
                 next_bucket,
-                spec.value,
+                bp,
             ),
         }
     }
@@ -351,27 +362,15 @@ impl Bumpable for ForwardCurve {
         match spec.bump_type {
             BumpType::Parallel => {
                 // Simple pattern matching without boxed closures
-                let (bump_amount, is_multiplicative) = match (spec.mode, spec.units) {
-                    (
-                        BumpMode::Additive,
-                        BumpUnits::RateBp | BumpUnits::Fraction | BumpUnits::Percent,
-                    ) => {
-                        let frac = spec.additive_fraction().ok_or_else(|| InputError::UnsupportedBump {
-                            reason: "ForwardCurve: additive bump requires RateBp, Percent, or Fraction units".to_string(),
-                        })?;
-                        (frac, false)
+                // Simple pattern matching without boxed closures
+                let (bump_amount, is_multiplicative) = spec.resolve_standard_values().ok_or_else(|| {
+                    InputError::UnsupportedBump {
+                        reason: format!(
+                            "ForwardCurve parallel bump requires Additive/{{RateBp,Percent,Fraction}} or Multiplicative/Factor, got {:?}/{:?}",
+                            spec.mode, spec.units
+                        ),
                     }
-                    (BumpMode::Multiplicative, BumpUnits::Factor) => (spec.value, true),
-                    _ => {
-                        return Err(InputError::UnsupportedBump {
-                            reason: format!(
-                                "ForwardCurve parallel bump requires Additive/{{RateBp,Percent,Fraction}} or Multiplicative/Factor, got {:?}/{:?}",
-                                spec.mode, spec.units
-                            ),
-                        }
-                        .into());
-                    }
-                };
+                })?;
 
                 let bumped_id = match spec.units {
                     BumpUnits::RateBp => id_bump_bp(self.id().as_str(), spec.value),
@@ -453,26 +452,24 @@ impl Bumpable for HazardCurve {
         }
 
         // Interpret RateBp/Percent as **par spread** shocks; convert to hazard using 1/(1 - recovery).
-        let shift = match (spec.mode, spec.units) {
-            (BumpMode::Additive, BumpUnits::RateBp | BumpUnits::Fraction | BumpUnits::Percent) => {
-                let spread =
-                    spec.additive_fraction()
-                        .ok_or_else(|| InputError::UnsupportedBump {
-                            reason: "HazardCurve additive bump failed to compute fraction"
-                                .to_string(),
-                        })?;
-                spread / (1.0 - recovery)
+        // Interpret RateBp/Percent as **par spread** shocks; convert to hazard using 1/(1 - recovery).
+        let (spread, is_multiplicative) = spec.resolve_standard_values().ok_or_else(|| {
+            InputError::UnsupportedBump {
+                reason: format!(
+                    "HazardCurve only supports Additive/{{RateBp,Percent,Fraction}} bumps, got {:?}/{:?}",
+                    spec.mode, spec.units
+                ),
             }
-            _ => {
-                return Err(InputError::UnsupportedBump {
-                    reason: format!(
-                        "HazardCurve only supports Additive/{{RateBp,Percent,Fraction}} bumps, got {:?}/{:?}",
-                        spec.mode, spec.units
-                    ),
-                }
-                .into());
+        })?;
+
+        if is_multiplicative {
+            return Err(InputError::UnsupportedBump {
+                reason: "HazardCurve does not support Multiplicative bumps".to_string(),
             }
-        };
+            .into());
+        }
+
+        let shift = spread / (1.0 - recovery);
 
         let bumped_id = match spec.units {
             BumpUnits::RateBp => id_spread_bp(self.id().as_str(), spec.value),
@@ -512,25 +509,21 @@ impl Bumpable for InflationCurve {
             .into());
         }
 
-        let factor = match (spec.mode, spec.units) {
-            (BumpMode::Additive, BumpUnits::Percent | BumpUnits::Fraction) => {
-                let frac = spec
-                    .additive_fraction()
-                    .ok_or_else(|| InputError::UnsupportedBump {
-                        reason: "InflationCurve additive bump failed to compute fraction"
-                            .to_string(),
-                    })?;
-                1.0 + frac
-            }
-            (BumpMode::Multiplicative, BumpUnits::Factor) => spec.value,
-            _ => {
-                return Err(InputError::UnsupportedBump {
-                    reason: format!(
+        let factor = {
+            let (raw_val, is_multiplicative) = spec.resolve_standard_values().ok_or_else(|| {
+                InputError::UnsupportedBump {
+                     reason: format!(
                         "InflationCurve only supports Additive/{{Percent,Fraction}} or Multiplicative/Factor, got {:?}/{:?}",
                         spec.mode, spec.units
                     ),
                 }
-                .into());
+            })?;
+
+            if is_multiplicative {
+                raw_val
+            } else {
+                // Additive bumps on inflation curve (e.g. 1%) are treated as 1 + delta factor
+                1.0 + raw_val
             }
         };
 
@@ -568,25 +561,20 @@ impl Bumpable for BaseCorrelationCurve {
             .into());
         }
 
-        let (add, mul) = match (spec.mode, spec.units) {
-            (BumpMode::Additive, BumpUnits::Percent | BumpUnits::Fraction) => {
-                let frac = spec
-                    .additive_fraction()
-                    .ok_or_else(|| InputError::UnsupportedBump {
-                        reason: "BaseCorrelationCurve additive bump failed to compute fraction"
-                            .to_string(),
-                    })?;
-                (frac, 1.0)
-            }
-            (BumpMode::Multiplicative, BumpUnits::Factor) => (0.0, spec.value),
-            _ => {
-                return Err(InputError::UnsupportedBump {
-                    reason: format!(
+        let (add, mul) = {
+            let (raw_val, is_multiplicative) = spec.resolve_standard_values().ok_or_else(|| {
+                InputError::UnsupportedBump {
+                     reason: format!(
                         "BaseCorrelationCurve only supports Additive/{{Percent,Fraction}} or Multiplicative/Factor, got {:?}/{:?}",
-                        spec.mode, spec.units
+                         spec.mode, spec.units
                     ),
                 }
-                .into());
+            })?;
+
+            if is_multiplicative {
+                (0.0, raw_val)
+            } else {
+                (raw_val, 1.0)
             }
         };
 
@@ -678,49 +666,33 @@ impl Bumpable for MarketScalar {
     fn apply_bump(&self, spec: BumpSpec) -> crate::Result<Self> {
         use crate::error::InputError;
 
+        let (raw_val, is_multiplicative) = spec.resolve_standard_values().ok_or_else(|| {
+            InputError::UnsupportedBump {
+                reason: format!(
+                    "MarketScalar only supports Additive/{{RateBp,Percent,Fraction}} or Multiplicative/Factor, got {:?}/{:?}",
+                    spec.mode, spec.units
+                ),
+            }
+        })?;
+
         match self {
-            MarketScalar::Unitless(v) => match (spec.mode, spec.units) {
-                (
-                    BumpMode::Additive,
-                    BumpUnits::RateBp | BumpUnits::Percent | BumpUnits::Fraction,
-                ) => {
-                    let frac = spec.additive_fraction().ok_or_else(|| InputError::UnsupportedBump {
-                        reason: "MarketScalar::Unitless additive bump failed to compute fraction"
-                            .to_string(),
-                    })?;
-                    Ok(MarketScalar::Unitless(v + frac))
-                }
-                (BumpMode::Multiplicative, BumpUnits::Factor) => {
-                    Ok(MarketScalar::Unitless(v * spec.value))
-                }
-                _ => Err(InputError::UnsupportedBump {
-                    reason: format!(
-                        "MarketScalar::Unitless only supports Additive/{{RateBp,Percent,Fraction}} or Multiplicative/Factor, got {:?}/{:?}",
-                        spec.mode, spec.units
-                    ),
-                }
-                .into()),
-            },
-            MarketScalar::Price(m) => match (spec.mode, spec.units) {
-                (BumpMode::Additive, BumpUnits::Percent | BumpUnits::Fraction) => {
-                    let frac = spec.additive_fraction().ok_or_else(|| InputError::UnsupportedBump {
-                        reason: "MarketScalar::Price additive bump failed to compute fraction"
-                            .to_string(),
-                    })?;
-                    let factor = 1.0 + frac;
-                    Ok(MarketScalar::Price(*m * factor))
-                }
-                (BumpMode::Multiplicative, BumpUnits::Factor) => {
-                    Ok(MarketScalar::Price(*m * spec.value))
-                }
-                _ => Err(InputError::UnsupportedBump {
-                    reason: format!(
-                        "MarketScalar::Price only supports Additive/{{Percent,Fraction}} or Multiplicative/Factor, got {:?}/{:?}",
-                        spec.mode, spec.units
-                    ),
-                }
-                .into()),
-            },
+            MarketScalar::Unitless(v) => {
+                let new_val = if is_multiplicative {
+                    v * raw_val
+                } else {
+                    v + raw_val
+                };
+                Ok(MarketScalar::Unitless(new_val))
+            }
+            MarketScalar::Price(m) => {
+                let new_val = if is_multiplicative {
+                    *m * raw_val
+                } else {
+                    // Original logic implies additive bumps on Price are proportional (1 + delta)
+                    *m * (1.0 + raw_val)
+                };
+                Ok(MarketScalar::Price(new_val))
+            }
         }
     }
 }
@@ -738,33 +710,25 @@ impl Bumpable for ScalarTimeSeries {
             .into());
         }
 
-        let bumped_obs: Vec<(crate::dates::Date, f64)> = match (spec.mode, spec.units) {
-            (BumpMode::Additive, BumpUnits::RateBp | BumpUnits::Percent | BumpUnits::Fraction) => {
-                let delta =
-                    spec.additive_fraction()
-                        .ok_or_else(|| InputError::UnsupportedBump {
-                            reason: "ScalarTimeSeries additive bump failed to compute fraction"
-                                .to_string(),
-                        })?;
-                self.observations()
-                    .into_iter()
-                    .map(|(d, v)| (d, v + delta))
-                    .collect()
+        let (raw_val, is_multiplicative) = spec.resolve_standard_values().ok_or_else(|| {
+            InputError::UnsupportedBump {
+                reason: format!(
+                    "ScalarTimeSeries only supports Additive/{{RateBp,Percent,Fraction}} or Multiplicative/Factor, got {:?}/{:?}",
+                    spec.mode, spec.units
+                ),
             }
-            (BumpMode::Multiplicative, BumpUnits::Factor) => self
-                .observations()
+        })?;
+
+        let bumped_obs: Vec<(crate::dates::Date, f64)> = if is_multiplicative {
+            self.observations()
                 .into_iter()
-                .map(|(d, v)| (d, v * spec.value))
-                .collect(),
-            _ => {
-                return Err(InputError::UnsupportedBump {
-                    reason: format!(
-                        "ScalarTimeSeries only supports Additive/{{RateBp,Percent,Fraction}} or Multiplicative/Factor, got {:?}/{:?}",
-                        spec.mode, spec.units
-                    ),
-                }
-                .into());
-            }
+                .map(|(d, v)| (d, v * raw_val))
+                .collect()
+        } else {
+            self.observations()
+                .into_iter()
+                .map(|(d, v)| (d, v + raw_val))
+                .collect()
         };
 
         ScalarTimeSeries::new(self.id().as_str(), bumped_obs, self.currency())
@@ -833,5 +797,170 @@ impl Bumpable for PriceCurve {
                 self.with_triangular_key_rate_bump(prev_bucket, target_bucket, next_bucket, bump)
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_resolve_standard_values() {
+        // Additive RateBp (divided by 10,000)
+        let spec = BumpSpec {
+            mode: BumpMode::Additive,
+            units: BumpUnits::RateBp,
+            value: 50.0,
+            bump_type: BumpType::Parallel,
+        };
+        assert_eq!(spec.resolve_standard_values(), Some((0.0050, false)));
+
+        // Additive Percent (divided by 100)
+        let spec = BumpSpec {
+            mode: BumpMode::Additive,
+            units: BumpUnits::Percent,
+            value: 2.0,
+            bump_type: BumpType::Parallel,
+        };
+        assert_eq!(spec.resolve_standard_values(), Some((0.02, false)));
+
+        // Additive Fraction (raw value)
+        let spec = BumpSpec {
+            mode: BumpMode::Additive,
+            units: BumpUnits::Fraction,
+            value: 0.05,
+            bump_type: BumpType::Parallel,
+        };
+        assert_eq!(spec.resolve_standard_values(), Some((0.05, false)));
+
+        // Multiplicative Factor (raw value, is_multiplicative=true)
+        let spec = BumpSpec {
+            mode: BumpMode::Multiplicative,
+            units: BumpUnits::Factor,
+            value: 1.10,
+            bump_type: BumpType::Parallel,
+        };
+        assert_eq!(spec.resolve_standard_values(), Some((1.10, true)));
+
+        // Unsupported combination (Multiplicative/Percent) -> None
+        let spec = BumpSpec {
+            mode: BumpMode::Multiplicative,
+            units: BumpUnits::Percent,
+            value: 10.0,
+            bump_type: BumpType::Parallel,
+        };
+        assert_eq!(spec.resolve_standard_values(), None);
+    }
+
+    #[test]
+    fn test_forward_curve_bump() -> crate::Result<()> {
+        use crate::dates::Date;
+        use crate::market_data::term_structures::ForwardCurve;
+        use time::Month;
+
+        let base = Date::from_calendar_date(2025, Month::January, 1).map_err(|_| {
+            crate::error::InputError::InvalidDate {
+                year: 2025,
+                month: 1,
+                day: 1,
+            }
+        })?;
+        let height_check = 0.04; // rate at 1.0 (knot)
+
+        let fc = ForwardCurve::builder("USD-TEST-3M", 0.25)
+            .base_date(base)
+            .knots([(0.5, 0.038), (1.0, height_check)]) // Minimum 2 points required
+            .build()?;
+
+        // 1. Additive RateBp
+        let spec = BumpSpec::parallel_bp(10.0); // +10bps = +0.0010
+        let bumped = fc.apply_bump(spec)?;
+        assert!((bumped.rate(1.0) - 0.0410).abs() < 1e-12);
+
+        // 2. Additive Percent
+        let spec_pct = BumpSpec::inflation_shift_pct(0.5); // Using helper, treated as Additive Percent
+                                                           // ForwardCurve generic logic handles Additive/Percent -> value/100
+                                                           // So 0.5 -> 0.005. rate = 0.04 + 0.005 = 0.045
+        let bumped_pct = fc.apply_bump(spec_pct)?;
+        assert!((bumped_pct.rate(1.0) - 0.045).abs() < 1e-12);
+
+        // 3. Multiplicative Factor
+        let spec_mul = BumpSpec::multiplier(1.10); // +10%
+        let bumped_mul = fc.apply_bump(spec_mul)?;
+        assert!((bumped_mul.rate(1.0) - 0.044).abs() < 1e-12);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_hazard_curve_bump() -> crate::Result<()> {
+        use crate::dates::Date;
+        use crate::market_data::term_structures::HazardCurve;
+        use time::Month;
+
+        let base = Date::from_calendar_date(2025, Month::January, 1).map_err(|_| {
+            crate::error::InputError::InvalidDate {
+                year: 2025,
+                month: 1,
+                day: 1,
+            }
+        })?;
+        let hc = HazardCurve::builder("CDS-TEST")
+            .base_date(base)
+            .recovery_rate(0.40)
+            .knots([(1.0, 0.02)]) // lambda = 0.02
+            .build()?;
+
+        // Additive RateBp
+        // shift = 10bps / (1 - R) = 0.0010 / 0.6 = 0.001666...
+        let spec = BumpSpec::parallel_bp(10.0);
+        let bumped = hc.apply_bump(spec)?;
+        let expected_lambda = 0.02 + (0.0010 / 0.60);
+        assert!((bumped.hazard_rate(1.0) - expected_lambda).abs() < 1e-10);
+
+        // Verify Multiplicative raises error
+        let spec_mul = BumpSpec::multiplier(1.10);
+        assert!(hc.apply_bump(spec_mul).is_err());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_discount_curve_bump() -> crate::Result<()> {
+        use crate::dates::Date;
+        use crate::market_data::term_structures::DiscountCurve;
+        use time::Month;
+
+        let base = Date::from_calendar_date(2025, Month::January, 1).map_err(|_| {
+            crate::error::InputError::InvalidDate {
+                year: 2025,
+                month: 1,
+                day: 1,
+            }
+        })?;
+        // Flat curve: 5% continuously compounded -> DF(1) = exp(-0.05) ≈ 0.951229
+        let dc = DiscountCurve::builder("USD-OIS")
+            .base_date(base)
+            .knots([(0.5, 0.975309912), (1.0, 0.9512294245)]) // Minimum 2 points
+            .build()?;
+
+        // 1. Additive RateBp
+        let spec = BumpSpec::parallel_bp(100.0); // +100bps = +1%
+        let bumped = dc.apply_bump(spec)?;
+        // New rate = 5% + 1% = 6%
+        // DF(1) = exp(-0.06) ≈ 0.9417645336
+        assert!((bumped.df(1.0) - 0.9417645336).abs() < 1e-8);
+
+        // 2. Additive Percent (New capability!)
+        // 1% additive bump (same as 100bp)
+        let spec_pct = BumpSpec::inflation_shift_pct(1.0);
+        let bumped_pct = dc.apply_bump(spec_pct)?;
+        assert!((bumped_pct.df(1.0) - 0.9417645336).abs() < 1e-8);
+
+        // 3. Verify Multiplicative raises error
+        let spec_mul = BumpSpec::multiplier(1.10);
+        assert!(dc.apply_bump(spec_mul).is_err());
+
+        Ok(())
     }
 }
