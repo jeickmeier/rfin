@@ -74,7 +74,22 @@ All public APIs are documented with examples in the Rustdoc comments; this READM
   - Trait‑based addition/subtraction:
     - `impl Add for Money` → `Result<Money, Error>`.
     - `impl Sub for Money` → `Result<Money, Error>`.
-    - `AddAssign` / `SubAssign` assert same‑currency in debug builds and then mutate in place.
+    - `AddAssign` / `SubAssign` assert same‑currency and panic on mismatch.
+
+> **Style note**: The `Add` and `Sub` trait implementations return `Result<Money, Error>`,
+> which is **unusual in Rust** (typically `Add::Output = Self`). This design enforces
+> currency safety at compile‑time ergonomics cost. Because `a + b` returning `Result`
+> can surprise readers, **prefer the explicit `checked_add` / `checked_sub` methods**
+> in application code for clarity:
+>
+> ```rust
+> // Recommended: explicit about Result return
+> let total = notional.checked_add(fees)?;
+>
+> // Also valid, but less obvious that it returns Result
+> let total = (notional + fees)?;
+> ```
+>
 - **FX conversion**
   - `Money::convert(to: Currency, on: Date, provider: &impl FxProvider, policy: FxConversionPolicy) -> Result<Money>`:
     - No‑op when `self.currency == to`.

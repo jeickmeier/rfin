@@ -355,6 +355,11 @@ impl Money {
 
     /// Add two amounts, returning an error when currencies do not match.
     ///
+    /// This method is semantically identical to the `+` operator, but is preferred
+    /// in application code because it makes the `Result` return type explicit.
+    /// The `Add` trait impl for `Money` unusually returns `Result<Money, Error>`
+    /// rather than `Money`, which can surprise readers unfamiliar with the API.
+    ///
     /// # Examples
     /// ```rust
     /// use finstack_core::money::Money;
@@ -362,8 +367,13 @@ impl Money {
     ///
     /// let lhs = Money::new(50.0, Currency::USD);
     /// let rhs = Money::new(25.0, Currency::USD);
+    ///
+    /// // Preferred: explicit about Result return
     /// let sum = lhs.checked_add(rhs).expect("Currency match should succeed");
     /// assert_eq!(sum.amount(), 75.0);
+    ///
+    /// // Also valid, but less obvious that it returns Result
+    /// // let sum = (lhs + rhs)?;
     /// ```
     #[must_use = "returns new Money if currencies match"]
     #[inline]
@@ -377,6 +387,11 @@ impl Money {
 
     /// Subtract two amounts, returning an error when currencies do not match.
     ///
+    /// This method is semantically identical to the `-` operator, but is preferred
+    /// in application code because it makes the `Result` return type explicit.
+    /// The `Sub` trait impl for `Money` unusually returns `Result<Money, Error>`
+    /// rather than `Money`, which can surprise readers unfamiliar with the API.
+    ///
     /// # Examples
     /// ```rust
     /// use finstack_core::money::Money;
@@ -384,8 +399,13 @@ impl Money {
     ///
     /// let lhs = Money::new(50.0, Currency::USD);
     /// let rhs = Money::new(25.0, Currency::USD);
+    ///
+    /// // Preferred: explicit about Result return
     /// let diff = lhs.checked_sub(rhs).expect("Currency match should succeed");
     /// assert_eq!(diff.amount(), 25.0);
+    ///
+    /// // Also valid, but less obvious that it returns Result
+    /// // let diff = (lhs - rhs)?;
     /// ```
     #[must_use = "returns new Money if currencies match"]
     #[inline]
@@ -532,6 +552,10 @@ impl Div<f64> for Money {
     }
 }
 
+/// **Note**: This `Add` implementation returns `Result<Money, Error>`, which is
+/// unusual in Rust (typically `Add::Output = Self`). This design enforces currency
+/// safety but can surprise readers. Prefer [`Money::checked_add`] in application
+/// code for clarity.
 impl Add for Money {
     type Output = Result<Self, Error>;
 
@@ -545,6 +569,10 @@ impl Add for Money {
     }
 }
 
+/// **Note**: This `Sub` implementation returns `Result<Money, Error>`, which is
+/// unusual in Rust (typically `Sub::Output = Self`). This design enforces currency
+/// safety but can surprise readers. Prefer [`Money::checked_sub`] in application
+/// code for clarity.
 impl Sub for Money {
     type Output = Result<Self, Error>;
 
