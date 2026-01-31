@@ -708,7 +708,7 @@ impl<'a> ScheduleBuilder<'a> {
     /// standard CDS roll dates.
     #[must_use]
     pub fn cds_imm(mut self) -> Self {
-        self.freq = Tenor::three_months();
+        self.freq = Tenor::quarterly();
         self.stub = StubKind::ShortBack;
         self.cds_imm_mode = true;
         self
@@ -739,7 +739,7 @@ impl<'a> ScheduleBuilder<'a> {
     /// ```
     #[must_use]
     pub fn imm(mut self) -> Self {
-        self.freq = Tenor::three_months();
+        self.freq = Tenor::quarterly();
         self.stub = StubKind::ShortBack;
         self.imm_mode = true;
         self

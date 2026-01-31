@@ -496,42 +496,6 @@ impl Tenor {
         day_count.year_fraction(as_of, end_date, ctx)
     }
 
-    /// Convenience constructor for overnight (1D) tenor.
-    #[inline]
-    pub const fn overnight() -> Self {
-        Self::new(1, TenorUnit::Days)
-    }
-
-    /// Convenience constructor for 1 week tenor.
-    #[inline]
-    pub const fn one_week() -> Self {
-        Self::new(1, TenorUnit::Weeks)
-    }
-
-    /// Convenience constructor for 1 month tenor.
-    #[inline]
-    pub const fn one_month() -> Self {
-        Self::new(1, TenorUnit::Months)
-    }
-
-    /// Convenience constructor for 3 month (quarterly) tenor.
-    #[inline]
-    pub const fn three_months() -> Self {
-        Self::new(3, TenorUnit::Months)
-    }
-
-    /// Convenience constructor for 6 month (semi-annual) tenor.
-    #[inline]
-    pub const fn six_months() -> Self {
-        Self::new(6, TenorUnit::Months)
-    }
-
-    /// Convenience constructor for 1 year tenor.
-    #[inline]
-    pub const fn one_year() -> Self {
-        Self::new(1, TenorUnit::Years)
-    }
-
     /// Convenience constructor for Annual frequency (1 Year).
     #[inline]
     pub const fn annual() -> Self {
@@ -562,16 +526,16 @@ impl Tenor {
         Self::new(1, TenorUnit::Months)
     }
 
-    /// Convenience constructor for Bi-Weekly frequency (14 Days).
+    /// Convenience constructor for Bi-Weekly frequency (2 Weeks).
     #[inline]
     pub const fn biweekly() -> Self {
-        Self::new(14, TenorUnit::Days)
+        Self::new(2, TenorUnit::Weeks)
     }
 
-    /// Convenience constructor for Weekly frequency (7 Days).
+    /// Convenience constructor for Weekly frequency (1 Week).
     #[inline]
     pub const fn weekly() -> Self {
-        Self::new(7, TenorUnit::Days)
+        Self::new(1, TenorUnit::Weeks)
     }
 
     /// Convenience constructor for Daily frequency (1 Day).
@@ -829,11 +793,13 @@ mod tests {
 
     #[test]
     fn test_convenience_constructors() {
-        assert_eq!(Tenor::overnight(), Tenor::new(1, TenorUnit::Days));
-        assert_eq!(Tenor::one_week(), Tenor::new(1, TenorUnit::Weeks));
-        assert_eq!(Tenor::one_month(), Tenor::new(1, TenorUnit::Months));
-        assert_eq!(Tenor::three_months(), Tenor::new(3, TenorUnit::Months));
-        assert_eq!(Tenor::six_months(), Tenor::new(6, TenorUnit::Months));
-        assert_eq!(Tenor::one_year(), Tenor::new(1, TenorUnit::Years));
+        assert_eq!(Tenor::daily(), Tenor::new(1, TenorUnit::Days));
+        assert_eq!(Tenor::weekly(), Tenor::new(1, TenorUnit::Weeks));
+        assert_eq!(Tenor::biweekly(), Tenor::new(2, TenorUnit::Weeks));
+        assert_eq!(Tenor::monthly(), Tenor::new(1, TenorUnit::Months));
+        assert_eq!(Tenor::bimonthly(), Tenor::new(2, TenorUnit::Months));
+        assert_eq!(Tenor::quarterly(), Tenor::new(3, TenorUnit::Months));
+        assert_eq!(Tenor::semi_annual(), Tenor::new(6, TenorUnit::Months));
+        assert_eq!(Tenor::annual(), Tenor::new(1, TenorUnit::Years));
     }
 }

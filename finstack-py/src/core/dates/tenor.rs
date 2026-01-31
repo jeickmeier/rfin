@@ -124,33 +124,43 @@ impl PyTenor {
     }
 
     #[staticmethod]
-    fn overnight() -> Self {
-        Self::new(Tenor::overnight())
+    fn daily() -> Self {
+        Self::new(Tenor::daily())
     }
 
     #[staticmethod]
-    fn one_week() -> Self {
-        Self::new(Tenor::one_week())
+    fn weekly() -> Self {
+        Self::new(Tenor::weekly())
     }
 
     #[staticmethod]
-    fn one_month() -> Self {
-        Self::new(Tenor::one_month())
+    fn biweekly() -> Self {
+        Self::new(Tenor::biweekly())
     }
 
     #[staticmethod]
-    fn three_months() -> Self {
-        Self::new(Tenor::three_months())
+    fn monthly() -> Self {
+        Self::new(Tenor::monthly())
     }
 
     #[staticmethod]
-    fn six_months() -> Self {
-        Self::new(Tenor::six_months())
+    fn bimonthly() -> Self {
+        Self::new(Tenor::bimonthly())
     }
 
     #[staticmethod]
-    fn one_year() -> Self {
-        Self::new(Tenor::one_year())
+    fn quarterly() -> Self {
+        Self::new(Tenor::quarterly())
+    }
+
+    #[staticmethod]
+    fn semi_annual() -> Self {
+        Self::new(Tenor::semi_annual())
+    }
+
+    #[staticmethod]
+    fn annual() -> Self {
+        Self::new(Tenor::annual())
     }
 
     #[getter]

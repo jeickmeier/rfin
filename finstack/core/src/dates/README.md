@@ -206,9 +206,9 @@ Context carries:
 
 `Tenor` is a **time period** used for payment frequencies and schedule intervals:
 
-- Month‑based: `Tenor::annual()`, `semi_annual()`, `quarterly()`, `monthly()`, etc.
-- Day‑based: `Tenor::weekly()`, `biweekly()`, `daily()`
-- Year‑based: `Tenor::one_year()`, or use `Tenor::parse("1Y")`
+- Year/Month‑based: `Tenor::annual()`, `semi_annual()`, `quarterly()`, `bimonthly()`, `monthly()`
+- Week/Day‑based: `Tenor::biweekly()`, `weekly()`, `daily()`
+- Or parse from string: `Tenor::parse("1Y")`, `Tenor::parse("3M")`, `Tenor::parse("1W")`
 
 Schedules are built via `ScheduleBuilder`:
 
