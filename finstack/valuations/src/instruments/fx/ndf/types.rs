@@ -4,14 +4,13 @@
 //! restricted currencies. Supports both pre-fixing (forward rate estimation)
 //! and post-fixing (observed rate) valuation modes.
 
-use crate::instruments::common::traits::{Attributes, CurveIdVec};
+use crate::instruments::common::traits::Attributes;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
-use smallvec::smallvec;
 
 /// Quote convention for NDF contract rates.
 ///
@@ -735,21 +734,6 @@ impl crate::instruments::common::traits::Instrument for Ndf {
             None,
             None,
         )
-    }
-
-    fn required_discount_curves(&self) -> CurveIdVec {
-        let mut curves = smallvec![self.settlement_curve_id.clone()];
-        if let Some(ref foreign_curve) = self.foreign_curve_id {
-            curves.push(foreign_curve.clone());
-        }
-        curves
-    }
-}
-
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for Ndf {
-    fn discount_curve_id(&self) -> &CurveId {
-        &self.settlement_curve_id
     }
 }
 

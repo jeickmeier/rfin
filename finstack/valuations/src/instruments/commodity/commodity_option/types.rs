@@ -3,7 +3,7 @@
 use crate::instruments::common::models::trees::binomial_tree::BinomialTree;
 use crate::instruments::common::parameters::{CommodityConvention, OptionMarketParams};
 use crate::instruments::common::traits::{
-    Attributes, CurveDependencies, CurveIdVec, Instrument, InstrumentCurves,
+    Attributes, CurveDependencies, Instrument, InstrumentCurves,
 };
 use crate::instruments::{ExerciseStyle, OptionType, PricingOverrides, SettlementType};
 use finstack_core::currency::Currency;
@@ -12,7 +12,6 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
-use smallvec::smallvec;
 
 /// Commodity option (option on commodity forward or spot).
 ///
@@ -429,32 +428,6 @@ impl Instrument for CommodityOption {
             None,
             None,
         )
-    }
-
-    fn required_discount_curves(&self) -> CurveIdVec {
-        smallvec![self.discount_curve_id.clone()]
-    }
-
-    fn spot_id(&self) -> Option<&str> {
-        self.spot_price_id.as_deref()
-    }
-
-    fn vol_surface_id(&self) -> Option<CurveId> {
-        Some(self.vol_surface_id.clone())
-    }
-}
-
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for CommodityOption {
-    fn discount_curve_id(&self) -> &CurveId {
-        &self.discount_curve_id
-    }
-}
-
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasForwardCurves for CommodityOption {
-    fn forward_curve_ids(&self) -> Vec<CurveId> {
-        vec![self.forward_curve_id.clone()]
     }
 }
 

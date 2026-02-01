@@ -794,20 +794,6 @@ impl CashflowProvider for InterestRateSwap {
     }
 }
 
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for InterestRateSwap {
-    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.fixed.discount_curve_id
-    }
-}
-
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasForwardCurves for InterestRateSwap {
-    fn forward_curve_ids(&self) -> Vec<finstack_core::types::CurveId> {
-        vec![self.float.forward_curve_id.clone()]
-    }
-}
-
 impl crate::instruments::common::traits::CurveDependencies for InterestRateSwap {
     fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
         crate::instruments::common::traits::InstrumentCurves::builder()

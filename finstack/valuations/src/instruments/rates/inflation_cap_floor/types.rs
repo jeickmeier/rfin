@@ -466,20 +466,6 @@ impl crate::instruments::common::traits::Instrument for InflationCapFloor {
     }
 }
 
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for InflationCapFloor {
-    fn discount_curve_id(&self) -> &CurveId {
-        &self.discount_curve_id
-    }
-}
-
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasForwardCurves for InflationCapFloor {
-    fn forward_curve_ids(&self) -> Vec<CurveId> {
-        vec![self.inflation_index_id.clone()]
-    }
-}
-
 impl crate::instruments::common::traits::CurveDependencies for InflationCapFloor {
     fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
         crate::instruments::common::traits::InstrumentCurves::builder()

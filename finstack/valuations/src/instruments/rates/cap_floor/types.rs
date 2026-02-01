@@ -466,20 +466,6 @@ impl crate::instruments::common::traits::CurveDependencies for InterestRateOptio
     }
 }
 
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for InterestRateOption {
-    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.discount_curve_id
-    }
-}
-
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasForwardCurves for InterestRateOption {
-    fn forward_curve_ids(&self) -> Vec<finstack_core::types::CurveId> {
-        vec![self.forward_id.clone()]
-    }
-}
-
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {

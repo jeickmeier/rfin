@@ -584,10 +584,6 @@ impl crate::instruments::common::traits::Instrument for EquityIndexFuture {
     fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
         Some(self)
     }
-
-    fn spot_id(&self) -> Option<&str> {
-        Some(&self.index_price_id)
-    }
 }
 
 impl CashflowProvider for EquityIndexFuture {
@@ -608,13 +604,6 @@ impl CashflowProvider for EquityIndexFuture {
             self.notional(),
             finstack_core::dates::DayCount::Act365F, // Standard for equity futures
         ))
-    }
-}
-
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for EquityIndexFuture {
-    fn discount_curve_id(&self) -> &CurveId {
-        &self.discount_curve_id
     }
 }
 

@@ -93,14 +93,6 @@ pub struct CdsTranche {
     pub attributes: Attributes,
 }
 
-// Implement HasCreditCurve for generic CS01 calculator
-#[allow(deprecated)]
-impl crate::metrics::HasCreditCurve for CdsTranche {
-    fn credit_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.credit_index_id
-    }
-}
-
 impl CdsTranche {
     /// Create a canonical example CDS tranche (CDX.NA.IG 0-3% equity tranche).
     pub fn example() -> Self {
@@ -364,13 +356,6 @@ impl Instrument for CdsTranche {
             None,
             None,
         )
-    }
-}
-
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for CdsTranche {
-    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.discount_curve_id
     }
 }
 

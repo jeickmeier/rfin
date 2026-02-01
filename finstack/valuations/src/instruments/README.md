@@ -17,9 +17,6 @@ The instruments module is the core of Finstack's valuation capabilities, providi
 
 Curve-driven instruments expose their market data requirements through common traits:
 
-- **HasDiscountCurve**: Primary discount curve used for PV and DV01.
-- **HasForwardCurves**: Projection curves for floating legs, inflation indices, and commodity forwards.
-- **HasCreditCurve**: Hazard/credit curve for CS01 and default risk.
 - **CurveDependencies**: Aggregated discount/forward/credit curves for risk calculators.
 
 Instruments with optional discounting (e.g., private markets funds) still price without curves but won’t participate in curve-based sensitivities until a curve is supplied.
@@ -174,12 +171,6 @@ pub trait Instrument: Send + Sync {
     fn market_dependencies(&self) -> MarketDependencies;
     fn fx_exposure(&self) -> Option<(Currency, Currency)>;
     fn dividend_schedule_id(&self) -> Option<CurveId>;
-
-    // Deprecated: use market_dependencies().{curves,equity_dependencies}
-    fn required_discount_curves(&self) -> Vec<CurveId>;
-    fn required_hazard_curves(&self) -> Vec<CurveId>;
-    fn spot_id(&self) -> Option<&str>;
-    fn vol_surface_id(&self) -> Option<CurveId>;
 
     // Trait object support
     fn as_any(&self) -> &dyn Any;

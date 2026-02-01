@@ -19,7 +19,7 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::Result;
 use finstack_valuations::attribution::attribute_pnl_parallel;
-use finstack_valuations::instruments::common::{Attributes, CurveIdVec};
+use finstack_valuations::instruments::common::Attributes;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::pricer::InstrumentType;
@@ -88,14 +88,6 @@ impl Instrument for ScaledInstrument {
         self.inner.market_dependencies()
     }
 
-    fn required_discount_curves(&self) -> CurveIdVec {
-        self.inner
-            .market_dependencies()
-            .curve_dependencies()
-            .discount_curves
-            .clone()
-    }
-
     fn value(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
         let base = self.inner.value(market, as_of)?;
         Ok(Money::new(base.amount() * self.scale, base.currency()))
@@ -159,23 +151,6 @@ impl Instrument for CompositeInstrument {
         let mut deps = self.left.market_dependencies();
         deps.merge(self.right.market_dependencies());
         deps
-    }
-
-    fn required_discount_curves(&self) -> CurveIdVec {
-        let mut curves = self
-            .left
-            .market_dependencies()
-            .curve_dependencies()
-            .discount_curves
-            .clone();
-        curves.extend(
-            self.right
-                .market_dependencies()
-                .curve_dependencies()
-                .discount_curves
-                .clone(),
-        );
-        curves
     }
 
     fn value(&self, market: &MarketContext, as_of: Date) -> Result<Money> {

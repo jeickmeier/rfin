@@ -487,26 +487,12 @@ impl crate::instruments::common::traits::Instrument for ForwardRateAgreement {
     }
 }
 
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for ForwardRateAgreement {
-    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.discount_curve_id
-    }
-}
-
 impl crate::instruments::common::traits::CurveDependencies for ForwardRateAgreement {
     fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
         crate::instruments::common::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .forward(self.forward_id.clone())
             .build()
-    }
-}
-
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasForwardCurves for ForwardRateAgreement {
-    fn forward_curve_ids(&self) -> Vec<finstack_core::types::CurveId> {
-        vec![self.forward_id.clone()]
     }
 }
 

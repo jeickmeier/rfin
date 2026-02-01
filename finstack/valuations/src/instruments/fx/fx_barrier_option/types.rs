@@ -52,14 +52,6 @@ pub struct FxBarrierOption {
     pub attributes: Attributes,
 }
 
-// Implement HasDiscountCurve for GenericParallelDv01
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for FxBarrierOption {
-    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.domestic_discount_curve_id
-    }
-}
-
 // Implement CurveDependencies for DV01 calculator
 // FxBarrierOption uses both domestic and foreign curves for FX carry calculation
 impl crate::instruments::common::traits::CurveDependencies for FxBarrierOption {

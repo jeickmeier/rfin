@@ -571,18 +571,6 @@ pub enum UtilizationProcess {
     },
 }
 
-// Implement HasCreditCurve for generic CS01 calculator.
-// Returns hazard_curve_id if present, otherwise falls back to discount_curve_id.
-// CS01 will fail at runtime if no hazard curve exists in market data, which is acceptable.
-#[allow(deprecated)]
-impl crate::metrics::HasCreditCurve for RevolvingCredit {
-    fn credit_curve_id(&self) -> &finstack_core::types::CurveId {
-        self.hazard_curve_id
-            .as_ref()
-            .unwrap_or(&self.discount_curve_id)
-    }
-}
-
 impl RevolvingCredit {
     /// Get the current undrawn amount.
     pub fn undrawn_amount(&self) -> finstack_core::Result<Money> {
@@ -708,14 +696,6 @@ impl crate::instruments::common::traits::Instrument for RevolvingCredit {
             None,
             None,
         )
-    }
-}
-
-// Implement HasDiscountCurve for generic metric calculators
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for RevolvingCredit {
-    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.discount_curve_id
     }
 }
 

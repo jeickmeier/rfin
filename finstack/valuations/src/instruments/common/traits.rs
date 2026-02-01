@@ -108,7 +108,7 @@ pub struct PricingOptions {
     /// Optional market history for Historical VaR / Expected Shortfall metrics
     pub market_history: Option<Arc<MarketHistory>>,
 }
-
+// End of file
 impl PricingOptions {
     /// Create new pricing options with no extras.
     pub fn new() -> Self {
@@ -131,7 +131,6 @@ impl PricingOptions {
         self
     }
 }
-
 /// Type alias for curve ID collections that are typically small (0-2 items).
 ///
 /// Most instruments depend on 1-2 curves. Using SmallVec avoids heap allocation
@@ -203,7 +202,6 @@ pub struct Attributes {
     /// Stored as an ordered map to ensure deterministic serialization and stable iteration.
     pub meta: BTreeMap<String, String>,
 }
-
 impl Attributes {
     /// Create empty attributes with no tags or metadata.
     ///
@@ -395,7 +393,6 @@ impl Attributes {
         false
     }
 }
-
 /// Unified instrument trait combining identity, attributes, and pricing.
 ///
 /// This is the primary trait for all financial instruments in the valuation framework.
@@ -989,90 +986,10 @@ pub trait Instrument: Send + Sync {
 
     /// Unified market data dependencies for this instrument.
     ///
-    /// This is the canonical dependency surface. Default implementation uses
-    /// legacy introspection hooks for backward compatibility.
-    #[allow(deprecated)]
+    /// This is the canonical dependency surface and should be overridden by
+    /// all instruments to declare their market data needs.
     fn market_dependencies(&self) -> MarketDependencies {
-        let mut deps = MarketDependencies::new();
-        let mut curves = InstrumentCurves::new();
-
-        for id in self.required_discount_curves() {
-            curves.discount_curves.push(id);
-        }
-        for id in self.required_hazard_curves() {
-            curves.credit_curves.push(id);
-        }
-        deps.add_curves(curves);
-
-        if let Some((base, quote)) = self.fx_exposure() {
-            deps.add_fx_pair(base, quote);
-        }
-        if let Some(spot_id) = self.spot_id() {
-            deps.add_spot_id(spot_id);
-        }
-        if let Some(vol_id) = self.vol_surface_id() {
-            deps.add_vol_surface_id(vol_id.as_str());
-        }
-
-        deps
-    }
-
-    /// Discount curves required for pricing this instrument.
-    ///
-    /// Returns the list of discount curve IDs that this instrument depends on.
-    /// Used by P&L attribution to identify which curve shifts affect the instrument.
-    ///
-    /// Default implementation returns empty vector. Instruments should override
-    /// to return their actual discount curve dependencies.
-    ///
-    /// # Returns
-    ///
-    /// Vector of discount curve IDs (e.g., `["USD-OIS", "USD-SOFR"]`)
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use finstack_valuations::instruments::{Bond, Instrument};
-    /// # use finstack_core::currency::Currency;
-    /// # use finstack_core::money::Money;
-    /// # use finstack_core::dates::create_date;
-    /// # use time::Month;
-    ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # let issue = create_date(2025, Month::January, 15)?;
-    /// # let maturity = create_date(2030, Month::January, 15)?;
-    /// let bond = Bond::fixed("BOND-001", Money::new(1_000_000.0, Currency::USD),
-    ///     0.05, issue, maturity, "USD-OIS")?;
-    ///
-    /// let curves = bond.market_dependencies().curve_dependencies().discount_curves.clone();
-    /// // Bond returns ["USD-OIS"]
-    /// # Ok(())
-    /// # }
-    /// ```
-    #[deprecated(
-        since = "0.8.0",
-        note = "Use Instrument::market_dependencies().curves.discount_curves"
-    )]
-    fn required_discount_curves(&self) -> CurveIdVec {
-        SmallVec::new()
-    }
-
-    /// Hazard curves required for pricing this instrument.
-    ///
-    /// Returns the list of hazard curve IDs that this instrument depends on.
-    /// Used by credit attribution to measure spread shifts.
-    ///
-    /// Default implementation returns empty collection.
-    ///
-    /// # Returns
-    ///
-    /// Collection of hazard curve IDs (e.g., `["CORP-AA", "CDX.NA.IG"]`)
-    #[deprecated(
-        since = "0.8.0",
-        note = "Use Instrument::market_dependencies().curves.credit_curves"
-    )]
-    fn required_hazard_curves(&self) -> CurveIdVec {
-        SmallVec::new()
+        MarketDependencies::new()
     }
 
     /// FX exposure for this instrument.
@@ -1090,42 +1007,6 @@ pub trait Instrument: Send + Sync {
     ///
     /// FX Forward would return `Some((USD, EUR))` for a USD/EUR forward.
     fn fx_exposure(&self) -> Option<(Currency, Currency)> {
-        None
-    }
-
-    /// Spot price identifier for this instrument.
-    ///
-    /// Returns the market data key used to fetch the underlying spot or price level
-    /// when computing delta/vega-style sensitivities.
-    ///
-    /// Default implementation returns `None`.
-    #[deprecated(
-        since = "0.8.0",
-        note = "Use Instrument::market_dependencies().equity_dependencies().spot_id"
-    )]
-    fn spot_id(&self) -> Option<&str> {
-        None
-    }
-
-    /// Volatility surface ID for this instrument.
-    ///
-    /// Returns the volatility surface ID if this instrument depends on implied vol.
-    /// Used by vega attribution to measure vol shifts.
-    ///
-    /// Default implementation returns `None`.
-    ///
-    /// # Returns
-    ///
-    /// `Some(surface_id)` if vol-sensitive, `None` otherwise
-    ///
-    /// # Examples
-    ///
-    /// Equity option would return `Some("SPX-VOL")`.
-    #[deprecated(
-        since = "0.8.0",
-        note = "Use Instrument::market_dependencies().equity_dependencies().vol_surface_id"
-    )]
-    fn vol_surface_id(&self) -> Option<CurveId> {
         None
     }
 
@@ -1159,7 +1040,6 @@ pub trait Instrument: Send + Sync {
         None
     }
 }
-
 // Note: Methods formerly on the `Attributable` trait are now default methods on `Instrument`.
 
 // -----------------------------------------------------------------------------
@@ -1527,41 +1407,4 @@ pub trait OptionVolgaProvider {
         as_of: Date,
         base_pv: f64,
     ) -> finstack_core::Result<f64>;
-}
-
-#[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
-#[allow(deprecated)]
-mod trait_coverage_tests {
-    use crate::instruments::cap_floor::InterestRateOption;
-    use crate::instruments::common::pricing::HasForwardCurves;
-    use crate::instruments::swaption::BermudanSwaption;
-    use crate::instruments::{
-        Bond, CmsOption, CommodityForward, CommodityOption, CommoditySwap, ConvertibleBond,
-        InflationCapFloor, InflationSwap, Swaption, YoYInflationSwap,
-    };
-    use crate::metrics::HasCreditCurve;
-
-    fn assert_has_forward<T: HasForwardCurves>() {}
-    fn assert_has_credit<T: HasCreditCurve>() {}
-
-    #[test]
-    fn forward_curve_impls_present() {
-        assert_has_forward::<Bond>();
-        assert_has_forward::<CmsOption>();
-        assert_has_forward::<CommodityForward>();
-        assert_has_forward::<CommodityOption>();
-        assert_has_forward::<CommoditySwap>();
-        assert_has_forward::<InflationCapFloor>();
-        assert_has_forward::<InflationSwap>();
-        assert_has_forward::<InterestRateOption>();
-        assert_has_forward::<Swaption>();
-        assert_has_forward::<BermudanSwaption>();
-        assert_has_forward::<YoYInflationSwap>();
-    }
-
-    #[test]
-    fn credit_curve_impls_present() {
-        assert_has_credit::<ConvertibleBond>();
-    }
 }

@@ -5,13 +5,12 @@
 //! meet good delivery standards (coupon, term, agency).
 
 use crate::instruments::agency_mbs_passthrough::{AgencyMbsPassthrough, AgencyProgram};
-use crate::instruments::common::traits::{Attributes, CurveIdVec};
+use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use smallvec::smallvec;
 
 /// TBA term enumeration (original loan term).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -296,10 +295,6 @@ impl crate::instruments::common::traits::Instrument for AgencyTba {
         )
     }
 
-    fn required_discount_curves(&self) -> CurveIdVec {
-        smallvec![self.discount_curve_id.clone()]
-    }
-
     fn scenario_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
@@ -310,13 +305,6 @@ impl crate::instruments::common::traits::Instrument for AgencyTba {
         &self,
     ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
         Some(&self.pricing_overrides)
-    }
-}
-
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for AgencyTba {
-    fn discount_curve_id(&self) -> &CurveId {
-        &self.discount_curve_id
     }
 }
 

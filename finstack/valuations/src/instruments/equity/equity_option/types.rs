@@ -117,14 +117,6 @@ pub struct EquityOption {
     pub attributes: Attributes,
 }
 
-// Implement HasDiscountCurve for GenericParallelDv01
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for EquityOption {
-    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.discount_curve_id
-    }
-}
-
 // Implement CurveDependencies for DV01 calculator
 impl crate::instruments::common::traits::CurveDependencies for EquityOption {
     fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
@@ -612,14 +604,6 @@ impl crate::instruments::common::traits::Instrument for EquityOption {
         deps.add_spot_id(self.spot_id.as_str());
         deps.add_vol_surface_id(self.vol_surface_id.as_str());
         deps
-    }
-
-    fn spot_id(&self) -> Option<&str> {
-        Some(&self.spot_id)
-    }
-
-    fn vol_surface_id(&self) -> Option<finstack_core::types::CurveId> {
-        Some(self.vol_surface_id.clone())
     }
 
     fn value(

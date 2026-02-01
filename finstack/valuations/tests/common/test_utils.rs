@@ -68,10 +68,6 @@ impl Instrument for TestInstrument {
         deps
     }
 
-    fn required_discount_curves(&self) -> CurveIdVec {
-        self.discount_curves.clone()
-    }
-
     fn value(&self, _market: &MarketContext, _as_of: Date) -> Result<Money> {
         Ok(self.value)
     }

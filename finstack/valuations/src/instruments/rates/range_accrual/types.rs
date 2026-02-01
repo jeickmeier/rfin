@@ -349,13 +349,6 @@ impl crate::instruments::common::traits::Instrument for RangeAccrual {
     }
 }
 
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for RangeAccrual {
-    fn discount_curve_id(&self) -> &CurveId {
-        &self.discount_curve_id
-    }
-}
-
 // Implement CurveDependencies for DV01 calculator
 impl crate::instruments::common::traits::CurveDependencies for RangeAccrual {
     fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {

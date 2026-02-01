@@ -152,14 +152,6 @@ pub struct CDSIndex {
     pub attributes: Attributes,
 }
 
-// Implement HasCreditCurve for generic CS01 calculator
-#[allow(deprecated)]
-impl crate::metrics::HasCreditCurve for CDSIndex {
-    fn credit_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.protection.credit_curve_id
-    }
-}
-
 impl CDSIndex {
     /// Create a canonical example CDS Index for testing and documentation.
     ///
@@ -490,13 +482,6 @@ impl crate::instruments::common::traits::Instrument for CDSIndex {
             None,
             None,
         )
-    }
-}
-
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for CDSIndex {
-    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.premium.discount_curve_id
     }
 }
 

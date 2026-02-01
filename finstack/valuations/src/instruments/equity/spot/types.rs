@@ -364,12 +364,6 @@ impl crate::instruments::common::traits::Instrument for Equity {
 }
 
 #[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for Equity {
-    fn discount_curve_id(&self) -> &CurveId {
-        &self.discount_curve_id
-    }
-}
-
 impl CashflowProvider for Equity {
     fn notional(&self) -> Option<Money> {
         // Equity notional is shares * price (market value)

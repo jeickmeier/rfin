@@ -12,13 +12,6 @@ impl CurveDependencies for AsianOption {
     }
 }
 
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for AsianOption {
-    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.discount_curve_id
-    }
-}
-
 impl EquityDependencies for AsianOption {
     fn equity_dependencies(&self) -> crate::instruments::common::traits::EquityInstrumentDeps {
         crate::instruments::common::traits::EquityInstrumentDeps::builder()

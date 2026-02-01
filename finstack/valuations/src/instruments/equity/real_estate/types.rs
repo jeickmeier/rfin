@@ -1,7 +1,7 @@
 //! Real estate asset valuation types and logic.
 
 use crate::instruments::common::traits::{
-    Attributes, CurveDependencies, CurveIdVec, Instrument, InstrumentCurves,
+    Attributes, CurveDependencies, Instrument, InstrumentCurves,
 };
 use crate::pricer::InstrumentType;
 use finstack_core::currency::Currency;
@@ -10,7 +10,6 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Error as CoreError;
-use smallvec::smallvec;
 use std::any::Any;
 
 /// Valuation method for a real estate asset.
@@ -230,19 +229,7 @@ impl Instrument for RealEstateAsset {
             None,
         )
     }
-
-    fn required_discount_curves(&self) -> CurveIdVec {
-        smallvec![self.discount_curve_id.clone()]
-    }
 }
-
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for RealEstateAsset {
-    fn discount_curve_id(&self) -> &CurveId {
-        &self.discount_curve_id
-    }
-}
-
 impl CurveDependencies for RealEstateAsset {
     fn curve_dependencies(&self) -> InstrumentCurves {
         InstrumentCurves::builder()

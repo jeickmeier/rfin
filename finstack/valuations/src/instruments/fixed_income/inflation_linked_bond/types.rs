@@ -990,13 +990,6 @@ impl crate::instruments::common::traits::Instrument for InflationLinkedBond {
     }
 }
 
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for InflationLinkedBond {
-    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.discount_curve_id
-    }
-}
-
 impl CashflowProvider for InflationLinkedBond {
     fn notional(&self) -> Option<Money> {
         Some(self.notional)

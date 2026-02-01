@@ -347,24 +347,6 @@ impl crate::instruments::common::traits::Instrument for ConvertibleBond {
     }
 }
 
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for ConvertibleBond {
-    fn discount_curve_id(&self) -> &CurveId {
-        &self.discount_curve_id
-    }
-}
-
-// Implement HasCreditCurve for generic CS01 calculators.
-// Falls back to the discount curve when an explicit credit curve isn't provided.
-#[allow(deprecated)]
-impl crate::metrics::HasCreditCurve for ConvertibleBond {
-    fn credit_curve_id(&self) -> &finstack_core::types::CurveId {
-        self.credit_curve_id
-            .as_ref()
-            .unwrap_or(&self.discount_curve_id)
-    }
-}
-
 // Implement CurveDependencies for DV01 calculator
 impl crate::instruments::common::traits::CurveDependencies for ConvertibleBond {
     fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {

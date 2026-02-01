@@ -15,7 +15,7 @@ use finstack_core::Result;
 use finstack_valuations::attribution::{
     attribute_pnl_parallel, attribute_pnl_waterfall, default_waterfall_order, AttributionFactor,
 };
-use finstack_valuations::instruments::common::{Attributes, CurveIdVec};
+use finstack_valuations::instruments::common::Attributes;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::pricer::InstrumentType;
@@ -98,10 +98,6 @@ impl Instrument for FxLinkedInstrument {
 
     fn market_dependencies(&self) -> finstack_valuations::instruments::common::MarketDependencies {
         finstack_valuations::instruments::common::MarketDependencies::new()
-    }
-
-    fn required_discount_curves(&self) -> CurveIdVec {
-        CurveIdVec::new()
     }
 
     fn value(&self, market: &MarketContext, as_of: Date) -> Result<Money> {

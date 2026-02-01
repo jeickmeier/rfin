@@ -12,13 +12,6 @@ impl CurveDependencies for BarrierOption {
     }
 }
 
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for BarrierOption {
-    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.discount_curve_id
-    }
-}
-
 impl EquityDependencies for BarrierOption {
     fn equity_dependencies(&self) -> crate::instruments::common::traits::EquityInstrumentDeps {
         crate::instruments::common::traits::EquityInstrumentDeps::builder()

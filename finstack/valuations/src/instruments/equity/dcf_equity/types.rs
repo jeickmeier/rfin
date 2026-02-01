@@ -5,7 +5,7 @@
 //! - [`DiscountedCashFlow`] instrument implementing the standard DCF formula
 
 use crate::instruments::common::traits::{
-    Attributes, CurveDependencies, CurveIdVec, Instrument, InstrumentCurves,
+    Attributes, CurveDependencies, Instrument, InstrumentCurves,
 };
 use crate::pricer::InstrumentType;
 use finstack_core::currency::Currency;
@@ -14,7 +14,6 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Error as CoreError;
-use smallvec::smallvec;
 use std::any::Any;
 
 /// Terminal value calculation method for DCF.
@@ -184,21 +183,7 @@ impl Instrument for DiscountedCashFlow {
             None,
         )
     }
-
-    fn required_discount_curves(&self) -> CurveIdVec {
-        smallvec![self.discount_curve_id.clone()]
-    }
 }
-
-// Implement HasDiscountCurve so generic DV01 calculators can discover the primary curve.
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for DiscountedCashFlow {
-    fn discount_curve_id(&self) -> &CurveId {
-        &self.discount_curve_id
-    }
-}
-
-// Declare curve dependencies for unified DV01 / bucketed DV01 calculators.
 impl CurveDependencies for DiscountedCashFlow {
     fn curve_dependencies(&self) -> InstrumentCurves {
         InstrumentCurves::builder()

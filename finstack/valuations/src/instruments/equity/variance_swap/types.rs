@@ -613,14 +613,6 @@ impl crate::instruments::common::traits::Instrument for VarianceSwap {
     }
 }
 
-// Implement HasDiscountCurve trait
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for VarianceSwap {
-    fn discount_curve_id(&self) -> &CurveId {
-        &self.discount_curve_id
-    }
-}
-
 // Implement CurveDependencies for DV01 calculator
 impl crate::instruments::common::traits::CurveDependencies for VarianceSwap {
     fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {

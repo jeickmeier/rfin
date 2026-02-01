@@ -296,7 +296,7 @@ pub struct GenericDv01Calculator<I> {
     _phantom: PhantomData<I>,
 }
 
-impl<I: Instrument + HasDiscountCurve + 'static> MetricCalculator
+impl<I: Instrument + CurveDependencies + 'static> MetricCalculator
     for GenericDv01Calculator<I>
 {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
@@ -409,7 +409,7 @@ Always use strong typing and avoid runtime downcasting when possible:
 
 ```rust
 // Good: Use trait bounds
-impl<I: Instrument + HasDiscountCurve> MetricCalculator for MyCalc<I> {
+impl<I: Instrument + CurveDependencies> MetricCalculator for MyCalc<I> {
     // ...
 }
 

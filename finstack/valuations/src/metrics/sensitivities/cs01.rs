@@ -212,20 +212,6 @@ use crate::instruments::common::traits::{CurveDependencies, Instrument};
 use crate::metrics::MetricCalculator;
 use std::marker::PhantomData;
 
-/// Trait for instruments that have a primary credit curve.
-///
-/// Used by generic bucketed CS01 calculators to identify which credit curve
-/// to bump for credit spread sensitivity calculations.
-#[allow(dead_code)]
-#[deprecated(
-    since = "0.8.0",
-    note = "Use CurveDependencies/MarketDependencies for credit curve discovery"
-)]
-pub trait HasCreditCurve {
-    /// Returns the ID of the primary credit curve used for credit spread sensitivity.
-    fn credit_curve_id(&self) -> &finstack_core::types::CurveId;
-}
-
 /// Generic BucketedCs01 calculator that works for any instrument implementing
 /// the required traits.
 pub struct GenericBucketedCs01<I> {

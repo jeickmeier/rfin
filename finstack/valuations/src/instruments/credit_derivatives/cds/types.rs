@@ -41,7 +41,7 @@
 
 use crate::cashflow::traits::DatedFlows;
 use crate::constants::BASIS_POINTS_PER_UNIT;
-use crate::instruments::common::traits::{Attributes, CurveIdVec};
+use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use crate::margin::types::OtcMarginSpec;
 use finstack_core::currency::Currency;
@@ -51,7 +51,6 @@ use finstack_core::money::Money;
 use finstack_core::types::{Bps, InstrumentId};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
-use smallvec::smallvec;
 use time::macros::date;
 
 use crate::instruments::cds::pricer::CDSPricer;
@@ -453,14 +452,6 @@ pub struct CreditDefaultSwap {
     pub margin_spec: Option<OtcMarginSpec>,
     /// Additional attributes
     pub attributes: Attributes,
-}
-
-// Implement HasCreditCurve for generic CS01 calculator
-#[allow(deprecated)]
-impl crate::metrics::HasCreditCurve for CreditDefaultSwap {
-    fn credit_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.protection.credit_curve_id
-    }
 }
 
 impl CreditDefaultSwap {
@@ -1016,14 +1007,6 @@ impl crate::instruments::common::traits::Instrument for CreditDefaultSwap {
         crate::instruments::common::dependencies::MarketDependencies::from_curve_dependencies(self)
     }
 
-    fn required_discount_curves(&self) -> CurveIdVec {
-        smallvec![self.premium.discount_curve_id.clone()]
-    }
-
-    fn required_hazard_curves(&self) -> CurveIdVec {
-        smallvec![self.protection.credit_curve_id.clone()]
-    }
-
     fn as_any(&self) -> &dyn ::std::any::Any {
         self
     }
@@ -1076,13 +1059,6 @@ impl crate::instruments::common::traits::Instrument for CreditDefaultSwap {
             None,
             None,
         )
-    }
-}
-
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for CreditDefaultSwap {
-    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.premium.discount_curve_id
     }
 }
 

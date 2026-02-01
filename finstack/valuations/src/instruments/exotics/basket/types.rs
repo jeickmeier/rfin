@@ -369,14 +369,6 @@ impl Instrument for Basket {
     }
 }
 
-// Implement HasDiscountCurve trait
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for Basket {
-    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.discount_curve_id
-    }
-}
-
 // Implement CurveDependencies for DV01 calculator
 impl crate::instruments::common::traits::CurveDependencies for Basket {
     fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {

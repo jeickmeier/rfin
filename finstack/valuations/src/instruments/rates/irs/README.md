@@ -62,7 +62,7 @@ irs/
 ### Design Philosophy
 
 - **Separation of concerns**: Types in `types.rs`, pricing in `pricer.rs`, cashflows in `cashflow.rs`
-- **Trait-based**: Implements `Instrument`, `CashflowProvider`, `HasDiscountCurve`, `CurveDependencies`
+- **Trait-based**: Implements `Instrument`, `CashflowProvider`, `CurveDependencies`
 - **Generic metrics**: DV01 and bucketed DV01 use generic implementations from `metrics/`
 - **Focused files**: Each file has a single, well-defined responsibility
 

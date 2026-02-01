@@ -15,8 +15,6 @@ use syn::{parse_macro_input, Data, DeriveInput, GenericArgument, PathArguments, 
 pub fn derive_instrument_impl(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let ident = input.ident.clone();
-    let spot_id_impl = spot_id_impl(&input);
-    let vol_surface_impl = vol_surface_impl(&input);
     let market_deps_impl = market_dependencies_impl(&input);
 
     let mut key_ident: Option<syn::Ident> = None;
@@ -108,52 +106,10 @@ pub fn derive_instrument_impl(input: TokenStream) -> TokenStream {
             }
 
             #market_deps_impl
-            #spot_id_impl
-            #vol_surface_impl
         }
     };
 
     TokenStream::from(expanded)
-}
-
-fn spot_id_impl(input: &DeriveInput) -> proc_macro2::TokenStream {
-    let Some(field_type) = find_field_type(input, "spot_id") else {
-        return quote! {};
-    };
-
-    let body = if is_option_string(&field_type) {
-        quote! { self.spot_id.as_deref() }
-    } else if is_string(&field_type) {
-        quote! { Some(self.spot_id.as_str()) }
-    } else {
-        return quote! {};
-    };
-
-    quote! {
-        fn spot_id(&self) -> Option<&str> {
-            #body
-        }
-    }
-}
-
-fn vol_surface_impl(input: &DeriveInput) -> proc_macro2::TokenStream {
-    let Some(field_type) = find_field_type(input, "vol_surface_id") else {
-        return quote! {};
-    };
-
-    let body = if is_option_curve_id(&field_type) {
-        quote! { self.vol_surface_id.clone() }
-    } else if is_curve_id(&field_type) {
-        quote! { Some(self.vol_surface_id.clone()) }
-    } else {
-        return quote! {};
-    };
-
-    quote! {
-        fn vol_surface_id(&self) -> Option<finstack_core::types::CurveId> {
-            #body
-        }
-    }
 }
 
 fn market_dependencies_impl(input: &DeriveInput) -> proc_macro2::TokenStream {

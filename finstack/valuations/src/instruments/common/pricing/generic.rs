@@ -10,7 +10,6 @@ use crate::pricer::{
 };
 use crate::results::ValuationResult;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::types::CurveId;
 use std::marker::PhantomData;
 
 /// Generic pricer for any instrument that implements the Instrument trait.
@@ -79,37 +78,6 @@ where
         // Return stamped result
         Ok(ValuationResult::stamped(typed_instrument.id(), as_of, pv))
     }
-}
-
-/// Trait for instruments with a primary discount curve.
-///
-/// This trait is used by generic pricers and metric calculators to extract
-/// discount curve IDs. All instruments with a discount curve should implement this.
-///
-/// **Note**: This is primarily an internal helper trait. End-users typically
-/// don't need to interact with it directly.
-#[deprecated(
-    since = "0.8.0",
-    note = "Use CurveDependencies/MarketDependencies for curve discovery"
-)]
-pub trait HasDiscountCurve {
-    /// Get the instrument's primary discount curve ID.
-    fn discount_curve_id(&self) -> &CurveId;
-}
-
-/// Trait for instruments that reference forward/projection curves.
-///
-/// This trait is used by generic DV01 calculators to identify all forward curves
-/// that should be bumped alongside the discount curve for parallel rate shifts.
-/// Instruments with floating rate legs (FRAs, swaps, floating bonds, etc.) should
-/// implement this trait.
-#[deprecated(
-    since = "0.8.0",
-    note = "Use CurveDependencies/MarketDependencies for curve discovery"
-)]
-pub trait HasForwardCurves {
-    /// Get all forward curve IDs referenced by this instrument.
-    fn forward_curve_ids(&self) -> Vec<CurveId>;
 }
 
 // Special case for CDS which uses HazardRate model

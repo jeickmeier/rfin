@@ -759,23 +759,6 @@ impl crate::instruments::common::traits::Instrument for BasisSwap {
     }
 }
 
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for BasisSwap {
-    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.discount_curve_id
-    }
-}
-
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasForwardCurves for BasisSwap {
-    fn forward_curve_ids(&self) -> Vec<finstack_core::types::CurveId> {
-        vec![
-            self.primary_leg.forward_curve_id.clone(),
-            self.reference_leg.forward_curve_id.clone(),
-        ]
-    }
-}
-
 impl crate::instruments::common::traits::CurveDependencies for BasisSwap {
     fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
         crate::instruments::common::traits::InstrumentCurves::builder()

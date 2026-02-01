@@ -164,20 +164,6 @@ impl crate::instruments::common::traits::Instrument for CmsOption {
     }
 }
 
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for CmsOption {
-    fn discount_curve_id(&self) -> &CurveId {
-        &self.discount_curve_id
-    }
-}
-
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasForwardCurves for CmsOption {
-    fn forward_curve_ids(&self) -> Vec<CurveId> {
-        self.forward_curve_id.clone().into_iter().collect()
-    }
-}
-
 // Implement CurveDependencies for DV01 calculator
 impl crate::instruments::common::traits::CurveDependencies for CmsOption {
     fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {

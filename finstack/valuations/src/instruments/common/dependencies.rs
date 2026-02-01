@@ -45,34 +45,6 @@ impl MarketDependencies {
         Self::default()
     }
 
-    /// Build dependencies from an instrument implementing core introspection hooks.
-    #[allow(deprecated)]
-    #[deprecated(
-        since = "0.8.0",
-        note = "Prefer Instrument::market_dependencies() or MarketDependencies::from_*_dependencies()"
-    )]
-    pub fn from_instrument<T: Instrument + ?Sized>(instrument: &T) -> Self {
-        let mut deps = Self::new();
-
-        for id in instrument.required_discount_curves() {
-            push_unique_curve(&mut deps.curves.discount_curves, id);
-        }
-        for id in instrument.required_hazard_curves() {
-            push_unique_curve(&mut deps.curves.credit_curves, id);
-        }
-        if let Some((base, quote)) = instrument.fx_exposure() {
-            deps.add_fx_pair(base, quote);
-        }
-        if let Some(spot_id) = instrument.spot_id() {
-            deps.add_spot_id(spot_id);
-        }
-        if let Some(vol_id) = instrument.vol_surface_id() {
-            deps.add_vol_surface_id(vol_id.as_str());
-        }
-
-        deps
-    }
-
     /// Return the curve dependencies view for this market dependency set.
     pub fn curve_dependencies(&self) -> &InstrumentCurves {
         &self.curves
@@ -286,12 +258,6 @@ impl MarketDependencies {
         }
     }
 }
-
-#[deprecated(
-    since = "0.8.0",
-    note = "Use MarketDependencies (renamed from InstrumentDependencies)"
-)]
-pub type InstrumentDependencies = MarketDependencies;
 
 fn push_unique_curve(target: &mut CurveIdVec, id: CurveId) {
     if target.contains(&id) {

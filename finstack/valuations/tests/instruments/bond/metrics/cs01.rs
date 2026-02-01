@@ -22,8 +22,8 @@ fn test_cs01_positive() {
     )
     .unwrap();
 
-    // CS01 requires a hazard curve. If the bond has no explicit credit curve id,
-    // the HasCreditCurve impl falls back to the discount curve id.
+    // CS01 requires a hazard curve. For bonds, the credit curve is declared in
+    // curve dependencies when provided.
     bond.credit_curve_id = Some(CurveId::new("USD-CREDIT"));
 
     let disc = finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")

@@ -1,7 +1,7 @@
 //! Tests for generic pricing infrastructure.
 
 // Placeholder for generic pricing tests
-// These would test the GenericInstrumentPricer and HasDiscountCurve trait
+// These would test the GenericInstrumentPricer and curve dependencies
 
 use crate::common::test_helpers::standard_market;
 

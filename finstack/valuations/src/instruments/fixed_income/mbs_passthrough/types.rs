@@ -5,14 +5,13 @@
 //! and payment delay conventions.
 
 use crate::cashflow::builder::specs::PrepaymentModelSpec;
-use crate::instruments::common::traits::{Attributes, CurveIdVec};
+use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
-use smallvec::smallvec;
 
 /// Agency program enumeration.
 ///
@@ -329,10 +328,6 @@ impl crate::instruments::common::traits::Instrument for AgencyMbsPassthrough {
         )
     }
 
-    fn required_discount_curves(&self) -> CurveIdVec {
-        smallvec![self.discount_curve_id.clone()]
-    }
-
     fn scenario_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
@@ -343,13 +338,6 @@ impl crate::instruments::common::traits::Instrument for AgencyMbsPassthrough {
         &self,
     ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
         Some(&self.pricing_overrides)
-    }
-}
-
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for AgencyMbsPassthrough {
-    fn discount_curve_id(&self) -> &CurveId {
-        &self.discount_curve_id
     }
 }
 

@@ -79,7 +79,7 @@
 //!
 //! ### From an Instrument (Recommended)
 //!
-//! Any instrument implementing [`CashflowProvider`] + [`crate::instruments::common::pricing::HasDiscountCurve`]
+//! Any instrument implementing [`CashflowProvider`] + [`crate::instruments::common::traits::CurveDependencies`]
 //! automatically gains periodized PV methods via the [`crate::instruments::common::period_pv::PeriodizedPvExt`] trait:
 //!
 //! ```rust

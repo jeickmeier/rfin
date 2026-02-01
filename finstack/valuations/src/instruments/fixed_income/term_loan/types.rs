@@ -524,28 +524,6 @@ impl crate::cashflow::traits::CashflowProvider for TermLoan {
     }
 }
 
-// Allow generic metric calculators to fetch discount curve id
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for TermLoan {
-    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.discount_curve_id
-    }
-}
-
-// Implement HasCreditCurve for generic CS01 calculators.
-//
-// For term loans we currently reuse the discount curve as the credit curve identifier.
-// This is sufficient for 80/20 CS01 support; users should ensure a corresponding
-// hazard/credit curve exists in the market data if they request CS01 metrics.
-#[allow(deprecated)]
-impl crate::metrics::HasCreditCurve for TermLoan {
-    fn credit_curve_id(&self) -> &finstack_core::types::CurveId {
-        self.credit_curve_id
-            .as_ref()
-            .unwrap_or(&self.discount_curve_id)
-    }
-}
-
 // Implement CurveDependencies for DV01 calculator
 impl crate::instruments::common::traits::CurveDependencies for TermLoan {
     fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {

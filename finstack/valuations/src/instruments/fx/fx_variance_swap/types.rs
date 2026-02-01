@@ -514,13 +514,6 @@ impl InstrumentTrait for FxVarianceSwap {
     }
 }
 
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for FxVarianceSwap {
-    fn discount_curve_id(&self) -> &CurveId {
-        &self.domestic_discount_curve_id
-    }
-}
-
 // FxVarianceSwap uses both domestic and foreign curves for forward construction
 impl CurveDependencies for FxVarianceSwap {
     fn curve_dependencies(&self) -> InstrumentCurves {

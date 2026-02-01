@@ -99,15 +99,6 @@ pub struct FxOption {
     pub attributes: Attributes,
 }
 
-// Implement HasDiscountCurve for GenericParallelDv01
-// Uses domestic curve as the primary discount curve
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for FxOption {
-    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.domestic_discount_curve_id
-    }
-}
-
 // Implement CurveDependencies for DV01 calculator
 // FxOption uses both domestic and foreign curves for Garman-Kohlhagen pricing
 impl crate::instruments::common::traits::CurveDependencies for FxOption {

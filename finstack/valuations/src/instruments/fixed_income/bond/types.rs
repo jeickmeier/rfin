@@ -1,7 +1,7 @@
 //! Bond instrument types and implementations.
 
 use crate::cashflow::builder::CashFlowSchedule;
-use crate::instruments::common::traits::{Attributes, CurveIdVec};
+use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
@@ -9,7 +9,6 @@ use finstack_core::money::Money;
 use finstack_core::types::{Bps, CurveId, InstrumentId, Rate};
 use finstack_core::Result;
 use rust_decimal::prelude::ToPrimitive;
-use smallvec::smallvec;
 use time::macros::date;
 
 // Re-export for compatibility in tests and external users referencing bond::AmortizationSpec
@@ -1053,18 +1052,6 @@ impl crate::instruments::common::traits::Instrument for Bond {
         crate::instruments::common::dependencies::MarketDependencies::from_curve_dependencies(self)
     }
 
-    fn required_discount_curves(&self) -> CurveIdVec {
-        smallvec![self.discount_curve_id.clone()]
-    }
-
-    fn required_hazard_curves(&self) -> CurveIdVec {
-        if let Some(ref credit_id) = self.credit_curve_id {
-            smallvec![credit_id.clone()]
-        } else {
-            CurveIdVec::new()
-        }
-    }
-
     fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
         Some(self)
     }
@@ -1079,45 +1066,6 @@ impl crate::instruments::common::traits::Instrument for Bond {
         &self,
     ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
         Some(&self.pricing_overrides)
-    }
-}
-
-// Implement HasDiscountCurve for Bond
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for Bond {
-    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        &self.discount_curve_id
-    }
-}
-
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasForwardCurves for Bond {
-    fn forward_curve_ids(&self) -> Vec<finstack_core::types::CurveId> {
-        let mut curves = Vec::new();
-        match &self.cashflow_spec {
-            CashflowSpec::Floating(floating_spec) => {
-                curves.push(floating_spec.rate_spec.index_id.clone());
-            }
-            CashflowSpec::Amortizing { base, .. } => {
-                if let CashflowSpec::Floating(floating_spec) = base.as_ref() {
-                    curves.push(floating_spec.rate_spec.index_id.clone());
-                }
-            }
-            _ => {}
-        }
-        curves
-    }
-}
-
-// Implement HasCreditCurve for generic CS01 calculator
-// Returns credit_curve_id if present, otherwise falls back to discount_curve_id
-// (CS01 will fail at runtime if no hazard curve exists, which is acceptable)
-#[allow(deprecated)]
-impl crate::metrics::HasCreditCurve for Bond {
-    fn credit_curve_id(&self) -> &finstack_core::types::CurveId {
-        self.credit_curve_id
-            .as_ref()
-            .unwrap_or(&self.discount_curve_id)
     }
 }
 

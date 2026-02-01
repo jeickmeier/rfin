@@ -41,8 +41,7 @@ pub(crate) mod period_pv;
 
 // Re-export commonly used types for convenience
 #[doc(hidden)]
-#[allow(deprecated)]
-pub use dependencies::{FxPair, InstrumentDependencies, MarketDependencies};
+pub use dependencies::{FxPair, MarketDependencies};
 #[doc(hidden)]
 pub use discountable::Discountable;
 /// Re-export resolve_calendar for backward compatibility with tests.
@@ -73,11 +72,7 @@ pub use parameters::{
 #[doc(hidden)]
 pub use period_pv::PeriodizedPvExt;
 #[doc(hidden)]
-#[allow(deprecated)]
-pub use pricing::{
-    GenericInstrumentPricer, HasDiscountCurve, HasForwardCurves, TotalReturnLegParams, TrsEngine,
-    TrsReturnModel,
-};
+pub use pricing::{GenericInstrumentPricer, TotalReturnLegParams, TrsEngine, TrsReturnModel};
 pub use traits::{
     Attributes, CurveIdVec, EquityDependencies, EquityInstrumentDeps, Instrument, PricingOptions,
 };

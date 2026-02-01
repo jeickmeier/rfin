@@ -512,17 +512,6 @@ impl crate::instruments::common::traits::Instrument for FxSpot {
     }
 }
 
-#[allow(deprecated)]
-impl crate::instruments::common::pricing::HasDiscountCurve for FxSpot {
-    fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
-        // FxSpot has no discount curve; return a dummy static placeholder
-        // Generic DV01 will find no curves in MarketContext and return 0
-        static DUMMY_ID: std::sync::OnceLock<finstack_core::types::CurveId> =
-            std::sync::OnceLock::new();
-        DUMMY_ID.get_or_init(|| finstack_core::types::CurveId::new("_fx_spot_no_curve"))
-    }
-}
-
 // Implement CurveDependencies for DV01 calculator
 impl crate::instruments::common::traits::CurveDependencies for FxSpot {
     fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
