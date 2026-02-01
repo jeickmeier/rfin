@@ -16,16 +16,16 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::common::traits::Attributes;
-use crate::instruments::common::validation;
+use crate::instruments::common_impl::traits::Attributes;
+use crate::instruments::common_impl::validation;
 use crate::margin::types::OtcMarginSpec;
 
 // Re-export common enums from parameters
-pub use crate::instruments::common::parameters::legs::{ParRateMethod, PayReceive};
+pub use crate::instruments::common_impl::parameters::legs::{ParRateMethod, PayReceive};
 
 // Re-export from common parameters
-pub use crate::instruments::common::parameters::legs::FixedLegSpec;
-pub use crate::instruments::common::parameters::legs::FloatLegSpec;
+pub use crate::instruments::common_impl::parameters::legs::FixedLegSpec;
+pub use crate::instruments::common_impl::parameters::legs::FloatLegSpec;
 
 /// Leg-level conventions for building a vanilla fixed-vs-float IRS.
 ///
@@ -288,7 +288,7 @@ impl InterestRateSwap {
             .id(InstrumentId::new("IRS-5Y-USD"))
             .notional(Money::new(10_000_000.0, Currency::USD))
             .side(PayReceive::PayFixed)
-            .fixed(crate::instruments::common::parameters::FixedLegSpec {
+            .fixed(crate::instruments::common_impl::parameters::FixedLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 rate: Decimal::try_from(0.03).unwrap_or(Decimal::ZERO),
                 freq: Tenor::semi_annual(),
@@ -306,7 +306,7 @@ impl InterestRateSwap {
                 compounding_simple: true,
                 payment_delay_days: 0,
             })
-            .float(crate::instruments::common::parameters::FloatLegSpec {
+            .float(crate::instruments::common_impl::parameters::FloatLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 forward_curve_id: CurveId::new("USD-SOFR-3M"),
                 spread_bp: Decimal::ZERO,
@@ -339,7 +339,7 @@ impl InterestRateSwap {
 // Explicit trait implementations for modern instrument style
 // Attributable implementation is provided by the impl_instrument! macro
 
-impl crate::instruments::common::traits::Instrument for InterestRateSwap {
+impl crate::instruments::common_impl::traits::Instrument for InterestRateSwap {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -352,15 +352,15 @@ impl crate::instruments::common::traits::Instrument for InterestRateSwap {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
@@ -387,7 +387,7 @@ impl crate::instruments::common::traits::Instrument for InterestRateSwap {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(curves.clone()),
             as_of,
@@ -425,9 +425,9 @@ impl CashflowProvider for InterestRateSwap {
     }
 }
 
-impl crate::instruments::common::traits::CurveDependencies for InterestRateSwap {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for InterestRateSwap {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.fixed.discount_curve_id.clone())
             .forward(self.float.forward_curve_id.clone())
             .build()

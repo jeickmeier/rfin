@@ -28,7 +28,7 @@
 //! let pv = bond.value(&market, as_of)?;
 //! ```
 //!
-//! [`Instrument`]: crate::instruments::common::traits::Instrument
+//! [`Instrument`]: crate::instruments::common_impl::traits::Instrument
 //!
 //! # See Also
 //!

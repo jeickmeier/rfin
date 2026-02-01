@@ -7,7 +7,7 @@
 //! For convertibles, dividend yield affects the equity option component.
 //! Higher dividend yield reduces the forward price, making conversion less attractive.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fixed_income::convertible::ConvertibleBond;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;

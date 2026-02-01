@@ -4,7 +4,7 @@
 //! markets funds, including return of capital, preferred IRR hurdles, catch-up
 //! provisions, promote splits, and clawback mechanisms.
 
-use crate::instruments::common::validation;
+use crate::instruments::common_impl::validation;
 use finstack_core::config::{results_meta, FinstackConfig, ResultsMeta};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};

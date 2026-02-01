@@ -3,7 +3,7 @@
 //! This module provides pricer implementations that integrate bond pricing engines
 //! with the instrument pricing registry system.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fixed_income::bond::pricing::hazard_engine::HazardBondEngine;
 use crate::instruments::fixed_income::bond::pricing::tree_engine::TreePricer;
 use crate::instruments::fixed_income::bond::types::Bond;
@@ -16,7 +16,7 @@ use finstack_core::market_data::context::MarketContext;
 use indexmap::IndexMap;
 
 // Using generic pricer implementation to eliminate boilerplate
-pub use crate::instruments::common::GenericInstrumentPricer;
+pub use crate::instruments::common_impl::GenericInstrumentPricer;
 
 /// Bond discounting pricer using the generic implementation.
 ///

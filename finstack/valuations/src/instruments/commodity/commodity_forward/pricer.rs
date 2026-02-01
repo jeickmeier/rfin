@@ -4,7 +4,7 @@
 //! curve-based forward price interpolation with discounting.
 
 use crate::instruments::commodity::commodity_forward::CommodityForward;
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
@@ -85,7 +85,7 @@ mod tests {
             .contract_price_opt(Some(72.0)) // Entry price below market for positive MTM
             .forward_curve_id(CurveId::new("WTI-FORWARD"))
             .discount_curve_id(CurveId::new("USD-OIS"))
-            .attributes(crate::instruments::common::traits::Attributes::new())
+            .attributes(crate::instruments::common_impl::traits::Attributes::new())
             .build()
             .expect("should build")
     }

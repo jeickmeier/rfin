@@ -91,7 +91,7 @@
 //!
 //! ## Black-Scholes Greeks
 //!
-//! ```rust
+//! ```rust,ignore
 //! use finstack_valuations::instruments::common::models::closed_form::greeks::{
 //!     bs_call_delta, bs_gamma, bs_vega
 //! };
@@ -113,7 +113,7 @@
 //!
 //! ## Barrier Option
 //!
-//! ```rust
+//! ```rust,ignore
 //! use finstack_valuations::instruments::common::models::closed_form::barrier::{
 //!     down_out_call
 //! };

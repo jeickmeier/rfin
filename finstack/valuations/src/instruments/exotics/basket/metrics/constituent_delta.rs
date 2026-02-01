@@ -17,7 +17,7 @@
 //! with a synthetic market data price for the bump scenario. This mirrors a direct
 //! price shock without requiring instrument-specific overrides.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::exotics::basket::types::{AssetType, ConstituentReference};
 use crate::instruments::exotics::basket::{Basket, BasketConstituent};
 use crate::metrics::{MetricCalculator, MetricContext};
@@ -219,19 +219,27 @@ fn basket_with_price_reference(
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
+    #[allow(clippy::expect_used, clippy::unwrap_used, dead_code, unused_imports)]
+    mod test_utils {
+        include!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/support/test_utils.rs"
+        ));
+    }
+
     use super::*;
     use crate::metrics::MetricId;
-    use crate::test_utils::flat_discount;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::scalars::MarketScalar;
     use finstack_core::money::Money;
     use std::sync::Arc;
+    use test_utils::flat_discount;
 
     #[cfg(feature = "serde")]
     #[test]
     fn test_constituent_delta_mixed_references() {
-        let as_of = crate::test_utils::date(2024, 1, 2);
+        let as_of = test_utils::date(2024, 1, 2);
         let market = MarketContext::new()
             .insert_discount(flat_discount("USD-OIS", as_of, 0.02))
             .insert_price(

@@ -30,13 +30,10 @@
 //! amount that should capitalize into the outstanding balance.
 
 mod amortization;
-mod coupons;
-mod credit;
+pub(crate) mod coupons;
+pub(crate) mod credit;
 mod fees;
 mod helpers;
-#[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
-mod tests;
 
 // Re-export coupon emission (internal to builder module)
 pub(super) use coupons::{emit_fixed_coupons_on, emit_float_coupons_on};

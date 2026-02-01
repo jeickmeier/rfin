@@ -1,6 +1,6 @@
 //! Unified market data dependency representation for instruments.
 
-use crate::instruments::common::traits::{
+use crate::instruments::common_impl::traits::{
     CurveDependencies, CurveIdVec, EquityDependencies, EquityInstrumentDeps, Instrument,
     InstrumentCurves,
 };

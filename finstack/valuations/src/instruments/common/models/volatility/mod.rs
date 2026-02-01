@@ -36,7 +36,7 @@
 //!
 //! # Quick Example
 //!
-//! ```rust
+//! ```rust,ignore
 //! use finstack_valuations::instruments::common::models::volatility::{d1_d2, norm_cdf};
 //!
 //! let spot = 100.0;
@@ -62,7 +62,7 @@
 //! - [`SABRModel`] for SABR smile interpolation
 //! - [`HestonModel`] for stochastic volatility
 //! - [`LocalVolSurface`] for Dupire local vol
-//! - [`crate::instruments::common::models::closed_form`] for analytical formulas
+//! - [`crate::instruments::common_impl::models::closed_form`] for analytical formulas
 
 pub mod black;
 pub mod heston;

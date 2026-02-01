@@ -14,8 +14,8 @@
 //! allocation overhead on the hot path. This is critical for performance
 //! when simulating millions of paths.
 
-use crate::instruments::common::mc::traits::PathState;
-use crate::instruments::common::models::monte_carlo::traits::Payoff;
+use crate::instruments::common_impl::mc::traits::PathState;
+use crate::instruments::common_impl::models::monte_carlo::traits::Payoff;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 

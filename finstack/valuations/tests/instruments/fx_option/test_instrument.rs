@@ -3,6 +3,7 @@
 //! Tests builders, convenience constructors, and trait implementations.
 
 use super::helpers::*;
+use crate::finstack_test_utils as test_utils;
 use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
 use finstack_core::money::Money;
@@ -13,7 +14,6 @@ use finstack_valuations::instruments::FxUnderlyingParams;
 use finstack_valuations::instruments::{Attributes, Instrument};
 use finstack_valuations::instruments::{PricingOverrides, SettlementType};
 use finstack_valuations::metrics::MetricId;
-use finstack_valuations::test_utils;
 use time::macros::date;
 
 #[test]

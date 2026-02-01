@@ -21,7 +21,7 @@
 //! and the premium leg (accrued on default settlement). This metric captures
 //! the full sensitivity across both legs.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;

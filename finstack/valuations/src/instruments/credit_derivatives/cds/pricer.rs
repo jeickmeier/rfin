@@ -370,7 +370,7 @@ impl CDSPricerConfig {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use finstack_valuations::instruments::credit_derivatives::cds::CDSPricerConfig;
     ///
     /// let config = CDSPricerConfig::isda_standard();

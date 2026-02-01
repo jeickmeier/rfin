@@ -518,7 +518,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use serde::{Deserialize, Serialize};
-use crate::instruments::common::traits::{Attributes, Instrument};
+use crate::instruments::{Attributes, Instrument};
 use crate::instruments::PricingOverrides;
 
 /// My custom instrument.

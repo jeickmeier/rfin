@@ -1,6 +1,7 @@
 //! Tests for equity option constructors and builders.
 
 use super::helpers::*;
+use crate::finstack_test_utils as test_utils;
 use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
 use finstack_core::money::Money;
@@ -9,7 +10,6 @@ use finstack_valuations::instruments::equity::equity_option::EquityOption;
 use finstack_valuations::instruments::market::{ExerciseStyle, OptionType};
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::{PricingOverrides, SettlementType};
-use finstack_valuations::test_utils;
 use time::macros::date;
 
 #[test]

@@ -1,7 +1,7 @@
 //! Real estate asset pricer implementation.
 
 use super::RealEstateAsset;
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
 };

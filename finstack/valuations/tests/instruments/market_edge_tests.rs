@@ -77,7 +77,7 @@ mod cds_market_edge {
             .insert_discount(disc)
             .insert_hazard(hazard);
 
-        let mut buyer = finstack_valuations::test_utils::cds_buy_protection(
+        let mut buyer = crate::finstack_test_utils::cds_buy_protection(
             "BUYER",
             Money::new(10_000_000.0, Currency::USD),
             100.0,
@@ -88,7 +88,7 @@ mod cds_market_edge {
         )
         .expect("CDS construction should succeed");
 
-        let mut seller = finstack_valuations::test_utils::cds_sell_protection(
+        let mut seller = crate::finstack_test_utils::cds_sell_protection(
             "SELLER",
             Money::new(10_000_000.0, Currency::USD),
             100.0,
@@ -157,7 +157,7 @@ mod cds_market_edge {
                 .insert_discount(disc.clone())
                 .insert_hazard(hazard);
 
-            let cds = finstack_valuations::test_utils::cds_buy_protection(
+            let cds = crate::finstack_test_utils::cds_buy_protection(
                 "AOD_TEST",
                 Money::new(10_000_000.0, Currency::USD),
                 100.0,

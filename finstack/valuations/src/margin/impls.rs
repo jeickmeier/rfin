@@ -3,7 +3,7 @@
 //! This module provides implementations of the [`Marginable`] trait for
 //! instruments that support margin calculations.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use crate::instruments::credit_derivatives::cds_index::CDSIndex;
 use crate::instruments::equity::equity_trs::EquityTotalReturnSwap;
@@ -170,8 +170,8 @@ impl Marginable for CreditDefaultSwap {
 
         // Assign to 5Y bucket (most liquid CDS tenor)
         let signed_cs01 = match self.side {
-            crate::instruments::common::parameters::legs::PayReceive::PayFixed => cs01, // Protection buyer
-            crate::instruments::common::parameters::legs::PayReceive::ReceiveFixed => -cs01, // Protection seller
+            crate::instruments::common_impl::parameters::legs::PayReceive::PayFixed => cs01, // Protection buyer
+            crate::instruments::common_impl::parameters::legs::PayReceive::ReceiveFixed => -cs01, // Protection seller
         };
 
         sens.add_credit_delta(ref_entity, qualifying, "5Y", signed_cs01);
@@ -192,10 +192,10 @@ impl Marginable for CreditDefaultSwap {
 
         // NPV from protection buyer perspective (PayFixed)
         let npv = match self.side {
-            crate::instruments::common::parameters::legs::PayReceive::PayFixed => {
+            crate::instruments::common_impl::parameters::legs::PayReceive::PayFixed => {
                 pv_prot.checked_sub(pv_prem)?
             }
-            crate::instruments::common::parameters::legs::PayReceive::ReceiveFixed => {
+            crate::instruments::common_impl::parameters::legs::PayReceive::ReceiveFixed => {
                 pv_prem.checked_sub(pv_prot)?
             }
         };
@@ -237,8 +237,8 @@ impl Marginable for CDSIndex {
         let qualifying = self.index_name.contains("IG") || !self.index_name.contains("HY");
 
         let signed_cs01 = match self.side {
-            crate::instruments::common::parameters::legs::PayReceive::PayFixed => cs01,
-            crate::instruments::common::parameters::legs::PayReceive::ReceiveFixed => -cs01,
+            crate::instruments::common_impl::parameters::legs::PayReceive::PayFixed => cs01,
+            crate::instruments::common_impl::parameters::legs::PayReceive::ReceiveFixed => -cs01,
         };
 
         sens.add_credit_delta(&self.index_name, qualifying, "5Y", signed_cs01);
@@ -287,7 +287,7 @@ impl Marginable for EquityTotalReturnSwap {
     }
 
     fn mtm_for_vm(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
-        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common_impl::traits::Instrument;
         self.value(market, as_of)
     }
 }
@@ -392,6 +392,14 @@ impl Marginable for Repo {
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
+    #[allow(clippy::expect_used, clippy::unwrap_used, dead_code, unused_imports)]
+    mod test_utils {
+        include!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/support/test_utils.rs"
+        ));
+    }
+
     use super::*;
     use finstack_core::currency::Currency;
     use time::Month;
@@ -405,7 +413,7 @@ mod tests {
         let start = test_date();
         let end = Date::from_calendar_date(2029, Month::June, 15).expect("valid date");
 
-        let swap = crate::test_utils::usd_irs_swap(
+        let swap = test_utils::usd_irs_swap(
             "TEST_IRS",
             Money::new(100_000_000.0, Currency::USD),
             0.035,
@@ -449,7 +457,7 @@ mod tests {
         let start = test_date();
         let end = Date::from_calendar_date(2029, Month::June, 15).expect("valid date");
 
-        let mut swap = crate::test_utils::usd_irs_swap(
+        let mut swap = test_utils::usd_irs_swap(
             "TEST_IRS",
             Money::new(100_000_000.0, Currency::USD),
             0.035,

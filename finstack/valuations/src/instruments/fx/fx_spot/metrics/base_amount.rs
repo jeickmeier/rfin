@@ -24,7 +24,7 @@ impl MetricCalculator for BaseAmountCalculator {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::{base_amount, BaseAmountCalculator};
-    use crate::instruments::common::traits::Instrument;
+    use crate::instruments::common_impl::traits::Instrument;
     use crate::instruments::fx::fx_spot::FxSpot;
     use crate::metrics::{MetricCalculator, MetricContext};
     use finstack_core::{
@@ -60,7 +60,7 @@ mod tests {
         let base_value = fx
             .value(&MarketContext::new(), as_of)
             .expect("should succeed");
-        let instrument: Arc<dyn crate::instruments::common::traits::Instrument> = Arc::new(fx);
+        let instrument: Arc<dyn crate::instruments::common_impl::traits::Instrument> = Arc::new(fx);
         let mut ctx = MetricContext::new(
             instrument,
             Arc::new(MarketContext::new()),

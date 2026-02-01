@@ -60,7 +60,7 @@ pub fn d_bachelier(forward: f64, strike: f64, sigma: f64, t: f64) -> f64 {
 #[inline]
 #[must_use]
 pub fn bachelier_price(
-    option_type: crate::instruments::common::parameters::OptionType,
+    option_type: crate::instruments::common_impl::parameters::OptionType,
     forward: f64,
     strike: f64,
     sigma: f64,
@@ -69,10 +69,10 @@ pub fn bachelier_price(
 ) -> f64 {
     if t <= 0.0 {
         return match option_type {
-            crate::instruments::common::parameters::OptionType::Call => {
+            crate::instruments::common_impl::parameters::OptionType::Call => {
                 (forward - strike).max(0.0) * annuity
             }
-            crate::instruments::common::parameters::OptionType::Put => {
+            crate::instruments::common_impl::parameters::OptionType::Put => {
                 (strike - forward).max(0.0) * annuity
             }
         };
@@ -85,8 +85,8 @@ pub fn bachelier_price(
     let term2 = disc_vol * norm_pdf(d);
 
     match option_type {
-        crate::instruments::common::parameters::OptionType::Call => annuity * (term1 + term2),
-        crate::instruments::common::parameters::OptionType::Put => {
+        crate::instruments::common_impl::parameters::OptionType::Call => annuity * (term1 + term2),
+        crate::instruments::common_impl::parameters::OptionType::Put => {
             // Put-Call Parity or direct formula:
             // Put = Call - (F - K) * A
             //     = A * [(F-K)N(d) + v*n(d) - (F-K)]

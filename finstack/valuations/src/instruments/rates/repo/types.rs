@@ -1,7 +1,7 @@
 //! Core types for Repurchase Agreement (Repo) instruments.
 
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::common::traits::{Attributes, Instrument};
+use crate::instruments::common_impl::traits::{Attributes, Instrument};
 use crate::instruments::rates::repo::margin::RepoMarginSpec;
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
@@ -635,7 +635,7 @@ impl Instrument for Repo {
         let base_value = self.value(context, as_of)?;
 
         // Use existing utility function to build metrics
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(context.clone()),
             as_of,
@@ -688,9 +688,9 @@ impl CashflowProvider for Repo {
 }
 
 // Implement CurveDependencies for DV01 calculator
-impl crate::instruments::common::traits::CurveDependencies for Repo {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for Repo {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .build()
     }

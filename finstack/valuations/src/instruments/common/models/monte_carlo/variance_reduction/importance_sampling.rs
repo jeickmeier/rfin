@@ -87,7 +87,7 @@ pub fn weighted_estimate(values: &[f64], weights: &[f64]) -> (f64, f64) {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```rust,ignore
 /// use finstack_valuations::instruments::common::models::monte_carlo::variance_reduction::importance_sampling::{
 ///     weighted_estimate_with_diagnostics, DEFAULT_ESS_THRESHOLD
 /// };

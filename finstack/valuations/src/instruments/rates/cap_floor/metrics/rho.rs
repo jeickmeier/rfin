@@ -7,7 +7,7 @@
 //! - Rho = PV(rate + 1bp) − PV(base)
 //! - Positive Rho means the instrument gains value when rates go up
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::rates::cap_floor::InterestRateOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};

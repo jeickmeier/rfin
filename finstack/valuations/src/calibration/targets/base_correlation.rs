@@ -274,7 +274,7 @@ impl BaseCorrelationBootstrapper {
 
         let prepared_quote = PreparedQuote::new(
             Arc::new(quote.clone()),
-            Arc::<dyn crate::instruments::common::traits::Instrument>::from(instrument),
+            Arc::<dyn crate::instruments::common_impl::traits::Instrument>::from(instrument),
             fields.maturity,
             pillar_time,
         );

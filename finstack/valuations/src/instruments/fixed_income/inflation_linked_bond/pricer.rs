@@ -1,4 +1,4 @@
-use crate::instruments::common::GenericInstrumentPricer;
+use crate::instruments::common_impl::GenericInstrumentPricer;
 use crate::instruments::fixed_income::inflation_linked_bond::InflationLinkedBond;
 
 /// Simple type alias for the inflation linked bond pricer

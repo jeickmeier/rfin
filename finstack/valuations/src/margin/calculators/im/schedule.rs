@@ -9,7 +9,7 @@
 //! [`ScheduleImCalculator::bcbs_standard()`] return `Result` rather than panicking,
 //! allowing callers to handle missing registry data gracefully.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::margin::calculators::traits::{ImCalculator, ImResult};
 use crate::margin::types::ImMethodology;
 use crate::margin::{config::margin_registry_from_config, registry::embedded_registry};

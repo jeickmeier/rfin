@@ -13,7 +13,7 @@
 
 use super::StructuredCredit;
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::common::discountable::Discountable;
+use crate::instruments::common_impl::discountable::Discountable;
 use crate::metrics::{MetricContext, MetricId};
 use crate::results::ValuationResult;
 use finstack_core::dates::Date;
@@ -137,7 +137,7 @@ impl StructuredCredit {
         let flows = self.build_dated_flows(context, as_of)?;
         let mut metric_context = crate::metrics::MetricContext::new(
             std::sync::Arc::new(self.clone())
-                as std::sync::Arc<dyn crate::instruments::common::traits::Instrument>,
+                as std::sync::Arc<dyn crate::instruments::common_impl::traits::Instrument>,
             std::sync::Arc::new(context.clone()),
             as_of,
             base_value,
@@ -211,7 +211,7 @@ impl StructuredCredit {
 }
 
 // Using generic pricer implementation to eliminate boilerplate
-pub use crate::instruments::common::GenericInstrumentPricer;
+pub use crate::instruments::common_impl::GenericInstrumentPricer;
 
 /// Structured Credit discounting pricer using the generic implementation.
 ///

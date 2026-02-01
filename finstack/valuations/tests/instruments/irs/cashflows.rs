@@ -7,6 +7,7 @@
 //! - Stub period handling
 //! - Cashflow schedule consistency
 
+use crate::finstack_test_utils as test_utils;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
@@ -14,7 +15,6 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
-use finstack_valuations::test_utils;
 use time::macros::date;
 
 fn build_test_curves() -> MarketContext {

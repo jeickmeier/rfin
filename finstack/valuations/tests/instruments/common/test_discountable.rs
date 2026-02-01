@@ -8,7 +8,7 @@ use finstack_core::types::CurveId;
 use finstack_valuations::cashflow::builder::{
     CashFlowSchedule, CouponType, FixedCouponSpec, ScheduleParams,
 };
-use finstack_valuations::instruments::common::Discountable;
+use finstack_valuations::instruments::Discountable;
 use rust_decimal_macros::dec;
 use time::Month;
 

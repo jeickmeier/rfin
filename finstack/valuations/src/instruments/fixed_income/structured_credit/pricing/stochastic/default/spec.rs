@@ -5,7 +5,7 @@
 
 use super::{CopulaBasedDefault, HazardCurveDefault, IntensityProcessDefault, StochasticDefault};
 use crate::cashflow::builder::specs::DefaultModelSpec;
-use crate::instruments::common::models::correlation::copula::CopulaSpec;
+use crate::instruments::common_impl::models::correlation::copula::CopulaSpec;
 use finstack_core::market_data::term_structures::HazardCurve;
 
 /// Stochastic default model specification.

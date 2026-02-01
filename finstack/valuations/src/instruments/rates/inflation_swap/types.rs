@@ -1,7 +1,7 @@
 //! Zero-coupon Inflation Swap types and pricing implementation.
 
-use crate::instruments::common::traits::Attributes;
-use crate::instruments::common::validation;
+use crate::instruments::common_impl::traits::Attributes;
+use crate::instruments::common_impl::validation;
 use finstack_core::dates::{
     BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, StubKind, Tenor,
 };
@@ -424,7 +424,7 @@ impl InflationSwapBuilder {
     }
 }
 
-impl crate::instruments::common::traits::Instrument for InflationSwap {
+impl crate::instruments::common_impl::traits::Instrument for InflationSwap {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -437,15 +437,15 @@ impl crate::instruments::common::traits::Instrument for InflationSwap {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
@@ -477,7 +477,7 @@ impl crate::instruments::common::traits::Instrument for InflationSwap {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(curves.clone()),
             as_of,
@@ -490,9 +490,9 @@ impl crate::instruments::common::traits::Instrument for InflationSwap {
 }
 
 // Implement CurveDependencies for DV01 calculator
-impl crate::instruments::common::traits::CurveDependencies for InflationSwap {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for InflationSwap {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .forward(self.inflation_index_id.clone())
             .build()
@@ -756,7 +756,7 @@ impl YoYInflationSwapBuilder {
     }
 }
 
-impl crate::instruments::common::traits::Instrument for YoYInflationSwap {
+impl crate::instruments::common_impl::traits::Instrument for YoYInflationSwap {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -769,15 +769,15 @@ impl crate::instruments::common::traits::Instrument for YoYInflationSwap {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
@@ -808,7 +808,7 @@ impl crate::instruments::common::traits::Instrument for YoYInflationSwap {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(curves.clone()),
             as_of,
@@ -820,9 +820,9 @@ impl crate::instruments::common::traits::Instrument for YoYInflationSwap {
     }
 }
 
-impl crate::instruments::common::traits::CurveDependencies for YoYInflationSwap {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for YoYInflationSwap {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .forward(self.inflation_index_id.clone())
             .build()

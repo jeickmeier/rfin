@@ -48,7 +48,7 @@
 //! - [`generate_cashflows`] for cashflow generation details
 //! - [`super::types::TermLoan`] for the instrument type
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
 };
@@ -181,7 +181,7 @@ impl TermLoanDiscountingPricer {
             .map(|cf| (cf.date, cf.amount))
             .collect();
 
-        crate::instruments::common::discountable::npv_by_date(disc.as_ref(), as_of, &flows)
+        crate::instruments::common_impl::discountable::npv_by_date(disc.as_ref(), as_of, &flows)
     }
 }
 
@@ -217,7 +217,7 @@ impl Pricer for TermLoanDiscountingPricer {
 mod tests {
     use super::*;
     use crate::cashflow::builder::specs::CouponType;
-    use crate::instruments::common::discountable::npv_by_date;
+    use crate::instruments::common_impl::discountable::npv_by_date;
     use finstack_core::cashflow::CFKind;
     use finstack_core::dates::Date;
     use finstack_core::market_data::context::MarketContext;

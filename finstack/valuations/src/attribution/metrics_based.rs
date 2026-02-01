@@ -66,7 +66,7 @@
 
 use super::helpers::*;
 use super::types::*;
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::config::{RoundingContext, ZeroKind};
@@ -685,14 +685,22 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
+    #[allow(clippy::expect_used, dead_code, unused_imports)]
+    mod test_utils {
+        include!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/support/attribution_test_utils.rs"
+        ));
+    }
+
     use super::*;
-    use crate::attribution::test_utils::TestInstrument;
     use finstack_core::config::FinstackConfig;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::money::Money;
     use indexmap::IndexMap;
     use std::sync::Arc;
+    use test_utils::TestInstrument;
     use time::macros::date;
 
     #[test]

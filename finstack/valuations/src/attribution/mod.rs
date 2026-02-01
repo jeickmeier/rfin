@@ -255,8 +255,6 @@ pub(crate) mod metrics_based;
 pub(crate) mod model_params;
 pub(crate) mod parallel;
 pub(crate) mod spec;
-#[cfg(test)]
-pub(crate) mod test_utils;
 pub(crate) mod types;
 pub(crate) mod waterfall;
 

@@ -4,7 +4,7 @@
 //! metrics. The `MetricCalculator` trait enables custom metric implementations,
 //! while `MetricContext` provides the execution environment with caching.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fixed_income::structured_credit::TrancheCashflows;
 use crate::metrics::risk::MarketHistory;
 use crate::metrics::MetricId;

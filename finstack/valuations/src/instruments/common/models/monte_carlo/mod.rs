@@ -30,7 +30,7 @@
 //!
 //! # Quick Example
 //!
-//! ```rust,no_run
+//! ```rust,ignore
 //! use finstack_valuations::instruments::common::models::monte_carlo::prelude::*;
 //!
 //! // Configure Monte Carlo engine using the builder
@@ -50,7 +50,7 @@
 //!
 //! Longstaff-Schwartz least squares Monte Carlo for early exercise:
 //!
-//! ```rust,no_run
+//! ```rust,ignore
 //! # #[cfg(feature = "mc")]
 //! # fn example() {
 //! use finstack_valuations::instruments::common::models::monte_carlo::prelude::*;
@@ -79,7 +79,7 @@
 //! - [`engine::McEngine`] for the main simulation engine
 //! - [`pricer::lsmc`] for American option pricing
 //! - [`variance_reduction`] for variance reduction techniques
-//! - [`crate::instruments::common::mc`] for low-level MC infrastructure
+//! - [`crate::instruments::common_impl::mc`] for low-level MC infrastructure
 
 pub mod barriers;
 pub mod discretization;
@@ -133,13 +133,13 @@ pub mod prelude {
     pub use super::variance_reduction::control_variate::{black_scholes_call, black_scholes_put};
 
     // Useful generic MC items
-    pub use crate::instruments::common::mc::estimate::Estimate;
-    pub use crate::instruments::common::mc::online_stats::OnlineStats;
-    pub use crate::instruments::common::mc::paths::{
+    pub use crate::instruments::common_impl::mc::estimate::Estimate;
+    pub use crate::instruments::common_impl::mc::online_stats::OnlineStats;
+    pub use crate::instruments::common_impl::mc::paths::{
         PathDataset, PathPoint, PathSamplingMethod, ProcessParams, SimulatedPath,
     };
-    pub use crate::instruments::common::mc::time_grid::TimeGrid;
-    pub use crate::instruments::common::mc::traits::{
+    pub use crate::instruments::common_impl::mc::time_grid::TimeGrid;
+    pub use crate::instruments::common_impl::mc::traits::{
         Discretization, PathState, RandomStream, StochasticProcess,
     };
 }

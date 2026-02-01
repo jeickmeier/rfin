@@ -19,8 +19,8 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::Result;
 use finstack_valuations::attribution::attribute_pnl_parallel;
-use finstack_valuations::instruments::common::Attributes;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
+use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::pricer::InstrumentType;
 use finstack_valuations::results::ValuationResult;
@@ -84,7 +84,7 @@ impl Instrument for ScaledInstrument {
         Box::new(self.clone())
     }
 
-    fn market_dependencies(&self) -> finstack_valuations::instruments::common::MarketDependencies {
+    fn market_dependencies(&self) -> finstack_valuations::instruments::MarketDependencies {
         self.inner.market_dependencies()
     }
 
@@ -147,7 +147,7 @@ impl Instrument for CompositeInstrument {
         Box::new(self.clone())
     }
 
-    fn market_dependencies(&self) -> finstack_valuations::instruments::common::MarketDependencies {
+    fn market_dependencies(&self) -> finstack_valuations::instruments::MarketDependencies {
         let mut deps = self.left.market_dependencies();
         deps.merge(self.right.market_dependencies());
         deps

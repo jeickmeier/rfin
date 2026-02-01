@@ -59,7 +59,7 @@ where
 /// - **FRAs and same-day settling instruments**: Payment on as_of is part of value
 ///
 /// For holder-view semantics (excludes `date <= as_of`), see
-/// [`crate::instruments::common::discountable::npv_by_date`].
+/// [`crate::instruments::common_impl::discountable::npv_by_date`].
 ///
 /// # Numerical Stability
 ///
@@ -139,7 +139,7 @@ where
 /// The `instrument` parameter is also `Arc`-wrapped. Instruments are generally immutable
 /// after construction, so this is safe for concurrent reads.
 pub(crate) fn build_with_metrics_dyn(
-    instrument: Arc<dyn crate::instruments::common::traits::Instrument>,
+    instrument: Arc<dyn crate::instruments::common_impl::traits::Instrument>,
     curves: Arc<MarketContext>,
     as_of: Date,
     base_value: Money,
@@ -217,7 +217,7 @@ pub(crate) fn build_with_metrics_dyn(
 #[allow(clippy::items_after_test_module)]
 mod tests {
     use super::*;
-    use crate::instruments::common::traits::{Attributes, Instrument};
+    use crate::instruments::common_impl::traits::{Attributes, Instrument};
     use crate::metrics::MetricId;
     use crate::pricer::InstrumentType;
     use finstack_core::currency::Currency;
@@ -397,8 +397,8 @@ mod tests {
 /// using `Arc::from()`. This works because `Arc::from()` can convert from `Box<T>`
 /// when `T: ?Sized` (which trait objects are).
 pub(crate) fn instrument_to_arc(
-    instrument: &dyn crate::instruments::common::traits::Instrument,
-) -> Arc<dyn crate::instruments::common::traits::Instrument> {
+    instrument: &dyn crate::instruments::common_impl::traits::Instrument,
+) -> Arc<dyn crate::instruments::common_impl::traits::Instrument> {
     // Clone via clone_box() to get Box<dyn Instrument>
     let boxed = instrument.clone_box();
     // Convert Box to Arc using Arc::from()

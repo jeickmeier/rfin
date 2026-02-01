@@ -6,7 +6,7 @@
 //!
 //! # Usage
 //!
-//! ```rust,no_run
+//! ```rust,ignore
 //! use finstack_core::types::InstrumentId;
 //! use finstack_valuations::instruments::common::models::monte_carlo::seed;
 //!

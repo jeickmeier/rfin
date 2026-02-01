@@ -3,7 +3,7 @@
 //! Provides the discounting pricer for NDF instruments with support for
 //! both pre-fixing and post-fixing valuation modes.
 
-use crate::instruments::common::traits::Instrument as Priceable;
+use crate::instruments::common_impl::traits::Instrument as Priceable;
 use crate::instruments::fx::ndf::Ndf;
 use crate::pricer::{
     expect_inst, InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,

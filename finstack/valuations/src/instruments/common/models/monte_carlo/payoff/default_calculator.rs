@@ -47,7 +47,7 @@ pub enum DefaultEvent {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```rust,ignore
 /// use finstack_valuations::instruments::common::models::monte_carlo::payoff::default_calculator::{
 ///     FirstPassageCalculator, DefaultEvent
 /// };

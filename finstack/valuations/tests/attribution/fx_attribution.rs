@@ -15,8 +15,8 @@ use finstack_core::Result;
 use finstack_valuations::attribution::{
     attribute_pnl_parallel, attribute_pnl_waterfall, default_waterfall_order, AttributionFactor,
 };
-use finstack_valuations::instruments::common::Attributes;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
+use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::pricer::InstrumentType;
 use finstack_valuations::results::ValuationResult;
@@ -96,8 +96,8 @@ impl Instrument for FxLinkedInstrument {
         Box::new(self.clone())
     }
 
-    fn market_dependencies(&self) -> finstack_valuations::instruments::common::MarketDependencies {
-        finstack_valuations::instruments::common::MarketDependencies::new()
+    fn market_dependencies(&self) -> finstack_valuations::instruments::MarketDependencies {
+        finstack_valuations::instruments::MarketDependencies::new()
     }
 
     fn value(&self, market: &MarketContext, as_of: Date) -> Result<Money> {

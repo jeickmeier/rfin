@@ -1,12 +1,12 @@
 //! FX variance swap type definitions and pricing logic.
 
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::common::models::bs_price;
-use crate::instruments::common::parameters::OptionType;
-use crate::instruments::common::traits::Attributes;
-use crate::instruments::common::traits::CurveDependencies;
-use crate::instruments::common::traits::Instrument as InstrumentTrait;
-use crate::instruments::common::traits::InstrumentCurves;
+use crate::instruments::common_impl::models::bs_price;
+use crate::instruments::common_impl::parameters::OptionType;
+use crate::instruments::common_impl::traits::Attributes;
+use crate::instruments::common_impl::traits::CurveDependencies;
+use crate::instruments::common_impl::traits::Instrument as InstrumentTrait;
+use crate::instruments::common_impl::traits::InstrumentCurves;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DateExt, DayCount, DayCountCtx, Tenor};
 use finstack_core::market_data::context::MarketContext;
@@ -438,9 +438,11 @@ impl InstrumentTrait for FxVarianceSwap {
         Box::new(self.clone())
     }
 
-    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
+    fn market_dependencies(
+        &self,
+    ) -> crate::instruments::common_impl::dependencies::MarketDependencies {
         let mut deps =
-            crate::instruments::common::dependencies::MarketDependencies::from_curve_dependencies(
+            crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
                 self,
             );
         if let Some(spot_id) = self.spot_id.as_deref() {
@@ -498,7 +500,7 @@ impl InstrumentTrait for FxVarianceSwap {
         metrics: &[crate::metrics::MetricId],
     ) -> Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(curves.clone()),
             as_of,

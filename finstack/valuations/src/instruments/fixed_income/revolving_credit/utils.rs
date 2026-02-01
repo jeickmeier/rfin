@@ -4,7 +4,7 @@
 //! cashflow generation and pricing implementations.
 
 use super::types::{BaseRateSpec, RevolvingCredit};
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common_impl::traits::Attributes;
 use finstack_core::dates::{
     BusinessDayConvention, Date, DateExt, HolidayCalendar, ScheduleBuilder,
 };
@@ -234,7 +234,7 @@ pub(super) fn compute_reset_period_end(
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common::traits::Attributes;
+    use crate::instruments::common_impl::traits::Attributes;
     use finstack_core::currency::Currency;
     use finstack_core::dates::{DayCount, Tenor};
     use finstack_core::money::Money;

@@ -11,7 +11,7 @@ use finstack_core::money::Money;
 use finstack_core::Result;
 
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fixed_income::bond::Bond;
 use crate::instruments::rates::ir_future::Position;
 
@@ -387,7 +387,7 @@ impl crate::pricer::Pricer for BondFuturePricer {
 
     fn price_dyn(
         &self,
-        instrument: &dyn crate::instruments::common::traits::Instrument,
+        instrument: &dyn crate::instruments::common_impl::traits::Instrument,
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> crate::pricer::PricingResult<crate::results::ValuationResult> {
@@ -770,7 +770,7 @@ mod tests {
             }])
             .ctd_bond_id(InstrumentId::new("TEST_BOND"))
             .discount_curve_id(CurveId::new("USD-TREASURY"))
-            .attributes(crate::instruments::common::traits::Attributes::new())
+            .attributes(crate::instruments::common_impl::traits::Attributes::new())
             .build()
             .expect("Failed to build test bond future")
     }
@@ -1072,7 +1072,7 @@ mod tests {
             .ctd_bond_id(InstrumentId::new("BOND-B"))
             .ctd_bond(bond_b.clone())
             .discount_curve_id(CurveId::new("USD-TREASURY"))
-            .attributes(crate::instruments::common::traits::Attributes::new())
+            .attributes(crate::instruments::common_impl::traits::Attributes::new())
             .build()
             .expect("Valid bond future");
 

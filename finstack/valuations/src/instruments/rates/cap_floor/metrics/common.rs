@@ -44,12 +44,12 @@ where
             return Ok(0.0);
         }
 
-        let forward = crate::instruments::common::pricing::time::rate_period_on_dates(
+        let forward = crate::instruments::common_impl::pricing::time::rate_period_on_dates(
             fwd_curve.as_ref(),
             start,
             end,
         )?;
-        let df = crate::instruments::common::pricing::time::relative_df_discount_curve(
+        let df = crate::instruments::common_impl::pricing::time::relative_df_discount_curve(
             disc_curve.as_ref(),
             context.as_of,
             end,

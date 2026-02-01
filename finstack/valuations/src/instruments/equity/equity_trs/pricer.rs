@@ -4,7 +4,7 @@
 //! a cost-of-carry forward model with dividend yield.
 
 use super::types::EquityTotalReturnSwap;
-use crate::instruments::common::pricing::{TotalReturnLegParams, TrsEngine, TrsReturnModel};
+use crate::instruments::common_impl::pricing::{TotalReturnLegParams, TrsEngine, TrsReturnModel};
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;

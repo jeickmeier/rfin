@@ -4,7 +4,7 @@
 //! and provides utilities to extract them from instruments based on their
 //! market data dependencies.
 
-use crate::instruments::common::traits::{CurveDependencies, Instrument};
+use crate::instruments::common_impl::traits::{CurveDependencies, Instrument};
 use crate::metrics::sensitivities::dv01::standard_ir_dv01_buckets;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::CurveId;

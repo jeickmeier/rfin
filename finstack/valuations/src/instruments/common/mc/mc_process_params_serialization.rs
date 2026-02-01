@@ -2,8 +2,9 @@
 //!
 //! Ensures that all MC process parameters can be serialized and deserialized
 //! consistently when the `serde` feature is enabled.
+#![allow(clippy::expect_used)]
 
-use finstack_valuations::instruments::common::mc::process::{
+use crate::instruments::common_impl::mc::process::{
     bates::BatesParams, brownian::BrownianParams, cir::CirParams, gbm::GbmParams,
     heston::HestonParams, jump_diffusion::MertonJumpParams, multi_ou::MultiOuParams,
     ou::HullWhite1FParams, schwartz_smith::SchwartzSmithParams,

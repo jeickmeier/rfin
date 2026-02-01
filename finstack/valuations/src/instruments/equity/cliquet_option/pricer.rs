@@ -1,27 +1,27 @@
 //! Cliquet option Monte Carlo pricer.
 
 #[cfg(feature = "mc")]
-use crate::instruments::common::mc::paths::ProcessParams;
+use crate::instruments::common_impl::mc::paths::ProcessParams;
 #[cfg(feature = "mc")]
-use crate::instruments::common::mc::process::metadata::ProcessMetadata;
+use crate::instruments::common_impl::mc::process::metadata::ProcessMetadata;
 #[cfg(feature = "mc")]
-use crate::instruments::common::mc::rng::philox::PhiloxRng;
+use crate::instruments::common_impl::mc::rng::philox::PhiloxRng;
 #[cfg(feature = "mc")]
-use crate::instruments::common::mc::time_grid::TimeGrid;
+use crate::instruments::common_impl::mc::time_grid::TimeGrid;
 #[cfg(feature = "mc")]
-use crate::instruments::common::mc::traits::Discretization;
+use crate::instruments::common_impl::mc::traits::Discretization;
 #[cfg(feature = "mc")]
-use crate::instruments::common::mc::traits::StochasticProcess;
+use crate::instruments::common_impl::mc::traits::StochasticProcess;
 #[cfg(feature = "mc")]
-use crate::instruments::common::models::monte_carlo::engine::{McEngine, McEngineConfig};
+use crate::instruments::common_impl::models::monte_carlo::engine::{McEngine, McEngineConfig};
 #[cfg(feature = "mc")]
-use crate::instruments::common::models::monte_carlo::payoff::cliquet::{
+use crate::instruments::common_impl::models::monte_carlo::payoff::cliquet::{
     CliquetCallPayoff, CliquetPayoffType as McPayoffType,
 };
 #[cfg(feature = "mc")]
-use crate::instruments::common::models::monte_carlo::pricer::path_dependent::PathDependentPricerConfig;
+use crate::instruments::common_impl::models::monte_carlo::pricer::path_dependent::PathDependentPricerConfig;
 #[cfg(feature = "mc")]
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 #[cfg(feature = "mc")]
 use crate::instruments::equity::cliquet_option::types::{CliquetOption, CliquetPayoffType};
 #[cfg(feature = "mc")]
@@ -342,7 +342,7 @@ impl CliquetOptionMcPricer {
 
         // Derive deterministic seed from instrument ID and scenario
         #[cfg(feature = "mc")]
-        use crate::instruments::common::models::monte_carlo::seed;
+        use crate::instruments::common_impl::models::monte_carlo::seed;
 
         let seed = if let Some(ref scenario) = inst.pricing_overrides.mc_seed_scenario {
             #[cfg(feature = "mc")]
@@ -414,7 +414,7 @@ impl Pricer for CliquetOptionMcPricer {
 
     fn price_dyn(
         &self,
-        instrument: &dyn crate::instruments::common::traits::Instrument,
+        instrument: &dyn crate::instruments::common_impl::traits::Instrument,
         market: &MarketContext,
         as_of: Date,
     ) -> PricingResult<ValuationResult> {

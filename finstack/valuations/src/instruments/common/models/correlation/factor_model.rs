@@ -246,6 +246,7 @@ pub trait FactorModel: Send + Sync + std::fmt::Debug {
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(tag = "type", deny_unknown_fields))]
+#[allow(clippy::enum_variant_names)]
 pub enum FactorSpec {
     /// Single factor model (common market factor).
     SingleFactor {

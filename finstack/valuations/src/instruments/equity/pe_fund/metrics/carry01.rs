@@ -14,7 +14,7 @@
 //! This metric bumps the GP share in all promote tiers and catch-up tranches
 //! and measures the impact on LP valuation (lower carry = higher LP value).
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::equity::pe_fund::PrivateMarketsFund;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;

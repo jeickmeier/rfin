@@ -1,6 +1,6 @@
 //! Interest rate option instrument types and Black model greeks.
 
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, SettlementType};
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
@@ -267,7 +267,7 @@ impl InterestRateOption {
     }
 }
 
-impl crate::instruments::common::traits::Instrument for InterestRateOption {
+impl crate::instruments::common_impl::traits::Instrument for InterestRateOption {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -280,15 +280,15 @@ impl crate::instruments::common::traits::Instrument for InterestRateOption {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
@@ -298,7 +298,7 @@ impl crate::instruments::common::traits::Instrument for InterestRateOption {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::cashflow::builder::date_generation::build_dates;
-        use crate::instruments::common::pricing::time::{
+        use crate::instruments::common_impl::pricing::time::{
             rate_period_on_dates, relative_df_discount_curve,
         };
         use crate::instruments::rates::cap_floor::pricing::black as black_ir;
@@ -445,7 +445,7 @@ impl crate::instruments::common::traits::Instrument for InterestRateOption {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(curves.clone()),
             as_of,
@@ -457,9 +457,9 @@ impl crate::instruments::common::traits::Instrument for InterestRateOption {
     }
 }
 
-impl crate::instruments::common::traits::CurveDependencies for InterestRateOption {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for InterestRateOption {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .forward(self.forward_id.clone())
             .build()
@@ -470,7 +470,7 @@ impl crate::instruments::common::traits::CurveDependencies for InterestRateOptio
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common::traits::Instrument;
+    use crate::instruments::common_impl::traits::Instrument;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::surfaces::VolSurface;
@@ -591,9 +591,10 @@ mod tests {
             let tau = DayCount::Act360
                 .year_fraction(prev, pay, dc_ctx)
                 .expect("tau");
-            let forward =
-                crate::instruments::common::pricing::time::rate_period_on_dates(&fwd, prev, pay)
-                    .expect("forward");
+            let forward = crate::instruments::common_impl::pricing::time::rate_period_on_dates(
+                &fwd, prev, pay,
+            )
+            .expect("forward");
             let df = disc.df_between_dates(base_date, pay).expect("df");
             expected_swap_pv += df * tau * notional.amount() * (forward - strike);
             prev = pay;

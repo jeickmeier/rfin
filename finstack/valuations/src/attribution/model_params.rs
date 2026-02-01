@@ -4,7 +4,7 @@
 //! create modified versions with different parameters, and measure parameter shifts.
 
 use crate::cashflow::builder::{DefaultModelSpec, PrepaymentModelSpec, RecoveryModelSpec};
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fixed_income::convertible::{ConversionSpec, ConvertibleBond};
 use crate::instruments::fixed_income::structured_credit::StructuredCredit;
 use finstack_core::Error;

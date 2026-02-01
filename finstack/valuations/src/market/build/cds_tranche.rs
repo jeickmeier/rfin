@@ -1,7 +1,7 @@
 //! Builders for CDS Tranche instruments from market quotes.
 
 use crate::cashflow::builder::ScheduleParams;
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds_tranche::parameters::CDSTrancheParams;
 use crate::instruments::credit_derivatives::cds_tranche::{CdsTranche, TrancheSide};
 use crate::market::build::helpers::{resolve_calendar, resolve_spot_date};

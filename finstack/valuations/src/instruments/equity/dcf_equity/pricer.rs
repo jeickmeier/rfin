@@ -1,7 +1,7 @@
 //! DCF pricer implementation.
 
 use super::DiscountedCashFlow;
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
 };

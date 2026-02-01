@@ -5,8 +5,39 @@
 
 use super::helpers::*;
 use finstack_core::dates::DayCountCtx;
-use finstack_valuations::instruments::common::models::bs_price;
+use finstack_core::math::norm_cdf;
 use time::macros::date;
+
+fn bs_price(
+    spot: f64,
+    strike: f64,
+    r: f64,
+    q: f64,
+    sigma: f64,
+    t: f64,
+    option_type: finstack_valuations::instruments::OptionType,
+) -> f64 {
+    if t <= 0.0 || sigma <= 0.0 {
+        return match option_type {
+            finstack_valuations::instruments::OptionType::Call => (spot - strike).max(0.0),
+            finstack_valuations::instruments::OptionType::Put => (strike - spot).max(0.0),
+        };
+    }
+    let sqrt_t = t.sqrt();
+    let d1 = ((spot / strike).ln() + (r - q + 0.5 * sigma * sigma) * t) / (sigma * sqrt_t);
+    let d2 = d1 - sigma * sqrt_t;
+    let disc_q = (-q * t).exp();
+    let disc_r = (-r * t).exp();
+
+    match option_type {
+        finstack_valuations::instruments::OptionType::Call => {
+            spot * disc_q * norm_cdf(d1) - strike * disc_r * norm_cdf(d2)
+        }
+        finstack_valuations::instruments::OptionType::Put => {
+            strike * disc_r * norm_cdf(-d2) - spot * disc_q * norm_cdf(-d1)
+        }
+    }
+}
 
 fn analytical_fx_price(
     option: &finstack_valuations::instruments::fx::fx_option::FxOption,

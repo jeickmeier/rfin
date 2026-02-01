@@ -4,7 +4,7 @@ use crate::calibration::api::schema::{
 };
 use crate::calibration::config::CalibrationConfig;
 use crate::calibration::CalibrationReport;
-use crate::instruments::common::models::{SABRCalibrator, SABRModel, SABRParameters};
+use crate::instruments::common_impl::models::{SABRCalibrator, SABRModel, SABRParameters};
 use crate::market::conventions::registry::ConventionRegistry;
 use crate::market::quotes::market_quote::MarketQuote;
 use crate::market::quotes::vol::VolQuote;

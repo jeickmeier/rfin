@@ -23,7 +23,13 @@ use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
-use finstack_valuations::test_utils;
+#[allow(dead_code, unused_imports, clippy::expect_used, clippy::unwrap_used)]
+mod test_utils {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/support/test_utils.rs"
+    ));
+}
 use std::hint::black_box;
 use time::Month;
 

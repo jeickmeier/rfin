@@ -4,7 +4,7 @@
 //! because the quanto drift adjustment model cannot be correctly represented
 //! in a simple 1D MC simulation without a 2D correlated equity/FX process.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fx::quanto_option::types::QuantoOption;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
@@ -16,7 +16,7 @@ use finstack_core::money::Money;
 
 // ========================= ANALYTICAL PRICER =========================
 
-use crate::instruments::common::models::closed_form::quanto::{quanto_call, quanto_put};
+use crate::instruments::common_impl::models::closed_form::quanto::{quanto_call, quanto_put};
 
 /// Helper to collect inputs for quanto option pricing.
 fn collect_quanto_inputs(

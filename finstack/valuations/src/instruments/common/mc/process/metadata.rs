@@ -3,7 +3,7 @@
 //! This module provides a trait for extracting process parameters and metadata
 //! that can be included in captured path datasets for visualization and analysis.
 
-use crate::instruments::common::mc::paths::ProcessParams;
+use crate::instruments::common_impl::mc::paths::ProcessParams;
 
 /// Trait for extracting metadata from stochastic processes.
 ///

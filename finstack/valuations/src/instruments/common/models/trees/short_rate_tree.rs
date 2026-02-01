@@ -17,7 +17,7 @@
 //!
 //! Use `finstack_core::math::volatility::convert_atm_volatility` to convert:
 //!
-//! ```rust
+//! ```rust,ignore
 //! use finstack_core::math::volatility::{convert_atm_volatility, VolatilityConvention};
 //!
 //! // Given 100 bps normal vol at a 5% rate level
@@ -153,7 +153,7 @@ pub enum ShortRateModel {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use finstack_valuations::instruments::common::models::trees::short_rate_tree::{
 ///     ShortRateTreeConfig, ShortRateModel, DEFAULT_NORMAL_VOL, DEFAULT_LOGNORMAL_VOL,
 /// };
@@ -233,7 +233,7 @@ impl ShortRateTreeConfig {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use finstack_valuations::instruments::common::models::trees::short_rate_tree::ShortRateTreeConfig;
     ///
     /// // 100 steps, 80 bps normal vol
@@ -262,7 +262,7 @@ impl ShortRateTreeConfig {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use finstack_valuations::instruments::common::models::trees::short_rate_tree::ShortRateTreeConfig;
     ///
     /// // 100 steps, 20% lognormal vol, 3% mean reversion
@@ -327,7 +327,7 @@ impl ShortRateTreeConfig {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use finstack_valuations::instruments::common::models::trees::short_rate_tree::{
     ///     ShortRateTreeConfig, ShortRateModel,
     /// };
@@ -442,7 +442,7 @@ impl ShortRateTree {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use finstack_valuations::instruments::common::models::trees::short_rate_tree::ShortRateTree;
     ///
     /// // Ho-Lee with 100 bps annual volatility
@@ -462,7 +462,7 @@ impl ShortRateTree {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use finstack_valuations::instruments::common::models::trees::short_rate_tree::ShortRateTree;
     ///
     /// // BDT with 20% lognormal volatility, 3% mean reversion

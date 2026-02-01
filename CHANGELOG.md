@@ -78,6 +78,20 @@ let r_simple = curve.zero_rate_on_date(date, Compounding::Simple)?;
 - Removed structured credit constructor `waterfall` parameter and `MetricId::AccruedInterest` alias.
 - Removed legacy JSON aliases for swap spreads (`spread`) and swaption maturity (`tenor`).
 - Removed `CashFlowBuilder::build()` (Rust/Python/JS/WASM); use `build_with_curves(None)` or the optional-market `buildWithCurves()`.
+- `instruments::common::models` and `instruments::common::mc` are now internal. `instruments::common` is deprecated for one release and no longer exposes models/MC.
+- Bermudan swaption tree APIs now use `CalibratedHullWhiteModel` instead of exposing `HullWhiteTree`.
+- Python/WASM bindings no longer expose internal Monte Carlo and SABR calibration APIs.
+
+#### Instruments API Front Door
+
+```rust
+// Before (deprecated)
+use finstack_valuations::instruments::common::models::SABRParameters;
+use finstack_valuations::instruments::common::models::trees::{HullWhiteTree, HullWhiteTreeConfig};
+
+// After (canonical)
+use finstack_valuations::instruments::rates::swaption::{CalibratedHullWhiteModel, SABRParameters};
+```
 - Removed `MetricRegistry::compute_best_effort()`; use `compute()` (strict) or `Instrument::price_with_metrics()`.
 - Removed `Instrument::matches_selector/has_tag/get_meta`; use `instrument.attributes().matches_selector/has_tag/get_meta`.
 - Removed binomial tree barrier wrappers (`price_up_and_out`, `price_down_and_out`, `price_up_and_in`, `price_down_and_in`, `price_*_american`); use `price_barrier_out/in` variants.

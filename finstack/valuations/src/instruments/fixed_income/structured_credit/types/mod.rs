@@ -87,7 +87,7 @@ pub use crate::cashflow::builder::{DefaultModelSpec, PrepaymentModelSpec, Recove
 
 use crate::cashflow::traits::CashflowProvider;
 use crate::constants::DECIMAL_TO_PERCENT;
-use crate::instruments::common::traits::{Attributes, Instrument};
+use crate::instruments::common_impl::traits::{Attributes, Instrument};
 use crate::instruments::fixed_income::structured_credit::pricing::stochastic::pricer::{
     PricingMode, StochasticPricer, StochasticPricerConfig, StochasticPricingResult,
 };
@@ -728,7 +728,7 @@ impl Instrument for StructuredCredit {
         let disc = context.get_discount(self.discount_curve_id.as_str())?;
         let flows = self.build_dated_flows(context, as_of)?;
 
-        use crate::instruments::common::discountable::Discountable;
+        use crate::instruments::common_impl::discountable::Discountable;
         let curve_day_count = disc.day_count();
         flows.npv(disc.as_ref(), as_of, Some(curve_day_count))
     }
@@ -752,7 +752,7 @@ impl Instrument for StructuredCredit {
         let flows = self.build_dated_flows(context, as_of)?;
         let mut metric_context = crate::metrics::MetricContext::new(
             std::sync::Arc::new(self.clone())
-                as std::sync::Arc<dyn crate::instruments::common::traits::Instrument>,
+                as std::sync::Arc<dyn crate::instruments::common_impl::traits::Instrument>,
             std::sync::Arc::new(context.clone()),
             as_of,
             base_value,
@@ -777,9 +777,9 @@ impl Instrument for StructuredCredit {
     }
 }
 
-impl crate::instruments::common::traits::CurveDependencies for StructuredCredit {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for StructuredCredit {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .build()
     }
@@ -835,7 +835,7 @@ impl TrancheValuationExt for StructuredCredit {
 
         let mut metric_context = crate::metrics::MetricContext::new(
             std::sync::Arc::new(self.clone())
-                as std::sync::Arc<dyn crate::instruments::common::traits::Instrument>,
+                as std::sync::Arc<dyn crate::instruments::common_impl::traits::Instrument>,
             std::sync::Arc::new(context.clone()),
             as_of,
             pv,

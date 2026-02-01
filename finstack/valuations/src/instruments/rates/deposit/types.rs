@@ -24,8 +24,8 @@ use finstack_core::types::{CurveId, InstrumentId, Rate};
 use time::macros::date;
 
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::common::traits::Attributes;
-use crate::instruments::common::validation;
+use crate::instruments::common_impl::traits::Attributes;
+use crate::instruments::common_impl::validation;
 
 /// Simple deposit instrument with optional quoted rate.
 ///
@@ -124,7 +124,7 @@ impl Deposit {
         context: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        crate::instruments::common::helpers::schedule_pv_using_curve_dc_raw(
+        crate::instruments::common_impl::helpers::schedule_pv_using_curve_dc_raw(
             self,
             context,
             as_of,
@@ -142,7 +142,7 @@ impl DepositBuilder {
 }
 
 // Explicit Instrument trait implementation (replaces macro for better IDE visibility)
-impl crate::instruments::common::traits::Instrument for Deposit {
+impl crate::instruments::common_impl::traits::Instrument for Deposit {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -155,15 +155,15 @@ impl crate::instruments::common::traits::Instrument for Deposit {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
@@ -172,7 +172,7 @@ impl crate::instruments::common::traits::Instrument for Deposit {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        crate::instruments::common::helpers::schedule_pv_using_curve_dc(
+        crate::instruments::common_impl::helpers::schedule_pv_using_curve_dc(
             self,
             curves,
             as_of,
@@ -195,7 +195,7 @@ impl crate::instruments::common::traits::Instrument for Deposit {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(curves.clone()),
             as_of,
@@ -211,9 +211,9 @@ impl crate::instruments::common::traits::Instrument for Deposit {
     }
 }
 
-impl crate::instruments::common::traits::CurveDependencies for Deposit {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for Deposit {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .build()
     }

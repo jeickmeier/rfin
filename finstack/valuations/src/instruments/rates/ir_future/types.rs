@@ -36,8 +36,8 @@
 use crate::cashflow::traits::CashflowProvider;
 use crate::constants::{ONE_BASIS_POINT, PERCENT_TO_DECIMAL};
 // Params-based constructor removed; build via builder instead.
-use crate::instruments::common::dependencies::MarketDependencies;
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common_impl::dependencies::MarketDependencies;
+use crate::instruments::common_impl::traits::Attributes;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
@@ -358,7 +358,7 @@ impl InterestRateFuture {
     }
 }
 
-impl crate::instruments::common::traits::Instrument for InterestRateFuture {
+impl crate::instruments::common_impl::traits::Instrument for InterestRateFuture {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -371,15 +371,15 @@ impl crate::instruments::common::traits::Instrument for InterestRateFuture {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
@@ -414,7 +414,7 @@ impl crate::instruments::common::traits::Instrument for InterestRateFuture {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(curves.clone()),
             as_of,
@@ -449,9 +449,9 @@ impl CashflowProvider for InterestRateFuture {
 }
 
 // Implement CurveDependencies for DV01 calculator
-impl crate::instruments::common::traits::CurveDependencies for InterestRateFuture {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for InterestRateFuture {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .forward(self.forward_id.clone())
             .build()

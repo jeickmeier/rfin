@@ -4,7 +4,7 @@
 //! bump correlation between equity and FX, reprice, and compute (PV_corr_up - PV_base) / bump_size.
 //! Correlation01 is per 1% correlation move.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fx::quanto_option::QuantoOption;
 use crate::metrics::bump_sizes;
 use crate::metrics::{MetricCalculator, MetricContext};

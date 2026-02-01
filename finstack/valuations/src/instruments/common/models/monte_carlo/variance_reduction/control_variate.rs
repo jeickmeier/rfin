@@ -13,10 +13,10 @@
 //! # Online Covariance
 //!
 //! For large-scale simulations where storing all samples is impractical,
-//! use [`OnlineCovariance`](crate::instruments::common::mc::online_stats::OnlineCovariance)
+//! use [`OnlineCovariance`](crate::instruments::common_impl::mc::online_stats::OnlineCovariance)
 //! to compute covariance incrementally:
 //!
-//! ```rust
+//! ```rust,ignore
 //! use finstack_valuations::instruments::common::mc::online_stats::OnlineCovariance;
 //!
 //! let mut cov = OnlineCovariance::new();
@@ -33,7 +33,7 @@
 //! let control_mean = cov.mean_y();
 //! ```
 
-use crate::instruments::common::mc::estimate::Estimate;
+use crate::instruments::common_impl::mc::estimate::Estimate;
 use finstack_core::math::special_functions::norm_cdf;
 
 /// Black-Scholes formula for European call option.

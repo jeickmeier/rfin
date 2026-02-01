@@ -1,25 +1,23 @@
-//! Property-based tests for Monte Carlo numerical invariants.
-//!
-//! These tests use proptest to verify mathematical properties hold across
-//! a wide range of inputs. Property tests complement unit tests by:
-//! - Testing thousands of random but valid input combinations
-//! - Catching edge cases that manual tests might miss
-//! - Verifying mathematical relationships hold universally
-//!
-//! Coverage areas:
-//! - Process drift/diffusion properties
-//! - Discretization scheme convergence
-//! - RNG distribution properties
+// Property-based tests for Monte Carlo numerical invariants.
+//
+// These tests use proptest to verify mathematical properties hold across
+// a wide range of inputs. Property tests complement unit tests by:
+// - Testing thousands of random but valid input combinations
+// - Catching edge cases that manual tests might miss
+// - Verifying mathematical relationships hold universally
+//
+// Coverage areas:
+// - Process drift/diffusion properties
+// - Discretization scheme convergence
+// - RNG distribution properties
 
 #[cfg(feature = "mc")]
 mod tests {
-    use finstack_valuations::instruments::common::mc::discretization::euler::EulerMaruyama;
-    use finstack_valuations::instruments::common::mc::discretization::exact::ExactGbm;
-    use finstack_valuations::instruments::common::mc::process::gbm::GbmProcess;
-    use finstack_valuations::instruments::common::mc::rng::philox::PhiloxRng;
-    use finstack_valuations::instruments::common::mc::{
-        Discretization, RandomStream, StochasticProcess,
-    };
+    use crate::instruments::common_impl::mc::discretization::euler::EulerMaruyama;
+    use crate::instruments::common_impl::mc::discretization::exact::ExactGbm;
+    use crate::instruments::common_impl::mc::process::gbm::GbmProcess;
+    use crate::instruments::common_impl::mc::rng::philox::PhiloxRng;
+    use crate::instruments::common_impl::mc::{Discretization, RandomStream, StochasticProcess};
     use proptest::prelude::*;
 
     proptest! {

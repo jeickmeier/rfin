@@ -630,6 +630,14 @@ impl InstrumentEnvelope {
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
+    #[allow(clippy::expect_used, clippy::unwrap_used, dead_code, unused_imports)]
+    mod test_utils {
+        include!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/support/test_utils.rs"
+        ));
+    }
+
     use super::*;
     use finstack_core::currency::Currency;
     use finstack_core::dates::Date;
@@ -867,7 +875,7 @@ mod tests {
 
     #[test]
     fn test_cds_roundtrip() {
-        let cds = crate::test_utils::cds_buy_protection(
+        let cds = test_utils::cds_buy_protection(
             "CDS-TEST",
             Money::new(10_000_000.0, Currency::USD),
             100.0,

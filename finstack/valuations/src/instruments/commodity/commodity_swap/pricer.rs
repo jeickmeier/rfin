@@ -4,7 +4,7 @@
 //! fixed and floating leg calculations with discounting.
 
 use crate::instruments::commodity::commodity_swap::CommoditySwap;
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
@@ -86,7 +86,7 @@ mod tests {
             .end_date(Date::from_calendar_date(2025, Month::June, 30).expect("valid date"))
             .payment_frequency(Tenor::new(1, TenorUnit::Months))
             .discount_curve_id(CurveId::new("USD-OIS"))
-            .attributes(crate::instruments::common::traits::Attributes::new())
+            .attributes(crate::instruments::common_impl::traits::Attributes::new())
             .build()
             .expect("should build")
     }

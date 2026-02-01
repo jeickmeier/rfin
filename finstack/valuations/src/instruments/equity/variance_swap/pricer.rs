@@ -1,4 +1,4 @@
-use crate::instruments::common::GenericInstrumentPricer;
+use crate::instruments::common_impl::GenericInstrumentPricer;
 use crate::instruments::equity::variance_swap::VarianceSwap;
 
 // Use the generic discounting pricer for registry integration

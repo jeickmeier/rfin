@@ -11,7 +11,7 @@
 //!
 //! The finite-difference approach captures both effects correctly.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds_option::CdsOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::Result;

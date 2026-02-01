@@ -1,4 +1,4 @@
-use crate::instruments::common::traits::{Attributes, CurveIdVec, Instrument};
+use crate::instruments::common_impl::traits::{Attributes, CurveIdVec, Instrument};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::dates::Date;
@@ -56,11 +56,13 @@ impl Instrument for TestInstrument {
         Box::new(self.clone())
     }
 
-    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
-        let mut deps = crate::instruments::common::dependencies::MarketDependencies::new();
+    fn market_dependencies(
+        &self,
+    ) -> crate::instruments::common_impl::dependencies::MarketDependencies {
+        let mut deps = crate::instruments::common_impl::dependencies::MarketDependencies::new();
         for curve in &self.discount_curves {
             deps.add_curves(
-                crate::instruments::common::traits::InstrumentCurves::builder()
+                crate::instruments::common_impl::traits::InstrumentCurves::builder()
                     .discount(curve.clone())
                     .build(),
             );

@@ -58,7 +58,7 @@
 //! ```
 
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common_impl::traits::Attributes;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DateExt};
 use finstack_core::market_data::context::MarketContext;
@@ -162,7 +162,7 @@ impl FxSpot {
     /// currencies' calendars. This matches professional FX settlement conventions.
     ///
     pub fn effective_settlement_date(&self, as_of: Date) -> Result<Date> {
-        use crate::instruments::common::fx_dates::{adjust_joint_calendar, roll_spot_date};
+        use crate::instruments::common_impl::fx_dates::{adjust_joint_calendar, roll_spot_date};
 
         // Check if we should use joint calendar logic
         let use_joint_calendar =
@@ -374,7 +374,7 @@ impl FxSpot {
     }
 }
 
-impl crate::instruments::common::traits::Instrument for FxSpot {
+impl crate::instruments::common_impl::traits::Instrument for FxSpot {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -387,21 +387,23 @@ impl crate::instruments::common::traits::Instrument for FxSpot {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
-    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
+    fn market_dependencies(
+        &self,
+    ) -> crate::instruments::common_impl::dependencies::MarketDependencies {
         let mut deps =
-            crate::instruments::common::dependencies::MarketDependencies::from_curve_dependencies(
+            crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
                 self,
             );
         deps.add_fx_pair(self.base, self.quote);
@@ -465,7 +467,7 @@ impl crate::instruments::common::traits::Instrument for FxSpot {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(market, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(market.clone()),
             as_of,
@@ -482,10 +484,10 @@ impl crate::instruments::common::traits::Instrument for FxSpot {
 }
 
 // Implement CurveDependencies for DV01 calculator
-impl crate::instruments::common::traits::CurveDependencies for FxSpot {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+impl crate::instruments::common_impl::traits::CurveDependencies for FxSpot {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
         // FxSpot has no curve dependencies
-        crate::instruments::common::traits::InstrumentCurves::builder().build()
+        crate::instruments::common_impl::traits::InstrumentCurves::builder().build()
     }
 }
 
@@ -534,7 +536,7 @@ impl CashflowProvider for FxSpot {
 #[allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]
 mod tests {
     use super::*;
-    use crate::instruments::common::traits::Instrument;
+    use crate::instruments::common_impl::traits::Instrument;
     use time::Month;
 
     fn date(year: i32, month: Month, day: u8) -> Date {

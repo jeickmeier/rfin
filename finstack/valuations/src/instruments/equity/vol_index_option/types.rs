@@ -41,8 +41,8 @@
 //!   *Annual Review of Financial Economics*, 1, 319-339.
 
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::common::models::volatility::black::{d1_black76, d2_black76};
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common_impl::models::volatility::black::{d1_black76, d2_black76};
+use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::{ExerciseStyle, OptionType};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
@@ -530,13 +530,13 @@ impl VolatilityIndexOption {
 // Option risk metric providers (metrics adapters)
 // ================================================================================================
 
-impl crate::instruments::common::traits::OptionDeltaProvider for VolatilityIndexOption {
+impl crate::instruments::common_impl::traits::OptionDeltaProvider for VolatilityIndexOption {
     fn option_delta(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
         self.delta(market, as_of)
     }
 }
 
-impl crate::instruments::common::traits::OptionVegaProvider for VolatilityIndexOption {
+impl crate::instruments::common_impl::traits::OptionVegaProvider for VolatilityIndexOption {
     fn option_vega(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
         self.vega(market, as_of)
     }
@@ -546,7 +546,7 @@ impl crate::instruments::common::traits::OptionVegaProvider for VolatilityIndexO
 // Trait Implementations
 // =============================================================================
 
-impl crate::instruments::common::traits::Instrument for VolatilityIndexOption {
+impl crate::instruments::common_impl::traits::Instrument for VolatilityIndexOption {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -559,15 +559,15 @@ impl crate::instruments::common::traits::Instrument for VolatilityIndexOption {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
@@ -590,7 +590,7 @@ impl crate::instruments::common::traits::Instrument for VolatilityIndexOption {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(curves.clone()),
             as_of,
@@ -624,9 +624,9 @@ impl CashflowProvider for VolatilityIndexOption {
     }
 }
 
-impl crate::instruments::common::traits::CurveDependencies for VolatilityIndexOption {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for VolatilityIndexOption {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .build()
     }
@@ -640,7 +640,7 @@ impl crate::instruments::common::traits::CurveDependencies for VolatilityIndexOp
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common::traits::Instrument;
+    use crate::instruments::common_impl::traits::Instrument;
     use finstack_core::market_data::surfaces::VolSurface;
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::market_data::term_structures::VolatilityIndexCurve;

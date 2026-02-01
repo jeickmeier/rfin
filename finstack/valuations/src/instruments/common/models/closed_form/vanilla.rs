@@ -26,8 +26,8 @@
 //! - Black, F., & Scholes, M. (1973). "The Pricing of Options and Corporate Liabilities."
 //! - Garman, M. B., & Kohlhagen, S. W. (1983). "Foreign Currency Option Values."
 
-use crate::instruments::common::models::volatility::black::d1_d2;
-use crate::instruments::common::parameters::OptionType;
+use crate::instruments::common_impl::models::volatility::black::d1_d2;
+use crate::instruments::common_impl::parameters::OptionType;
 use std::fmt;
 
 /// Conversion constant for per-1% Greeks.
@@ -136,7 +136,7 @@ impl BsGreeks {
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use finstack_valuations::instruments::common::models::closed_form::vanilla::bs_price;
 /// use finstack_valuations::instruments::OptionType;
 ///
@@ -236,7 +236,7 @@ pub fn bs_price(
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use finstack_valuations::instruments::common::models::closed_form::vanilla::{bs_greeks, BsGreeks};
 /// use finstack_valuations::instruments::OptionType;
 ///

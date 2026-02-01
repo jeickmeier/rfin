@@ -79,8 +79,8 @@
 //!
 //! ### From an Instrument (Recommended)
 //!
-//! Any instrument implementing [`CashflowProvider`] + [`crate::instruments::common::traits::CurveDependencies`]
-//! automatically gains periodized PV methods via the [`crate::instruments::common::period_pv::PeriodizedPvExt`] trait:
+//! Any instrument implementing [`CashflowProvider`] + [`crate::instruments::common_impl::traits::CurveDependencies`]
+//! automatically gains periodized PV methods via the [`crate::instruments::common_impl::period_pv::PeriodizedPvExt`] trait:
 //!
 //! ```rust
 //! use finstack_valuations::instruments::Bond;

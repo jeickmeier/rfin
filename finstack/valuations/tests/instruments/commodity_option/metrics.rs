@@ -1,5 +1,8 @@
 //! Metrics tests for commodity options.
 
+use crate::finstack_test_utils::{
+    date, flat_discount_with_tenor, flat_forward_with_tenor, flat_price_curve, flat_vol_surface,
+};
 use finstack_core::currency::Currency;
 use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits, MarketBump};
 use finstack_core::market_data::context::MarketContext;
@@ -12,9 +15,6 @@ use finstack_valuations::instruments::{
     ExerciseStyle, OptionType, PricingOverrides, SettlementType,
 };
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
-use finstack_valuations::test_utils::{
-    date, flat_discount_with_tenor, flat_forward_with_tenor, flat_price_curve, flat_vol_surface,
-};
 use std::sync::Arc;
 
 #[test]

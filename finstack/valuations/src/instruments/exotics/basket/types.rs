@@ -4,8 +4,8 @@
 //! including equities, bonds, ETFs, and other instruments by leveraging existing
 //! pricing infrastructure.
 
-use crate::instruments::common::traits::{Attributes, Instrument};
-use crate::instruments::common::validation;
+use crate::instruments::common_impl::traits::{Attributes, Instrument};
+use crate::instruments::common_impl::validation;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -361,7 +361,7 @@ impl Instrument for Basket {
         metrics: &[crate::metrics::MetricId],
     ) -> Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(curves.clone()),
             as_of,
@@ -374,9 +374,9 @@ impl Instrument for Basket {
 }
 
 // Implement CurveDependencies for DV01 calculator
-impl crate::instruments::common::traits::CurveDependencies for Basket {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for Basket {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .build()
     }

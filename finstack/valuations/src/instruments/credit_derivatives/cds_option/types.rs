@@ -18,8 +18,8 @@
 //! All volatilities are expressed as **lognormal (Black) volatility** in decimal form.
 //! For example, 30% volatility is represented as 0.30.
 
-use crate::instruments::common::parameters::CreditParams;
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common_impl::parameters::CreditParams;
+use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
@@ -162,7 +162,7 @@ impl CdsOption {
             unreachable!("Example CdsOptionParams with valid constants should never fail")
         });
         let credit_params =
-            crate::instruments::common::parameters::CreditParams::corporate_standard(
+            crate::instruments::common_impl::parameters::CreditParams::corporate_standard(
                 "CORP",
                 "CORP-HAZARD",
             );
@@ -443,7 +443,7 @@ pub struct CdsOptionPricingInputs {
     pub risky_annuity: f64,
 }
 
-impl crate::instruments::common::traits::Instrument for CdsOption {
+impl crate::instruments::common_impl::traits::Instrument for CdsOption {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -456,15 +456,15 @@ impl crate::instruments::common::traits::Instrument for CdsOption {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
@@ -485,7 +485,7 @@ impl crate::instruments::common::traits::Instrument for CdsOption {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(curves.clone()),
             as_of,
@@ -498,9 +498,9 @@ impl crate::instruments::common::traits::Instrument for CdsOption {
 }
 
 // Implement CurveDependencies for DV01 calculator
-impl crate::instruments::common::traits::CurveDependencies for CdsOption {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for CdsOption {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .credit(self.credit_curve_id.clone())
             .build()

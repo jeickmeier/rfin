@@ -2,7 +2,7 @@
 //!
 //! Bridges the raw market data schema with the instrument-based calibration solvers.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::market::build::prepared::PreparedQuote;
 use crate::market::quotes::cds::CdsQuote;
 use crate::market::quotes::cds_tranche::CdsTrancheQuote;

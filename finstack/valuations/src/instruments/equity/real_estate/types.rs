@@ -1,6 +1,6 @@
 //! Real estate asset valuation types and logic.
 
-use crate::instruments::common::traits::{
+use crate::instruments::common_impl::traits::{
     Attributes, CurveDependencies, Instrument, InstrumentCurves,
 };
 use crate::pricer::InstrumentType;
@@ -219,7 +219,7 @@ impl Instrument for RealEstateAsset {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(market, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(market.clone()),
             as_of,

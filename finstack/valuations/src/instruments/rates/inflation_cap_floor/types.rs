@@ -29,10 +29,10 @@
 //! Inflation indices typically have an observation lag (e.g., 3 months for US CPI).
 //! The lag is applied to both CPI lookups and the fixing date used for volatility.
 
-use crate::instruments::common::models::volatility::normal::bachelier_price;
-use crate::instruments::common::parameters::OptionType;
-use crate::instruments::common::traits::Attributes;
-use crate::instruments::common::validation;
+use crate::instruments::common_impl::models::volatility::normal::bachelier_price;
+use crate::instruments::common_impl::parameters::OptionType;
+use crate::instruments::common_impl::traits::Attributes;
+use crate::instruments::common_impl::validation;
 use crate::instruments::rates::cap_floor::pricing::black as black_ir;
 use crate::instruments::PricingOverrides;
 use crate::pricer::ModelKey;
@@ -422,7 +422,7 @@ impl InflationCapFloorBuilder {
     }
 }
 
-impl crate::instruments::common::traits::Instrument for InflationCapFloor {
+impl crate::instruments::common_impl::traits::Instrument for InflationCapFloor {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -435,15 +435,15 @@ impl crate::instruments::common::traits::Instrument for InflationCapFloor {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
@@ -458,7 +458,7 @@ impl crate::instruments::common::traits::Instrument for InflationCapFloor {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(curves.clone()),
             as_of,
@@ -470,9 +470,9 @@ impl crate::instruments::common::traits::Instrument for InflationCapFloor {
     }
 }
 
-impl crate::instruments::common::traits::CurveDependencies for InflationCapFloor {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for InflationCapFloor {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .forward(self.inflation_index_id.clone())
             .build()

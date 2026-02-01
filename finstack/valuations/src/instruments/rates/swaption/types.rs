@@ -7,9 +7,11 @@
 //! rate, annuity, and day-count based year fractions that reuse core library
 //! functionality.
 
-use crate::instruments::common::models::{SABRModel, SABRParameters};
-use crate::instruments::common::parameters::OptionType;
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common_impl::models::{
+    SABRModel, SABRParameters as InternalSabrParameters,
+};
+use crate::instruments::common_impl::parameters::OptionType;
+use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::pricing_overrides::VolSurfaceExtrapolation;
 use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
@@ -31,6 +33,105 @@ pub enum VolatilityModel {
     Black,
     /// Bachelier (Normal) model
     Normal,
+}
+
+/// Public SABR parameters for swaption volatility modeling.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct SABRParameters {
+    /// Initial volatility (alpha)
+    pub alpha: f64,
+    /// CEV exponent (beta) - typically 0 to 1
+    pub beta: f64,
+    /// Volatility of volatility (nu/volvol)
+    pub nu: f64,
+    /// Correlation between asset and volatility (rho)
+    pub rho: f64,
+    /// Shift parameter for handling negative rates (optional)
+    pub shift: Option<f64>,
+}
+
+impl SABRParameters {
+    /// Create new SABR parameters with validation.
+    pub fn new(alpha: f64, beta: f64, nu: f64, rho: f64) -> Result<Self> {
+        let _ = InternalSabrParameters::new(alpha, beta, nu, rho)?;
+        Ok(Self {
+            alpha,
+            beta,
+            nu,
+            rho,
+            shift: None,
+        })
+    }
+
+    /// Create new SABR parameters with a shift for negative rates.
+    pub fn new_with_shift(alpha: f64, beta: f64, nu: f64, rho: f64, shift: f64) -> Result<Self> {
+        let _ = InternalSabrParameters::new_with_shift(alpha, beta, nu, rho, shift)?;
+        Ok(Self {
+            alpha,
+            beta,
+            nu,
+            rho,
+            shift: Some(shift),
+        })
+    }
+
+    /// Create SABR parameters with equity market standard (beta=1.0).
+    pub fn equity_standard(alpha: f64, nu: f64, rho: f64) -> Result<Self> {
+        let _ = InternalSabrParameters::equity_standard(alpha, nu, rho)?;
+        Ok(Self {
+            alpha,
+            beta: 1.0,
+            nu,
+            rho,
+            shift: None,
+        })
+    }
+
+    /// Create SABR parameters with interest rate market standard (beta=0.5).
+    pub fn rates_standard(alpha: f64, nu: f64, rho: f64) -> Result<Self> {
+        let _ = InternalSabrParameters::rates_standard(alpha, nu, rho)?;
+        Ok(Self {
+            alpha,
+            beta: 0.5,
+            nu,
+            rho,
+            shift: None,
+        })
+    }
+
+    /// Create SABR parameters with normal model convention (beta=0.0).
+    pub fn normal(alpha: f64, nu: f64, rho: f64) -> Result<Self> {
+        let _ = InternalSabrParameters::normal(alpha, nu, rho)?;
+        Ok(Self {
+            alpha,
+            beta: 0.0,
+            nu,
+            rho,
+            shift: None,
+        })
+    }
+
+    /// Create SABR parameters with lognormal model convention (beta=1.0).
+    pub fn lognormal(alpha: f64, nu: f64, rho: f64) -> Result<Self> {
+        let _ = InternalSabrParameters::lognormal(alpha, nu, rho)?;
+        Ok(Self {
+            alpha,
+            beta: 1.0,
+            nu,
+            rho,
+            shift: None,
+        })
+    }
+
+    pub(crate) fn to_internal(&self) -> Result<InternalSabrParameters> {
+        match self.shift {
+            Some(shift) => InternalSabrParameters::new_with_shift(
+                self.alpha, self.beta, self.nu, self.rho, shift,
+            ),
+            None => InternalSabrParameters::new(self.alpha, self.beta, self.nu, self.rho),
+        }
+    }
 }
 
 impl std::fmt::Display for VolatilityModel {
@@ -588,7 +689,7 @@ impl Swaption {
             }
 
             // Use centralized Black76 helpers for forward-based pricing
-            use crate::instruments::common::models::{d1_black76, d2_black76};
+            use crate::instruments::common_impl::models::{d1_black76, d2_black76};
             let d1 = d1_black76(fwd, strike, vol, t);
             let d2 = d2_black76(fwd, strike, vol, t);
 
@@ -615,7 +716,7 @@ impl Swaption {
         as_of: Date,
     ) -> Result<Money> {
         self.price_model_base(curves, volatility, as_of, |fwd, strike, vol, t, annuity| {
-            use crate::instruments::common::models::volatility::normal::bachelier_price;
+            use crate::instruments::common_impl::models::volatility::normal::bachelier_price;
             bachelier_price(self.option_type, fwd, strike, vol, t, annuity)
         })
     }
@@ -639,8 +740,8 @@ impl Swaption {
     /// - Hagan, P. et al. (2002). "Managing Smile Risk" *Wilmott Magazine*
     /// - Antonov, A. et al. (2015). "SABR/Free Sabr" for normal vol extensions
     pub fn price_sabr(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
-        let params: &SABRParameters = self.sabr_params.as_ref().ok_or(Error::Internal)?;
-        let model = SABRModel::new(params.clone());
+        let params = self.sabr_params.as_ref().ok_or(Error::Internal)?;
+        let model = SABRModel::new(params.to_internal()?);
         let time_to_expiry = self.year_fraction(as_of, self.expiry, self.day_count)?;
         if time_to_expiry <= 0.0 {
             return Ok(Money::new(0.0, self.notional.currency()));
@@ -753,7 +854,7 @@ impl Swaption {
     ///   own base_date and day_count (not the instrument's day_count).
     /// - Accrual fractions use the instrument's day_count (correct for coupon calculation).
     pub fn swap_annuity(&self, disc: &dyn Discounting, as_of: Date) -> Result<f64> {
-        use crate::instruments::common::pricing::time::relative_df_discounting;
+        use crate::instruments::common_impl::pricing::time::relative_df_discounting;
 
         let mut annuity = 0.0;
         let sched = crate::cashflow::builder::build_dates(
@@ -859,7 +960,7 @@ impl Swaption {
     /// This method treats the entire swap as a single zero-coupon payment
     /// at maturity. Rarely used in modern markets; included for completeness.
     pub fn cash_annuity_zero_coupon(&self, disc: &dyn Discounting, as_of: Date) -> Result<f64> {
-        use crate::instruments::common::pricing::time::relative_df_discounting;
+        use crate::instruments::common_impl::pricing::time::relative_df_discounting;
 
         let tenor = self.year_fraction(self.swap_start, self.swap_end, self.day_count)?;
         let df = relative_df_discounting(disc, as_of, self.swap_end)?;
@@ -884,7 +985,7 @@ impl Swaption {
     /// - PV_float = Σ (accrual_i × forward_i × DF_i)
     /// - Annuity = Σ (accrual_i × DF_i) for all fixed leg payments.
     pub fn forward_swap_rate(&self, curves: &MarketContext, as_of: Date) -> Result<f64> {
-        use crate::instruments::common::pricing::time::{
+        use crate::instruments::common_impl::pricing::time::{
             rate_period_on_dates, relative_df_discounting,
         };
 
@@ -949,7 +1050,7 @@ impl Swaption {
     ) -> Result<f64> {
         // 1. SABR model (highest priority)
         if let Some(sabr) = &self.sabr_params {
-            let model = SABRModel::new(sabr.clone());
+            let model = SABRModel::new(sabr.to_internal()?);
             return model.implied_volatility(forward, self.strike_rate, time_to_expiry);
         }
 
@@ -1023,7 +1124,7 @@ pub struct GreekInputs {
     pub time_to_expiry: f64,
 }
 
-impl crate::instruments::common::traits::Instrument for Swaption {
+impl crate::instruments::common_impl::traits::Instrument for Swaption {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -1036,15 +1137,15 @@ impl crate::instruments::common::traits::Instrument for Swaption {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
@@ -1089,7 +1190,7 @@ impl crate::instruments::common::traits::Instrument for Swaption {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(curves.clone()),
             as_of,
@@ -1102,9 +1203,9 @@ impl crate::instruments::common::traits::Instrument for Swaption {
 }
 
 // Implement CurveDependencies for DV01 calculator
-impl crate::instruments::common::traits::CurveDependencies for Swaption {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for Swaption {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .forward(self.forward_id.clone())
             .build()
@@ -1417,7 +1518,7 @@ impl BermudanSwaption {
         as_of: Date,
         exercise_date: Date,
     ) -> Result<f64> {
-        use crate::instruments::common::pricing::time::{
+        use crate::instruments::common_impl::pricing::time::{
             rate_period_on_dates, relative_df_discounting,
         };
 
@@ -1474,7 +1575,7 @@ impl BermudanSwaption {
         as_of: Date,
         exercise_date: Date,
     ) -> Result<f64> {
-        use crate::instruments::common::pricing::time::relative_df_discounting;
+        use crate::instruments::common_impl::pricing::time::relative_df_discounting;
 
         let (dates, accruals) = self.build_swap_schedule(as_of)?;
 
@@ -1522,7 +1623,7 @@ impl BermudanSwaption {
     }
 }
 
-impl crate::instruments::common::traits::Instrument for BermudanSwaption {
+impl crate::instruments::common_impl::traits::Instrument for BermudanSwaption {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -1535,15 +1636,15 @@ impl crate::instruments::common::traits::Instrument for BermudanSwaption {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
@@ -1570,9 +1671,9 @@ impl crate::instruments::common::traits::Instrument for BermudanSwaption {
     }
 }
 
-impl crate::instruments::common::traits::CurveDependencies for BermudanSwaption {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for BermudanSwaption {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .forward(self.forward_id.clone())
             .build()

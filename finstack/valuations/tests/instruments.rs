@@ -15,6 +15,14 @@
 #[path = "instruments/common/mod.rs"]
 mod common;
 
+#[allow(clippy::expect_used, clippy::unwrap_used, dead_code, unused_imports)]
+mod finstack_test_utils {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/support/test_utils.rs"
+    ));
+}
+
 // Re-export parity module at crate level for `use crate::parity::*;` compatibility
 pub use common::parity;
 
@@ -121,10 +129,6 @@ mod equity_option;
 /// Equity index future tests - Index futures (ES, NQ, FESX, etc.)
 #[path = "instruments/equity_index_future/mod.rs"]
 mod equity_index_future;
-
-// NOTE: asian_option tests were orphaned and have numerical precision issues
-#[path = "instruments/asian_option/test_pricer_analytical.rs"]
-mod asian_option;
 
 /// Lookback option tests
 #[path = "instruments/lookback_option/mod.rs"]

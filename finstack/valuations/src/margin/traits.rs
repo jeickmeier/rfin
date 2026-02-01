@@ -3,7 +3,7 @@
 //! Defines the common interface for instruments that support margin calculations,
 //! enabling uniform margin metric calculation and portfolio aggregation.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::margin::types::OtcMarginSpec;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;

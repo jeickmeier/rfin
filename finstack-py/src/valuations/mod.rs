@@ -7,7 +7,6 @@ pub(crate) mod conventions;
 pub(crate) mod covenants;
 pub(crate) mod dataframe;
 pub(crate) mod instruments;
-pub(crate) mod lsmc;
 pub(crate) mod margin;
 pub(crate) mod market;
 pub(crate) mod metrics;
@@ -81,11 +80,6 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     module.setattr("attribution", &attr_submod)?;
     promote_exports(&module, "attribution", &attr_exports)?;
     exports.extend(attr_exports.iter().copied());
-
-    // Register LSMC module
-    let lsmc_exports = lsmc::register(py, &module)?;
-    exports.extend(lsmc_exports.iter().copied());
-    promote_exports(&module, "lsmc", &lsmc_exports)?;
 
     // Register conventions module
     let conventions_exports = conventions::register(py, &module)?;

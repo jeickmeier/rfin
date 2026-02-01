@@ -370,7 +370,7 @@ fn test_bucketed_cs01_sums_to_total_strict() {
     use finstack_core::market_data::term_structures::HazardCurve;
 
     // 10Y CDS - within curve support
-    let cds = finstack_valuations::test_utils::cds_buy_protection(
+    let cds = crate::finstack_test_utils::cds_buy_protection(
         "BUCKETED_CS01_STRICT",
         Money::new(1_000_000.0, Currency::USD),
         200.0, // 200bp spread
@@ -477,7 +477,7 @@ fn test_bucketed_cs01_sums_to_total_limited_curve_support() {
     use finstack_core::market_data::term_structures::HazardCurve;
 
     // 5Y CDS - curve support only to 5Y
-    let cds = finstack_valuations::test_utils::cds_buy_protection(
+    let cds = crate::finstack_test_utils::cds_buy_protection(
         "BUCKETED_CS01_LIMITED",
         Money::new(1_000_000.0, Currency::USD),
         200.0, // 200bp spread

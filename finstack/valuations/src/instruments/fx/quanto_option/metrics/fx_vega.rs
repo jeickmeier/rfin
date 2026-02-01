@@ -9,7 +9,7 @@
 //! Only computed if fx_vol_id is provided. Returns 0 if FX volatility
 //! surface is not available.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fx::quanto_option::QuantoOption;
 use crate::metrics::bump_sizes;
 use crate::metrics::{MetricCalculator, MetricContext};

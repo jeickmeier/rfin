@@ -20,11 +20,11 @@ use finstack_core::InputError;
 use finstack_core::{Error, Result};
 
 use crate::cashflow::builder::CashFlowSchedule;
-use crate::instruments::common::models::trees::tree_framework::map_date_to_step;
-use crate::instruments::common::models::{
+use crate::instruments::common_impl::models::trees::tree_framework::map_date_to_step;
+use crate::instruments::common_impl::models::{
     single_factor_equity_state, EvolutionParams, StateVariables, TreeGreeks,
 };
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fixed_income::convertible::{ConversionPolicy, ConvertibleBond};
 
 /// Tree model type selection for convertible bond pricing
@@ -887,7 +887,7 @@ impl crate::pricer::Pricer for SimpleConvertibleDiscountingPricer {
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> std::result::Result<crate::results::ValuationResult, crate::pricer::PricingError> {
-        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common_impl::traits::Instrument;
 
         // Type-safe downcasting
         let convertible = instrument

@@ -115,7 +115,7 @@ pub(crate) mod parameters;
 pub(crate) mod pricer;
 mod types;
 
-pub use crate::instruments::common::parameters::FxUnderlyingParams;
+pub use crate::instruments::common_impl::parameters::FxUnderlyingParams;
 pub use parameters::FxOptionParams;
 pub use pricer::SimpleFxOptionBlackPricer;
 pub use types::FxOption;

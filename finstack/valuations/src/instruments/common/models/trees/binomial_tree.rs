@@ -5,8 +5,8 @@
 //!
 //! Now includes generic TreeModel implementation for pricing arbitrary instruments.
 
-use crate::instruments::common::models::trees::NodeState;
-use crate::instruments::common::parameters::OptionMarketParams;
+use crate::instruments::common_impl::models::trees::NodeState;
+use crate::instruments::common_impl::parameters::OptionMarketParams;
 use crate::instruments::{ExerciseStyle, OptionType};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::HashSet;
@@ -21,6 +21,7 @@ use super::tree_framework::{
 
 /// Binomial tree types
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum TreeType {
     /// Cox-Ross-Rubinstein (standard binomial)
     CRR,
@@ -78,7 +79,7 @@ impl BinomialTree {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```rust,ignore
     /// use finstack_valuations::instruments::common::models::trees::BinomialTree;
     ///
     /// // Request 100 steps, get 101 for optimal LR accuracy

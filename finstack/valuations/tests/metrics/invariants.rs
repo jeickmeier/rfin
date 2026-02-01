@@ -408,7 +408,7 @@ mod cds_invariants {
             let maturity = as_of.add_months(60); // 5Y CDS
             let (disc, hazard) = build_test_curves(0.04, hazard_rate);
 
-            let cds = finstack_valuations::test_utils::cds_buy_protection(
+            let cds = crate::finstack_test_utils::cds_buy_protection(
                 "PROP_PAR_TEST",
                 Money::new(10_000_000.0, Currency::USD),
                 spread_bp,
@@ -445,7 +445,7 @@ mod cds_invariants {
             let as_of = date!(2025 - 01 - 01);
             let maturity = as_of.add_months(60);
 
-            let cds_low_recovery = finstack_valuations::test_utils::cds_buy_protection(
+            let cds_low_recovery = crate::finstack_test_utils::cds_buy_protection(
                 "PROP_RECOVERY_LOW",
                 Money::new(10_000_000.0, Currency::USD),
                 100.0,
@@ -544,7 +544,7 @@ mod cs01_invariants {
             let as_of = date!(2025 - 01 - 01);
             let maturity = as_of.add_months(60);
 
-            let cds = finstack_valuations::test_utils::cds_buy_protection(
+            let cds = crate::finstack_test_utils::cds_buy_protection(
                 "PROP_CS01_TEST",
                 Money::new(10_000_000.0, Currency::USD),
                 spread_bp,
@@ -640,7 +640,7 @@ mod bucketed_cs01_invariants {
         let as_of = date!(2025 - 01 - 01);
         let maturity = as_of.add_months(60); // 5Y CDS
 
-        let cds = finstack_valuations::test_utils::cds_buy_protection(
+        let cds = crate::finstack_test_utils::cds_buy_protection(
             "CS01_BUCKET_TEST",
             Money::new(10_000_000.0, Currency::USD),
             100.0,

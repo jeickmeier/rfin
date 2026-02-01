@@ -1,14 +1,13 @@
-//! Comprehensive tests for stochastic structured credit module.
-//!
-//! This module contains:
-//! - **Golden tests**: Verify known results match expected values
-//! - **Property tests**: Verify invariants hold across parameter ranges
-//! - **Integration tests**: Verify component interactions work correctly
+// Comprehensive tests for stochastic structured credit module.
+// This module contains:
+// - **Golden tests**: Verify known results match expected values
+// - **Property tests**: Verify invariants hold across parameter ranges
+// - **Integration tests**: Verify component interactions work correctly
 
-use super::*;
-use crate::instruments::common::models::correlation::copula::{Copula, GaussianCopula};
-use crate::instruments::common::models::correlation::factor_model::FactorSpec;
-use crate::instruments::common::models::correlation::recovery::RecoverySpec;
+use crate::instruments::common_impl::models::correlation::copula::{Copula, GaussianCopula};
+use crate::instruments::common_impl::models::correlation::factor_model::FactorSpec;
+use crate::instruments::common_impl::models::correlation::recovery::RecoverySpec;
+use crate::instruments::fixed_income::structured_credit::pricing::stochastic::*;
 
 // ============================================================================
 // Golden Tests
@@ -69,7 +68,7 @@ mod golden_tests {
     /// Test that joint probability utilities return valid results.
     #[test]
     fn test_joint_probability_valid_outputs() {
-        use crate::instruments::common::models::correlation::joint_probability::joint_probabilities;
+        use crate::instruments::common_impl::models::correlation::joint_probability::joint_probabilities;
 
         // Test with symmetric case (correlation=0)
         let (p00, p01, p10, p11) = joint_probabilities(0.5, 0.5, 0.0);
@@ -368,7 +367,7 @@ mod property_tests {
     #[test]
     fn test_default_correlation_sensitivity() {
         use super::default::CopulaBasedDefault;
-        use crate::instruments::common::models::correlation::copula::CopulaSpec;
+        use crate::instruments::common_impl::models::correlation::copula::CopulaSpec;
 
         // Create copula-based default models with different correlations
         let model_low = CopulaBasedDefault::new(0.02, CopulaSpec::Gaussian, 0.10);

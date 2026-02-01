@@ -1,6 +1,6 @@
 //! Pricing-side Monte Carlo result types with currency.
 
-use crate::instruments::common::mc::paths::PathDataset;
+use crate::instruments::common_impl::mc::paths::PathDataset;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use serde::{Deserialize, Serialize};
@@ -21,7 +21,7 @@ pub struct MoneyEstimate {
 impl MoneyEstimate {
     /// Create from estimate and currency.
     pub fn from_estimate(
-        estimate: crate::instruments::common::mc::estimate::Estimate,
+        estimate: crate::instruments::common_impl::mc::estimate::Estimate,
         currency: Currency,
     ) -> Self {
         Self {

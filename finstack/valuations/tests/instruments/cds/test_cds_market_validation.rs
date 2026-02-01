@@ -8,6 +8,7 @@
 //! - Hull, "Options, Futures, and Other Derivatives" (Credit Risk chapter)
 //! - O'Kane, "Modelling Single-name and Multi-name Credit Derivatives"
 
+use crate::finstack_test_utils as test_utils;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
@@ -15,7 +16,6 @@ use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
-use finstack_valuations::test_utils;
 use time::macros::date;
 
 fn build_flat_discount(rate: f64, base_date: Date, curve_id: &str) -> DiscountCurve {

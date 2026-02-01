@@ -1,36 +1,79 @@
-//! Monte Carlo pricing benchmarks.
+//! Monte Carlo pricing benchmarks (public API).
 //!
-//! Benchmarks for different MC features:
-//! - European options (GBM)
-//! - Asian options
-//! - Barrier options
-//! - Heston stochastic vol
-//! - LSMC American options
-//! - Parallel scaling
+//! Benchmarks LSMC Bermudan swaption pricing via the public pricer API.
 
 #![cfg(feature = "mc")]
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use finstack_core::currency::Currency;
-use finstack_valuations::instruments::common::mc::discretization::qe_heston::QeHeston;
-use finstack_valuations::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
-use finstack_valuations::instruments::common::mc::process::heston::HestonProcess;
-use finstack_valuations::instruments::common::models::monte_carlo::payoff::asian::{
-    AsianCall, AveragingMethod,
-};
-use finstack_valuations::instruments::common::models::monte_carlo::payoff::barrier::{
-    BarrierOptionPayoff, BarrierType,
-};
-use finstack_valuations::instruments::common::models::monte_carlo::payoff::vanilla::EuropeanCall;
-use finstack_valuations::instruments::common::models::monte_carlo::prelude::{
-    AmericanPut, EuropeanPricer, EuropeanPricerConfig, LsmcConfig, LsmcPricer, PathDependentPricer,
-    PathDependentPricerConfig, PolynomialBasis,
+use finstack_core::dates::{Date, DayCount, Tenor};
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::math::interp::InterpStyle;
+use finstack_core::money::Money;
+use finstack_core::types::{CurveId, InstrumentId};
+use finstack_valuations::instruments::rates::swaption::{
+    BermudanSchedule, BermudanSwaption, BermudanSwaptionPricer, HullWhiteParams,
 };
 use finstack_valuations::instruments::OptionType;
+use finstack_valuations::pricer::Pricer;
 use std::hint::black_box;
+use time::Month;
 
-fn bench_european_gbm(c: &mut Criterion) {
-    let mut group = c.benchmark_group("mc_european_gbm");
+fn build_swaption(as_of: Date) -> BermudanSwaption {
+    let swap_start = as_of;
+    let swap_end = Date::from_calendar_date(2030, Month::January, 1).expect("Valid date");
+    let first_exercise = Date::from_calendar_date(2026, Month::January, 1).expect("Valid date");
+
+    BermudanSwaption {
+        id: InstrumentId::new("BERM-LSMC-BENCH"),
+        option_type: OptionType::Call,
+        notional: Money::new(10_000_000.0, Currency::USD),
+        strike_rate: 0.03,
+        swap_start,
+        swap_end,
+        fixed_freq: Tenor::semi_annual(),
+        float_freq: Tenor::quarterly(),
+        day_count: DayCount::Thirty360,
+        settlement: finstack_valuations::instruments::rates::swaption::SwaptionSettlement::Physical,
+        discount_curve_id: CurveId::new("USD-OIS"),
+        forward_id: CurveId::new("USD-SOFR"),
+        vol_surface_id: CurveId::new("USD-VOL"),
+        bermudan_schedule: BermudanSchedule::co_terminal(
+            first_exercise,
+            swap_end,
+            Tenor::semi_annual(),
+        )
+        .expect("valid Bermudan schedule"),
+        bermudan_type: finstack_valuations::instruments::rates::swaption::BermudanType::CoTerminal,
+        pricing_overrides: Default::default(),
+        attributes: Default::default(),
+    }
+}
+
+fn build_market(as_of: Date) -> MarketContext {
+    let curve = DiscountCurve::builder("USD-OIS")
+        .base_date(as_of)
+        .knots([
+            (0.0, 1.0),
+            (0.5, 0.985),
+            (1.0, 0.97),
+            (2.0, 0.94),
+            (5.0, 0.85),
+            (10.0, 0.70),
+        ])
+        .set_interp(InterpStyle::LogLinear)
+        .build()
+        .expect("Valid curve");
+
+    MarketContext::new().insert_discount(curve)
+}
+
+fn bench_bermudan_lsmc(c: &mut Criterion) {
+    let mut group = c.benchmark_group("mc_bermudan_lsmc");
+    let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
+    let swaption = build_swaption(as_of);
+    let market = build_market(as_of);
 
     for num_paths in [10_000, 50_000, 100_000] {
         group.throughput(Throughput::Elements(num_paths as u64));
@@ -38,256 +81,21 @@ fn bench_european_gbm(c: &mut Criterion) {
             BenchmarkId::from_parameter(num_paths),
             &num_paths,
             |b, &n| {
-                let config = EuropeanPricerConfig::new(n)
-                    .with_seed(42)
-                    .with_parallel(false);
-                let pricer = EuropeanPricer::new(config);
-                let gbm = GbmProcess::new(GbmParams::new(0.05, 0.02, 0.2));
-                let call = EuropeanCall::new(100.0, 1.0, 252);
-
+                let pricer = BermudanSwaptionPricer::lsmc_pricer(HullWhiteParams::default())
+                    .with_mc_paths(n)
+                    .with_seed(42);
                 b.iter(|| {
                     let result = pricer
-                        .price(
-                            black_box(&gbm),
-                            100.0,
-                            1.0,
-                            252,
-                            black_box(&call),
-                            Currency::USD,
-                            0.95,
-                        )
-                        .unwrap();
-                    black_box(result)
+                        .price_dyn(black_box(&swaption), black_box(&market), as_of)
+                        .expect("lsmc price");
+                    black_box(result.value)
                 });
             },
         );
     }
-    group.finish();
-}
-
-fn bench_asian_options(c: &mut Criterion) {
-    let mut group = c.benchmark_group("mc_asian");
-
-    let fixing_steps: Vec<usize> = (0..=12).map(|i| i * 21).collect();
-    let asian = AsianCall::new(100.0, 1.0, AveragingMethod::Arithmetic, fixing_steps);
-    let gbm = GbmProcess::new(GbmParams::new(0.05, 0.02, 0.2));
-
-    group.bench_function("asian_arithmetic", |b| {
-        let config = PathDependentPricerConfig::new(50_000)
-            .with_seed(42)
-            .with_parallel(false);
-        let pricer = PathDependentPricer::new(config);
-
-        b.iter(|| {
-            let result = pricer
-                .price(
-                    black_box(&gbm),
-                    100.0,
-                    1.0,
-                    252,
-                    black_box(&asian),
-                    Currency::USD,
-                    1.0,
-                )
-                .unwrap();
-            black_box(result)
-        });
-    });
 
     group.finish();
 }
 
-fn bench_barrier_options(c: &mut Criterion) {
-    let mut group = c.benchmark_group("mc_barrier");
-
-    let barrier = BarrierOptionPayoff::new(
-        100.0,
-        120.0,
-        BarrierType::UpAndOut,
-        OptionType::Call,
-        None,
-        1.0,
-        252,
-        0.2,
-        1.0,
-        true,
-    );
-    let gbm = GbmProcess::new(GbmParams::new(0.05, 0.02, 0.2));
-
-    group.bench_function("barrier_up_and_out", |b| {
-        let config = PathDependentPricerConfig::new(50_000)
-            .with_seed(42)
-            .with_parallel(false);
-        let pricer = PathDependentPricer::new(config);
-
-        b.iter(|| {
-            let result = pricer
-                .price(
-                    black_box(&gbm),
-                    100.0,
-                    1.0,
-                    252,
-                    black_box(&barrier),
-                    Currency::USD,
-                    1.0,
-                )
-                .unwrap();
-            black_box(result)
-        });
-    });
-
-    group.finish();
-}
-
-fn bench_heston(c: &mut Criterion) {
-    let mut group = c.benchmark_group("mc_heston");
-
-    use finstack_valuations::instruments::common::mc::rng::philox::PhiloxRng;
-    use finstack_valuations::instruments::common::mc::time_grid::TimeGrid;
-    use finstack_valuations::instruments::common::models::monte_carlo::engine::{
-        McEngine, McEngineConfig,
-    };
-
-    group.bench_function("heston_european", |b| {
-        let time_grid = TimeGrid::uniform(1.0, 252).unwrap();
-        let engine = McEngine::new(McEngineConfig {
-            num_paths: 50_000,
-            seed: 42,
-            time_grid,
-            target_ci_half_width: None,
-            use_parallel: false,
-            chunk_size: 1000,
-            path_capture: finstack_valuations::instruments::common::models::monte_carlo::engine::
-                PathCaptureConfig::default(),
-            antithetic: false,
-        });
-
-        let heston = HestonProcess::with_params(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);
-        let disc = QeHeston::new();
-        let call = EuropeanCall::new(100.0, 1.0, 252);
-        let rng = PhiloxRng::new(42);
-
-        b.iter(|| {
-            let result = engine
-                .price(
-                    black_box(&rng),
-                    black_box(&heston),
-                    black_box(&disc),
-                    &[100.0, 0.04],
-                    black_box(&call),
-                    Currency::USD,
-                    0.95,
-                )
-                .unwrap();
-            black_box(result)
-        });
-    });
-
-    group.finish();
-}
-
-fn bench_lsmc_american(c: &mut Criterion) {
-    let mut group = c.benchmark_group("mc_lsmc");
-
-    group.bench_function("american_put", |b| {
-        let exercise_dates: Vec<usize> = (25..=100).step_by(25).collect();
-        let config = LsmcConfig::new(10_000, exercise_dates).with_seed(42);
-        let pricer = LsmcPricer::new(config);
-
-        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.3));
-        let put = AmericanPut { strike: 100.0 };
-        let basis = PolynomialBasis::new(2);
-
-        b.iter(|| {
-            let result = pricer
-                .price(
-                    black_box(&gbm),
-                    100.0,
-                    1.0,
-                    100,
-                    black_box(&put),
-                    black_box(&basis),
-                    Currency::USD,
-                    0.05,
-                )
-                .unwrap();
-            black_box(result)
-        });
-    });
-
-    group.finish();
-}
-
-#[cfg(feature = "parallel")]
-fn bench_parallel_scaling(c: &mut Criterion) {
-    let mut group = c.benchmark_group("mc_parallel_scaling");
-
-    let gbm = GbmProcess::new(GbmParams::new(0.05, 0.02, 0.2));
-    let call = EuropeanCall::new(100.0, 1.0, 252);
-
-    // Serial
-    group.bench_function("serial_100k", |b| {
-        let config = EuropeanPricerConfig::new(100_000)
-            .with_seed(42)
-            .with_parallel(false);
-        let pricer = EuropeanPricer::new(config);
-
-        b.iter(|| {
-            let result = pricer
-                .price(
-                    black_box(&gbm),
-                    100.0,
-                    1.0,
-                    252,
-                    black_box(&call),
-                    Currency::USD,
-                    0.95,
-                )
-                .unwrap();
-            black_box(result)
-        });
-    });
-
-    // Parallel
-    group.bench_function("parallel_100k", |b| {
-        let config = EuropeanPricerConfig::new(100_000)
-            .with_seed(42)
-            .with_parallel(true);
-        let pricer = EuropeanPricer::new(config);
-
-        b.iter(|| {
-            let result = pricer
-                .price(
-                    black_box(&gbm),
-                    100.0,
-                    1.0,
-                    252,
-                    black_box(&call),
-                    Currency::USD,
-                    0.95,
-                )
-                .unwrap();
-            black_box(result)
-        });
-    });
-
-    group.finish();
-}
-
-criterion_group!(
-    benches,
-    bench_european_gbm,
-    bench_asian_options,
-    bench_barrier_options,
-    bench_heston,
-    bench_lsmc_american,
-);
-
-#[cfg(feature = "parallel")]
-criterion_group!(parallel_benches, bench_parallel_scaling);
-
-#[cfg(feature = "parallel")]
-criterion_main!(benches, parallel_benches);
-
-#[cfg(not(feature = "parallel"))]
+criterion_group!(benches, bench_bermudan_lsmc);
 criterion_main!(benches);

@@ -32,7 +32,7 @@
 //! d(RequiredCollateral)/d(haircut) = Cash / (1 - haircut)^2
 //! ```
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::rates::repo::Repo;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;

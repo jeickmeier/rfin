@@ -10,9 +10,9 @@ use finstack_core::types::{Bps, CurveId, InstrumentId, Rate};
 use rust_decimal::Decimal;
 
 use crate::cashflow::builder::{evaluate_fee_tiers, FeeTier, FloatingRateSpec};
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common_impl::traits::Attributes;
 #[cfg(feature = "mc")]
-use crate::instruments::common::validation;
+use crate::instruments::common_impl::validation;
 use rust_decimal::prelude::ToPrimitive;
 
 /// Revolving credit facility instrument.
@@ -602,7 +602,7 @@ impl RevolvingCredit {
 }
 
 // Implement the Instrument trait
-impl crate::instruments::common::traits::Instrument for RevolvingCredit {
+impl crate::instruments::common_impl::traits::Instrument for RevolvingCredit {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -615,15 +615,15 @@ impl crate::instruments::common::traits::Instrument for RevolvingCredit {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
@@ -683,7 +683,7 @@ impl crate::instruments::common::traits::Instrument for RevolvingCredit {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(curves.clone()),
             as_of,
@@ -696,9 +696,9 @@ impl crate::instruments::common::traits::Instrument for RevolvingCredit {
 }
 
 // Implement CurveDependencies for DV01 calculator
-impl crate::instruments::common::traits::CurveDependencies for RevolvingCredit {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        let mut builder = crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for RevolvingCredit {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        let mut builder = crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone());
 
         // Add credit curve if present

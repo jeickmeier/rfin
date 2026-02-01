@@ -6,7 +6,7 @@
 //! This is a specialized wrapper around [`UnifiedDv01Calculator`] configured
 //! for parallel bumps (1bp default).
 
-use crate::instruments::common::traits::{CurveDependencies, Instrument};
+use crate::instruments::common_impl::traits::{CurveDependencies, Instrument};
 use crate::metrics::sensitivities::dv01::{Dv01CalculatorConfig, UnifiedDv01Calculator};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use std::marker::PhantomData;

@@ -80,7 +80,7 @@ fn compute_index_maturity(reset_date: Date, index_tenor: Tenor) -> Date {
 /// Returns `pik_to_add`, the total PIK amount to capitalize into the
 /// outstanding balance. Cash and PIK flows are appended directly into
 /// the provided `out_flows` buffer to avoid per-date allocations.
-pub(in crate::cashflow::builder) fn emit_fixed_coupons_on(
+pub(crate) fn emit_fixed_coupons_on(
     d: Date,
     fixed_schedules: &[FixedSchedule],
     outstanding_after: &finstack_core::HashMap<Date, f64>,
@@ -164,7 +164,7 @@ pub(in crate::cashflow::builder) fn emit_fixed_coupons_on(
 /// Returns `pik_to_add`, the total PIK amount to capitalize into the
 /// outstanding balance. Cash and PIK flows are appended directly into
 /// the provided `out_flows` buffer.
-pub(in crate::cashflow::builder) fn emit_float_coupons_on(
+pub(crate) fn emit_float_coupons_on(
     d: Date,
     float_schedules: &[FloatSchedule],
     outstanding_after: &finstack_core::HashMap<Date, f64>,

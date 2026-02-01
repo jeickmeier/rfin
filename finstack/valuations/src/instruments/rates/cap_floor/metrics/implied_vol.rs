@@ -11,7 +11,9 @@
 //! When applied to a multi-period cap/floor, this calculator uses only the first
 //! period's forward rate, which may not reflect the true flat volatility.
 
-use crate::instruments::common::pricing::time::{rate_period_on_dates, relative_df_discount_curve};
+use crate::instruments::common_impl::pricing::time::{
+    rate_period_on_dates, relative_df_discount_curve,
+};
 use crate::instruments::rates::cap_floor::pricing::black::{
     price_caplet_floorlet, CapletFloorletInputs,
 };

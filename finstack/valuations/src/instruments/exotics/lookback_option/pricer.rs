@@ -1,7 +1,7 @@
 //! Lookback option pricers (Monte Carlo and analytical).
 
 // Common imports for all pricers
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::exotics::lookback_option::types::{LookbackOption, LookbackType};
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
@@ -13,13 +13,13 @@ use finstack_core::money::Money;
 
 // MC-specific imports
 #[cfg(feature = "mc")]
-use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
+use crate::instruments::common_impl::mc::process::gbm::{GbmParams, GbmProcess};
 #[cfg(feature = "mc")]
-use crate::instruments::common::models::monte_carlo::payoff::lookback::{
+use crate::instruments::common_impl::models::monte_carlo::payoff::lookback::{
     FloatingStrikeLookbackCall, Lookback, LookbackDirection,
 };
 #[cfg(feature = "mc")]
-use crate::instruments::common::models::monte_carlo::pricer::path_dependent::{
+use crate::instruments::common_impl::models::monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
 
@@ -98,7 +98,7 @@ impl LookbackOptionMcPricer {
 
         // Derive deterministic seed from instrument ID and scenario
         #[cfg(feature = "mc")]
-        use crate::instruments::common::models::monte_carlo::seed;
+        use crate::instruments::common_impl::models::monte_carlo::seed;
 
         let seed = if let Some(ref scenario) = inst.pricing_overrides.mc_seed_scenario {
             #[cfg(feature = "mc")]
@@ -197,7 +197,7 @@ impl Pricer for LookbackOptionMcPricer {
 
     fn price_dyn(
         &self,
-        instrument: &dyn crate::instruments::common::traits::Instrument,
+        instrument: &dyn crate::instruments::common_impl::traits::Instrument,
         market: &MarketContext,
         as_of: Date,
     ) -> PricingResult<ValuationResult> {
@@ -229,7 +229,7 @@ pub(crate) fn compute_pv(
 
 // ========================= ANALYTICAL PRICER =========================
 
-use crate::instruments::common::models::closed_form::lookback::{
+use crate::instruments::common_impl::models::closed_form::lookback::{
     fixed_strike_lookback_call, fixed_strike_lookback_put, floating_strike_lookback_call,
     floating_strike_lookback_put,
 };

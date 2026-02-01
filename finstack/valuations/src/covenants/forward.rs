@@ -15,7 +15,7 @@ use finstack_core::Result;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "mc")]
-use crate::instruments::common::mc::traits::RandomStream;
+use crate::instruments::common_impl::mc::traits::RandomStream;
 
 /// Comparator for headroom calculation.
 /// Comparison operator for covenant threshold tests
@@ -226,7 +226,7 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
         let seed = config.random_seed.unwrap_or(42);
         let antithetic = config.mc.as_ref().map(|m| m.antithetic).unwrap_or(false);
 
-        use crate::instruments::common::mc::rng::philox::PhiloxRng;
+        use crate::instruments::common_impl::mc::rng::philox::PhiloxRng;
         let mut rng = PhiloxRng::new(seed);
 
         // For each test date, estimate breach probability

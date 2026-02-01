@@ -4,7 +4,7 @@
 //! price exchange contracts. One party pays a fixed price per unit while
 //! the other pays a floating price based on an index.
 
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common_impl::traits::Attributes;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, CalendarRegistry, Date, ScheduleBuilder, Tenor};
 use finstack_core::market_data::context::MarketContext;
@@ -347,16 +347,16 @@ impl CommoditySwap {
     }
 }
 
-impl crate::instruments::common::traits::CurveDependencies for CommoditySwap {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for CommoditySwap {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .forward(self.floating_index_id.clone())
             .build()
     }
 }
 
-impl crate::instruments::common::traits::Instrument for CommoditySwap {
+impl crate::instruments::common_impl::traits::Instrument for CommoditySwap {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -369,15 +369,15 @@ impl crate::instruments::common::traits::Instrument for CommoditySwap {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
@@ -407,7 +407,7 @@ impl crate::instruments::common::traits::Instrument for CommoditySwap {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(market, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(market.clone()),
             as_of,
@@ -423,7 +423,7 @@ impl crate::instruments::common::traits::Instrument for CommoditySwap {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common::traits::Instrument;
+    use crate::instruments::common_impl::traits::Instrument;
     use finstack_core::market_data::term_structures::{DiscountCurve, PriceCurve};
     use time::Month;
 
@@ -615,7 +615,7 @@ mod tests {
 
     #[test]
     fn test_commodity_swap_instrument_trait() {
-        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common_impl::traits::Instrument;
 
         let swap = CommoditySwap::example();
 
@@ -625,7 +625,7 @@ mod tests {
 
     #[test]
     fn test_commodity_swap_curve_dependencies() {
-        use crate::instruments::common::traits::CurveDependencies;
+        use crate::instruments::common_impl::traits::CurveDependencies;
 
         let swap = CommoditySwap::example();
         let deps = swap.curve_dependencies();

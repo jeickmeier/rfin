@@ -6,7 +6,7 @@ use crate::swaption::common::*;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::swaption::{BermudanSchedule, BermudanSwaption};
 use finstack_valuations::instruments::rates::swaption::{
-    BermudanSwaptionPricer, HullWhiteParams, SimpleSwaptionBlackPricer,
+    BermudanSwaptionPricer, CalibratedHullWhiteModel, HullWhiteParams, SimpleSwaptionBlackPricer,
 };
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::pricer::{ModelKey, Pricer};
@@ -78,15 +78,12 @@ fn test_bermudan_pricer_cached_model_sets_measure() {
     let market = create_flat_market(as_of, 0.03, 0.2);
     let disc = market.get_discount("USD_OIS").unwrap();
     let ttm = swaption.time_to_maturity(as_of).unwrap();
-    let tree = finstack_valuations::instruments::common::models::trees::HullWhiteTree::calibrate(
-        HullWhiteParams::default().to_tree_config(50),
-        disc.as_ref(),
-        ttm,
-    )
-    .unwrap();
+    let model =
+        CalibratedHullWhiteModel::calibrate(HullWhiteParams::default(), 50, disc.as_ref(), ttm)
+            .unwrap();
 
     let pricer = BermudanSwaptionPricer::tree_pricer(HullWhiteParams::default())
-        .with_calibrated_model(std::sync::Arc::new(tree));
+        .with_calibrated_model(model);
     let result = pricer.price_dyn(&swaption, &market, as_of).unwrap();
 
     let used_cached = result.measures.get("used_cached_model").copied().unwrap();

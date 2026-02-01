@@ -53,7 +53,7 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
-use crate::instruments::common::models::{
+use crate::instruments::common_impl::models::{
     short_rate_keys, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
 };
 use crate::instruments::fixed_income::bond::pricing::tree_engine::{
@@ -267,7 +267,7 @@ impl MetricCalculator for EmbeddedOptionValueCalculator {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common::traits::Instrument;
+    use crate::instruments::common_impl::traits::Instrument;
     use crate::instruments::fixed_income::bond::CashflowSpec;
     #[cfg(feature = "slow")]
     use crate::instruments::fixed_income::bond::{CallPut, CallPutSchedule};

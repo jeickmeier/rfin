@@ -1,9 +1,9 @@
 //! WASM bindings for common parameter types (OptionType, ExerciseStyle, etc.)
 
-use finstack_valuations::instruments::common::models::monte_carlo::payoff::barrier::BarrierType;
 use finstack_valuations::instruments::{
     legs::PayReceive,
     market::{ExerciseStyle, OptionType, SettlementType},
+    BarrierType,
 };
 use wasm_bindgen::prelude::*;
 
@@ -273,17 +273,17 @@ impl JsBarrierType {
 
     #[wasm_bindgen(js_name = isKnockOut)]
     pub fn is_knock_out(&self) -> bool {
-        self.inner.is_knock_out()
+        matches!(self.inner, BarrierType::UpAndOut | BarrierType::DownAndOut)
     }
 
     #[wasm_bindgen(js_name = isKnockIn)]
     pub fn is_knock_in(&self) -> bool {
-        self.inner.is_knock_in()
+        matches!(self.inner, BarrierType::UpAndIn | BarrierType::DownAndIn)
     }
 
     #[wasm_bindgen(js_name = isUp)]
     pub fn is_up(&self) -> bool {
-        self.inner.is_up()
+        matches!(self.inner, BarrierType::UpAndOut | BarrierType::UpAndIn)
     }
 }
 

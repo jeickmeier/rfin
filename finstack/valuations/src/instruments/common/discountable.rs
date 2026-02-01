@@ -42,7 +42,7 @@ impl Discountable for CashFlowSchedule {
 /// ## Alternative
 ///
 /// For T+0 instruments or calibration where cashflows on `as_of` should be included,
-/// use [`crate::instruments::common::helpers::schedule_pv_using_curve_dc_raw`] which
+/// use [`crate::instruments::common_impl::helpers::schedule_pv_using_curve_dc_raw`] which
 /// includes `d == as_of` cashflows (pricing-view semantics).
 ///
 /// # Arguments

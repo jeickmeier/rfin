@@ -23,7 +23,9 @@
 
 use super::super::calibrations::{CLO_STANDARD, RMBS_STANDARD};
 use super::traits::{MacroCreditFactors, StochasticDefault};
-use crate::instruments::common::models::correlation::copula::{Copula, CopulaSpec, GaussianCopula};
+use crate::instruments::common_impl::models::correlation::copula::{
+    Copula, CopulaSpec, GaussianCopula,
+};
 use crate::instruments::fixed_income::structured_credit::utils::rates::cdr_to_mdr;
 use finstack_core::math::distributions::binomial_distribution;
 use finstack_core::math::standard_normal_inv_cdf;

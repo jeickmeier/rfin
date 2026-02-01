@@ -3,8 +3,8 @@
 //! Quanto options have payoffs that depend on an underlying asset in one currency
 //! but are settled in another currency, creating FX exposure.
 
-use crate::instruments::common::mc::traits::{state_keys, PathState};
-use crate::instruments::common::models::monte_carlo::traits::Payoff;
+use crate::instruments::common_impl::mc::traits::{state_keys, PathState};
+use crate::instruments::common_impl::models::monte_carlo::traits::Payoff;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 
@@ -204,7 +204,7 @@ impl Payoff for QuantoPutPayoff {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common::mc::traits::{state_keys, PathState};
+    use crate::instruments::common_impl::mc::traits::{state_keys, PathState};
 
     #[test]
     fn test_quanto_adjustment_computation() {

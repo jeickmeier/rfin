@@ -22,9 +22,10 @@
 //! Vega = (V(σ+dσ) - V(σ-dσ)) / (2*dσ)
 //! ```
 
-use crate::instruments::common::models::trees::{HullWhiteTree, HullWhiteTreeConfig};
 use crate::instruments::rates::swaption::pricing::BermudanSwaptionTreeValuator;
-use crate::instruments::rates::swaption::BermudanSwaption;
+use crate::instruments::rates::swaption::{
+    BermudanSwaption, CalibratedHullWhiteModel, HullWhiteParams,
+};
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::Date;
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
@@ -127,9 +128,13 @@ impl BermudanDeltaCalculator {
             return Ok(0.0);
         }
 
-        let tree_config = HullWhiteTreeConfig::new(self.kappa, sigma, self.tree_steps);
-        let tree = HullWhiteTree::calibrate(tree_config, disc, ttm)?;
-        let valuator = BermudanSwaptionTreeValuator::new(swaption, &tree, disc, as_of)?;
+        let model = CalibratedHullWhiteModel::calibrate(
+            HullWhiteParams::new(self.kappa, sigma),
+            self.tree_steps,
+            disc,
+            ttm,
+        )?;
+        let valuator = BermudanSwaptionTreeValuator::new(swaption, &model, disc, as_of)?;
         Ok(valuator.price())
     }
 }
@@ -238,9 +243,13 @@ impl BermudanVegaCalculator {
             return Ok(0.0);
         }
 
-        let tree_config = HullWhiteTreeConfig::new(self.kappa, sigma, self.tree_steps);
-        let tree = HullWhiteTree::calibrate(tree_config, disc, ttm)?;
-        let valuator = BermudanSwaptionTreeValuator::new(swaption, &tree, disc, as_of)?;
+        let model = CalibratedHullWhiteModel::calibrate(
+            HullWhiteParams::new(self.kappa, sigma),
+            self.tree_steps,
+            disc,
+            ttm,
+        )?;
+        let valuator = BermudanSwaptionTreeValuator::new(swaption, &model, disc, as_of)?;
         Ok(valuator.price())
     }
 }
@@ -336,9 +345,13 @@ impl BermudanGammaCalculator {
             return Ok(0.0);
         }
 
-        let tree_config = HullWhiteTreeConfig::new(self.kappa, sigma, self.tree_steps);
-        let tree = HullWhiteTree::calibrate(tree_config, disc, ttm)?;
-        let valuator = BermudanSwaptionTreeValuator::new(swaption, &tree, disc, as_of)?;
+        let model = CalibratedHullWhiteModel::calibrate(
+            HullWhiteParams::new(self.kappa, sigma),
+            self.tree_steps,
+            disc,
+            ttm,
+        )?;
+        let valuator = BermudanSwaptionTreeValuator::new(swaption, &model, disc, as_of)?;
         Ok(valuator.price())
     }
 }
@@ -514,10 +527,14 @@ impl MetricCalculator for ExerciseProbabilityCalculator {
             return Ok(0.0);
         }
 
-        let tree_config = HullWhiteTreeConfig::new(self.kappa, self.sigma, self.tree_steps);
-        let tree = HullWhiteTree::calibrate(tree_config, disc.as_ref(), ttm)?;
+        let model = CalibratedHullWhiteModel::calibrate(
+            HullWhiteParams::new(self.kappa, self.sigma),
+            self.tree_steps,
+            disc.as_ref(),
+            ttm,
+        )?;
         let valuator =
-            BermudanSwaptionTreeValuator::new(swaption, &tree, disc.as_ref(), context.as_of)?;
+            BermudanSwaptionTreeValuator::new(swaption, &model, disc.as_ref(), context.as_of)?;
 
         let exercise_times = swaption.exercise_times(context.as_of)?;
         let profile = ExerciseProbabilityProfile::from_valuator(&valuator, exercise_times);
@@ -562,9 +579,9 @@ mod tests {
     #[test]
     fn test_exercise_probability_profile_from_valuator() {
         // Integration test: verify from_valuator uses actual tree probabilities
-        use crate::instruments::common::models::trees::HullWhiteTreeConfig;
         use crate::instruments::rates::swaption::{
-            BermudanSchedule, BermudanSwaption, BermudanType, SwaptionSettlement,
+            BermudanSchedule, BermudanSwaption, BermudanType, CalibratedHullWhiteModel,
+            HullWhiteParams, SwaptionSettlement,
         };
         use finstack_core::currency::Currency;
         use finstack_core::dates::{DayCount, Tenor};
@@ -595,7 +612,7 @@ mod tests {
 
         let swaption = BermudanSwaption {
             id: InstrumentId::new("TEST-BERM"),
-            option_type: crate::instruments::common::parameters::OptionType::Call,
+            option_type: crate::instruments::common_impl::parameters::OptionType::Call,
             notional: Money::new(10_000_000.0, Currency::USD),
             strike_rate: 0.03,
             swap_start,
@@ -621,9 +638,10 @@ mod tests {
         let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
         let ttm = swaption.time_to_maturity(as_of).expect("Valid ttm");
 
-        let tree_config = HullWhiteTreeConfig::new(0.03, 0.01, 30);
-        let tree = HullWhiteTree::calibrate(tree_config, &curve, ttm).expect("Valid tree");
-        let valuator = BermudanSwaptionTreeValuator::new(&swaption, &tree, &curve, as_of)
+        let model =
+            CalibratedHullWhiteModel::calibrate(HullWhiteParams::new(0.03, 0.01), 30, &curve, ttm)
+                .expect("Valid model");
+        let valuator = BermudanSwaptionTreeValuator::new(&swaption, &model, &curve, as_of)
             .expect("Valid valuator");
 
         let exercise_times = swaption

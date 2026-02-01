@@ -13,7 +13,7 @@ use finstack_core::dates::{Date, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common_impl::traits::Attributes;
 
 /// Deal-specific configuration for constructor
 pub(super) struct DealConfig {

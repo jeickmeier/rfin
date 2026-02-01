@@ -2,7 +2,7 @@
 //!
 //! Computes inflation sensitivity using finite differences on the inflation curve.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::rates::inflation_swap::YoYInflationSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};

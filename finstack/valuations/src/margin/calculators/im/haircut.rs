@@ -3,7 +3,7 @@
 //! Standard methodology for repos and securities financing transactions
 //! where IM is calculated as a percentage of collateral value.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::margin::calculators::traits::{ImCalculator, ImResult};
 use crate::margin::types::{CollateralAssetClass, EligibleCollateralSchedule, ImMethodology};
 use finstack_core::dates::Date;

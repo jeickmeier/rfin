@@ -14,7 +14,7 @@ Finstack 0.8.0 delivers **critical safety fixes** and **market convention compli
 
 | Aspect | Details |
 |--------|---------|
-| **Breaking Changes** | 4 major changes (metrics, FX, calendars, quotes) |
+| **Breaking Changes** | 5 major changes (metrics, FX, calendars, quotes, instruments API) |
 | **New Features** | 8 new APIs (strict parsing, joint business days, etc.) |
 | **Bug Fixes** | 4 critical fixes (calibration, metrics, export) |
 | **Tests Added** | 50+ unit tests, 19 integration tests, golden reference files |
@@ -176,6 +176,33 @@ RateQuote::Swap {
 **Recommendation**: Update code to use `spread_decimal` for clarity. JSON is backwards compatible.
 
 **Estimated Effort**: 15-30 minutes (field rename)
+
+---
+
+### 5. Instruments API Front Door (Major)
+
+**What Changed**: `instruments::common::models` and `instruments::common::mc` are now internal.
+`instruments::common` remains as a deprecated shim for one release and no longer exposes models/MC.
+
+**Impact**:
+
+- Downstream code must switch to canonical `finstack_valuations::instruments::*` imports
+- `Swaption` SABR inputs use `rates::swaption::SABRParameters`
+- Bermudan tree pricing uses `rates::swaption::CalibratedHullWhiteModel`
+- Python/WASM bindings no longer expose internal Monte Carlo and SABR calibration APIs
+
+**Migration**:
+
+```rust
+// BEFORE
+use finstack_valuations::instruments::common::models::SABRParameters;
+use finstack_valuations::instruments::common::models::trees::{HullWhiteTree, HullWhiteTreeConfig};
+
+// AFTER
+use finstack_valuations::instruments::rates::swaption::{CalibratedHullWhiteModel, SABRParameters};
+```
+
+**Estimated Effort**: 1-2 hours (import updates, adjust MC bindings)
 
 ---
 

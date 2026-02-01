@@ -1,17 +1,25 @@
+#[allow(clippy::expect_used, clippy::unwrap_used, dead_code, unused_imports)]
+mod test_utils {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/support/test_utils.rs"
+    ));
+}
+
+use crate::instruments::common_impl::models::closed_form::barrier::{
+    barrier_rebate_continuous, BarrierType as AnalyticalBarrierType,
+};
+use crate::instruments::exotics::barrier_option::BarrierType;
+use crate::instruments::fx::fx_barrier_option::FxBarrierOption;
+use crate::instruments::{Attributes, Instrument};
+use crate::instruments::{OptionType, PricingOverrides};
+use test_utils::{date, flat_discount_with_tenor, flat_vol_surface};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::common::models::closed_form::barrier::{
-    barrier_rebate_continuous, BarrierType as AnalyticalBarrierType,
-};
-use finstack_valuations::instruments::exotics::barrier_option::BarrierType;
-use finstack_valuations::instruments::fx::fx_barrier_option::FxBarrierOption;
-use finstack_valuations::instruments::{Attributes, Instrument};
-use finstack_valuations::instruments::{OptionType, PricingOverrides};
-use finstack_valuations::test_utils::{date, flat_discount_with_tenor, flat_vol_surface};
 
 #[test]
 fn test_fx_barrier_rebate_added_to_closed_form_price() {

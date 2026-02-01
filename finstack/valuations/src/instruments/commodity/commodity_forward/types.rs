@@ -4,8 +4,8 @@
 //! commodity forward contracts. Pricing uses curve-based forward interpolation
 //! with optional quoted price override.
 
-use crate::instruments::common::parameters::CommodityConvention;
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common_impl::parameters::CommodityConvention;
+use crate::instruments::common_impl::traits::Attributes;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date};
 use finstack_core::market_data::context::MarketContext;
@@ -13,10 +13,10 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
 
 /// Settlement type for commodity contracts.
-pub use crate::instruments::common::parameters::SettlementType;
+pub use crate::instruments::common_impl::parameters::SettlementType;
 
 /// Position direction (long/short) for commodity contracts.
-pub use crate::instruments::common::parameters::Position;
+pub use crate::instruments::common_impl::parameters::Position;
 
 /// Commodity forward or futures contract.
 ///
@@ -408,25 +408,25 @@ impl CommodityForward {
     }
 }
 
-impl crate::instruments::common::traits::CurveDependencies for CommodityForward {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for CommodityForward {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .forward(self.forward_curve_id.clone())
             .build()
     }
 }
 
-impl crate::instruments::common::traits::EquityDependencies for CommodityForward {
-    fn equity_dependencies(&self) -> crate::instruments::common::traits::EquityInstrumentDeps {
-        crate::instruments::common::traits::EquityInstrumentDeps {
+impl crate::instruments::common_impl::traits::EquityDependencies for CommodityForward {
+    fn equity_dependencies(&self) -> crate::instruments::common_impl::traits::EquityInstrumentDeps {
+        crate::instruments::common_impl::traits::EquityInstrumentDeps {
             spot_id: self.spot_price_id.clone(),
             vol_surface_id: None,
         }
     }
 }
 
-impl crate::instruments::common::traits::Instrument for CommodityForward {
+impl crate::instruments::common_impl::traits::Instrument for CommodityForward {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -439,21 +439,23 @@ impl crate::instruments::common::traits::Instrument for CommodityForward {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
-    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
+    fn market_dependencies(
+        &self,
+    ) -> crate::instruments::common_impl::dependencies::MarketDependencies {
         let mut deps =
-            crate::instruments::common::dependencies::MarketDependencies::from_curve_dependencies(
+            crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
                 self,
             );
         if let Some(spot_id) = self.spot_price_id.as_deref() {
@@ -497,7 +499,7 @@ impl crate::instruments::common::traits::Instrument for CommodityForward {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(market, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(market.clone()),
             as_of,
@@ -513,7 +515,7 @@ impl crate::instruments::common::traits::Instrument for CommodityForward {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common::traits::Instrument;
+    use crate::instruments::common_impl::traits::Instrument;
     use finstack_core::market_data::term_structures::{DiscountCurve, PriceCurve};
     use time::Month;
 
@@ -747,7 +749,7 @@ mod tests {
 
     #[test]
     fn test_commodity_forward_instrument_trait() {
-        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common_impl::traits::Instrument;
 
         let forward = CommodityForward::example();
 
@@ -761,7 +763,7 @@ mod tests {
 
     #[test]
     fn test_commodity_forward_curve_dependencies() {
-        use crate::instruments::common::traits::CurveDependencies;
+        use crate::instruments::common_impl::traits::CurveDependencies;
 
         let forward = CommodityForward::example();
         let deps = forward.curve_dependencies();

@@ -1,7 +1,7 @@
 //! Bond instrument types and implementations.
 
 use crate::cashflow::builder::CashFlowSchedule;
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
@@ -11,7 +11,7 @@ use finstack_core::Result;
 use rust_decimal::prelude::ToPrimitive;
 use time::macros::date;
 
-use crate::instruments::common::validation;
+use crate::instruments::common_impl::validation;
 // Re-export for compatibility in tests and external users referencing bond::AmortizationSpec
 pub use super::cashflow_spec::CashflowSpec;
 pub use crate::cashflow::builder::AmortizationSpec;
@@ -350,7 +350,7 @@ impl Bond {
         coupon_rate: impl Into<Rate>,
         issue: Date,
         maturity: Date,
-        convention: crate::instruments::common::parameters::BondConvention,
+        convention: crate::instruments::common_impl::parameters::BondConvention,
         discount_curve_id: impl Into<CurveId>,
     ) -> finstack_core::Result<Self> {
         let coupon_rate = coupon_rate.into();
@@ -791,7 +791,7 @@ impl Bond {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        use crate::instruments::common::models::{
+        use crate::instruments::common_impl::models::{
             short_rate_keys, state_keys, ShortRateTree, ShortRateTreeConfig, StateVariables,
             TreeModel,
         };
@@ -916,7 +916,7 @@ impl Bond {
 // Explicit trait implementations for better IDE support and code clarity
 
 // Explicit Instrument trait implementation (replaces macro for better IDE visibility)
-impl crate::instruments::common::traits::Instrument for Bond {
+impl crate::instruments::common_impl::traits::Instrument for Bond {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -929,15 +929,15 @@ impl crate::instruments::common::traits::Instrument for Bond {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
@@ -968,7 +968,7 @@ impl crate::instruments::common::traits::Instrument for Bond {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(market, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(market.clone()),
             as_of,
@@ -979,8 +979,12 @@ impl crate::instruments::common::traits::Instrument for Bond {
         )
     }
 
-    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
-        crate::instruments::common::dependencies::MarketDependencies::from_curve_dependencies(self)
+    fn market_dependencies(
+        &self,
+    ) -> crate::instruments::common_impl::dependencies::MarketDependencies {
+        crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
+            self,
+        )
     }
 
     fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
@@ -1001,9 +1005,9 @@ impl crate::instruments::common::traits::Instrument for Bond {
 }
 
 // Implement CurveDependencies for DV01/CS01 calculators
-impl crate::instruments::common::traits::CurveDependencies for Bond {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        let mut builder = crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for Bond {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        let mut builder = crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone());
 
         // Add credit curve if present
@@ -1035,7 +1039,7 @@ mod tests {
     use super::*;
     use crate::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec, ScheduleParams};
     use crate::cashflow::traits::CashflowProvider;
-    use crate::instruments::common::traits::Instrument;
+    use crate::instruments::common_impl::traits::Instrument;
     use finstack_core::currency::Currency;
     use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
     use finstack_core::market_data::context::MarketContext;
@@ -1691,7 +1695,7 @@ mod tests {
 
     #[test]
     fn test_amortizing_bond_pv_greater_than_bullet_for_same_yield() {
-        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common_impl::traits::Instrument;
 
         let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let maturity = Date::from_calendar_date(2028, Month::January, 1).expect("Valid test date");

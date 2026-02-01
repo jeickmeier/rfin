@@ -27,7 +27,7 @@
 
 #![allow(clippy::unwrap_used)]
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::margin::calculators::traits::{ImCalculator, ImResult};
 use crate::margin::config::margin_registry_from_config;
 use crate::margin::registry::{embedded_registry, MarginRegistry, SimmParams};

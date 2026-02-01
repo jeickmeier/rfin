@@ -1,7 +1,7 @@
 //! SABR calibration and smile tests
 
 use crate::swaption::common::*;
-use finstack_valuations::instruments::common::models::SABRParameters;
+use finstack_valuations::instruments::rates::swaption::SABRParameters;
 use finstack_valuations::instruments::Instrument;
 
 #[test]

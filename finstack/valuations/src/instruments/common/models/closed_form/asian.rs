@@ -96,7 +96,7 @@
 //!
 //! ## Geometric Average Asian Call
 //!
-//! ```rust
+//! ```rust,ignore
 //! use finstack_valuations::instruments::common::models::closed_form::asian::geometric_asian_call;
 //!
 //! let spot = 100.0;
@@ -118,7 +118,7 @@
 //!
 //! ## Arithmetic Average Asian Put (Approximation)
 //!
-//! ```rust
+//! ```rust,ignore
 //! use finstack_valuations::instruments::common::models::closed_form::asian::arithmetic_asian_put_tw;
 //!
 //! let spot = 100.0;

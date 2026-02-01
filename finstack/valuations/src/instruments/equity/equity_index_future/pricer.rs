@@ -3,7 +3,7 @@
 //! Provides deterministic PV for `EquityIndexFuture` instruments using
 //! mark-to-market or cost-of-carry fair value pricing.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::equity::equity_index_future::EquityIndexFuture;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
@@ -90,7 +90,7 @@ mod tests {
     }
 
     fn create_test_future_with_quoted_price() -> EquityIndexFuture {
-        use crate::instruments::common::traits::Attributes;
+        use crate::instruments::common_impl::traits::Attributes;
         use crate::instruments::equity::equity_index_future::EquityFutureSpecs;
 
         EquityIndexFuture::builder()
@@ -112,7 +112,7 @@ mod tests {
     }
 
     fn create_test_future_without_quoted_price() -> EquityIndexFuture {
-        use crate::instruments::common::traits::Attributes;
+        use crate::instruments::common_impl::traits::Attributes;
         use crate::instruments::equity::equity_index_future::EquityFutureSpecs;
 
         EquityIndexFuture::builder()

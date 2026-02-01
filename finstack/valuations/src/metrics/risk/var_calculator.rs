@@ -3,8 +3,8 @@
 //! Implements Historical Value-at-Risk using historical simulation methodology.
 //! Supports both full revaluation and Taylor approximation (Greeks-based) approaches.
 
-use crate::instruments::common::helpers::instrument_to_arc;
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::helpers::instrument_to_arc;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::metrics::core::registry::StrictMode;
 use crate::metrics::risk::MarketHistory;
 use crate::metrics::sensitivities::config::format_bucket_label;
@@ -637,13 +637,21 @@ fn calculate_portfolio_var_taylor(
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
+    #[allow(clippy::expect_used, dead_code, unused_imports)]
+    mod test_utils {
+        include!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/support/metrics_risk_test_utils.rs"
+        ));
+    }
+
     use super::*;
-    use crate::instruments::common::traits::Instrument;
-    use crate::metrics::risk::test_utils::{
+    use crate::instruments::common_impl::traits::Instrument;
+    use std::sync::Arc;
+    use test_utils::{
         history_from_rate_shifts, history_from_scenarios, sample_as_of, standard_bond,
         usd_ois_market,
     };
-    use std::sync::Arc;
     use time::macros::date;
 
     #[test]

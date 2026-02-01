@@ -1,31 +1,32 @@
-//! Golden tests comparing Monte Carlo results against Black-Scholes analytical prices.
-//!
-//! These tests serve as regression tests to ensure Monte Carlo pricing maintains
-//! accuracy against known analytical solutions. Any significant deviation indicates
-//! a potential bug in the MC implementation.
-//!
-//! # Test Cases
-//!
-//! The test matrix covers:
-//! - ATM, ITM, and OTM options
-//! - Calls and puts
-//! - Various maturities (short, medium, long)
-//! - Different volatility levels
-//! - With and without dividend yield
-//!
-//! # Tolerances
-//!
-//! - Price: 1% relative error for 100,000 paths (3σ confidence)
-//! - This accounts for MC standard error while catching significant bugs
+// Golden tests comparing Monte Carlo results against Black-Scholes analytical prices.
+//
+// These tests serve as regression tests to ensure Monte Carlo pricing maintains
+// accuracy against known analytical solutions. Any significant deviation indicates
+// a potential bug in the MC implementation.
+//
+// # Test Cases
+//
+// The test matrix covers:
+// - ATM, ITM, and OTM options
+// - Calls and puts
+// - Various maturities (short, medium, long)
+// - Different volatility levels
+// - With and without dividend yield
+//
+// # Tolerances
+//
+// - Price: 1% relative error for 100,000 paths (3σ confidence)
+// - This accounts for MC standard error while catching significant bugs
 
 #[cfg(feature = "mc")]
+#[allow(clippy::expect_used)]
 mod golden_tests {
-    use finstack_core::currency::Currency;
-    use finstack_core::math::special_functions::norm_cdf;
-    use finstack_valuations::instruments::common::mc::prelude::{ExactGbm, GbmProcess, PhiloxRng};
-    use finstack_valuations::instruments::common::models::monte_carlo::prelude::{
+    use crate::instruments::common_impl::mc::prelude::{ExactGbm, GbmProcess, PhiloxRng};
+    use crate::instruments::common_impl::models::monte_carlo::prelude::{
         EuropeanCall, EuropeanPut, McEngine,
     };
+    use finstack_core::currency::Currency;
+    use finstack_core::math::special_functions::norm_cdf;
 
     /// Black-Scholes call price
     fn bs_call(spot: f64, strike: f64, rate: f64, dividend: f64, vol: f64, t: f64) -> f64 {

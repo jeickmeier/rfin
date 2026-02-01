@@ -53,7 +53,7 @@ fn test_upfront_payment_buyer_payfast() {
         .insert_hazard(hazard);
 
     // Creates a CDS (Buy Protection)
-    let mut cds = finstack_valuations::test_utils::cds_buy_protection(
+    let mut cds = crate::finstack_test_utils::cds_buy_protection(
         "UPFRONT_BUYER",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -96,7 +96,7 @@ fn test_upfront_payment_seller_receivefast() {
         .insert_hazard(hazard);
 
     // Creates a CDS (Sell Protection)
-    let mut cds = finstack_valuations::test_utils::cds_sell_protection(
+    let mut cds = crate::finstack_test_utils::cds_sell_protection(
         "UPFRONT_SELLER",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -141,7 +141,7 @@ fn test_upfront_payment_discounted() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let mut cds = finstack_valuations::test_utils::cds_buy_protection(
+    let mut cds = crate::finstack_test_utils::cds_buy_protection(
         "UPFRONT_DISCOUNTED",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -187,7 +187,7 @@ fn test_upfront_payment_past_is_ignored() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let mut cds = finstack_valuations::test_utils::cds_buy_protection(
+    let mut cds = crate::finstack_test_utils::cds_buy_protection(
         "UPFRONT_PAST",
         Money::new(10_000_000.0, Currency::USD),
         100.0,

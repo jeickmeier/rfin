@@ -434,7 +434,7 @@ fn test_cds_cs01_protection_buyer_positive() {
 
     use finstack_core::market_data::term_structures::HazardCurve;
 
-    let cds = finstack_valuations::test_utils::cds_buy_protection(
+    let cds = crate::finstack_test_utils::cds_buy_protection(
         "CS01_BUY_TEST",
         Money::new(1_000_000.0, Currency::USD),
         200.0, // 200bp spread
@@ -508,7 +508,7 @@ fn test_cds_cs01_protection_seller_negative() {
 
     use finstack_core::market_data::term_structures::HazardCurve;
 
-    let cds = finstack_valuations::test_utils::cds_sell_protection(
+    let cds = crate::finstack_test_utils::cds_sell_protection(
         "CS01_SELL_TEST",
         Money::new(1_000_000.0, Currency::USD),
         200.0, // 200bp spread
@@ -581,7 +581,7 @@ fn test_cds_cs01_opposite_signs() {
 
     use finstack_core::market_data::term_structures::HazardCurve;
 
-    let cds_buy = finstack_valuations::test_utils::cds_buy_protection(
+    let cds_buy = crate::finstack_test_utils::cds_buy_protection(
         "CS01_BUY",
         Money::new(1_000_000.0, Currency::USD),
         200.0,
@@ -592,7 +592,7 @@ fn test_cds_cs01_opposite_signs() {
     )
     .expect("CDS construction should succeed");
 
-    let cds_sell = finstack_valuations::test_utils::cds_sell_protection(
+    let cds_sell = crate::finstack_test_utils::cds_sell_protection(
         "CS01_SELL",
         Money::new(1_000_000.0, Currency::USD),
         200.0,

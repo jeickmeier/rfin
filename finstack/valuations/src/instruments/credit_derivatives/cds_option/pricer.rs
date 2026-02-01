@@ -9,9 +9,9 @@
 //! PV via the modified Black formula implemented on the instrument.
 
 use crate::constants::credit;
-use crate::instruments::common::models::{d1, d2, norm_cdf, norm_pdf};
-use crate::instruments::common::parameters::OptionType;
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::models::{d1, d2, norm_cdf, norm_pdf};
+use crate::instruments::common_impl::parameters::OptionType;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds::pricer::CDSPricer;
 use crate::instruments::credit_derivatives::cds::{CDSConvention, CreditDefaultSwap, PayReceive};
 use crate::instruments::credit_derivatives::cds_option::CdsOption;
@@ -549,7 +549,7 @@ impl crate::pricer::Pricer for SimpleCdsOptionBlackPricer {
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> std::result::Result<crate::results::ValuationResult, crate::pricer::PricingError> {
-        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common_impl::traits::Instrument;
 
         // Type-safe downcasting
         let cds_option = instrument

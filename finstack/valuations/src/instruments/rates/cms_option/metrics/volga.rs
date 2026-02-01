@@ -3,7 +3,7 @@
 //! Computes volga (∂²V/∂σ²) using finite differences.
 //! Volga measures how vega changes with volatility.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::rates::cms_option::CmsOption;
 use crate::metrics::bump_sizes;
 use crate::metrics::bump_surface_vol_absolute;

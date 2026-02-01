@@ -289,6 +289,8 @@
 //! - [`finstack_portfolio`]: Multi-instrument portfolio aggregation
 //! - [`finstack_scenarios`]: Scenario analysis and stress testing
 
+extern crate self as finstack_valuations;
+
 // The valuations crate’s public contracts (schemas/envelopes) and the UI/bindings assume serde is
 // available. The codebase historically had partial `cfg(feature="serde")` gating that could
 // compile-break in no-serde builds. Make the requirement explicit until a full non-serde surface
@@ -311,13 +313,6 @@ pub mod prelude;
 pub mod pricer;
 pub mod results;
 pub(crate) mod schema;
-
-/// Test utilities for building market contexts, dates, and test fixtures.
-///
-/// This module is intentionally **not** part of the stable public API surface; it exists to
-/// support the crate's own integration tests and benches.
-#[doc(hidden)]
-pub mod test_utils;
 
 // Export macros before instruments module
 #[macro_use]

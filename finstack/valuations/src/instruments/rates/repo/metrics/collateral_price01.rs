@@ -14,7 +14,7 @@
 //! This metric bumps the collateral price in MarketContext and reprices the repo.
 //! Changes in collateral price may affect margin requirements and collateral coverage.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::rates::repo::Repo;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::scalars::MarketScalar;

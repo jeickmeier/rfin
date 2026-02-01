@@ -49,7 +49,7 @@
 
 use crate::cashflow::builder::build_dates;
 use crate::constants::{credit, BASIS_POINTS_PER_UNIT};
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_core::dates::next_cds_date;
 use finstack_core::dates::{Date, DateExt, StubKind};
@@ -2468,7 +2468,7 @@ impl crate::pricer::Pricer for SimpleCdsTrancheHazardPricer {
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> std::result::Result<crate::results::ValuationResult, crate::pricer::PricingError> {
-        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common_impl::traits::Instrument;
 
         // Type-safe downcasting
         let cds_tranche = instrument

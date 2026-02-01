@@ -10,8 +10,15 @@ use finstack_valuations::market::conventions::ids::IndexId;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::rates::RateQuote;
-use finstack_valuations::test_utils::calibration::execute_step;
+#[allow(dead_code, unused_imports, clippy::expect_used, clippy::unwrap_used)]
+mod test_utils {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/support/test_utils.rs"
+    ));
+}
 use std::hint::black_box;
+use test_utils::calibration::execute_step;
 use time::Month;
 
 fn bench_forward_curve(c: &mut Criterion) {

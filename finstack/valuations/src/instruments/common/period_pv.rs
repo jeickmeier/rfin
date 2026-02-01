@@ -80,7 +80,7 @@
 
 use crate::cashflow::builder::schedule::resolve_credit_curves;
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::common::traits::CurveDependencies;
+use crate::instruments::common_impl::traits::CurveDependencies;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Period, PeriodId};
 use finstack_core::market_data::context::MarketContext;
@@ -383,7 +383,7 @@ mod tests {
         }
 
         // Compute straight NPV for comparison
-        use crate::instruments::common::helpers::schedule_pv_using_curve_dc;
+        use crate::instruments::common_impl::helpers::schedule_pv_using_curve_dc;
         let bond_disc = bond
             .curve_dependencies()
             .discount_curves
@@ -468,7 +468,7 @@ mod tests {
             }
         }
 
-        use crate::instruments::common::helpers::schedule_pv_using_curve_dc;
+        use crate::instruments::common_impl::helpers::schedule_pv_using_curve_dc;
         let straight_npv = {
             let frn_disc = frn
                 .curve_dependencies()

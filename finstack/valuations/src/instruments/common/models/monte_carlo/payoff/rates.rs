@@ -34,8 +34,8 @@
 //! - Brigo, D. & Mercurio, F. (2006). *Interest Rate Models - Theory and Practice*
 //!   (2nd ed.). Springer. Chapter 4.
 
-use crate::instruments::common::mc::traits::PathState;
-use crate::instruments::common::models::monte_carlo::traits::Payoff;
+use crate::instruments::common_impl::mc::traits::PathState;
+use crate::instruments::common_impl::models::monte_carlo::traits::Payoff;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 

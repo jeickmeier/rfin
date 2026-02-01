@@ -18,7 +18,7 @@
 //! Higher hurdle rates increase the LP preferred return, potentially reducing GP carry
 //! and affecting LP valuation.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::equity::pe_fund::PrivateMarketsFund;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;

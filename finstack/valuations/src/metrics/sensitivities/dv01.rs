@@ -35,7 +35,7 @@
 //! // DV01 is in currency units per 1bp rate move
 //! ```
 
-use crate::instruments::common::traits::{CurveDependencies, Instrument, RatesCurveKind};
+use crate::instruments::common_impl::traits::{CurveDependencies, Instrument, RatesCurveKind};
 use crate::metrics::sensitivities::config as sens_config;
 use crate::metrics::MetricCalculator;
 use crate::metrics::{MetricContext, MetricId};

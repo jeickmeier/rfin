@@ -8,7 +8,7 @@
 //! - Recovery rate (in parent CreditParams) must be in (0, 1)
 //! - Index factor must be in (0, 1] when specified
 
-use crate::instruments::common::parameters::OptionType;
+use crate::instruments::common_impl::parameters::OptionType;
 use finstack_core::dates::DayCount;
 use finstack_core::types::Bps;
 use finstack_core::{dates::Date, money::Money};

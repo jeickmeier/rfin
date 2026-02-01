@@ -4,7 +4,7 @@
 //! delegating to instruments' `value()` methods. Use these when an instrument
 //! implements the [`Instrument`] trait and doesn't need specialized pricing logic.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
 };

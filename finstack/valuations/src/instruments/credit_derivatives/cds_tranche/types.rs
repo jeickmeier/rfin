@@ -1,8 +1,8 @@
 //! CDS Tranche types, builder entrypoint, and pricing impl.
 
 use crate::cashflow::builder::ScheduleParams;
-use crate::instruments::common::helpers::build_with_metrics_dyn;
-use crate::instruments::common::traits::{Attributes, Instrument};
+use crate::instruments::common_impl::helpers::build_with_metrics_dyn;
+use crate::instruments::common_impl::traits::{Attributes, Instrument};
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
@@ -360,9 +360,9 @@ impl Instrument for CdsTranche {
 }
 
 // Implement CurveDependencies for DV01 calculator
-impl crate::instruments::common::traits::CurveDependencies for CdsTranche {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for CdsTranche {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .credit(self.credit_index_id.clone())
             .build()

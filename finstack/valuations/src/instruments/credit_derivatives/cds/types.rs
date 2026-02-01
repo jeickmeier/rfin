@@ -41,8 +41,8 @@
 
 use crate::cashflow::traits::DatedFlows;
 use crate::constants::BASIS_POINTS_PER_UNIT;
-use crate::instruments::common::traits::Attributes;
-use crate::instruments::common::validation;
+use crate::instruments::common_impl::traits::Attributes;
+use crate::instruments::common_impl::validation;
 use crate::instruments::PricingOverrides;
 use crate::margin::types::OtcMarginSpec;
 use finstack_core::currency::Currency;
@@ -58,7 +58,7 @@ use crate::instruments::credit_derivatives::cds::pricer::CDSPricer;
 use std::sync::OnceLock;
 
 // Re-export PayReceive from common parameters (works for both IRS and CDS)
-pub use crate::instruments::common::parameters::legs::PayReceive;
+pub use crate::instruments::common_impl::parameters::legs::PayReceive;
 
 /// ISDA CDS conventions
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -373,7 +373,7 @@ fn cds_conventions_registry() -> &'static finstack_core::HashMap<String, CdsConv
 }
 
 // Re-export from common parameters
-pub use crate::instruments::common::parameters::legs::{PremiumLegSpec, ProtectionLegSpec};
+pub use crate::instruments::common_impl::parameters::legs::{PremiumLegSpec, ProtectionLegSpec};
 
 /// Credit Default Swap instrument.
 ///
@@ -745,7 +745,7 @@ impl CreditDefaultSwap {
     // (no public/raw-NPV helper; use `Instrument::value_raw()` instead)
 }
 
-impl crate::instruments::common::traits::Instrument for CreditDefaultSwap {
+impl crate::instruments::common_impl::traits::Instrument for CreditDefaultSwap {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -754,23 +754,27 @@ impl crate::instruments::common::traits::Instrument for CreditDefaultSwap {
         crate::pricer::InstrumentType::CDS
     }
 
-    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
-        crate::instruments::common::dependencies::MarketDependencies::from_curve_dependencies(self)
+    fn market_dependencies(
+        &self,
+    ) -> crate::instruments::common_impl::dependencies::MarketDependencies {
+        crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
+            self,
+        )
     }
 
     fn as_any(&self) -> &dyn ::std::any::Any {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
@@ -801,7 +805,7 @@ impl crate::instruments::common::traits::Instrument for CreditDefaultSwap {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(market, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(market.clone()),
             as_of,
@@ -813,9 +817,9 @@ impl crate::instruments::common::traits::Instrument for CreditDefaultSwap {
     }
 }
 
-impl crate::instruments::common::traits::CurveDependencies for CreditDefaultSwap {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for CreditDefaultSwap {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.premium.discount_curve_id.clone())
             .credit(self.protection.credit_curve_id.clone())
             .build()

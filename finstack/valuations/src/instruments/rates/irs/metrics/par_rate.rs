@@ -39,7 +39,7 @@
 //! - Hull, J. C. (2018). *Options, Futures, and Other Derivatives*. Chapter 7.
 //! - Kahan, W. (1965). "Further Remarks on Reducing Truncation Errors."
 
-use crate::instruments::common::pricing::swap_legs::ANNUITY_EPSILON;
+use crate::instruments::common_impl::pricing::swap_legs::ANNUITY_EPSILON;
 use crate::instruments::rates::irs::{FloatingLegCompounding, ParRateMethod};
 use crate::instruments::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
@@ -223,36 +223,40 @@ mod tests {
             .id(InstrumentId::new("IRS"))
             .notional(Money::new(1_000_000.0, Currency::USD))
             .side(crate::instruments::rates::irs::PayReceive::PayFixed)
-            .fixed(crate::instruments::common::parameters::legs::FixedLegSpec {
-                discount_curve_id: disc.clone(),
-                rate: rust_decimal::Decimal::try_from(0.03).expect("valid"),
-                freq: Tenor::semi_annual(),
-                dc: DayCount::Thirty360,
-                bdc: BusinessDayConvention::ModifiedFollowing,
-                calendar_id: None,
-                stub: StubKind::None,
-                start,
-                end,
-                par_method: Some(ParRateMethod::DiscountRatio),
-                compounding_simple: true,
-                payment_delay_days: 0,
-            })
-            .float(crate::instruments::common::parameters::legs::FloatLegSpec {
-                discount_curve_id: disc.clone(),
-                forward_curve_id: fwd.clone(), // multi-curve
-                spread_bp: rust_decimal::Decimal::ZERO,
-                freq: Tenor::quarterly(),
-                dc: DayCount::Act360,
-                bdc: BusinessDayConvention::ModifiedFollowing,
-                calendar_id: None,
-                stub: StubKind::None,
-                reset_lag_days: 2,
-                start,
-                end,
-                compounding: FloatingLegCompounding::Simple,
-                fixing_calendar_id: None,
-                payment_delay_days: 0,
-            })
+            .fixed(
+                crate::instruments::common_impl::parameters::legs::FixedLegSpec {
+                    discount_curve_id: disc.clone(),
+                    rate: rust_decimal::Decimal::try_from(0.03).expect("valid"),
+                    freq: Tenor::semi_annual(),
+                    dc: DayCount::Thirty360,
+                    bdc: BusinessDayConvention::ModifiedFollowing,
+                    calendar_id: None,
+                    stub: StubKind::None,
+                    start,
+                    end,
+                    par_method: Some(ParRateMethod::DiscountRatio),
+                    compounding_simple: true,
+                    payment_delay_days: 0,
+                },
+            )
+            .float(
+                crate::instruments::common_impl::parameters::legs::FloatLegSpec {
+                    discount_curve_id: disc.clone(),
+                    forward_curve_id: fwd.clone(), // multi-curve
+                    spread_bp: rust_decimal::Decimal::ZERO,
+                    freq: Tenor::quarterly(),
+                    dc: DayCount::Act360,
+                    bdc: BusinessDayConvention::ModifiedFollowing,
+                    calendar_id: None,
+                    stub: StubKind::None,
+                    reset_lag_days: 2,
+                    start,
+                    end,
+                    compounding: FloatingLegCompounding::Simple,
+                    fixing_calendar_id: None,
+                    payment_delay_days: 0,
+                },
+            )
             .build()
             .expect("irs");
 

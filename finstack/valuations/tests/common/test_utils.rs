@@ -3,7 +3,9 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_core::Result;
-use finstack_valuations::instruments::common::{Attributes, CurveIdVec, Instrument};
+use finstack_valuations::instruments::{
+    Attributes, CurveIdVec, Instrument, InstrumentCurves, MarketDependencies,
+};
 use finstack_valuations::metrics::MetricId;
 use finstack_valuations::results::ValuationResult;
 use std::sync::OnceLock;
@@ -56,14 +58,10 @@ impl Instrument for TestInstrument {
         Box::new(self.clone())
     }
 
-    fn market_dependencies(&self) -> finstack_valuations::instruments::common::MarketDependencies {
-        let mut deps = finstack_valuations::instruments::common::MarketDependencies::new();
+    fn market_dependencies(&self) -> MarketDependencies {
+        let mut deps = MarketDependencies::new();
         for curve in &self.discount_curves {
-            deps.add_curves(
-                finstack_valuations::instruments::InstrumentCurves::builder()
-                    .discount(curve.clone())
-                    .build(),
-            );
+            deps.add_curves(InstrumentCurves::builder().discount(curve.clone()).build());
         }
         deps
     }

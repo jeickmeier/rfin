@@ -3,6 +3,8 @@
 //! This module provides a production-grade Monte Carlo framework implementing
 //! state-of-the-art algorithms from financial engineering research. All methods
 //! are cited to their original academic sources for correctness and traceability.
+
+#![allow(dead_code, unused_imports)]
 //!
 //! # Key Features
 //!
@@ -183,8 +185,8 @@
 //!
 //! ```rust,no_run
 //! use finstack_core::currency::Currency;
-//! use finstack_valuations::instruments::common::mc::prelude::{ExactGbm, GbmProcess, PhiloxRng};
-//! use finstack_valuations::instruments::common::models::monte_carlo::prelude::{EuropeanCall, McEngine};
+//! use crate::instruments::common_impl::mc::prelude::{ExactGbm, GbmProcess, PhiloxRng};
+//! use crate::instruments::common_impl::models::monte_carlo::prelude::{EuropeanCall, McEngine};
 //!
 //! # fn main() -> finstack_core::Result<()> {
 //! // Create MC engine with deterministic seed
@@ -220,8 +222,8 @@
 //!
 //! ```rust,no_run
 //! use finstack_core::currency::Currency;
-//! use finstack_valuations::instruments::common::mc::prelude::GbmProcess;
-//! use finstack_valuations::instruments::common::models::monte_carlo::prelude::{
+//! use crate::instruments::common_impl::mc::prelude::GbmProcess;
+//! use crate::instruments::common_impl::models::monte_carlo::prelude::{
 //!     AmericanPut, LaguerreBasis, LsmcConfig, LsmcPricer,
 //! };
 //!
@@ -328,3 +330,6 @@ pub mod prelude {
 
     // Pricing-specific exports moved under models::monte_carlo
 }
+
+#[cfg(test)]
+mod mc_process_params_serialization;

@@ -1,19 +1,19 @@
-//! Tree-based pricing tests for convertible bonds.
-//!
-//! Tests tree model selection and convergence properties:
-//! - Binomial tree pricing
-//! - Trinomial tree pricing
-//! - Convergence with increasing steps
-//! - Binomial vs trinomial agreement
-//! - Tree framework flexibility
+// Tree-based pricing tests for convertible bonds.
+//
+// Tests tree model selection and convergence properties:
+// - Binomial tree pricing
+// - Trinomial tree pricing
+// - Convergence with increasing steps
+// - Binomial vs trinomial agreement
+// - Tree framework flexibility
 
-use super::fixtures::*;
-use finstack_valuations::instruments::common::models::{
+mod convertible_fixtures;
+
+use crate::instruments::common_impl::models::{
     single_factor_equity_state, BinomialTree, NodeState, TreeModel, TreeValuator, TrinomialTree,
 };
-use finstack_valuations::instruments::fixed_income::convertible::{
-    price_convertible_bond, ConvertibleTreeType,
-};
+use crate::instruments::fixed_income::convertible::{price_convertible_bond, ConvertibleTreeType};
+use convertible_fixtures::*;
 
 #[test]
 fn test_binomial_tree_pricing() {

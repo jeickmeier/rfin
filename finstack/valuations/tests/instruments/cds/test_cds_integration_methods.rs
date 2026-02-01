@@ -3,6 +3,7 @@
 //! These tests exercise protection/premium leg metrics without accessing
 //! legacy pricer entry points.
 
+use crate::finstack_test_utils as test_utils;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
@@ -11,7 +12,6 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
-use finstack_valuations::test_utils;
 use time::macros::date;
 
 fn build_curves(as_of: Date) -> (DiscountCurve, HazardCurve) {

@@ -8,6 +8,7 @@
 //! This helps prevent silent failures where an instrument accesses curves
 //! that weren't declared as dependencies.
 
+use crate::finstack_test_utils as test_utils;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{DateExt, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
@@ -15,7 +16,6 @@ use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::bond::{Bond, CashflowSpec};
 use finstack_valuations::instruments::Instrument;
-use finstack_valuations::test_utils;
 use time::macros::date;
 
 /// Build a discount curve with the given ID and flat rate.

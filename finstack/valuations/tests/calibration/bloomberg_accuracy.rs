@@ -3,6 +3,7 @@
 //! Validates calibrated curves against Bloomberg reference data to ensure
 //! the calibration engine produces market-standard results.
 
+use crate::finstack_test_utils::calibration::execute_step;
 use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
@@ -16,7 +17,6 @@ use finstack_valuations::market::conventions::ids::IndexId;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::rates::RateQuote;
-use finstack_valuations::test_utils::calibration::execute_step;
 use time::Month;
 
 use super::tolerances;

@@ -1,5 +1,6 @@
 //! Pricing tests for FX variance swaps.
 
+use crate::finstack_test_utils::{date, flat_discount_with_tenor, flat_vol_surface};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
@@ -9,7 +10,6 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity::variance_swap::RealizedVarMethod;
 use finstack_valuations::instruments::fx::fx_variance_swap::{FxVarianceSwapBuilder, PayReceive};
 use finstack_valuations::instruments::{Attributes, Instrument};
-use finstack_valuations::test_utils::{date, flat_discount_with_tenor, flat_vol_surface};
 use std::sync::Arc;
 
 #[test]

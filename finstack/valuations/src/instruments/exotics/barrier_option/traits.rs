@@ -1,6 +1,8 @@
 //! Trait implementations for BarrierOption
 
-use crate::instruments::common::traits::{CurveDependencies, EquityDependencies, InstrumentCurves};
+use crate::instruments::common_impl::traits::{
+    CurveDependencies, EquityDependencies, InstrumentCurves,
+};
 use crate::instruments::exotics::barrier_option::BarrierOption;
 use crate::metrics::{HasDayCount, HasExpiry, HasPricingOverrides};
 
@@ -13,8 +15,8 @@ impl CurveDependencies for BarrierOption {
 }
 
 impl EquityDependencies for BarrierOption {
-    fn equity_dependencies(&self) -> crate::instruments::common::traits::EquityInstrumentDeps {
-        crate::instruments::common::traits::EquityInstrumentDeps::builder()
+    fn equity_dependencies(&self) -> crate::instruments::common_impl::traits::EquityInstrumentDeps {
+        crate::instruments::common_impl::traits::EquityInstrumentDeps::builder()
             .spot(self.spot_id.as_str())
             .vol_surface(self.vol_surface_id.as_str())
             .build()

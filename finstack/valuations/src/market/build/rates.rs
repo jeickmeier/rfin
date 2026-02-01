@@ -1,6 +1,6 @@
 //! Builders for interest rate instruments from market quotes.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::rates::deposit::Deposit;
 use crate::instruments::rates::fra::ForwardRateAgreement;
 use crate::instruments::rates::ir_future::{FutureContractSpecs, InterestRateFuture, Position};
@@ -323,7 +323,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
                 .cloned()
                 .ok_or_else(|| missing_role("forward"))?;
 
-            use crate::instruments::common::parameters::legs::PayReceive;
+            use crate::instruments::common_impl::parameters::legs::PayReceive;
 
             // Map conventions
             let leg_conv = IrsLegConventions {
@@ -365,7 +365,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
                 ));
             }
 
-            let fixed = crate::instruments::common::parameters::legs::FixedLegSpec {
+            let fixed = crate::instruments::common_impl::parameters::legs::FixedLegSpec {
                 discount_curve_id: CurveId::new(discount_id.clone()),
                 rate: rate_decimal,
                 freq: leg_conv.fixed_freq,
@@ -380,7 +380,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
                 payment_delay_days: leg_conv.payment_delay_days,
             };
 
-            let float = crate::instruments::common::parameters::legs::FloatLegSpec {
+            let float = crate::instruments::common_impl::parameters::legs::FloatLegSpec {
                 discount_curve_id: CurveId::new(discount_id),
                 forward_curve_id: CurveId::new(forward_id),
                 spread_bp: Decimal::ZERO,

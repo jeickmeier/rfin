@@ -6,7 +6,7 @@
 //! Note: Recovery rate is stored in the credit index, so we need to bump
 //! the recovery rate in the CreditIndexData.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds_tranche::CdsTranche;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;

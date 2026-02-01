@@ -10,7 +10,7 @@
 //! - This is a deterministic-curve pricer (no fixings). Reset lag is therefore not modeled
 //!   separately; the forward rate is taken directly from the forward curve for the accrual period.
 
-use crate::instruments::common::pricing::swap_legs::robust_relative_df;
+use crate::instruments::common_impl::pricing::swap_legs::robust_relative_df;
 use finstack_core::currency::Currency;
 use finstack_core::dates::CalendarRegistry;
 use finstack_core::dates::{
@@ -204,7 +204,7 @@ pub struct XccySwap {
     #[serde(default)]
     pub stub_kind: StubKind,
     /// Attributes for instrument selection and tagging.
-    pub attributes: crate::instruments::common::traits::Attributes,
+    pub attributes: crate::instruments::common_impl::traits::Attributes,
 }
 
 impl XccySwap {
@@ -226,7 +226,7 @@ impl XccySwap {
             notional_exchange: NotionalExchange::InitialAndFinal,
             reporting_currency,
             stub_kind: StubKind::None,
-            attributes: crate::instruments::common::traits::Attributes::default(),
+            attributes: crate::instruments::common_impl::traits::Attributes::default(),
         }
     }
 
@@ -307,7 +307,7 @@ impl XccySwap {
         context: &MarketContext,
         as_of: Date,
     ) -> Result<Money> {
-        use crate::instruments::common::pricing::time::rate_period_on_dates;
+        use crate::instruments::common_impl::pricing::time::rate_period_on_dates;
 
         if schedule.dates.len() < 2 {
             return Err(finstack_core::Error::Validation(
@@ -451,7 +451,7 @@ impl XccySwap {
     }
 }
 
-impl crate::instruments::common::traits::Instrument for XccySwap {
+impl crate::instruments::common_impl::traits::Instrument for XccySwap {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -464,15 +464,15 @@ impl crate::instruments::common::traits::Instrument for XccySwap {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
@@ -501,7 +501,7 @@ impl crate::instruments::common::traits::Instrument for XccySwap {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(market, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(market.clone()),
             as_of,
@@ -513,9 +513,9 @@ impl crate::instruments::common::traits::Instrument for XccySwap {
     }
 }
 
-impl crate::instruments::common::traits::CurveDependencies for XccySwap {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for XccySwap {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.leg1.discount_curve_id.clone())
             .discount(self.leg2.discount_curve_id.clone())
             .forward(self.leg1.forward_curve_id.clone())

@@ -1,7 +1,9 @@
 //! Builders for credit instruments from market quotes.
 
-use crate::instruments::common::parameters::legs::{PayReceive, PremiumLegSpec, ProtectionLegSpec};
-use crate::instruments::common::traits::{Attributes, Instrument};
+use crate::instruments::common_impl::parameters::legs::{
+    PayReceive, PremiumLegSpec, ProtectionLegSpec,
+};
+use crate::instruments::common_impl::traits::{Attributes, Instrument};
 use crate::instruments::credit_derivatives::cds::{CDSConvention, CreditDefaultSwap};
 use crate::instruments::PricingOverrides;
 use crate::market::build::helpers::{resolve_calendar, resolve_spot_date};

@@ -208,7 +208,7 @@ use super::config::format_bucket_label;
 
 // ===== Generic Calculators =====
 
-use crate::instruments::common::traits::{CurveDependencies, Instrument};
+use crate::instruments::common_impl::traits::{CurveDependencies, Instrument};
 use crate::metrics::MetricCalculator;
 use std::marker::PhantomData;
 

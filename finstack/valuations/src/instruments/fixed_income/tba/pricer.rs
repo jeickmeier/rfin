@@ -119,7 +119,7 @@ impl Pricer for AgencyTbaDiscountingPricer {
 
     fn price_dyn(
         &self,
-        instrument: &dyn crate::instruments::common::traits::Instrument,
+        instrument: &dyn crate::instruments::common_impl::traits::Instrument,
         market: &MarketContext,
         as_of: Date,
     ) -> PricingResult<ValuationResult> {

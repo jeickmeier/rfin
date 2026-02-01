@@ -14,26 +14,29 @@
 //! # Usage
 //!
 //! ```text
-//! use finstack_valuations::instruments::rates::swaption::{BermudanSwaption, pricing::BermudanSwaptionTreeValuator};
-//! use finstack_valuations::instruments::common::models::trees::{HullWhiteTree, HullWhiteTreeConfig};
+//! use finstack_valuations::instruments::rates::swaption::{BermudanSwaption, CalibratedHullWhiteModel, HullWhiteParams, pricing::BermudanSwaptionTreeValuator};
 //!
 //! let swaption = BermudanSwaption::example();
 //! # let discount_curve: &dyn finstack_core::market_data::traits::Discounting = todo!();
 //! # let as_of = finstack_core::dates::Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
 //!
-//! // Create Hull-White tree
-//! let config = HullWhiteTreeConfig::default();
+//! // Create calibrated model
 //! let ttm = swaption.time_to_maturity(as_of).unwrap();
-//! let tree = HullWhiteTree::calibrate(config, discount_curve, ttm).unwrap();
+//! let model = CalibratedHullWhiteModel::calibrate(
+//!     HullWhiteParams::default(),
+//!     100,
+//!     discount_curve,
+//!     ttm,
+//! ).unwrap();
 //!
 //! // Create valuator and price
-//! let valuator = BermudanSwaptionTreeValuator::new(&swaption, &tree, discount_curve, as_of).unwrap();
+//! let valuator = BermudanSwaptionTreeValuator::new(&swaption, &model, discount_curve, as_of).unwrap();
 //! let price = valuator.price();
 //! ```
 #[allow(dead_code)] // Public API items may be used by external bindings or tests
-use crate::instruments::common::models::trees::HullWhiteTree;
-use crate::instruments::common::parameters::OptionType;
+use crate::instruments::common_impl::parameters::OptionType;
 use crate::instruments::rates::swaption::BermudanSwaption;
+use crate::instruments::rates::swaption::CalibratedHullWhiteModel;
 use finstack_core::dates::Date;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::HashSet;
@@ -46,8 +49,8 @@ use finstack_core::Result;
 pub struct BermudanSwaptionTreeValuator<'a> {
     /// Reference to the Bermudan swaption
     swaption: &'a BermudanSwaption,
-    /// Reference to the calibrated Hull-White tree
-    tree: &'a HullWhiteTree,
+    /// Reference to the calibrated Hull-White model
+    model: &'a CalibratedHullWhiteModel,
     /// Reference to the discount curve
     discount_curve: &'a dyn Discounting,
     /// Valuation date.
@@ -79,7 +82,7 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
     /// # Arguments
     ///
     /// * `swaption` - The Bermudan swaption to price
-    /// * `tree` - Calibrated Hull-White tree
+    /// * `model` - Calibrated Hull-White model
     /// * `discount_curve` - Discount curve for pricing
     /// * `as_of` - Valuation date
     ///
@@ -88,10 +91,11 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
     /// A valuator ready to compute prices via `price()` method.
     pub fn new(
         swaption: &'a BermudanSwaption,
-        tree: &'a HullWhiteTree,
+        model: &'a CalibratedHullWhiteModel,
         discount_curve: &'a dyn Discounting,
         as_of: Date,
     ) -> Result<Self> {
+        let tree = model.tree();
         // Get exercise times and map to tree steps
         let exercise_times = swaption.exercise_times(as_of)?;
         let exercise_steps: HashSet<usize> = exercise_times
@@ -113,7 +117,7 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
 
         Ok(Self {
             swaption,
-            tree,
+            model,
             discount_curve,
             _as_of: as_of,
             exercise_steps,
@@ -124,16 +128,20 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
         })
     }
 
+    fn tree(&self) -> &crate::instruments::common_impl::models::trees::HullWhiteTree {
+        self.model.tree().as_ref()
+    }
+
     /// Price the Bermudan swaption using backward induction.
     ///
     /// # Returns
     ///
     /// Present value of the Bermudan swaption at valuation date.
     pub fn price(&self) -> f64 {
-        let n = self.tree.num_steps();
+        let n = self.tree().num_steps();
 
         // Terminal values: exercise value at last step if it's an exercise date
-        let terminal: Vec<f64> = (0..self.tree.num_nodes(n))
+        let terminal: Vec<f64> = (0..self.tree().num_nodes(n))
             .map(|j| {
                 if self.exercise_steps.contains(&n) {
                     self.exercise_value(n, j).max(0.0)
@@ -144,7 +152,7 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
             .collect();
 
         // Backward induction with exercise decisions
-        self.tree
+        self.tree()
             .backward_induction(&terminal, |step, node_idx, continuation| {
                 if self.exercise_steps.contains(&step) {
                     let exercise = self.exercise_value(step, node_idx);
@@ -160,7 +168,7 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
     /// For a payer swaption: max(0, (S - K) × A × N)
     /// For a receiver swaption: max(0, (K - S) × A × N)
     fn exercise_value(&self, step: usize, node_idx: usize) -> f64 {
-        let t = self.tree.time_at_step(step);
+        let t = self.tree().time_at_step(step);
 
         // OPTIMIZATION: Find start index without allocating
         // payment_times is sorted by construction (from swaption schedule)
@@ -176,7 +184,7 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
 
         // Compute forward swap rate at this node
         let swap_start = self.swap_start_time.max(t); // Swap starts at exercise time
-        let swap_rate = self.tree.forward_swap_rate(
+        let swap_rate = self.tree().forward_swap_rate(
             step,
             node_idx,
             swap_start,
@@ -187,7 +195,7 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
         );
 
         // Compute annuity at this node
-        let annuity = self.tree.annuity(
+        let annuity = self.tree().annuity(
             step,
             node_idx,
             remaining_payment_times,
@@ -212,7 +220,7 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
     /// Returns a vector of (time, critical_rate) pairs where the holder
     /// would be indifferent between exercising and continuing.
     pub fn exercise_boundary(&self) -> Vec<(f64, Option<f64>)> {
-        let _n = self.tree.num_steps();
+        let _n = self.tree().num_steps();
         let mut boundary = Vec::new();
 
         // Work backward through exercise dates
@@ -220,13 +228,13 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
         sorted_steps.sort();
 
         for &step in &sorted_steps {
-            let t = self.tree.time_at_step(step);
+            let t = self.tree().time_at_step(step);
 
             // Find the critical rate at this step
             // This is the rate at which exercise value equals continuation value
             // For simplicity, we return the rate at the central node
-            let central_node = self.tree.num_nodes(step) / 2;
-            let rate = self.tree.rate_at_node(step, central_node);
+            let central_node = self.tree().num_nodes(step) / 2;
+            let rate = self.tree().rate_at_node(step, central_node);
 
             // Note: A full implementation would solve for the exact critical rate
             // by finding where exercise_value = continuation_value
@@ -245,13 +253,13 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
     /// deducting mass at nodes where optimal exercise occurs.
     #[allow(clippy::needless_range_loop)] // Index j used for multiple array accesses and method calls
     pub fn exercise_probabilities(&self) -> Vec<(f64, f64)> {
-        let n = self.tree.num_steps();
+        let n = self.tree().num_steps();
 
         // Helper to get j_max from num_nodes: num_nodes = 2*j_max + 1
-        let j_max_at = |step: usize| (self.tree.num_nodes(step) - 1) / 2;
+        let j_max_at = |step: usize| (self.tree().num_nodes(step) - 1) / 2;
 
         // 1. Backward pass: compute continuation values at each node
-        let mut cont_values: Vec<f64> = (0..self.tree.num_nodes(n))
+        let mut cont_values: Vec<f64> = (0..self.tree().num_nodes(n))
             .map(|j| {
                 if self.exercise_steps.contains(&n) {
                     self.exercise_value(n, j).max(0.0)
@@ -266,17 +274,17 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
             finstack_core::HashMap::default();
 
         for step in (0..n).rev() {
-            let num_curr = self.tree.num_nodes(step);
+            let num_curr = self.tree().num_nodes(step);
             let _num_next = cont_values.len();
             let j_max_curr = j_max_at(step);
             let j_max_next = j_max_at(step + 1);
-            let dt = self.tree.dt();
+            let dt = self.tree().dt();
 
             // Compute continuation values first (before exercise decision)
             let continuations: Vec<f64> = (0..num_curr)
                 .map(|j| {
-                    let r_j = self.tree.rate_at_node(step, j);
-                    let (p_up, p_mid, p_down) = self.tree.probabilities(step, j);
+                    let r_j = self.tree().rate_at_node(step, j);
+                    let (p_up, p_mid, p_down) = self.tree().probabilities(step, j);
                     let j_signed = j as i32 - j_max_curr as i32;
                     let next_mid = (j_signed + j_max_next as i32) as usize;
                     let v_up = cont_values
@@ -324,7 +332,7 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
         sorted_steps.sort();
 
         for step in 0..=n {
-            let num_curr = self.tree.num_nodes(step);
+            let num_curr = self.tree().num_nodes(step);
 
             // Pad survival if needed
             while survival.len() < num_curr {
@@ -346,11 +354,11 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
                         *surv = 0.0; // Exercised
                     }
                 }
-                exercise_probs.push((self.tree.time_at_step(step), step_prob));
+                exercise_probs.push((self.tree().time_at_step(step), step_prob));
             }
 
             if step < n {
-                let num_next = self.tree.num_nodes(step + 1);
+                let num_next = self.tree().num_nodes(step + 1);
                 let j_max_curr = j_max_at(step);
                 let j_max_next = j_max_at(step + 1);
                 let mut next_survival = vec![0.0; num_next];
@@ -359,7 +367,7 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
                     if surv < 1e-15 {
                         continue;
                     }
-                    let (p_up, p_mid, p_down) = self.tree.probabilities(step, j);
+                    let (p_up, p_mid, p_down) = self.tree().probabilities(step, j);
                     let j_signed = j as i32 - j_max_curr as i32;
                     let next_mid = ((j_signed + j_max_next as i32) as usize).min(num_next - 1);
                     let next_up = (next_mid + 1).min(num_next - 1);
@@ -415,10 +423,10 @@ impl BermudanSwaptionPriceResult {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common::models::trees::HullWhiteTreeConfig;
-    use crate::instruments::common::parameters::OptionType;
+    use crate::instruments::common_impl::parameters::OptionType;
     use crate::instruments::rates::swaption::{
-        BermudanSchedule, BermudanSwaption, BermudanType, SwaptionSettlement,
+        BermudanSchedule, BermudanSwaption, BermudanType, CalibratedHullWhiteModel,
+        HullWhiteParams, SwaptionSettlement,
     };
     use finstack_core::currency::Currency;
     use finstack_core::dates::{DayCount, Tenor};
@@ -481,12 +489,12 @@ mod tests {
         let swaption = test_bermudan_swaption();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
 
-        let config = HullWhiteTreeConfig::new(0.03, 0.01, 50);
         let ttm = swaption.time_to_maturity(as_of).expect("Valid ttm");
-        let tree =
-            HullWhiteTree::calibrate(config, &curve, ttm).expect("Calibration should succeed");
+        let model =
+            CalibratedHullWhiteModel::calibrate(HullWhiteParams::new(0.03, 0.01), 50, &curve, ttm)
+                .expect("Calibration should succeed");
 
-        let valuator = BermudanSwaptionTreeValuator::new(&swaption, &tree, &curve, as_of);
+        let valuator = BermudanSwaptionTreeValuator::new(&swaption, &model, &curve, as_of);
         assert!(valuator.is_ok(), "Valuator creation should succeed");
     }
 
@@ -496,12 +504,12 @@ mod tests {
         let swaption = test_bermudan_swaption();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
 
-        let config = HullWhiteTreeConfig::new(0.03, 0.01, 50);
         let ttm = swaption.time_to_maturity(as_of).expect("Valid ttm");
-        let tree =
-            HullWhiteTree::calibrate(config, &curve, ttm).expect("Calibration should succeed");
+        let model =
+            CalibratedHullWhiteModel::calibrate(HullWhiteParams::new(0.03, 0.01), 50, &curve, ttm)
+                .expect("Calibration should succeed");
 
-        let valuator = BermudanSwaptionTreeValuator::new(&swaption, &tree, &curve, as_of)
+        let valuator = BermudanSwaptionTreeValuator::new(&swaption, &model, &curve, as_of)
             .expect("Valuator creation should succeed");
 
         let price = valuator.price();

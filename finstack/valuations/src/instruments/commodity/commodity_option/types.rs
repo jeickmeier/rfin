@@ -1,8 +1,8 @@
 //! Commodity option instrument definition and pricing logic.
 
-use crate::instruments::common::models::trees::binomial_tree::BinomialTree;
-use crate::instruments::common::parameters::{CommodityConvention, OptionMarketParams};
-use crate::instruments::common::traits::{
+use crate::instruments::common_impl::models::trees::binomial_tree::BinomialTree;
+use crate::instruments::common_impl::parameters::{CommodityConvention, OptionMarketParams};
+use crate::instruments::common_impl::traits::{
     Attributes, CurveDependencies, Instrument, InstrumentCurves,
 };
 use crate::instruments::{ExerciseStyle, OptionType, PricingOverrides, SettlementType};
@@ -297,8 +297,8 @@ fn black76_unit_price(
         return intrinsic * df;
     }
 
-    let d1 = crate::instruments::common::models::d1_black76(forward, strike, sigma, t);
-    let d2 = crate::instruments::common::models::d2_black76(forward, strike, sigma, t);
+    let d1 = crate::instruments::common_impl::models::d1_black76(forward, strike, sigma, t);
+    let d2 = crate::instruments::common_impl::models::d2_black76(forward, strike, sigma, t);
 
     let price = match option_type {
         OptionType::Call => {
@@ -346,9 +346,11 @@ impl Instrument for CommodityOption {
         Box::new(self.clone())
     }
 
-    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
+    fn market_dependencies(
+        &self,
+    ) -> crate::instruments::common_impl::dependencies::MarketDependencies {
         let mut deps =
-            crate::instruments::common::dependencies::MarketDependencies::from_curve_dependencies(
+            crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
                 self,
             );
         if let Some(spot_id) = self.spot_price_id.as_deref() {
@@ -419,7 +421,7 @@ impl Instrument for CommodityOption {
         metrics: &[crate::metrics::MetricId],
     ) -> Result<crate::results::ValuationResult> {
         let base_value = self.value(market, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(market.clone()),
             as_of,
@@ -431,7 +433,7 @@ impl Instrument for CommodityOption {
     }
 }
 
-impl crate::instruments::common::traits::OptionDeltaProvider for CommodityOption {
+impl crate::instruments::common_impl::traits::OptionDeltaProvider for CommodityOption {
     fn option_delta(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
         use finstack_core::math::special_functions::norm_cdf;
 
@@ -473,7 +475,8 @@ impl crate::instruments::common::traits::OptionDeltaProvider for CommodityOption
         let forward = self.forward_price(market, as_of)?;
         let disc = market.get_discount(self.discount_curve_id.as_str())?;
         let df = disc.df_between_dates(as_of, self.expiry)?;
-        let d1 = crate::instruments::common::models::d1_black76(forward, self.strike, sigma, t);
+        let d1 =
+            crate::instruments::common_impl::models::d1_black76(forward, self.strike, sigma, t);
         let nd1 = norm_cdf(d1);
 
         let delta_unit = match self.option_type {
@@ -484,7 +487,7 @@ impl crate::instruments::common::traits::OptionDeltaProvider for CommodityOption
     }
 }
 
-impl crate::instruments::common::traits::OptionVegaProvider for CommodityOption {
+impl crate::instruments::common_impl::traits::OptionVegaProvider for CommodityOption {
     fn option_vega(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
         use finstack_core::math::special_functions::norm_pdf;
 
@@ -509,15 +512,16 @@ impl crate::instruments::common::traits::OptionVegaProvider for CommodityOption 
         let forward = self.forward_price(market, as_of)?;
         let disc = market.get_discount(self.discount_curve_id.as_str())?;
         let df = disc.df_between_dates(as_of, self.expiry)?;
-        let d1 = crate::instruments::common::models::d1_black76(forward, self.strike, sigma, t);
+        let d1 =
+            crate::instruments::common_impl::models::d1_black76(forward, self.strike, sigma, t);
         let vega_abs = df * forward * norm_pdf(d1) * t.sqrt();
         Ok(vega_abs * 0.01 * self.quantity * self.multiplier)
     }
 }
 
-impl crate::instruments::common::traits::OptionGammaProvider for CommodityOption {
+impl crate::instruments::common_impl::traits::OptionGammaProvider for CommodityOption {
     fn option_gamma(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
-        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common_impl::traits::Instrument;
 
         #[derive(Debug)]
         enum ForwardDriver {
@@ -603,7 +607,7 @@ impl crate::instruments::common::traits::OptionGammaProvider for CommodityOption
     }
 }
 
-impl crate::instruments::common::traits::OptionVannaProvider for CommodityOption {
+impl crate::instruments::common_impl::traits::OptionVannaProvider for CommodityOption {
     fn option_vanna(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
         #[derive(Debug)]
         enum ForwardDriver {
@@ -692,14 +696,14 @@ impl crate::instruments::common::traits::OptionVannaProvider for CommodityOption
     }
 }
 
-impl crate::instruments::common::traits::OptionVolgaProvider for CommodityOption {
+impl crate::instruments::common_impl::traits::OptionVolgaProvider for CommodityOption {
     fn option_volga(
         &self,
         market: &MarketContext,
         as_of: Date,
         base_pv: f64,
     ) -> finstack_core::Result<f64> {
-        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common_impl::traits::Instrument;
 
         let vol_bump = crate::metrics::bump_sizes::VOLATILITY;
         let up = crate::metrics::bump_surface_vol_absolute(

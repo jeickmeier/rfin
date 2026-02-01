@@ -31,7 +31,7 @@
 //! - CME Group. "E-mini S&P 500 Futures Contract Specifications."
 
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::rates::ir_future::Position;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -520,7 +520,7 @@ impl EquityIndexFuture {
 // Trait Implementations
 // =============================================================================
 
-impl crate::instruments::common::traits::Instrument for EquityIndexFuture {
+impl crate::instruments::common_impl::traits::Instrument for EquityIndexFuture {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -533,21 +533,23 @@ impl crate::instruments::common::traits::Instrument for EquityIndexFuture {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
-    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
+    fn market_dependencies(
+        &self,
+    ) -> crate::instruments::common_impl::dependencies::MarketDependencies {
         let mut deps =
-            crate::instruments::common::dependencies::MarketDependencies::from_curve_dependencies(
+            crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
                 self,
             );
         deps.add_spot_id(self.index_price_id.as_str());
@@ -570,7 +572,7 @@ impl crate::instruments::common::traits::Instrument for EquityIndexFuture {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(curves.clone()),
             as_of,
@@ -607,17 +609,17 @@ impl CashflowProvider for EquityIndexFuture {
     }
 }
 
-impl crate::instruments::common::traits::CurveDependencies for EquityIndexFuture {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for EquityIndexFuture {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .build()
     }
 }
 
-impl crate::instruments::common::traits::EquityDependencies for EquityIndexFuture {
-    fn equity_dependencies(&self) -> crate::instruments::common::traits::EquityInstrumentDeps {
-        crate::instruments::common::traits::EquityInstrumentDeps::builder()
+impl crate::instruments::common_impl::traits::EquityDependencies for EquityIndexFuture {
+    fn equity_dependencies(&self) -> crate::instruments::common_impl::traits::EquityInstrumentDeps {
+        crate::instruments::common_impl::traits::EquityInstrumentDeps::builder()
             .spot(self.index_price_id.as_str())
             .build()
     }

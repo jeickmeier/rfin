@@ -17,7 +17,7 @@
 //! # Shared Infrastructure
 //!
 //! This module delegates to the shared swap leg pricing infrastructure in
-//! [`crate::instruments::common::pricing::swap_legs`] for robust discounting
+//! [`crate::instruments::common_impl::pricing::swap_legs`] for robust discounting
 //! and numerical stability.
 
 #[allow(unused_imports)] // Used in doc examples and tests
@@ -34,10 +34,10 @@ use finstack_core::{
 };
 
 // Import shared swap leg pricing utilities
-use crate::instruments::common::pricing::swap_legs::{FloatingLegParams, LegPeriod};
+use crate::instruments::common_impl::pricing::swap_legs::{FloatingLegParams, LegPeriod};
 
 // Re-export from common parameters
-pub use crate::instruments::common::parameters::legs::BasisSwapLeg;
+pub use crate::instruments::common_impl::parameters::legs::BasisSwapLeg;
 
 /// Basis swap instrument that exchanges two floating rate payments with different tenors.
 ///
@@ -119,7 +119,7 @@ pub struct BasisSwap {
     #[serde(default)]
     pub allow_same_curve: bool,
     /// Attributes for instrument selection and tagging.
-    pub attributes: crate::instruments::common::traits::Attributes,
+    pub attributes: crate::instruments::common_impl::traits::Attributes,
 }
 
 impl BasisSwap {
@@ -215,7 +215,7 @@ impl BasisSwap {
             allow_calendar_fallback: false,
             stub_kind: StubKind::None,
             allow_same_curve: false,
-            attributes: crate::instruments::common::traits::Attributes::default(),
+            attributes: crate::instruments::common_impl::traits::Attributes::default(),
         })
     }
 
@@ -373,7 +373,7 @@ impl BasisSwap {
             allow_calendar_fallback: false,
             stub_kind: StubKind::None,
             allow_same_curve: true,
-            attributes: crate::instruments::common::traits::Attributes::default(),
+            attributes: crate::instruments::common_impl::traits::Attributes::default(),
         })
     }
 
@@ -594,7 +594,7 @@ impl BasisSwap {
         let fixings = context.series(&fixings_id).ok();
 
         // Use shared pricing function
-        let pv = crate::instruments::common::pricing::swap_legs::pv_floating_leg(
+        let pv = crate::instruments::common_impl::pricing::swap_legs::pv_floating_leg(
             periods.into_iter(),
             self.notional.amount(),
             &params,
@@ -669,7 +669,7 @@ impl BasisSwap {
             // Only include future payments (same condition as pv_float_leg)
             if payment_date > as_of {
                 let yf = leg.day_count.year_fraction(prev, d, dc_ctx)?;
-                let df = crate::instruments::common::pricing::swap_legs::robust_relative_df(
+                let df = crate::instruments::common_impl::pricing::swap_legs::robust_relative_df(
                     disc.as_ref(),
                     as_of,
                     payment_date,
@@ -697,7 +697,7 @@ impl BasisSwap {
 // Attributable implementation is provided by the impl_instrument! macro
 
 // Use the macro to implement Instrument with pricing
-impl crate::instruments::common::traits::Instrument for BasisSwap {
+impl crate::instruments::common_impl::traits::Instrument for BasisSwap {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -710,15 +710,15 @@ impl crate::instruments::common::traits::Instrument for BasisSwap {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
@@ -747,7 +747,7 @@ impl crate::instruments::common::traits::Instrument for BasisSwap {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(curves.clone()),
             as_of,
@@ -759,9 +759,9 @@ impl crate::instruments::common::traits::Instrument for BasisSwap {
     }
 }
 
-impl crate::instruments::common::traits::CurveDependencies for BasisSwap {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for BasisSwap {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .forward(self.primary_leg.forward_curve_id.clone())
             .forward(self.reference_leg.forward_curve_id.clone())
@@ -773,7 +773,7 @@ impl crate::instruments::common::traits::CurveDependencies for BasisSwap {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common::traits::Instrument;
+    use crate::instruments::common_impl::traits::Instrument;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
@@ -1154,7 +1154,7 @@ mod tests {
 
     #[test]
     fn test_par_spread_zeroes_npv() {
-        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common_impl::traits::Instrument;
         use crate::metrics::MetricId;
 
         let base_date = date(2024, 1, 1);

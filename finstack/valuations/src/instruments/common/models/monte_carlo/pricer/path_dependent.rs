@@ -6,15 +6,15 @@
 use super::super::engine::{McEngine, McEngineConfig, PathCaptureConfig};
 use super::super::results::{MoneyEstimate, MonteCarloResult};
 use super::super::traits::Payoff;
-use crate::instruments::common::mc::discretization::exact::ExactGbm;
-use crate::instruments::common::mc::process::gbm::GbmProcess;
-use crate::instruments::common::mc::process::metadata::ProcessMetadata;
-use crate::instruments::common::mc::rng::philox::PhiloxRng;
+use crate::instruments::common_impl::mc::discretization::exact::ExactGbm;
+use crate::instruments::common_impl::mc::process::gbm::GbmProcess;
+use crate::instruments::common_impl::mc::process::metadata::ProcessMetadata;
+use crate::instruments::common_impl::mc::rng::philox::PhiloxRng;
 #[cfg(feature = "mc")]
-use crate::instruments::common::mc::rng::sobol::SobolRng;
-use crate::instruments::common::mc::time_grid::TimeGrid;
-use crate::instruments::common::mc::traits::Discretization;
-use crate::instruments::common::mc::traits::StochasticProcess;
+use crate::instruments::common_impl::mc::rng::sobol::SobolRng;
+use crate::instruments::common_impl::mc::time_grid::TimeGrid;
+use crate::instruments::common_impl::mc::traits::Discretization;
+use crate::instruments::common_impl::mc::traits::StochasticProcess;
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 
@@ -286,7 +286,7 @@ impl PathDependentPricer {
                     let rng = SobolRng::new(1, self.config.seed);
                     if self.config.antithetic {
                         // Antithetic pricing path
-                        use crate::instruments::common::models::monte_carlo::variance_reduction::antithetic::{antithetic_price, AntitheticConfig};
+                        use crate::instruments::common_impl::models::monte_carlo::variance_reduction::antithetic::{antithetic_price, AntitheticConfig};
                         // Need time_grid ref, but engine took it?
                         // McEngineConfig takes time_grid by value? Yes.
                         // So engine has it.
@@ -325,7 +325,7 @@ impl PathDependentPricer {
                             payoff,
                             &cfg,
                         );
-                        let est = crate::instruments::common::mc::estimate::Estimate::new(
+                        let est = crate::instruments::common_impl::mc::estimate::Estimate::new(
                             stats.mean(),
                             stats.stderr(),
                             stats.confidence_interval(0.05),
@@ -333,8 +333,8 @@ impl PathDependentPricer {
                         );
                         Ok(MoneyEstimate::from_estimate(est, currency))
                     } else if self.config.use_brownian_bridge {
-                        use crate::instruments::common::mc::online_stats::OnlineStats;
-                        use crate::instruments::common::mc::rng::brownian_bridge::BrownianBridge;
+                        use crate::instruments::common_impl::mc::online_stats::OnlineStats;
+                        use crate::instruments::common_impl::mc::rng::brownian_bridge::BrownianBridge;
 
                         let time_grid_ref = &engine.config().time_grid;
                         let num_steps = time_grid_ref.num_steps();
@@ -358,9 +358,9 @@ impl PathDependentPricer {
                             bridge.construct_path(&z_bridge, &mut w_path, dt);
 
                             let mut path_state =
-                                crate::instruments::common::mc::traits::PathState::new(0, 0.0);
+                                crate::instruments::common_impl::mc::traits::PathState::new(0, 0.0);
                             path_state.set(
-                                crate::instruments::common::mc::traits::state_keys::SPOT,
+                                crate::instruments::common_impl::mc::traits::state_keys::SPOT,
                                 state[0],
                             );
                             payoff_clone.on_event(&mut path_state);
@@ -374,7 +374,7 @@ impl PathDependentPricer {
                                 path_state.step = step + 1;
                                 path_state.time = t + dt;
                                 path_state.set(
-                                    crate::instruments::common::mc::traits::state_keys::SPOT,
+                                    crate::instruments::common_impl::mc::traits::state_keys::SPOT,
                                     state[0],
                                 );
                                 payoff_clone.on_event(&mut path_state);
@@ -384,7 +384,7 @@ impl PathDependentPricer {
                             stats.update(payoff_money.amount() * discount_factor);
                         }
 
-                        let est = crate::instruments::common::mc::estimate::Estimate::new(
+                        let est = crate::instruments::common_impl::mc::estimate::Estimate::new(
                             stats.mean(),
                             stats.stderr(),
                             stats.confidence_interval(0.05),
@@ -420,7 +420,7 @@ impl PathDependentPricer {
             } else {
                 let rng = PhiloxRng::new(self.config.seed);
                 if self.config.antithetic {
-                    use crate::instruments::common::models::monte_carlo::variance_reduction::antithetic::{antithetic_price, AntitheticConfig};
+                    use crate::instruments::common_impl::models::monte_carlo::variance_reduction::antithetic::{antithetic_price, AntitheticConfig};
                     let time_grid_ref = &engine.config().time_grid;
                     let mut rng_clone = rng.clone();
                     let cfg = AntitheticConfig {
@@ -437,7 +437,7 @@ impl PathDependentPricer {
                         payoff,
                         &cfg,
                     );
-                    let est = crate::instruments::common::mc::estimate::Estimate::new(
+                    let est = crate::instruments::common_impl::mc::estimate::Estimate::new(
                         stats.mean(),
                         stats.stderr(),
                         stats.confidence_interval(0.05),
@@ -576,7 +576,8 @@ impl PathDependentPricer {
         };
         let engine = McEngine::new(engine_config);
 
-        let rng = crate::instruments::common::mc::rng::philox::PhiloxRng::new(self.config.seed);
+        let rng =
+            crate::instruments::common_impl::mc::rng::philox::PhiloxRng::new(self.config.seed);
         let disc = ExactGbm::new();
         let initial_state = vec![initial_spot];
 
@@ -661,11 +662,11 @@ impl PathDependentPricer {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common::mc::process::gbm::GbmParams;
-    use crate::instruments::common::models::monte_carlo::payoff::asian::{
+    use crate::instruments::common_impl::mc::process::gbm::GbmParams;
+    use crate::instruments::common_impl::models::monte_carlo::payoff::asian::{
         AsianCall, AveragingMethod,
     };
-    use crate::instruments::common::models::monte_carlo::payoff::lookback::{
+    use crate::instruments::common_impl::models::monte_carlo::payoff::lookback::{
         Lookback, LookbackDirection,
     };
 

@@ -2,7 +2,7 @@
 //!
 //! Stub implementation for bank internal models (VaR/ES-based).
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::margin::calculators::traits::{ImCalculator, ImResult};
 use crate::margin::types::ImMethodology;
 use finstack_core::dates::Date;
@@ -161,7 +161,7 @@ mod tests {
     struct TestInstrument {
         id: String,
         value: Money,
-        attributes: crate::instruments::common::traits::Attributes,
+        attributes: crate::instruments::common_impl::traits::Attributes,
     }
 
     impl TestInstrument {
@@ -169,7 +169,7 @@ mod tests {
             Self {
                 id: "TEST-INST".to_string(),
                 value,
-                attributes: crate::instruments::common::traits::Attributes::default(),
+                attributes: crate::instruments::common_impl::traits::Attributes::default(),
             }
         }
     }
@@ -187,11 +187,11 @@ mod tests {
             self
         }
 
-        fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+        fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
             &self.attributes
         }
 
-        fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+        fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
             &mut self.attributes
         }
 

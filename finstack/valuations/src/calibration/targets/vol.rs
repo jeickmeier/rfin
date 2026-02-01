@@ -2,7 +2,7 @@ use crate::calibration::api::schema::SurfaceExtrapolationPolicy;
 use crate::calibration::api::schema::VolSurfaceParams;
 use crate::calibration::config::CalibrationConfig;
 use crate::calibration::CalibrationReport;
-use crate::instruments::common::models::{SABRCalibrator, SABRModel, SABRParameters};
+use crate::instruments::common_impl::models::{SABRCalibrator, SABRModel, SABRParameters};
 use crate::market::quotes::market_quote::MarketQuote;
 use crate::market::quotes::vol::VolQuote;
 use finstack_core::market_data::context::MarketContext;
@@ -394,7 +394,7 @@ Set params.expiry_extrapolation='clamp' to allow flat extrapolation.",
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common::models::SABRParameters;
+    use crate::instruments::common_impl::models::SABRParameters;
     use crate::market::conventions::ids::OptionConventionId;
     use finstack_core::dates::{Date, DateExt};
     use finstack_core::market_data::context::MarketContext;

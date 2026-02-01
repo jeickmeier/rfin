@@ -10,6 +10,7 @@
 //! - ISDA documentation
 //! - Market practice for USD swaps
 
+use crate::finstack_test_utils as test_utils;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
@@ -20,7 +21,6 @@ use finstack_valuations::instruments::rates::irs::{
 };
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
-use finstack_valuations::test_utils;
 use time::macros::date;
 
 fn build_flat_forward_curve(rate: f64, base_date: Date, curve_id: &str) -> ForwardCurve {

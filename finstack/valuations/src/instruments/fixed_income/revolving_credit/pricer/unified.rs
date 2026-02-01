@@ -16,8 +16,10 @@ use finstack_core::Result;
 
 use crate::cashflow::builder::CashFlowSchedule;
 #[cfg(feature = "mc")]
-use crate::instruments::common::models::monte_carlo::results::{MoneyEstimate, MonteCarloResult};
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::models::monte_carlo::results::{
+    MoneyEstimate, MonteCarloResult,
+};
+use crate::instruments::common_impl::traits::Instrument;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };

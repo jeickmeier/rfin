@@ -1,7 +1,7 @@
 //! Asian option pricers (Monte Carlo and analytical).
 
 // Common imports for all pricers
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::exotics::asian_option::types::AsianOption;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
@@ -13,21 +13,21 @@ use finstack_core::money::Money;
 
 // MC-specific imports
 #[cfg(feature = "mc")]
-use crate::instruments::common::mc::estimate::Estimate;
+use crate::instruments::common_impl::mc::estimate::Estimate;
 #[cfg(feature = "mc")]
-use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
+use crate::instruments::common_impl::mc::process::gbm::{GbmParams, GbmProcess};
 #[cfg(feature = "mc")]
-use crate::instruments::common::models::monte_carlo::engine::PathCaptureConfig;
+use crate::instruments::common_impl::models::monte_carlo::engine::PathCaptureConfig;
 #[cfg(feature = "mc")]
-use crate::instruments::common::models::monte_carlo::payoff::asian::{AsianCall, AsianPut};
+use crate::instruments::common_impl::models::monte_carlo::payoff::asian::{AsianCall, AsianPut};
 #[cfg(feature = "mc")]
-use crate::instruments::common::models::monte_carlo::pricer::path_dependent::{
+use crate::instruments::common_impl::models::monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
 #[cfg(feature = "mc")]
-use crate::instruments::common::models::monte_carlo::results::MoneyEstimate;
+use crate::instruments::common_impl::models::monte_carlo::results::MoneyEstimate;
 #[cfg(feature = "mc")]
-use crate::instruments::common::models::monte_carlo::variance_reduction::control_variate::{
+use crate::instruments::common_impl::models::monte_carlo::variance_reduction::control_variate::{
     apply_control_variate, covariance,
 };
 
@@ -149,16 +149,16 @@ impl AsianOptionMcPricer {
         // Create payoff
         let averaging = match inst.averaging_method {
             crate::instruments::exotics::asian_option::types::AveragingMethod::Arithmetic => {
-                crate::instruments::common::models::monte_carlo::payoff::asian::AveragingMethod::Arithmetic
+                crate::instruments::common_impl::models::monte_carlo::payoff::asian::AveragingMethod::Arithmetic
             }
             crate::instruments::exotics::asian_option::types::AveragingMethod::Geometric => {
-                crate::instruments::common::models::monte_carlo::payoff::asian::AveragingMethod::Geometric
+                crate::instruments::common_impl::models::monte_carlo::payoff::asian::AveragingMethod::Geometric
             }
         };
 
         // Derive deterministic seed from instrument ID and scenario
         #[cfg(feature = "mc")]
-        use crate::instruments::common::models::monte_carlo::seed;
+        use crate::instruments::common_impl::models::monte_carlo::seed;
 
         let seed = if let Some(ref scenario) = inst.pricing_overrides.mc_seed_scenario {
             #[cfg(feature = "mc")]
@@ -195,7 +195,7 @@ impl AsianOptionMcPricer {
                 let arith_payoff = AsianCall::with_history(
                     inst.strike.amount(),
                     inst.notional.amount(),
-                    crate::instruments::common::models::monte_carlo::payoff::asian::AveragingMethod::Arithmetic,
+                    crate::instruments::common_impl::models::monte_carlo::payoff::asian::AveragingMethod::Arithmetic,
                     fixing_steps.clone(),
                     hist_sum,
                     hist_prod_log,
@@ -215,7 +215,7 @@ impl AsianOptionMcPricer {
                 let geom_payoff = AsianCall::with_history(
                     inst.strike.amount(),
                     inst.notional.amount(),
-                    crate::instruments::common::models::monte_carlo::payoff::asian::AveragingMethod::Geometric,
+                    crate::instruments::common_impl::models::monte_carlo::payoff::asian::AveragingMethod::Geometric,
                     fixing_steps.clone(),
                     hist_sum,
                     hist_prod_log,
@@ -338,7 +338,7 @@ impl AsianOptionMcPricer {
                 let arith_payoff = AsianPut::with_history(
                     inst.strike.amount(),
                     inst.notional.amount(),
-                    crate::instruments::common::models::monte_carlo::payoff::asian::AveragingMethod::Arithmetic,
+                    crate::instruments::common_impl::models::monte_carlo::payoff::asian::AveragingMethod::Arithmetic,
                     fixing_steps.clone(),
                     hist_sum,
                     hist_prod_log,
@@ -357,7 +357,7 @@ impl AsianOptionMcPricer {
                 let geom_payoff = AsianPut::with_history(
                     inst.strike.amount(),
                     inst.notional.amount(),
-                    crate::instruments::common::models::monte_carlo::payoff::asian::AveragingMethod::Geometric,
+                    crate::instruments::common_impl::models::monte_carlo::payoff::asian::AveragingMethod::Geometric,
                     fixing_steps.clone(),
                     hist_sum,
                     hist_prod_log,
@@ -612,16 +612,16 @@ impl AsianOptionMcPricer {
 
         let averaging = match inst.averaging_method {
             crate::instruments::exotics::asian_option::types::AveragingMethod::Arithmetic => {
-                crate::instruments::common::models::monte_carlo::payoff::asian::AveragingMethod::Arithmetic
+                crate::instruments::common_impl::models::monte_carlo::payoff::asian::AveragingMethod::Arithmetic
             }
             crate::instruments::exotics::asian_option::types::AveragingMethod::Geometric => {
-                crate::instruments::common::models::monte_carlo::payoff::asian::AveragingMethod::Geometric
+                crate::instruments::common_impl::models::monte_carlo::payoff::asian::AveragingMethod::Geometric
             }
         };
 
         // Seed handling
         #[cfg(feature = "mc")]
-        use crate::instruments::common::models::monte_carlo::seed;
+        use crate::instruments::common_impl::models::monte_carlo::seed;
         let seed = if let Some(ref scenario) = inst.pricing_overrides.mc_seed_scenario {
             #[cfg(feature = "mc")]
             {
@@ -644,7 +644,7 @@ impl AsianOptionMcPricer {
         let (est, greeks) = match inst.option_type {
             crate::instruments::OptionType::Call => {
                 let payoff =
-                    crate::instruments::common::models::monte_carlo::payoff::asian::AsianCall::with_history(
+                    crate::instruments::common_impl::models::monte_carlo::payoff::asian::AsianCall::with_history(
                         inst.strike.amount(),
                         inst.notional.amount(),
                         averaging,
@@ -668,7 +668,7 @@ impl AsianOptionMcPricer {
             }
             crate::instruments::OptionType::Put => {
                 let payoff =
-                    crate::instruments::common::models::monte_carlo::payoff::asian::AsianPut::with_history(
+                    crate::instruments::common_impl::models::monte_carlo::payoff::asian::AsianPut::with_history(
                         inst.strike.amount(),
                         inst.notional.amount(),
                         averaging,
@@ -755,8 +755,8 @@ pub fn npv_with_lrm_greeks(
 
 // ========================= ANALYTICAL PRICERS =========================
 
-use crate::instruments::common::helpers::collect_black_scholes_inputs;
-use crate::instruments::common::models::closed_form::asian::{
+use crate::instruments::common_impl::helpers::collect_black_scholes_inputs;
+use crate::instruments::common_impl::models::closed_form::asian::{
     arithmetic_asian_call_tw, arithmetic_asian_put_tw, geometric_asian_call, geometric_asian_put,
 };
 
@@ -896,7 +896,7 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
         market: &MarketContext,
         as_of: Date,
     ) -> PricingResult<ValuationResult> {
-        use crate::instruments::common::helpers::collect_black_scholes_inputs_df;
+        use crate::instruments::common_impl::helpers::collect_black_scholes_inputs_df;
 
         let asian = instrument
             .as_any()

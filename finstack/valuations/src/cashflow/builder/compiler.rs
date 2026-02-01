@@ -56,13 +56,13 @@ fn build_dates_with_meta(
     Ok((sched.dates, sched.prev, sched.first_or_last))
 }
 
-pub(super) type FixedSchedule = (
+pub(crate) type FixedSchedule = (
     FixedCouponSpec,
     Vec<Date>,
     finstack_core::HashMap<Date, Date>,
     finstack_core::HashSet<Date>,
 );
-pub(super) type FloatSchedule = (
+pub(crate) type FloatSchedule = (
     FloatingCouponSpec,
     Vec<Date>,
     finstack_core::HashMap<Date, Date>,

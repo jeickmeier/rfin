@@ -14,15 +14,15 @@
 //! - Historical fixings for mid-life valuations (via `past_fixings_in_range`)
 
 #[cfg(feature = "mc")]
-use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
+use crate::instruments::common_impl::mc::process::gbm::{GbmParams, GbmProcess};
 #[cfg(feature = "mc")]
-use crate::instruments::common::models::monte_carlo::payoff::range_accrual::RangeAccrualPayoff;
+use crate::instruments::common_impl::models::monte_carlo::payoff::range_accrual::RangeAccrualPayoff;
 #[cfg(feature = "mc")]
-use crate::instruments::common::models::monte_carlo::pricer::path_dependent::{
+use crate::instruments::common_impl::models::monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
 #[cfg(feature = "mc")]
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 #[cfg(feature = "mc")]
 use crate::instruments::rates::range_accrual::types::RangeAccrual;
 #[cfg(feature = "mc")]
@@ -181,7 +181,7 @@ impl RangeAccrualMcPricer {
         );
 
         // Derive deterministic seed from instrument ID and scenario
-        use crate::instruments::common::models::monte_carlo::seed;
+        use crate::instruments::common_impl::models::monte_carlo::seed;
 
         let seed = if let Some(ref scenario) = inst.pricing_overrides.mc_seed_scenario {
             seed::derive_seed(&inst.id, scenario)
@@ -235,7 +235,7 @@ impl Pricer for RangeAccrualMcPricer {
 
     fn price_dyn(
         &self,
-        instrument: &dyn crate::instruments::common::traits::Instrument,
+        instrument: &dyn crate::instruments::common_impl::traits::Instrument,
         market: &MarketContext,
         as_of: Date,
     ) -> PricingResult<ValuationResult> {

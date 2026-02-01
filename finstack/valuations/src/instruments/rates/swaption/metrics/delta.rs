@@ -10,7 +10,7 @@
 //! calculation can become numerically unstable near expiry. We apply a
 //! near-expiry threshold for consistency and to return intrinsic delta.
 
-use crate::instruments::common::parameters::OptionType;
+use crate::instruments::common_impl::parameters::OptionType;
 use crate::instruments::rates::swaption::{Swaption, VolatilityModel};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::Result;
@@ -62,7 +62,7 @@ impl MetricCalculator for DeltaCalculator {
                     // Black model undefined for negative rates
                     return Ok(0.0);
                 }
-                use crate::instruments::common::models::d1_black76;
+                use crate::instruments::common_impl::models::d1_black76;
                 let d1 = d1_black76(
                     inputs.forward,
                     option.strike_rate,
@@ -75,7 +75,7 @@ impl MetricCalculator for DeltaCalculator {
                 }
             }
             VolatilityModel::Normal => {
-                use crate::instruments::common::models::volatility::normal::d_bachelier;
+                use crate::instruments::common_impl::models::volatility::normal::d_bachelier;
                 let d = d_bachelier(
                     inputs.forward,
                     option.strike_rate,

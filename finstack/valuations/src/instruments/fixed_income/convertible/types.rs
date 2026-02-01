@@ -10,7 +10,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use rust_decimal::Decimal;
 
 use crate::cashflow::builder::specs::{FixedCouponSpec, FloatingCouponSpec};
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::fixed_income::bond::CallPutSchedule;
 
 use super::pricer;
@@ -54,6 +54,31 @@ pub struct ConvertibleBond {
     pub floating_coupon: Option<FloatingCouponSpec>,
     /// Attributes for selection and tagging.
     pub attributes: Attributes,
+}
+
+/// Greeks for convertible bonds priced with tree models.
+///
+/// # Units and Conventions
+///
+/// - **Delta**: Per unit of spot
+/// - **Gamma**: Per unit of spot squared
+/// - **Vega**: Per 1% absolute volatility move
+/// - **Theta**: Per day
+/// - **Rho**: Per 1 basis point move
+#[derive(Clone, Debug)]
+pub struct ConvertibleGreeks {
+    /// Instrument price
+    pub price: f64,
+    /// Delta (spot sensitivity per unit spot move)
+    pub delta: f64,
+    /// Gamma (curvature, second derivative w.r.t. spot)
+    pub gamma: f64,
+    /// Vega (volatility sensitivity per 1% vol move)
+    pub vega: f64,
+    /// Theta (time decay per day)
+    pub theta: f64,
+    /// Rho (interest rate sensitivity per 1bp rate move)
+    pub rho: f64,
 }
 
 /// Defines how and when conversion can occur.
@@ -234,14 +259,22 @@ impl ConvertibleBond {
         tree_type: Option<pricer::ConvertibleTreeType>,
         bump_size: Option<f64>,
         as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<crate::instruments::common::models::TreeGreeks> {
-        pricer::calculate_convertible_greeks(
+    ) -> finstack_core::Result<ConvertibleGreeks> {
+        let greeks = pricer::calculate_convertible_greeks(
             self,
             curves,
             tree_type.unwrap_or_default(),
             bump_size,
             as_of,
-        )
+        )?;
+        Ok(ConvertibleGreeks {
+            price: greeks.price,
+            delta: greeks.delta,
+            gamma: greeks.gamma,
+            vega: greeks.vega,
+            theta: greeks.theta,
+            rho: greeks.rho,
+        })
     }
 
     /// Calculate delta of this convertible bond
@@ -295,7 +328,7 @@ impl ConvertibleBond {
     }
 }
 
-impl crate::instruments::common::traits::Instrument for ConvertibleBond {
+impl crate::instruments::common_impl::traits::Instrument for ConvertibleBond {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -308,15 +341,15 @@ impl crate::instruments::common::traits::Instrument for ConvertibleBond {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
@@ -335,7 +368,7 @@ impl crate::instruments::common::traits::Instrument for ConvertibleBond {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(curves.clone()),
             as_of,
@@ -348,9 +381,9 @@ impl crate::instruments::common::traits::Instrument for ConvertibleBond {
 }
 
 // Implement CurveDependencies for DV01 calculator
-impl crate::instruments::common::traits::CurveDependencies for ConvertibleBond {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        let builder = crate::instruments::common::traits::InstrumentCurves::builder();
+impl crate::instruments::common_impl::traits::CurveDependencies for ConvertibleBond {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        let builder = crate::instruments::common_impl::traits::InstrumentCurves::builder();
         let builder = builder.discount(self.discount_curve_id.clone());
         let builder = if let Some(credit_curve) = &self.credit_curve_id {
             builder.credit(credit_curve.clone())

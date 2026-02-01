@@ -25,7 +25,7 @@
 //! - Albrecher et al. (2007) - "The Little Heston Trap"
 
 #[cfg(feature = "mc")]
-pub use crate::instruments::common::mc::process::heston::HestonParams;
+pub use crate::instruments::common_impl::mc::process::heston::HestonParams;
 use finstack_core::math::gauss_legendre_integrate_composite;
 use num_complex::Complex;
 use std::f64::consts::PI;
@@ -240,7 +240,7 @@ fn heston_pj(
 ///
 /// # Example
 ///
-/// ```
+/// ```text
 /// use finstack_valuations::instruments::common::models::closed_form::heston::{
 ///     heston_call_price_fourier, HestonParams,
 /// };
@@ -499,7 +499,7 @@ mod tests {
     /// HestonModel implementation in the volatility module.
     #[test]
     fn test_cross_validation_with_volatility_heston() {
-        use crate::instruments::common::models::volatility::heston::{
+        use crate::instruments::common_impl::models::volatility::heston::{
             HestonModel, HestonParameters,
         };
 

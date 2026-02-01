@@ -26,7 +26,7 @@ use super::factors::*;
 use super::helpers::*;
 use super::model_params;
 use super::types::*;
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use finstack_core::config::FinstackConfig;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -410,12 +410,20 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
+    #[allow(clippy::expect_used, dead_code, unused_imports)]
+    mod test_utils {
+        include!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/support/attribution_test_utils.rs"
+        ));
+    }
+
     use super::*;
-    use crate::attribution::test_utils::TestInstrument;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::money::Money;
+    use test_utils::TestInstrument;
     use time::macros::date;
 
     #[test]

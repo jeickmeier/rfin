@@ -61,7 +61,7 @@ pub(crate) mod pricer;
 pub(crate) mod pricing_helper;
 mod types;
 
-pub use crate::instruments::common::parameters::FxUnderlyingParams;
+pub use crate::instruments::common_impl::parameters::FxUnderlyingParams;
 pub use parameters::FxSwapParams;
 pub use types::FxSwap;
 

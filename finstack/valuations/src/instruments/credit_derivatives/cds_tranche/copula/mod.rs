@@ -1,7 +1,7 @@
 //! Copula models for CDS tranche pricing.
 //!
 //! This module re-exports the shared copula infrastructure from
-//! [`crate::instruments::common::models::correlation::copula`].
+//! [`crate::instruments::common_impl::models::correlation::copula`].
 //!
 //! Provides a trait-based copula abstraction enabling pluggable correlation
 //! models while maintaining backward compatibility with one-factor Gaussian.
@@ -20,4 +20,4 @@
 //! - Hull, J., & White, A. (2004). "Valuation of a CDO without Monte Carlo"
 
 // Re-export everything from the shared correlation module
-pub use crate::instruments::common::models::correlation::copula::*;
+pub use crate::instruments::common_impl::models::correlation::copula::*;

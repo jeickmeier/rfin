@@ -3,11 +3,11 @@
 //! Tests basic CDS creation, builder patterns, convention mappings,
 //! and structural validation.
 
+use crate::finstack_test_utils as test_utils;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::credit_derivatives::cds::{CDSConvention, PayReceive};
-use finstack_valuations::test_utils;
 use rust_decimal::Decimal;
 use time::Month;
 

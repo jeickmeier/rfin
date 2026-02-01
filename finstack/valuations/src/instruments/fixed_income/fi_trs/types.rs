@@ -195,7 +195,7 @@ impl FIIndexTotalReturnSwap {
     /// # Returns
     /// Present value of the financing leg in the instrument's currency.
     pub fn pv_financing_leg(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
-        use crate::instruments::common::pricing::TrsEngine;
+        use crate::instruments::common_impl::pricing::TrsEngine;
         TrsEngine::pv_financing_leg(
             &self.financing,
             &self.schedule,
@@ -214,7 +214,7 @@ impl FIIndexTotalReturnSwap {
     /// # Returns
     /// Financing annuity (sum of discounted year fractions × notional).
     pub fn financing_annuity(&self, curves: &MarketContext, as_of: Date) -> Result<f64> {
-        use crate::instruments::common::pricing::TrsEngine;
+        use crate::instruments::common_impl::pricing::TrsEngine;
         TrsEngine::financing_annuity(
             &self.financing,
             &self.schedule,
@@ -229,7 +229,7 @@ impl FIIndexTotalReturnSwap {
 // Trait Implementations
 // ============================================================================
 
-impl crate::instruments::common::traits::Instrument for FIIndexTotalReturnSwap {
+impl crate::instruments::common_impl::traits::Instrument for FIIndexTotalReturnSwap {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -242,15 +242,15 @@ impl crate::instruments::common::traits::Instrument for FIIndexTotalReturnSwap {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
@@ -277,7 +277,7 @@ impl crate::instruments::common::traits::Instrument for FIIndexTotalReturnSwap {
         metrics: &[crate::metrics::MetricId],
     ) -> Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(curves.clone()),
             as_of,
@@ -321,9 +321,9 @@ impl CashflowProvider for FIIndexTotalReturnSwap {
     }
 }
 
-impl crate::instruments::common::traits::CurveDependencies for FIIndexTotalReturnSwap {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for FIIndexTotalReturnSwap {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.financing.discount_curve_id.clone())
             .build()
     }

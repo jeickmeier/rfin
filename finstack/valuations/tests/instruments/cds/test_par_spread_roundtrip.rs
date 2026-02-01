@@ -11,6 +11,7 @@
 //!
 //! Market Standards Review (Priority 4, Week 4)
 
+use crate::finstack_test_utils::calibration::execute_step;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -25,7 +26,6 @@ use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClau
 use finstack_valuations::market::quotes::cds::CdsQuote;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
-use finstack_valuations::test_utils::calibration::execute_step;
 use time::Month;
 
 fn create_discount_curve(base_date: Date) -> DiscountCurve {
@@ -91,7 +91,7 @@ fn test_cds_par_spread_roundtrip_1y() {
 
     // Create CDS at the quoted spread
     // Hazard curve ID is "{entity}-{seniority}" per HazardCurveCalibrator
-    let cds = finstack_valuations::test_utils::cds_buy_protection(
+    let cds = crate::finstack_test_utils::cds_buy_protection(
         "ROUNDTRIP-CDS",
         Money::new(10_000_000.0, Currency::USD),
         par_spread_bp,
@@ -192,7 +192,7 @@ fn test_cds_par_spread_roundtrip_multi_tenor() {
 
     for (maturity, par_spread_bp) in &tenors_and_spreads {
         // Hazard curve ID is "{entity}-{seniority}" per HazardCurveCalibrator
-        let cds = finstack_valuations::test_utils::cds_buy_protection(
+        let cds = crate::finstack_test_utils::cds_buy_protection(
             format!("ROUNDTRIP-CDS-{}", maturity),
             Money::new(10_000_000.0, Currency::USD),
             *par_spread_bp,
@@ -272,7 +272,7 @@ fn test_cds_par_spread_calculation_consistency() {
 
     // Create CDS with arbitrary spread
     // Hazard curve ID is "{entity}-{seniority}" per HazardCurveCalibrator
-    let cds_test = finstack_valuations::test_utils::cds_buy_protection(
+    let cds_test = crate::finstack_test_utils::cds_buy_protection(
         "TEST-CDS",
         Money::new(10_000_000.0, Currency::USD),
         150.0, // Different spread (150bp)

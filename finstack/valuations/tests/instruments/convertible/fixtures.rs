@@ -385,6 +385,3 @@ pub const TOLERANCE: f64 = 1e-9;
 
 /// Relative tolerance for price comparisons (1%)
 pub const PRICE_TOLERANCE_PCT: f64 = 0.01;
-
-/// Relaxed relative tolerance for convergence tests (5%)
-pub const CONVERGENCE_TOLERANCE_PCT: f64 = 0.05;

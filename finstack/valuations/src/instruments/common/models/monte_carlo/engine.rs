@@ -10,14 +10,14 @@
 
 use super::results::{MoneyEstimate, MonteCarloResult};
 use super::traits::Payoff;
-use crate::instruments::common::mc::estimate::Estimate;
-use crate::instruments::common::mc::online_stats::OnlineStats;
-use crate::instruments::common::mc::paths::{
+use crate::instruments::common_impl::mc::estimate::Estimate;
+use crate::instruments::common_impl::mc::online_stats::OnlineStats;
+use crate::instruments::common_impl::mc::paths::{
     PathDataset, PathPoint, PathSamplingMethod, ProcessParams, SimulatedPath,
 };
-use crate::instruments::common::mc::time_grid::TimeGrid;
-use crate::instruments::common::mc::traits::state_keys;
-use crate::instruments::common::mc::traits::{
+use crate::instruments::common_impl::mc::time_grid::TimeGrid;
+use crate::instruments::common_impl::mc::traits::state_keys;
+use crate::instruments::common_impl::mc::traits::{
     Discretization, PathState, RandomStream, StochasticProcess,
 };
 use finstack_core::currency::Currency;

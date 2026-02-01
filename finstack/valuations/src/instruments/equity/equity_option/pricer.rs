@@ -9,9 +9,9 @@
 // Key items: npv, compute_greeks, EquityOptionGreeks, SimpleEquityOptionBlackPricer.
 #![allow(dead_code)]
 
-use crate::instruments::common::models::trees::binomial_tree::BinomialTree;
-use crate::instruments::common::models::{bs_greeks, bs_price, BsGreeks};
-use crate::instruments::common::parameters::{OptionMarketParams, OptionType};
+use crate::instruments::common_impl::models::trees::binomial_tree::BinomialTree;
+use crate::instruments::common_impl::models::{bs_greeks, bs_price, BsGreeks};
+use crate::instruments::common_impl::parameters::{OptionMarketParams, OptionType};
 use crate::instruments::equity::equity_option::types::EquityOption;
 use crate::instruments::ExerciseStyle;
 use finstack_core::dates::{Date, DayCount};
@@ -443,11 +443,11 @@ impl crate::pricer::Pricer for SimpleEquityOptionBlackPricer {
 
     fn price_dyn(
         &self,
-        instrument: &dyn crate::instruments::common::traits::Instrument,
+        instrument: &dyn crate::instruments::common_impl::traits::Instrument,
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> std::result::Result<crate::results::ValuationResult, crate::pricer::PricingError> {
-        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common_impl::traits::Instrument;
 
         // Type-safe downcasting
         let equity_option = instrument
@@ -481,11 +481,11 @@ impl crate::pricer::Pricer for SimpleEquityOptionBlackPricer {
 // ========================= HESTON FOURIER PRICER =========================
 
 #[cfg(feature = "mc")]
-use crate::instruments::common::models::closed_form::heston::{
+use crate::instruments::common_impl::models::closed_form::heston::{
     heston_call_price_fourier, heston_put_price_fourier, HestonParams,
 };
 #[cfg(feature = "mc")]
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 
 /// Equity option Heston semi-analytical pricer (Fourier inversion).
 #[cfg(feature = "mc")]
@@ -517,7 +517,7 @@ impl crate::pricer::Pricer for EquityOptionHestonFourierPricer {
 
     fn price_dyn(
         &self,
-        instrument: &dyn crate::instruments::common::traits::Instrument,
+        instrument: &dyn crate::instruments::common_impl::traits::Instrument,
         market: &MarketContext,
         as_of: Date,
     ) -> crate::pricer::PricingResult<crate::results::ValuationResult> {

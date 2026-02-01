@@ -286,8 +286,8 @@ impl HazardBondEngine {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common::traits::Attributes;
-    use crate::instruments::common::traits::Instrument;
+    use crate::instruments::common_impl::traits::Attributes;
+    use crate::instruments::common_impl::traits::Instrument;
     use crate::instruments::fixed_income::bond::pricing::quote_engine::{
         compute_quotes, BondQuoteInput,
     };

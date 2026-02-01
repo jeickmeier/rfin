@@ -19,11 +19,11 @@
 //!
 //! Where W_1, W_2, W_3 are correlated Brownian motions.
 
-use crate::instruments::common::mc::paths::ProcessParams;
-use crate::instruments::common::mc::process::cir::CirParams;
-use crate::instruments::common::mc::process::metadata::ProcessMetadata;
-use crate::instruments::common::mc::process::ou::HullWhite1FParams;
-use crate::instruments::common::mc::traits::StochasticProcess;
+use crate::instruments::common_impl::mc::paths::ProcessParams;
+use crate::instruments::common_impl::mc::process::cir::CirParams;
+use crate::instruments::common_impl::mc::process::metadata::ProcessMetadata;
+use crate::instruments::common_impl::mc::process::ou::HullWhite1FParams;
+use crate::instruments::common_impl::mc::traits::StochasticProcess;
 
 /// Parameters for utilization process (mean-reverting OU).
 #[derive(Clone, Debug)]

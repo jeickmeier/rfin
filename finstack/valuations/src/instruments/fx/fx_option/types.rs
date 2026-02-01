@@ -29,8 +29,8 @@
 //!
 //! Use `delta_forward` for professional FX option hedging and vol surface interpolation.
 
-use crate::instruments::common::parameters::FxUnderlyingParams;
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common_impl::parameters::FxUnderlyingParams;
+use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use finstack_core::currency::Currency;
@@ -100,9 +100,9 @@ pub struct FxOption {
 
 // Implement CurveDependencies for DV01 calculator
 // FxOption uses both domestic and foreign curves for Garman-Kohlhagen pricing
-impl crate::instruments::common::traits::CurveDependencies for FxOption {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for FxOption {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.domestic_discount_curve_id.clone())
             .discount(self.foreign_discount_curve_id.clone())
             .build()
@@ -228,7 +228,7 @@ impl FxOption {
         bdc: finstack_core::dates::BusinessDayConvention,
         option_type: OptionType,
     ) -> finstack_core::Result<Self> {
-        use crate::instruments::common::fx_dates::{adjust_joint_calendar, roll_spot_date};
+        use crate::instruments::common_impl::fx_dates::{adjust_joint_calendar, roll_spot_date};
         let spot_settle = roll_spot_date(
             trade_date,
             spot_lag_days,
@@ -379,7 +379,7 @@ impl FxOption {
     }
 }
 
-impl crate::instruments::common::traits::OptionDeltaProvider for FxOption {
+impl crate::instruments::common_impl::traits::OptionDeltaProvider for FxOption {
     fn option_delta(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
@@ -389,7 +389,7 @@ impl crate::instruments::common::traits::OptionDeltaProvider for FxOption {
     }
 }
 
-impl crate::instruments::common::traits::OptionGammaProvider for FxOption {
+impl crate::instruments::common_impl::traits::OptionGammaProvider for FxOption {
     fn option_gamma(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
@@ -399,7 +399,7 @@ impl crate::instruments::common::traits::OptionGammaProvider for FxOption {
     }
 }
 
-impl crate::instruments::common::traits::OptionVegaProvider for FxOption {
+impl crate::instruments::common_impl::traits::OptionVegaProvider for FxOption {
     fn option_vega(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
@@ -409,7 +409,7 @@ impl crate::instruments::common::traits::OptionVegaProvider for FxOption {
     }
 }
 
-impl crate::instruments::common::traits::OptionThetaProvider for FxOption {
+impl crate::instruments::common_impl::traits::OptionThetaProvider for FxOption {
     fn option_theta(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
@@ -419,7 +419,7 @@ impl crate::instruments::common::traits::OptionThetaProvider for FxOption {
     }
 }
 
-impl crate::instruments::common::traits::OptionRhoProvider for FxOption {
+impl crate::instruments::common_impl::traits::OptionRhoProvider for FxOption {
     fn option_rho_bp(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
@@ -430,7 +430,7 @@ impl crate::instruments::common::traits::OptionRhoProvider for FxOption {
     }
 }
 
-impl crate::instruments::common::traits::OptionForeignRhoProvider for FxOption {
+impl crate::instruments::common_impl::traits::OptionForeignRhoProvider for FxOption {
     fn option_foreign_rho_bp(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
@@ -441,7 +441,7 @@ impl crate::instruments::common::traits::OptionForeignRhoProvider for FxOption {
     }
 }
 
-impl crate::instruments::common::traits::OptionVannaProvider for FxOption {
+impl crate::instruments::common_impl::traits::OptionVannaProvider for FxOption {
     fn option_vanna(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
@@ -487,7 +487,7 @@ impl crate::instruments::common::traits::OptionVannaProvider for FxOption {
     }
 }
 
-impl crate::instruments::common::traits::OptionVolgaProvider for FxOption {
+impl crate::instruments::common_impl::traits::OptionVolgaProvider for FxOption {
     fn option_volga(
         &self,
         market: &finstack_core::market_data::context::MarketContext,

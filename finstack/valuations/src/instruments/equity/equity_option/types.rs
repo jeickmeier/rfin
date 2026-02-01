@@ -59,8 +59,8 @@
 //! - QuantLib: `AnalyticEuropeanEngine` with `DividendVanillaOption`
 
 // pricing formulas are implemented in the pricing engine; keep this module free of direct math imports
-use crate::instruments::common::parameters::underlying::EquityUnderlyingParams;
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common_impl::parameters::underlying::EquityUnderlyingParams;
+use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use finstack_core::currency::Currency;
@@ -118,17 +118,17 @@ pub struct EquityOption {
 }
 
 // Implement CurveDependencies for DV01 calculator
-impl crate::instruments::common::traits::CurveDependencies for EquityOption {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for EquityOption {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .build()
     }
 }
 
-impl crate::instruments::common::traits::EquityDependencies for EquityOption {
-    fn equity_dependencies(&self) -> crate::instruments::common::traits::EquityInstrumentDeps {
-        crate::instruments::common::traits::EquityInstrumentDeps::builder()
+impl crate::instruments::common_impl::traits::EquityDependencies for EquityOption {
+    fn equity_dependencies(&self) -> crate::instruments::common_impl::traits::EquityInstrumentDeps {
+        crate::instruments::common_impl::traits::EquityInstrumentDeps::builder()
             .spot(self.spot_id.clone())
             .vol_surface(self.vol_surface_id.as_str())
             .build()
@@ -397,7 +397,7 @@ impl EquityOption {
         };
         let k = self.strike.amount();
         let target_unit = market_price / self.contract_size;
-        Ok(crate::instruments::common::models::bs_implied_vol(
+        Ok(crate::instruments::common_impl::models::bs_implied_vol(
             spot,
             k,
             r,
@@ -409,7 +409,7 @@ impl EquityOption {
     }
 }
 
-impl crate::instruments::common::traits::OptionDeltaProvider for EquityOption {
+impl crate::instruments::common_impl::traits::OptionDeltaProvider for EquityOption {
     fn option_delta(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
@@ -419,7 +419,7 @@ impl crate::instruments::common::traits::OptionDeltaProvider for EquityOption {
     }
 }
 
-impl crate::instruments::common::traits::OptionGammaProvider for EquityOption {
+impl crate::instruments::common_impl::traits::OptionGammaProvider for EquityOption {
     fn option_gamma(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
@@ -429,7 +429,7 @@ impl crate::instruments::common::traits::OptionGammaProvider for EquityOption {
     }
 }
 
-impl crate::instruments::common::traits::OptionVegaProvider for EquityOption {
+impl crate::instruments::common_impl::traits::OptionVegaProvider for EquityOption {
     fn option_vega(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
@@ -439,7 +439,7 @@ impl crate::instruments::common::traits::OptionVegaProvider for EquityOption {
     }
 }
 
-impl crate::instruments::common::traits::OptionThetaProvider for EquityOption {
+impl crate::instruments::common_impl::traits::OptionThetaProvider for EquityOption {
     fn option_theta(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
@@ -449,7 +449,7 @@ impl crate::instruments::common::traits::OptionThetaProvider for EquityOption {
     }
 }
 
-impl crate::instruments::common::traits::OptionRhoProvider for EquityOption {
+impl crate::instruments::common_impl::traits::OptionRhoProvider for EquityOption {
     fn option_rho_bp(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
@@ -460,13 +460,13 @@ impl crate::instruments::common::traits::OptionRhoProvider for EquityOption {
     }
 }
 
-impl crate::instruments::common::traits::OptionVannaProvider for EquityOption {
+impl crate::instruments::common_impl::traits::OptionVannaProvider for EquityOption {
     fn option_vanna(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common_impl::traits::Instrument;
 
         // Match the public metric test/reference conventions:
         // - Spot bump: ±1% (relative, on the spot scalar)
@@ -544,14 +544,14 @@ impl crate::instruments::common::traits::OptionVannaProvider for EquityOption {
     }
 }
 
-impl crate::instruments::common::traits::OptionVolgaProvider for EquityOption {
+impl crate::instruments::common_impl::traits::OptionVolgaProvider for EquityOption {
     fn option_volga(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         base_pv: f64,
     ) -> finstack_core::Result<f64> {
-        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common_impl::traits::Instrument;
 
         let vol_bump_abs = crate::metrics::bump_sizes::VOLATILITY;
         let curves_vol_up = crate::metrics::bump_surface_vol_absolute(
@@ -572,7 +572,7 @@ impl crate::instruments::common::traits::OptionVolgaProvider for EquityOption {
     }
 }
 
-impl crate::instruments::common::traits::Instrument for EquityOption {
+impl crate::instruments::common_impl::traits::Instrument for EquityOption {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -585,21 +585,23 @@ impl crate::instruments::common::traits::Instrument for EquityOption {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
-    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
+    fn market_dependencies(
+        &self,
+    ) -> crate::instruments::common_impl::dependencies::MarketDependencies {
         let mut deps =
-            crate::instruments::common::dependencies::MarketDependencies::from_curve_dependencies(
+            crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
                 self,
             );
         deps.add_spot_id(self.spot_id.as_str());
@@ -623,7 +625,7 @@ impl crate::instruments::common::traits::Instrument for EquityOption {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(curves.clone()),
             as_of,
@@ -638,13 +640,20 @@ impl crate::instruments::common::traits::Instrument for EquityOption {
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 mod tests {
+    #[allow(clippy::expect_used, clippy::unwrap_used, dead_code, unused_imports)]
+    mod test_utils {
+        include!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/support/test_utils.rs"
+        ));
+    }
+
     use super::*;
-    use crate::instruments::common::traits::Instrument;
+    use crate::instruments::common_impl::traits::Instrument;
     use crate::instruments::equity::equity_option::pricer;
     use crate::instruments::{
         common::traits::Attributes, ExerciseStyle, OptionType, PricingOverrides, SettlementType,
     };
-    use crate::test_utils::{date, flat_discount_with_tenor, flat_vol_surface};
     use finstack_core::{
         currency::Currency,
         dates::{Date, DayCount},
@@ -654,6 +663,7 @@ mod tests {
         money::Money,
         types::{CurveId, InstrumentId},
     };
+    use test_utils::{date, flat_discount_with_tenor, flat_vol_surface};
 
     const DISC_ID: &str = "USD-OIS";
     const SPOT_ID: &str = "SPX-SPOT";
@@ -709,7 +719,7 @@ mod tests {
     fn convenience_constructors_apply_standard_conventions() {
         let expiry = date(2025, 12, 31);
         let notional = Money::new(1_000_000.0, Currency::USD);
-        let call = crate::test_utils::equity_option_european_call(
+        let call = test_utils::equity_option_european_call(
             "SPX-CALL", "SPX", 100.0, expiry, notional, 100.0,
         )
         .unwrap();
@@ -719,14 +729,13 @@ mod tests {
         assert_eq!(call.spot_id, "EQUITY-SPOT");
         assert_eq!(call.vol_surface_id, CurveId::new("EQUITY-VOL"));
 
-        let put = crate::test_utils::equity_option_european_put(
-            "SPX-PUT", "SPX", 90.0, expiry, notional, 50.0,
-        )
-        .unwrap();
+        let put =
+            test_utils::equity_option_european_put("SPX-PUT", "SPX", 90.0, expiry, notional, 50.0)
+                .unwrap();
         assert_eq!(put.option_type, OptionType::Put);
         assert_eq!(put.contract_size, 50.0);
 
-        let american = crate::test_utils::equity_option_american_call(
+        let american = test_utils::equity_option_american_call(
             "SPX-AMER", "SPX", 105.0, expiry, notional, 75.0,
         )
         .unwrap();

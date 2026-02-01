@@ -15,7 +15,7 @@
 //! - Bump: 1bp = 0.01% applied to inflation curve via `BumpSpec::inflation_shift_pct`
 //! - Result: Gamma per (basis point)² = per (0.01%)²
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::rates::inflation_cap_floor::InflationCapFloor;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};

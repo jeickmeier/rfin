@@ -4,6 +4,7 @@
 //! - DV01(PayFixed) = -DV01(ReceiveFixed)
 //! - PV(PayFixed) + PV(ReceiveFixed) ≈ 0 (at par rate)
 
+use crate::finstack_test_utils as test_utils;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -12,7 +13,6 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::irs::PayReceive;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
-use finstack_valuations::test_utils;
 use proptest::prelude::*;
 use time::Month;
 

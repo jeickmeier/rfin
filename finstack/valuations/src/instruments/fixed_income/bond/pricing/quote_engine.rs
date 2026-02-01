@@ -9,7 +9,7 @@
 //! `0.01` corresponds to **100 basis points**.
 #![allow(dead_code)] // Public API items may be used by external bindings or tests
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fixed_income::bond::Bond;
 use crate::metrics::{standard_registry, MetricRegistry};
 use crate::metrics::{MetricContext, MetricId};
@@ -785,7 +785,7 @@ pub fn price_from_oas(
     let oas_bp = oas_decimal * 10_000.0;
 
     // Use the short-rate tree directly to price at a given OAS
-    use crate::instruments::common::models::{
+    use crate::instruments::common_impl::models::{
         short_rate_keys, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
     };
     use crate::instruments::fixed_income::bond::pricing::tree_engine::BondValuator;

@@ -2,10 +2,9 @@ use crate::core::dates::date::JsDate;
 use crate::core::money::JsMoney;
 use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::{
-    curve_id_from_str, instrument_id_from_str, parameters::JsBarrierType as JsMcBarrierType,
+    curve_id_from_str, instrument_id_from_str, parameters::JsBarrierType,
 };
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_valuations::instruments::common::models::monte_carlo::payoff::barrier::BarrierType as McBarrierType;
 use finstack_valuations::instruments::exotics::barrier_option::{
     BarrierOption, BarrierType as BarrierOptionType,
 };
@@ -371,15 +370,8 @@ impl JsBarrierOption {
     }
 
     #[wasm_bindgen(getter, js_name = barrierType)]
-    pub fn barrier_type(&self) -> JsMcBarrierType {
-        // Convert BarrierOptionType to McBarrierType
-        let mc_type = match self.inner.barrier_type {
-            BarrierOptionType::UpAndOut => McBarrierType::UpAndOut,
-            BarrierOptionType::UpAndIn => McBarrierType::UpAndIn,
-            BarrierOptionType::DownAndOut => McBarrierType::DownAndOut,
-            BarrierOptionType::DownAndIn => McBarrierType::DownAndIn,
-        };
-        JsMcBarrierType::from_inner(mc_type)
+    pub fn barrier_type(&self) -> JsBarrierType {
+        JsBarrierType::from_inner(self.inner.barrier_type)
     }
 
     #[wasm_bindgen(getter)]

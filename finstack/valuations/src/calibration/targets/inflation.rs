@@ -145,7 +145,7 @@ impl InflationBootstrapper {
             )
         };
 
-        let swap: std::sync::Arc<dyn crate::instruments::common::traits::Instrument> =
+        let swap: std::sync::Arc<dyn crate::instruments::common_impl::traits::Instrument> =
             if let Some(freq) = frequency {
                 let instrument = YoYInflationSwap::builder()
                     .id("CALIB_YOY".into())

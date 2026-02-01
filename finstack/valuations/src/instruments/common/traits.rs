@@ -58,7 +58,7 @@
 //! ```
 
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::common::dependencies::MarketDependencies;
+use crate::instruments::common_impl::dependencies::MarketDependencies;
 use crate::metrics::risk::MarketHistory;
 use crate::metrics::MetricId;
 use crate::pricer::InstrumentType;
@@ -971,7 +971,7 @@ pub trait Instrument: Send + Sync {
         options: PricingOptions,
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(market, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             Arc::from(self.clone_box()),
             Arc::new(market.clone()),
             as_of,
@@ -1332,6 +1332,7 @@ impl EquityInstrumentDepsBuilder {
 /// - At/after expiry, return 0.0 unless the instrument explicitly defines an intrinsic
 ///   delta convention.
 pub trait OptionDeltaProvider {
+    /// Return cash delta per instrument conventions.
     fn option_delta(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<f64>;
 }
 
@@ -1342,6 +1343,7 @@ pub trait OptionDeltaProvider {
 ///   underlying “spot” driver \(S\).
 /// - The value should already include instrument scaling (notional / quantity / multiplier).
 pub trait OptionGammaProvider {
+    /// Return cash gamma per instrument conventions.
     fn option_gamma(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<f64>;
 }
 
@@ -1352,6 +1354,7 @@ pub trait OptionGammaProvider {
 ///   volatility move (1 vol point).
 /// - The value should already include instrument scaling (notional / quantity / multiplier).
 pub trait OptionVegaProvider {
+    /// Return cash vega per instrument conventions (1 vol point).
     fn option_vega(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<f64>;
 }
 
@@ -1362,6 +1365,7 @@ pub trait OptionVegaProvider {
 /// - The day basis (calendar vs trading days) is instrument-specific and must match the
 ///   instrument’s existing pricing/greeks conventions.
 pub trait OptionThetaProvider {
+    /// Return theta per instrument conventions (per day).
     fn option_theta(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<f64>;
 }
 
@@ -1371,6 +1375,7 @@ pub trait OptionThetaProvider {
 /// - Return value is \(PV(r+1bp) - PV(r)\) for the relevant “domestic” discount driver.
 /// - This should be a **finite-difference PV change**, not “per 1%” scaling.
 pub trait OptionRhoProvider {
+    /// Return domestic rho per instrument conventions (per 1bp).
     fn option_rho_bp(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<f64>;
 }
 
@@ -1380,6 +1385,7 @@ pub trait OptionRhoProvider {
 /// - Return value is \(PV(q+1bp) - PV(q)\) where \(q\) is the foreign rate/dividend yield
 ///   driver used by the instrument.
 pub trait OptionForeignRhoProvider {
+    /// Return foreign/dividend rho per instrument conventions (per 1bp).
     fn option_foreign_rho_bp(
         &self,
         market: &MarketContext,
@@ -1394,6 +1400,7 @@ pub trait OptionForeignRhoProvider {
 /// - Implementations may use spot-then-vol or vol-then-spot bump logic as long as it is
 ///   consistent with the instrument’s historical behavior and bump size settings.
 pub trait OptionVannaProvider {
+    /// Return vanna per instrument conventions.
     fn option_vanna(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<f64>;
 }
 
@@ -1401,6 +1408,7 @@ pub trait OptionVannaProvider {
 ///
 /// `base_pv` should be the already computed PV amount at `as_of` for the same market.
 pub trait OptionVolgaProvider {
+    /// Return volga per instrument conventions.
     fn option_volga(
         &self,
         market: &MarketContext,

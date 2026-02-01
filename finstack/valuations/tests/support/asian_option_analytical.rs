@@ -1,7 +1,20 @@
-//! Tests for analytical Asian option pricers.
-//!
-//! These specifically target `instruments/asian_option/pricer.rs` (non-MC paths).
+// Tests for analytical Asian option pricers.
+// These specifically target `instruments/asian_option/pricer.rs` (non-MC paths).
+#[allow(clippy::expect_used, clippy::unwrap_used, dead_code, unused_imports)]
+mod test_utils {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/support/test_utils.rs"
+    ));
+}
 
+use crate::instruments::common_impl::models::closed_form::asian::{
+    geometric_asian_call, geometric_asian_put,
+};
+use crate::instruments::exotics::asian_option::{AsianOption, AveragingMethod};
+use crate::instruments::OptionType;
+use crate::pricer::Pricer;
+use test_utils::{date, flat_vol_surface};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
@@ -10,13 +23,6 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::common::models::closed_form::asian::{
-    geometric_asian_call, geometric_asian_put,
-};
-use finstack_valuations::instruments::exotics::asian_option::{AsianOption, AveragingMethod};
-use finstack_valuations::instruments::OptionType;
-use finstack_valuations::pricer::Pricer;
-use finstack_valuations::test_utils::{date, flat_vol_surface};
 
 fn market(as_of: Date, spot: f64, vol: f64, rate: f64, div_yield: f64) -> MarketContext {
     let expiries = [0.25, 0.5, 1.0, 2.0];
@@ -47,7 +53,7 @@ fn asian_base(
     strike: f64,
     fixing_dates: Vec<Date>,
 ) -> AsianOption {
-    finstack_valuations::instruments::exotics::asian_option::AsianOptionBuilder::new()
+    crate::instruments::exotics::asian_option::AsianOptionBuilder::new()
         .id(InstrumentId::new("ASIAN-TEST"))
         .underlying_ticker("SPX".to_string())
         .strike(Money::new(strike, Currency::USD))
@@ -84,7 +90,7 @@ impl<T> Tap for T {}
 
 #[test]
 fn geometric_analytical_matches_closed_form_unseasoned() -> finstack_core::Result<()> {
-    use finstack_valuations::instruments::exotics::asian_option::AsianOptionAnalyticalGeometricPricer;
+    use crate::instruments::exotics::asian_option::AsianOptionAnalyticalGeometricPricer;
 
     let as_of = date(2025, 1, 2);
     let expiry = date(2026, 1, 2);
@@ -141,7 +147,7 @@ fn geometric_analytical_matches_closed_form_unseasoned() -> finstack_core::Resul
 
 #[test]
 fn geometric_analytical_expired_uses_realized_average() -> finstack_core::Result<()> {
-    use finstack_valuations::instruments::exotics::asian_option::AsianOptionAnalyticalGeometricPricer;
+    use crate::instruments::exotics::asian_option::AsianOptionAnalyticalGeometricPricer;
 
     let expiry = date(2025, 6, 30);
     let as_of = expiry; // expired
@@ -168,7 +174,7 @@ fn geometric_analytical_expired_uses_realized_average() -> finstack_core::Result
 
 #[test]
 fn geometric_analytical_errors_when_seasoned_and_not_expired() -> finstack_core::Result<()> {
-    use finstack_valuations::instruments::exotics::asian_option::AsianOptionAnalyticalGeometricPricer;
+    use crate::instruments::exotics::asian_option::AsianOptionAnalyticalGeometricPricer;
 
     let as_of = date(2025, 1, 2);
     let expiry = date(2025, 7, 2);
@@ -198,7 +204,7 @@ fn geometric_analytical_errors_when_seasoned_and_not_expired() -> finstack_core:
 
 #[test]
 fn tw_arithmetic_all_fixings_in_past_discounts_deterministic_payoff() -> finstack_core::Result<()> {
-    use finstack_valuations::instruments::exotics::asian_option::AsianOptionSemiAnalyticalTwPricer;
+    use crate::instruments::exotics::asian_option::AsianOptionSemiAnalyticalTwPricer;
 
     let as_of = date(2025, 7, 1);
     let expiry = date(2025, 12, 31);
@@ -251,7 +257,7 @@ fn tw_arithmetic_all_fixings_in_past_discounts_deterministic_payoff() -> finstac
 
 #[test]
 fn tw_arithmetic_negative_k_eff_put_returns_zero() -> finstack_core::Result<()> {
-    use finstack_valuations::instruments::exotics::asian_option::AsianOptionSemiAnalyticalTwPricer;
+    use crate::instruments::exotics::asian_option::AsianOptionSemiAnalyticalTwPricer;
 
     let as_of = date(2025, 1, 2);
     let expiry = date(2025, 7, 2);
@@ -298,7 +304,7 @@ fn tw_arithmetic_negative_k_eff_put_returns_zero() -> finstack_core::Result<()> 
 fn geometric_closed_form_put_matches_helper() -> finstack_core::Result<()> {
     // Quick sanity: exercise the geometric put path in the pricer file by comparing
     // to the closed-form helper for puts.
-    use finstack_valuations::instruments::exotics::asian_option::AsianOptionAnalyticalGeometricPricer;
+    use crate::instruments::exotics::asian_option::AsianOptionAnalyticalGeometricPricer;
 
     let as_of = date(2025, 1, 2);
     let expiry = date(2026, 1, 2);

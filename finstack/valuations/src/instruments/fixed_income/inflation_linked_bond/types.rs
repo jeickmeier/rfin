@@ -1,8 +1,8 @@
 //! Inflation-Linked Bond (ILB) types and implementation.
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
-use crate::instruments::common::dependencies::MarketDependencies;
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common_impl::dependencies::MarketDependencies;
+use crate::instruments::common_impl::traits::Attributes;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{
     BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, StubKind, Tenor,
@@ -931,7 +931,7 @@ impl InflationLinkedBond {
 }
 
 // Explicit Instrument trait implementation (replaces macro for better IDE visibility)
-impl crate::instruments::common::traits::Instrument for InflationLinkedBond {
+impl crate::instruments::common_impl::traits::Instrument for InflationLinkedBond {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -944,15 +944,15 @@ impl crate::instruments::common::traits::Instrument for InflationLinkedBond {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
@@ -966,7 +966,7 @@ impl crate::instruments::common::traits::Instrument for InflationLinkedBond {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         // Route through helper for schedule-based PV calculation using curve basis
-        crate::instruments::common::helpers::schedule_pv_using_curve_dc(
+        crate::instruments::common_impl::helpers::schedule_pv_using_curve_dc(
             self,
             curves,
             as_of,
@@ -981,7 +981,7 @@ impl crate::instruments::common::traits::Instrument for InflationLinkedBond {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(curves.clone()),
             as_of,
@@ -1016,9 +1016,9 @@ impl CashflowProvider for InflationLinkedBond {
     }
 }
 
-impl crate::instruments::common::traits::CurveDependencies for InflationLinkedBond {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for InflationLinkedBond {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .build()
     }

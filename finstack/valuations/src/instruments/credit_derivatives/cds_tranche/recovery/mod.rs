@@ -1,7 +1,7 @@
 //! Stochastic recovery models for CDS tranche pricing.
 //!
 //! This module re-exports the shared recovery model infrastructure from
-//! [`crate::instruments::common::models::correlation::recovery`].
+//! [`crate::instruments::common_impl::models::correlation::recovery`].
 //!
 //! Recovery rates empirically decrease in stressed markets (negative correlation
 //! with default intensity). This is critical for senior tranches which are
@@ -49,4 +49,4 @@
 //! - Frye, J. (2000). "Depressing Recoveries." *Risk*, November 2000.
 
 // Re-export everything from the shared correlation module
-pub use crate::instruments::common::models::correlation::recovery::*;
+pub use crate::instruments::common_impl::models::correlation::recovery::*;

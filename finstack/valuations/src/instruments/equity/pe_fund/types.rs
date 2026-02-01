@@ -1,7 +1,7 @@
 //! Private markets fund investment instrument type and implementations.
 
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::common::traits::{Attributes, Instrument};
+use crate::instruments::common_impl::traits::{Attributes, Instrument};
 use crate::instruments::equity::pe_fund::waterfall::{
     AllocationLedger, EquityWaterfallEngine, FundEvent, WaterfallSpec,
 };
@@ -146,7 +146,7 @@ impl Instrument for PrivateMarketsFund {
 
     fn value(&self, curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
         if let Some(ref discount_curve_id) = self.discount_curve_id {
-            use crate::instruments::common::discountable::Discountable;
+            use crate::instruments::common_impl::discountable::Discountable;
             let flows = self.lp_cashflows()?;
             let disc = curves.get_discount(discount_curve_id.as_str())?;
             flows.npv(disc.as_ref(), disc.base_date(), Some(self.spec.irr_basis))
@@ -168,7 +168,7 @@ impl Instrument for PrivateMarketsFund {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(curves.clone()),
             as_of,

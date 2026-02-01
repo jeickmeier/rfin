@@ -4,6 +4,10 @@
 //! - Exercise the calculators through the standard registry (public API).
 //! - Validate results against an explicit finite-difference reference implementation.
 
+use crate::finstack_test_utils::{
+    date, equity_option_european_call, flat_discount_with_tenor, flat_vol_surface,
+    fx_option_european_call,
+};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits, MarketBump};
@@ -15,10 +19,6 @@ use finstack_core::types::CurveId;
 use finstack_valuations::instruments::equity::equity_option::EquityOption;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
-use finstack_valuations::test_utils::{
-    date, equity_option_european_call, flat_discount_with_tenor, flat_vol_surface,
-    fx_option_european_call,
-};
 use std::sync::Arc;
 
 const SPOT_BUMP_PCT: f64 = 0.01;

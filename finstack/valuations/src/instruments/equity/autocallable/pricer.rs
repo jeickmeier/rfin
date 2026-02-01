@@ -1,17 +1,17 @@
 //! Autocallable Monte Carlo pricer.
 
 #[cfg(feature = "mc")]
-use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
+use crate::instruments::common_impl::mc::process::gbm::{GbmParams, GbmProcess};
 #[cfg(feature = "mc")]
-use crate::instruments::common::models::monte_carlo::payoff::autocallable::{
+use crate::instruments::common_impl::models::monte_carlo::payoff::autocallable::{
     AutocallablePayoff, FinalPayoffType as McFinalPayoffType,
 };
 #[cfg(feature = "mc")]
-use crate::instruments::common::models::monte_carlo::pricer::path_dependent::{
+use crate::instruments::common_impl::models::monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
 #[cfg(feature = "mc")]
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 #[cfg(feature = "mc")]
 use crate::instruments::equity::autocallable::types::{Autocallable, FinalPayoffType};
 #[cfg(feature = "mc")]
@@ -173,7 +173,7 @@ impl AutocallableMcPricer {
 
         // Derive deterministic seed from instrument ID and scenario
         #[cfg(feature = "mc")]
-        use crate::instruments::common::models::monte_carlo::seed;
+        use crate::instruments::common_impl::models::monte_carlo::seed;
 
         let seed = if let Some(ref scenario) = inst.pricing_overrides.mc_seed_scenario {
             #[cfg(feature = "mc")]
@@ -193,7 +193,7 @@ impl AutocallableMcPricer {
 
         // Create time grid that includes observation dates to ensure exact event timing
         #[cfg(feature = "mc")]
-        use crate::instruments::common::mc::time_grid::TimeGrid;
+        use crate::instruments::common_impl::mc::time_grid::TimeGrid;
 
         let mut grid_times = Vec::with_capacity(num_steps + observation_times.len() + 1);
         grid_times.push(0.0);
@@ -248,7 +248,7 @@ impl Pricer for AutocallableMcPricer {
 
     fn price_dyn(
         &self,
-        instrument: &dyn crate::instruments::common::traits::Instrument,
+        instrument: &dyn crate::instruments::common_impl::traits::Instrument,
         market: &MarketContext,
         as_of: Date,
     ) -> PricingResult<ValuationResult> {

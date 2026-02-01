@@ -9,7 +9,7 @@
 //! This avoids the O(h) bias that one-sided differences can introduce,
 //! especially important for curved volatility surfaces.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::rates::inflation_cap_floor::InflationCapFloor;
 use crate::metrics::bump_sizes;
 use crate::metrics::bump_surface_vol_absolute;

@@ -5,7 +5,7 @@
 //! `StochasticProcess`, `Discretization`, and `PathState` remain under
 //! `instruments::common::mc::traits`.
 
-use crate::instruments::common::mc::traits::PathState;
+use crate::instruments::common_impl::mc::traits::PathState;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 
@@ -36,7 +36,7 @@ pub trait Payoff: Send + Sync + Clone {
     /// Optional hook invoked at the start of each path with access to RNG.
     ///
     /// Useful to draw per-path random variables (e.g., default threshold E ~ Exp(1)).
-    fn on_path_start<R: crate::instruments::common::mc::traits::RandomStream>(
+    fn on_path_start<R: crate::instruments::common_impl::mc::traits::RandomStream>(
         &mut self,
         _rng: &mut R,
     ) {

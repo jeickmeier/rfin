@@ -2,7 +2,7 @@
 //!
 //! Provides parallel and key-rate vega calculators for instruments with volatility surfaces.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::metrics::sensitivities::config as sens_config;
 use crate::metrics::MetricCalculator;
 use crate::metrics::{MetricContext, MetricId};

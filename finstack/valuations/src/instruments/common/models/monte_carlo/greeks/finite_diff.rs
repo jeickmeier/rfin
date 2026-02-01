@@ -4,8 +4,10 @@
 //! for base and bumped scenarios. This reduces variance significantly.
 
 use super::super::engine::McEngine;
-use crate::instruments::common::mc::traits::{Discretization, RandomStream, StochasticProcess};
-use crate::instruments::common::models::monte_carlo::traits::Payoff;
+use crate::instruments::common_impl::mc::traits::{
+    Discretization, RandomStream, StochasticProcess,
+};
+use crate::instruments::common_impl::models::monte_carlo::traits::Payoff;
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 
@@ -152,11 +154,11 @@ where
 mod tests {
     use super::super::super::engine::McEngineConfig;
     use super::*;
-    use crate::instruments::common::mc::discretization::exact::ExactGbm;
-    use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
-    use crate::instruments::common::mc::rng::philox::PhiloxRng;
-    use crate::instruments::common::mc::time_grid::TimeGrid;
-    use crate::instruments::common::models::monte_carlo::payoff::vanilla::EuropeanCall;
+    use crate::instruments::common_impl::mc::discretization::exact::ExactGbm;
+    use crate::instruments::common_impl::mc::process::gbm::{GbmParams, GbmProcess};
+    use crate::instruments::common_impl::mc::rng::philox::PhiloxRng;
+    use crate::instruments::common_impl::mc::time_grid::TimeGrid;
+    use crate::instruments::common_impl::models::monte_carlo::payoff::vanilla::EuropeanCall;
 
     #[test]
     fn test_finite_diff_delta_atm() {
@@ -169,7 +171,7 @@ mod tests {
             use_parallel: false,
             chunk_size: 1000,
             path_capture:
-                crate::instruments::common::models::monte_carlo::engine::PathCaptureConfig::default(
+                crate::instruments::common_impl::models::monte_carlo::engine::PathCaptureConfig::default(
                 ),
             antithetic: false,
         });
@@ -207,7 +209,7 @@ mod tests {
             use_parallel: false,
             chunk_size: 1000,
             path_capture:
-                crate::instruments::common::models::monte_carlo::engine::PathCaptureConfig::default(
+                crate::instruments::common_impl::models::monte_carlo::engine::PathCaptureConfig::default(
                 ),
             antithetic: false,
         });

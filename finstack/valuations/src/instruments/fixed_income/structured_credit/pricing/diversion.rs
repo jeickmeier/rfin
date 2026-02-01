@@ -3,7 +3,7 @@
 //! This module provides a generalized framework for defining cash flow diversions
 //! based on coverage test failures or custom conditions.
 
-use crate::instruments::common::validation;
+use crate::instruments::common_impl::validation;
 use finstack_core::Result;
 use std::collections::{HashMap, HashSet};
 

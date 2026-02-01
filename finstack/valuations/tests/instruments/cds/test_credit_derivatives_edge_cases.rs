@@ -68,7 +68,7 @@ fn test_recovery01_at_lower_boundary() {
     // Recovery rate at lower boundary: 0.005 (0.5%)
     // With RECOVERY_BUMP = 0.01, bumped_down = 0.0, so we can only bump up
     let recovery = 0.005;
-    let cds = finstack_valuations::test_utils::cds_buy_protection(
+    let cds = crate::finstack_test_utils::cds_buy_protection(
         "CDS-LOW-RECOVERY",
         Money::new(10_000_000.0, Currency::USD),
         200.0, // 200bp
@@ -110,7 +110,7 @@ fn test_recovery01_at_upper_boundary() {
 
     // Recovery rate at upper boundary: 0.99 (99%)
     let recovery = 0.99;
-    let cds = finstack_valuations::test_utils::cds_buy_protection(
+    let cds = crate::finstack_test_utils::cds_buy_protection(
         "CDS-HIGH-RECOVERY",
         Money::new(10_000_000.0, Currency::USD),
         50.0, // 50bp (tight spread for high recovery)
@@ -151,7 +151,7 @@ fn test_recovery01_symmetry() {
 
     // Standard recovery rate (40%)
     let recovery = 0.40;
-    let cds = finstack_valuations::test_utils::cds_buy_protection(
+    let cds = crate::finstack_test_utils::cds_buy_protection(
         "CDS-STANDARD",
         Money::new(10_000_000.0, Currency::USD),
         150.0,
@@ -192,7 +192,7 @@ fn test_expected_loss_distressed_credit() {
     let maturity = Date::from_calendar_date(2030, Month::March, 20).unwrap();
 
     let recovery = 0.25; // Lower recovery for distressed
-    let cds = finstack_valuations::test_utils::cds_buy_protection(
+    let cds = crate::finstack_test_utils::cds_buy_protection(
         "CDS-DISTRESSED",
         Money::new(10_000_000.0, Currency::USD),
         2500.0, // 2500bp = 25% (deeply distressed)
@@ -249,7 +249,7 @@ fn test_par_spread_npv_consistency() {
     let recovery = 0.40;
     let initial_spread = 150.0;
 
-    let cds = finstack_valuations::test_utils::cds_buy_protection(
+    let cds = crate::finstack_test_utils::cds_buy_protection(
         "CDS-CONSISTENCY",
         Money::new(10_000_000.0, Currency::USD),
         initial_spread,
@@ -311,7 +311,7 @@ fn test_jtd_recovery_sensitivity() {
     let recovery_rates = [0.05, 0.25, 0.40, 0.60, 0.80, 0.95];
 
     for &recovery in &recovery_rates {
-        let cds = finstack_valuations::test_utils::cds_buy_protection(
+        let cds = crate::finstack_test_utils::cds_buy_protection(
             format!("CDS-JTD-{}", (recovery * 100.0) as i32),
             Money::new(10_000_000.0, Currency::USD),
             200.0,

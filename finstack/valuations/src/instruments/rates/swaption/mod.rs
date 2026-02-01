@@ -113,10 +113,11 @@ pub(crate) mod types;
 
 pub use parameters::SwaptionParams;
 pub use pricer::{
-    BermudanPricingMethod, BermudanSwaptionPricer, HullWhiteParams, SimpleSwaptionBlackPricer,
+    BermudanPricingMethod, BermudanSwaptionPricer, CalibratedHullWhiteModel, HullWhiteParams,
+    SimpleSwaptionBlackPricer,
 };
 pub use pricing::BermudanSwaptionTreeValuator;
 pub use types::{
-    BermudanSchedule, BermudanSwaption, BermudanType, CashSettlementMethod, GreekInputs, Swaption,
-    SwaptionExercise, SwaptionSettlement, VolatilityModel,
+    BermudanSchedule, BermudanSwaption, BermudanType, CashSettlementMethod, GreekInputs,
+    SABRParameters, Swaption, SwaptionExercise, SwaptionSettlement, VolatilityModel,
 };

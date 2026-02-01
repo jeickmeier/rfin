@@ -7,8 +7,15 @@ use finstack_valuations::calibration::CalibrationConfig;
 use finstack_valuations::market::conventions::ids::OptionConventionId;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::vol::VolQuote;
-use finstack_valuations::test_utils::calibration::execute_step;
+#[allow(dead_code, unused_imports, clippy::expect_used, clippy::unwrap_used)]
+mod test_utils {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/support/test_utils.rs"
+    ));
+}
 use std::hint::black_box;
+use test_utils::calibration::execute_step;
 use time::Month;
 
 fn bench_sabr_slice(c: &mut Criterion) {

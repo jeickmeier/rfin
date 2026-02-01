@@ -6,10 +6,10 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::common::models::trees::{HullWhiteTree, HullWhiteTreeConfig};
 use finstack_valuations::instruments::rates::swaption::BermudanSwaptionTreeValuator;
 use finstack_valuations::instruments::rates::swaption::{
-    BermudanSchedule, BermudanSwaption, BermudanType, SwaptionSettlement,
+    BermudanSchedule, BermudanSwaption, BermudanType, CalibratedHullWhiteModel, HullWhiteParams,
+    SwaptionSettlement,
 };
 use finstack_valuations::instruments::OptionType;
 use time::Month;
@@ -75,11 +75,12 @@ fn test_bermudan_price_positive() {
     let curve = test_discount_curve();
 
     let ttm = swaption.time_to_maturity(as_of).expect("Valid ttm");
-    let config = HullWhiteTreeConfig::new(0.03, 0.01, 50);
-    let tree = HullWhiteTree::calibrate(config, &curve, ttm).expect("Calibration should succeed");
+    let model =
+        CalibratedHullWhiteModel::calibrate(HullWhiteParams::new(0.03, 0.01), 50, &curve, ttm)
+            .expect("Calibration should succeed");
 
-    let valuator =
-        BermudanSwaptionTreeValuator::new(&swaption, &tree, &curve, as_of).expect("Valid valuator");
+    let valuator = BermudanSwaptionTreeValuator::new(&swaption, &model, &curve, as_of)
+        .expect("Valid valuator");
 
     let price = valuator.price();
 
@@ -105,13 +106,14 @@ fn test_bermudan_payer_vs_receiver() {
 
     let curve = test_discount_curve();
     let ttm = payer.time_to_maturity(as_of).expect("Valid ttm");
-    let config = HullWhiteTreeConfig::new(0.03, 0.01, 50);
-    let tree = HullWhiteTree::calibrate(config, &curve, ttm).expect("Calibration should succeed");
+    let model =
+        CalibratedHullWhiteModel::calibrate(HullWhiteParams::new(0.03, 0.01), 50, &curve, ttm)
+            .expect("Calibration should succeed");
 
     let payer_valuator =
-        BermudanSwaptionTreeValuator::new(&payer, &tree, &curve, as_of).expect("Valid valuator");
-    let receiver_valuator =
-        BermudanSwaptionTreeValuator::new(&receiver, &tree, &curve, as_of).expect("Valid valuator");
+        BermudanSwaptionTreeValuator::new(&payer, &model, &curve, as_of).expect("Valid valuator");
+    let receiver_valuator = BermudanSwaptionTreeValuator::new(&receiver, &model, &curve, as_of)
+        .expect("Valid valuator");
 
     let payer_price = payer_valuator.price();
     let receiver_price = receiver_valuator.price();
@@ -143,16 +145,17 @@ fn test_bermudan_strike_sensitivity() {
 
     let curve = test_discount_curve();
     let ttm = low_strike.time_to_maturity(as_of).expect("Valid ttm");
-    let config = HullWhiteTreeConfig::new(0.03, 0.01, 50);
-    let tree = HullWhiteTree::calibrate(config, &curve, ttm).expect("Calibration should succeed");
+    let model =
+        CalibratedHullWhiteModel::calibrate(HullWhiteParams::new(0.03, 0.01), 50, &curve, ttm)
+            .expect("Calibration should succeed");
 
-    let low_price = BermudanSwaptionTreeValuator::new(&low_strike, &tree, &curve, as_of)
+    let low_price = BermudanSwaptionTreeValuator::new(&low_strike, &model, &curve, as_of)
         .expect("Valid valuator")
         .price();
-    let atm_price = BermudanSwaptionTreeValuator::new(&atm_strike, &tree, &curve, as_of)
+    let atm_price = BermudanSwaptionTreeValuator::new(&atm_strike, &model, &curve, as_of)
         .expect("Valid valuator")
         .price();
-    let high_price = BermudanSwaptionTreeValuator::new(&high_strike, &tree, &curve, as_of)
+    let high_price = BermudanSwaptionTreeValuator::new(&high_strike, &model, &curve, as_of)
         .expect("Valid valuator")
         .price();
 
@@ -189,13 +192,14 @@ fn test_bermudan_more_exercise_dates_higher_value() {
 
     let curve = test_discount_curve();
     let ttm = early_swaption.time_to_maturity(as_of).expect("Valid ttm");
-    let config = HullWhiteTreeConfig::new(0.03, 0.01, 50);
-    let tree = HullWhiteTree::calibrate(config, &curve, ttm).expect("Calibration should succeed");
+    let model =
+        CalibratedHullWhiteModel::calibrate(HullWhiteParams::new(0.03, 0.01), 50, &curve, ttm)
+            .expect("Calibration should succeed");
 
-    let early_price = BermudanSwaptionTreeValuator::new(&early_swaption, &tree, &curve, as_of)
+    let early_price = BermudanSwaptionTreeValuator::new(&early_swaption, &model, &curve, as_of)
         .expect("Valid valuator")
         .price();
-    let late_price = BermudanSwaptionTreeValuator::new(&late_swaption, &tree, &curve, as_of)
+    let late_price = BermudanSwaptionTreeValuator::new(&late_swaption, &model, &curve, as_of)
         .expect("Valid valuator")
         .price();
 

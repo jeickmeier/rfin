@@ -11,6 +11,14 @@ use finstack_statements::types::AmountOrScalar;
 use indexmap::IndexMap;
 use time::Month;
 
+#[allow(clippy::expect_used, clippy::unwrap_used, dead_code, unused_imports)]
+mod finstack_test_utils {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../valuations/tests/support/test_utils.rs"
+    ));
+}
+
 /// Test parsing cs.* references
 #[test]
 fn test_parse_cs_interest_expense_total() {
@@ -463,7 +471,7 @@ fn test_build_swap_from_spec() {
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
-    let swap = finstack_valuations::test_utils::usd_irs_swap(
+    let swap = finstack_test_utils::usd_irs_swap(
         InstrumentId::new("SWAP-001"),
         Money::new(5_000_000.0, Currency::USD),
         0.04,
@@ -561,7 +569,7 @@ fn test_build_any_instrument_from_spec_swap_variant() {
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
-    let swap = finstack_valuations::test_utils::usd_irs_swap(
+    let swap = finstack_test_utils::usd_irs_swap(
         InstrumentId::new("SWAP-002"),
         Money::new(3_000_000.0, Currency::USD),
         0.045,

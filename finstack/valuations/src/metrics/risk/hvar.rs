@@ -13,7 +13,7 @@ use finstack_core::Result;
 ///
 /// This calculator integrates Historical VaR into the standard metrics
 /// framework. It requires a `MarketHistory` to be provided at the pricing
-/// boundary (see [`crate::instruments::common::traits::Instrument::price_with_options`]).
+/// boundary (see [`crate::instruments::common_impl::traits::Instrument::price_with_options`]).
 ///
 /// # Examples
 ///
@@ -125,12 +125,18 @@ impl MetricCalculator for GenericExpectedShortfall {
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
+    #[allow(clippy::expect_used, dead_code, unused_imports)]
+    mod test_utils {
+        include!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/support/metrics_risk_test_utils.rs"
+        ));
+    }
+
     use super::*;
-    use crate::instruments::common::traits::Instrument;
-    use crate::metrics::risk::test_utils::{
-        history_from_rate_shifts, sample_as_of, standard_bond, usd_ois_market,
-    };
+    use crate::instruments::common_impl::traits::Instrument;
     use std::sync::Arc;
+    use test_utils::{history_from_rate_shifts, sample_as_of, standard_bond, usd_ois_market};
     use time::Duration;
 
     #[test]

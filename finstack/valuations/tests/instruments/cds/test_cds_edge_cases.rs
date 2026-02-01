@@ -51,7 +51,7 @@ fn test_zero_notional() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let cds = finstack_valuations::test_utils::cds_buy_protection(
+    let cds = crate::finstack_test_utils::cds_buy_protection(
         "ZERO_NOTIONAL",
         Money::new(0.0, Currency::USD),
         100.0,
@@ -76,7 +76,7 @@ fn test_zero_spread() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let cds = finstack_valuations::test_utils::cds_buy_protection(
+    let cds = crate::finstack_test_utils::cds_buy_protection(
         "ZERO_SPREAD",
         Money::new(10_000_000.0, Currency::USD),
         0.0,
@@ -107,7 +107,7 @@ fn test_negative_spread() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let cds = finstack_valuations::test_utils::cds_buy_protection(
+    let cds = crate::finstack_test_utils::cds_buy_protection(
         "NEG_SPREAD",
         Money::new(10_000_000.0, Currency::USD),
         -50.0, // Negative spread
@@ -140,7 +140,7 @@ fn test_very_high_spread() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let cds = finstack_valuations::test_utils::cds_buy_protection(
+    let cds = crate::finstack_test_utils::cds_buy_protection(
         "HIGH_SPREAD",
         Money::new(10_000_000.0, Currency::USD),
         10000.0, // 10000 bps = 100%
@@ -181,7 +181,7 @@ fn test_zero_recovery_rate() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let mut cds = finstack_valuations::test_utils::cds_buy_protection(
+    let mut cds = crate::finstack_test_utils::cds_buy_protection(
         "ZERO_RECOVERY",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -220,7 +220,7 @@ fn test_full_recovery_rate() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let mut cds = finstack_valuations::test_utils::cds_buy_protection(
+    let mut cds = crate::finstack_test_utils::cds_buy_protection(
         "FULL_RECOVERY",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -252,7 +252,7 @@ fn test_very_short_tenor() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let cds = finstack_valuations::test_utils::cds_buy_protection(
+    let cds = crate::finstack_test_utils::cds_buy_protection(
         "ONE_DAY",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -277,7 +277,7 @@ fn test_maturity_equals_valuation_date() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let cds = finstack_valuations::test_utils::cds_buy_protection(
+    let cds = crate::finstack_test_utils::cds_buy_protection(
         "EXPIRED",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -313,7 +313,7 @@ fn test_valuation_after_maturity() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let cds = finstack_valuations::test_utils::cds_buy_protection(
+    let cds = crate::finstack_test_utils::cds_buy_protection(
         "PAST_MATURITY",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -364,7 +364,7 @@ fn test_very_high_hazard_rate() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let cds = finstack_valuations::test_utils::cds_buy_protection(
+    let cds = crate::finstack_test_utils::cds_buy_protection(
         "HIGH_HAZARD",
         Money::new(10_000_000.0, Currency::USD),
         1000.0,
@@ -405,7 +405,7 @@ fn test_zero_hazard_rate() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let cds = finstack_valuations::test_utils::cds_buy_protection(
+    let cds = crate::finstack_test_utils::cds_buy_protection(
         "ZERO_HAZARD",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -435,7 +435,7 @@ fn test_metrics_with_zero_notional() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let cds = finstack_valuations::test_utils::cds_buy_protection(
+    let cds = crate::finstack_test_utils::cds_buy_protection(
         "ZERO_METRICS",
         Money::new(0.0, Currency::USD),
         100.0,
@@ -496,7 +496,7 @@ fn test_par_spread_with_mismatched_curves_errors() {
                 .unwrap(),
         );
 
-    let cds = finstack_valuations::test_utils::cds_buy_protection(
+    let cds = crate::finstack_test_utils::cds_buy_protection(
         "MISMATCH_TEST",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -526,7 +526,7 @@ fn test_numerical_stability_with_extreme_dates() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let cds = finstack_valuations::test_utils::cds_buy_protection(
+    let cds = crate::finstack_test_utils::cds_buy_protection(
         "LONG_DATED",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -554,7 +554,7 @@ fn test_integration_fallback_with_invalid_params() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let cds = finstack_valuations::test_utils::cds_buy_protection(
+    let cds = crate::finstack_test_utils::cds_buy_protection(
         "FALLBACK_TEST",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -579,7 +579,7 @@ fn test_very_small_notional() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let cds = finstack_valuations::test_utils::cds_buy_protection(
+    let cds = crate::finstack_test_utils::cds_buy_protection(
         "TINY_NOTIONAL",
         Money::new(0.01, Currency::USD), // 1 cent
         100.0,
@@ -608,7 +608,7 @@ fn test_very_large_notional() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let cds = finstack_valuations::test_utils::cds_buy_protection(
+    let cds = crate::finstack_test_utils::cds_buy_protection(
         "HUGE_NOTIONAL",
         Money::new(1_000_000_000_000.0, Currency::USD), // 1 trillion
         100.0,
@@ -638,7 +638,7 @@ fn test_missing_discount_curve_error() {
 
     let market = MarketContext::new().insert_hazard(hazard);
 
-    let cds = finstack_valuations::test_utils::cds_buy_protection(
+    let cds = crate::finstack_test_utils::cds_buy_protection(
         "MISSING_DISC",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -668,7 +668,7 @@ fn test_missing_hazard_curve_error() {
 
     let market = MarketContext::new().insert_discount(disc);
 
-    let cds = finstack_valuations::test_utils::cds_buy_protection(
+    let cds = crate::finstack_test_utils::cds_buy_protection(
         "MISSING_HAZARD",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -693,7 +693,7 @@ fn test_settlement_delay_zero_is_valid() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let mut cds = finstack_valuations::test_utils::cds_buy_protection(
+    let mut cds = crate::finstack_test_utils::cds_buy_protection(
         "ZERO_DELAY",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
@@ -722,7 +722,7 @@ fn test_recovery_rate_bounds_not_enforced() {
         .insert_hazard(hazard);
 
     // Test with negative recovery (invalid)
-    let mut cds = finstack_valuations::test_utils::cds_buy_protection(
+    let mut cds = crate::finstack_test_utils::cds_buy_protection(
         "NEG_RECOVERY",
         Money::new(10_000_000.0, Currency::USD),
         100.0,

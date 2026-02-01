@@ -23,8 +23,8 @@
 //! - Hagan, P. S. (2003). "Convexity Conundrums: Pricing CMS Swaps, Caps, and Floors."
 //! - Hull, J. (2018). "Options, Futures, and Other Derivatives."
 
-use crate::instruments::common::models::d1_d2_black76;
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::models::d1_d2_black76;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::rates::cms_option::types::CmsOption;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
@@ -64,7 +64,7 @@ impl CmsOptionPricer {
         as_of: Date,
         convexity_scale: f64,
     ) -> Result<Money> {
-        use crate::instruments::common::pricing::time::relative_df_discount_curve;
+        use crate::instruments::common_impl::pricing::time::relative_df_discount_curve;
 
         let mut total_pv = 0.0;
         let discount_curve = curves.get_discount(inst.discount_curve_id.as_ref())?;
@@ -183,7 +183,7 @@ impl CmsOptionPricer {
         start: Date,
         end: Date,
     ) -> Result<(f64, f64)> {
-        use crate::instruments::common::pricing::time::{
+        use crate::instruments::common_impl::pricing::time::{
             rate_period_on_dates, relative_df_discount_curve,
         };
 

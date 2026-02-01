@@ -407,7 +407,7 @@ mod tests {
         id: String,
         value: Money,
         margin_spec: Option<OtcMarginSpec>,
-        attributes: crate::instruments::common::traits::Attributes,
+        attributes: crate::instruments::common_impl::traits::Attributes,
     }
 
     impl TestInstrument {
@@ -416,12 +416,12 @@ mod tests {
                 id: "TEST-INST".to_string(),
                 value,
                 margin_spec,
-                attributes: crate::instruments::common::traits::Attributes::default(),
+                attributes: crate::instruments::common_impl::traits::Attributes::default(),
             }
         }
     }
 
-    impl crate::instruments::common::traits::Instrument for TestInstrument {
+    impl crate::instruments::common_impl::traits::Instrument for TestInstrument {
         fn id(&self) -> &str {
             &self.id
         }
@@ -434,15 +434,15 @@ mod tests {
             self
         }
 
-        fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+        fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
             &self.attributes
         }
 
-        fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+        fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
             &mut self.attributes
         }
 
-        fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+        fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
             Box::new(self.clone())
         }
 

@@ -6,7 +6,7 @@
 //! All arithmetic uses the core `Money` type to respect rounding policy and
 //! currency safety requirements.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::equity::Equity;
 // (no pricer registry integration here)
 use finstack_core::dates::Date;

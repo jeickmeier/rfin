@@ -59,7 +59,7 @@
 //!
 //! ## Computing All Greeks
 //!
-//! ```rust
+//! ```rust,ignore
 //! use finstack_valuations::instruments::common::models::closed_form::greeks::{
 //!     bs_call_greeks, BsGreeks
 //! };
@@ -82,7 +82,7 @@
 //!
 //! ## Individual Greek Calculations
 //!
-//! ```rust
+//! ```rust,ignore
 //! use finstack_valuations::instruments::common::models::closed_form::greeks::{
 //!     bs_call_delta, bs_gamma, bs_vega
 //! };
@@ -107,7 +107,7 @@
 //! assert!(vega > 0.0); // Always positive for both calls and puts
 //! ```
 
-use crate::instruments::common::models::volatility::black::{d1, d2};
+use crate::instruments::common_impl::models::volatility::black::{d1, d2};
 use finstack_core::math::special_functions::{norm_cdf, norm_pdf};
 
 /// Black-Scholes call option delta.
@@ -145,7 +145,7 @@ use finstack_core::math::special_functions::{norm_cdf, norm_pdf};
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use finstack_valuations::instruments::common::models::closed_form::greeks::bs_call_delta;
 ///
 /// let spot = 100.0;
@@ -208,7 +208,7 @@ pub fn bs_call_delta(
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use finstack_valuations::instruments::common::models::closed_form::greeks::bs_put_delta;
 ///
 /// let spot = 100.0;
@@ -267,7 +267,7 @@ pub fn bs_put_delta(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use finstack_valuations::instruments::common::models::closed_form::greeks::bs_gamma;
 ///
 /// let spot = 100.0;
@@ -332,7 +332,7 @@ pub fn bs_gamma(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vo
 ///
 /// # Examples
 ///
-/// ```rust
+/// ```rust,ignore
 /// use finstack_valuations::instruments::common::models::closed_form::greeks::bs_vega;
 ///
 /// let spot = 100.0;

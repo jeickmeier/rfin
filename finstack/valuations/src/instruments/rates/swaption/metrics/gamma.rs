@@ -49,7 +49,7 @@ impl MetricCalculator for GammaCalculator {
                 if inputs.forward <= 0.0 {
                     0.0
                 } else {
-                    use crate::instruments::common::models::d1_black76;
+                    use crate::instruments::common_impl::models::d1_black76;
                     let d1 = d1_black76(
                         inputs.forward,
                         option.strike_rate,
@@ -61,7 +61,7 @@ impl MetricCalculator for GammaCalculator {
                 }
             }
             VolatilityModel::Normal => {
-                use crate::instruments::common::models::volatility::normal::d_bachelier;
+                use crate::instruments::common_impl::models::volatility::normal::d_bachelier;
                 let d = d_bachelier(
                     inputs.forward,
                     option.strike_rate,

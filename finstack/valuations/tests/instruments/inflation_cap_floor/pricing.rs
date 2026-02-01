@@ -1,5 +1,6 @@
 //! Pricing tests for inflation caps/floors.
 
+use crate::finstack_test_utils::flat_vol_surface;
 use crate::inflation_swap::fixtures::{flat_discount, flat_inflation_curve, simple_index};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{
@@ -15,7 +16,6 @@ use finstack_valuations::instruments::rates::inflation_cap_floor::{
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::pricer::ModelKey;
-use finstack_valuations::test_utils::flat_vol_surface;
 use time::{Duration, Month};
 
 #[test]

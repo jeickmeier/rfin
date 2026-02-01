@@ -3,7 +3,7 @@
 //! Provides a robust SVD-based solver used by both equity and swaption LSMC pricers.
 //! Consolidates duplicate regression logic to ensure consistent results and easier testing.
 
-use crate::instruments::common::models::monte_carlo::pricer::basis::BasisFunctions;
+use crate::instruments::common_impl::models::monte_carlo::pricer::basis::BasisFunctions;
 use finstack_core::Result;
 
 /// Solve least squares problem using SVD (Singular Value Decomposition).
@@ -127,7 +127,7 @@ where
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common::models::monte_carlo::pricer::basis::PolynomialBasis;
+    use crate::instruments::common_impl::models::monte_carlo::pricer::basis::PolynomialBasis;
 
     #[test]
     fn test_solve_least_squares_simple() {

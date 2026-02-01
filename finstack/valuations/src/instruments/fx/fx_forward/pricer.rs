@@ -3,7 +3,7 @@
 //! Provides the discounting pricer for FX forward instruments using
 //! covered interest rate parity (CIRP).
 
-use crate::instruments::common::traits::Instrument as Priceable;
+use crate::instruments::common_impl::traits::Instrument as Priceable;
 use crate::instruments::fx::fx_forward::FxForward;
 use crate::pricer::{
     expect_inst, InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,

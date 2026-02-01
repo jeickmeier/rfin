@@ -44,11 +44,11 @@ use super::super::types::Bond;
 #[cfg(test)]
 use super::super::types::CallPut;
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::common::models::trees::tree_framework::state_keys as tf_keys;
-use crate::instruments::common::models::trees::two_factor_rates_credit::{
+use crate::instruments::common_impl::models::trees::tree_framework::state_keys as tf_keys;
+use crate::instruments::common_impl::models::trees::two_factor_rates_credit::{
     RatesCreditConfig, RatesCreditTree,
 };
-use crate::instruments::common::models::{
+use crate::instruments::common_impl::models::{
     short_rate_keys, NodeState, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
     TreeValuator,
 };
@@ -1256,8 +1256,8 @@ mod tests {
     #[test]
     #[cfg(feature = "slow")]
     fn test_rates_credit_default_lowers_price() {
-        use crate::instruments::common::models::trees::tree_framework::state_keys as tf_keys;
-        use crate::instruments::common::models::trees::two_factor_rates_credit::{
+        use crate::instruments::common_impl::models::trees::tree_framework::state_keys as tf_keys;
+        use crate::instruments::common_impl::models::trees::two_factor_rates_credit::{
             RatesCreditConfig, RatesCreditTree,
         };
         use finstack_core::market_data::term_structures::HazardCurve;

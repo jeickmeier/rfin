@@ -15,7 +15,7 @@
 use crate::calibration::bumps::hazard::{bump_hazard_shift, bump_hazard_spreads};
 use crate::calibration::bumps::BumpRequest;
 use crate::constants::{credit, BASIS_POINTS_PER_UNIT};
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds::pricer::{CDSPricer, CDSPricerConfig};
 use crate::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use crate::instruments::credit_derivatives::cds_index::{
@@ -581,7 +581,7 @@ impl crate::pricer::Pricer for SimpleCdsIndexHazardPricer {
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> std::result::Result<crate::results::ValuationResult, crate::pricer::PricingError> {
-        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common_impl::traits::Instrument;
 
         // Type-safe downcasting
         let cds_index = instrument

@@ -14,7 +14,7 @@
 
 use std::marker::PhantomData;
 
-use crate::instruments::common::traits::{
+use crate::instruments::common_impl::traits::{
     Instrument, OptionDeltaProvider, OptionForeignRhoProvider, OptionGammaProvider,
     OptionRhoProvider, OptionThetaProvider, OptionVannaProvider, OptionVegaProvider,
     OptionVolgaProvider,

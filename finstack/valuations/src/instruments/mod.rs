@@ -94,15 +94,67 @@
 //!
 //! # See Also
 //!
-//! - [`common::traits::Instrument`] for the core instrument trait
-//! - [`common::traits::Attributes`] for tagging and scenario selection
+//! - [`Instrument`] for the core instrument trait
+//! - [`Attributes`] for tagging and scenario selection
 //! - [`crate::pricer`] for pricing registry and dispatch
 //! - [`crate::metrics`] for risk metric calculations
 
 // Common functionality (traits, macros, models, helpers)
 #[macro_use]
+#[path = "common/mod.rs"]
+pub(crate) mod common_impl;
+
+/// Deprecated compatibility shim for `instruments::common`.
+#[deprecated(
+    note = "`instruments::common` is deprecated; use `finstack_valuations::instruments::*` instead."
+)]
 #[doc(hidden)]
-pub mod common;
+pub mod common {
+    pub use super::common_impl::dependencies::{FxPair, MarketDependencies};
+    pub use super::common_impl::discountable::Discountable;
+    pub use super::common_impl::fx_dates::{
+        add_joint_business_days, adjust_joint_calendar, roll_spot_date, ResolvedCalendarPair,
+    };
+    pub use super::common_impl::helpers::validate_currency_consistency;
+    pub use super::common_impl::period_pv::PeriodizedPvExt;
+    pub use super::common_impl::traits::{
+        Attributes, CurveDependencies, CurveIdVec, EquityDependencies, EquityInstrumentDeps,
+        Instrument, InstrumentCurves, PricingOptions,
+    };
+    pub use finstack_core::dates::fx::resolve_calendar;
+
+    pub mod dependencies {
+        pub use super::super::common_impl::dependencies::*;
+    }
+
+    pub mod discountable {
+        pub use super::super::common_impl::discountable::*;
+    }
+
+    pub mod fx_dates {
+        pub use super::super::common_impl::fx_dates::*;
+    }
+
+    pub mod helpers {
+        pub use super::super::common_impl::helpers::*;
+    }
+
+    pub mod parameters {
+        pub use super::super::common_impl::parameters::*;
+    }
+
+    pub mod period_pv {
+        pub use super::super::common_impl::period_pv::*;
+    }
+
+    pub mod pricing {
+        pub use super::super::common_impl::pricing::*;
+    }
+
+    pub mod traits {
+        pub use super::super::common_impl::traits::*;
+    }
+}
 
 // === Category Modules ===
 /// Commodity derivatives.
@@ -161,14 +213,17 @@ pub use exotics::{
 };
 
 // === Common Functionality ===
-pub use common::period_pv::PeriodizedPvExt;
-pub use common::traits::{
+pub use common_impl::dependencies::{FxPair, MarketDependencies};
+pub use common_impl::discountable::Discountable;
+pub use common_impl::period_pv::PeriodizedPvExt;
+pub use common_impl::pricing::{TotalReturnLegParams, TrsEngine, TrsReturnModel};
+pub use common_impl::traits::{
     Attributes, CurveDependencies, CurveIdVec, EquityDependencies, EquityInstrumentDeps,
     Instrument, InstrumentCurves, PricingOptions,
 };
 
 // === Parameter Types ===
-pub use common::parameters::{
+pub use common_impl::parameters::{
     BasisSwapLeg, BondConvention, ContractSpec, CreditParams, EquityOptionParams,
     EquityUnderlyingParams, ExerciseStyle, FinancingLegSpec, FixedLegSpec, FloatLegSpec,
     FxOptionParams, FxUnderlyingParams, IRSConvention, IndexUnderlyingParams,
@@ -178,18 +233,18 @@ pub use common::parameters::{
 };
 
 // Re-export TRS common types
-pub use common::parameters::trs_common::{TrsScheduleSpec, TrsSide};
+pub use common_impl::parameters::trs_common::{TrsScheduleSpec, TrsSide};
 
 /// Market parameter types for backward compatibility with tests.
 ///
 /// This module re-exports commonly used market parameter types.
 pub mod market {
-    pub use super::common::parameters::market::{ExerciseStyle, OptionType, SettlementType};
+    pub use super::common_impl::parameters::market::{ExerciseStyle, OptionType, SettlementType};
 }
 
 /// Leg parameter types for backward compatibility.
 pub mod legs {
-    pub use super::common::parameters::legs::PayReceive;
+    pub use super::common_impl::parameters::legs::PayReceive;
 }
 
 /// Pricing overrides module.

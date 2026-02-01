@@ -49,7 +49,7 @@ use super::spec::{
 };
 use crate::cashflow::builder::specs::CouponType;
 use crate::cashflow::builder::FloatingRateSpec;
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::pricing_overrides::PricingOverrides;
 
 /// Rate specification for term loans.
@@ -162,7 +162,7 @@ impl RateSpec {
 ///
 /// # Pricing
 ///
-/// Implements [`Instrument::value()`](crate::instruments::common::traits::Instrument::value)
+/// Implements [`Instrument::value()`](crate::instruments::common_impl::traits::Instrument::value)
 /// using deterministic cashflow discounting. PIK interest is capitalized and excluded from PV.
 ///
 /// # Invariants
@@ -414,7 +414,7 @@ fn validate_currency(expected: Currency, money: Money) -> Result<(), finstack_co
     Ok(())
 }
 
-impl crate::instruments::common::traits::Instrument for TermLoan {
+impl crate::instruments::common_impl::traits::Instrument for TermLoan {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -427,15 +427,15 @@ impl crate::instruments::common::traits::Instrument for TermLoan {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
@@ -457,7 +457,7 @@ impl crate::instruments::common::traits::Instrument for TermLoan {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(curves.clone()),
             as_of,
@@ -528,9 +528,9 @@ impl crate::cashflow::traits::CashflowProvider for TermLoan {
 }
 
 // Implement CurveDependencies for DV01 calculator
-impl crate::instruments::common::traits::CurveDependencies for TermLoan {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        let mut builder = crate::instruments::common::traits::InstrumentCurves::builder();
+impl crate::instruments::common_impl::traits::CurveDependencies for TermLoan {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        let mut builder = crate::instruments::common_impl::traits::InstrumentCurves::builder();
         builder = builder.discount(self.discount_curve_id.clone());
         if let Some(cc) = &self.credit_curve_id {
             builder = builder.credit(cc.clone());

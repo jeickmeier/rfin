@@ -12,4 +12,4 @@ pub const RECOVERY_SUBORDINATED: f64 = 0.20;
 pub const RECOVERY_HIGH_YIELD_DEFAULT: f64 = 0.30;
 
 // Note: The CDS-specific CreditParams duplicated common::parameters::CreditParams and has been
-// removed to avoid divergence. Use `crate::instruments::common::parameters::CreditParams` instead.
+// removed to avoid divergence. Use `crate::instruments::common_impl::parameters::CreditParams` instead.

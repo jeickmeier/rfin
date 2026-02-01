@@ -13,7 +13,7 @@
 //! it directly captures CS01. If a separate credit curve exists, it should
 //! be used instead.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fixed_income::convertible::ConvertibleBond;
 use crate::metrics::bump_discount_curve_parallel;
 use crate::metrics::{MetricCalculator, MetricContext};

@@ -14,7 +14,7 @@
 //! and reprices the convertible bond. An increase in conversion ratio (or decrease
 //! in conversion price) makes conversion more favorable, increasing the bond value.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fixed_income::convertible::ConvertibleBond;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;

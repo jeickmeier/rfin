@@ -8,13 +8,10 @@
 //! - parity: Tolerance-based comparison for validating against QuantLib, Bloomberg, etc.
 
 pub mod helpers;
-#[cfg(feature = "mc")]
-pub mod mc;
 pub mod metrics;
 #[macro_use]
 pub mod parity;
 pub mod parameters;
-pub mod test_barrier_trees;
 pub mod test_discountable;
 pub mod test_helpers;
 pub mod test_pricing;

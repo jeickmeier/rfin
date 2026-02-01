@@ -1,5 +1,4 @@
-//! Shared helpers for unit tests to reduce boilerplate market setup.
-#![allow(clippy::expect_used)]
+// Shared helpers for unit tests to reduce boilerplate market setup.
 use finstack_core::{
     currency::Currency,
     dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor},
@@ -14,18 +13,22 @@ use finstack_core::{
 use rust_decimal::Decimal;
 use time::Month;
 
-use crate::instruments::common::parameters::legs::{FixedLegSpec, FloatLegSpec};
-use crate::instruments::common::parameters::{EquityUnderlyingParams, FxUnderlyingParams};
-use crate::instruments::common::traits::{CurveIdVec, Instrument};
-use crate::instruments::credit_derivatives::cds::{
+use finstack_valuations::instruments::common::parameters::legs::{FixedLegSpec, FloatLegSpec};
+use finstack_valuations::instruments::common::parameters::{
+    EquityUnderlyingParams, FxUnderlyingParams,
+};
+use finstack_valuations::instruments::common::traits::{CurveIdVec, Instrument};
+use finstack_valuations::instruments::credit_derivatives::cds::{
     CDSConvention, CreditDefaultSwap, CreditDefaultSwapBuilder, PayReceive, PremiumLegSpec,
     ProtectionLegSpec, RECOVERY_SENIOR_UNSECURED,
 };
-use crate::instruments::rates::irs::{FloatingLegCompounding, InterestRateSwap};
-use crate::instruments::{Attributes, ExerciseStyle, OptionType, PricingOverrides, SettlementType};
-use crate::instruments::{EquityOption, FxOption};
-use crate::metrics::MetricId;
-use crate::results::ValuationResult;
+use finstack_valuations::instruments::rates::irs::{FloatingLegCompounding, InterestRateSwap};
+use finstack_valuations::instruments::{
+    Attributes, EquityOption, ExerciseStyle, FxOption, OptionType, PricingOverrides,
+    SettlementType,
+};
+use finstack_valuations::metrics::MetricId;
+use finstack_valuations::results::ValuationResult;
 use std::sync::OnceLock;
 
 /// Convenience date helper for tests.
@@ -123,8 +126,8 @@ impl Instrument for TestInstrument {
         &self.id
     }
 
-    fn key(&self) -> crate::pricer::InstrumentType {
-        crate::pricer::InstrumentType::Bond
+    fn key(&self) -> finstack_valuations::pricer::InstrumentType {
+        finstack_valuations::pricer::InstrumentType::Bond
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -144,11 +147,14 @@ impl Instrument for TestInstrument {
         Box::new(self.clone())
     }
 
-    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
-        let mut deps = crate::instruments::common::dependencies::MarketDependencies::new();
+    fn market_dependencies(
+        &self,
+    ) -> finstack_valuations::instruments::common::dependencies::MarketDependencies {
+        let mut deps =
+            finstack_valuations::instruments::common::dependencies::MarketDependencies::new();
         for curve in &self.discount_curves {
             deps.add_curves(
-                crate::instruments::common::traits::InstrumentCurves::builder()
+                finstack_valuations::instruments::common::traits::InstrumentCurves::builder()
                     .discount(curve.clone())
                     .build(),
             );
@@ -521,12 +527,15 @@ pub fn flat_vol_surface(id: &str, expiries: &[f64], strikes: &[f64], vol: f64) -
 
 /// Calibration-specific helpers for integration tests.
 pub mod calibration {
-    use crate::calibration::api::schema::StepParams;
-    use crate::calibration::step_runtime;
-    use crate::calibration::{CalibrationConfig, CalibrationReport};
-    use crate::market::quotes::market_quote::MarketQuote;
+    use finstack_core::market_data::context::MarketContextState;
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::Result;
+    use finstack_valuations::calibration::api::engine;
+    use finstack_valuations::calibration::api::schema::{
+        CalibrationEnvelope, CalibrationPlan, CalibrationStep, StepParams, CALIBRATION_SCHEMA,
+    };
+    use finstack_valuations::calibration::{CalibrationConfig, CalibrationReport};
+    use finstack_valuations::market::quotes::market_quote::MarketQuote;
 
     /// Execute a single calibration step for tests/benchmarks without engaging the full plan engine.
     ///
@@ -537,6 +546,29 @@ pub mod calibration {
         context: &MarketContext,
         global_config: &CalibrationConfig,
     ) -> Result<(MarketContext, CalibrationReport)> {
-        step_runtime::execute_params_and_apply(params, quotes, context, global_config)
+        let mut quote_sets = finstack_core::HashMap::default();
+        quote_sets.insert("default".to_string(), quotes.to_vec());
+
+        let plan = CalibrationPlan {
+            id: "test-plan".to_string(),
+            description: None,
+            quote_sets,
+            steps: vec![CalibrationStep {
+                id: "step-0".to_string(),
+                quote_set: "default".to_string(),
+                params: params.clone(),
+            }],
+            settings: global_config.clone(),
+        };
+
+        let envelope = CalibrationEnvelope {
+            schema: CALIBRATION_SCHEMA.to_string(),
+            plan,
+            initial_market: Some(MarketContextState::from(context)),
+        };
+
+        let result = engine::execute(&envelope)?;
+        let market = MarketContext::try_from(result.result.final_market)?;
+        Ok((market, result.result.report))
     }
 }

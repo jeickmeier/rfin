@@ -1,7 +1,7 @@
 //! Trait implementations for CommodityOption.
 
 use crate::instruments::commodity::commodity_option::CommodityOption;
-use crate::instruments::common::traits::{EquityDependencies, EquityInstrumentDeps};
+use crate::instruments::common_impl::traits::{EquityDependencies, EquityInstrumentDeps};
 use crate::metrics::{HasDayCount, HasExpiry, HasPricingOverrides};
 
 impl EquityDependencies for CommodityOption {

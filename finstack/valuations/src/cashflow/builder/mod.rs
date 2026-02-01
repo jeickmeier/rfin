@@ -60,8 +60,8 @@
 // Internal modules
 #[allow(clippy::module_inception)]
 mod builder;
-mod compiler;
-mod emission;
+pub(crate) mod compiler;
+pub(crate) mod emission;
 
 // Public modules
 pub(crate) mod credit_rates;

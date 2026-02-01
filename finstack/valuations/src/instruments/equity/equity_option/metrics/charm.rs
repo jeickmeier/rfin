@@ -8,7 +8,7 @@
 //! Where Delta(t) is computed by bumping spot at current time,
 //! and Delta(t+h) is computed by bumping spot at a later time.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::equity::equity_option::EquityOption;
 use crate::metrics::{bump_scalar_price, bump_sizes};
 use crate::metrics::{MetricCalculator, MetricContext};

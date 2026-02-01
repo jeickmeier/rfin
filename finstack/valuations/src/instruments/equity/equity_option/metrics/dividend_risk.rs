@@ -13,7 +13,7 @@
 //! For options, dividend yield affects the forward price: F = S * exp((r - q) * T).
 //! Higher dividend yield reduces the forward, making calls less valuable and puts more valuable.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::equity::equity_option::EquityOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;

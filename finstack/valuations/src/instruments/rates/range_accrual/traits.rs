@@ -1,13 +1,13 @@
 //! Trait implementations for RangeAccrual
 
-use crate::instruments::common::traits::EquityDependencies;
+use crate::instruments::common_impl::traits::EquityDependencies;
 use crate::instruments::rates::range_accrual::RangeAccrual;
 use crate::metrics::{HasDayCount, HasExpiry, HasPricingOverrides};
 use finstack_core::dates::Date;
 
 impl EquityDependencies for RangeAccrual {
-    fn equity_dependencies(&self) -> crate::instruments::common::traits::EquityInstrumentDeps {
-        crate::instruments::common::traits::EquityInstrumentDeps::builder()
+    fn equity_dependencies(&self) -> crate::instruments::common_impl::traits::EquityInstrumentDeps {
+        crate::instruments::common_impl::traits::EquityInstrumentDeps::builder()
             .spot(self.spot_id.as_str())
             .vol_surface(self.vol_surface_id.as_str())
             .build()

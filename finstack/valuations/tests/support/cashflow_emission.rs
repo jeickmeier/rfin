@@ -1,13 +1,15 @@
-//! Tests for emission functions.
+// Tests for emission functions.
 
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod accrual_context_tests {
-    use super::super::super::compiler::{FixedSchedule, FloatSchedule};
-    use super::super::super::specs::{
+    use crate::cashflow::builder::compiler::{FixedSchedule, FloatSchedule};
+    use crate::cashflow::builder::emission::coupons::{
+        emit_fixed_coupons_on, emit_float_coupons_on,
+    };
+    use crate::cashflow::builder::specs::{
         CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
     };
-    use super::super::coupons::{emit_fixed_coupons_on, emit_float_coupons_on};
     use finstack_core::currency::Currency;
     use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind};
     use finstack_core::market_data::term_structures::ForwardCurve;
@@ -188,8 +190,8 @@ mod accrual_context_tests {
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod credit_emission_tests {
-    use super::super::super::specs::DefaultEvent;
-    use super::super::credit::{emit_default_on, emit_prepayment_on};
+    use crate::cashflow::builder::emission::credit::{emit_default_on, emit_prepayment_on};
+    use crate::cashflow::builder::specs::DefaultEvent;
     use crate::cashflow::primitives::CFKind;
     use finstack_core::currency::Currency;
     use finstack_core::dates::Date;
@@ -208,7 +210,7 @@ mod credit_emission_tests {
             recovery_calendar_id: None,
         };
 
-        let mut outstanding = 1_000_000.0;
+        let mut outstanding: f64 = 1_000_000.0;
         let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD)
             .expect("should emit default");
 
@@ -233,8 +235,8 @@ mod credit_emission_tests {
     #[test]
     fn test_coupon_on_reduced_outstanding_after_default() {
         // CRITICAL TEST: Verify coupon uses reduced outstanding after default
-        use super::super::super::specs::{CouponType, FixedCouponSpec};
-        use super::super::coupons::emit_fixed_coupons_on;
+        use crate::cashflow::builder::emission::coupons::emit_fixed_coupons_on;
+        use crate::cashflow::builder::specs::{CouponType, FixedCouponSpec};
         use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 
         let issue = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
@@ -254,7 +256,7 @@ mod credit_emission_tests {
         };
 
         // Generate coupon dates
-        let period_schedule = super::super::super::date_generation::build_dates(
+        let period_schedule = crate::cashflow::builder::date_generation::build_dates(
             issue,
             mat,
             spec.freq,
@@ -277,7 +279,7 @@ mod credit_emission_tests {
             recovery_calendar_id: None,
         };
 
-        let mut outstanding = 1_000_000.0;
+        let mut outstanding: f64 = 1_000_000.0;
         let _ = emit_default_on(
             default_date,
             &[default_event],
@@ -326,7 +328,7 @@ mod credit_emission_tests {
     #[test]
     fn test_prepayment_reduces_outstanding() {
         let d = Date::from_calendar_date(2025, Month::March, 1).expect("valid date");
-        let mut outstanding = 1_000_000.0;
+        let mut outstanding: f64 = 1_000_000.0;
 
         let flows = emit_prepayment_on(d, 50_000.0, &mut outstanding, Currency::USD);
 
@@ -467,8 +469,8 @@ mod credit_emission_tests {
 
     #[test]
     fn test_prepayment_model_psa_curve() {
-        use super::super::super::credit_rates::smm_to_cpr;
-        use super::super::super::specs::PrepaymentModelSpec;
+        use crate::cashflow::builder::credit_rates::smm_to_cpr;
+        use crate::cashflow::builder::specs::PrepaymentModelSpec;
 
         let model = PrepaymentModelSpec::psa(1.5); // 150% PSA
 
@@ -491,7 +493,7 @@ mod credit_emission_tests {
 
     #[test]
     fn test_default_model_sda_curve() {
-        use super::super::super::specs::DefaultModelSpec;
+        use crate::cashflow::builder::specs::DefaultModelSpec;
 
         let model = DefaultModelSpec::sda(2.0); // 200% SDA
 
@@ -612,7 +614,7 @@ mod credit_emission_tests {
             recovery_calendar_id: None,
         };
 
-        let mut outstanding = 0.0;
+        let mut outstanding: f64 = 0.0;
         let flows = emit_default_on(d, &[event], &mut outstanding, Currency::USD)
             .expect("should succeed but emit no flows");
 

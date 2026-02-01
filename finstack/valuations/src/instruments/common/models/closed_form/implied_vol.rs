@@ -7,8 +7,8 @@
 //! These are intended as shared utilities used by instrument-specific `implied_vol` methods
 //! (e.g., equity and FX options) to avoid duplicated solvers and inconsistent edge handling.
 
-use crate::instruments::common::models::closed_form::vanilla::bs_price;
-use crate::instruments::common::parameters::OptionType;
+use crate::instruments::common_impl::models::closed_form::vanilla::bs_price;
+use crate::instruments::common_impl::parameters::OptionType;
 
 /// Minimum volatility (annualized) used for bracketing.
 const MIN_VOL: f64 = 1e-8;

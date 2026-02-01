@@ -8,7 +8,7 @@
 
 use std::marker::PhantomData;
 
-use crate::instruments::common::traits::{EquityDependencies, Instrument};
+use crate::instruments::common_impl::traits::{EquityDependencies, Instrument};
 use crate::metrics::core::finite_difference::central_mixed;
 use crate::metrics::sensitivities::config as sens_config;
 use crate::metrics::{bump_scalar_price, bump_surface_vol_absolute};
@@ -578,7 +578,7 @@ where
 mod tests {
     use super::*;
 
-    use crate::instruments::common::traits::{
+    use crate::instruments::common_impl::traits::{
         Attributes, EquityDependencies, EquityInstrumentDeps,
     };
     use crate::instruments::PricingOverrides;
@@ -700,7 +700,7 @@ mod tests {
         }
     }
 
-    impl crate::instruments::common::traits::Instrument for TestFdInstrument {
+    impl crate::instruments::common_impl::traits::Instrument for TestFdInstrument {
         fn id(&self) -> &str {
             &self.id
         }
@@ -713,7 +713,7 @@ mod tests {
             self
         }
 
-        fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+        fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
             Box::new(self.clone())
         }
 
@@ -745,7 +745,7 @@ mod tests {
             metrics: &[MetricId],
         ) -> finstack_core::Result<crate::results::ValuationResult> {
             let base_value = self.value(market, as_of)?;
-            crate::instruments::common::helpers::build_with_metrics_dyn(
+            crate::instruments::common_impl::helpers::build_with_metrics_dyn(
                 Arc::from(self.clone_box()),
                 Arc::new(market.clone()),
                 as_of,
@@ -757,7 +757,7 @@ mod tests {
         }
     }
 
-    impl crate::instruments::common::traits::Instrument for RoundingSensitiveInstrument {
+    impl crate::instruments::common_impl::traits::Instrument for RoundingSensitiveInstrument {
         fn id(&self) -> &str {
             &self.id
         }
@@ -770,7 +770,7 @@ mod tests {
             self
         }
 
-        fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+        fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
             Box::new(self.clone())
         }
 
@@ -799,7 +799,7 @@ mod tests {
             metrics: &[MetricId],
         ) -> finstack_core::Result<crate::results::ValuationResult> {
             let base_value = self.value(market, as_of)?;
-            crate::instruments::common::helpers::build_with_metrics_dyn(
+            crate::instruments::common_impl::helpers::build_with_metrics_dyn(
                 Arc::from(self.clone_box()),
                 Arc::new(market.clone()),
                 as_of,
@@ -813,7 +813,7 @@ mod tests {
 
     fn registry_for_test<I>() -> MetricRegistry
     where
-        I: crate::instruments::common::traits::Instrument
+        I: crate::instruments::common_impl::traits::Instrument
             + EquityDependencies
             + HasExpiry
             + HasDayCount

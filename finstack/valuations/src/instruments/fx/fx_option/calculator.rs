@@ -3,8 +3,8 @@
 //! Contains the complex pricing logic separated from the instrument type,
 //! following the separation of concerns pattern.
 
-use crate::instruments::common::models::{bs_greeks, bs_price};
-use crate::instruments::common::parameters::OptionType;
+use crate::instruments::common_impl::models::{bs_greeks, bs_price};
+use crate::instruments::common_impl::parameters::OptionType;
 use crate::instruments::fx::fx_option::FxOption;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
@@ -236,7 +236,7 @@ impl FxOptionCalculator {
         let target_unit = target_price / inst.notional.amount();
         let _ = initial_guess; // future: warm-start the bracket
 
-        Ok(crate::instruments::common::models::bs_implied_vol(
+        Ok(crate::instruments::common_impl::models::bs_implied_vol(
             spot,
             inst.strike,
             r_d,
@@ -369,13 +369,20 @@ fn price_gk_core(
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
+    #[allow(clippy::expect_used, clippy::unwrap_used, dead_code, unused_imports)]
+    mod test_utils {
+        include!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/support/test_utils.rs"
+        ));
+    }
+
     use super::*;
     use crate::constants::DECIMAL_TO_PERCENT;
     use crate::instruments::{
         common::traits::Attributes, OptionType, PricingOverrides, SettlementType,
     };
     use crate::instruments::{ExerciseStyle, FxOption};
-    use crate::test_utils::{date, flat_discount_with_tenor, flat_vol_surface};
     use finstack_core::{
         currency::Currency,
         dates::{Date, DayCount},
@@ -389,6 +396,7 @@ mod tests {
         types::{CurveId, InstrumentId},
     };
     use std::sync::Arc;
+    use test_utils::{date, flat_discount_with_tenor, flat_vol_surface};
 
     const BASE: Currency = Currency::EUR;
     const QUOTE: Currency = Currency::USD;
@@ -561,8 +569,10 @@ mod tests {
         let (spot, r_d, r_f, sigma, t) = calc
             .collect_inputs(&option, &ctx, as_of)
             .expect("should succeed");
-        let d1 = crate::instruments::common::models::d1(spot, option.strike, r_d, sigma, t, r_f);
-        let d2 = crate::instruments::common::models::d2(spot, option.strike, r_d, sigma, t, r_f);
+        let d1 =
+            crate::instruments::common_impl::models::d1(spot, option.strike, r_d, sigma, t, r_f);
+        let d2 =
+            crate::instruments::common_impl::models::d2(spot, option.strike, r_d, sigma, t, r_f);
         let exp_rf_t = (-r_f * t).exp();
         let exp_rd_t = (-r_d * t).exp();
         let sqrt_t = t.sqrt();
@@ -849,7 +859,7 @@ mod tests {
 
     #[test]
     fn test_fx_option_curve_dependencies_includes_both_curves() {
-        use crate::instruments::common::traits::CurveDependencies;
+        use crate::instruments::common_impl::traits::CurveDependencies;
 
         let option = base_option(date(2025, 6, 15), OptionType::Call);
         let deps = option.curve_dependencies();

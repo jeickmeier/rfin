@@ -1,6 +1,6 @@
 //! Asian option instrument definition.
 
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::OptionType;
 use crate::instruments::PricingOverrides;
 use finstack_core::dates::Date;
@@ -179,7 +179,7 @@ impl AsianOption {
     }
 }
 
-impl crate::instruments::common::traits::Instrument for AsianOption {
+impl crate::instruments::common_impl::traits::Instrument for AsianOption {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -192,20 +192,24 @@ impl crate::instruments::common::traits::Instrument for AsianOption {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
-    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
-        crate::instruments::common::dependencies::MarketDependencies::from_curves_and_equity(self)
+    fn market_dependencies(
+        &self,
+    ) -> crate::instruments::common_impl::dependencies::MarketDependencies {
+        crate::instruments::common_impl::dependencies::MarketDependencies::from_curves_and_equity(
+            self,
+        )
     }
 
     fn value(
@@ -243,7 +247,7 @@ impl crate::instruments::common::traits::Instrument for AsianOption {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(market, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(market.clone()),
             as_of,

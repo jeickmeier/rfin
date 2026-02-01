@@ -4,7 +4,7 @@
 //! from Hull-White short rate simulations. Used by both swaption and CMS pricing.
 
 use super::super::payoff::swaption::SwapSchedule;
-use crate::instruments::common::mc::process::ou::HullWhite1FParams;
+use crate::instruments::common_impl::mc::process::ou::HullWhite1FParams;
 
 /// Hull-White bond price calculation utilities.
 ///

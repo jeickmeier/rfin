@@ -13,14 +13,16 @@
 //! This allows equity TRS and fixed income TRS to share the common infrastructure
 //! while implementing their own return calculation logic.
 
-use crate::instruments::common::parameters::legs::FinancingLegSpec;
-use crate::instruments::common::parameters::trs_common::TrsScheduleSpec;
+use crate::instruments::common_impl::parameters::legs::FinancingLegSpec;
+use crate::instruments::common_impl::parameters::trs_common::TrsScheduleSpec;
 use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use rust_decimal::prelude::ToPrimitive;
 
-use crate::instruments::common::pricing::time::{rate_period_on_dates, relative_df_discount_curve};
+use crate::instruments::common_impl::pricing::time::{
+    rate_period_on_dates, relative_df_discount_curve,
+};
 
 /// Parameters for total return leg calculation.
 #[derive(Debug, Clone)]
@@ -288,7 +290,7 @@ impl TrsEngine {
     /// # Errors
     ///
     /// Returns an error if the computed annuity is below
-    /// [`crate::instruments::common::pricing::swap_legs::ANNUITY_EPSILON`] (1e-12),
+    /// [`crate::instruments::common_impl::pricing::swap_legs::ANNUITY_EPSILON`] (1e-12),
     /// which would cause divide-by-zero in downstream par spread calculations.
     /// This typically occurs when:
     /// - All periods have already expired (payment dates before as_of)
@@ -359,10 +361,10 @@ impl TrsEngine {
 mod tests {
     use super::{TotalReturnLegParams, TrsEngine, TrsReturnModel};
     use crate::cashflow::builder::ScheduleParams;
-    use crate::instruments::common::parameters::legs::FinancingLegSpec;
-    use crate::instruments::common::parameters::trs_common::TrsScheduleSpec;
-    use crate::instruments::common::pricing::swap_legs;
-    use crate::instruments::common::pricing::time::{
+    use crate::instruments::common_impl::parameters::legs::FinancingLegSpec;
+    use crate::instruments::common_impl::parameters::trs_common::TrsScheduleSpec;
+    use crate::instruments::common_impl::pricing::swap_legs;
+    use crate::instruments::common_impl::pricing::time::{
         rate_period_on_dates, relative_df_discount_curve,
     };
     use finstack_core::currency::Currency;

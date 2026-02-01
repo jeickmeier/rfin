@@ -478,7 +478,7 @@ impl MetricRegistry {
 #[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
-    use crate::instruments::common::traits::{Attributes, Instrument};
+    use crate::instruments::common_impl::traits::{Attributes, Instrument};
     use crate::metrics::core::ids::MetricId;
     use crate::metrics::core::traits::{MetricCalculator, MetricContext};
     use crate::pricer::InstrumentType;

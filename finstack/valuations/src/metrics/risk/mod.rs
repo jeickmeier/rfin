@@ -7,8 +7,6 @@
 pub(crate) mod hvar;
 pub(crate) mod market_history;
 pub(crate) mod risk_factors;
-#[cfg(test)]
-pub(crate) mod test_utils;
 pub(crate) mod var_calculator;
 
 pub use hvar::{GenericExpectedShortfall, GenericHVar};

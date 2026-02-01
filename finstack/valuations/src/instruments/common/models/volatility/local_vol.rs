@@ -260,7 +260,7 @@ where
         return Ok((S - K).max(0.0));
     }
 
-    use crate::instruments::common::models::volatility::black::{d1, d2};
+    use crate::instruments::common_impl::models::volatility::black::{d1, d2};
     use finstack_core::math::norm_cdf;
 
     let d1_val = d1(S, K, r, sigma, T, q);

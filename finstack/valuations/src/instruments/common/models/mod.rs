@@ -12,6 +12,8 @@
 //! - [`trees`]: Tree-based methods (Binomial, Trinomial, Multi-factor, Short-rate)
 //! - [`correlation`]: Shared correlation infrastructure (copulas, recovery models, factor models)
 
+#![allow(dead_code, unused_imports)]
+
 pub mod closed_form;
 pub mod correlation;
 #[cfg(feature = "mc")]
@@ -20,6 +22,7 @@ pub mod trees;
 pub mod volatility;
 
 // Re-export commonly used items from submodules for convenience
+#[allow(unused_imports)]
 pub use closed_form::{
     arithmetic_asian_call_tw, arithmetic_asian_put_tw, barrier_call_continuous,
     barrier_put_continuous, black76_implied_vol, bs_call_delta, bs_call_greeks, bs_call_rho,
@@ -31,18 +34,21 @@ pub use closed_form::{
     up_in_call, up_out_call, AsianGreeks, AsianPriceResult, BarrierType, BsGreeks, HestonParams,
     ONE_PERCENT,
 };
+#[allow(unused_imports)]
 pub use correlation::{
     joint_probabilities, ConstantRecovery, Copula, CopulaSpec, CorrelatedBernoulli,
     CorrelatedRecovery, FactorModel, FactorSpec, GaussianCopula, MultiFactorCopula,
     RandomFactorLoadingCopula, RecoveryModel, RecoverySpec, SingleFactorModel, StudentTCopula,
     TwoFactorModel,
 };
+#[allow(unused_imports)]
 pub use trees::{
     short_rate_keys, single_factor_equity_state, state_keys, two_factor_equity_rates_state,
     BarrierSpec, BarrierStyle, BinomialTree, EvolutionParams, NodeState, ShortRateModel,
     ShortRateTree, ShortRateTreeConfig, StateVariables, TreeBranching, TreeGreeks, TreeModel,
     TreeParameters, TreeType, TreeValuator, TrinomialTree, TrinomialTreeType,
 };
+#[allow(unused_imports)]
 pub use volatility::{
     d1, d1_black76, d1_d2, d1_d2_black76, d2, d2_black76, norm_cdf, norm_pdf, SABRCalibrator,
     SABRModel, SABRParameters, SABRSmile,

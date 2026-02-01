@@ -14,7 +14,7 @@ use finstack_core::{Error, Result};
 use indexmap::IndexMap;
 use std::sync::Arc;
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::results::ValuationResult;
 
 #[cfg(feature = "serde")]

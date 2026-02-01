@@ -1,5 +1,5 @@
 // Using generic pricer implementation to eliminate boilerplate
-pub use crate::instruments::common::GenericInstrumentPricer;
+pub use crate::instruments::common_impl::GenericInstrumentPricer;
 
 /// Basis Swap discounting pricer using the generic implementation.
 pub type SimpleBasisSwapDiscountingPricer =

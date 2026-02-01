@@ -1,6 +1,6 @@
 //! Duration-based delta calculator for fixed income index TRS.
 
-use crate::instruments::common::parameters::trs_common::TrsSide;
+use crate::instruments::common_impl::parameters::trs_common::TrsSide;
 use crate::instruments::fixed_income::fi_trs::FIIndexTotalReturnSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::scalars::MarketScalar;

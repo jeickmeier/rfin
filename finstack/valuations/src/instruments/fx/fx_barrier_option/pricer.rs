@@ -1,7 +1,7 @@
 //! FX barrier option pricers (Monte Carlo and analytical).
 
 // Common imports for all pricers
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fx::fx_barrier_option::types::FxBarrierOption;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
@@ -13,13 +13,13 @@ use finstack_core::money::Money;
 
 // MC-specific imports
 #[cfg(feature = "mc")]
-use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
+use crate::instruments::common_impl::mc::process::gbm::{GbmParams, GbmProcess};
 #[cfg(feature = "mc")]
-use crate::instruments::common::models::monte_carlo::payoff::barrier::BarrierType as McBarrierType;
+use crate::instruments::common_impl::models::monte_carlo::payoff::barrier::BarrierType as McBarrierType;
 #[cfg(feature = "mc")]
-use crate::instruments::common::models::monte_carlo::payoff::fx_barrier::FxBarrierCall;
+use crate::instruments::common_impl::models::monte_carlo::payoff::fx_barrier::FxBarrierCall;
 #[cfg(feature = "mc")]
-use crate::instruments::common::models::monte_carlo::pricer::path_dependent::{
+use crate::instruments::common_impl::models::monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
 
@@ -126,7 +126,7 @@ impl FxBarrierOptionMcPricer {
 
         // Derive deterministic seed from instrument ID and scenario
         #[cfg(feature = "mc")]
-        use crate::instruments::common::models::monte_carlo::seed;
+        use crate::instruments::common_impl::models::monte_carlo::seed;
 
         let seed = if let Some(ref scenario) = inst.pricing_overrides.mc_seed_scenario {
             #[cfg(feature = "mc")]
@@ -176,7 +176,7 @@ impl Pricer for FxBarrierOptionMcPricer {
 
     fn price_dyn(
         &self,
-        instrument: &dyn crate::instruments::common::traits::Instrument,
+        instrument: &dyn crate::instruments::common_impl::traits::Instrument,
         market: &MarketContext,
         as_of: Date,
     ) -> PricingResult<ValuationResult> {
@@ -210,7 +210,7 @@ pub(crate) fn compute_pv(
 
 // ========================= ANALYTICAL PRICER =========================
 
-use crate::instruments::common::models::closed_form::barrier::{
+use crate::instruments::common_impl::models::closed_form::barrier::{
     barrier_call_continuous, barrier_put_continuous, barrier_rebate_continuous,
     BarrierType as AnalyticalBarrierType,
 };

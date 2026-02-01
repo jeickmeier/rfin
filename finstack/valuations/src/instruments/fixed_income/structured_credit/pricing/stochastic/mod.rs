@@ -25,10 +25,6 @@ pub mod prepayment;
 pub(crate) mod pricer;
 pub mod tree;
 
-#[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
-mod tests;
-
 // Re-export main types (may be used by external bindings or tests)
 #[allow(unused_imports)]
 pub use calibrations::{

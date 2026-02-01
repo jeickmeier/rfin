@@ -36,7 +36,7 @@ use super::factors::*;
 use super::helpers::*;
 use super::model_params;
 use super::types::*;
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -462,10 +462,18 @@ impl<'a> WaterfallContext<'a> {
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
+    #[allow(clippy::expect_used, dead_code, unused_imports)]
+    mod test_utils {
+        include!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/support/attribution_test_utils.rs"
+        ));
+    }
+
     use super::*;
-    use crate::attribution::test_utils::TestInstrument;
     use finstack_core::currency::Currency;
     use finstack_core::money::Money;
+    use test_utils::TestInstrument;
     use time::macros::date;
 
     #[test]
@@ -481,7 +489,7 @@ mod tests {
         let as_of_t0 = date!(2025 - 01 - 15);
         let as_of_t1 = date!(2025 - 01 - 16);
 
-        let instrument: Arc<dyn crate::instruments::common::traits::Instrument> = Arc::new(
+        let instrument: Arc<dyn crate::instruments::common_impl::traits::Instrument> = Arc::new(
             TestInstrument::new("TEST-001", Money::new(1000.0, Currency::USD)),
         );
 

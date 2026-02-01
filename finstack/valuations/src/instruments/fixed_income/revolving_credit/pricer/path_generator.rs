@@ -19,13 +19,15 @@ use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::Result;
 
-use crate::instruments::common::mc::process::ou::HullWhite1FParams;
-use crate::instruments::common::mc::rng::philox::PhiloxRng;
-use crate::instruments::common::mc::rng::sobol::SobolRng;
-use crate::instruments::common::mc::time_grid::TimeGrid;
-use crate::instruments::common::mc::traits::{Discretization, RandomStream, StochasticProcess};
-use crate::instruments::common::models::monte_carlo::discretization::revolving_credit::RevolvingCreditDiscretization;
-use crate::instruments::common::models::monte_carlo::process::revolving_credit::{
+use crate::instruments::common_impl::mc::process::ou::HullWhite1FParams;
+use crate::instruments::common_impl::mc::rng::philox::PhiloxRng;
+use crate::instruments::common_impl::mc::rng::sobol::SobolRng;
+use crate::instruments::common_impl::mc::time_grid::TimeGrid;
+use crate::instruments::common_impl::mc::traits::{
+    Discretization, RandomStream, StochasticProcess,
+};
+use crate::instruments::common_impl::models::monte_carlo::discretization::revolving_credit::RevolvingCreditDiscretization;
+use crate::instruments::common_impl::models::monte_carlo::process::revolving_credit::{
     CreditSpreadParams, InterestRateSpec, RevolvingCreditProcess, RevolvingCreditProcessParams,
     UtilizationParams,
 };

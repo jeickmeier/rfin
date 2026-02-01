@@ -31,10 +31,8 @@
 //! - Bloomberg FXFA function for spot date verification
 //! - ECB TARGET2 calendar: https://www.ecb.europa.eu/paym/target/target2/profuse/calendar/html/index.en.html
 
+use finstack_core::dates::fx::{add_joint_business_days, resolve_calendar, roll_spot_date};
 use finstack_core::dates::{create_date, BusinessDayConvention};
-use finstack_valuations::instruments::common::{
-    add_joint_business_days, resolve_calendar, roll_spot_date,
-};
 use time::Month;
 
 /// Test USD/EUR spot settlement around New Year's Day 2024

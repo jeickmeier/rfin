@@ -5,7 +5,7 @@
 //! The system uses enum-based dispatch for type safety rather than string
 //! comparisons.
 
-use crate::instruments::common::traits::Instrument as Priceable;
+use crate::instruments::common_impl::traits::Instrument as Priceable;
 use finstack_core::config::{results_meta_now, FinstackConfig};
 use finstack_core::market_data::context::MarketContext as Market;
 
@@ -1270,7 +1270,7 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         registry,
         FIIndexTotalReturnSwap,
         Discounting,
-        crate::instruments::common::GenericInstrumentPricer::<
+        crate::instruments::common_impl::GenericInstrumentPricer::<
             crate::instruments::fixed_income::fi_trs::FIIndexTotalReturnSwap,
         >::discounting(InstrumentType::FIIndexTotalReturnSwap)
     );
@@ -1304,7 +1304,7 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         registry,
         YoYInflationSwap,
         Discounting,
-        crate::instruments::common::GenericInstrumentPricer::<
+        crate::instruments::common_impl::GenericInstrumentPricer::<
             crate::instruments::rates::inflation_swap::YoYInflationSwap,
         >::discounting(InstrumentType::YoYInflationSwap)
     );
@@ -1482,7 +1482,7 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         registry,
         CommodityForward,
         Discounting,
-        crate::instruments::common::GenericInstrumentPricer::<
+        crate::instruments::common_impl::GenericInstrumentPricer::<
             crate::instruments::CommodityForward,
         >::discounting(InstrumentType::CommodityForward)
     );
@@ -1492,7 +1492,7 @@ fn register_all_pricers(registry: &mut PricerRegistry) {
         registry,
         CommoditySwap,
         Discounting,
-        crate::instruments::common::GenericInstrumentPricer::<
+        crate::instruments::common_impl::GenericInstrumentPricer::<
             crate::instruments::CommoditySwap,
         >::discounting(InstrumentType::CommoditySwap)
     );
@@ -1576,7 +1576,7 @@ pub fn register_rates_pricers(registry: &mut PricerRegistry) {
         registry,
         IRS,
         Discounting,
-        crate::instruments::common::GenericInstrumentPricer::<
+        crate::instruments::common_impl::GenericInstrumentPricer::<
             crate::instruments::InterestRateSwap,
         >::discounting(InstrumentType::IRS)
     );
@@ -1677,13 +1677,13 @@ pub fn register_credit_pricers(registry: &mut PricerRegistry) {
         registry,
         CDS,
         HazardRate,
-        crate::instruments::common::GenericInstrumentPricer::cds()
+        crate::instruments::common_impl::GenericInstrumentPricer::cds()
     );
     register_pricer!(
         registry,
         CDS,
         Discounting,
-        crate::instruments::common::GenericInstrumentPricer::<
+        crate::instruments::common_impl::GenericInstrumentPricer::<
             crate::instruments::CreditDefaultSwap,
         >::new(InstrumentType::CDS, ModelKey::Discounting)
     );
@@ -1783,7 +1783,7 @@ pub fn register_equity_pricers(registry: &mut PricerRegistry) {
         registry,
         EquityTotalReturnSwap,
         Discounting,
-        crate::instruments::common::GenericInstrumentPricer::<
+        crate::instruments::common_impl::GenericInstrumentPricer::<
             crate::instruments::equity::equity_trs::EquityTotalReturnSwap,
         >::discounting(InstrumentType::EquityTotalReturnSwap)
     );
@@ -1801,7 +1801,7 @@ pub fn register_equity_pricers(registry: &mut PricerRegistry) {
         registry,
         EquityIndexFuture,
         Discounting,
-        crate::instruments::common::GenericInstrumentPricer::<
+        crate::instruments::common_impl::GenericInstrumentPricer::<
             crate::instruments::EquityIndexFuture,
         >::discounting(InstrumentType::EquityIndexFuture)
     );
@@ -1811,7 +1811,7 @@ pub fn register_equity_pricers(registry: &mut PricerRegistry) {
         registry,
         RealEstateAsset,
         Discounting,
-        crate::instruments::common::GenericInstrumentPricer::<
+        crate::instruments::common_impl::GenericInstrumentPricer::<
             crate::instruments::RealEstateAsset,
         >::discounting(InstrumentType::RealEstateAsset)
     );
@@ -1872,7 +1872,7 @@ pub fn register_fx_pricers(registry: &mut PricerRegistry) {
         registry,
         FxForward,
         Discounting,
-        crate::instruments::common::GenericInstrumentPricer::<
+        crate::instruments::common_impl::GenericInstrumentPricer::<
             crate::instruments::FxForward,
         >::discounting(InstrumentType::FxForward)
     );
@@ -1882,7 +1882,7 @@ pub fn register_fx_pricers(registry: &mut PricerRegistry) {
         registry,
         Ndf,
         Discounting,
-        crate::instruments::common::GenericInstrumentPricer::<crate::instruments::Ndf>::discounting(
+        crate::instruments::common_impl::GenericInstrumentPricer::<crate::instruments::Ndf>::discounting(
             InstrumentType::Ndf
         )
     );

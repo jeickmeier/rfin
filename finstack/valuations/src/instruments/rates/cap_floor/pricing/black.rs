@@ -28,7 +28,7 @@
 //! - Black, F. (1976). "The pricing of commodity contracts."
 //!   *Journal of Financial Economics*, 3(1-2), 167-179.
 
-use crate::instruments::common::models::{d1_black76, d2_black76};
+use crate::instruments::common_impl::models::{d1_black76, d2_black76};
 use finstack_core::currency::Currency;
 use finstack_core::math::{norm_cdf, norm_pdf};
 use finstack_core::money::Money;

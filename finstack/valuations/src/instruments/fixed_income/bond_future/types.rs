@@ -3,8 +3,8 @@
 //! This module defines the data structures for bond futures, including
 //! the deliverable basket, contract specifications, and the main BondFuture type.
 
-use crate::instruments::common::dependencies::MarketDependencies;
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common_impl::dependencies::MarketDependencies;
+use crate::instruments::common_impl::traits::Attributes;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -2019,7 +2019,7 @@ mod tests {
 }
 
 // Implement Instrument trait for BondFuture
-impl crate::instruments::common::traits::Instrument for BondFuture {
+impl crate::instruments::common_impl::traits::Instrument for BondFuture {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -2032,15 +2032,15 @@ impl crate::instruments::common::traits::Instrument for BondFuture {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
@@ -2095,7 +2095,7 @@ Provide it at construction time via BondFutureBuilder::ctd_bond(...) or by using
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         // Similar to value(), bond futures need CTD bond and conversion factor.
         let base_value = self.value(market, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(market.clone()),
             as_of,
@@ -2108,9 +2108,9 @@ Provide it at construction time via BondFutureBuilder::ctd_bond(...) or by using
 }
 
 // Implement CurveDependencies for DV01 calculators
-impl crate::instruments::common::traits::CurveDependencies for BondFuture {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for BondFuture {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .build()
     }
@@ -2146,7 +2146,7 @@ mod instrument_trait_tests {
             .build()
             .expect("Valid bond future");
 
-        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common_impl::traits::Instrument;
         use crate::pricer::InstrumentType;
 
         assert_eq!(future.key(), InstrumentType::BondFuture);
@@ -2176,7 +2176,7 @@ mod instrument_trait_tests {
             .build()
             .expect("Valid bond future");
 
-        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common_impl::traits::Instrument;
 
         assert_eq!(future.id(), "TYH5");
     }
@@ -2208,7 +2208,7 @@ mod instrument_trait_tests {
             .build()
             .expect("Valid bond future");
 
-        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common_impl::traits::Instrument;
 
         assert!(future.attributes().has_tag("futures"));
         assert_eq!(future.attributes().get_meta("exchange"), Some("CBOT"));
@@ -2237,7 +2237,7 @@ mod instrument_trait_tests {
             .build()
             .expect("Valid bond future");
 
-        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common_impl::traits::Instrument;
 
         let cloned = future.clone_box();
         assert_eq!(cloned.id(), "TYH5");
@@ -2267,7 +2267,7 @@ mod instrument_trait_tests {
             .build()
             .expect("Valid bond future");
 
-        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common_impl::traits::Instrument;
 
         let instrument: &dyn Instrument = &future;
         let concrete_future: Option<&BondFuture> = instrument.as_any().downcast_ref::<BondFuture>();
@@ -2301,7 +2301,7 @@ mod instrument_trait_tests {
             .build()
             .expect("Valid bond future");
 
-        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common_impl::traits::Instrument;
 
         let curves = future
             .market_dependencies()
@@ -2335,7 +2335,7 @@ mod instrument_trait_tests {
             .build()
             .expect("Valid bond future");
 
-        use crate::instruments::common::traits::CurveDependencies;
+        use crate::instruments::common_impl::traits::CurveDependencies;
 
         let curves = future.curve_dependencies();
         assert_eq!(curves.discount_curves.len(), 1);

@@ -134,8 +134,8 @@ pub use types::CallPutSchedule;
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
-    use crate::instruments::common::parameters::BondConvention;
-    use crate::instruments::common::traits::{Attributes, Instrument};
+    use crate::instruments::common_impl::parameters::BondConvention;
+    use crate::instruments::common_impl::traits::{Attributes, Instrument};
     use crate::instruments::fixed_income::bond::{Bond, CashflowSpec};
     use crate::instruments::PricingOverrides;
     use crate::pricer::InstrumentType;
@@ -619,3 +619,6 @@ mod tests {
         assert_eq!(par.pricing_overrides.quoted_clean_price, Some(100.0));
     }
 }
+
+#[cfg(test)]
+mod tree_calibration_validation;

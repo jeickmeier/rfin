@@ -22,7 +22,7 @@
 //! The bump is applied as a percentage shift to the inflation curve (0.01% = 1bp).
 //! The convexity result is normalized per (basis point)² = per (0.01%)².
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::rates::inflation_swap::InflationSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};

@@ -37,7 +37,7 @@
 //! - Hull, J. (2018). *Options, Futures, and Other Derivatives*, 10th ed.
 //!   Chapter 31: Interest Rate Derivatives: Models of the Short Rate
 
-use crate::instruments::common::validation;
+use crate::instruments::common_impl::validation;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::{Error, Result};
 
@@ -172,7 +172,7 @@ impl HullWhiteTree {
     ///
     /// # Example
     ///
-    /// ```rust,no_run
+    /// ```rust,ignore
     /// use finstack_valuations::instruments::common::models::trees::HullWhiteTree;
     /// use finstack_valuations::instruments::common::models::trees::HullWhiteTreeConfig;
     ///

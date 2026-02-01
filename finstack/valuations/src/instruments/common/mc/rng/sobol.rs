@@ -1,6 +1,6 @@
 //! Sobol RNG re-exported from finstack_core with RandomStream integration.
 
-use crate::instruments::common::mc::traits::RandomStream;
+use crate::instruments::common_impl::mc::traits::RandomStream;
 
 pub use finstack_core::math::random::sobol::{SobolRng, MAX_SOBOL_DIMENSION};
 

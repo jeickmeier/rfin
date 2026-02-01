@@ -32,7 +32,7 @@
 //! - Whaley, R. E. (2009). "Understanding the VIX." *Journal of Portfolio Management*.
 
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::rates::ir_future::Position;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -266,7 +266,7 @@ impl VolatilityIndexFuture {
 // Trait Implementations
 // =============================================================================
 
-impl crate::instruments::common::traits::Instrument for VolatilityIndexFuture {
+impl crate::instruments::common_impl::traits::Instrument for VolatilityIndexFuture {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -279,15 +279,15 @@ impl crate::instruments::common::traits::Instrument for VolatilityIndexFuture {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
@@ -310,7 +310,7 @@ impl crate::instruments::common::traits::Instrument for VolatilityIndexFuture {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(curves, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(curves.clone()),
             as_of,
@@ -344,11 +344,11 @@ impl CashflowProvider for VolatilityIndexFuture {
     }
 }
 
-impl crate::instruments::common::traits::CurveDependencies for VolatilityIndexFuture {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
+impl crate::instruments::common_impl::traits::CurveDependencies for VolatilityIndexFuture {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
         // Only include discount curve for DV01 calculations
         // Vol index curve sensitivity is handled separately via delta_vol
-        crate::instruments::common::traits::InstrumentCurves::builder()
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .build()
     }
@@ -362,7 +362,7 @@ impl crate::instruments::common::traits::CurveDependencies for VolatilityIndexFu
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common::traits::Instrument;
+    use crate::instruments::common_impl::traits::Instrument;
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::market_data::term_structures::VolatilityIndexCurve;
     use time::Month;

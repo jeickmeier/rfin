@@ -1,6 +1,6 @@
 //! Quanto option instrument definition.
 
-use crate::instruments::common::traits::Attributes;
+use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::OptionType;
 use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
@@ -57,9 +57,9 @@ pub struct QuantoOption {
 }
 
 // Implement CurveDependencies for DV01 calculator
-impl crate::instruments::common::traits::CurveDependencies for QuantoOption {
-    fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
-        crate::instruments::common::traits::InstrumentCurves::builder()
+impl crate::instruments::common_impl::traits::CurveDependencies for QuantoOption {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .discount(self.foreign_discount_curve_id.clone())
             .build()
@@ -127,13 +127,13 @@ impl QuantoOption {
 // Option risk metric providers (metrics adapters)
 // ================================================================================================
 
-impl crate::instruments::common::traits::OptionDeltaProvider for QuantoOption {
+impl crate::instruments::common_impl::traits::OptionDeltaProvider for QuantoOption {
     fn option_delta(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common_impl::traits::Instrument;
 
         let t = self.day_count.year_fraction(
             as_of,
@@ -171,13 +171,13 @@ impl crate::instruments::common::traits::OptionDeltaProvider for QuantoOption {
     }
 }
 
-impl crate::instruments::common::traits::OptionGammaProvider for QuantoOption {
+impl crate::instruments::common_impl::traits::OptionGammaProvider for QuantoOption {
     fn option_gamma(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common_impl::traits::Instrument;
 
         let t = self.day_count.year_fraction(
             as_of,
@@ -217,13 +217,13 @@ impl crate::instruments::common::traits::OptionGammaProvider for QuantoOption {
     }
 }
 
-impl crate::instruments::common::traits::OptionVegaProvider for QuantoOption {
+impl crate::instruments::common_impl::traits::OptionVegaProvider for QuantoOption {
     fn option_vega(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common_impl::traits::Instrument;
 
         let t = self.day_count.year_fraction(
             as_of,
@@ -245,13 +245,13 @@ impl crate::instruments::common::traits::OptionVegaProvider for QuantoOption {
     }
 }
 
-impl crate::instruments::common::traits::OptionRhoProvider for QuantoOption {
+impl crate::instruments::common_impl::traits::OptionRhoProvider for QuantoOption {
     fn option_rho_bp(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common_impl::traits::Instrument;
 
         let t = self.day_count.year_fraction(
             as_of,
@@ -271,13 +271,13 @@ impl crate::instruments::common::traits::OptionRhoProvider for QuantoOption {
     }
 }
 
-impl crate::instruments::common::traits::OptionForeignRhoProvider for QuantoOption {
+impl crate::instruments::common_impl::traits::OptionForeignRhoProvider for QuantoOption {
     fn option_foreign_rho_bp(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common_impl::traits::Instrument;
 
         let t = self.day_count.year_fraction(
             as_of,
@@ -300,13 +300,13 @@ impl crate::instruments::common::traits::OptionForeignRhoProvider for QuantoOpti
     }
 }
 
-impl crate::instruments::common::traits::OptionVannaProvider for QuantoOption {
+impl crate::instruments::common_impl::traits::OptionVannaProvider for QuantoOption {
     fn option_vanna(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common_impl::traits::Instrument;
 
         let t = self.day_count.year_fraction(
             as_of,
@@ -372,14 +372,14 @@ impl crate::instruments::common::traits::OptionVannaProvider for QuantoOption {
     }
 }
 
-impl crate::instruments::common::traits::OptionVolgaProvider for QuantoOption {
+impl crate::instruments::common_impl::traits::OptionVolgaProvider for QuantoOption {
     fn option_volga(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
         base_pv: f64,
     ) -> finstack_core::Result<f64> {
-        use crate::instruments::common::traits::Instrument;
+        use crate::instruments::common_impl::traits::Instrument;
 
         let t = self.day_count.year_fraction(
             as_of,
@@ -407,7 +407,7 @@ impl crate::instruments::common::traits::OptionVolgaProvider for QuantoOption {
     }
 }
 
-impl crate::instruments::common::traits::Instrument for QuantoOption {
+impl crate::instruments::common_impl::traits::Instrument for QuantoOption {
     fn id(&self) -> &str {
         self.id.as_str()
     }
@@ -420,21 +420,23 @@ impl crate::instruments::common::traits::Instrument for QuantoOption {
         self
     }
 
-    fn attributes(&self) -> &crate::instruments::common::traits::Attributes {
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }
 
-    fn attributes_mut(&mut self) -> &mut crate::instruments::common::traits::Attributes {
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
         &mut self.attributes
     }
 
-    fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         Box::new(self.clone())
     }
 
-    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
+    fn market_dependencies(
+        &self,
+    ) -> crate::instruments::common_impl::dependencies::MarketDependencies {
         let mut deps =
-            crate::instruments::common::dependencies::MarketDependencies::from_curve_dependencies(
+            crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
                 self,
             );
         deps.add_spot_id(self.spot_id.as_str());
@@ -464,7 +466,7 @@ impl crate::instruments::common::traits::Instrument for QuantoOption {
         metrics: &[crate::metrics::MetricId],
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         let base_value = self.value(market, as_of)?;
-        crate::instruments::common::helpers::build_with_metrics_dyn(
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
             std::sync::Arc::new(self.clone()),
             std::sync::Arc::new(market.clone()),
             as_of,
@@ -480,7 +482,7 @@ impl crate::instruments::common::traits::Instrument for QuantoOption {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common::traits::CurveDependencies;
+    use crate::instruments::common_impl::traits::CurveDependencies;
 
     #[test]
     fn test_quanto_option_example_creation() {

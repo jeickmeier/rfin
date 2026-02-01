@@ -5,7 +5,7 @@
 //!
 //! Delta = PV(forward_curve + 1bp) - PV(base)
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::rates::cms_option::CmsOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};

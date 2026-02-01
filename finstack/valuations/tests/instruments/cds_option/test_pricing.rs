@@ -1,9 +1,9 @@
 //! Integration tests for CDS Option pricing workflows.
 
 use super::common::*;
+use crate::finstack_test_utils as test_utils;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
-use finstack_valuations::test_utils;
 use time::macros::date;
 
 #[test]

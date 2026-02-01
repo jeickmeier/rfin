@@ -150,9 +150,7 @@ pub use valuations::calibration::{
     JsCalibrationReport as CalibrationReport, JsCdsTrancheQuote as CdsTrancheQuote,
     JsCreditQuote as CreditQuote, JsInflationQuote as InflationQuote, JsMarketQuote as MarketQuote,
     JsRateBounds as RateBounds, JsRateBoundsPolicy as RateBoundsPolicy, JsRatesQuote as RatesQuote,
-    JsResidualWeightingScheme as ResidualWeightingScheme,
-    JsSABRCalibrationDerivatives as SABRCalibrationDerivatives, JsSABRMarketData as SABRMarketData,
-    JsSABRModelParams as SABRModelParams, JsSolverKind as SolverKind,
+    JsResidualWeightingScheme as ResidualWeightingScheme, JsSolverKind as SolverKind,
     JsValidationConfig as ValidationConfig, JsValidationMode as ValidationMode,
     JsVolQuote as VolQuote,
 };
@@ -202,13 +200,6 @@ pub use valuations::covenants::{
     forecast_covenant as forecastCovenant, JsCovenant as Covenant,
     JsCovenantForecast as CovenantForecast, JsCovenantForecastConfig as CovenantForecastConfig,
     JsCovenantSpec as CovenantSpec, JsCovenantType as CovenantType,
-};
-
-// Monte Carlo path generation (now under common::mc)
-pub use valuations::common::mc::{
-    JsMonteCarloPathGenerator as MonteCarloPathGenerator, JsMonteCarloResult as MonteCarloResult,
-    JsPathDataset as PathDataset, JsPathPoint as PathPoint, JsProcessParams as ProcessParams,
-    JsSimulatedPath as SimulatedPath,
 };
 
 // DataFrame conversion

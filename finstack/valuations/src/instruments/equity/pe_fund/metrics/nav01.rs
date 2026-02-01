@@ -15,7 +15,7 @@
 //! and observe the impact on PV. This captures how changes in fund performance
 //! (which affect NAV) impact the LP valuation.
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::equity::pe_fund::PrivateMarketsFund;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;

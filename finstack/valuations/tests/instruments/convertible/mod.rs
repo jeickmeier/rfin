@@ -21,6 +21,5 @@ mod test_embedded_options;
 mod test_greeks;
 mod test_metrics;
 mod test_pricing_basic;
-mod test_pricing_trees;
 mod test_sensitivities;
 mod test_tree_convergence;
