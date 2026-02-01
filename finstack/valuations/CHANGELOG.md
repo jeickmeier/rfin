@@ -120,7 +120,7 @@ let mixed = MarketSnapshot::restore_market(&market_t1, &snapshot,
 
 - Merged `CapPayoff` and `FloorPayoff` into `RatesPayoff` with `RatesPayoffType` enum
 - Merged `LookbackCall` and `LookbackPut` into `Lookback` with `LookbackDirection` enum
-- Added deprecated type aliases for backward compatibility
+- Added legacy type aliases for backward compatibility
 - Updated all call sites to use unified implementations
 
 **Benefits**:

@@ -179,7 +179,7 @@ mod xccy_swap;
 // ============================================================================
 
 // NOTE: instruments/commodity/ tests are orphaned and need API updates
-// They use deprecated `finstack_core::market_data::curves` imports
+// They use legacy `finstack_core::market_data::curves` imports
 #[path = "instruments/commodity/mod.rs"]
 mod commodity;
 

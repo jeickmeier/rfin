@@ -299,11 +299,10 @@ impl FxSpot {
         self
     }
 
-    /// Set the holiday calendar identifier used for settlement adjustment
-    /// Set the holiday calendar identifier used for settlement adjustment (deprecated).
+    /// Set the holiday calendar identifier used for settlement adjustment.
     ///
-    /// **Deprecated**: Use `with_base_calendar_id` and `with_quote_calendar_id` for
-    /// proper joint calendar support per FX market conventions.
+    /// Legacy helper retained for compatibility. Prefer `with_base_calendar_id` and
+    /// `with_quote_calendar_id` for joint calendar support per FX market conventions.
     pub fn with_calendar_id(mut self, id: impl Into<String>) -> Self {
         self.calendar_id = Some(id.into());
         self

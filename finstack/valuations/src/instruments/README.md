@@ -252,7 +252,7 @@ let instrument = InstrumentEnvelope::from_str(json)?;
 
 **Schema Versioning**: All JSON uses versioned schemas (`finstack.instrument/1`) for backward compatibility.
 
-**Strict Validation**: `deny_unknown_fields` ensures typos and deprecated fields are caught at deserialization.
+**Strict Validation**: `deny_unknown_fields` ensures typos and legacy fields are caught at deserialization.
 
 ### 2. Pricing
 

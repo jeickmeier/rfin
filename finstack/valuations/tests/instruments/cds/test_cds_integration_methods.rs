@@ -1,7 +1,7 @@
 //! CDS pricing consistency tests via canonical metrics API.
 //!
 //! These tests exercise protection/premium leg metrics without accessing
-//! deprecated pricer entry points.
+//! legacy pricer entry points.
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};

@@ -363,7 +363,6 @@ impl crate::instruments::common::traits::Instrument for Equity {
     }
 }
 
-#[allow(deprecated)]
 impl CashflowProvider for Equity {
     fn notional(&self) -> Option<Money> {
         // Equity notional is shares * price (market value)

@@ -766,7 +766,6 @@ mod tests {
 
     #[test]
     fn test_relative_eq() {
-        #[allow(deprecated)]
         assert_relative_eq(
             100.0,
             99.5,
@@ -917,9 +916,7 @@ mod tests {
     #[test]
     fn test_money_helpers() {
         let base = usd(100.0);
-        #[allow(deprecated)]
         let bumped = usd(100.0 + tolerances::NUMERICAL * 0.5);
-        #[allow(deprecated)]
         assert_money_eq(
             base,
             bumped,

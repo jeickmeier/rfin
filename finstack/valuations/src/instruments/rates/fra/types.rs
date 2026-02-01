@@ -140,7 +140,7 @@ impl<'de> serde::Deserialize<'de> for ForwardRateAgreement {
             /// New field name with correct semantics
             #[serde(default)]
             receive_fixed: Option<bool>,
-            /// Legacy field name with inverted semantics (DEPRECATED)
+            /// Legacy field name with inverted semantics
             #[serde(default)]
             pay_fixed: Option<bool>,
             attributes: Attributes,
@@ -152,13 +152,13 @@ impl<'de> serde::Deserialize<'de> for ForwardRateAgreement {
         let receive_fixed = match (helper.receive_fixed, helper.pay_fixed) {
             (Some(rf), None) => rf,
             (None, Some(pf)) => {
-                // DEPRECATED: pay_fixed has inverted semantics
+                // Legacy: pay_fixed has inverted semantics
                 // pay_fixed=true meant "pay fixed, receive floating" which is receive_fixed=false
                 tracing::warn!(
                     instrument_id = %helper.id.as_str(),
                     pay_fixed = pf,
                     computed_receive_fixed = !pf,
-                    "FRA uses deprecated 'pay_fixed' field. This field has inverted semantics \
+                    "FRA uses legacy 'pay_fixed' field. This field has inverted semantics \
                      and will be removed in a future version. Please migrate to 'receive_fixed'. \
                      pay_fixed=true → receive_fixed=false (pay fixed, receive floating); \
                      pay_fixed=false → receive_fixed=true (receive fixed, pay floating)"
@@ -169,7 +169,7 @@ impl<'de> serde::Deserialize<'de> for ForwardRateAgreement {
             (Some(_), Some(_)) => {
                 return Err(serde::de::Error::custom(
                     "FRA cannot have both 'receive_fixed' and 'pay_fixed' fields; \
-                     remove the deprecated 'pay_fixed' field",
+                     remove the legacy 'pay_fixed' field",
                 ));
             }
             (None, None) => {

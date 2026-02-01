@@ -108,7 +108,7 @@ impl Instrument for TestInstrument {
     }
 }
 
-/// Builder-based replacement for `EquityOption::european_call` (deprecated).
+/// Builder-based replacement for legacy `EquityOption::european_call`.
 pub fn equity_option_european_call(
     id: impl Into<String>,
     ticker: impl Into<String>,
@@ -141,7 +141,7 @@ pub fn equity_option_european_call(
         .build()
 }
 
-/// Builder-based replacement for `EquityOption::european_put` (deprecated).
+/// Builder-based replacement for legacy `EquityOption::european_put`.
 pub fn equity_option_european_put(
     id: impl Into<String>,
     ticker: impl Into<String>,
@@ -174,7 +174,7 @@ pub fn equity_option_european_put(
         .build()
 }
 
-/// Builder-based replacement for `EquityOption::american_call` (deprecated).
+/// Builder-based replacement for legacy `EquityOption::american_call`.
 pub fn equity_option_american_call(
     id: impl Into<String>,
     ticker: impl Into<String>,
@@ -207,7 +207,7 @@ pub fn equity_option_american_call(
         .build()
 }
 
-/// Builder-based replacement for `FxOption::european_call` (deprecated).
+/// Builder-based replacement for legacy `FxOption::european_call`.
 pub fn fx_option_european_call(
     id: impl Into<InstrumentId>,
     base_currency: Currency,
@@ -246,7 +246,7 @@ pub fn fx_option_european_call(
         .build()
 }
 
-/// Builder-based replacement for `FxOption::european_put` (deprecated).
+/// Builder-based replacement for legacy `FxOption::european_put`.
 pub fn fx_option_european_put(
     id: impl Into<InstrumentId>,
     base_currency: Currency,
@@ -285,7 +285,7 @@ pub fn fx_option_european_put(
         .build()
 }
 
-/// Builder-based replacement for `CreditDefaultSwap::buy_protection` (deprecated).
+/// Builder-based replacement for legacy `CreditDefaultSwap::buy_protection`.
 #[allow(clippy::too_many_arguments)]
 pub fn cds_buy_protection(
     id: impl Into<InstrumentId>,
@@ -338,7 +338,7 @@ pub fn cds_buy_protection(
     Ok(cds)
 }
 
-/// Builder-based replacement for `CreditDefaultSwap::sell_protection` (deprecated).
+/// Builder-based replacement for legacy `CreditDefaultSwap::sell_protection`.
 #[allow(clippy::too_many_arguments)]
 pub fn cds_sell_protection(
     id: impl Into<InstrumentId>,
@@ -467,7 +467,7 @@ pub mod calibration {
 
     /// Execute a single calibration step for tests/benchmarks without engaging the full plan engine.
     ///
-    /// This replaces the deprecated `calibration::execute_step_for_tests` shim.
+    /// This replaces the legacy `calibration::execute_step_for_tests` shim.
     pub fn execute_step(
         params: &StepParams,
         quotes: &[MarketQuote],
