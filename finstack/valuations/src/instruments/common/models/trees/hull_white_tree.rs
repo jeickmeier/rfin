@@ -37,6 +37,7 @@
 //! - Hull, J. (2018). *Options, Futures, and Other Derivatives*, 10th ed.
 //!   Chapter 31: Interest Rate Derivatives: Models of the Short Rate
 
+use crate::instruments::common::validation;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::{Error, Result};
 
@@ -110,15 +111,9 @@ impl HullWhiteTreeConfig {
 
     /// Validate configuration parameters.
     pub fn validate(&self) -> Result<()> {
-        if self.kappa <= 0.0 {
-            return Err(Error::Validation("kappa must be positive".into()));
-        }
-        if self.sigma <= 0.0 {
-            return Err(Error::Validation("sigma must be positive".into()));
-        }
-        if self.steps < 2 {
-            return Err(Error::Validation("steps must be at least 2".into()));
-        }
+        validation::require_with(self.kappa > 0.0, || "kappa must be positive".into())?;
+        validation::require_with(self.sigma > 0.0, || "sigma must be positive".into())?;
+        validation::require_with(self.steps >= 2, || "steps must be at least 2".into())?;
         Ok(())
     }
 }

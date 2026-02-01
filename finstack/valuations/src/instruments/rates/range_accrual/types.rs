@@ -1,6 +1,7 @@
 //! Range accrual instrument definition.
 
 use crate::instruments::common::traits::Attributes;
+use crate::instruments::common::validation;
 use crate::instruments::PricingOverrides;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
@@ -184,43 +185,38 @@ impl RangeAccrual {
     /// - Past fixing fields are consistent
     pub fn validate(&self) -> finstack_core::Result<()> {
         // Check observation dates
-        if self.observation_dates.is_empty() {
-            return Err(finstack_core::Error::Validation(
-                "RangeAccrual requires at least one observation date".to_string(),
-            ));
-        }
+        validation::require_with(!self.observation_dates.is_empty(), || {
+            "RangeAccrual requires at least one observation date".to_string()
+        })?;
 
         // Check observation dates are sorted
-        for i in 1..self.observation_dates.len() {
-            if self.observation_dates[i - 1] >= self.observation_dates[i] {
-                return Err(finstack_core::Error::Validation(
-                    "RangeAccrual observation_dates must be sorted in ascending order".to_string(),
-                ));
-            }
-        }
+        validation::validate_sorted_strict(
+            &self.observation_dates,
+            "RangeAccrual observation_dates",
+        )?;
 
         // Check bound ordering
-        if self.lower_bound >= self.upper_bound {
-            return Err(finstack_core::Error::Validation(format!(
+        validation::require_with(self.lower_bound < self.upper_bound, || {
+            format!(
                 "RangeAccrual lower_bound ({}) must be strictly less than upper_bound ({})",
                 self.lower_bound, self.upper_bound
-            )));
-        }
+            )
+        })?;
 
         // Check coupon rate
-        if self.coupon_rate < 0.0 {
-            return Err(finstack_core::Error::Validation(format!(
+        validation::require_with(self.coupon_rate >= 0.0, || {
+            format!(
                 "RangeAccrual coupon_rate ({}) must be non-negative",
                 self.coupon_rate
-            )));
-        }
+            )
+        })?;
 
         // Check quanto field consistency
-        if self.quanto_correlation.is_some() && self.fx_vol_surface_id.is_none() {
-            return Err(finstack_core::Error::Validation(
-                "RangeAccrual quanto_correlation requires fx_vol_surface_id to be set".to_string(),
-            ));
-        }
+        validation::require_if_some(
+            &self.quanto_correlation,
+            &self.fx_vol_surface_id,
+            "RangeAccrual quanto_correlation requires fx_vol_surface_id to be set",
+        )?;
 
         // Check past fixing field consistency
         match (self.past_fixings_in_range, self.total_past_observations) {

@@ -3,6 +3,7 @@
 //! This module provides a generalized framework for defining cash flow diversions
 //! based on coverage test failures or custom conditions.
 
+use crate::instruments::common::validation;
 use finstack_core::Result;
 use std::collections::{HashMap, HashSet};
 
@@ -136,21 +137,18 @@ impl DiversionEngine {
     pub fn validate(&self) -> Result<()> {
         let mut seen_ids: HashSet<&String> = HashSet::default();
         for rule in &self.rules {
-            if !seen_ids.insert(&rule.id) {
-                return Err(finstack_core::Error::Validation(format!(
-                    "Duplicate diversion rule ID: {}",
-                    rule.id
-                )));
-            }
+            validation::require_with(seen_ids.insert(&rule.id), || {
+                format!("Duplicate diversion rule ID: {}", rule.id)
+            })?;
         }
 
         for rule in &self.rules {
-            if rule.source_tier_id == rule.target_tier_id {
-                return Err(finstack_core::Error::Validation(format!(
+            validation::require_with(rule.source_tier_id != rule.target_tier_id, || {
+                format!(
                     "Diversion rule '{}' has self-reference: {} → {}",
                     rule.id, rule.source_tier_id, rule.target_tier_id
-                )));
-            }
+                )
+            })?;
         }
 
         self.detect_cycles()?;

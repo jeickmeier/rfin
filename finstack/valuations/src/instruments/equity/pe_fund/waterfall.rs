@@ -4,6 +4,7 @@
 //! markets funds, including return of capital, preferred IRR hurdles, catch-up
 //! provisions, promote splits, and clawback mechanisms.
 
+use crate::instruments::common::validation;
 use finstack_core::config::{results_meta, FinstackConfig, ResultsMeta};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
@@ -151,9 +152,10 @@ impl WaterfallSpec {
 
     /// Validate the waterfall specification.
     pub fn validate(&self) -> finstack_core::Result<()> {
-        if self.tranches.is_empty() {
-            return Err(finstack_core::InputError::TooFewPoints.into());
-        }
+        validation::require_or(
+            !self.tranches.is_empty(),
+            finstack_core::InputError::TooFewPoints,
+        )?;
 
         // Validate promote tier splits sum to 1.0
         for tranche in &self.tranches {
@@ -162,15 +164,18 @@ impl WaterfallSpec {
             } = tranche
             {
                 let sum = lp_share + gp_share;
-                if (sum - 1.0).abs() > 1e-6 {
-                    return Err(finstack_core::InputError::Invalid.into());
-                }
-                if !lp_share.is_finite() || !gp_share.is_finite() {
-                    return Err(finstack_core::InputError::Invalid.into());
-                }
-                if *lp_share < 0.0 || *gp_share < 0.0 {
-                    return Err(finstack_core::InputError::NegativeValue.into());
-                }
+                validation::require_or(
+                    (sum - 1.0).abs() <= 1e-6,
+                    finstack_core::InputError::Invalid,
+                )?;
+                validation::require_or(
+                    lp_share.is_finite() && gp_share.is_finite(),
+                    finstack_core::InputError::Invalid,
+                )?;
+                validation::require_or(
+                    *lp_share >= 0.0 && *gp_share >= 0.0,
+                    finstack_core::InputError::NegativeValue,
+                )?;
             }
         }
 

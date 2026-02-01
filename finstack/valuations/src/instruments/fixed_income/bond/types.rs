@@ -11,6 +11,7 @@ use finstack_core::Result;
 use rust_decimal::prelude::ToPrimitive;
 use time::macros::date;
 
+use crate::instruments::common::validation;
 // Re-export for compatibility in tests and external users referencing bond::AmortizationSpec
 pub use super::cashflow_spec::CashflowSpec;
 pub use crate::cashflow::builder::AmortizationSpec;
@@ -935,20 +936,17 @@ impl Bond {
     /// ```
     pub fn validate(&self) -> Result<()> {
         // Validate date ordering
-        if self.issue >= self.maturity {
-            return Err(finstack_core::Error::Validation(format!(
+        validation::validate_date_range_strict_with(self.issue, self.maturity, |start, end| {
+            format!(
                 "Bond issue date ({}) must be before maturity date ({})",
-                self.issue, self.maturity
-            )));
-        }
+                start, end
+            )
+        })?;
 
         // Validate notional is positive
-        if self.notional.amount() <= 0.0 {
-            return Err(finstack_core::Error::Validation(format!(
-                "Bond notional must be positive, got {}",
-                self.notional.amount()
-            )));
-        }
+        validation::validate_money_gt_with(self.notional, 0.0, |amount| {
+            format!("Bond notional must be positive, got {}", amount)
+        })?;
 
         // Validate coupon rate for fixed-rate bonds
         if let CashflowSpec::Fixed(spec) = &self.cashflow_spec {

@@ -11,6 +11,8 @@ use rust_decimal::Decimal;
 
 use crate::cashflow::builder::{evaluate_fee_tiers, FeeTier, FloatingRateSpec};
 use crate::instruments::common::traits::Attributes;
+#[cfg(feature = "mc")]
+use crate::instruments::common::validation;
 use rust_decimal::prelude::ToPrimitive;
 
 /// Revolving credit facility instrument.
@@ -417,12 +419,15 @@ impl McConfig {
 
         // Validate recovery rate: must be in [0, 1) to avoid division by zero
         // in hazard-to-spread mapping: λ = s / (1 - R)
-        if self.recovery_rate < 0.0 || self.recovery_rate >= MAX_RECOVERY_RATE {
-            return Err(finstack_core::Error::Validation(format!(
-                "Recovery rate must be in [0, {:.6}), got {}",
-                MAX_RECOVERY_RATE, self.recovery_rate
-            )));
-        }
+        validation::require_with(
+            self.recovery_rate >= 0.0 && self.recovery_rate < MAX_RECOVERY_RATE,
+            || {
+                format!(
+                    "Recovery rate must be in [0, {:.6}), got {}",
+                    MAX_RECOVERY_RATE, self.recovery_rate
+                )
+            },
+        )?;
 
         // Validate correlation matrix if provided
         if let Some(corr) = self.correlation_matrix {
@@ -435,9 +440,7 @@ impl McConfig {
 
         // Validate util_credit_corr if provided
         if let Some(rho) = self.util_credit_corr {
-            if rho.abs() > 1.0 {
-                return Err(InputError::Invalid.into());
-            }
+            validation::require_or(rho.abs() <= 1.0, InputError::Invalid)?;
         }
 
         // Validate credit spread process parameters
@@ -449,14 +452,13 @@ impl McConfig {
                 initial,
             } => {
                 // All parameters must be non-negative
-                if *kappa <= 0.0 || *theta < 0.0 || *sigma < 0.0 || *initial < 0.0 {
-                    return Err(InputError::Invalid.into());
-                }
+                validation::require_or(
+                    *kappa > 0.0 && *theta >= 0.0 && *sigma >= 0.0 && *initial >= 0.0,
+                    InputError::Invalid,
+                )?;
             }
             CreditSpreadProcessSpec::Constant(spread) => {
-                if *spread < 0.0 {
-                    return Err(InputError::Invalid.into());
-                }
+                validation::require_or(*spread >= 0.0, InputError::Invalid)?;
             }
             CreditSpreadProcessSpec::MarketAnchored {
                 kappa,
@@ -464,13 +466,9 @@ impl McConfig {
                 tenor_years,
                 ..
             } => {
-                if *kappa <= 0.0 || *implied_vol < 0.0 {
-                    return Err(InputError::Invalid.into());
-                }
+                validation::require_or(*kappa > 0.0 && *implied_vol >= 0.0, InputError::Invalid)?;
                 if let Some(tenor) = tenor_years {
-                    if *tenor <= 0.0 {
-                        return Err(InputError::Invalid.into());
-                    }
+                    validation::require_or(*tenor > 0.0, InputError::Invalid)?;
                 }
             }
         }
@@ -479,9 +477,7 @@ impl McConfig {
         if let Some(InterestRateProcessSpec::HullWhite1F { kappa, sigma, .. }) =
             &self.interest_rate_process
         {
-            if *kappa <= 0.0 || *sigma < 0.0 {
-                return Err(InputError::Invalid.into());
-            }
+            validation::require_or(*kappa > 0.0 && *sigma >= 0.0, InputError::Invalid)?;
         }
 
         Ok(())

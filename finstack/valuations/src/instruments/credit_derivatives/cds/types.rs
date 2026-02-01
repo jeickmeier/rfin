@@ -42,6 +42,7 @@
 use crate::cashflow::traits::DatedFlows;
 use crate::constants::BASIS_POINTS_PER_UNIT;
 use crate::instruments::common::traits::Attributes;
+use crate::instruments::common::validation;
 use crate::instruments::PricingOverrides;
 use crate::margin::types::OtcMarginSpec;
 use finstack_core::currency::Currency;
@@ -865,12 +866,11 @@ impl CreditDefaultSwap {
     pub fn validate(&self) -> finstack_core::Result<()> {
         // Validate date ordering (start must not be after end)
         // Note: start == end is allowed for "expired" CDS (valuation handles this edge case)
-        if self.premium.start > self.premium.end {
-            return Err(finstack_core::Error::Validation(format!(
-                "CDS premium start date ({}) must not be after end date ({})",
-                self.premium.start, self.premium.end
-            )));
-        }
+        validation::validate_date_range_non_strict(
+            self.premium.start,
+            self.premium.end,
+            "CDS premium",
+        )?;
 
         // Validate recovery rate (must be in [0, 1])
         Self::validate_recovery_rate(self.protection.recovery_rate)?;

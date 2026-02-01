@@ -17,6 +17,7 @@ use rust_decimal::Decimal;
 
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::traits::Attributes;
+use crate::instruments::common::validation;
 use crate::margin::types::OtcMarginSpec;
 
 // Re-export common enums from parameters
@@ -359,11 +360,7 @@ impl InterestRateSwap {
     /// ```
     pub fn validate(&self) -> finstack_core::Result<()> {
         // Validate finiteness early to avoid NaN poisoning and panics in downstream code.
-        if !self.notional.amount().is_finite() {
-            return Err(finstack_core::Error::Validation(
-                "Invalid notional: amount must be finite.".into(),
-            ));
-        }
+        validation::validate_money_finite(self.notional, "notional")?;
         // Decimal values are always finite (no NaN/Infinity), so we just check they're valid
         // by verifying they can be converted to f64 for magnitude checks
 
@@ -405,30 +402,37 @@ impl InterestRateSwap {
         }
 
         // Validate fixed leg date range
-        if self.fixed.end <= self.fixed.start {
-            return Err(finstack_core::Error::Validation(format!(
-                "Invalid fixed leg date range: end ({}) must be after start ({})",
-                self.fixed.end, self.fixed.start
-            )));
-        }
+        validation::validate_date_range_strict_with(
+            self.fixed.start,
+            self.fixed.end,
+            |start, end| {
+                format!(
+                    "Invalid fixed leg date range: end ({}) must be after start ({})",
+                    end, start
+                )
+            },
+        )?;
 
         // Validate floating leg date range
-        if self.float.end <= self.float.start {
-            return Err(finstack_core::Error::Validation(format!(
-                "Invalid floating leg date range: end ({}) must be after start ({})",
-                self.float.end, self.float.start
-            )));
-        }
+        validation::validate_date_range_strict_with(
+            self.float.start,
+            self.float.end,
+            |start, end| {
+                format!(
+                    "Invalid floating leg date range: end ({}) must be after start ({})",
+                    end, start
+                )
+            },
+        )?;
 
         // Validate notional is positive
-        if self.notional.amount() <= NOTIONAL_EPSILON {
-            return Err(finstack_core::Error::Validation(format!(
+        validation::validate_money_gt_with(self.notional, NOTIONAL_EPSILON, |amount| {
+            format!(
                 "Invalid notional: {} must be positive (> {:.0e}). \
                  Negative notional is semantically ambiguous; use PayReceive to control direction.",
-                self.notional.amount(),
-                NOTIONAL_EPSILON
-            )));
-        }
+                amount, NOTIONAL_EPSILON
+            )
+        })?;
 
         // Validate fixed rate is within reasonable bounds
         let rate_f64 = self.fixed.rate.to_f64().unwrap_or(0.0);

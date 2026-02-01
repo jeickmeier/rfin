@@ -6,6 +6,7 @@
 
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::traits::Attributes;
+use crate::instruments::common::validation;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{adjust, BusinessDayConvention, CalendarRegistry, Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
@@ -161,6 +162,41 @@ impl<'de> serde::Deserialize<'de> for ForwardRateAgreement {
 }
 
 impl ForwardRateAgreement {
+    /// Validate structural invariants of the FRA.
+    ///
+    /// This does not encode market conventions; it enforces finiteness and
+    /// basic ordering constraints to prevent ambiguous pricing.
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        validation::validate_date_range_strict(self.start_date, self.end_date, "FRA")?;
+
+        validation::validate_money_finite(self.notional, "FRA notional")?;
+        validation::validate_money_gt_with(self.notional, 0.0, |amount| {
+            format!("FRA notional must be positive, got {}", amount)
+        })?;
+
+        validation::validate_f64_finite(self.fixed_rate, "FRA fixed_rate")?;
+
+        if let Some(observed) = self.observed_fixing {
+            validation::validate_f64_finite(observed, "FRA observed_fixing")?;
+        }
+
+        // Guard against unit mistakes (e.g., passing years as days).
+        validation::require_with(self.reset_lag.abs() <= 31, || {
+            "FRA reset_lag has an unexpectedly large magnitude (expected business days)".to_string()
+        })?;
+
+        if let Some(fixing_date) = self.fixing_date {
+            validation::require_with(fixing_date <= self.start_date, || {
+                format!(
+                    "FRA fixing_date ({}) must be on or before start_date ({})",
+                    fixing_date, self.start_date
+                )
+            })?;
+        }
+
+        Ok(())
+    }
+
     /// Create a canonical example FRA for testing and documentation.
     ///
     /// Returns a 3x6 FRA (3 months forward, 3 month tenor).
@@ -198,6 +234,8 @@ impl ForwardRateAgreement {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
         use finstack_core::dates::DateExt;
+
+        self.validate()?;
 
         if as_of >= self.start_date {
             return Ok(0.0);
@@ -349,6 +387,8 @@ impl ForwardRateAgreement {
         context: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
+        self.validate()?;
+
         // Settlement for a FRA occurs at the start of the accrual period; past
         // settlement implies zero PV.
         if as_of >= self.start_date {

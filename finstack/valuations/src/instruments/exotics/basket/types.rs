@@ -5,12 +5,13 @@
 //! pricing infrastructure.
 
 use crate::instruments::common::traits::{Attributes, Instrument};
+use crate::instruments::common::validation;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::{fx::FxConversionPolicy, Money};
 use finstack_core::types::{InstrumentId, PriceId};
-use finstack_core::{Error, Result};
+use finstack_core::Result;
 
 #[cfg(feature = "serde")]
 use crate::instruments::json_loader::InstrumentJson;
@@ -312,9 +313,10 @@ impl Basket {
     pub fn validate(&self) -> Result<()> {
         // Check weight sum
         let total_weight: f64 = self.constituents.iter().map(|c| c.weight).sum();
-        if (total_weight - 1.0).abs() > 0.01 {
-            return Err(Error::Input(finstack_core::InputError::Invalid));
-        }
+        validation::require_or(
+            (total_weight - 1.0).abs() <= 0.01,
+            finstack_core::InputError::Invalid,
+        )?;
 
         // Validate each constituent's currency compatibility would happen
         // during pricing through the existing instrument validation

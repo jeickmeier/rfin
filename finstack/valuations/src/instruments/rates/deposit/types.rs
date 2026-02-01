@@ -25,6 +25,7 @@ use time::macros::date;
 
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::traits::Attributes;
+use crate::instruments::common::validation;
 
 /// Simple deposit instrument with optional quoted rate.
 ///
@@ -238,32 +239,33 @@ impl Deposit {
     /// This is called automatically during cashflow generation and pricing.
     pub fn validate(&self) -> finstack_core::Result<()> {
         // Validate raw date ordering first (fast check)
-        if self.end <= self.start {
-            return Err(finstack_core::Error::Validation(format!(
+        validation::validate_date_range_strict_with(self.start, self.end, |start, end| {
+            format!(
                 "Deposit end date ({}) must be after start date ({})",
-                self.end, self.start
-            )));
-        }
+                end, start
+            )
+        })?;
 
         // Validate positive notional
-        if self.notional.amount() <= 0.0 {
-            return Err(finstack_core::Error::Validation(format!(
-                "Deposit notional must be positive, got {}",
-                self.notional.amount()
-            )));
-        }
+        validation::validate_money_gt_with(self.notional, 0.0, |amount| {
+            format!("Deposit notional must be positive, got {}", amount)
+        })?;
 
         // Validate effective date ordering (catches BDC-induced inversions)
         // This is important when spot lag + calendar adjustments could cause issues
         let effective_start = self.effective_start_date()?;
         let effective_end = self.effective_end_date()?;
-        if effective_end <= effective_start {
-            return Err(finstack_core::Error::Validation(format!(
-                "Deposit effective end date ({}) must be after effective start date ({}) \
+        validation::validate_date_range_strict_with(
+            effective_start,
+            effective_end,
+            |start, end| {
+                format!(
+                    "Deposit effective end date ({}) must be after effective start date ({}) \
                  after business day adjustments",
-                effective_end, effective_start
-            )));
-        }
+                    end, start
+                )
+            },
+        )?;
 
         // Warn about extreme rates (don't fail, as they may be intentional)
         if let Some(r) = self.quote_rate {

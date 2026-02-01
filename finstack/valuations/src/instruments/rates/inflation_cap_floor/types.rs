@@ -32,6 +32,7 @@
 use crate::instruments::common::models::volatility::normal::bachelier_price;
 use crate::instruments::common::parameters::OptionType;
 use crate::instruments::common::traits::Attributes;
+use crate::instruments::common::validation;
 use crate::instruments::rates::cap_floor::pricing::black as black_ir;
 use crate::instruments::PricingOverrides;
 use crate::pricer::ModelKey;
@@ -146,15 +147,18 @@ pub struct InflationCapFloor {
 impl InflationCapFloor {
     /// Validate structural invariants.
     pub fn validate(&self) -> finstack_core::Result<()> {
-        if self.start_date >= self.end_date {
-            return Err(finstack_core::InputError::InvalidDateRange.into());
-        }
-        if self.notional.amount() <= 0.0 {
-            return Err(finstack_core::InputError::NonPositiveValue.into());
-        }
-        if self.frequency.count == 0 {
-            return Err(finstack_core::InputError::Invalid.into());
-        }
+        validation::require_or(
+            self.start_date < self.end_date,
+            finstack_core::InputError::InvalidDateRange,
+        )?;
+        validation::require_or(
+            self.notional.amount() > 0.0,
+            finstack_core::InputError::NonPositiveValue,
+        )?;
+        validation::require_or(
+            self.frequency.count != 0,
+            finstack_core::InputError::Invalid,
+        )?;
         Ok(())
     }
 

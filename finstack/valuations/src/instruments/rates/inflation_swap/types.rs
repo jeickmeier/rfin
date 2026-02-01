@@ -1,6 +1,7 @@
 //! Zero-coupon Inflation Swap types and pricing implementation.
 
 use crate::instruments::common::traits::Attributes;
+use crate::instruments::common::validation;
 use finstack_core::dates::{
     BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, StubKind, Tenor,
 };
@@ -137,16 +138,16 @@ impl InflationSwap {
     /// - `notional` is non-positive
     /// - `base_cpi` is provided but non-positive
     pub fn validate(&self) -> finstack_core::Result<()> {
-        if self.start >= self.maturity {
-            return Err(finstack_core::InputError::InvalidDateRange.into());
-        }
-        if self.notional.amount() <= 0.0 {
-            return Err(finstack_core::InputError::NonPositiveValue.into());
-        }
+        validation::require_or(
+            self.start < self.maturity,
+            finstack_core::InputError::InvalidDateRange,
+        )?;
+        validation::require_or(
+            self.notional.amount() > 0.0,
+            finstack_core::InputError::NonPositiveValue,
+        )?;
         if let Some(base) = self.base_cpi {
-            if base <= 0.0 {
-                return Err(finstack_core::InputError::NonPositiveValue.into());
-            }
+            validation::require_or(base > 0.0, finstack_core::InputError::NonPositiveValue)?;
         }
         Ok(())
     }
@@ -541,15 +542,18 @@ pub struct YoYInflationSwap {
 impl YoYInflationSwap {
     /// Validate structural invariants of the YoY inflation swap.
     pub fn validate(&self) -> finstack_core::Result<()> {
-        if self.start >= self.maturity {
-            return Err(finstack_core::InputError::InvalidDateRange.into());
-        }
-        if self.notional.amount() <= 0.0 {
-            return Err(finstack_core::InputError::NonPositiveValue.into());
-        }
-        if self.frequency.count == 0 {
-            return Err(finstack_core::InputError::Invalid.into());
-        }
+        validation::require_or(
+            self.start < self.maturity,
+            finstack_core::InputError::InvalidDateRange,
+        )?;
+        validation::require_or(
+            self.notional.amount() > 0.0,
+            finstack_core::InputError::NonPositiveValue,
+        )?;
+        validation::require_or(
+            self.frequency.count != 0,
+            finstack_core::InputError::Invalid,
+        )?;
         Ok(())
     }
 

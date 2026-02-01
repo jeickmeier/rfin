@@ -5,6 +5,7 @@
 //! optional contract rate override.
 
 use crate::instruments::common::traits::Attributes;
+use crate::instruments::common::validation;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -116,50 +117,43 @@ impl FxForward {
     /// - `spot_rate_override` is provided but is not positive
     pub fn validate(&self) -> Result<()> {
         // Currencies must be different
-        if self.base_currency == self.quote_currency {
-            return Err(finstack_core::Error::Validation(format!(
+        validation::require_with(self.base_currency != self.quote_currency, || {
+            format!(
                 "FX forward base_currency ({}) must differ from quote_currency ({})",
                 self.base_currency, self.quote_currency
-            )));
-        }
+            )
+        })?;
 
         // Notional must be in base currency
-        if self.notional.currency() != self.base_currency {
-            return Err(finstack_core::Error::Validation(format!(
+        validation::require_with(self.notional.currency() == self.base_currency, || {
+            format!(
                 "FX forward notional currency ({}) must match base_currency ({})",
                 self.notional.currency(),
                 self.base_currency
-            )));
-        }
+            )
+        })?;
 
         // Contract rate must be positive if provided
         if let Some(rate) = self.contract_rate {
-            if rate <= 0.0 {
-                return Err(finstack_core::Error::Validation(format!(
-                    "FX forward contract_rate must be positive, got {}",
-                    rate
-                )));
-            }
-            if !rate.is_finite() {
-                return Err(finstack_core::Error::Validation(
-                    "FX forward contract_rate must be finite".to_string(),
-                ));
-            }
+            validation::require_with(rate > 0.0, || {
+                format!("FX forward contract_rate must be positive, got {}", rate)
+            })?;
+            validation::require_with(rate.is_finite(), || {
+                "FX forward contract_rate must be finite".to_string()
+            })?;
         }
 
         // Spot rate override must be positive if provided
         if let Some(rate) = self.spot_rate_override {
-            if rate <= 0.0 {
-                return Err(finstack_core::Error::Validation(format!(
+            validation::require_with(rate > 0.0, || {
+                format!(
                     "FX forward spot_rate_override must be positive, got {}",
                     rate
-                )));
-            }
-            if !rate.is_finite() {
-                return Err(finstack_core::Error::Validation(
-                    "FX forward spot_rate_override must be finite".to_string(),
-                ));
-            }
+                )
+            })?;
+            validation::require_with(rate.is_finite(), || {
+                "FX forward spot_rate_override must be finite".to_string()
+            })?;
         }
 
         Ok(())
