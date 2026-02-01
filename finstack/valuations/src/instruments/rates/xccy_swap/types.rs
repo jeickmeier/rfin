@@ -14,8 +14,8 @@ use crate::instruments::common_impl::pricing::swap_legs::robust_relative_df;
 use finstack_core::currency::Currency;
 use finstack_core::dates::CalendarRegistry;
 use finstack_core::dates::{
-    BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, HolidayCalendar, Schedule,
-    ScheduleBuilder, StubKind, Tenor,
+    BusinessDayConvention, Date, DayCount, HolidayCalendar, Schedule, ScheduleBuilder, StubKind,
+    Tenor,
 };
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::summation::NeumaierAccumulator;
@@ -320,10 +320,7 @@ impl XccySwap {
         // Curves
         let disc = context.get_discount(&leg.discount_curve_id)?;
         let fwd = context.get_forward(&leg.forward_curve_id)?;
-        let cal = leg.resolve_calendar(&self.id)?;
         let fx = context.fx();
-
-        let dc_ctx = DayCountCtx::default();
 
         let mut pv = NeumaierAccumulator::new();
 
@@ -394,29 +391,40 @@ impl XccySwap {
             pv.add(cf_rep);
         }
 
+        let periods = crate::instruments::common::pricing::schedule::build_periods(
+            crate::instruments::common::pricing::schedule::BuildPeriodsParams {
+                start: self.start_date,
+                end: self.maturity_date,
+                frequency: leg.frequency,
+                stub: self.stub_kind,
+                bdc: leg.bdc,
+                calendar_id: leg.calendar_id.as_deref(),
+                end_of_month: false,
+                day_count: leg.day_count,
+                payment_lag_days: leg.payment_lag_days,
+                reset_lag_days: None,
+            },
+        )?;
+
+        if periods.is_empty() {
+            return Err(finstack_core::Error::Validation(
+                "XccySwap leg schedule must contain at least 2 dates".to_string(),
+            ));
+        }
+
         // Floating coupons
-        for i in 1..schedule.dates.len() {
-            let period_start = schedule.dates[i - 1];
-            let period_end = schedule.dates[i];
-
-            let payment_date = if leg.payment_lag_days == 0 {
-                period_end
-            } else if let Some(cal) = cal {
-                period_end.add_business_days(leg.payment_lag_days, cal)?
-            } else {
-                period_end + time::Duration::days(leg.payment_lag_days as i64)
-            };
-
-            if payment_date <= as_of {
+        for period in periods {
+            if period.payment_date <= as_of {
                 continue;
             }
 
             // Forward rate using forward curve's time basis
-            let forward_rate = rate_period_on_dates(fwd.as_ref(), period_start, period_end)?;
+            let forward_rate =
+                rate_period_on_dates(fwd.as_ref(), period.accrual_start, period.accrual_end)?;
             if !forward_rate.is_finite() {
                 return Err(finstack_core::Error::Validation(format!(
                     "Non-finite forward rate for period {} to {}",
-                    period_start, period_end
+                    period.accrual_start, period.accrual_end
                 )));
             }
             // Warn about extremely negative forward rates which may indicate curve issues.
@@ -424,8 +432,8 @@ impl XccySwap {
             if forward_rate < EXTREME_NEGATIVE_RATE_THRESHOLD {
                 tracing::warn!(
                     instrument_id = %self.id.as_str(),
-                    period_start = %period_start,
-                    period_end = %period_end,
+                    period_start = %period.accrual_start,
+                    period_end = %period.accrual_end,
                     forward_rate = forward_rate,
                     threshold = EXTREME_NEGATIVE_RATE_THRESHOLD,
                     "Forward rate is highly negative; verify curve construction"
@@ -433,17 +441,21 @@ impl XccySwap {
             }
 
             let total_rate = forward_rate + leg.spread;
-            let year_frac = leg
-                .day_count
-                .year_fraction(period_start, period_end, dc_ctx)?;
-            let coupon = leg.side.coupon_sign() * leg.notional.amount() * total_rate * year_frac;
+            let coupon = leg.side.coupon_sign()
+                * leg.notional.amount()
+                * total_rate
+                * period.accrual_year_fraction;
 
             // Use robust_relative_df for numerical stability
-            let df = robust_relative_df(disc.as_ref(), as_of, payment_date)?;
+            let df = robust_relative_df(disc.as_ref(), as_of, period.payment_date)?;
             let cf_leg_ccy = coupon * df;
 
             // Convert to reporting currency using cashflow-date FX
-            let cf_rep = convert_cf(cf_leg_ccy, payment_date, &mut fx_approximation_warned)?;
+            let cf_rep = convert_cf(
+                cf_leg_ccy,
+                period.payment_date,
+                &mut fx_approximation_warned,
+            )?;
             pv.add(cf_rep);
         }
 

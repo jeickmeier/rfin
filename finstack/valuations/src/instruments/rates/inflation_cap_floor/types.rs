@@ -211,16 +211,6 @@ impl InflationCapFloor {
         }
     }
 
-    fn adjusted_payment_date(&self, date: Date) -> Date {
-        if let Some(ref cal_id) = self.calendar_id {
-            use finstack_core::dates::CalendarRegistry;
-            if let Some(cal) = CalendarRegistry::global().resolve_str(cal_id) {
-                return finstack_core::dates::adjust(date, self.bdc, cal).unwrap_or(date);
-            }
-        }
-        date
-    }
-
     fn cpi_value(
         &self,
         curves: &MarketContext,
@@ -267,33 +257,45 @@ impl InflationCapFloor {
             self.option_type,
             InflationCapFloorType::Caplet | InflationCapFloorType::Floorlet
         ) {
-            let pay = self.adjusted_payment_date(self.end_date);
+            let pay = crate::instruments::common::pricing::schedule::adjust_date(
+                self.end_date,
+                self.bdc,
+                self.calendar_id.as_deref(),
+            )?;
             return Ok(vec![(self.start_date, self.end_date, pay)]);
         }
 
-        let schedule = crate::cashflow::builder::date_generation::build_dates(
-            self.start_date,
-            self.end_date,
-            self.frequency,
-            self.stub_kind,
-            self.bdc,
-            self.calendar_id.as_deref(),
+        let periods = crate::instruments::common::pricing::schedule::build_periods(
+            crate::instruments::common::pricing::schedule::BuildPeriodsParams {
+                start: self.start_date,
+                end: self.end_date,
+                frequency: self.frequency,
+                stub: self.stub_kind,
+                bdc: self.bdc,
+                calendar_id: self.calendar_id.as_deref(),
+                end_of_month: false,
+                day_count: self.day_count,
+                payment_lag_days: 0,
+                reset_lag_days: None,
+            },
         )?;
 
-        if schedule.dates.len() < 2 {
+        if periods.is_empty() {
             return Err(finstack_core::Error::Input(
                 finstack_core::InputError::Invalid,
             ));
         }
 
-        let mut periods = Vec::with_capacity(schedule.dates.len().saturating_sub(1));
-        for window in schedule.dates.windows(2) {
-            let start = window[0];
-            let end = window[1];
-            let pay = self.adjusted_payment_date(end);
-            periods.push((start, end, pay));
-        }
-        Ok(periods)
+        Ok(periods
+            .into_iter()
+            .map(|period| {
+                (
+                    period.accrual_start,
+                    period.accrual_end,
+                    period.payment_date,
+                )
+            })
+            .collect())
     }
 
     /// Price using an explicit model key (Black-76 or Normal).

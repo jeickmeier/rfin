@@ -1469,25 +1469,29 @@ impl BermudanSwaption {
     ///
     /// Returns (payment_dates, accrual_fractions) for the fixed leg.
     pub fn build_swap_schedule(&self, _as_of: Date) -> Result<(Vec<Date>, Vec<f64>)> {
-        let sched = crate::cashflow::builder::build_dates(
-            self.swap_start,
-            self.swap_end,
-            self.fixed_freq,
-            StubKind::None,
-            BusinessDayConvention::ModifiedFollowing, // Market standard per ISDA
-            None,
+        let periods = crate::instruments::common::pricing::schedule::build_periods(
+            crate::instruments::common::pricing::schedule::BuildPeriodsParams {
+                start: self.swap_start,
+                end: self.swap_end,
+                frequency: self.fixed_freq,
+                stub: StubKind::None,
+                bdc: BusinessDayConvention::ModifiedFollowing, // Market standard per ISDA
+                calendar_id: None,
+                end_of_month: false,
+                day_count: self.day_count,
+                payment_lag_days: 0,
+                reset_lag_days: None,
+            },
         )?;
 
-        let dates: Vec<Date> = sched.dates.iter().skip(1).copied().collect();
-        let ctx = finstack_core::dates::DayCountCtx::default();
-
-        let mut accruals = Vec::with_capacity(dates.len());
-        let mut prev = self.swap_start;
-        for &d in &dates {
-            let tau = self.day_count.year_fraction(prev, d, ctx)?;
-            accruals.push(tau);
-            prev = d;
+        if periods.is_empty() {
+            return Err(Error::Validation(
+                "Swap schedule has fewer than 2 dates".into(),
+            ));
         }
+
+        let dates: Vec<Date> = periods.iter().map(|p| p.payment_date).collect();
+        let accruals: Vec<f64> = periods.iter().map(|p| p.accrual_year_fraction).collect();
 
         Ok((dates, accruals))
     }
@@ -1538,24 +1542,27 @@ impl BermudanSwaption {
 
         let fwd = curves.get_forward(self.forward_id.as_ref())?;
         let fwd_dc = fwd.day_count();
-        let sched = crate::cashflow::builder::build_dates(
-            exercise_date,
-            self.swap_end,
-            self.float_freq,
-            StubKind::None,
-            BusinessDayConvention::ModifiedFollowing, // Market standard per ISDA
-            None,
+        let periods = crate::instruments::common::pricing::schedule::build_periods(
+            crate::instruments::common::pricing::schedule::BuildPeriodsParams {
+                start: exercise_date,
+                end: self.swap_end,
+                frequency: self.float_freq,
+                stub: StubKind::None,
+                bdc: BusinessDayConvention::ModifiedFollowing, // Market standard per ISDA
+                calendar_id: None,
+                end_of_month: false,
+                day_count: fwd_dc,
+                payment_lag_days: 0,
+                reset_lag_days: None,
+            },
         )?;
 
         let mut pv_float = 0.0;
-        let mut prev = exercise_date;
-        for &d in sched.dates.iter().skip(1) {
-            let accrual =
-                fwd_dc.year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
-            let fwd_rate = rate_period_on_dates(fwd.as_ref(), prev, d)?;
-            let df = relative_df_discounting(disc.as_ref(), as_of, d)?;
-            pv_float += accrual * fwd_rate * df;
-            prev = d;
+        for period in periods {
+            let fwd_rate =
+                rate_period_on_dates(fwd.as_ref(), period.accrual_start, period.accrual_end)?;
+            let df = relative_df_discounting(disc.as_ref(), as_of, period.payment_date)?;
+            pv_float += period.accrual_year_fraction * fwd_rate * df;
         }
 
         Ok(pv_float / annuity)

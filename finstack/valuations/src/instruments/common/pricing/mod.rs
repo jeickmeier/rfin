@@ -11,6 +11,7 @@
 //! - [`time`]: Shared time-mapping and discount factor helpers for consistent curve usage
 
 mod generic;
+pub mod schedule;
 pub mod swap_legs;
 pub mod time;
 mod trs;

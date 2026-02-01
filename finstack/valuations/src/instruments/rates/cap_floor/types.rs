@@ -297,7 +297,6 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        use crate::cashflow::builder::date_generation::build_dates;
         use crate::instruments::common_impl::pricing::time::{
             rate_period_on_dates, relative_df_discount_curve,
         };
@@ -369,16 +368,22 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
         }
 
         // Cap/floor portfolio of caplets/floorlets
-        let schedule = build_dates(
-            self.start_date,
-            self.end_date,
-            self.frequency,
-            self.stub_kind,
-            self.bdc,
-            self.calendar_id.as_deref(),
+        let periods = crate::instruments::common::pricing::schedule::build_periods(
+            crate::instruments::common::pricing::schedule::BuildPeriodsParams {
+                start: self.start_date,
+                end: self.end_date,
+                frequency: self.frequency,
+                stub: self.stub_kind,
+                bdc: self.bdc,
+                calendar_id: self.calendar_id.as_deref(),
+                end_of_month: false,
+                day_count: self.day_count,
+                payment_lag_days: 0,
+                reset_lag_days: None,
+            },
         )?;
 
-        if schedule.dates.len() < 2 {
+        if periods.is_empty() {
             return Ok(total_pv);
         }
 
@@ -386,22 +391,24 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
             self.rate_option_type,
             RateOptionType::Caplet | RateOptionType::Cap
         );
-        let mut prev = schedule.dates[0];
-        for &pay in &schedule.dates[1..] {
+        for period in periods {
+            let pay = period.payment_date;
             // Skip entirely settled cashflows (payment date already passed)
             if pay <= as_of {
-                prev = pay;
                 continue;
             }
 
             // Time to fixing using instrument's day count (for vol surface lookup)
-            let t_fix = self.day_count.year_fraction(as_of, prev, dc_ctx)?;
+            let t_fix = self
+                .day_count
+                .year_fraction(as_of, period.accrual_start, dc_ctx)?;
 
             // Accrual year fraction
-            let tau = self.day_count.year_fraction(prev, pay, dc_ctx)?;
+            let tau = period.accrual_year_fraction;
 
             // Use curve-consistent helpers for forward rate and discount factor
-            let forward = rate_period_on_dates(fwd_curve.as_ref(), prev, pay)?;
+            let forward =
+                rate_period_on_dates(fwd_curve.as_ref(), period.accrual_start, period.accrual_end)?;
             let df = relative_df_discount_curve(disc_curve.as_ref(), as_of, pay)?;
 
             let sigma = if let Some(impl_vol) = self.pricing_overrides.implied_volatility {
@@ -431,8 +438,6 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
                 currency: self.notional.currency(),
             })?;
             total_pv = total_pv.checked_add(leg_pv)?;
-
-            prev = pay;
         }
 
         Ok(total_pv)

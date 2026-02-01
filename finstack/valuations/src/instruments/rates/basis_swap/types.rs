@@ -23,10 +23,7 @@
 #[allow(unused_imports)] // Used in doc examples and tests
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_core::{
-    dates::{
-        CalendarRegistry, Date, DateExt, DayCountCtx, HolidayCalendar, Schedule, ScheduleBuilder,
-        StubKind,
-    },
+    dates::{CalendarRegistry, Date, HolidayCalendar, Schedule, ScheduleBuilder, StubKind},
     market_data::context::MarketContext,
     money::Money,
     types::{CurveId, InstrumentId},
@@ -530,51 +527,39 @@ impl BasisSwap {
         // Get curves
         let disc = context.get_discount(&self.discount_curve_id)?;
         let fwd = context.get_forward(&leg.forward_curve_id)?;
-        let cal = self.resolve_calendar()?;
-
         let currency = self.notional.currency();
-        let dc_ctx = DayCountCtx::default();
 
-        // Build periods from schedule
-        let mut periods = Vec::with_capacity(schedule.dates.len() - 1);
-        for i in 1..schedule.dates.len() {
-            let period_start = schedule.dates[i - 1];
-            let period_end = schedule.dates[i];
+        let periods = crate::instruments::common::pricing::schedule::build_periods(
+            crate::instruments::common::pricing::schedule::BuildPeriodsParams {
+                start: self.start_date,
+                end: self.maturity_date,
+                frequency: leg.frequency,
+                stub: self.stub_kind,
+                bdc: leg.bdc,
+                calendar_id: self.calendar_id.as_deref(),
+                end_of_month: false,
+                day_count: leg.day_count,
+                payment_lag_days: leg.payment_lag_days,
+                reset_lag_days: Some(leg.reset_lag_days),
+            },
+        )?;
 
-            let payment_date = if leg.payment_lag_days == 0 {
-                period_end
-            } else if let Some(cal) = cal {
-                period_end.add_business_days(leg.payment_lag_days, cal)?
-            } else {
-                period_end + time::Duration::days(leg.payment_lag_days as i64)
-            };
-
-            // Skip past periods
-            if payment_date <= valuation_date {
-                continue;
-            }
-
-            // Calculate reset date
-            let reset_date = if leg.reset_lag_days == 0 {
-                period_start
-            } else if let Some(cal) = cal {
-                period_start.add_business_days(-leg.reset_lag_days, cal)?
-            } else {
-                period_start - time::Duration::days(leg.reset_lag_days as i64)
-            };
-
-            // Year fraction for accrual
-            let year_frac = leg
-                .day_count
-                .year_fraction(period_start, period_end, dc_ctx)?;
-
-            periods.push(LegPeriod {
-                accrual_start: period_start,
-                accrual_end: period_end,
-                reset_date: Some(reset_date),
-                year_fraction: year_frac,
-            });
+        if periods.is_empty() {
+            return Err(finstack_core::Error::Validation(
+                "BasisSwap leg schedule must contain at least 2 dates".to_string(),
+            ));
         }
+
+        let leg_periods: Vec<LegPeriod> = periods
+            .into_iter()
+            .filter(|period| period.payment_date > valuation_date)
+            .map(|period| LegPeriod {
+                accrual_start: period.accrual_start,
+                accrual_end: period.accrual_end,
+                reset_date: period.reset_date,
+                year_fraction: period.accrual_year_fraction,
+            })
+            .collect();
 
         // Build floating leg params - spread is in decimal form for BasisSwap
         let params = FloatingLegParams::full(
@@ -595,7 +580,7 @@ impl BasisSwap {
 
         // Use shared pricing function
         let pv = crate::instruments::common_impl::pricing::swap_legs::pv_floating_leg(
-            periods.into_iter(),
+            leg_periods.into_iter(),
             self.notional.amount(),
             &params,
             disc.as_ref(),
@@ -624,10 +609,10 @@ impl BasisSwap {
     ///
     /// # Note on Payment Lag Handling
     ///
-    /// Payment dates are computed consistently with `pv_float_leg()`:
-    /// - If a calendar is resolved, business day adjustment is applied
-    /// - If calendar fallback is enabled and no calendar found, calendar days are used
-    /// - If calendar fallback is disabled and no calendar found, an error is returned
+    /// Payment dates are computed via the canonical schedule helper:
+    /// - Business-day adjustment uses the provided `calendar_id` when set
+    /// - If no calendar is provided, weekends-only adjustment is applied
+    /// - Unknown calendar IDs return an error (strict policy)
     pub fn annuity_for_leg(
         &self,
         leg: &BasisSwapLeg,
@@ -648,36 +633,39 @@ impl BasisSwap {
         }
 
         let disc = curves.get_discount(&self.discount_curve_id)?;
-        let cal = self.resolve_calendar()?;
+
+        let periods = crate::instruments::common::pricing::schedule::build_periods(
+            crate::instruments::common::pricing::schedule::BuildPeriodsParams {
+                start: self.start_date,
+                end: self.maturity_date,
+                frequency: leg.frequency,
+                stub: self.stub_kind,
+                bdc: leg.bdc,
+                calendar_id: self.calendar_id.as_deref(),
+                end_of_month: false,
+                day_count: leg.day_count,
+                payment_lag_days: leg.payment_lag_days,
+                reset_lag_days: Some(leg.reset_lag_days),
+            },
+        )?;
+
+        if periods.is_empty() {
+            return Err(finstack_core::Error::Validation(
+                "BasisSwap leg schedule must contain at least 2 dates".to_string(),
+            ));
+        }
 
         // Compute annuity directly, applying payment lag consistently with pv_float_leg()
-        let dc_ctx = DayCountCtx::default();
         let mut annuity = 0.0;
-        let mut prev = schedule.dates[0];
-
-        for &d in &schedule.dates[1..] {
-            // Apply payment lag consistently with pv_float_leg()
-            let payment_date = if leg.payment_lag_days == 0 {
-                d
-            } else if let Some(cal) = cal {
-                d.add_business_days(leg.payment_lag_days, cal)?
-            } else {
-                // Fallback mode: calendar days (same as pv_float_leg)
-                d + time::Duration::days(leg.payment_lag_days as i64)
-            };
-
-            // Only include future payments (same condition as pv_float_leg)
-            if payment_date > as_of {
-                let yf = leg.day_count.year_fraction(prev, d, dc_ctx)?;
+        for period in periods {
+            if period.payment_date > as_of {
                 let df = crate::instruments::common_impl::pricing::swap_legs::robust_relative_df(
                     disc.as_ref(),
                     as_of,
-                    payment_date,
+                    period.payment_date,
                 )?;
-                annuity += yf * df;
+                annuity += period.accrual_year_fraction * df;
             }
-
-            prev = d;
         }
 
         // Guard against zero annuity which would cause divide-by-zero in par spread calculations

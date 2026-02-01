@@ -607,17 +607,6 @@ impl YoYInflationSwap {
         }
     }
 
-    fn adjusted_payment_date(&self, date: Date) -> Date {
-        let bdc = self.bdc.unwrap_or(BusinessDayConvention::Following);
-        if let Some(ref cal_id) = self.calendar_id {
-            use finstack_core::dates::CalendarRegistry;
-            if let Some(cal) = CalendarRegistry::global().resolve_str(cal_id) {
-                return finstack_core::dates::adjust(date, bdc, cal).unwrap_or(date);
-            }
-        }
-        date
-    }
-
     fn cpi_value(
         &self,
         curves: &MarketContext,
@@ -639,29 +628,37 @@ impl YoYInflationSwap {
 
     fn schedule(&self) -> finstack_core::Result<Vec<(Date, Date, Date)>> {
         let bdc = self.bdc.unwrap_or(BusinessDayConvention::Following);
-        let schedule = crate::cashflow::builder::date_generation::build_dates(
-            self.start,
-            self.maturity,
-            self.frequency,
-            StubKind::None,
-            bdc,
-            self.calendar_id.as_deref(),
+        let periods = crate::instruments::common::pricing::schedule::build_periods(
+            crate::instruments::common::pricing::schedule::BuildPeriodsParams {
+                start: self.start,
+                end: self.maturity,
+                frequency: self.frequency,
+                stub: StubKind::None,
+                bdc,
+                calendar_id: self.calendar_id.as_deref(),
+                end_of_month: false,
+                day_count: self.dc,
+                payment_lag_days: 0,
+                reset_lag_days: None,
+            },
         )?;
 
-        if schedule.dates.len() < 2 {
+        if periods.is_empty() {
             return Err(finstack_core::Error::Input(
                 finstack_core::InputError::Invalid,
             ));
         }
 
-        let mut periods = Vec::with_capacity(schedule.dates.len().saturating_sub(1));
-        for window in schedule.dates.windows(2) {
-            let start = window[0];
-            let end = window[1];
-            let pay = self.adjusted_payment_date(end);
-            periods.push((start, end, pay));
-        }
-        Ok(periods)
+        Ok(periods
+            .into_iter()
+            .map(|period| {
+                (
+                    period.accrual_start,
+                    period.accrual_end,
+                    period.payment_date,
+                )
+            })
+            .collect())
     }
 
     /// Calculates the raw present value (f64) of the YoY inflation swap.

@@ -27,16 +27,13 @@ where
 
     // Helper to compute contribution for a single period
     let mut accumulate = |start: finstack_core::dates::Date,
-                          end: finstack_core::dates::Date|
+                          end: finstack_core::dates::Date,
+                          payment_date: finstack_core::dates::Date,
+                          tau: f64|
      -> finstack_core::Result<f64> {
         let t_fix = option.day_count.year_fraction(
             context.as_of,
             start,
-            finstack_core::dates::DayCountCtx::default(),
-        )?;
-        let tau = option.day_count.year_fraction(
-            start,
-            end,
             finstack_core::dates::DayCountCtx::default(),
         )?;
 
@@ -52,7 +49,7 @@ where
         let df = crate::instruments::common_impl::pricing::time::relative_df_discount_curve(
             disc_curve.as_ref(),
             context.as_of,
-            end,
+            payment_date,
         )?;
         let sigma = if let Some(impl_vol) = option.pricing_overrides.implied_volatility {
             impl_vol
@@ -72,28 +69,46 @@ where
         option.rate_option_type,
         super::super::RateOptionType::Caplet | super::super::RateOptionType::Floorlet
     ) {
-        return accumulate(option.start_date, option.end_date);
+        let payment_date = crate::instruments::common::pricing::schedule::adjust_date(
+            option.end_date,
+            option.bdc,
+            option.calendar_id.as_deref(),
+        )?;
+        let tau = option.day_count.year_fraction(
+            option.start_date,
+            option.end_date,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
+        return accumulate(option.start_date, option.end_date, payment_date, tau);
     }
 
     // Cap/floor: iterate schedule
-    use crate::cashflow::builder::date_generation::build_dates;
-    let schedule = build_dates(
-        option.start_date,
-        option.end_date,
-        option.frequency,
-        option.stub_kind,
-        option.bdc,
-        option.calendar_id.as_deref(),
+    let periods = crate::instruments::common::pricing::schedule::build_periods(
+        crate::instruments::common::pricing::schedule::BuildPeriodsParams {
+            start: option.start_date,
+            end: option.end_date,
+            frequency: option.frequency,
+            stub: option.stub_kind,
+            bdc: option.bdc,
+            calendar_id: option.calendar_id.as_deref(),
+            end_of_month: false,
+            day_count: option.day_count,
+            payment_lag_days: 0,
+            reset_lag_days: None,
+        },
     )?;
-    if schedule.dates.len() < 2 {
+    if periods.is_empty() {
         return Ok(0.0);
     }
 
     let mut sum = 0.0;
-    let mut prev = schedule.dates[0];
-    for &pay in &schedule.dates[1..] {
-        sum += accumulate(prev, pay)?;
-        prev = pay;
+    for period in periods {
+        sum += accumulate(
+            period.accrual_start,
+            period.accrual_end,
+            period.payment_date,
+            period.accrual_year_fraction,
+        )?;
     }
     Ok(sum)
 }

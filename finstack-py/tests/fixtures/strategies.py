@@ -236,6 +236,7 @@ def swap_strategy(
         .frequency(Frequency.SEMI_ANNUAL)
         .disc_id(f"{currency_code}-OIS")
         .fwd_id(f"{currency_code}-SOFR")
+        .reset_lag_days(0)
         .build()
     )
 
@@ -345,6 +346,7 @@ def create_test_swap(
         .frequency(frequency)
         .disc_id(disc_id)
         .fwd_id(fwd_id)
+        .reset_lag_days(0)
         .build()
     )
 

@@ -364,6 +364,7 @@ impl PyBasisSwapBuilder {
             .stub_kind(slf.stub)
             .calendar_id_opt(slf.calendar.clone())
             .allow_calendar_fallback(false)
+            .allow_same_curve(false)
             .attributes(Default::default())
             .build()
             .map_err(core_to_py)?;

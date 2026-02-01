@@ -377,6 +377,9 @@ impl PyInterestRateSwapBuilder {
                 "InterestRateSwapBuilder internal error: missing notional after validation",
             )
         })?;
+        if notional.amount() <= 0.0 {
+            return Err(PyValueError::new_err("notional must be positive"));
+        }
         let side = slf.side.ok_or_else(|| {
             pyo3::exceptions::PyRuntimeError::new_err(
                 "InterestRateSwapBuilder internal error: missing side after validation",

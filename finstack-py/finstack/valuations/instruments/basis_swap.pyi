@@ -62,7 +62,7 @@ class BasisSwap:
         >>> reference_leg = BasisSwapLeg(
         ...     forward_curve="USD-SOFR",
         ...     frequency="quarterly",
-        ...     spread=10.0,  # 10bp basis spread
+        ...     spread=0.001,  # 10bp basis spread (decimal)
         ... )
         >>> basis_swap = (
         ...     BasisSwap.builder("BASIS-LIBOR-SOFR")
@@ -71,7 +71,7 @@ class BasisSwap:
         ...     .maturity(date(2029, 1, 1))  # 5-year swap
         ...     .primary_leg(primary_leg)
         ...     .reference_leg(reference_leg)
-        ...     .disc_id("USD")
+        ...     .disc_id("USD-OIS")
         ...     .build()
         ... )
 
