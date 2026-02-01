@@ -545,6 +545,15 @@ impl crate::instruments::common::traits::Instrument for EquityIndexFuture {
         Box::new(self.clone())
     }
 
+    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
+        let mut deps =
+            crate::instruments::common::dependencies::MarketDependencies::from_curve_dependencies(
+                self,
+            );
+        deps.add_spot_id(self.index_price_id.as_str());
+        deps
+    }
+
     fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         let pv = self.npv_raw(curves, as_of)?;
         Ok(finstack_core::money::Money::new(pv, self.currency))
@@ -602,6 +611,7 @@ impl CashflowProvider for EquityIndexFuture {
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasDiscountCurve for EquityIndexFuture {
     fn discount_curve_id(&self) -> &CurveId {
         &self.discount_curve_id
@@ -612,6 +622,14 @@ impl crate::instruments::common::traits::CurveDependencies for EquityIndexFuture
     fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
         crate::instruments::common::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
+            .build()
+    }
+}
+
+impl crate::instruments::common::traits::EquityDependencies for EquityIndexFuture {
+    fn equity_dependencies(&self) -> crate::instruments::common::traits::EquityInstrumentDeps {
+        crate::instruments::common::traits::EquityInstrumentDeps::builder()
+            .spot(self.index_price_id.as_str())
             .build()
     }
 }

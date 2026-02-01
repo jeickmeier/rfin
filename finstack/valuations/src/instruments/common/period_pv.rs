@@ -1,7 +1,7 @@
 //! Periodized present value calculations for instruments.
 //!
 //! This module provides extension traits that allow any instrument implementing
-//! `CashflowProvider` + `HasDiscountCurve` to compute present values aggregated
+//! `CashflowProvider` + `CurveDependencies` to compute present values aggregated
 //! by reporting periods.
 //!
 //! # Overview
@@ -80,7 +80,7 @@
 
 use crate::cashflow::builder::schedule::resolve_credit_curves;
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::common::pricing::HasDiscountCurve;
+use crate::instruments::common::traits::CurveDependencies;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Period, PeriodId};
 use finstack_core::market_data::context::MarketContext;
@@ -91,7 +91,7 @@ use indexmap::IndexMap;
 /// Extension trait providing periodized present value calculation for instruments.
 ///
 /// Automatically implemented for any type that provides both cashflow schedules
-/// (`CashflowProvider`) and a discount curve reference (`HasDiscountCurve`).
+/// (`CashflowProvider`) and curve dependencies (`CurveDependencies`).
 ///
 /// # Design
 ///
@@ -105,7 +105,7 @@ use indexmap::IndexMap;
 ///
 /// All returned PVs preserve currency information. Each period maps to a
 /// `Currency -> Money` sub-map, preventing accidental cross-currency aggregation.
-pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
+pub trait PeriodizedPvExt: CashflowProvider + CurveDependencies {
     /// Compute present values aggregated by period using discount curve only.
     ///
     /// Groups cashflows by period and computes the present value of each cashflow
@@ -168,7 +168,11 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
         let flows = self.build_dated_flows(market, base)?;
         let schedule = schedule_from_dated_flows(flows, self.notional(), dc);
 
-        let disc_curve_id = self.discount_curve_id();
+        let deps = self.curve_dependencies();
+        let disc_curve_id = deps
+            .discount_curves
+            .first()
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
         let disc_arc = market.get_discount(disc_curve_id.as_str())?;
 
         schedule.pv_by_period_with_ctx(periods, disc_arc.as_ref(), base, dc, DayCountCtx::default())
@@ -260,7 +264,11 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
         let schedule = self.build_full_schedule(market, base)?;
 
         // Resolve discount and hazard curves once to avoid duplicated logic.
-        let disc_curve_id = self.discount_curve_id();
+        let deps = self.curve_dependencies();
+        let disc_curve_id = deps
+            .discount_curves
+            .first()
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
         let _ = resolve_credit_curves(market, disc_curve_id, Some(hazard_curve_id))?;
         use finstack_core::dates::DayCountCtx;
 
@@ -276,8 +284,8 @@ pub trait PeriodizedPvExt: CashflowProvider + HasDiscountCurve {
     }
 }
 
-// Blanket implementation for all types that implement CashflowProvider + HasDiscountCurve
-impl<T> PeriodizedPvExt for T where T: CashflowProvider + HasDiscountCurve {}
+// Blanket implementation for all types that implement CashflowProvider + CurveDependencies
+impl<T> PeriodizedPvExt for T where T: CashflowProvider + CurveDependencies {}
 
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
@@ -376,9 +384,14 @@ mod tests {
 
         // Compute straight NPV for comparison
         use crate::instruments::common::helpers::schedule_pv_using_curve_dc;
-        let straight_npv =
-            schedule_pv_using_curve_dc(&bond, &market, base, bond.discount_curve_id())
-                .expect("Schedule PV calculation should succeed in test");
+        let bond_disc = bond
+            .curve_dependencies()
+            .discount_curves
+            .first()
+            .cloned()
+            .expect("Bond should declare a discount curve");
+        let straight_npv = schedule_pv_using_curve_dc(&bond, &market, base, &bond_disc)
+            .expect("Schedule PV calculation should succeed in test");
 
         // Sum of periodized PVs should match straight NPV (within rounding tolerance)
         let diff = (total_pv - straight_npv.amount()).abs();
@@ -456,9 +469,16 @@ mod tests {
         }
 
         use crate::instruments::common::helpers::schedule_pv_using_curve_dc;
-        let straight_npv =
-            schedule_pv_using_curve_dc(&frn, &market, issue, frn.discount_curve_id())
-                .expect("Schedule PV calculation should succeed in test");
+        let straight_npv = {
+            let frn_disc = frn
+                .curve_dependencies()
+                .discount_curves
+                .first()
+                .cloned()
+                .expect("FRN should declare a discount curve");
+            schedule_pv_using_curve_dc(&frn, &market, issue, &frn_disc)
+        }
+        .expect("Schedule PV calculation should succeed in test");
 
         let diff = (total_pv - straight_npv.amount()).abs();
         assert!(

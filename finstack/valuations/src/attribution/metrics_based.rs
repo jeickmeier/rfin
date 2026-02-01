@@ -329,8 +329,9 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
     // otherwise falls back to aggregate DV01 with average shift.
 
     // Try to extract bucketed DV01 per curve
-    let curve_ids = instrument.required_discount_curves();
-    let bucketed_dv01 = extract_bucketed_dv01_per_curve(&val_t0.measures, &curve_ids);
+    let market_deps = instrument.market_dependencies();
+    let curve_ids = &market_deps.curve_dependencies().discount_curves;
+    let bucketed_dv01 = extract_bucketed_dv01_per_curve(&val_t0.measures, curve_ids);
 
     let has_bucketed = !bucketed_dv01.is_empty();
     let mut rates_pnl = 0.0;
@@ -339,7 +340,7 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
 
     if has_bucketed {
         // Use bucketed DV01: sum per-curve contributions
-        for curve_id in &curve_ids {
+        for curve_id in curve_ids {
             if let Some(&dv01_for_curve) = bucketed_dv01.get(curve_id) {
                 if let Ok(shift) = measure_discount_curve_shift(
                     curve_id.as_str(),
@@ -367,7 +368,7 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
         let mut total_shift = 0.0;
         let mut curve_count = 0;
 
-        for curve_id in &curve_ids {
+        for curve_id in curve_ids {
             if let Ok(shift) = measure_discount_curve_shift(
                 curve_id.as_str(),
                 market_t0,
@@ -465,7 +466,7 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
     // Current formula: PnL = CS01_total × avg(Shift_i)
     if let Some(cs01) = val_t0.measures.get(MetricId::Cs01.as_str()) {
         // CS01 is per 1bp spread move - measure actual spread shifts
-        let curve_ids = instrument.required_hazard_curves();
+        let curve_ids = &market_deps.curve_dependencies().credit_curves;
 
         let mut total_shift = 0.0;
         let mut curve_count = 0;
@@ -559,7 +560,7 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
     // - Formula: Vega × Δσ (where Δσ is in percentage points, e.g., 1.0 for 1% vol change)
     if let Some(vega) = val_t0.measures.get(MetricId::Vega.as_str()) {
         // Vega × vol change (in percentage points)
-        if let Some(surface_id) = instrument.vol_surface_id() {
+        if let Some(surface_id) = market_deps.equity_dependencies().vol_surface_id {
             if let Ok(vol_shift) =
                 measure_vol_surface_shift(surface_id.as_str(), market_t0, market_t1, None, None)
             {

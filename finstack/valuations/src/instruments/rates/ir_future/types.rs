@@ -443,6 +443,7 @@ impl CashflowProvider for InterestRateFuture {
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasDiscountCurve for InterestRateFuture {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.discount_curve_id
@@ -459,6 +460,7 @@ impl crate::instruments::common::traits::CurveDependencies for InterestRateFutur
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasForwardCurves for InterestRateFuture {
     fn forward_curve_ids(&self) -> Vec<finstack_core::types::CurveId> {
         vec![self.forward_id.clone()]

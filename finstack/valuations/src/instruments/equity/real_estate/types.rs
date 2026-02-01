@@ -1,6 +1,5 @@
 //! Real estate asset valuation types and logic.
 
-use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{
     Attributes, CurveDependencies, CurveIdVec, Instrument, InstrumentCurves,
 };
@@ -237,7 +236,8 @@ impl Instrument for RealEstateAsset {
     }
 }
 
-impl HasDiscountCurve for RealEstateAsset {
+#[allow(deprecated)]
+impl crate::instruments::common::pricing::HasDiscountCurve for RealEstateAsset {
     fn discount_curve_id(&self) -> &CurveId {
         &self.discount_curve_id
     }

@@ -14,7 +14,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::bond::{Bond, CashflowSpec};
-use finstack_valuations::instruments::{CurveDependencies, Instrument};
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::test_utils;
 use time::macros::date;
 
@@ -86,7 +86,7 @@ fn test_bond_curve_dependencies_complete() {
         .expect("Bond construction should succeed");
 
     // Get declared dependencies
-    let deps = bond.curve_dependencies();
+    let deps = bond.market_dependencies().curve_dependencies().clone();
 
     // Extract discount curve IDs
     let disc_ids: Vec<&str> = deps.discount_curves.iter().map(|id| id.as_str()).collect();
@@ -121,7 +121,7 @@ fn test_cds_curve_dependencies_complete() {
     .expect("CDS construction should succeed");
 
     // Get declared dependencies
-    let deps = cds.curve_dependencies();
+    let deps = cds.market_dependencies().curve_dependencies().clone();
 
     // Extract curve IDs
     let disc_ids: Vec<&str> = deps.discount_curves.iter().map(|id| id.as_str()).collect();
@@ -195,7 +195,7 @@ fn test_dependency_count_reasonable() {
         .build()
         .expect("Bond construction should succeed");
 
-    let bond_deps = bond.curve_dependencies();
+    let bond_deps = bond.market_dependencies().curve_dependencies().clone();
     assert_eq!(
         bond_deps.discount_curves.len(),
         1,
@@ -219,7 +219,7 @@ fn test_dependency_count_reasonable() {
     )
     .expect("CDS construction should succeed");
 
-    let cds_deps = cds.curve_dependencies();
+    let cds_deps = cds.market_dependencies().curve_dependencies().clone();
     assert_eq!(
         cds_deps.discount_curves.len(),
         1,

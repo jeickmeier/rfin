@@ -7,7 +7,7 @@
 
 use crate::constants::BASIS_POINTS_PER_UNIT;
 use crate::instruments::cds::CreditDefaultSwap;
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common::traits::{CurveDependencies, Instrument};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 
@@ -30,7 +30,7 @@ impl MetricCalculator for CsGammaCalculator {
         let bump_bp = 1.0;
 
         // Get all hazard curves used by this CDS
-        let curve_ids = cds.required_hazard_curves();
+        let curve_ids = cds.curve_dependencies().credit_curves;
 
         if curve_ids.is_empty() {
             return Ok(0.0);

@@ -57,6 +57,7 @@ pub struct QuantoOption {
 }
 
 // Implement HasDiscountCurve for GenericParallelDv01
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasDiscountCurve for QuantoOption {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.discount_curve_id
@@ -437,6 +438,16 @@ impl crate::instruments::common::traits::Instrument for QuantoOption {
 
     fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
         Box::new(self.clone())
+    }
+
+    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
+        let mut deps =
+            crate::instruments::common::dependencies::MarketDependencies::from_curve_dependencies(
+                self,
+            );
+        deps.add_spot_id(self.spot_id.as_str());
+        deps.add_vol_surface_id(self.vol_surface_id.as_str());
+        deps
     }
 
     fn value(

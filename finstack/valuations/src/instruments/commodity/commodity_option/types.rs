@@ -2,7 +2,6 @@
 
 use crate::instruments::common::models::trees::binomial_tree::BinomialTree;
 use crate::instruments::common::parameters::{CommodityConvention, OptionMarketParams};
-use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{
     Attributes, CurveDependencies, CurveIdVec, Instrument, InstrumentCurves,
 };
@@ -348,6 +347,18 @@ impl Instrument for CommodityOption {
         Box::new(self.clone())
     }
 
+    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
+        let mut deps =
+            crate::instruments::common::dependencies::MarketDependencies::from_curve_dependencies(
+                self,
+            );
+        if let Some(spot_id) = self.spot_price_id.as_deref() {
+            deps.add_spot_id(spot_id);
+        }
+        deps.add_vol_surface_id(self.vol_surface_id.as_str());
+        deps
+    }
+
     fn value(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
         // Post-expiry: option is fully settled, value is 0
         if as_of > self.expiry {
@@ -433,12 +444,14 @@ impl Instrument for CommodityOption {
     }
 }
 
-impl HasDiscountCurve for CommodityOption {
+#[allow(deprecated)]
+impl crate::instruments::common::pricing::HasDiscountCurve for CommodityOption {
     fn discount_curve_id(&self) -> &CurveId {
         &self.discount_curve_id
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasForwardCurves for CommodityOption {
     fn forward_curve_ids(&self) -> Vec<CurveId> {
         vec![self.forward_curve_id.clone()]

@@ -16,6 +16,7 @@ pub mod time;
 mod trs;
 
 // Re-export generic pricer types
+#[allow(deprecated)]
 pub use generic::{GenericInstrumentPricer, HasDiscountCurve, HasForwardCurves};
 
 // Re-export TRS types

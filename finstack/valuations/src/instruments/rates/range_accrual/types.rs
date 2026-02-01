@@ -306,6 +306,10 @@ impl crate::instruments::common::traits::Instrument for RangeAccrual {
         Box::new(self.clone())
     }
 
+    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
+        crate::instruments::common::dependencies::MarketDependencies::from_curves_and_equity(self)
+    }
+
     fn value(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
@@ -345,6 +349,7 @@ impl crate::instruments::common::traits::Instrument for RangeAccrual {
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasDiscountCurve for RangeAccrual {
     fn discount_curve_id(&self) -> &CurveId {
         &self.discount_curve_id

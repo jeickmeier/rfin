@@ -456,6 +456,7 @@ pub struct CreditDefaultSwap {
 }
 
 // Implement HasCreditCurve for generic CS01 calculator
+#[allow(deprecated)]
 impl crate::metrics::HasCreditCurve for CreditDefaultSwap {
     fn credit_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.protection.credit_curve_id
@@ -1011,6 +1012,10 @@ impl crate::instruments::common::traits::Instrument for CreditDefaultSwap {
         crate::pricer::InstrumentType::CDS
     }
 
+    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
+        crate::instruments::common::dependencies::MarketDependencies::from_curve_dependencies(self)
+    }
+
     fn required_discount_curves(&self) -> CurveIdVec {
         smallvec![self.premium.discount_curve_id.clone()]
     }
@@ -1074,6 +1079,7 @@ impl crate::instruments::common::traits::Instrument for CreditDefaultSwap {
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasDiscountCurve for CreditDefaultSwap {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.premium.discount_curve_id

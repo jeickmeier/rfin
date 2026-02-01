@@ -624,6 +624,7 @@ impl CashflowProvider for VolatilityIndexOption {
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasDiscountCurve for VolatilityIndexOption {
     fn discount_curve_id(&self) -> &CurveId {
         &self.discount_curve_id

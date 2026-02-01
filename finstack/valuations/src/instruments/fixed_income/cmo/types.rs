@@ -437,6 +437,7 @@ impl crate::instruments::common::traits::Instrument for AgencyCmo {
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasDiscountCurve for AgencyCmo {
     fn discount_curve_id(&self) -> &CurveId {
         &self.discount_curve_id

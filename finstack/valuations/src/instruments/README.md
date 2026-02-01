@@ -171,11 +171,15 @@ pub trait Instrument: Send + Sync {
     ) -> Result<ValuationResult>;
 
     // Market data introspection (for attribution)
+    fn market_dependencies(&self) -> MarketDependencies;
+    fn fx_exposure(&self) -> Option<(Currency, Currency)>;
+    fn dividend_schedule_id(&self) -> Option<CurveId>;
+
+    // Deprecated: use market_dependencies().{curves,equity_dependencies}
     fn required_discount_curves(&self) -> Vec<CurveId>;
     fn required_hazard_curves(&self) -> Vec<CurveId>;
-    fn fx_exposure(&self) -> Option<(Currency, Currency)>;
+    fn spot_id(&self) -> Option<&str>;
     fn vol_surface_id(&self) -> Option<CurveId>;
-    fn dividend_schedule_id(&self) -> Option<CurveId>;
 
     // Trait object support
     fn as_any(&self) -> &dyn Any;
@@ -596,8 +600,8 @@ impl Instrument for MyInstrument {
         pricer.price_with_metrics(self, market, as_of, metrics)
     }
 
-    fn required_discount_curves(&self) -> Vec<CurveId> {
-        vec![self.discount_curve_id.clone()]
+    fn market_dependencies(&self) -> MarketDependencies {
+        MarketDependencies::from_curve_dependencies(self)
     }
 }
 ```

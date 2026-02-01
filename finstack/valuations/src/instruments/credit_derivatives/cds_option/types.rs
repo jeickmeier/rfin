@@ -82,6 +82,7 @@ pub struct CdsOption {
 }
 
 // Implement HasCreditCurve for generic CS01 calculator
+#[allow(deprecated)]
 impl crate::metrics::HasCreditCurve for CdsOption {
     fn credit_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.credit_curve_id
@@ -497,6 +498,7 @@ impl crate::instruments::common::traits::Instrument for CdsOption {
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasDiscountCurve for CdsOption {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.discount_curve_id

@@ -263,6 +263,7 @@ impl crate::instruments::common::traits::Instrument for DollarRoll {
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasDiscountCurve for DollarRoll {
     fn discount_curve_id(&self) -> &CurveId {
         &self.discount_curve_id

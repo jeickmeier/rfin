@@ -10,7 +10,7 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::fx::{FxMatrix, SimpleFxProvider};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::common::{FxPair, InstrumentDependencies};
+use finstack_valuations::instruments::common::{FxPair, MarketDependencies};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{FxForward, InstrumentJson};
 use std::sync::Arc;
@@ -54,7 +54,7 @@ fn test_fx_forward_dependencies_complete() {
         .expect("FX forward construction should succeed");
 
     let deps =
-        InstrumentDependencies::from_instrument_json(&InstrumentJson::FxForward(forward.clone()));
+        MarketDependencies::from_instrument_json(&InstrumentJson::FxForward(forward.clone()));
     assert!(
         deps.fx_pairs
             .contains(&FxPair::new(Currency::EUR, Currency::USD)),
@@ -92,7 +92,7 @@ fn test_missing_fx_matrix_fails() {
         .expect("FX forward construction should succeed");
 
     let deps =
-        InstrumentDependencies::from_instrument_json(&InstrumentJson::FxForward(forward.clone()));
+        MarketDependencies::from_instrument_json(&InstrumentJson::FxForward(forward.clone()));
     let mut market = MarketContext::new();
     for id in deps.curves.discount_curves {
         market = market.insert_discount(build_discount_curve(id.as_str(), 0.03));

@@ -614,6 +614,7 @@ impl crate::instruments::common::traits::Instrument for VarianceSwap {
 }
 
 // Implement HasDiscountCurve trait
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasDiscountCurve for VarianceSwap {
     fn discount_curve_id(&self) -> &CurveId {
         &self.discount_curve_id

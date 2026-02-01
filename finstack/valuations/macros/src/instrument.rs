@@ -17,6 +17,7 @@ pub fn derive_instrument_impl(input: TokenStream) -> TokenStream {
     let ident = input.ident.clone();
     let spot_id_impl = spot_id_impl(&input);
     let vol_surface_impl = vol_surface_impl(&input);
+    let market_deps_impl = market_dependencies_impl(&input);
 
     let mut key_ident: Option<syn::Ident> = None;
     let mut price_fn_ident: syn::Ident = format_ident!("npv");
@@ -106,6 +107,7 @@ pub fn derive_instrument_impl(input: TokenStream) -> TokenStream {
                 )
             }
 
+            #market_deps_impl
             #spot_id_impl
             #vol_surface_impl
         }
@@ -151,6 +153,72 @@ fn vol_surface_impl(input: &DeriveInput) -> proc_macro2::TokenStream {
         fn vol_surface_id(&self) -> Option<finstack_core::types::CurveId> {
             #body
         }
+    }
+}
+
+fn market_dependencies_impl(input: &DeriveInput) -> proc_macro2::TokenStream {
+    let spot_expr = spot_id_option_expr(input);
+    let vol_expr = vol_surface_option_expr(input);
+    let fx_pair_impl = fx_pair_impl(input);
+
+    quote! {
+        fn market_dependencies(
+            &self,
+        ) -> crate::instruments::common::dependencies::MarketDependencies {
+            let mut deps =
+                crate::instruments::common::dependencies::MarketDependencies::from_curve_dependencies(self);
+
+            if let Some(spot_id) = #spot_expr {
+                deps.add_spot_id(spot_id);
+            }
+            if let Some(vol_surface_id) = #vol_expr {
+                deps.add_vol_surface_id(vol_surface_id.as_str());
+            }
+
+            #fx_pair_impl
+
+            deps
+        }
+    }
+}
+
+fn spot_id_option_expr(input: &DeriveInput) -> proc_macro2::TokenStream {
+    let Some(field_type) = find_field_type(input, "spot_id") else {
+        return quote! { Option::<String>::None };
+    };
+
+    if is_option_string(&field_type) {
+        quote! { self.spot_id.clone() }
+    } else if is_string(&field_type) {
+        quote! { Some(self.spot_id.clone()) }
+    } else {
+        quote! { Option::<String>::None }
+    }
+}
+
+fn vol_surface_option_expr(input: &DeriveInput) -> proc_macro2::TokenStream {
+    let Some(field_type) = find_field_type(input, "vol_surface_id") else {
+        return quote! { Option::<finstack_core::types::CurveId>::None };
+    };
+
+    if is_option_curve_id(&field_type) {
+        quote! { self.vol_surface_id.clone() }
+    } else if is_curve_id(&field_type) {
+        quote! { Some(self.vol_surface_id.clone()) }
+    } else {
+        quote! { Option::<finstack_core::types::CurveId>::None }
+    }
+}
+
+fn fx_pair_impl(input: &DeriveInput) -> proc_macro2::TokenStream {
+    let has_base = find_field_type(input, "base_currency").is_some();
+    let has_quote = find_field_type(input, "quote_currency").is_some();
+    if has_base && has_quote {
+        quote! {
+            deps.add_fx_pair(self.base_currency, self.quote_currency);
+        }
+    } else {
+        quote! {}
     }
 }
 

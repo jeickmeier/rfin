@@ -6,7 +6,6 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::common::HasDiscountCurve;
 use finstack_valuations::instruments::equity::Equity;
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::Instrument;
@@ -234,7 +233,14 @@ fn test_equity_instrument_trait_id() {
 #[test]
 fn test_equity_discount_curve_id() {
     let equity = Equity::new("AAPL", "AAPL", Currency::USD);
-    assert_eq!(equity.discount_curve_id().as_str(), "USD");
+    let disc_id = equity
+        .market_dependencies()
+        .curve_dependencies()
+        .discount_curves
+        .first()
+        .cloned()
+        .expect("Equity should declare a discount curve");
+    assert_eq!(disc_id.as_str(), "USD");
 }
 
 #[test]

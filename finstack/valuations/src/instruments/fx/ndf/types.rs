@@ -4,7 +4,6 @@
 //! restricted currencies. Supports both pre-fixing (forward rate estimation)
 //! and post-fixing (observed rate) valuation modes.
 
-use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{Attributes, CurveIdVec};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -652,6 +651,15 @@ impl crate::instruments::common::traits::Instrument for Ndf {
         Box::new(self.clone())
     }
 
+    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
+        let mut deps =
+            crate::instruments::common::dependencies::MarketDependencies::from_curve_dependencies(
+                self,
+            );
+        deps.add_fx_pair(self.base_currency, self.settlement_currency);
+        deps
+    }
+
     fn value(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
@@ -738,7 +746,8 @@ impl crate::instruments::common::traits::Instrument for Ndf {
     }
 }
 
-impl HasDiscountCurve for Ndf {
+#[allow(deprecated)]
+impl crate::instruments::common::pricing::HasDiscountCurve for Ndf {
     fn discount_curve_id(&self) -> &CurveId {
         &self.settlement_curve_id
     }

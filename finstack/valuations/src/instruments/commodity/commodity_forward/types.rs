@@ -5,7 +5,6 @@
 //! with optional quoted price override.
 
 use crate::instruments::common::parameters::CommodityConvention;
-use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{Attributes, CurveIdVec};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date};
@@ -419,6 +418,15 @@ impl crate::instruments::common::traits::CurveDependencies for CommodityForward 
     }
 }
 
+impl crate::instruments::common::traits::EquityDependencies for CommodityForward {
+    fn equity_dependencies(&self) -> crate::instruments::common::traits::EquityInstrumentDeps {
+        crate::instruments::common::traits::EquityInstrumentDeps {
+            spot_id: self.spot_price_id.clone(),
+            vol_surface_id: None,
+        }
+    }
+}
+
 impl crate::instruments::common::traits::Instrument for CommodityForward {
     fn id(&self) -> &str {
         self.id.as_str()
@@ -442,6 +450,17 @@ impl crate::instruments::common::traits::Instrument for CommodityForward {
 
     fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
         Box::new(self.clone())
+    }
+
+    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
+        let mut deps =
+            crate::instruments::common::dependencies::MarketDependencies::from_curve_dependencies(
+                self,
+            );
+        if let Some(spot_id) = self.spot_price_id.as_deref() {
+            deps.add_spot_id(spot_id);
+        }
+        deps
     }
 
     fn value(
@@ -499,12 +518,14 @@ impl crate::instruments::common::traits::Instrument for CommodityForward {
     }
 }
 
-impl HasDiscountCurve for CommodityForward {
+#[allow(deprecated)]
+impl crate::instruments::common::pricing::HasDiscountCurve for CommodityForward {
     fn discount_curve_id(&self) -> &CurveId {
         &self.discount_curve_id
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasForwardCurves for CommodityForward {
     fn forward_curve_ids(&self) -> Vec<CurveId> {
         vec![self.forward_curve_id.clone()]

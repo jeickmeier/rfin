@@ -119,8 +119,9 @@ where
         let instrument: &I = context.instrument_as()?;
         let defaults = sens_config::from_finstack_config_or_default(context.config())?;
 
-        let vol_surface_id = instrument
-            .vol_surface_id()
+        let eq_deps = instrument.market_dependencies().equity_dependencies();
+        let vol_surface_id = eq_deps
+            .vol_surface_id
             .ok_or_else(|| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
 
         let base_pv = context.base_value;
@@ -148,9 +149,13 @@ where
 
         let use_ratio_strikes = self.strikes.iter().all(|k| *k <= 10.0);
         let strike_grid: Vec<f64> = if use_ratio_strikes {
-            let spot = instrument
-                .spot_id()
-                .and_then(|id| base_ctx.price(id).ok())
+            let spot_id = eq_deps
+                .spot_id
+                .as_ref()
+                .ok_or_else(|| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
+            let spot = base_ctx
+                .price(spot_id)
+                .ok()
                 .map(|scalar| match scalar {
                     MarketScalar::Price(m) => m.amount(),
                     MarketScalar::Unitless(v) => *v,

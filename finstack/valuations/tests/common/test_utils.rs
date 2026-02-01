@@ -56,6 +56,18 @@ impl Instrument for TestInstrument {
         Box::new(self.clone())
     }
 
+    fn market_dependencies(&self) -> finstack_valuations::instruments::common::MarketDependencies {
+        let mut deps = finstack_valuations::instruments::common::MarketDependencies::new();
+        for curve in &self.discount_curves {
+            deps.add_curves(
+                finstack_valuations::instruments::InstrumentCurves::builder()
+                    .discount(curve.clone())
+                    .build(),
+            );
+        }
+        deps
+    }
+
     fn required_discount_curves(&self) -> CurveIdVec {
         self.discount_curves.clone()
     }

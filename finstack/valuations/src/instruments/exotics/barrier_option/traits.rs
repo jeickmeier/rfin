@@ -1,7 +1,6 @@
 //! Trait implementations for BarrierOption
 
 use crate::instruments::barrier_option::BarrierOption;
-use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{CurveDependencies, EquityDependencies, InstrumentCurves};
 use crate::metrics::{HasDayCount, HasExpiry, HasPricingOverrides};
 
@@ -13,7 +12,8 @@ impl CurveDependencies for BarrierOption {
     }
 }
 
-impl HasDiscountCurve for BarrierOption {
+#[allow(deprecated)]
+impl crate::instruments::common::pricing::HasDiscountCurve for BarrierOption {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.discount_curve_id
     }

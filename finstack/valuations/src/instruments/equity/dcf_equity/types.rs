@@ -4,7 +4,6 @@
 //! - [`TerminalValueSpec`] for Gordon Growth and Exit Multiple terminals
 //! - [`DiscountedCashFlow`] instrument implementing the standard DCF formula
 
-use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{
     Attributes, CurveDependencies, CurveIdVec, Instrument, InstrumentCurves,
 };
@@ -192,7 +191,8 @@ impl Instrument for DiscountedCashFlow {
 }
 
 // Implement HasDiscountCurve so generic DV01 calculators can discover the primary curve.
-impl HasDiscountCurve for DiscountedCashFlow {
+#[allow(deprecated)]
+impl crate::instruments::common::pricing::HasDiscountCurve for DiscountedCashFlow {
     fn discount_curve_id(&self) -> &CurveId {
         &self.discount_curve_id
     }
@@ -352,12 +352,13 @@ mod tests {
     fn required_discount_curves_and_has_discount_curve_are_consistent() {
         let dcf = build_simple_dcf_gordon();
 
-        let required = dcf.required_discount_curves();
+        let required = dcf
+            .market_dependencies()
+            .curve_dependencies()
+            .discount_curves
+            .clone();
         assert_eq!(required.len(), 1);
         assert_eq!(required[0], dcf.discount_curve_id);
-
-        let from_trait: &CurveId = HasDiscountCurve::discount_curve_id(&dcf);
-        assert_eq!(from_trait, &dcf.discount_curve_id);
 
         let deps = dcf.curve_dependencies();
         assert_eq!(deps.discount_curves.len(), 1);

@@ -188,6 +188,15 @@ impl crate::instruments::common::traits::Instrument for FxSwap {
         Box::new(self.clone())
     }
 
+    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
+        let mut deps =
+            crate::instruments::common::dependencies::MarketDependencies::from_curve_dependencies(
+                self,
+            );
+        deps.add_fx_pair(self.base_currency, self.quote_currency);
+        deps
+    }
+
     fn value(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
@@ -246,6 +255,7 @@ impl crate::instruments::common::traits::Instrument for FxSwap {
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasDiscountCurve for FxSwap {
     fn discount_curve_id(&self) -> &CurveId {
         &self.domestic_discount_curve_id

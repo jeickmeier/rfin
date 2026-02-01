@@ -12,7 +12,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::commodity::commodity_option::CommodityOption;
-use finstack_valuations::instruments::common::InstrumentDependencies;
+use finstack_valuations::instruments::common::MarketDependencies;
 use finstack_valuations::instruments::json_loader::InstrumentJson;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::test_utils::{
@@ -21,7 +21,7 @@ use finstack_valuations::test_utils::{
 use time::macros::date;
 
 fn build_market_from_deps(
-    deps: &InstrumentDependencies,
+    deps: &MarketDependencies,
     as_of: Date,
     spot_currency: Currency,
 ) -> MarketContext {
@@ -63,9 +63,8 @@ fn test_forward_curve_dependencies_complete() {
     let mut option = CommodityOption::example();
     option.spot_price_id = Some("WTI-SPOT".to_string());
 
-    let deps = InstrumentDependencies::from_instrument_json(&InstrumentJson::CommodityOption(
-        option.clone(),
-    ));
+    let deps =
+        MarketDependencies::from_instrument_json(&InstrumentJson::CommodityOption(option.clone()));
     let market = build_market_from_deps(&deps, as_of, option.currency);
 
     let result = option.value(&market, as_of);
@@ -83,9 +82,8 @@ fn test_missing_forward_curve_with_spot_succeeds() {
     let mut option = CommodityOption::example();
     option.spot_price_id = Some("WTI-SPOT".to_string());
 
-    let deps = InstrumentDependencies::from_instrument_json(&InstrumentJson::CommodityOption(
-        option.clone(),
-    ));
+    let deps =
+        MarketDependencies::from_instrument_json(&InstrumentJson::CommodityOption(option.clone()));
 
     let mut market = MarketContext::new();
     for curve_id in deps.curves.discount_curves.iter() {
@@ -127,9 +125,8 @@ fn test_missing_both_forward_and_spot_fails() {
     let mut option = CommodityOption::example();
     option.spot_price_id = None; // No spot fallback
 
-    let deps = InstrumentDependencies::from_instrument_json(&InstrumentJson::CommodityOption(
-        option.clone(),
-    ));
+    let deps =
+        MarketDependencies::from_instrument_json(&InstrumentJson::CommodityOption(option.clone()));
 
     let mut market = MarketContext::new();
     for curve_id in deps.curves.discount_curves.iter() {

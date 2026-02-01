@@ -3,7 +3,6 @@
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::models::bs_price;
 use crate::instruments::common::parameters::OptionType;
-use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::common::traits::CurveDependencies;
 use crate::instruments::common::traits::Instrument as InstrumentTrait;
@@ -439,6 +438,19 @@ impl InstrumentTrait for FxVarianceSwap {
         Box::new(self.clone())
     }
 
+    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
+        let mut deps =
+            crate::instruments::common::dependencies::MarketDependencies::from_curve_dependencies(
+                self,
+            );
+        if let Some(spot_id) = self.spot_id.as_deref() {
+            deps.add_spot_id(spot_id);
+        }
+        deps.add_vol_surface_id(self.vol_surface_id.as_str());
+        deps.add_fx_pair(self.base_currency, self.quote_currency);
+        deps
+    }
+
     fn value(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
         self.validate_as_of(context, as_of)?;
 
@@ -502,7 +514,8 @@ impl InstrumentTrait for FxVarianceSwap {
     }
 }
 
-impl HasDiscountCurve for FxVarianceSwap {
+#[allow(deprecated)]
+impl crate::instruments::common::pricing::HasDiscountCurve for FxVarianceSwap {
     fn discount_curve_id(&self) -> &CurveId {
         &self.domestic_discount_curve_id
     }

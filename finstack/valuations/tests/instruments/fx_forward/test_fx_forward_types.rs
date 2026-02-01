@@ -120,7 +120,11 @@ fn test_fx_forward_curve_dependencies() {
 #[test]
 fn test_fx_forward_required_discount_curves() {
     let forward = FxForward::example();
-    let curves = forward.required_discount_curves();
+    let curves = forward
+        .market_dependencies()
+        .curve_dependencies()
+        .discount_curves
+        .clone();
 
     assert_eq!(curves.len(), 2);
 }

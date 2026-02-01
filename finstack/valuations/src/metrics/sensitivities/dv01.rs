@@ -35,7 +35,6 @@
 //! // DV01 is in currency units per 1bp rate move
 //! ```
 
-use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{CurveDependencies, Instrument, RatesCurveKind};
 use crate::metrics::sensitivities::config as sens_config;
 use crate::metrics::MetricCalculator;
@@ -181,7 +180,7 @@ impl<I> Default for UnifiedDv01Calculator<I> {
 
 impl<I> MetricCalculator for UnifiedDv01Calculator<I>
 where
-    I: Instrument + HasDiscountCurve + CurveDependencies + 'static,
+    I: Instrument + CurveDependencies + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
@@ -209,7 +208,7 @@ where
 
 impl<I> UnifiedDv01Calculator<I>
 where
-    I: Instrument + HasDiscountCurve + CurveDependencies + 'static,
+    I: Instrument + CurveDependencies + 'static,
 {
     /// Collect curves based on configuration and what exists in the market.
     fn collect_curves(

@@ -171,6 +171,10 @@ impl crate::instruments::common::traits::Instrument for Autocallable {
         Box::new(self.clone())
     }
 
+    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
+        crate::instruments::common::dependencies::MarketDependencies::from_curves_and_equity(self)
+    }
+
     fn value(
         &self,
         market: &finstack_core::market_data::context::MarketContext,

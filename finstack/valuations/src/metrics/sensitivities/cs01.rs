@@ -208,8 +208,7 @@ use super::config::format_bucket_label;
 
 // ===== Generic Calculators =====
 
-use crate::instruments::common::pricing::HasDiscountCurve;
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::common::traits::{CurveDependencies, Instrument};
 use crate::metrics::MetricCalculator;
 use std::marker::PhantomData;
 
@@ -217,6 +216,11 @@ use std::marker::PhantomData;
 ///
 /// Used by generic bucketed CS01 calculators to identify which credit curve
 /// to bump for credit spread sensitivity calculations.
+#[allow(dead_code)]
+#[deprecated(
+    since = "0.8.0",
+    note = "Use CurveDependencies/MarketDependencies for credit curve discovery"
+)]
 pub trait HasCreditCurve {
     /// Returns the ID of the primary credit curve used for credit spread sensitivity.
     fn credit_curve_id(&self) -> &finstack_core::types::CurveId;
@@ -245,12 +249,17 @@ impl<I> Default for GenericParallelCs01<I> {
 
 impl<I> MetricCalculator for GenericParallelCs01<I>
 where
-    I: Instrument + HasCreditCurve + HasDiscountCurve + 'static,
+    I: Instrument + CurveDependencies + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
-        let hazard_id = instrument.credit_curve_id().clone();
-        let discount_id = instrument.discount_curve_id().clone();
+        let curves = instrument.curve_dependencies();
+        let hazard_id = curves
+            .credit_curves
+            .first()
+            .cloned()
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
+        let discount_id = curves.discount_curves.first().cloned();
 
         let bump_bp =
             sens_config::from_finstack_config_or_default(context.config())?.credit_spread_bump_bp;
@@ -262,7 +271,13 @@ where
             inst_arc.value(temp_ctx, as_of)
         };
 
-        compute_parallel_cs01_with_context(context, &hazard_id, Some(&discount_id), bump_bp, reval)
+        compute_parallel_cs01_with_context(
+            context,
+            &hazard_id,
+            discount_id.as_ref(),
+            bump_bp,
+            reval,
+        )
     }
 }
 
@@ -276,12 +291,17 @@ impl<I> Default for GenericBucketedCs01<I> {
 
 impl<I> MetricCalculator for GenericBucketedCs01<I>
 where
-    I: Instrument + HasCreditCurve + HasDiscountCurve + 'static,
+    I: Instrument + CurveDependencies + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
-        let hazard_id = instrument.credit_curve_id().clone();
-        let discount_id = instrument.discount_curve_id().clone();
+        let curves = instrument.curve_dependencies();
+        let hazard_id = curves
+            .credit_curves
+            .first()
+            .cloned()
+            .ok_or_else(|| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
+        let discount_id = curves.discount_curves.first().cloned();
 
         let defaults = sens_config::from_finstack_config_or_default(context.config())?;
         let buckets = defaults.cs01_buckets_years;
@@ -298,7 +318,7 @@ where
         let total = compute_key_rate_cs01_series_with_context(
             context,
             &hazard_id,
-            Some(&discount_id),
+            discount_id.as_ref(),
             buckets,
             bump_bp,
             reval,

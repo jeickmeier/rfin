@@ -2108,6 +2108,7 @@ Provide it at construction time via BondFutureBuilder::ctd_bond(...) or by using
 }
 
 // Implement HasDiscountCurve for BondFuture
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasDiscountCurve for BondFuture {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.discount_curve_id
@@ -2310,7 +2311,11 @@ mod instrument_trait_tests {
 
         use crate::instruments::common::traits::Instrument;
 
-        let curves = future.required_discount_curves();
+        let curves = future
+            .market_dependencies()
+            .curve_dependencies()
+            .discount_curves
+            .clone();
         assert_eq!(curves.len(), 1);
         assert_eq!(curves[0].as_str(), "USD-TREASURY");
     }
@@ -2338,14 +2343,8 @@ mod instrument_trait_tests {
             .build()
             .expect("Valid bond future");
 
-        use crate::instruments::common::pricing::HasDiscountCurve;
         use crate::instruments::common::traits::CurveDependencies;
 
-        // Test HasDiscountCurve trait
-        let discount_id = future.discount_curve_id();
-        assert_eq!(discount_id.as_str(), "USD-TREASURY");
-
-        // Test CurveDependencies trait
         let curves = future.curve_dependencies();
         assert_eq!(curves.discount_curves.len(), 1);
         assert_eq!(curves.discount_curves[0].as_str(), "USD-TREASURY");

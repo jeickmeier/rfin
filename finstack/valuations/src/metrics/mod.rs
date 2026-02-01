@@ -219,6 +219,7 @@ pub use sensitivities::theta::parse_period_days;
 pub(crate) use core::finite_difference::{
     bump_discount_curve_parallel, bump_scalar_price, bump_sizes, bump_surface_vol_absolute,
 };
+#[allow(deprecated)]
 pub(crate) use sensitivities::cs01::{GenericBucketedCs01, GenericParallelCs01, HasCreditCurve};
 pub(crate) use sensitivities::dv01::{Dv01CalculatorConfig, UnifiedDv01Calculator};
 pub(crate) use sensitivities::fd_greeks::{

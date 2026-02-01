@@ -6,7 +6,6 @@
 //! This is a specialized wrapper around [`UnifiedDv01Calculator`] configured
 //! for parallel bumps (1bp default).
 
-use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{CurveDependencies, Instrument};
 use crate::metrics::sensitivities::dv01::{Dv01CalculatorConfig, UnifiedDv01Calculator};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
@@ -41,7 +40,7 @@ impl<I> Default for GenericRho<I> {
 
 impl<I> MetricCalculator for GenericRho<I>
 where
-    I: Instrument + HasDiscountCurve + CurveDependencies + 'static,
+    I: Instrument + CurveDependencies + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         self.inner.calculate(context)

@@ -1049,6 +1049,10 @@ impl crate::instruments::common::traits::Instrument for Bond {
         )
     }
 
+    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
+        crate::instruments::common::dependencies::MarketDependencies::from_curve_dependencies(self)
+    }
+
     fn required_discount_curves(&self) -> CurveIdVec {
         smallvec![self.discount_curve_id.clone()]
     }
@@ -1079,12 +1083,14 @@ impl crate::instruments::common::traits::Instrument for Bond {
 }
 
 // Implement HasDiscountCurve for Bond
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasDiscountCurve for Bond {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.discount_curve_id
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasForwardCurves for Bond {
     fn forward_curve_ids(&self) -> Vec<finstack_core::types::CurveId> {
         let mut curves = Vec::new();
@@ -1106,6 +1112,7 @@ impl crate::instruments::common::pricing::HasForwardCurves for Bond {
 // Implement HasCreditCurve for generic CS01 calculator
 // Returns credit_curve_id if present, otherwise falls back to discount_curve_id
 // (CS01 will fail at runtime if no hazard curve exists, which is acceptable)
+#[allow(deprecated)]
 impl crate::metrics::HasCreditCurve for Bond {
     fn credit_curve_id(&self) -> &finstack_core::types::CurveId {
         self.credit_curve_id

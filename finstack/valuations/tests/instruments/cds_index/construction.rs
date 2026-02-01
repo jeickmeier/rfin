@@ -287,16 +287,22 @@ fn test_instrument_trait_clone() {
 }
 
 #[test]
-fn test_has_discount_curve_trait() {
-    // Test: HasDiscountCurve trait returns correct curve ID
-    use finstack_valuations::instruments::common::HasDiscountCurve;
+fn test_discount_curve_dependency() {
+    // Test: discount curve dependency returns correct curve ID
 
     let start = date!(2025 - 01 - 01);
     let end = date!(2030 - 01 - 01);
 
     let idx = standard_single_curve_index("CDX-DISC", start, end, 10_000_000.0);
 
-    assert_eq!(idx.discount_curve_id().as_str(), "USD-OIS");
+    let disc_id = idx
+        .market_dependencies()
+        .curve_dependencies()
+        .discount_curves
+        .first()
+        .cloned()
+        .expect("CDS index should declare a discount curve");
+    assert_eq!(disc_id.as_str(), "USD-OIS");
 }
 
 #[test]

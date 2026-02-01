@@ -246,12 +246,17 @@ fn test_value_trait_consistency() {
 
 #[test]
 fn test_discount_curve_id() {
-    use finstack_valuations::instruments::common::HasDiscountCurve;
-
     let (_, start, end) = standard_dates();
     let future = create_standard_future(start, end);
 
-    assert_eq!(future.discount_curve_id().as_str(), "USD_OIS");
+    let disc_id = future
+        .market_dependencies()
+        .curve_dependencies()
+        .discount_curves
+        .first()
+        .cloned()
+        .expect("IR future should declare a discount curve");
+    assert_eq!(disc_id.as_str(), "USD_OIS");
 }
 
 #[test]

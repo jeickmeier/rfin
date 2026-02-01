@@ -84,8 +84,16 @@ impl Instrument for ScaledInstrument {
         Box::new(self.clone())
     }
 
+    fn market_dependencies(&self) -> finstack_valuations::instruments::common::MarketDependencies {
+        self.inner.market_dependencies()
+    }
+
     fn required_discount_curves(&self) -> CurveIdVec {
-        self.inner.required_discount_curves()
+        self.inner
+            .market_dependencies()
+            .curve_dependencies()
+            .discount_curves
+            .clone()
     }
 
     fn value(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
@@ -147,9 +155,26 @@ impl Instrument for CompositeInstrument {
         Box::new(self.clone())
     }
 
+    fn market_dependencies(&self) -> finstack_valuations::instruments::common::MarketDependencies {
+        let mut deps = self.left.market_dependencies();
+        deps.merge(self.right.market_dependencies());
+        deps
+    }
+
     fn required_discount_curves(&self) -> CurveIdVec {
-        let mut curves = self.left.required_discount_curves();
-        curves.extend(self.right.required_discount_curves());
+        let mut curves = self
+            .left
+            .market_dependencies()
+            .curve_dependencies()
+            .discount_curves
+            .clone();
+        curves.extend(
+            self.right
+                .market_dependencies()
+                .curve_dependencies()
+                .discount_curves
+                .clone(),
+        );
         curves
     }
 

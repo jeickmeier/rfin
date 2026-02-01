@@ -12,7 +12,7 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_option::CommodityOption;
-use finstack_valuations::instruments::{CurveDependencies, EquityDependencies, Instrument};
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{
     ExerciseStyle, OptionType, PricingOverrides, SettlementType,
 };
@@ -81,14 +81,15 @@ fn test_commodity_option_equity_dependencies_complete() {
         .build()
         .expect("Commodity option construction should succeed");
 
-    let curve_deps = option.curve_dependencies();
-    let equity_deps = option.equity_dependencies();
+    let market_deps = option.market_dependencies();
+    let curve_deps = market_deps.curve_dependencies();
+    let equity_deps = market_deps.equity_dependencies();
 
     let mut market = MarketContext::new();
-    for id in curve_deps.discount_curves {
+    for id in curve_deps.discount_curves.iter() {
         market = market.insert_discount(build_discount_curve(id.as_str(), 0.03));
     }
-    for id in curve_deps.forward_curves {
+    for id in curve_deps.forward_curves.iter() {
         market = market.insert_forward(build_forward_curve(id.as_str(), 0.25, 0.04));
     }
     if let Some(vol_id) = equity_deps.vol_surface_id {
@@ -136,14 +137,15 @@ fn test_missing_equity_spot_fails() {
         .build()
         .expect("Commodity option construction should succeed");
 
-    let curve_deps = option.curve_dependencies();
-    let equity_deps = option.equity_dependencies();
+    let market_deps = option.market_dependencies();
+    let curve_deps = market_deps.curve_dependencies();
+    let equity_deps = market_deps.equity_dependencies();
 
     let mut market = MarketContext::new();
-    for id in curve_deps.discount_curves {
+    for id in curve_deps.discount_curves.iter() {
         market = market.insert_discount(build_discount_curve(id.as_str(), 0.03));
     }
-    for id in curve_deps.forward_curves {
+    for id in curve_deps.forward_curves.iter() {
         market = market.insert_forward(build_forward_curve(id.as_str(), 0.25, 0.04));
     }
     if let Some(vol_id) = equity_deps.vol_surface_id {

@@ -5,7 +5,6 @@
 //! metrics live under `metrics/`.
 
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::Attributes;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -364,7 +363,8 @@ impl crate::instruments::common::traits::Instrument for Equity {
     }
 }
 
-impl HasDiscountCurve for Equity {
+#[allow(deprecated)]
+impl crate::instruments::common::pricing::HasDiscountCurve for Equity {
     fn discount_curve_id(&self) -> &CurveId {
         &self.discount_curve_id
     }

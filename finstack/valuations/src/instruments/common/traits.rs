@@ -58,6 +58,7 @@
 //! ```
 
 use crate::cashflow::traits::CashflowProvider;
+use crate::instruments::common::dependencies::MarketDependencies;
 use crate::metrics::risk::MarketHistory;
 use crate::metrics::MetricId;
 use crate::pricer::InstrumentType;
@@ -986,6 +987,36 @@ pub trait Instrument: Send + Sync {
 
     // === Market Data Introspection (for Attribution) ===
 
+    /// Unified market data dependencies for this instrument.
+    ///
+    /// This is the canonical dependency surface. Default implementation uses
+    /// legacy introspection hooks for backward compatibility.
+    #[allow(deprecated)]
+    fn market_dependencies(&self) -> MarketDependencies {
+        let mut deps = MarketDependencies::new();
+        let mut curves = InstrumentCurves::new();
+
+        for id in self.required_discount_curves() {
+            curves.discount_curves.push(id);
+        }
+        for id in self.required_hazard_curves() {
+            curves.credit_curves.push(id);
+        }
+        deps.add_curves(curves);
+
+        if let Some((base, quote)) = self.fx_exposure() {
+            deps.add_fx_pair(base, quote);
+        }
+        if let Some(spot_id) = self.spot_id() {
+            deps.add_spot_id(spot_id);
+        }
+        if let Some(vol_id) = self.vol_surface_id() {
+            deps.add_vol_surface_id(vol_id.as_str());
+        }
+
+        deps
+    }
+
     /// Discount curves required for pricing this instrument.
     ///
     /// Returns the list of discount curve IDs that this instrument depends on.
@@ -1013,11 +1044,15 @@ pub trait Instrument: Send + Sync {
     /// let bond = Bond::fixed("BOND-001", Money::new(1_000_000.0, Currency::USD),
     ///     0.05, issue, maturity, "USD-OIS")?;
     ///
-    /// let curves = bond.required_discount_curves();
+    /// let curves = bond.market_dependencies().curve_dependencies().discount_curves.clone();
     /// // Bond returns ["USD-OIS"]
     /// # Ok(())
     /// # }
     /// ```
+    #[deprecated(
+        since = "0.8.0",
+        note = "Use Instrument::market_dependencies().curves.discount_curves"
+    )]
     fn required_discount_curves(&self) -> CurveIdVec {
         SmallVec::new()
     }
@@ -1032,6 +1067,10 @@ pub trait Instrument: Send + Sync {
     /// # Returns
     ///
     /// Collection of hazard curve IDs (e.g., `["CORP-AA", "CDX.NA.IG"]`)
+    #[deprecated(
+        since = "0.8.0",
+        note = "Use Instrument::market_dependencies().curves.credit_curves"
+    )]
     fn required_hazard_curves(&self) -> CurveIdVec {
         SmallVec::new()
     }
@@ -1060,6 +1099,10 @@ pub trait Instrument: Send + Sync {
     /// when computing delta/vega-style sensitivities.
     ///
     /// Default implementation returns `None`.
+    #[deprecated(
+        since = "0.8.0",
+        note = "Use Instrument::market_dependencies().equity_dependencies().spot_id"
+    )]
     fn spot_id(&self) -> Option<&str> {
         None
     }
@@ -1078,6 +1121,10 @@ pub trait Instrument: Send + Sync {
     /// # Examples
     ///
     /// Equity option would return `Some("SPX-VOL")`.
+    #[deprecated(
+        since = "0.8.0",
+        note = "Use Instrument::market_dependencies().equity_dependencies().vol_surface_id"
+    )]
     fn vol_surface_id(&self) -> Option<CurveId> {
         None
     }
@@ -1484,6 +1531,7 @@ pub trait OptionVolgaProvider {
 
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
+#[allow(deprecated)]
 mod trait_coverage_tests {
     use crate::instruments::cap_floor::InterestRateOption;
     use crate::instruments::common::pricing::HasForwardCurves;

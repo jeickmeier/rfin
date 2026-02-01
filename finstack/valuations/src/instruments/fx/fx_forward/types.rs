@@ -4,7 +4,6 @@
 //! currency pairs. Pricing uses covered interest rate parity (CIRP) with
 //! optional contract rate override.
 
-use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{Attributes, CurveIdVec};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -490,6 +489,15 @@ impl crate::instruments::common::traits::Instrument for FxForward {
         Box::new(self.clone())
     }
 
+    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
+        let mut deps =
+            crate::instruments::common::dependencies::MarketDependencies::from_curve_dependencies(
+                self,
+            );
+        deps.add_fx_pair(self.base_currency, self.quote_currency);
+        deps
+    }
+
     fn value(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
@@ -569,7 +577,8 @@ impl crate::instruments::common::traits::Instrument for FxForward {
     }
 }
 
-impl HasDiscountCurve for FxForward {
+#[allow(deprecated)]
+impl crate::instruments::common::pricing::HasDiscountCurve for FxForward {
     fn discount_curve_id(&self) -> &CurveId {
         &self.domestic_discount_curve_id
     }

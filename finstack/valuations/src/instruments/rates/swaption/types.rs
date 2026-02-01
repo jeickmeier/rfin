@@ -1101,12 +1101,14 @@ impl crate::instruments::common::traits::Instrument for Swaption {
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasDiscountCurve for Swaption {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.discount_curve_id
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasForwardCurves for Swaption {
     fn forward_curve_ids(&self) -> Vec<finstack_core::types::CurveId> {
         vec![self.forward_id.clone()]
@@ -1582,12 +1584,14 @@ impl crate::instruments::common::traits::Instrument for BermudanSwaption {
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasDiscountCurve for BermudanSwaption {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.discount_curve_id
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasForwardCurves for BermudanSwaption {
     fn forward_curve_ids(&self) -> Vec<finstack_core::types::CurveId> {
         vec![self.forward_id.clone()]

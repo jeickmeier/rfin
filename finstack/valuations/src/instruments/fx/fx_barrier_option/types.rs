@@ -53,6 +53,7 @@ pub struct FxBarrierOption {
 }
 
 // Implement HasDiscountCurve for GenericParallelDv01
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasDiscountCurve for FxBarrierOption {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.domestic_discount_curve_id
@@ -387,6 +388,17 @@ impl crate::instruments::common::traits::Instrument for FxBarrierOption {
 
     fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
         Box::new(self.clone())
+    }
+
+    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
+        let mut deps =
+            crate::instruments::common::dependencies::MarketDependencies::from_curve_dependencies(
+                self,
+            );
+        deps.add_spot_id(self.fx_spot_id.as_str());
+        deps.add_vol_surface_id(self.fx_vol_id.as_str());
+        deps.add_fx_pair(self.foreign_currency, self.domestic_currency);
+        deps
     }
 
     fn value(

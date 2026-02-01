@@ -59,6 +59,7 @@ pub enum CliquetPayoffType {
 }
 
 // Implement HasDiscountCurve for GenericParallelDv01
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasDiscountCurve for CliquetOption {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.discount_curve_id
@@ -131,6 +132,10 @@ impl crate::instruments::common::traits::Instrument for CliquetOption {
 
     fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
         Box::new(self.clone())
+    }
+
+    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
+        crate::instruments::common::dependencies::MarketDependencies::from_curves_and_equity(self)
     }
 
     fn value(

@@ -313,6 +313,7 @@ impl crate::instruments::common::traits::Instrument for AgencyTba {
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasDiscountCurve for AgencyTba {
     fn discount_curve_id(&self) -> &CurveId {
         &self.discount_curve_id

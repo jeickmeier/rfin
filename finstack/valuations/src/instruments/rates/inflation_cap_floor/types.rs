@@ -466,12 +466,14 @@ impl crate::instruments::common::traits::Instrument for InflationCapFloor {
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasDiscountCurve for InflationCapFloor {
     fn discount_curve_id(&self) -> &CurveId {
         &self.discount_curve_id
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasForwardCurves for InflationCapFloor {
     fn forward_curve_ids(&self) -> Vec<CurveId> {
         vec![self.inflation_index_id.clone()]

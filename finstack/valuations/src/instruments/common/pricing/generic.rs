@@ -25,7 +25,7 @@ pub struct GenericInstrumentPricer<I> {
 
 impl<I> GenericInstrumentPricer<I>
 where
-    I: Instrument + HasDiscountCurve + 'static,
+    I: Instrument + 'static,
 {
     /// Create a new generic pricer for the specified instrument and model type.
     pub fn new(instrument_type: InstrumentType, model_key: ModelKey) -> Self {
@@ -53,7 +53,7 @@ where
 
 impl<I> Pricer for GenericInstrumentPricer<I>
 where
-    I: Instrument + HasDiscountCurve + 'static,
+    I: Instrument + 'static,
 {
     fn key(&self) -> PricerKey {
         PricerKey::new(self.instrument_type, self.model_key)
@@ -88,6 +88,10 @@ where
 ///
 /// **Note**: This is primarily an internal helper trait. End-users typically
 /// don't need to interact with it directly.
+#[deprecated(
+    since = "0.8.0",
+    note = "Use CurveDependencies/MarketDependencies for curve discovery"
+)]
 pub trait HasDiscountCurve {
     /// Get the instrument's primary discount curve ID.
     fn discount_curve_id(&self) -> &CurveId;
@@ -99,6 +103,10 @@ pub trait HasDiscountCurve {
 /// that should be bumped alongside the discount curve for parallel rate shifts.
 /// Instruments with floating rate legs (FRAs, swaps, floating bonds, etc.) should
 /// implement this trait.
+#[deprecated(
+    since = "0.8.0",
+    note = "Use CurveDependencies/MarketDependencies for curve discovery"
+)]
 pub trait HasForwardCurves {
     /// Get all forward curve IDs referenced by this instrument.
     fn forward_curve_ids(&self) -> Vec<CurveId>;

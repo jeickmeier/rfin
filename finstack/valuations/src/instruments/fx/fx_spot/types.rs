@@ -430,6 +430,15 @@ impl crate::instruments::common::traits::Instrument for FxSpot {
         Box::new(self.clone())
     }
 
+    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
+        let mut deps =
+            crate::instruments::common::dependencies::MarketDependencies::from_curve_dependencies(
+                self,
+            );
+        deps.add_fx_pair(self.base, self.quote);
+        deps
+    }
+
     fn value(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
@@ -503,6 +512,7 @@ impl crate::instruments::common::traits::Instrument for FxSpot {
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasDiscountCurve for FxSpot {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         // FxSpot has no discount curve; return a dummy static placeholder

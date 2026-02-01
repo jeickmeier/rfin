@@ -154,7 +154,11 @@ fn test_ndf_curve_dependencies_with_foreign() {
 #[test]
 fn test_ndf_required_discount_curves() {
     let ndf = Ndf::example();
-    let curves = ndf.required_discount_curves();
+    let curves = ndf
+        .market_dependencies()
+        .curve_dependencies()
+        .discount_curves
+        .clone();
     assert_eq!(curves.len(), 1);
 
     let ndf_with_foreign = Ndf::builder()
@@ -171,7 +175,11 @@ fn test_ndf_required_discount_curves() {
         .build()
         .expect("should build");
 
-    let curves = ndf_with_foreign.required_discount_curves();
+    let curves = ndf_with_foreign
+        .market_dependencies()
+        .curve_dependencies()
+        .discount_curves
+        .clone();
     assert_eq!(curves.len(), 2);
 }
 

@@ -524,6 +524,7 @@ impl crate::instruments::common::traits::CurveDependencies for XccySwap {
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasDiscountCurve for XccySwap {
     /// Returns the discount curve for risk metric calculations.
     ///
@@ -552,6 +553,7 @@ impl crate::instruments::common::pricing::HasDiscountCurve for XccySwap {
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasForwardCurves for XccySwap {
     fn forward_curve_ids(&self) -> Vec<CurveId> {
         vec![

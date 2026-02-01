@@ -118,6 +118,7 @@ pub struct EquityOption {
 }
 
 // Implement HasDiscountCurve for GenericParallelDv01
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasDiscountCurve for EquityOption {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.discount_curve_id
@@ -129,6 +130,15 @@ impl crate::instruments::common::traits::CurveDependencies for EquityOption {
     fn curve_dependencies(&self) -> crate::instruments::common::traits::InstrumentCurves {
         crate::instruments::common::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
+            .build()
+    }
+}
+
+impl crate::instruments::common::traits::EquityDependencies for EquityOption {
+    fn equity_dependencies(&self) -> crate::instruments::common::traits::EquityInstrumentDeps {
+        crate::instruments::common::traits::EquityInstrumentDeps::builder()
+            .spot(self.spot_id.clone())
+            .vol_surface(self.vol_surface_id.as_str())
             .build()
     }
 }
@@ -592,6 +602,16 @@ impl crate::instruments::common::traits::Instrument for EquityOption {
 
     fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
         Box::new(self.clone())
+    }
+
+    fn market_dependencies(&self) -> crate::instruments::common::dependencies::MarketDependencies {
+        let mut deps =
+            crate::instruments::common::dependencies::MarketDependencies::from_curve_dependencies(
+                self,
+            );
+        deps.add_spot_id(self.spot_id.as_str());
+        deps.add_vol_surface_id(self.vol_surface_id.as_str());
+        deps
     }
 
     fn spot_id(&self) -> Option<&str> {

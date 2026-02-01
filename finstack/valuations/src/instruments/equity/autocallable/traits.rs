@@ -1,7 +1,6 @@
 //! Trait implementations for Autocallable
 
 use crate::instruments::autocallable::Autocallable;
-use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{CurveDependencies, EquityDependencies, InstrumentCurves};
 use crate::metrics::{HasDayCount, HasExpiry, HasPricingOverrides};
 
@@ -13,7 +12,8 @@ impl CurveDependencies for Autocallable {
     }
 }
 
-impl HasDiscountCurve for Autocallable {
+#[allow(deprecated)]
+impl crate::instruments::common::pricing::HasDiscountCurve for Autocallable {
     fn discount_curve_id(&self) -> &finstack_core::types::CurveId {
         &self.discount_curve_id
     }

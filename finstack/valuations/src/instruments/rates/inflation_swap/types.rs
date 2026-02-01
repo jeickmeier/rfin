@@ -488,12 +488,14 @@ impl crate::instruments::common::traits::Instrument for InflationSwap {
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasDiscountCurve for InflationSwap {
     fn discount_curve_id(&self) -> &CurveId {
         &self.discount_curve_id
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasForwardCurves for InflationSwap {
     fn forward_curve_ids(&self) -> Vec<CurveId> {
         vec![self.inflation_index_id.clone()]
@@ -828,12 +830,14 @@ impl crate::instruments::common::traits::Instrument for YoYInflationSwap {
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasDiscountCurve for YoYInflationSwap {
     fn discount_curve_id(&self) -> &CurveId {
         &self.discount_curve_id
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasForwardCurves for YoYInflationSwap {
     fn forward_curve_ids(&self) -> Vec<CurveId> {
         vec![self.inflation_index_id.clone()]

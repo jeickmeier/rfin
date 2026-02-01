@@ -321,6 +321,7 @@ impl CashflowProvider for FIIndexTotalReturnSwap {
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasDiscountCurve for FIIndexTotalReturnSwap {
     fn discount_curve_id(&self) -> &CurveId {
         &self.financing.discount_curve_id
@@ -335,6 +336,7 @@ impl crate::instruments::common::traits::CurveDependencies for FIIndexTotalRetur
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasForwardCurves for FIIndexTotalReturnSwap {
     fn forward_curve_ids(&self) -> Vec<CurveId> {
         // TRS financing leg typically uses the same curve for projection

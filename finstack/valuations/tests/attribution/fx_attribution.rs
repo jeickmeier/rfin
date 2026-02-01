@@ -96,6 +96,10 @@ impl Instrument for FxLinkedInstrument {
         Box::new(self.clone())
     }
 
+    fn market_dependencies(&self) -> finstack_valuations::instruments::common::MarketDependencies {
+        finstack_valuations::instruments::common::MarketDependencies::new()
+    }
+
     fn required_discount_curves(&self) -> CurveIdVec {
         CurveIdVec::new()
     }

@@ -776,6 +776,7 @@ impl Instrument for StructuredCredit {
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasDiscountCurve for StructuredCredit {
     fn discount_curve_id(&self) -> &CurveId {
         &self.discount_curve_id

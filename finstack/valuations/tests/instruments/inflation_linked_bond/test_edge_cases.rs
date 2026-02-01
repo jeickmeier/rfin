@@ -470,13 +470,18 @@ fn test_stub_convention_variants() {
 }
 
 #[test]
-fn test_has_discount_curve_trait() {
+fn test_discount_curve_dependency() {
     // Arrange
     let ilb = sample_tips();
 
     // Act
-    let curve_id =
-        finstack_valuations::instruments::common::HasDiscountCurve::discount_curve_id(&ilb);
+    let curve_id = ilb
+        .market_dependencies()
+        .curve_dependencies()
+        .discount_curves
+        .first()
+        .cloned()
+        .expect("ILB should declare a discount curve");
 
     // Assert
     assert_eq!(curve_id.as_str(), "USD-REAL");

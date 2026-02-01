@@ -687,6 +687,7 @@ impl CashflowProvider for Repo {
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasDiscountCurve for Repo {
     fn discount_curve_id(&self) -> &CurveId {
         &self.discount_curve_id

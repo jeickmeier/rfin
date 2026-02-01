@@ -5,7 +5,6 @@
 //! and payment delay conventions.
 
 use crate::cashflow::builder::specs::PrepaymentModelSpec;
-use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{Attributes, CurveIdVec};
 use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
@@ -347,7 +346,8 @@ impl crate::instruments::common::traits::Instrument for AgencyMbsPassthrough {
     }
 }
 
-impl HasDiscountCurve for AgencyMbsPassthrough {
+#[allow(deprecated)]
+impl crate::instruments::common::pricing::HasDiscountCurve for AgencyMbsPassthrough {
     fn discount_curve_id(&self) -> &CurveId {
         &self.discount_curve_id
     }

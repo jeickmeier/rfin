@@ -4,7 +4,6 @@
 //! price exchange contracts. One party pays a fixed price per unit while
 //! the other pays a floating price based on an index.
 
-use crate::instruments::common::pricing::HasDiscountCurve;
 use crate::instruments::common::traits::{Attributes, CurveIdVec};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, CalendarRegistry, Date, ScheduleBuilder, Tenor};
@@ -425,12 +424,14 @@ impl crate::instruments::common::traits::Instrument for CommoditySwap {
     }
 }
 
-impl HasDiscountCurve for CommoditySwap {
+#[allow(deprecated)]
+impl crate::instruments::common::pricing::HasDiscountCurve for CommoditySwap {
     fn discount_curve_id(&self) -> &CurveId {
         &self.discount_curve_id
     }
 }
 
+#[allow(deprecated)]
 impl crate::instruments::common::pricing::HasForwardCurves for CommoditySwap {
     fn forward_curve_ids(&self) -> Vec<CurveId> {
         vec![self.floating_index_id.clone()]
