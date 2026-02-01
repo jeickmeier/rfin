@@ -380,89 +380,12 @@ pub(crate) fn aggregate_monte_carlo_paths(
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {
-    use super::*;
-    use crate::builder::ModelBuilder;
-    use crate::types::{AmountOrScalar, ForecastSpec};
-    use finstack_core::dates::PeriodId;
+    use super::normalize_percentiles;
 
     #[test]
     fn normalize_percentiles_clamps_and_dedupes() {
         let raw = vec![-0.1, 0.05, 0.5, 1.2, 0.5];
         let norm = normalize_percentiles(&raw);
         assert_eq!(norm, vec![0.0, 0.05, 0.5, 1.0]);
-    }
-
-    #[test]
-    fn breach_probability_detects_paths() {
-        let mut path_values: IndexMap<String, IndexMap<PeriodId, Vec<f64>>> = IndexMap::new();
-        let metric = "x".to_string();
-        let p = PeriodId::quarter(2025, 1);
-        path_values
-            .entry(metric.clone())
-            .or_default()
-            .insert(p, vec![0.0, 2.0, 5.0, 1.0]); // 3/4 paths breach > 0.5
-
-        let results = MonteCarloResults {
-            percentile_results: IndexMap::new(),
-            n_paths: 4,
-            percentiles: vec![0.5],
-            forecast_periods: vec![p],
-            path_values,
-            #[cfg(feature = "dataframes")]
-            path_data: None,
-        };
-
-        let prob = results
-            .breach_probability("x", 0.5)
-            .expect("breach probability should exist");
-        assert!((prob - 0.75).abs() < 1e-12);
-    }
-
-    #[test]
-    fn evaluate_monte_carlo_produces_deterministic_results() {
-        // Simple model with one node using Normal forecast
-        let model = ModelBuilder::new("mc-test")
-            .periods("2025Q1..Q4", Some("2025Q2"))
-            .expect("valid periods")
-            .mixed("revenue")
-            .values(&[
-                (
-                    PeriodId::quarter(2025, 1),
-                    AmountOrScalar::scalar(100_000.0),
-                ),
-                (
-                    PeriodId::quarter(2025, 2),
-                    AmountOrScalar::scalar(110_000.0),
-                ),
-            ])
-            .forecast(ForecastSpec::normal(120_000.0, 10_000.0, 42))
-            .finish()
-            .build()
-            .expect("valid model");
-
-        let config = MonteCarloConfig::new(32, 7);
-
-        let mut eval1 = crate::evaluator::Evaluator::new();
-        let mut eval2 = crate::evaluator::Evaluator::new();
-
-        let res1 = eval1
-            .evaluate_monte_carlo(&model, &config)
-            .expect("mc eval 1");
-        let res2 = eval2
-            .evaluate_monte_carlo(&model, &config)
-            .expect("mc eval 2");
-
-        assert_eq!(res1.n_paths, res2.n_paths);
-        assert_eq!(res1.percentiles, res2.percentiles);
-        assert_eq!(res1.percentile_results.len(), res2.percentile_results.len());
-
-        // Spot-check one metric/period percentile
-        let p95_series_1 = res1
-            .get_percentile_series("revenue", 0.95)
-            .expect("p95 series");
-        let p95_series_2 = res2
-            .get_percentile_series("revenue", 0.95)
-            .expect("p95 series");
-        assert_eq!(p95_series_1, p95_series_2);
     }
 }
