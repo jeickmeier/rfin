@@ -23,13 +23,14 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
-use finstack_core::types::CurveId;
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::rates::irs::{
     FloatingLegCompounding, InterestRateSwap, PayReceive,
 };
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{FixedLegSpec, FloatLegSpec};
 use finstack_valuations::metrics::MetricId;
+use finstack_valuations::test_utils;
 use rust_decimal_macros::dec;
 use std::hint::black_box;
 use time::Month;
@@ -38,8 +39,8 @@ fn create_swap(tenor_years: i32) -> InterestRateSwap {
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let end = Date::from_calendar_date(2025 + tenor_years, Month::January, 1).unwrap();
 
-    InterestRateSwap::create_usd_swap(
-        format!("IRS-{}Y", tenor_years).into(),
+    test_utils::usd_irs_swap(
+        InstrumentId::new(format!("IRS-{}Y", tenor_years)),
         Money::new(10_000_000.0, Currency::USD),
         0.04, // 4% fixed rate
         start,

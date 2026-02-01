@@ -6,10 +6,12 @@
 use crate::builder::ModelBuilder;
 use crate::error::Result;
 use crate::types::{CapitalStructureSpec, DebtInstrumentSpec};
-use finstack_core::dates::Date;
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::{Bond, InterestRateSwap};
+use finstack_valuations::instruments::rates::irs::FloatingLegCompounding;
+use finstack_valuations::instruments::{Bond, FixedLegSpec, FloatLegSpec, InterestRateSwap};
+use rust_decimal::Decimal;
 
 /// Helper to ensure capital structure exists and return mutable reference.
 ///
@@ -150,22 +152,62 @@ impl<State> ModelBuilder<State> {
         fixed_rate: f64,
         start_date: Date,
         maturity_date: Date,
-        _discount_curve_id: impl Into<String>,
-        _forward_curve_id: impl Into<String>,
+        discount_curve_id: impl Into<String>,
+        forward_curve_id: impl Into<String>,
     ) -> Result<Self> {
         let id_str: String = id.into();
 
         use finstack_valuations::instruments::PayReceive;
 
-        // Create USD market-standard swap using valuations crate
-        let swap = InterestRateSwap::create_usd_swap(
-            InstrumentId::new(&id_str),
-            notional,
-            fixed_rate,
-            start_date,
-            maturity_date,
-            PayReceive::PayFixed, // Default to pay-fixed
-        );
+        let rate_decimal = Decimal::try_from(fixed_rate).map_err(|_| {
+            crate::error::Error::InvalidInput(format!(
+                "Invalid fixed rate: {} cannot be converted to Decimal.",
+                fixed_rate
+            ))
+        })?;
+
+        let discount_curve_id = CurveId::new(discount_curve_id.into());
+        let forward_curve_id = CurveId::new(forward_curve_id.into());
+
+        let fixed = FixedLegSpec {
+            discount_curve_id: discount_curve_id.clone(),
+            rate: rate_decimal,
+            freq: Tenor::semi_annual(),
+            dc: DayCount::Thirty360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some("usny".to_string()),
+            stub: StubKind::None,
+            start: start_date,
+            end: maturity_date,
+            par_method: None,
+            compounding_simple: true,
+            payment_delay_days: 0,
+        };
+
+        let float = FloatLegSpec {
+            discount_curve_id,
+            forward_curve_id,
+            spread_bp: Decimal::ZERO,
+            freq: Tenor::quarterly(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some("usny".to_string()),
+            stub: StubKind::None,
+            reset_lag_days: 0,
+            fixing_calendar_id: None,
+            start: start_date,
+            end: maturity_date,
+            compounding: FloatingLegCompounding::Simple,
+            payment_delay_days: 0,
+        };
+
+        let swap = InterestRateSwap::builder()
+            .id(InstrumentId::new(&id_str))
+            .notional(notional)
+            .side(PayReceive::PayFixed) // Default to pay-fixed
+            .fixed(fixed)
+            .float(float)
+            .build()?;
 
         // Serialize to JSON
         let spec_json = serde_json::to_value(&swap)

@@ -24,22 +24,52 @@
 //!
 //! ```rust,ignore
 //! use finstack_valuations::instruments::rates::InterestRateSwap;
+//! use finstack_valuations::instruments::{FixedLegSpec, FloatLegSpec};
+//! use finstack_valuations::instruments::rates::irs::{FloatingLegCompounding, PayReceive};
 //! use finstack_core::currency::Currency;
+//! use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 //! use finstack_core::money::Money;
-//! use finstack_core::types::{CurveId, InstrumentId};
+//! use finstack_core::types::InstrumentId;
+//! use rust_decimal_macros::dec;
 //! use time::macros::date;
 //!
 //! // Create a 5-year USD payer swap (pay fixed, receive floating)
-//! let swap = InterestRateSwap::create_usd_swap(
-//!     InstrumentId::new("IRS-5Y-USD"),
-//!     Money::new(10_000_000.0, Currency::USD),
-//!     0.04,  // 4% fixed rate
-//!     date!(2025-01-15),
-//!     date!(2030-01-15),
-//!     PayReceive::Pay,  // Pay fixed
-//!     CurveId::new("USD-OIS"),
-//!     CurveId::new("USD-SOFR-3M"),
-//! )?;
+//! let swap = InterestRateSwap::builder()
+//!     .id(InstrumentId::new("IRS-5Y-USD"))
+//!     .notional(Money::new(10_000_000.0, Currency::USD))
+//!     .side(PayReceive::PayFixed)
+//!     .fixed(FixedLegSpec {
+//!         discount_curve_id: "USD-OIS".into(),
+//!         rate: dec!(0.04),  // 4% fixed rate
+//!         freq: Tenor::semi_annual(),
+//!         dc: DayCount::Thirty360,
+//!         bdc: BusinessDayConvention::ModifiedFollowing,
+//!         calendar_id: Some("usny".to_string()),
+//!         stub: StubKind::None,
+//!         start: date!(2025-01-15),
+//!         end: date!(2030-01-15),
+//!         par_method: None,
+//!         compounding_simple: true,
+//!         payment_delay_days: 0,
+//!     })
+//!     .float(FloatLegSpec {
+//!         discount_curve_id: "USD-OIS".into(),
+//!         forward_curve_id: "USD-SOFR-3M".into(),
+//!         spread_bp: dec!(0.0),
+//!         freq: Tenor::quarterly(),
+//!         dc: DayCount::Act360,
+//!         bdc: BusinessDayConvention::ModifiedFollowing,
+//!         calendar_id: Some("usny".to_string()),
+//!         stub: StubKind::None,
+//!         reset_lag_days: 0,
+//!         fixing_calendar_id: None,
+//!         start: date!(2025-01-15),
+//!         end: date!(2030-01-15),
+//!         compounding: FloatingLegCompounding::Simple,
+//!         payment_delay_days: 0,
+//!     })
+//!     .build()?;
+//! swap.validate()?;
 //! ```
 //!
 //! # Risk Metrics

@@ -102,12 +102,24 @@ fn test_new_with_parameter_structs() {
     let underlying_params = FxUnderlyingParams::usd_eur();
 
     // Act
-    let option = FxOption::new(
-        "TEST_OPTION",
-        &option_params,
-        &underlying_params,
-        "EURUSD-VOL",
-    );
+    let option = FxOption::builder()
+        .id("TEST_OPTION".into())
+        .base_currency(underlying_params.base_currency)
+        .quote_currency(underlying_params.quote_currency)
+        .strike(option_params.strike)
+        .option_type(option_params.option_type)
+        .exercise_style(option_params.exercise_style)
+        .expiry(option_params.expiry)
+        .day_count(DayCount::Act365F)
+        .notional(option_params.notional)
+        .settlement(option_params.settlement)
+        .domestic_discount_curve_id(underlying_params.domestic_discount_curve_id.clone())
+        .foreign_discount_curve_id(underlying_params.foreign_discount_curve_id.clone())
+        .vol_surface_id(CurveId::new("EURUSD-VOL"))
+        .pricing_overrides(PricingOverrides::default())
+        .attributes(Attributes::new())
+        .build()
+        .expect("builder should create option");
 
     // Assert
     assert_eq!(option.id.as_str(), "TEST_OPTION");

@@ -8,7 +8,7 @@ use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::fx::fx_option::{FxOption, FxOptionParams};
 use finstack_valuations::instruments::fx::fx_spot::FxSpot;
 use finstack_valuations::instruments::fx::fx_swap::FxSwap;
-use finstack_valuations::instruments::OptionType;
+use finstack_valuations::instruments::{Attributes, OptionType, PricingOverrides};
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 
@@ -344,12 +344,24 @@ impl JsFxOptionBuilder {
             curve_id_from_str(domestic_curve),
             curve_id_from_str(foreign_curve),
         );
-        let option = FxOption::new(
-            instrument_id_from_str(&self.instrument_id),
-            &option_params,
-            &underlying,
-            curve_id_from_str(vol_surface),
-        );
+        let option = FxOption::builder()
+            .id(instrument_id_from_str(&self.instrument_id))
+            .base_currency(underlying.base_currency)
+            .quote_currency(underlying.quote_currency)
+            .strike(option_params.strike)
+            .option_type(option_params.option_type)
+            .exercise_style(option_params.exercise_style)
+            .expiry(option_params.expiry)
+            .day_count(finstack_core::dates::DayCount::Act365F)
+            .notional(option_params.notional)
+            .settlement(option_params.settlement)
+            .domestic_discount_curve_id(underlying.domestic_discount_curve_id.to_owned())
+            .foreign_discount_curve_id(underlying.foreign_discount_curve_id.to_owned())
+            .vol_surface_id(curve_id_from_str(vol_surface))
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .map_err(|e| js_error(e.to_string()))?;
         Ok(JsFxOption::from_inner(option))
     }
 }
@@ -424,12 +436,24 @@ impl JsFxOption {
             curve_id_from_str(domestic_curve),
             curve_id_from_str(foreign_curve),
         );
-        let option = FxOption::new(
-            instrument_id_from_str(instrument_id),
-            &option_params,
-            &underlying,
-            curve_id_from_str(vol_surface),
-        );
+        let option = FxOption::builder()
+            .id(instrument_id_from_str(instrument_id))
+            .base_currency(underlying.base_currency)
+            .quote_currency(underlying.quote_currency)
+            .strike(option_params.strike)
+            .option_type(option_params.option_type)
+            .exercise_style(option_params.exercise_style)
+            .expiry(option_params.expiry)
+            .day_count(finstack_core::dates::DayCount::Act365F)
+            .notional(option_params.notional)
+            .settlement(option_params.settlement)
+            .domestic_discount_curve_id(underlying.domestic_discount_curve_id.to_owned())
+            .foreign_discount_curve_id(underlying.foreign_discount_curve_id.to_owned())
+            .vol_surface_id(curve_id_from_str(vol_surface))
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .map_err(|e| js_error(e.to_string()))?;
         Ok(JsFxOption::from_inner(option))
     }
 

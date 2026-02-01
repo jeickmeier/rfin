@@ -9,9 +9,10 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
+use finstack_valuations::instruments::rates::irs::PayReceive;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
+use finstack_valuations::test_utils;
 use proptest::prelude::*;
 use time::Month;
 
@@ -59,23 +60,25 @@ proptest! {
         let start = base_date;
         let end = Date::from_calendar_date(2025 + tenor_years, Month::January, 15).unwrap();
 
-        let swap_pay = InterestRateSwap::create_usd_swap(
-            "PAY-FIXED".into(),
+        let swap_pay = test_utils::usd_irs_swap(
+            "PAY-FIXED",
             Money::new(notional, Currency::USD),
             fixed_rate,
             start,
             end,
             PayReceive::PayFixed,
-        ).expect("Valid swap construction");
+        )
+        .expect("Valid swap construction");
 
-        let swap_rec = InterestRateSwap::create_usd_swap(
-            "RECEIVE-FIXED".into(),
+        let swap_rec = test_utils::usd_irs_swap(
+            "RECEIVE-FIXED",
             Money::new(notional, Currency::USD),
             fixed_rate,
             start,
             end,
             PayReceive::ReceiveFixed,
-        ).expect("Valid swap construction");
+        )
+        .expect("Valid swap construction");
 
         // Create market with reasonable rates
         let market = create_test_market(base_date, 0.03, 0.05);
@@ -108,14 +111,15 @@ proptest! {
         let market = create_test_market(base_date, 0.04, 0.05);
 
         // First, find the par rate for this maturity
-        let temp_swap = InterestRateSwap::create_usd_swap(
-            "PAR-FINDER".into(),
+        let temp_swap = test_utils::usd_irs_swap(
+            "PAR-FINDER",
             Money::new(notional, Currency::USD),
             0.04, // temporary rate
             start,
             end,
             PayReceive::PayFixed,
-        ).expect("Valid swap construction");
+        )
+        .expect("Valid swap construction");
 
         let par_result = temp_swap
             .price_with_metrics(&market, base_date, &[MetricId::ParRate])
@@ -126,23 +130,25 @@ proptest! {
         prop_assume!(par_rate > 0.001 && par_rate < 0.20);
 
         // Create swaps at par rate
-        let swap_pay = InterestRateSwap::create_usd_swap(
-            "PAY-AT-PAR".into(),
+        let swap_pay = test_utils::usd_irs_swap(
+            "PAY-AT-PAR",
             Money::new(notional, Currency::USD),
             par_rate,
             start,
             end,
             PayReceive::PayFixed,
-        ).expect("Valid swap construction");
+        )
+        .expect("Valid swap construction");
 
-        let swap_rec = InterestRateSwap::create_usd_swap(
-            "REC-AT-PAR".into(),
+        let swap_rec = test_utils::usd_irs_swap(
+            "REC-AT-PAR",
             Money::new(notional, Currency::USD),
             par_rate,
             start,
             end,
             PayReceive::ReceiveFixed,
-        ).expect("Valid swap construction");
+        )
+        .expect("Valid swap construction");
 
         let pv_pay = swap_pay.value(&market, base_date).unwrap().amount();
         let pv_rec = swap_rec.value(&market, base_date).unwrap().amount();
@@ -167,14 +173,15 @@ proptest! {
         let start = base_date;
         let end = Date::from_calendar_date(2025 + tenor_years, Month::January, 15).unwrap();
 
-        let swap = InterestRateSwap::create_usd_swap(
-            "ANNUITY-TEST".into(),
+        let swap = test_utils::usd_irs_swap(
+            "ANNUITY-TEST",
             Money::new(notional, Currency::USD),
             fixed_rate,
             start,
             end,
             PayReceive::PayFixed,
-        ).expect("Valid swap construction");
+        )
+        .expect("Valid swap construction");
 
         let market = create_test_market(base_date, 0.03, 0.05);
 

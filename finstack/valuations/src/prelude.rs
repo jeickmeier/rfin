@@ -9,7 +9,7 @@
 //! use finstack_valuations::prelude::*;
 //!
 //! let registry = create_standard_registry();
-//! let bond = Bond::fixed_rate(
+//! let bond = Bond::fixed(
 //!     "BOND-001",
 //!     Money::new(1_000_000.0, Currency::USD),
 //!     Rate::from_percent(5.0),

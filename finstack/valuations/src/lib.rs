@@ -66,7 +66,7 @@
 //! // Build a fixed-rate bond
 //! let issue = create_date(2025, Month::January, 15)?;
 //! let maturity = create_date(2030, Month::January, 15)?;
-//! let bond = Bond::fixed_rate(
+//! let bond = Bond::fixed(
 //!     "US-BOND-001",
 //!     Money::new(1_000_000.0, Currency::USD),
 //!     Rate::from_percent(5.0),
@@ -102,7 +102,7 @@
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! # let issue = create_date(2025, Month::January, 15)?;
 //! # let maturity = create_date(2030, Month::January, 15)?;
-//! # let bond = Bond::fixed_rate("US-BOND-001", Money::new(1_000_000.0, Currency::USD),
+//! # let bond = Bond::fixed("US-BOND-001", Money::new(1_000_000.0, Currency::USD),
 //! #     Rate::from_percent(5.0), issue, maturity, "USD-OIS");
 //! # let market = MarketContext::new();
 //! # let as_of = create_date(2025, Month::January, 1)?;

@@ -164,7 +164,7 @@ impl Bond {
         Self::fixed(
             "US912828XG33",
             Money::new(1_000_000.0, Currency::USD),
-            0.0425,
+            Rate::from_decimal(0.0425),
             date!(2024 - 01 - 15),
             date!(2034 - 01 - 15),
             "USD-TREASURY",
@@ -182,7 +182,7 @@ impl Bond {
     ///
     /// * `id` - Unique identifier for the bond
     /// * `notional` - Principal amount of the bond
-    /// * `coupon_rate` - Annual coupon rate as decimal (e.g., 0.05 for 5%)
+    /// * `coupon_rate` - Annual coupon rate as a typed `Rate`
     /// * `issue` - Issue date of the bond
     /// * `maturity` - Maturity date of the bond
     /// * `discount_curve_id` - Discount curve identifier for pricing
@@ -245,7 +245,15 @@ impl Bond {
     /// let notional = Money::new(1_000_000.0, Currency::USD);
     /// let issue = date!(2025-01-15);
     /// let maturity = date!(2030-01-15);
-    /// let corp_bond = Bond::fixed("CORP-001", notional, 0.05, issue, maturity, "USD-OIS").unwrap();
+    /// let corp_bond = Bond::fixed(
+    ///     "CORP-001",
+    ///     notional,
+    ///     finstack_core::types::Rate::from_decimal(0.05),
+    ///     issue,
+    ///     maturity,
+    ///     "USD-OIS",
+    /// )
+    /// .unwrap();
     /// # let _ = corp_bond;
     ///
     /// // For US Treasury, use with_convention:
@@ -258,17 +266,18 @@ impl Bond {
     pub fn fixed(
         id: impl Into<InstrumentId>,
         notional: Money,
-        coupon_rate: f64,
+        coupon_rate: impl Into<Rate>,
         issue: Date,
         maturity: Date,
         discount_curve_id: impl Into<CurveId>,
     ) -> finstack_core::Result<Self> {
+        let coupon_rate = coupon_rate.into();
         let bond = Self::builder()
             .id(id.into())
             .notional(notional)
             .issue(issue)
             .maturity(maturity)
-            .cashflow_spec(CashflowSpec::fixed(
+            .cashflow_spec(CashflowSpec::fixed_rate(
                 coupon_rate,
                 finstack_core::dates::Tenor::semi_annual(),
                 DayCount::Thirty360,
@@ -285,30 +294,9 @@ impl Bond {
         Ok(bond)
     }
 
-    /// Create a bond with standard market conventions using a typed rate.
-    ///
-    /// Prefer this overload to avoid ambiguity between decimals and percent inputs.
-    pub fn fixed_rate(
-        id: impl Into<InstrumentId>,
-        notional: Money,
-        coupon_rate: Rate,
-        issue: Date,
-        maturity: Date,
-        discount_curve_id: impl Into<CurveId>,
-    ) -> finstack_core::Result<Self> {
-        Self::fixed(
-            id,
-            notional,
-            coupon_rate.as_decimal(),
-            issue,
-            maturity,
-            discount_curve_id,
-        )
-    }
-
     /// Create a bond with standard market conventions.
     ///
-    /// Prefer [`Bond::fixed_rate`] when you already have a typed `Rate`.
+    /// Prefer typed rates for clarity and unit safety.
     ///
     /// Applies region-specific conventions for day count, frequency, and
     /// calendar adjustments. For full customization, use `::builder()`.
@@ -317,7 +305,7 @@ impl Bond {
     ///
     /// * `id` - Unique identifier for the bond
     /// * `notional` - Principal amount of the bond
-    /// * `coupon_rate` - Annual coupon rate as decimal (e.g., 0.05 for 5%)
+    /// * `coupon_rate` - Annual coupon rate as a typed `Rate`
     /// * `issue` - Issue date of the bond
     /// * `maturity` - Maturity date of the bond
     /// * `convention` - Regional bond convention (e.g., `BondConvention::USTreasury`)
@@ -345,7 +333,7 @@ impl Bond {
     /// let treasury = Bond::with_convention(
     ///     "UST-5Y",
     ///     notional,
-    ///     0.03,
+    ///     finstack_core::types::Rate::from_decimal(0.03),
     ///     issue,
     ///     maturity,
     ///     BondConvention::USTreasury,
@@ -359,44 +347,13 @@ impl Bond {
     pub fn with_convention(
         id: impl Into<InstrumentId>,
         notional: Money,
-        coupon_rate: f64,
+        coupon_rate: impl Into<Rate>,
         issue: Date,
         maturity: Date,
         convention: crate::instruments::common::parameters::BondConvention,
         discount_curve_id: impl Into<CurveId>,
     ) -> finstack_core::Result<Self> {
-        let bond = Self::builder()
-            .id(id.into())
-            .notional(notional)
-            .issue(issue)
-            .maturity(maturity)
-            .cashflow_spec(CashflowSpec::fixed(
-                coupon_rate,
-                convention.frequency(),
-                convention.day_count(),
-            ))
-            .discount_curve_id(discount_curve_id.into())
-            .credit_curve_id_opt(None)
-            .pricing_overrides(PricingOverrides::default())
-            .attributes(Attributes::new())
-            .ex_coupon_calendar_id_opt(None)
-            .build()?;
-
-        // Validate all parameters before returning
-        bond.validate()?;
-        Ok(bond)
-    }
-
-    /// Create a bond with standard market conventions using a typed rate.
-    pub fn with_convention_rate(
-        id: impl Into<InstrumentId>,
-        notional: Money,
-        coupon_rate: Rate,
-        issue: Date,
-        maturity: Date,
-        convention: crate::instruments::common::parameters::BondConvention,
-        discount_curve_id: impl Into<CurveId>,
-    ) -> finstack_core::Result<Self> {
+        let coupon_rate = coupon_rate.into();
         let bond = Self::builder()
             .id(id.into())
             .notional(notional)
@@ -414,6 +371,7 @@ impl Bond {
             .ex_coupon_calendar_id_opt(None)
             .build()?;
 
+        // Validate all parameters before returning
         bond.validate()?;
         Ok(bond)
     }
@@ -428,7 +386,7 @@ impl Bond {
     /// * `id` - Unique identifier for the bond
     /// * `notional` - Principal amount of the bond
     /// * `index_id` - Forward curve identifier (e.g., "USD-SOFR-3M")
-    /// * `margin_bp` - Spread over index in basis points (e.g., 200.0 for 200bps)
+    /// * `margin_bp` - Spread over index in typed basis points (e.g., `Bps::new(200)`)
     /// * `issue` - Issue date of the bond
     /// * `maturity` - Maturity date of the bond
     /// * `freq` - Payment frequency (e.g., `Tenor::quarterly()`)
@@ -459,7 +417,7 @@ impl Bond {
     ///     "FRN-001",
     ///     notional,
     ///     "USD-SOFR-3M",
-    ///     200.0,  // margin in bps
+    ///     finstack_core::types::Bps::new(200),
     ///     issue,
     ///     maturity,
     ///     Tenor::quarterly(),
@@ -476,44 +434,14 @@ impl Bond {
         id: impl Into<InstrumentId>,
         notional: Money,
         index_id: impl Into<CurveId>,
-        margin_bp: f64,
+        margin_bp: impl Into<Bps>,
         issue: Date,
         maturity: Date,
         freq: finstack_core::dates::Tenor,
         dc: DayCount,
         discount_curve_id: impl Into<CurveId>,
     ) -> finstack_core::Result<Self> {
-        let bond = Self::builder()
-            .id(id.into())
-            .notional(notional)
-            .issue(issue)
-            .maturity(maturity)
-            .cashflow_spec(CashflowSpec::floating(index_id.into(), margin_bp, freq, dc))
-            .discount_curve_id(discount_curve_id.into())
-            .credit_curve_id_opt(None)
-            .pricing_overrides(PricingOverrides::default())
-            .attributes(Attributes::new())
-            .ex_coupon_calendar_id_opt(None)
-            .build()?;
-
-        // Validate all parameters before returning
-        bond.validate()?;
-        Ok(bond)
-    }
-
-    /// Create a floating-rate bond (FRN) using typed basis points.
-    #[allow(clippy::too_many_arguments)]
-    pub fn floating_bps(
-        id: impl Into<InstrumentId>,
-        notional: Money,
-        index_id: impl Into<CurveId>,
-        margin_bp: Bps,
-        issue: Date,
-        maturity: Date,
-        freq: finstack_core::dates::Tenor,
-        dc: DayCount,
-        discount_curve_id: impl Into<CurveId>,
-    ) -> finstack_core::Result<Self> {
+        let margin_bp = margin_bp.into();
         let bond = Self::builder()
             .id(id.into())
             .notional(notional)
@@ -532,6 +460,7 @@ impl Bond {
             .ex_coupon_calendar_id_opt(None)
             .build()?;
 
+        // Validate all parameters before returning
         bond.validate()?;
         Ok(bond)
     }
@@ -1382,7 +1311,7 @@ mod tests {
             "FRN-TEST",
             notional,
             "USD-SOFR-3M",
-            150.0,
+            150,
             issue,
             maturity,
             Tenor::quarterly(),
@@ -1429,7 +1358,7 @@ mod tests {
             "FRN-EX-COUPON",
             notional,
             "USD-SOFR-3M",
-            150.0,
+            150,
             issue,
             maturity,
             Tenor::quarterly(),
@@ -1599,7 +1528,7 @@ mod tests {
             "FRN-BUILDER-TEST",
             Money::new(1_000_000.0, Currency::USD),
             "USD-SOFR",
-            100.0,
+            100,
             issue,
             maturity,
             Tenor::quarterly(),
@@ -1855,7 +1784,7 @@ mod tests {
             "FRN-CFKIND-TEST",
             Money::new(1_000_000.0, Currency::USD),
             "USD-LIBOR-3M",
-            200.0,
+            200,
             issue,
             maturity,
             Tenor::quarterly(),

@@ -21,6 +21,7 @@ use finstack_valuations::instruments::rates::irs::{
 };
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
+use finstack_valuations::test_utils;
 use time::macros::date;
 
 fn build_flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> DiscountCurve {
@@ -57,7 +58,7 @@ fn build_flat_forward_curve(rate: f64, base_date: Date, curve_id: &str) -> Forwa
 
 #[test]
 fn test_validation_rejects_end_before_start() {
-    let result = InterestRateSwap::create_usd_swap(
+    let result = test_utils::usd_irs_swap(
         InstrumentId::new("INVALID_DATES"),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -77,7 +78,7 @@ fn test_validation_rejects_end_before_start() {
 
 #[test]
 fn test_validation_rejects_zero_notional() {
-    let result = InterestRateSwap::create_usd_swap(
+    let result = test_utils::usd_irs_swap(
         InstrumentId::new("ZERO_NOTIONAL"),
         Money::new(0.0, Currency::USD),
         0.05,
@@ -97,7 +98,7 @@ fn test_validation_rejects_zero_notional() {
 
 #[test]
 fn test_validation_rejects_negative_notional() {
-    let result = InterestRateSwap::create_usd_swap(
+    let result = test_utils::usd_irs_swap(
         InstrumentId::new("NEGATIVE_NOTIONAL"),
         Money::new(-1_000_000.0, Currency::USD),
         0.05,
@@ -112,7 +113,7 @@ fn test_validation_rejects_negative_notional() {
 #[test]
 fn test_validation_rejects_extreme_rate() {
     // 15000% rate should be rejected as non-physical
-    let result = InterestRateSwap::create_usd_swap(
+    let result = test_utils::usd_irs_swap(
         InstrumentId::new("EXTREME_RATE"),
         Money::new(1_000_000.0, Currency::USD),
         150.0, // 15000% rate - well above MAX_RATE_MAGNITUDE (100.0)
@@ -133,7 +134,7 @@ fn test_validation_rejects_extreme_rate() {
 #[test]
 fn test_validation_accepts_negative_rate() {
     // -0.5% rate should be accepted (realistic in EUR/JPY markets)
-    let result = InterestRateSwap::create_usd_swap(
+    let result = test_utils::usd_irs_swap(
         InstrumentId::new("NEGATIVE_RATE"),
         Money::new(1_000_000.0, Currency::USD),
         -0.005, // -0.5% rate
@@ -147,7 +148,7 @@ fn test_validation_accepts_negative_rate() {
 
 #[test]
 fn test_validation_accepts_valid_swap() {
-    let swap = InterestRateSwap::create_usd_swap(
+    let swap = test_utils::usd_irs_swap(
         InstrumentId::new("VALID_SWAP"),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -179,7 +180,7 @@ fn test_30y_swap_numerical_stability() {
         .insert_discount(disc_curve)
         .insert_forward(fwd_curve);
 
-    let swap = InterestRateSwap::create_usd_swap(
+    let swap = test_utils::usd_irs_swap(
         InstrumentId::new("SWAP_30Y"),
         Money::new(100_000_000.0, Currency::USD), // Large notional
         0.05,
@@ -237,7 +238,7 @@ fn test_annuity_deterministic_across_runs() {
         .insert_discount(disc_curve)
         .insert_forward(fwd_curve);
 
-    let swap = InterestRateSwap::create_usd_swap(
+    let swap = test_utils::usd_irs_swap(
         InstrumentId::new("DETERMINISM_TEST"),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -416,7 +417,7 @@ fn test_extreme_rate_environment_stress() {
         .insert_discount(disc_high)
         .insert_forward(fwd_high);
 
-    let swap = InterestRateSwap::create_usd_swap(
+    let swap = test_utils::usd_irs_swap(
         InstrumentId::new("STRESS_HIGH"),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -478,7 +479,7 @@ fn test_golden_5y_usd_swap_par_npv() {
         .insert_forward(fwd_curve);
 
     // First compute actual par rate for this swap
-    let temp_swap = InterestRateSwap::create_usd_swap(
+    let temp_swap = test_utils::usd_irs_swap(
         InstrumentId::new("TEMP_PAR"),
         Money::new(10_000_000.0, Currency::USD),
         0.05,
@@ -494,7 +495,7 @@ fn test_golden_5y_usd_swap_par_npv() {
         .measures["par_rate"];
 
     // Now create a swap at the computed par rate
-    let swap_at_par = InterestRateSwap::create_usd_swap(
+    let swap_at_par = test_utils::usd_irs_swap(
         InstrumentId::new("GOLDEN_PAR"),
         Money::new(10_000_000.0, Currency::USD),
         par_rate, // Use computed par rate
@@ -532,7 +533,7 @@ fn test_golden_annuity_5y_at_5pct() {
         .insert_discount(disc_curve)
         .insert_forward(fwd_curve);
 
-    let swap = InterestRateSwap::create_usd_swap(
+    let swap = test_utils::usd_irs_swap(
         InstrumentId::new("GOLDEN_ANNUITY"),
         Money::new(1_000_000.0, Currency::USD),
         0.05,
@@ -571,7 +572,7 @@ fn test_golden_dv01_approximation() {
         .insert_discount(disc_curve)
         .insert_forward(fwd_curve);
 
-    let swap = InterestRateSwap::create_usd_swap(
+    let swap = test_utils::usd_irs_swap(
         InstrumentId::new("GOLDEN_DV01"),
         Money::new(notional, Currency::USD),
         0.05,
@@ -612,7 +613,7 @@ fn test_missing_curve_produces_clear_error() {
     let market = MarketContext::new().insert_discount(disc_curve);
     // Note: No forward curve added
 
-    let swap = InterestRateSwap::create_usd_swap(
+    let swap = test_utils::usd_irs_swap(
         InstrumentId::new("MISSING_CURVE_TEST"),
         Money::new(1_000_000.0, Currency::USD),
         0.05,

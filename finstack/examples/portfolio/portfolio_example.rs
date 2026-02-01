@@ -1090,12 +1090,24 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         "EUR",
     );
 
-    let eur_usd_call = FxOption::new(
-        "EUR_USD_CALL_105",
-        &fx_option_params,
-        &fx_underlying_params,
-        "FX_VOL",
-    );
+    let eur_usd_call = FxOption::builder()
+        .id("EUR_USD_CALL_105".into())
+        .base_currency(fx_underlying_params.base_currency)
+        .quote_currency(fx_underlying_params.quote_currency)
+        .strike(fx_option_params.strike)
+        .option_type(fx_option_params.option_type)
+        .exercise_style(fx_option_params.exercise_style)
+        .expiry(fx_option_params.expiry)
+        .day_count(finstack_core::dates::DayCount::Act365F)
+        .notional(fx_option_params.notional)
+        .settlement(fx_option_params.settlement)
+        .domestic_discount_curve_id(fx_underlying_params.domestic_discount_curve_id.clone())
+        .foreign_discount_curve_id(fx_underlying_params.foreign_discount_curve_id.clone())
+        .vol_surface_id("FX_VOL".into())
+        .pricing_overrides(PricingOverrides::default())
+        .attributes(Attributes::new())
+        .build()
+        .expect("FX option builder should succeed");
 
     let fx_option_position = Position::new(
         "POS_FXOPT_001",

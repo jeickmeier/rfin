@@ -75,7 +75,7 @@ irs/
 Multiple construction methods:
 
 - **Builder pattern**: Fine-grained control over all parameters
-- **Convenience constructors**: `create_usd_swap()`, `example()` for common cases -- TODO: Add more convenience constructors
+- **Convenience examples**: `example()` for common cases
 - **Market standard configs**: ISDA-compliant defaults for major currencies
 
 ### 2. **Pricing**
@@ -192,7 +192,7 @@ This protects against extreme rate scenarios (ISDA stress tests range from -10% 
 
 ## Input Validation
 
-All convenience constructors (`create_usd_swap`, `example`) automatically validate swap parameters. Use `InterestRateSwap::validate()` for manual validation.
+Swaps constructed via the builder should be explicitly validated with `InterestRateSwap::validate()` after `build()`.
 
 ### Validated Parameters
 
@@ -205,11 +205,6 @@ All convenience constructors (`create_usd_swap`, `example`) automatically valida
 ### Example
 
 ```rust
-// Automatic validation in convenience constructors
-let swap = InterestRateSwap::create_usd_swap(
-    id, notional, fixed_rate, start, end, side
-)?;  // Returns Err if validation fails
-
 // Manual validation for builder pattern
 let swap = InterestRateSwap::builder()
     .id(id)
@@ -227,20 +222,50 @@ swap.validate()?;  // Explicit validation
 
 ```rust
 use finstack_core::currency::Currency;
-use finstack_core::dates::Date;
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
-use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
+use finstack_valuations::instruments::rates::irs::{FloatingLegCompounding, InterestRateSwap, PayReceive};
+use finstack_valuations::instruments::{FixedLegSpec, FloatLegSpec};
+use rust_decimal_macros::dec;
 use time::macros::date;
 
-let swap = InterestRateSwap::create_usd_swap(
-    InstrumentId::new("IRS-5Y-USD"),
-    Money::new(10_000_000.0, Currency::USD),
-    0.03,  // 3% fixed rate
-    date!(2024-01-01),
-    date!(2029-01-01),
-    PayReceive::PayFixed,
-)?;
+let swap = InterestRateSwap::builder()
+    .id(InstrumentId::new("IRS-5Y-USD"))
+    .notional(Money::new(10_000_000.0, Currency::USD))
+    .side(PayReceive::PayFixed)
+    .fixed(FixedLegSpec {
+        discount_curve_id: "USD-OIS".into(),
+        rate: dec!(0.03),  // 3% fixed rate
+        freq: Tenor::semi_annual(),
+        dc: DayCount::Thirty360,
+        bdc: BusinessDayConvention::ModifiedFollowing,
+        calendar_id: Some("usny".to_string()),
+        stub: StubKind::None,
+        start: date!(2024-01-01),
+        end: date!(2029-01-01),
+        par_method: None,
+        compounding_simple: true,
+        payment_delay_days: 0,
+    })
+    .float(FloatLegSpec {
+        discount_curve_id: "USD-OIS".into(),
+        forward_curve_id: "USD-SOFR-3M".into(),
+        spread_bp: dec!(0.0),
+        freq: Tenor::quarterly(),
+        dc: DayCount::Act360,
+        bdc: BusinessDayConvention::ModifiedFollowing,
+        calendar_id: Some("usny".to_string()),
+        stub: StubKind::None,
+        reset_lag_days: 0,
+        fixing_calendar_id: None,
+        start: date!(2024-01-01),
+        end: date!(2029-01-01),
+        compounding: FloatingLegCompounding::Simple,
+        payment_delay_days: 0,
+    })
+    .build()?;
+swap.validate()?;
 ```
 
 ### Example 2: Price a Swap
@@ -284,19 +309,44 @@ println!("Swap NPV: {}", npv);
 
 ```rust
 use finstack_valuations::instruments::rates::irs::FloatingLegCompounding;
+use finstack_valuations::instruments::{FixedLegSpec, FloatLegSpec};
 
-let mut swap = InterestRateSwap::create_usd_swap(
-    InstrumentId::new("OIS-5Y-USD"),
-    Money::new(10_000_000.0, Currency::USD),
-    0.025,
-    date!(2024-01-01),
-    date!(2029-01-01),
-    PayReceive::PayFixed,
-)?;
-
-// Use overnight compounding and align float index with discount curve
-swap.float.compounding = FloatingLegCompounding::sofr();
-swap.float.forward_curve_id = swap.fixed.discount_curve_id.clone();
+let mut swap = InterestRateSwap::builder()
+    .id(InstrumentId::new("OIS-5Y-USD"))
+    .notional(Money::new(10_000_000.0, Currency::USD))
+    .side(PayReceive::PayFixed)
+    .fixed(FixedLegSpec {
+        discount_curve_id: "USD-OIS".into(),
+        rate: dec!(0.025),
+        freq: Tenor::semi_annual(),
+        dc: DayCount::Thirty360,
+        bdc: BusinessDayConvention::ModifiedFollowing,
+        calendar_id: Some("usny".to_string()),
+        stub: StubKind::None,
+        start: date!(2024-01-01),
+        end: date!(2029-01-01),
+        par_method: None,
+        compounding_simple: true,
+        payment_delay_days: 0,
+    })
+    .float(FloatLegSpec {
+        discount_curve_id: "USD-OIS".into(),
+        forward_curve_id: "USD-OIS".into(),
+        spread_bp: dec!(0.0),
+        freq: Tenor::quarterly(),
+        dc: DayCount::Act360,
+        bdc: BusinessDayConvention::ModifiedFollowing,
+        calendar_id: Some("usny".to_string()),
+        stub: StubKind::None,
+        reset_lag_days: 0,
+        fixing_calendar_id: None,
+        start: date!(2024-01-01),
+        end: date!(2029-01-01),
+        compounding: FloatingLegCompounding::sofr(),
+        payment_delay_days: 0,
+    })
+    .build()?;
+swap.validate()?;
 
 // Now pricing will use OIS-specific logic
 let npv = swap.value(&market, date!(2024-01-01))?;
@@ -777,21 +827,52 @@ Interest rate swaps implement full margin support following **ISDA CSA** (Credit
 ### Adding Margin Specification
 
 ```rust
-use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
+use finstack_valuations::instruments::rates::irs::{FloatingLegCompounding, InterestRateSwap, PayReceive};
+use finstack_valuations::instruments::{FixedLegSpec, FloatLegSpec};
+use rust_decimal_macros::dec;
 use finstack_valuations::margin::{
     OtcMarginSpec, CsaSpec, ClearingStatus, ImMethodology, MarginFrequency,
 };
 use finstack_core::{currency::Currency, money::Money};
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 
 // Create a swap
-let mut swap = InterestRateSwap::create_usd_swap(
-    "IRS-5Y-USD".into(),
-    Money::new(100_000_000.0, Currency::USD),
-    0.035,
-    start_date,
-    end_date,
-    PayReceive::PayFixed,
-)?;
+let mut swap = InterestRateSwap::builder()
+    .id("IRS-5Y-USD".into())
+    .notional(Money::new(100_000_000.0, Currency::USD))
+    .side(PayReceive::PayFixed)
+    .fixed(FixedLegSpec {
+        discount_curve_id: "USD-OIS".into(),
+        rate: dec!(0.035),
+        freq: Tenor::semi_annual(),
+        dc: DayCount::Thirty360,
+        bdc: BusinessDayConvention::ModifiedFollowing,
+        calendar_id: Some("usny".to_string()),
+        stub: StubKind::None,
+        start: start_date,
+        end: end_date,
+        par_method: None,
+        compounding_simple: true,
+        payment_delay_days: 0,
+    })
+    .float(FloatLegSpec {
+        discount_curve_id: "USD-OIS".into(),
+        forward_curve_id: "USD-SOFR-3M".into(),
+        spread_bp: dec!(0.0),
+        freq: Tenor::quarterly(),
+        dc: DayCount::Act360,
+        bdc: BusinessDayConvention::ModifiedFollowing,
+        calendar_id: Some("usny".to_string()),
+        stub: StubKind::None,
+        reset_lag_days: 0,
+        fixing_calendar_id: None,
+        start: start_date,
+        end: end_date,
+        compounding: FloatingLegCompounding::Simple,
+        payment_delay_days: 0,
+    })
+    .build()?;
+swap.validate()?;
 
 // Add regulatory-compliant margin specification
 swap.margin_spec = Some(OtcMarginSpec {

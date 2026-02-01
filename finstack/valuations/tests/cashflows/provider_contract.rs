@@ -161,7 +161,7 @@ mod bond_contract {
             "TEST-FLOAT-BOND",
             Money::new(1_000_000.0, Currency::USD),
             "USD-SOFR-3M",
-            200.0, // 200 bps spread
+            200, // 200 bps spread
             issue,
             maturity,
             Tenor::quarterly(),
@@ -180,7 +180,7 @@ mod bond_contract {
 
 mod irs_contract {
     use super::*;
-    use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
+    use finstack_valuations::instruments::rates::irs::PayReceive;
 
     #[test]
     fn usd_swap_pay_fixed_satisfies_contract() {
@@ -188,8 +188,8 @@ mod irs_contract {
         let start = d(2025, 1, 15);
         let end = d(2030, 1, 15);
 
-        let swap = InterestRateSwap::create_usd_swap(
-            "TEST-IRS-PAY".into(),
+        let swap = finstack_valuations::test_utils::usd_irs_swap(
+            "TEST-IRS-PAY",
             Money::new(10_000_000.0, Currency::USD),
             0.04,
             start,
@@ -207,8 +207,8 @@ mod irs_contract {
         let start = d(2025, 1, 15);
         let end = d(2030, 1, 15);
 
-        let swap = InterestRateSwap::create_usd_swap(
-            "TEST-IRS-REC".into(),
+        let swap = finstack_valuations::test_utils::usd_irs_swap(
+            "TEST-IRS-REC",
             Money::new(10_000_000.0, Currency::USD),
             0.04,
             start,

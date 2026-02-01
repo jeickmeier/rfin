@@ -88,7 +88,7 @@ fn test_ytm_floating_bond_is_finite_from_price() {
         "YTM-FRN",
         notional,
         "USD-SOFR-3M",
-        150.0,
+        150,
         as_of,
         maturity,
         Tenor::quarterly(),

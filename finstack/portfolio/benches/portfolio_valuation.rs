@@ -58,7 +58,6 @@ use finstack_valuations::instruments::fx::fx_option::FxOption;
 use finstack_valuations::instruments::fx::fx_spot::FxSpot;
 use finstack_valuations::instruments::rates::deposit::Deposit;
 use finstack_valuations::instruments::rates::inflation_swap::{InflationSwap, PayReceiveInflation};
-use finstack_valuations::instruments::rates::irs::InterestRateSwap;
 use finstack_valuations::instruments::rates::repo::{CollateralSpec, CollateralType, Repo};
 use finstack_valuations::instruments::rates::swaption::Swaption;
 use finstack_valuations::instruments::rates::swaption::SwaptionParams;
@@ -397,8 +396,8 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
     for i in 0..positions_per_common {
         let swap_id = format!("IRS_{}", i);
         let notional = Money::new(5_000_000.0 * (i + 1) as f64, Currency::USD);
-        let swap = InterestRateSwap::create_usd_swap(
-            swap_id.clone().into(),
+        let swap = finstack_valuations::test_utils::usd_irs_swap(
+            swap_id.clone(),
             notional,
             0.04,
             base,

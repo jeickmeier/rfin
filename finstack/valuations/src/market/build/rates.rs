@@ -15,6 +15,7 @@ use finstack_core::dates::{adjust, Date, DateExt, TenorUnit};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::{Error, InputError, Result};
+use rust_decimal::Decimal;
 
 /// Build an interest rate instrument from a [`RateQuote`].
 ///
@@ -338,41 +339,71 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
                 payment_delay_days: conv.default_payment_delay_days,
             };
 
-            // Choose constructor based on index kind
-            let mut swap = match conv.kind {
-                RateIndexKind::Term => InterestRateSwap::create_term_swap_with_conventions(
-                    InstrumentId::new(id.as_str()),
-                    Money::new(ctx.notional(), conv.currency),
-                    *rate,
-                    start,
-                    maturity,
-                    PayReceive::PayFixed,
-                    CurveId::new(discount_id),
-                    CurveId::new(forward_id),
-                    leg_conv,
-                )?,
-                RateIndexKind::OvernightRfr => {
-                    let compounding = conv.ois_compounding.clone().unwrap_or(
-                        crate::instruments::rates::irs::FloatingLegCompounding::CompoundedInArrears {
-                            lookback_days: 0,
-                            observation_shift: None,
-                        },
-                    );
+            let rate_decimal = Decimal::try_from(*rate)
+                .map_err(|_| finstack_core::InputError::ConversionOverflow)?;
 
-                    InterestRateSwap::create_ois_swap_with_conventions(
-                        InstrumentId::new(id.as_str()),
-                        Money::new(ctx.notional(), conv.currency),
-                        *rate,
-                        start,
-                        maturity,
-                        PayReceive::PayFixed,
-                        CurveId::new(discount_id),
-                        CurveId::new(forward_id),
-                        compounding,
-                        leg_conv,
-                    )?
+            let compounding = match conv.kind {
+                RateIndexKind::Term => {
+                    crate::instruments::rates::irs::FloatingLegCompounding::Simple
                 }
+                RateIndexKind::OvernightRfr => conv.ois_compounding.clone().unwrap_or(
+                    crate::instruments::rates::irs::FloatingLegCompounding::CompoundedInArrears {
+                        lookback_days: 0,
+                        observation_shift: None,
+                    },
+                ),
             };
+
+            if matches!(conv.kind, RateIndexKind::OvernightRfr)
+                && matches!(
+                    compounding,
+                    crate::instruments::rates::irs::FloatingLegCompounding::Simple
+                )
+            {
+                return Err(Error::Validation(
+                    "OIS swap requires compounded-in-arrears floating compounding".to_string(),
+                ));
+            }
+
+            let fixed = crate::instruments::common::parameters::legs::FixedLegSpec {
+                discount_curve_id: CurveId::new(discount_id.clone()),
+                rate: rate_decimal,
+                freq: leg_conv.fixed_freq,
+                dc: leg_conv.fixed_dc,
+                bdc: leg_conv.bdc,
+                calendar_id: leg_conv.payment_calendar_id.clone(),
+                stub: leg_conv.stub,
+                start,
+                end: maturity,
+                par_method: None,
+                compounding_simple: true,
+                payment_delay_days: leg_conv.payment_delay_days,
+            };
+
+            let float = crate::instruments::common::parameters::legs::FloatLegSpec {
+                discount_curve_id: CurveId::new(discount_id),
+                forward_curve_id: CurveId::new(forward_id),
+                spread_bp: Decimal::ZERO,
+                freq: leg_conv.float_freq,
+                dc: leg_conv.float_dc,
+                bdc: leg_conv.bdc,
+                calendar_id: leg_conv.payment_calendar_id,
+                stub: leg_conv.stub,
+                reset_lag_days: leg_conv.reset_lag_days,
+                fixing_calendar_id: leg_conv.fixing_calendar_id,
+                start,
+                end: maturity,
+                compounding,
+                payment_delay_days: leg_conv.payment_delay_days,
+            };
+
+            let mut swap = InterestRateSwap::builder()
+                .id(InstrumentId::new(id.as_str()))
+                .notional(Money::new(ctx.notional(), conv.currency))
+                .side(PayReceive::PayFixed)
+                .fixed(fixed)
+                .float(float)
+                .build()?;
 
             // Apply spread if present
             // spread_decimal is in decimal format (e.g., 0.0010 for 10bp)

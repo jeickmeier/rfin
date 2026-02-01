@@ -14,14 +14,15 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
+use finstack_valuations::test_utils;
 use time::Month;
 
 fn create_test_swap() -> InterestRateSwap {
     let start = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let end = Date::from_calendar_date(2030, Month::January, 15).unwrap();
 
-    InterestRateSwap::create_usd_swap(
-        "IRS-DETERMINISM-TEST".into(),
+    test_utils::usd_irs_swap(
+        "IRS-DETERMINISM-TEST",
         Money::new(10_000_000.0, Currency::USD),
         0.04, // 4% fixed rate
         start,
@@ -232,8 +233,8 @@ fn test_swap_pay_vs_receive_determinism() {
     let start = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let end = Date::from_calendar_date(2030, Month::January, 15).unwrap();
 
-    let swap_pay = InterestRateSwap::create_usd_swap(
-        "PAY-FIXED".into(),
+    let swap_pay = test_utils::usd_irs_swap(
+        "PAY-FIXED",
         Money::new(10_000_000.0, Currency::USD),
         0.04,
         start,
@@ -242,8 +243,8 @@ fn test_swap_pay_vs_receive_determinism() {
     )
     .expect("Valid swap construction");
 
-    let swap_rec = InterestRateSwap::create_usd_swap(
-        "RECEIVE-FIXED".into(),
+    let swap_rec = test_utils::usd_irs_swap(
+        "RECEIVE-FIXED",
         Money::new(10_000_000.0, Currency::USD),
         0.04,
         start,

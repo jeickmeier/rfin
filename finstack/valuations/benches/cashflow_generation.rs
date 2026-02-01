@@ -15,11 +15,12 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
+use finstack_core::types::InstrumentId;
 use finstack_valuations::cashflow::aggregation::aggregate_cashflows_precise_checked;
 use finstack_valuations::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec};
 use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
-use finstack_valuations::instruments::rates::irs::InterestRateSwap;
+use finstack_valuations::test_utils;
 use rust_decimal_macros::dec;
 use std::hint::black_box;
 use time::Month;
@@ -97,8 +98,8 @@ fn bench_swap_cashflow_generation(c: &mut Criterion) {
         let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let end = Date::from_calendar_date(2025 + tenor, Month::January, 1).unwrap();
 
-        let swap = InterestRateSwap::create_usd_swap(
-            format!("IRS-{}Y", tenor).into(),
+        let swap = test_utils::usd_irs_swap(
+            InstrumentId::new(format!("IRS-{}Y", tenor)),
             Money::new(10_000_000.0, Currency::USD),
             0.04,
             start,

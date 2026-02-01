@@ -405,8 +405,8 @@ mod tests {
         let start = test_date();
         let end = Date::from_calendar_date(2029, Month::June, 15).expect("valid date");
 
-        let swap = InterestRateSwap::create_usd_swap(
-            "TEST_IRS".into(),
+        let swap = crate::test_utils::usd_irs_swap(
+            "TEST_IRS",
             Money::new(100_000_000.0, Currency::USD),
             0.035,
             start,
@@ -449,8 +449,8 @@ mod tests {
         let start = test_date();
         let end = Date::from_calendar_date(2029, Month::June, 15).expect("valid date");
 
-        let mut swap = InterestRateSwap::create_usd_swap(
-            "TEST_IRS".into(),
+        let mut swap = crate::test_utils::usd_irs_swap(
+            "TEST_IRS",
             Money::new(100_000_000.0, Currency::USD),
             0.035,
             start,

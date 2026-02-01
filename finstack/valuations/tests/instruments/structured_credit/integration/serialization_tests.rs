@@ -13,9 +13,9 @@ use finstack_valuations::instruments::fixed_income::structured_credit::{
     ReinvestmentPeriod, Seniority, StochasticDefaultSpec, StochasticPrepaySpec, StructuredCredit,
     Tranche, TrancheCoupon, TrancheStructure, TriggerConsequence,
 };
+use finstack_valuations::instruments::json_loader::InstrumentJson;
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::{json_loader::InstrumentEnvelope, PayReceive};
-use finstack_valuations::instruments::{json_loader::InstrumentJson, InterestRateSwap};
 use time::Month;
 
 fn maturity_date() -> Date {
@@ -423,7 +423,7 @@ fn build_full_feature_structured_credit() -> StructuredCredit {
     deal.stochastic_default_spec = Some(StochasticDefaultSpec::gaussian_copula(0.025, 0.35));
     deal.correlation_structure = Some(CorrelationStructure::sectored(0.28, 0.12, -0.18));
 
-    let swap = InterestRateSwap::create_usd_swap(
+    let swap = finstack_valuations::test_utils::usd_irs_swap(
         InstrumentId::new("HEDGE-SWAP"),
         Money::new(10_000_000.0, Currency::USD),
         0.015,

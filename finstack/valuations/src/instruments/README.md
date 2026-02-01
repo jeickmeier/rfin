@@ -438,19 +438,41 @@ let option = EquityOption::builder()
 ### Creating a CDS
 
 ```rust
-use finstack_valuations::instruments::CreditDefaultSwap;
+use finstack_valuations::instruments::credit_derivatives::cds::{
+    CDSConvention, CreditDefaultSwapBuilder, PayReceive, PremiumLegSpec, ProtectionLegSpec,
+    RECOVERY_SENIOR_UNSECURED,
+};
+use finstack_valuations::instruments::{Attributes, PricingOverrides};
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
+use finstack_core::types::CurveId;
+use rust_decimal::Decimal;
 
-let cds = CreditDefaultSwap::buy_protection(
-    "CDS-CORP-001",
-    Money::new(10_000_000.0, Currency::USD),
-    100.0,  // 100 bps spread
-    Date::from_ymd(2025, 1, 1)?,
-    Date::from_ymd(2030, 1, 1)?,
-    "USD-OIS",
-    "CORP-HAZARD",
-)?;
+let convention = CDSConvention::IsdaNa;
+let cds = CreditDefaultSwapBuilder::new()
+    .id("CDS-CORP-001")
+    .notional(Money::new(10_000_000.0, Currency::USD))
+    .side(PayReceive::PayFixed)
+    .convention(convention)
+    .premium(PremiumLegSpec {
+        start: Date::from_ymd(2025, 1, 1)?,
+        end: Date::from_ymd(2030, 1, 1)?,
+        freq: convention.frequency(),
+        stub: convention.stub_convention(),
+        bdc: convention.business_day_convention(),
+        calendar_id: Some(convention.default_calendar().to_string()),
+        dc: convention.day_count(),
+        spread_bp: Decimal::try_from(100.0)?,
+        discount_curve_id: CurveId::new("USD-OIS"),
+    })
+    .protection(ProtectionLegSpec {
+        credit_curve_id: CurveId::new("CORP-HAZARD"),
+        recovery_rate: RECOVERY_SENIOR_UNSECURED,
+        settlement_delay: convention.settlement_delay(),
+    })
+    .pricing_overrides(PricingOverrides::default())
+    .attributes(Attributes::new())
+    .build()?;
 ```
 
 ### Loading from JSON

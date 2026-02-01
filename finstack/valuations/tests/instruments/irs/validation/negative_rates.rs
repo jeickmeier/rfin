@@ -17,9 +17,10 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
-use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
+use finstack_valuations::instruments::rates::irs::PayReceive;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
+use finstack_valuations::test_utils;
 use time::macros::date;
 
 /// Build a flat discount curve that handles negative rates
@@ -53,7 +54,7 @@ fn build_negative_rate_forward_curve(rate: f64, base_date: Date, curve_id: &str)
 }
 
 fn create_negative_rate_market(disc_rate: f64, fwd_rate: f64, base_date: Date) -> MarketContext {
-    // Use standard curve IDs expected by create_usd_swap
+    // Use standard curve IDs expected by usd_irs_swap
     let disc = build_negative_rate_discount_curve(disc_rate, base_date, "USD-OIS");
     let fwd = build_negative_rate_forward_curve(fwd_rate, base_date, "USD-SOFR-3M");
 
@@ -77,7 +78,7 @@ fn test_irs_pricing_negative_discount_rate() {
 
     let market = create_negative_rate_market(disc_rate, fwd_rate, as_of);
 
-    let swap = InterestRateSwap::create_usd_swap(
+    let swap = test_utils::usd_irs_swap(
         InstrumentId::new("NEG_DISC_TEST"),
         Money::new(1_000_000.0, Currency::USD),
         0.01, // 1% fixed rate
@@ -108,7 +109,7 @@ fn test_irs_dv01_negative_discount_rate() {
 
     let market = create_negative_rate_market(disc_rate, fwd_rate, as_of);
 
-    let swap = InterestRateSwap::create_usd_swap(
+    let swap = test_utils::usd_irs_swap(
         InstrumentId::new("NEG_DV01_TEST"),
         Money::new(1_000_000.0, Currency::USD),
         0.01,
@@ -155,7 +156,7 @@ fn test_irs_pricing_negative_forward_rate() {
 
     let market = create_negative_rate_market(disc_rate, fwd_rate, as_of);
 
-    let swap = InterestRateSwap::create_usd_swap(
+    let swap = test_utils::usd_irs_swap(
         InstrumentId::new("NEG_FWD_TEST"),
         Money::new(1_000_000.0, Currency::USD),
         0.01, // Pay 1% fixed
@@ -186,7 +187,7 @@ fn test_irs_par_rate_with_negative_rates() {
 
     let market = create_negative_rate_market(disc_rate, fwd_rate, as_of);
 
-    let swap = InterestRateSwap::create_usd_swap(
+    let swap = test_utils::usd_irs_swap(
         InstrumentId::new("PAR_NEG_TEST"),
         Money::new(1_000_000.0, Currency::USD),
         0.01, // Initial rate doesn't matter for par rate calc
@@ -225,7 +226,7 @@ fn test_irs_deep_negative_rates() {
 
     let market = create_negative_rate_market(disc_rate, fwd_rate, as_of);
 
-    let swap = InterestRateSwap::create_usd_swap(
+    let swap = test_utils::usd_irs_swap(
         InstrumentId::new("DEEP_NEG_TEST"),
         Money::new(1_000_000.0, Currency::USD),
         -0.005, // Pay -50bp fixed (receive negative)
@@ -275,7 +276,7 @@ fn test_payer_receiver_symmetry_negative_rates() {
     let market = create_negative_rate_market(disc_rate, fwd_rate, as_of);
     let fixed_rate = 0.001;
 
-    let payer = InterestRateSwap::create_usd_swap(
+    let payer = test_utils::usd_irs_swap(
         InstrumentId::new("PAYER_NEG"),
         Money::new(1_000_000.0, Currency::USD),
         fixed_rate,
@@ -285,7 +286,7 @@ fn test_payer_receiver_symmetry_negative_rates() {
     )
     .unwrap();
 
-    let receiver = InterestRateSwap::create_usd_swap(
+    let receiver = test_utils::usd_irs_swap(
         InstrumentId::new("RECEIVER_NEG"),
         Money::new(1_000_000.0, Currency::USD),
         fixed_rate,
@@ -321,7 +322,7 @@ fn test_annuity_positive_with_negative_rates() {
 
     let market = create_negative_rate_market(disc_rate, fwd_rate, as_of);
 
-    let swap = InterestRateSwap::create_usd_swap(
+    let swap = test_utils::usd_irs_swap(
         InstrumentId::new("ANNUITY_NEG"),
         Money::new(1_000_000.0, Currency::USD),
         0.01,

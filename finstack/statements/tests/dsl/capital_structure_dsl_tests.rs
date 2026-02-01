@@ -458,13 +458,12 @@ fn test_build_swap_from_spec() {
     use finstack_statements::capital_structure::integration::build_swap_from_spec;
     use finstack_statements::types::DebtInstrumentSpec;
     use finstack_valuations::instruments::PayReceive;
-    use finstack_valuations::instruments::InterestRateSwap;
     use time::Month;
 
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
-    let swap = InterestRateSwap::create_usd_swap(
+    let swap = finstack_valuations::test_utils::usd_irs_swap(
         InstrumentId::new("SWAP-001"),
         Money::new(5_000_000.0, Currency::USD),
         0.04,
@@ -557,13 +556,12 @@ fn test_build_any_instrument_from_spec_swap_variant() {
     use finstack_statements::capital_structure::integration::build_any_instrument_from_spec;
     use finstack_statements::types::DebtInstrumentSpec;
     use finstack_valuations::instruments::PayReceive;
-    use finstack_valuations::instruments::InterestRateSwap;
     use time::Month;
 
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
-    let swap = InterestRateSwap::create_usd_swap(
+    let swap = finstack_valuations::test_utils::usd_irs_swap(
         InstrumentId::new("SWAP-002"),
         Money::new(3_000_000.0, Currency::USD),
         0.045,

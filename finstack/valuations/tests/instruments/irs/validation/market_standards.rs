@@ -20,6 +20,7 @@ use finstack_valuations::instruments::rates::irs::{
 };
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
+use finstack_valuations::test_utils;
 use time::macros::date;
 
 fn build_flat_forward_curve(rate: f64, base_date: Date, curve_id: &str) -> ForwardCurve {
@@ -54,7 +55,7 @@ fn build_flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> Disc
 #[test]
 fn test_irs_par_rate_market_standard() {
     // Market standard: For a new (at-inception) swap, par rate makes NPV = 0
-    // 5-year USD swap (ISDA conventions via InterestRateSwap::create_usd_swap)
+    // 5-year USD swap (ISDA conventions via usd_irs_swap)
 
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
@@ -66,8 +67,8 @@ fn test_irs_par_rate_market_standard() {
         .insert_discount(disc_curve)
         .insert_forward(fwd_curve);
 
-    let swap = InterestRateSwap::create_usd_swap(
-        "SWAP_PAR_TEST".into(),
+    let swap = test_utils::usd_irs_swap(
+        "SWAP_PAR_TEST",
         Money::new(1_000_000.0, Currency::USD),
         0.05,
         as_of,
@@ -81,8 +82,8 @@ fn test_irs_par_rate_market_standard() {
         .unwrap()
         .measures["par_rate"];
     // Rebuild swap at par and assert PV ~ 0
-    let par_swap = InterestRateSwap::create_usd_swap(
-        "SWAP_PAR_PAR".into(),
+    let par_swap = test_utils::usd_irs_swap(
+        "SWAP_PAR_PAR",
         Money::new(1_000_000.0, Currency::USD),
         par,
         as_of,
@@ -113,8 +114,8 @@ fn test_par_rate_discount_ratio_matches_forward_for_new_swap() {
         .insert_discount(disc_curve)
         .insert_forward(fwd_curve);
 
-    let swap_forward = InterestRateSwap::create_usd_swap(
-        "SWAP_PAR_FWD".into(),
+    let swap_forward = test_utils::usd_irs_swap(
+        "SWAP_PAR_FWD",
         Money::new(1_000_000.0, Currency::USD),
         0.05,
         as_of,
@@ -171,8 +172,8 @@ fn test_par_rate_discount_ratio_rejects_seasoned_swap() {
         .insert_forward(fwd_curve)
         .insert_series(fixings);
 
-    let mut swap = InterestRateSwap::create_usd_swap(
-        "SWAP_PAR_SEASONED".into(),
+    let mut swap = test_utils::usd_irs_swap(
+        "SWAP_PAR_SEASONED",
         Money::new(1_000_000.0, Currency::USD),
         0.05,
         start,
@@ -220,8 +221,8 @@ fn test_irs_annuity_calculation() {
         .insert_discount(disc_curve)
         .insert_forward(fwd_curve);
 
-    let swap = InterestRateSwap::create_usd_swap(
-        "SWAP_ANNUITY_TEST".into(),
+    let swap = test_utils::usd_irs_swap(
+        "SWAP_ANNUITY_TEST",
         Money::new(1_000_000.0, Currency::USD),
         0.05,
         as_of,
@@ -268,8 +269,8 @@ fn test_irs_dv01_market_standard() {
 
     let notional = 1_000_000.0;
 
-    let swap = InterestRateSwap::create_usd_swap(
-        "SWAP_DV01_TEST".into(),
+    let swap = test_utils::usd_irs_swap(
+        "SWAP_DV01_TEST",
         Money::new(notional, Currency::USD),
         0.05,
         as_of,

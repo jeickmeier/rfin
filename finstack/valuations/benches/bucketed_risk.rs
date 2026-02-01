@@ -17,6 +17,7 @@ use finstack_core::market_data::term_structures::{
 };
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
+use finstack_core::types::InstrumentId;
 use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
@@ -49,8 +50,8 @@ fn create_swap(tenor_years: i32) -> InterestRateSwap {
     let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let end = Date::from_calendar_date(2025 + tenor_years, Month::January, 1).unwrap();
 
-    InterestRateSwap::create_usd_swap(
-        format!("IRS-{}Y", tenor_years).into(),
+    test_utils::usd_irs_swap(
+        InstrumentId::new(format!("IRS-{}Y", tenor_years)),
         Money::new(10_000_000.0, Currency::USD),
         0.04, // 4% fixed rate
         start,

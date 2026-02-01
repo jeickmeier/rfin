@@ -4,7 +4,7 @@
 
 - Garman–Kohlhagen FX options with base/quote currencies, strike, settlement type, and exercise style fields.
 - Uses domestic and foreign discount curves, FX vol surface, and optional implied-vol override for pricing/greeks.
-- Helpers for canonical construction (`example`, `european_call`, `european_put`) plus implied-vol solver and greeks calculator.
+- Helpers for canonical construction (`example`, `european`) plus implied-vol solver and greeks calculator.
 
 ## Methodology & References
 

@@ -417,7 +417,7 @@ mod tests {
             "FRN-001",
             Money::new(1_000_000.0, Currency::USD),
             "USD-SOFR",
-            100.0, // 100 bps margin
+            100, // 100 bps margin
             issue,
             maturity,
             Tenor::quarterly(),

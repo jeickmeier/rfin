@@ -70,8 +70,8 @@ fn test_build_swap() {
     let ctx = usd_build_ctx(as_of);
 
     // Use USD-SOFR-3M (Term SOFR style or OIS compounded, RateIndexKind=Term in registry will determine builder path)
-    // If it's OIS (OvernightRfr), builder uses create_ois_swap_with_conventions.
-    // If Term, create_term_swap_with_conventions.
+    // If it's OIS (OvernightRfr), builder uses compounded-in-arrears conventions.
+    // If Term, builder uses simple compounding conventions.
     // Let's assume correct behavior.
     let quote = RateQuote::Swap {
         id: "USD-SWAP-5Y".into(),

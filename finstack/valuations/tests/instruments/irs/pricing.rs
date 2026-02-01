@@ -14,6 +14,7 @@ use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
 use finstack_valuations::instruments::Instrument;
+use finstack_valuations::test_utils;
 use rust_decimal_macros::dec;
 
 #[test]
@@ -271,8 +272,8 @@ fn test_irs_npv_scales_with_notional() {
 
     let market = usd_swap_market_split(as_of, 0.05, 0.06);
 
-    let swap_1m = InterestRateSwap::create_usd_swap(
-        "SWAP_1M".into(),
+    let swap_1m = test_utils::usd_irs_swap(
+        "SWAP_1M",
         Money::new(1_000_000.0, Currency::USD),
         0.05,
         as_of,
@@ -281,8 +282,8 @@ fn test_irs_npv_scales_with_notional() {
     )
     .unwrap();
 
-    let swap_10m = InterestRateSwap::create_usd_swap(
-        "SWAP_10M".into(),
+    let swap_10m = test_utils::usd_irs_swap(
+        "SWAP_10M",
         Money::new(10_000_000.0, Currency::USD),
         0.05,
         as_of,
@@ -309,8 +310,8 @@ fn test_irs_rate_sensitivity_inverse() {
     let as_of = dates::TODAY;
     let end = dates::five_years_hence();
 
-    let swap = InterestRateSwap::create_usd_swap(
-        "SWAP_RATE_SENS".into(),
+    let swap = test_utils::usd_irs_swap(
+        "SWAP_RATE_SENS",
         Money::new(1_000_000.0, Currency::USD),
         0.05,
         as_of,
@@ -350,8 +351,8 @@ fn test_irs_with_spread() {
     let market = usd_swap_market(as_of, 0.05);
 
     // Swap with 50bp spread on floating leg
-    let mut swap = InterestRateSwap::create_usd_swap(
-        "SWAP_SPREAD".into(),
+    let mut swap = test_utils::usd_irs_swap(
+        "SWAP_SPREAD",
         Money::new(1_000_000.0, Currency::USD),
         0.05,
         as_of,
@@ -379,8 +380,8 @@ fn test_irs_short_maturity() {
 
     let market = usd_swap_market_split(as_of, 0.05, 0.06);
 
-    let swap = InterestRateSwap::create_usd_swap(
-        "SWAP_1Y".into(),
+    let swap = test_utils::usd_irs_swap(
+        "SWAP_1Y",
         Money::new(1_000_000.0, Currency::USD),
         0.05,
         as_of,
@@ -407,8 +408,8 @@ fn test_irs_long_maturity() {
 
     let market = usd_swap_market_split(as_of, 0.05, 0.06);
 
-    let swap = InterestRateSwap::create_usd_swap(
-        "SWAP_30Y".into(),
+    let swap = test_utils::usd_irs_swap(
+        "SWAP_30Y",
         Money::new(1_000_000.0, Currency::USD),
         0.05,
         as_of,
@@ -435,8 +436,8 @@ fn test_irs_zero_rate() {
     // Use very small rate instead of exactly 0 to avoid numerical issues
     let market = usd_swap_market(as_of, 0.0001);
 
-    let swap = InterestRateSwap::create_usd_swap(
-        "SWAP_ZERO".into(),
+    let swap = test_utils::usd_irs_swap(
+        "SWAP_ZERO",
         Money::new(1_000_000.0, Currency::USD),
         0.05,
         as_of,
@@ -459,8 +460,8 @@ fn test_irs_theta_calculation() {
 
     let market = usd_swap_market(as_of, 0.05);
 
-    let swap = InterestRateSwap::create_usd_swap(
-        "SWAP_THETA".into(),
+    let swap = test_utils::usd_irs_swap(
+        "SWAP_THETA",
         Money::new(1_000_000.0, Currency::USD),
         0.05,
         as_of,
@@ -492,8 +493,8 @@ fn test_irs_forward_starting() {
 
     let market = usd_swap_market(as_of, 0.05);
 
-    let swap = InterestRateSwap::create_usd_swap(
-        "SWAP_FORWARD".into(),
+    let swap = test_utils::usd_irs_swap(
+        "SWAP_FORWARD",
         Money::new(1_000_000.0, Currency::USD),
         0.05,
         start,
@@ -514,8 +515,8 @@ fn test_irs_npv_currency_matches() {
 
     let market = usd_swap_market(as_of, 0.05);
 
-    let swap = InterestRateSwap::create_usd_swap(
-        "SWAP_CCY".into(),
+    let swap = test_utils::usd_irs_swap(
+        "SWAP_CCY",
         Money::new(1_000_000.0, Currency::USD),
         0.05,
         as_of,

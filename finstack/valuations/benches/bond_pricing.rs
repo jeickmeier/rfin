@@ -203,7 +203,7 @@ fn create_floating_note(maturity_years: i32) -> Bond {
         format!("FRN-{}Y", maturity_years),
         Money::new(1_000_000.0, Currency::USD),
         "USD-SOFR-3M",
-        150.0,
+        150,
         issue,
         maturity,
         Tenor::quarterly(),

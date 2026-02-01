@@ -42,7 +42,6 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
 
 use super::calculator::{FxOptionCalculator, FxOptionGreeks};
-use super::parameters::FxOptionParams;
 
 fn default_fx_underlying(base_currency: Currency, quote_currency: Currency) -> FxUnderlyingParams {
     // Fall back to currency-aware OIS curves instead of hardwiring USD legs.
@@ -167,12 +166,13 @@ impl FxOption {
             })
     }
 
-    /// Create a European call option on an FX pair with standard conventions.
+    /// Create a European FX option on a pair with standard conventions.
     ///
     /// # Errors
     ///
     /// Returns an error if the builder fails validation.
-    pub fn european_call(
+    #[allow(clippy::too_many_arguments)]
+    pub fn european(
         id: impl Into<InstrumentId>,
         base_currency: Currency,
         quote_currency: Currency,
@@ -180,6 +180,7 @@ impl FxOption {
         expiry: Date,
         notional: Money,
         vol_surface_id: impl Into<CurveId>,
+        option_type: OptionType,
     ) -> finstack_core::Result<Self> {
         let fx_underlying = if quote_currency == Currency::USD && base_currency == Currency::EUR {
             FxUnderlyingParams::usd_eur()
@@ -193,47 +194,7 @@ impl FxOption {
             .base_currency(fx_underlying.base_currency)
             .quote_currency(fx_underlying.quote_currency)
             .strike(strike)
-            .option_type(OptionType::Call)
-            .exercise_style(ExerciseStyle::European)
-            .expiry(expiry)
-            .day_count(finstack_core::dates::DayCount::Act365F)
-            .notional(notional)
-            .settlement(SettlementType::Cash)
-            .domestic_discount_curve_id(fx_underlying.domestic_discount_curve_id.to_owned())
-            .foreign_discount_curve_id(fx_underlying.foreign_discount_curve_id.to_owned())
-            .vol_surface_id(vol_surface_id.into())
-            .pricing_overrides(PricingOverrides::default())
-            .attributes(Attributes::new())
-            .build()
-    }
-
-    /// Create a European put option on an FX pair with standard conventions.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the builder fails validation.
-    pub fn european_put(
-        id: impl Into<InstrumentId>,
-        base_currency: Currency,
-        quote_currency: Currency,
-        strike: f64,
-        expiry: Date,
-        notional: Money,
-        vol_surface_id: impl Into<CurveId>,
-    ) -> finstack_core::Result<Self> {
-        let fx_underlying = if quote_currency == Currency::USD && base_currency == Currency::EUR {
-            FxUnderlyingParams::usd_eur()
-        } else if quote_currency == Currency::USD && base_currency == Currency::GBP {
-            FxUnderlyingParams::gbp_usd()
-        } else {
-            default_fx_underlying(base_currency, quote_currency)
-        };
-        Self::builder()
-            .id(id.into())
-            .base_currency(fx_underlying.base_currency)
-            .quote_currency(fx_underlying.quote_currency)
-            .strike(strike)
-            .option_type(OptionType::Put)
+            .option_type(option_type)
             .exercise_style(ExerciseStyle::European)
             .expiry(expiry)
             .day_count(finstack_core::dates::DayCount::Act365F)
@@ -307,32 +268,6 @@ impl FxOption {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-    }
-
-    /// Create a new FX option using parameter structs
-    pub fn new(
-        id: impl Into<InstrumentId>,
-        option_params: &FxOptionParams,
-        underlying_params: &FxUnderlyingParams,
-        vol_surface_id: impl Into<CurveId>,
-    ) -> Self {
-        Self {
-            id: id.into(),
-            base_currency: underlying_params.base_currency,
-            quote_currency: underlying_params.quote_currency,
-            strike: option_params.strike,
-            option_type: option_params.option_type,
-            exercise_style: option_params.exercise_style,
-            expiry: option_params.expiry,
-            day_count: finstack_core::dates::DayCount::Act365F,
-            notional: option_params.notional,
-            settlement: option_params.settlement,
-            domestic_discount_curve_id: underlying_params.domestic_discount_curve_id.to_owned(),
-            foreign_discount_curve_id: underlying_params.foreign_discount_curve_id.to_owned(),
-            vol_surface_id: vol_surface_id.into(),
-            pricing_overrides: PricingOverrides::default(),
-            attributes: Attributes::new(),
-        }
     }
 
     /// Compute present value using Garman–Kohlhagen model.

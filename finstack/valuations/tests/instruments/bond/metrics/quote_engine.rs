@@ -103,7 +103,7 @@ fn test_quote_engine_roundtrip_dm_for_frn() {
         "QE-FRN",
         notional,
         "USD-SOFR-3M",
-        150.0,
+        150,
         as_of,
         maturity,
         Tenor::quarterly(),

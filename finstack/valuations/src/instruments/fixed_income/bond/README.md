@@ -58,6 +58,8 @@ Standard bonds with fixed coupon payments at regular intervals.
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
+use finstack_core::dates::{DayCount, Tenor};
+use finstack_core::types::Bps;
 use time::macros::date;
 
 // Simple fixed-rate bond
@@ -80,9 +82,11 @@ let frn = Bond::floating(
     "FRN-001",
     Money::new(1_000_000.0, Currency::USD),
     "USD-SOFR-3M".into(),  // Index curve
-    200.0,  // Margin in basis points
+    Bps::new(200),  // Margin in basis points
     date!(2025 - 01 - 01),
     date!(2030 - 01 - 01),
+    Tenor::quarterly(),
+    DayCount::Act360,
     "USD-OIS",
 );
 ```

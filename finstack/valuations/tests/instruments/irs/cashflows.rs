@@ -14,12 +14,13 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
+use finstack_valuations::test_utils;
 use time::macros::date;
 
 fn build_test_curves() -> MarketContext {
     let as_of = date!(2024 - 01 - 01);
 
-    // Curve IDs for create_usd_swap (USD-OIS and USD-SOFR-3M)
+    // Curve IDs for usd_irs_swap (USD-OIS and USD-SOFR-3M)
     let disc_curve_usd_ois = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .day_count(DayCount::Act360)
@@ -68,8 +69,8 @@ fn build_test_curves() -> MarketContext {
 
 #[test]
 fn test_irs_cashflow_schedule_generation() {
-    let swap = InterestRateSwap::create_usd_swap(
-        "IRS-CF-TEST".into(),
+    let swap = test_utils::usd_irs_swap(
+        "IRS-CF-TEST",
         Money::new(1_000_000.0, Currency::USD),
         0.05,
         date!(2024 - 01 - 01),
@@ -193,8 +194,8 @@ fn test_irs_fixed_leg_semiannual_schedule() {
 
 #[test]
 fn test_irs_floating_leg_schedule() {
-    let swap = InterestRateSwap::create_usd_swap(
-        "IRS-FLOAT-TEST".into(),
+    let swap = test_utils::usd_irs_swap(
+        "IRS-FLOAT-TEST",
         Money::new(1_000_000.0, Currency::USD),
         0.05,
         date!(2024 - 01 - 01),
@@ -310,8 +311,8 @@ fn test_irs_stub_back() {
 
 #[test]
 fn test_irs_cashflow_dates_ordered() {
-    let swap = InterestRateSwap::create_usd_swap(
-        "IRS-DATES".into(),
+    let swap = test_utils::usd_irs_swap(
+        "IRS-DATES",
         Money::new(1_000_000.0, Currency::USD),
         0.05,
         date!(2024 - 01 - 01),
@@ -335,8 +336,8 @@ fn test_irs_cashflow_dates_ordered() {
 
 #[test]
 fn test_irs_cashflow_amounts_nonzero() {
-    let swap = InterestRateSwap::create_usd_swap(
-        "IRS-AMOUNTS".into(),
+    let swap = test_utils::usd_irs_swap(
+        "IRS-AMOUNTS",
         Money::new(1_000_000.0, Currency::USD),
         0.05,
         date!(2024 - 01 - 01),
@@ -362,8 +363,8 @@ fn test_irs_cashflow_amounts_nonzero() {
 
 #[test]
 fn test_irs_full_schedule_with_cfkind() {
-    let swap = InterestRateSwap::create_usd_swap(
-        "IRS-FULL-SCHED".into(),
+    let swap = test_utils::usd_irs_swap(
+        "IRS-FULL-SCHED",
         Money::new(1_000_000.0, Currency::USD),
         0.05,
         date!(2024 - 01 - 01),
@@ -490,8 +491,8 @@ fn test_irs_calendar_adjustments() {
 #[test]
 fn test_irs_receive_fixed_cashflow_signs() {
     // Receive fixed: fixed coupons positive, float negative
-    let swap = InterestRateSwap::create_usd_swap(
-        "IRS-RECEIVE".into(),
+    let swap = test_utils::usd_irs_swap(
+        "IRS-RECEIVE",
         Money::new(1_000_000.0, Currency::USD),
         0.05,
         date!(2024 - 01 - 01),
@@ -532,8 +533,8 @@ fn test_irs_receive_fixed_cashflow_signs() {
 #[test]
 fn test_irs_pay_fixed_cashflow_signs() {
     // Pay fixed: fixed coupons negative, float positive
-    let swap = InterestRateSwap::create_usd_swap(
-        "IRS-PAY".into(),
+    let swap = test_utils::usd_irs_swap(
+        "IRS-PAY",
         Money::new(1_000_000.0, Currency::USD),
         0.05,
         date!(2024 - 01 - 01),

@@ -135,7 +135,7 @@ fn test_ytw_floating_bond_matches_ytm_from_price() {
         "YTW-FRN",
         notional,
         "USD-SOFR-3M",
-        150.0,
+        150,
         as_of,
         maturity,
         Tenor::quarterly(),

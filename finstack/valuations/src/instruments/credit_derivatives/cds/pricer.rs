@@ -521,7 +521,7 @@ impl CDSPricer {
         as_of: Date,
     ) -> Result<f64> {
         // Note: Recovery rate validation is performed at CDS construction time.
-        // All public constructors (buy_protection, sell_protection, new_isda) call validate().
+        // All public constructors (builder, new_isda) call validate().
 
         // Protection leg covers the period from premium start to premium end
         // But we only value protection from as_of onwards (can't protect against past defaults)

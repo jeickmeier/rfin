@@ -17,6 +17,7 @@ nom = "7"
 log = "0.4"
 polars = { version = "0.52", optional = true, default-features = false }
 time = { version = "0.3" }
+rust_decimal = "1.40.0"
 
 [dev-dependencies]
 time = { version = "0.3", features = ["macros"] }

@@ -16,11 +16,14 @@ use finstack_valuations::instruments::credit_derivatives::cds::{
     RECOVERY_SENIOR_UNSECURED,
 };
 use finstack_valuations::instruments::equity::equity_option::EquityOptionParams;
+use finstack_valuations::instruments::rates::irs::FloatingLegCompounding;
 use finstack_valuations::instruments::EquityUnderlyingParams;
 use finstack_valuations::instruments::PayReceive;
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::instruments::{Bond, EquityOption, ExerciseStyle};
-use finstack_valuations::instruments::{InterestRateSwap, OptionType, SettlementType};
+use finstack_valuations::instruments::{
+    FixedLegSpec, FloatLegSpec, InterestRateSwap, OptionType, SettlementType,
+};
 
 fn main() -> finstack_core::Result<()> {
     println!("=== Enhanced Builder Pattern Examples ===\n");
@@ -36,16 +39,43 @@ fn main() -> finstack_core::Result<()> {
     println!("1. Ultra-Simple Convenience Constructors");
     println!("----------------------------------------");
 
-    // Interest Rate Swap - ONE LINE (USD market standard)!
-    let swap = InterestRateSwap::create_usd_swap(
-        "IRS-001".into(),
-        Money::new(10_000_000.0, Currency::USD),
-        0.045, // 4.5% fixed rate
-        issue,
-        maturity_5y,
-        PayReceive::PayFixed,
-    )
-    .expect("Failed to create swap");
+    // Interest Rate Swap - builder with explicit conventions
+    let swap = InterestRateSwap::builder()
+        .id("IRS-001".into())
+        .notional(Money::new(10_000_000.0, Currency::USD))
+        .side(PayReceive::PayFixed)
+        .fixed(FixedLegSpec {
+            discount_curve_id: "USD-OIS".into(),
+            rate: dec!(0.045), // 4.5% fixed rate
+            freq: finstack_core::dates::Tenor::semi_annual(),
+            dc: finstack_core::dates::DayCount::Thirty360,
+            bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some("usny".to_string()),
+            stub: finstack_core::dates::StubKind::None,
+            start: issue,
+            end: maturity_5y,
+            par_method: None,
+            compounding_simple: true,
+            payment_delay_days: 0,
+        })
+        .float(FloatLegSpec {
+            discount_curve_id: "USD-OIS".into(),
+            forward_curve_id: "USD-SOFR-3M".into(),
+            spread_bp: dec!(0.0),
+            freq: finstack_core::dates::Tenor::quarterly(),
+            dc: finstack_core::dates::DayCount::Act360,
+            bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+            calendar_id: Some("usny".to_string()),
+            stub: finstack_core::dates::StubKind::None,
+            reset_lag_days: 0,
+            fixing_calendar_id: None,
+            start: issue,
+            end: maturity_5y,
+            compounding: FloatingLegCompounding::Simple,
+            payment_delay_days: 0,
+        })
+        .build()
+        .expect("Failed to create swap");
     println!("✓ IRS created: {} notional", swap.notional.amount());
 
     // Standard Bond - ONE LINE!

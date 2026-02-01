@@ -2,7 +2,7 @@
 #![allow(clippy::expect_used)]
 use finstack_core::{
     currency::Currency,
-    dates::Date,
+    dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor},
     market_data::context::MarketContext,
     market_data::{
         surfaces::VolSurface,
@@ -14,12 +14,14 @@ use finstack_core::{
 use rust_decimal::Decimal;
 use time::Month;
 
+use crate::instruments::common::parameters::legs::{FixedLegSpec, FloatLegSpec};
 use crate::instruments::common::parameters::{EquityUnderlyingParams, FxUnderlyingParams};
 use crate::instruments::common::traits::{CurveIdVec, Instrument};
 use crate::instruments::credit_derivatives::cds::{
     CDSConvention, CreditDefaultSwap, CreditDefaultSwapBuilder, PayReceive, PremiumLegSpec,
     ProtectionLegSpec, RECOVERY_SENIOR_UNSECURED,
 };
+use crate::instruments::rates::irs::{FloatingLegCompounding, InterestRateSwap};
 use crate::instruments::{Attributes, ExerciseStyle, OptionType, PricingOverrides, SettlementType};
 use crate::instruments::{EquityOption, FxOption};
 use crate::metrics::MetricId;
@@ -30,6 +32,67 @@ use std::sync::OnceLock;
 pub fn date(year: i32, month: u8, day: u8) -> Date {
     Date::from_calendar_date(year, Month::try_from(month).expect("valid month"), day)
         .expect("valid date")
+}
+
+/// Builder-based replacement for legacy `InterestRateSwap::create_usd_swap`.
+pub fn usd_irs_swap(
+    id: impl Into<InstrumentId>,
+    notional: Money,
+    fixed_rate: f64,
+    start: Date,
+    end: Date,
+    side: PayReceive,
+) -> finstack_core::Result<InterestRateSwap> {
+    let rate_decimal = Decimal::try_from(fixed_rate).map_err(|_| {
+        finstack_core::Error::Validation(format!(
+            "Invalid fixed rate: {} cannot be converted to Decimal. \
+             Check for NaN, infinity, or values exceeding Decimal range.",
+            fixed_rate
+        ))
+    })?;
+
+    let fixed = FixedLegSpec {
+        discount_curve_id: CurveId::new("USD-OIS"),
+        rate: rate_decimal,
+        freq: Tenor::semi_annual(),
+        dc: DayCount::Thirty360,
+        bdc: BusinessDayConvention::ModifiedFollowing,
+        calendar_id: Some("usny".to_string()),
+        stub: StubKind::None,
+        start,
+        end,
+        par_method: None,
+        compounding_simple: true,
+        payment_delay_days: 0,
+    };
+
+    let float = FloatLegSpec {
+        discount_curve_id: CurveId::new("USD-OIS"),
+        forward_curve_id: CurveId::new("USD-SOFR-3M"),
+        spread_bp: Decimal::ZERO,
+        freq: Tenor::quarterly(),
+        dc: DayCount::Act360,
+        bdc: BusinessDayConvention::ModifiedFollowing,
+        calendar_id: Some("usny".to_string()),
+        stub: StubKind::None,
+        reset_lag_days: 0,
+        fixing_calendar_id: None,
+        start,
+        end,
+        compounding: FloatingLegCompounding::Simple,
+        payment_delay_days: 0,
+    };
+
+    let swap = InterestRateSwap::builder()
+        .id(id.into())
+        .notional(notional)
+        .side(side)
+        .fixed(fixed)
+        .float(float)
+        .build()?;
+
+    swap.validate()?;
+    Ok(swap)
 }
 
 /// Lightweight instrument stub for attribution and metrics tests.
