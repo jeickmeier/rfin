@@ -19,7 +19,7 @@ fn requires_fx_matrix_when_reporting_currency_differs() {
     .with_notional_exchange(NotionalExchange::None);
 
     let market = market_without_fx();
-    let err = swap.npv(&market, base).unwrap_err();
+    let err = swap.value(&market, base).unwrap_err();
     assert!(err.to_string().to_ascii_lowercase().contains("fx_matrix"));
 }
 
@@ -37,7 +37,7 @@ fn prices_with_fx_and_curves() {
     );
 
     let market = market_with_fx();
-    let pv = swap.npv(&market, base).unwrap();
+    let pv = swap.value(&market, base).unwrap();
     assert_eq!(pv.currency(), Currency::USD);
     assert!(pv.amount().is_finite());
 }
@@ -67,8 +67,8 @@ fn notional_exchange_changes_pv() {
     .with_notional_exchange(NotionalExchange::InitialAndFinal);
 
     let market = market_with_fx();
-    let pv_none = swap_none.npv(&market, base).unwrap().amount();
-    let pv_ex = swap_ex.npv(&market, base).unwrap().amount();
+    let pv_none = swap_none.value(&market, base).unwrap().amount();
+    let pv_ex = swap_ex.value(&market, base).unwrap().amount();
     assert!((pv_none - pv_ex).abs() > 1e-10);
 }
 
@@ -94,7 +94,7 @@ fn short_front_stub_prices_correctly() {
     .with_notional_exchange(NotionalExchange::None);
 
     let market = market_with_fx();
-    let pv = swap.npv(&market, base).unwrap();
+    let pv = swap.value(&market, base).unwrap();
 
     assert!(pv.amount().is_finite(), "PV should be finite with stub");
     // Stub handling should not produce zero PV
@@ -118,7 +118,7 @@ fn long_back_stub_prices_correctly() {
     .with_notional_exchange(NotionalExchange::None);
 
     let market = market_with_fx();
-    let pv = swap.npv(&market, base).unwrap();
+    let pv = swap.value(&market, base).unwrap();
 
     assert!(
         pv.amount().is_finite(),
@@ -164,8 +164,8 @@ fn payment_lag_affects_pv() {
     .with_notional_exchange(NotionalExchange::None);
 
     let market = market_with_fx();
-    let pv_no_lag = swap_no_lag.npv(&market, base).unwrap().amount();
-    let pv_with_lag = swap_with_lag.npv(&market, base).unwrap().amount();
+    let pv_no_lag = swap_no_lag.value(&market, base).unwrap().amount();
+    let pv_with_lag = swap_with_lag.value(&market, base).unwrap().amount();
 
     // Payment lag should affect discounting, thus change PV
     assert!(
@@ -203,7 +203,7 @@ fn near_expiry_swap_prices_correctly() {
     .with_notional_exchange(NotionalExchange::InitialAndFinal);
 
     let market = market_with_fx();
-    let pv = swap.npv(&market, base).unwrap();
+    let pv = swap.value(&market, base).unwrap();
 
     assert!(pv.amount().is_finite(), "Near-expiry PV should be finite");
 }
@@ -231,7 +231,7 @@ fn expired_swap_returns_zero_pv() {
     .with_notional_exchange(NotionalExchange::None);
 
     let market = market_with_fx();
-    let pv = swap.npv(&market, base).unwrap();
+    let pv = swap.value(&market, base).unwrap();
 
     // All cashflows are in the past, PV should be zero (or very close)
     assert!(
@@ -274,7 +274,7 @@ fn rejects_negative_notional() {
     );
 
     let market = market_with_fx();
-    let err = swap.npv(&market, base).unwrap_err();
+    let err = swap.value(&market, base).unwrap_err();
     assert!(
         err.to_string().contains("positive"),
         "Should reject negative notional: {}",
@@ -300,7 +300,7 @@ fn rejects_zero_notional() {
     );
 
     let market = market_with_fx();
-    let err = swap.npv(&market, base).unwrap_err();
+    let err = swap.value(&market, base).unwrap_err();
     assert!(
         err.to_string().contains("positive"),
         "Should reject zero notional: {}",
@@ -326,7 +326,7 @@ fn rejects_non_finite_spread() {
     );
 
     let market = market_with_fx();
-    let err = swap.npv(&market, base).unwrap_err();
+    let err = swap.value(&market, base).unwrap_err();
     assert!(
         err.to_string().contains("spread") && err.to_string().contains("finite"),
         "Should reject NaN spread: {}",
@@ -368,8 +368,8 @@ fn spread_affects_pv() {
     .with_notional_exchange(NotionalExchange::None);
 
     let market = market_with_fx();
-    let pv_no_spread = swap_no_spread.npv(&market, base).unwrap().amount();
-    let pv_with_spread = swap_with_spread.npv(&market, base).unwrap().amount();
+    let pv_no_spread = swap_no_spread.value(&market, base).unwrap().amount();
+    let pv_with_spread = swap_with_spread.value(&market, base).unwrap().amount();
 
     // Spread should increase received leg value
     assert!(
@@ -410,8 +410,8 @@ fn negative_spread_decreases_pv() {
     .with_notional_exchange(NotionalExchange::None);
 
     let market = market_with_fx();
-    let pv_no_spread = swap_no_spread.npv(&market, base).unwrap().amount();
-    let pv_negative = swap_negative.npv(&market, base).unwrap().amount();
+    let pv_no_spread = swap_no_spread.value(&market, base).unwrap().amount();
+    let pv_negative = swap_negative.value(&market, base).unwrap().amount();
 
     // Negative spread on receive leg should decrease PV
     assert!(
@@ -441,7 +441,7 @@ fn long_dated_swap_prices_with_many_periods() {
         .with_notional_exchange(NotionalExchange::InitialAndFinal);
 
     let market = market_with_extended_curves();
-    let pv = swap.npv(&market, base).unwrap();
+    let pv = swap.value(&market, base).unwrap();
 
     assert!(
         pv.amount().is_finite(),
@@ -481,8 +481,8 @@ fn final_only_exchange_differs_from_initial_and_final() {
     .with_notional_exchange(NotionalExchange::InitialAndFinal);
 
     let market = market_with_fx();
-    let pv_final = swap_final.npv(&market, as_of).unwrap().amount();
-    let pv_both = swap_both.npv(&market, as_of).unwrap().amount();
+    let pv_final = swap_final.value(&market, as_of).unwrap().amount();
+    let pv_both = swap_both.value(&market, as_of).unwrap().amount();
 
     // Initial exchange affects PV when start_date > as_of
     // With Initial+Final, we add the initial exchange cashflows (pay one currency, receive another)
@@ -534,8 +534,8 @@ fn receive_vs_pay_legs_have_opposite_signs() {
     .with_notional_exchange(NotionalExchange::None);
 
     let market = market_with_fx();
-    let pv_receive = swap_usd_receive.npv(&market, base).unwrap().amount();
-    let pv_pay = swap_usd_pay.npv(&market, base).unwrap().amount();
+    let pv_receive = swap_usd_receive.value(&market, base).unwrap().amount();
+    let pv_pay = swap_usd_pay.value(&market, base).unwrap().amount();
 
     // Flipping all sides should negate the PV
     assert!(

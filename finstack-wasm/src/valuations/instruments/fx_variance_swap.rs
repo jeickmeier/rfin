@@ -10,7 +10,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fx::fx_variance_swap::{FxVarianceSwap, PayReceive};
 use finstack_valuations::instruments::Attributes;
-use finstack_valuations::prelude::InstrumentNpvExt;
+use finstack_valuations::prelude::Instrument;
 use wasm_bindgen::prelude::*;
 
 /// Pay/receive side for variance swap.
@@ -329,9 +329,10 @@ impl JsFxVarianceSwap {
     }
 
     /// Calculate present value.
-    pub fn npv(&self, market: &JsMarketContext, as_of: &FsDate) -> Result<f64, JsValue> {
+    #[wasm_bindgen(js_name = value)]
+    pub fn value(&self, market: &JsMarketContext, as_of: &FsDate) -> Result<f64, JsValue> {
         self.inner
-            .npv(market.inner(), as_of.inner())
+            .value(market.inner(), as_of.inner())
             .map(|m| m.amount())
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }

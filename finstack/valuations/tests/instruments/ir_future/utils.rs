@@ -8,7 +8,7 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::ir_future::{
     FutureContractSpecs, InterestRateFuture, Position,
 };
-pub use finstack_valuations::instruments::InstrumentNpvExt;
+pub use finstack_valuations::instruments::Instrument;
 use time::macros::date;
 
 /// Build a flat forward curve with constant rate

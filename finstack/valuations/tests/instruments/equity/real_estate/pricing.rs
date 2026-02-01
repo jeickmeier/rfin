@@ -8,7 +8,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity::real_estate::{
     RealEstateAsset, RealEstateValuationMethod,
 };
-use finstack_valuations::instruments::{Attributes, InstrumentNpvExt};
+use finstack_valuations::instruments::{Attributes, Instrument};
 use finstack_valuations::test_utils::date;
 
 #[test]
@@ -32,7 +32,7 @@ fn test_real_estate_dcf_pricing() {
         .expect("should build");
 
     let ctx = MarketContext::new();
-    let pv = asset.npv(&ctx, valuation_date).expect("npv");
+    let pv = asset.value(&ctx, valuation_date).expect("npv");
 
     let t1 = DayCount::Act365F
         .year_fraction(valuation_date, noi1, DayCountCtx::default())
@@ -73,7 +73,7 @@ fn test_real_estate_direct_cap_pricing() {
         .expect("should build");
 
     let ctx = MarketContext::new();
-    let pv = asset.npv(&ctx, valuation_date).expect("npv");
+    let pv = asset.value(&ctx, valuation_date).expect("npv");
 
     let expected = 120.0 / 0.06;
     assert!((pv.amount() - expected).abs() < 1e-10);
@@ -99,7 +99,7 @@ fn test_real_estate_appraisal_override() {
         .expect("should build");
 
     let ctx = MarketContext::new();
-    let pv = asset.npv(&ctx, valuation_date).expect("npv");
+    let pv = asset.value(&ctx, valuation_date).expect("npv");
 
     assert_eq!(pv.amount(), 1_500.0);
 }

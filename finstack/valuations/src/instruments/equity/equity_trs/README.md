@@ -76,7 +76,7 @@ let trs = EquityTotalReturnSwap::builder()
     .unwrap();
 
 // 6. Price the instrument
-let npv = trs.npv(&market_context, as_of_date)?;
+let npv = trs.value(&market_context, as_of_date)?;
 let financing_pv = trs.pv_financing_leg(&market_context, as_of_date)?;
 let total_return_pv = trs.pv_total_return_leg(&market_context, as_of_date)?;
 ```

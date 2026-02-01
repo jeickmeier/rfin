@@ -8,7 +8,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_option::CommodityOption;
 use finstack_valuations::instruments::common::models::bs_price;
 use finstack_valuations::instruments::Attributes;
-use finstack_valuations::instruments::InstrumentNpvExt;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{
     ExerciseStyle, OptionType, PricingOverrides, SettlementType,
 };
@@ -53,7 +53,7 @@ fn test_black76_futures_based_pricing() {
         .build()
         .expect("should build");
 
-    let pv = option.npv(&market, as_of).expect("should price");
+    let pv = option.value(&market, as_of).expect("should price");
     let t = DayCount::Act365F
         .year_fraction(as_of, expiry, DayCountCtx::default())
         .expect("year fraction");
@@ -112,8 +112,8 @@ fn test_futures_based_american_matches_european() {
     let european = build(ExerciseStyle::European);
     let american = build(ExerciseStyle::American);
 
-    let pv_eur = european.npv(&market, as_of).expect("price european");
-    let pv_amer = american.npv(&market, as_of).expect("price american");
+    let pv_eur = european.value(&market, as_of).expect("price european");
+    let pv_amer = american.value(&market, as_of).expect("price american");
 
     // American call on futures should be close to European (no early exercise value)
     // Allow wider tolerance for tree vs closed-form numerical differences
@@ -169,8 +169,8 @@ fn test_spot_based_american_put_above_european() {
     let european = build(ExerciseStyle::European);
     let american = build(ExerciseStyle::American);
 
-    let pv_eur = european.npv(&market, as_of).expect("price european");
-    let pv_amer = american.npv(&market, as_of).expect("price american");
+    let pv_eur = european.value(&market, as_of).expect("price european");
+    let pv_amer = american.value(&market, as_of).expect("price american");
 
     assert!(pv_amer.amount() + 1e-6 >= pv_eur.amount());
 }
@@ -214,7 +214,7 @@ fn test_post_expiry_returns_zero() {
 
     // After expiry, NPV should be 0 (option is fully settled)
     let pv = itm_call
-        .npv(&market, as_of_after_expiry)
+        .value(&market, as_of_after_expiry)
         .expect("should price");
     assert_eq!(
         pv.amount(),
@@ -247,7 +247,7 @@ fn test_post_expiry_returns_zero() {
         .expect("should build");
 
     let pv_put = itm_put
-        .npv(&market, as_of_after_expiry)
+        .value(&market, as_of_after_expiry)
         .expect("should price");
     assert_eq!(
         pv_put.amount(),
@@ -295,7 +295,7 @@ fn test_at_expiry_returns_intrinsic() {
         .expect("should build");
 
     let pv = itm_call
-        .npv(&market, as_of_at_expiry)
+        .value(&market, as_of_at_expiry)
         .expect("should price");
     // Forward = 100, Strike = 90, intrinsic = max(100 - 90, 0) = 10
     assert!(
@@ -328,7 +328,7 @@ fn test_at_expiry_returns_intrinsic() {
         .expect("should build");
 
     let pv_otm = otm_call
-        .npv(&market, as_of_at_expiry)
+        .value(&market, as_of_at_expiry)
         .expect("should price");
     assert!(
         pv_otm.amount().abs() < 0.01,

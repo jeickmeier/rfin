@@ -37,19 +37,11 @@ impl FxOptionParams {
     }
 
     /// Create European call option parameters
-    #[deprecated(
-        since = "0.4.0",
-        note = "Use `FxOptionParams::new(strike, expiry, OptionType::Call, notional)`."
-    )]
     pub fn european_call(strike: f64, expiry: Date, notional: Money) -> Self {
         Self::new(strike, expiry, OptionType::Call, notional)
     }
 
     /// Create European put option parameters
-    #[deprecated(
-        since = "0.4.0",
-        note = "Use `FxOptionParams::new(strike, expiry, OptionType::Put, notional)`."
-    )]
     pub fn european_put(strike: f64, expiry: Date, notional: Money) -> Self {
         Self::new(strike, expiry, OptionType::Put, notional)
     }

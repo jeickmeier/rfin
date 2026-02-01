@@ -7,7 +7,7 @@ use super::common::*;
 use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::{Instrument, InstrumentNpvExt};
+use finstack_valuations::instruments::Instrument;
 
 #[test]
 fn test_zero_rate_deposit_negative_pv() {
@@ -21,7 +21,7 @@ fn test_zero_rate_deposit_negative_pv() {
         .quote_rate(0.0)
         .build();
 
-    let pv = dep.npv(&ctx, base).unwrap();
+    let pv = dep.value(&ctx, base).unwrap();
 
     // Validate - Should be negative (pay notional, get back same amount discounted)
     assert!(pv.amount() < 0.0);
@@ -39,7 +39,7 @@ fn test_positive_rate_deposit_less_negative_pv() {
         .quote_rate(0.05)
         .build();
 
-    let pv = dep.npv(&ctx, base).unwrap();
+    let pv = dep.value(&ctx, base).unwrap();
 
     // Validate - Could be positive or negative depending on rate vs curve
     // The key is that it exists and is computable
@@ -67,7 +67,7 @@ fn test_par_rate_gives_zero_pv() {
         .quote_rate(par_rate)
         .build();
 
-    let pv = dep_par.npv(&ctx, base).unwrap();
+    let pv = dep_par.value(&ctx, base).unwrap();
 
     // Validate - PV should be essentially zero for deposit at par rate
     // Market standard: < $0.01 on $1M notional (< 0.001bp numerical precision)
@@ -95,8 +95,8 @@ fn test_higher_rate_increases_pv() {
         .quote_rate(0.05)
         .build();
 
-    let pv_low = dep_low.npv(&ctx, base).unwrap();
-    let pv_high = dep_high.npv(&ctx, base).unwrap();
+    let pv_low = dep_low.value(&ctx, base).unwrap();
+    let pv_high = dep_high.value(&ctx, base).unwrap();
 
     // Validate - higher rate should give higher PV (more cash back at maturity)
     assert!(pv_high.amount() > pv_low.amount());
@@ -120,8 +120,8 @@ fn test_longer_maturity_increases_rate_sensitivity() {
         .quote_rate(rate)
         .build();
 
-    let pv_short = dep_short.npv(&ctx, base).unwrap();
-    let pv_long = dep_long.npv(&ctx, base).unwrap();
+    let pv_short = dep_short.value(&ctx, base).unwrap();
+    let pv_long = dep_long.value(&ctx, base).unwrap();
 
     // Validate - longer deposit has higher absolute PV difference from zero
     assert!(pv_long.amount().abs() > pv_short.amount().abs());
@@ -146,8 +146,8 @@ fn test_notional_scales_pv_linearly() {
         .quote_rate(0.03)
         .build();
 
-    let pv_1m = dep_1m.npv(&ctx, base).unwrap();
-    let pv_2m = dep_2m.npv(&ctx, base).unwrap();
+    let pv_1m = dep_1m.value(&ctx, base).unwrap();
+    let pv_2m = dep_2m.value(&ctx, base).unwrap();
 
     // Validate - PV should scale linearly with notional
     assert!((pv_2m.amount() / pv_1m.amount() - 2.0).abs() < 0.01);
@@ -165,8 +165,8 @@ fn test_valuation_on_different_as_of_dates() {
         .build();
 
     // Execute - value on different dates
-    let pv_base = dep.npv(&ctx, base).unwrap();
-    let pv_later = dep.npv(&ctx, date(2025, 1, 15)).unwrap();
+    let pv_base = dep.value(&ctx, base).unwrap();
+    let pv_later = dep.value(&ctx, date(2025, 1, 15)).unwrap();
 
     // Validate - both should produce valid results
     assert!(pv_base.currency() == Currency::USD);
@@ -188,8 +188,8 @@ fn test_steep_curve_impact() {
         .build();
 
     // Execute
-    let pv_steep = dep.npv(&ctx_steep, base).unwrap();
-    let pv_flat = dep.npv(&ctx_flat, base).unwrap();
+    let pv_steep = dep.value(&ctx_steep, base).unwrap();
+    let pv_flat = dep.value(&ctx_flat, base).unwrap();
 
     // Validate - steeper curve should give more discounting
     assert_ne!(pv_steep.amount(), pv_flat.amount());
@@ -226,7 +226,7 @@ fn test_npv_matches_value_trait() {
         .build();
 
     // Execute
-    let npv = dep.npv(&ctx, base).unwrap();
+    let npv = dep.value(&ctx, base).unwrap();
     let value = dep.value(&ctx, base).unwrap();
 
     // Validate
@@ -252,8 +252,8 @@ fn test_pricing_with_act_365_day_count() {
         .build();
 
     // Execute
-    let pv_360 = dep_360.npv(&ctx, base).unwrap();
-    let pv_365 = dep_365.npv(&ctx, base).unwrap();
+    let pv_360 = dep_360.value(&ctx, base).unwrap();
+    let pv_365 = dep_365.value(&ctx, base).unwrap();
 
     // Validate - different day counts should give different PVs
     assert_ne!(pv_360.amount(), pv_365.amount());
@@ -271,7 +271,7 @@ fn test_negative_rate_environment() {
         .build();
 
     // Execute
-    let pv = dep.npv(&ctx, base).unwrap();
+    let pv = dep.value(&ctx, base).unwrap();
 
     // Validate - should compute without error
     assert!(pv.currency() == Currency::USD);
@@ -288,7 +288,7 @@ fn test_pricing_on_maturity_date() {
     let dep = DepositBuilder::new(base).end(end).quote_rate(0.03).build();
 
     // Execute
-    let pv = dep.npv(&ctx, end).unwrap();
+    let pv = dep.value(&ctx, end).unwrap();
 
     // Validate - on maturity, should be close to redemption amount
     // (minor discounting from end date to itself)
@@ -308,8 +308,8 @@ fn test_theta_correctness_with_as_of_forward() {
         .build();
 
     // Value on curve base date and one day later
-    let pv_t0 = dep.npv(&ctx, curve_base).unwrap();
-    let pv_t1 = dep.npv(&ctx, date(2025, 1, 2)).unwrap();
+    let pv_t0 = dep.value(&ctx, curve_base).unwrap();
+    let pv_t1 = dep.value(&ctx, date(2025, 1, 2)).unwrap();
 
     // PV should increase as we move forward in time (theta decay)
     // because we're getting closer to receiving the cashflows
@@ -334,8 +334,8 @@ fn test_cashflow_based_npv_consistency() {
         .build();
 
     // NPV should be deterministic and repeatable
-    let pv1 = dep.npv(&ctx, base).unwrap();
-    let pv2 = dep.npv(&ctx, base).unwrap();
+    let pv1 = dep.value(&ctx, base).unwrap();
+    let pv2 = dep.value(&ctx, base).unwrap();
 
     assert_eq!(pv1.amount(), pv2.amount(), "NPV should be deterministic");
 }

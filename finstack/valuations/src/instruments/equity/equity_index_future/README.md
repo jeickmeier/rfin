@@ -129,7 +129,7 @@ let market = MarketContext::new()
 
 // Price the future
 let future = EquityIndexFuture::example();
-let npv = future.npv(&market, base_date).expect("should price");
+let npv = future.value(&market, base_date).expect("should price");
 println!("NPV: {}", npv);
 ```
 

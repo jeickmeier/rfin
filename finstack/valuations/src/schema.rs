@@ -29,7 +29,7 @@ macro_rules! try_include_schema {
 /// # Errors
 ///
 /// Returns `Error::Validation` if the embedded schema JSON is malformed.
-#[allow(dead_code)]
+#[allow(dead_code)] // Public API, used in tests
 pub fn bond_schema() -> finstack_core::Result<&'static Value> {
     static SCHEMA: OnceLock<Result<Value, String>> = OnceLock::new();
     SCHEMA
@@ -47,7 +47,7 @@ pub fn bond_schema() -> finstack_core::Result<&'static Value> {
 /// # Errors
 ///
 /// Returns `Error::Validation` if the embedded schema JSON is malformed.
-#[allow(dead_code)]
+#[allow(dead_code)] // Public API, used in tests
 pub fn valuation_result_schema() -> finstack_core::Result<&'static Value> {
     static SCHEMA: OnceLock<Result<Value, String>> = OnceLock::new();
     SCHEMA

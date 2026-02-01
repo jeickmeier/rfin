@@ -39,7 +39,7 @@ mod choice_tests {
         };
 
         // Methods available:
-        // _asian.npv(&market, as_of)      -> Analytical (default)
+        // _asian.value(&market, as_of)    -> Analytical (default)
         // _asian.npv_mc(&market, as_of)   -> Monte Carlo (explicit)
 
         // Both methods are public and can be used based on user preference

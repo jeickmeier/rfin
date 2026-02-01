@@ -6,7 +6,7 @@ use finstack_core::dates::Tenor;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::equity::variance_swap::PayReceive;
-use finstack_valuations::instruments::{Instrument, InstrumentNpvExt};
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 
 // ============================================================================
@@ -21,7 +21,7 @@ fn test_valuation_with_extreme_high_volatility() {
     let as_of = date(2024, 12, 1);
 
     // Act
-    let pv = swap.npv(&ctx, as_of);
+    let pv = swap.value(&ctx, as_of);
 
     // Assert
     assert!(pv.is_ok());
@@ -38,7 +38,7 @@ fn test_valuation_with_near_zero_volatility() {
     let as_of = date(2024, 12, 1);
 
     // Act
-    let pv = swap.npv(&ctx, as_of);
+    let pv = swap.value(&ctx, as_of);
 
     // Assert
     assert!(pv.is_ok());
@@ -62,7 +62,7 @@ fn test_valuation_with_extreme_price_moves() {
     let as_of = date(2025, 2, 1);
 
     // Act
-    let pv = swap.npv(&ctx, as_of);
+    let pv = swap.value(&ctx, as_of);
 
     // Assert
     assert!(pv.is_ok());
@@ -97,7 +97,7 @@ fn test_valuation_with_negative_rates() {
     let as_of = curve_base;
 
     // Act
-    let pv = swap.npv(&ctx, as_of);
+    let pv = swap.value(&ctx, as_of);
 
     // Assert
     assert!(pv.is_ok());
@@ -117,7 +117,7 @@ fn test_valuation_with_very_large_notional() {
     let as_of = swap.start_date;
 
     // Act
-    let pv = swap.npv(&ctx, as_of);
+    let pv = swap.value(&ctx, as_of);
 
     // Assert
     assert!(pv.is_ok());
@@ -133,7 +133,7 @@ fn test_valuation_with_very_small_notional() {
     let as_of = swap.start_date;
 
     // Act
-    let pv = swap.npv(&ctx, as_of);
+    let pv = swap.value(&ctx, as_of);
 
     // Assert
     assert!(pv.is_ok());
@@ -151,7 +151,7 @@ fn test_valuation_with_very_high_strike_variance() {
     let as_of = swap.start_date;
 
     // Act
-    let pv = swap.npv(&ctx, as_of);
+    let pv = swap.value(&ctx, as_of);
 
     // Assert
     assert!(pv.is_ok());
@@ -169,7 +169,7 @@ fn test_valuation_with_very_low_strike_variance() {
     let as_of = swap.start_date;
 
     // Act
-    let pv = swap.npv(&ctx, as_of);
+    let pv = swap.value(&ctx, as_of);
 
     // Assert
     assert!(pv.is_ok());
@@ -194,7 +194,7 @@ fn test_valuation_with_very_short_tenor() {
     let ctx = add_unitless(base_context(), format!("{}_IMPL_VOL", UNDERLYING_ID), 0.22);
 
     // Act
-    let pv = swap.npv(&ctx, start);
+    let pv = swap.value(&ctx, start);
 
     // Assert
     assert!(pv.is_ok());
@@ -213,7 +213,7 @@ fn test_valuation_with_very_long_tenor() {
     let ctx = add_unitless(base_context(), format!("{}_IMPL_VOL", UNDERLYING_ID), 0.22);
 
     // Act
-    let pv = swap.npv(&ctx, start);
+    let pv = swap.value(&ctx, start);
 
     // Assert
     assert!(pv.is_ok());
@@ -227,7 +227,7 @@ fn test_valuation_on_exact_start_date() {
     let ctx = add_unitless(base_context(), format!("{}_IMPL_VOL", UNDERLYING_ID), 0.22);
 
     // Act
-    let pv = swap.npv(&ctx, swap.start_date);
+    let pv = swap.value(&ctx, swap.start_date);
 
     // Assert
     assert!(pv.is_ok());
@@ -243,7 +243,7 @@ fn test_valuation_one_day_before_maturity() {
     let as_of = swap.maturity - time::Duration::days(1);
 
     // Act
-    let pv = swap.npv(&ctx, as_of);
+    let pv = swap.value(&ctx, as_of);
 
     // Assert
     assert!(pv.is_ok());
@@ -264,7 +264,7 @@ fn test_valuation_with_single_observation() {
     let ctx = add_unitless(base_context(), format!("{}_IMPL_VOL", UNDERLYING_ID), 0.22);
 
     // Act
-    let pv = swap.npv(&ctx, swap.start_date);
+    let pv = swap.value(&ctx, swap.start_date);
 
     // Assert
     assert!(pv.is_ok());
@@ -304,7 +304,7 @@ fn test_valuation_with_missing_discount_curve_fails_gracefully() {
     let as_of = swap.start_date;
 
     // Act
-    let result = swap.npv(&ctx, as_of);
+    let result = swap.value(&ctx, as_of);
 
     // Assert - should return error, not panic
     assert!(result.is_err());
@@ -355,7 +355,7 @@ fn test_valuation_preserves_currency() {
     let as_of = swap.start_date;
 
     // Act
-    let pv = swap.npv(&ctx, as_of).unwrap();
+    let pv = swap.value(&ctx, as_of).unwrap();
 
     // Assert
     assert_eq!(pv.currency(), Currency::EUR);
@@ -391,9 +391,9 @@ fn test_valuation_is_stable_under_repeated_calculations() {
     let as_of = swap.start_date;
 
     // Act - compute multiple times
-    let pv1 = swap.npv(&ctx, as_of).unwrap().amount();
-    let pv2 = swap.npv(&ctx, as_of).unwrap().amount();
-    let pv3 = swap.npv(&ctx, as_of).unwrap().amount();
+    let pv1 = swap.value(&ctx, as_of).unwrap().amount();
+    let pv2 = swap.value(&ctx, as_of).unwrap().amount();
+    let pv3 = swap.value(&ctx, as_of).unwrap().amount();
 
     // Assert - should be exactly the same (deterministic)
     assert_eq!(pv1, pv2);
@@ -459,7 +459,7 @@ fn test_valuation_fails_when_as_of_before_discount_curve_base() {
     let as_of = date(2024, 11, 30);
 
     // Act
-    let result = swap.npv(&ctx, as_of);
+    let result = swap.value(&ctx, as_of);
 
     // Assert - should return validation error
     assert!(result.is_err());
@@ -492,7 +492,7 @@ fn test_valuation_succeeds_when_as_of_equals_discount_curve_base() {
     let as_of = swap.start_date; // Equals discount curve base date
 
     // Act
-    let result = swap.npv(&ctx, as_of);
+    let result = swap.value(&ctx, as_of);
 
     // Assert
     assert!(result.is_ok());

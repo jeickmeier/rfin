@@ -17,8 +17,8 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOption;
 use finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionParams;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{CreditParams, OptionType};
-use finstack_valuations::prelude::InstrumentNpvExt;
 use std::hint::black_box;
 use time::Month;
 
@@ -131,7 +131,7 @@ fn bench_cds_option_npv(c: &mut Criterion) {
             BenchmarkId::new("call", format!("{}M_{}Y", expiry_months, cds_tenor)),
             &(expiry_months, cds_tenor),
             |b, _| {
-                b.iter(|| call.npv(black_box(&market), black_box(as_of)));
+                b.iter(|| call.value(black_box(&market), black_box(as_of)));
             },
         );
 
@@ -140,7 +140,7 @@ fn bench_cds_option_npv(c: &mut Criterion) {
             BenchmarkId::new("put", format!("{}M_{}Y", expiry_months, cds_tenor)),
             &(expiry_months, cds_tenor),
             |b, _| {
-                b.iter(|| put.npv(black_box(&market), black_box(as_of)));
+                b.iter(|| put.value(black_box(&market), black_box(as_of)));
             },
         );
     }
@@ -200,7 +200,7 @@ fn bench_cds_option_implied_vol(c: &mut Criterion) {
     let option = create_cds_option(OptionType::Call, 6, 5);
 
     // Get a target price from NPV
-    let target_price = option.npv(&market, as_of).unwrap().amount();
+    let target_price = option.value(&market, as_of).unwrap().amount();
 
     group.bench_function("implied_vol_solver", |b| {
         b.iter(|| {

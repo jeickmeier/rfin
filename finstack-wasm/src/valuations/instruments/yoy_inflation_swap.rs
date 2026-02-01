@@ -12,7 +12,7 @@ use finstack_core::dates::{DayCount, Tenor};
 use finstack_valuations::instruments::rates::inflation_swap::{
     PayReceiveInflation, YoYInflationSwap,
 };
-use finstack_valuations::prelude::InstrumentNpvExt;
+use finstack_valuations::prelude::Instrument;
 use finstack_valuations::pricer::InstrumentType;
 use js_sys::Array;
 use wasm_bindgen::prelude::*;
@@ -276,10 +276,11 @@ impl JsYoYInflationSwap {
         JsDate::from_core(self.inner.maturity)
     }
 
-    /// Calculate the NPV.
-    pub fn npv(&self, market: &JsMarketContext, as_of: &JsDate) -> Result<JsMoney, JsValue> {
+    /// Calculate present value.
+    #[wasm_bindgen(js_name = value)]
+    pub fn value(&self, market: &JsMarketContext, as_of: &JsDate) -> Result<JsMoney, JsValue> {
         self.inner
-            .npv(market.inner(), as_of.inner())
+            .value(market.inner(), as_of.inner())
             .map(JsMoney::from_inner)
             .map_err(|e| js_error(e.to_string()))
     }

@@ -50,6 +50,7 @@ use super::common::*;
 use finstack_core::currency::Currency;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
+use finstack_valuations::test_utils;
 use time::macros::date;
 
 // ============================================================================
@@ -98,12 +99,21 @@ fn test_quantlib_black76_atf_call_put_parity() {
 
     // Get forward spread
     let temp_option = CdsOptionBuilder::new().build(as_of);
-    let pricer =
-        finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionPricer::default(
-        );
-    let forward = pricer
-        .forward_spread_bp(&temp_option, &market, as_of)
-        .unwrap();
+    let mut underlying = test_utils::cds_buy_protection(
+        "CDS-FWD-TEMP",
+        temp_option.notional,
+        temp_option.strike_spread_bp,
+        temp_option.expiry,
+        temp_option.cds_maturity,
+        temp_option.discount_curve_id.clone(),
+        temp_option.credit_curve_id.clone(),
+    )
+    .expect("underlying CDS should build");
+    underlying.protection.recovery_rate = temp_option.recovery_rate;
+    let forward = underlying
+        .price_with_metrics(&market, as_of, &[MetricId::ParSpread])
+        .expect("par spread should compute")
+        .measures[&MetricId::ParSpread];
 
     // Option struck at forward
     let call = CdsOptionBuilder::new()
@@ -449,10 +459,21 @@ fn test_quantlib_forward_spread_positive() {
     let market = standard_market(as_of);
 
     let option = CdsOptionBuilder::new().build(as_of);
-    let pricer =
-        finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionPricer::default(
-        );
-    let forward = pricer.forward_spread_bp(&option, &market, as_of).unwrap();
+    let mut underlying = test_utils::cds_buy_protection(
+        "CDS-FWD",
+        option.notional,
+        option.strike_spread_bp,
+        option.expiry,
+        option.cds_maturity,
+        option.discount_curve_id.clone(),
+        option.credit_curve_id.clone(),
+    )
+    .expect("underlying CDS should build");
+    underlying.protection.recovery_rate = option.recovery_rate;
+    let forward = underlying
+        .price_with_metrics(&market, as_of, &[MetricId::ParSpread])
+        .expect("par spread should compute")
+        .measures[&MetricId::ParSpread];
 
     assert_positive(forward, "Forward spread");
     assert_in_range(forward, 50.0, 500.0, "Forward spread reasonableness");
@@ -465,10 +486,21 @@ fn test_quantlib_forward_spread_atf_parity() {
     let market = standard_market(as_of);
 
     let temp = CdsOptionBuilder::new().build(as_of);
-    let pricer =
-        finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionPricer::default(
-        );
-    let forward = pricer.forward_spread_bp(&temp, &market, as_of).unwrap();
+    let mut underlying = test_utils::cds_buy_protection(
+        "CDS-FWD-TEMP",
+        temp.notional,
+        temp.strike_spread_bp,
+        temp.expiry,
+        temp.cds_maturity,
+        temp.discount_curve_id.clone(),
+        temp.credit_curve_id.clone(),
+    )
+    .expect("underlying CDS should build");
+    underlying.protection.recovery_rate = temp.recovery_rate;
+    let forward = underlying
+        .price_with_metrics(&market, as_of, &[MetricId::ParSpread])
+        .expect("par spread should compute")
+        .measures[&MetricId::ParSpread];
 
     let call = CdsOptionBuilder::new()
         .call()

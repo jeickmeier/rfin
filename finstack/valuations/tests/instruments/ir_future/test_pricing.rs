@@ -4,7 +4,7 @@ use super::utils::*;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::ir_future::Position;
-use finstack_valuations::instruments::{Instrument, InstrumentNpvExt};
+use finstack_valuations::instruments::Instrument;
 
 #[test]
 fn test_basic_npv() {
@@ -12,7 +12,7 @@ fn test_basic_npv() {
     let future = create_standard_future(start, end);
     let market = build_standard_market(as_of, 0.05);
 
-    let pv = future.npv(&market, as_of).unwrap();
+    let pv = future.value(&market, as_of).unwrap();
 
     // Should have a reasonable PV
     assert!(
@@ -40,7 +40,7 @@ fn test_long_position_pnl() {
 
     // Market rate 5% > implied 2.5% => negative P&L for long
     let market = build_standard_market(as_of, 0.05);
-    let pv = future.npv(&market, as_of).unwrap();
+    let pv = future.value(&market, as_of).unwrap();
 
     // Long loses when rates rise (price falls)
     assert!(
@@ -66,7 +66,7 @@ fn test_short_position_pnl() {
 
     // Market rate 5% > implied 2.5% => positive P&L for short
     let market = build_standard_market(as_of, 0.05);
-    let pv = future.npv(&market, as_of).unwrap();
+    let pv = future.value(&market, as_of).unwrap();
 
     // Short gains when rates rise (price falls)
     assert!(
@@ -99,8 +99,8 @@ fn test_long_vs_short_symmetry() {
         Position::Short,
     );
 
-    let pv_long = long.npv(&market, as_of).unwrap().amount();
-    let pv_short = short.npv(&market, as_of).unwrap().amount();
+    let pv_long = long.value(&market, as_of).unwrap().amount();
+    let pv_short = short.value(&market, as_of).unwrap().amount();
 
     // Long and short should be opposite signs and equal magnitude
     assert!(
@@ -127,7 +127,7 @@ fn test_multiple_contracts_scaling() {
         97.50,
         Position::Long,
     );
-    let pv_single = single.npv(&market, as_of).unwrap().amount();
+    let pv_single = single.value(&market, as_of).unwrap().amount();
 
     // Five contracts
     let multiple = create_custom_future(
@@ -139,7 +139,7 @@ fn test_multiple_contracts_scaling() {
         97.50,
         Position::Long,
     );
-    let pv_multiple = multiple.npv(&market, as_of).unwrap().amount();
+    let pv_multiple = multiple.value(&market, as_of).unwrap().amount();
 
     // Should scale linearly (allowing small floating point tolerance)
     assert!(
@@ -177,8 +177,8 @@ fn test_near_term_vs_far_forward() {
         Position::Long,
     );
 
-    let pv_near = near_future.npv(&market, market_as_of).unwrap().amount();
-    let pv_far = far_future.npv(&market, market_as_of).unwrap().amount();
+    let pv_near = near_future.value(&market, market_as_of).unwrap().amount();
+    let pv_far = far_future.value(&market, market_as_of).unwrap().amount();
 
     // Both should be valid
     assert!(pv_near.is_finite());
@@ -200,7 +200,7 @@ fn test_zero_rate_environment() {
         99.9,
         Position::Long,
     );
-    let pv = future.npv(&market, as_of).unwrap();
+    let pv = future.value(&market, as_of).unwrap();
 
     // Should produce valid valuation
     assert!(pv.amount().is_finite());
@@ -220,7 +220,7 @@ fn test_high_rate_environment() {
         90.0,
         Position::Long,
     );
-    let pv = future.npv(&market, as_of).unwrap();
+    let pv = future.value(&market, as_of).unwrap();
 
     // Should still produce valid valuation
     assert!(pv.amount().is_finite());
@@ -233,7 +233,7 @@ fn test_value_trait_consistency() {
     let market = build_standard_market(as_of, 0.05);
 
     // npv() and value() should match
-    let npv = future.npv(&market, as_of).unwrap().amount();
+    let npv = future.value(&market, as_of).unwrap().amount();
     let value = future.value(&market, as_of).unwrap().amount();
 
     assert!(
@@ -262,7 +262,7 @@ fn test_different_currency() {
     let mut future = create_standard_future(start, end);
     future.notional = Money::new(1_000_000.0, Currency::EUR);
 
-    let pv = future.npv(&market, as_of).unwrap();
+    let pv = future.value(&market, as_of).unwrap();
     assert_eq!(pv.currency(), Currency::EUR);
 }
 
@@ -274,7 +274,7 @@ fn test_fractional_notional() {
     // 0.5 contracts
     let fractional =
         create_custom_future("FRAC", 500_000.0, start, start, end, 97.50, Position::Long);
-    let pv_frac = fractional.npv(&market, as_of).unwrap().amount();
+    let pv_frac = fractional.value(&market, as_of).unwrap().amount();
 
     // Full contract
     let full = create_custom_future(
@@ -286,7 +286,7 @@ fn test_fractional_notional() {
         97.50,
         Position::Long,
     );
-    let pv_full = full.npv(&market, as_of).unwrap().amount();
+    let pv_full = full.value(&market, as_of).unwrap().amount();
 
     // Should be half (allowing small floating point tolerance)
     assert!(
@@ -310,7 +310,7 @@ fn test_pricing_with_different_day_counts() {
         let mut future = create_standard_future(start, end);
         future.day_count = dc;
 
-        let pv = future.npv(&market, as_of).unwrap();
+        let pv = future.value(&market, as_of).unwrap();
         assert!(pv.amount().is_finite(), "PV should be valid for {:?}", dc);
     }
 }

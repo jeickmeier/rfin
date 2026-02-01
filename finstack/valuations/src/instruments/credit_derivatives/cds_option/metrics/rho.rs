@@ -12,7 +12,7 @@
 //! The finite-difference approach captures both effects correctly.
 
 use crate::instruments::cds_option::CdsOption;
-use crate::instruments::common::traits::InstrumentNpvExt;
+use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::Result;
 
@@ -53,7 +53,7 @@ impl MetricCalculator for RhoCalculator {
         let bumped_curves = context.curves.as_ref().clone().insert_discount(bumped_disc);
 
         // Reprice with bumped curve
-        let pv_bumped = cds_option.npv(&bumped_curves, as_of)?.amount();
+        let pv_bumped = cds_option.value(&bumped_curves, as_of)?.amount();
 
         // Rho = (PV_bumped - PV_base) / bump_size
         // Report per 1bp change

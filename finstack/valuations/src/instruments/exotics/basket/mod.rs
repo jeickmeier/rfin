@@ -137,7 +137,6 @@ pub use metrics::{
     register_basket_metrics, AssetExposureCalculator, ConstituentCountCalculator,
     ExpenseRatioCalculator,
 };
-#[doc(hidden)]
 pub use pricer::BasketCalculator;
 pub use types::{AssetType, Basket, BasketConstituent, BasketPricingConfig, ConstituentReference};
 

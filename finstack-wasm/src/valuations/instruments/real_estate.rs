@@ -13,7 +13,7 @@ use finstack_core::dates::DayCount;
 use finstack_valuations::instruments::equity::real_estate::{
     RealEstateAsset, RealEstateValuationMethod,
 };
-use finstack_valuations::prelude::InstrumentNpvExt;
+use finstack_valuations::prelude::Instrument;
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 
@@ -388,10 +388,11 @@ impl JsRealEstateAsset {
         self.inner.appraisal_value = Some(value.inner());
     }
 
-    /// Calculate the NPV.
-    pub fn npv(&self, market: &JsMarketContext, as_of: &JsDate) -> Result<JsMoney, JsValue> {
+    /// Calculate present value.
+    #[wasm_bindgen(js_name = value)]
+    pub fn value(&self, market: &JsMarketContext, as_of: &JsDate) -> Result<JsMoney, JsValue> {
         self.inner
-            .npv(market.inner(), as_of.inner())
+            .value(market.inner(), as_of.inner())
             .map(JsMoney::from_inner)
             .map_err(|e| js_error(e.to_string()))
     }

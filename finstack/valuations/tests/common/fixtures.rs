@@ -169,53 +169,6 @@ pub const STANDARD_NOTIONAL: f64 = 1_000_000.0;
 pub const USD: Currency = Currency::USD;
 
 // =============================================================================
-// Deprecated Tolerance Constants (use `tolerances` module instead)
-// =============================================================================
-
-/// Strict absolute tolerance for pure floating-point identity checks.
-///
-/// **Deprecated**: Use `tolerances::TIGHT` instead for consistency across tests.
-#[deprecated(since = "0.1.0", note = "Use tolerances::TIGHT instead")]
-pub const F64_ABS_TOL_STRICT: f64 = 1e-12;
-
-/// Looser absolute tolerance for computations with multiple steps.
-///
-/// **Deprecated**: Use `tolerances::TIGHT` (1e-10) or `tolerances::STANDARD` (1e-6) instead.
-#[deprecated(
-    since = "0.1.0",
-    note = "Use tolerances::TIGHT or tolerances::STANDARD instead"
-)]
-pub const F64_ABS_TOL_LOOSE: f64 = 1e-10;
-
-/// Assert two f64 values are close within strict tolerance.
-///
-/// **Deprecated**: Use `assertions::assert_approx_eq` with `tolerances::TIGHT` instead.
-#[deprecated(since = "0.1.0", note = "Use assertions::assert_approx_eq instead")]
-pub fn assert_close_strict(actual: f64, expected: f64, label: &str) {
-    use super::tolerances::TIGHT;
-    let diff = (actual - expected).abs();
-    assert!(
-        diff <= TIGHT,
-        "{label}: |actual-expected|={diff:.3e} > tol={:.3e} (actual={actual:.12}, expected={expected:.12})",
-        TIGHT
-    );
-}
-
-/// Assert two f64 values are close within loose tolerance.
-///
-/// **Deprecated**: Use `assertions::assert_approx_eq` with `tolerances::STANDARD` instead.
-#[deprecated(since = "0.1.0", note = "Use assertions::assert_approx_eq instead")]
-pub fn assert_close_loose(actual: f64, expected: f64, label: &str) {
-    use super::tolerances::STANDARD;
-    let diff = (actual - expected).abs();
-    assert!(
-        diff <= STANDARD,
-        "{label}: |actual-expected|={diff:.3e} > tol={:.3e} (actual={actual:.12}, expected={expected:.12})",
-        STANDARD
-    );
-}
-
-// =============================================================================
 // Unit Tests
 // =============================================================================
 

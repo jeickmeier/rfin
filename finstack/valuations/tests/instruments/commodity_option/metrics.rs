@@ -8,7 +8,6 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_option::CommodityOption;
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::Instrument;
-use finstack_valuations::instruments::InstrumentNpvExt;
 use finstack_valuations::instruments::{
     ExerciseStyle, OptionType, PricingOverrides, SettlementType,
 };
@@ -180,9 +179,9 @@ fn test_forward_based_greeks_with_both_spot_and_price_curve() -> finstack_core::
     let market_up = market.bump([bump_up.clone()])?;
     let market_down = market.bump([bump_down.clone()])?;
 
-    let pv_base = option.npv(&market, as_of)?.amount();
-    let pv_up = option.npv(&market_up, as_of)?.amount();
-    let pv_down = option.npv(&market_down, as_of)?.amount();
+    let pv_base = option.value(&market, as_of)?.amount();
+    let pv_up = option.value(&market_up, as_of)?.amount();
+    let pv_down = option.value(&market_down, as_of)?.amount();
 
     let ref_gamma = (pv_up - 2.0 * pv_base + pv_down) / (bump_size * bump_size);
 
@@ -213,10 +212,10 @@ fn test_forward_based_greeks_with_both_spot_and_price_curve() -> finstack_core::
     let market_down_vol_up = market_down.bump([vol_bump_up])?;
     let market_down_vol_down = market_down.bump([vol_bump_down])?;
 
-    let pv_up_up = option.npv(&market_up_vol_up, as_of)?.amount();
-    let pv_up_down = option.npv(&market_up_vol_down, as_of)?.amount();
-    let pv_down_up = option.npv(&market_down_vol_up, as_of)?.amount();
-    let pv_down_down = option.npv(&market_down_vol_down, as_of)?.amount();
+    let pv_up_up = option.value(&market_up_vol_up, as_of)?.amount();
+    let pv_up_down = option.value(&market_up_vol_down, as_of)?.amount();
+    let pv_down_up = option.value(&market_down_vol_up, as_of)?.amount();
+    let pv_down_down = option.value(&market_down_vol_down, as_of)?.amount();
 
     let ref_vanna =
         (pv_up_up - pv_up_down - pv_down_up + pv_down_down) / (4.0 * bump_size * vol_bump);

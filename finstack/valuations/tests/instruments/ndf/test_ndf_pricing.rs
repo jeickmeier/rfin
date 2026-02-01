@@ -8,7 +8,7 @@ use finstack_core::money::fx::{FxMatrix, SimpleFxProvider};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fx::ndf::Ndf;
-use finstack_valuations::instruments::{Attributes, Instrument, InstrumentNpvExt};
+use finstack_valuations::instruments::{Attributes, Instrument};
 use finstack_valuations::pricer::{create_standard_registry, InstrumentType, ModelKey};
 use std::sync::Arc;
 use time::Month;
@@ -53,7 +53,7 @@ fn test_ndf_pricing_pre_fixing_at_market() {
         .build()
         .expect("should build");
 
-    let npv = ndf.npv(&market, as_of).expect("should price");
+    let npv = ndf.value(&market, as_of).expect("should price");
 
     // At-market NDF should have PV ≈ 0
     assert!(
@@ -86,7 +86,7 @@ fn test_ndf_pricing_post_fixing_favorable() {
         .build()
         .expect("should build");
 
-    let npv = ndf.npv(&market, as_of).expect("should price");
+    let npv = ndf.value(&market, as_of).expect("should price");
 
     // Fixing rate > contract rate: we're receiving more USD than contracted
     // Settlement = 10M × (1/7.25 - 1/7.30) ≈ positive
@@ -120,7 +120,7 @@ fn test_ndf_pricing_post_fixing_unfavorable() {
         .build()
         .expect("should build");
 
-    let npv = ndf.npv(&market, as_of).expect("should price");
+    let npv = ndf.value(&market, as_of).expect("should price");
 
     // Fixing rate < contract rate means negative PV
     assert!(
@@ -236,7 +236,7 @@ fn test_ndf_pricing_with_foreign_curve() {
         .build()
         .expect("should build");
 
-    let npv = ndf.npv(&market, as_of).expect("should price");
+    let npv = ndf.value(&market, as_of).expect("should price");
 
     // With foreign curve, CIRP should be used
     // USD rate (5%) > CNY rate (2%), so CNY should appreciate in forward

@@ -441,7 +441,7 @@ impl crate::instruments::common::pricing::HasForwardCurves for CommoditySwap {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common::traits::InstrumentNpvExt;
+    use crate::instruments::common::traits::Instrument;
     use finstack_core::market_data::term_structures::{DiscountCurve, PriceCurve};
     use time::Month;
 
@@ -531,7 +531,7 @@ mod tests {
             .build()
             .expect("should build");
 
-        let npv = swap.npv(&market, as_of).expect("should price");
+        let npv = swap.value(&market, as_of).expect("should price");
 
         // In contango (forward > spot), pay-fixed should receive more on floating leg
         // So NPV should be slightly positive
@@ -581,8 +581,8 @@ mod tests {
             .build()
             .expect("should build");
 
-        let pay_npv = pay_fixed.npv(&market, as_of).expect("should price");
-        let recv_npv = receive_fixed.npv(&market, as_of).expect("should price");
+        let pay_npv = pay_fixed.value(&market, as_of).expect("should price");
+        let recv_npv = receive_fixed.value(&market, as_of).expect("should price");
 
         // Offsetting swaps should net to zero
         let net = pay_npv.amount() + recv_npv.amount();

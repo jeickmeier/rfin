@@ -173,10 +173,6 @@ impl EquityOption {
     /// # Errors
     ///
     /// Returns an error if the builder fails validation.
-    #[deprecated(
-        since = "0.4.0",
-        note = "Use `EquityOption::builder()` and set `id/underlying/strike/expiry/option_type/exercise_style/curves/ids` explicitly before calling `.build()`."
-    )]
     pub fn european_call(
         id: impl Into<String>,
         ticker: impl Into<String>,
@@ -214,10 +210,6 @@ impl EquityOption {
     /// # Errors
     ///
     /// Returns an error if the builder fails validation.
-    #[deprecated(
-        since = "0.4.0",
-        note = "Use `EquityOption::builder()` and set `id/underlying/strike/expiry/option_type/exercise_style/curves/ids` explicitly before calling `.build()`."
-    )]
     pub fn european_put(
         id: impl Into<String>,
         ticker: impl Into<String>,
@@ -254,10 +246,6 @@ impl EquityOption {
     /// # Errors
     ///
     /// Returns an error if the builder fails validation.
-    #[deprecated(
-        since = "0.4.0",
-        note = "Use `EquityOption::builder()` and set `id/underlying/strike/expiry/option_type/exercise_style/curves/ids` explicitly before calling `.build()`."
-    )]
     pub fn american_call(
         id: impl Into<String>,
         ticker: impl Into<String>,

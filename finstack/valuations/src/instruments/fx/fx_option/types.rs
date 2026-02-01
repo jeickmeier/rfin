@@ -119,6 +119,35 @@ impl crate::instruments::common::traits::CurveDependencies for FxOption {
 }
 
 impl FxOption {
+    fn price_internal(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: Date,
+    ) -> Result<Money> {
+        let calculator = FxOptionCalculator::default();
+        calculator.npv(self, market, as_of)
+    }
+
+    fn greeks_internal(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: Date,
+    ) -> Result<FxOptionGreeks> {
+        let calculator = FxOptionCalculator::default();
+        calculator.compute_greeks(self, market, as_of)
+    }
+
+    fn implied_vol_internal(
+        &self,
+        curves: &finstack_core::market_data::context::MarketContext,
+        as_of: Date,
+        target_price: f64,
+        initial_guess: Option<f64>,
+    ) -> Result<f64> {
+        let calculator = FxOptionCalculator::default();
+        calculator.implied_vol(self, curves, as_of, target_price, initial_guess)
+    }
+
     /// Create a canonical example FX option for testing and documentation.
     ///
     /// Returns a 6-month EUR/USD call option.
@@ -151,10 +180,6 @@ impl FxOption {
     /// # Errors
     ///
     /// Returns an error if the builder fails validation.
-    #[deprecated(
-        since = "0.4.0",
-        note = "Use `FxOption::builder()` and set `id/base_currency/quote_currency/strike/expiry/option_type/exercise_style/notional/curves/ids` explicitly before calling `.build()`."
-    )]
     pub fn european_call(
         id: impl Into<InstrumentId>,
         base_currency: Currency,
@@ -195,10 +220,6 @@ impl FxOption {
     /// # Errors
     ///
     /// Returns an error if the builder fails validation.
-    #[deprecated(
-        since = "0.4.0",
-        note = "Use `FxOption::builder()` and set `id/base_currency/quote_currency/strike/expiry/option_type/exercise_style/notional/curves/ids` explicitly before calling `.build()`."
-    )]
     pub fn european_put(
         id: impl Into<InstrumentId>,
         base_currency: Currency,
@@ -238,10 +259,6 @@ impl FxOption {
     ///
     /// `spot_lag_days` defaults to T+2 in most markets. The expiry is rolled on the
     /// joint base/quote calendars using the provided business day convention.
-    #[deprecated(
-        since = "0.4.0",
-        note = "Use `FxOption::builder()` and set explicit trade/expiry dates after applying your calendar/spot-lag conventions."
-    )]
     #[allow(clippy::too_many_arguments)]
     pub fn european_from_trade_date(
         id: impl Into<InstrumentId>,
@@ -326,27 +343,13 @@ impl FxOption {
         }
     }
 
-    /// Create a centralized calculator instance with default configuration.
-    pub fn calculator(&self) -> FxOptionCalculator {
-        FxOptionCalculator::default()
-    }
-
     /// Compute present value using Garman–Kohlhagen model.
     pub fn value(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
         as_of: Date,
     ) -> Result<Money> {
-        self.calculator().npv(self, market, as_of)
-    }
-
-    /// Compute greeks using Garman–Kohlhagen model.
-    pub fn compute_greeks(
-        &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: Date,
-    ) -> Result<FxOptionGreeks> {
-        self.calculator().compute_greeks(self, curves, as_of)
+        self.price_internal(market, as_of)
     }
 
     /// Solve for implied volatility.
@@ -357,8 +360,7 @@ impl FxOption {
         target_price: f64,
         initial_guess: Option<f64>,
     ) -> Result<f64> {
-        self.calculator()
-            .implied_vol(self, curves, as_of, target_price, initial_guess)
+        self.implied_vol_internal(curves, as_of, target_price, initial_guess)
     }
 
     /// Calculate the at-the-money forward (ATMF) strike.
@@ -456,7 +458,7 @@ impl crate::instruments::common::traits::OptionDeltaProvider for FxOption {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        Ok(self.compute_greeks(market, as_of)?.delta)
+        Ok(self.greeks_internal(market, as_of)?.delta)
     }
 }
 
@@ -466,7 +468,7 @@ impl crate::instruments::common::traits::OptionGammaProvider for FxOption {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        Ok(self.compute_greeks(market, as_of)?.gamma)
+        Ok(self.greeks_internal(market, as_of)?.gamma)
     }
 }
 
@@ -476,7 +478,7 @@ impl crate::instruments::common::traits::OptionVegaProvider for FxOption {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        Ok(self.compute_greeks(market, as_of)?.vega)
+        Ok(self.greeks_internal(market, as_of)?.vega)
     }
 }
 
@@ -486,7 +488,7 @@ impl crate::instruments::common::traits::OptionThetaProvider for FxOption {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        Ok(self.compute_greeks(market, as_of)?.theta)
+        Ok(self.greeks_internal(market, as_of)?.theta)
     }
 }
 
@@ -497,7 +499,7 @@ impl crate::instruments::common::traits::OptionRhoProvider for FxOption {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
         // FxOptionGreeks::rho_domestic is per 1% rate move; metrics expose per 1bp.
-        Ok(self.compute_greeks(market, as_of)?.rho_domestic / 100.0)
+        Ok(self.greeks_internal(market, as_of)?.rho_domestic / 100.0)
     }
 }
 
@@ -508,7 +510,7 @@ impl crate::instruments::common::traits::OptionForeignRhoProvider for FxOption {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
         // FxOptionGreeks::rho_foreign is per 1% rate move; metrics expose per 1bp.
-        Ok(self.compute_greeks(market, as_of)?.rho_foreign / 100.0)
+        Ok(self.greeks_internal(market, as_of)?.rho_foreign / 100.0)
     }
 }
 
@@ -551,8 +553,8 @@ impl crate::instruments::common::traits::OptionVannaProvider for FxOption {
             market.clone().insert_surface(bumped)
         };
 
-        let delta_up = self.compute_greeks(&curves_up, as_of)?.delta;
-        let delta_dn = self.compute_greeks(&curves_dn, as_of)?.delta;
+        let delta_up = self.greeks_internal(&curves_up, as_of)?.delta;
+        let delta_dn = self.greeks_internal(&curves_dn, as_of)?.delta;
 
         Ok((delta_up - delta_dn) / (2.0 * delta_sigma))
     }
@@ -596,8 +598,8 @@ impl crate::instruments::common::traits::OptionVolgaProvider for FxOption {
         };
 
         // Existing convention: compute volga from vega(σ±) differences and scale by 0.01.
-        let vega_up = self.compute_greeks(&curves_up, as_of)?.vega;
-        let vega_dn = self.compute_greeks(&curves_dn, as_of)?.vega;
+        let vega_up = self.greeks_internal(&curves_up, as_of)?.vega;
+        let vega_dn = self.greeks_internal(&curves_dn, as_of)?.vega;
         Ok((vega_up - vega_dn) / (2.0 * delta_sigma) * 0.01)
     }
 }

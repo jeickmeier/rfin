@@ -433,6 +433,7 @@ impl CDSTranchePricerConfig {
 /// Units for CS01 bumping in tranche pricer
 /// Units for CS01 credit spread bumping
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[allow(dead_code)]
 pub enum Cs01BumpUnits {
     /// Bump hazard rate in basis points
     HazardRateBp,

@@ -4,7 +4,6 @@
 //! analytical formulas and finite difference approximations.
 
 use super::helpers::*;
-use finstack_valuations::instruments::fx::fx_option::FxOptionCalculator;
 use time::macros::date;
 
 #[test]
@@ -15,10 +14,9 @@ fn test_delta_atm_call_near_half() {
     let strike = 1.20;
     let call = build_call_option(as_of, expiry, strike, 1_000_000.0);
     let market = build_market_context(as_of, MarketParams::atm());
-    let calc = FxOptionCalculator::new();
 
     // Act
-    let greeks = calc.compute_greeks(&call, &market, as_of).unwrap();
+    let greeks = compute_greeks(&call, &market, as_of);
 
     // Assert: ATM call delta should be around 0.5 per unit * notional
     // With notional 1M EUR, delta should be around 500k
@@ -33,10 +31,9 @@ fn test_delta_itm_call_approaches_one() {
     let strike = 1.00; // Deep ITM (spot = 1.20)
     let call = build_call_option(as_of, expiry, strike, 1_000_000.0);
     let market = build_market_context(as_of, MarketParams::atm());
-    let calc = FxOptionCalculator::new();
 
     // Act
-    let greeks = calc.compute_greeks(&call, &market, as_of).unwrap();
+    let greeks = compute_greeks(&call, &market, as_of);
 
     // Assert: Delta should be high (approaching notional)
     assert!(
@@ -53,10 +50,9 @@ fn test_delta_otm_call_approaches_zero() {
     let strike = 1.50; // Deep OTM (spot = 1.20)
     let call = build_call_option(as_of, expiry, strike, 1_000_000.0);
     let market = build_market_context(as_of, MarketParams::atm());
-    let calc = FxOptionCalculator::new();
 
     // Act
-    let greeks = calc.compute_greeks(&call, &market, as_of).unwrap();
+    let greeks = compute_greeks(&call, &market, as_of);
 
     // Assert: Delta should be low
     assert!(
@@ -74,10 +70,9 @@ fn test_delta_put_is_negative() {
     let strike = 1.20;
     let put = build_put_option(as_of, expiry, strike, 1_000_000.0);
     let market = build_market_context(as_of, MarketParams::atm());
-    let calc = FxOptionCalculator::new();
 
     // Act
-    let greeks = calc.compute_greeks(&put, &market, as_of).unwrap();
+    let greeks = compute_greeks(&put, &market, as_of);
 
     // Assert: ATM put delta should be negative, around -0.5 * notional
     assert!(greeks.delta < 0.0, "Put delta should be negative");
@@ -91,10 +86,9 @@ fn test_delta_matches_finite_difference() {
     let expiry = date!(2025 - 01 - 01);
     let call = build_call_option(as_of, expiry, 1.20, 1_000_000.0);
     let market = build_market_context(as_of, MarketParams::atm());
-    let calc = FxOptionCalculator::new();
 
     // Act: Analytical delta
-    let greeks = calc.compute_greeks(&call, &market, as_of).unwrap();
+    let greeks = compute_greeks(&call, &market, as_of);
 
     // Act: Finite difference delta
     let bump = 0.001; // 10 pips
@@ -117,10 +111,9 @@ fn test_gamma_positive_for_long_option() {
     let expiry = date!(2025 - 01 - 01);
     let call = build_call_option(as_of, expiry, 1.20, 1_000_000.0);
     let market = build_market_context(as_of, MarketParams::atm());
-    let calc = FxOptionCalculator::new();
 
     // Act
-    let greeks = calc.compute_greeks(&call, &market, as_of).unwrap();
+    let greeks = compute_greeks(&call, &market, as_of);
 
     // Assert
     assert!(greeks.gamma > 0.0, "Long option gamma should be positive");
@@ -135,12 +128,11 @@ fn test_gamma_maximized_atm() {
     let itm_call = build_call_option(as_of, expiry, 1.00, 1_000_000.0);
     let otm_call = build_call_option(as_of, expiry, 1.40, 1_000_000.0);
     let market = build_market_context(as_of, MarketParams::atm());
-    let calc = FxOptionCalculator::new();
 
     // Act
-    let atm_greeks = calc.compute_greeks(&atm_call, &market, as_of).unwrap();
-    let itm_greeks = calc.compute_greeks(&itm_call, &market, as_of).unwrap();
-    let otm_greeks = calc.compute_greeks(&otm_call, &market, as_of).unwrap();
+    let atm_greeks = compute_greeks(&atm_call, &market, as_of);
+    let itm_greeks = compute_greeks(&itm_call, &market, as_of);
+    let otm_greeks = compute_greeks(&otm_call, &market, as_of);
 
     // Assert: ATM should have highest gamma
     assert!(atm_greeks.gamma > itm_greeks.gamma, "ATM gamma > ITM gamma");
@@ -154,10 +146,9 @@ fn test_gamma_matches_finite_difference() {
     let expiry = date!(2025 - 01 - 01);
     let call = build_call_option(as_of, expiry, 1.20, 1_000_000.0);
     let market = build_market_context(as_of, MarketParams::atm());
-    let calc = FxOptionCalculator::new();
 
     // Act: Analytical gamma
-    let greeks = calc.compute_greeks(&call, &market, as_of).unwrap();
+    let greeks = compute_greeks(&call, &market, as_of);
 
     // Act: Finite difference gamma
     let bump = 0.001;
@@ -181,11 +172,10 @@ fn test_vega_positive_for_long_option() {
     let call = build_call_option(as_of, expiry, 1.20, 1_000_000.0);
     let put = build_put_option(as_of, expiry, 1.20, 1_000_000.0);
     let market = build_market_context(as_of, MarketParams::atm());
-    let calc = FxOptionCalculator::new();
 
     // Act
-    let call_greeks = calc.compute_greeks(&call, &market, as_of).unwrap();
-    let put_greeks = calc.compute_greeks(&put, &market, as_of).unwrap();
+    let call_greeks = compute_greeks(&call, &market, as_of);
+    let put_greeks = compute_greeks(&put, &market, as_of);
 
     // Assert: Both should have positive vega
     assert!(call_greeks.vega > 0.0, "Call vega should be positive");
@@ -210,11 +200,10 @@ fn test_vega_higher_with_longer_expiry() {
     let call_3m = build_call_option(as_of, expiry_3m, 1.20, 1_000_000.0);
     let call_1y = build_call_option(as_of, expiry_1y, 1.20, 1_000_000.0);
     let market = build_market_context(as_of, MarketParams::atm());
-    let calc = FxOptionCalculator::new();
 
     // Act
-    let greeks_3m = calc.compute_greeks(&call_3m, &market, as_of).unwrap();
-    let greeks_1y = calc.compute_greeks(&call_1y, &market, as_of).unwrap();
+    let greeks_3m = compute_greeks(&call_3m, &market, as_of);
+    let greeks_1y = compute_greeks(&call_1y, &market, as_of);
 
     // Assert: 1Y vega should be higher
     assert!(
@@ -230,10 +219,9 @@ fn test_vega_matches_finite_difference() {
     let expiry = date!(2025 - 01 - 01);
     let call = build_call_option(as_of, expiry, 1.20, 1_000_000.0);
     let market = build_market_context(as_of, MarketParams::atm());
-    let calc = FxOptionCalculator::new();
 
     // Act: Analytical vega (per 1% vol move)
-    let greeks = calc.compute_greeks(&call, &market, as_of).unwrap();
+    let greeks = compute_greeks(&call, &market, as_of);
 
     // Act: Finite difference vega
     let bump = 0.01; // 1% vol move
@@ -257,11 +245,10 @@ fn test_theta_negative_for_long_option() {
     let call = build_call_option(as_of, expiry, 1.20, 1_000_000.0);
     let put = build_put_option(as_of, expiry, 1.20, 1_000_000.0);
     let market = build_market_context(as_of, MarketParams::atm());
-    let calc = FxOptionCalculator::new();
 
     // Act
-    let call_greeks = calc.compute_greeks(&call, &market, as_of).unwrap();
-    let put_greeks = calc.compute_greeks(&put, &market, as_of).unwrap();
+    let call_greeks = compute_greeks(&call, &market, as_of);
+    let put_greeks = compute_greeks(&put, &market, as_of);
 
     // Assert: Theta should be negative (time decay)
     // Note: Sign convention varies; here we expect negative for decay
@@ -273,40 +260,35 @@ fn test_theta_negative_for_long_option() {
 }
 
 #[test]
-fn test_rho_domestic_has_expected_sign() {
-    // Arrange: Call rho_domestic should be positive (benefits from higher domestic rates)
+fn test_rho_has_expected_sign() {
+    // Arrange: Call rho should be positive (benefits from higher domestic rates)
     let as_of = date!(2024 - 01 - 01);
     let expiry = date!(2025 - 01 - 01);
     let call = build_call_option(as_of, expiry, 1.20, 1_000_000.0);
     let market = build_market_context(as_of, MarketParams::atm());
-    let calc = FxOptionCalculator::new();
 
     // Act
-    let greeks = calc.compute_greeks(&call, &market, as_of).unwrap();
+    let greeks = compute_greeks(&call, &market, as_of);
 
-    // Assert: Call rho_domestic should be positive
-    assert!(
-        greeks.rho_domestic > 0.0,
-        "Call rho_domestic should be positive"
-    );
+    // Assert: Call rho should be positive
+    assert!(greeks.rho > 0.0, "Call rho should be positive");
 }
 
 #[test]
-fn test_rho_foreign_has_expected_sign() {
-    // Arrange: Call rho_foreign should be negative (hurt by higher foreign rates)
+fn test_foreign_rho_has_expected_sign() {
+    // Arrange: Call foreign rho should be negative (hurt by higher foreign rates)
     let as_of = date!(2024 - 01 - 01);
     let expiry = date!(2025 - 01 - 01);
     let call = build_call_option(as_of, expiry, 1.20, 1_000_000.0);
     let market = build_market_context(as_of, MarketParams::atm());
-    let calc = FxOptionCalculator::new();
 
     // Act
-    let greeks = calc.compute_greeks(&call, &market, as_of).unwrap();
+    let greeks = compute_greeks(&call, &market, as_of);
 
-    // Assert: Call rho_foreign should be negative
+    // Assert: Call foreign rho should be negative
     assert!(
-        greeks.rho_foreign < 0.0,
-        "Call rho_foreign should be negative"
+        greeks.foreign_rho < 0.0,
+        "Call foreign rho should be negative"
     );
 }
 
@@ -317,23 +299,19 @@ fn test_all_greeks_computed_together() {
     let expiry = date!(2025 - 01 - 01);
     let call = build_call_option(as_of, expiry, 1.20, 1_000_000.0);
     let market = build_market_context(as_of, MarketParams::atm());
-    let calc = FxOptionCalculator::new();
 
     // Act
-    let greeks = calc.compute_greeks(&call, &market, as_of).unwrap();
+    let greeks = compute_greeks(&call, &market, as_of);
 
     // Assert: All greeks should be finite and non-NaN
     assert!(greeks.delta.is_finite(), "Delta should be finite");
     assert!(greeks.gamma.is_finite(), "Gamma should be finite");
     assert!(greeks.vega.is_finite(), "Vega should be finite");
     assert!(greeks.theta.is_finite(), "Theta should be finite");
+    assert!(greeks.rho.is_finite(), "Rho should be finite");
     assert!(
-        greeks.rho_domestic.is_finite(),
-        "Rho domestic should be finite"
-    );
-    assert!(
-        greeks.rho_foreign.is_finite(),
-        "Rho foreign should be finite"
+        greeks.foreign_rho.is_finite(),
+        "Foreign rho should be finite"
     );
 }
 
@@ -352,10 +330,9 @@ fn test_expired_call_greeks_static() {
             ..Default::default()
         },
     );
-    let calc = FxOptionCalculator::new();
 
     // Act
-    let greeks = calc.compute_greeks(&call, &market, as_of).unwrap();
+    let greeks = compute_greeks(&call, &market, as_of);
 
     // Assert: Gamma, vega, theta should be zero; delta should be 1
     assert_approx_eq(
@@ -385,10 +362,9 @@ fn test_expired_put_greeks_static() {
             ..Default::default()
         },
     );
-    let calc = FxOptionCalculator::new();
 
     // Act
-    let greeks = calc.compute_greeks(&put, &market, as_of).unwrap();
+    let greeks = compute_greeks(&put, &market, as_of);
 
     // Assert: Gamma, vega, theta should be zero; delta should be -1
     assert_approx_eq(
@@ -418,10 +394,9 @@ fn test_expired_otm_call_greeks_zero() {
             ..Default::default()
         },
     );
-    let calc = FxOptionCalculator::new();
 
     // Act
-    let greeks = calc.compute_greeks(&call, &market, as_of).unwrap();
+    let greeks = compute_greeks(&call, &market, as_of);
 
     // Assert: All greeks should be zero for expired OTM
     assert_eq!(greeks.delta, 0.0, "Expired OTM delta = 0");

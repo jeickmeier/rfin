@@ -13,7 +13,7 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::inflation_swap::{
     InflationSwapBuilder, PayReceiveInflation,
 };
-use finstack_valuations::instruments::{Attributes, Instrument, InstrumentNpvExt};
+use finstack_valuations::instruments::{Attributes, Instrument};
 use time::Month;
 
 #[test]
@@ -377,7 +377,7 @@ fn test_npv_equals_leg_difference() {
         .build()
         .unwrap();
 
-    let npv = swap.npv(&ctx, as_of).unwrap().amount();
+    let npv = swap.value(&ctx, as_of).unwrap().amount();
     let pv_fixed = swap.pv_fixed_leg(&ctx, as_of).unwrap().amount();
     let pv_infl = swap.pv_inflation_leg(&ctx, as_of).unwrap().amount();
 

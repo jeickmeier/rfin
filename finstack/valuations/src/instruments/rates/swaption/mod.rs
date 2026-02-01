@@ -115,7 +115,6 @@ pub use parameters::SwaptionParams;
 pub use pricer::{
     BermudanPricingMethod, BermudanSwaptionPricer, HullWhiteParams, SimpleSwaptionBlackPricer,
 };
-#[doc(hidden)]
 pub use pricing::BermudanSwaptionTreeValuator;
 pub use types::{
     BermudanSchedule, BermudanSwaption, BermudanType, CashSettlementMethod, GreekInputs, Swaption,

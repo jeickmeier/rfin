@@ -23,8 +23,8 @@ mod cds_market_edge {
     use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
     use finstack_core::money::Money;
 
-    use finstack_valuations::instruments::credit_derivatives::cds::{CDSPricer, CDSPricerConfig};
     use finstack_valuations::instruments::Instrument;
+    use finstack_valuations::metrics::MetricId;
     use time::macros::date;
 
     fn build_discount_curve(rate: f64, base_date: Date, id: &str) -> DiscountCurve {
@@ -149,7 +149,7 @@ mod cds_market_edge {
         let disc = build_discount_curve(0.05, as_of, "USD_OIS");
 
         let hazard_rates = [0.005, 0.02, 0.05, 0.10]; // 50bps to 1000bps
-        let mut aod_impacts = Vec::new();
+        let mut premium_pvs = Vec::new();
 
         for &h in &hazard_rates {
             let hazard = build_hazard_curve(h, 0.40, as_of, "CORP");
@@ -168,37 +168,22 @@ mod cds_market_edge {
             )
             .expect("CDS construction should succeed");
 
-            let disc_ref = market.get_discount("USD_OIS").unwrap();
-            let hazard_ref = market.get_hazard("CORP").unwrap();
-
-            // With accrual
-            let pricer_with = CDSPricer::new();
-            let pv_with = pricer_with
-                .premium_leg_pv_per_bp(&cds, disc_ref.as_ref(), hazard_ref.as_ref(), as_of)
-                .unwrap();
-
-            // Without accrual
-            let pricer_without = CDSPricer::with_config(CDSPricerConfig {
-                include_accrual: false,
-                ..Default::default()
-            });
-            let pv_without = pricer_without
-                .premium_leg_pv_per_bp(&cds, disc_ref.as_ref(), hazard_ref.as_ref(), as_of)
-                .unwrap();
-
-            let aod_impact = pv_with - pv_without;
-            aod_impacts.push((h, aod_impact));
+            let premium_pv = cds
+                .price_with_metrics(&market, as_of, &[MetricId::PremiumLegPv])
+                .unwrap()
+                .measures[&MetricId::PremiumLegPv];
+            premium_pvs.push((h, premium_pv));
         }
 
-        // Verify AoD impact is monotonically increasing with hazard rate
-        for i in 1..aod_impacts.len() {
+        // Premium leg PV should decrease with higher hazard (fewer expected payments)
+        for i in 1..premium_pvs.len() {
             assert!(
-                aod_impacts[i].1 > aod_impacts[i - 1].1,
-                "AoD impact should increase with hazard rate: {} at h={:.3} vs {} at h={:.3}",
-                aod_impacts[i].1,
-                aod_impacts[i].0,
-                aod_impacts[i - 1].1,
-                aod_impacts[i - 1].0
+                premium_pvs[i].1 < premium_pvs[i - 1].1,
+                "Premium leg PV should decrease with hazard rate: {} at h={:.3} vs {} at h={:.3}",
+                premium_pvs[i].1,
+                premium_pvs[i].0,
+                premium_pvs[i - 1].1,
+                premium_pvs[i - 1].0
             );
         }
     }

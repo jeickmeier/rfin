@@ -9,8 +9,8 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::CashflowProvider;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::TrsSide;
-use finstack_valuations::instruments::{Instrument, InstrumentNpvExt};
 use rust_decimal::Decimal;
 
 // ================================================================================================
@@ -86,7 +86,7 @@ fn test_equity_trs_npv_receive_side() {
         .build();
 
     // Act
-    let npv = trs.npv(&market, as_of).unwrap();
+    let npv = trs.value(&market, as_of).unwrap();
 
     // Assert
     assert_eq!(npv.currency(), USD);
@@ -104,7 +104,7 @@ fn test_equity_trs_npv_pay_side() {
         .build();
 
     // Act
-    let npv = trs.npv(&market, as_of).unwrap();
+    let npv = trs.value(&market, as_of).unwrap();
 
     // Assert
     assert_eq!(npv.currency(), USD);
@@ -128,8 +128,8 @@ fn test_equity_trs_npv_pay_vs_receive_symmetry() {
         .build();
 
     // Act
-    let npv_receive = trs_receive.npv(&market, as_of).unwrap();
-    let npv_pay = trs_pay.npv(&market, as_of).unwrap();
+    let npv_receive = trs_receive.value(&market, as_of).unwrap();
+    let npv_pay = trs_pay.value(&market, as_of).unwrap();
 
     // Assert - NPVs should be opposite
     assert_approx_eq(
@@ -166,8 +166,8 @@ fn test_equity_trs_pricing_with_different_spreads() {
     let trs_high_spread = TestEquityTrsBuilder::new().spread_bp(100.0).build();
 
     // Act
-    let npv_low = trs_low_spread.npv(&market, as_of).unwrap();
-    let npv_high = trs_high_spread.npv(&market, as_of).unwrap();
+    let npv_low = trs_low_spread.value(&market, as_of).unwrap();
+    let npv_high = trs_high_spread.value(&market, as_of).unwrap();
 
     // Assert - For receive TR, higher financing spread means lower NPV
     assert!(
@@ -223,7 +223,7 @@ fn test_equity_trs_npv_equals_legs_difference() {
         .build();
 
     // Act
-    let npv = trs.npv(&market, as_of).unwrap();
+    let npv = trs.value(&market, as_of).unwrap();
     let tr_pv = trs.pv_total_return_leg(&market, as_of).unwrap();
     let fin_pv = trs.pv_financing_leg(&market, as_of).unwrap();
 
@@ -277,12 +277,12 @@ fn test_equity_trs_sensitivity_to_spot_price() {
     let spot_bumped = 5050.0; // +1% bump
 
     // Act
-    let npv_base = trs.npv(&market, as_of).unwrap();
+    let npv_base = trs.value(&market, as_of).unwrap();
 
     let market_bumped = market
         .clone()
         .insert_price("SPX-SPOT", MarketScalar::Unitless(spot_bumped));
-    let npv_bumped = trs.npv(&market_bumped, as_of).unwrap();
+    let npv_bumped = trs.value(&market_bumped, as_of).unwrap();
 
     // Assert - With locked initial level, spot changes affect forward prices
     // Both should be finite, but may be equal if initial_level dominates
@@ -303,12 +303,12 @@ fn test_equity_trs_sensitivity_to_dividend_yield() {
     let div_higher = 0.025; // Higher dividend yield
 
     // Act
-    let npv_base = trs.npv(&market, as_of).unwrap();
+    let npv_base = trs.value(&market, as_of).unwrap();
 
     let market_bumped = market
         .clone()
         .insert_price("SPX-DIV-YIELD", MarketScalar::Unitless(div_higher));
-    let npv_bumped = trs.npv(&market_bumped, as_of).unwrap();
+    let npv_bumped = trs.value(&market_bumped, as_of).unwrap();
 
     // Assert - Higher div yield reduces forward price, lowering TR leg PV
     assert!(
@@ -364,8 +364,8 @@ fn test_equity_trs_sensitivity_to_interest_rates() {
     market_shifted = market_shifted.insert_price("SPX-DIV-YIELD", MarketScalar::Unitless(0.015));
 
     // Act
-    let npv_base = trs.npv(&market_base, as_of).unwrap();
-    let npv_shifted = trs.npv(&market_shifted, as_of).unwrap();
+    let npv_base = trs.value(&market_base, as_of).unwrap();
+    let npv_shifted = trs.value(&market_shifted, as_of).unwrap();
 
     // Assert - Both legs are affected by rates; net effect depends on dominance
     assert!(npv_base.amount().is_finite());
@@ -388,7 +388,7 @@ fn test_equity_trs_with_custom_initial_level() {
         .build();
 
     // Act
-    let npv = trs.npv(&market, as_of).unwrap();
+    let npv = trs.value(&market, as_of).unwrap();
 
     // Assert
     assert!(npv.amount().is_finite());
@@ -407,8 +407,8 @@ fn test_equity_trs_initial_level_vs_spot() {
         .build();
 
     // Act
-    let npv_default = trs_default.npv(&market, as_of).unwrap();
-    let npv_custom = trs_custom.npv(&market, as_of).unwrap();
+    let npv_default = trs_default.value(&market, as_of).unwrap();
+    let npv_custom = trs_custom.value(&market, as_of).unwrap();
 
     // Assert - Should be very close since initial level matches spot
     assert_money_approx_eq(
@@ -475,7 +475,7 @@ fn test_equity_trs_short_tenor_3_months() {
     let trs = TestEquityTrsBuilder::new().tenor_months(3).build();
 
     // Act
-    let npv = trs.npv(&market, as_of).unwrap();
+    let npv = trs.value(&market, as_of).unwrap();
 
     // Assert
     assert!(npv.amount().is_finite());
@@ -489,7 +489,7 @@ fn test_equity_trs_medium_tenor_2_years() {
     let trs = TestEquityTrsBuilder::new().tenor_months(24).build();
 
     // Act
-    let npv = trs.npv(&market, as_of).unwrap();
+    let npv = trs.value(&market, as_of).unwrap();
 
     // Assert
     assert!(npv.amount().is_finite());
@@ -503,7 +503,7 @@ fn test_equity_trs_long_tenor_5_years() {
     let trs = TestEquityTrsBuilder::new().tenor_months(60).build();
 
     // Act
-    let npv = trs.npv(&market, as_of).unwrap();
+    let npv = trs.value(&market, as_of).unwrap();
 
     // Assert
     assert!(npv.amount().is_finite());
@@ -528,8 +528,8 @@ fn test_equity_trs_notional_scaling() {
         .build();
 
     // Act
-    let npv_1m = trs_1m.npv(&market, as_of).unwrap();
-    let npv_10m = trs_10m.npv(&market, as_of).unwrap();
+    let npv_1m = trs_1m.value(&market, as_of).unwrap();
+    let npv_10m = trs_10m.value(&market, as_of).unwrap();
 
     // Assert - NPV should scale approximately linearly with notional
     assert_approx_eq(

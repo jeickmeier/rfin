@@ -195,8 +195,6 @@ impl TestFraBuilder {
         self
     }
 
-    /// Deprecated alias for `receive_fixed()`.
-    #[deprecated(since = "0.9.0", note = "Use receive_fixed() instead")]
     #[allow(dead_code)]
     pub fn pay_fixed(self, receive: bool) -> Self {
         self.receive_fixed(receive)

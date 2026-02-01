@@ -7,7 +7,7 @@ use finstack_core::market_data::term_structures::{DiscountCurve, PriceCurve};
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
 use finstack_valuations::instruments::Attributes;
-use finstack_valuations::instruments::InstrumentNpvExt;
+use finstack_valuations::instruments::Instrument;
 use time::Month;
 
 /// Helper to create a test market context with discount and price curves.
@@ -63,7 +63,7 @@ fn test_commodity_swap_pricing() {
         .build()
         .expect("should build");
 
-    let npv = swap.npv(&market, as_of).expect("should price");
+    let npv = swap.value(&market, as_of).expect("should price");
 
     // Verify basic properties
     assert_eq!(npv.currency(), Currency::USD);
@@ -202,8 +202,8 @@ fn test_commodity_swap_receive_fixed() {
         .build()
         .expect("should build");
 
-    let npv_pay = pay_fixed.npv(&market, as_of).expect("should price");
-    let npv_recv = receive_fixed.npv(&market, as_of).expect("should price");
+    let npv_pay = pay_fixed.value(&market, as_of).expect("should price");
+    let npv_recv = receive_fixed.value(&market, as_of).expect("should price");
 
     // NPVs should be opposite (within floating point tolerance)
     let diff = (npv_pay.amount() + npv_recv.amount()).abs();
@@ -282,7 +282,7 @@ fn test_commodity_swap_par_rate_round_trip() {
         .build()
         .expect("should build");
 
-    let npv = par_swap.npv(&market, as_of).expect("should price");
+    let npv = par_swap.value(&market, as_of).expect("should price");
 
     // Round-trip test: NPV should be near zero
     // Tolerance: 1bp of floating leg PV
@@ -322,7 +322,7 @@ fn test_commodity_swap_cashflow_npv_consistency() {
         .expect("should build");
 
     // Get NPV
-    let npv = swap.npv(&market, as_of).expect("should price");
+    let npv = swap.value(&market, as_of).expect("should price");
 
     // Get cashflows and compute discounted sum
     let cashflows = swap

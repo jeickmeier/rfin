@@ -20,7 +20,7 @@
 //! # Ok::<(), finstack_core::Error>(())
 //! ```
 
-pub use crate::instruments::{Attributes, Instrument, InstrumentNpvExt};
+pub use crate::instruments::{Attributes, Instrument};
 
 pub use crate::pricer::{create_standard_registry, InstrumentType, ModelKey, PricerRegistry};
 

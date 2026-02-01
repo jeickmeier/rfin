@@ -47,7 +47,7 @@ fn test_theta_magnitude_reasonable() {
         .quote_rate(0.03)
         .build();
 
-    let pv = dep.npv(&ctx, base).unwrap();
+    let pv = dep.value(&ctx, base).unwrap();
 
     // Execute
     let theta = compute_metric(&dep, &ctx, base, MetricId::Theta);

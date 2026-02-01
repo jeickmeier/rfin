@@ -10,7 +10,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_option::CommodityOption;
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::PricingOverrides;
-use finstack_valuations::prelude::InstrumentNpvExt;
+use finstack_valuations::prelude::Instrument;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = CommodityOptionBuilder)]
@@ -332,9 +332,10 @@ impl JsCommodityOption {
     }
 
     /// Calculate present value.
-    pub fn npv(&self, market: &JsMarketContext, as_of: &FsDate) -> Result<f64, JsValue> {
+    #[wasm_bindgen(js_name = value)]
+    pub fn value(&self, market: &JsMarketContext, as_of: &FsDate) -> Result<f64, JsValue> {
         self.inner
-            .npv(market.inner(), as_of.inner())
+            .value(market.inner(), as_of.inner())
             .map(|m| m.amount())
             .map_err(|e| JsValue::from_str(&e.to_string()))
     }

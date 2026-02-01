@@ -7,6 +7,7 @@
 //! Exposed metrics:
 //! - Par spread (bps)
 //! - Risky PV01
+//! - Risky annuity
 //! - CS01
 //! - Protection leg PV
 //! - Premium leg PV
@@ -22,6 +23,7 @@ mod pv_premium;
 mod pv_protection;
 mod recovery01;
 // risk_bucketed_dv01 and theta now using generic implementations
+mod risky_annuity;
 mod risky_pv01;
 
 use crate::metrics::MetricRegistry;
@@ -65,6 +67,7 @@ pub fn register_cds_metrics(registry: &mut MetricRegistry) {
         instrument: InstrumentType::CDS,
         metrics: [
             (ParSpread, par_spread::ParSpreadCalculator),
+            (RiskyAnnuity, risky_annuity::RiskyAnnuityCalculator),
             (Cs01, crate::metrics::GenericParallelCs01::<
                 crate::instruments::CreditDefaultSwap,
             >::default()),

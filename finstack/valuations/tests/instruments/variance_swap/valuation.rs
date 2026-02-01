@@ -5,7 +5,7 @@ use finstack_core::dates::Tenor;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::stats::{realized_variance, RealizedVarMethod};
 use finstack_valuations::instruments::equity::variance_swap::PayReceive;
-use finstack_valuations::instruments::{Instrument, InstrumentNpvExt};
+use finstack_valuations::instruments::Instrument;
 
 // ============================================================================
 // Pre-Start Valuation Tests
@@ -19,7 +19,7 @@ fn test_npv_before_start_uses_forward_variance_and_discounting() {
     let as_of = date(2024, 12, 1);
 
     // Act
-    let pv = swap.npv(&ctx, as_of).unwrap();
+    let pv = swap.value(&ctx, as_of).unwrap();
 
     // Assert
     let forward_var = 0.22_f64.powi(2);
@@ -47,7 +47,7 @@ fn test_npv_before_start_at_the_money_forward_is_near_zero() {
     let as_of = date(2024, 12, 1);
 
     // Act
-    let pv = swap.npv(&ctx, as_of).unwrap();
+    let pv = swap.value(&ctx, as_of).unwrap();
 
     // Assert
     assert!(pv.amount().abs() < LOOSE_EPSILON);
@@ -61,7 +61,7 @@ fn test_npv_before_start_receive_side_positive_when_forward_exceeds_strike() {
     let as_of = date(2024, 12, 1);
 
     // Act
-    let pv = swap.npv(&ctx, as_of).unwrap();
+    let pv = swap.value(&ctx, as_of).unwrap();
 
     // Assert - forward var (0.25^2 = 0.0625) > strike (0.04)
     assert!(pv.amount() > 0.0);
@@ -76,8 +76,8 @@ fn test_npv_before_start_pay_side_opposite_sign() {
     let as_of = date(2024, 12, 1);
 
     // Act
-    let pv_receive = receive.npv(&ctx, as_of).unwrap();
-    let pv_pay = pay.npv(&ctx, as_of).unwrap();
+    let pv_receive = receive.value(&ctx, as_of).unwrap();
+    let pv_pay = pay.value(&ctx, as_of).unwrap();
 
     // Assert
     assert!(pv_receive.amount() > 0.0);
@@ -100,7 +100,7 @@ fn test_npv_mid_period_blends_realized_and_forward_components() {
     let as_of = dates[dates.len() / 2];
 
     // Act
-    let pv = swap.npv(&ctx, as_of).unwrap();
+    let pv = swap.value(&ctx, as_of).unwrap();
 
     // Assert - compute expected manually
     let realized = swap.partial_realized_variance(&ctx, as_of).unwrap();
@@ -128,7 +128,7 @@ fn test_npv_mid_period_with_high_realized_vol_increases_value_for_receive() {
     let as_of = dates[dates.len() / 3];
 
     // Act
-    let pv = swap.npv(&ctx, as_of).unwrap();
+    let pv = swap.value(&ctx, as_of).unwrap();
 
     // Assert - High volatility moves should result in meaningful PV
     // Note: Sign depends on whether realized var exceeds strike and how it blends with forward
@@ -149,7 +149,7 @@ fn test_npv_mid_period_discounting_reduces_value() {
     let as_of = dates[dates.len() / 2];
 
     // Act
-    let pv = swap.npv(&ctx, as_of).unwrap();
+    let pv = swap.value(&ctx, as_of).unwrap();
     let realized = swap.partial_realized_variance(&ctx, as_of).unwrap();
     let forward = swap.remaining_forward_variance(&ctx, as_of).unwrap();
     let weight = observation_weight(&swap, as_of);
@@ -178,7 +178,7 @@ fn test_npv_mid_period_with_different_frequencies() {
         let as_of = dates[dates.len() / 2];
 
         // Act
-        let pv = swap.npv(&ctx, as_of);
+        let pv = swap.value(&ctx, as_of);
 
         // Assert
         assert!(pv.is_ok());
@@ -198,7 +198,7 @@ fn test_npv_at_maturity_recovers_realized_payoff() {
     let ctx = add_series(base_context(), &prices);
 
     // Act
-    let pv = swap.npv(&ctx, swap.maturity).unwrap();
+    let pv = swap.value(&ctx, swap.maturity).unwrap();
 
     // Assert
     let realized = realized_variance(
@@ -219,7 +219,7 @@ fn test_npv_at_maturity_no_discounting_applied() {
     let ctx = add_series(base_context(), &prices);
 
     // Act
-    let pv = swap.npv(&ctx, swap.maturity).unwrap();
+    let pv = swap.value(&ctx, swap.maturity).unwrap();
     let realized = realized_variance(
         &prices.iter().map(|(_, p)| *p).collect::<Vec<_>>(),
         RealizedVarMethod::CloseToClose,
@@ -239,7 +239,7 @@ fn test_npv_at_maturity_with_low_realized_vol() {
     let ctx = add_series(base_context(), &prices);
 
     // Act
-    let pv = swap.npv(&ctx, swap.maturity).unwrap();
+    let pv = swap.value(&ctx, swap.maturity).unwrap();
 
     // Assert - realized below strike => negative for receiver
     assert!(pv.amount() < 0.0);
@@ -258,7 +258,7 @@ fn test_npv_at_maturity_without_prices_is_zero() {
     );
 
     // Act
-    let pv = swap.npv(&ctx, swap.maturity).unwrap();
+    let pv = swap.value(&ctx, swap.maturity).unwrap();
 
     // Assert
     assert_eq!(pv.amount(), 0.0);
@@ -277,7 +277,7 @@ fn test_npv_after_maturity_uses_final_realized_variance() {
     let post_maturity = date(2025, 5, 1);
 
     // Act
-    let pv = swap.npv(&ctx, post_maturity).unwrap();
+    let pv = swap.value(&ctx, post_maturity).unwrap();
 
     // Assert
     let realized = realized_variance(
@@ -303,7 +303,7 @@ fn test_value_method_delegates_to_npv() {
 
     // Act
     let value = swap.value(&ctx, as_of).unwrap();
-    let npv = swap.npv(&ctx, as_of).unwrap();
+    let npv = swap.value(&ctx, as_of).unwrap();
 
     // Assert
     assert_eq!(value.amount(), npv.amount());
@@ -336,7 +336,7 @@ fn test_npv_time_progression_from_pre_start_to_maturity() {
     // Act
     let pv_values: Vec<f64> = eval_dates
         .iter()
-        .map(|&d| swap.npv(&ctx, d).unwrap().amount())
+        .map(|&d| swap.value(&ctx, d).unwrap().amount())
         .collect();
 
     // Assert - all values should be finite
@@ -358,11 +358,11 @@ fn test_npv_converges_as_maturity_approaches() {
     let late_dates = &dates[dates.len() - 5..];
 
     for &d in late_dates {
-        let pv = swap.npv(&ctx, d).unwrap().amount();
+        let pv = swap.value(&ctx, d).unwrap().amount();
         assert!(pv.is_finite());
     }
 
     // Assert - should converge to final payoff
-    let final_pv = swap.npv(&ctx, swap.maturity).unwrap().amount();
+    let final_pv = swap.value(&ctx, swap.maturity).unwrap().amount();
     assert!(final_pv.is_finite());
 }

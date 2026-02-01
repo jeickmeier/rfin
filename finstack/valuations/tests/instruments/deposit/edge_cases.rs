@@ -23,7 +23,7 @@ fn test_zero_period_deposit() {
         .build();
 
     // Execute - should fail validation (end must be after start)
-    let result = dep.npv(&ctx, base);
+    let result = dep.value(&ctx, base);
 
     // Validate - zero period deposits are invalid
     assert!(
@@ -44,7 +44,7 @@ fn test_zero_rate_deposit() {
         .build();
 
     // Execute
-    let pv = dep.npv(&ctx, base).unwrap();
+    let pv = dep.value(&ctx, base).unwrap();
 
     // Validate - should be negative (time value of money)
     assert!(pv.amount() < 0.0);
@@ -62,7 +62,7 @@ fn test_very_high_rate() {
         .build();
 
     // Execute
-    let pv = dep.npv(&ctx, base).unwrap();
+    let pv = dep.value(&ctx, base).unwrap();
 
     // Validate - should compute without error
     assert!(pv.currency() == Currency::USD);
@@ -82,7 +82,7 @@ fn test_very_small_notional() {
         .build();
 
     // Execute
-    let pv = dep.npv(&ctx, base).unwrap();
+    let pv = dep.value(&ctx, base).unwrap();
 
     // Validate
     assert!(pv.amount().is_finite());
@@ -102,7 +102,7 @@ fn test_very_large_notional() {
         .build();
 
     // Execute
-    let pv = dep.npv(&ctx, base).unwrap();
+    let pv = dep.value(&ctx, base).unwrap();
 
     // Validate
     assert!(pv.amount().is_finite());
@@ -122,7 +122,7 @@ fn test_very_short_maturity_one_day() {
         .build();
 
     // Execute
-    let pv = dep.npv(&ctx, base).unwrap();
+    let pv = dep.value(&ctx, base).unwrap();
     let yf = compute_metric(&dep, &ctx, base, MetricId::Yf);
 
     // Validate
@@ -142,7 +142,7 @@ fn test_very_long_maturity() {
         .build();
 
     // Execute
-    let pv = dep.npv(&ctx, base).unwrap();
+    let pv = dep.value(&ctx, base).unwrap();
 
     // Validate
     assert!(pv.amount().is_finite());
@@ -160,7 +160,7 @@ fn test_negative_rate_environment() {
         .build();
 
     // Execute
-    let pv = dep.npv(&ctx, base).unwrap();
+    let pv = dep.value(&ctx, base).unwrap();
 
     // Validate - should compute correctly
     assert!(pv.currency() == Currency::USD);
@@ -183,7 +183,7 @@ fn test_pricing_on_start_date() {
         .build();
 
     // Execute
-    let pv = dep.npv(&ctx, start).unwrap();
+    let pv = dep.value(&ctx, start).unwrap();
 
     // Validate
     assert!(pv.amount().is_finite());
@@ -202,7 +202,7 @@ fn test_pricing_after_maturity() {
         .build();
 
     // Execute - price on date after maturity
-    let pv = dep.npv(&ctx, base).unwrap();
+    let pv = dep.value(&ctx, base).unwrap();
 
     // Validate - should handle gracefully
     assert!(pv.amount().is_finite());
@@ -222,7 +222,7 @@ fn test_thirty360_with_end_of_month() {
         .build();
 
     // Execute
-    let pv = dep.npv(&ctx, base).unwrap();
+    let pv = dep.value(&ctx, base).unwrap();
     let yf = compute_metric(&dep, &ctx, base, MetricId::Yf);
 
     // Validate
@@ -244,7 +244,7 @@ fn test_leap_year_handling() {
         .build();
 
     // Execute
-    let pv = dep.npv(&ctx, base).unwrap();
+    let pv = dep.value(&ctx, base).unwrap();
 
     // Validate
     assert!(pv.amount().is_finite());
@@ -268,7 +268,7 @@ fn test_missing_quote_rate_defaults_to_zero() {
 
     // Execute
     let err = dep
-        .npv(&ctx, base)
+        .value(&ctx, base)
         .expect_err("npv() should require quote_rate");
 
     // Validate
@@ -298,8 +298,8 @@ fn test_back_to_back_deposits_same_period() {
         .build();
 
     // Execute
-    let pv1 = dep1.npv(&ctx, base).unwrap();
-    let pv2 = dep2.npv(&ctx, base).unwrap();
+    let pv1 = dep1.value(&ctx, base).unwrap();
+    let pv2 = dep2.value(&ctx, base).unwrap();
 
     // Validate - should have identical PVs
     assert!((pv1.amount() - pv2.amount()).abs() < PRICE_TOLERANCE);
@@ -320,7 +320,7 @@ fn test_rate_exactly_equal_to_par() {
         .quote_rate(par)
         .build();
 
-    let pv = dep_at_par.npv(&ctx, base).unwrap();
+    let pv = dep_at_par.value(&ctx, base).unwrap();
 
     // Validate - PV should be essentially zero for deposit at par rate
     // Market standard: < $0.01 on $1M notional (< 0.001bp)
@@ -353,8 +353,8 @@ fn test_multiple_currencies_independent() {
         .build();
 
     // Execute
-    let pv_usd = dep_usd.npv(&ctx_usd, base).unwrap();
-    let pv_eur = dep_eur.npv(&ctx_eur, base).unwrap();
+    let pv_usd = dep_usd.value(&ctx_usd, base).unwrap();
+    let pv_eur = dep_eur.value(&ctx_eur, base).unwrap();
 
     // Validate - both should compute correctly
     assert_eq!(pv_usd.currency(), Currency::USD);
@@ -416,7 +416,7 @@ fn test_bdc_adjustment_causes_effective_date_crossover() {
     );
 
     // Also verify that npv() fails (it calls validate internally)
-    let pv_result = dep.npv(&ctx, base);
+    let pv_result = dep.value(&ctx, base);
     assert!(
         pv_result.is_err(),
         "NPV should fail for deposit with invalid effective dates"
@@ -443,7 +443,7 @@ fn test_extreme_rate_warning_but_valid() {
         dep_high.validate().is_ok(),
         "Extreme rate should validate (with warning)"
     );
-    let pv_high = dep_high.npv(&ctx, base);
+    let pv_high = dep_high.value(&ctx, base);
     assert!(pv_high.is_ok(), "Extreme rate deposit should price");
 
     // Test with very negative rate (-20% = -2000 bps)
@@ -456,6 +456,6 @@ fn test_extreme_rate_warning_but_valid() {
         dep_low.validate().is_ok(),
         "Extreme negative rate should validate (with warning)"
     );
-    let pv_low = dep_low.npv(&ctx, base);
+    let pv_low = dep_low.value(&ctx, base);
     assert!(pv_low.is_ok(), "Extreme negative rate deposit should price");
 }

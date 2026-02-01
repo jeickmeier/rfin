@@ -7,7 +7,7 @@
 //! the recovery rate in the CreditIndexData.
 
 use crate::instruments::cds_tranche::CdsTranche;
-use crate::instruments::common::traits::InstrumentNpvExt;
+use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -47,7 +47,7 @@ impl MetricCalculator for Recovery01Calculator {
             .as_ref()
             .clone()
             .insert_credit_index(&tranche.credit_index_id, bumped_index_up);
-        let pv_up = tranche.npv(&curves_up, as_of)?.amount();
+        let pv_up = tranche.value(&curves_up, as_of)?.amount();
 
         // Create bumped credit index (down)
         let bumped_recovery_down = (base_recovery - RECOVERY_BUMP).clamp(0.0, 1.0);
@@ -69,7 +69,7 @@ impl MetricCalculator for Recovery01Calculator {
             .as_ref()
             .clone()
             .insert_credit_index(&tranche.credit_index_id, bumped_index_down);
-        let pv_down = tranche.npv(&curves_down, as_of)?.amount();
+        let pv_down = tranche.value(&curves_down, as_of)?.amount();
 
         // Recovery01 = (PV_up - PV_down) / (2 * bump_size)
         let recovery01 = (pv_up - pv_down) / (2.0 * RECOVERY_BUMP);

@@ -87,7 +87,7 @@ fn test_cashflow_conservation_of_value() {
 
     // Execute
     let flows = dep.build_dated_flows(&ctx, base).unwrap();
-    let pv = dep.npv(&ctx, base).unwrap();
+    let pv = dep.value(&ctx, base).unwrap();
 
     // Manually discount flows
     let disc = ctx.get_discount("USD-OIS").unwrap();

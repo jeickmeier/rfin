@@ -619,8 +619,6 @@ impl crate::instruments::common::traits::OptionGammaProvider for CommodityOption
 
 impl crate::instruments::common::traits::OptionVannaProvider for CommodityOption {
     fn option_vanna(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
-        use crate::instruments::common::traits::InstrumentNpvExt;
-
         #[derive(Debug)]
         enum ForwardDriver {
             QuotedForward(f64),
@@ -663,7 +661,7 @@ impl crate::instruments::common::traits::OptionVannaProvider for CommodityOption
                         self.vol_surface_id.as_str(),
                         vol_bump,
                     )?;
-                    Ok(inst.npv(&bumped, as_of)?.amount())
+                    Ok(inst.value(&bumped, as_of)?.amount())
                 }
                 ForwardDriver::PriceCurve => {
                     use finstack_core::market_data::bumps::{
@@ -684,7 +682,7 @@ impl crate::instruments::common::traits::OptionVannaProvider for CommodityOption
                         self.vol_surface_id.as_str(),
                         vol_bump,
                     )?;
-                    Ok(self.npv(&bumped, as_of)?.amount())
+                    Ok(self.value(&bumped, as_of)?.amount())
                 }
                 ForwardDriver::SpotScalar(ref spot_id) => {
                     let bumped_spot =
@@ -694,7 +692,7 @@ impl crate::instruments::common::traits::OptionVannaProvider for CommodityOption
                         self.vol_surface_id.as_str(),
                         vol_bump,
                     )?;
-                    Ok(self.npv(&bumped, as_of)?.amount())
+                    Ok(self.value(&bumped, as_of)?.amount())
                 }
             }
         };

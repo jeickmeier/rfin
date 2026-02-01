@@ -17,7 +17,7 @@
 //! where the bump is applied to the hazard curve (parallel shift).
 
 use crate::instruments::cds_option::CdsOption;
-use crate::instruments::common::traits::InstrumentNpvExt;
+use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::Result;
@@ -67,7 +67,7 @@ impl MetricCalculator for Cs01Calculator {
         let bumped_curves = context.curves.as_ref().clone().insert_hazard(bumped_hazard);
 
         // Reprice with bumped curve
-        let pv_bumped = cds_option.npv(&bumped_curves, as_of)?.amount();
+        let pv_bumped = cds_option.value(&bumped_curves, as_of)?.amount();
 
         // CS01 = (PV_bumped - PV_base) / bump_size
         // Note: We report CS01 per 1bp, so divide by the bump size in bp
@@ -161,7 +161,9 @@ mod tests {
         option.pricing_overrides.implied_volatility = Some(0.30);
 
         // Get base value
-        let base_value = option.npv(&market, as_of).expect("Pricing should succeed");
+        let base_value = option
+            .value(&market, as_of)
+            .expect("Pricing should succeed");
 
         let mut context = MetricContext::new(
             std::sync::Arc::new(option),

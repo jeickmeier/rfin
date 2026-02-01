@@ -3,6 +3,7 @@
 //! Computes the change in present value for a one basis point change in
 //! the premium spread, using the pricing engine's risky annuity.
 
+use crate::instruments::cds::pricer::CDSPricer;
 use crate::instruments::cds::CreditDefaultSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
@@ -17,6 +18,7 @@ impl MetricCalculator for RiskyPv01Calculator {
             .curves
             .get_discount(&cds.premium.discount_curve_id)?;
         let surv = context.curves.get_hazard(&cds.protection.credit_curve_id)?;
-        cds.risky_pv01(disc.as_ref(), surv.as_ref(), context.as_of)
+        let pricer = CDSPricer::new();
+        pricer.risky_pv01(cds, disc.as_ref(), surv.as_ref(), context.as_of)
     }
 }

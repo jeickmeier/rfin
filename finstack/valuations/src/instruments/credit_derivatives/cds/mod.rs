@@ -137,8 +137,6 @@ mod types;
 pub use parameters::{
     RECOVERY_HIGH_YIELD_DEFAULT, RECOVERY_SENIOR_UNSECURED, RECOVERY_SUBORDINATED,
 };
-#[doc(hidden)]
-pub use pricer::{CDSPricer, CDSPricerConfig, IntegrationMethod};
 pub use types::CDSConvention;
 pub use types::CreditDefaultSwap;
 pub use types::CreditDefaultSwapBuilder;

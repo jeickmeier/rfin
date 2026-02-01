@@ -10,7 +10,6 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::Instrument;
-use finstack_valuations::instruments::InstrumentNpvExt;
 use finstack_valuations::instruments::TrsSide;
 use rust_decimal::Decimal;
 
@@ -113,7 +112,7 @@ fn test_fi_index_trs_npv_receive_side() {
         .build();
 
     // Act
-    let npv = trs.npv(&market, as_of).unwrap();
+    let npv = trs.value(&market, as_of).unwrap();
 
     // Assert
     assert_eq!(npv.currency(), USD);
@@ -131,7 +130,7 @@ fn test_fi_index_trs_npv_pay_side() {
         .build();
 
     // Act
-    let npv = trs.npv(&market, as_of).unwrap();
+    let npv = trs.value(&market, as_of).unwrap();
 
     // Assert
     assert_eq!(npv.currency(), USD);
@@ -155,8 +154,8 @@ fn test_fi_index_trs_npv_pay_vs_receive_symmetry() {
         .build();
 
     // Act
-    let npv_receive = trs_receive.npv(&market, as_of).unwrap();
-    let npv_pay = trs_pay.npv(&market, as_of).unwrap();
+    let npv_receive = trs_receive.value(&market, as_of).unwrap();
+    let npv_pay = trs_pay.value(&market, as_of).unwrap();
 
     // Assert - NPVs should be opposite
     assert_approx_eq(
@@ -193,8 +192,8 @@ fn test_fi_index_trs_pricing_with_different_spreads() {
     let trs_high_spread = TestFIIndexTrsBuilder::new().spread_bp(200.0).build();
 
     // Act
-    let npv_low = trs_low_spread.npv(&market, as_of).unwrap();
-    let npv_high = trs_high_spread.npv(&market, as_of).unwrap();
+    let npv_low = trs_low_spread.value(&market, as_of).unwrap();
+    let npv_high = trs_high_spread.value(&market, as_of).unwrap();
 
     // Assert - For receive TR, higher financing spread means lower NPV
     assert!(
@@ -250,7 +249,7 @@ fn test_fi_index_trs_npv_equals_legs_difference() {
         .build();
 
     // Act
-    let npv = trs.npv(&market, as_of).unwrap();
+    let npv = trs.value(&market, as_of).unwrap();
     let tr_pv = trs.pv_total_return_leg(&market, as_of).unwrap();
     let fin_pv = trs.pv_financing_leg(&market, as_of).unwrap();
 
@@ -325,8 +324,8 @@ fn test_fi_index_trs_sensitivity_to_yield() {
         .insert_price("HY-INDEX-YIELD", MarketScalar::Unitless(0.065)); // +100bp
 
     // Act
-    let npv_base = trs.npv(&market_base, as_of).unwrap();
-    let npv_high = trs.npv(&market_high_yield, as_of).unwrap();
+    let npv_base = trs.value(&market_base, as_of).unwrap();
+    let npv_high = trs.value(&market_high_yield, as_of).unwrap();
 
     // Assert - Higher yield increases carry, should increase TR leg PV
     assert!(
@@ -352,8 +351,8 @@ fn test_fi_index_trs_sensitivity_to_duration() {
         .insert_price("HY-INDEX-DURATION", MarketScalar::Unitless(6.0)); // +1.5 years
 
     // Act
-    let npv_base = trs.npv(&market_base, as_of).unwrap();
-    let npv_high_dur = trs.npv(&market_high_duration, as_of).unwrap();
+    let npv_base = trs.value(&market_base, as_of).unwrap();
+    let npv_high_dur = trs.value(&market_high_duration, as_of).unwrap();
 
     // Assert - Both should compute (effect depends on roll model)
     assert!(npv_base.amount().is_finite());
@@ -406,8 +405,8 @@ fn test_fi_index_trs_sensitivity_to_interest_rates() {
     market_shifted = market_shifted.insert_price("HY-INDEX-DURATION", MarketScalar::Unitless(4.5));
 
     // Act
-    let npv_base = trs.npv(&market_base, as_of).unwrap();
-    let npv_shifted = trs.npv(&market_shifted, as_of).unwrap();
+    let npv_base = trs.value(&market_base, as_of).unwrap();
+    let npv_shifted = trs.value(&market_shifted, as_of).unwrap();
 
     // Assert
     assert!(npv_base.amount().is_finite());
@@ -470,7 +469,7 @@ fn test_fi_index_trs_short_tenor_6_months() {
     let trs = TestFIIndexTrsBuilder::new().tenor_months(6).build();
 
     // Act
-    let npv = trs.npv(&market, as_of).unwrap();
+    let npv = trs.value(&market, as_of).unwrap();
 
     // Assert
     assert!(npv.amount().is_finite());
@@ -484,7 +483,7 @@ fn test_fi_index_trs_medium_tenor_3_years() {
     let trs = TestFIIndexTrsBuilder::new().tenor_months(36).build();
 
     // Act
-    let npv = trs.npv(&market, as_of).unwrap();
+    let npv = trs.value(&market, as_of).unwrap();
 
     // Assert
     assert!(npv.amount().is_finite());
@@ -498,7 +497,7 @@ fn test_fi_index_trs_long_tenor_5_years() {
     let trs = TestFIIndexTrsBuilder::new().tenor_months(60).build();
 
     // Act
-    let npv = trs.npv(&market, as_of).unwrap();
+    let npv = trs.value(&market, as_of).unwrap();
 
     // Assert
     assert!(npv.amount().is_finite());
@@ -523,8 +522,8 @@ fn test_fi_index_trs_notional_scaling() {
         .build();
 
     // Act
-    let npv_5m = trs_5m.npv(&market, as_of).unwrap();
-    let npv_25m = trs_25m.npv(&market, as_of).unwrap();
+    let npv_5m = trs_5m.value(&market, as_of).unwrap();
+    let npv_25m = trs_25m.value(&market, as_of).unwrap();
 
     // Assert - NPV should scale approximately linearly with notional
     assert_approx_eq(

@@ -41,6 +41,4 @@ pub(crate) mod pricer;
 mod types;
 
 pub use parameters::CdsOptionParams;
-#[doc(hidden)]
-pub use pricer::{CdsOptionPricer, CdsOptionPricerConfig};
 pub use types::CdsOption;

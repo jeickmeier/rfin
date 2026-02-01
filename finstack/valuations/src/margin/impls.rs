@@ -5,7 +5,7 @@
 
 use crate::instruments::cds::CreditDefaultSwap;
 use crate::instruments::cds_index::CDSIndex;
-use crate::instruments::common::traits::InstrumentNpvExt;
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::equity_trs::EquityTotalReturnSwap;
 use crate::instruments::fi_trs::FIIndexTotalReturnSwap;
 use crate::instruments::irs::InterestRateSwap;
@@ -247,7 +247,7 @@ impl Marginable for CDSIndex {
     }
 
     fn mtm_for_vm(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
-        self.npv(market, as_of)
+        self.value(market, as_of)
     }
 }
 
@@ -332,7 +332,7 @@ impl Marginable for FIIndexTotalReturnSwap {
     }
 
     fn mtm_for_vm(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
-        self.npv(market, as_of)
+        self.value(market, as_of)
     }
 }
 

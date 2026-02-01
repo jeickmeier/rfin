@@ -10,7 +10,7 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::rates::deposit::Deposit;
-pub use finstack_valuations::instruments::InstrumentNpvExt;
+pub use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::{MetricContext, MetricId, MetricRegistry};
 use std::sync::Arc;
 
@@ -181,7 +181,7 @@ impl DepositBuilder {
 pub fn setup_metric_context(base: Date) -> (Deposit, MarketContext, MetricContext, MetricRegistry) {
     let ctx = ctx_with_standard_disc(base, "USD-OIS");
     let dep = standard_deposit(base);
-    let base_val = dep.npv(&ctx, base).unwrap();
+    let base_val = dep.value(&ctx, base).unwrap();
 
     let instrument_arc: Arc<dyn finstack_valuations::instruments::Instrument> =
         Arc::new(dep.clone());
@@ -209,7 +209,7 @@ pub fn compute_metric(
     let mut registry = MetricRegistry::new();
     finstack_valuations::instruments::rates::deposit::register_deposit_metrics(&mut registry);
 
-    let base_val = deposit.npv(ctx, base).unwrap();
+    let base_val = deposit.value(ctx, base).unwrap();
     let instrument_arc: Arc<dyn finstack_valuations::instruments::Instrument> =
         Arc::new(deposit.clone());
     let mut metric_ctx = MetricContext::new(
@@ -236,7 +236,7 @@ pub fn compute_metrics(
     let mut registry = MetricRegistry::new();
     finstack_valuations::instruments::rates::deposit::register_deposit_metrics(&mut registry);
 
-    let base_val = deposit.npv(ctx, base).unwrap();
+    let base_val = deposit.value(ctx, base).unwrap();
     let instrument_arc: Arc<dyn finstack_valuations::instruments::Instrument> =
         Arc::new(deposit.clone());
     let mut metric_ctx = MetricContext::new(

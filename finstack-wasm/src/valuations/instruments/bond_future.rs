@@ -420,7 +420,8 @@ impl JsBondFuture {
     }
 
     /// Calculate present value.
-    pub fn npv(&self, market: &JsMarketContext, as_of: &FsDate) -> Result<f64, JsValue> {
+    #[wasm_bindgen(js_name = value)]
+    pub fn value(&self, market: &JsMarketContext, as_of: &FsDate) -> Result<f64, JsValue> {
         use finstack_valuations::instruments::Instrument;
 
         self.inner

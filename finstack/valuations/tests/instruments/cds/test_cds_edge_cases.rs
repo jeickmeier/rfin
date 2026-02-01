@@ -7,9 +7,6 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::credit_derivatives::cds::{
-    CDSPricer, CDSPricerConfig, IntegrationMethod,
-};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
@@ -30,6 +27,18 @@ fn build_curves(as_of: Date) -> (DiscountCurve, HazardCurve) {
         .unwrap();
 
     (disc, hazard)
+}
+
+fn metric_value<I: Instrument>(
+    instrument: &I,
+    market: &MarketContext,
+    as_of: Date,
+    metric: MetricId,
+) -> f64 {
+    let result = instrument
+        .price_with_metrics(market, as_of, std::slice::from_ref(&metric))
+        .expect("metric should compute");
+    result.measures[&metric]
 }
 
 #[test]
@@ -114,14 +123,7 @@ fn test_negative_spread() {
     assert!(npv.is_ok(), "Negative spread should be handled");
 
     // Premium leg PV should reflect the negative spread (i.e., be negative).
-    let prem_pv = cds
-        .pv_premium_leg(
-            market.get_discount("USD_OIS").unwrap().as_ref(),
-            market.get_hazard("CORP").unwrap().as_ref(),
-            as_of,
-        )
-        .unwrap()
-        .amount();
+    let prem_pv = metric_value(&cds, &market, as_of, MetricId::PremiumLegPv);
     assert!(
         prem_pv < 0.0,
         "Negative spread should produce negative premium-leg PV"
@@ -231,16 +233,10 @@ fn test_full_recovery_rate() {
     cds.protection.recovery_rate = 1.0;
 
     // With full recovery, protection leg should be worth zero
-    let protection_pv = cds
-        .pv_protection_leg(
-            market.get_discount("USD_OIS").unwrap().as_ref(),
-            market.get_hazard("CORP").unwrap().as_ref(),
-            as_of,
-        )
-        .unwrap();
+    let protection_pv = metric_value(&cds, &market, as_of, MetricId::ProtectionLegPv);
 
     assert!(
-        protection_pv.amount().abs() < 1.0,
+        protection_pv.abs() < 1.0,
         "Full recovery should give near-zero protection value"
     );
 }
@@ -421,16 +417,10 @@ fn test_zero_hazard_rate() {
     .expect("CDS construction should succeed");
 
     // With zero hazard rate, protection leg should be zero
-    let protection_pv = cds
-        .pv_protection_leg(
-            market.get_discount("USD_OIS").unwrap().as_ref(),
-            market.get_hazard("CORP").unwrap().as_ref(),
-            as_of,
-        )
-        .unwrap();
+    let protection_pv = metric_value(&cds, &market, as_of, MetricId::ProtectionLegPv);
 
     assert!(
-        protection_pv.amount().abs() < 1.0,
+        protection_pv.abs() < 1.0,
         "Zero hazard should give near-zero protection value"
     );
 }
@@ -556,10 +546,13 @@ fn test_numerical_stability_with_extreme_dates() {
 
 #[test]
 fn test_integration_fallback_with_invalid_params() {
-    // Test that integration methods fall back gracefully
+    // Test that pricing remains stable under default settings
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
     let (disc, hazard) = build_curves(as_of);
+    let market = MarketContext::new()
+        .insert_discount(disc)
+        .insert_hazard(hazard);
 
     let cds = finstack_valuations::test_utils::cds_buy_protection(
         "FALLBACK_TEST",
@@ -572,19 +565,8 @@ fn test_integration_fallback_with_invalid_params() {
     )
     .expect("CDS construction should succeed");
 
-    // Test with very small tolerance (might trigger fallback)
-    let pricer = CDSPricer::with_config(CDSPricerConfig {
-        integration_method: IntegrationMethod::AdaptiveSimpson,
-        tolerance: 1e-15,
-        adaptive_max_depth: 2,
-        ..Default::default()
-    });
-
-    let result = pricer.pv_protection_leg(&cds, &disc, &hazard, as_of);
-    assert!(
-        result.is_ok(),
-        "Should handle extreme integration parameters"
-    );
+    let result = cds.price_with_metrics(&market, as_of, &[MetricId::ProtectionLegPv]);
+    assert!(result.is_ok(), "Protection leg PV should compute");
 }
 
 #[test]

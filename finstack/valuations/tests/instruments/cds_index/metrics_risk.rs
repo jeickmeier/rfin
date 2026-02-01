@@ -239,8 +239,8 @@ fn test_cs01_increases_with_maturity() {
 }
 
 #[test]
-fn test_risky_pv01_matches_direct_method() {
-    // Test: Risky PV01 via metrics matches direct method
+fn test_risky_pv01_matches_pv01_alias() {
+    // Test: Risky PV01 via metrics matches pv01 alias
     let start = date!(2025 - 01 - 01);
     let end = date!(2030 - 01 - 01);
     let as_of = start;
@@ -248,18 +248,17 @@ fn test_risky_pv01_matches_direct_method() {
     let idx = standard_single_curve_index("CDX-RPV01", start, end, 10_000_000.0);
     let ctx = standard_market_context(as_of);
 
-    let direct_rpv01 = idx.risky_pv01(&ctx, as_of).unwrap();
-
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::RiskyPv01])
+        .price_with_metrics(&ctx, as_of, &[MetricId::RiskyPv01, MetricId::Pv01])
         .unwrap();
     let metric_rpv01 = *result.measures.get("risky_pv01").unwrap();
+    let metric_pv01 = *result.measures.get("pv01").unwrap();
 
     assert_relative_eq(
-        direct_rpv01,
+        metric_pv01,
         metric_rpv01,
         0.001,
-        "Risky PV01: direct vs metric",
+        "Risky PV01: pv01 alias vs metric",
     );
 }
 

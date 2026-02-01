@@ -12,7 +12,7 @@ use finstack_valuations::instruments::fixed_income::convertible::{
     DividendAdjustment,
 };
 use finstack_valuations::instruments::Attributes;
-use finstack_valuations::prelude::InstrumentNpvExt;
+use finstack_valuations::prelude::Instrument;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
@@ -602,9 +602,9 @@ impl PyConvertibleBond {
         date_to_py(py, self.inner.maturity)
     }
 
-    fn npv(&self, market: &PyMarketContext, as_of: Bound<'_, PyAny>) -> PyResult<PyMoney> {
+    fn value(&self, market: &PyMarketContext, as_of: Bound<'_, PyAny>) -> PyResult<PyMoney> {
         let date = py_to_date(&as_of)?;
-        let pv = self.inner.npv(&market.inner, date).map_err(core_to_py)?;
+        let pv = self.inner.value(&market.inner, date).map_err(core_to_py)?;
         Ok(PyMoney::new(pv))
     }
 

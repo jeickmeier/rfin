@@ -16,7 +16,6 @@ use crate::instruments::common::models::{d1, d2, norm_cdf, norm_pdf};
 use crate::instruments::common::parameters::OptionType;
 use crate::instruments::common::traits::Instrument;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::ParInterp;
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -37,8 +36,6 @@ pub struct CdsOptionPricerConfig {
     pub theta_days_per_year: f64,
     /// Initial guess for implied volatility solver
     pub iv_initial_guess: f64,
-    /// Forward rate interpolation method
-    pub forward_interp: ParInterp,
 }
 
 impl Default for CdsOptionPricerConfig {
@@ -48,7 +45,6 @@ impl Default for CdsOptionPricerConfig {
             bp_per_unit: 10000.0,
             theta_days_per_year: 365.0,
             iv_initial_guess: 0.20,
-            forward_interp: ParInterp::Linear,
         }
     }
 }
@@ -363,62 +359,6 @@ impl CdsOptionPricer {
             0.0
         };
         scale * risky_annuity * forward * norm_pdf(d1) * t.sqrt() / 100.0
-    }
-
-    /// Analytical theta per day using Black-76 formula.
-    ///
-    /// # Note
-    ///
-    /// This is the analytical approximation that only captures the Black formula
-    /// time decay (dBlack/dt) but not the risky annuity decay (dA/dt).
-    ///
-    /// Note: the pricing formula uses a PV'd risky annuity, so there is no
-    /// separate discounting term in the Black expression. The `r` parameter
-    /// is ignored and should be supplied as 0.0.
-    /// For complete theta including annuity decay, use [`theta_finite_diff`](Self::theta_finite_diff).
-    pub fn theta_analytical(
-        &self,
-        option: &CdsOption,
-        forward_spread_bp: f64,
-        risky_annuity: f64,
-        r: f64,
-        sigma: f64,
-        t: f64,
-    ) -> f64 {
-        let scale = if option.underlying_is_index {
-            option.index_factor.unwrap_or(1.0)
-        } else {
-            1.0
-        };
-        if t <= 0.0 {
-            return 0.0;
-        }
-        let forward = forward_spread_bp / self.config.bp_per_unit;
-        let strike = option.strike_spread_bp / self.config.bp_per_unit;
-        if forward <= 0.0 || strike <= 0.0 {
-            return 0.0;
-        }
-        let d1 = d1(forward, strike, 0.0, sigma, t, 0.0);
-        let sqrt_t = t.sqrt();
-
-        // Theta = dV/dt.
-        // V = A * Black
-        // dV/dt = dA/dt * Black + A * dBlack/dt
-        // This analytical version only computes A * dBlack/dt.
-        // For complete theta, use theta_finite_diff.
-
-        match option.option_type {
-            OptionType::Call => {
-                let term1 = -forward * norm_pdf(d1) * sigma / (2.0 * sqrt_t);
-                let _ = r;
-                scale * risky_annuity * term1 / self.config.theta_days_per_year
-            }
-            OptionType::Put => {
-                let term1 = -forward * norm_pdf(d1) * sigma / (2.0 * sqrt_t);
-                let _ = r;
-                scale * risky_annuity * term1 / self.config.theta_days_per_year
-            }
-        }
     }
 
     /// Finite-difference theta (complete, including risky annuity decay).

@@ -361,6 +361,9 @@ impl MetricId {
     /// Risky PV01 for CDS
     pub const RiskyPv01: Self = Self(Cow::Borrowed("risky_pv01"));
 
+    /// Risky annuity (premium leg PV per 1bp)
+    pub const RiskyAnnuity: Self = Self(Cow::Borrowed("risky_annuity"));
+
     /// Protection leg present value
     pub const ProtectionLegPv: Self = Self(Cow::Borrowed("protection_leg_pv"));
 
@@ -828,6 +831,7 @@ impl MetricId {
         MetricId::QuoteRate,
         MetricId::ParSpread,
         MetricId::RiskyPv01,
+        MetricId::RiskyAnnuity,
         MetricId::ProtectionLegPv,
         MetricId::PremiumLegPv,
         MetricId::JumpToDefault,

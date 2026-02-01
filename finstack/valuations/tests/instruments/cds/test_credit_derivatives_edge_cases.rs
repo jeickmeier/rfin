@@ -241,7 +241,6 @@ fn test_expected_loss_distressed_credit() {
 /// parameters. Creating a new CDS could introduce schedule differences.
 #[test]
 fn test_par_spread_npv_consistency() {
-    use finstack_valuations::instruments::credit_derivatives::cds::{CDSPricer, CDSPricerConfig};
     use rust_decimal::Decimal;
 
     let base = base_date();
@@ -266,26 +265,29 @@ fn test_par_spread_npv_consistency() {
 
     let disc = create_discount_curve(base);
     let hazard = create_hazard_curve(base, recovery);
+    let market = MarketContext::new()
+        .insert_discount(disc)
+        .insert_hazard(hazard);
 
-    // Use pricer with consistent settings: par_spread_uses_full_premium = true
-    // so par spread denominator includes AoD, matching the NPV calculation
-    let pricer = CDSPricer::with_config(CDSPricerConfig {
-        par_spread_uses_full_premium: true,
-        ..Default::default()
-    });
-
-    // Get par spread using the consistent pricer
-    let par_spread = pricer
-        .par_spread(&cds_test, &disc, &hazard, base)
-        .expect("ParSpread should compute");
+    // Derive par spread from protection PV and risky annuity (consistent with NPV logic)
+    let result = cds_test
+        .price_with_metrics(
+            &market,
+            base,
+            &[MetricId::ProtectionLegPv, MetricId::PremiumLegPv],
+        )
+        .expect("ParSpread inputs should compute");
+    let protection_pv = result.measures[&MetricId::ProtectionLegPv];
+    let premium_pv = result.measures[&MetricId::PremiumLegPv];
+    let par_spread = protection_pv / premium_pv * initial_spread;
 
     // Clone the CDS and update only the spread (preserving schedule)
     let mut cds_at_par = cds_test.clone();
     cds_at_par.premium.spread_bp = Decimal::try_from(par_spread).expect("valid par_spread");
 
     // NPV at par spread should be approximately zero
-    let npv_at_par = pricer
-        .npv(&cds_at_par, &disc, &hazard, base)
+    let npv_at_par = cds_at_par
+        .value(&market, base)
         .expect("NPV should compute")
         .amount();
 

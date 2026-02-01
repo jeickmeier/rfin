@@ -43,7 +43,7 @@ use time::macros::date;
 /// use finstack_valuations::instruments::equity::equity_trs::EquityTotalReturnSwap;
 ///
 /// let trs = EquityTotalReturnSwap::example();
-/// // let pv = trs.npv(&market_context, as_of_date)?;
+/// // let pv = trs.value(&market_context, as_of_date)?;
 /// ```
 #[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

@@ -35,25 +35,6 @@ use finstack_core::money::Money;
 use time::macros::date;
 use time::Month;
 
-// =============================================================================
-// Legacy Tolerance Constants (deprecated - use `tolerances` module instead)
-// =============================================================================
-
-/// Standard tolerance for numerical comparisons (0.01%)
-#[deprecated(since = "0.1.0", note = "Use tolerances::NUMERICAL instead")]
-#[allow(dead_code)]
-pub const TOLERANCE: f64 = 1e-4;
-
-/// Tight tolerance for exact calculations (0.0001%)
-#[deprecated(since = "0.1.0", note = "Use tolerances::ANALYTICAL instead")]
-#[allow(dead_code)]
-pub const TIGHT_TOLERANCE: f64 = 1e-6;
-
-/// Relative tolerance for percentage checks (1%)
-#[deprecated(since = "0.1.0", note = "Use tolerances::RELATIVE instead")]
-#[allow(dead_code)]
-pub const RELATIVE_TOLERANCE: f64 = 0.01;
-
 /// Tolerance tiers for different test categories.
 ///
 /// Use these standardized tolerances instead of ad-hoc hardcoded values
@@ -786,7 +767,12 @@ mod tests {
     #[test]
     fn test_relative_eq() {
         #[allow(deprecated)]
-        assert_relative_eq(100.0, 99.5, RELATIVE_TOLERANCE, "Within relative tolerance");
+        assert_relative_eq(
+            100.0,
+            99.5,
+            tolerances::RELATIVE,
+            "Within relative tolerance",
+        );
     }
 
     #[test]
@@ -932,9 +918,14 @@ mod tests {
     fn test_money_helpers() {
         let base = usd(100.0);
         #[allow(deprecated)]
-        let bumped = usd(100.0 + TOLERANCE * 0.5);
+        let bumped = usd(100.0 + tolerances::NUMERICAL * 0.5);
         #[allow(deprecated)]
-        assert_money_eq(base, bumped, TOLERANCE, "USD helper within tolerance");
+        assert_money_eq(
+            base,
+            bumped,
+            tolerances::NUMERICAL,
+            "USD helper within tolerance",
+        );
 
         let eur_value = eur(50.0);
         assert_eq!(eur_value.currency(), Currency::EUR);

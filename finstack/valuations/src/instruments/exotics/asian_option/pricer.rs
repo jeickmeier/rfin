@@ -46,12 +46,6 @@ impl AsianOptionMcPricer {
         }
     }
 
-    /// Create with custom configuration.
-    #[allow(dead_code)] // May be used by external bindings or tests
-    pub fn with_config(config: PathDependentPricerConfig) -> Self {
-        Self { config }
-    }
-
     /// Price an Asian option using Monte Carlo.
     fn price_internal(
         &self,

@@ -17,8 +17,20 @@ use finstack_valuations::instruments::credit_derivatives::cds::{
 };
 use finstack_valuations::instruments::credit_derivatives::cds_index::{CDSIndex, IndexPricing};
 use finstack_valuations::instruments::Instrument;
-use finstack_valuations::instruments::InstrumentNpvExt;
+use finstack_valuations::metrics::MetricId;
 use time::macros::date;
+
+fn metric_value(
+    index: &CDSIndex,
+    market: &finstack_core::market_data::context::MarketContext,
+    as_of: finstack_core::dates::Date,
+    metric: MetricId,
+) -> f64 {
+    let result = index
+        .price_with_metrics(market, as_of, std::slice::from_ref(&metric))
+        .expect("metric should compute");
+    result.measures[&metric]
+}
 
 #[test]
 fn test_single_curve_npv_calculation() {
@@ -46,12 +58,15 @@ fn test_single_curve_npv_components() {
     let idx = standard_single_curve_index("CDX-COMPONENTS", start, end, 10_000_000.0);
     let ctx = standard_market_context(as_of);
 
-    let npv = idx.npv(&ctx, as_of).unwrap();
-    let pv_prot = idx.pv_protection_leg(&ctx, as_of).unwrap();
-    let pv_prem = idx.pv_premium_leg(&ctx, as_of).unwrap();
+    let npv = idx.value(&ctx, as_of).unwrap();
+    let pv_prot = metric_value(&idx, &ctx, as_of, MetricId::ProtectionLegPv);
+    let pv_prem = metric_value(&idx, &ctx, as_of, MetricId::PremiumLegPv);
 
-    let expected_npv = pv_prot.checked_sub(pv_prem).unwrap();
-    assert_money_approx_eq(npv, expected_npv, 1.0, "NPV = Protection - Premium");
+    let expected_npv = pv_prot - pv_prem;
+    assert!(
+        (npv.amount() - expected_npv).abs() < 1.0,
+        "NPV = Protection - Premium"
+    );
 }
 
 #[test]
@@ -64,12 +79,12 @@ fn test_single_curve_protection_leg_positive() {
     let idx = standard_single_curve_index("CDX-PROT", start, end, 10_000_000.0);
     let ctx = standard_market_context(as_of);
 
-    let pv_prot = idx.pv_protection_leg(&ctx, as_of).unwrap();
+    let pv_prot = metric_value(&idx, &ctx, as_of, MetricId::ProtectionLegPv);
 
     assert!(
-        pv_prot.amount() > 0.0,
+        pv_prot > 0.0,
         "Protection leg PV should be positive, got {}",
-        pv_prot.amount()
+        pv_prot
     );
 }
 
@@ -83,12 +98,12 @@ fn test_single_curve_premium_leg_positive() {
     let idx = standard_single_curve_index("CDX-PREM", start, end, 10_000_000.0);
     let ctx = standard_market_context(as_of);
 
-    let pv_prem = idx.pv_premium_leg(&ctx, as_of).unwrap();
+    let pv_prem = metric_value(&idx, &ctx, as_of, MetricId::PremiumLegPv);
 
     assert!(
-        pv_prem.amount() > 0.0,
+        pv_prem > 0.0,
         "Premium leg PV should be positive, got {}",
-        pv_prem.amount()
+        pv_prem
     );
 }
 
@@ -102,7 +117,7 @@ fn test_single_curve_par_spread() {
     let idx = standard_single_curve_index("CDX-PAR", start, end, 10_000_000.0);
     let ctx = standard_market_context(as_of);
 
-    let par_spread = idx.par_spread(&ctx, as_of).unwrap();
+    let par_spread = metric_value(&idx, &ctx, as_of, MetricId::ParSpread);
 
     assert_positive(par_spread, "Par spread");
     // Flat hazard approximation: spread ≈ hazard × (1 - recovery) × 10,000
@@ -125,7 +140,7 @@ fn test_single_curve_risky_pv01() {
     let idx = standard_single_curve_index("CDX-RPV01", start, end, 10_000_000.0);
     let ctx = standard_market_context(as_of);
 
-    let rpv01 = idx.risky_pv01(&ctx, as_of).unwrap();
+    let rpv01 = metric_value(&idx, &ctx, as_of, MetricId::RiskyPv01);
 
     assert_positive(rpv01, "Risky PV01");
     // For $10MM, 5Y: expect $4,000-$5,000
@@ -219,8 +234,8 @@ fn test_single_curve_risky_pv01_scales_with_notional() {
     let idx_10mm = standard_single_curve_index("CDX-10MM", start, end, 10_000_000.0);
     let idx_20mm = standard_single_curve_index("CDX-20MM", start, end, 20_000_000.0);
 
-    let rpv01_10mm = idx_10mm.risky_pv01(&ctx, as_of).unwrap();
-    let rpv01_20mm = idx_20mm.risky_pv01(&ctx, as_of).unwrap();
+    let rpv01_10mm = metric_value(&idx_10mm, &ctx, as_of, MetricId::RiskyPv01);
+    let rpv01_20mm = metric_value(&idx_20mm, &ctx, as_of, MetricId::RiskyPv01);
 
     assert_linear_scaling(
         rpv01_10mm,
@@ -267,8 +282,8 @@ fn test_single_curve_par_spread_independent_of_notional() {
     let idx_1mm = standard_single_curve_index("CDX-1MM", start, end, 1_000_000.0);
     let idx_100mm = standard_single_curve_index("CDX-100MM", start, end, 100_000_000.0);
 
-    let par_1mm = idx_1mm.par_spread(&ctx, as_of).unwrap();
-    let par_100mm = idx_100mm.par_spread(&ctx, as_of).unwrap();
+    let par_1mm = metric_value(&idx_1mm, &ctx, as_of, MetricId::ParSpread);
+    let par_100mm = metric_value(&idx_100mm, &ctx, as_of, MetricId::ParSpread);
 
     assert_relative_eq(
         par_1mm,
@@ -302,9 +317,9 @@ fn test_single_curve_maturity_impact() {
     let idx_10y =
         standard_single_curve_index("CDX-10Y", start, date!(2035 - 01 - 01), 10_000_000.0);
 
-    let prot_3y = idx_3y.pv_protection_leg(&ctx, as_of).unwrap().amount();
-    let prot_5y = idx_5y.pv_protection_leg(&ctx, as_of).unwrap().amount();
-    let prot_10y = idx_10y.pv_protection_leg(&ctx, as_of).unwrap().amount();
+    let prot_3y = metric_value(&idx_3y, &ctx, as_of, MetricId::ProtectionLegPv);
+    let prot_5y = metric_value(&idx_5y, &ctx, as_of, MetricId::ProtectionLegPv);
+    let prot_10y = metric_value(&idx_10y, &ctx, as_of, MetricId::ProtectionLegPv);
 
     assert!(
         prot_3y < prot_5y && prot_5y < prot_10y,
@@ -325,8 +340,8 @@ fn test_single_curve_risky_pv01_maturity_impact() {
     let idx_3y = standard_single_curve_index("CDX-3Y", start, date!(2028 - 01 - 01), 10_000_000.0);
     let idx_5y = standard_single_curve_index("CDX-5Y", start, date!(2030 - 01 - 01), 10_000_000.0);
 
-    let rpv01_3y = idx_3y.risky_pv01(&ctx, as_of).unwrap();
-    let rpv01_5y = idx_5y.risky_pv01(&ctx, as_of).unwrap();
+    let rpv01_3y = metric_value(&idx_3y, &ctx, as_of, MetricId::RiskyPv01);
+    let rpv01_5y = metric_value(&idx_5y, &ctx, as_of, MetricId::RiskyPv01);
 
     assert!(
         rpv01_3y < rpv01_5y,

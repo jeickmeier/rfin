@@ -15,7 +15,9 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fx::fx_option::FxOption;
 use finstack_valuations::instruments::market::{ExerciseStyle, OptionType};
 use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{PricingOverrides, SettlementType};
+use finstack_valuations::metrics::MetricId;
 use std::sync::Arc;
 
 /// Standard currency pairs for testing.
@@ -171,6 +173,41 @@ pub fn build_put_option(_as_of: Date, expiry: Date, strike: f64, notional: f64) 
         .attributes(Attributes::new())
         .build()
         .unwrap()
+}
+
+/// Snapshot of FX option greeks from the metrics API.
+#[derive(Clone, Copy, Debug)]
+pub struct GreeksSnapshot {
+    pub delta: f64,
+    pub gamma: f64,
+    pub vega: f64,
+    pub theta: f64,
+    pub rho: f64,
+    pub foreign_rho: f64,
+}
+
+/// Compute FX option greeks via `price_with_metrics`.
+pub fn compute_greeks(option: &FxOption, market: &MarketContext, as_of: Date) -> GreeksSnapshot {
+    let metrics = [
+        MetricId::Delta,
+        MetricId::Gamma,
+        MetricId::Vega,
+        MetricId::Theta,
+        MetricId::Rho,
+        MetricId::ForeignRho,
+    ];
+    let result = option
+        .price_with_metrics(market, as_of, &metrics)
+        .expect("metrics should compute");
+    let measures = &result.measures;
+    GreeksSnapshot {
+        delta: *measures.get(&MetricId::Delta).expect("delta"),
+        gamma: *measures.get(&MetricId::Gamma).expect("gamma"),
+        vega: *measures.get(&MetricId::Vega).expect("vega"),
+        theta: *measures.get(&MetricId::Theta).expect("theta"),
+        rho: *measures.get(&MetricId::Rho).expect("rho"),
+        foreign_rho: *measures.get(&MetricId::ForeignRho).expect("foreign_rho"),
+    }
 }
 
 /// Assert two floats are approximately equal with relative and absolute tolerance.

@@ -16,13 +16,15 @@
 
 ```rust
 use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
+use finstack_valuations::metrics::MetricId;
 use finstack_core::dates::Date;
 use time::Month;
 
 let as_of = Date::from_calendar_date(2024, Month::January, 5)?;
 let cds = CreditDefaultSwap::example();
 let pv = cds.value(&market_context, as_of)?;
-let par_spread = cds.par_spread(&market_context, as_of)?;
+let result = cds.price_with_metrics(&market_context, as_of, &[MetricId::ParSpread])?;
+let par_spread = result.measures[&MetricId::ParSpread];
 ```
 
 ---

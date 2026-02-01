@@ -4,7 +4,7 @@
 //! Recovery01 measures the change in PV for a 1% (100bp) absolute change in recovery rate.
 
 use crate::instruments::cds_index::CDSIndex;
-use crate::instruments::common::traits::InstrumentNpvExt;
+use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -34,10 +34,10 @@ impl MetricCalculator for Recovery01Calculator {
         };
 
         let index_up = bump(index, RECOVERY_BUMP);
-        let pv_up = index_up.npv(&context.curves, as_of)?.amount();
+        let pv_up = index_up.value(&context.curves, as_of)?.amount();
 
         let index_down = bump(index, -RECOVERY_BUMP);
-        let pv_down = index_down.npv(&context.curves, as_of)?.amount();
+        let pv_down = index_down.value(&context.curves, as_of)?.amount();
 
         // Recovery01 = PV change for a 1% recovery shift (symmetric bump)
         let recovery01 = (pv_up - pv_down) / 2.0;

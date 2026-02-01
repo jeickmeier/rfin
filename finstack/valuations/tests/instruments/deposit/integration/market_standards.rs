@@ -26,7 +26,7 @@ fn test_standard_usd_3m_deposit() {
         .build();
 
     // Execute
-    let pv = dep.npv(&ctx, base).unwrap();
+    let pv = dep.value(&ctx, base).unwrap();
     let par = compute_metric(&dep, &ctx, base, MetricId::DepositParRate);
 
     // Validate - at market rate, PV should be near zero
@@ -58,7 +58,7 @@ fn test_standard_eur_6m_deposit() {
         .build();
 
     // Execute
-    let pv = dep.npv(&ctx, base).unwrap();
+    let pv = dep.value(&ctx, base).unwrap();
 
     // Validate
     assert!(pv.currency() == Currency::EUR);
@@ -80,7 +80,7 @@ fn test_overnight_deposit_libor_style() {
         .build();
 
     // Execute
-    let pv = dep.npv(&ctx, base).unwrap();
+    let pv = dep.value(&ctx, base).unwrap();
     let yf = compute_metric(&dep, &ctx, base, MetricId::Yf);
 
     // Validate
@@ -211,9 +211,9 @@ fn test_multi_currency_portfolio() {
         .build();
 
     // Execute
-    let pv_usd = dep_usd.npv(&ctx_usd, base).unwrap();
-    let pv_eur = dep_eur.npv(&ctx_eur, base).unwrap();
-    let pv_gbp = dep_gbp.npv(&ctx_gbp, base).unwrap();
+    let pv_usd = dep_usd.value(&ctx_usd, base).unwrap();
+    let pv_eur = dep_eur.value(&ctx_eur, base).unwrap();
+    let pv_gbp = dep_gbp.value(&ctx_gbp, base).unwrap();
 
     // Validate - each should price correctly in its own currency
     assert_eq!(pv_usd.currency(), Currency::USD);
@@ -244,8 +244,8 @@ fn test_rate_quote_vs_price_quote() {
         .build();
 
     // Execute
-    let pv_rate = dep_rate.npv(&ctx, base).unwrap();
-    let pv_par = dep_par.npv(&ctx, base).unwrap();
+    let pv_rate = dep_rate.value(&ctx, base).unwrap();
+    let pv_par = dep_par.value(&ctx, base).unwrap();
 
     // Validate - par deposit should have reasonably small PV (within numerical precision)
     assert!(pv_par.amount().abs() < 200.0);
@@ -302,7 +302,7 @@ fn test_usd_deposit_friday_trade_with_nyse_calendar() {
     assert_eq!(effective_end, date(2025, 2, 7));
 
     // Execute - NPV and metrics should be computable with adjusted dates
-    let pv = dep.npv(&ctx, trade_date).unwrap();
+    let pv = dep.value(&ctx, trade_date).unwrap();
     let metrics = compute_metrics(
         &dep,
         &ctx,
@@ -368,7 +368,7 @@ fn test_deposit_without_spot_lag_uses_raw_dates() {
     );
 
     // Execute - should price without error
-    let pv = dep.npv(&ctx, trade_date).unwrap();
+    let pv = dep.value(&ctx, trade_date).unwrap();
     assert!(pv.amount().is_finite());
 }
 
@@ -403,7 +403,7 @@ fn test_gbp_deposit_t0_settlement() {
     );
 
     // Execute
-    let pv = dep.npv(&ctx, trade_date).unwrap();
+    let pv = dep.value(&ctx, trade_date).unwrap();
     assert_eq!(pv.currency(), Currency::GBP);
     assert!(pv.amount().is_finite());
 }

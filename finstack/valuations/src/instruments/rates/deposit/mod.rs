@@ -44,12 +44,8 @@
 //! - Plan-driven calibration in [`calibration::api`] (Discount step) for curve bootstrap
 
 pub(crate) mod metrics;
-/// Deposit pricer implementation
 pub(crate) mod pricer;
 mod types;
 
-#[doc(hidden)]
 pub use metrics::register_deposit_metrics;
 pub use types::Deposit;
-
-// Builder provided by FinancialBuilder derive

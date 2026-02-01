@@ -22,7 +22,7 @@
 //! the full sensitivity across both legs.
 
 use crate::instruments::cds::CreditDefaultSwap;
-use crate::instruments::common::traits::InstrumentNpvExt;
+use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -59,31 +59,31 @@ impl MetricCalculator for Recovery01Calculator {
                 // Central difference: most accurate, use when both bumps available
                 let mut cds_up = cds.clone();
                 cds_up.protection.recovery_rate = bumped_up;
-                let pv_up = cds_up.npv(&context.curves, as_of)?.amount();
+                let pv_up = cds_up.value(&context.curves, as_of)?.amount();
 
                 let mut cds_down = cds.clone();
                 cds_down.protection.recovery_rate = bumped_down;
-                let pv_down = cds_down.npv(&context.curves, as_of)?.amount();
+                let pv_down = cds_down.value(&context.curves, as_of)?.amount();
 
                 (pv_up - pv_down) / (up_delta + down_delta)
             }
             (true, false) => {
                 // Forward difference: recovery near 0, can only bump up
-                let base_pv = cds.npv(&context.curves, as_of)?.amount();
+                let base_pv = cds.value(&context.curves, as_of)?.amount();
 
                 let mut cds_up = cds.clone();
                 cds_up.protection.recovery_rate = bumped_up;
-                let pv_up = cds_up.npv(&context.curves, as_of)?.amount();
+                let pv_up = cds_up.value(&context.curves, as_of)?.amount();
 
                 (pv_up - base_pv) / up_delta
             }
             (false, true) => {
                 // Backward difference: recovery near 1, can only bump down
-                let base_pv = cds.npv(&context.curves, as_of)?.amount();
+                let base_pv = cds.value(&context.curves, as_of)?.amount();
 
                 let mut cds_down = cds.clone();
                 cds_down.protection.recovery_rate = bumped_down;
-                let pv_down = cds_down.npv(&context.curves, as_of)?.amount();
+                let pv_down = cds_down.value(&context.curves, as_of)?.amount();
 
                 (base_pv - pv_down) / down_delta
             }

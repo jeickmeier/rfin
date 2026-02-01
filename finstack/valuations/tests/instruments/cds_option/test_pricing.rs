@@ -2,6 +2,8 @@
 
 use super::common::*;
 use finstack_valuations::instruments::Instrument;
+use finstack_valuations::metrics::MetricId;
+use finstack_valuations::test_utils;
 use time::macros::date;
 
 #[test]
@@ -164,10 +166,21 @@ fn test_forward_spread_calculation() {
     let market = standard_market(as_of);
     let option = CdsOptionBuilder::new().build(as_of);
 
-    let pricer =
-        finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionPricer::default(
-        );
-    let forward = pricer.forward_spread_bp(&option, &market, as_of).unwrap();
+    let mut underlying = test_utils::cds_buy_protection(
+        "CDS-FWD",
+        option.notional,
+        option.strike_spread_bp,
+        option.expiry,
+        option.cds_maturity,
+        option.discount_curve_id.clone(),
+        option.credit_curve_id.clone(),
+    )
+    .expect("underlying CDS should build");
+    underlying.protection.recovery_rate = option.recovery_rate;
+    let forward = underlying
+        .price_with_metrics(&market, as_of, &[MetricId::ParSpread])
+        .expect("par spread should compute")
+        .measures[&MetricId::ParSpread];
 
     assert_positive(forward, "Forward spread");
     assert_in_range(forward, 50.0, 500.0, "Forward spread reasonableness");

@@ -12,6 +12,7 @@ use finstack_valuations::instruments::market::{ExerciseStyle, OptionType};
 use finstack_valuations::instruments::FxUnderlyingParams;
 use finstack_valuations::instruments::{Attributes, Instrument};
 use finstack_valuations::instruments::{PricingOverrides, SettlementType};
+use finstack_valuations::metrics::MetricId;
 use finstack_valuations::test_utils;
 use time::macros::date;
 
@@ -260,7 +261,7 @@ fn test_compute_greeks_method() {
     let market = build_market_context(as_of, MarketParams::atm());
 
     // Act
-    let greeks = call.compute_greeks(&market, as_of).unwrap();
+    let greeks = compute_greeks(&call, &market, as_of);
 
     // Assert
     assert!(greeks.delta.is_finite());
@@ -285,21 +286,27 @@ fn test_implied_vol_method() {
 }
 
 #[test]
-fn test_calculator_method() {
+fn test_price_with_metrics_matches_value() {
     // Arrange
-    let call = build_call_option(
-        date!(2024 - 01 - 01),
-        date!(2025 - 01 - 01),
-        1.20,
-        1_000_000.0,
-    );
+    let as_of = date!(2024 - 01 - 01);
+    let expiry = date!(2025 - 01 - 01);
+    let call = build_call_option(as_of, expiry, 1.20, 1_000_000.0);
+    let market = build_market_context(as_of, MarketParams::atm());
 
     // Act
-    let calc = call.calculator();
+    let pv = call.value(&market, as_of).unwrap();
+    let result = call
+        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .unwrap();
 
-    // Assert: Should create a new calculator
-    // (just verify it exists and has default config)
-    assert_eq!(calc.config.theta_days_per_year, 365.0);
+    // Assert
+    assert_approx_eq(
+        result.value.amount(),
+        pv.amount(),
+        1e-10,
+        1e-10,
+        "price_with_metrics PV matches value()",
+    );
 }
 
 #[test]
@@ -308,18 +315,18 @@ fn test_pricing_overrides_applied() {
     let as_of = date!(2024 - 01 - 01);
     let expiry = date!(2025 - 01 - 01);
     let mut call = build_call_option(as_of, expiry, 1.20, 1_000_000.0);
-
-    // Override vol to 30%
-    call.pricing_overrides.implied_volatility = Some(0.30);
-
     let market = build_market_context(as_of, MarketParams::atm()); // Market vol is 15%
-    let calc = call.calculator();
 
     // Act
-    let (_spot, _r_d, _r_f, sigma, _t) = calc.collect_inputs(&call, &market, as_of).unwrap();
+    let pv_surface = call.value(&market, as_of).unwrap();
+    call.pricing_overrides.implied_volatility = Some(0.30); // Override to 30%
+    let pv_override = call.value(&market, as_of).unwrap();
 
-    // Assert: Should use override vol
-    assert_eq!(sigma, 0.30, "Should use override vol");
+    // Assert: Higher vol should increase option PV
+    assert!(
+        pv_override.amount() > pv_surface.amount(),
+        "Override vol should increase PV"
+    );
 }
 
 #[test]

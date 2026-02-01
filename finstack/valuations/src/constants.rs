@@ -30,7 +30,6 @@ pub const ONE_BASIS_POINT: f64 = 0.0001;
 /// let spread_decimal = 0.0025;
 /// let spread_bp = spread_decimal * BASIS_POINTS_PER_UNIT; // 25bp
 /// ```
-#[allow(dead_code)]
 pub const BASIS_POINTS_PER_UNIT: f64 = 10_000.0;
 
 /// Convert percentage to decimal (1% = 0.01).
@@ -56,40 +55,6 @@ pub const PERCENT_TO_DECIMAL: f64 = 0.01;
 /// let rate_pct = rate_decimal * DECIMAL_TO_PERCENT; // 5.0%
 /// ```
 pub const DECIMAL_TO_PERCENT: f64 = 100.0;
-
-/// Decimal-friendly helpers for deterministic arithmetic.
-/// These supplement f64 constants without breaking existing callers.
-/// Prefer these in money and aggregation code paths.
-#[inline]
-#[allow(dead_code)]
-pub fn one_basis_point_dec() -> rust_decimal::Decimal {
-    // 0.0001
-    rust_decimal::Decimal::new(1, 4)
-}
-
-/// Basis points per unit (10,000) as Decimal
-#[inline]
-#[allow(dead_code)]
-pub fn basis_points_per_unit_dec() -> rust_decimal::Decimal {
-    // 10,000
-    rust_decimal::Decimal::new(10_000, 0)
-}
-
-/// Conversion factor from percentage to decimal (0.01) as Decimal
-#[inline]
-#[allow(dead_code)]
-pub fn percent_to_decimal_dec() -> rust_decimal::Decimal {
-    // 0.01
-    rust_decimal::Decimal::new(1, 2)
-}
-
-/// Conversion factor from decimal to percentage (100) as Decimal
-#[inline]
-#[allow(dead_code)]
-pub fn decimal_to_percent_dec() -> rust_decimal::Decimal {
-    // 100
-    rust_decimal::Decimal::new(100, 0)
-}
 
 /// Tolerance for numerical calculations
 pub const NUMERICAL_TOLERANCE: f64 = 1e-10;
@@ -133,7 +98,6 @@ pub mod numerical {
     ///
     /// Value: 1e-12 (tighter than ZERO_TOLERANCE because rates are typically
     /// O(0.01) to O(0.1), so relative precision matters more).
-    #[allow(dead_code)]
     pub const RATE_COMPARISON_TOLERANCE: f64 = 1e-12;
 
     /// Small epsilon to prevent division by zero.
@@ -143,7 +107,6 @@ pub mod numerical {
     ///
     /// Value: 1e-15 (close to but above f64 machine epsilon to ensure
     /// the addition is numerically meaningful).
-    #[allow(dead_code)]
     pub const DIVISION_EPSILON: f64 = 1e-15;
 
     /// Default relative tolerance for numerical comparisons.

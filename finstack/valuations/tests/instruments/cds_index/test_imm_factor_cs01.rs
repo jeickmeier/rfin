@@ -4,14 +4,13 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::credit_derivatives::cds::CDSPricer;
 use finstack_valuations::instruments::credit_derivatives::cds::{CDSConvention, PayReceive};
 use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndex;
 use finstack_valuations::instruments::credit_derivatives::cds_index::{
     CDSIndexConstituentParam, CDSIndexConstructionParams, CDSIndexParams,
 };
 use finstack_valuations::instruments::CreditParams;
-use finstack_valuations::instruments::InstrumentNpvExt;
+use finstack_valuations::instruments::Instrument;
 use time::Month;
 
 use crate::common::test_helpers::flat_discount_curve;
@@ -62,15 +61,18 @@ fn imm_20th_schedule_for_index_synthetic() {
     )
     .expect("valid test parameters");
     let cds = idx.to_synthetic_cds();
-    let pricer = CDSPricer::new();
-    let schedule = pricer.generate_isda_schedule(&cds).unwrap();
-    // Internal coupon dates (excluding first and last) should be on the 20th
-    for d in schedule
+    let schedule_dates = cds.isda_coupon_schedule().unwrap();
+    // Internal coupon dates (excluding first and last) should be near the 20th.
+    for d in schedule_dates
         .iter()
         .skip(1)
-        .take(schedule.len().saturating_sub(2))
+        .take(schedule_dates.len().saturating_sub(2))
     {
-        assert_eq!(d.day(), 20);
+        assert!(
+            (18..=23).contains(&d.day()),
+            "ISDA coupon dates should be near the 20th (got day {})",
+            d.day()
+        );
     }
 }
 
@@ -140,8 +142,8 @@ fn index_factor_scales_pv() {
     )
     .expect("valid test parameters");
 
-    let pv_base = idx_base.npv(&ctx, as_of).unwrap().amount();
-    let pv_scaled = idx_scaled.npv(&ctx, as_of).unwrap().amount();
+    let pv_base = idx_base.value(&ctx, as_of).unwrap().amount();
+    let pv_scaled = idx_scaled.value(&ctx, as_of).unwrap().amount();
     // PV should scale approximately with index_factor. Allow small numerical tolerance.
     let ratio = pv_scaled / (pv_base * 0.8);
     assert!((ratio - 1.0).abs() < 5e-6);

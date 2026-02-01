@@ -9,7 +9,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fx::ndf::Ndf;
 use finstack_valuations::instruments::Attributes;
-use finstack_valuations::prelude::InstrumentNpvExt;
+use finstack_valuations::prelude::Instrument;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
@@ -385,9 +385,9 @@ impl PyNdf {
     /// -------
     /// Money
     ///     Present value in settlement currency
-    fn npv(&self, market: &PyMarketContext, as_of: Bound<'_, PyAny>) -> PyResult<PyMoney> {
+    fn value(&self, market: &PyMarketContext, as_of: Bound<'_, PyAny>) -> PyResult<PyMoney> {
         let date = py_to_date(&as_of)?;
-        let value = self.inner.npv(&market.inner, date).map_err(core_to_py)?;
+        let value = self.inner.value(&market.inner, date).map_err(core_to_py)?;
         Ok(PyMoney::new(value))
     }
 

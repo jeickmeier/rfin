@@ -8,8 +8,20 @@
 //! pricing models must satisfy.
 
 use super::helpers::*;
-use finstack_valuations::instruments::fx::fx_option::FxOptionCalculator;
+use finstack_core::dates::Date;
+use finstack_core::dates::DayCountCtx;
+use finstack_valuations::instruments::fx::fx_option::FxOption;
 use time::macros::date;
+
+fn parity_rhs(call: &FxOption, strike: f64, params: MarketParams, as_of: Date) -> f64 {
+    let t = call
+        .day_count
+        .year_fraction(as_of, call.expiry, DayCountCtx::default())
+        .unwrap();
+    let notional = call.notional.amount();
+    notional
+        * (params.spot * (-params.r_foreign * t).exp() - strike * (-params.r_domestic * t).exp())
+}
 
 #[test]
 fn test_put_call_parity_atm() {
@@ -20,19 +32,16 @@ fn test_put_call_parity_atm() {
 
     let call = build_call_option(as_of, expiry, strike, 1_000_000.0);
     let put = build_put_option(as_of, expiry, strike, 1_000_000.0);
-    let market = build_market_context(as_of, MarketParams::atm());
-    let calc = FxOptionCalculator::new();
+    let params = MarketParams::atm();
+    let market = build_market_context(as_of, params);
 
     // Act
-    let call_pv = calc.npv(&call, &market, as_of).unwrap();
-    let put_pv = calc.npv(&put, &market, as_of).unwrap();
-
-    let (spot, r_d, r_f, _, t) = calc.collect_inputs(&call, &market, as_of).unwrap();
+    let call_pv = call.value(&market, as_of).unwrap();
+    let put_pv = put.value(&market, as_of).unwrap();
 
     // Put-call parity: C - P = S * exp(-r_f * T) - K * exp(-r_d * T)
-    let notional = call.notional.amount();
     let lhs = call_pv.amount() - put_pv.amount();
-    let rhs = notional * (spot * (-r_f * t).exp() - strike * (-r_d * t).exp());
+    let rhs = parity_rhs(&call, strike, params, as_of);
 
     // Assert
     assert_approx_eq(lhs, rhs, 1e-6, 1.0, "Put-call parity should hold ATM");
@@ -47,18 +56,14 @@ fn test_put_call_parity_itm() {
 
     let call = build_call_option(as_of, expiry, strike, 1_000_000.0);
     let put = build_put_option(as_of, expiry, strike, 1_000_000.0);
-    let market = build_market_context(as_of, MarketParams::atm());
-    let calc = FxOptionCalculator::new();
+    let params = MarketParams::atm();
+    let market = build_market_context(as_of, params);
 
     // Act
-    let call_pv = calc.npv(&call, &market, as_of).unwrap();
-    let put_pv = calc.npv(&put, &market, as_of).unwrap();
-
-    let (spot, r_d, r_f, _, t) = calc.collect_inputs(&call, &market, as_of).unwrap();
-
-    let notional = call.notional.amount();
+    let call_pv = call.value(&market, as_of).unwrap();
+    let put_pv = put.value(&market, as_of).unwrap();
     let lhs = call_pv.amount() - put_pv.amount();
-    let rhs = notional * (spot * (-r_f * t).exp() - strike * (-r_d * t).exp());
+    let rhs = parity_rhs(&call, strike, params, as_of);
 
     // Assert
     assert_approx_eq(lhs, rhs, 1e-6, 1.0, "Put-call parity should hold ITM");
@@ -73,18 +78,14 @@ fn test_put_call_parity_otm() {
 
     let call = build_call_option(as_of, expiry, strike, 1_000_000.0);
     let put = build_put_option(as_of, expiry, strike, 1_000_000.0);
-    let market = build_market_context(as_of, MarketParams::atm());
-    let calc = FxOptionCalculator::new();
+    let params = MarketParams::atm();
+    let market = build_market_context(as_of, params);
 
     // Act
-    let call_pv = calc.npv(&call, &market, as_of).unwrap();
-    let put_pv = calc.npv(&put, &market, as_of).unwrap();
-
-    let (spot, r_d, r_f, _, t) = calc.collect_inputs(&call, &market, as_of).unwrap();
-
-    let notional = call.notional.amount();
+    let call_pv = call.value(&market, as_of).unwrap();
+    let put_pv = put.value(&market, as_of).unwrap();
     let lhs = call_pv.amount() - put_pv.amount();
-    let rhs = notional * (spot * (-r_f * t).exp() - strike * (-r_d * t).exp());
+    let rhs = parity_rhs(&call, strike, params, as_of);
 
     // Assert
     assert_approx_eq(lhs, rhs, 1e-6, 1.0, "Put-call parity should hold OTM");
@@ -99,18 +100,14 @@ fn test_put_call_parity_high_vol() {
 
     let call = build_call_option(as_of, expiry, strike, 1_000_000.0);
     let put = build_put_option(as_of, expiry, strike, 1_000_000.0);
-    let market = build_market_context(as_of, MarketParams::high_vol());
-    let calc = FxOptionCalculator::new();
+    let params = MarketParams::high_vol();
+    let market = build_market_context(as_of, params);
 
     // Act
-    let call_pv = calc.npv(&call, &market, as_of).unwrap();
-    let put_pv = calc.npv(&put, &market, as_of).unwrap();
-
-    let (spot, r_d, r_f, _, t) = calc.collect_inputs(&call, &market, as_of).unwrap();
-
-    let notional = call.notional.amount();
+    let call_pv = call.value(&market, as_of).unwrap();
+    let put_pv = put.value(&market, as_of).unwrap();
     let lhs = call_pv.amount() - put_pv.amount();
-    let rhs = notional * (spot * (-r_f * t).exp() - strike * (-r_d * t).exp());
+    let rhs = parity_rhs(&call, strike, params, as_of);
 
     // Assert: Parity holds regardless of vol level
     assert_approx_eq(
@@ -131,18 +128,14 @@ fn test_put_call_parity_steep_carry() {
 
     let call = build_call_option(as_of, expiry, strike, 1_000_000.0);
     let put = build_put_option(as_of, expiry, strike, 1_000_000.0);
-    let market = build_market_context(as_of, MarketParams::steep_carry());
-    let calc = FxOptionCalculator::new();
+    let params = MarketParams::steep_carry();
+    let market = build_market_context(as_of, params);
 
     // Act
-    let call_pv = calc.npv(&call, &market, as_of).unwrap();
-    let put_pv = calc.npv(&put, &market, as_of).unwrap();
-
-    let (spot, r_d, r_f, _, t) = calc.collect_inputs(&call, &market, as_of).unwrap();
-
-    let notional = call.notional.amount();
+    let call_pv = call.value(&market, as_of).unwrap();
+    let put_pv = put.value(&market, as_of).unwrap();
     let lhs = call_pv.amount() - put_pv.amount();
-    let rhs = notional * (spot * (-r_f * t).exp() - strike * (-r_d * t).exp());
+    let rhs = parity_rhs(&call, strike, params, as_of);
 
     // Assert: Parity holds with carry
     assert_approx_eq(
@@ -163,18 +156,14 @@ fn test_put_call_parity_short_dated() {
 
     let call = build_call_option(as_of, expiry, strike, 1_000_000.0);
     let put = build_put_option(as_of, expiry, strike, 1_000_000.0);
-    let market = build_market_context(as_of, MarketParams::atm());
-    let calc = FxOptionCalculator::new();
+    let params = MarketParams::atm();
+    let market = build_market_context(as_of, params);
 
     // Act
-    let call_pv = calc.npv(&call, &market, as_of).unwrap();
-    let put_pv = calc.npv(&put, &market, as_of).unwrap();
-
-    let (spot, r_d, r_f, _, t) = calc.collect_inputs(&call, &market, as_of).unwrap();
-
-    let notional = call.notional.amount();
+    let call_pv = call.value(&market, as_of).unwrap();
+    let put_pv = put.value(&market, as_of).unwrap();
     let lhs = call_pv.amount() - put_pv.amount();
-    let rhs = notional * (spot * (-r_f * t).exp() - strike * (-r_d * t).exp());
+    let rhs = parity_rhs(&call, strike, params, as_of);
 
     // Assert
     assert_approx_eq(
@@ -195,18 +184,14 @@ fn test_put_call_parity_long_dated() {
 
     let call = build_call_option(as_of, expiry, strike, 1_000_000.0);
     let put = build_put_option(as_of, expiry, strike, 1_000_000.0);
-    let market = build_market_context(as_of, MarketParams::atm());
-    let calc = FxOptionCalculator::new();
+    let params = MarketParams::atm();
+    let market = build_market_context(as_of, params);
 
     // Act
-    let call_pv = calc.npv(&call, &market, as_of).unwrap();
-    let put_pv = calc.npv(&put, &market, as_of).unwrap();
-
-    let (spot, r_d, r_f, _, t) = calc.collect_inputs(&call, &market, as_of).unwrap();
-
-    let notional = call.notional.amount();
+    let call_pv = call.value(&market, as_of).unwrap();
+    let put_pv = put.value(&market, as_of).unwrap();
     let lhs = call_pv.amount() - put_pv.amount();
-    let rhs = notional * (spot * (-r_f * t).exp() - strike * (-r_d * t).exp());
+    let rhs = parity_rhs(&call, strike, params, as_of);
 
     // Assert
     assert_approx_eq(
@@ -228,17 +213,15 @@ fn test_put_call_parity_different_notionals() {
 
         let call = build_call_option(as_of, expiry, strike, notional);
         let put = build_put_option(as_of, expiry, strike, notional);
-        let market = build_market_context(as_of, MarketParams::atm());
-        let calc = FxOptionCalculator::new();
+        let params = MarketParams::atm();
+        let market = build_market_context(as_of, params);
 
         // Act
-        let call_pv = calc.npv(&call, &market, as_of).unwrap();
-        let put_pv = calc.npv(&put, &market, as_of).unwrap();
-
-        let (spot, r_d, r_f, _, t) = calc.collect_inputs(&call, &market, as_of).unwrap();
+        let call_pv = call.value(&market, as_of).unwrap();
+        let put_pv = put.value(&market, as_of).unwrap();
 
         let lhs = call_pv.amount() - put_pv.amount();
-        let rhs = notional * (spot * (-r_f * t).exp() - strike * (-r_d * t).exp());
+        let rhs = parity_rhs(&call, strike, params, as_of);
 
         // Assert
         let tol = notional * 1e-6;

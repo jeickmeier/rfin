@@ -412,14 +412,7 @@ impl ForwardRateAgreementBuilder {
         self
     }
 
-    /// Deprecated alias for `receive_fixed()`.
-    ///
-    /// This method exists for backward compatibility. New code should use
-    /// `receive_fixed()` which has clearer semantics.
-    #[deprecated(
-        since = "0.9.0",
-        note = "Use receive_fixed() instead; pay_fixed was misnamed"
-    )]
+    /// Alias for `receive_fixed()`.
     pub fn pay_fixed(self, receive_fixed: bool) -> Self {
         self.receive_fixed(receive_fixed)
     }

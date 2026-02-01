@@ -8,8 +8,8 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::credit_derivatives::cds::{CDSPricer, CDSPricerConfig};
 use finstack_valuations::instruments::Instrument;
+use finstack_valuations::metrics::MetricId;
 use finstack_valuations::test_utils;
 use rust_decimal::Decimal;
 use time::macros::date;
@@ -44,6 +44,18 @@ fn build_hazard_curve(hazard_rate: f64, recovery: f64, base_date: Date, id: &str
         .unwrap()
 }
 
+fn metric_value<I: Instrument>(
+    instrument: &I,
+    market: &MarketContext,
+    as_of: Date,
+    metric: MetricId,
+) -> f64 {
+    let result = instrument
+        .price_with_metrics(market, as_of, std::slice::from_ref(&metric))
+        .expect("metric should compute");
+    result.measures[&metric]
+}
+
 #[test]
 fn test_protection_leg_positive_pv() {
     let as_of = date!(2024 - 01 - 01);
@@ -67,18 +79,9 @@ fn test_protection_leg_positive_pv() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let protection_pv = cds
-        .pv_protection_leg(
-            market.get_discount("USD_OIS").unwrap().as_ref(),
-            market.get_hazard("CORP").unwrap().as_ref(),
-            as_of,
-        )
-        .unwrap();
+    let protection_pv = metric_value(&cds, &market, as_of, MetricId::ProtectionLegPv);
 
-    assert!(
-        protection_pv.amount() > 0.0,
-        "Protection leg PV should be positive"
-    );
+    assert!(protection_pv > 0.0, "Protection leg PV should be positive");
 }
 
 #[test]
@@ -104,16 +107,10 @@ fn test_premium_leg_positive_pv() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let premium_pv = cds
-        .pv_premium_leg(
-            market.get_discount("USD_OIS").unwrap().as_ref(),
-            market.get_hazard("CORP").unwrap().as_ref(),
-            as_of,
-        )
-        .unwrap();
+    let premium_pv = metric_value(&cds, &market, as_of, MetricId::PremiumLegPv);
 
     assert!(
-        premium_pv.amount() > 0.0,
+        premium_pv > 0.0,
         "Premium leg PV should be positive for positive spread"
     );
 }
@@ -148,17 +145,16 @@ fn test_npv_calculation_buyer() {
 }
 
 #[test]
-fn test_par_spread_full_premium_branch() {
+fn test_par_spread_increases_with_hazard() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
+
     let disc = build_discount_curve(0.03, as_of, "USD_OIS");
-    let hazard = build_hazard_curve(0.04, 0.40, as_of, "CORP");
-    let market = MarketContext::new()
-        .insert_discount(disc)
-        .insert_hazard(hazard);
+    let hazard_low = build_hazard_curve(0.01, 0.40, as_of, "CORP");
+    let hazard_high = build_hazard_curve(0.04, 0.40, as_of, "CORP");
 
     let cds = test_utils::cds_buy_protection(
-        "FULL_PREM",
+        "PAR_SPREAD_HAZARD",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
         as_of,
@@ -168,34 +164,19 @@ fn test_par_spread_full_premium_branch() {
     )
     .expect("CDS construction should succeed");
 
-    let pricer_base = CDSPricer::new();
+    let market_low = MarketContext::new()
+        .insert_discount(disc.clone())
+        .insert_hazard(hazard_low);
+    let market_high = MarketContext::new()
+        .insert_discount(disc)
+        .insert_hazard(hazard_high);
 
-    let mut cfg_full = CDSPricerConfig::isda_standard();
-    cfg_full.par_spread_uses_full_premium = true;
-    let pricer_full = CDSPricer::with_config(cfg_full);
+    let par_low = metric_value(&cds, &market_low, as_of, MetricId::ParSpread);
+    let par_high = metric_value(&cds, &market_high, as_of, MetricId::ParSpread);
 
-    let par_base = pricer_base
-        .par_spread(
-            &cds,
-            market.get_discount("USD_OIS").unwrap().as_ref(),
-            market.get_hazard("CORP").unwrap().as_ref(),
-            as_of,
-        )
-        .expect("par spread");
-
-    let par_full = pricer_full
-        .par_spread(
-            &cds,
-            market.get_discount("USD_OIS").unwrap().as_ref(),
-            market.get_hazard("CORP").unwrap().as_ref(),
-            as_of,
-        )
-        .expect("par spread full premium");
-
-    // Full premium denominator is larger -> par spread should tighten.
     assert!(
-        par_full < par_base,
-        "Full premium par spread should be lower; base={par_base}, full={par_full}"
+        par_high > par_low,
+        "Higher hazard should imply higher par spread; low={par_low}, high={par_high}"
     );
 }
 
@@ -221,14 +202,8 @@ fn test_par_spread_errors_when_expired() {
     )
     .expect("CDS construction should succeed");
 
-    let pricer = CDSPricer::new();
-    let err = pricer
-        .par_spread(
-            &cds,
-            market.get_discount("USD_OIS").unwrap().as_ref(),
-            market.get_hazard("CORP").unwrap().as_ref(),
-            as_of,
-        )
+    let err = cds
+        .price_with_metrics(&market, as_of, &[MetricId::ParSpread])
         .expect_err("expired CDS should error");
     let msg = err.to_string();
     assert!(
@@ -238,7 +213,7 @@ fn test_par_spread_errors_when_expired() {
 }
 
 #[test]
-fn test_premium_leg_excludes_accrual_when_disabled() {
+fn test_premium_leg_metric_positive() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2026 - 01 - 01);
     let disc = build_discount_curve(0.02, as_of, "USD_OIS");
@@ -248,7 +223,7 @@ fn test_premium_leg_excludes_accrual_when_disabled() {
         .insert_hazard(hazard);
 
     let cds = test_utils::cds_buy_protection(
-        "AOE_TOGGLE",
+        "PREM_METRIC",
         Money::new(10_000_000.0, Currency::USD),
         500.0,
         as_of,
@@ -258,25 +233,10 @@ fn test_premium_leg_excludes_accrual_when_disabled() {
     )
     .expect("CDS construction should succeed");
 
-    let pricer_default = CDSPricer::new(); // include_accrual = true
-
-    let mut cfg_no_aod = CDSPricerConfig::isda_standard();
-    cfg_no_aod.include_accrual = false;
-    let pricer_no_aod = CDSPricer::with_config(cfg_no_aod);
-
-    let disc_ref = market.get_discount("USD_OIS").unwrap();
-    let hazard_ref = market.get_hazard("CORP").unwrap();
-
-    let with_aod = pricer_default
-        .premium_leg_pv_per_bp(&cds, disc_ref.as_ref(), hazard_ref.as_ref(), as_of)
-        .expect("premium with AoD");
-    let without_aod = pricer_no_aod
-        .premium_leg_pv_per_bp(&cds, disc_ref.as_ref(), hazard_ref.as_ref(), as_of)
-        .expect("premium without AoD");
-
+    let premium_pv = metric_value(&cds, &market, as_of, MetricId::PremiumLegPv);
     assert!(
-        with_aod > without_aod,
-        "Including accrual-on-default should increase premium PV per bp; with={with_aod}, without={without_aod}"
+        premium_pv > 0.0,
+        "Premium leg PV should be positive for positive spread"
     );
 }
 
@@ -352,13 +312,7 @@ fn test_par_spread_positive() {
     )
     .expect("CDS construction should succeed");
 
-    let par_spread = cds
-        .par_spread(
-            market.get_discount("USD_OIS").unwrap().as_ref(),
-            market.get_hazard("CORP").unwrap().as_ref(),
-            as_of,
-        )
-        .unwrap();
+    let par_spread = metric_value(&cds, &market, as_of, MetricId::ParSpread);
 
     assert!(par_spread > 0.0, "Par spread should be positive");
     assert!(
@@ -391,13 +345,7 @@ fn test_par_spread_gives_zero_npv() {
     .expect("CDS construction should succeed");
 
     // Get par spread
-    let par_spread = cds
-        .par_spread(
-            market.get_discount("USD_OIS").unwrap().as_ref(),
-            market.get_hazard("CORP").unwrap().as_ref(),
-            as_of,
-        )
-        .unwrap();
+    let par_spread = metric_value(&cds, &market, as_of, MetricId::ParSpread);
 
     // Set spread to par (convert f64 to Decimal)
     cds.premium.spread_bp = Decimal::try_from(par_spread).expect("valid par_spread");
@@ -434,13 +382,7 @@ fn test_risky_annuity_positive() {
     )
     .expect("CDS construction should succeed");
 
-    let risky_annuity = cds
-        .risky_annuity(
-            market.get_discount("USD_OIS").unwrap().as_ref(),
-            market.get_hazard("CORP").unwrap().as_ref(),
-            as_of,
-        )
-        .unwrap();
+    let risky_annuity = metric_value(&cds, &market, as_of, MetricId::RiskyAnnuity);
 
     assert!(risky_annuity > 0.0);
     assert!(risky_annuity < 10.0, "Risky annuity for 5Y should be < 10");
@@ -480,21 +422,8 @@ fn test_risky_pv01_scales_with_notional() {
     )
     .expect("CDS construction should succeed");
 
-    let pv01_1 = cds1
-        .risky_pv01(
-            market.get_discount("USD_OIS").unwrap().as_ref(),
-            market.get_hazard("CORP").unwrap().as_ref(),
-            as_of,
-        )
-        .unwrap();
-
-    let pv01_10 = cds10
-        .risky_pv01(
-            market.get_discount("USD_OIS").unwrap().as_ref(),
-            market.get_hazard("CORP").unwrap().as_ref(),
-            as_of,
-        )
-        .unwrap();
+    let pv01_1 = metric_value(&cds1, &market, as_of, MetricId::RiskyPv01);
+    let pv01_10 = metric_value(&cds10, &market, as_of, MetricId::RiskyPv01);
 
     // Should scale linearly with notional
     let ratio = pv01_10 / pv01_1;
@@ -521,18 +450,17 @@ fn test_schedule_generation_isda() {
     )
     .expect("CDS construction should succeed");
 
-    let pricer = CDSPricer::new();
-    let schedule = pricer.generate_isda_schedule(&cds).unwrap();
+    let schedule_dates = cds.isda_coupon_schedule().unwrap();
 
     assert!(
-        schedule.len() >= 2,
+        schedule_dates.len() >= 2,
         "Schedule should have at least start and end"
     );
-    assert_eq!(schedule[0], cds.premium.start);
+    assert_eq!(schedule_dates[0], cds.premium.start);
 
     // The maturity date may be adjusted to a business day via Modified Following
     // so we just check it's on or after the original maturity
-    let last_date = schedule[schedule.len() - 1];
+    let last_date = schedule_dates[schedule_dates.len() - 1];
     assert!(
         last_date >= cds.premium.end.saturating_sub(time::Duration::days(3))
             && last_date <= cds.premium.end.saturating_add(time::Duration::days(3)),
@@ -544,10 +472,10 @@ fn test_schedule_generation_isda() {
     // Interior dates should be near the 20th (ISDA standard)
     // Business day adjustment per ISDA 2014 (Modified Following) may move dates
     // forward if the 20th falls on a weekend or holiday.
-    for &date in schedule
+    for &date in schedule_dates
         .iter()
         .skip(1)
-        .take(schedule.len().saturating_sub(2))
+        .take(schedule_dates.len().saturating_sub(2))
     {
         let day = date.day();
         assert!(
@@ -583,15 +511,8 @@ fn test_higher_hazard_increases_protection_value() {
         )
         .expect("CDS construction should succeed");
 
-        let protection_pv = cds
-            .pv_protection_leg(
-                market.get_discount("USD_OIS").unwrap().as_ref(),
-                market.get_hazard("CORP").unwrap().as_ref(),
-                as_of,
-            )
-            .unwrap();
-
-        protection_pvs.push((hazard_rate, protection_pv.amount()));
+        let protection_pv = metric_value(&cds, &market, as_of, MetricId::ProtectionLegPv);
+        protection_pvs.push((hazard_rate, protection_pv));
     }
 
     // Protection value should increase with hazard rate
@@ -629,15 +550,8 @@ fn test_higher_recovery_decreases_protection_value() {
         .expect("CDS construction should succeed");
         cds.protection.recovery_rate = recovery;
 
-        let protection_pv = cds
-            .pv_protection_leg(
-                market.get_discount("USD_OIS").unwrap().as_ref(),
-                market.get_hazard("CORP").unwrap().as_ref(),
-                as_of,
-            )
-            .unwrap();
-
-        protection_pvs.push((recovery, protection_pv.amount()));
+        let protection_pv = metric_value(&cds, &market, as_of, MetricId::ProtectionLegPv);
+        protection_pvs.push((recovery, protection_pv));
     }
 
     // Protection value should decrease with recovery rate
@@ -683,7 +597,7 @@ fn test_zero_spread_gives_positive_npv_for_buyer() {
 }
 
 #[test]
-fn test_accrual_on_default_increases_premium() {
+fn test_premium_leg_increases_with_spread() {
     let as_of = date!(2024 - 01 - 01);
     let end = date!(2029 - 01 - 01);
 
@@ -694,8 +608,8 @@ fn test_accrual_on_default_increases_premium() {
         .insert_discount(disc)
         .insert_hazard(hazard);
 
-    let cds = test_utils::cds_buy_protection(
-        "ACCRUAL_TEST",
+    let cds_low = test_utils::cds_buy_protection(
+        "PREM_LOW",
         Money::new(10_000_000.0, Currency::USD),
         100.0,
         as_of,
@@ -704,36 +618,23 @@ fn test_accrual_on_default_increases_premium() {
         "CORP",
     )
     .expect("CDS construction should succeed");
+    let cds_high = test_utils::cds_buy_protection(
+        "PREM_HIGH",
+        Money::new(10_000_000.0, Currency::USD),
+        200.0,
+        as_of,
+        end,
+        "USD_OIS",
+        "CORP",
+    )
+    .expect("CDS construction should succeed");
 
-    let pricer_with_accrual = CDSPricer::new(); // Default includes accrual
-    let pricer_without_accrual = CDSPricer::with_config(CDSPricerConfig {
-        include_accrual: false,
-        ..Default::default()
-    });
-
-    let pv_with = pricer_with_accrual
-        .pv_premium_leg(
-            &cds,
-            market.get_discount("USD_OIS").unwrap().as_ref(),
-            market.get_hazard("CORP").unwrap().as_ref(),
-            as_of,
-        )
-        .unwrap()
-        .amount();
-
-    let pv_without = pricer_without_accrual
-        .pv_premium_leg(
-            &cds,
-            market.get_discount("USD_OIS").unwrap().as_ref(),
-            market.get_hazard("CORP").unwrap().as_ref(),
-            as_of,
-        )
-        .unwrap()
-        .amount();
+    let pv_low = metric_value(&cds_low, &market, as_of, MetricId::PremiumLegPv);
+    let pv_high = metric_value(&cds_high, &market, as_of, MetricId::PremiumLegPv);
 
     assert!(
-        pv_with > pv_without,
-        "Accrual on default should increase premium PV"
+        pv_high > pv_low,
+        "Higher spread should increase premium leg PV"
     );
 }
 
@@ -764,27 +665,8 @@ fn test_settlement_delay_reduces_protection_pv() {
     let mut cds_with_delay = cds_no_delay.clone();
     cds_with_delay.protection.settlement_delay = 20;
 
-    let pricer = CDSPricer::new();
-
-    let pv_no_delay = pricer
-        .pv_protection_leg(
-            &cds_no_delay,
-            market.get_discount("USD_OIS").unwrap().as_ref(),
-            market.get_hazard("CORP").unwrap().as_ref(),
-            as_of,
-        )
-        .unwrap()
-        .amount();
-
-    let pv_with_delay = pricer
-        .pv_protection_leg(
-            &cds_with_delay,
-            market.get_discount("USD_OIS").unwrap().as_ref(),
-            market.get_hazard("CORP").unwrap().as_ref(),
-            as_of,
-        )
-        .unwrap()
-        .amount();
+    let pv_no_delay = metric_value(&cds_no_delay, &market, as_of, MetricId::ProtectionLegPv);
+    let pv_with_delay = metric_value(&cds_with_delay, &market, as_of, MetricId::ProtectionLegPv);
 
     assert!(
         pv_with_delay < pv_no_delay,

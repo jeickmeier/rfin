@@ -2,6 +2,8 @@
 
 use super::common::*;
 use finstack_valuations::instruments::Instrument;
+use finstack_valuations::metrics::MetricId;
+use finstack_valuations::test_utils;
 use time::macros::date;
 
 #[test]
@@ -262,11 +264,6 @@ fn test_put_call_parity() {
     let market = standard_market(as_of);
     let notional = 10_000_000.0;
 
-    // Get forward spread from a reference option
-    let pricer =
-        finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionPricer::default(
-        );
-
     // Test parity at multiple strikes
     for strike in [100.0, 150.0, 200.0, 250.0, 300.0] {
         let call = CdsOptionBuilder::new()
@@ -290,9 +287,28 @@ fn test_put_call_parity() {
         let call_pv = call.value(&market, as_of).unwrap().amount();
         let put_pv = put.value(&market, as_of).unwrap().amount();
 
-        // Compute forward spread and risky annuity
-        let forward = pricer.forward_spread_bp(&call, &market, as_of).unwrap();
-        let ra = pricer.risky_annuity(&call, &market, as_of).unwrap();
+        // Compute forward spread and risky annuity from the underlying CDS metrics
+        let mut underlying = test_utils::cds_buy_protection(
+            "CDS-FWD",
+            call.notional,
+            strike,
+            call.expiry,
+            call.cds_maturity,
+            call.discount_curve_id.clone(),
+            call.credit_curve_id.clone(),
+        )
+        .expect("underlying CDS should build");
+        underlying.protection.recovery_rate = call.recovery_rate;
+
+        let result = underlying
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::ParSpread, MetricId::RiskyAnnuity],
+            )
+            .expect("metrics should compute");
+        let forward = result.measures[&MetricId::ParSpread];
+        let ra = result.measures[&MetricId::RiskyAnnuity];
 
         // Put-call parity: C - P = A × N × (F - K) / 10000
         // where 10000 converts bp to decimal
@@ -322,15 +338,23 @@ fn test_put_call_parity_at_forward() {
     let market = standard_market(as_of);
     let notional = 10_000_000.0;
 
-    let pricer =
-        finstack_valuations::instruments::credit_derivatives::cds_option::CdsOptionPricer::default(
-        );
-
     // Get forward spread
     let temp_option = CdsOptionBuilder::new().build(as_of);
-    let forward = pricer
-        .forward_spread_bp(&temp_option, &market, as_of)
-        .unwrap();
+    let mut underlying = test_utils::cds_buy_protection(
+        "CDS-FWD-TEMP",
+        temp_option.notional,
+        temp_option.strike_spread_bp,
+        temp_option.expiry,
+        temp_option.cds_maturity,
+        temp_option.discount_curve_id.clone(),
+        temp_option.credit_curve_id.clone(),
+    )
+    .expect("underlying CDS should build");
+    underlying.protection.recovery_rate = temp_option.recovery_rate;
+    let forward = underlying
+        .price_with_metrics(&market, as_of, &[MetricId::ParSpread])
+        .expect("par spread should compute")
+        .measures[&MetricId::ParSpread];
 
     // Create call and put at forward strike
     let call = CdsOptionBuilder::new()

@@ -98,15 +98,6 @@ pub struct EquityOptionInputs {
     pub t_vol: f64,
 }
 
-impl EquityOptionInputs {
-    /// Returns the pricing time (t_vol for consistency with Black-Scholes)
-    #[allow(dead_code)] // May be used by external bindings or tests
-    #[inline]
-    pub fn t(&self) -> f64 {
-        self.t_vol
-    }
-}
-
 /// Collect standard inputs (spot, risk-free, dividend yield, vol, time to expiry).
 ///
 /// **Day Count Convention Handling:**

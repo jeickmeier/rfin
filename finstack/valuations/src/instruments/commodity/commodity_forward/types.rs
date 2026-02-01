@@ -515,7 +515,7 @@ impl crate::instruments::common::pricing::HasForwardCurves for CommodityForward 
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::common::traits::InstrumentNpvExt;
+    use crate::instruments::common::traits::Instrument;
     use finstack_core::market_data::term_structures::{DiscountCurve, PriceCurve};
     use time::Month;
 
@@ -626,7 +626,7 @@ mod tests {
             .build()
             .expect("should build");
 
-        let npv = forward.npv(&market, as_of).expect("should price");
+        let npv = forward.value(&market, as_of).expect("should price");
         // At-market: K = F, so NPV = sign × (F - F) × Q × M × DF = 0
         assert!(
             npv.amount().abs() < 1e-10,
@@ -657,7 +657,7 @@ mod tests {
             .build()
             .expect("should build");
 
-        let npv = forward.npv(&market, as_of).expect("should price");
+        let npv = forward.value(&market, as_of).expect("should price");
         // Long position, F > K: NPV should be positive
         assert!(
             npv.amount() > 0.0,
@@ -688,7 +688,7 @@ mod tests {
             .build()
             .expect("should build");
 
-        let npv = forward.npv(&market, as_of).expect("should price");
+        let npv = forward.value(&market, as_of).expect("should price");
         // Short position, F > K: NPV should be negative (loss on short)
         assert!(
             npv.amount() < 0.0,
@@ -735,8 +735,8 @@ mod tests {
             .build()
             .expect("should build");
 
-        let long_npv = long.npv(&market, as_of).expect("should price");
-        let short_npv = short.npv(&market, as_of).expect("should price");
+        let long_npv = long.value(&market, as_of).expect("should price");
+        let short_npv = short.value(&market, as_of).expect("should price");
 
         // Long + Short should net to zero (opposing positions cancel)
         let net = long_npv.amount() + short_npv.amount();

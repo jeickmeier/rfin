@@ -94,10 +94,9 @@ pub const MAX_RECOVERY_RATE: f64 = 1.0 - 1e-6;
 // Re-export main types
 pub use cashflow_engine::{PathAwareCashflowSchedule, ThreeFactorPathData};
 #[cfg(feature = "mc")]
-#[doc(hidden)]
-pub use pricer::EnhancedMonteCarloResult;
-#[doc(hidden)]
-pub use pricer::{PathResult, RevolvingCreditPricer};
+pub use pricer::unified::EnhancedMonteCarloResult;
+pub use pricer::unified::PathResult;
+pub use pricer::RevolvingCreditPricer;
 pub use types::{
     BaseRateSpec, DrawRepayEvent, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
     UtilizationProcess,

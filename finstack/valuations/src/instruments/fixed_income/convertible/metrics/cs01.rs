@@ -13,7 +13,7 @@
 //! it directly captures CS01. If a separate credit curve exists, it should
 //! be used instead.
 
-use crate::instruments::common::traits::InstrumentNpvExt;
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::convertible::ConvertibleBond;
 use crate::metrics::bump_discount_curve_parallel;
 use crate::metrics::{MetricCalculator, MetricContext};
@@ -46,7 +46,7 @@ impl MetricCalculator for Cs01Calculator {
             bump_discount_curve_parallel(&context.curves, &bond.discount_curve_id, bump_bp)?;
 
         // Reprice with bumped curve
-        let pv_bumped = bond.npv(&curves_bumped, as_of)?.amount();
+        let pv_bumped = bond.value(&curves_bumped, as_of)?.amount();
 
         // CS01 = PV_change per 1bp credit spread move
         // Standard convention: CS01 = PV_bumped - PV_base (positive when spread widens increases value for protection buyer)

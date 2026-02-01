@@ -10,7 +10,7 @@ use finstack_valuations::instruments::equity::equity_index_future::{
     EquityFutureSpecs, EquityIndexFuture,
 };
 use finstack_valuations::instruments::rates::ir_future::Position;
-use finstack_valuations::instruments::{Attributes, Instrument, InstrumentNpvExt};
+use finstack_valuations::instruments::{Attributes, Instrument};
 use finstack_valuations::pricer::{create_standard_registry, ModelKey};
 use time::Month;
 
@@ -103,7 +103,7 @@ fn test_quoted_price_long_profit() {
     let future = create_long_es_future_with_quoted();
     let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
 
-    let npv = future.npv(&market, as_of).expect("should price");
+    let npv = future.value(&market, as_of).expect("should price");
 
     // Long 10 contracts, entry 4500, quoted 4550
     // PV = (4550 - 4500) × 50 × 10 × 1 = 50 × 50 × 10 = 25,000
@@ -117,7 +117,7 @@ fn test_quoted_price_short_loss() {
     let future = create_short_es_future_with_quoted();
     let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
 
-    let npv = future.npv(&market, as_of).expect("should price");
+    let npv = future.value(&market, as_of).expect("should price");
 
     // Short 10 contracts, entry 4500, quoted 4550
     // PV = (4550 - 4500) × 50 × 10 × (-1) = -25,000
@@ -131,7 +131,7 @@ fn test_fair_value_pricing() {
     let future = create_es_future_fair_value();
     let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
 
-    let npv = future.npv(&market, as_of).expect("should price");
+    let npv = future.value(&market, as_of).expect("should price");
 
     // Fair value = S × exp((r - q) × T)
     // With S=4500, r≈5%, q=0, T≈0.47 (Jan to Jun)
@@ -149,7 +149,7 @@ fn test_expired_future_zero_value() {
     // Valuation date after expiry
     let as_of = Date::from_calendar_date(2025, Month::July, 1).expect("valid date");
 
-    let npv = future.npv(&market, as_of).expect("should price");
+    let npv = future.value(&market, as_of).expect("should price");
 
     // Expired future should have zero value
     assert_eq!(npv.amount(), 0.0);
@@ -234,7 +234,7 @@ fn test_nq_future_pricing() {
         .build()
         .expect("should build");
 
-    let npv = future.npv(&market, as_of).expect("should price");
+    let npv = future.value(&market, as_of).expect("should price");
 
     // Long 5 contracts, entry 15000, quoted 15100
     // PV = (15100 - 15000) × 20 × 5 × 1 = 100 × 20 × 5 = 10,000
@@ -268,7 +268,7 @@ fn test_at_the_money_future() {
         .build()
         .expect("should build");
 
-    let npv = future.npv(&market, as_of).expect("should price");
+    let npv = future.value(&market, as_of).expect("should price");
 
     // At-the-money should have zero PV
     assert!(npv.amount().abs() < 0.01);

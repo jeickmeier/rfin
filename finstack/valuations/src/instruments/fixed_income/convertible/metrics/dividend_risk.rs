@@ -7,7 +7,7 @@
 //! For convertibles, dividend yield affects the equity option component.
 //! Higher dividend yield reduces the forward price, making conversion less attractive.
 
-use crate::instruments::common::traits::InstrumentNpvExt;
+use crate::instruments::common::traits::Instrument;
 use crate::instruments::convertible::ConvertibleBond;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
@@ -67,7 +67,7 @@ impl MetricCalculator for DividendRiskCalculator {
             }
         };
         curves_up = curves_up.insert_price(div_yield_id.as_str(), new_value_up);
-        let pv_up = convertible.npv(&curves_up, as_of)?.amount();
+        let pv_up = convertible.value(&curves_up, as_of)?.amount();
 
         // Bump down
         let mut curves_down = context.curves.as_ref().clone();
@@ -90,7 +90,7 @@ impl MetricCalculator for DividendRiskCalculator {
             }
         };
         curves_down = curves_down.insert_price(div_yield_id.as_str(), new_value_down);
-        let pv_down = convertible.npv(&curves_down, as_of)?.amount();
+        let pv_down = convertible.value(&curves_down, as_of)?.amount();
 
         // Dividend01 = (PV_up - PV_down) / (2 * bump_size)
         let dividend01 = (pv_up - pv_down) / (2.0 * DIVIDEND_BUMP_BP);

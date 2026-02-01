@@ -13,7 +13,7 @@ use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_valuations::instruments::equity::equity_option::EquityOption;
-use finstack_valuations::instruments::{Instrument, InstrumentNpvExt};
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 use finstack_valuations::test_utils::{
     date, equity_option_european_call, flat_discount_with_tenor, flat_vol_surface,
@@ -97,8 +97,8 @@ fn equity_delta_fd(
     // Central delta via bump-and-reprice.
     let curves_up = bump_scalar_price(curves, &opt.spot_id, spot_bump_pct)?;
     let curves_dn = bump_scalar_price(curves, &opt.spot_id, -spot_bump_pct)?;
-    let pv_up = opt.npv(&curves_up, as_of)?.amount();
-    let pv_dn = opt.npv(&curves_dn, as_of)?.amount();
+    let pv_up = opt.value(&curves_up, as_of)?.amount();
+    let pv_dn = opt.value(&curves_dn, as_of)?.amount();
 
     // Convert bump_pct into absolute spot bump for denominator.
     let spot = match curves.price(&opt.spot_id)? {
@@ -152,9 +152,9 @@ fn equity_vanna_and_volga_match_reference_fd() -> finstack_core::Result<()> {
     let delta_dn = equity_delta_fd(&opt, &curves_vol_dn, as_of, spot_bump_pct)?;
     let vanna_ref = (delta_up - delta_dn) / (2.0 * delta_sigma);
 
-    let pv_up = opt.npv(&curves_vol_up, as_of)?.amount();
-    let pv_0 = opt.npv(&market, as_of)?.amount();
-    let pv_dn = opt.npv(&curves_vol_dn, as_of)?.amount();
+    let pv_up = opt.value(&curves_vol_up, as_of)?.amount();
+    let pv_0 = opt.value(&market, as_of)?.amount();
+    let pv_dn = opt.value(&curves_vol_dn, as_of)?.amount();
     let volga_ref = (pv_up - 2.0 * pv_0 + pv_dn) / (delta_sigma * delta_sigma);
 
     // Tolerances: these are FD-vs-FD comparisons, so keep them tight but not brittle.
@@ -283,12 +283,15 @@ fn fx_vanna_and_volga_match_reference_fd() -> finstack_core::Result<()> {
         market.clone().insert_surface(bumped)
     };
 
-    let delta_up = opt.compute_greeks(&curves_up, as_of)?.delta;
-    let delta_dn = opt.compute_greeks(&curves_dn, as_of)?.delta;
+    let metrics = [MetricId::Delta, MetricId::Vega];
+    let result_up = opt.price_with_metrics(&curves_up, as_of, &metrics)?;
+    let result_dn = opt.price_with_metrics(&curves_dn, as_of, &metrics)?;
+    let delta_up = result_up.measures[&MetricId::Delta];
+    let delta_dn = result_dn.measures[&MetricId::Delta];
     let vanna_ref = (delta_up - delta_dn) / (2.0 * delta_sigma);
 
-    let vega_up = opt.compute_greeks(&curves_up, as_of)?.vega;
-    let vega_dn = opt.compute_greeks(&curves_dn, as_of)?.vega;
+    let vega_up = result_up.measures[&MetricId::Vega];
+    let vega_dn = result_dn.measures[&MetricId::Vega];
     let volga_ref = (vega_up - vega_dn) / (2.0 * delta_sigma) * 0.01;
 
     approx_eq(vanna, vanna_ref, 1e-10);

@@ -4,7 +4,7 @@
 //! Recovery01 measures the change in PV for a 1% (100bp) change in recovery rate.
 
 use crate::instruments::cds_option::CdsOption;
-use crate::instruments::common::traits::InstrumentNpvExt;
+use crate::instruments::common::traits::Instrument;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -26,12 +26,12 @@ impl MetricCalculator for Recovery01Calculator {
         // Create option with bumped recovery (up)
         let mut option_up = option.clone();
         option_up.recovery_rate = (base_recovery + RECOVERY_BUMP).clamp(0.0, 1.0);
-        let pv_up = option_up.npv(&context.curves, as_of)?.amount();
+        let pv_up = option_up.value(&context.curves, as_of)?.amount();
 
         // Create option with bumped recovery (down)
         let mut option_down = option.clone();
         option_down.recovery_rate = (base_recovery - RECOVERY_BUMP).clamp(0.0, 1.0);
-        let pv_down = option_down.npv(&context.curves, as_of)?.amount();
+        let pv_down = option_down.value(&context.curves, as_of)?.amount();
 
         // Recovery01 = (PV_up - PV_down) / (2 * bump_size)
         let recovery01 = (pv_up - pv_down) / (2.0 * RECOVERY_BUMP);

@@ -13,7 +13,7 @@ use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::FinancingLegSpec;
 use finstack_valuations::instruments::{EquityUnderlyingParams, IndexUnderlyingParams};
 use finstack_valuations::instruments::{TrsScheduleSpec, TrsSide};
-use finstack_valuations::prelude::InstrumentNpvExt;
+use finstack_valuations::prelude::Instrument;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
@@ -463,9 +463,9 @@ impl PyEquityTotalReturnSwap {
         }
     }
 
-    fn npv(&self, market: &PyMarketContext, as_of: Bound<'_, PyAny>) -> PyResult<PyMoney> {
+    fn value(&self, market: &PyMarketContext, as_of: Bound<'_, PyAny>) -> PyResult<PyMoney> {
         let date = py_to_date(&as_of)?;
-        let value = self.inner.npv(&market.inner, date).map_err(core_to_py)?;
+        let value = self.inner.value(&market.inner, date).map_err(core_to_py)?;
         Ok(PyMoney::new(value))
     }
 
@@ -713,9 +713,9 @@ impl PyFiIndexTotalReturnSwap {
         }
     }
 
-    fn npv(&self, market: &PyMarketContext, as_of: Bound<'_, PyAny>) -> PyResult<PyMoney> {
+    fn value(&self, market: &PyMarketContext, as_of: Bound<'_, PyAny>) -> PyResult<PyMoney> {
         let date = py_to_date(&as_of)?;
-        let value = self.inner.npv(&market.inner, date).map_err(core_to_py)?;
+        let value = self.inner.value(&market.inner, date).map_err(core_to_py)?;
         Ok(PyMoney::new(value))
     }
 

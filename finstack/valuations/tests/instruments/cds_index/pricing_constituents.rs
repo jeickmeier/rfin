@@ -19,8 +19,20 @@ use finstack_valuations::instruments::credit_derivatives::cds_index::{
 };
 use finstack_valuations::instruments::CreditParams;
 use finstack_valuations::instruments::Instrument;
-use finstack_valuations::instruments::InstrumentNpvExt;
+use finstack_valuations::metrics::MetricId;
 use time::macros::date;
+
+fn metric_value(
+    index: &CDSIndex,
+    market: &finstack_core::market_data::context::MarketContext,
+    as_of: finstack_core::dates::Date,
+    metric: MetricId,
+) -> f64 {
+    let result = index
+        .price_with_metrics(market, as_of, std::slice::from_ref(&metric))
+        .expect("metric should compute");
+    result.measures[&metric]
+}
 
 #[test]
 fn test_constituents_mode_pricing() {
@@ -69,12 +81,15 @@ fn test_constituents_npv_components() {
     let idx = standard_constituents_index("CDX-COMP", start, end, 10_000_000.0, 5);
     let ctx = multi_constituent_market_context(as_of, 5);
 
-    let npv = idx.npv(&ctx, as_of).unwrap();
-    let pv_prot = idx.pv_protection_leg(&ctx, as_of).unwrap();
-    let pv_prem = idx.pv_premium_leg(&ctx, as_of).unwrap();
+    let npv = idx.value(&ctx, as_of).unwrap();
+    let pv_prot = metric_value(&idx, &ctx, as_of, MetricId::ProtectionLegPv);
+    let pv_prem = metric_value(&idx, &ctx, as_of, MetricId::PremiumLegPv);
 
-    let expected_npv = pv_prot.checked_sub(pv_prem).unwrap();
-    assert_money_approx_eq(npv, expected_npv, 1.0, "NPV = Protection - Premium");
+    let expected_npv = pv_prot - pv_prem;
+    assert!(
+        (npv.amount() - expected_npv).abs() < 1.0,
+        "NPV = Protection - Premium"
+    );
 }
 
 #[test]
@@ -87,7 +102,7 @@ fn test_constituents_par_spread() {
     let idx = standard_constituents_index("CDX-PAR", start, end, 10_000_000.0, 5);
     let ctx = multi_constituent_market_context(as_of, 5);
 
-    let par_spread = idx.par_spread(&ctx, as_of).unwrap();
+    let par_spread = metric_value(&idx, &ctx, as_of, MetricId::ParSpread);
 
     assert_positive(par_spread, "Par spread");
     let expected = flat_hazard_par_spread_bps(STANDARD_HAZARD_RATE, RECOVERY_SENIOR_UNSECURED);
@@ -109,7 +124,7 @@ fn test_constituents_risky_pv01() {
     let idx = standard_constituents_index("CDX-RPV01", start, end, 10_000_000.0, 5);
     let ctx = multi_constituent_market_context(as_of, 5);
 
-    let rpv01 = idx.risky_pv01(&ctx, as_of).unwrap();
+    let rpv01 = metric_value(&idx, &ctx, as_of, MetricId::RiskyPv01);
 
     assert_positive(rpv01, "Risky PV01");
     assert_in_range(rpv01, 3_500.0, 5_500.0, "Risky PV01 magnitude");
@@ -251,8 +266,8 @@ fn test_constituents_risky_pv01_scales_with_notional() {
     let idx_10mm = standard_constituents_index("CDX-10MM", start, end, 10_000_000.0, 5);
     let idx_20mm = standard_constituents_index("CDX-20MM", start, end, 20_000_000.0, 5);
 
-    let rpv01_10mm = idx_10mm.risky_pv01(&ctx, as_of).unwrap();
-    let rpv01_20mm = idx_20mm.risky_pv01(&ctx, as_of).unwrap();
+    let rpv01_10mm = metric_value(&idx_10mm, &ctx, as_of, MetricId::RiskyPv01);
+    let rpv01_20mm = metric_value(&idx_20mm, &ctx, as_of, MetricId::RiskyPv01);
 
     assert_linear_scaling(
         rpv01_10mm,
@@ -299,8 +314,8 @@ fn test_constituents_par_spread_independent_of_notional() {
     let idx_1mm = standard_constituents_index("CDX-1MM", start, end, 1_000_000.0, 5);
     let idx_100mm = standard_constituents_index("CDX-100MM", start, end, 100_000_000.0, 5);
 
-    let par_1mm = idx_1mm.par_spread(&ctx, as_of).unwrap();
-    let par_100mm = idx_100mm.par_spread(&ctx, as_of).unwrap();
+    let par_1mm = metric_value(&idx_1mm, &ctx, as_of, MetricId::ParSpread);
+    let par_100mm = metric_value(&idx_100mm, &ctx, as_of, MetricId::ParSpread);
 
     assert_relative_eq(par_1mm, par_100mm, 0.001, "Par spread notional-independent");
 }
@@ -348,9 +363,9 @@ fn test_constituents_protection_leg_positive() {
     let idx = standard_constituents_index("CDX-PROT", start, end, 10_000_000.0, 5);
     let ctx = multi_constituent_market_context(as_of, 5);
 
-    let pv_prot = idx.pv_protection_leg(&ctx, as_of).unwrap();
+    let pv_prot = metric_value(&idx, &ctx, as_of, MetricId::ProtectionLegPv);
 
-    assert_positive(pv_prot.amount(), "Protection leg PV");
+    assert_positive(pv_prot, "Protection leg PV");
 }
 
 #[test]
@@ -363,9 +378,9 @@ fn test_constituents_premium_leg_positive() {
     let idx = standard_constituents_index("CDX-PREM", start, end, 10_000_000.0, 5);
     let ctx = multi_constituent_market_context(as_of, 5);
 
-    let pv_prem = idx.pv_premium_leg(&ctx, as_of).unwrap();
+    let pv_prem = metric_value(&idx, &ctx, as_of, MetricId::PremiumLegPv);
 
-    assert_positive(pv_prem.amount(), "Premium leg PV");
+    assert_positive(pv_prem, "Premium leg PV");
 }
 
 #[test]

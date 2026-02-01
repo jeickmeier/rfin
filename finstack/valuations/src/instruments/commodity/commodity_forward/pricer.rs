@@ -4,7 +4,7 @@
 //! curve-based forward price interpolation with discounting.
 
 use crate::instruments::commodity_forward::CommodityForward;
-use crate::instruments::common::traits::{Instrument, InstrumentNpvExt};
+use crate::instruments::common::traits::Instrument;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
@@ -51,7 +51,7 @@ impl Pricer for CommodityForwardDiscountingPricer {
             })?;
 
         // Calculate NPV
-        let pv = forward.npv(market, as_of).map_err(|e| {
+        let pv = forward.value(market, as_of).map_err(|e| {
             PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
         })?;
 

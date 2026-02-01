@@ -335,9 +335,11 @@ mod mc_invariants {
 mod cds_invariants {
     use finstack_core::currency::Currency;
     use finstack_core::dates::{DateExt, DayCount};
+    use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
     use finstack_core::money::Money;
-    use finstack_valuations::instruments::credit_derivatives::cds::CDSPricer;
+    use finstack_valuations::instruments::Instrument;
+    use finstack_valuations::metrics::MetricId;
 
     use proptest::prelude::*;
     use time::macros::date;
@@ -371,6 +373,18 @@ mod cds_invariants {
             .unwrap();
 
         (disc, hazard)
+    }
+
+    fn metric_value(
+        cds: &finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap,
+        market: &MarketContext,
+        as_of: time::Date,
+        metric: MetricId,
+    ) -> f64 {
+        let result = cds
+            .price_with_metrics(market, as_of, std::slice::from_ref(&metric))
+            .expect("metric should compute");
+        result.measures[&metric]
     }
 
     proptest! {
@@ -408,10 +422,10 @@ mod cds_invariants {
             let mut cds_with_recovery = cds;
             cds_with_recovery.protection.recovery_rate = recovery;
 
-            let pricer = CDSPricer::new();
-            let ps = pricer
-                .par_spread(&cds_with_recovery, &disc, &hazard, as_of)
-                .expect("par spread should compute");
+            let market = MarketContext::new()
+                .insert_discount(disc)
+                .insert_hazard(hazard);
+            let ps = metric_value(&cds_with_recovery, &market, as_of, MetricId::ParSpread);
             prop_assert!(
                 ps > 0.0,
                 "Par spread ({:.2} bps) should be positive for hazard rate {:.4}",
@@ -450,18 +464,18 @@ mod cds_invariants {
             cds_high_recovery.protection.recovery_rate = 0.50; // High recovery = low LGD
 
             let (disc, hazard) = build_test_curves(0.04, hazard_rate);
-
-            let pricer = CDSPricer::new();
-            let prot_low = pricer.pv_protection_leg(&cds_low, &disc, &hazard, as_of)
-                .expect("Low recovery pricing should succeed");
-            let prot_high = pricer.pv_protection_leg(&cds_high_recovery, &disc, &hazard, as_of)
-                .expect("High recovery pricing should succeed");
+            let market = MarketContext::new()
+                .insert_discount(disc)
+                .insert_hazard(hazard);
+            let prot_low = metric_value(&cds_low, &market, as_of, MetricId::ProtectionLegPv);
+            let prot_high =
+                metric_value(&cds_high_recovery, &market, as_of, MetricId::ProtectionLegPv);
 
             // Higher recovery = lower protection PV (smaller payout)
             prop_assert!(
-                prot_low.amount() > prot_high.amount(),
+                prot_low > prot_high,
                 "Protection PV with low recovery ({:.2}) should exceed high recovery ({:.2})",
-                prot_low.amount(), prot_high.amount()
+                prot_low, prot_high
             );
         }
     }

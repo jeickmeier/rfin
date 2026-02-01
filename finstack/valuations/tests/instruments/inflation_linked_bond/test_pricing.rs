@@ -11,7 +11,6 @@ use super::common::*;
 use finstack_core::currency::Currency;
 use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::Instrument;
-use finstack_valuations::instruments::InstrumentNpvExt;
 
 #[test]
 fn test_npv_basic() {
@@ -21,7 +20,7 @@ fn test_npv_basic() {
     let as_of = d(2025, 1, 2);
 
     // Act
-    let pv = ilb.npv(&ctx, as_of).unwrap();
+    let pv = ilb.value(&ctx, as_of).unwrap();
 
     // Assert
     assert_eq!(pv.currency(), Currency::USD);
@@ -39,7 +38,7 @@ fn test_value_via_instrument_trait() {
     let as_of = d(2025, 1, 2);
 
     // Act
-    let pv_direct = ilb.npv(&ctx, as_of).unwrap();
+    let pv_direct = ilb.value(&ctx, as_of).unwrap();
     let pv_trait = ilb.value(&ctx, as_of).unwrap();
 
     // Assert - both methods should give similar results
@@ -64,8 +63,8 @@ fn test_npv_returns_correct_currency() {
     let as_of = d(2025, 1, 2);
 
     // Act
-    let pv_usd = tips.npv(&ctx_usd, as_of).unwrap();
-    let pv_gbp = uk_gilt.npv(&ctx_gbp, as_of).unwrap();
+    let pv_usd = tips.value(&ctx_usd, as_of).unwrap();
+    let pv_gbp = uk_gilt.value(&ctx_gbp, as_of).unwrap();
 
     // Assert
     assert_eq!(pv_usd.currency(), Currency::USD);
@@ -125,8 +124,8 @@ fn test_npv_increases_with_inflation() {
     };
 
     // Act
-    let pv_low = ilb.npv(&ctx_low, as_of).unwrap();
-    let pv_high = ilb.npv(&ctx_high, as_of).unwrap();
+    let pv_low = ilb.value(&ctx_low, as_of).unwrap();
+    let pv_high = ilb.value(&ctx_high, as_of).unwrap();
 
     // Assert - higher inflation → higher cashflows → higher PV
     assert!(pv_high.amount() > pv_low.amount());
@@ -177,8 +176,8 @@ fn test_npv_decreases_with_higher_discount_rate() {
         .insert_inflation(inflation_curve2);
 
     // Act
-    let pv_low_rate = ilb.npv(&ctx_low, as_of).unwrap();
-    let pv_high_rate = ilb.npv(&ctx_high, as_of).unwrap();
+    let pv_low_rate = ilb.value(&ctx_low, as_of).unwrap();
+    let pv_high_rate = ilb.value(&ctx_high, as_of).unwrap();
 
     // Assert - higher discount rate → lower PV
     assert!(pv_low_rate.amount() > pv_high_rate.amount());
@@ -195,7 +194,7 @@ fn test_npv_at_maturity() {
     let as_of = ilb.maturity;
 
     // Act
-    let pv = ilb.npv(&ctx, as_of).unwrap();
+    let pv = ilb.value(&ctx, as_of).unwrap();
 
     // Assert - at maturity, should have one principal payment worth notional * index_ratio
     assert!(pv.amount() > 0.0);
@@ -212,7 +211,7 @@ fn test_npv_after_maturity() {
     let as_of = d(2025, 6, 1); // After maturity
 
     // Act
-    let pv = ilb.npv(&ctx, as_of).unwrap();
+    let pv = ilb.value(&ctx, as_of).unwrap();
 
     // Assert - implementation includes all flows in schedule regardless of as_of
     // So value may be non-zero (historical flows)
@@ -250,7 +249,7 @@ fn test_npv_with_deflation_protection() {
         .insert_inflation_index("US-CPI-U", index);
 
     // Act
-    let pv = ilb.npv(&ctx, as_of).unwrap();
+    let pv = ilb.value(&ctx, as_of).unwrap();
 
     // Assert - with deflation protection, value should not fall below par equivalent
     assert!(pv.amount() > 0.0);
@@ -264,7 +263,7 @@ fn test_npv_consistency_with_schedule() {
     let as_of = d(2025, 1, 2);
 
     // Act
-    let pv = ilb.npv(&ctx, as_of).unwrap();
+    let pv = ilb.value(&ctx, as_of).unwrap();
 
     // Manual NPV from schedule
     let flows = ilb.build_dated_flows(&ctx, as_of).unwrap();
@@ -293,9 +292,9 @@ fn test_npv_different_valuation_dates() {
     let (ctx, _) = market_context_with_index();
 
     // Act - value at different dates
-    let pv_early = ilb.npv(&ctx, d(2021, 1, 1)).unwrap();
-    let pv_mid = ilb.npv(&ctx, d(2025, 1, 1)).unwrap();
-    let pv_late = ilb.npv(&ctx, d(2029, 1, 1)).unwrap();
+    let pv_early = ilb.value(&ctx, d(2021, 1, 1)).unwrap();
+    let pv_mid = ilb.value(&ctx, d(2025, 1, 1)).unwrap();
+    let pv_late = ilb.value(&ctx, d(2029, 1, 1)).unwrap();
 
     // Assert - as time passes, fewer cashflows remain → value changes
     // (Can't assert strict ordering due to pull-to-par and rate changes)
@@ -317,8 +316,8 @@ fn test_npv_with_quoted_price_doesnt_affect_npv() {
     let as_of = d(2025, 1, 2);
 
     // Act
-    let pv1 = ilb1.npv(&ctx, as_of).unwrap();
-    let pv2 = ilb2.npv(&ctx, as_of).unwrap();
+    let pv1 = ilb1.value(&ctx, as_of).unwrap();
+    let pv2 = ilb2.value(&ctx, as_of).unwrap();
 
     // Assert - NPV should be calculated from curves, not quoted price
     assert_approx_eq(
@@ -337,7 +336,7 @@ fn test_npv_positive_for_positive_coupons() {
     let as_of = d(2025, 1, 2);
 
     // Act
-    let pv = ilb.npv(&ctx, as_of).unwrap();
+    let pv = ilb.value(&ctx, as_of).unwrap();
 
     // Assert
     assert!(pv.amount() > 0.0);
@@ -356,8 +355,8 @@ fn test_npv_scales_with_notional() {
     let as_of = d(2025, 1, 2);
 
     // Act
-    let pv_1m = ilb_1m.npv(&ctx, as_of).unwrap();
-    let pv_2m = ilb_2m.npv(&ctx, as_of).unwrap();
+    let pv_1m = ilb_1m.value(&ctx, as_of).unwrap();
+    let pv_2m = ilb_2m.value(&ctx, as_of).unwrap();
 
     // Assert - 2x notional → 2x PV
     assert_approx_eq(
@@ -376,7 +375,7 @@ fn test_uk_gilt_npv() {
     let as_of = d(2025, 1, 2);
 
     // Act
-    let pv = ilb.npv(&ctx, as_of).unwrap();
+    let pv = ilb.value(&ctx, as_of).unwrap();
 
     // Assert
     assert_eq!(pv.currency(), Currency::GBP);

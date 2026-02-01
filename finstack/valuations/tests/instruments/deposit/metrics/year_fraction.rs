@@ -109,7 +109,7 @@ fn test_yf_zero_period() {
     let dep = DepositBuilder::new(base).start(base).end(base).build();
 
     // Execute - should fail validation (end must be after start)
-    let result = dep.npv(&ctx, base);
+    let result = dep.value(&ctx, base);
 
     // Validate - zero period deposits are invalid
     assert!(

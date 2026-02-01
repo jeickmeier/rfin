@@ -19,7 +19,7 @@ fn test_par_rate_makes_pv_zero() {
         .quote_rate(par_rate)
         .build();
 
-    let pv = dep_par.npv(&ctx, base).unwrap();
+    let pv = dep_par.value(&ctx, base).unwrap();
 
     // Validate - PV should be reasonably close to zero (within tolerance for numerical precision)
     assert!(
@@ -117,7 +117,7 @@ fn test_par_rate_zero_for_zero_period() {
     let dep = DepositBuilder::new(base).start(base).end(base).build();
 
     // Execute - should fail validation (end must be after start)
-    let result = dep.npv(&ctx, base);
+    let result = dep.value(&ctx, base);
 
     // Validate - zero period deposits are invalid
     assert!(

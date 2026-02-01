@@ -91,5 +91,4 @@ pub use spec::{
 pub use types::{RateSpec, TermLoan};
 
 // Re-export pricer for backward compatibility with tests.
-#[doc(hidden)]
 pub use pricing::TermLoanDiscountingPricer;

@@ -47,7 +47,6 @@ use crate::margin::types::OtcMarginSpec;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
 use finstack_core::types::{Bps, InstrumentId};
 use rust_decimal::prelude::ToPrimitive;
@@ -519,10 +518,6 @@ impl CreditDefaultSwap {
     /// # Errors
     ///
     /// Returns an error if the builder fails validation or spread_bp cannot be represented as Decimal.
-    #[deprecated(
-        since = "0.4.0",
-        note = "Use `CreditDefaultSwapBuilder` directly to construct a CDS with explicit conventions/legs and call `.build()`."
-    )]
     #[allow(clippy::too_many_arguments)]
     pub fn buy_protection(
         id: impl Into<InstrumentId>,
@@ -585,10 +580,6 @@ impl CreditDefaultSwap {
     /// # Errors
     ///
     /// Returns an error if the builder fails validation or spread_bp cannot be represented as Decimal.
-    #[deprecated(
-        since = "0.4.0",
-        note = "Use `CreditDefaultSwapBuilder` directly to construct a CDS with explicit conventions/legs and call `.build()`."
-    )]
     #[allow(clippy::too_many_arguments)]
     pub fn buy_protection_bps(
         id: impl Into<InstrumentId>,
@@ -651,10 +642,6 @@ impl CreditDefaultSwap {
     /// # Errors
     ///
     /// Returns an error if the builder fails validation or spread_bp cannot be represented as Decimal.
-    #[deprecated(
-        since = "0.4.0",
-        note = "Use `CreditDefaultSwapBuilder` directly to construct a CDS with explicit conventions/legs and call `.build()`."
-    )]
     #[allow(clippy::too_many_arguments)]
     pub fn sell_protection(
         id: impl Into<InstrumentId>,
@@ -717,10 +704,6 @@ impl CreditDefaultSwap {
     /// # Errors
     ///
     /// Returns an error if the builder fails validation or spread_bp cannot be represented as Decimal.
-    #[deprecated(
-        since = "0.4.0",
-        note = "Use `CreditDefaultSwapBuilder` directly to construct a CDS with explicit conventions/legs and call `.build()`."
-    )]
     #[allow(clippy::too_many_arguments)]
     pub fn sell_protection_bps(
         id: impl Into<InstrumentId>,
@@ -950,68 +933,22 @@ impl CreditDefaultSwap {
         Ok(flows)
     }
 
-    /// Calculate premium leg PV (delegates to enhanced pricer)
-    pub fn pv_premium_leg(
-        &self,
-        disc: &DiscountCurve,
-        surv: &HazardCurve,
-        as_of: Date,
-    ) -> finstack_core::Result<Money> {
+    /// ISDA-standard coupon date schedule (IMM 20th dates).
+    ///
+    /// This is **not** a pricing entry point; it is a schedule helper that
+    /// exposes the convention-driven coupon dates used by the CDS pricer.
+    ///
+    /// - Dates are based on IMM 20th of Mar/Jun/Sep/Dec, with business day
+    ///   adjustment per the instrument's calendar and BDC.
+    /// - The returned schedule includes the start date and the (possibly adjusted)
+    ///   maturity date.
+    pub fn isda_coupon_schedule(&self) -> finstack_core::Result<Vec<Date>> {
         self.validate()?;
         let pricer = CDSPricer::new();
-        pricer.pv_premium_leg(self, disc, surv, as_of)
+        pricer.generate_isda_schedule(self)
     }
 
-    /// Calculate protection leg PV (delegates to enhanced pricer)
-    pub fn pv_protection_leg(
-        &self,
-        disc: &DiscountCurve,
-        surv: &HazardCurve,
-        as_of: Date,
-    ) -> finstack_core::Result<Money> {
-        self.validate()?;
-        let pricer = CDSPricer::new();
-        pricer.pv_protection_leg(self, disc, surv, as_of)
-    }
-
-    /// Calculate par spread (spread that makes PV = 0) via enhanced pricer
-    pub fn par_spread(
-        &self,
-        disc: &DiscountCurve,
-        surv: &HazardCurve,
-        as_of: Date,
-    ) -> finstack_core::Result<f64> {
-        self.validate()?;
-        let pricer = CDSPricer::new();
-        pricer.par_spread(self, disc, surv, as_of)
-    }
-
-    /// Calculate risky annuity (premium leg PV per bp) via enhanced pricer
-    pub fn risky_annuity(
-        &self,
-        disc: &DiscountCurve,
-        surv: &HazardCurve,
-        as_of: Date,
-    ) -> finstack_core::Result<f64> {
-        self.validate()?;
-        let pricer = CDSPricer::new();
-        pricer.risky_annuity(self, disc, surv, as_of)
-    }
-
-    /// Calculate risky PV01 (change in PV for 1bp spread change)
-    pub fn risky_pv01(
-        &self,
-        disc: &DiscountCurve,
-        surv: &HazardCurve,
-        as_of: Date,
-    ) -> finstack_core::Result<f64> {
-        self.validate()?;
-        let pricer = CDSPricer::new();
-        pricer.risky_pv01(self, disc, surv, as_of)
-    }
-
-    /// Calculate the raw net present value of this CDS (f64)
-    pub fn npv_raw(
+    fn npv_raw_internal(
         &self,
         market: &MarketContext,
         as_of: finstack_core::dates::Date,
@@ -1061,6 +998,8 @@ impl CreditDefaultSwap {
 
         Ok(npv_amount)
     }
+
+    // (no public/raw-NPV helper; use `Instrument::value_raw()` instead)
 }
 
 impl crate::instruments::common::traits::Instrument for CreditDefaultSwap {
@@ -1101,7 +1040,7 @@ impl crate::instruments::common::traits::Instrument for CreditDefaultSwap {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        let npv_amount = self.npv_raw(market, as_of)?;
+        let npv_amount = self.npv_raw_internal(market, as_of)?;
         Ok(finstack_core::money::Money::new(
             npv_amount,
             self.notional.currency(),
@@ -1113,7 +1052,7 @@ impl crate::instruments::common::traits::Instrument for CreditDefaultSwap {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        self.npv_raw(market, as_of)
+        self.npv_raw_internal(market, as_of)
     }
 
     fn price_with_metrics(

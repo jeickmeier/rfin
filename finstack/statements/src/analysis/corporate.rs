@@ -14,7 +14,6 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity::dcf_equity::{DiscountedCashFlow, TerminalValueSpec};
 use finstack_valuations::instruments::{Attributes, Instrument};
-use finstack_valuations::prelude::InstrumentNpvExt;
 use serde_json::json;
 
 /// Corporate valuation result containing DCF outputs.
@@ -196,7 +195,7 @@ pub fn evaluate_dcf_with_trace(
         let mut dcf_up = dcf.clone();
         dcf_up.wacc = wacc + 0.01;
         let eq_up = dcf_up
-            .npv(&market, valuation_date)
+            .value(&market, valuation_date)
             .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
         eq_up.amount() + net_debt
     };
@@ -205,7 +204,7 @@ pub fn evaluate_dcf_with_trace(
         let mut dcf_down = dcf.clone();
         dcf_down.wacc = (wacc - 0.01).max(0.0);
         let eq_down = dcf_down
-            .npv(&market, valuation_date)
+            .value(&market, valuation_date)
             .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
         eq_down.amount() + net_debt
     };

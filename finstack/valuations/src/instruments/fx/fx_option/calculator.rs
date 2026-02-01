@@ -38,16 +38,6 @@ pub struct FxOptionCalculator {
 }
 
 impl FxOptionCalculator {
-    /// Create new calculator with default configuration.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Create calculator with custom configuration.
-    pub fn with_config(config: FxOptionCalculatorConfig) -> Self {
-        Self { config }
-    }
-
     /// Compute present value using Garman–Kohlhagen.
     ///
     /// # Errors
@@ -222,33 +212,6 @@ impl FxOptionCalculator {
         dc.year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
     }
 
-    /// Price using Garman–Kohlhagen with explicit inputs. Convenience for tests.
-    pub fn price_gk_with_inputs(
-        &self,
-        inst: &FxOption,
-        spot: f64,
-        r_d: f64,
-        r_f: f64,
-        sigma: f64,
-        t: f64,
-    ) -> Result<Money> {
-        if t <= 0.0 {
-            let intrinsic = match inst.option_type {
-                OptionType::Call => (spot - inst.strike).max(0.0),
-                OptionType::Put => (inst.strike - spot).max(0.0),
-            };
-            return Ok(Money::new(
-                intrinsic * inst.notional.amount(),
-                inst.quote_currency,
-            ));
-        }
-        let price = price_gk_core(spot, inst.strike, r_d, r_f, sigma, t, inst.option_type);
-        Ok(Money::new(
-            price * inst.notional.amount(),
-            inst.quote_currency,
-        ))
-    }
-
     /// Solve for implied volatility σ such that model price(σ) = target_price.
     /// Uses log-σ parameterization with Hybrid solver for robustness.
     pub fn implied_vol(
@@ -266,6 +229,9 @@ impl FxOptionCalculator {
         }
 
         // Solve per-unit then scale back: PV = unit_price * notional_base.
+        //
+        // Default initial guess: config-provided fallback if caller didn't provide one.
+        let initial_guess = initial_guess.or(Some(self.config.iv_initial_guess));
         // Using the shared closed-form implied vol utility removes duplicated solvers.
         let target_unit = target_price / inst.notional.amount();
         let _ = initial_guess; // future: warm-start the bracket
@@ -284,15 +250,12 @@ impl FxOptionCalculator {
     /// Compute greeks with calculator configuration.
     ///
     /// Returns both spot delta (Bloomberg default) and forward delta (interbank convention).
-    /// Use `delta_forward` for professional FX option hedging and vol surface interpolation.
     pub fn compute_greeks(
         &self,
         inst: &FxOption,
         curves: &MarketContext,
         as_of: Date,
     ) -> Result<FxOptionGreeks> {
-        use crate::instruments::common::models::d1;
-
         self.validate_currency(inst)?;
         let (spot, r_d, r_f, sigma, t) = self.collect_inputs(inst, curves, as_of)?;
 
@@ -318,7 +281,6 @@ impl FxOptionCalculator {
             let scale = inst.notional.amount();
             return Ok(FxOptionGreeks {
                 delta: delta_unit * scale,
-                delta_forward: delta_unit * scale, // Same at expiry
                 ..Default::default()
             });
         }
@@ -334,19 +296,9 @@ impl FxOptionCalculator {
             self.config.theta_days_per_year,
         );
 
-        // Compute forward delta: N(d1) for call, -N(-d1) for put (no foreign rate discount)
-        // This is the professional interbank market convention for G10 FX options.
-        // Spot delta = e^(-r_f * T) × N(d1), Forward delta = N(d1)
-        let d1_val = d1(spot, inst.strike, r_d, sigma, t, r_f);
-        let delta_forward_unit = match inst.option_type {
-            OptionType::Call => finstack_core::math::norm_cdf(d1_val),
-            OptionType::Put => -finstack_core::math::norm_cdf(-d1_val),
-        };
-
         let scale = inst.notional.amount();
         Ok(FxOptionGreeks {
             delta: greeks_unit.delta * scale,
-            delta_forward: delta_forward_unit * scale,
             gamma: greeks_unit.gamma * scale,
             vega: greeks_unit.vega * scale,
             theta: greeks_unit.theta * scale,
@@ -389,12 +341,6 @@ pub struct FxOptionGreeks {
     /// Spot delta = e^(-r_f × T) × N(d1) for calls, -e^(-r_f × T) × N(-d1) for puts.
     /// This is the Bloomberg default convention.
     pub delta: f64,
-    /// Forward delta: sensitivity using interbank convention.
-    ///
-    /// Forward delta = N(d1) for calls, -N(-d1) for puts (no foreign rate discounting).
-    /// This is the professional interbank market convention for G10 FX options.
-    /// Use this for hedging and vol surface interpolation in dealer markets.
-    pub delta_forward: f64,
     /// Gamma: rate of change of delta with respect to spot
     pub gamma: f64,
     /// Vega: sensitivity to 1% change in volatility
@@ -540,7 +486,7 @@ mod tests {
         let expiry = date(2025, 7, 3);
         let option = base_option(expiry, OptionType::Call);
         let ctx = market_context(as_of, 1.18, 0.22, 0.03, 0.01);
-        let calc = FxOptionCalculator::new();
+        let calc = FxOptionCalculator::default();
 
         let pv = calc.npv(&option, &ctx, as_of).expect("should succeed");
         let (spot, r_d, r_f, sigma, t) = calc
@@ -558,7 +504,7 @@ mod tests {
         let expiry = date(2025, 9, 1);
         let mut option = base_option(expiry, OptionType::Put);
         let ctx = market_context(as_of, 1.2, 0.35, 0.025, 0.015);
-        let calc = FxOptionCalculator::new();
+        let calc = FxOptionCalculator::default();
 
         let (spot, r_d, r_f, sigma, t) = calc
             .collect_inputs(&option, &ctx, as_of)
@@ -587,7 +533,7 @@ mod tests {
         let expiry = date(2025, 8, 10);
         let option = base_option(expiry, OptionType::Call);
         let ctx = market_context(as_of, 1.17, 0.25, 0.02, 0.012);
-        let calc = FxOptionCalculator::new();
+        let calc = FxOptionCalculator::default();
 
         let pv = calc.npv(&option, &ctx, as_of).expect("should succeed");
         let sigma = calc
@@ -602,10 +548,12 @@ mod tests {
         let expiry = date(2025, 6, 15);
         let option = base_option(expiry, OptionType::Call);
         let ctx = market_context(as_of, 1.16, 0.18, 0.028, 0.012);
-        let calc = FxOptionCalculator::with_config(FxOptionCalculatorConfig {
-            theta_days_per_year: 365.0,
-            iv_initial_guess: 0.2,
-        });
+        let calc = FxOptionCalculator {
+            config: FxOptionCalculatorConfig {
+                theta_days_per_year: 365.0,
+                iv_initial_guess: 0.2,
+            },
+        };
 
         let greeks = calc
             .compute_greeks(&option, &ctx, as_of)
@@ -676,7 +624,7 @@ mod tests {
         let option = base_option(expiry, OptionType::Put);
         let as_of = expiry;
         let ctx = market_context(expiry, 1.05, 0.2, 0.02, 0.01);
-        let calc = FxOptionCalculator::new();
+        let calc = FxOptionCalculator::default();
 
         let pv = calc.npv(&option, &ctx, as_of).expect("should succeed");
         let intrinsic = (option.strike - 1.05).max(0.0) * option.notional.amount();
@@ -698,7 +646,7 @@ mod tests {
         let mut option = base_option(expiry, OptionType::Call);
         option.notional = Money::new(1_000_000.0, QUOTE); // mismatched currency
         let ctx = market_context(date(2025, 1, 1), 1.1, 0.2, 0.03, 0.01);
-        let calc = FxOptionCalculator::new();
+        let calc = FxOptionCalculator::default();
 
         let result = calc.npv(&option, &ctx, date(2025, 1, 1));
         assert!(result.is_err());
@@ -770,7 +718,7 @@ mod tests {
             .build()
             .expect("option should build");
 
-        let calc = FxOptionCalculator::new();
+        let calc = FxOptionCalculator::default();
 
         // Collect inputs and verify day count handling
         let (collected_spot, r_d, r_f, sigma, t_vol) = calc
@@ -934,7 +882,7 @@ mod tests {
         let mut option = base_option(date(2025, 6, 15), OptionType::Call);
         option.exercise_style = ExerciseStyle::American;
 
-        let calc = FxOptionCalculator::new();
+        let calc = FxOptionCalculator::default();
         let market = base_market(as_of);
         let result = calc.npv(&option, &market, as_of);
 
@@ -961,7 +909,7 @@ mod tests {
         let mut option = base_option(date(2025, 6, 15), OptionType::Call);
         option.exercise_style = ExerciseStyle::Bermudan;
 
-        let calc = FxOptionCalculator::new();
+        let calc = FxOptionCalculator::default();
         let market = base_market(as_of);
         let result = calc.npv(&option, &market, as_of);
 

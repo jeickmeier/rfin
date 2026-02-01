@@ -108,7 +108,7 @@ pub fn npv_by_date(
 /// # Returns
 ///
 /// Sum of discounted cashflows (pricing-view NPV).
-#[allow(dead_code)] // API completeness: kept alongside npv_by_date for pricing-view use cases
+#[allow(dead_code)] // Public API, used in tests
 pub fn npv_by_date_pricing_view(
     disc: &DiscountCurve,
     as_of: Date,

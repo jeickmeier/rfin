@@ -92,7 +92,8 @@ mod types;
 
 pub use copula::{Copula, CopulaSpec};
 pub use parameters::CDSTrancheParams;
-#[doc(hidden)]
-pub use pricer::{CDSTranchePricer, CDSTranchePricerConfig, Cs01BumpUnits, HeteroMethod};
 pub use recovery::{RecoveryModel, RecoverySpec};
 pub use types::{CdsTranche, TrancheSide};
+
+// Re-export pricer for calibration/bench tooling.
+pub use pricer::{CDSTranchePricer, CDSTranchePricerConfig, Cs01BumpUnits, HeteroMethod};

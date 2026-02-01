@@ -7,7 +7,7 @@ use finstack_core::market_data::term_structures::{DiscountCurve, PriceCurve};
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_forward::{CommodityForward, Position};
 use finstack_valuations::instruments::Attributes;
-use finstack_valuations::instruments::InstrumentNpvExt;
+use finstack_valuations::instruments::Instrument;
 use time::Month;
 
 /// Helper to create a test market with discount and price curves.
@@ -64,7 +64,7 @@ fn test_commodity_forward_pricing_with_quoted_price() {
         .build()
         .expect("should build");
 
-    let npv = forward.npv(&market, as_of).expect("should price");
+    let npv = forward.value(&market, as_of).expect("should price");
 
     // Verify basic properties
     assert_eq!(npv.currency(), Currency::USD);
@@ -110,7 +110,7 @@ fn test_commodity_forward_pricing_expired() {
         .build()
         .expect("should build");
 
-    let npv = forward.npv(&market, as_of).expect("should price");
+    let npv = forward.value(&market, as_of).expect("should price");
 
     // Expired forward should have zero value
     assert_eq!(npv.amount(), 0.0);
@@ -188,7 +188,7 @@ fn test_commodity_forward_at_market_npv_zero() {
         .build()
         .expect("should build");
 
-    let npv = forward.npv(&market, as_of).expect("should price");
+    let npv = forward.value(&market, as_of).expect("should price");
 
     // At-market: K = F, so NPV = 0
     assert!(
@@ -237,8 +237,8 @@ fn test_commodity_forward_long_short_symmetry() {
         .build()
         .expect("should build");
 
-    let long_npv = long.npv(&market, as_of).expect("long should price");
-    let short_npv = short.npv(&market, as_of).expect("short should price");
+    let long_npv = long.value(&market, as_of).expect("long should price");
+    let short_npv = short.value(&market, as_of).expect("short should price");
 
     // Long + Short should net to zero
     let net = long_npv.amount() + short_npv.amount();
@@ -300,7 +300,9 @@ fn test_commodity_forward_round_trip_at_market() {
         .build()
         .expect("should build");
 
-    let npv = forward_at_market.npv(&market, as_of).expect("should price");
+    let npv = forward_at_market
+        .value(&market, as_of)
+        .expect("should price");
 
     // Round-trip test: NPV should be zero (< 0.01bp = 0.000001 relative)
     let tolerance_abs = 1e-8; // Absolute tolerance for near-zero
@@ -343,7 +345,7 @@ fn test_commodity_forward_analytical_parity() {
         .build()
         .expect("should build");
 
-    let npv = forward.npv(&market, as_of).expect("should price");
+    let npv = forward.value(&market, as_of).expect("should price");
 
     // Get the discount factor
     let disc = market.get_discount("USD-OIS").expect("discount curve");

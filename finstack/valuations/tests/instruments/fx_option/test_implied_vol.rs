@@ -6,7 +6,6 @@
 use super::helpers::*;
 use finstack_core::dates::DayCountCtx;
 use finstack_valuations::instruments::common::models::bs_price;
-use finstack_valuations::instruments::fx::fx_option::FxOptionCalculator;
 use time::macros::date;
 
 fn analytical_fx_price(
@@ -38,13 +37,12 @@ fn test_implied_vol_recovers_market_vol() {
     let call = build_call_option(as_of, expiry, 1.20, 1_000_000.0);
     let params = MarketParams::atm();
     let market = build_market_context(as_of, params);
-    let calc = FxOptionCalculator::new();
 
     // Act: Get market price, then solve for IV
     let market_pv =
         finstack_core::money::Money::new(analytical_fx_price(&call, params, as_of), QUOTE);
-    let implied_vol = calc
-        .implied_vol(&call, &market, as_of, market_pv.amount(), None)
+    let implied_vol = call
+        .implied_vol(&market, as_of, market_pv.amount(), None)
         .unwrap();
 
     // Assert: Should recover market vol (15%)
@@ -65,14 +63,13 @@ fn test_implied_vol_with_custom_initial_guess() {
     let call = build_call_option(as_of, expiry, 1.20, 1_000_000.0);
     let params = MarketParams::atm();
     let market = build_market_context(as_of, params);
-    let calc = FxOptionCalculator::new();
 
     let market_pv =
         finstack_core::money::Money::new(analytical_fx_price(&call, params, as_of), QUOTE);
 
     // Act: Solve with custom initial guess
-    let implied_vol = calc
-        .implied_vol(&call, &market, as_of, market_pv.amount(), Some(0.25))
+    let implied_vol = call
+        .implied_vol(&market, as_of, market_pv.amount(), Some(0.25))
         .unwrap();
 
     // Assert: Should still converge to correct vol
@@ -93,13 +90,12 @@ fn test_implied_vol_high_vol_scenario() {
     let call = build_call_option(as_of, expiry, 1.20, 1_000_000.0);
     let params = MarketParams::high_vol();
     let market = build_market_context(as_of, params);
-    let calc = FxOptionCalculator::new();
 
     // Act
     let market_pv =
         finstack_core::money::Money::new(analytical_fx_price(&call, params, as_of), QUOTE);
-    let implied_vol = calc
-        .implied_vol(&call, &market, as_of, market_pv.amount(), None)
+    let implied_vol = call
+        .implied_vol(&market, as_of, market_pv.amount(), None)
         .unwrap();
 
     // Assert: Should recover high vol (35%)
@@ -114,13 +110,12 @@ fn test_implied_vol_low_vol_scenario() {
     let call = build_call_option(as_of, expiry, 1.20, 1_000_000.0);
     let params = MarketParams::low_vol();
     let market = build_market_context(as_of, params);
-    let calc = FxOptionCalculator::new();
 
     // Act
     let market_pv =
         finstack_core::money::Money::new(analytical_fx_price(&call, params, as_of), QUOTE);
-    let implied_vol = calc
-        .implied_vol(&call, &market, as_of, market_pv.amount(), None)
+    let implied_vol = call
+        .implied_vol(&market, as_of, market_pv.amount(), None)
         .unwrap();
 
     // Assert: Should recover low vol (5%)
@@ -135,13 +130,12 @@ fn test_implied_vol_put_option() {
     let put = build_put_option(as_of, expiry, 1.20, 1_000_000.0);
     let params = MarketParams::atm();
     let market = build_market_context(as_of, params);
-    let calc = FxOptionCalculator::new();
 
     // Act
     let market_pv =
         finstack_core::money::Money::new(analytical_fx_price(&put, params, as_of), QUOTE);
-    let implied_vol = calc
-        .implied_vol(&put, &market, as_of, market_pv.amount(), None)
+    let implied_vol = put
+        .implied_vol(&market, as_of, market_pv.amount(), None)
         .unwrap();
 
     // Assert
@@ -162,13 +156,12 @@ fn test_implied_vol_itm_option() {
     let call = build_call_option(as_of, expiry, 1.10, 1_000_000.0);
     let params = MarketParams::atm();
     let market = build_market_context(as_of, params);
-    let calc = FxOptionCalculator::new();
 
     // Act
     let market_pv =
         finstack_core::money::Money::new(analytical_fx_price(&call, params, as_of), QUOTE);
-    let implied_vol = calc
-        .implied_vol(&call, &market, as_of, market_pv.amount(), None)
+    let implied_vol = call
+        .implied_vol(&market, as_of, market_pv.amount(), None)
         .unwrap();
 
     // Assert
@@ -189,13 +182,12 @@ fn test_implied_vol_otm_option() {
     let call = build_call_option(as_of, expiry, 1.35, 1_000_000.0);
     let params = MarketParams::atm();
     let market = build_market_context(as_of, params);
-    let calc = FxOptionCalculator::new();
 
     // Act
     let market_pv =
         finstack_core::money::Money::new(analytical_fx_price(&call, params, as_of), QUOTE);
-    let implied_vol = calc
-        .implied_vol(&call, &market, as_of, market_pv.amount(), None)
+    let implied_vol = call
+        .implied_vol(&market, as_of, market_pv.amount(), None)
         .unwrap();
 
     // Assert
@@ -216,13 +208,12 @@ fn test_implied_vol_short_dated_option() {
     let call = build_call_option(as_of, expiry, 1.20, 1_000_000.0);
     let params = MarketParams::atm();
     let market = build_market_context(as_of, params);
-    let calc = FxOptionCalculator::new();
 
     // Act
     let market_pv =
         finstack_core::money::Money::new(analytical_fx_price(&call, params, as_of), QUOTE);
-    let implied_vol = calc
-        .implied_vol(&call, &market, as_of, market_pv.amount(), None)
+    let implied_vol = call
+        .implied_vol(&market, as_of, market_pv.amount(), None)
         .unwrap();
 
     // Assert
@@ -243,13 +234,12 @@ fn test_implied_vol_long_dated_option() {
     let call = build_call_option(as_of, expiry, 1.20, 1_000_000.0);
     let params = MarketParams::atm();
     let market = build_market_context(as_of, params);
-    let calc = FxOptionCalculator::new();
 
     // Act
     let market_pv =
         finstack_core::money::Money::new(analytical_fx_price(&call, params, as_of), QUOTE);
-    let implied_vol = calc
-        .implied_vol(&call, &market, as_of, market_pv.amount(), None)
+    let implied_vol = call
+        .implied_vol(&market, as_of, market_pv.amount(), None)
         .unwrap();
 
     // Assert
@@ -270,12 +260,11 @@ fn test_implied_vol_expired_option_returns_zero() {
     let call = build_call_option(expiry, expiry, 1.20, 1_000_000.0);
     let params = MarketParams::atm();
     let market = build_market_context(as_of, params);
-    let calc = FxOptionCalculator::new();
 
     // Act
     let target_price = 10_000.0; // Arbitrary
-    let implied_vol = calc
-        .implied_vol(&call, &market, as_of, target_price, None)
+    let implied_vol = call
+        .implied_vol(&market, as_of, target_price, None)
         .unwrap();
 
     // Assert: Should return 0 for expired
@@ -292,7 +281,6 @@ fn test_implied_vol_uses_override_as_initial_guess() {
 
     let params = MarketParams::atm();
     let market = build_market_context(as_of, params);
-    let calc = FxOptionCalculator::new();
 
     // Price at override vol
     let pv = finstack_core::money::Money::new(analytical_fx_price(&call, params, as_of), QUOTE);
@@ -301,9 +289,7 @@ fn test_implied_vol_uses_override_as_initial_guess() {
     call.pricing_overrides.implied_volatility = None;
 
     // Act: Solve without explicit guess (should use surface vol as initial)
-    let implied_vol = calc
-        .implied_vol(&call, &market, as_of, pv.amount(), None)
-        .unwrap();
+    let implied_vol = call.implied_vol(&market, as_of, pv.amount(), None).unwrap();
 
     // Assert: Should converge to the price's implied vol
     // (which was 25% from the override used for pricing)

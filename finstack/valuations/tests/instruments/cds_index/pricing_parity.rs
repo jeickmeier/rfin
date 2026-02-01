@@ -24,7 +24,20 @@
 use super::test_utils::*;
 use finstack_valuations::instruments::credit_derivatives::cds_index::IndexPricing;
 use finstack_valuations::instruments::Instrument;
+use finstack_valuations::metrics::MetricId;
 use time::macros::date;
+
+fn metric_value(
+    index: &finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndex,
+    market: &finstack_core::market_data::context::MarketContext,
+    as_of: finstack_core::dates::Date,
+    metric: MetricId,
+) -> f64 {
+    let result = index
+        .price_with_metrics(market, as_of, std::slice::from_ref(&metric))
+        .expect("metric should compute");
+    result.measures[&metric]
+}
 
 #[test]
 fn test_npv_parity_equal_hazards() {
@@ -72,8 +85,8 @@ fn test_par_spread_parity_equal_hazards() {
 
     let ctx = multi_constituent_market_context(as_of, 5);
 
-    let par_single = idx_single.par_spread(&ctx, as_of).unwrap();
-    let par_constituents = idx_constituents.par_spread(&ctx, as_of).unwrap();
+    let par_single = metric_value(&idx_single, &ctx, as_of, MetricId::ParSpread);
+    let par_constituents = metric_value(&idx_constituents, &ctx, as_of, MetricId::ParSpread);
 
     // Par spread is a ratio (protection PV / annuity), errors cancel
     assert_relative_eq(par_single, par_constituents, 0.005, "Par spread parity");
@@ -94,8 +107,8 @@ fn test_risky_pv01_parity_equal_hazards() {
 
     let ctx = multi_constituent_market_context(as_of, 5);
 
-    let rpv01_single = idx_single.risky_pv01(&ctx, as_of).unwrap();
-    let rpv01_constituents = idx_constituents.risky_pv01(&ctx, as_of).unwrap();
+    let rpv01_single = metric_value(&idx_single, &ctx, as_of, MetricId::RiskyPv01);
+    let rpv01_constituents = metric_value(&idx_constituents, &ctx, as_of, MetricId::RiskyPv01);
 
     // Annuity is sum of discounted survival - tight for identical hazards
     assert_relative_eq(rpv01_single, rpv01_constituents, 0.01, "Risky PV01 parity");
@@ -142,13 +155,13 @@ fn test_protection_leg_parity_equal_hazards() {
 
     let ctx = multi_constituent_market_context(as_of, 5);
 
-    let prot_single = idx_single.pv_protection_leg(&ctx, as_of).unwrap();
-    let prot_constituents = idx_constituents.pv_protection_leg(&ctx, as_of).unwrap();
+    let prot_single = metric_value(&idx_single, &ctx, as_of, MetricId::ProtectionLegPv);
+    let prot_constituents = metric_value(&idx_constituents, &ctx, as_of, MetricId::ProtectionLegPv);
 
     // Protection leg integral - tight for identical hazards/recovery
     assert_relative_eq(
-        prot_single.amount(),
-        prot_constituents.amount(),
+        prot_single,
+        prot_constituents,
         0.01,
         "Protection leg parity",
     );
@@ -169,16 +182,11 @@ fn test_premium_leg_parity_equal_hazards() {
 
     let ctx = multi_constituent_market_context(as_of, 5);
 
-    let prem_single = idx_single.pv_premium_leg(&ctx, as_of).unwrap();
-    let prem_constituents = idx_constituents.pv_premium_leg(&ctx, as_of).unwrap();
+    let prem_single = metric_value(&idx_single, &ctx, as_of, MetricId::PremiumLegPv);
+    let prem_constituents = metric_value(&idx_constituents, &ctx, as_of, MetricId::PremiumLegPv);
 
     // Premium leg = spread × annuity - tight for identical hazards
-    assert_relative_eq(
-        prem_single.amount(),
-        prem_constituents.amount(),
-        0.01,
-        "Premium leg parity",
-    );
+    assert_relative_eq(prem_single, prem_constituents, 0.01, "Premium leg parity");
 }
 
 #[test]
@@ -291,8 +299,8 @@ fn test_mode_independence_of_par_spread() {
 
     let ctx = multi_constituent_market_context(as_of, 5);
 
-    let par_single = idx_single.par_spread(&ctx, as_of).unwrap();
-    let par_const = idx_const.par_spread(&ctx, as_of).unwrap();
+    let par_single = metric_value(&idx_single, &ctx, as_of, MetricId::ParSpread);
+    let par_const = metric_value(&idx_const, &ctx, as_of, MetricId::ParSpread);
 
     // Par spread is a pure ratio and should match very closely
     assert_relative_eq(par_single, par_const, 0.005, "Par spread mode independence");

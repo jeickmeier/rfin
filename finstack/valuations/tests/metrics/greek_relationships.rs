@@ -19,7 +19,6 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::equity::equity_option::EquityOption;
 use finstack_valuations::instruments::market::{ExerciseStyle, OptionType};
 use finstack_valuations::instruments::Instrument;
-use finstack_valuations::instruments::InstrumentNpvExt;
 use finstack_valuations::instruments::{PricingOverrides, SettlementType};
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 use std::sync::Arc;
@@ -55,8 +54,8 @@ fn delta_fd(option: &EquityOption, market: &MarketContext, as_of: Date) -> f64 {
     let h = spot * SPOT_BUMP_PCT;
     let up = bump_scalar_price(market, &option.spot_id, SPOT_BUMP_PCT).unwrap();
     let dn = bump_scalar_price(market, &option.spot_id, -SPOT_BUMP_PCT).unwrap();
-    let pv_up = option.npv(&up, as_of).unwrap().amount();
-    let pv_dn = option.npv(&dn, as_of).unwrap().amount();
+    let pv_up = option.value(&up, as_of).unwrap().amount();
+    let pv_dn = option.value(&dn, as_of).unwrap().amount();
     (pv_up - pv_dn) / (2.0 * h)
 }
 
@@ -69,9 +68,9 @@ fn gamma_fd(option: &EquityOption, market: &MarketContext, as_of: Date) -> f64 {
     let h = spot * SPOT_BUMP_PCT;
     let up = bump_scalar_price(market, &option.spot_id, SPOT_BUMP_PCT).unwrap();
     let dn = bump_scalar_price(market, &option.spot_id, -SPOT_BUMP_PCT).unwrap();
-    let pv_up = option.npv(&up, as_of).unwrap().amount();
-    let pv_dn = option.npv(&dn, as_of).unwrap().amount();
-    let pv_0 = option.npv(market, as_of).unwrap().amount();
+    let pv_up = option.value(&up, as_of).unwrap().amount();
+    let pv_dn = option.value(&dn, as_of).unwrap().amount();
+    let pv_0 = option.value(market, as_of).unwrap().amount();
     (pv_up - 2.0 * pv_0 + pv_dn) / (h * h)
 }
 

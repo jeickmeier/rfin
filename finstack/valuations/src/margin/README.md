@@ -377,7 +377,7 @@ impl Marginable for MyInstrument {
     }
 
     fn mtm_for_vm(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
-        self.npv(market, as_of)
+        self.value(market, as_of)
     }
 }
 ```

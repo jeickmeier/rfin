@@ -43,9 +43,7 @@ pub mod path_generator;
 pub mod unified;
 
 // Re-export key types and functions
-#[cfg(feature = "mc")]
-pub use unified::EnhancedMonteCarloResult;
-pub use unified::{PathResult, RevolvingCreditPricer};
+pub use unified::RevolvingCreditPricer;
 
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]

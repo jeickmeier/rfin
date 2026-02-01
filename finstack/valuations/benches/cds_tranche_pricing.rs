@@ -21,8 +21,8 @@ use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTrancheParams;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::{CdsTranche, TrancheSide};
+use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
-use finstack_valuations::prelude::InstrumentNpvExt;
 use std::hint::black_box;
 use std::sync::Arc;
 use time::Month;
@@ -216,7 +216,7 @@ fn bench_cds_tranche_npv(c: &mut Criterion) {
     for (name, attach, detach) in tranches {
         let tranche = create_tranche(attach, detach, 5);
         group.bench_with_input(BenchmarkId::from_parameter(name), name, |b, _| {
-            b.iter(|| tranche.npv(black_box(&market), black_box(as_of)));
+            b.iter(|| tranche.value(black_box(&market), black_box(as_of)));
         });
     }
     group.finish();
@@ -233,7 +233,7 @@ fn bench_cds_tranche_cs01(c: &mut Criterion) {
     group.bench_function("cs01", |b| {
         b.iter(|| {
             // Use generic CS01 calculator via MetricContext
-            let base_pv = tranche.npv(black_box(&market), black_box(as_of)).unwrap();
+            let base_pv = tranche.value(black_box(&market), black_box(as_of)).unwrap();
             let mut context = MetricContext::new(
                 Arc::new(tranche.clone()),
                 Arc::new(market.clone()),
@@ -301,7 +301,7 @@ fn bench_cds_tranche_all_metrics(c: &mut Criterion) {
 
     group.bench_function("all_metrics", |b| {
         b.iter(|| {
-            let _npv = tranche.npv(black_box(&market), black_box(as_of));
+            let _npv = tranche.value(black_box(&market), black_box(as_of));
 
             // CS01 via generic calculator
             let _base_pv = *_npv.as_ref().unwrap();
@@ -338,7 +338,7 @@ fn bench_cds_tranche_heterogeneous(c: &mut Criterion) {
             BenchmarkId::new("npv_hetero", pool_size),
             &pool_size,
             |b, _| {
-                b.iter(|| tranche.npv(black_box(&market), black_box(as_of)));
+                b.iter(|| tranche.value(black_box(&market), black_box(as_of)));
             },
         );
     }

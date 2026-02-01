@@ -5,7 +5,7 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::fx::FxMatrix;
 use finstack_core::money::fx::SimpleFxProvider;
-pub use finstack_valuations::instruments::InstrumentNpvExt;
+pub use finstack_valuations::instruments::Instrument;
 use std::sync::Arc;
 use time::Month;
 

@@ -283,7 +283,6 @@ impl CurveRestoreFlags {
 
     /// Returns flags with no curve types enabled.
     #[inline]
-    #[allow(dead_code)]
     pub const fn empty() -> Self {
         Self {
             discount: false,
@@ -351,7 +350,6 @@ impl std::ops::Not for CurveRestoreFlags {
 }
 
 /// Snapshot of all discount and forward curves from a market context.
-#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct RatesCurvesSnapshot {
     /// Discount curves indexed by curve ID
@@ -361,7 +359,6 @@ pub struct RatesCurvesSnapshot {
 }
 
 /// Snapshot of all credit hazard curves from a market context.
-#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub struct CreditCurvesSnapshot {
     /// Hazard curves indexed by curve ID
@@ -377,7 +374,7 @@ pub struct InflationCurvesSnapshot {
 }
 
 /// Snapshot of all base correlation curves from a market context.
-#[allow(dead_code)]
+#[allow(dead_code)] // Public API, used in tests
 #[derive(Clone, Debug)]
 pub struct CorrelationsSnapshot {
     /// Base correlation curves indexed by curve ID
@@ -647,7 +644,6 @@ pub trait MarketExtractable: Sized {
 /// Generic helper function to extract a snapshot from a market context.
 ///
 /// Uses type inference to determine which snapshot type to extract.
-#[allow(dead_code)]
 pub fn extract<T: MarketExtractable>(market: &MarketContext) -> T {
     T::extract(market)
 }
