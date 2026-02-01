@@ -16,7 +16,7 @@
 //!
 //! ```rust,ignore
 //! use finstack_valuations::instruments::Bond;
-//! use finstack_valuations::instruments::Instrument;
+//! use finstack_valuations::instruments::common::traits::Instrument;
 //! use finstack_core::market_data::context::MarketContext;
 //! use time::macros::date;
 //!
@@ -28,7 +28,7 @@
 //! let pv = bond.value(&market, as_of)?;
 //! ```
 //!
-//! [`Instrument`]: crate::instruments::common_impl::traits::Instrument
+//! [`Instrument`]: crate::instruments::common::traits::Instrument
 //!
 //! # See Also
 //!

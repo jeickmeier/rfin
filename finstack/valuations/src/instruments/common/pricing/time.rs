@@ -38,7 +38,7 @@ use finstack_core::Result;
 /// Minimum threshold for discount factor values to avoid numerical instability.
 ///
 /// Set to 1e-10 to protect against division by near-zero discount factors.
-/// See [`crate::instruments::common_impl::pricing::swap_legs::DF_EPSILON`] for derivation.
+/// See [`crate::instruments::common::pricing::swap_legs::DF_EPSILON`] for derivation.
 pub const DF_EPSILON: f64 = 1e-10;
 
 // ---------------------------------------------------------------------------

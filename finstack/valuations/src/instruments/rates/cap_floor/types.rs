@@ -579,30 +579,41 @@ mod tests {
         let disc = ctx.get_discount(CurveId::new("TEST-DISC")).expect("disc");
         let fwd = ctx.get_forward(CurveId::new("TEST-FWD")).expect("fwd");
 
-        let schedule = crate::cashflow::builder::date_generation::build_dates(
-            start_date,
-            end_date,
-            Tenor::quarterly(),
-            StubKind::None,
-            BusinessDayConvention::ModifiedFollowing,
-            None,
+        // IMPORTANT: Use the same canonical schedule builder as the instrument pricer.
+        //
+        // `cashflow::builder::date_generation::build_dates` only applies BDC when a calendar
+        // is provided, while `instruments::common::pricing::schedule::build_periods` applies
+        // BDC even when `calendar_id` is None (weekends-only calendar). Cap/floor parity
+        // is very sensitive to small date shifts, so we must match the instrument's schedule.
+        let periods = crate::instruments::common::pricing::schedule::build_periods(
+            crate::instruments::common::pricing::schedule::BuildPeriodsParams {
+                start: start_date,
+                end: end_date,
+                frequency: Tenor::quarterly(),
+                stub: StubKind::None,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                calendar_id: None,
+                end_of_month: false,
+                day_count: DayCount::Act360,
+                payment_lag_days: 0,
+                reset_lag_days: None,
+            },
         )
-        .expect("schedule");
+        .expect("periods");
 
         let mut expected_swap_pv = 0.0;
-        let dc_ctx = finstack_core::dates::DayCountCtx::default();
-        let mut prev = schedule.dates[0];
-        for &pay in &schedule.dates[1..] {
-            let tau = DayCount::Act360
-                .year_fraction(prev, pay, dc_ctx)
-                .expect("tau");
+        for p in periods {
+            let tau = p.accrual_year_fraction;
             let forward = crate::instruments::common_impl::pricing::time::rate_period_on_dates(
-                &fwd, prev, pay,
+                &fwd,
+                p.accrual_start,
+                p.accrual_end,
             )
             .expect("forward");
-            let df = disc.df_between_dates(base_date, pay).expect("df");
+            let df = disc
+                .df_between_dates(base_date, p.payment_date)
+                .expect("df");
             expected_swap_pv += df * tau * notional.amount() * (forward - strike);
-            prev = pay;
         }
 
         // Cap - Floor should equal the forward swap PV

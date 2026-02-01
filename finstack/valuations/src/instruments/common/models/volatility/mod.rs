@@ -62,7 +62,7 @@
 //! - [`SABRModel`] for SABR smile interpolation
 //! - [`HestonModel`] for stochastic volatility
 //! - [`LocalVolSurface`] for Dupire local vol
-//! - [`crate::instruments::common_impl::models::closed_form`] for analytical formulas
+//! - [`crate::instruments::common::models::closed_form`] for analytical formulas
 
 pub mod black;
 pub mod heston;

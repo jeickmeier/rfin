@@ -162,7 +162,7 @@ impl RateSpec {
 ///
 /// # Pricing
 ///
-/// Implements [`Instrument::value()`](crate::instruments::common_impl::traits::Instrument::value)
+/// Implements [`Instrument::value()`](crate::instruments::common::traits::Instrument::value)
 /// using deterministic cashflow discounting. PIK interest is capitalized and excluded from PV.
 ///
 /// # Invariants

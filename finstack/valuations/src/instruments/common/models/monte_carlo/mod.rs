@@ -79,7 +79,7 @@
 //! - [`engine::McEngine`] for the main simulation engine
 //! - [`pricer::lsmc`] for American option pricing
 //! - [`variance_reduction`] for variance reduction techniques
-//! - [`crate::instruments::common_impl::mc`] for low-level MC infrastructure
+//! - [`crate::instruments::common::mc`] for low-level MC infrastructure
 
 pub mod barriers;
 pub mod discretization;

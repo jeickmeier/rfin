@@ -38,7 +38,7 @@
 //! # See Also
 //!
 //! - [`crate::instruments::fi_trs`] for fixed income index TRS
-//! - [`TrsEngine`](crate::instruments::common_impl::pricing::TrsEngine) for shared pricing logic
+//! - [`TrsEngine`](crate::instruments::common::pricing::TrsEngine) for shared pricing logic
 
 pub(crate) mod metrics;
 pub(crate) mod pricer;

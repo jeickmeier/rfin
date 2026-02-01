@@ -27,7 +27,8 @@
 //! # Quick Example
 //!
 //! ```rust
-//! use finstack_valuations::instruments::{Bond, Instrument};
+//! use finstack_valuations::instruments::Bond;
+//! use finstack_valuations::instruments::common::traits::Instrument;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::money::Money;
 //! use finstack_core::dates::create_date;
@@ -50,6 +51,27 @@
 //! assert_eq!(bond.id(), "US-TREASURY-5Y");
 //! # Ok(())
 //! # }
+//! ```
+//!
+//! # API Layers
+//!
+//! - **Layer 1 (ergonomic)**: `finstack_valuations::instruments::*` for instrument types and
+//!   convenience re-exports.
+//! - **Layer 2 (canonical shared API)**: `finstack_valuations::instruments::common` for shared
+//!   traits, parameters, schedules, models, and Monte Carlo primitives.
+//! - **Internal**: `common_impl` is crate-private plumbing.
+//!
+//! ## Migration
+//!
+//! ```rust
+//! // Before
+//! use finstack_valuations::instruments::{FixedLegSpec, FloatLegSpec, Instrument};
+//!
+//! // After
+//! use finstack_valuations::instruments::common::{
+//!     parameters::*,
+//!     traits::Instrument,
+//! };
 //! ```
 //!
 //! # Supported Instrument Types
@@ -104,11 +126,11 @@
 #[path = "common/mod.rs"]
 pub(crate) mod common_impl;
 
-/// Deprecated compatibility shim for `instruments::common`.
-#[deprecated(
-    note = "`instruments::common` is deprecated; use `finstack_valuations::instruments::*` instead."
-)]
-#[doc(hidden)]
+/// Shared functionality used across multiple instruments.
+///
+/// This module groups reusable building blocks (traits, parameters, schedules, models, etc.)
+/// behind a single stable namespace: `finstack_valuations::instruments::common`.
+/// Prefer this module for shared parameters/traits and advanced model access.
 pub mod common {
     pub use super::common_impl::dependencies::{FxPair, MarketDependencies};
     pub use super::common_impl::discountable::Discountable;
@@ -123,36 +145,55 @@ pub mod common {
     };
     pub use finstack_core::dates::fx::resolve_calendar;
 
+    /// Market dependency types (curves, FX pairs, etc.).
     pub mod dependencies {
         pub use super::super::common_impl::dependencies::*;
     }
 
+    /// Discounting/NPV helper traits and adapters.
     pub mod discountable {
         pub use super::super::common_impl::discountable::*;
     }
 
+    /// FX date and joint-calendar helpers.
     pub mod fx_dates {
         pub use super::super::common_impl::fx_dates::*;
     }
 
+    /// Shared helper functions used across instruments.
     pub mod helpers {
         pub use super::super::common_impl::helpers::*;
     }
 
+    /// Shared parameter types (legs, schedules, market params, conventions).
     pub mod parameters {
         pub use super::super::common_impl::parameters::*;
     }
 
+    /// Periodized PV helpers (per-period contributions, aggregation).
     pub mod period_pv {
         pub use super::super::common_impl::period_pv::*;
     }
 
+    /// Shared pricing infrastructure (schedules, generic pricers, TRS engine, etc.).
     pub mod pricing {
         pub use super::super::common_impl::pricing::*;
     }
 
+    /// Core instrument traits and metadata (`Instrument`, `Attributes`, dependencies).
     pub mod traits {
         pub use super::super::common_impl::traits::*;
+    }
+
+    /// Pricing models (closed-form, trees, volatility, etc.).
+    pub mod models {
+        pub use super::super::common_impl::models::*;
+    }
+
+    /// Monte Carlo primitives and engines (requires `mc` feature).
+    #[cfg(feature = "mc")]
+    pub mod mc {
+        pub use super::super::common_impl::mc::*;
     }
 }
 

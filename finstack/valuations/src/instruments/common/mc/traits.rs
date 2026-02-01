@@ -257,8 +257,8 @@ pub trait StochasticProcess: Send + Sync {
     /// # Examples
     ///
     /// ```text
-    /// use crate::instruments::common_impl::mc::traits::StochasticProcess;
-    /// use crate::instruments::common_impl::mc::process::gbm::GbmProcess;
+    /// use crate::instruments::common::mc::traits::StochasticProcess;
+    /// use crate::instruments::common::mc::process::gbm::GbmProcess;
     ///
     /// let gbm = GbmProcess::with_params(0.05, 0.02, 0.2);
     /// assert!(gbm.is_diagonal());  // GBM has diagonal diffusion
@@ -299,9 +299,9 @@ pub trait Discretization<P: StochasticProcess + ?Sized>: Send + Sync {
     /// # Examples
     ///
     /// ```text
-    /// use crate::instruments::common_impl::mc::traits::{Discretization, StochasticProcess};
-    /// use crate::instruments::common_impl::mc::process::gbm::GbmProcess;
-    /// use crate::instruments::common_impl::mc::discretization::exact::ExactGbm;
+    /// use crate::instruments::common::mc::traits::{Discretization, StochasticProcess};
+    /// use crate::instruments::common::mc::process::gbm::GbmProcess;
+    /// use crate::instruments::common::mc::discretization::exact::ExactGbm;
     ///
     /// let gbm = GbmProcess::with_params(0.05, 0.02, 0.2);
     /// let disc = ExactGbm::new();

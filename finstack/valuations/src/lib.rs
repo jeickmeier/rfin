@@ -180,6 +180,7 @@
 //! - [`attribution`]: P&L attribution analysis
 //! - [`covenants`]: Covenant checking for structured products
 //! - [`cashflow`]: Advanced cashflow schedule builders
+//! - [`instruments::common`]: Shared traits, parameters, schedules, models, and MC primitives
 //! - [`market`]: Market quote schemas and conventions
 //! - [`calibration::bumps`]: Shared re-calibration helpers for scenarios
 //!

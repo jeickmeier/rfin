@@ -1,7 +1,7 @@
 //! Copula models for CDS tranche pricing.
 //!
 //! This module re-exports the shared copula infrastructure from
-//! [`crate::instruments::common_impl::models::correlation::copula`].
+//! [`crate::instruments::common::models::correlation::copula`].
 //!
 //! Provides a trait-based copula abstraction enabling pluggable correlation
 //! models while maintaining backward compatibility with one-factor Gaussian.

@@ -12,7 +12,7 @@
 //! # Shared Infrastructure
 //!
 //! This module delegates to the shared swap leg pricing infrastructure in
-//! [`crate::instruments::common_impl::pricing::swap_legs`] for the core pricing logic.
+//! [`crate::instruments::common::pricing::swap_legs`] for the core pricing logic.
 //! The shared module provides Bloomberg-validated discount factor calculations
 //! and Kahan summation.
 //!

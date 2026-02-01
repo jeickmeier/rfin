@@ -13,7 +13,7 @@
 //! # Online Covariance
 //!
 //! For large-scale simulations where storing all samples is impractical,
-//! use [`OnlineCovariance`](crate::instruments::common_impl::mc::online_stats::OnlineCovariance)
+//! use [`OnlineCovariance`](crate::instruments::common::mc::online_stats::OnlineCovariance)
 //! to compute covariance incrementally:
 //!
 //! ```rust,ignore
