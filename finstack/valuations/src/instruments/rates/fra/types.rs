@@ -167,7 +167,7 @@ impl ForwardRateAgreement {
     /// This does not encode market conventions; it enforces finiteness and
     /// basic ordering constraints to prevent ambiguous pricing.
     pub fn validate(&self) -> finstack_core::Result<()> {
-        validation::validate_date_range_strict(self.start_date, self.end_date, "FRA")?;
+        validation::validate_date_range_non_strict(self.start_date, self.end_date, "FRA")?;
 
         validation::validate_money_finite(self.notional, "FRA notional")?;
         validation::validate_money_gt_with(self.notional, 0.0, |amount| {
