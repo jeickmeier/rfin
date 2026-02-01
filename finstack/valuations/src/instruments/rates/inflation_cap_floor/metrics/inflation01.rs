@@ -12,7 +12,7 @@
 //! ```
 
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::inflation_cap_floor::InflationCapFloor;
+use crate::instruments::rates::inflation_cap_floor::InflationCapFloor;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 use finstack_core::Result;

@@ -22,13 +22,13 @@ pub fn register_equity_index_future_metrics(registry: &mut MetricRegistry) {
         metrics: [
             (Delta, delta::DeltaCalculator),
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::equity_index_future::EquityIndexFuture,
+                crate::instruments::equity::equity_index_future::EquityIndexFuture,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::equity_index_future::EquityIndexFuture,
+                crate::instruments::equity::equity_index_future::EquityIndexFuture,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
             (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::equity_index_future::EquityIndexFuture,
+                crate::instruments::equity::equity_index_future::EquityIndexFuture,
             >::default()),
         ]
     }

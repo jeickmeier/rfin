@@ -1,4 +1,4 @@
-use crate::instruments::bond::pricing::settlement::QuoteDateContext;
+use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContext;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
@@ -68,7 +68,7 @@ impl MetricCalculator for MacaulayDurationCalculator {
         let quote_date = quote_ctx.quote_date;
 
         // Calculate price from flows using quote_date to ensure consistency with YTM
-        let price = crate::instruments::bond::pricing::quote_engine::price_from_ytm(
+        let price = crate::instruments::fixed_income::bond::pricing::quote_engine::price_from_ytm(
             bond, flows, quote_date, ytm,
         )?;
         if price == 0.0 {
@@ -91,10 +91,10 @@ impl MetricCalculator for MacaulayDurationCalculator {
                     finstack_core::dates::DayCountCtx::default(),
                 )?
                 .max(0.0);
-            let df = crate::instruments::bond::pricing::quote_engine::df_from_yield(
+            let df = crate::instruments::fixed_income::bond::pricing::quote_engine::df_from_yield(
                 ytm,
                 t,
-                crate::instruments::bond::pricing::quote_engine::YieldCompounding::Street,
+                crate::instruments::fixed_income::bond::pricing::quote_engine::YieldCompounding::Street,
                 bond.cashflow_spec.frequency(),
             )?;
             weighted_time += t * amount.amount() * df;

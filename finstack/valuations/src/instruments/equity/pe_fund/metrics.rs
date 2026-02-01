@@ -1,6 +1,6 @@
 //! Private markets fund metrics: IRR, MOIC, DPI, TVPI, carry calculations, and theta.
 
-use crate::instruments::private_markets_fund::PrivateMarketsFund;
+use crate::instruments::equity::pe_fund::PrivateMarketsFund;
 use crate::metrics::{MetricCalculator, MetricContext, MetricRegistry};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::math::solver::{BrentSolver, Solver};
@@ -88,7 +88,7 @@ impl MetricCalculator for MoicLpCalculator {
             .events
             .iter()
             .filter(|e| {
-                e.kind == crate::instruments::private_markets_fund::FundEventKind::Contribution
+                e.kind == crate::instruments::equity::pe_fund::FundEventKind::Contribution
                     && e.date <= context.as_of
             })
             .map(|e| e.amount.amount())
@@ -100,8 +100,8 @@ impl MetricCalculator for MoicLpCalculator {
             .filter(|e| {
                 matches!(
                     e.kind,
-                    crate::instruments::private_markets_fund::FundEventKind::Distribution
-                        | crate::instruments::private_markets_fund::FundEventKind::Proceeds
+                    crate::instruments::equity::pe_fund::FundEventKind::Distribution
+                        | crate::instruments::equity::pe_fund::FundEventKind::Proceeds
                 ) && e.date <= context.as_of
             })
             .map(|e| e.amount.amount())
@@ -127,7 +127,7 @@ impl MetricCalculator for DpiLpCalculator {
             .events
             .iter()
             .filter(|e| {
-                e.kind == crate::instruments::private_markets_fund::FundEventKind::Contribution
+                e.kind == crate::instruments::equity::pe_fund::FundEventKind::Contribution
                     && e.date <= context.as_of
             })
             .map(|e| e.amount.amount())
@@ -160,7 +160,7 @@ impl MetricCalculator for TvpiLpCalculator {
             .events
             .iter()
             .filter(|e| {
-                e.kind == crate::instruments::private_markets_fund::FundEventKind::Contribution
+                e.kind == crate::instruments::equity::pe_fund::FundEventKind::Contribution
                     && e.date <= context.as_of
             })
             .map(|e| e.amount.amount())
@@ -300,7 +300,7 @@ impl MetricCalculator for ThetaCalculator {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::private_markets_fund::{FundEvent, WaterfallSpec};
+    use crate::instruments::equity::pe_fund::{FundEvent, WaterfallSpec};
     use time::Month;
 
     fn test_currency() -> finstack_core::currency::Currency {

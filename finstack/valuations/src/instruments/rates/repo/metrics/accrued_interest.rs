@@ -31,7 +31,7 @@ impl MetricCalculator for AccruedInterestCalculator {
             notional_amount,
             effective_rate,
         ) = {
-            let repo = context.instrument_as::<crate::instruments::repo::Repo>()?;
+            let repo = context.instrument_as::<crate::instruments::rates::repo::Repo>()?;
             // Use adjusted dates for consistency with PV and interest_amount()
             let (adj_start, adj_maturity) = repo.adjusted_dates()?;
             (

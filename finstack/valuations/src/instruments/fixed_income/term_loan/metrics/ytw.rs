@@ -21,7 +21,7 @@ impl MetricCalculator for YtwCalculator {
         let as_of = context.as_of;
 
         // Build full schedule to get outstanding path
-        let schedule = crate::instruments::term_loan::cashflows::generate_cashflows(
+        let schedule = crate::instruments::fixed_income::term_loan::cashflows::generate_cashflows(
             loan,
             &context.curves,
             as_of,

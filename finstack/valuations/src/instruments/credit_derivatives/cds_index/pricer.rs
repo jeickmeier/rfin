@@ -10,17 +10,17 @@
 //! Public API mirrors the CDS pricer surface for parity: NPV, par spread,
 #![allow(dead_code)] // Public API items may be used by external bindings
 //! risky PV01, and leg PVs. Heavy numerical work is delegated to
-//! `crate::instruments::cds::pricer::CDSPricer`.
+//! `crate::instruments::credit_derivatives::cds::pricer::CDSPricer`.
 
 use crate::calibration::bumps::hazard::{bump_hazard_shift, bump_hazard_spreads};
 use crate::calibration::bumps::BumpRequest;
 use crate::constants::{credit, BASIS_POINTS_PER_UNIT};
-use crate::instruments::cds::pricer::{CDSPricer, CDSPricerConfig};
-use crate::instruments::cds::CreditDefaultSwap;
-use crate::instruments::cds_index::{
+use crate::instruments::common::traits::Instrument;
+use crate::instruments::credit_derivatives::cds::pricer::{CDSPricer, CDSPricerConfig};
+use crate::instruments::credit_derivatives::cds::CreditDefaultSwap;
+use crate::instruments::credit_derivatives::cds_index::{
     CDSIndex, ConstituentResult, IndexParSpreadResult, IndexPricing, IndexResult, ParSpreadMethod,
 };
-use crate::instruments::common::traits::Instrument;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
@@ -586,7 +586,7 @@ impl crate::pricer::Pricer for SimpleCdsIndexHazardPricer {
         // Type-safe downcasting
         let cds_index = instrument
             .as_any()
-            .downcast_ref::<crate::instruments::cds_index::CDSIndex>()
+            .downcast_ref::<crate::instruments::credit_derivatives::cds_index::CDSIndex>()
             .ok_or_else(|| {
                 crate::pricer::PricingError::type_mismatch(
                     crate::pricer::InstrumentType::CDSIndex,

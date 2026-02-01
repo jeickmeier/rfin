@@ -6,8 +6,8 @@
 //! Uses numerical differentiation with 1bp bumps to the hazard curve.
 
 use crate::constants::BASIS_POINTS_PER_UNIT;
-use crate::instruments::cds::CreditDefaultSwap;
 use crate::instruments::common::traits::{CurveDependencies, Instrument};
+use crate::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 

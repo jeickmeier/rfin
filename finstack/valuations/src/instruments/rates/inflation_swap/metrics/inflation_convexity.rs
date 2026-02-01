@@ -23,7 +23,7 @@
 //! The convexity result is normalized per (basis point)² = per (0.01%)².
 
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::inflation_swap::InflationSwap;
+use crate::instruments::rates::inflation_swap::InflationSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 use finstack_core::Result;

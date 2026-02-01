@@ -243,8 +243,8 @@ where
     // Convertible bonds expose equity spot risk via underlying
     if let Some(conv) = instrument
         .as_any()
-        .downcast_ref::<crate::instruments::convertible::ConvertibleBond>()
-    {
+        .downcast_ref::<crate::instruments::fixed_income::convertible::ConvertibleBond>(
+    ) {
         if let Some(ticker) = conv.underlying_equity_id.as_ref() {
             if market.price(ticker).is_ok() {
                 push_factor(
@@ -261,7 +261,7 @@ where
     // Equity options carry spot and vol surface exposure
     if let Some(opt) = instrument
         .as_any()
-        .downcast_ref::<crate::instruments::equity_option::EquityOption>()
+        .downcast_ref::<crate::instruments::equity::equity_option::EquityOption>()
     {
         if market.price(&opt.spot_id).is_ok() {
             push_factor(
@@ -416,7 +416,7 @@ mod tests {
 
     #[test]
     fn test_extract_equity_and_vol_factors() -> Result<()> {
-        use crate::instruments::equity_option::EquityOption;
+        use crate::instruments::equity::equity_option::EquityOption;
 
         let expiry = date!(2025 - 06 - 01);
         let option = EquityOption::builder()

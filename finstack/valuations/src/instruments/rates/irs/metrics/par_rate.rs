@@ -40,7 +40,7 @@
 //! - Kahan, W. (1965). "Further Remarks on Reducing Truncation Errors."
 
 use crate::instruments::common::pricing::swap_legs::ANNUITY_EPSILON;
-use crate::instruments::irs::{FloatingLegCompounding, ParRateMethod};
+use crate::instruments::rates::irs::{FloatingLegCompounding, ParRateMethod};
 use crate::instruments::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
@@ -122,9 +122,10 @@ impl MetricCalculator for ParRateCalculator {
                     return par_rate_pv_based(irs, context, &disc);
                 }
 
-                let p0 = crate::instruments::irs::pricer::relative_df(&disc, as_of, dates[0])?;
+                let p0 =
+                    crate::instruments::rates::irs::pricer::relative_df(&disc, as_of, dates[0])?;
                 // Safe: we checked dates.len() >= 2 above
-                let pn = crate::instruments::irs::pricer::relative_df(
+                let pn = crate::instruments::rates::irs::pricer::relative_df(
                     &disc,
                     as_of,
                     dates[dates.len() - 1],
@@ -221,7 +222,7 @@ mod tests {
         let irs = InterestRateSwap::builder()
             .id(InstrumentId::new("IRS"))
             .notional(Money::new(1_000_000.0, Currency::USD))
-            .side(crate::instruments::irs::PayReceive::PayFixed)
+            .side(crate::instruments::rates::irs::PayReceive::PayFixed)
             .fixed(crate::instruments::common::parameters::legs::FixedLegSpec {
                 discount_curve_id: disc.clone(),
                 rate: rust_decimal::Decimal::try_from(0.03).expect("valid"),

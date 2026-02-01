@@ -1,6 +1,6 @@
 //! RMBS-specific metrics (LTV, FICO, WAL with PSA adjustments).
 
-use crate::instruments::structured_credit::StructuredCredit;
+use crate::instruments::fixed_income::structured_credit::StructuredCredit;
 use crate::metrics::MetricContext;
 
 /// RMBS Weighted Average LTV calculator

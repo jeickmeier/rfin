@@ -3,8 +3,8 @@
 //! Computes the change in present value for a one basis point change in
 //! the premium spread, using the pricing engine's risky annuity.
 
-use crate::instruments::cds::pricer::CDSPricer;
-use crate::instruments::cds::CreditDefaultSwap;
+use crate::instruments::credit_derivatives::cds::pricer::CDSPricer;
+use crate::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

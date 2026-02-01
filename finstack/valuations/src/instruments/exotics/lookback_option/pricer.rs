@@ -2,7 +2,7 @@
 
 // Common imports for all pricers
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::lookback_option::types::{LookbackOption, LookbackType};
+use crate::instruments::exotics::lookback_option::types::{LookbackOption, LookbackType};
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };

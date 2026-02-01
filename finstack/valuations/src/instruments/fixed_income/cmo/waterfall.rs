@@ -245,7 +245,7 @@ pub fn allocate_po_cashflow(_po_tranche: &CmoTranche, total_principal: f64) -> f
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::agency_cmo::types::CmoTranche;
+    use crate::instruments::fixed_income::cmo::types::CmoTranche;
     use finstack_core::currency::Currency;
 
     fn create_test_waterfall() -> CmoWaterfall {

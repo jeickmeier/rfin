@@ -2,7 +2,7 @@
 //!
 //! Returns the number of constituents in the basket.
 
-use crate::instruments::basket::types::Basket;
+use crate::instruments::exotics::basket::types::Basket;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

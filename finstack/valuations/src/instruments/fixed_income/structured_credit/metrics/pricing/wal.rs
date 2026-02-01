@@ -1,6 +1,6 @@
 //! WAL (Weighted Average Life) calculator for structured credit.
 
-use crate::instruments::structured_credit::types::TrancheCashflows;
+use crate::instruments::fixed_income::structured_credit::types::TrancheCashflows;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::Date;
 use finstack_core::Result;

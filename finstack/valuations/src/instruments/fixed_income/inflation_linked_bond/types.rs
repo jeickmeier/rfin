@@ -1,6 +1,7 @@
 //! Inflation-Linked Bond (ILB) types and implementation.
 
 use crate::cashflow::traits::{CashflowProvider, DatedFlows};
+use crate::instruments::common::dependencies::MarketDependencies;
 use crate::instruments::common::traits::Attributes;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{
@@ -820,8 +821,10 @@ impl InflationLinkedBond {
         _curves: &MarketContext,
         as_of: Date,
     ) -> Result<f64> {
-        use crate::instruments::bond::pricing::quote_engine::YieldCompounding;
-        use crate::instruments::bond::pricing::ytm_solver::{solve_ytm, YtmPricingSpec};
+        use crate::instruments::fixed_income::bond::pricing::quote_engine::YieldCompounding;
+        use crate::instruments::fixed_income::bond::pricing::ytm_solver::{
+            solve_ytm, YtmPricingSpec,
+        };
 
         if !clean_price.is_finite() || clean_price <= 0.0 {
             return Err(finstack_core::InputError::Invalid.into());
@@ -889,7 +892,7 @@ impl InflationLinkedBond {
     /// Computes the modified duration of the bond based on its real (unadjusted)
     /// cashflows. This measures sensitivity to changes in real yield.
     pub fn real_duration(&self, curves: &MarketContext, as_of: Date) -> Result<f64> {
-        use crate::instruments::bond::pricing::quote_engine::{
+        use crate::instruments::fixed_income::bond::pricing::quote_engine::{
             price_from_ytm_compounded_params, YieldCompounding,
         };
 
@@ -951,6 +954,10 @@ impl crate::instruments::common::traits::Instrument for InflationLinkedBond {
 
     fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
         Box::new(self.clone())
+    }
+
+    fn market_dependencies(&self) -> MarketDependencies {
+        MarketDependencies::from_curve_dependencies(self)
     }
 
     fn value(

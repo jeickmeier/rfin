@@ -55,7 +55,7 @@ pub fn register_equity_trs_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::Dv01,
         Arc::new(crate::metrics::UnifiedDv01Calculator::<
-            crate::instruments::equity_trs::EquityTotalReturnSwap,
+            crate::instruments::equity::equity_trs::EquityTotalReturnSwap,
         >::new(
             crate::metrics::Dv01CalculatorConfig::parallel_combined()
         )),
@@ -64,7 +64,7 @@ pub fn register_equity_trs_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::BucketedDv01,
         Arc::new(crate::metrics::UnifiedDv01Calculator::<
-            crate::instruments::equity_trs::EquityTotalReturnSwap,
+            crate::instruments::equity::equity_trs::EquityTotalReturnSwap,
         >::new(
             crate::metrics::Dv01CalculatorConfig::triangular_key_rate(),
         )),

@@ -3,7 +3,7 @@
 //! Provides deterministic PV for `CommodityForward` instruments using
 //! curve-based forward price interpolation with discounting.
 
-use crate::instruments::commodity_forward::CommodityForward;
+use crate::instruments::commodity::commodity_forward::CommodityForward;
 use crate::instruments::common::traits::Instrument;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
@@ -64,7 +64,7 @@ impl Pricer for CommodityForwardDiscountingPricer {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::commodity_forward::Position;
+    use crate::instruments::commodity::commodity_forward::Position;
     use crate::pricer::Pricer;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::{DiscountCurve, PriceCurve};

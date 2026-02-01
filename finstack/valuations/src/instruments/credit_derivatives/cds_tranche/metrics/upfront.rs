@@ -3,7 +3,7 @@
 //! Computes the net present value at inception (upfront) using the
 //! Gaussian Copula pricing engine if the required credit index data are available.
 
-use crate::instruments::cds_tranche::CdsTranche;
+use crate::instruments::credit_derivatives::cds_tranche::CdsTranche;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

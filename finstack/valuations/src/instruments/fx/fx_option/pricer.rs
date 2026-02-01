@@ -1,5 +1,5 @@
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::fx_option::FxOption;
+use crate::instruments::fx::fx_option::FxOption;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
 };

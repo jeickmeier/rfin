@@ -4,7 +4,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::fx::ndf::Ndf;
+use finstack_valuations::instruments::fx::ndf::{Ndf, NdfFixingSource, NdfQuoteConvention};
 use finstack_valuations::instruments::{Attributes, CurveDependencies, Instrument};
 use finstack_valuations::pricer::InstrumentType;
 use time::Month;
@@ -20,6 +20,7 @@ fn test_ndf_builder() {
         .notional(Money::new(10_000_000.0, Currency::CNY))
         .contract_rate(7.25)
         .settlement_curve_id(CurveId::new("USD-OIS"))
+        .quote_convention(NdfQuoteConvention::BasePerSettlement)
         .attributes(Attributes::new())
         .build()
         .expect("should build");
@@ -44,7 +45,8 @@ fn test_ndf_builder_with_optional_fields() {
         .settlement_curve_id(CurveId::new("USD-OIS"))
         .foreign_curve_id_opt(Some(CurveId::new("CNY-OIS")))
         .fixing_rate_opt(Some(7.30))
-        .fixing_source_opt(Some("CNHFIX".to_string()))
+        .quote_convention(NdfQuoteConvention::BasePerSettlement)
+        .fixing_source_enum_opt(Some(NdfFixingSource::Cnhfix))
         .spot_rate_override_opt(Some(7.25))
         .base_calendar_id_opt(Some("CNY".to_string()))
         .settlement_calendar_id_opt(Some("USD".to_string()))
@@ -53,7 +55,7 @@ fn test_ndf_builder_with_optional_fields() {
         .expect("should build");
 
     assert_eq!(ndf.fixing_rate, Some(7.30));
-    assert_eq!(ndf.fixing_source, Some("CNHFIX".to_string()));
+    assert_eq!(ndf.fixing_source_enum, Some(NdfFixingSource::Cnhfix));
     assert!(ndf.foreign_curve_id.is_some());
     assert!(ndf.is_fixed());
     assert!(ndf.attributes.has_tag("ndf"));
@@ -141,6 +143,7 @@ fn test_ndf_curve_dependencies_with_foreign() {
         .notional(Money::new(10_000_000.0, Currency::CNY))
         .contract_rate(7.25)
         .settlement_curve_id(CurveId::new("USD-OIS"))
+        .quote_convention(NdfQuoteConvention::BasePerSettlement)
         .foreign_curve_id_opt(Some(CurveId::new("CNY-OIS")))
         .attributes(Attributes::new())
         .build()
@@ -170,6 +173,7 @@ fn test_ndf_required_discount_curves() {
         .notional(Money::new(10_000_000.0, Currency::CNY))
         .contract_rate(7.25)
         .settlement_curve_id(CurveId::new("USD-OIS"))
+        .quote_convention(NdfQuoteConvention::BasePerSettlement)
         .foreign_curve_id_opt(Some(CurveId::new("CNY-OIS")))
         .attributes(Attributes::new())
         .build()
@@ -205,13 +209,14 @@ fn test_ndf_common_currencies() {
         .notional(Money::new(100_000_000.0, Currency::INR))
         .contract_rate(83.0)
         .settlement_curve_id(CurveId::new("USD-OIS"))
-        .fixing_source_opt(Some("RBI".to_string()))
+        .quote_convention(NdfQuoteConvention::BasePerSettlement)
+        .fixing_source_enum_opt(Some(NdfFixingSource::Rbi))
         .attributes(Attributes::new())
         .build()
         .expect("should build");
 
     assert_eq!(ndf_inr.base_currency, Currency::INR);
-    assert_eq!(ndf_inr.fixing_source, Some("RBI".to_string()));
+    assert_eq!(ndf_inr.fixing_source_enum, Some(NdfFixingSource::Rbi));
 
     // Test with BRL (Brazilian Real)
     let ndf_brl = Ndf::builder()
@@ -223,11 +228,12 @@ fn test_ndf_common_currencies() {
         .notional(Money::new(10_000_000.0, Currency::BRL))
         .contract_rate(5.0)
         .settlement_curve_id(CurveId::new("USD-OIS"))
-        .fixing_source_opt(Some("PTAX".to_string()))
+        .quote_convention(NdfQuoteConvention::BasePerSettlement)
+        .fixing_source_enum_opt(Some(NdfFixingSource::Ptax))
         .attributes(Attributes::new())
         .build()
         .expect("should build");
 
     assert_eq!(ndf_brl.base_currency, Currency::BRL);
-    assert_eq!(ndf_brl.fixing_source, Some("PTAX".to_string()));
+    assert_eq!(ndf_brl.fixing_source_enum, Some(NdfFixingSource::Ptax));
 }

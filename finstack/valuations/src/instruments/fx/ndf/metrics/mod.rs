@@ -28,13 +28,13 @@ pub fn register_ndf_metrics(registry: &mut MetricRegistry) {
         instrument: InstrumentType::Ndf,
         metrics: [
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::ndf::Ndf,
+                crate::instruments::fx::ndf::Ndf,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::ndf::Ndf,
+                crate::instruments::fx::ndf::Ndf,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
             (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::ndf::Ndf,
+                crate::instruments::fx::ndf::Ndf,
             >::default()),
         ]
     }

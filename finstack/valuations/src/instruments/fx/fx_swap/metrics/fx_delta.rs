@@ -12,8 +12,8 @@
 //!   See [`fx01::FX01`] for details.
 //!   Useful for small perturbation analysis and hedge ratio calculation.
 
-use crate::instruments::fx_swap::pricing_helper::FxSwapPricingContext;
-use crate::instruments::fx_swap::FxSwap;
+use crate::instruments::fx::fx_swap::pricing_helper::FxSwapPricingContext;
+use crate::instruments::fx::fx_swap::FxSwap;
 use crate::metrics::bump_sizes;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;

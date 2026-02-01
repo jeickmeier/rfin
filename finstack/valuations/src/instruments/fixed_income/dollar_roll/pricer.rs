@@ -4,7 +4,7 @@
 //! implied carry benefit or cost.
 
 use super::DollarRoll;
-use crate::instruments::agency_tba::pricer::price_tba;
+use crate::instruments::fixed_income::tba::pricer::price_tba;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };

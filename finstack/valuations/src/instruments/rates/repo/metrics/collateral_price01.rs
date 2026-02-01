@@ -15,7 +15,7 @@
 //! Changes in collateral price may affect margin requirements and collateral coverage.
 
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::repo::Repo;
+use crate::instruments::rates::repo::Repo;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::Result;

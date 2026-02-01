@@ -3,7 +3,7 @@
 //! Computes the inverse of the realized spot rate when the spot rate is
 //! non-zero. Returns 0.0 in degenerate cases where division would be unstable.
 
-use crate::instruments::fx_spot::FxSpot;
+use crate::instruments::fx::fx_spot::FxSpot;
 use crate::metrics::{MetricCalculator, MetricContext};
 
 /// Epsilon for floating-point near-zero comparisons.

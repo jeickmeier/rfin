@@ -1,6 +1,6 @@
 //! Swaption-specific parameters.
 
-use crate::instruments::irs::PayReceive;
+use crate::instruments::rates::irs::PayReceive;
 use finstack_core::dates::Date;
 use finstack_core::dates::{DayCount, Tenor};
 use finstack_core::money::Money;
@@ -30,7 +30,7 @@ pub struct SwaptionParams {
     /// Optional override: day count convention for year fractions
     pub day_count: Option<DayCount>,
     /// Optional override: volatility model
-    pub vol_model: Option<crate::instruments::swaption::types::VolatilityModel>,
+    pub vol_model: Option<crate::instruments::rates::swaption::types::VolatilityModel>,
 }
 
 impl SwaptionParams {
@@ -143,7 +143,7 @@ impl SwaptionParams {
     /// Override volatility model
     pub fn with_vol_model(
         mut self,
-        model: crate::instruments::swaption::types::VolatilityModel,
+        model: crate::instruments::rates::swaption::types::VolatilityModel,
     ) -> Self {
         self.vol_model = Some(model);
         self

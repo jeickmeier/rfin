@@ -307,7 +307,7 @@ impl crate::instruments::common::traits::Instrument for AgencyMbsPassthrough {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        crate::instruments::agency_mbs_passthrough::pricer::price_mbs(self, market, as_of)
+        crate::instruments::fixed_income::mbs_passthrough::pricer::price_mbs(self, market, as_of)
     }
 
     fn price_with_metrics(

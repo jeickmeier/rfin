@@ -1,6 +1,6 @@
 //! Financing annuity calculator for equity TRS.
 
-use crate::instruments::equity_trs::EquityTotalReturnSwap;
+use crate::instruments::equity::equity_trs::EquityTotalReturnSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

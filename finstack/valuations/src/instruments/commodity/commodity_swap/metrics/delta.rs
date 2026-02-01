@@ -7,7 +7,7 @@
 //!
 //! Uses `df_between_dates(as_of, payment_date)` for base-date-safe discounting.
 
-use crate::instruments::commodity_swap::CommoditySwap;
+use crate::instruments::commodity::commodity_swap::CommoditySwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

@@ -2,7 +2,7 @@
 
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::traits::{Attributes, Instrument};
-use crate::instruments::private_markets_fund::waterfall::{
+use crate::instruments::equity::pe_fund::waterfall::{
     AllocationLedger, EquityWaterfallEngine, FundEvent, WaterfallSpec,
 };
 use finstack_core::currency::Currency;

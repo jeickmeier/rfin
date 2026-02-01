@@ -9,7 +9,7 @@
 //! Time mapping uses the instrument day-count measured from the discount
 //! curve's base date, matching the engine and other rate instruments.
 
-use crate::instruments::fra::ForwardRateAgreement;
+use crate::instruments::rates::fra::ForwardRateAgreement;
 use crate::metrics::{MetricCalculator, MetricContext};
 
 /// Minimum period length (in year fractions) for computing par rate.

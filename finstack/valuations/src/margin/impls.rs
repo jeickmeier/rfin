@@ -3,13 +3,13 @@
 //! This module provides implementations of the [`Marginable`] trait for
 //! instruments that support margin calculations.
 
-use crate::instruments::cds::CreditDefaultSwap;
-use crate::instruments::cds_index::CDSIndex;
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::equity_trs::EquityTotalReturnSwap;
-use crate::instruments::fi_trs::FIIndexTotalReturnSwap;
-use crate::instruments::irs::InterestRateSwap;
-use crate::instruments::repo::Repo;
+use crate::instruments::credit_derivatives::cds::CreditDefaultSwap;
+use crate::instruments::credit_derivatives::cds_index::CDSIndex;
+use crate::instruments::equity::equity_trs::EquityTotalReturnSwap;
+use crate::instruments::fixed_income::fi_trs::FIIndexTotalReturnSwap;
+use crate::instruments::rates::irs::InterestRateSwap;
+use crate::instruments::rates::repo::Repo;
 use crate::instruments::TrsSide;
 use crate::margin::constants::{
     self, DAYS_PER_YEAR, DEFAULT_BOND_INDEX_DURATION, DURATION_APPROXIMATION_FACTOR,
@@ -110,8 +110,8 @@ impl Marginable for InterestRateSwap {
 
         // Sign based on direction (pay fixed = short rates, receive fixed = long rates)
         let signed_dv01 = match self.side {
-            crate::instruments::irs::PayReceive::PayFixed => -dv01,
-            crate::instruments::irs::PayReceive::ReceiveFixed => dv01,
+            crate::instruments::rates::irs::PayReceive::PayFixed => -dv01,
+            crate::instruments::rates::irs::PayReceive::ReceiveFixed => dv01,
         };
 
         sens.add_ir_delta(currency, tenor, signed_dv01);
@@ -121,7 +121,7 @@ impl Marginable for InterestRateSwap {
 
     fn mtm_for_vm(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
         // Calculate NPV using the IRS pricer
-        use crate::instruments::irs::pricer::compute_pv;
+        use crate::instruments::rates::irs::pricer::compute_pv;
         compute_pv(self, market, as_of)
     }
 }
@@ -180,7 +180,7 @@ impl Marginable for CreditDefaultSwap {
     }
 
     fn mtm_for_vm(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
-        use crate::instruments::cds::pricer::CDSPricer;
+        use crate::instruments::credit_derivatives::cds::pricer::CDSPricer;
 
         // Get discount and survival curves from market context
         let disc = market.get_discount(self.premium.discount_curve_id.as_str())?;
@@ -346,7 +346,7 @@ impl Marginable for Repo {
         None
     }
 
-    fn repo_margin_spec(&self) -> Option<&crate::instruments::repo::RepoMarginSpec> {
+    fn repo_margin_spec(&self) -> Option<&crate::instruments::rates::repo::RepoMarginSpec> {
         self.margin_spec.as_ref()
     }
 
@@ -411,7 +411,7 @@ mod tests {
             0.035,
             start,
             end,
-            crate::instruments::irs::PayReceive::PayFixed,
+            crate::instruments::rates::irs::PayReceive::PayFixed,
         )
         .expect("swap creation");
 
@@ -455,7 +455,7 @@ mod tests {
             0.035,
             start,
             end,
-            crate::instruments::irs::PayReceive::PayFixed,
+            crate::instruments::rates::irs::PayReceive::PayFixed,
         )
         .expect("swap creation");
 

@@ -33,11 +33,12 @@ impl MetricCalculator for YtcCalculator {
 
         let Some(call) = first_call else {
             // use YTM calculator already registered
-            return crate::instruments::term_loan::metrics::ytm::YtmCalculator.calculate(context);
+            return crate::instruments::fixed_income::term_loan::metrics::ytm::YtmCalculator
+                .calculate(context);
         };
 
         // Build full schedule to get outstanding path including notional draws/repays
-        let schedule = crate::instruments::term_loan::cashflows::generate_cashflows(
+        let schedule = crate::instruments::fixed_income::term_loan::cashflows::generate_cashflows(
             loan,
             &context.curves,
             as_of,

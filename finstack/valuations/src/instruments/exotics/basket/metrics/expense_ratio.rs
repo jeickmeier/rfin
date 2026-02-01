@@ -2,7 +2,7 @@
 //!
 //! Returns the configured expense ratio as a percentage.
 
-use crate::instruments::basket::types::Basket;
+use crate::instruments::exotics::basket::types::Basket;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

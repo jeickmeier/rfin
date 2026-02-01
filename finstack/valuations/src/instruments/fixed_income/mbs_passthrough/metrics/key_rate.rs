@@ -5,8 +5,8 @@
 //! curve risk exposure by maturity bucket.
 #![allow(dead_code)] // Public API items may be used by external bindings
 
-use crate::instruments::agency_mbs_passthrough::pricer::price_mbs;
-use crate::instruments::agency_mbs_passthrough::AgencyMbsPassthrough;
+use crate::instruments::fixed_income::mbs_passthrough::pricer::price_mbs;
+use crate::instruments::fixed_income::mbs_passthrough::AgencyMbsPassthrough;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
@@ -207,7 +207,7 @@ fn triangular_weight(t: f64, target: f64) -> f64 {
 mod tests {
     use super::*;
     use crate::cashflow::builder::specs::PrepaymentModelSpec;
-    use crate::instruments::agency_mbs_passthrough::{AgencyProgram, PoolType};
+    use crate::instruments::fixed_income::mbs_passthrough::{AgencyProgram, PoolType};
     use finstack_core::currency::Currency;
     use finstack_core::dates::DayCount;
     use finstack_core::math::interp::InterpStyle;

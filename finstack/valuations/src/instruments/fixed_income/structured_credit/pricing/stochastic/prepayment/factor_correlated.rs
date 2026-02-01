@@ -26,7 +26,7 @@
 
 use super::traits::StochasticPrepayment;
 use crate::cashflow::builder::specs::{PrepaymentCurve, PrepaymentModelSpec};
-use crate::instruments::structured_credit::utils::rates::cpr_to_smm;
+use crate::instruments::fixed_income::structured_credit::utils::rates::cpr_to_smm;
 use finstack_core::types::Percentage;
 
 /// Factor-correlated prepayment model.

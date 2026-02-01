@@ -1,6 +1,6 @@
 //! Delta calculator for equity index futures.
 
-use crate::instruments::equity_index_future::EquityIndexFuture;
+use crate::instruments::equity::equity_index_future::EquityIndexFuture;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

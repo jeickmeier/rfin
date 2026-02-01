@@ -195,11 +195,6 @@ impl TestFraBuilder {
         self
     }
 
-    #[allow(dead_code)]
-    pub fn pay_fixed(self, receive: bool) -> Self {
-        self.receive_fixed(receive)
-    }
-
     pub fn build(self) -> ForwardRateAgreement {
         ForwardRateAgreement {
             id: self.id.into(),

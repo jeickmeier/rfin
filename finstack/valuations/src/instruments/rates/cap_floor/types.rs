@@ -298,10 +298,10 @@ impl crate::instruments::common::traits::Instrument for InterestRateOption {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         use crate::cashflow::builder::date_generation::build_dates;
-        use crate::instruments::cap_floor::pricing::black as black_ir;
         use crate::instruments::common::pricing::time::{
             rate_period_on_dates, relative_df_discount_curve,
         };
+        use crate::instruments::rates::cap_floor::pricing::black as black_ir;
 
         // Get market curves
         let disc_curve = curves.get_discount(self.discount_curve_id.as_ref())?;

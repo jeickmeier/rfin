@@ -3,9 +3,9 @@
 //! A dollar roll is a simultaneous sale and purchase of agency MBS TBAs
 //! for different settlement months, used for financing and carry trades.
 
-use crate::instruments::agency_mbs_passthrough::AgencyProgram;
-use crate::instruments::agency_tba::{AgencyTba, TbaTerm};
 use crate::instruments::common::traits::Attributes;
+use crate::instruments::fixed_income::mbs_passthrough::AgencyProgram;
+use crate::instruments::fixed_income::tba::{AgencyTba, TbaTerm};
 use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -224,7 +224,9 @@ impl crate::instruments::common::traits::Instrument for DollarRoll {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        crate::instruments::dollar_roll::pricer::price_dollar_roll(self, market, as_of)
+        crate::instruments::fixed_income::dollar_roll::pricer::price_dollar_roll(
+            self, market, as_of,
+        )
     }
 
     fn price_with_metrics(

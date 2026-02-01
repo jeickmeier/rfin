@@ -16,8 +16,8 @@
 //!
 //! where the bump is applied to the hazard curve (parallel shift).
 
-use crate::instruments::cds_option::CdsOption;
 use crate::instruments::common::traits::Instrument;
+use crate::instruments::credit_derivatives::cds_option::CdsOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::Result;
@@ -97,8 +97,8 @@ fn rebuild_hazard_with_id(
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::cds_option::parameters::CdsOptionParams;
-    use crate::instruments::cds_option::CdsOption;
+    use crate::instruments::credit_derivatives::cds_option::parameters::CdsOptionParams;
+    use crate::instruments::credit_derivatives::cds_option::CdsOption;
     use crate::instruments::CreditParams;
     use finstack_core::currency::Currency;
     use finstack_core::dates::Date;

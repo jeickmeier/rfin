@@ -3,7 +3,7 @@
 //! These metrics are registered under the `DCF` instrument type and integrate
 //! with the unified DV01 framework used across valuations.
 
-use crate::instruments::dcf::DiscountedCashFlow;
+use crate::instruments::equity::dcf_equity::DiscountedCashFlow;
 use crate::metrics::{MetricCalculator, MetricContext, MetricRegistry};
 use finstack_core::Result;
 
@@ -87,19 +87,19 @@ pub fn register_dcf_metrics(registry: &mut MetricRegistry) {
             (
                 Dv01,
                 crate::metrics::UnifiedDv01Calculator::<
-                    crate::instruments::dcf::DiscountedCashFlow,
+                    crate::instruments::equity::dcf_equity::DiscountedCashFlow,
                 >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())
             ),
             (
                 BucketedDv01,
                 crate::metrics::UnifiedDv01Calculator::<
-                    crate::instruments::dcf::DiscountedCashFlow,
+                    crate::instruments::equity::dcf_equity::DiscountedCashFlow,
                 >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())
             ),
             // Generic theta (rolls valuation date by configured period)
             (
                 Theta,
-                crate::metrics::GenericTheta::<crate::instruments::dcf::DiscountedCashFlow>::default()
+                crate::metrics::GenericTheta::<crate::instruments::equity::dcf_equity::DiscountedCashFlow>::default()
             ),
             (EnterpriseValue, EnterpriseValueCalculator),
             (EquityValue, EquityValueCalculator),

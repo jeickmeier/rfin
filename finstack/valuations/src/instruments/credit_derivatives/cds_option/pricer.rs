@@ -9,12 +9,12 @@
 //! PV via the modified Black formula implemented on the instrument.
 
 use crate::constants::credit;
-use crate::instruments::cds::pricer::CDSPricer;
-use crate::instruments::cds::{CDSConvention, CreditDefaultSwap, PayReceive};
-use crate::instruments::cds_option::CdsOption;
 use crate::instruments::common::models::{d1, d2, norm_cdf, norm_pdf};
 use crate::instruments::common::parameters::OptionType;
 use crate::instruments::common::traits::Instrument;
+use crate::instruments::credit_derivatives::cds::pricer::CDSPricer;
+use crate::instruments::credit_derivatives::cds::{CDSConvention, CreditDefaultSwap, PayReceive};
+use crate::instruments::credit_derivatives::cds_option::CdsOption;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::money::Money;
@@ -554,7 +554,7 @@ impl crate::pricer::Pricer for SimpleCdsOptionBlackPricer {
         // Type-safe downcasting
         let cds_option = instrument
             .as_any()
-            .downcast_ref::<crate::instruments::cds_option::CdsOption>()
+            .downcast_ref::<crate::instruments::credit_derivatives::cds_option::CdsOption>()
             .ok_or_else(|| {
                 crate::pricer::PricingError::type_mismatch(
                     crate::pricer::InstrumentType::CDSOption,

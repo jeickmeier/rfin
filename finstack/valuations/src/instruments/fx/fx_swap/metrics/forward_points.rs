@@ -5,8 +5,8 @@
 //! rate is either provided or derived from covered interest parity using the
 //! discount curves.
 
-use crate::instruments::fx_swap::pricing_helper::FxSwapPricingContext;
-use crate::instruments::fx_swap::FxSwap;
+use crate::instruments::fx::fx_swap::pricing_helper::FxSwapPricingContext;
+use crate::instruments::fx::fx_swap::FxSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 
 /// Forward points (far rate - near rate).

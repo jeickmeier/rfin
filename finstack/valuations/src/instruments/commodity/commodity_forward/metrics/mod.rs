@@ -22,13 +22,13 @@ pub fn register_commodity_forward_metrics(registry: &mut MetricRegistry) {
         metrics: [
             (Delta, delta::DeltaCalculator),
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::commodity_forward::CommodityForward,
+                crate::instruments::commodity::commodity_forward::CommodityForward,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::commodity_forward::CommodityForward,
+                crate::instruments::commodity::commodity_forward::CommodityForward,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
             (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::commodity_forward::CommodityForward,
+                crate::instruments::commodity::commodity_forward::CommodityForward,
             >::default()),
         ]
     }

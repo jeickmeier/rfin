@@ -7,7 +7,7 @@
 #![allow(dead_code)] // Public API items may be used by external bindings
 
 use super::calculator::StochasticMetricsCalculator;
-use crate::instruments::structured_credit::pricing::stochastic::tree::ScenarioTreeConfig;
+use crate::instruments::fixed_income::structured_credit::pricing::stochastic::tree::ScenarioTreeConfig;
 
 /// Sensitivity configuration.
 #[derive(Clone, Debug)]
@@ -270,7 +270,7 @@ fn bump_prepay_volatility(
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::structured_credit::pricing::stochastic::tree::BranchingSpec;
+    use crate::instruments::fixed_income::structured_credit::pricing::stochastic::tree::BranchingSpec;
 
     #[test]
     fn test_sensitivity_config_default() {

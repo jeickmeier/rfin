@@ -3,8 +3,8 @@
 //! Computes Recovery01 (recovery rate sensitivity) using finite differences.
 //! Recovery01 measures the change in PV for a 1% (100bp) absolute change in recovery rate.
 
-use crate::instruments::cds_index::CDSIndex;
 use crate::instruments::common::traits::Instrument;
+use crate::instruments::credit_derivatives::cds_index::CDSIndex;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

@@ -2,7 +2,7 @@
 
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::traits::{Attributes, Instrument};
-use crate::instruments::repo::margin::RepoMarginSpec;
+use crate::instruments::rates::repo::margin::RepoMarginSpec;
 use crate::metrics::MetricId;
 use crate::results::ValuationResult;
 use finstack_core::dates::{adjust, BusinessDayConvention, Date, DateExt, DayCount};

@@ -1,6 +1,6 @@
-use crate::instruments::bond::pricing::quote_engine::price_from_dm;
-use crate::instruments::bond::pricing::settlement::QuoteDateContext;
-use crate::instruments::bond::CashflowSpec;
+use crate::instruments::fixed_income::bond::pricing::quote_engine::price_from_dm;
+use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContext;
+use crate::instruments::fixed_income::bond::CashflowSpec;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::{Date, DayCountCtx};

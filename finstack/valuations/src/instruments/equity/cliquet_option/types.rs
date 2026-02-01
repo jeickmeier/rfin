@@ -137,7 +137,7 @@ impl crate::instruments::common::traits::Instrument for CliquetOption {
     ) -> finstack_core::Result<finstack_core::money::Money> {
         #[cfg(feature = "mc")]
         {
-            use crate::instruments::cliquet_option::pricer;
+            use crate::instruments::equity::cliquet_option::pricer;
             pricer::compute_pv(self, market, as_of)
         }
         #[cfg(not(feature = "mc"))]

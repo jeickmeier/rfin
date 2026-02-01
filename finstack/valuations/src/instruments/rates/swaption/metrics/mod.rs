@@ -58,13 +58,13 @@ pub fn register_bermudan_swaption_metrics(registry: &mut MetricRegistry) {
             (Gamma, BermudanGammaCalculator::new()),
             (Vega, BermudanVegaCalculator::new()),
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::swaption::BermudanSwaption,
+                crate::instruments::rates::swaption::BermudanSwaption,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::swaption::BermudanSwaption,
+                crate::instruments::rates::swaption::BermudanSwaption,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
             (Rho, crate::metrics::GenericRho::<
-                crate::instruments::swaption::BermudanSwaption,
+                crate::instruments::rates::swaption::BermudanSwaption,
             >::default()),
             // Theta is now registered universally in metrics::standard_registry()
         ]

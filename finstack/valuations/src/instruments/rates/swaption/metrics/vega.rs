@@ -26,7 +26,7 @@
 //! approach zero naturally), we apply a near-expiry threshold for consistency
 //! with other Greeks and to avoid potential numerical issues with d1 calculation.
 
-use crate::instruments::swaption::{Swaption, VolatilityModel};
+use crate::instruments::rates::swaption::{Swaption, VolatilityModel};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::Result;
 

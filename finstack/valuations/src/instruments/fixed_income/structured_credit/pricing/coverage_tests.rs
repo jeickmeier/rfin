@@ -2,8 +2,8 @@
 //!
 //! This module provides OC and IC test calculations for waterfall diversion.
 
-use crate::instruments::structured_credit::types::{Pool, TrancheStructure};
-use crate::instruments::structured_credit::utils::frequency_periods_per_year;
+use crate::instruments::fixed_income::structured_credit::types::{Pool, TrancheStructure};
+use crate::instruments::fixed_income::structured_credit::utils::frequency_periods_per_year;
 use finstack_core::money::Money;
 use finstack_core::types::CreditRating;
 use finstack_core::HashMap;
@@ -306,7 +306,7 @@ fn collateral_balance_with_haircuts(
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::structured_credit::types::{
+    use crate::instruments::fixed_income::structured_credit::types::{
         DealType, Pool, Seniority, Tranche, TrancheCoupon, TrancheStructure,
     };
     use finstack_core::currency::Currency;

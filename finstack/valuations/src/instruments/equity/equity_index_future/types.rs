@@ -32,7 +32,7 @@
 
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::traits::Attributes;
-use crate::instruments::ir_future::Position;
+use crate::instruments::rates::ir_future::Position;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;

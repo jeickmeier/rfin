@@ -1,6 +1,6 @@
 //! Theta calculator for private markets funds.
 
-use crate::instruments::private_markets_fund::PrivateMarketsFund;
+use crate::instruments::equity::pe_fund::PrivateMarketsFund;
 use crate::metrics::{generic_theta_calculator, MetricCalculator, MetricContext, MetricId};
 use finstack_core::Result;
 

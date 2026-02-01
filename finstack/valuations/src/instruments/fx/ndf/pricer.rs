@@ -4,7 +4,7 @@
 //! both pre-fixing and post-fixing valuation modes.
 
 use crate::instruments::common::traits::Instrument as Priceable;
-use crate::instruments::ndf::Ndf;
+use crate::instruments::fx::ndf::Ndf;
 use crate::pricer::{
     expect_inst, InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
     PricingResult,
@@ -81,6 +81,7 @@ impl Pricer for NdfDiscountingPricer {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::instruments::fx::ndf::NdfQuoteConvention;
     use crate::pricer::Pricer;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::context::MarketContext;
@@ -124,6 +125,7 @@ mod tests {
             .notional(Money::new(10_000_000.0, Currency::CNY))
             .contract_rate(7.25) // At market spot
             .settlement_curve_id(CurveId::new("USD-OIS"))
+            .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .build()
             .expect("valid");
 
@@ -157,6 +159,7 @@ mod tests {
             .contract_rate(7.25)
             .fixing_rate_opt(Some(7.30)) // Fixed above contract rate
             .settlement_curve_id(CurveId::new("USD-OIS"))
+            .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .build()
             .expect("valid");
 
@@ -190,6 +193,7 @@ mod tests {
             .contract_rate(7.25)
             .fixing_rate_opt(Some(7.20)) // Fixed below contract rate
             .settlement_curve_id(CurveId::new("USD-OIS"))
+            .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .build()
             .expect("valid");
 
@@ -220,6 +224,7 @@ mod tests {
             .notional(Money::new(10_000_000.0, Currency::CNY))
             .contract_rate(7.25)
             .settlement_curve_id(CurveId::new("USD-OIS"))
+            .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .build()
             .expect("valid");
 

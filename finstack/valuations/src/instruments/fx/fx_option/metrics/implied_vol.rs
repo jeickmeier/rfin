@@ -5,7 +5,7 @@
 //! (Hybrid solver under the hood) with log-σ parameterization.
 
 use crate::define_metric_calculator;
-use crate::instruments::fx_option::FxOption;
+use crate::instruments::fx::fx_option::FxOption;
 
 define_metric_calculator!(
     /// Implied volatility metric for FX options.

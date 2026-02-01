@@ -3,7 +3,7 @@
 //! Computes risk metrics from scenario trees or Monte Carlo paths.
 #![allow(dead_code)] // Public API items may be used by external bindings
 
-use crate::instruments::structured_credit::pricing::stochastic::tree::{
+use crate::instruments::fixed_income::structured_credit::pricing::stochastic::tree::{
     ScenarioTree, ScenarioTreeConfig,
 };
 
@@ -412,7 +412,7 @@ impl StochasticMetricsCalculator {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::structured_credit::pricing::stochastic::tree::BranchingSpec;
+    use crate::instruments::fixed_income::structured_credit::pricing::stochastic::tree::BranchingSpec;
 
     #[test]
     fn test_metrics_zero() {

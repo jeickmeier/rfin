@@ -31,9 +31,9 @@ pub mod config {
 
     /// Industry-standard constants for structured credit modeling.
     pub mod constants {
-        pub use crate::instruments::structured_credit::types::constants::*;
+        pub use crate::instruments::fixed_income::structured_credit::types::constants::*;
     }
-    pub use crate::instruments::structured_credit::types::setup::{
+    pub use crate::instruments::fixed_income::structured_credit::types::setup::{
         CoverageTestConfig, DealConfig, DealDates, DealFees, DefaultAssumptions,
     };
     pub use constants::*;

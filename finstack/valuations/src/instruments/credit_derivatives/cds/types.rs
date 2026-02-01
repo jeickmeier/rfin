@@ -53,7 +53,7 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use time::macros::date;
 
-use crate::instruments::cds::pricer::CDSPricer;
+use crate::instruments::credit_derivatives::cds::pricer::CDSPricer;
 use std::sync::OnceLock;
 
 // Re-export PayReceive from common parameters (works for both IRS and CDS)
@@ -487,7 +487,7 @@ impl CreditDefaultSwap {
             })
             .protection(ProtectionLegSpec {
                 credit_curve_id: finstack_core::types::CurveId::new("CORP-HAZARD"),
-                recovery_rate: crate::instruments::cds::parameters::RECOVERY_SENIOR_UNSECURED,
+                recovery_rate: crate::instruments::credit_derivatives::cds::parameters::RECOVERY_SENIOR_UNSECURED,
                 settlement_delay: convention.settlement_delay(),
             })
             .pricing_overrides(PricingOverrides::default())
@@ -551,7 +551,7 @@ impl CreditDefaultSwap {
             })
             .protection(ProtectionLegSpec {
                 credit_curve_id: credit_id.into(),
-                recovery_rate: crate::instruments::cds::parameters::RECOVERY_SENIOR_UNSECURED,
+                recovery_rate: crate::instruments::credit_derivatives::cds::parameters::RECOVERY_SENIOR_UNSECURED,
                 settlement_delay: convention.settlement_delay(),
             })
             .pricing_overrides(PricingOverrides::default())
@@ -614,7 +614,7 @@ impl CreditDefaultSwap {
             })
             .protection(ProtectionLegSpec {
                 credit_curve_id: credit_id.into(),
-                recovery_rate: crate::instruments::cds::parameters::RECOVERY_SENIOR_UNSECURED,
+                recovery_rate: crate::instruments::credit_derivatives::cds::parameters::RECOVERY_SENIOR_UNSECURED,
                 settlement_delay: convention.settlement_delay(),
             })
             .pricing_overrides(PricingOverrides::default())
@@ -675,7 +675,7 @@ impl CreditDefaultSwap {
             })
             .protection(ProtectionLegSpec {
                 credit_curve_id: credit_id.into(),
-                recovery_rate: crate::instruments::cds::parameters::RECOVERY_SENIOR_UNSECURED,
+                recovery_rate: crate::instruments::credit_derivatives::cds::parameters::RECOVERY_SENIOR_UNSECURED,
                 settlement_delay: convention.settlement_delay(),
             })
             .pricing_overrides(PricingOverrides::default())
@@ -738,7 +738,7 @@ impl CreditDefaultSwap {
             })
             .protection(ProtectionLegSpec {
                 credit_curve_id: credit_id.into(),
-                recovery_rate: crate::instruments::cds::parameters::RECOVERY_SENIOR_UNSECURED,
+                recovery_rate: crate::instruments::credit_derivatives::cds::parameters::RECOVERY_SENIOR_UNSECURED,
                 settlement_delay: convention.settlement_delay(),
             })
             .pricing_overrides(PricingOverrides::default())

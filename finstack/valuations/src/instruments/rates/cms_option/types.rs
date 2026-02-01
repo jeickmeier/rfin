@@ -142,7 +142,7 @@ impl crate::instruments::common::traits::Instrument for CmsOption {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        crate::instruments::cms_option::pricer::compute_pv(self, market, as_of)
+        crate::instruments::rates::cms_option::pricer::compute_pv(self, market, as_of)
     }
 
     fn price_with_metrics(

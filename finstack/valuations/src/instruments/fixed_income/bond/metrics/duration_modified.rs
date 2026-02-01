@@ -59,7 +59,7 @@ impl MetricCalculator for ModifiedDurationCalculator {
             })?;
 
         // Modified duration depends on compounding; default to Street (periodic with bond freq)
-        let m = crate::instruments::bond::pricing::quote_engine::periods_per_year(
+        let m = crate::instruments::fixed_income::bond::pricing::quote_engine::periods_per_year(
             bond.cashflow_spec.frequency(),
         )?
         .max(1.0);

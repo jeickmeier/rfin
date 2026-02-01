@@ -1,4 +1,4 @@
-use crate::instruments::basis_swap::types::BasisSwap;
+use crate::instruments::rates::basis_swap::types::BasisSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::{Error, Result};
 
@@ -140,7 +140,7 @@ impl MetricCalculator for ParSpreadCalculator {
             .amount();
 
         // PV of primary at zero spread - need to create a modified leg
-        let primary_leg_no_spread = crate::instruments::basis_swap::BasisSwapLeg {
+        let primary_leg_no_spread = crate::instruments::rates::basis_swap::BasisSwapLeg {
             forward_curve_id: swap.primary_leg.forward_curve_id.to_owned(),
             frequency: swap.primary_leg.frequency,
             day_count: swap.primary_leg.day_count,

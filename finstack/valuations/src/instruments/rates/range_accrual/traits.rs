@@ -1,7 +1,7 @@
 //! Trait implementations for RangeAccrual
 
 use crate::instruments::common::traits::EquityDependencies;
-use crate::instruments::range_accrual::RangeAccrual;
+use crate::instruments::rates::range_accrual::RangeAccrual;
 use crate::metrics::{HasDayCount, HasExpiry, HasPricingOverrides};
 use finstack_core::dates::Date;
 

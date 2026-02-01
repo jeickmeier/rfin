@@ -5,8 +5,8 @@
 //! rates. This approximates the "carry" earned from the interest differential
 //! between currencies when maintaining the swap position.
 
-use crate::instruments::fx_swap::pricing_helper::FxSwapPricingContext;
-use crate::instruments::fx_swap::FxSwap;
+use crate::instruments::fx::fx_swap::pricing_helper::FxSwapPricingContext;
+use crate::instruments::fx::fx_swap::FxSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 
 /// Carry PV calculator for FX swaps.

@@ -9,7 +9,7 @@
 //! and Delta(t+h) is computed by bumping spot at a later time.
 
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::equity_option::EquityOption;
+use crate::instruments::equity::equity_option::EquityOption;
 use crate::metrics::{bump_scalar_price, bump_sizes};
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;

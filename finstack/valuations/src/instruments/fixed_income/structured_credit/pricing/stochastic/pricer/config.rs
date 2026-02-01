@@ -4,7 +4,7 @@
 use finstack_core::dates::Date;
 use finstack_core::market_data::term_structures::DiscountCurve;
 
-use crate::instruments::structured_credit::pricing::stochastic::tree::ScenarioTreeConfig;
+use crate::instruments::fixed_income::structured_credit::pricing::stochastic::tree::ScenarioTreeConfig;
 use std::sync::Arc;
 
 /// Pricing mode selection.
@@ -234,7 +234,7 @@ mod tests {
         let tree_config = ScenarioTreeConfig::new(
             12,
             1.0,
-            crate::instruments::structured_credit::pricing::stochastic::tree::BranchingSpec::fixed(
+            crate::instruments::fixed_income::structured_credit::pricing::stochastic::tree::BranchingSpec::fixed(
                 3,
             ),
         );
@@ -253,7 +253,7 @@ mod tests {
         let tree_config = ScenarioTreeConfig::new(
             12,
             1.0,
-            crate::instruments::structured_credit::pricing::stochastic::tree::BranchingSpec::fixed(
+            crate::instruments::fixed_income::structured_credit::pricing::stochastic::tree::BranchingSpec::fixed(
                 3,
             ),
         );

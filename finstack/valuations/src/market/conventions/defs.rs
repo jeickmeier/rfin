@@ -5,7 +5,7 @@
 //! frequencies, and settlement lags that are required for accurate instrument construction
 //! and pricing.
 
-use crate::instruments::irs::FloatingLegCompounding;
+use crate::instruments::rates::irs::FloatingLegCompounding;
 use crate::market::conventions::ids::IndexId;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};

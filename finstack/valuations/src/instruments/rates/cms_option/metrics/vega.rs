@@ -4,8 +4,8 @@
 //! bump volatility surface, reprice, and compute (PV_vol_up - PV_base) / bump_size.
 //! Vega is per 1% volatility move.
 
-use crate::instruments::cms_option::CmsOption;
 use crate::instruments::common::traits::Instrument;
+use crate::instruments::rates::cms_option::CmsOption;
 use crate::metrics::bump_sizes;
 use crate::metrics::bump_surface_vol_absolute;
 use crate::metrics::{MetricCalculator, MetricContext};

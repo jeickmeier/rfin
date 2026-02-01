@@ -1077,7 +1077,7 @@ mod tests {
         let delay = 2;
         let cal_id = "usny";
         let pay_date =
-            crate::instruments::irs::dates::add_payment_delay(maturity, delay, Some(cal_id))
+            crate::instruments::rates::irs::dates::add_payment_delay(maturity, delay, Some(cal_id))
                 .expect("payment delay with usny calendar");
 
         let expected_yf = DayCount::Act365F
@@ -1101,7 +1101,7 @@ mod tests {
         });
 
         // Mock instrument using Deposit with all required fields
-        let instrument = std::sync::Arc::new(crate::instruments::deposit::Deposit {
+        let instrument = std::sync::Arc::new(crate::instruments::rates::deposit::Deposit {
             id: InstrumentId::new("DEP-1Y"),
             quote_rate: Some(0.02),
             discount_curve_id: CurveId::new("USD-OIS"),
@@ -1167,7 +1167,7 @@ mod tests {
         };
 
         // Dummy Instrument for PreparedQuote
-        let instrument = std::sync::Arc::new(crate::instruments::deposit::Deposit {
+        let instrument = std::sync::Arc::new(crate::instruments::rates::deposit::Deposit {
             id: InstrumentId::new("DEP-1Y"),
             quote_rate: Some(rate),
             discount_curve_id: CurveId::new("USD-OIS"),
@@ -1234,7 +1234,7 @@ mod tests {
                     rate,
                 };
 
-                let instrument = std::sync::Arc::new(crate::instruments::deposit::Deposit {
+                let instrument = std::sync::Arc::new(crate::instruments::rates::deposit::Deposit {
                     id: InstrumentId::new(format!("DEP-{}D", days)),
                     quote_rate: Some(rate),
                     discount_curve_id: CurveId::new("USD-OIS"),

@@ -4,8 +4,8 @@
 //! using the pricing engine's par-spread calculation. This is independent
 //! of the instrument's current quoted spread.
 
-use crate::instruments::cds::pricer::CDSPricer;
-use crate::instruments::cds::CreditDefaultSwap;
+use crate::instruments::credit_derivatives::cds::pricer::CDSPricer;
+use crate::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

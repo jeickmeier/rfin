@@ -7,7 +7,7 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::fx::{FxMatrix, SimpleFxProvider};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::fx::ndf::Ndf;
+use finstack_valuations::instruments::fx::ndf::{Ndf, NdfQuoteConvention};
 use finstack_valuations::instruments::{Attributes, Instrument};
 use finstack_valuations::pricer::{create_standard_registry, InstrumentType, ModelKey};
 use std::sync::Arc;
@@ -49,6 +49,7 @@ fn test_ndf_pricing_pre_fixing_at_market() {
         .notional(Money::new(10_000_000.0, Currency::CNY))
         .contract_rate(7.25) // At market
         .settlement_curve_id(CurveId::new("USD-OIS"))
+        .quote_convention(NdfQuoteConvention::BasePerSettlement)
         .attributes(Attributes::new())
         .build()
         .expect("should build");
@@ -82,6 +83,7 @@ fn test_ndf_pricing_post_fixing_favorable() {
         .contract_rate(7.25)
         .fixing_rate_opt(Some(7.30)) // CNY weakened, fixing rate > contract
         .settlement_curve_id(CurveId::new("USD-OIS"))
+        .quote_convention(NdfQuoteConvention::BasePerSettlement)
         .attributes(Attributes::new())
         .build()
         .expect("should build");
@@ -116,6 +118,7 @@ fn test_ndf_pricing_post_fixing_unfavorable() {
         .contract_rate(7.25)
         .fixing_rate_opt(Some(7.20)) // CNY strengthened, fixing rate < contract
         .settlement_curve_id(CurveId::new("USD-OIS"))
+        .quote_convention(NdfQuoteConvention::BasePerSettlement)
         .attributes(Attributes::new())
         .build()
         .expect("should build");
@@ -146,6 +149,7 @@ fn test_ndf_pricing_expired() {
         .notional(Money::new(10_000_000.0, Currency::CNY))
         .contract_rate(7.25)
         .settlement_curve_id(CurveId::new("USD-OIS"))
+        .quote_convention(NdfQuoteConvention::BasePerSettlement)
         .attributes(Attributes::new())
         .build()
         .expect("should build");
@@ -170,6 +174,7 @@ fn test_ndf_registry_pricer() {
         .notional(Money::new(10_000_000.0, Currency::CNY))
         .contract_rate(7.25)
         .settlement_curve_id(CurveId::new("USD-OIS"))
+        .quote_convention(NdfQuoteConvention::BasePerSettlement)
         .attributes(Attributes::new())
         .build()
         .expect("should build");
@@ -232,6 +237,7 @@ fn test_ndf_pricing_with_foreign_curve() {
         .contract_rate(7.25)
         .settlement_curve_id(CurveId::new("USD-OIS"))
         .foreign_curve_id_opt(Some(CurveId::new("CNY-OIS")))
+        .quote_convention(NdfQuoteConvention::BasePerSettlement)
         .attributes(Attributes::new())
         .build()
         .expect("should build");

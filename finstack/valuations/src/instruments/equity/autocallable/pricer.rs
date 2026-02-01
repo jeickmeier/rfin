@@ -1,8 +1,6 @@
 //! Autocallable Monte Carlo pricer.
 
 #[cfg(feature = "mc")]
-use crate::instruments::autocallable::types::{Autocallable, FinalPayoffType};
-#[cfg(feature = "mc")]
 use crate::instruments::common::mc::process::gbm::{GbmParams, GbmProcess};
 #[cfg(feature = "mc")]
 use crate::instruments::common::models::monte_carlo::payoff::autocallable::{
@@ -14,6 +12,8 @@ use crate::instruments::common::models::monte_carlo::pricer::path_dependent::{
 };
 #[cfg(feature = "mc")]
 use crate::instruments::common::traits::Instrument;
+#[cfg(feature = "mc")]
+use crate::instruments::equity::autocallable::types::{Autocallable, FinalPayoffType};
 #[cfg(feature = "mc")]
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,

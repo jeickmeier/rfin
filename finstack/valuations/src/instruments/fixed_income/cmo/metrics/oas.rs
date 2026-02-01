@@ -4,8 +4,8 @@
 //! spread levels to find the spread that equates model price to market.
 #![allow(dead_code)] // Public API items may be used by external bindings
 
-use crate::instruments::agency_cmo::pricer::generate_tranche_cashflows;
-use crate::instruments::agency_cmo::AgencyCmo;
+use crate::instruments::fixed_income::cmo::pricer::generate_tranche_cashflows;
+use crate::instruments::fixed_income::cmo::AgencyCmo;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::Result;

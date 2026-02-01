@@ -3,7 +3,7 @@
 //! Interest-Only (IO) and Principal-Only (PO) strips separate the
 //! interest and principal components of MBS cashflows.
 
-use crate::instruments::agency_cmo::types::CmoTranche;
+use crate::instruments::fixed_income::cmo::types::CmoTranche;
 
 /// IO strip characteristics.
 #[derive(Clone, Debug)]
@@ -212,7 +212,7 @@ pub fn theoretical_po_value(face: f64, wam: u32, discount_rate: f64, psa: f64) -
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::agency_cmo::types::CmoTranche;
+    use crate::instruments::fixed_income::cmo::types::CmoTranche;
     use finstack_core::currency::Currency;
     use finstack_core::money::Money;
 

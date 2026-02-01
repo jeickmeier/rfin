@@ -23,8 +23,8 @@
 //! ## Example
 //! - CDX IG (125 names): $10M index with 40% recovery → JTD ≈ $48K per name default
 
-use crate::instruments::cds::PayReceive;
-use crate::instruments::cds_index::CDSIndex;
+use crate::instruments::credit_derivatives::cds::PayReceive;
+use crate::instruments::credit_derivatives::cds_index::CDSIndex;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::{Error, Result};
 

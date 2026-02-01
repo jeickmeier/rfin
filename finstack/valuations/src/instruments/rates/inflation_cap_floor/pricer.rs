@@ -1,5 +1,5 @@
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::inflation_cap_floor::InflationCapFloor;
+use crate::instruments::rates::inflation_cap_floor::InflationCapFloor;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
 };

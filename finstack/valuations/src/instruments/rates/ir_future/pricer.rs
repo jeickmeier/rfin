@@ -3,7 +3,7 @@ pub use crate::instruments::common::GenericInstrumentPricer;
 
 /// IR Future discounting pricer using the generic implementation.
 pub type SimpleIrFutureDiscountingPricer =
-    GenericInstrumentPricer<crate::instruments::ir_future::InterestRateFuture>;
+    GenericInstrumentPricer<crate::instruments::rates::ir_future::InterestRateFuture>;
 
 impl Default for SimpleIrFutureDiscountingPricer {
     fn default() -> Self {

@@ -3,13 +3,14 @@
 //! This module defines the data structures for bond futures, including
 //! the deliverable basket, contract specifications, and the main BondFuture type.
 
+use crate::instruments::common::dependencies::MarketDependencies;
 use crate::instruments::common::traits::Attributes;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
 // Re-export Position from ir_future module
-pub use crate::instruments::ir_future::Position;
+pub use crate::instruments::rates::ir_future::Position;
 
 /// A bond in the deliverable basket with its conversion factor.
 ///
@@ -445,7 +446,7 @@ pub struct BondFuture {
         serde(default, skip_serializing_if = "Option::is_none")
     )]
     #[builder(default)]
-    pub ctd_bond: Option<crate::instruments::bond::Bond>,
+    pub ctd_bond: Option<crate::instruments::fixed_income::bond::Bond>,
 
     /// Discount curve identifier for present value calculations
     pub discount_curve_id: CurveId,
@@ -619,7 +620,7 @@ impl BondFuture {
         position: Position,
         deliverable_basket: Vec<DeliverableBond>,
         ctd_bond_id: InstrumentId,
-        ctd_bond: Option<crate::instruments::bond::Bond>,
+        ctd_bond: Option<crate::instruments::fixed_income::bond::Bond>,
         discount_curve_id: CurveId,
     ) -> finstack_core::Result<Self> {
         let mut builder = BondFutureBuilder::new()
@@ -1032,7 +1033,7 @@ impl BondFuture {
     /// ```
     pub fn invoice_price(
         &self,
-        ctd_bond: &crate::instruments::bond::Bond,
+        ctd_bond: &crate::instruments::fixed_income::bond::Bond,
         market: &finstack_core::market_data::context::MarketContext,
         settlement_date: Date,
     ) -> finstack_core::Result<Money> {
@@ -2041,6 +2042,10 @@ impl crate::instruments::common::traits::Instrument for BondFuture {
 
     fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
         Box::new(self.clone())
+    }
+
+    fn market_dependencies(&self) -> MarketDependencies {
+        MarketDependencies::from_curve_dependencies(self)
     }
 
     fn value(

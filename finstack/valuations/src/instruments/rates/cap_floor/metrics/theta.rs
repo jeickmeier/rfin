@@ -3,8 +3,8 @@
 //! Computes theta via a bump-and-reprice approach: reprice the instrument
 //! at `as_of + period` (default 1D) holding market curves and vol surface fixed.
 
-use crate::instruments::cap_floor::InterestRateOption;
 use crate::instruments::common::traits::Instrument;
+use crate::instruments::rates::cap_floor::InterestRateOption;
 use crate::metrics::calculate_theta_date;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::Result;

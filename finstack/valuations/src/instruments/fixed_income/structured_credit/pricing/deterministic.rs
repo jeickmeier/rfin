@@ -4,11 +4,11 @@
 //! cashflow simulation through the waterfall engine.
 
 use crate::cashflow::traits::DatedFlows;
-use crate::instruments::structured_credit::types::constants::POOL_BALANCE_CLEANUP_THRESHOLD;
-use crate::instruments::structured_credit::types::{
+use crate::instruments::fixed_income::structured_credit::types::constants::POOL_BALANCE_CLEANUP_THRESHOLD;
+use crate::instruments::fixed_income::structured_credit::types::{
     Pool, PoolState, RecipientType, StructuredCredit, TrancheCashflows, TrancheStructure, Waterfall,
 };
-use crate::instruments::structured_credit::utils::simulation::RecoveryQueue;
+use crate::instruments::fixed_income::structured_credit::utils::simulation::RecoveryQueue;
 use finstack_core::cashflow::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::CalendarRegistry;
@@ -371,7 +371,7 @@ fn simulate_period(
 
     // Step 2: Execute Waterfall
     let waterfall_context =
-        crate::instruments::structured_credit::pricing::waterfall::WaterfallContext {
+        crate::instruments::fixed_income::structured_credit::pricing::waterfall::WaterfallContext {
             available_cash: total_cash_for_waterfall,
             interest_collections,
             payment_date: pay_date,
@@ -381,7 +381,7 @@ fn simulate_period(
         };
 
     let waterfall_result =
-        crate::instruments::structured_credit::pricing::waterfall::execute_waterfall(
+        crate::instruments::fixed_income::structured_credit::pricing::waterfall::execute_waterfall(
             &instrument.create_waterfall(),
             state.tranches,
             state.pool,

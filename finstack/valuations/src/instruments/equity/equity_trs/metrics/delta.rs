@@ -1,7 +1,7 @@
 //! Equity delta calculator for equity TRS.
 
 use crate::instruments::common::parameters::trs_common::TrsSide;
-use crate::instruments::equity_trs::EquityTotalReturnSwap;
+use crate::instruments::equity::equity_trs::EquityTotalReturnSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::{Error, Result};

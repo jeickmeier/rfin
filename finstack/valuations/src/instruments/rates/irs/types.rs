@@ -25,7 +25,7 @@ pub use crate::instruments::common::parameters::legs::{ParRateMethod, PayReceive
 // Re-export from common parameters
 pub use crate::instruments::common::parameters::legs::FixedLegSpec;
 pub use crate::instruments::common::parameters::legs::FloatLegSpec;
-use crate::instruments::irs::FloatingLegCompounding;
+use crate::instruments::rates::irs::FloatingLegCompounding;
 
 /// Leg-level conventions for building a vanilla fixed-vs-float IRS.
 ///
@@ -382,7 +382,7 @@ impl InterestRateSwap {
                 "Invalid payment delay: must be non-negative (business days).".into(),
             ));
         }
-        if let crate::instruments::irs::FloatingLegCompounding::CompoundedInArrears {
+        if let crate::instruments::rates::irs::FloatingLegCompounding::CompoundedInArrears {
             lookback_days,
             observation_shift,
         } = self.float.compounding
@@ -741,7 +741,7 @@ impl crate::instruments::common::traits::Instrument for InterestRateSwap {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        crate::instruments::irs::pricer::compute_pv(self, curves, as_of)
+        crate::instruments::rates::irs::pricer::compute_pv(self, curves, as_of)
     }
 
     fn value_raw(
@@ -749,7 +749,7 @@ impl crate::instruments::common::traits::Instrument for InterestRateSwap {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        crate::instruments::irs::pricer::compute_pv_raw(self, curves, as_of)
+        crate::instruments::rates::irs::pricer::compute_pv_raw(self, curves, as_of)
     }
 
     fn price_with_metrics(
@@ -790,7 +790,10 @@ impl CashflowProvider for InterestRateSwap {
         curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
-        crate::instruments::irs::cashflow::full_signed_schedule_with_curves(self, Some(curves))
+        crate::instruments::rates::irs::cashflow::full_signed_schedule_with_curves(
+            self,
+            Some(curves),
+        )
     }
 }
 

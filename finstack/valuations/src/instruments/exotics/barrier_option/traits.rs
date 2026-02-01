@@ -1,7 +1,7 @@
 //! Trait implementations for BarrierOption
 
-use crate::instruments::barrier_option::BarrierOption;
 use crate::instruments::common::traits::{CurveDependencies, EquityDependencies, InstrumentCurves};
+use crate::instruments::exotics::barrier_option::BarrierOption;
 use crate::metrics::{HasDayCount, HasExpiry, HasPricingOverrides};
 
 impl CurveDependencies for BarrierOption {

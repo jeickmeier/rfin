@@ -5,8 +5,8 @@
 //! prepayment behavior as rates change.
 #![allow(dead_code)] // Public API items may be used by external bindings
 
-use crate::instruments::agency_mbs_passthrough::pricer::price_mbs;
-use crate::instruments::agency_mbs_passthrough::AgencyMbsPassthrough;
+use crate::instruments::fixed_income::mbs_passthrough::pricer::price_mbs;
+use crate::instruments::fixed_income::mbs_passthrough::AgencyMbsPassthrough;
 use finstack_core::dates::Date;
 use finstack_core::market_data::bumps::MarketBump;
 use finstack_core::market_data::context::BumpSpec;
@@ -159,7 +159,7 @@ mod tests {
     use crate::calibration::bumps::rates::bump_discount_curve_synthetic;
     use crate::calibration::bumps::BumpRequest;
     use crate::cashflow::builder::specs::PrepaymentModelSpec;
-    use crate::instruments::agency_mbs_passthrough::{AgencyProgram, PoolType};
+    use crate::instruments::fixed_income::mbs_passthrough::{AgencyProgram, PoolType};
     use finstack_core::currency::Currency;
     use finstack_core::dates::DayCount;
     use finstack_core::market_data::term_structures::DiscountCurve;

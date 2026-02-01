@@ -15,7 +15,7 @@
 //! and measures the impact on LP valuation (lower carry = higher LP value).
 
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::private_markets_fund::PrivateMarketsFund;
+use crate::instruments::equity::pe_fund::PrivateMarketsFund;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -30,7 +30,7 @@ impl MetricCalculator for Carry01Calculator {
         let fund: &PrivateMarketsFund = context.instrument_as()?;
         let as_of = context.as_of;
 
-        use crate::instruments::private_markets_fund::waterfall::Tranche;
+        use crate::instruments::equity::pe_fund::waterfall::Tranche;
 
         // Bump GP share up in all promote tiers and catch-up tranches
         let mut spec_up = fund.spec.clone();

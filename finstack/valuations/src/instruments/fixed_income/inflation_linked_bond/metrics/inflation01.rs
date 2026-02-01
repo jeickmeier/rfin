@@ -15,7 +15,7 @@
 //! implicitly constructed from the index.
 
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::inflation_linked_bond::InflationLinkedBond;
+use crate::instruments::fixed_income::inflation_linked_bond::InflationLinkedBond;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 use finstack_core::Result;

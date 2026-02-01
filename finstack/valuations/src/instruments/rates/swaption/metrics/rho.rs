@@ -4,7 +4,7 @@
 //! the configured model (SABR or Black) consistently with instrument pricing.
 
 use crate::instruments::pricing_overrides::VolSurfaceExtrapolation;
-use crate::instruments::swaption::Swaption;
+use crate::instruments::rates::swaption::Swaption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 use finstack_core::Result;

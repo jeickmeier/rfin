@@ -70,7 +70,7 @@ use super::discount_engine::BondEngine;
 /// let result = registry.price(&bond, &market, as_of)?;
 /// ```
 ///
-/// [`SimpleBondHazardPricer`]: crate::instruments::bond::pricing::SimpleBondHazardPricer
+/// [`SimpleBondHazardPricer`]: crate::instruments::fixed_income::bond::pricing::SimpleBondHazardPricer
 pub struct HazardBondEngine;
 
 impl HazardBondEngine {
@@ -286,10 +286,12 @@ impl HazardBondEngine {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::bond::pricing::quote_engine::{compute_quotes, BondQuoteInput};
-    use crate::instruments::bond::CashflowSpec;
     use crate::instruments::common::traits::Attributes;
     use crate::instruments::common::traits::Instrument;
+    use crate::instruments::fixed_income::bond::pricing::quote_engine::{
+        compute_quotes, BondQuoteInput,
+    };
+    use crate::instruments::fixed_income::bond::CashflowSpec;
     use crate::metrics::{
         standard_credit_cs01_buckets, standard_registry, MetricContext, MetricId,
     };

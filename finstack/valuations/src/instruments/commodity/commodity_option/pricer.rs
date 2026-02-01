@@ -3,7 +3,7 @@
 //! Provides deterministic PV for `CommodityOption` using Black-76 for
 //! European exercise and binomial tree for American exercise.
 
-use crate::instruments::commodity_option::CommodityOption;
+use crate::instruments::commodity::commodity_option::CommodityOption;
 use crate::instruments::common::traits::Instrument;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,

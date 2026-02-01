@@ -337,7 +337,7 @@ pub trait Marginable: Instrument {
     /// Get the repo margin specification (for repos only).
     ///
     /// Default implementation returns `None`. Override for repo instruments.
-    fn repo_margin_spec(&self) -> Option<&crate::instruments::repo::RepoMarginSpec> {
+    fn repo_margin_spec(&self) -> Option<&crate::instruments::rates::repo::RepoMarginSpec> {
         None
     }
 

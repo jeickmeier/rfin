@@ -11,7 +11,7 @@
 //! near-expiry threshold for consistency and to return intrinsic delta.
 
 use crate::instruments::common::parameters::OptionType;
-use crate::instruments::swaption::{Swaption, VolatilityModel};
+use crate::instruments::rates::swaption::{Swaption, VolatilityModel};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::Result;
 

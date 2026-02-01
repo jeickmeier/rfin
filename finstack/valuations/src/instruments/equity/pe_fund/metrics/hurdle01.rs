@@ -19,7 +19,7 @@
 //! and affecting LP valuation.
 
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::private_markets_fund::PrivateMarketsFund;
+use crate::instruments::equity::pe_fund::PrivateMarketsFund;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -34,7 +34,7 @@ impl MetricCalculator for Hurdle01Calculator {
         let fund: &PrivateMarketsFund = context.instrument_as()?;
         let as_of = context.as_of;
 
-        use crate::instruments::private_markets_fund::waterfall::{Hurdle, Tranche};
+        use crate::instruments::equity::pe_fund::waterfall::{Hurdle, Tranche};
 
         // Bump hurdle rates up by 1bp
         let mut spec_up = fund.spec.clone();

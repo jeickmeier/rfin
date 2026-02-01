@@ -22,7 +22,7 @@
 //!
 //! The pricer applies payment delay when discounting, so the PV calculation uses
 //! the correct payment date. Consumers who need actual payment dates should apply
-//! `add_payment_delay()` from `crate::instruments::irs::dates`.
+//! `add_payment_delay()` from `crate::instruments::rates::irs::dates`.
 
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
@@ -33,7 +33,7 @@ use crate::cashflow::builder::{
     CashFlowSchedule, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec, Notional,
 };
 use crate::cashflow::traits::DatedFlows;
-use crate::instruments::irs::{InterestRateSwap, PayReceive};
+use crate::instruments::rates::irs::{InterestRateSwap, PayReceive};
 
 /// Build an unsigned fixed-leg cashflow schedule for an IRS.
 ///

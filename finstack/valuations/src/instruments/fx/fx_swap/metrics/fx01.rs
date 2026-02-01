@@ -13,8 +13,8 @@
 //!   See [`fx_delta::FxDeltaCalculator`] for details.
 //!   Useful for normalized risk comparison across different spot levels.
 
-use crate::instruments::fx_swap::pricing_helper::FxSwapPricingContext;
-use crate::instruments::fx_swap::FxSwap;
+use crate::instruments::fx::fx_swap::pricing_helper::FxSwapPricingContext;
+use crate::instruments::fx::fx_swap::FxSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

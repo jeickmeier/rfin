@@ -35,7 +35,7 @@
 //!   *Journal of Portfolio Management*, 15(3), 9-14.
 
 use super::traits::StochasticPrepayment;
-use crate::instruments::structured_credit::utils::rates::cpr_to_smm;
+use crate::instruments::fixed_income::structured_credit::utils::rates::cpr_to_smm;
 use finstack_core::types::{Percentage, Rate};
 
 /// Richard-Roll prepayment model for RMBS.

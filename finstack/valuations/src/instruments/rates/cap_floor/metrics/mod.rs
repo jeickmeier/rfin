@@ -35,14 +35,14 @@ pub fn register_interest_rate_option_metrics(registry: &mut MetricRegistry) {
             (Gamma, gamma::GammaCalculator),
             (Vega, vega::VegaCalculator),
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::cap_floor::InterestRateOption,
+                crate::instruments::rates::cap_floor::InterestRateOption,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (Theta, theta::ThetaCalculator),
             (Rho, rho::RhoCalculator),
             (ImpliedVol, implied_vol::ImpliedVolCalculator),
             (ForwardPv01, forward_pv01::ForwardPv01Calculator),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::cap_floor::InterestRateOption,
+                crate::instruments::rates::cap_floor::InterestRateOption,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
         ]
     }

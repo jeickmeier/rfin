@@ -134,9 +134,9 @@ pub use types::CallPutSchedule;
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
-    use crate::instruments::bond::{Bond, CashflowSpec};
     use crate::instruments::common::parameters::BondConvention;
     use crate::instruments::common::traits::{Attributes, Instrument};
+    use crate::instruments::fixed_income::bond::{Bond, CashflowSpec};
     use crate::instruments::PricingOverrides;
     use crate::pricer::InstrumentType;
     use finstack_core::currency::Currency;

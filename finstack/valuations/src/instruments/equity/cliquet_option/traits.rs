@@ -1,7 +1,7 @@
 //! Trait implementations for CliquetOption
 
-use crate::instruments::cliquet_option::CliquetOption;
 use crate::instruments::common::traits::EquityDependencies;
+use crate::instruments::equity::cliquet_option::CliquetOption;
 use crate::metrics::{HasDayCount, HasExpiry, HasPricingOverrides};
 
 impl EquityDependencies for CliquetOption {

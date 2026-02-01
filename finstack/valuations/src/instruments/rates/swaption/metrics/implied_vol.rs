@@ -6,7 +6,7 @@
 //! if inversion is not possible.
 
 use crate::instruments::pricing_overrides::VolSurfaceExtrapolation;
-use crate::instruments::swaption::Swaption;
+use crate::instruments::rates::swaption::Swaption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::Result;

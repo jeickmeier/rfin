@@ -3,7 +3,7 @@
 //! Computes sensitivity to a 1bp absolute bump in the spot FX rate.
 
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::ndf::Ndf;
+use crate::instruments::fx::ndf::Ndf;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::money::fx::FxQuery;
 

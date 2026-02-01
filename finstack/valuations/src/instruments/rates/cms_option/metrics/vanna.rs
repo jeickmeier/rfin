@@ -1,7 +1,7 @@
-use crate::instruments::cms_option::pricer::{convexity_adjustment, CmsOptionPricer};
-use crate::instruments::cms_option::types::CmsOption;
 use crate::instruments::common::models::d1_d2_black76;
 use crate::instruments::common::pricing::time::relative_df_discount_curve;
+use crate::instruments::rates::cms_option::pricer::{convexity_adjustment, CmsOptionPricer};
+use crate::instruments::rates::cms_option::types::CmsOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::{DateExt, DayCountCtx};
 use finstack_core::math::norm_pdf;

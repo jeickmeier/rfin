@@ -3,7 +3,7 @@
 //! Computes Recovery01 (recovery rate sensitivity) using finite differences.
 //! Recovery01 measures the change in PV for a 1% (100bp) change in recovery rate.
 
-use crate::instruments::structured_credit::StructuredCredit;
+use crate::instruments::fixed_income::structured_credit::StructuredCredit;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

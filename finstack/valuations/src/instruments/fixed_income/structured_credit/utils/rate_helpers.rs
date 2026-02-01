@@ -8,7 +8,7 @@ use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use rust_decimal::prelude::ToPrimitive;
 
-use crate::instruments::structured_credit::types::TrancheCoupon;
+use crate::instruments::fixed_income::structured_credit::types::TrancheCoupon;
 
 /// Calculate period end date from a tenor value in years.
 ///

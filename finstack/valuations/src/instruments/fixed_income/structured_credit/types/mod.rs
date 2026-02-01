@@ -70,7 +70,7 @@ pub use waterfall::{
 pub use results::{TrancheCashflows, TrancheValuation, TrancheValuationExt};
 
 // Stochastic specs - re-export from pricing
-pub use crate::instruments::structured_credit::pricing::{
+pub use crate::instruments::fixed_income::structured_credit::pricing::{
     CorrelationStructure, StochasticDefaultSpec, StochasticPrepaySpec,
 };
 
@@ -88,14 +88,14 @@ pub use crate::cashflow::builder::{DefaultModelSpec, PrepaymentModelSpec, Recove
 use crate::cashflow::traits::CashflowProvider;
 use crate::constants::DECIMAL_TO_PERCENT;
 use crate::instruments::common::traits::{Attributes, Instrument};
-use crate::instruments::irs::InterestRateSwap;
-use crate::instruments::structured_credit::pricing::stochastic::pricer::{
+use crate::instruments::fixed_income::structured_credit::pricing::stochastic::pricer::{
     PricingMode, StochasticPricer, StochasticPricerConfig, StochasticPricingResult,
 };
-use crate::instruments::structured_credit::pricing::stochastic::tree::{
+use crate::instruments::fixed_income::structured_credit::pricing::stochastic::tree::{
     BranchingSpec, ScenarioTreeConfig,
 };
-use crate::instruments::structured_credit::utils::rates::{cdr_to_mdr, cpr_to_smm};
+use crate::instruments::fixed_income::structured_credit::utils::rates::{cdr_to_mdr, cpr_to_smm};
+use crate::instruments::rates::irs::InterestRateSwap;
 use crate::metrics::{MetricContext, MetricId};
 use crate::results::ValuationResult;
 use finstack_core::dates::{BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, Tenor};
@@ -687,9 +687,10 @@ impl CashflowProvider for StructuredCredit {
         context: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
-        let flows = crate::instruments::structured_credit::pricing::generate_cashflows(
-            self, context, as_of,
-        )?;
+        let flows =
+            crate::instruments::fixed_income::structured_credit::pricing::generate_cashflows(
+                self, context, as_of,
+            )?;
         Ok(crate::cashflow::traits::schedule_from_dated_flows(
             flows,
             self.notional(),
@@ -791,7 +792,7 @@ impl TrancheValuationExt for StructuredCredit {
         context: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<TrancheCashflows> {
-        crate::instruments::structured_credit::pricing::generate_tranche_cashflows(
+        crate::instruments::fixed_income::structured_credit::pricing::generate_tranche_cashflows(
             self, tranche_id, context, as_of,
         )
     }
@@ -824,7 +825,7 @@ impl TrancheValuationExt for StructuredCredit {
         as_of: Date,
         metrics: &[MetricId],
     ) -> finstack_core::Result<TrancheValuation> {
-        use crate::instruments::structured_credit::metrics::{
+        use crate::instruments::fixed_income::structured_credit::metrics::{
             calculate_tranche_cs01, calculate_tranche_duration, calculate_tranche_wal,
             calculate_tranche_z_spread,
         };

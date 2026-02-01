@@ -49,8 +49,8 @@
 
 use crate::cashflow::builder::build_dates;
 use crate::constants::{credit, BASIS_POINTS_PER_UNIT};
-use crate::instruments::cds_tranche::{CdsTranche, TrancheSide};
 use crate::instruments::common::traits::Instrument;
+use crate::instruments::credit_derivatives::cds_tranche::{CdsTranche, TrancheSide};
 use finstack_core::dates::next_cds_date;
 use finstack_core::dates::{Date, DateExt, StubKind};
 use finstack_core::market_data::traits::Discounting;
@@ -2473,7 +2473,7 @@ impl crate::pricer::Pricer for SimpleCdsTrancheHazardPricer {
         // Type-safe downcasting
         let cds_tranche = instrument
             .as_any()
-            .downcast_ref::<crate::instruments::cds_tranche::CdsTranche>()
+            .downcast_ref::<crate::instruments::credit_derivatives::cds_tranche::CdsTranche>()
             .ok_or_else(|| {
                 crate::pricer::PricingError::type_mismatch(
                     crate::pricer::InstrumentType::CDSTranche,
@@ -2505,7 +2505,7 @@ impl crate::pricer::Pricer for SimpleCdsTrancheHazardPricer {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::cds_tranche::parameters::CDSTrancheParams;
+    use crate::instruments::credit_derivatives::cds_tranche::parameters::CDSTrancheParams;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::CreditIndexData;
     use finstack_core::market_data::term_structures::DiscountCurve;

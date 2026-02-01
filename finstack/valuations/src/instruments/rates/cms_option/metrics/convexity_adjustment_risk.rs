@@ -7,8 +7,8 @@
 //!
 //! This represents the dollar value attributed to the convexity adjustment.
 
-use crate::instruments::cms_option::pricer::CmsOptionPricer;
-use crate::instruments::cms_option::types::CmsOption;
+use crate::instruments::rates::cms_option::pricer::CmsOptionPricer;
+use crate::instruments::rates::cms_option::types::CmsOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

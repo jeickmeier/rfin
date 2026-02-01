@@ -53,9 +53,11 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
-use crate::instruments::bond::pricing::tree_engine::{bond_tree_config, BondValuator};
 use crate::instruments::common::models::{
     short_rate_keys, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
+};
+use crate::instruments::fixed_income::bond::pricing::tree_engine::{
+    bond_tree_config, BondValuator,
 };
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
@@ -265,10 +267,10 @@ impl MetricCalculator for EmbeddedOptionValueCalculator {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::bond::CashflowSpec;
-    #[cfg(feature = "slow")]
-    use crate::instruments::bond::{CallPut, CallPutSchedule};
     use crate::instruments::common::traits::Instrument;
+    use crate::instruments::fixed_income::bond::CashflowSpec;
+    #[cfg(feature = "slow")]
+    use crate::instruments::fixed_income::bond::{CallPut, CallPutSchedule};
     use crate::instruments::PricingOverrides;
     use finstack_core::dates::Date;
     use finstack_core::market_data::context::MarketContext;

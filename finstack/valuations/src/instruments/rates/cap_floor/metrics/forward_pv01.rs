@@ -1,7 +1,7 @@
 //! Forward curve PV01 for interest rate options (per 1bp parallel bump of forward curve).
 
-use crate::instruments::cap_floor::InterestRateOption;
 use crate::instruments::common::traits::Instrument;
+use crate::instruments::rates::cap_floor::InterestRateOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::Result;

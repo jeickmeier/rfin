@@ -6,8 +6,8 @@
 use super::types::{AgencyCmo, CmoTrancheType};
 use super::waterfall::{allocate_io_cashflow, execute_waterfall};
 use crate::cashflow::builder::specs::PrepaymentModelSpec;
-use crate::instruments::agency_mbs_passthrough::pricer::generate_cashflows;
-use crate::instruments::agency_mbs_passthrough::{AgencyMbsPassthrough, PoolType};
+use crate::instruments::fixed_income::mbs_passthrough::pricer::generate_cashflows;
+use crate::instruments::fixed_income::mbs_passthrough::{AgencyMbsPassthrough, PoolType};
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };

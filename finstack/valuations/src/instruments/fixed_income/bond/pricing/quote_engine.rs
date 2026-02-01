@@ -9,8 +9,8 @@
 //! `0.01` corresponds to **100 basis points**.
 #![allow(dead_code)] // Public API items may be used by external bindings or tests
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::bond::Bond;
 use crate::instruments::common::traits::Instrument;
+use crate::instruments::fixed_income::bond::Bond;
 use crate::metrics::{standard_registry, MetricRegistry};
 use crate::metrics::{MetricContext, MetricId};
 use finstack_core::dates::Date;
@@ -680,16 +680,16 @@ pub(crate) fn solve_ytw_from_flows(
 
         // Solve yield that matches target dirty price
         let coupon_rate = match &bond.cashflow_spec {
-            crate::instruments::bond::CashflowSpec::Fixed(spec) => {
+            crate::instruments::fixed_income::bond::CashflowSpec::Fixed(spec) => {
                 spec.rate.to_f64().unwrap_or(0.0)
             }
             _ => 0.0,
         };
-        let y = crate::instruments::bond::pricing::ytm_solver::solve_ytm(
+        let y = crate::instruments::fixed_income::bond::pricing::ytm_solver::solve_ytm(
             &ex_flows,
             as_of,
             dirty_price_target,
-            crate::instruments::bond::pricing::ytm_solver::YtmPricingSpec {
+            crate::instruments::fixed_income::bond::pricing::ytm_solver::YtmPricingSpec {
                 day_count: bond.cashflow_spec.day_count(),
                 notional: bond.notional,
                 coupon_rate,
@@ -785,10 +785,10 @@ pub fn price_from_oas(
     let oas_bp = oas_decimal * 10_000.0;
 
     // Use the short-rate tree directly to price at a given OAS
-    use crate::instruments::bond::pricing::tree_engine::BondValuator;
     use crate::instruments::common::models::{
         short_rate_keys, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
     };
+    use crate::instruments::fixed_income::bond::pricing::tree_engine::BondValuator;
     // Time to maturity is measured from the valuation date (as_of) using the
     // discount curve's day-count to ensure consistency with tree calibration.
     let discount_curve = curves.get_discount(&bond.discount_curve_id)?;
@@ -825,13 +825,15 @@ pub fn price_from_dm(
     // Check if it's a floating rate bond
     let is_floating = matches!(
         &bond.cashflow_spec,
-        crate::instruments::bond::CashflowSpec::Floating(_)
+        crate::instruments::fixed_income::bond::CashflowSpec::Floating(_)
     );
     if !is_floating {
         return Ok(bond.value(curves, as_of)?.amount());
     }
     let mut b = bond.clone();
-    if let crate::instruments::bond::CashflowSpec::Floating(spec) = &mut b.cashflow_spec {
+    if let crate::instruments::fixed_income::bond::CashflowSpec::Floating(spec) =
+        &mut b.cashflow_spec
+    {
         // Convert dm (in decimal) to basis points and add to spread_bp (Decimal)
         let dm_bp = Decimal::try_from(dm * 1e4).unwrap_or(Decimal::ZERO);
         spec.rate_spec.spread_bp += dm_bp;
@@ -1100,7 +1102,7 @@ fn price_from_asw_market(
     as_of: Date,
     asw_market: f64,
 ) -> Result<f64> {
-    use crate::instruments::bond::CashflowSpec;
+    use crate::instruments::fixed_income::bond::CashflowSpec;
     use finstack_core::dates::calendar::calendar_by_id;
     use finstack_core::dates::ScheduleBuilder;
 

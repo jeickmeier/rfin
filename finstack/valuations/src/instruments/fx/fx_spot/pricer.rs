@@ -1,5 +1,5 @@
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::fx_spot::FxSpot;
+use crate::instruments::fx::fx_spot::FxSpot;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
 };
@@ -61,7 +61,7 @@ impl Pricer for FxSpotPricer {
 #[allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]
 mod tests {
     use super::*;
-    use crate::instruments::fx_spot::FxSpot;
+    use crate::instruments::fx::fx_spot::FxSpot;
     use crate::pricer::Pricer;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::context::MarketContext;

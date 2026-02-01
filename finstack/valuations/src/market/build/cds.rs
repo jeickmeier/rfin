@@ -1,8 +1,8 @@
 //! Builders for credit instruments from market quotes.
 
-use crate::instruments::cds::{CDSConvention, CreditDefaultSwap};
 use crate::instruments::common::parameters::legs::{PayReceive, PremiumLegSpec, ProtectionLegSpec};
 use crate::instruments::common::traits::{Attributes, Instrument};
+use crate::instruments::credit_derivatives::cds::{CDSConvention, CreditDefaultSwap};
 use crate::instruments::PricingOverrides;
 use crate::market::build::helpers::{resolve_calendar, resolve_spot_date};
 use crate::market::conventions::registry::ConventionRegistry;
@@ -303,7 +303,7 @@ mod tests {
 
         let instrument = build_cds_instrument(&quote, &ctx)?;
 
-        use crate::instruments::cds::CreditDefaultSwap;
+        use crate::instruments::credit_derivatives::cds::CreditDefaultSwap;
         let cds = instrument
             .as_any()
             .downcast_ref::<CreditDefaultSwap>()
@@ -343,7 +343,7 @@ mod tests {
 
         let instrument = build_cds_instrument(&quote, &ctx)?;
 
-        use crate::instruments::cds::CreditDefaultSwap;
+        use crate::instruments::credit_derivatives::cds::CreditDefaultSwap;
         let cds = instrument
             .as_any()
             .downcast_ref::<CreditDefaultSwap>()

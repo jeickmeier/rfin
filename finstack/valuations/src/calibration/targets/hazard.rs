@@ -6,7 +6,7 @@ use crate::calibration::solver::bootstrap::SequentialBootstrapper;
 use crate::calibration::solver::global::GlobalFitOptimizer;
 use crate::calibration::solver::traits::{BootstrapTarget, GlobalSolveTarget};
 use crate::calibration::CalibrationReport;
-use crate::instruments::cds::CdsConventionResolved;
+use crate::instruments::credit_derivatives::cds::CdsConventionResolved;
 use crate::market::build::context::BuildCtx;
 use crate::market::quotes::market_quote::{ExtractQuotes, MarketQuote};
 use finstack_core::market_data::context::MarketContext;
@@ -65,10 +65,11 @@ impl HazardBootstrapper {
         base_context: MarketContext,
         config: CalibrationConfig,
     ) -> Result<Self> {
-        let cds_conventions = crate::instruments::cds::resolve_market_conventions(
-            params.currency,
-            params.doc_clause.as_deref(),
-        )?;
+        let cds_conventions =
+            crate::instruments::credit_derivatives::cds::resolve_market_conventions(
+                params.currency,
+                params.doc_clause.as_deref(),
+            )?;
 
         let reuse_context = if config.use_parallel {
             None

@@ -1,5 +1,5 @@
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::bond::pricing::settlement::QuoteDateContext;
+use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContext;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::{Date, DayCountCtx};

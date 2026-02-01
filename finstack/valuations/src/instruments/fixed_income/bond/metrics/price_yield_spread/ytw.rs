@@ -1,5 +1,5 @@
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::bond::pricing::settlement::QuoteDateContext;
+use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContext;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::money::Money;
@@ -108,7 +108,7 @@ impl MetricCalculator for YtwCalculator {
         // Delegate candidate scanning and YTM solving to shared helper.
         // Use quote_date as the time origin to match market convention.
         let (best_ytm, _best_flows) =
-            crate::instruments::bond::pricing::quote_engine::solve_ytw_from_flows(
+            crate::instruments::fixed_income::bond::pricing::quote_engine::solve_ytw_from_flows(
                 bond,
                 flows,
                 quote_ctx.quote_date,

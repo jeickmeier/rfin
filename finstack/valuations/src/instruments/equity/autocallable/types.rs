@@ -182,7 +182,7 @@ impl crate::instruments::common::traits::Instrument for Autocallable {
     ) -> finstack_core::Result<finstack_core::money::Money> {
         #[cfg(feature = "mc")]
         {
-            use crate::instruments::autocallable::pricer;
+            use crate::instruments::equity::autocallable::pricer;
             pricer::compute_pv(self, market, as_of)
         }
         #[cfg(not(feature = "mc"))]

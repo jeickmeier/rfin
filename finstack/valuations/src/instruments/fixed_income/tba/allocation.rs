@@ -4,7 +4,7 @@
 //! pool characteristics rather than full SIFMA good delivery rules.
 
 use super::AgencyTba;
-use crate::instruments::agency_mbs_passthrough::AgencyMbsPassthrough;
+use crate::instruments::fixed_income::mbs_passthrough::AgencyMbsPassthrough;
 use finstack_core::Result;
 
 /// Pool allocation result.
@@ -34,7 +34,7 @@ pub struct AllocationResult {
 /// For full CTD analysis, users should provide explicit `assumed_pool`
 /// on the TBA instrument.
 pub fn allocate_generic_pool(tba: &AgencyTba) -> Result<AllocationResult> {
-    use crate::instruments::agency_tba::pricer::create_assumed_pool;
+    use crate::instruments::fixed_income::tba::pricer::create_assumed_pool;
     use finstack_core::dates::Date;
 
     // Use a reference date for pool creation

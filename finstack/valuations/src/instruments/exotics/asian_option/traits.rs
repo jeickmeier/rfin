@@ -1,7 +1,7 @@
 //! Trait implementations for AsianOption
 
-use crate::instruments::asian_option::AsianOption;
 use crate::instruments::common::traits::{CurveDependencies, EquityDependencies, InstrumentCurves};
+use crate::instruments::exotics::asian_option::AsianOption;
 use crate::metrics::{HasDayCount, HasExpiry, HasPricingOverrides};
 
 impl CurveDependencies for AsianOption {

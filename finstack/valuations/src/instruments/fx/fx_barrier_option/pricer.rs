@@ -2,7 +2,7 @@
 
 // Common imports for all pricers
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::fx_barrier_option::types::FxBarrierOption;
+use crate::instruments::fx::fx_barrier_option::types::FxBarrierOption;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
@@ -39,19 +39,19 @@ impl FxBarrierOptionMcPricer {
     }
 
     fn convert_barrier_type(
-        bt: crate::instruments::barrier_option::types::BarrierType,
+        bt: crate::instruments::exotics::barrier_option::types::BarrierType,
     ) -> McBarrierType {
         match bt {
-            crate::instruments::barrier_option::types::BarrierType::UpAndOut => {
+            crate::instruments::exotics::barrier_option::types::BarrierType::UpAndOut => {
                 McBarrierType::UpAndOut
             }
-            crate::instruments::barrier_option::types::BarrierType::UpAndIn => {
+            crate::instruments::exotics::barrier_option::types::BarrierType::UpAndIn => {
                 McBarrierType::UpAndIn
             }
-            crate::instruments::barrier_option::types::BarrierType::DownAndOut => {
+            crate::instruments::exotics::barrier_option::types::BarrierType::DownAndOut => {
                 McBarrierType::DownAndOut
             }
-            crate::instruments::barrier_option::types::BarrierType::DownAndIn => {
+            crate::instruments::exotics::barrier_option::types::BarrierType::DownAndIn => {
                 McBarrierType::DownAndIn
             }
         }
@@ -343,7 +343,7 @@ impl Pricer for FxBarrierOptionAnalyticalPricer {
         }
 
         // Map barrier type
-        use crate::instruments::barrier_option::types::BarrierType;
+        use crate::instruments::exotics::barrier_option::types::BarrierType;
         let analytical_barrier_type = match fx_barrier.barrier_type {
             BarrierType::UpAndIn => AnalyticalBarrierType::UpIn,
             BarrierType::UpAndOut => AnalyticalBarrierType::UpOut,

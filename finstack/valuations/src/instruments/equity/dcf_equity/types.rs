@@ -4,6 +4,7 @@
 //! - [`TerminalValueSpec`] for Gordon Growth and Exit Multiple terminals
 //! - [`DiscountedCashFlow`] instrument implementing the standard DCF formula
 
+use crate::instruments::common::dependencies::MarketDependencies;
 use crate::instruments::common::traits::{
     Attributes, CurveDependencies, Instrument, InstrumentCurves,
 };
@@ -140,6 +141,10 @@ impl Instrument for DiscountedCashFlow {
 
     fn clone_box(&self) -> Box<dyn Instrument> {
         Box::new(self.clone())
+    }
+
+    fn market_dependencies(&self) -> MarketDependencies {
+        MarketDependencies::from_curve_dependencies(self)
     }
 
     fn value(&self, _market: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
@@ -393,7 +398,7 @@ mod tests {
         let mut mctx = build_metric_context(dcf, market, as_of);
 
         let mut registry = crate::metrics::standard_registry().clone();
-        crate::instruments::dcf::metrics::register_dcf_metrics(&mut registry);
+        crate::instruments::equity::dcf_equity::metrics::register_dcf_metrics(&mut registry);
 
         let results = registry
             .compute(&[MetricId::Theta], &mut mctx)
@@ -416,7 +421,7 @@ mod tests {
         let mut mctx = build_metric_context(dcf, market, as_of);
 
         let mut registry = crate::metrics::standard_registry().clone();
-        crate::instruments::dcf::metrics::register_dcf_metrics(&mut registry);
+        crate::instruments::equity::dcf_equity::metrics::register_dcf_metrics(&mut registry);
 
         let results = registry
             .compute(&[MetricId::Dv01], &mut mctx)
@@ -445,7 +450,7 @@ mod tests {
         let mut mctx = build_metric_context(dcf, market, as_of);
 
         let mut registry = crate::metrics::standard_registry().clone();
-        crate::instruments::dcf::metrics::register_dcf_metrics(&mut registry);
+        crate::instruments::equity::dcf_equity::metrics::register_dcf_metrics(&mut registry);
 
         let results = registry
             .compute(&[MetricId::BucketedDv01], &mut mctx)

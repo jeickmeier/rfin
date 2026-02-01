@@ -154,21 +154,21 @@ pub fn prepare_rate_quote(
 
     let maturity_date = if let Some(dep) = instrument
         .as_any()
-        .downcast_ref::<crate::instruments::deposit::Deposit>()
-    {
+        .downcast_ref::<crate::instruments::rates::deposit::Deposit>(
+    ) {
         dep.effective_end_date()?
     } else if let Some(fra) = instrument
         .as_any()
-        .downcast_ref::<crate::instruments::fra::ForwardRateAgreement>()
-    {
+        .downcast_ref::<crate::instruments::rates::fra::ForwardRateAgreement>(
+    ) {
         fra.end_date
     } else if let Some(swp) = instrument
         .as_any()
-        .downcast_ref::<crate::instruments::irs::InterestRateSwap>()
+        .downcast_ref::<crate::instruments::rates::irs::InterestRateSwap>()
     {
         let end = std::cmp::max(swp.fixed.end, swp.float.end);
         if policy.swap_use_payment_delay {
-            crate::instruments::irs::dates::add_payment_delay(
+            crate::instruments::rates::irs::dates::add_payment_delay(
                 end,
                 swp.fixed.payment_delay_days,
                 swp.fixed.calendar_id.as_deref(),
@@ -178,8 +178,8 @@ pub fn prepare_rate_quote(
         }
     } else if let Some(fut) = instrument
         .as_any()
-        .downcast_ref::<crate::instruments::ir_future::InterestRateFuture>()
-    {
+        .downcast_ref::<crate::instruments::rates::ir_future::InterestRateFuture>(
+    ) {
         fut.expiry_date
     } else {
         base_date
@@ -208,7 +208,7 @@ pub fn prepare_cds_quote(
 
     let maturity_date = instrument
         .as_any()
-        .downcast_ref::<crate::instruments::cds::CreditDefaultSwap>()
+        .downcast_ref::<crate::instruments::credit_derivatives::cds::CreditDefaultSwap>()
         .map(|cds| cds.premium.end)
         .ok_or_else(|| finstack_core::Error::Validation("Expected CDS instrument".to_string()))?;
 

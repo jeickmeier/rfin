@@ -65,9 +65,12 @@ fn test_construction_with_bdc() {
 
 #[test]
 fn test_construction_with_calendar() {
-    let fx = sample_eurusd().with_calendar_id("TARGET");
+    let fx = sample_eurusd()
+        .with_base_calendar_id("target2")
+        .with_quote_calendar_id("usny");
 
-    assert_eq!(fx.calendar_id.as_deref(), Some("TARGET"));
+    assert_eq!(fx.base_calendar_id.as_deref(), Some("target2"));
+    assert_eq!(fx.quote_calendar_id.as_deref(), Some("usny"));
 }
 
 #[test]
@@ -79,7 +82,8 @@ fn test_construction_full_builder() {
         .expect("test rate")
         .with_settlement(d(2025, 1, 17))
         .with_bdc(BusinessDayConvention::ModifiedFollowing)
-        .with_calendar_id("London");
+        .with_base_calendar_id("London")
+        .with_quote_calendar_id("USNY");
 
     assert_eq!(fx.id.as_str(), "GBPUSD");
     assert_eq!(fx.base, Currency::GBP);
@@ -88,7 +92,8 @@ fn test_construction_full_builder() {
     assert_eq!(fx.spot_rate, Some(1.32));
     assert_eq!(fx.settlement, Some(d(2025, 1, 17)));
     assert_eq!(fx.bdc, BusinessDayConvention::ModifiedFollowing);
-    assert_eq!(fx.calendar_id.as_deref(), Some("London"));
+    assert_eq!(fx.base_calendar_id.as_deref(), Some("London"));
+    assert_eq!(fx.quote_calendar_id.as_deref(), Some("USNY"));
 }
 
 #[test]

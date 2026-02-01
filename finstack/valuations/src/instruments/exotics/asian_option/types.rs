@@ -155,7 +155,7 @@ impl AsianOption {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        use crate::instruments::asian_option::pricer;
+        use crate::instruments::exotics::asian_option::pricer;
         pricer::compute_pv(self, curves, as_of)
     }
 
@@ -213,7 +213,7 @@ impl crate::instruments::common::traits::Instrument for AsianOption {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        use crate::instruments::asian_option::pricer::{
+        use crate::instruments::exotics::asian_option::pricer::{
             AsianOptionAnalyticalGeometricPricer, AsianOptionSemiAnalyticalTwPricer,
         };
         use crate::pricer::Pricer;

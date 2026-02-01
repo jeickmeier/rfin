@@ -4,8 +4,8 @@
 //! pools to be delivered are not known at trade time. Instead, pools must
 //! meet good delivery standards (coupon, term, agency).
 
-use crate::instruments::agency_mbs_passthrough::{AgencyMbsPassthrough, AgencyProgram};
 use crate::instruments::common::traits::Attributes;
+use crate::instruments::fixed_income::mbs_passthrough::{AgencyMbsPassthrough, AgencyProgram};
 use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -274,7 +274,7 @@ impl crate::instruments::common::traits::Instrument for AgencyTba {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        crate::instruments::agency_tba::pricer::price_tba(self, market, as_of)
+        crate::instruments::fixed_income::tba::pricer::price_tba(self, market, as_of)
     }
 
     fn price_with_metrics(

@@ -5,7 +5,7 @@
 #![allow(dead_code)] // Public API items may be used by external bindings
 
 use super::coverage_tests::{CoverageTest, TestContext};
-use crate::instruments::structured_credit::types::{
+use crate::instruments::fixed_income::structured_credit::types::{
     AllocationMode, PaymentCalculation, PaymentRecord, PaymentType, Pool, Recipient, RecipientType,
     RoundingConvention, TrancheStructure, Waterfall, WaterfallDistribution, WaterfallTier,
     WaterfallWorkspace,
@@ -789,7 +789,7 @@ fn calculate_payment_amount(
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod market_standards_tests {
-    use crate::instruments::structured_credit::types::PaymentCalculation;
+    use crate::instruments::fixed_income::structured_credit::types::PaymentCalculation;
     use finstack_core::currency::Currency;
     use finstack_core::dates::{Date, DayCount};
     use finstack_core::money::Money;

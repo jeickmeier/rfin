@@ -11,7 +11,7 @@ pub struct CollateralValueCalculator;
 
 impl MetricCalculator for CollateralValueCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let repo = context.instrument_as::<crate::instruments::repo::Repo>()?;
+        let repo = context.instrument_as::<crate::instruments::rates::repo::Repo>()?;
         let collateral_value = repo.collateral.market_value(&context.curves)?;
         Ok(collateral_value.amount())
     }

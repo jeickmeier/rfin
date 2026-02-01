@@ -4,7 +4,7 @@
 //! mark-to-market or cost-of-carry fair value pricing.
 
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::equity_index_future::EquityIndexFuture;
+use crate::instruments::equity::equity_index_future::EquityIndexFuture;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
@@ -65,7 +65,7 @@ impl Pricer for EquityIndexFutureDiscountingPricer {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::ir_future::Position;
+    use crate::instruments::rates::ir_future::Position;
     use crate::pricer::Pricer;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::scalars::MarketScalar;
@@ -91,7 +91,7 @@ mod tests {
 
     fn create_test_future_with_quoted_price() -> EquityIndexFuture {
         use crate::instruments::common::traits::Attributes;
-        use crate::instruments::equity_index_future::EquityFutureSpecs;
+        use crate::instruments::equity::equity_index_future::EquityFutureSpecs;
 
         EquityIndexFuture::builder()
             .id(InstrumentId::new("ES-TEST"))
@@ -113,7 +113,7 @@ mod tests {
 
     fn create_test_future_without_quoted_price() -> EquityIndexFuture {
         use crate::instruments::common::traits::Attributes;
-        use crate::instruments::equity_index_future::EquityFutureSpecs;
+        use crate::instruments::equity::equity_index_future::EquityFutureSpecs;
 
         EquityIndexFuture::builder()
             .id(InstrumentId::new("ES-FAIR"))

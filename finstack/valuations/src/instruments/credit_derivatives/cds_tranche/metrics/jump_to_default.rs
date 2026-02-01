@@ -2,7 +2,7 @@
 //!
 //! Computes the instantaneous tranche loss if an average constituent defaults.
 
-use crate::instruments::cds_tranche::CdsTranche;
+use crate::instruments::credit_derivatives::cds_tranche::CdsTranche;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

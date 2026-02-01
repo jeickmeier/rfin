@@ -7,7 +7,7 @@ pub mod oas;
 
 pub use oas::calculate_tranche_oas;
 
-use crate::instruments::agency_cmo::AgencyCmo;
+use crate::instruments::fixed_income::cmo::AgencyCmo;
 use crate::metrics::{MetricCalculator, MetricContext, MetricRegistry};
 
 /// Calculator for tranche option-adjusted spread (OAS).

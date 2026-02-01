@@ -1,4 +1,4 @@
-use crate::instruments::deposit::Deposit;
+use crate::instruments::rates::deposit::Deposit;
 use crate::metrics::{MetricCalculator, MetricContext};
 
 /// Calculates discount factor at effective end date for deposits.

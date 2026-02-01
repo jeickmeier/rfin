@@ -13,7 +13,9 @@ impl MetricCalculator for OidEirAmortizationCalculator {
         let as_of = context.as_of;
 
         let schedule =
-            crate::instruments::term_loan::cashflows::build_oid_eir_schedule(loan, market, as_of)?;
+            crate::instruments::fixed_income::term_loan::cashflows::build_oid_eir_schedule(
+                loan, market, as_of,
+            )?;
 
         context
             .computed

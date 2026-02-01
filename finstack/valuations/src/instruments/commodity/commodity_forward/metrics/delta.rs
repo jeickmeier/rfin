@@ -11,7 +11,7 @@
 //! - M = multiplier
 //! - DF = discount factor from as_of to settlement
 
-use crate::instruments::commodity_forward::CommodityForward;
+use crate::instruments::commodity::commodity_forward::CommodityForward;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

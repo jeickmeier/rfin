@@ -5,7 +5,7 @@
 
 use super::AgencyTba;
 use crate::cashflow::builder::specs::PrepaymentModelSpec;
-use crate::instruments::agency_mbs_passthrough::{
+use crate::instruments::fixed_income::mbs_passthrough::{
     pricer::price_mbs, AgencyMbsPassthrough, AgencyProgram, PoolType,
 };
 use crate::pricer::{

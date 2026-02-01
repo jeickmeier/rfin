@@ -15,7 +15,7 @@ pub mod oas;
 pub use duration::{effective_convexity, effective_duration};
 pub use oas::calculate_oas;
 
-use crate::instruments::agency_mbs_passthrough::AgencyMbsPassthrough;
+use crate::instruments::fixed_income::mbs_passthrough::AgencyMbsPassthrough;
 use crate::metrics::{MetricCalculator, MetricContext, MetricRegistry};
 
 /// Calculator for effective duration (mapped to DurationMod).

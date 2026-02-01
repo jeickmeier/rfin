@@ -1,6 +1,6 @@
 //! ILB real yield metric calculator.
 
-use crate::instruments::inflation_linked_bond::InflationLinkedBond;
+use crate::instruments::fixed_income::inflation_linked_bond::InflationLinkedBond;
 use crate::metrics::{MetricCalculator, MetricContext};
 
 /// Real yield calculator for ILB

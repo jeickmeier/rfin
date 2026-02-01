@@ -1,8 +1,8 @@
 use crate::instruments::common::models::trees::{HullWhiteTree, HullWhiteTreeConfig};
 use crate::instruments::common::traits::Instrument;
 use crate::instruments::pricing_overrides::VolSurfaceExtrapolation;
-use crate::instruments::swaption::pricing::BermudanSwaptionTreeValuator;
-use crate::instruments::swaption::{BermudanSwaption, Swaption};
+use crate::instruments::rates::swaption::pricing::BermudanSwaptionTreeValuator;
+use crate::instruments::rates::swaption::{BermudanSwaption, Swaption};
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
 };

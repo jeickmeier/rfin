@@ -29,10 +29,10 @@ pub fn register_vol_index_future_metrics(registry: &mut MetricRegistry) {
         instrument: InstrumentType::VolatilityIndexFuture,
         metrics: [
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::vol_index_future::VolatilityIndexFuture,
+                crate::instruments::equity::vol_index_future::VolatilityIndexFuture,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::vol_index_future::VolatilityIndexFuture,
+                crate::instruments::equity::vol_index_future::VolatilityIndexFuture,
             >::default()),
         ]
     }

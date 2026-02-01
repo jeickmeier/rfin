@@ -11,7 +11,7 @@ use crate::cashflow::builder::{
 };
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use crate::cashflow::traits::DatedFlows;
-use crate::instruments::term_loan::types::TermLoan;
+use crate::instruments::fixed_income::term_loan::types::TermLoan;
 use finstack_core::cashflow::InternalRateOfReturn;
 use finstack_core::dates::Date;
 use finstack_core::dates::DayCountCtx;

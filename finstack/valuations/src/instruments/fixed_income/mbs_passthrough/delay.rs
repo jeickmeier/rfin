@@ -10,7 +10,7 @@
 //! The delay is measured from the accrual period end (typically the last day
 //! of the month) to the payment date.
 
-use crate::instruments::agency_mbs_passthrough::AgencyProgram;
+use crate::instruments::fixed_income::mbs_passthrough::AgencyProgram;
 use finstack_core::dates::{BusinessDayConvention, Date};
 use finstack_core::Result;
 

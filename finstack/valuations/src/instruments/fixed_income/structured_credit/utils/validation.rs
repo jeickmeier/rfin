@@ -8,10 +8,10 @@
 //! - Missing test references in diversion rules
 //! - Circular diversion dependencies
 
-use crate::instruments::structured_credit::pricing::diversion::{
+use crate::instruments::fixed_income::structured_credit::pricing::diversion::{
     DiversionCondition, DiversionEngine, DiversionRule,
 };
-use crate::instruments::structured_credit::types::{
+use crate::instruments::fixed_income::structured_credit::types::{
     AllocationMode, PaymentType, Waterfall, WaterfallTier,
 };
 use finstack_core::HashSet;
@@ -394,7 +394,7 @@ pub fn get_validation_errors(
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::structured_credit::types::{
+    use crate::instruments::fixed_income::structured_credit::types::{
         PaymentCalculation, Recipient, RecipientType,
     };
     use finstack_core::currency::Currency;

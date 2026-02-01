@@ -11,9 +11,9 @@ use finstack_core::money::Money;
 use finstack_core::Result;
 
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::bond::Bond;
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::ir_future::Position;
+use crate::instruments::fixed_income::bond::Bond;
+use crate::instruments::rates::ir_future::Position;
 
 /// Bond future pricer.
 ///
@@ -189,8 +189,8 @@ impl BondFuturePricer {
         market: &MarketContext,
         as_of: Date,
     ) -> Result<f64> {
-        use crate::instruments::bond::metrics::accrued::AccruedInterestCalculator;
-        use crate::instruments::bond::metrics::price_yield_spread::CleanPriceCalculator;
+        use crate::instruments::fixed_income::bond::metrics::accrued::AccruedInterestCalculator;
+        use crate::instruments::fixed_income::bond::metrics::price_yield_spread::CleanPriceCalculator;
         use crate::metrics::{MetricCalculator, MetricContext, MetricId};
         use std::sync::Arc;
 
@@ -432,7 +432,7 @@ mod tests {
     use finstack_core::types::{CurveId, InstrumentId};
     use time::macros::date;
 
-    use crate::instruments::bond::Bond;
+    use crate::instruments::fixed_income::bond::Bond;
 
     /// Helper to create a simple market context with a flat discount curve
     fn create_test_market(rate: f64) -> MarketContext {
@@ -750,8 +750,8 @@ mod tests {
         quoted_price: f64,
         position: Position,
         expiry: Date,
-    ) -> crate::instruments::bond_future::BondFuture {
-        use crate::instruments::bond_future::{
+    ) -> crate::instruments::fixed_income::bond_future::BondFuture {
+        use crate::instruments::fixed_income::bond_future::{
             BondFutureBuilder, BondFutureSpecs, DeliverableBond,
         };
 
@@ -1002,7 +1002,7 @@ mod tests {
 
     #[test]
     fn test_pricer_price_dyn_uses_ctd_bond() {
-        use crate::instruments::bond_future::{
+        use crate::instruments::fixed_income::bond_future::{
             BondFutureBuilder, BondFutureSpecs, DeliverableBond,
         };
         use crate::pricer::Pricer;

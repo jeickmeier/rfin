@@ -1,4 +1,4 @@
-use crate::instruments::basis_swap::types::BasisSwap;
+use crate::instruments::rates::basis_swap::types::BasisSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::{Error, Result};
 

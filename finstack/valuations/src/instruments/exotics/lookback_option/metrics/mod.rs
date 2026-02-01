@@ -50,10 +50,10 @@ pub fn register_lookback_option_metrics(registry: &mut MetricRegistry) {
             (Vega, vega::VegaCalculator::default()),
             (Rho, rho::RhoCalculator),
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::lookback_option::LookbackOption,
+                crate::instruments::exotics::lookback_option::LookbackOption,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::lookback_option::LookbackOption,
+                crate::instruments::exotics::lookback_option::LookbackOption,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
             // Theta is now registered universally in metrics::standard_registry()
         ]

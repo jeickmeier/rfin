@@ -1,6 +1,6 @@
 //! Par spread calculator for equity TRS.
 
-use crate::instruments::equity_trs::EquityTotalReturnSwap;
+use crate::instruments::equity::equity_trs::EquityTotalReturnSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::{Error, Result};
 

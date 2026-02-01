@@ -11,7 +11,7 @@ impl crate::metrics::MetricCalculator for CloWarfCalculator {
         let clo = context
             .instrument
             .as_any()
-            .downcast_ref::<crate::instruments::structured_credit::StructuredCredit>()
+            .downcast_ref::<crate::instruments::fixed_income::structured_credit::StructuredCredit>()
             .ok_or(finstack_core::InputError::Invalid)?;
 
         let mut weighted_sum = 0.0;

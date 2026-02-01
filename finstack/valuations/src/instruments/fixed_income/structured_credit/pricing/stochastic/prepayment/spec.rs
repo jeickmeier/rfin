@@ -6,7 +6,7 @@
 use super::super::calibrations::{CLO_STANDARD, RMBS_STANDARD};
 use super::{FactorCorrelatedPrepay, RichardRollPrepay, StochasticPrepayment};
 use crate::cashflow::builder::specs::PrepaymentModelSpec;
-use crate::instruments::structured_credit::utils::rates::cpr_to_smm;
+use crate::instruments::fixed_income::structured_credit::utils::rates::cpr_to_smm;
 
 /// Stochastic prepayment model specification.
 ///

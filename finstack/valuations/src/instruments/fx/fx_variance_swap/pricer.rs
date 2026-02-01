@@ -1,5 +1,5 @@
 use crate::instruments::common::GenericInstrumentPricer;
-use crate::instruments::fx_variance_swap::FxVarianceSwap;
+use crate::instruments::fx::fx_variance_swap::FxVarianceSwap;
 
 /// Type alias for FX variance swap pricer using generic implementation.
 pub type SimpleFxVarianceSwapDiscountingPricer = GenericInstrumentPricer<FxVarianceSwap>;

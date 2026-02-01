@@ -4,7 +4,7 @@
 //! For a spot position $V = N \cdot S$, the delta $\frac{\partial V}{\partial S} = N$.
 //! Returns the delta in Base currency units (which equals the notional).
 
-use crate::instruments::fx_spot::FxSpot;
+use crate::instruments::fx::fx_spot::FxSpot;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

@@ -146,7 +146,7 @@ pub struct FloatLegSpec {
     /// started) compounded swaps, pricing requires explicit fixings for observation
     /// dates prior to `as_of`.
     #[cfg_attr(feature = "serde", serde(default))]
-    pub compounding: crate::instruments::irs::FloatingLegCompounding,
+    pub compounding: crate::instruments::rates::irs::FloatingLegCompounding,
     /// Payment delay in business days after period end (default: 0).
     ///
     /// Bloomberg OIS swaps typically use 2 business days payment delay.

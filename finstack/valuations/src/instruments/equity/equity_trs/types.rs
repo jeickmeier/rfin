@@ -218,7 +218,7 @@ impl EquityTotalReturnSwap {
     /// # Returns
     /// Present value of the total return leg in the instrument's currency.
     pub fn pv_total_return_leg(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
-        crate::instruments::equity_trs::pricer::pv_total_return_leg(self, curves, as_of)
+        crate::instruments::equity::equity_trs::pricer::pv_total_return_leg(self, curves, as_of)
     }
 
     /// Calculates the present value of the financing leg.

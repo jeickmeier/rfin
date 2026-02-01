@@ -650,7 +650,7 @@ impl crate::instruments::common::traits::Instrument for RevolvingCredit {
 
         // Route to appropriate pricer based on spec type
         if self.is_deterministic() {
-            crate::instruments::revolving_credit::pricer::unified::RevolvingCreditPricer::price_deterministic(
+            crate::instruments::fixed_income::revolving_credit::pricer::unified::RevolvingCreditPricer::price_deterministic(
                 self, curves, as_of,
             )
         } else {
@@ -674,7 +674,7 @@ impl crate::instruments::common::traits::Instrument for RevolvingCredit {
             }
             // Ensure deterministic schedule for pricing.
             fallback.draw_repay_spec = super::types::DrawRepaySpec::Deterministic(Vec::new());
-            crate::instruments::revolving_credit::pricer::unified::RevolvingCreditPricer::price_deterministic(
+            crate::instruments::fixed_income::revolving_credit::pricer::unified::RevolvingCreditPricer::price_deterministic(
                 &fallback, curves, as_of,
             )
         }
@@ -730,7 +730,7 @@ impl crate::cashflow::traits::CashflowProvider for RevolvingCredit {
             return Err(finstack_core::InputError::Invalid.into());
         }
 
-        use crate::instruments::revolving_credit::cashflow_engine::CashflowEngine;
+        use crate::instruments::fixed_income::revolving_credit::cashflow_engine::CashflowEngine;
         let engine = CashflowEngine::new(self, Some(curves), as_of)?;
         let path_schedule = engine.generate_deterministic()?;
         Ok(path_schedule.schedule)

@@ -4,7 +4,7 @@
 //! `quote_amount` is the instrument PV in quote currency and `base_amount` is
 //! the effective base notional.
 
-use crate::instruments::fx_spot::FxSpot;
+use crate::instruments::fx::fx_spot::FxSpot;
 use crate::metrics::{MetricCalculator, MetricContext};
 
 /// Epsilon for floating-point near-zero comparisons.

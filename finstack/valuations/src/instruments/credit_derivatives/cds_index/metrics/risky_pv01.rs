@@ -3,7 +3,7 @@
 //! Computes the change in present value for a one basis point change in the
 //! premium spread. Delegates to `CDSIndexPricer` which aggregates by mode.
 
-use crate::instruments::cds_index::CDSIndex;
+use crate::instruments::credit_derivatives::cds_index::CDSIndex;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

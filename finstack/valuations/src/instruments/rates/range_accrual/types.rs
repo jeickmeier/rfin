@@ -318,7 +318,7 @@ impl crate::instruments::common::traits::Instrument for RangeAccrual {
         self.validate()?;
         #[cfg(feature = "mc")]
         {
-            crate::instruments::range_accrual::pricer::compute_pv(self, market, as_of)
+            crate::instruments::rates::range_accrual::pricer::compute_pv(self, market, as_of)
         }
         #[cfg(not(feature = "mc"))]
         {

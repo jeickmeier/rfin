@@ -46,7 +46,7 @@
 //! - Tuckman, B., & Serrat, A. (2011). *Fixed Income Securities*. Chapter 4.
 //! - Kahan, W. (1965). "Further Remarks on Reducing Truncation Errors."
 
-use crate::instruments::irs::dates::add_payment_delay;
+use crate::instruments::rates::irs::dates::add_payment_delay;
 use crate::instruments::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::Date;
@@ -107,7 +107,8 @@ impl MetricCalculator for AnnuityCalculator {
             )?;
 
             // Use shared helper - handles epsilon validation and relative DF calculation
-            let df = crate::instruments::irs::pricer::relative_df(&disc, as_of, payment_date)?;
+            let df =
+                crate::instruments::rates::irs::pricer::relative_df(&disc, as_of, payment_date)?;
 
             // For IRS fixed legs we always treat coupons as simple interest; the
             // compounding configuration affects coupon accrual, not the annuity

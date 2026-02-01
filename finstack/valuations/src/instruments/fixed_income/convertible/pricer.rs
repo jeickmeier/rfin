@@ -25,7 +25,7 @@ use crate::instruments::common::models::{
     single_factor_equity_state, EvolutionParams, StateVariables, TreeGreeks,
 };
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::convertible::{ConversionPolicy, ConvertibleBond};
+use crate::instruments::fixed_income::convertible::{ConversionPolicy, ConvertibleBond};
 
 /// Tree model type selection for convertible bond pricing
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -892,7 +892,7 @@ impl crate::pricer::Pricer for SimpleConvertibleDiscountingPricer {
         // Type-safe downcasting
         let convertible = instrument
             .as_any()
-            .downcast_ref::<crate::instruments::convertible::ConvertibleBond>()
+            .downcast_ref::<crate::instruments::fixed_income::convertible::ConvertibleBond>()
             .ok_or_else(|| {
                 crate::pricer::PricingError::type_mismatch(
                     crate::pricer::InstrumentType::Convertible,
@@ -929,7 +929,7 @@ impl crate::pricer::Pricer for SimpleConvertibleDiscountingPricer {
 mod tests {
     use super::*;
     use crate::cashflow::builder::specs::{CouponType, FixedCouponSpec};
-    use crate::instruments::convertible::{
+    use crate::instruments::fixed_income::convertible::{
         AntiDilutionPolicy, ConversionPolicy, ConversionSpec, DividendAdjustment,
     };
     use finstack_core::currency::Currency;

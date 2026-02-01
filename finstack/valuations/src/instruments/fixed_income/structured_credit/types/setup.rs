@@ -5,7 +5,7 @@
 
 use super::constants::*;
 use super::enums::DealType;
-use crate::instruments::irs::InterestRateSwap;
+use crate::instruments::rates::irs::InterestRateSwap;
 use finstack_core::dates::{Date, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::CreditRating;

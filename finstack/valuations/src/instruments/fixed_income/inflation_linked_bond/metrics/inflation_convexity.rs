@@ -7,7 +7,7 @@
 //! Uses numerical differentiation with 1bp bumps to the inflation curve.
 
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::inflation_linked_bond::InflationLinkedBond;
+use crate::instruments::fixed_income::inflation_linked_bond::InflationLinkedBond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 use finstack_core::Result;

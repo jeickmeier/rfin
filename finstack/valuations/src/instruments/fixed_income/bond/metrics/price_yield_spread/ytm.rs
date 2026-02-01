@@ -1,6 +1,6 @@
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::bond::pricing::settlement::QuoteDateContext;
-use crate::instruments::bond::CashflowSpec;
+use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContext;
+use crate::instruments::fixed_income::bond::CashflowSpec;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::money::Money;
@@ -117,16 +117,16 @@ impl MetricCalculator for YtmCalculator {
 
         // Solve for YTM using shared solver with Street compounding (default)
         // Time origin is the quote_date (settlement date) to match market convention
-        let ytm = crate::instruments::bond::pricing::ytm_solver::solve_ytm(
+        let ytm = crate::instruments::fixed_income::bond::pricing::ytm_solver::solve_ytm(
             flows,
             quote_ctx.quote_date,
             dirty,
-            crate::instruments::bond::pricing::ytm_solver::YtmPricingSpec {
+            crate::instruments::fixed_income::bond::pricing::ytm_solver::YtmPricingSpec {
                 day_count: dc,
                 notional,
                 coupon_rate: coupon,
                 compounding:
-                    crate::instruments::bond::pricing::quote_engine::YieldCompounding::Street,
+                    crate::instruments::fixed_income::bond::pricing::quote_engine::YieldCompounding::Street,
                 frequency: freq,
             },
         )?;

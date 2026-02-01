@@ -23,9 +23,9 @@
 //! - Hagan, P. S. (2003). "Convexity Conundrums: Pricing CMS Swaps, Caps, and Floors."
 //! - Hull, J. (2018). "Options, Futures, and Other Derivatives."
 
-use crate::instruments::cms_option::types::CmsOption;
 use crate::instruments::common::models::d1_d2_black76;
 use crate::instruments::common::traits::Instrument;
+use crate::instruments::rates::cms_option::types::CmsOption;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };

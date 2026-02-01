@@ -36,7 +36,7 @@ impl DiscountMarginCalculator {
         as_of: finstack_core::dates::Date,
         dm_bp: f64,
     ) -> finstack_core::Result<f64> {
-        use crate::instruments::term_loan::types::RateSpec;
+        use crate::instruments::fixed_income::term_loan::types::RateSpec;
 
         // Clone loan and adjust spread
         let mut loan_with_dm = loan.clone();
@@ -54,11 +54,12 @@ impl DiscountMarginCalculator {
         }
 
         // Re-price using full cashflow engine and pricer
-        let pv = crate::instruments::term_loan::pricing::TermLoanDiscountingPricer::price(
-            &loan_with_dm,
-            curves,
-            as_of,
-        )?;
+        let pv =
+            crate::instruments::fixed_income::term_loan::pricing::TermLoanDiscountingPricer::price(
+                &loan_with_dm,
+                curves,
+                as_of,
+            )?;
 
         Ok(pv.amount())
     }
@@ -69,7 +70,9 @@ impl MetricCalculator for DiscountMarginCalculator {
         let loan: &TermLoan = context.instrument_as()?;
 
         // If not floating, DM = 0.0
-        if let crate::instruments::term_loan::types::RateSpec::Fixed { .. } = loan.rate {
+        if let crate::instruments::fixed_income::term_loan::types::RateSpec::Fixed { .. } =
+            loan.rate
+        {
             return Ok(0.0);
         }
 

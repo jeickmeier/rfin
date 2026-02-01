@@ -81,7 +81,7 @@ use crate::constants::{
     credit, isda, numerical, time as time_constants, BASIS_POINTS_PER_UNIT, NUMERICAL_TOLERANCE,
     ONE_BASIS_POINT,
 };
-use crate::instruments::cds::{CreditDefaultSwap, PayReceive};
+use crate::instruments::credit_derivatives::cds::{CreditDefaultSwap, PayReceive};
 use finstack_core::currency::Currency;
 use finstack_core::dates::DateExt;
 use finstack_core::dates::{adjust, next_cds_date, Date, DayCount, HolidayCalendar};
@@ -2078,7 +2078,7 @@ fn approx_default_density(surv: &HazardCurve, t: f64, h: f64, t_start: f64, t_en
 #[derive(Clone, Debug)]
 pub struct BootstrapConvention {
     /// CDS convention (determines day count, frequency, etc.)
-    pub convention: crate::instruments::cds::CDSConvention,
+    pub convention: crate::instruments::credit_derivatives::cds::CDSConvention,
     /// Whether to use IMM dates for maturity (20th of Mar/Jun/Sep/Dec)
     pub use_imm_dates: bool,
 }
@@ -2086,7 +2086,7 @@ pub struct BootstrapConvention {
 impl Default for BootstrapConvention {
     fn default() -> Self {
         Self {
-            convention: crate::instruments::cds::CDSConvention::IsdaNa,
+            convention: crate::instruments::credit_derivatives::cds::CDSConvention::IsdaNa,
             use_imm_dates: true, // Standard market practice
         }
     }
@@ -2347,7 +2347,7 @@ mod tests {
             finstack_core::types::InstrumentId::new(id),
             Money::new(10_000_000.0, Currency::USD),
             PayReceive::PayFixed,
-            crate::instruments::cds::CDSConvention::IsdaNa,
+            crate::instruments::credit_derivatives::cds::CDSConvention::IsdaNa,
             Decimal::try_from(spread_bp).expect("valid spread_bp"),
             start_date,
             end_date,

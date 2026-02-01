@@ -14,7 +14,7 @@
 //! This metric is related to Recovery01 but measures sensitivity to loss severity
 //! rather than recovery. For constant recovery, Severity01 ≈ -Recovery01.
 
-use crate::instruments::structured_credit::StructuredCredit;
+use crate::instruments::fixed_income::structured_credit::StructuredCredit;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

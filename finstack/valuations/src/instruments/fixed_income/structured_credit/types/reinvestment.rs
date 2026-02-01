@@ -91,7 +91,7 @@ impl ReinvestmentManager {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::structured_credit::types::{AssetType, DealType};
+    use crate::instruments::fixed_income::structured_credit::types::{AssetType, DealType};
     use finstack_core::currency::Currency;
 
     #[test]

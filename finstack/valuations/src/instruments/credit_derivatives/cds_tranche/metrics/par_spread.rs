@@ -3,7 +3,7 @@
 //! Computes the running coupon in basis points that sets the tranche NPV to zero
 //! using the Gaussian copula tranche pricer.
 
-use crate::instruments::cds_tranche::CdsTranche;
+use crate::instruments::credit_derivatives::cds_tranche::CdsTranche;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

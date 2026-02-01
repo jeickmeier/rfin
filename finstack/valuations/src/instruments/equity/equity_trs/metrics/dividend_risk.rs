@@ -4,7 +4,7 @@
 //! Dividend risk measures the change in PV for a 1bp (0.0001) change in dividend yield.
 
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::equity_trs::EquityTotalReturnSwap;
+use crate::instruments::equity::equity_trs::EquityTotalReturnSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::money::Money;

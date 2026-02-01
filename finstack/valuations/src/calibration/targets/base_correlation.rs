@@ -470,7 +470,7 @@ impl BootstrapTarget for BaseCorrelationBootstrapper {
         let tranche = pq
             .instrument
             .as_any()
-            .downcast_ref::<crate::instruments::cds_tranche::CdsTranche>()
+            .downcast_ref::<crate::instruments::credit_derivatives::cds_tranche::CdsTranche>()
             .ok_or_else(|| {
                 finstack_core::Error::Validation(
                     "Base correlation calibration requires a CdsTranche instrument".to_string(),

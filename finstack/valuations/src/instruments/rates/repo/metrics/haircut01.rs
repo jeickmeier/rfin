@@ -33,7 +33,7 @@
 //! ```
 
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::repo::Repo;
+use crate::instruments::rates::repo::Repo;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

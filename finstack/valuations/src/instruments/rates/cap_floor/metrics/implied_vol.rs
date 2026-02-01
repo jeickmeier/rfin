@@ -11,9 +11,11 @@
 //! When applied to a multi-period cap/floor, this calculator uses only the first
 //! period's forward rate, which may not reflect the true flat volatility.
 
-use crate::instruments::cap_floor::pricing::black::{price_caplet_floorlet, CapletFloorletInputs};
-use crate::instruments::cap_floor::{InterestRateOption, RateOptionType};
 use crate::instruments::common::pricing::time::{rate_period_on_dates, relative_df_discount_curve};
+use crate::instruments::rates::cap_floor::pricing::black::{
+    price_caplet_floorlet, CapletFloorletInputs,
+};
+use crate::instruments::rates::cap_floor::{InterestRateOption, RateOptionType};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::Result;

@@ -4,7 +4,7 @@
 //! the first tranche must be completely paid off before the next
 //! receives any principal.
 
-use crate::instruments::agency_cmo::types::CmoTranche;
+use crate::instruments::fixed_income::cmo::types::CmoTranche;
 
 /// Sequential payment order configuration.
 #[derive(Clone, Debug)]
@@ -98,7 +98,7 @@ pub fn estimate_payment_window(
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::agency_cmo::types::CmoTranche;
+    use crate::instruments::fixed_income::cmo::types::CmoTranche;
     use finstack_core::currency::Currency;
     use finstack_core::money::Money;
 

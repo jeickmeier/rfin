@@ -8,7 +8,7 @@ use super::{
     PrepaymentModelSpec, RecoveryModelSpec, StructuredCredit, Tranche, TrancheCoupon,
     TrancheSeniority, TrancheStructure,
 };
-use crate::instruments::structured_credit::types::setup::DefaultAssumptions;
+use crate::instruments::fixed_income::structured_credit::types::setup::DefaultAssumptions;
 use finstack_core::dates::{Date, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};

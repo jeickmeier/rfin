@@ -8,7 +8,7 @@
 //! - LGD (Loss Given Default) = 1 - Recovery Rate
 
 use crate::constants::credit;
-use crate::instruments::cds::CreditDefaultSwap;
+use crate::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::DayCountCtx;
 use finstack_core::Result;

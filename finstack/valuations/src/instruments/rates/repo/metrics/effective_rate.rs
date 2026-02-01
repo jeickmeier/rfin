@@ -11,7 +11,7 @@ pub struct EffectiveRateCalculator;
 
 impl MetricCalculator for EffectiveRateCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let repo = context.instrument_as::<crate::instruments::repo::Repo>()?;
+        let repo = context.instrument_as::<crate::instruments::rates::repo::Repo>()?;
         Ok(repo.effective_rate())
     }
 }

@@ -1,7 +1,7 @@
 //! Trait implementations for Autocallable
 
-use crate::instruments::autocallable::Autocallable;
 use crate::instruments::common::traits::{CurveDependencies, EquityDependencies, InstrumentCurves};
+use crate::instruments::equity::autocallable::Autocallable;
 use crate::metrics::{HasDayCount, HasExpiry, HasPricingOverrides};
 
 impl CurveDependencies for Autocallable {

@@ -11,7 +11,7 @@
 //! for options within ~1 business day of expiry, where gamma is mathematically
 //! undefined for vanilla options.
 
-use crate::instruments::swaption::{Swaption, VolatilityModel};
+use crate::instruments::rates::swaption::{Swaption, VolatilityModel};
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::Result;
 

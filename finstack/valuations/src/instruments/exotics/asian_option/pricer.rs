@@ -1,8 +1,8 @@
 //! Asian option pricers (Monte Carlo and analytical).
 
 // Common imports for all pricers
-use crate::instruments::asian_option::types::AsianOption;
 use crate::instruments::common::traits::Instrument;
+use crate::instruments::exotics::asian_option::types::AsianOption;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
@@ -64,10 +64,10 @@ impl AsianOptionMcPricer {
             // Expired: use realized average
             let average = if hist_count > 0 {
                 match inst.averaging_method {
-                    crate::instruments::asian_option::types::AveragingMethod::Arithmetic => {
+                    crate::instruments::exotics::asian_option::types::AveragingMethod::Arithmetic => {
                         hist_sum / hist_count as f64
                     }
-                    crate::instruments::asian_option::types::AveragingMethod::Geometric => {
+                    crate::instruments::exotics::asian_option::types::AveragingMethod::Geometric => {
                         (hist_prod_log / hist_count as f64).exp()
                     }
                 }
@@ -148,10 +148,10 @@ impl AsianOptionMcPricer {
 
         // Create payoff
         let averaging = match inst.averaging_method {
-            crate::instruments::asian_option::types::AveragingMethod::Arithmetic => {
+            crate::instruments::exotics::asian_option::types::AveragingMethod::Arithmetic => {
                 crate::instruments::common::models::monte_carlo::payoff::asian::AveragingMethod::Arithmetic
             }
-            crate::instruments::asian_option::types::AveragingMethod::Geometric => {
+            crate::instruments::exotics::asian_option::types::AveragingMethod::Geometric => {
                 crate::instruments::common::models::monte_carlo::payoff::asian::AveragingMethod::Geometric
             }
         };
@@ -183,7 +183,7 @@ impl AsianOptionMcPricer {
         // If arithmetic averaging, apply geometric-Asian control variate for variance reduction
         let result_money = match (inst.averaging_method, inst.option_type) {
             (
-                crate::instruments::asian_option::types::AveragingMethod::Arithmetic,
+                crate::instruments::exotics::asian_option::types::AveragingMethod::Arithmetic,
                 crate::instruments::OptionType::Call,
             ) => {
                 // Use path capture to get per-path discounted payoffs for covariance
@@ -328,7 +328,7 @@ impl AsianOptionMcPricer {
                 }
             }
             (
-                crate::instruments::asian_option::types::AveragingMethod::Arithmetic,
+                crate::instruments::exotics::asian_option::types::AveragingMethod::Arithmetic,
                 crate::instruments::OptionType::Put,
             ) => {
                 let mut cfg_cap = config.clone();
@@ -533,10 +533,10 @@ impl AsianOptionMcPricer {
             // Or should we return intrinsic? Since this is pricing + greeks, we should return value.
             let average = if hist_count > 0 {
                 match inst.averaging_method {
-                    crate::instruments::asian_option::types::AveragingMethod::Arithmetic => {
+                    crate::instruments::exotics::asian_option::types::AveragingMethod::Arithmetic => {
                         hist_sum / hist_count as f64
                     }
-                    crate::instruments::asian_option::types::AveragingMethod::Geometric => {
+                    crate::instruments::exotics::asian_option::types::AveragingMethod::Geometric => {
                         (hist_prod_log / hist_count as f64).exp()
                     }
                 }
@@ -611,10 +611,10 @@ impl AsianOptionMcPricer {
         fixing_steps.dedup();
 
         let averaging = match inst.averaging_method {
-            crate::instruments::asian_option::types::AveragingMethod::Arithmetic => {
+            crate::instruments::exotics::asian_option::types::AveragingMethod::Arithmetic => {
                 crate::instruments::common::models::monte_carlo::payoff::asian::AveragingMethod::Arithmetic
             }
-            crate::instruments::asian_option::types::AveragingMethod::Geometric => {
+            crate::instruments::exotics::asian_option::types::AveragingMethod::Geometric => {
                 crate::instruments::common::models::monte_carlo::payoff::asian::AveragingMethod::Geometric
             }
         };
@@ -817,10 +817,10 @@ impl Pricer for AsianOptionAnalyticalGeometricPricer {
             // Handle expired option using realized average
             let average = if count > 0 {
                 match asian.averaging_method {
-                    crate::instruments::asian_option::types::AveragingMethod::Arithmetic => {
+                    crate::instruments::exotics::asian_option::types::AveragingMethod::Arithmetic => {
                         sum / count as f64
                     }
-                    crate::instruments::asian_option::types::AveragingMethod::Geometric => {
+                    crate::instruments::exotics::asian_option::types::AveragingMethod::Geometric => {
                         (log_prod / count as f64).exp()
                     }
                 }

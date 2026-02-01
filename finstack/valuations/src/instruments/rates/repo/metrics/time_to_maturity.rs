@@ -18,7 +18,7 @@ pub struct TimeToMaturityCalculator;
 
 impl MetricCalculator for TimeToMaturityCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let repo = context.instrument_as::<crate::instruments::repo::Repo>()?;
+        let repo = context.instrument_as::<crate::instruments::rates::repo::Repo>()?;
         // Use adjusted maturity for consistency with PV and interest calculations
         let (_, adj_maturity) = repo.adjusted_dates()?;
         let ttm = repo.day_count.year_fraction(

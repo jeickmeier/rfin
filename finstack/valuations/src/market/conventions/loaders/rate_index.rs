@@ -1,7 +1,7 @@
 //! Loader for rate index conventions embedded in JSON registries.
 
 use super::json::{build_lookup_map_mapped, RegistryFile};
-use crate::instruments::irs::FloatingLegCompounding;
+use crate::instruments::rates::irs::FloatingLegCompounding;
 use crate::market::conventions::defs::{RateIndexConventions, RateIndexKind};
 use crate::market::conventions::ids::IndexId; // Used for normalization if needed, or string
 use finstack_core::currency::Currency;

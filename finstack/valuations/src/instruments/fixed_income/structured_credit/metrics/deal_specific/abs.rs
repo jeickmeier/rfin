@@ -1,11 +1,11 @@
 //! ABS-specific metrics (speed, delinquency, excess spread, credit enhancement).
 
 use crate::constants::DECIMAL_TO_PERCENT;
-use crate::instruments::structured_credit::StructuredCredit;
+use crate::instruments::fixed_income::structured_credit::StructuredCredit;
 use crate::metrics::MetricContext;
 use finstack_core::types::{Percentage, Rate};
 
-use crate::instruments::structured_credit::DealType;
+use crate::instruments::fixed_income::structured_credit::DealType;
 
 /// ABS Speed calculator - monthly absolute prepayment speed
 pub struct AbsSpeedCalculator {

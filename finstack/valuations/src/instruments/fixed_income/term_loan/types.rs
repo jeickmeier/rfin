@@ -445,7 +445,7 @@ impl crate::instruments::common::traits::Instrument for TermLoan {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Money> {
         // Delegate to discounting pricer (deterministic v1)
-        crate::instruments::term_loan::pricing::TermLoanDiscountingPricer::price(
+        crate::instruments::fixed_income::term_loan::pricing::TermLoanDiscountingPricer::price(
             self, curves, as_of,
         )
     }
@@ -482,8 +482,9 @@ impl crate::cashflow::traits::CashflowProvider for TermLoan {
         use finstack_core::cashflow::CFKind;
 
         // Get full internal schedule
-        let schedule =
-            crate::instruments::term_loan::cashflows::generate_cashflows(self, curves, as_of)?;
+        let schedule = crate::instruments::fixed_income::term_loan::cashflows::generate_cashflows(
+            self, curves, as_of,
+        )?;
 
         // Filter to holder-view: only contractual inflows to a long lender
         // Include: coupons, amortization, positive notional redemptions
@@ -520,7 +521,9 @@ impl crate::cashflow::traits::CashflowProvider for TermLoan {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
-        crate::instruments::term_loan::cashflows::generate_cashflows(self, curves, as_of)
+        crate::instruments::fixed_income::term_loan::cashflows::generate_cashflows(
+            self, curves, as_of,
+        )
     }
 }
 
@@ -541,8 +544,8 @@ impl crate::instruments::common::traits::CurveDependencies for TermLoan {
 mod tests {
     use super::*;
     use crate::cashflow::builder::specs::CouponType;
+    use crate::instruments::fixed_income::term_loan::spec::CommitmentFeeBase;
     use crate::instruments::pricing_overrides::PricingOverrides;
-    use crate::instruments::term_loan::spec::CommitmentFeeBase;
     use finstack_core::dates::Date;
     use time::Month;
 

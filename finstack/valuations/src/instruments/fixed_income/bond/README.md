@@ -453,7 +453,7 @@ pub enum MetricId {
 
 ```rust
 // pricing/my_engine.rs
-use crate::instruments::bond::Bond;
+use crate::instruments::fixed_income::bond::Bond;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;

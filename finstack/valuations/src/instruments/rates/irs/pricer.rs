@@ -31,7 +31,7 @@ use crate::instruments::common::pricing::swap_legs::{
 // Re-export for backward compatibility with IRS metrics modules
 pub(crate) use crate::instruments::common::pricing::swap_legs::robust_relative_df as relative_df;
 
-use crate::instruments::irs::InterestRateSwap;
+use crate::instruments::rates::irs::InterestRateSwap;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::ScalarTimeSeries;
@@ -40,7 +40,7 @@ use finstack_core::money::Money;
 use finstack_core::Result;
 use rust_decimal::prelude::ToPrimitive;
 
-use crate::instruments::irs::FloatingLegCompounding;
+use crate::instruments::rates::irs::FloatingLegCompounding;
 use finstack_core::dates::CalendarRegistry;
 use finstack_core::dates::{DateExt, DayCountCtx};
 use finstack_core::market_data::term_structures::DiscountCurve;
@@ -123,7 +123,7 @@ impl InterestRateSwap {
         as_of: Date,
         fixings: Option<&ScalarTimeSeries>,
     ) -> Result<f64> {
-        let schedule = crate::instruments::irs::cashflow::float_leg_schedule(self)?;
+        let schedule = crate::instruments::rates::irs::cashflow::float_leg_schedule(self)?;
         let payment_delay = self.float.payment_delay_days;
         let calendar_id = self.float.calendar_id.as_deref();
         let fixing_calendar_id = self.float.fixing_calendar_id.as_deref().or(calendar_id);
@@ -353,7 +353,7 @@ impl InterestRateSwap {
         disc: &finstack_core::market_data::term_structures::DiscountCurve,
         as_of: Date,
     ) -> finstack_core::Result<f64> {
-        let sched = crate::instruments::irs::cashflow::fixed_leg_schedule(self)?;
+        let sched = crate::instruments::rates::irs::cashflow::fixed_leg_schedule(self)?;
 
         // Convert cashflow schedule to LegPeriod iterator for shared pricing.
         //
@@ -443,7 +443,7 @@ impl InterestRateSwap {
     ) -> finstack_core::Result<f64> {
         // Build the floating-leg schedule via the shared cashflow builder so reset
         // lags, calendars, and stub handling stay centralized.
-        let schedule = crate::instruments::irs::cashflow::float_leg_schedule(self)?;
+        let schedule = crate::instruments::rates::irs::cashflow::float_leg_schedule(self)?;
 
         // Track accrual start for period construction
         let mut accrual_start = self.float.start;
@@ -586,8 +586,8 @@ pub(crate) fn compute_pv_raw(
     };
 
     let npv = match irs.side {
-        crate::instruments::irs::PayReceive::PayFixed => pv_float - pv_fixed,
-        crate::instruments::irs::PayReceive::ReceiveFixed => pv_fixed - pv_float,
+        crate::instruments::rates::irs::PayReceive::PayFixed => pv_float - pv_fixed,
+        crate::instruments::rates::irs::PayReceive::ReceiveFixed => pv_fixed - pv_float,
     };
     Ok(npv)
 }
@@ -677,7 +677,7 @@ mod tests {
         let swap = InterestRateSwap::builder()
             .id(InstrumentId::new("OIS-SEASONED"))
             .notional(Money::new(1_000_000.0, Currency::USD))
-            .side(crate::instruments::irs::PayReceive::PayFixed)
+            .side(crate::instruments::rates::irs::PayReceive::PayFixed)
             .fixed(crate::instruments::common::parameters::legs::FixedLegSpec {
                 discount_curve_id: disc_id.clone(),
                 rate: rust_decimal::Decimal::ZERO,
@@ -759,7 +759,7 @@ mod tests {
         let swap_no_lookback = InterestRateSwap::builder()
             .id(InstrumentId::new("OIS-NO-LOOKBACK"))
             .notional(Money::new(10_000_000.0, Currency::USD))
-            .side(crate::instruments::irs::PayReceive::PayFixed)
+            .side(crate::instruments::rates::irs::PayReceive::PayFixed)
             .fixed(crate::instruments::common::parameters::legs::FixedLegSpec {
                 discount_curve_id: disc_id.clone(),
                 rate: rust_decimal::Decimal::try_from(0.03).expect("valid"),
@@ -835,7 +835,7 @@ mod tests {
         let swap = InterestRateSwap::builder()
             .id(InstrumentId::new("OIS-MISSING-CAL"))
             .notional(Money::new(10_000_000.0, Currency::USD))
-            .side(crate::instruments::irs::PayReceive::PayFixed)
+            .side(crate::instruments::rates::irs::PayReceive::PayFixed)
             .fixed(crate::instruments::common::parameters::legs::FixedLegSpec {
                 discount_curve_id: disc_id.clone(),
                 rate: rust_decimal::Decimal::try_from(0.03).expect("valid"),
@@ -910,7 +910,7 @@ mod tests {
         let swap = InterestRateSwap::builder()
             .id(InstrumentId::new("OIS-NO-CALENDAR"))
             .notional(Money::new(10_000_000.0, Currency::USD))
-            .side(crate::instruments::irs::PayReceive::PayFixed)
+            .side(crate::instruments::rates::irs::PayReceive::PayFixed)
             .fixed(crate::instruments::common::parameters::legs::FixedLegSpec {
                 discount_curve_id: disc_id.clone(),
                 rate: rust_decimal::Decimal::try_from(0.03).expect("valid"),
@@ -1001,7 +1001,7 @@ mod tests {
         let swap = InterestRateSwap::builder()
             .id(InstrumentId::new("OIS-IDENTITY-TEST"))
             .notional(Money::new(10_000_000.0, Currency::USD))
-            .side(crate::instruments::irs::PayReceive::PayFixed)
+            .side(crate::instruments::rates::irs::PayReceive::PayFixed)
             .fixed(crate::instruments::common::parameters::legs::FixedLegSpec {
                 discount_curve_id: disc_id.clone(),
                 rate: rust_decimal::Decimal::ZERO, // Zero fixed rate for this test

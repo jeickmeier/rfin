@@ -7,6 +7,7 @@
 //! - `Constituents`: expand into per-name CDS positions with weights and
 //!   aggregate results across names.
 
+use crate::instruments::common::dependencies::MarketDependencies;
 use crate::instruments::common::parameters::CreditParams;
 use crate::instruments::common::traits::Attributes;
 use crate::instruments::PricingOverrides;
@@ -18,7 +19,7 @@ use rust_decimal::Decimal;
 use time::macros::date;
 
 // Reuse CDS components for conventions and legs
-use crate::instruments::cds::{
+use crate::instruments::credit_derivatives::cds::{
     CDSConvention, CreditDefaultSwap, PayReceive, PremiumLegSpec, ProtectionLegSpec,
 };
 
@@ -327,7 +328,8 @@ impl CDSIndex {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
+        let pricer =
+            crate::instruments::credit_derivatives::cds_index::pricer::CDSIndexPricer::new();
         pricer.pv_protection_leg(self, curves, as_of)
     }
 
@@ -337,7 +339,8 @@ impl CDSIndex {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
+        let pricer =
+            crate::instruments::credit_derivatives::cds_index::pricer::CDSIndexPricer::new();
         pricer.pv_premium_leg(self, curves, as_of)
     }
 
@@ -347,7 +350,8 @@ impl CDSIndex {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
+        let pricer =
+            crate::instruments::credit_derivatives::cds_index::pricer::CDSIndexPricer::new();
         pricer.par_spread(self, curves, as_of)
     }
 
@@ -357,7 +361,8 @@ impl CDSIndex {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
+        let pricer =
+            crate::instruments::credit_derivatives::cds_index::pricer::CDSIndexPricer::new();
         pricer.risky_pv01(self, curves, as_of)
     }
 
@@ -367,7 +372,8 @@ impl CDSIndex {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
+        let pricer =
+            crate::instruments::credit_derivatives::cds_index::pricer::CDSIndexPricer::new();
         pricer.cs01(self, curves, as_of)
     }
 
@@ -377,7 +383,8 @@ impl CDSIndex {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<IndexResult<Money>> {
-        let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
+        let pricer =
+            crate::instruments::credit_derivatives::cds_index::pricer::CDSIndexPricer::new();
         pricer.npv_detailed(self, curves, as_of)
     }
 
@@ -387,7 +394,8 @@ impl CDSIndex {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<IndexResult<Money>> {
-        let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
+        let pricer =
+            crate::instruments::credit_derivatives::cds_index::pricer::CDSIndexPricer::new();
         pricer.pv_protection_leg_detailed(self, curves, as_of)
     }
 
@@ -397,7 +405,8 @@ impl CDSIndex {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<IndexResult<Money>> {
-        let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
+        let pricer =
+            crate::instruments::credit_derivatives::cds_index::pricer::CDSIndexPricer::new();
         pricer.pv_premium_leg_detailed(self, curves, as_of)
     }
 
@@ -407,7 +416,8 @@ impl CDSIndex {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<IndexParSpreadResult> {
-        let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
+        let pricer =
+            crate::instruments::credit_derivatives::cds_index::pricer::CDSIndexPricer::new();
         pricer.par_spread_detailed(self, curves, as_of)
     }
 
@@ -417,7 +427,8 @@ impl CDSIndex {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<IndexResult<f64>> {
-        let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
+        let pricer =
+            crate::instruments::credit_derivatives::cds_index::pricer::CDSIndexPricer::new();
         pricer.risky_pv01_detailed(self, curves, as_of)
     }
 
@@ -427,7 +438,8 @@ impl CDSIndex {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<IndexResult<f64>> {
-        let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
+        let pricer =
+            crate::instruments::credit_derivatives::cds_index::pricer::CDSIndexPricer::new();
         pricer.cs01_detailed(self, curves, as_of)
     }
 }
@@ -457,12 +469,17 @@ impl crate::instruments::common::traits::Instrument for CDSIndex {
         Box::new(self.clone())
     }
 
+    fn market_dependencies(&self) -> MarketDependencies {
+        MarketDependencies::from_curve_dependencies(self)
+    }
+
     fn value(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        let pricer = crate::instruments::cds_index::pricer::CDSIndexPricer::new();
+        let pricer =
+            crate::instruments::credit_derivatives::cds_index::pricer::CDSIndexPricer::new();
         pricer.npv(self, curves, as_of)
     }
 

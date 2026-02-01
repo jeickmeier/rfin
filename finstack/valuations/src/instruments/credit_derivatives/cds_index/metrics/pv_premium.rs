@@ -2,7 +2,7 @@
 //!
 //! Computes present value of the premium leg using the index pricer.
 
-use crate::instruments::cds_index::CDSIndex;
+use crate::instruments::credit_derivatives::cds_index::CDSIndex;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

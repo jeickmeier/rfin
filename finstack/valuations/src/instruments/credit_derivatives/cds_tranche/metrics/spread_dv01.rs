@@ -2,7 +2,7 @@
 //!
 //! Measures the premium-leg PV change for a 1bp change in the running coupon.
 
-use crate::instruments::cds_tranche::CdsTranche;
+use crate::instruments::credit_derivatives::cds_tranche::CdsTranche;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

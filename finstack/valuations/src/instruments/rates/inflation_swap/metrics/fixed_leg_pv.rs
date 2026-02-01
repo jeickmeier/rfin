@@ -1,6 +1,6 @@
 //! Fixed leg PV metric for `InflationSwap`.
 
-use crate::instruments::inflation_swap::InflationSwap;
+use crate::instruments::rates::inflation_swap::InflationSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 
 /// Calculates PV of fixed leg for inflation swaps.

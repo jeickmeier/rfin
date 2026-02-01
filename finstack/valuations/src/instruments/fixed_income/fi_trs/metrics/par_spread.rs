@@ -1,6 +1,6 @@
 //! Par spread calculator for fixed income index TRS.
 
-use crate::instruments::fi_trs::FIIndexTotalReturnSwap;
+use crate::instruments::fixed_income::fi_trs::FIIndexTotalReturnSwap;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::{Error, Result};
 

@@ -10,8 +10,8 @@
 //! ```
 //! Where bump_size is typically 1bp (0.0001) change in weight.
 
-use crate::instruments::basket::Basket;
 use crate::instruments::common::traits::Instrument;
+use crate::instruments::exotics::basket::Basket;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

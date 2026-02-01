@@ -2,7 +2,7 @@
 //!
 //! Returns the base notional amount in base currency units.
 
-use crate::instruments::fx_spot::FxSpot;
+use crate::instruments::fx::fx_spot::FxSpot;
 use crate::metrics::{MetricCalculator, MetricContext};
 
 fn base_amount(fx: &FxSpot) -> f64 {
@@ -25,7 +25,7 @@ impl MetricCalculator for BaseAmountCalculator {
 mod tests {
     use super::{base_amount, BaseAmountCalculator};
     use crate::instruments::common::traits::Instrument;
-    use crate::instruments::fx_spot::FxSpot;
+    use crate::instruments::fx::fx_spot::FxSpot;
     use crate::metrics::{MetricCalculator, MetricContext};
     use finstack_core::{
         currency::Currency, dates::Date, market_data::context::MarketContext, money::Money,

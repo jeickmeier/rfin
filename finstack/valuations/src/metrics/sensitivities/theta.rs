@@ -588,65 +588,64 @@ fn get_instrument_expiry(instrument: &dyn Any) -> Option<Date> {
     if let Some(bond) = instrument.downcast_ref::<Bond>() {
         return Some(bond.maturity);
     }
-    if let Some(cds) = instrument.downcast_ref::<cds::CreditDefaultSwap>() {
+    if let Some(cds) = instrument.downcast_ref::<CreditDefaultSwap>() {
         return Some(cds.premium.end);
     }
-    if let Some(cds_idx) = instrument.downcast_ref::<cds_index::CDSIndex>() {
+    if let Some(cds_idx) = instrument.downcast_ref::<CDSIndex>() {
         return Some(cds_idx.premium.end);
     }
-    if let Some(cds_tr) = instrument.downcast_ref::<cds_tranche::CdsTranche>() {
+    if let Some(cds_tr) = instrument.downcast_ref::<CdsTranche>() {
         return Some(cds_tr.maturity);
     }
-    if let Some(cap) = instrument.downcast_ref::<cap_floor::InterestRateOption>() {
+    if let Some(cap) = instrument.downcast_ref::<InterestRateOption>() {
         return Some(cap.end_date);
     }
-    if let Some(eq_opt) = instrument.downcast_ref::<equity_option::EquityOption>() {
+    if let Some(eq_opt) = instrument.downcast_ref::<EquityOption>() {
         return Some(eq_opt.expiry);
     }
-    if let Some(fx_opt) = instrument.downcast_ref::<fx_option::FxOption>() {
+    if let Some(fx_opt) = instrument.downcast_ref::<FxOption>() {
         return Some(fx_opt.expiry);
     }
-    if let Some(swaption) = instrument.downcast_ref::<swaption::Swaption>() {
+    if let Some(swaption) = instrument.downcast_ref::<Swaption>() {
         return Some(swaption.expiry);
     }
-    if let Some(cds_opt) = instrument.downcast_ref::<cds_option::CdsOption>() {
+    if let Some(cds_opt) = instrument.downcast_ref::<CdsOption>() {
         return Some(cds_opt.expiry);
     }
-    if let Some(fra) = instrument.downcast_ref::<fra::ForwardRateAgreement>() {
+    if let Some(fra) = instrument.downcast_ref::<ForwardRateAgreement>() {
         return Some(fra.end_date);
     }
     if let Some(irs) = instrument.downcast_ref::<InterestRateSwap>() {
         return Some(irs.fixed.end);
     }
-    if let Some(basis) = instrument.downcast_ref::<basis_swap::BasisSwap>() {
+    if let Some(basis) = instrument.downcast_ref::<BasisSwap>() {
         return Some(basis.maturity_date);
     }
-    if let Some(deposit) = instrument.downcast_ref::<deposit::Deposit>() {
+    if let Some(deposit) = instrument.downcast_ref::<Deposit>() {
         return Some(deposit.end);
     }
-    if let Some(inf_swap) = instrument.downcast_ref::<inflation_swap::InflationSwap>() {
+    if let Some(inf_swap) = instrument.downcast_ref::<InflationSwap>() {
         return Some(inf_swap.maturity);
     }
-    if let Some(inf_bond) = instrument.downcast_ref::<inflation_linked_bond::InflationLinkedBond>()
-    {
+    if let Some(inf_bond) = instrument.downcast_ref::<InflationLinkedBond>() {
         return Some(inf_bond.maturity);
     }
-    if let Some(repo) = instrument.downcast_ref::<repo::Repo>() {
+    if let Some(repo) = instrument.downcast_ref::<Repo>() {
         return Some(repo.maturity);
     }
-    if let Some(eq_trs) = instrument.downcast_ref::<equity_trs::EquityTotalReturnSwap>() {
+    if let Some(eq_trs) = instrument.downcast_ref::<EquityTotalReturnSwap>() {
         return Some(eq_trs.schedule.end);
     }
-    if let Some(fi_trs) = instrument.downcast_ref::<fi_trs::FIIndexTotalReturnSwap>() {
+    if let Some(fi_trs) = instrument.downcast_ref::<FIIndexTotalReturnSwap>() {
         return Some(fi_trs.schedule.end);
     }
-    if let Some(var_swap) = instrument.downcast_ref::<variance_swap::VarianceSwap>() {
+    if let Some(var_swap) = instrument.downcast_ref::<VarianceSwap>() {
         return Some(var_swap.maturity);
     }
-    if let Some(ir_fut) = instrument.downcast_ref::<ir_future::InterestRateFuture>() {
+    if let Some(ir_fut) = instrument.downcast_ref::<InterestRateFuture>() {
         return Some(ir_fut.expiry_date);
     }
-    if let Some(fx_swap) = instrument.downcast_ref::<fx_swap::FxSwap>() {
+    if let Some(fx_swap) = instrument.downcast_ref::<FxSwap>() {
         return Some(fx_swap.far_date);
     }
 

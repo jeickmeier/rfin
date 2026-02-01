@@ -18,7 +18,7 @@
           "contract_rate": 7.25,
           "fixing_date": "2025-03-13",
           "fixing_rate": null,
-          "fixing_source": "CNHFIX",
+          "fixing_source_enum": "Cnhfix",
           "foreign_curve_id": null,
           "id": "USDCNY-NDF-3M",
           "maturity_date": "2025-03-15",
@@ -29,7 +29,8 @@
           "settlement_calendar_id": null,
           "settlement_currency": "USD",
           "settlement_curve_id": "USD-OIS",
-          "spot_rate_override": null
+          "spot_rate_override": null,
+          "quote_convention": "BasePerSettlement"
         },
         "type": "ndf"
       },
@@ -55,7 +56,8 @@
             "currency": "CNY"
           },
           "settlement_currency": "USD",
-          "settlement_curve_id": "USD-OIS"
+          "settlement_curve_id": "USD-OIS",
+          "quote_convention": "BasePerSettlement"
         },
         "type": "ndf"
       },

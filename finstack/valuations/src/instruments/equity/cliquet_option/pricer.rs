@@ -1,8 +1,6 @@
 //! Cliquet option Monte Carlo pricer.
 
 #[cfg(feature = "mc")]
-use crate::instruments::cliquet_option::types::{CliquetOption, CliquetPayoffType};
-#[cfg(feature = "mc")]
 use crate::instruments::common::mc::paths::ProcessParams;
 #[cfg(feature = "mc")]
 use crate::instruments::common::mc::process::metadata::ProcessMetadata;
@@ -24,6 +22,8 @@ use crate::instruments::common::models::monte_carlo::payoff::cliquet::{
 use crate::instruments::common::models::monte_carlo::pricer::path_dependent::PathDependentPricerConfig;
 #[cfg(feature = "mc")]
 use crate::instruments::common::traits::Instrument;
+#[cfg(feature = "mc")]
+use crate::instruments::equity::cliquet_option::types::{CliquetOption, CliquetPayoffType};
 #[cfg(feature = "mc")]
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,

@@ -481,7 +481,7 @@ let bucketed = bucketed_dv01_calc.compute(&loan, &market_context, as_of_date)?;
 1. **Create metric calculator** in `metrics/your_metric.rs`:
 
 ```rust
-use crate::instruments::term_loan::TermLoan;
+use crate::instruments::fixed_income::term_loan::TermLoan;
 use crate::metrics::{MetricCalculator, MetricValue};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::dates::Date;

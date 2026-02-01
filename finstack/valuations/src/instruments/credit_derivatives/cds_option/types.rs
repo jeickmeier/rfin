@@ -282,7 +282,8 @@ impl CdsOption {
         }
 
         // Forward spread in bp (consistent with pricing engine)
-        let pricer = crate::instruments::cds_option::pricer::CdsOptionPricer::default();
+        let pricer =
+            crate::instruments::credit_derivatives::cds_option::pricer::CdsOptionPricer::default();
         let fwd_bp = pricer.forward_spread_bp(self, curves, as_of)?;
 
         // Volatility (use override if present, else surface)
@@ -318,7 +319,8 @@ impl CdsOption {
             return Ok(0.0);
         };
 
-        let pricer = crate::instruments::cds_option::pricer::CdsOptionPricer::default();
+        let pricer =
+            crate::instruments::credit_derivatives::cds_option::pricer::CdsOptionPricer::default();
         let delta = pricer.delta(
             self,
             inputs.fwd_bp,
@@ -342,7 +344,8 @@ impl CdsOption {
             return Ok(0.0);
         };
 
-        let pricer = crate::instruments::cds_option::pricer::CdsOptionPricer::default();
+        let pricer =
+            crate::instruments::credit_derivatives::cds_option::pricer::CdsOptionPricer::default();
         let gamma = pricer.gamma(
             self,
             inputs.fwd_bp,
@@ -366,7 +369,8 @@ impl CdsOption {
             return Ok(0.0);
         };
 
-        let pricer = crate::instruments::cds_option::pricer::CdsOptionPricer::default();
+        let pricer =
+            crate::instruments::credit_derivatives::cds_option::pricer::CdsOptionPricer::default();
         let vega = pricer.vega(
             self,
             inputs.fwd_bp,
@@ -391,7 +395,8 @@ impl CdsOption {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
-        let pricer = crate::instruments::cds_option::pricer::CdsOptionPricer::default();
+        let pricer =
+            crate::instruments::credit_derivatives::cds_option::pricer::CdsOptionPricer::default();
         pricer.theta_finite_diff(self, curves, as_of)
     }
 
@@ -416,7 +421,8 @@ impl CdsOption {
         target_price: f64,
         initial_guess: Option<f64>,
     ) -> finstack_core::Result<f64> {
-        let pricer = crate::instruments::cds_option::pricer::CdsOptionPricer::default();
+        let pricer =
+            crate::instruments::credit_derivatives::cds_option::pricer::CdsOptionPricer::default();
         pricer.implied_vol(self, curves, as_of, target_price, initial_guess)
     }
 }
@@ -467,7 +473,8 @@ impl crate::instruments::common::traits::Instrument for CdsOption {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        let pricer = crate::instruments::cds_option::pricer::CdsOptionPricer::default();
+        let pricer =
+            crate::instruments::credit_derivatives::cds_option::pricer::CdsOptionPricer::default();
         pricer.npv(self, curves, as_of)
     }
 

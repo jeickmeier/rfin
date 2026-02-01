@@ -3,7 +3,7 @@
 //! Provides a DRY aggregation helper to iterate caplets/floorlets and sum
 //! contributions for a given functional form (e.g., delta/gamma/vega/theta).
 
-use crate::instruments::cap_floor::InterestRateOption;
+use crate::instruments::rates::cap_floor::InterestRateOption;
 use crate::metrics::MetricContext;
 
 /// Iterate over caplets/floorlets and aggregate contributions.

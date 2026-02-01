@@ -5,7 +5,7 @@
 
 use super::{DealType, StructuredCredit};
 use crate::cashflow::builder::PrepaymentModelSpec;
-use crate::instruments::structured_credit::pricing::{
+use crate::instruments::fixed_income::structured_credit::pricing::{
     CorrelationStructure, StochasticDefaultSpec, StochasticPrepaySpec,
 };
 

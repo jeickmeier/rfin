@@ -9,7 +9,7 @@
 //! ```
 //! Where bump_size is 1bp (0.0001) for CDR-based bumps.
 
-use crate::instruments::structured_credit::StructuredCredit;
+use crate::instruments::fixed_income::structured_credit::StructuredCredit;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

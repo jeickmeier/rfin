@@ -236,7 +236,7 @@ impl Basket {
         use time::macros::date;
 
         // Create a bond instrument
-        let bond = crate::instruments::bond::Bond::fixed(
+        let bond = crate::instruments::fixed_income::bond::Bond::fixed(
             "CORP-BOND-001",
             Money::new(1000.0, Currency::USD),
             0.05,
@@ -292,8 +292,10 @@ impl Basket {
     ///
     /// This centralizes calculator creation and avoids duplication across
     /// metrics, pricers, and other components.
-    pub fn calculator(&self) -> crate::instruments::basket::pricer::BasketCalculator {
-        crate::instruments::basket::pricer::BasketCalculator::new(self.pricing_config.clone())
+    pub fn calculator(&self) -> crate::instruments::exotics::basket::pricer::BasketCalculator {
+        crate::instruments::exotics::basket::pricer::BasketCalculator::new(
+            self.pricing_config.clone(),
+        )
     }
 
     /// Get constituent by ID

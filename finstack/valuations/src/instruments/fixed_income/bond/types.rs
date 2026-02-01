@@ -861,10 +861,12 @@ impl Bond {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        use crate::instruments::bond::pricing::tree_engine::{bond_tree_config, BondValuator};
         use crate::instruments::common::models::{
             short_rate_keys, state_keys, ShortRateTree, ShortRateTreeConfig, StateVariables,
             TreeModel,
+        };
+        use crate::instruments::fixed_income::bond::pricing::tree_engine::{
+            bond_tree_config, BondValuator,
         };
 
         // Calculate time to maturity from the valuation date (as_of) using the
@@ -1027,7 +1029,9 @@ impl crate::instruments::common::traits::Instrument for Bond {
         // Standard cashflow discounting for straight bonds using bond cashflows
         // sized under the bond's own day-count and discount factors provided by
         // the assigned discount curve.
-        crate::instruments::bond::pricing::discount_engine::BondEngine::price(self, curves, as_of)
+        crate::instruments::fixed_income::bond::pricing::discount_engine::BondEngine::price(
+            self, curves, as_of,
+        )
     }
 
     fn price_with_metrics(

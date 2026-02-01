@@ -60,8 +60,7 @@
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common::traits::Attributes;
 use finstack_core::currency::Currency;
-use finstack_core::dates::calendar::calendar_by_id;
-use finstack_core::dates::{adjust, BusinessDayConvention, Date, DateExt};
+use finstack_core::dates::{BusinessDayConvention, Date, DateExt};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::fx::FxProvider;
 use finstack_core::money::Money;
@@ -115,13 +114,6 @@ pub struct FxSpot {
     /// Note: Default changed from `Following` to `ModifiedFollowing` in v0.8.0 to align
     /// with ISDA standard FX settlement conventions.
     pub bdc: BusinessDayConvention,
-    /// Optional holiday calendar identifier used for business-day logic.
-    ///
-    /// **Deprecated**: Use `base_calendar_id` and `quote_calendar_id` for proper joint
-    /// calendar support. This field is retained for backward compatibility and will be
-    /// used as a fallback if the currency-specific fields are not set.
-    #[builder(optional)]
-    pub calendar_id: Option<String>,
     /// Optional base currency calendar for joint calendar settlement adjustment.
     ///
     /// Per market convention, FX settlement uses the joint calendar of both currencies.
@@ -152,7 +144,6 @@ impl FxSpot {
             spot_rate: None,
             notional: None,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: None,
             base_calendar_id: None,
             quote_calendar_id: None,
             attributes: Attributes::new(),
@@ -170,8 +161,6 @@ impl FxSpot {
     /// uses joint calendar logic: a date is valid only if it's a business day in both
     /// currencies' calendars. This matches professional FX settlement conventions.
     ///
-    /// Falls back to single calendar (`calendar_id`) for backward compatibility if
-    /// the joint calendar fields are not set.
     pub fn effective_settlement_date(&self, as_of: Date) -> Result<Date> {
         use crate::instruments::common::fx_dates::{adjust_joint_calendar, roll_spot_date};
 
@@ -188,12 +177,6 @@ impl FxSpot {
                     self.base_calendar_id.as_deref(),
                     self.quote_calendar_id.as_deref(),
                 )
-            } else if let Some(id) = self.calendar_id.as_deref() {
-                if let Some(cal) = calendar_by_id(id) {
-                    adjust(date, self.bdc, cal)
-                } else {
-                    Ok(date)
-                }
             } else {
                 Ok(date)
             }
@@ -210,12 +193,6 @@ impl FxSpot {
                     self.base_calendar_id.as_deref(),
                     self.quote_calendar_id.as_deref(),
                 )
-            } else if let Some(id) = self.calendar_id.as_deref() {
-                if let Some(cal) = calendar_by_id(id) {
-                    as_of.add_business_days(lag_days, cal)
-                } else {
-                    Ok(as_of.add_weekdays(lag_days))
-                }
             } else {
                 Ok(as_of.add_weekdays(lag_days))
             }
@@ -301,13 +278,6 @@ impl FxSpot {
 
     /// Set the holiday calendar identifier used for settlement adjustment.
     ///
-    /// Legacy helper retained for compatibility. Prefer `with_base_calendar_id` and
-    /// `with_quote_calendar_id` for joint calendar support per FX market conventions.
-    pub fn with_calendar_id(mut self, id: impl Into<String>) -> Self {
-        self.calendar_id = Some(id.into());
-        self
-    }
-
     /// Set the base currency calendar for joint calendar settlement adjustment.
     ///
     /// Per market convention, FX settlement uses the joint calendar of both currencies.

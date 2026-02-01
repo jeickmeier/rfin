@@ -28,7 +28,7 @@
 
 use super::super::calibrations::{CLO_STANDARD, RMBS_STANDARD};
 use super::traits::{MacroCreditFactors, StochasticDefault};
-use crate::instruments::structured_credit::utils::rates::cdr_to_mdr;
+use crate::instruments::fixed_income::structured_credit::utils::rates::cdr_to_mdr;
 use finstack_core::math::distributions::binomial_distribution;
 
 /// Intensity process (Cox model) default model.

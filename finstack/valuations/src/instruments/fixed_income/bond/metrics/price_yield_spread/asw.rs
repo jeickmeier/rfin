@@ -1,9 +1,9 @@
 use crate::cashflow::traits::CashflowProvider;
 use crate::cashflow::{builder::CashFlowSchedule, primitives::CFKind};
-use crate::instruments::bond::pricing::quote_engine::{
+use crate::instruments::fixed_income::bond::pricing::quote_engine::{
     fixed_leg_annuity, par_rate_and_annuity_from_discount,
 };
-use crate::instruments::bond::CashflowSpec;
+use crate::instruments::fixed_income::bond::CashflowSpec;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};

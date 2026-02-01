@@ -17,7 +17,7 @@
 //! bumped market forward.
 
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::fx_forward::FxForward;
+use crate::instruments::fx::fx_forward::FxForward;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::money::fx::FxQuery;
 

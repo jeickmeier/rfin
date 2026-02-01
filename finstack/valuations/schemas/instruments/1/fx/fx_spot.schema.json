@@ -13,13 +13,14 @@
           },
           "base": "EUR",
           "bdc": "Following",
-          "calendar_id": "TARGET",
+          "base_calendar_id": "TARGET",
           "id": "EURUSD",
           "notional": {
             "amount": "1000000",
             "currency": "EUR"
           },
           "quote": "USD",
+          "quote_calendar_id": "USNY",
           "settlement": "2024-01-15",
           "settlement_lag_days": 2,
           "spot_rate": 1.10
@@ -40,12 +41,14 @@
           },
           "base": "EUR",
           "bdc": "Following",
+          "base_calendar_id": "TARGET",
           "id": "EURUSD",
           "notional": {
             "amount": "1000000",
             "currency": "EUR"
           },
           "quote": "USD",
+          "quote_calendar_id": "USNY",
           "spot_rate": 1.10
         },
         "type": "fx_spot"

@@ -11,7 +11,7 @@ pub struct RepoInterestCalculator;
 
 impl MetricCalculator for RepoInterestCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let repo = context.instrument_as::<crate::instruments::repo::Repo>()?;
+        let repo = context.instrument_as::<crate::instruments::rates::repo::Repo>()?;
         let interest = repo.interest_amount()?;
         Ok(interest.amount())
     }

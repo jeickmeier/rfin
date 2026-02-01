@@ -3,7 +3,7 @@
 //! Computes present value of the protection leg using the index pricer,
 //! which aggregates across pricing modes.
 
-use crate::instruments::cds_index::CDSIndex;
+use crate::instruments::credit_derivatives::cds_index::CDSIndex;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

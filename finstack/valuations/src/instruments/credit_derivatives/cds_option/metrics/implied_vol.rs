@@ -4,7 +4,7 @@
 //! instrument's current PV (`context.base_value`) using the CDS option
 //! pricer and core math solvers (HybridSolver).
 
-use crate::instruments::cds_option::CdsOption;
+use crate::instruments::credit_derivatives::cds_option::CdsOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::Result;
 

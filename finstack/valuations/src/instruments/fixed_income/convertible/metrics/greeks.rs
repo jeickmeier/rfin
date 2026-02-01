@@ -6,7 +6,7 @@
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
-use crate::instruments::convertible::types::ConvertibleBond;
+use crate::instruments::fixed_income::convertible::types::ConvertibleBond;
 
 pub struct DeltaCalculator;
 impl MetricCalculator for DeltaCalculator {

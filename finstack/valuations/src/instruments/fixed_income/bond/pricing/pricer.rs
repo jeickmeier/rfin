@@ -3,10 +3,10 @@
 //! This module provides pricer implementations that integrate bond pricing engines
 //! with the instrument pricing registry system.
 
-use crate::instruments::bond::pricing::hazard_engine::HazardBondEngine;
-use crate::instruments::bond::pricing::tree_engine::TreePricer;
-use crate::instruments::bond::types::Bond;
 use crate::instruments::common::traits::Instrument;
+use crate::instruments::fixed_income::bond::pricing::hazard_engine::HazardBondEngine;
+use crate::instruments::fixed_income::bond::pricing::tree_engine::TreePricer;
+use crate::instruments::fixed_income::bond::types::Bond;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
 };

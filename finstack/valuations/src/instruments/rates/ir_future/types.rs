@@ -36,6 +36,7 @@
 use crate::cashflow::traits::CashflowProvider;
 use crate::constants::{ONE_BASIS_POINT, PERCENT_TO_DECIMAL};
 // Params-based constructor removed; build via builder instead.
+use crate::instruments::common::dependencies::MarketDependencies;
 use crate::instruments::common::traits::Attributes;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
@@ -380,6 +381,10 @@ impl crate::instruments::common::traits::Instrument for InterestRateFuture {
 
     fn clone_box(&self) -> Box<dyn crate::instruments::common::traits::Instrument> {
         Box::new(self.clone())
+    }
+
+    fn market_dependencies(&self) -> MarketDependencies {
+        MarketDependencies::from_curve_dependencies(self)
     }
 
     fn value(

@@ -5,7 +5,7 @@
 //! in a simple 1D MC simulation without a 2D correlated equity/FX process.
 
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::quanto_option::types::QuantoOption;
+use crate::instruments::fx::quanto_option::types::QuantoOption;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };

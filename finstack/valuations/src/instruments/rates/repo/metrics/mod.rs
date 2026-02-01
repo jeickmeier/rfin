@@ -83,7 +83,7 @@ pub fn register_repo_metrics(registry: &mut MetricRegistry) {
 mod tests {
     use super::*;
     use crate::instruments::common::traits::Instrument;
-    use crate::instruments::repo::{CollateralSpec, Repo};
+    use crate::instruments::rates::repo::{CollateralSpec, Repo};
     use crate::metrics::{MetricCalculator, MetricContext};
     use finstack_core::currency::Currency;
     use finstack_core::dates::Date;

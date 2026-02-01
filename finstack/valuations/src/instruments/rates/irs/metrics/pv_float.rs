@@ -32,7 +32,7 @@
 //! - **ISDA 2006 Definitions**: Sections 4.1-4.2 (term rates)
 //! - **ISDA 2021 Definitions**: Section 4.5 (compounded RFR)
 
-use crate::instruments::irs::FloatingLegCompounding;
+use crate::instruments::rates::irs::FloatingLegCompounding;
 use crate::instruments::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 

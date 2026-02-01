@@ -51,7 +51,8 @@ pub struct PyFxSpotBuilder {
     spot_rate: Option<f64>,
     notional: Option<finstack_core::money::Money>,
     bdc: Option<finstack_core::dates::BusinessDayConvention>,
-    calendar: Option<String>,
+    base_calendar_id: Option<String>,
+    quote_calendar_id: Option<String>,
 }
 
 impl PyFxSpotBuilder {
@@ -65,7 +66,8 @@ impl PyFxSpotBuilder {
             spot_rate: None,
             notional: None,
             bdc: None,
-            calendar: None,
+            base_calendar_id: None,
+            quote_calendar_id: None,
         }
     }
 
@@ -156,9 +158,21 @@ impl PyFxSpotBuilder {
         Ok(slf)
     }
 
-    #[pyo3(text_signature = "($self, calendar=None)", signature = (calendar=None))]
-    fn calendar(mut slf: PyRefMut<'_, Self>, calendar: Option<String>) -> PyRefMut<'_, Self> {
-        slf.calendar = calendar;
+    #[pyo3(text_signature = "($self, base_calendar_id=None)", signature = (base_calendar_id=None))]
+    fn base_calendar_id(
+        mut slf: PyRefMut<'_, Self>,
+        base_calendar_id: Option<String>,
+    ) -> PyRefMut<'_, Self> {
+        slf.base_calendar_id = base_calendar_id;
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, quote_calendar_id=None)", signature = (quote_calendar_id=None))]
+    fn quote_calendar_id(
+        mut slf: PyRefMut<'_, Self>,
+        quote_calendar_id: Option<String>,
+    ) -> PyRefMut<'_, Self> {
+        slf.quote_calendar_id = quote_calendar_id;
         slf
     }
 
@@ -192,8 +206,11 @@ impl PyFxSpotBuilder {
         if let Some(conv) = slf.bdc {
             inst = inst.with_bdc(conv);
         }
-        if let Some(cal_id) = intern_calendar_id_opt(slf.calendar.as_deref()) {
-            inst = inst.with_calendar_id(cal_id);
+        if let Some(cal_id) = intern_calendar_id_opt(slf.base_calendar_id.as_deref()) {
+            inst = inst.with_base_calendar_id(cal_id);
+        }
+        if let Some(cal_id) = intern_calendar_id_opt(slf.quote_calendar_id.as_deref()) {
+            inst = inst.with_quote_calendar_id(cal_id);
         }
         Ok(PyFxSpot::new(inst))
     }
@@ -299,13 +316,22 @@ impl PyFxSpot {
         }
     }
 
-    /// Optional settlement calendar identifier.
+    /// Optional base currency calendar identifier.
     ///
     /// Returns:
-    ///     str | None: Calendar identifier used for settlement adjustments.
+    ///     str | None: Base currency calendar used for settlement adjustments.
     #[getter]
-    fn calendar_id(&self) -> Option<&str> {
-        self.inner.calendar_id.as_deref()
+    fn base_calendar_id(&self) -> Option<&str> {
+        self.inner.base_calendar_id.as_deref()
+    }
+
+    /// Optional quote currency calendar identifier.
+    ///
+    /// Returns:
+    ///     str | None: Quote currency calendar used for settlement adjustments.
+    #[getter]
+    fn quote_calendar_id(&self) -> Option<&str> {
+        self.inner.quote_calendar_id.as_deref()
     }
 
     /// FX pair mnemonic such as ``"EURUSD"``.

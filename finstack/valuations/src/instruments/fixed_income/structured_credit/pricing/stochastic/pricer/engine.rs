@@ -3,8 +3,8 @@
 
 use super::config::{PricingMode, StochasticPricerConfig};
 use super::result::{StochasticPricingResult, TranchePricingResult};
-use crate::instruments::structured_credit::pricing::stochastic::tree::ScenarioTree;
-use crate::instruments::structured_credit::types::waterfall::WaterfallWorkspace;
+use crate::instruments::fixed_income::structured_credit::pricing::stochastic::tree::ScenarioTree;
+use crate::instruments::fixed_income::structured_credit::types::waterfall::WaterfallWorkspace;
 
 use finstack_core::currency::Currency;
 use finstack_core::math::random::{Pcg64Rng, RandomNumberGenerator};
@@ -429,7 +429,7 @@ impl MonteCarloWorkspace {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::structured_credit::pricing::stochastic::tree::{
+    use crate::instruments::fixed_income::structured_credit::pricing::stochastic::tree::{
         BranchingSpec, ScenarioTreeConfig,
     };
     use finstack_core::dates::Date;

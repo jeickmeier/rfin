@@ -5,7 +5,7 @@
 //! (factor-correlated, Richard-Roll) prepayment models.
 
 use crate::cashflow::builder::specs::PrepaymentModelSpec;
-use crate::instruments::structured_credit::pricing::stochastic::prepayment::{
+use crate::instruments::fixed_income::structured_credit::pricing::stochastic::prepayment::{
     RichardRollPrepay, StochasticPrepayment,
 };
 

@@ -28,8 +28,12 @@ impl MetricCalculator for ApproxWeightedAverageCostCalculator {
 
         // Get base interest rate
         let base_rate = match &facility.base_rate_spec {
-            crate::instruments::revolving_credit::types::BaseRateSpec::Fixed { rate } => *rate,
-            crate::instruments::revolving_credit::types::BaseRateSpec::Floating(spec) => {
+            crate::instruments::fixed_income::revolving_credit::types::BaseRateSpec::Fixed {
+                rate,
+            } => *rate,
+            crate::instruments::fixed_income::revolving_credit::types::BaseRateSpec::Floating(
+                spec,
+            ) => {
                 // Use forward curve to get current rate
                 let fwd = context.curves.get_forward(spec.index_id.as_str())?;
                 let index_rate = fwd.rate(0.25); // Use 3M as representative

@@ -5,7 +5,7 @@
 //! - `market_price`: numeric value as string
 //! - `market_price_id`: id of a scalar in `MarketContext`
 
-use crate::instruments::equity_option::EquityOption;
+use crate::instruments::equity::equity_option::EquityOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::Result;
 

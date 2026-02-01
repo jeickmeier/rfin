@@ -1,6 +1,6 @@
 //! Financing annuity calculator for fixed income index TRS.
 
-use crate::instruments::fi_trs::FIIndexTotalReturnSwap;
+use crate::instruments::fixed_income::fi_trs::FIIndexTotalReturnSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

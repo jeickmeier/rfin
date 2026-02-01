@@ -17,7 +17,7 @@
 //! a 1-point move in VIX results in a $1000 P&L per contract.
 
 use crate::define_metric_calculator;
-use crate::instruments::vol_index_future::VolatilityIndexFuture;
+use crate::instruments::equity::vol_index_future::VolatilityIndexFuture;
 
 define_metric_calculator!(
     /// Delta to volatility index calculator for volatility index futures.

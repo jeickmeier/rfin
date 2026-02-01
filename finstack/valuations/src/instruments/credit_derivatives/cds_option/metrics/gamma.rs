@@ -1,6 +1,6 @@
 //! Gamma metric for `CdsOption`.
 
-use crate::instruments::cds_option::CdsOption;
+use crate::instruments::credit_derivatives::cds_option::CdsOption;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::Result;
 

@@ -24,8 +24,9 @@ impl MetricCalculator for AllInRateCalculator {
         let as_of = context.as_of;
 
         // Build full cashflow schedule to get outstanding path
-        let schedule =
-            crate::instruments::term_loan::cashflows::generate_cashflows(loan, market, as_of)?;
+        let schedule = crate::instruments::fixed_income::term_loan::cashflows::generate_cashflows(
+            loan, market, as_of,
+        )?;
 
         // Get outstanding path including notional draws/repays, amortization, and PIK
         let out_path = schedule.outstanding_by_date()?;
@@ -74,13 +75,15 @@ impl MetricCalculator for AllInRateCalculator {
 
             // Compute period rate with centralized projection
             let rate = match &loan.rate {
-                crate::instruments::term_loan::types::RateSpec::Fixed { rate_bp } => {
+                crate::instruments::fixed_income::term_loan::types::RateSpec::Fixed { rate_bp } => {
                     (*rate_bp as f64) * 1e-4
                 }
-                crate::instruments::term_loan::types::RateSpec::Floating(spec) => {
+                crate::instruments::fixed_income::term_loan::types::RateSpec::Floating(spec) => {
                     // Use shared margin helper (includes base spread + covenant step-ups + overrides)
                     let total_spread =
-                        crate::instruments::term_loan::cashflows::margin_bp_at(loan, d);
+                        crate::instruments::fixed_income::term_loan::cashflows::margin_bp_at(
+                            loan, d,
+                        );
 
                     // Compute period end from year fraction (approximate)
                     let period_end = prev + time::Duration::days((yf * 365.25) as i64);
@@ -150,11 +153,11 @@ impl MetricCalculator for AllInRateCalculator {
 
                 // Use same fee base logic as cashflow engine
                 let undrawn = match ddtl.fee_base {
-                    crate::instruments::term_loan::spec::CommitmentFeeBase::Undrawn => {
+                    crate::instruments::fixed_income::term_loan::spec::CommitmentFeeBase::Undrawn => {
                         // Term Loan Standard
                         (limit.amount() - cumulative_drawn_amt).max(0.0)
                     }
-                    crate::instruments::term_loan::spec::CommitmentFeeBase::CommitmentMinusOutstanding => {
+                    crate::instruments::fixed_income::term_loan::spec::CommitmentFeeBase::CommitmentMinusOutstanding => {
                         // Revolver Standard
                         (limit.amount() - outstanding.amount()).max(0.0)
                     }

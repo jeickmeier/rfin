@@ -1,4 +1,4 @@
-use crate::instruments::deposit::Deposit;
+use crate::instruments::rates::deposit::Deposit;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 
 /// Calculates implied DF(end) from quoted rate.

@@ -1,6 +1,6 @@
 //! Asset pool structures for structured credit instruments.
 
-use crate::instruments::bond::Bond;
+use crate::instruments::fixed_income::bond::Bond;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DateExt, DayCount};
 use finstack_core::money::Money;
@@ -13,7 +13,7 @@ use finstack_core::HashMap;
 use serde::{Deserialize, Serialize};
 
 use super::enums::{AssetType, DealType};
-use crate::instruments::structured_credit::types::constants::BASIS_POINTS_DIVISOR;
+use crate::instruments::fixed_income::structured_credit::types::constants::BASIS_POINTS_DIVISOR;
 use finstack_core::types::CreditRating;
 
 /// Individual asset in the structured credit pool
@@ -69,7 +69,7 @@ impl PoolAsset {
             },
             balance: bond.notional,
             rate: match &bond.cashflow_spec {
-                crate::instruments::bond::CashflowSpec::Fixed(spec) => {
+                crate::instruments::fixed_income::bond::CashflowSpec::Fixed(spec) => {
                     spec.rate.to_f64().unwrap_or(0.0)
                 }
                 _ => 0.0,
@@ -88,13 +88,21 @@ impl PoolAsset {
                 .map(|p| Money::new(p * bond.notional.amount(), bond.notional.currency())),
             acquisition_date: Some(bond.issue),
             day_count: match &bond.cashflow_spec {
-                crate::instruments::bond::CashflowSpec::Fixed(spec) => spec.dc,
-                crate::instruments::bond::CashflowSpec::Floating(spec) => spec.rate_spec.dc,
+                crate::instruments::fixed_income::bond::CashflowSpec::Fixed(spec) => spec.dc,
+                crate::instruments::fixed_income::bond::CashflowSpec::Floating(spec) => {
+                    spec.rate_spec.dc
+                }
                 // For amortizing, we look at the base spec
-                crate::instruments::bond::CashflowSpec::Amortizing { base, .. } => {
+                crate::instruments::fixed_income::bond::CashflowSpec::Amortizing {
+                    base, ..
+                } => {
                     match base.as_ref() {
-                        crate::instruments::bond::CashflowSpec::Fixed(spec) => spec.dc,
-                        crate::instruments::bond::CashflowSpec::Floating(spec) => spec.rate_spec.dc,
+                        crate::instruments::fixed_income::bond::CashflowSpec::Fixed(spec) => {
+                            spec.dc
+                        }
+                        crate::instruments::fixed_income::bond::CashflowSpec::Floating(spec) => {
+                            spec.rate_spec.dc
+                        }
                         _ => DayCount::Act360, // Fallback if not clear, though bond should have one
                     }
                 }

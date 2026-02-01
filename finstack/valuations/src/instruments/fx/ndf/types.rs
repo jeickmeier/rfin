@@ -101,7 +101,7 @@ impl std::str::FromStr for NdfQuoteConvention {
 /// # Example
 ///
 /// ```rust
-/// use finstack_valuations::instruments::fx::ndf::{Ndf, NdfFixingSource};
+/// use finstack_valuations::instruments::fx::ndf::{Ndf, NdfFixingSource, NdfQuoteConvention};
 /// use finstack_core::currency::Currency;
 /// use finstack_core::dates::Date;
 /// use finstack_core::money::Money;
@@ -117,6 +117,7 @@ impl std::str::FromStr for NdfQuoteConvention {
 ///     .notional(Money::new(10_000_000.0, Currency::CNY))
 ///     .contract_rate(7.25)
 ///     .settlement_curve_id(CurveId::new("USD-OIS"))
+///     .quote_convention(NdfQuoteConvention::BasePerSettlement)
 ///     .fixing_source_enum_opt(Some(NdfFixingSource::Pboc))
 ///     .build()
 ///     .expect("Valid NDF");
@@ -151,7 +152,7 @@ pub enum NdfFixingSource {
     /// BNM - Bank Negara Malaysia MYR/USD fixing.
     /// Published daily at 3:30 PM Kuala Lumpur time.
     Bnm,
-    /// Custom or other fixing source (specify in fixing_source string field).
+    /// Custom or other fixing source not covered by the enum.
     Other,
 }
 
@@ -263,7 +264,7 @@ impl std::str::FromStr for NdfFixingSource {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::fx::ndf::Ndf;
+/// use finstack_valuations::instruments::fx::ndf::{Ndf, NdfQuoteConvention};
 /// use finstack_core::currency::Currency;
 /// use finstack_core::dates::Date;
 /// use finstack_core::money::Money;
@@ -279,6 +280,7 @@ impl std::str::FromStr for NdfFixingSource {
 ///     .notional(Money::new(10_000_000.0, Currency::CNY))
 ///     .contract_rate(7.25)
 ///     .settlement_curve_id(CurveId::new("USD-OIS"))
+///     .quote_convention(NdfQuoteConvention::BasePerSettlement)
 ///     .build()
 ///     .expect("Valid NDF");
 /// ```
@@ -305,9 +307,6 @@ pub struct Ndf {
     /// Settlement currency discount curve ID.
     pub settlement_curve_id: CurveId,
     /// Quote convention for contract_rate and fixing_rate.
-    /// Defaults to BasePerSettlement for backward compatibility.
-    #[builder(default)]
-    #[cfg_attr(feature = "serde", serde(default))]
     pub quote_convention: NdfQuoteConvention,
     /// Optional foreign (base) currency discount curve ID.
     /// If not provided, forward rate estimation uses settlement curve as fallback.
@@ -325,19 +324,9 @@ pub struct Ndf {
         serde(default, skip_serializing_if = "Option::is_none")
     )]
     pub fixing_rate: Option<f64>,
-    /// Fixing source/benchmark as string (e.g., "CNHFIX", "RBI", "PTAX").
-    ///
-    /// **Deprecated**: Use `fixing_source_enum` for type-safe fixing source specification.
-    /// This field is retained for backward compatibility with legacy data.
-    #[builder(optional)]
-    #[cfg_attr(
-        feature = "serde",
-        serde(default, skip_serializing_if = "Option::is_none")
-    )]
-    pub fixing_source: Option<String>,
     /// Official fixing source/benchmark enum for type-safe specification.
     ///
-    /// Use this field instead of `fixing_source` for validated fixing sources.
+    /// Use this field for validated fixing sources.
     /// See [`NdfFixingSource`] for supported benchmarks and their typical currencies.
     #[builder(optional)]
     #[cfg_attr(
@@ -391,6 +380,7 @@ impl Ndf {
             .notional(Money::new(10_000_000.0, Currency::CNY))
             .contract_rate(7.25)
             .settlement_curve_id(CurveId::new("USD-OIS"))
+            .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .fixing_source_enum_opt(Some(NdfFixingSource::Pboc))
             .attributes(
                 Attributes::new()
@@ -409,7 +399,7 @@ impl Ndf {
     /// # Example
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::fx::ndf::{Ndf, NdfFixingSource};
+    /// use finstack_valuations::instruments::fx::ndf::{Ndf, NdfFixingSource, NdfQuoteConvention};
     /// use finstack_core::currency::Currency;
     /// use finstack_core::dates::Date;
     /// use finstack_core::money::Money;
@@ -426,6 +416,7 @@ impl Ndf {
     ///     .notional(Money::new(10_000_000.0, Currency::CNY))
     ///     .contract_rate(7.25)
     ///     .settlement_curve_id(CurveId::new("USD-OIS"))
+    ///     .quote_convention(NdfQuoteConvention::BasePerSettlement)
     ///     .fixing_source_enum_opt(Some(NdfFixingSource::Pboc))
     ///     .build()
     ///     .unwrap();
@@ -448,14 +439,11 @@ impl Ndf {
 
     /// Get the effective fixing source as a string.
     ///
-    /// Returns the enum display name if `fixing_source_enum` is set,
-    /// otherwise returns the `fixing_source` string if set.
+    /// Returns the enum display name if `fixing_source_enum` is set.
     pub fn effective_fixing_source(&self) -> Option<String> {
-        if let Some(fixing_enum) = &self.fixing_source_enum {
-            Some(fixing_enum.to_string())
-        } else {
-            self.fixing_source.clone()
-        }
+        self.fixing_source_enum
+            .as_ref()
+            .map(|fixing_enum| fixing_enum.to_string())
     }
 
     /// Construct an NDF from trade date and tenor using standard fixing offset.
@@ -526,6 +514,7 @@ impl Ndf {
             .notional(notional)
             .contract_rate(contract_rate)
             .settlement_curve_id(settlement_curve_id.into())
+            .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .base_calendar_id_opt(base_calendar_id)
             .settlement_calendar_id_opt(settlement_calendar_id)
             .attributes(Attributes::new())
@@ -754,6 +743,7 @@ mod tests {
             .notional(Money::new(10_000_000.0, Currency::CNY))
             .contract_rate(7.25)
             .settlement_curve_id(CurveId::new("USD-OIS"))
+            .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .attributes(Attributes::new())
             .build()
             .expect("should build");
@@ -815,6 +805,7 @@ mod tests {
             .notional(Money::new(10_000_000.0, Currency::CNY))
             .contract_rate(7.25)
             .settlement_curve_id(CurveId::new("USD-OIS"))
+            .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .foreign_curve_id_opt(Some(CurveId::new("CNY-OIS")))
             .attributes(Attributes::new())
             .build()
@@ -834,12 +825,6 @@ mod tests {
         assert_eq!(ndf.id.as_str(), deserialized.id.as_str());
         assert_eq!(ndf.base_currency, deserialized.base_currency);
         assert_eq!(ndf.settlement_currency, deserialized.settlement_currency);
-    }
-
-    #[test]
-    fn test_ndf_quote_convention_default() {
-        let ndf = Ndf::example();
-        assert_eq!(ndf.quote_convention, NdfQuoteConvention::BasePerSettlement);
     }
 
     #[test]
@@ -975,6 +960,7 @@ mod tests {
             .notional(Money::new(10_000_000.0, Currency::CNY))
             .contract_rate(7.25)
             .settlement_curve_id(CurveId::new("USD-OIS"))
+            .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .attributes(Attributes::new())
             .build()
             .expect("should build");
@@ -1067,6 +1053,7 @@ mod tests {
             .notional(Money::new(10_000_000.0, Currency::CNY))
             .contract_rate(7.25)
             .settlement_curve_id(CurveId::new("USD-OIS"))
+            .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .fixing_source_enum_opt(Some(NdfFixingSource::Pboc))
             .attributes(Attributes::new())
             .build()
@@ -1087,6 +1074,7 @@ mod tests {
             .notional(Money::new(10_000_000.0, Currency::INR))
             .contract_rate(83.50)
             .settlement_curve_id(CurveId::new("USD-OIS"))
+            .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .fixing_source_enum_opt(Some(NdfFixingSource::Pboc)) // Wrong! PBOC is for CNY
             .attributes(Attributes::new())
             .build()
@@ -1115,31 +1103,12 @@ mod tests {
             .notional(Money::new(10_000_000.0, Currency::CNY))
             .contract_rate(7.25)
             .settlement_curve_id(CurveId::new("USD-OIS"))
+            .quote_convention(NdfQuoteConvention::BasePerSettlement)
             .fixing_source_enum_opt(Some(NdfFixingSource::Pboc))
             .attributes(Attributes::new())
             .build()
             .expect("should build");
 
         assert_eq!(ndf_enum.effective_fixing_source(), Some("PBOC".to_string()));
-
-        // With string set
-        let ndf_string = Ndf::builder()
-            .id(InstrumentId::new("USDCNY"))
-            .base_currency(Currency::CNY)
-            .settlement_currency(Currency::USD)
-            .fixing_date(Date::from_calendar_date(2025, Month::March, 13).expect("valid date"))
-            .maturity_date(Date::from_calendar_date(2025, Month::March, 15).expect("valid date"))
-            .notional(Money::new(10_000_000.0, Currency::CNY))
-            .contract_rate(7.25)
-            .settlement_curve_id(CurveId::new("USD-OIS"))
-            .fixing_source_opt(Some("CustomSource".to_string()))
-            .attributes(Attributes::new())
-            .build()
-            .expect("should build");
-
-        assert_eq!(
-            ndf_string.effective_fixing_source(),
-            Some("CustomSource".to_string())
-        );
     }
 }

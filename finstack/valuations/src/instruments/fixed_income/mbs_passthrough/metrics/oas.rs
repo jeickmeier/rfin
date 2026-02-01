@@ -5,8 +5,8 @@
 //! prepayment option embedded in the security.
 #![allow(dead_code)] // Public API items may be used by external bindings
 
-use crate::instruments::agency_mbs_passthrough::pricer::price_with_spread;
-use crate::instruments::agency_mbs_passthrough::AgencyMbsPassthrough;
+use crate::instruments::fixed_income::mbs_passthrough::pricer::price_with_spread;
+use crate::instruments::fixed_income::mbs_passthrough::AgencyMbsPassthrough;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::Result;
@@ -219,7 +219,7 @@ pub fn calculate_static_spread(
 mod tests {
     use super::*;
     use crate::cashflow::builder::specs::PrepaymentModelSpec;
-    use crate::instruments::agency_mbs_passthrough::{AgencyProgram, PoolType};
+    use crate::instruments::fixed_income::mbs_passthrough::{AgencyProgram, PoolType};
     use finstack_core::currency::Currency;
     use finstack_core::dates::DayCount;
     use finstack_core::market_data::term_structures::DiscountCurve;

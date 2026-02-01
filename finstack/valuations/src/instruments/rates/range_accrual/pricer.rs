@@ -24,7 +24,7 @@ use crate::instruments::common::models::monte_carlo::pricer::path_dependent::{
 #[cfg(feature = "mc")]
 use crate::instruments::common::traits::Instrument;
 #[cfg(feature = "mc")]
-use crate::instruments::range_accrual::types::RangeAccrual;
+use crate::instruments::rates::range_accrual::types::RangeAccrual;
 #[cfg(feature = "mc")]
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,

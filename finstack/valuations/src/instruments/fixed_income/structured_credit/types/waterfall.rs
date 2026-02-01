@@ -6,7 +6,7 @@
 //! - Coverage triggers for OC/IC tests
 //! - Result types for waterfall execution
 //!
-//! Execution logic is in `crate::instruments::structured_credit::pricing::waterfall`.
+//! Execution logic is in `crate::instruments::fixed_income::structured_credit::pricing::waterfall`.
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;

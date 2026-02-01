@@ -311,8 +311,9 @@ impl EquityOption {
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<crate::instruments::equity_option::pricer::EquityOptionGreeks> {
-        use crate::instruments::equity_option::pricer;
+    ) -> finstack_core::Result<crate::instruments::equity::equity_option::pricer::EquityOptionGreeks>
+    {
+        use crate::instruments::equity::equity_option::pricer;
         pricer::compute_greeks(self, curves, as_of)
     }
 
@@ -390,7 +391,7 @@ impl EquityOption {
 
         // Collect inputs except vol
         let (spot, r, q, _sigma, _t) = {
-            use crate::instruments::equity_option::pricer;
+            use crate::instruments::equity::equity_option::pricer;
             let (spot, r, q, sigma, t) = pricer::collect_inputs(self, curves, as_of)?;
             (spot, r, q, sigma, t)
         };
@@ -611,7 +612,7 @@ impl crate::instruments::common::traits::Instrument for EquityOption {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        use crate::instruments::equity_option::pricer;
+        use crate::instruments::equity::equity_option::pricer;
         pricer::compute_pv(self, curves, as_of)
     }
 
@@ -639,7 +640,7 @@ impl crate::instruments::common::traits::Instrument for EquityOption {
 mod tests {
     use super::*;
     use crate::instruments::common::traits::Instrument;
-    use crate::instruments::equity_option::pricer;
+    use crate::instruments::equity::equity_option::pricer;
     use crate::instruments::{
         common::traits::Attributes, ExerciseStyle, OptionType, PricingOverrides, SettlementType,
     };

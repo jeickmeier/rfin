@@ -1,5 +1,5 @@
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::private_markets_fund::PrivateMarketsFund;
+use crate::instruments::equity::pe_fund::PrivateMarketsFund;
 use crate::pricer::{
     expect_inst, InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
 };

@@ -1,7 +1,7 @@
 //! FX barrier option instrument definition.
 
-use crate::instruments::barrier_option::types::BarrierType;
 use crate::instruments::common::traits::Attributes;
+use crate::instruments::exotics::barrier_option::types::BarrierType;
 use crate::instruments::OptionType;
 use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
@@ -105,7 +105,7 @@ impl FxBarrierOption {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        use crate::instruments::fx_barrier_option::pricer;
+        use crate::instruments::fx::fx_barrier_option::pricer;
         pricer::compute_pv(self, curves, as_of)
     }
 }
@@ -398,7 +398,7 @@ impl crate::instruments::common::traits::Instrument for FxBarrierOption {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        use crate::instruments::fx_barrier_option::pricer::FxBarrierOptionAnalyticalPricer;
+        use crate::instruments::fx::fx_barrier_option::pricer::FxBarrierOptionAnalyticalPricer;
         use crate::pricer::Pricer;
 
         let pricer = FxBarrierOptionAnalyticalPricer::new();

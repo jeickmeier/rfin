@@ -5,7 +5,7 @@
 //! while `MetricContext` provides the execution environment with caching.
 
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::structured_credit::TrancheCashflows;
+use crate::instruments::fixed_income::structured_credit::TrancheCashflows;
 use crate::metrics::risk::MarketHistory;
 use crate::metrics::MetricId;
 use finstack_core::dates::{Date, DayCount};

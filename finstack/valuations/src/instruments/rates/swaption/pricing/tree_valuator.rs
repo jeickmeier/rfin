@@ -33,7 +33,7 @@
 #[allow(dead_code)] // Public API items may be used by external bindings or tests
 use crate::instruments::common::models::trees::HullWhiteTree;
 use crate::instruments::common::parameters::OptionType;
-use crate::instruments::swaption::BermudanSwaption;
+use crate::instruments::rates::swaption::BermudanSwaption;
 use finstack_core::dates::Date;
 use finstack_core::market_data::traits::Discounting;
 use finstack_core::HashSet;
@@ -417,7 +417,7 @@ mod tests {
     use super::*;
     use crate::instruments::common::models::trees::HullWhiteTreeConfig;
     use crate::instruments::common::parameters::OptionType;
-    use crate::instruments::swaption::{
+    use crate::instruments::rates::swaption::{
         BermudanSchedule, BermudanSwaption, BermudanType, SwaptionSettlement,
     };
     use finstack_core::currency::Currency;

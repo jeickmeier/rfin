@@ -3,7 +3,7 @@
 //! Provides deterministic PV for `CommoditySwap` instruments using
 //! fixed and floating leg calculations with discounting.
 
-use crate::instruments::commodity_swap::CommoditySwap;
+use crate::instruments::commodity::commodity_swap::CommoditySwap;
 use crate::instruments::common::traits::Instrument;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,

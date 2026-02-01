@@ -3,7 +3,7 @@
 //! Computes the fixed spread in basis points that sets the index NPV to zero.
 //! Delegates to the `CDSIndexPricer` which handles both pricing modes.
 
-use crate::instruments::cds_index::CDSIndex;
+use crate::instruments::credit_derivatives::cds_index::CDSIndex;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

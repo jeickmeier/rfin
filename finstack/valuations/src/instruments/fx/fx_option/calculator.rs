@@ -5,7 +5,7 @@
 
 use crate::instruments::common::models::{bs_greeks, bs_price};
 use crate::instruments::common::parameters::OptionType;
-use crate::instruments::fx_option::FxOption;
+use crate::instruments::fx::fx_option::FxOption;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::fx::FxQuery;

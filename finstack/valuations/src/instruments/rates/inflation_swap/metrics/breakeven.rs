@@ -1,6 +1,6 @@
 //! Breakeven inflation metric for `InflationSwap`.
 
-use crate::instruments::inflation_swap::InflationSwap;
+use crate::instruments::rates::inflation_swap::InflationSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 
 /// Calculates breakeven inflation rate for inflation swaps.

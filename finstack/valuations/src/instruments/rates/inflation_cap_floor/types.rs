@@ -29,10 +29,10 @@
 //! Inflation indices typically have an observation lag (e.g., 3 months for US CPI).
 //! The lag is applied to both CPI lookups and the fixing date used for volatility.
 
-use crate::instruments::cap_floor::pricing::black as black_ir;
 use crate::instruments::common::models::volatility::normal::bachelier_price;
 use crate::instruments::common::parameters::OptionType;
 use crate::instruments::common::traits::Attributes;
+use crate::instruments::rates::cap_floor::pricing::black as black_ir;
 use crate::instruments::PricingOverrides;
 use crate::pricer::ModelKey;
 use finstack_core::dates::{

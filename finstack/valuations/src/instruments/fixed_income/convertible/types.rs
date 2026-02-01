@@ -10,8 +10,8 @@ use finstack_core::types::{CurveId, InstrumentId};
 use rust_decimal::Decimal;
 
 use crate::cashflow::builder::specs::{FixedCouponSpec, FloatingCouponSpec};
-use crate::instruments::bond::CallPutSchedule;
 use crate::instruments::common::traits::Attributes;
+use crate::instruments::fixed_income::bond::CallPutSchedule;
 
 use super::pricer;
 

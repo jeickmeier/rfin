@@ -12,7 +12,7 @@
 use crate::instruments::common::models::trees::binomial_tree::BinomialTree;
 use crate::instruments::common::models::{bs_greeks, bs_price, BsGreeks};
 use crate::instruments::common::parameters::{OptionMarketParams, OptionType};
-use crate::instruments::equity_option::types::EquityOption;
+use crate::instruments::equity::equity_option::types::EquityOption;
 use crate::instruments::ExerciseStyle;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
@@ -452,7 +452,7 @@ impl crate::pricer::Pricer for SimpleEquityOptionBlackPricer {
         // Type-safe downcasting
         let equity_option = instrument
             .as_any()
-            .downcast_ref::<crate::instruments::equity_option::EquityOption>()
+            .downcast_ref::<crate::instruments::equity::equity_option::EquityOption>()
             .ok_or_else(|| {
                 crate::pricer::PricingError::type_mismatch(
                     crate::pricer::InstrumentType::EquityOption,

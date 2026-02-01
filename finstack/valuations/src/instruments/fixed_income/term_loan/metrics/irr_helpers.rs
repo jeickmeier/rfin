@@ -98,8 +98,9 @@ pub(super) fn solve_irr_to_date(
     use crate::cashflow::traits::CashflowProvider;
 
     // Build full schedule to get outstanding path
-    let schedule =
-        crate::instruments::term_loan::cashflows::generate_cashflows(loan, curves, as_of)?;
+    let schedule = crate::instruments::fixed_income::term_loan::cashflows::generate_cashflows(
+        loan, curves, as_of,
+    )?;
 
     // Get outstanding BEFORE exercise date (use the entry just before exercise_date).
     // outstanding_by_date returns outstanding AFTER each date,

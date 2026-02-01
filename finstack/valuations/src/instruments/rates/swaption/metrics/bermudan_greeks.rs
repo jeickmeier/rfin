@@ -23,8 +23,8 @@
 //! ```
 
 use crate::instruments::common::models::trees::{HullWhiteTree, HullWhiteTreeConfig};
-use crate::instruments::swaption::pricing::BermudanSwaptionTreeValuator;
-use crate::instruments::swaption::BermudanSwaption;
+use crate::instruments::rates::swaption::pricing::BermudanSwaptionTreeValuator;
+use crate::instruments::rates::swaption::BermudanSwaption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::Date;
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
@@ -563,7 +563,7 @@ mod tests {
     fn test_exercise_probability_profile_from_valuator() {
         // Integration test: verify from_valuator uses actual tree probabilities
         use crate::instruments::common::models::trees::HullWhiteTreeConfig;
-        use crate::instruments::swaption::{
+        use crate::instruments::rates::swaption::{
             BermudanSchedule, BermudanSwaption, BermudanType, SwaptionSettlement,
         };
         use finstack_core::currency::Currency;

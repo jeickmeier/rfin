@@ -7,7 +7,7 @@
 //! which represents the expected loss across all constituents assuming equal weighting.
 
 use crate::constants::credit;
-use crate::instruments::cds_index::CDSIndex;
+use crate::instruments::credit_derivatives::cds_index::CDSIndex;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::DayCountCtx;
 use finstack_core::Result;

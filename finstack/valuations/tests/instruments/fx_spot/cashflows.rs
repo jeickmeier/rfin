@@ -142,7 +142,8 @@ fn test_settlement_with_business_day_convention() {
     let fx = eurusd_with_notional(1_000_000.0, 1.20)
         .with_settlement(settlement)
         .with_bdc(BusinessDayConvention::Following)
-        .with_calendar_id("NewYork");
+        .with_base_calendar_id("target2")
+        .with_quote_calendar_id("usny");
 
     let market = MarketContext::new();
 
@@ -235,7 +236,8 @@ fn test_calendar_aware_settlement_lag() {
         .unwrap()
         .with_rate(1.20)
         .expect("test rate")
-        .with_calendar_id("NewYork")
+        .with_base_calendar_id("target2")
+        .with_quote_calendar_id("usny")
         .with_settlement(d(2025, 1, 17)); // T+2
 
     let market = MarketContext::new();

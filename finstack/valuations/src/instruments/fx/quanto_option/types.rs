@@ -447,7 +447,7 @@ impl crate::instruments::common::traits::Instrument for QuantoOption {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        use crate::instruments::quanto_option::pricer::QuantoOptionAnalyticalPricer;
+        use crate::instruments::fx::quanto_option::pricer::QuantoOptionAnalyticalPricer;
         use crate::pricer::Pricer;
 
         let pricer = QuantoOptionAnalyticalPricer::new();

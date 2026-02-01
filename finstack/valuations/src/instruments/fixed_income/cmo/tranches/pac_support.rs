@@ -5,7 +5,7 @@
 //! PAC collar. Support tranches absorb prepayment variability to protect
 //! the PAC.
 
-use crate::instruments::agency_cmo::types::PacCollar;
+use crate::instruments::fixed_income::cmo::types::PacCollar;
 
 /// PAC amortization schedule.
 #[derive(Clone, Debug)]

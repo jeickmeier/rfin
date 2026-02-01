@@ -1,10 +1,10 @@
 //! Builders for interest rate instruments from market quotes.
 
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::deposit::Deposit;
-use crate::instruments::fra::ForwardRateAgreement;
-use crate::instruments::ir_future::{FutureContractSpecs, InterestRateFuture, Position};
-use crate::instruments::irs::{InterestRateSwap, IrsLegConventions};
+use crate::instruments::rates::deposit::Deposit;
+use crate::instruments::rates::fra::ForwardRateAgreement;
+use crate::instruments::rates::ir_future::{FutureContractSpecs, InterestRateFuture, Position};
+use crate::instruments::rates::irs::{InterestRateSwap, IrsLegConventions};
 use crate::market::build::helpers::{resolve_calendar, resolve_spot_date};
 use crate::market::conventions::defs::{RateIndexConventions, RateIndexKind};
 use crate::market::conventions::registry::ConventionRegistry;
@@ -353,7 +353,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
                 )?,
                 RateIndexKind::OvernightRfr => {
                     let compounding = conv.ois_compounding.clone().unwrap_or(
-                        crate::instruments::irs::FloatingLegCompounding::CompoundedInArrears {
+                        crate::instruments::rates::irs::FloatingLegCompounding::CompoundedInArrears {
                             lookback_days: 0,
                             observation_shift: None,
                         },
@@ -443,7 +443,7 @@ mod tests {
         let instrument = build_rate_instrument(&quote, &ctx)?;
 
         // Downcast to InterestRateSwap to access spread_bp
-        use crate::instruments::irs::InterestRateSwap;
+        use crate::instruments::rates::irs::InterestRateSwap;
         let swap = instrument
             .as_any()
             .downcast_ref::<InterestRateSwap>()
@@ -478,7 +478,7 @@ mod tests {
         let instrument = build_rate_instrument(&quote, &ctx)?;
 
         // Should build successfully
-        use crate::instruments::irs::InterestRateSwap;
+        use crate::instruments::rates::irs::InterestRateSwap;
         let swap = instrument
             .as_any()
             .downcast_ref::<InterestRateSwap>()
@@ -521,7 +521,7 @@ mod tests {
 
             let instrument = build_rate_instrument(&quote, &ctx)?;
 
-            use crate::instruments::irs::InterestRateSwap;
+            use crate::instruments::rates::irs::InterestRateSwap;
             let swap = instrument
                 .as_any()
                 .downcast_ref::<InterestRateSwap>()
@@ -627,7 +627,7 @@ mod tests {
 
         let instrument = build_rate_instrument(&quote, &ctx)?;
 
-        use crate::instruments::fra::ForwardRateAgreement;
+        use crate::instruments::rates::fra::ForwardRateAgreement;
         let fra = instrument
             .as_any()
             .downcast_ref::<ForwardRateAgreement>()

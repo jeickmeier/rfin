@@ -1151,11 +1151,11 @@ pub fn calculate_oas(
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::instruments::bond::CallPutSchedule;
+    use crate::instruments::fixed_income::bond::CallPutSchedule;
     use finstack_core::math::interp::InterpStyle;
     use time::Month;
     fn create_test_bond() -> Bond {
-        use crate::instruments::bond::CashflowSpec;
+        use crate::instruments::fixed_income::bond::CashflowSpec;
 
         let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
         let maturity = Date::from_calendar_date(2030, Month::January, 1).expect("Valid test date");

@@ -2,7 +2,7 @@
 //!
 //! Measures PV sensitivity to a shift in the base correlation curve (per 1% correlation change).
 
-use crate::instruments::cds_tranche::CdsTranche;
+use crate::instruments::credit_derivatives::cds_tranche::CdsTranche;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

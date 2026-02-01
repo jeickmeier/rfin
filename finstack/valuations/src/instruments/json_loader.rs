@@ -987,7 +987,8 @@ mod tests {
             .with_settlement(
                 Date::from_calendar_date(2024, Month::January, 15).expect("Valid test date"),
             )
-            .with_calendar_id("TARGET");
+            .with_base_calendar_id("TARGET")
+            .with_quote_calendar_id("USNY");
 
         let json = InstrumentJson::FxSpot(fx_spot.clone());
         let serialized =
@@ -1000,7 +1001,8 @@ mod tests {
                 assert_eq!(i.id, fx_spot.id);
                 assert_eq!(i.base, fx_spot.base);
                 assert_eq!(i.quote, fx_spot.quote);
-                assert_eq!(i.calendar_id.as_deref(), Some("TARGET"));
+                assert_eq!(i.base_calendar_id.as_deref(), Some("TARGET"));
+                assert_eq!(i.quote_calendar_id.as_deref(), Some("USNY"));
             }
             _ => panic!("Expected FxSpot variant"),
         }

@@ -16,7 +16,7 @@
 //! (which affect NAV) impact the LP valuation.
 
 use crate::instruments::common::traits::Instrument;
-use crate::instruments::private_markets_fund::PrivateMarketsFund;
+use crate::instruments::equity::pe_fund::PrivateMarketsFund;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
@@ -34,7 +34,7 @@ impl MetricCalculator for Nav01Calculator {
         // Scale all distribution/proceeds events up by 1% (affects NAV)
         let mut fund_up = fund.clone();
         for event in &mut fund_up.events {
-            use crate::instruments::private_markets_fund::waterfall::FundEventKind;
+            use crate::instruments::equity::pe_fund::waterfall::FundEventKind;
             match event.kind {
                 FundEventKind::Distribution | FundEventKind::Proceeds => {
                     event.amount = finstack_core::money::Money::new(
@@ -52,7 +52,7 @@ impl MetricCalculator for Nav01Calculator {
         // Scale all distribution/proceeds events down by 1%
         let mut fund_down = fund.clone();
         for event in &mut fund_down.events {
-            use crate::instruments::private_markets_fund::waterfall::FundEventKind;
+            use crate::instruments::equity::pe_fund::waterfall::FundEventKind;
             match event.kind {
                 FundEventKind::Distribution | FundEventKind::Proceeds => {
                     event.amount = finstack_core::money::Money::new(

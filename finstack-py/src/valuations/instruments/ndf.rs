@@ -7,7 +7,7 @@ use crate::valuations::common::PyInstrumentType;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::fx::ndf::Ndf;
+use finstack_valuations::instruments::fx::ndf::{Ndf, NdfFixingSource, NdfQuoteConvention};
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::prelude::Instrument;
 use pyo3::exceptions::PyValueError;
@@ -49,7 +49,8 @@ use std::sync::Arc;
 ///         .notional(Money.from_code(10_000_000, "CNY"))
 ///         .contract_rate(7.25)
 ///         .settlement_curve("USD-OIS")
-///         .fixing_source("CNHFIX")
+///         .quote_convention("base_per_settlement")
+///         .fixing_source_enum("CNHFIX")
 ///         .build()
 ///     )
 ///
@@ -87,7 +88,8 @@ pub struct PyNdfBuilder {
     settlement_curve_id: Option<CurveId>,
     foreign_curve_id: Option<CurveId>,
     fixing_rate: Option<f64>,
-    fixing_source: Option<String>,
+    fixing_source_enum: Option<NdfFixingSource>,
+    quote_convention: Option<NdfQuoteConvention>,
     spot_rate_override: Option<f64>,
     base_calendar_id: Option<String>,
     settlement_calendar_id: Option<String>,
@@ -106,7 +108,8 @@ impl PyNdfBuilder {
             settlement_curve_id: None,
             foreign_curve_id: None,
             fixing_rate: None,
-            fixing_source: None,
+            fixing_source_enum: None,
+            quote_convention: None,
             spot_rate_override: None,
             base_calendar_id: None,
             settlement_calendar_id: None,
@@ -163,6 +166,10 @@ impl PyNdfBuilder {
             .clone()
             .ok_or_else(|| PyValueError::new_err("settlement_curve_id is required"))?;
 
+        let quote_convention = self.quote_convention.ok_or_else(|| {
+            PyValueError::new_err("quote_convention is required (e.g. 'base_per_settlement')")
+        })?;
+
         Ndf::builder()
             .id(self.instrument_id.clone())
             .base_currency(base_currency)
@@ -172,9 +179,10 @@ impl PyNdfBuilder {
             .notional(notional)
             .contract_rate(contract_rate)
             .settlement_curve_id(settlement_curve_id)
+            .quote_convention(quote_convention)
             .foreign_curve_id_opt(self.foreign_curve_id.clone())
             .fixing_rate_opt(self.fixing_rate)
-            .fixing_source_opt(self.fixing_source.clone())
+            .fixing_source_enum_opt(self.fixing_source_enum)
             .spot_rate_override_opt(self.spot_rate_override)
             .base_calendar_id_opt(self.base_calendar_id.clone())
             .settlement_calendar_id_opt(self.settlement_calendar_id.clone())
@@ -248,9 +256,26 @@ impl PyNdfBuilder {
         slf
     }
 
-    fn fixing_source<'py>(mut slf: PyRefMut<'py, Self>, source: &str) -> PyRefMut<'py, Self> {
-        slf.fixing_source = Some(source.to_string());
-        slf
+    fn fixing_source_enum<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        source: &str,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let parsed = source
+            .parse::<NdfFixingSource>()
+            .map_err(PyValueError::new_err)?;
+        slf.fixing_source_enum = Some(parsed);
+        Ok(slf)
+    }
+
+    fn quote_convention<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        convention: &str,
+    ) -> PyResult<PyRefMut<'py, Self>> {
+        let parsed = convention
+            .parse::<NdfQuoteConvention>()
+            .map_err(PyValueError::new_err)?;
+        slf.quote_convention = Some(parsed);
+        Ok(slf)
     }
 
     fn spot_rate_override<'py>(mut slf: PyRefMut<'py, Self>, rate: f64) -> PyRefMut<'py, Self> {
@@ -355,8 +380,11 @@ impl PyNdf {
 
     /// Fixing source/benchmark (e.g., "CNHFIX", "RBI", "PTAX").
     #[getter]
-    fn fixing_source(&self) -> Option<String> {
-        self.inner.fixing_source.clone()
+    fn fixing_source_enum(&self) -> Option<String> {
+        self.inner
+            .fixing_source_enum
+            .as_ref()
+            .map(|source| source.to_string())
     }
 
     /// Check if NDF is in post-fixing mode (fixing rate is set).

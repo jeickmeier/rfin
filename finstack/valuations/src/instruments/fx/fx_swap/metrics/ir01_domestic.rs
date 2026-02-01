@@ -3,8 +3,8 @@
 //! Computes sensitivity to a 1bp parallel bump in the domestic (quote) discount curve
 //! using central finite difference for O(h²) accuracy.
 
-use crate::instruments::fx_swap::pricing_helper::FxSwapPricingContext;
-use crate::instruments::fx_swap::FxSwap;
+use crate::instruments::fx::fx_swap::pricing_helper::FxSwapPricingContext;
+use crate::instruments::fx::fx_swap::FxSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 

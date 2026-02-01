@@ -22,13 +22,13 @@ pub fn register_commodity_swap_metrics(registry: &mut MetricRegistry) {
         metrics: [
             (Delta, delta::DeltaCalculator),
             (Dv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::commodity_swap::CommoditySwap,
+                crate::instruments::commodity::commodity_swap::CommoditySwap,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
-                crate::instruments::commodity_swap::CommoditySwap,
+                crate::instruments::commodity::commodity_swap::CommoditySwap,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
             (Theta, crate::metrics::GenericTheta::<
-                crate::instruments::commodity_swap::CommoditySwap,
+                crate::instruments::commodity::commodity_swap::CommoditySwap,
             >::default()),
         ]
     }

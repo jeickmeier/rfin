@@ -2,7 +2,7 @@
 //!
 //! Computes effective exposure by `AssetType` based on constituent weights.
 
-use crate::instruments::basket::types::{AssetType, Basket, ConstituentReference};
+use crate::instruments::exotics::basket::types::{AssetType, Basket, ConstituentReference};
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
