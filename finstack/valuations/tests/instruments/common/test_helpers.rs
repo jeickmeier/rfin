@@ -105,6 +105,13 @@ pub mod tolerances {
 /// Using standardized dates ensures deterministic tests and makes it easy
 /// to reason about time-dependent calculations.
 ///
+/// # Note on Module-Specific Test Dates
+///
+/// Some instrument modules define their own local `test_date()` functions with
+/// different values (e.g., `fx_spot/common.rs` uses 2025-01-15). These are
+/// intentionally different to test specific scenarios within those modules.
+/// For new tests, prefer using constants from this `dates` module for consistency.
+///
 /// # Examples
 ///
 /// ```rust,ignore
@@ -277,32 +284,15 @@ pub fn assert_in_range(value: f64, min: f64, max: f64, msg: &str) {
 }
 
 // =============================================================================
-// Legacy Date Helpers (use `dates` module for new code)
-// =============================================================================
-
-/// Create a standard test date (2025-01-01)
-///
-/// **Note:** For new tests, prefer `dates::TODAY` or `dates::five_years_hence()`.
-pub fn test_date() -> Date {
-    Date::from_calendar_date(2025, Month::January, 1).unwrap()
-}
-
-/// Standard test date helper that takes y/m/d
-#[allow(dead_code)]
-pub fn make_date(year: i32, month: u8, day: u8) -> Date {
-    Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()
-}
-
-// =============================================================================
 // Curve Builders - Discount Curves
 // =============================================================================
 
 /// Create a flat discount curve for testing with simple knots.
 ///
-/// Uses `test_date()` as base date and LogLinear interpolation.
+/// Uses `dates::TODAY` as base date and LogLinear interpolation.
 /// For more control, use `flat_discount_curve()` or `flat_discount_curve_with_dc()`.
 pub fn flat_curve(rate: f64, curve_id: &str) -> DiscountCurve {
-    let base = test_date();
+    let base = dates::TODAY;
     let t_max = 30.0; // 30 years
     let df_max = (-rate * t_max).exp();
 
@@ -544,7 +534,7 @@ pub fn flat_hazard_curve_with_knots(
 ///
 /// Useful for testing instruments sensitive to curve shape.
 pub fn upward_curve(curve_id: &str) -> DiscountCurve {
-    let base = test_date();
+    let base = dates::TODAY;
 
     DiscountCurve::builder(curve_id)
         .base_date(base)
@@ -943,10 +933,15 @@ mod tests {
 
     #[test]
     fn test_year_fraction_helper() {
-        let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
-        let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+        let start = Date::from_calendar_date(2024, Month::January, 1).unwrap();
+        let end = Date::from_calendar_date(2025, Month::January, 1).unwrap();
         let yf = year_fraction(start, end);
-        assert!((yf - 1.0).abs() < 1e-4);
+        // Act365F: 366 days (2024 is a leap year) / 365 = 1.00274...
+        assert!(
+            (yf - 1.00274).abs() < 1e-4,
+            "Expected yf ≈ 1.00274 for leap year, got {}",
+            yf
+        );
         assert_eq!(standard_dc(), DayCount::Act365F);
     }
 
@@ -973,6 +968,6 @@ mod tests {
     fn test_flat_curve_creation() {
         let curve = flat_curve(0.05, "TEST");
         assert_eq!(curve.id().as_str(), "TEST");
-        assert_eq!(curve.base_date(), test_date());
+        assert_eq!(curve.base_date(), dates::TODAY);
     }
 }

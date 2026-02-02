@@ -37,7 +37,7 @@ pub fn date(year: i32, month: u8, day: u8) -> Date {
         .expect("valid date")
 }
 
-/// Builder-based replacement for legacy `InterestRateSwap::create_usd_swap`.
+/// Create a USD IRS swap using the builder pattern.
 pub fn usd_irs_swap(
     id: impl Into<InstrumentId>,
     notional: Money,
@@ -177,7 +177,7 @@ impl Instrument for TestInstrument {
     }
 }
 
-/// Builder-based replacement for legacy `EquityOption::european_call`.
+/// Create an Equity European call option using the builder pattern.
 pub fn equity_option_european_call(
     id: impl Into<String>,
     ticker: impl Into<String>,
@@ -210,7 +210,7 @@ pub fn equity_option_european_call(
         .build()
 }
 
-/// Builder-based replacement for legacy `EquityOption::european_put`.
+/// Create an Equity European put option using the builder pattern.
 pub fn equity_option_european_put(
     id: impl Into<String>,
     ticker: impl Into<String>,
@@ -243,7 +243,7 @@ pub fn equity_option_european_put(
         .build()
 }
 
-/// Builder-based replacement for legacy `EquityOption::american_call`.
+/// Create an Equity American call option using the builder pattern.
 pub fn equity_option_american_call(
     id: impl Into<String>,
     ticker: impl Into<String>,
@@ -276,7 +276,7 @@ pub fn equity_option_american_call(
         .build()
 }
 
-/// Builder-based replacement for legacy `FxOption::european_call`.
+/// Create an FX European call option using the builder pattern.
 pub fn fx_option_european_call(
     id: impl Into<InstrumentId>,
     base_currency: Currency,
@@ -315,7 +315,7 @@ pub fn fx_option_european_call(
         .build()
 }
 
-/// Builder-based replacement for legacy `FxOption::european_put`.
+/// Create an FX European put option using the builder pattern.
 pub fn fx_option_european_put(
     id: impl Into<InstrumentId>,
     base_currency: Currency,
@@ -354,7 +354,7 @@ pub fn fx_option_european_put(
         .build()
 }
 
-/// Builder-based replacement for legacy `CreditDefaultSwap::buy_protection`.
+/// Create a CDS buy protection position using the builder pattern.
 #[allow(clippy::too_many_arguments)]
 pub fn cds_buy_protection(
     id: impl Into<InstrumentId>,
@@ -407,7 +407,7 @@ pub fn cds_buy_protection(
     Ok(cds)
 }
 
-/// Builder-based replacement for legacy `CreditDefaultSwap::sell_protection`.
+/// Create a CDS sell protection position using the builder pattern.
 #[allow(clippy::too_many_arguments)]
 pub fn cds_sell_protection(
     id: impl Into<InstrumentId>,
@@ -538,8 +538,6 @@ pub mod calibration {
     use finstack_valuations::market::quotes::market_quote::MarketQuote;
 
     /// Execute a single calibration step for tests/benchmarks without engaging the full plan engine.
-    ///
-    /// This replaces the legacy `calibration::execute_step_for_tests` shim.
     pub fn execute_step(
         params: &StepParams,
         quotes: &[MarketQuote],

@@ -27,7 +27,7 @@ impl TermStructure for FlatCurve {
 
 impl Discounting for FlatCurve {
     fn base_date(&self) -> Date {
-        test_date()
+        dates::TODAY
     }
 
     fn df(&self, t: f64) -> f64 {
@@ -43,7 +43,7 @@ fn test_schedule_discountable_simple() {
         rate: 0.05,
     };
 
-    let issue = test_date();
+    let issue = dates::TODAY;
     let maturity = Date::from_calendar_date(2025, Month::July, 1).unwrap();
     let params = ScheduleParams {
         freq: Tenor::quarterly(),
@@ -98,8 +98,8 @@ fn test_npv_zero_rate() {
         rate: 0.0,
     };
 
-    let issue = test_date();
-    let maturity = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+    let issue = dates::TODAY;
+    let maturity = Date::from_calendar_date(2025, Month::January, 1).unwrap();
     let params = ScheduleParams {
         freq: Tenor::annual(),
         dc: DayCount::Act365F,
@@ -133,7 +133,9 @@ fn test_npv_zero_rate() {
         .unwrap();
 
     // Assert: With zero rate, PV = sum of cashflows
-    // Cashflows: -1000 (initial outflow) + 50 (coupon) + 1000 (principal repayment) = 50
-    let expected = 1_000.0 * 0.05; // Net cashflow (coupon only, principal nets to zero)
+    // Cashflows: -1000 (initial outflow) + coupon + 1000 (principal repayment)
+    // With Act365F over a leap year (366 days): coupon ≈ 1000 * 0.05 * (366/365) ≈ 50.14
+    // Tolerance of 1.0 covers day count variations across leap/non-leap years
+    let expected = 1_000.0 * 0.05;
     assert_approx_eq(pv.amount(), expected, 1.0, "PV equals cashflow sum at 0%");
 }

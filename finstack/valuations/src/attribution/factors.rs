@@ -141,10 +141,6 @@
 //! let rates: RatesCurvesSnapshot = extract(&market);
 //! ```
 //!
-//! Legacy `extract_*_curves()` helpers have been removed in favor of this trait-based
-//! approach, which provides better type inference and reduces the module's public API
-//! surface.
-//!
 //! # See Also
 //!
 //! - [`crate::attribution::parallel`] - Parallel attribution using this module
