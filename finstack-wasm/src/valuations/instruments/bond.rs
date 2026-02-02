@@ -147,6 +147,9 @@ impl JsBondBuilder {
         let stub = self
             .stub_kind
             .unwrap_or(finstack_core::dates::StubKind::None);
+        let calendar_id = self.calendar_id.clone().unwrap_or_else(|| {
+            finstack_valuations::cashflow::builder::calendar::WEEKENDS_ONLY_ID.to_string()
+        });
 
         let base = if let Some(curve) = &self.forward_curve {
             // Floating rate bond
@@ -173,8 +176,10 @@ impl JsBondBuilder {
                     reset_lag_days: self.float_reset_lag_days.unwrap_or(2),
                     dc,
                     bdc,
-                    calendar_id: self.calendar_id.clone(),
-                    fixing_calendar_id: self.calendar_id.clone(),
+                    calendar_id: calendar_id.clone(),
+                    fixing_calendar_id: Some(calendar_id.clone()),
+                    end_of_month: false,
+                    payment_lag_days: 0,
                 },
                 coupon_type: CouponType::Cash,
                 freq,
@@ -192,8 +197,10 @@ impl JsBondBuilder {
                 freq,
                 dc,
                 bdc,
-                calendar_id: self.calendar_id.clone(),
+                calendar_id: calendar_id.clone(),
                 stub,
+                end_of_month: false,
+                payment_lag_days: 0,
             })
         };
 
@@ -515,6 +522,9 @@ impl JsBond {
         float_reset_lag_days: Option<i32>,
         hazard_curve: Option<String>,
     ) -> Result<JsBond, JsValue> {
+        let calendar_id = calendar_id.unwrap_or_else(|| {
+            finstack_valuations::cashflow::builder::calendar::WEEKENDS_ONLY_ID.to_string()
+        });
         // Build CashflowSpec based on whether it's floating or fixed
         let base_spec = if let Some(curve) = &forward_curve {
             // Floating rate bond
@@ -543,7 +553,9 @@ impl JsBond {
                         .map(|c| c.into())
                         .unwrap_or(finstack_core::dates::BusinessDayConvention::Following),
                     calendar_id: calendar_id.clone(),
-                    fixing_calendar_id: calendar_id.clone(),
+                    fixing_calendar_id: Some(calendar_id.clone()),
+                    end_of_month: false,
+                    payment_lag_days: 0,
                 },
                 coupon_type: CouponType::Cash,
                 freq: frequency
@@ -572,6 +584,8 @@ impl JsBond {
                 stub: stub_kind
                     .map(|s| s.inner())
                     .unwrap_or(finstack_core::dates::StubKind::None),
+                end_of_month: false,
+                payment_lag_days: 0,
             })
         };
 

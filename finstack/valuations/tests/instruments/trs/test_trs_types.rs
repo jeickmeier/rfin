@@ -164,7 +164,9 @@ fn test_trs_schedule_spec_period_schedule_semiannual() {
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
         stub: StubKind::None,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
+        end_of_month: false,
+        payment_lag_days: 0,
     };
     let spec = TrsScheduleSpec::from_params(start, end, params);
 
@@ -192,7 +194,9 @@ fn test_trs_schedule_spec_period_schedule_monthly() {
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::Following,
         stub: StubKind::None,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
+        end_of_month: false,
+        payment_lag_days: 0,
     };
     let spec = TrsScheduleSpec::from_params(start, end, params);
 
@@ -222,7 +226,9 @@ fn test_trs_schedule_spec_different_day_counts() {
         dc: DayCount::Thirty360,
         bdc: BusinessDayConvention::ModifiedFollowing,
         stub: StubKind::None,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
+        end_of_month: false,
+        payment_lag_days: 0,
     };
 
     // Act

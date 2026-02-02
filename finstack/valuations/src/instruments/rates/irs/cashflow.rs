@@ -78,8 +78,14 @@ pub fn fixed_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
             freq: irs.fixed.freq,
             dc: irs.fixed.dc,
             bdc: irs.fixed.bdc,
-            calendar_id: irs.fixed.calendar_id.as_deref().map(String::from),
+            calendar_id: irs
+                .fixed
+                .calendar_id
+                .clone()
+                .unwrap_or_else(|| "weekends_only".to_string()),
             stub: irs.fixed.stub,
+            end_of_month: false,
+            payment_lag_days: irs.fixed.payment_delay_days,
         });
     let mut sched = fixed_b.build_with_curves(None)?;
     // IRS do not exchange notionals; return coupon-only schedule as documented.
@@ -163,8 +169,14 @@ pub fn float_leg_schedule_with_curves(
                 reset_lag_days: irs.float.reset_lag_days,
                 dc: irs.float.dc,
                 bdc: irs.float.bdc,
-                calendar_id: irs.float.calendar_id.as_deref().map(String::from),
-                fixing_calendar_id: irs.float.fixing_calendar_id.as_deref().map(String::from),
+                calendar_id: irs
+                    .float
+                    .calendar_id
+                    .clone()
+                    .unwrap_or_else(|| "weekends_only".to_string()),
+                fixing_calendar_id: irs.float.fixing_calendar_id.clone(),
+                end_of_month: false,
+                payment_lag_days: irs.float.payment_delay_days,
             },
             coupon_type: crate::cashflow::builder::CouponType::Cash,
             freq: irs.float.freq,

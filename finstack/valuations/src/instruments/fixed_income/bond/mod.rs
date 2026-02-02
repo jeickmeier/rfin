@@ -369,8 +369,10 @@ mod tests {
             freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: Some("USGS".to_string()),
+            calendar_id: "USGS".to_string(),
             stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
         };
 
         let bond = Bond::builder()
@@ -386,7 +388,7 @@ mod tests {
             .expect("should succeed");
 
         if let CashflowSpec::Fixed(s) = &bond.cashflow_spec {
-            assert_eq!(s.calendar_id, Some("USGS".to_string()));
+            assert_eq!(s.calendar_id, "USGS".to_string());
             assert_eq!(s.bdc, BusinessDayConvention::ModifiedFollowing);
         } else {
             panic!("Expected Fixed cashflow spec");
@@ -404,8 +406,10 @@ mod tests {
             freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::Following,
-            calendar_id: None,
+            calendar_id: "weekends_only".to_string(),
             stub: StubKind::ShortFront,
+            end_of_month: false,
+            payment_lag_days: 0,
         };
 
         let bond_short_front = Bond::builder()
@@ -431,8 +435,10 @@ mod tests {
             freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::Following,
-            calendar_id: None,
+            calendar_id: "weekends_only".to_string(),
             stub: StubKind::LongBack,
+            end_of_month: false,
+            payment_lag_days: 0,
         };
 
         let bond_long_back = Bond::builder()

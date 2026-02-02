@@ -36,7 +36,12 @@ impl MetricCalculator for ThetaCalculator {
                 option.frequency,
                 option.stub_kind,
                 option.bdc,
-                option.calendar_id.as_deref(),
+                false,
+                0,
+                option
+                    .calendar_id
+                    .as_deref()
+                    .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
             )?;
 
             // Find the first fixing date that's after as_of

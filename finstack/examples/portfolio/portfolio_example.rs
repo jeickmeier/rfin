@@ -831,8 +831,10 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         freq: finstack_core::dates::Tenor::quarterly(),
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
         stub: finstack_core::dates::StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
     };
 
     let cds_tranche = CdsTranche::new(

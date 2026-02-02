@@ -44,6 +44,9 @@ pub(super) use amortization::{emit_amortization_on, AmortizationParams};
 // Re-export fee emission (internal to builder module)
 pub(super) use fees::emit_fees_on;
 
+// Re-export helper utilities (internal to builder module)
+pub(super) use helpers::compute_reset_date;
+
 // Re-export public fee emission functions
 pub use fees::{emit_commitment_fee_on, emit_facility_fee_on, emit_usage_fee_on};
 

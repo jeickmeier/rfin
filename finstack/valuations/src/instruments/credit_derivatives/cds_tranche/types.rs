@@ -110,8 +110,10 @@ impl CdsTranche {
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,
-            calendar_id: None,
+            calendar_id: "weekends_only".to_string(),
             stub: StubKind::ShortFront,
+            end_of_month: false,
+            payment_lag_days: 0,
         };
         CdsTranche::new(
             InstrumentId::new("CDXIG-42-0X3"),
@@ -160,7 +162,7 @@ impl CdsTranche {
             payment_frequency: schedule_params.freq,
             day_count: schedule_params.dc,
             business_day_convention: schedule_params.bdc,
-            calendar_id: schedule_params.calendar_id.clone(),
+            calendar_id: Some(schedule_params.calendar_id.clone()),
             discount_curve_id: discount_curve_id.into(),
             credit_index_id: credit_index_id.into(),
             side,
@@ -186,8 +188,10 @@ impl CdsTranche {
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,
-            calendar_id: None,
+            calendar_id: "weekends_only".to_string(),
             stub: StubKind::ShortFront,
+            end_of_month: false,
+            payment_lag_days: 0,
         };
 
         Self {

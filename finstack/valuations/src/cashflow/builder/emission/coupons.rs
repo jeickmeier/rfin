@@ -19,7 +19,8 @@ use rust_decimal::Decimal;
 use tracing::warn;
 
 use super::super::compiler::{FixedSchedule, FloatSchedule};
-use super::helpers::{add_pik_flow_if_nonzero, compute_reset_date, resolve_calendar};
+use super::helpers::{add_pik_flow_if_nonzero, compute_reset_date};
+use crate::cashflow::builder::calendar::resolve_calendar_strict;
 
 /// Convert an f64 to Decimal, returning an error for non-finite values.
 ///
@@ -99,18 +100,20 @@ pub(crate) fn emit_fixed_coupons_on(
             }
         }
 
-        if let Some(prev) = prev_map.get(&d).copied() {
+        if let Some(period) = prev_map.get(&d).copied() {
+            let accrual_start = period.accrual_start;
+            let accrual_end = period.accrual_end;
             let base_out = *outstanding_after
-                .get(&prev)
+                .get(&accrual_start)
                 .unwrap_or(&outstanding_fallback);
 
-            // Resolve calendar if present for Bus/252 and similar conventions
-            let calendar = resolve_calendar(spec.calendar_id.as_deref());
+            // Resolve calendar for Bus/252 and similar conventions
+            let calendar = resolve_calendar_strict(&spec.calendar_id)?;
             let yf = spec.dc.year_fraction(
-                prev,
-                d,
+                accrual_start,
+                accrual_end,
                 finstack_core::dates::DayCountCtx {
-                    calendar,
+                    calendar: Some(calendar),
                     frequency: Some(spec.freq),
                     bus_basis: None,
                 },
@@ -186,18 +189,20 @@ pub(crate) fn emit_float_coupons_on(
             }
         }
 
-        if let Some(prev) = prev_map.get(&d).copied() {
+        if let Some(period) = prev_map.get(&d).copied() {
+            let accrual_start = period.accrual_start;
+            let accrual_end = period.accrual_end;
             let base_out = *outstanding_after
-                .get(&prev)
+                .get(&accrual_start)
                 .unwrap_or(&outstanding_fallback);
 
-            // Resolve calendar if present for Bus/252 and similar conventions
-            let calendar = resolve_calendar(spec.rate_spec.calendar_id.as_deref());
+            // Resolve calendar for Bus/252 and similar conventions
+            let calendar = resolve_calendar_strict(&spec.rate_spec.calendar_id)?;
             let yf = spec.rate_spec.dc.year_fraction(
-                prev,
-                d,
+                accrual_start,
+                accrual_end,
                 finstack_core::dates::DayCountCtx {
-                    calendar,
+                    calendar: Some(calendar),
                     frequency: Some(spec.rate_spec.reset_freq),
                     bus_basis: None,
                 },
@@ -207,15 +212,15 @@ pub(crate) fn emit_float_coupons_on(
             let fixing_cal_id = spec
                 .rate_spec
                 .fixing_calendar_id
-                .clone()
-                .or_else(|| spec.rate_spec.calendar_id.clone());
+                .as_deref()
+                .unwrap_or(&spec.rate_spec.calendar_id);
 
             // Compute reset date (fixing date) from accrual start.
             let reset_date = compute_reset_date(
-                prev,
+                accrual_start,
                 spec.rate_spec.reset_lag_days,
                 spec.rate_spec.bdc,
-                &fixing_cal_id,
+                fixing_cal_id,
             )?;
 
             // Compute index maturity based on the index tenor.

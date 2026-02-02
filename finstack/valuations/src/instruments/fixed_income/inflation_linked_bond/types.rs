@@ -689,7 +689,11 @@ impl InflationLinkedBond {
             self.freq,
             self.stub,
             self.bdc,
-            self.calendar_id.as_deref(),
+            false,
+            0,
+            self.calendar_id
+                .as_deref()
+                .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
         )?;
         let dates = sched.dates;
         if dates.len() < 2 {
@@ -725,7 +729,11 @@ impl InflationLinkedBond {
             self.freq,
             self.stub,
             self.bdc,
-            self.calendar_id.as_deref(),
+            false,
+            0,
+            self.calendar_id
+                .as_deref()
+                .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
         )?;
         let dates = sched.dates;
         if dates.len() < 2 {
@@ -774,7 +782,11 @@ impl InflationLinkedBond {
             self.freq,
             self.stub,
             self.bdc,
-            self.calendar_id.as_deref(),
+            false,
+            0,
+            self.calendar_id
+                .as_deref()
+                .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
         )?;
         let dates = sched.dates;
         if dates.len() < 2 {

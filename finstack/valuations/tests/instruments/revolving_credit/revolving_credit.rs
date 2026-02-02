@@ -396,8 +396,10 @@ fn test_term_forward_with_floor() {
                 reset_lag_days: 2,
                 dc: DayCount::Act360,
                 bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
-                calendar_id: None,
+                calendar_id: "weekends_only".to_string(),
                 fixing_calendar_id: None,
+                end_of_month: false,
+                payment_lag_days: 0,
             },
         ))
         .day_count(DayCount::Act360)
@@ -429,8 +431,10 @@ fn test_term_forward_with_floor() {
                 reset_lag_days: 2,
                 dc: DayCount::Act360,
                 bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
-                calendar_id: None,
+                calendar_id: "weekends_only".to_string(),
                 fixing_calendar_id: None,
+                end_of_month: false,
+                payment_lag_days: 0,
             },
         ))
         .day_count(DayCount::Act360)

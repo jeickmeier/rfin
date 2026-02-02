@@ -122,8 +122,10 @@ impl EquityTotalReturnSwap {
                     freq: Tenor::quarterly(),
                     dc: DayCount::Act360,
                     bdc: BusinessDayConvention::Following,
-                    calendar_id: None,
+                    calendar_id: "weekends_only".to_string(),
                     stub: StubKind::None,
+                    end_of_month: false,
+                    payment_lag_days: 0,
                 },
             ))
             .side(TrsSide::ReceiveTotalReturn)

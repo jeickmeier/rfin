@@ -84,8 +84,10 @@ impl TrsSide {
 ///         freq: Tenor::quarterly(),
 ///         dc: DayCount::Act360,
 ///         bdc: BusinessDayConvention::Following,
-///         calendar_id: None,
+///         calendar_id: "weekends_only".to_string(),
 ///         stub: StubKind::None,
+///         end_of_month: false,
+///         payment_lag_days: 0,
 ///     },
 /// );
 /// ```
@@ -113,14 +115,13 @@ impl TrsScheduleSpec {
 
     /// Builds the period date schedule in a canonical way.
     pub fn period_schedule(&self) -> finstack_core::Result<Schedule> {
-        let mut builder = ScheduleBuilder::new(self.start, self.end)?
+        let cal =
+            crate::cashflow::builder::calendar::resolve_calendar_strict(&self.params.calendar_id)?;
+        ScheduleBuilder::new(self.start, self.end)?
             .frequency(self.params.freq)
-            .stub_rule(self.params.stub);
-
-        if let Some(ref cal_id) = self.params.calendar_id {
-            builder = builder.adjust_with_id(self.params.bdc, cal_id);
-        }
-
-        builder.build()
+            .stub_rule(self.params.stub)
+            .end_of_month(self.params.end_of_month)
+            .adjust_with(self.params.bdc, cal)
+            .build()
     }
 }

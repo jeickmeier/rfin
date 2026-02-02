@@ -375,7 +375,9 @@ impl BermudanSchedule {
             fixed_freq,
             StubKind::None,
             BusinessDayConvention::ModifiedFollowing, // Market standard per ISDA
-            None,
+            false,
+            0,
+            crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID,
         )?;
         // Exercise dates are all coupon dates except the last one (maturity)
         let exercise_dates: Vec<Date> = sched
@@ -863,7 +865,9 @@ impl Swaption {
             self.fixed_freq,
             StubKind::None,
             BusinessDayConvention::ModifiedFollowing, // Market standard per ISDA
-            None,
+            false,
+            0,
+            crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID,
         )?;
         let dates = sched.dates;
         if dates.len() < 2 {
@@ -1010,7 +1014,9 @@ impl Swaption {
             self.float_freq,
             StubKind::None,
             BusinessDayConvention::ModifiedFollowing, // Market standard per ISDA
-            None,
+            false,
+            0,
+            crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID,
         )?;
 
         let mut pv_float = 0.0;
@@ -1469,14 +1475,14 @@ impl BermudanSwaption {
     ///
     /// Returns (payment_dates, accrual_fractions) for the fixed leg.
     pub fn build_swap_schedule(&self, _as_of: Date) -> Result<(Vec<Date>, Vec<f64>)> {
-        let periods = crate::instruments::common::pricing::schedule::build_periods(
-            crate::instruments::common::pricing::schedule::BuildPeriodsParams {
+        let periods = crate::cashflow::builder::periods::build_periods(
+            crate::cashflow::builder::periods::BuildPeriodsParams {
                 start: self.swap_start,
                 end: self.swap_end,
                 frequency: self.fixed_freq,
                 stub: StubKind::None,
                 bdc: BusinessDayConvention::ModifiedFollowing, // Market standard per ISDA
-                calendar_id: None,
+                calendar_id: crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID,
                 end_of_month: false,
                 day_count: self.day_count,
                 payment_lag_days: 0,
@@ -1542,14 +1548,14 @@ impl BermudanSwaption {
 
         let fwd = curves.get_forward(self.forward_id.as_ref())?;
         let fwd_dc = fwd.day_count();
-        let periods = crate::instruments::common::pricing::schedule::build_periods(
-            crate::instruments::common::pricing::schedule::BuildPeriodsParams {
+        let periods = crate::cashflow::builder::periods::build_periods(
+            crate::cashflow::builder::periods::BuildPeriodsParams {
                 start: exercise_date,
                 end: self.swap_end,
                 frequency: self.float_freq,
                 stub: StubKind::None,
                 bdc: BusinessDayConvention::ModifiedFollowing, // Market standard per ISDA
-                calendar_id: None,
+                calendar_id: crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID,
                 end_of_month: false,
                 day_count: fwd_dc,
                 payment_lag_days: 0,

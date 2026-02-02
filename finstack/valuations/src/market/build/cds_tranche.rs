@@ -305,8 +305,10 @@ pub fn build_cds_tranche_instrument(
         calendar_id: overrides
             .calendar_id
             .clone()
-            .or_else(|| Some(conv.calendar_id.clone())),
+            .unwrap_or_else(|| conv.calendar_id.clone()),
         stub: StubKind::ShortFront,
+        end_of_month: false,
+        payment_lag_days: 0,
     };
 
     // Side: Quote usually implies we are observing market price.

@@ -75,10 +75,14 @@ pub struct FixedCouponSpec {
     pub dc: DayCount,
     /// bdc.
     pub bdc: BusinessDayConvention,
-    /// calendar id.
-    pub calendar_id: Option<String>,
+    /// Calendar id (use "weekends_only" for weekends-only adjustments).
+    pub calendar_id: String,
     /// stub.
     pub stub: StubKind,
+    /// End-of-month rolling.
+    pub end_of_month: bool,
+    /// Payment lag in business days after accrual end.
+    pub payment_lag_days: i32,
 }
 
 /// Default gearing for floating rates.
@@ -141,8 +145,10 @@ fn default_reset_lag() -> i32 {
 ///     reset_lag_days: 2,
 ///     dc: DayCount::Act360,
 ///     bdc: BusinessDayConvention::ModifiedFollowing,
-///     calendar_id: None,
+///     calendar_id: "weekends_only".to_string(),
 ///     fixing_calendar_id: None,
+///     end_of_month: false,
+///     payment_lag_days: 0,
 /// };
 /// ```
 #[derive(Debug, Clone)]
@@ -202,15 +208,18 @@ pub struct FloatingRateSpec {
     /// Business day convention for date adjustments.
     pub bdc: BusinessDayConvention,
 
-    /// Optional calendar for business day adjustments (accrual/payment).
-    #[cfg_attr(feature = "serde", serde(default))]
-    pub calendar_id: Option<String>,
+    /// Calendar for business day adjustments (accrual/payment).
+    pub calendar_id: String,
 
     /// Optional calendar for rate fixing (reset lag).
     ///
     /// If not provided, defaults to `calendar_id`.
     #[cfg_attr(feature = "serde", serde(default))]
     pub fixing_calendar_id: Option<String>,
+    /// End-of-month rolling.
+    pub end_of_month: bool,
+    /// Payment lag in business days after accrual end.
+    pub payment_lag_days: i32,
 }
 
 fn default_gearing_includes_spread() -> bool {

@@ -323,7 +323,9 @@ impl JsYoYInflationSwap {
             self.inner.frequency,
             StubKind::None,
             finstack_core::dates::BusinessDayConvention::Unadjusted,
-            None,
+            false,
+            0,
+            finstack_valuations::cashflow::builder::calendar::WEEKENDS_ONLY_ID,
         )
         .map_err(|e| js_error(e.to_string()))?;
 

@@ -109,7 +109,12 @@ impl MetricCalculator for ParRateCalculator {
                     irs.fixed.freq,
                     irs.fixed.stub,
                     irs.fixed.bdc,
-                    irs.fixed.calendar_id.as_deref(),
+                    false,
+                    irs.fixed.payment_delay_days,
+                    irs.fixed
+                        .calendar_id
+                        .as_deref()
+                        .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
                 )?;
                 let dates: Vec<Date> = sched.dates;
                 if dates.len() < 2 {

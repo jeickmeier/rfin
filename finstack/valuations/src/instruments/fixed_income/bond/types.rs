@@ -509,8 +509,10 @@ impl Bond {
     ///     freq: Tenor::semi_annual(),
     ///     dc: DayCount::Act365F,
     ///     bdc: BusinessDayConvention::Following,
-    ///     calendar_id: None,
+    ///     calendar_id: "weekends_only".to_string(),
     ///     stub: StubKind::None,
+    ///     end_of_month: false,
+    ///     payment_lag_days: 0,
     /// };
     /// let schedule = CashFlowSchedule::builder()
     ///     .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
@@ -1060,8 +1062,10 @@ mod tests {
             freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::Following,
-            calendar_id: None,
+            calendar_id: "weekends_only".to_string(),
             stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
         };
 
         let step1_date =
@@ -1142,8 +1146,10 @@ mod tests {
                 freq: Tenor::quarterly(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::Following,
-                calendar_id: None,
+                calendar_id: "weekends_only".to_string(),
                 stub: StubKind::None,
+                end_of_month: false,
+                payment_lag_days: 0,
             })
             .build_with_curves(None)
             .expect("CashFlowSchedule builder should succeed with valid test data");
@@ -1206,8 +1212,10 @@ mod tests {
                 freq: Tenor::quarterly(),
                 dc: DayCount::Act365F,
                 bdc: BusinessDayConvention::Following,
-                calendar_id: None,
+                calendar_id: "weekends_only".to_string(),
                 stub: StubKind::None,
+                end_of_month: false,
+                payment_lag_days: 0,
             })
             .build_with_curves(None)
             .expect("CashFlowSchedule builder should succeed with valid test data");
@@ -1256,8 +1264,10 @@ mod tests {
                 freq: Tenor::semi_annual(),                    // Different frequency
                 dc: DayCount::Act365F,
                 bdc: BusinessDayConvention::Following,
-                calendar_id: None,
+                calendar_id: "weekends_only".to_string(),
                 stub: StubKind::None,
+                end_of_month: false,
+                payment_lag_days: 0,
             })
             .build_with_curves(None)
             .expect("CashFlowSchedule builder should succeed with valid test data");

@@ -368,14 +368,17 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
         }
 
         // Cap/floor portfolio of caplets/floorlets
-        let periods = crate::instruments::common::pricing::schedule::build_periods(
-            crate::instruments::common::pricing::schedule::BuildPeriodsParams {
+        let periods = crate::cashflow::builder::periods::build_periods(
+            crate::cashflow::builder::periods::BuildPeriodsParams {
                 start: self.start_date,
                 end: self.end_date,
                 frequency: self.frequency,
                 stub: self.stub_kind,
                 bdc: self.bdc,
-                calendar_id: self.calendar_id.as_deref(),
+                calendar_id: self
+                    .calendar_id
+                    .as_deref()
+                    .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
                 end_of_month: false,
                 day_count: self.day_count,
                 payment_lag_days: 0,
@@ -581,18 +584,17 @@ mod tests {
 
         // IMPORTANT: Use the same canonical schedule builder as the instrument pricer.
         //
-        // `cashflow::builder::date_generation::build_dates` only applies BDC when a calendar
-        // is provided, while `instruments::common::pricing::schedule::build_periods` applies
-        // BDC even when `calendar_id` is None (weekends-only calendar). Cap/floor parity
-        // is very sensitive to small date shifts, so we must match the instrument's schedule.
-        let periods = crate::instruments::common::pricing::schedule::build_periods(
-            crate::instruments::common::pricing::schedule::BuildPeriodsParams {
+        // `cashflow::builder::periods::build_periods` applies BDC even when `calendar_id`
+        // is weekends-only. Cap/floor parity is very sensitive to small date shifts,
+        // so we must match the instrument's schedule.
+        let periods = crate::cashflow::builder::periods::build_periods(
+            crate::cashflow::builder::periods::BuildPeriodsParams {
                 start: start_date,
                 end: end_date,
                 frequency: Tenor::quarterly(),
                 stub: StubKind::None,
                 bdc: BusinessDayConvention::ModifiedFollowing,
-                calendar_id: None,
+                calendar_id: crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID,
                 end_of_month: false,
                 day_count: DayCount::Act360,
                 payment_lag_days: 0,

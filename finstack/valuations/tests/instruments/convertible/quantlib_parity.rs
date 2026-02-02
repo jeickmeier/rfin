@@ -91,8 +91,10 @@ fn create_quantlib_convertible(
         freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
         stub: StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
     };
 
     ConvertibleBond {
@@ -886,8 +888,10 @@ fn quantlib_parity_mandatory_conversion() {
         freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
         stub: StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
     };
 
     let mandatory_bond = ConvertibleBond {
@@ -958,8 +962,10 @@ fn quantlib_parity_window_conversion() {
         freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
         stub: StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
     };
 
     let window_bond = ConvertibleBond {

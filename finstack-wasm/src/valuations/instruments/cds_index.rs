@@ -322,7 +322,13 @@ impl JsCDSIndex {
             self.inner.premium.freq,
             self.inner.premium.stub,
             self.inner.premium.bdc,
-            self.inner.premium.calendar_id.as_deref(),
+            false,
+            0,
+            self.inner
+                .premium
+                .calendar_id
+                .as_deref()
+                .unwrap_or(finstack_valuations::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
         )
         .map_err(|e| js_error(e.to_string()))?;
 

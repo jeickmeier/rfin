@@ -12,11 +12,7 @@
 
 use crate::instruments::common_impl::pricing::swap_legs::robust_relative_df;
 use finstack_core::currency::Currency;
-use finstack_core::dates::CalendarRegistry;
-use finstack_core::dates::{
-    BusinessDayConvention, Date, DayCount, HolidayCalendar, Schedule, ScheduleBuilder, StubKind,
-    Tenor,
-};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Schedule, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::summation::NeumaierAccumulator;
 use finstack_core::money::fx::FxQuery;
@@ -136,49 +132,6 @@ pub struct XccySwapLeg {
     pub allow_calendar_fallback: bool,
 }
 
-impl XccySwapLeg {
-    fn resolve_calendar(
-        &self,
-        instrument_id: &InstrumentId,
-    ) -> Result<Option<&'static dyn HolidayCalendar>> {
-        match self.calendar_id.as_deref() {
-            Some(id) => {
-                if let Some(cal) = CalendarRegistry::global().resolve_str(id) {
-                    Ok(Some(cal))
-                } else if self.allow_calendar_fallback {
-                    tracing::warn!(
-                        instrument_id = %instrument_id.as_str(),
-                        calendar_id = id,
-                        "Calendar not found; falling back to unadjusted schedule and calendar-day lags"
-                    );
-                    Ok(None)
-                } else {
-                    Err(finstack_core::Error::Input(
-                        finstack_core::InputError::NotFound {
-                            id: format!("calendar '{}'", id),
-                        },
-                    ))
-                }
-            }
-            None => {
-                if self.allow_calendar_fallback {
-                    tracing::warn!(
-                        instrument_id = %instrument_id.as_str(),
-                        "No calendar_id set; falling back to unadjusted schedule and calendar-day lags"
-                    );
-                    Ok(None)
-                } else {
-                    Err(finstack_core::Error::Input(
-                        finstack_core::InputError::NotFound {
-                            id: "XccySwap leg calendar_id".to_string(),
-                        },
-                    ))
-                }
-            }
-        }
-    }
-}
-
 /// Cross-currency floating-for-floating swap.
 #[derive(
     Clone, Debug, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
@@ -274,16 +227,22 @@ impl XccySwap {
     }
 
     fn leg_schedule(&self, leg: &XccySwapLeg) -> Result<Schedule> {
-        let cal = leg.resolve_calendar(&self.id)?;
-        let mut builder = ScheduleBuilder::new(self.start_date, self.maturity_date)?
-            .frequency(leg.frequency)
-            .stub_rule(self.stub_kind);
-
-        if let Some(cal) = cal {
-            builder = builder.adjust_with(leg.bdc, cal);
-        }
-
-        builder.build()
+        let sched = crate::cashflow::builder::build_dates(
+            self.start_date,
+            self.maturity_date,
+            leg.frequency,
+            self.stub_kind,
+            leg.bdc,
+            false,
+            leg.payment_lag_days,
+            leg.calendar_id
+                .as_deref()
+                .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
+        )?;
+        Ok(Schedule {
+            dates: sched.dates,
+            warnings: Vec::new(),
+        })
     }
 
     /// Calculate the present value of a leg with per-cashflow FX conversion.
@@ -391,14 +350,17 @@ impl XccySwap {
             pv.add(cf_rep);
         }
 
-        let periods = crate::instruments::common::pricing::schedule::build_periods(
-            crate::instruments::common::pricing::schedule::BuildPeriodsParams {
+        let periods = crate::cashflow::builder::periods::build_periods(
+            crate::cashflow::builder::periods::BuildPeriodsParams {
                 start: self.start_date,
                 end: self.maturity_date,
                 frequency: leg.frequency,
                 stub: self.stub_kind,
                 bdc: leg.bdc,
-                calendar_id: leg.calendar_id.as_deref(),
+                calendar_id: leg
+                    .calendar_id
+                    .as_deref()
+                    .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
                 end_of_month: false,
                 day_count: leg.day_count,
                 payment_lag_days: leg.payment_lag_days,

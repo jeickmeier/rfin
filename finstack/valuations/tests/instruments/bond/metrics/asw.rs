@@ -171,7 +171,9 @@ fn test_asw_par_tracks_coupon_minus_par_rate() {
         spec.freq,
         spec.stub,
         spec.bdc,
-        spec.calendar_id.as_deref(),
+        spec.end_of_month,
+        spec.payment_lag_days,
+        &spec.calendar_id,
     )
     .expect("schedule build should succeed");
     let (par_rate, _) =

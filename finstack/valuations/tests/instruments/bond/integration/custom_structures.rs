@@ -35,8 +35,10 @@ fn test_pik_bond() {
             freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::Following,
-            calendar_id: None,
+            calendar_id: "weekends_only".to_string(),
             stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
         })
         .build_with_curves(None)
         .unwrap();
@@ -59,8 +61,10 @@ fn test_step_up_bond() {
         freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
         stub: StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
     };
 
     let schedule = CashFlowSchedule::builder()

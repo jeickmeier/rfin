@@ -67,24 +67,30 @@ pub struct PyScheduleParams {
 #[pymethods]
 impl PyScheduleParams {
     #[classmethod]
-    #[pyo3(text_signature = "(cls, freq, day_count, bdc, calendar_id=None, stub=None)")]
+    #[pyo3(
+        text_signature = "(cls, freq, day_count, bdc, calendar_id, stub=None, end_of_month=False, payment_lag_days=0)"
+    )]
     fn new(
         _cls: &Bound<'_, PyType>,
         freq: crate::core::dates::schedule::PyFrequency,
         day_count: crate::core::dates::daycount::PyDayCount,
         bdc: crate::core::dates::calendar::PyBusinessDayConvention,
-        calendar_id: Option<&str>,
+        calendar_id: &str,
         stub: Option<crate::core::dates::schedule::PyStubKind>,
+        end_of_month: Option<bool>,
+        payment_lag_days: Option<i32>,
     ) -> Self {
         Self {
             inner: val_builder::ScheduleParams {
                 freq: freq.inner,
                 dc: day_count.inner,
                 bdc: bdc.inner,
-                calendar_id: calendar_id.map(|s| s.to_string()),
+                calendar_id: calendar_id.to_string(),
                 stub: stub
                     .map(|s| s.inner)
                     .unwrap_or(finstack_core::dates::StubKind::None),
+                end_of_month: end_of_month.unwrap_or(false),
+                payment_lag_days: payment_lag_days.unwrap_or(0),
             },
         }
     }
@@ -189,6 +195,8 @@ impl PyFixedCouponSpec {
                 bdc: schedule.inner.bdc,
                 calendar_id: schedule.inner.calendar_id,
                 stub: schedule.inner.stub,
+                end_of_month: schedule.inner.end_of_month,
+                payment_lag_days: schedule.inner.payment_lag_days,
             },
         }
     }
@@ -265,7 +273,9 @@ impl PyFloatingCouponSpec {
                     dc: schedule.inner.dc,
                     bdc: schedule.inner.bdc,
                     calendar_id: calendar_id.clone(),
-                    fixing_calendar_id: calendar_id,
+                    fixing_calendar_id: Some(calendar_id),
+                    end_of_month: schedule.inner.end_of_month,
+                    payment_lag_days: schedule.inner.payment_lag_days,
                 },
                 coupon_type: coupon_type
                     .map(|c| c.inner)
@@ -880,7 +890,7 @@ impl PyFeeSpec {
     ///     base: Fee base (drawn or undrawn balance)
     ///     bps: Fee rate in basis points (e.g., 25.0 for 0.25%)
     ///     schedule: Schedule parameters (frequency, day count, BDC)
-    ///     calendar: Optional calendar identifier
+    ///     calendar: Optional calendar identifier (defaults to "weekends_only")
     ///     stub: Optional stub kind (default: "none")
     ///
     /// Returns:
@@ -909,7 +919,9 @@ impl PyFeeSpec {
                 freq: schedule.inner.freq,
                 dc: schedule.inner.dc,
                 bdc: schedule.inner.bdc,
-                calendar_id: calendar.map(|s| s.to_string()),
+                calendar_id: calendar
+                    .unwrap_or(finstack_valuations::cashflow::builder::calendar::WEEKENDS_ONLY_ID)
+                    .to_string(),
                 stub: stub_kind,
             },
         ))

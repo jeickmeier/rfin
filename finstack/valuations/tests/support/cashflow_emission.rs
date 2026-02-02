@@ -29,13 +29,22 @@ mod accrual_context_tests {
             freq: finstack_core::dates::Tenor::new(6, finstack_core::dates::TenorUnit::Months), // Semi-annual
             dc: DayCount::ActActIsma,
             bdc: BusinessDayConvention::Following,
-            calendar_id: None,
+            calendar_id: "weekends_only".to_string(),
             stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
         };
 
-        let dates = vec![start, end];
+        let dates = vec![end];
         let mut prev_map = finstack_core::HashMap::default();
-        prev_map.insert(end, start);
+        prev_map.insert(
+            end,
+            crate::cashflow::builder::date_generation::SchedulePeriod {
+                accrual_start: start,
+                accrual_end: end,
+                payment_date: end,
+            },
+        );
         let first_last = finstack_core::HashSet::default();
 
         let schedule: FixedSchedule = (spec, dates, prev_map, first_last);
@@ -90,17 +99,26 @@ mod accrual_context_tests {
                 reset_lag_days: 2,
                 dc: DayCount::ActActIsma,
                 bdc: BusinessDayConvention::Following,
-                calendar_id: None,
+                calendar_id: "weekends_only".to_string(),
                 fixing_calendar_id: None,
+                end_of_month: false,
+                payment_lag_days: 0,
             },
             coupon_type: CouponType::Cash,
             freq: finstack_core::dates::Tenor::new(3, finstack_core::dates::TenorUnit::Months),
             stub: StubKind::None,
         };
 
-        let dates = vec![start, end];
+        let dates = vec![end];
         let mut prev_map = finstack_core::HashMap::default();
-        prev_map.insert(end, start);
+        prev_map.insert(
+            end,
+            crate::cashflow::builder::date_generation::SchedulePeriod {
+                accrual_start: start,
+                accrual_end: end,
+                payment_date: end,
+            },
+        );
 
         let schedule: FloatSchedule = (spec, dates, prev_map);
         let outstanding_after = finstack_core::HashMap::default();
@@ -147,13 +165,22 @@ mod accrual_context_tests {
             freq: finstack_core::dates::Tenor::new(7, finstack_core::dates::TenorUnit::Days),
             dc: DayCount::Bus252,
             bdc: BusinessDayConvention::Following,
-            calendar_id: Some("NYSE".to_string()),
+            calendar_id: "NYSE".to_string(),
             stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
         };
 
-        let dates = vec![start, end];
+        let dates = vec![end];
         let mut prev_map = finstack_core::HashMap::default();
-        prev_map.insert(end, start);
+        prev_map.insert(
+            end,
+            crate::cashflow::builder::date_generation::SchedulePeriod {
+                accrual_start: start,
+                accrual_end: end,
+                payment_date: end,
+            },
+        );
         let first_last = finstack_core::HashSet::default();
 
         let schedule: FixedSchedule = (spec, dates, prev_map, first_last);
@@ -251,8 +278,10 @@ mod credit_emission_tests {
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,
-            calendar_id: None,
+            calendar_id: "weekends_only".to_string(),
             stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
         };
 
         // Generate coupon dates
@@ -262,7 +291,9 @@ mod credit_emission_tests {
             spec.freq,
             spec.stub,
             spec.bdc,
-            spec.calendar_id.as_deref(),
+            spec.end_of_month,
+            spec.payment_lag_days,
+            &spec.calendar_id,
         )
         .expect("schedule should build");
 
@@ -292,10 +323,15 @@ mod credit_emission_tests {
         outstanding_after.insert(default_date, outstanding);
 
         // Generate coupon on Oct 1 using reduced outstanding
+        let mut period_map = finstack_core::HashMap::default();
+        period_map.reserve(period_schedule.periods.len());
+        for p in &period_schedule.periods {
+            period_map.insert(p.payment_date, *p);
+        }
         let schedule = (
             spec,
             period_schedule.dates.clone(),
-            period_schedule.prev.clone(),
+            period_map,
             period_schedule.first_or_last.clone(),
         );
         let mut coupons = Vec::new();

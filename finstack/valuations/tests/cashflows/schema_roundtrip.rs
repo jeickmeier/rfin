@@ -334,11 +334,7 @@ fn test_schedule_params_usd_standard() {
     );
 
     // Calendar should be USD
-    assert_eq!(
-        spec.calendar_id.as_deref(),
-        Some("USD"),
-        "Calendar should be USD"
-    );
+    assert_eq!(spec.calendar_id, "USD", "Calendar should be USD");
 
     test_roundtrip::<CashflowEnvelope<ScheduleParamsPayload>>(json);
 }

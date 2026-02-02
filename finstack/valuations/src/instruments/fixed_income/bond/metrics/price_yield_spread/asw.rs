@@ -376,23 +376,29 @@ impl MetricCalculator for AssetSwapParCalculator {
         // Extract schedule params from cashflow_spec, allowing ASW config to
         // override fixed-leg conventions when provided.
         let (bond_freq, bond_bdc, bond_calendar_id, bond_stub) = match &bond.cashflow_spec {
-            CashflowSpec::Fixed(spec) => {
-                (spec.freq, spec.bdc, spec.calendar_id.as_deref(), spec.stub)
-            }
+            CashflowSpec::Fixed(spec) => (
+                spec.freq,
+                spec.bdc,
+                Some(spec.calendar_id.as_str()),
+                spec.stub,
+            ),
             CashflowSpec::Floating(spec) => (
                 spec.freq,
                 spec.rate_spec.bdc,
-                spec.rate_spec.calendar_id.as_deref(),
+                Some(spec.rate_spec.calendar_id.as_str()),
                 spec.stub,
             ),
             CashflowSpec::Amortizing { base, .. } => match &**base {
-                CashflowSpec::Fixed(spec) => {
-                    (spec.freq, spec.bdc, spec.calendar_id.as_deref(), spec.stub)
-                }
+                CashflowSpec::Fixed(spec) => (
+                    spec.freq,
+                    spec.bdc,
+                    Some(spec.calendar_id.as_str()),
+                    spec.stub,
+                ),
                 CashflowSpec::Floating(spec) => (
                     spec.freq,
                     spec.rate_spec.bdc,
-                    spec.rate_spec.calendar_id.as_deref(),
+                    Some(spec.rate_spec.calendar_id.as_str()),
                     spec.stub,
                 ),
                 _ => return Err(finstack_core::InputError::Invalid.into()),
@@ -533,24 +539,30 @@ impl MetricCalculator for AssetSwapMarketCalculator {
         // to bond conventions but allowing overrides via AssetSwapConfig).
         let bond: &Bond = context.instrument_as()?;
         let (bond_freq, bond_stub, bond_bdc, bond_calendar_id) = match &bond.cashflow_spec {
-            CashflowSpec::Fixed(spec) => {
-                (spec.freq, spec.stub, spec.bdc, spec.calendar_id.as_deref())
-            }
+            CashflowSpec::Fixed(spec) => (
+                spec.freq,
+                spec.stub,
+                spec.bdc,
+                Some(spec.calendar_id.as_str()),
+            ),
             CashflowSpec::Floating(spec) => (
                 spec.freq,
                 spec.stub,
                 spec.rate_spec.bdc,
-                spec.rate_spec.calendar_id.as_deref(),
+                Some(spec.rate_spec.calendar_id.as_str()),
             ),
             CashflowSpec::Amortizing { base, .. } => match &**base {
-                CashflowSpec::Fixed(spec) => {
-                    (spec.freq, spec.stub, spec.bdc, spec.calendar_id.as_deref())
-                }
+                CashflowSpec::Fixed(spec) => (
+                    spec.freq,
+                    spec.stub,
+                    spec.bdc,
+                    Some(spec.calendar_id.as_str()),
+                ),
                 CashflowSpec::Floating(spec) => (
                     spec.freq,
                     spec.stub,
                     spec.rate_spec.bdc,
-                    spec.rate_spec.calendar_id.as_deref(),
+                    Some(spec.rate_spec.calendar_id.as_str()),
                 ),
                 _ => return Err(finstack_core::InputError::Invalid.into()),
             },

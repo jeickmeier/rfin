@@ -81,7 +81,7 @@ impl CashflowSpec {
     /// - `coupon_type`: Cash (100% cash payment)
     /// - `bdc`: Following
     /// - `stub`: None
-    /// - `calendar_id`: None
+    /// - `calendar_id`: "weekends_only"
     ///
     /// # Returns
     ///
@@ -116,8 +116,10 @@ impl CashflowSpec {
             freq,
             dc,
             bdc: BusinessDayConvention::Following,
-            calendar_id: None,
+            calendar_id: "weekends_only".to_string(),
             stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
         })
     }
 
@@ -130,8 +132,10 @@ impl CashflowSpec {
             freq,
             dc,
             bdc: BusinessDayConvention::Following,
-            calendar_id: None,
+            calendar_id: "weekends_only".to_string(),
             stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
         })
     }
 
@@ -154,7 +158,7 @@ impl CashflowSpec {
     /// - `reset_freq`: Same as payment frequency
     /// - `bdc`: Following
     /// - `stub`: None
-    /// - `calendar_id`: None
+    /// - `calendar_id`: "weekends_only"
     ///
     /// # Market Conventions for Reset Lag
     ///
@@ -213,8 +217,10 @@ impl CashflowSpec {
                 reset_lag_days: 2,
                 dc,
                 bdc: BusinessDayConvention::Following,
-                calendar_id: None,
+                calendar_id: "weekends_only".to_string(),
                 fixing_calendar_id: None,
+                end_of_month: false,
+                payment_lag_days: 0,
             },
             coupon_type: CouponType::Cash,
             freq,
@@ -294,8 +300,10 @@ impl CashflowSpec {
                 reset_lag_days,
                 dc,
                 bdc: BusinessDayConvention::Following,
-                calendar_id: None,
+                calendar_id: "weekends_only".to_string(),
                 fixing_calendar_id: None,
+                end_of_month: false,
+                payment_lag_days: 0,
             },
             coupon_type: CouponType::Cash,
             freq,
@@ -326,8 +334,10 @@ impl CashflowSpec {
                 reset_lag_days,
                 dc,
                 bdc: BusinessDayConvention::Following,
-                calendar_id: None,
+                calendar_id: "weekends_only".to_string(),
                 fixing_calendar_id: None,
+                end_of_month: false,
+                payment_lag_days: 0,
             },
             coupon_type: CouponType::Cash,
             freq,

@@ -242,8 +242,12 @@ pub fn generate_cashflows(
                 freq: loan.pay_freq,
                 dc: loan.day_count,
                 bdc: loan.bdc,
-                calendar_id: loan.calendar_id.clone(),
+                calendar_id: loan.calendar_id.clone().unwrap_or_else(|| {
+                    crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID.to_string()
+                }),
                 stub: loan.stub,
+                end_of_month: false,
+                payment_lag_days: 0,
             };
             let _ = builder.fixed_cf(spec);
         }
@@ -289,8 +293,12 @@ pub fn generate_cashflows(
                 freq: loan.pay_freq,
                 dc: loan.day_count,
                 bdc: loan.bdc,
-                calendar_id: loan.calendar_id.clone(),
+                calendar_id: loan.calendar_id.clone().unwrap_or_else(|| {
+                    crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID.to_string()
+                }),
                 stub: loan.stub,
+                end_of_month: false,
+                payment_lag_days: 0,
             };
             let _ =
                 builder.float_margin_stepup(&steps, base_params, sched_params, loan.coupon_type);
@@ -330,7 +338,9 @@ pub fn generate_cashflows(
                 freq: loan.pay_freq,
                 dc: loan.day_count,
                 bdc: loan.bdc,
-                calendar_id: loan.calendar_id.clone(),
+                calendar_id: loan.calendar_id.clone().unwrap_or_else(|| {
+                    crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID.to_string()
+                }),
                 stub: loan.stub,
             });
         }

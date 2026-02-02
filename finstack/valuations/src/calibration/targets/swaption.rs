@@ -559,7 +559,11 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
                 leg_conv.float_freq,
                 StubKind::None,
                 leg_conv.float_bdc,
-                leg_conv.calendar_id,
+                false,
+                0,
+                leg_conv
+                    .calendar_id
+                    .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
             )?;
             if float_sched.dates.len() < 2 {
                 return Err(finstack_core::Error::Input(
@@ -633,7 +637,11 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
             leg_conv.fixed_freq,
             StubKind::None,
             leg_conv.fixed_bdc,
-            leg_conv.calendar_id,
+            false,
+            0,
+            leg_conv
+                .calendar_id
+                .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
         )?;
         if sched.dates.len() < 2 {
             return Err(finstack_core::Error::Input(

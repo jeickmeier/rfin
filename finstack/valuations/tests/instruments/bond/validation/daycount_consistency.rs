@@ -52,8 +52,10 @@ fn create_bond_with_daycount(
             freq: Tenor::semi_annual(),
             dc: day_count,
             bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
-            calendar_id: None,
+            calendar_id: "weekends_only".to_string(),
             stub: finstack_core::dates::StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
         }))
         .discount_curve_id("USD-OIS".into())
         .build()

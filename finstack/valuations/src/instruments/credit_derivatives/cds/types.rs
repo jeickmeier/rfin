@@ -645,7 +645,12 @@ impl CreditDefaultSwap {
             self.premium.freq,
             self.premium.stub,
             self.premium.bdc,
-            self.premium.calendar_id.as_deref(),
+            false,
+            0,
+            self.premium
+                .calendar_id
+                .as_deref()
+                .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
         )?;
         let dates = sched.dates;
         if dates.len() < 2 {

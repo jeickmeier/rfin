@@ -316,7 +316,12 @@ impl JsCdsTranche {
             self.inner.payment_frequency,
             StubKind::None,
             self.inner.business_day_convention,
-            self.inner.calendar_id.as_deref(),
+            false,
+            0,
+            self.inner
+                .calendar_id
+                .as_deref()
+                .unwrap_or(finstack_valuations::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
         )
         .map_err(|e| js_error(e.to_string()))?;
 

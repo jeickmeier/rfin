@@ -257,22 +257,27 @@ impl InflationCapFloor {
             self.option_type,
             InflationCapFloorType::Caplet | InflationCapFloorType::Floorlet
         ) {
-            let pay = crate::instruments::common::pricing::schedule::adjust_date(
+            let pay = crate::cashflow::builder::calendar::adjust_date(
                 self.end_date,
                 self.bdc,
-                self.calendar_id.as_deref(),
+                self.calendar_id
+                    .as_deref()
+                    .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
             )?;
             return Ok(vec![(self.start_date, self.end_date, pay)]);
         }
 
-        let periods = crate::instruments::common::pricing::schedule::build_periods(
-            crate::instruments::common::pricing::schedule::BuildPeriodsParams {
+        let periods = crate::cashflow::builder::periods::build_periods(
+            crate::cashflow::builder::periods::BuildPeriodsParams {
                 start: self.start_date,
                 end: self.end_date,
                 frequency: self.frequency,
                 stub: self.stub_kind,
                 bdc: self.bdc,
-                calendar_id: self.calendar_id.as_deref(),
+                calendar_id: self
+                    .calendar_id
+                    .as_deref()
+                    .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
                 end_of_month: false,
                 day_count: self.day_count,
                 payment_lag_days: 0,

@@ -197,7 +197,9 @@ impl CmsOptionPricer {
             inst.swap_fixed_freq,
             StubKind::None,
             BusinessDayConvention::ModifiedFollowing,
-            None,
+            false,
+            0,
+            crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID,
         )?;
 
         let mut annuity = 0.0;
@@ -246,7 +248,9 @@ impl CmsOptionPricer {
                 inst.swap_float_freq,
                 StubKind::None,
                 BusinessDayConvention::ModifiedFollowing,
-                None,
+                false,
+                0,
+                crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID,
             )?;
 
             let mut pv_float = 0.0;

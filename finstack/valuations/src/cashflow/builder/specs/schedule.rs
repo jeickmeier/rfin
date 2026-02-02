@@ -14,10 +14,14 @@ pub struct ScheduleParams {
     pub dc: DayCount,
     /// bdc.
     pub bdc: BusinessDayConvention,
-    /// calendar id.
-    pub calendar_id: Option<String>,
+    /// Calendar id (use "weekends_only" for weekends-only adjustments).
+    pub calendar_id: String,
     /// stub.
     pub stub: StubKind,
+    /// End-of-month rolling.
+    pub end_of_month: bool,
+    /// Payment lag in business days after accrual end.
+    pub payment_lag_days: i32,
 }
 
 impl ScheduleParams {
@@ -27,8 +31,10 @@ impl ScheduleParams {
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,
-            calendar_id: None,
+            calendar_id: crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID.to_string(),
             stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
         }
     }
 
@@ -38,8 +44,10 @@ impl ScheduleParams {
             freq: Tenor::semi_annual(),
             dc: DayCount::Thirty360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: None,
+            calendar_id: crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID.to_string(),
             stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
         }
     }
 
@@ -49,8 +57,10 @@ impl ScheduleParams {
             freq: Tenor::annual(),
             dc: DayCount::ActAct,
             bdc: BusinessDayConvention::Following,
-            calendar_id: None,
+            calendar_id: crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID.to_string(),
             stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
         }
     }
 
@@ -61,8 +71,10 @@ impl ScheduleParams {
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
             // Use a real calendar identifier (currency codes are not calendar IDs).
-            calendar_id: Some("usny".to_string()),
+            calendar_id: "usny".to_string(),
             stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
         }
     }
 
@@ -72,8 +84,10 @@ impl ScheduleParams {
             freq: Tenor::semi_annual(),
             dc: DayCount::Thirty360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: Some("target2".to_string()),
+            calendar_id: "target2".to_string(),
             stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
         }
     }
 
@@ -83,8 +97,10 @@ impl ScheduleParams {
             freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: Some("gblo".to_string()),
+            calendar_id: "gblo".to_string(),
             stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
         }
     }
 
@@ -94,8 +110,10 @@ impl ScheduleParams {
             freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: Some("jpto".to_string()),
+            calendar_id: "jpto".to_string(),
             stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
         }
     }
 }

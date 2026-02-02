@@ -221,8 +221,10 @@ fn test_custom_cashflows_from_schedule() {
         freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
         stub: StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
     };
 
     let custom_schedule = CashFlowSchedule::builder()
@@ -254,8 +256,10 @@ fn test_pik_cashflows() {
             freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::Following,
-            calendar_id: None,
+            calendar_id: "weekends_only".to_string(),
             stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
         })
         .build_with_curves(None)
         .unwrap();
@@ -316,8 +320,10 @@ fn test_cashflows_with_short_front_stub() {
             freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::Following,
-            calendar_id: None,
+            calendar_id: "weekends_only".to_string(),
             stub: StubKind::ShortFront,
+            end_of_month: false,
+            payment_lag_days: 0,
         }))
         .discount_curve_id("USD-OIS".into())
         .pricing_overrides(PricingOverrides::default())
@@ -527,8 +533,10 @@ fn test_actact_isma_daycount_context() {
             freq: Tenor::semi_annual(),
             dc: DayCount::ActActIsma, // ISMA convention requires frequency context
             bdc: BusinessDayConvention::Following,
-            calendar_id: None,
+            calendar_id: "weekends_only".to_string(),
             stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
         }))
         .discount_curve_id("USD-OIS".into())
         .pricing_overrides(PricingOverrides::default())
@@ -607,8 +615,10 @@ fn test_bus252_daycount_with_calendar() {
             freq: Tenor::quarterly(),
             dc: DayCount::Bus252, // Requires calendar context
             bdc: BusinessDayConvention::Following,
-            calendar_id: Some("USNY".to_string()), // New York calendar
+            calendar_id: "USNY".to_string(), // New York calendar
             stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
         }))
         .discount_curve_id("USD-OIS".into())
         .pricing_overrides(PricingOverrides::default())

@@ -117,7 +117,10 @@ impl PyBondBuilder {
     }
 
     fn make_cashflow_spec(&self) -> CashflowSpec {
-        let calendar_id = self.calendar_id.clone();
+        let calendar_id = self
+            .calendar_id
+            .clone()
+            .unwrap_or_else(|| "weekends_only".to_string());
         if let Some(fwd) = &self.forward_curve {
             CashflowSpec::Floating(FloatingCouponSpec {
                 rate_spec: FloatingRateSpec {
@@ -136,7 +139,9 @@ impl PyBondBuilder {
                     dc: self.day_count,
                     bdc: self.bdc,
                     calendar_id: calendar_id.clone(),
-                    fixing_calendar_id: calendar_id,
+                    fixing_calendar_id: Some(calendar_id),
+                    end_of_month: false,
+                    payment_lag_days: 0,
                 },
                 coupon_type: CouponType::Cash,
                 freq: self.frequency,
@@ -149,8 +154,10 @@ impl PyBondBuilder {
                 freq: self.frequency,
                 dc: self.day_count,
                 bdc: self.bdc,
-                calendar_id: self.calendar_id.clone(),
+                calendar_id,
                 stub: self.stub,
+                end_of_month: false,
+                payment_lag_days: 0,
             });
             if let Some(amort) = &self.amortization {
                 CashflowSpec::amortizing(base, amort.clone())
@@ -439,8 +446,10 @@ impl PyBondBuilder {
                         reset_lag_days: slf.float_reset_lag_days,
                         dc,
                         bdc: finstack_core::dates::BusinessDayConvention::Following,
-                        calendar_id: None,
+                        calendar_id: "weekends_only".to_string(),
                         fixing_calendar_id: None,
+                        end_of_month: false,
+                        payment_lag_days: 0,
                     },
                     coupon_type: CouponType::Cash,
                     freq,

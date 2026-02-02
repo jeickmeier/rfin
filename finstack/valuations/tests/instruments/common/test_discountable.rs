@@ -49,8 +49,10 @@ fn test_schedule_discountable_simple() {
         freq: Tenor::quarterly(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
         stub: StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
     };
     let fixed = FixedCouponSpec {
         coupon_type: CouponType::Cash,
@@ -58,8 +60,10 @@ fn test_schedule_discountable_simple() {
         freq: params.freq,
         dc: params.dc,
         bdc: params.bdc,
-        calendar_id: params.calendar_id,
+        calendar_id: params.calendar_id.clone(),
         stub: params.stub,
+        end_of_month: params.end_of_month,
+        payment_lag_days: params.payment_lag_days,
     };
 
     let schedule = CashFlowSchedule::builder()
@@ -100,8 +104,10 @@ fn test_npv_zero_rate() {
         freq: Tenor::annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
         stub: StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
     };
     let fixed = FixedCouponSpec {
         coupon_type: CouponType::Cash,
@@ -109,8 +115,10 @@ fn test_npv_zero_rate() {
         freq: params.freq,
         dc: params.dc,
         bdc: params.bdc,
-        calendar_id: params.calendar_id,
+        calendar_id: params.calendar_id.clone(),
         stub: params.stub,
+        end_of_month: params.end_of_month,
+        payment_lag_days: params.payment_lag_days,
     };
 
     let schedule = CashFlowSchedule::builder()

@@ -26,7 +26,7 @@ use finstack_core::money::Money;
 use finstack_core::InputError;
 use rust_decimal::Decimal;
 
-use super::date_generation::build_dates;
+use super::date_generation::{build_dates, SchedulePeriod};
 use super::specs::{
     CouponType, FeeBase, FeeSpec, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
     ScheduleParams,
@@ -35,7 +35,7 @@ use super::specs::{
 /// Result type for schedule building with metadata.
 type ScheduleWithMeta = (
     Vec<Date>,
-    finstack_core::HashMap<Date, Date>,
+    finstack_core::HashMap<Date, SchedulePeriod>,
     finstack_core::HashSet<Date>,
 );
 
@@ -43,29 +43,50 @@ type ScheduleWithMeta = (
 ///
 /// This helper wraps `date_generation::build_dates` / `build_dates` and
 /// extracts the `prev` map and `first_or_last` set required by the cashflow compiler.
+#[allow(clippy::too_many_arguments)]
 fn build_dates_with_meta(
     start: Date,
     end: Date,
     freq: Tenor,
     stub: StubKind,
     bdc: BusinessDayConvention,
-    calendar_id: Option<&str>,
+    end_of_month: bool,
+    payment_lag_days: i32,
+    calendar_id: &str,
 ) -> finstack_core::Result<ScheduleWithMeta> {
-    let sched = build_dates(start, end, freq, stub, bdc, calendar_id)?;
+    let sched = build_dates(
+        start,
+        end,
+        freq,
+        stub,
+        bdc,
+        end_of_month,
+        payment_lag_days,
+        calendar_id,
+    )?;
 
-    Ok((sched.dates, sched.prev, sched.first_or_last))
+    let mut dates: Vec<Date> = Vec::with_capacity(sched.periods.len());
+    let mut period_map: finstack_core::HashMap<Date, SchedulePeriod> =
+        finstack_core::HashMap::default();
+    period_map.reserve(sched.periods.len());
+    for p in &sched.periods {
+        dates.push(p.payment_date);
+        period_map.insert(p.payment_date, *p);
+    }
+
+    Ok((dates, period_map, sched.first_or_last))
 }
 
 pub(crate) type FixedSchedule = (
     FixedCouponSpec,
     Vec<Date>,
-    finstack_core::HashMap<Date, Date>,
+    finstack_core::HashMap<Date, SchedulePeriod>,
     finstack_core::HashSet<Date>,
 );
 pub(crate) type FloatSchedule = (
     FloatingCouponSpec,
     Vec<Date>,
-    finstack_core::HashMap<Date, Date>,
+    finstack_core::HashMap<Date, SchedulePeriod>,
 );
 
 /// Periodic fee schedule prepared from fee specs.
@@ -78,14 +99,14 @@ pub(crate) type FloatSchedule = (
 /// - `bps` (`Decimal`): Annualized basis points applied to the base. Uses Decimal for exact representation.
 /// - `dc` (`DayCount`): Day‑count convention for accrual.
 /// - `dates` (`Vec<Date>`): Inclusive/exclusive boundary dates for accrual periods.
-/// - `prev` (`HashMap<Date, Date>`): Mapping of each period end to its start.
+/// - `prev` (`HashMap<Date, SchedulePeriod>`): Period details keyed by payment date.
 #[derive(Debug, Clone)]
 pub(super) struct PeriodicFee {
     pub(super) base: FeeBase,
     pub(super) bps: Decimal,
     pub(super) dc: DayCount,
     pub(super) dates: Vec<Date>,
-    pub(super) prev: finstack_core::HashMap<Date, Date>,
+    pub(super) prev: finstack_core::HashMap<Date, SchedulePeriod>,
 }
 
 pub(super) type PeriodicFees = Vec<PeriodicFee>;
@@ -129,7 +150,7 @@ pub(super) fn build_fee_schedules(
     //!         freq: Tenor::quarterly(),
     //!         dc: DayCount::Act360,
     //!         bdc: BusinessDayConvention::Following,
-    //!         calendar_id: Some("usd".to_string()),
+    //!         calendar_id: "weekends_only".to_string(),
     //!         stub: StubKind::None,
     //!     }
     //! ];
@@ -159,7 +180,9 @@ pub(super) fn build_fee_schedules(
                     *freq,
                     *stub,
                     *bdc,
-                    calendar_id.as_deref(),
+                    false,
+                    0,
+                    calendar_id,
                 )?;
                 if dates.len() < 2 {
                     return Err(InputError::TooFewPoints.into());
@@ -247,17 +270,25 @@ pub(super) fn collect_dates(
     set.insert(issue);
     set.insert(maturity);
 
-    // Collect all fixed coupon dates
-    for (_, ds, _, _) in fixed_schedules {
-        set.extend(ds.iter().copied());
+    // Collect all fixed coupon dates (accrual boundaries + payment dates)
+    for (_, _, period_map, _) in fixed_schedules {
+        for period in period_map.values() {
+            set.insert(period.accrual_start);
+            set.insert(period.accrual_end);
+            set.insert(period.payment_date);
+        }
     }
 
-    // Collect all floating coupon dates
-    for (_, ds, _) in float_schedules {
-        set.extend(ds.iter().copied());
+    // Collect all floating coupon dates (accrual boundaries + payment dates)
+    for (_, _, period_map) in float_schedules {
+        for period in period_map.values() {
+            set.insert(period.accrual_start);
+            set.insert(period.accrual_end);
+            set.insert(period.payment_date);
+        }
     }
 
-    // Collect all periodic fee dates
+    // Collect all periodic fee dates (accrual boundaries + payment dates)
     for dates in periodic_fee_date_slices {
         set.extend(dates.iter().copied());
     }
@@ -321,7 +352,9 @@ pub(super) fn compute_coupon_schedules(
     //!     freq: Tenor::semi_annual(),
     //!     dc: DayCount::Thirty360,
     //!     bdc: BusinessDayConvention::Following,
-    //!     calendar_id: Some("usny".to_string()),
+    //!     calendar_id: "usny".to_string(),
+    //!     end_of_month: false,
+    //!     payment_lag_days: 0,
     //!     stub: StubKind::None,
     //! };
     //! // Note: compute_coupon_schedules would be called here
@@ -423,7 +456,9 @@ pub(super) fn compute_coupon_schedules(
             chosen_coupon.schedule.freq,
             chosen_coupon.schedule.stub,
             chosen_coupon.schedule.bdc,
-            chosen_coupon.schedule.calendar_id.as_deref(),
+            chosen_coupon.schedule.end_of_month,
+            chosen_coupon.schedule.payment_lag_days,
+            &chosen_coupon.schedule.calendar_id,
         )?;
         if dates.len() < 2 {
             return Err(InputError::TooFewPoints.into());
@@ -439,6 +474,8 @@ pub(super) fn compute_coupon_schedules(
                     bdc: chosen_coupon.schedule.bdc,
                     calendar_id: chosen_coupon.schedule.calendar_id.clone(),
                     stub: chosen_coupon.schedule.stub,
+                    end_of_month: chosen_coupon.schedule.end_of_month,
+                    payment_lag_days: chosen_coupon.schedule.payment_lag_days,
                 };
                 used_fixed_specs.push(spec.clone());
                 fixed_schedules.push((spec, dates.clone(), prev.clone(), first_or_last));
@@ -465,6 +502,8 @@ pub(super) fn compute_coupon_schedules(
                         bdc: chosen_coupon.schedule.bdc,
                         calendar_id: chosen_coupon.schedule.calendar_id.clone(),
                         fixing_calendar_id: None,
+                        end_of_month: chosen_coupon.schedule.end_of_month,
+                        payment_lag_days: chosen_coupon.schedule.payment_lag_days,
                     },
                     coupon_type: split,
                     freq: chosen_coupon.schedule.freq,

@@ -18,7 +18,9 @@ fn test_quarterly_schedule_generation() -> Result<()> {
         Tenor::quarterly(),
         StubKind::None,
         BusinessDayConvention::ModifiedFollowing,
-        None,
+        false,
+        0,
+        "weekends_only",
     )?;
 
     // Should have 5 dates (4 periods): Jan, Apr, Jul, Oct, Jan
@@ -39,7 +41,9 @@ fn test_semi_annual_schedule() -> Result<()> {
         Tenor::semi_annual(),
         StubKind::None,
         BusinessDayConvention::Following,
-        None,
+        false,
+        0,
+        "weekends_only",
     )?;
 
     // 2 years semi-annual = 5 dates (4 periods): Jan, Jul, Jan, Jul, Jan
@@ -58,7 +62,9 @@ fn test_annual_schedule() -> Result<()> {
         Tenor::annual(),
         StubKind::None,
         BusinessDayConvention::Following,
-        None,
+        false,
+        0,
+        "weekends_only",
     )?;
 
     // 5 years annual = 6 dates (5 periods)
@@ -77,7 +83,9 @@ fn test_monthly_schedule() -> Result<()> {
         Tenor::monthly(),
         StubKind::None,
         BusinessDayConvention::Following,
-        None,
+        false,
+        0,
+        "weekends_only",
     )?;
 
     // 6 months = 7 dates (6 periods)
@@ -96,7 +104,9 @@ fn test_schedule_ordering() -> Result<()> {
         Tenor::quarterly(),
         StubKind::None,
         BusinessDayConvention::Following,
-        None,
+        false,
+        0,
+        "weekends_only",
     )?;
 
     // Verify dates are in ascending order
@@ -120,7 +130,9 @@ fn test_period_coverage() -> Result<()> {
         Tenor::quarterly(),
         StubKind::None,
         BusinessDayConvention::Following,
-        None,
+        false,
+        0,
+        "weekends_only",
     )?;
 
     // First date should equal start

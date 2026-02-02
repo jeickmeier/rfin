@@ -1937,7 +1937,12 @@ impl CDSTranchePricer {
                 tranche.payment_frequency,
                 self.params.schedule_stub,
                 tranche.business_day_convention,
-                tranche.calendar_id.as_deref(),
+                false,
+                0,
+                tranche
+                    .calendar_id
+                    .as_deref()
+                    .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
             )?
             .dates
         };

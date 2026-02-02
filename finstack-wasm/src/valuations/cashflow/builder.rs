@@ -97,8 +97,10 @@ impl JsScheduleParams {
         frequency: &JsTenor,
         day_count: &JsDayCount,
         business_day_convention: JsBusinessDayConvention,
-        calendar_id: Option<String>,
+        calendar_id: String,
         stub_kind: Option<JsStubKind>,
+        end_of_month: Option<bool>,
+        payment_lag_days: Option<i32>,
     ) -> JsScheduleParams {
         JsScheduleParams {
             inner: CoreScheduleParams {
@@ -109,6 +111,8 @@ impl JsScheduleParams {
                 stub: stub_kind
                     .map(|s| s.inner())
                     .unwrap_or(finstack_core::dates::StubKind::None),
+                end_of_month: end_of_month.unwrap_or(false),
+                payment_lag_days: payment_lag_days.unwrap_or(0),
             },
         }
     }
@@ -169,6 +173,8 @@ impl JsFixedCouponSpec {
                 bdc: sched.bdc,
                 calendar_id: sched.calendar_id,
                 stub: sched.stub,
+                end_of_month: sched.end_of_month,
+                payment_lag_days: sched.payment_lag_days,
             },
         }
     }
@@ -248,7 +254,9 @@ impl JsFloatingCouponSpec {
                     dc: sched.dc,
                     bdc: sched.bdc,
                     calendar_id: calendar_id.clone(),
-                    fixing_calendar_id: calendar_id,
+                    fixing_calendar_id: Some(calendar_id),
+                    end_of_month: sched.end_of_month,
+                    payment_lag_days: sched.payment_lag_days,
                 },
                 coupon_type: coupon_type.inner(),
                 freq: sched.freq,

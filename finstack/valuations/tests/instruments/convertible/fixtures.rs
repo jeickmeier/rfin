@@ -165,8 +165,10 @@ pub fn create_convertible_with_policy(policy: ConversionPolicy) -> ConvertibleBo
         freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
         stub: StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
     };
 
     ConvertibleBond {
@@ -204,8 +206,10 @@ pub fn create_convertible_with_conversion_price() -> ConvertibleBond {
         freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
         stub: StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
     };
 
     ConvertibleBond {
@@ -251,8 +255,10 @@ pub fn create_floating_convertible() -> ConvertibleBond {
             reset_lag_days: 2,
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,
-            calendar_id: None,
+            calendar_id: "weekends_only".to_string(),
             fixing_calendar_id: None,
+            end_of_month: false,
+            payment_lag_days: 0,
         },
         coupon_type: CouponType::Cash,
         freq: Tenor::quarterly(),

@@ -216,8 +216,10 @@ let fixed_spec = FixedCouponSpec {
     freq: Tenor::semi_annual(),
     dc: DayCount::Act360,
     bdc: BusinessDayConvention::Following,
-    calendar_id: None,
+    calendar_id: "weekends_only".to_string(),
     stub: StubKind::None,
+    end_of_month: false,
+    payment_lag_days: 0,
 };
 
 let schedule = CashFlowSchedule::builder()
@@ -272,8 +274,10 @@ let float_spec = FloatingCouponSpec {
         reset_lag_days: 2,          // T-2 fixing convention
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
         fixing_calendar_id: None,   // Uses calendar_id if None
+        end_of_month: false,
+        payment_lag_days: 0,
     },
     freq: Tenor::quarterly(),
     stub: StubKind::None,
@@ -396,7 +400,7 @@ let drawn_fee = FeeSpec::PeriodicBps {
     freq: Tenor::quarterly(),
     dc: DayCount::Act360,
     bdc: BusinessDayConvention::ModifiedFollowing,
-    calendar_id: None,
+    calendar_id: "weekends_only".to_string(),
     stub: StubKind::None,
 };
 
@@ -409,7 +413,7 @@ let undrawn_fee = FeeSpec::PeriodicBps {
     freq: Tenor::quarterly(),
     dc: DayCount::Act360,
     bdc: BusinessDayConvention::ModifiedFollowing,
-    calendar_id: None,
+    calendar_id: "weekends_only".to_string(),
     stub: StubKind::None,
 };
 
@@ -716,8 +720,10 @@ let coupon = FixedCouponSpec {
     freq: Tenor::quarterly(),
     dc: DayCount::Act360,
     bdc: BusinessDayConvention::ModifiedFollowing,
-    calendar_id: None,
+    calendar_id: "weekends_only".to_string(),
     stub: StubKind::None,
+    end_of_month: false,
+    payment_lag_days: 0,
 };
 
 let schedule = CashFlowSchedule::builder()
@@ -753,8 +759,10 @@ let pik_spec = FixedCouponSpec {
     freq: Tenor::semi_annual(),
     dc: DayCount::Thirty360,
     bdc: BusinessDayConvention::Following,
-    calendar_id: None,
+    calendar_id: "weekends_only".to_string(),
     stub: StubKind::None,
+    end_of_month: false,
+    payment_lag_days: 0,
 };
 
 // Years 3-5: Cash
@@ -764,8 +772,10 @@ let cash_spec = FixedCouponSpec {
     freq: Tenor::semi_annual(),
     dc: DayCount::Thirty360,
     bdc: BusinessDayConvention::Following,
-    calendar_id: None,
+    calendar_id: "weekends_only".to_string(),
     stub: StubKind::None,
+    end_of_month: false,
+    payment_lag_days: 0,
 };
 
 let pik_end = Date::from_calendar_date(2027, Month::January, 1)?;
@@ -885,8 +895,10 @@ let schedule = CashFlowSchedule::builder()
         freq: Tenor::semi_annual(),
         dc: DayCount::Thirty360,
         bdc: BusinessDayConvention::Following,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
         stub: StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
     })
     .build_with_curves(None)?;
 

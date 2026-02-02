@@ -780,8 +780,10 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             freq: Tenor::quarterly(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::Following,
-            calendar_id: None,
+            calendar_id: "weekends_only".to_string(),
             stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
         };
 
         let tranche = CdsTranche::new(
@@ -939,8 +941,10 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             freq: Tenor::semi_annual(),
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::Following,
-            calendar_id: None,
+            calendar_id: "weekends_only".to_string(),
             stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
         };
 
         let convertible = ConvertibleBond {

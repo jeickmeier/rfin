@@ -111,7 +111,12 @@ fn calculate_accrued_premium(
         cds.premium.freq,
         cds.premium.stub,
         cds.premium.bdc,
-        cds.premium.calendar_id.as_deref(),
+        false,
+        0,
+        cds.premium
+            .calendar_id
+            .as_deref()
+            .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
     )?
     .dates;
     if schedule.is_empty() {

@@ -138,8 +138,10 @@ fn bench_schedule_builder_fixed(c: &mut Criterion) {
             freq: Tenor::semi_annual(),
             dc: DayCount::Thirty360,
             bdc: BusinessDayConvention::Following,
-            calendar_id: None,
+            calendar_id: "weekends_only".to_string(),
             stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
         };
 
         let init = Money::new(1_000_000.0, Currency::USD);

@@ -127,7 +127,7 @@ pub fn to_cashflow_fee_spec(mbs_fee: &MbsFeeSpec) -> crate::cashflow::builder::F
         freq: mbs_fee.frequency,
         dc: mbs_fee.day_count,
         bdc: BusinessDayConvention::Following,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
         stub: StubKind::None,
     }
 }

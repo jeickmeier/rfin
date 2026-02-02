@@ -25,8 +25,10 @@ fn floating_rate_spec(index_id: &str, spread_bp: f64) -> FloatingRateSpec {
         reset_lag_days: 2,
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
         fixing_calendar_id: None,
+        end_of_month: false,
+        payment_lag_days: 0,
     }
 }
 

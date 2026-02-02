@@ -28,8 +28,8 @@ pub enum FeeSpec {
         dc: DayCount,
         /// Bdc.
         bdc: BusinessDayConvention,
-        /// Calendar id.
-        calendar_id: Option<String>,
+        /// Calendar id (use "weekends_only" for weekends-only adjustments).
+        calendar_id: String,
         /// Stub.
         stub: StubKind,
     },

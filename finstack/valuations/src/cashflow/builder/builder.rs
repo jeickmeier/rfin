@@ -34,7 +34,9 @@
 //!      freq: Tenor::semi_annual(),
 //!      dc: DayCount::Act365F,
 //!      bdc: BusinessDayConvention::Following,
-//!      calendar_id: None,
+//!      calendar_id: "weekends_only".to_string(),
+//!      end_of_month: false,
+//!      payment_lag_days: 0,
 //!      stub: StubKind::None,
 //!  });
 //! let schedule = b.build_with_curves(None)
@@ -45,7 +47,7 @@
 //! ```
 
 use super::schedule::{finalize_flows, CashFlowSchedule};
-use crate::cashflow::builder::{AmortizationSpec, Notional};
+use crate::cashflow::builder::{AmortizationSpec, FloatingRateSpec, Notional};
 use crate::cashflow::primitives::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -323,6 +325,13 @@ fn collect_all_dates(inputs: &DateCollectionInputs<'_>) -> finstack_core::Result
         inputs.fixed_fees,
         inputs.notional,
     );
+    // Include accrual boundaries for periodic fees to ensure outstanding is tracked at accrual start.
+    for pf in inputs.periodic_fees {
+        for period in pf.prev.values() {
+            dates.push(period.accrual_start);
+            dates.push(period.accrual_end);
+        }
+    }
     for ev in inputs.principal_events {
         dates.push(ev.date);
     }
@@ -614,26 +623,39 @@ impl CashFlowBuilder {
         let Some((issue, maturity)) = self.issue_maturity_or_record_error("fixed_cf") else {
             return self;
         };
+        let FixedCouponSpec {
+            coupon_type,
+            rate,
+            freq,
+            dc,
+            bdc,
+            calendar_id,
+            stub,
+            end_of_month,
+            payment_lag_days,
+        } = spec;
         self.coupon_program.push(CouponProgramPiece {
             window: DateWindow {
                 start: issue,
                 end: maturity,
             },
             schedule: ScheduleParams {
-                freq: spec.freq,
-                dc: spec.dc,
-                bdc: spec.bdc,
-                calendar_id: spec.calendar_id,
-                stub: spec.stub,
+                freq,
+                dc,
+                bdc,
+                calendar_id,
+                stub,
+                end_of_month,
+                payment_lag_days,
             },
-            coupon: CouponSpec::Fixed { rate: spec.rate },
+            coupon: CouponSpec::Fixed { rate },
         });
         self.payment_program.push(PaymentProgramPiece {
             window: DateWindow {
                 start: issue,
                 end: maturity,
             },
-            split: spec.coupon_type,
+            split: coupon_type,
         });
         self
     }
@@ -644,23 +666,49 @@ impl CashFlowBuilder {
         let Some((issue, maturity)) = self.issue_maturity_or_record_error("floating_cf") else {
             return self;
         };
+        let FloatingCouponSpec {
+            rate_spec,
+            coupon_type,
+            freq,
+            stub,
+        } = spec;
+        let FloatingRateSpec {
+            index_id,
+            spread_bp,
+            gearing,
+            gearing_includes_spread: _,
+            floor_bp: _,
+            cap_bp: _,
+            all_in_floor_bp: _,
+            index_cap_bp: _,
+            reset_freq: _,
+            reset_lag_days,
+            dc,
+            bdc,
+            calendar_id,
+            fixing_calendar_id: _fixing_calendar_id,
+            end_of_month,
+            payment_lag_days,
+        } = rate_spec;
         self.coupon_program.push(CouponProgramPiece {
             window: DateWindow {
                 start: issue,
                 end: maturity,
             },
             schedule: ScheduleParams {
-                freq: spec.freq,
-                dc: spec.rate_spec.dc,
-                bdc: spec.rate_spec.bdc,
-                calendar_id: spec.rate_spec.calendar_id.clone(),
-                stub: spec.stub,
+                freq,
+                dc,
+                bdc,
+                calendar_id: calendar_id.clone(),
+                stub,
+                end_of_month,
+                payment_lag_days,
             },
             coupon: CouponSpec::Float {
-                index_id: spec.rate_spec.index_id,
-                margin_bp: spec.rate_spec.spread_bp,
-                gearing: spec.rate_spec.gearing,
-                reset_lag_days: spec.rate_spec.reset_lag_days,
+                index_id,
+                margin_bp: spread_bp,
+                gearing,
+                reset_lag_days,
             },
         });
         self.payment_program.push(PaymentProgramPiece {
@@ -668,7 +716,7 @@ impl CashFlowBuilder {
                 start: issue,
                 end: maturity,
             },
-            split: spec.coupon_type,
+            split: coupon_type,
         });
         self
     }
@@ -1101,7 +1149,9 @@ impl CashFlowBuilder {
     ///     freq: Tenor::semi_annual(),
     ///     dc: DayCount::Thirty360,
     ///     bdc: BusinessDayConvention::Following,
-    ///     calendar_id: None,
+    ///     calendar_id: "weekends_only".to_string(),
+    ///     end_of_month: false,
+    ///     payment_lag_days: 0,
     ///     stub: StubKind::None,
     /// };
     ///

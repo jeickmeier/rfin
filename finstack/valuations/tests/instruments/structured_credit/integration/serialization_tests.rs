@@ -329,8 +329,10 @@ fn build_full_feature_structured_credit() -> StructuredCredit {
         reset_lag_days: 2,
         dc: DayCount::Act360,
         bdc: BusinessDayConvention::ModifiedFollowing,
-        calendar_id: Some("NYC".to_string()),
+        calendar_id: "NYC".to_string(),
         fixing_calendar_id: Some("NYC".to_string()),
+        end_of_month: false,
+        payment_lag_days: 0,
     };
 
     let mut senior = Tranche::new(

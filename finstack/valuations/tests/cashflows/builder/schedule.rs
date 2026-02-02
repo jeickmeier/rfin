@@ -43,8 +43,10 @@ fn linear_vs_step_parity() {
         freq: Tenor::quarterly(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
         stub: StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
     };
 
     let init = Money::new(1_000.0, Currency::USD);
@@ -107,8 +109,10 @@ fn pik_capitalization_increases_outstanding() {
         freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
         stub: StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
     };
 
     let mut b = CashFlowSchedule::builder();
@@ -144,8 +148,10 @@ fn ordering_invariants_within_date() {
         freq: Tenor::quarterly(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
         stub: StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
     };
 
     // Percent-per-period amortization to force amort on coupon dates
@@ -191,8 +197,10 @@ fn fixed_schedule_npv_equals_sum_cashflows() {
         freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
         stub: StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
     };
 
     let init = Money::new(1_000_000.0, Currency::USD);
@@ -243,8 +251,10 @@ fn detects_stub_periods() {
         freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
         stub: StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
     };
 
     let init = Money::new(1_000_000.0, Currency::USD);
@@ -288,8 +298,10 @@ fn outstanding_by_date_dedup_and_values() {
         freq: Tenor::quarterly(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
         stub: StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
     };
 
     let mut b = CashFlowSchedule::builder();
@@ -368,8 +380,10 @@ fn schedule_errors_on_unknown_calendar() {
         freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
-        calendar_id: Some("UNKNOWN_CALENDAR_XYZ".to_string()),
+        calendar_id: "UNKNOWN_CALENDAR_XYZ".to_string(),
         stub: StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
     };
 
     let mut builder = CashFlowSchedule::builder();
@@ -401,8 +415,10 @@ fn stub_period_thirty360_produces_proportional_accrual() {
         freq: Tenor::semi_annual(),
         dc: DayCount::Thirty360, // Market standard for corporate bonds
         bdc: BusinessDayConvention::Following,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
         stub: StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
     };
 
     let init = Money::new(1_000_000.0, Currency::USD);
@@ -482,8 +498,10 @@ fn npv_golden_value_with_realistic_discount_curve() {
         freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
         stub: StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
     };
 
     let init = Money::new(1_000_000.0, Currency::USD);
@@ -597,8 +615,10 @@ fn coupon_amount_golden_values() {
         freq: Tenor::semi_annual(),
         dc: DayCount::Thirty360, // 30/360 gives exact 0.5 year fraction for 6 months
         bdc: BusinessDayConvention::Following,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
         stub: StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
     };
 
     let init = Money::new(1_000_000.0, Currency::USD);
@@ -665,8 +685,10 @@ fn npv_decreases_with_higher_discount_rate() {
         freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
         stub: StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
     };
 
     let init = Money::new(1_000_000.0, Currency::USD);

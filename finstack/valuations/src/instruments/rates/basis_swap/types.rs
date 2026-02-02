@@ -23,7 +23,7 @@
 #[allow(unused_imports)] // Used in doc examples and tests
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_core::{
-    dates::{CalendarRegistry, Date, HolidayCalendar, Schedule, ScheduleBuilder, StubKind},
+    dates::{Date, Schedule, StubKind},
     market_data::context::MarketContext,
     money::Money,
     types::{CurveId, InstrumentId},
@@ -374,77 +374,6 @@ impl BasisSwap {
         })
     }
 
-    fn resolve_calendar(&self) -> Result<Option<&'static dyn HolidayCalendar>> {
-        match self.calendar_id.as_deref() {
-            Some(id) => {
-                if let Some(cal) = CalendarRegistry::global().resolve_str(id) {
-                    Ok(Some(cal))
-                } else if self.allow_calendar_fallback {
-                    // Calculate potential impact for warning message
-                    let max_lag_days = self
-                        .primary_leg
-                        .payment_lag_days
-                        .max(self.reference_leg.payment_lag_days);
-                    let impact_note = if max_lag_days > 0 {
-                        format!(
-                            " Payment lags (up to {} days) will be applied as calendar days, \
-                             which may shift payment dates by several business days versus market convention. \
-                             This could affect NPV by several basis points.",
-                            max_lag_days
-                        )
-                    } else {
-                        String::new()
-                    };
-                    tracing::warn!(
-                        instrument_id = %self.id.as_str(),
-                        calendar_id = id,
-                        max_payment_lag_days = max_lag_days,
-                        "Calendar '{}' not found; falling back to unadjusted schedule and calendar-day lags.{}",
-                        id,
-                        impact_note
-                    );
-                    Ok(None)
-                } else {
-                    Err(finstack_core::Error::Input(
-                        finstack_core::InputError::NotFound {
-                            id: format!("calendar '{}'", id),
-                        },
-                    ))
-                }
-            }
-            None => {
-                if self.allow_calendar_fallback {
-                    let max_lag_days = self
-                        .primary_leg
-                        .payment_lag_days
-                        .max(self.reference_leg.payment_lag_days);
-                    let impact_note = if max_lag_days > 0 {
-                        format!(
-                            " Payment lags (up to {} days) will be applied as calendar days, \
-                             which may shift payment dates versus market convention.",
-                            max_lag_days
-                        )
-                    } else {
-                        String::new()
-                    };
-                    tracing::warn!(
-                        instrument_id = %self.id.as_str(),
-                        max_payment_lag_days = max_lag_days,
-                        "No calendar_id set; falling back to unadjusted schedule and calendar-day lags.{}",
-                        impact_note
-                    );
-                    Ok(None)
-                } else {
-                    Err(finstack_core::Error::Input(
-                        finstack_core::InputError::NotFound {
-                            id: "BasisSwap calendar_id".to_string(),
-                        },
-                    ))
-                }
-            }
-        }
-    }
-
     /// Builds a period schedule for the specified leg using shared schedule utilities.
     ///
     /// # Arguments
@@ -453,17 +382,22 @@ impl BasisSwap {
     /// # Returns
     /// A `Schedule` containing the accrual boundary dates for the leg.
     pub fn leg_schedule(&self, leg: &BasisSwapLeg) -> Result<Schedule> {
-        let cal = self.resolve_calendar()?;
-
-        let mut builder = ScheduleBuilder::new(self.start_date, self.maturity_date)?
-            .frequency(leg.frequency)
-            .stub_rule(self.stub_kind);
-
-        if let Some(cal) = cal {
-            builder = builder.adjust_with(leg.bdc, cal);
-        }
-
-        builder.build()
+        let sched = crate::cashflow::builder::build_dates(
+            self.start_date,
+            self.maturity_date,
+            leg.frequency,
+            self.stub_kind,
+            leg.bdc,
+            false,
+            leg.payment_lag_days,
+            self.calendar_id
+                .as_deref()
+                .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
+        )?;
+        Ok(Schedule {
+            dates: sched.dates,
+            warnings: Vec::new(),
+        })
     }
 
     /// Calculates the present value of a floating rate leg.
@@ -529,14 +463,17 @@ impl BasisSwap {
         let fwd = context.get_forward(&leg.forward_curve_id)?;
         let currency = self.notional.currency();
 
-        let periods = crate::instruments::common::pricing::schedule::build_periods(
-            crate::instruments::common::pricing::schedule::BuildPeriodsParams {
+        let periods = crate::cashflow::builder::periods::build_periods(
+            crate::cashflow::builder::periods::BuildPeriodsParams {
                 start: self.start_date,
                 end: self.maturity_date,
                 frequency: leg.frequency,
                 stub: self.stub_kind,
                 bdc: leg.bdc,
-                calendar_id: self.calendar_id.as_deref(),
+                calendar_id: self
+                    .calendar_id
+                    .as_deref()
+                    .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
                 end_of_month: false,
                 day_count: leg.day_count,
                 payment_lag_days: leg.payment_lag_days,
@@ -634,14 +571,17 @@ impl BasisSwap {
 
         let disc = curves.get_discount(&self.discount_curve_id)?;
 
-        let periods = crate::instruments::common::pricing::schedule::build_periods(
-            crate::instruments::common::pricing::schedule::BuildPeriodsParams {
+        let periods = crate::cashflow::builder::periods::build_periods(
+            crate::cashflow::builder::periods::BuildPeriodsParams {
                 start: self.start_date,
                 end: self.maturity_date,
                 frequency: leg.frequency,
                 stub: self.stub_kind,
                 bdc: leg.bdc,
-                calendar_id: self.calendar_id.as_deref(),
+                calendar_id: self
+                    .calendar_id
+                    .as_deref()
+                    .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
                 end_of_month: false,
                 day_count: leg.day_count,
                 payment_lag_days: leg.payment_lag_days,

@@ -44,8 +44,10 @@
 //!     freq: Tenor::semi_annual(),
 //!     dc: DayCount::Act365F,
 //!     bdc: BusinessDayConvention::Following,
-//!     calendar_id: None,
+//!     calendar_id: "weekends_only".to_string(),
 //!     stub: StubKind::None,
+//!     end_of_month: false,
+//!     payment_lag_days: 0,
 //! };
 //!
 //! let schedule = CashFlowSchedule::builder()
@@ -64,9 +66,11 @@ pub(crate) mod compiler;
 pub(crate) mod emission;
 
 // Public modules
+pub mod calendar;
 pub(crate) mod credit_rates;
 pub(crate) mod dataframe;
 pub mod date_generation;
+pub mod periods;
 pub mod rate_helpers;
 pub mod schedule;
 pub mod specs;

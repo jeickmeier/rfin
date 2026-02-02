@@ -45,12 +45,8 @@ pub(crate) fn finalize_flows(
 
     let mut cals: Vec<String> = fixed
         .iter()
-        .filter_map(|s| s.calendar_id.clone())
-        .chain(
-            floating
-                .iter()
-                .filter_map(|s| s.rate_spec.calendar_id.clone()),
-        )
+        .map(|s| s.calendar_id.clone())
+        .chain(floating.iter().map(|s| s.rate_spec.calendar_id.clone()))
         .collect();
     cals.sort_unstable();
     cals.dedup();
@@ -156,7 +152,9 @@ impl CashFlowSchedule {
     ///     freq: Tenor::semi_annual(),
     ///     dc: DayCount::Act365F,
     ///     bdc: BusinessDayConvention::Following,
-    ///     calendar_id: None,
+    ///     calendar_id: "weekends_only".to_string(),
+    ///     end_of_month: false,
+    ///     payment_lag_days: 0,
     ///     stub: StubKind::None,
     /// };
     ///

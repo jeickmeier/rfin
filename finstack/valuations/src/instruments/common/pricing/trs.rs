@@ -427,8 +427,10 @@ mod tests {
                 freq: Tenor::quarterly(),
                 dc: DayCount::Act365F,
                 bdc: BusinessDayConvention::ModifiedFollowing,
-                calendar_id: None,
+                calendar_id: "weekends_only".to_string(),
                 stub: StubKind::None,
+                end_of_month: false,
+                payment_lag_days: 0,
             },
         );
 
@@ -492,8 +494,10 @@ mod tests {
                 freq: Tenor::quarterly(),
                 dc: DayCount::Act365F,
                 bdc: BusinessDayConvention::ModifiedFollowing,
-                calendar_id: None,
+                calendar_id: "weekends_only".to_string(),
                 stub: StubKind::None,
+                end_of_month: false,
+                payment_lag_days: 0,
             },
         );
 

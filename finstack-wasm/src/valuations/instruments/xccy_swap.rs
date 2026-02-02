@@ -579,7 +579,11 @@ impl JsXccySwap {
                 leg.frequency,
                 self.inner.stub_kind,
                 leg.bdc,
-                leg.calendar_id.as_deref(),
+                false,
+                leg.payment_lag_days,
+                leg.calendar_id
+                    .as_deref()
+                    .unwrap_or(finstack_valuations::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
             )
             .map_err(|e| js_error(e.to_string()))?;
 

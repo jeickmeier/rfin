@@ -69,10 +69,13 @@ where
         option.rate_option_type,
         super::super::RateOptionType::Caplet | super::super::RateOptionType::Floorlet
     ) {
-        let payment_date = crate::instruments::common::pricing::schedule::adjust_date(
+        let payment_date = crate::cashflow::builder::calendar::adjust_date(
             option.end_date,
             option.bdc,
-            option.calendar_id.as_deref(),
+            option
+                .calendar_id
+                .as_deref()
+                .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
         )?;
         let tau = option.day_count.year_fraction(
             option.start_date,
@@ -83,14 +86,17 @@ where
     }
 
     // Cap/floor: iterate schedule
-    let periods = crate::instruments::common::pricing::schedule::build_periods(
-        crate::instruments::common::pricing::schedule::BuildPeriodsParams {
+    let periods = crate::cashflow::builder::periods::build_periods(
+        crate::cashflow::builder::periods::BuildPeriodsParams {
             start: option.start_date,
             end: option.end_date,
             frequency: option.frequency,
             stub: option.stub_kind,
             bdc: option.bdc,
-            calendar_id: option.calendar_id.as_deref(),
+            calendar_id: option
+                .calendar_id
+                .as_deref()
+                .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
             end_of_month: false,
             day_count: option.day_count,
             payment_lag_days: 0,

@@ -35,8 +35,10 @@ fn example_stepup_bond() -> finstack_core::Result<()> {
         freq: Tenor::semi_annual(),
         dc: DayCount::Act365F,
         bdc: BusinessDayConvention::Following,
-        calendar_id: None,
+        calendar_id: "weekends_only".to_string(),
         stub: StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
     };
 
     let custom_schedule = CashFlowSchedule::builder()
@@ -106,8 +108,10 @@ fn example_pik_toggle_bond() -> finstack_core::Result<()> {
         freq: Tenor::quarterly(),
         dc: DayCount::Thirty360,
         bdc: BusinessDayConvention::Following,
-        calendar_id: Some("usd".to_string()),
+        calendar_id: "usd".to_string(),
         stub: StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
     };
 
     let custom_schedule = CashFlowSchedule::builder()
@@ -179,8 +183,10 @@ fn example_amortizing_bond_with_fees() -> finstack_core::Result<()> {
             freq: Tenor::semi_annual(),
             dc: DayCount::Act360,
             bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: Some("eur".to_string()),
+            calendar_id: "eur".to_string(),
             stub: StubKind::ShortFront,
+            end_of_month: false,
+            payment_lag_days: 0,
         })
         .build_with_curves(None)?;
 
@@ -252,8 +258,10 @@ fn example_comparison_regular_vs_custom() -> finstack_core::Result<()> {
             freq: Tenor::semi_annual(), // Higher frequency than regular bond
             dc: DayCount::Act365F,
             bdc: BusinessDayConvention::Following,
-            calendar_id: None,
+            calendar_id: "weekends_only".to_string(),
             stub: StubKind::None,
+            end_of_month: false,
+            payment_lag_days: 0,
         })
         .build_with_curves(None)?;
 

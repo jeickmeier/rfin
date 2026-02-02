@@ -628,14 +628,17 @@ impl YoYInflationSwap {
 
     fn schedule(&self) -> finstack_core::Result<Vec<(Date, Date, Date)>> {
         let bdc = self.bdc.unwrap_or(BusinessDayConvention::Following);
-        let periods = crate::instruments::common::pricing::schedule::build_periods(
-            crate::instruments::common::pricing::schedule::BuildPeriodsParams {
+        let periods = crate::cashflow::builder::periods::build_periods(
+            crate::cashflow::builder::periods::BuildPeriodsParams {
                 start: self.start,
                 end: self.maturity,
                 frequency: self.frequency,
                 stub: StubKind::None,
                 bdc,
-                calendar_id: self.calendar_id.as_deref(),
+                calendar_id: self
+                    .calendar_id
+                    .as_deref()
+                    .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
                 end_of_month: false,
                 day_count: self.dc,
                 payment_lag_days: 0,

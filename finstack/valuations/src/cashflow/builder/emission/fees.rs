@@ -156,10 +156,12 @@ pub(in crate::cashflow::builder) fn emit_fees_on(
     let bp_to_rate = Decimal::new(1, 4); // 0.0001
 
     for pf in periodic_fees {
-        if let Some(&prev) = pf.prev.get(&d) {
-            let yf = pf
-                .dc
-                .year_fraction(prev, d, finstack_core::dates::DayCountCtx::default())?;
+        if let Some(period) = pf.prev.get(&d) {
+            let yf = pf.dc.year_fraction(
+                period.accrual_start,
+                period.accrual_end,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
             let base_amt = match &pf.base {
                 FeeBase::Drawn => outstanding,
                 FeeBase::Undrawn { facility_limit } => {

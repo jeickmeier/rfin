@@ -50,8 +50,10 @@ let schedule_params = ScheduleParams {
     freq: Tenor::quarterly(),                        // Quarterly resets
     dc: DayCount::Act360,                           // Day count for accrual
     bdc: BusinessDayConvention::ModifiedFollowing,  // Business day adjustment
-    calendar_id: Some("NYC".to_string()),           // New York calendar
+    calendar_id: "NYC".to_string(),           // New York calendar
     stub: StubKind::ShortFront,                     // Short stub at front
+    end_of_month: false,
+    payment_lag_days: 0,
 };
 
 // 3. Create the TRS schedule specification

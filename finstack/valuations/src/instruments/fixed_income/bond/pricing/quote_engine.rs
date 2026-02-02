@@ -1116,7 +1116,7 @@ fn price_from_asw_market(
             spec.freq,
             spec.stub,
             spec.bdc,
-            spec.calendar_id.as_deref(),
+            Some(spec.calendar_id.as_str()),
         ),
         _ => return Err(finstack_core::InputError::Invalid.into()),
     };

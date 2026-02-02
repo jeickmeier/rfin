@@ -20,7 +20,9 @@ fn expected_forward_rate(
         swaption.float_freq,
         finstack_core::dates::StubKind::None,
         finstack_core::dates::BusinessDayConvention::Following,
-        None,
+        false,
+        0,
+        finstack_valuations::cashflow::builder::calendar::WEEKENDS_ONLY_ID,
     )
     .unwrap();
 
