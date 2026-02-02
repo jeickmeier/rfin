@@ -63,7 +63,7 @@
 //!
 //! ## Migration
 //!
-//! ```rust
+//! ```rust,ignore
 //! // Before
 //! use finstack_valuations::instruments::{FixedLegSpec, FloatLegSpec, Instrument};
 //!

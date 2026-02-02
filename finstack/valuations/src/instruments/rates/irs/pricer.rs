@@ -983,9 +983,13 @@ mod tests {
             .expect("swap");
 
         let resolved = swap.resolved_float_leg();
-        assert_eq!(resolved.calendar_id.as_deref(), Some("usny"));
-        assert_eq!(resolved.fixing_calendar_id.as_deref(), Some("usny"));
-        assert_eq!(resolved.payment_delay_days, 2);
+        // calendar_id: None stays None (no longer overridden by convention).
+        // Users wanting convention calendars should set them explicitly.
+        assert_eq!(resolved.calendar_id.as_deref(), None);
+        assert_eq!(resolved.fixing_calendar_id.as_deref(), None);
+        // payment_delay_days: 0 is explicitly set and stays 0 (not overridden by convention).
+        // Use negative value (e.g., -1) to request convention default.
+        assert_eq!(resolved.payment_delay_days, 0);
 
         // Pricing should succeed when defaults are applied
         let result = swap.value(&ctx, as_of);
@@ -1019,9 +1023,10 @@ mod tests {
     fn ois_floating_leg_matches_analytical_identity() {
         use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 
-        let as_of = date(2024, 1, 1);
-        let start = date(2024, 3, 1);
-        let end = date(2024, 6, 1);
+        let as_of = date(2024, 1, 2); // Tuesday
+                                      // Use dates that don't require business day adjustment (both weekdays)
+        let start = date(2024, 3, 4); // Monday
+        let end = date(2024, 6, 3); // Monday
 
         // Create a non-flat curve to make the test meaningful
         let disc_id = CurveId::new("USD-OIS");

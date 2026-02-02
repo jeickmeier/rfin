@@ -5,3 +5,4 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 cc 1ca65caba5ab39a1f9da7336b46d134d62f27d193b1eab106718082fb1269da5 # shrinks to fixed_rate = 0.0, curve_rate = 0.0, notional = 1000000.0
+cc 93a6c50d664a58d18643af23aaf4ba3fc5f2d261b62757e40a770a2a310ef36d # shrinks to fixed_rate = 0.0, curve_rate = 0.0, notional = 1000000.0

@@ -9,9 +9,7 @@
 
 use crate::finstack_test_utils as test_utils;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{
-    BusinessDayConvention, CalendarRegistry, DateExt, DayCount, StubKind, Tenor,
-};
+use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
@@ -492,12 +490,14 @@ fn test_irs_calendar_adjustments() {
     assert!(schedule.is_ok(), "Should handle calendar adjustments");
 }
 
+/// Test that explicit payment_delay_days: 0 is NOT overridden by convention defaults.
+/// This verifies the fix where 0 means "no delay" rather than "use convention".
 #[test]
-fn test_irs_defaults_apply_ois_payment_lag() {
+fn test_irs_explicit_zero_payment_delay_preserved() {
     let start = date!(2024 - 01 - 02);
     let end = date!(2026 - 01 - 02);
     let swap = InterestRateSwap::builder()
-        .id("IRS-OIS-DEFAULTS".into())
+        .id("IRS-OIS-ZERO-DELAY".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
         .side(PayReceive::ReceiveFixed)
         .fixed(finstack_valuations::instruments::FixedLegSpec {
@@ -512,7 +512,7 @@ fn test_irs_defaults_apply_ois_payment_lag() {
             end,
             par_method: None,
             compounding_simple: true,
-            payment_delay_days: 0,
+            payment_delay_days: 0, // Explicit 0 should stay 0
         })
         .float(finstack_valuations::instruments::FloatLegSpec {
             discount_curve_id: "USD-OIS".into(),
@@ -529,7 +529,7 @@ fn test_irs_defaults_apply_ois_payment_lag() {
                 lookback_days: 0,
                 observation_shift: None,
             },
-            payment_delay_days: 0,
+            payment_delay_days: 0, // Explicit 0 should stay 0
             start,
             end,
         })
@@ -539,6 +539,7 @@ fn test_irs_defaults_apply_ois_payment_lag() {
     let fixed_schedule =
         finstack_valuations::instruments::rates::irs::cashflow::fixed_leg_schedule(&swap)
             .expect("fixed schedule");
+    // Expected schedule with payment_delay = 0 (no delay)
     let expected = build_dates(
         start,
         end,
@@ -546,8 +547,8 @@ fn test_irs_defaults_apply_ois_payment_lag() {
         StubKind::None,
         BusinessDayConvention::ModifiedFollowing,
         false,
-        2,
-        "usny",
+        0, // No payment delay
+        "weekends_only",
     )
     .expect("expected schedule");
     let first_payment = fixed_schedule
@@ -559,12 +560,14 @@ fn test_irs_defaults_apply_ois_payment_lag() {
     assert_eq!(first_payment, expected.dates[0]);
 }
 
+/// Test that explicit reset_lag_days: 0 is NOT overridden by convention defaults.
+/// This verifies the fix where 0 means "spot reset" rather than "use convention".
 #[test]
-fn test_irs_defaults_apply_term_reset_lag() {
+fn test_irs_explicit_zero_reset_lag_preserved() {
     let start = date!(2024 - 01 - 02);
     let end = date!(2024 - 07 - 02);
     let swap = InterestRateSwap::builder()
-        .id("IRS-TERM-DEFAULTS".into())
+        .id("IRS-TERM-ZERO-LAG".into())
         .notional(Money::new(1_000_000.0, Currency::USD))
         .side(PayReceive::ReceiveFixed)
         .fixed(finstack_valuations::instruments::FixedLegSpec {
@@ -591,7 +594,7 @@ fn test_irs_defaults_apply_term_reset_lag() {
             calendar_id: None,
             fixing_calendar_id: None,
             stub: StubKind::None,
-            reset_lag_days: 0,
+            reset_lag_days: 0, // Explicit 0 means spot reset (no lag)
             compounding: Default::default(),
             payment_delay_days: 0,
             start,
@@ -609,11 +612,8 @@ fn test_irs_defaults_apply_term_reset_lag() {
         .find(|cf| cf.kind == finstack_valuations::cashflow::primitives::CFKind::FloatReset)
         .and_then(|cf| cf.reset_date)
         .expect("reset date");
-    let cal = CalendarRegistry::global()
-        .resolve_str("usny")
-        .expect("calendar");
-    let expected_reset = start.add_business_days(-2, cal).expect("reset");
-    assert_eq!(first_reset, expected_reset);
+    // With reset_lag_days: 0, reset date should equal accrual start (spot reset)
+    assert_eq!(first_reset, start);
 }
 
 #[test]

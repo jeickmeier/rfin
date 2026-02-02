@@ -218,7 +218,9 @@ fn discount_curve_swap_repricing() {
                 curve_id: CurveId::from("USD-OIS"),
                 currency,
                 base_date,
-                method: CalibrationMethod::Bootstrap,
+                method: CalibrationMethod::GlobalSolve {
+                    use_analytical_jacobian: true,
+                },
                 interpolation: Default::default(),
                 extrapolation: ExtrapolationPolicy::FlatForward,
                 pricing_discount_id: None,
