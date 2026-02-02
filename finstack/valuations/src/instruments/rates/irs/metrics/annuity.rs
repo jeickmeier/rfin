@@ -46,10 +46,8 @@
 //! - Tuckman, B., & Serrat, A. (2011). *Fixed Income Securities*. Chapter 4.
 //! - Kahan, W. (1965). "Further Remarks on Reducing Truncation Errors."
 
-use crate::instruments::rates::irs::dates::add_payment_delay;
 use crate::instruments::InterestRateSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::dates::Date;
 use finstack_core::math::kahan_sum;
 
 /// Fixed-leg annuity calculator for interest rate swaps.
@@ -66,60 +64,48 @@ impl MetricCalculator for AnnuityCalculator {
 
         let disc = context.curves.get_discount(&irs.fixed.discount_curve_id)?;
 
-        let sched = crate::cashflow::builder::build_dates(
-            irs.fixed.start,
-            irs.fixed.end,
-            irs.fixed.freq,
-            irs.fixed.stub,
-            irs.fixed.bdc,
-            false,
-            0,
-            irs.fixed
-                .calendar_id
-                .as_deref()
-                .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
+        let periods = crate::cashflow::builder::periods::build_periods(
+            crate::cashflow::builder::periods::BuildPeriodsParams {
+                start: irs.fixed.start,
+                end: irs.fixed.end,
+                frequency: irs.fixed.freq,
+                stub: irs.fixed.stub,
+                bdc: irs.fixed.bdc,
+                calendar_id: irs
+                    .fixed
+                    .calendar_id
+                    .as_deref()
+                    .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
+                end_of_month: false,
+                day_count: irs.fixed.dc,
+                payment_lag_days: irs.fixed.payment_delay_days,
+                reset_lag_days: None,
+            },
         )?;
-        let dates: Vec<Date> = sched.dates;
-        if dates.len() < 2 {
+        if periods.is_empty() {
             return Ok(0.0);
         }
 
         // Collect terms for Kahan summation to ensure numerical stability
         // for long-dated swaps with many periods (30Y+ = 120+ quarterly payments)
-        let mut terms = Vec::with_capacity(dates.len());
-        let mut prev = dates[0];
-
-        // Payment delay in business days (typically 2 for Bloomberg OIS swaps)
-        let payment_delay = irs.fixed.payment_delay_days;
-
-        for &d in &dates[1..] {
-            // Apply payment delay: actual payment occurs payment_delay_days after period end
-            // Use shared helper for holiday-aware business day adjustment (strict)
-            let payment_date =
-                add_payment_delay(d, payment_delay, irs.fixed.calendar_id.as_deref())?;
-
+        let mut terms = Vec::with_capacity(periods.len());
+        for period in periods {
             // Only include cashflows where the payment has not yet settled
-            // (payment_date <= as_of means the payment has been made)
-            if payment_date <= as_of {
-                prev = d;
+            if period.payment_date <= as_of {
                 continue;
             }
 
-            let yf = irs.fixed.dc.year_fraction(
-                prev,
-                d,
-                finstack_core::dates::DayCountCtx::default(),
-            )?;
-
             // Use shared helper - handles epsilon validation and relative DF calculation
-            let df =
-                crate::instruments::rates::irs::pricer::relative_df(&disc, as_of, payment_date)?;
+            let df = crate::instruments::rates::irs::pricer::relative_df(
+                &disc,
+                as_of,
+                period.payment_date,
+            )?;
 
             // For IRS fixed legs we always treat coupons as simple interest; the
             // compounding configuration affects coupon accrual, not the annuity
             // weight, so the annuity is just sum(alpha * DF).
-            terms.push(yf * df);
-            prev = d;
+            terms.push(period.accrual_year_fraction * df);
         }
 
         // Use Kahan compensated summation for numerical stability

@@ -420,9 +420,9 @@ impl BasisSwap {
         context: &MarketContext,
         valuation_date: Date,
     ) -> Result<Money> {
-        if schedule.dates.len() < 2 {
+        if schedule.dates.is_empty() {
             return Err(finstack_core::Error::Validation(
-                "BasisSwap leg schedule must contain at least 2 dates".to_string(),
+                "BasisSwap leg schedule must contain at least 1 date".to_string(),
             ));
         }
 
@@ -482,9 +482,7 @@ impl BasisSwap {
         )?;
 
         if periods.is_empty() {
-            return Err(finstack_core::Error::Validation(
-                "BasisSwap leg schedule must contain at least 2 dates".to_string(),
-            ));
+            return Ok(Money::new(0.0, currency));
         }
 
         let leg_periods: Vec<LegPeriod> = periods
@@ -849,10 +847,10 @@ mod tests {
         )
         .expect("should succeed");
 
-        let err = swap.value(&context, base_date).expect_err("should fail");
+        let pv = swap.value(&context, base_date).expect("should succeed");
         assert!(
-            format!("{err}").contains("calendar"),
-            "Expected calendar error, got: {err}"
+            pv.amount().is_finite(),
+            "Expected finite PV when defaulting to weekends_only"
         );
     }
 

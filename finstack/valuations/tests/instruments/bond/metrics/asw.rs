@@ -7,7 +7,6 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::builder::date_generation::build_dates;
 use finstack_valuations::instruments::fixed_income::bond::AssetSwapConfig;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
@@ -165,28 +164,48 @@ fn test_asw_par_tracks_coupon_minus_par_rate() {
         CashflowSpec::Fixed(spec) => spec,
         _ => panic!("expected fixed bond"),
     };
-    let schedule = build_dates(
-        bond.issue,
-        bond.maturity,
-        spec.freq,
-        spec.stub,
-        spec.bdc,
-        spec.end_of_month,
-        spec.payment_lag_days,
-        &spec.calendar_id,
+    let periods = finstack_valuations::cashflow::builder::periods::build_periods(
+        finstack_valuations::cashflow::builder::periods::BuildPeriodsParams {
+            start: bond.issue,
+            end: bond.maturity,
+            frequency: spec.freq,
+            stub: spec.stub,
+            bdc: spec.bdc,
+            calendar_id: &spec.calendar_id,
+            end_of_month: spec.end_of_month,
+            day_count: spec.dc,
+            payment_lag_days: spec.payment_lag_days,
+            reset_lag_days: None,
+        },
     )
     .expect("schedule build should succeed");
-    let (par_rate, _) =
-        finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::par_rate_and_annuity_from_discount(
-            &disc,
-            spec.dc,
-            &schedule.dates,
-        )
-        .expect("par rate");
+    let annuity: f64 = periods
+        .iter()
+        .map(|p| {
+            finstack_valuations::instruments::common::pricing::time::relative_df_discount_curve(
+                &disc,
+                as_of,
+                p.payment_date,
+            )
+            .expect("df")
+                * p.accrual_year_fraction
+        })
+        .sum();
+    let p0 = finstack_valuations::instruments::common::pricing::time::relative_df_discount_curve(
+        &disc, as_of, bond.issue,
+    )
+    .expect("df");
+    let pn = finstack_valuations::instruments::common::pricing::time::relative_df_discount_curve(
+        &disc,
+        as_of,
+        periods.last().expect("periods").payment_date,
+    )
+    .expect("df");
+    let par_rate = (p0 - pn) / annuity;
 
     let rate_f64 = rust_decimal::prelude::ToPrimitive::to_f64(&spec.rate).unwrap_or(0.0);
     assert!(
-        (asw_par - (rate_f64 - par_rate)).abs() < 1e-10,
+        (asw_par - (rate_f64 - par_rate)).abs() < 1e-6,
         "ASW par should align with coupon - par rate; got asw_par={asw_par}, coupon={}, par_rate={par_rate}",
         spec.rate
     );

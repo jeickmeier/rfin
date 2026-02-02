@@ -554,15 +554,16 @@ fn test_actact_isma_daycount_context() {
             matches!(
                 cf.kind,
                 finstack_valuations::cashflow::primitives::CFKind::Fixed
+                    | finstack_valuations::cashflow::primitives::CFKind::Stub
             )
         })
         .collect();
 
-    // Should have at least 3 semi-annual coupons
-    // (The exact count may vary based on stub handling)
-    assert!(
-        coupon_flows.len() >= 3,
-        "Expected at least 3 semi-annual coupons, got {}",
+    // Should have 4 semi-annual coupons across 2 years
+    assert_eq!(
+        coupon_flows.len(),
+        4,
+        "Expected 4 semi-annual coupons, got {}",
         coupon_flows.len()
     );
 
@@ -636,15 +637,16 @@ fn test_bus252_daycount_with_calendar() {
             matches!(
                 cf.kind,
                 finstack_valuations::cashflow::primitives::CFKind::Fixed
+                    | finstack_valuations::cashflow::primitives::CFKind::Stub
             )
         })
         .collect();
 
-    // Should have at least 3 quarterly coupons
-    // (The exact count may vary based on stub handling)
-    assert!(
-        coupon_flows.len() >= 3,
-        "Expected at least 3 quarterly coupons, got {}",
+    // Should have 4 quarterly coupons across 1 year
+    assert_eq!(
+        coupon_flows.len(),
+        4,
+        "Expected 4 quarterly coupons, got {}",
         coupon_flows.len()
     );
 

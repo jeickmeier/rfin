@@ -23,10 +23,10 @@ fn test_quarterly_schedule_generation() -> Result<()> {
         "weekends_only",
     )?;
 
-    // Should have 5 dates (4 periods): Jan, Apr, Jul, Oct, Jan
-    assert_eq!(schedule.dates.len(), 5, "Should have 5 quarterly dates");
-    assert_eq!(schedule.dates[0], start);
-    assert_eq!(*schedule.dates.last().unwrap(), end);
+    // Should have 4 quarterly periods
+    assert_eq!(schedule.periods.len(), 4, "Should have 4 quarterly periods");
+    assert_eq!(schedule.periods[0].accrual_start, start);
+    assert_eq!(schedule.periods.last().unwrap().accrual_end, end);
     Ok(())
 }
 
@@ -46,8 +46,12 @@ fn test_semi_annual_schedule() -> Result<()> {
         "weekends_only",
     )?;
 
-    // 2 years semi-annual = 5 dates (4 periods): Jan, Jul, Jan, Jul, Jan
-    assert_eq!(schedule.dates.len(), 5, "Should have 5 semi-annual dates");
+    // 2 years semi-annual = 4 periods
+    assert_eq!(
+        schedule.periods.len(),
+        4,
+        "Should have 4 semi-annual periods"
+    );
     Ok(())
 }
 
@@ -67,8 +71,8 @@ fn test_annual_schedule() -> Result<()> {
         "weekends_only",
     )?;
 
-    // 5 years annual = 6 dates (5 periods)
-    assert_eq!(schedule.dates.len(), 6, "Should have 6 annual dates");
+    // 5 years annual = 5 periods
+    assert_eq!(schedule.periods.len(), 5, "Should have 5 annual periods");
     Ok(())
 }
 
@@ -88,8 +92,8 @@ fn test_monthly_schedule() -> Result<()> {
         "weekends_only",
     )?;
 
-    // 6 months = 7 dates (6 periods)
-    assert_eq!(schedule.dates.len(), 7, "Should have 7 monthly dates");
+    // 6 months = 6 periods
+    assert_eq!(schedule.periods.len(), 6, "Should have 6 monthly periods");
     Ok(())
 }
 
@@ -135,14 +139,17 @@ fn test_period_coverage() -> Result<()> {
         "weekends_only",
     )?;
 
-    // First date should equal start
-    assert_eq!(schedule.dates[0], start, "First date should equal start");
-
-    // Last date should equal end
+    // First period should start at start
     assert_eq!(
-        *schedule.dates.last().unwrap(),
+        schedule.periods[0].accrual_start, start,
+        "First period should start at schedule start"
+    );
+
+    // Last period should end at end
+    assert_eq!(
+        schedule.periods.last().unwrap().accrual_end,
         end,
-        "Last date should equal end"
+        "Last period should end at schedule end"
     );
     Ok(())
 }

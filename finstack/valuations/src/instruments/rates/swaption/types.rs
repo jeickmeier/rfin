@@ -379,12 +379,18 @@ impl BermudanSchedule {
             0,
             crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID,
         )?;
-        // Exercise dates are all coupon dates except the last one (maturity)
-        let exercise_dates: Vec<Date> = sched
-            .dates
-            .into_iter()
-            .filter(|&d| d >= first_exercise && d < swap_end)
-            .collect();
+        // Exercise dates are all coupon dates except the last one (maturity),
+        // but always include the first_exercise date when it is before swap_end.
+        let mut exercise_dates: Vec<Date> = Vec::new();
+        if first_exercise < swap_end {
+            exercise_dates.push(first_exercise);
+        }
+        exercise_dates.extend(
+            sched
+                .dates
+                .into_iter()
+                .filter(|&d| d > first_exercise && d < swap_end),
+        );
         Ok(Self::new(exercise_dates))
     }
 

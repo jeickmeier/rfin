@@ -17,14 +17,15 @@
 use crate::helpers::financial_tolerance;
 use finstack_core::cashflow::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
+use finstack_core::dates::Date;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
-use finstack_core::dates::{Date, ScheduleBuilder};
 use finstack_core::market_data::term_structures::DiscountCurve as CoreDiscCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
 use finstack_valuations::cashflow::builder::{AmortizationSpec, CashFlowSchedule};
 use finstack_valuations::instruments::Discountable;
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use time::Month;
 
@@ -62,17 +63,22 @@ fn linear_vs_step_parity() {
     let s1 = b1.build_with_curves(None).unwrap();
 
     // Step schedule equivalent
-    let sched: Vec<Date> = ScheduleBuilder::new(issue, maturity)
-        .unwrap()
-        .frequency(Tenor::quarterly())
-        .build()
-        .unwrap()
-        .into_iter()
-        .collect();
-    let delta = init.amount() / (sched.len() - 1) as f64;
+    let sched = finstack_valuations::cashflow::builder::date_generation::build_dates(
+        issue,
+        maturity,
+        Tenor::quarterly(),
+        StubKind::None,
+        BusinessDayConvention::Following,
+        false,
+        0,
+        "weekends_only",
+    )
+    .unwrap()
+    .dates;
+    let delta = init.amount() / (sched.len()) as f64;
     let mut remaining = init.amount();
     let mut pairs: Vec<(Date, Money)> = Vec::new();
-    for &d in sched.iter().skip(1) {
+    for &d in &sched {
         remaining = (remaining - delta).max(0.0);
         pairs.push((d, Money::new(remaining, Currency::USD)));
     }
@@ -455,21 +461,33 @@ fn stub_period_thirty360_produces_proportional_accrual() {
     let regular_amount = regular[0].amount.amount();
     let stub_amount = stubs[0].amount.amount();
 
-    // Regular should be close to 30,000 (1M * 6% * 0.5)
+    let expected_regular =
+        init.amount() * fixed.rate.to_f64().unwrap_or(0.0) * regular[0].accrual_factor;
+
+    // Regular should match notional * rate * accrual_factor
     // Using financial_tolerance for $1M notional (allows ~$10 variance)
     assert!(
-        (regular_amount - 30_000.0).abs() < financial_tolerance(1_000_000.0),
-        "Regular coupon should be ~30,000 ± ${:.2}, got {}",
+        (regular_amount - expected_regular).abs() < financial_tolerance(1_000_000.0),
+        "Regular coupon should be ~{:.2} ± ${:.2}, got {}",
+        expected_regular,
         financial_tolerance(1_000_000.0),
         regular_amount
     );
 
-    // Stub should be smaller than regular (shorter period)
+    let expected_stub =
+        init.amount() * fixed.rate.to_f64().unwrap_or(0.0) * stubs[0].accrual_factor;
+
     assert!(
-        stub_amount < regular_amount,
-        "Stub ({}) should be smaller than regular ({}) due to shorter period",
-        stub_amount,
-        regular_amount
+        (stub_amount - expected_stub).abs() < financial_tolerance(1_000_000.0),
+        "Stub coupon should be ~{:.2} ± ${:.2}, got {}",
+        expected_stub,
+        financial_tolerance(1_000_000.0),
+        stub_amount
+    );
+
+    assert!(
+        (stubs[0].accrual_factor - regular[0].accrual_factor).abs() > 1e-6,
+        "Stub and regular accrual factors should differ"
     );
 }
 

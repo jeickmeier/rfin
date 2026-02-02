@@ -722,8 +722,10 @@ mod tests {
                             "freq": { "count": 6, "unit": "months" },
                             "dc": "Thirty360",
                             "bdc": "following",
-                            "calendar_id": null,
-                            "stub": "None"
+                            "calendar_id": "weekends_only",
+                            "stub": "None",
+                            "end_of_month": false,
+                            "payment_lag_days": 0
                         }
                     },
                     "discount_curve_id": "USD-OIS",
@@ -774,8 +776,10 @@ mod tests {
                             "freq": { "count": 6, "unit": "months" },
                             "dc": "Thirty360",
                             "bdc": "following",
-                            "calendar_id": null,
-                            "stub": "None"
+                            "calendar_id": "weekends_only",
+                            "stub": "None",
+                            "end_of_month": false,
+                            "payment_lag_days": 0
                         }
                     },
                     "discount_curve_id": "USD-OIS",
@@ -824,8 +828,10 @@ mod tests {
                             "freq": { "count": 6, "unit": "months" },
                             "dc": "Thirty360",
                             "bdc": "following",
-                            "calendar_id": null,
-                            "stub": "None"
+                            "calendar_id": "weekends_only",
+                            "stub": "None",
+                            "end_of_month": false,
+                            "payment_lag_days": 0
                         }
                     },
                     "discount_curve_id": "USD-OIS",

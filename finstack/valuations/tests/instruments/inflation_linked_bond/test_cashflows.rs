@@ -57,10 +57,21 @@ fn test_build_dated_flows_annual() {
     // 5 annual coupons + 1 principal = 6 flows
     assert_eq!(flows.len(), 6);
 
-    // Check annual spacing
-    assert_eq!(flows[0].0, d(2021, 1, 15));
-    assert_eq!(flows[1].0, d(2022, 1, 15));
-    assert_eq!(flows[2].0, d(2023, 1, 15));
+    // Check annual spacing with BDC adjustments
+    let cal_id = "weekends_only";
+    let bdc = finstack_core::dates::BusinessDayConvention::Following;
+    let expected_2021 =
+        finstack_valuations::cashflow::builder::calendar::adjust_date(d(2021, 1, 15), bdc, cal_id)
+            .unwrap();
+    let expected_2022 =
+        finstack_valuations::cashflow::builder::calendar::adjust_date(d(2022, 1, 15), bdc, cal_id)
+            .unwrap();
+    let expected_2023 =
+        finstack_valuations::cashflow::builder::calendar::adjust_date(d(2023, 1, 15), bdc, cal_id)
+            .unwrap();
+    assert_eq!(flows[0].0, expected_2021);
+    assert_eq!(flows[1].0, expected_2022);
+    assert_eq!(flows[2].0, expected_2023);
 }
 
 #[test]

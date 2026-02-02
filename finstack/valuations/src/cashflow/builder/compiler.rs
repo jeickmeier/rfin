@@ -130,8 +130,7 @@ pub(super) fn build_fee_schedules(
     //!   `FixedFees` contains explicit (`Date`, `Money`) pairs.
     //!
     //! Errors:
-    //! - `InputError::TooFewPoints` if any derived schedule contains fewer than
-    //!   two dates.
+    //! - `InputError::TooFewPoints` if any derived schedule contains no dates.
     //!
     //! Example:
     //! ```rust
@@ -184,7 +183,7 @@ pub(super) fn build_fee_schedules(
                     0,
                     calendar_id,
                 )?;
-                if dates.len() < 2 {
+                if dates.is_empty() {
                     return Err(InputError::TooFewPoints.into());
                 }
                 periodic_fees.push(PeriodicFee {
@@ -333,7 +332,7 @@ pub(super) fn compute_coupon_schedules(
     //! Errors:
     //! - `InputError::Invalid` for out‑of‑range windows or overlapping windows
     //!   without containment, or if coverage selection is ambiguous.
-    //! - `InputError::TooFewPoints` if any derived schedule has fewer than two dates.
+    //! - `InputError::TooFewPoints` if any derived schedule has no dates.
     //!
     //! Example:
     //! ```rust
@@ -460,7 +459,7 @@ pub(super) fn compute_coupon_schedules(
             chosen_coupon.schedule.payment_lag_days,
             &chosen_coupon.schedule.calendar_id,
         )?;
-        if dates.len() < 2 {
+        if dates.is_empty() {
             return Err(InputError::TooFewPoints.into());
         }
 

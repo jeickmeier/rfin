@@ -695,22 +695,24 @@ impl InflationLinkedBond {
                 .as_deref()
                 .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
         )?;
-        let dates = sched.dates;
-        if dates.len() < 2 {
+        let periods = &sched.periods;
+        if periods.is_empty() {
             return Ok(vec![]);
         }
 
-        let mut flows = Vec::with_capacity(dates.len());
-        let mut prev = dates[0];
-        for &d in &dates[1..] {
+        let mut flows = Vec::with_capacity(periods.len() + 1);
+        for period in periods {
             let year_frac = self
                 .dc
-                .year_fraction(prev, d, DayCountCtx::default())?
+                .year_fraction(
+                    period.accrual_start,
+                    period.accrual_end,
+                    DayCountCtx::default(),
+                )?
                 .max(0.0);
             let base_amount = self.notional * self.real_coupon * year_frac;
-            let ratio = inflation_source.ratio(self, d)?;
-            flows.push((d, base_amount * ratio));
-            prev = d;
+            let ratio = inflation_source.ratio(self, period.payment_date)?;
+            flows.push((period.payment_date, base_amount * ratio));
         }
 
         // Principal repayment at maturity (inflation adjusted)
@@ -735,17 +737,15 @@ impl InflationLinkedBond {
                 .as_deref()
                 .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
         )?;
-        let dates = sched.dates;
-        if dates.len() < 2 {
+        let periods = &sched.periods;
+        if periods.is_empty() {
             return Ok(0.0);
         }
 
         // Find the active period
-        // Dates array includes issue date at [0] and subsequent coupon dates
-        for window in dates.windows(2) {
-            let start = window[0];
-            let end = window[1];
-
+        for period in periods {
+            let start = period.accrual_start;
+            let end = period.accrual_end;
             if start <= as_of && as_of < end {
                 // Found the active period
                 let total_yf = self.dc.year_fraction(start, end, DayCountCtx::default())?;
@@ -788,22 +788,27 @@ impl InflationLinkedBond {
                 .as_deref()
                 .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
         )?;
-        let dates = sched.dates;
-        if dates.len() < 2 {
+        let periods = &sched.periods;
+        if periods.is_empty() {
             return Ok(vec![]);
         }
 
-        let mut flows = Vec::with_capacity(dates.len());
-        let mut prev = dates[0];
-        for &d in &dates[1..] {
+        let mut flows = Vec::with_capacity(periods.len() + 1);
+        for period in periods {
             let year_frac = self
                 .dc
-                .year_fraction(prev, d, DayCountCtx::default())?
+                .year_fraction(
+                    period.accrual_start,
+                    period.accrual_end,
+                    DayCountCtx::default(),
+                )?
                 .max(0.0);
             let base_amount = self.notional.amount() * self.real_coupon * year_frac;
             // No inflation adjustment
-            flows.push((d, Money::new(base_amount, self.notional.currency())));
-            prev = d;
+            flows.push((
+                period.payment_date,
+                Money::new(base_amount, self.notional.currency()),
+            ));
         }
 
         // Principal repayment at maturity (unadjusted real principal)

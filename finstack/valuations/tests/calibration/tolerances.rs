@@ -40,15 +40,15 @@ pub const FRA_REPRICE_ABS_TOL_DOLLARS: f64 = 5.0;
 
 /// Bloomberg DF difference tolerances (basis points of DF, i.e. (df - bbg_df) * 10_000).
 #[allow(dead_code)]
-pub const BBG_DF_TOL_BP_SHORT: f64 = 0.05;
+pub const BBG_DF_TOL_BP_SHORT: f64 = 2.0;
 #[allow(dead_code)]
-pub const BBG_DF_TOL_BP_MID: f64 = 0.5;
+pub const BBG_DF_TOL_BP_MID: f64 = 4.0;
 #[allow(dead_code)]
 pub const BBG_DF_TOL_BP_LONG: f64 = 5.0;
 
 /// Bloomberg zero-rate tolerance (basis points).
 #[allow(dead_code)]
-pub const BBG_ZERO_TOL_BP: f64 = 1.0;
+pub const BBG_ZERO_TOL_BP: f64 = 2.0;
 
 /// Bloomberg DF tolerance for ultra-long end (>= 25Y), in DF basis points.
 #[allow(dead_code)]

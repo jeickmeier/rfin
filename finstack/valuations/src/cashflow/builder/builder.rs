@@ -223,7 +223,7 @@ fn derive_amortization_setup(
                     id: "amortization_base_schedule".to_string(),
                 })
             })?;
-            let steps = (base.len().saturating_sub(1)) as f64;
+            let steps = base.len() as f64;
             (
                 Some(((notional.initial.amount() - final_notional.amount()) / steps).max(0.0)),
                 None,
@@ -236,7 +236,7 @@ fn derive_amortization_setup(
     };
 
     let amort_dates: finstack_core::HashSet<Date> = amort_base
-        .map(|v| v.iter().copied().skip(1).collect())
+        .map(|v| v.iter().copied().collect())
         .unwrap_or_default();
 
     Ok(AmortizationSetup {

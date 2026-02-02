@@ -117,24 +117,28 @@ impl MetricCalculator for ParRateCalculator {
                         .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
                 )?;
                 let dates: Vec<Date> = sched.dates;
-                if dates.len() < 2 {
+                if dates.is_empty() {
                     return Err(finstack_core::Error::Validation(
-                        "Par rate calculation failed: swap schedule has fewer than 2 dates.".into(),
+                        "Par rate calculation failed: swap schedule has no dates.".into(),
                     ));
                 }
 
-                if as_of > dates[0] {
+                if as_of > irs.fixed.start {
                     return par_rate_pv_based(irs, context, &disc);
                 }
 
-                let p0 =
-                    crate::instruments::rates::irs::pricer::relative_df(&disc, as_of, dates[0])?;
-                // Safe: we checked dates.len() >= 2 above
-                let pn = crate::instruments::rates::irs::pricer::relative_df(
+                let p0 = crate::instruments::rates::irs::pricer::relative_df(
                     &disc,
                     as_of,
-                    dates[dates.len() - 1],
+                    irs.fixed.start,
                 )?;
+                let last_date = dates.last().copied().ok_or_else(|| {
+                    finstack_core::Error::Validation(
+                        "Par rate calculation failed: swap schedule has no dates.".into(),
+                    )
+                })?;
+                let pn =
+                    crate::instruments::rates::irs::pricer::relative_df(&disc, as_of, last_date)?;
                 let num = p0 - pn;
 
                 let annuity = context

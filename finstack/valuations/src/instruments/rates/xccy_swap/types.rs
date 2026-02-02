@@ -268,7 +268,7 @@ impl XccySwap {
     ) -> Result<Money> {
         use crate::instruments::common_impl::pricing::time::rate_period_on_dates;
 
-        if schedule.dates.len() < 2 {
+        if schedule.dates.is_empty() {
             return Err(finstack_core::Error::Validation(
                 "XccySwap leg schedule must contain at least 2 dates".to_string(),
             ));
@@ -370,7 +370,7 @@ impl XccySwap {
 
         if periods.is_empty() {
             return Err(finstack_core::Error::Validation(
-                "XccySwap leg schedule must contain at least 2 dates".to_string(),
+                "XccySwap leg schedule must contain at least 1 period".to_string(),
             ));
         }
 

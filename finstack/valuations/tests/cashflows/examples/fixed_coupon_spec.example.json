@@ -9,7 +9,9 @@
     },
     "dc": "Thirty360",
     "bdc": "modified_following",
-    "calendar_id": null,
-    "stub": "None"
+    "calendar_id": "weekends_only",
+    "stub": "None",
+    "end_of_month": false,
+    "payment_lag_days": 0
   }
 }

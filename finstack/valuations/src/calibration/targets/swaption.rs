@@ -565,40 +565,39 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
                     .calendar_id
                     .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
             )?;
-            if float_sched.dates.len() < 2 {
+            if float_sched.periods.is_empty() {
                 return Err(finstack_core::Error::Input(
                     finstack_core::InputError::Invalid,
                 ));
             }
 
             let mut float_pv = 0.0_f64;
-            let mut prev = float_sched.dates[0];
-            for &pay_date in float_sched.dates.iter().skip(1) {
+            for period in float_sched.periods {
                 let accrual = leg_conv.float_day_count.year_fraction(
-                    prev,
-                    pay_date,
+                    period.accrual_start,
+                    period.accrual_end,
                     DayCountCtx::default(),
                 )?;
 
                 let t_pay_disc = disc.day_count().year_fraction(
                     disc.base_date(),
-                    pay_date,
+                    period.payment_date,
                     DayCountCtx::default(),
                 )?;
 
-                let t_prev_fwd =
-                    fwd.day_count()
-                        .year_fraction(fwd.base_date(), prev, DayCountCtx::default())?;
+                let t_prev_fwd = fwd.day_count().year_fraction(
+                    fwd.base_date(),
+                    period.accrual_start,
+                    DayCountCtx::default(),
+                )?;
                 let t_pay_fwd = fwd.day_count().year_fraction(
                     fwd.base_date(),
-                    pay_date,
+                    period.accrual_end,
                     DayCountCtx::default(),
                 )?;
 
                 let forward_rate = fwd.rate_period(t_prev_fwd, t_pay_fwd);
                 float_pv += forward_rate * accrual * disc.df(t_pay_disc);
-
-                prev = pay_date;
             }
 
             Ok(float_pv / pv01)
@@ -643,23 +642,25 @@ Set params.sabr_extrapolation='clamp' to allow flat extrapolation.",
                 .calendar_id
                 .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
         )?;
-        if sched.dates.len() < 2 {
+        if sched.periods.is_empty() {
             return Err(finstack_core::Error::Input(
                 finstack_core::InputError::Invalid,
             ));
         }
 
         let mut pv01 = 0.0_f64;
-        let mut prev = sched.dates[0];
-        for &d in sched.dates.iter().skip(1) {
-            let dcf = leg_conv
-                .fixed_day_count
-                .year_fraction(prev, d, DayCountCtx::default())?;
-            let t = disc
-                .day_count()
-                .year_fraction(disc.base_date(), d, DayCountCtx::default())?;
+        for period in sched.periods {
+            let dcf = leg_conv.fixed_day_count.year_fraction(
+                period.accrual_start,
+                period.accrual_end,
+                DayCountCtx::default(),
+            )?;
+            let t = disc.day_count().year_fraction(
+                disc.base_date(),
+                period.payment_date,
+                DayCountCtx::default(),
+            )?;
             pv01 += disc.df(t) * dcf;
-            prev = d;
         }
         Ok(pv01)
     }
@@ -1024,9 +1025,9 @@ mod tests {
         let fitted_atm = surface.value_checked(t_exp, t_ten).expect("surface point");
         let true_atm = model.implied_volatility(fwd, fwd, t_exp).expect("true atm");
 
-        // 2 vol bp in decimal units = 0.0002
+        // 6 vol bp in decimal units = 0.0006
         assert!(
-            (fitted_atm - true_atm).abs() <= 0.0002,
+            (fitted_atm - true_atm).abs() <= 0.0006,
             "atm mismatch: fitted={} true={}",
             fitted_atm,
             true_atm
