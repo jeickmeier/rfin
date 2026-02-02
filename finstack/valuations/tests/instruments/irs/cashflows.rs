@@ -9,11 +9,15 @@
 
 use crate::finstack_test_utils as test_utils;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
+use finstack_core::dates::{
+    BusinessDayConvention, CalendarRegistry, DateExt, DayCount, StubKind, Tenor,
+};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
+use finstack_valuations::cashflow::builder::date_generation::build_dates;
 use finstack_valuations::cashflow::CashflowProvider;
+use finstack_valuations::instruments::rates::irs::FloatingLegCompounding;
 use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
 use time::macros::date;
 
@@ -486,6 +490,130 @@ fn test_irs_calendar_adjustments() {
     let schedule = swap.build_dated_flows(&market, as_of);
 
     assert!(schedule.is_ok(), "Should handle calendar adjustments");
+}
+
+#[test]
+fn test_irs_defaults_apply_ois_payment_lag() {
+    let start = date!(2024 - 01 - 02);
+    let end = date!(2026 - 01 - 02);
+    let swap = InterestRateSwap::builder()
+        .id("IRS-OIS-DEFAULTS".into())
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .side(PayReceive::ReceiveFixed)
+        .fixed(finstack_valuations::instruments::FixedLegSpec {
+            discount_curve_id: "USD-OIS".into(),
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
+            freq: Tenor::annual(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: StubKind::None,
+            start,
+            end,
+            par_method: None,
+            compounding_simple: true,
+            payment_delay_days: 0,
+        })
+        .float(finstack_valuations::instruments::FloatLegSpec {
+            discount_curve_id: "USD-OIS".into(),
+            forward_curve_id: "USD-OIS".into(),
+            spread_bp: rust_decimal::Decimal::ZERO,
+            freq: Tenor::annual(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            fixing_calendar_id: None,
+            stub: StubKind::None,
+            reset_lag_days: 0,
+            compounding: FloatingLegCompounding::CompoundedInArrears {
+                lookback_days: 0,
+                observation_shift: None,
+            },
+            payment_delay_days: 0,
+            start,
+            end,
+        })
+        .build()
+        .unwrap();
+
+    let fixed_schedule =
+        finstack_valuations::instruments::rates::irs::cashflow::fixed_leg_schedule(&swap)
+            .expect("fixed schedule");
+    let expected = build_dates(
+        start,
+        end,
+        Tenor::annual(),
+        StubKind::None,
+        BusinessDayConvention::ModifiedFollowing,
+        false,
+        2,
+        "usny",
+    )
+    .expect("expected schedule");
+    let first_payment = fixed_schedule
+        .flows
+        .iter()
+        .map(|cf| cf.date)
+        .min()
+        .expect("first payment");
+    assert_eq!(first_payment, expected.dates[0]);
+}
+
+#[test]
+fn test_irs_defaults_apply_term_reset_lag() {
+    let start = date!(2024 - 01 - 02);
+    let end = date!(2024 - 07 - 02);
+    let swap = InterestRateSwap::builder()
+        .id("IRS-TERM-DEFAULTS".into())
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .side(PayReceive::ReceiveFixed)
+        .fixed(finstack_valuations::instruments::FixedLegSpec {
+            discount_curve_id: "USD-OIS".into(),
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"),
+            freq: Tenor::quarterly(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: StubKind::None,
+            start,
+            end,
+            par_method: None,
+            compounding_simple: true,
+            payment_delay_days: 0,
+        })
+        .float(finstack_valuations::instruments::FloatLegSpec {
+            discount_curve_id: "USD-OIS".into(),
+            forward_curve_id: "USD-SOFR-3M".into(),
+            spread_bp: rust_decimal::Decimal::ZERO,
+            freq: Tenor::quarterly(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            fixing_calendar_id: None,
+            stub: StubKind::None,
+            reset_lag_days: 0,
+            compounding: Default::default(),
+            payment_delay_days: 0,
+            start,
+            end,
+        })
+        .build()
+        .unwrap();
+
+    let float_schedule =
+        finstack_valuations::instruments::rates::irs::cashflow::float_leg_schedule(&swap)
+            .expect("float schedule");
+    let first_reset = float_schedule
+        .flows
+        .iter()
+        .find(|cf| cf.kind == finstack_valuations::cashflow::primitives::CFKind::FloatReset)
+        .and_then(|cf| cf.reset_date)
+        .expect("reset date");
+    let cal = CalendarRegistry::global()
+        .resolve_str("usny")
+        .expect("calendar");
+    let expected_reset = start.add_business_days(-2, cal).expect("reset");
+    assert_eq!(first_reset, expected_reset);
 }
 
 #[test]

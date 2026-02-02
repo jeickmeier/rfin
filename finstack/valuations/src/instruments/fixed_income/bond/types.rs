@@ -4,7 +4,7 @@ use crate::cashflow::builder::CashFlowSchedule;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::PricingOverrides;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount};
+use finstack_core::dates::{Date, DateExt, DayCount};
 use finstack_core::money::Money;
 use finstack_core::types::{Bps, CurveId, InstrumentId, Rate};
 use finstack_core::Result;
@@ -354,21 +354,30 @@ impl Bond {
         discount_curve_id: impl Into<CurveId>,
     ) -> finstack_core::Result<Self> {
         let coupon_rate = coupon_rate.into();
+        let mut cashflow_spec =
+            CashflowSpec::fixed_rate(coupon_rate, convention.frequency(), convention.day_count());
+        if let CashflowSpec::Fixed(spec) = &mut cashflow_spec {
+            spec.bdc = convention.business_day_convention();
+            spec.calendar_id = convention
+                .calendar_id()
+                .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID)
+                .to_string();
+            spec.end_of_month =
+                issue.end_of_month() == issue && maturity.end_of_month() == maturity;
+        }
         let bond = Self::builder()
             .id(id.into())
             .notional(notional)
             .issue(issue)
             .maturity(maturity)
-            .cashflow_spec(CashflowSpec::fixed_rate(
-                coupon_rate,
-                convention.frequency(),
-                convention.day_count(),
-            ))
+            .cashflow_spec(cashflow_spec)
             .discount_curve_id(discount_curve_id.into())
             .credit_curve_id_opt(None)
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
-            .ex_coupon_calendar_id_opt(None)
+            .settlement_days_opt(Some(convention.settlement_days()))
+            .ex_coupon_days_opt(convention.ex_coupon_days())
+            .ex_coupon_calendar_id_opt(convention.calendar_id().map(|id| id.to_string()))
             .build()?;
 
         // Validate all parameters before returning

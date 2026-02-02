@@ -12,14 +12,19 @@
 
 use crate::finstack_test_utils as test_utils;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
+use finstack_core::dates::{
+    BusinessDayConvention, CalendarRegistry, Date, DateExt, DayCount, DayCountCtx, StubKind, Tenor,
+};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
+use finstack_valuations::cashflow::builder::periods::{build_periods, BuildPeriodsParams};
 use finstack_valuations::instruments::rates::irs::{
-    FixedLegSpec, FloatLegSpec, InterestRateSwap, ParRateMethod, PayReceive,
+    FixedLegSpec, FloatLegSpec, FloatingLegCompounding, InterestRateSwap, ParRateMethod, PayReceive,
 };
 use finstack_valuations::instruments::Instrument;
+use finstack_valuations::market::conventions::ids::IndexId;
+use finstack_valuations::market::conventions::ConventionRegistry;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
@@ -1034,5 +1039,136 @@ fn test_irs_forward_curve_daycount_used_for_projection() {
         diff_pct < 5.0,
         "Day count difference impact should be < 5% of PV, got {:.2}%",
         diff_pct
+    );
+}
+
+#[test]
+fn test_sofr_ois_par_rate_matches_quantlib_identity() {
+    // QuantLib identity for single-curve OIS:
+    // par_rate = PV_float / annuity, where PV_float uses DF ratios per period.
+    let as_of = date!(2025 - 01 - 02);
+    let calendar = CalendarRegistry::global()
+        .resolve_str("usny")
+        .expect("USNY calendar");
+    let start = as_of.add_business_days(2, calendar).expect("spot start");
+    let end = Tenor::annual()
+        .add_to_date(
+            start,
+            Some(calendar),
+            BusinessDayConvention::ModifiedFollowing,
+        )
+        .expect("maturity");
+
+    let curve_id = "USD-SOFR-OIS";
+    let disc = build_flat_discount_curve(0.05, as_of, curve_id);
+    let market = MarketContext::new().insert_discount(disc);
+
+    let swap = InterestRateSwap::builder()
+        .id("SOFR-OIS-QL-PARITY".into())
+        .notional(Money::new(100_000_000.0, Currency::USD))
+        .side(PayReceive::PayFixed)
+        .fixed(FixedLegSpec {
+            discount_curve_id: curve_id.into(),
+            rate: rust_decimal::Decimal::ZERO,
+            freq: Tenor::annual(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: StubKind::None,
+            start,
+            end,
+            par_method: None,
+            compounding_simple: true,
+            payment_delay_days: 0,
+        })
+        .float(FloatLegSpec {
+            discount_curve_id: curve_id.into(),
+            forward_curve_id: curve_id.into(),
+            spread_bp: rust_decimal::Decimal::ZERO,
+            freq: Tenor::annual(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            fixing_calendar_id: None,
+            stub: StubKind::None,
+            reset_lag_days: 0,
+            compounding: FloatingLegCompounding::CompoundedInArrears {
+                lookback_days: 0,
+                observation_shift: None,
+            },
+            payment_delay_days: 0,
+            start,
+            end,
+        })
+        .build()
+        .unwrap();
+
+    let result = swap
+        .price_with_metrics(&market, as_of, &[MetricId::ParRate])
+        .expect("metrics");
+    let par_rate = result
+        .measures
+        .get(MetricId::ParRate.as_str())
+        .copied()
+        .expect("par rate");
+
+    let conv = ConventionRegistry::try_global()
+        .expect("registry")
+        .require_rate_index(&IndexId::new(curve_id))
+        .expect("rate index");
+    let periods = build_periods(BuildPeriodsParams {
+        start,
+        end,
+        frequency: Tenor::annual(),
+        stub: StubKind::None,
+        bdc: BusinessDayConvention::ModifiedFollowing,
+        calendar_id: conv.market_calendar_id.as_str(),
+        end_of_month: false,
+        day_count: DayCount::Act360,
+        payment_lag_days: conv.default_payment_delay_days,
+        reset_lag_days: None,
+    })
+    .expect("periods");
+
+    let disc = market.get_discount(curve_id).expect("discount");
+    let mut annuity = 0.0;
+    let mut float_pv = 0.0;
+    for period in periods {
+        let t_start = disc
+            .day_count()
+            .year_fraction(
+                disc.base_date(),
+                period.accrual_start,
+                DayCountCtx::default(),
+            )
+            .expect("t_start");
+        let t_end = disc
+            .day_count()
+            .year_fraction(disc.base_date(), period.accrual_end, DayCountCtx::default())
+            .expect("t_end");
+        let t_pay = disc
+            .day_count()
+            .year_fraction(
+                disc.base_date(),
+                period.payment_date,
+                DayCountCtx::default(),
+            )
+            .expect("t_pay");
+        let df_start = disc.df(t_start);
+        let df_end = disc.df(t_end);
+        let df_pay = disc.df(t_pay);
+
+        annuity += df_pay * period.accrual_year_fraction;
+        float_pv += (df_start / df_end - 1.0) * df_pay;
+    }
+    let expected_par = float_pv / annuity;
+
+    let diff_bp = (par_rate - expected_par) * 10_000.0;
+    assert!(
+        diff_bp.abs() <= 0.1,
+        "SOFR OIS par rate mismatch vs QuantLib identity: par_rate={:.6} expected={:.6} diff={:.4}bp",
+        par_rate,
+        expected_par,
+        diff_bp
     );
 }

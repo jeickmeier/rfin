@@ -24,8 +24,9 @@
 // Using generic pricer implementation to eliminate boilerplate
 
 // Re-export shared swap leg pricing utilities for internal use and backward compatibility
+use crate::cashflow::builder::periods::{build_periods, BuildPeriodsParams};
 use crate::instruments::common_impl::pricing::swap_legs::{
-    add_payment_delay, robust_relative_df, FloatingLegParams, LegPeriod, BP_TO_DECIMAL,
+    robust_relative_df, FloatingLegParams, LegPeriod, BP_TO_DECIMAL,
 };
 
 // Re-export for backward compatibility with IRS metrics modules
@@ -123,10 +124,27 @@ impl InterestRateSwap {
         as_of: Date,
         fixings: Option<&ScalarTimeSeries>,
     ) -> Result<f64> {
-        let schedule = crate::instruments::rates::irs::cashflow::float_leg_schedule(self)?;
-        let payment_delay = self.float.payment_delay_days;
-        let calendar_id = self.float.calendar_id.as_deref();
-        let fixing_calendar_id = self.float.fixing_calendar_id.as_deref().or(calendar_id);
+        let float = self.resolved_float_leg();
+        let periods = build_periods(BuildPeriodsParams {
+            start: float.start,
+            end: float.end,
+            frequency: float.freq,
+            stub: float.stub,
+            bdc: float.bdc,
+            calendar_id: float
+                .calendar_id
+                .as_deref()
+                .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
+            end_of_month: false,
+            day_count: float.dc,
+            payment_lag_days: float.payment_delay_days,
+            reset_lag_days: None,
+        })?;
+        if periods.is_empty() {
+            return Ok(0.0);
+        }
+        let calendar_id = float.calendar_id.as_deref();
+        let fixing_calendar_id = float.fixing_calendar_id.as_deref().or(calendar_id);
 
         // Resolve fixing calendar for daily stepping.
         //
@@ -150,19 +168,15 @@ impl InterestRateSwap {
 
         let total_shift = self.compounded_total_shift_days();
 
-        let mut terms = Vec::new();
-        let mut accrual_start = self.float.start;
+        let mut terms = Vec::with_capacity(periods.len());
 
-        for cf in schedule
-            .flows
-            .iter()
-            .filter(|cf| cf.kind == crate::cashflow::primitives::CFKind::FloatReset)
-        {
-            let accrual_end = cf.date;
+        for period in periods {
+            let accrual_start = period.accrual_start;
+            let accrual_end = period.accrual_end;
+            let payment_date = period.payment_date;
 
             // Skip settled cashflows
-            if accrual_end <= as_of {
-                accrual_start = accrual_end;
+            if payment_date <= as_of {
                 continue;
             }
 
@@ -234,7 +248,7 @@ impl InterestRateSwap {
                             finstack_core::Error::Validation(format!(
                                 "Seasoned compounded swap requires RFR fixings for dates before as_of (missing series). \
                                  Provide ScalarTimeSeries id='FIXING:{}' with business-day observations.",
-                                self.float.forward_curve_id.as_str()
+                                float.forward_curve_id.as_str()
                             ))
                         })?;
                         series.value_on_exact(obs_start)?
@@ -308,16 +322,15 @@ impl InterestRateSwap {
             //
             // Note: alpha_total is cf.accrual_factor from builder
             let interest = self.notional.amount() * (compound_factor - 1.0);
-            let spread_bp_f64 = decimal_to_f64(self.float.spread_bp, "float leg spread_bp")?;
-            let spread_contrib =
-                self.notional.amount() * (spread_bp_f64 * BP_TO_DECIMAL) * cf.accrual_factor;
+            let spread_bp_f64 = decimal_to_f64(float.spread_bp, "float leg spread_bp")?;
+            let spread_contrib = self.notional.amount()
+                * (spread_bp_f64 * BP_TO_DECIMAL)
+                * period.accrual_year_fraction;
 
             // Discount to payment date (holiday-aware, strict) using shared helper
-            let payment_date = add_payment_delay(accrual_end, payment_delay, calendar_id)?;
             let df = robust_relative_df(disc, as_of, payment_date)?;
 
             terms.push((interest + spread_contrib) * df);
-            accrual_start = accrual_end;
         }
 
         let total_pv = kahan_sum(terms);
@@ -441,41 +454,48 @@ impl InterestRateSwap {
         as_of: Date,
         fixings: Option<&ScalarTimeSeries>,
     ) -> finstack_core::Result<f64> {
-        // Build the floating-leg schedule via the shared cashflow builder so reset
-        // lags, calendars, and stub handling stay centralized.
-        let schedule = crate::instruments::rates::irs::cashflow::float_leg_schedule(self)?;
+        let float = self.resolved_float_leg();
+        let schedule_periods = build_periods(BuildPeriodsParams {
+            start: float.start,
+            end: float.end,
+            frequency: float.freq,
+            stub: float.stub,
+            bdc: float.bdc,
+            calendar_id: float
+                .calendar_id
+                .as_deref()
+                .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
+            end_of_month: false,
+            day_count: float.dc,
+            payment_lag_days: float.payment_delay_days,
+            reset_lag_days: Some(float.reset_lag_days),
+        })?;
+        if schedule_periods.is_empty() {
+            return Ok(0.0);
+        }
 
-        // Track accrual start for period construction
-        let mut accrual_start = self.float.start;
-
-        // Convert cashflow schedule to LegPeriod iterator for shared pricing
-        let periods: Vec<LegPeriod> = schedule
-            .flows
-            .iter()
-            .filter(|cf| cf.kind == crate::cashflow::primitives::CFKind::FloatReset)
-            .map(|cf| {
-                let period = LegPeriod {
-                    accrual_start,
-                    accrual_end: cf.date,
-                    reset_date: cf.reset_date,
-                    year_fraction: cf.accrual_factor,
-                };
-                accrual_start = cf.date; // Update for next iteration
-                period
+        // Convert period schedule to LegPeriod iterator for shared pricing
+        let periods: Vec<LegPeriod> = schedule_periods
+            .into_iter()
+            .map(|period| LegPeriod {
+                accrual_start: period.accrual_start,
+                accrual_end: period.accrual_end,
+                reset_date: period.reset_date,
+                year_fraction: period.accrual_year_fraction,
             })
             .collect();
 
         // Build floating leg params using shared type
         let params = FloatingLegParams::full(
-            decimal_to_f64(self.float.spread_bp, "float leg spread_bp")?,
+            decimal_to_f64(float.spread_bp, "float leg spread_bp")?,
             1.0,  // gearing
             true, // gearing_includes_spread
             None, // index_floor_bp
             None, // index_cap_bp
             None, // all_in_floor_bp
             None, // all_in_cap_bp
-            self.float.payment_delay_days,
-            self.float.calendar_id.clone(),
+            float.payment_delay_days,
+            float.calendar_id.clone(),
         );
 
         // Use shared pricing function
@@ -596,6 +616,7 @@ pub(crate) fn compute_pv_raw(
 #[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::instruments::common_impl::pricing::swap_legs::add_payment_delay;
     use crate::instruments::common_impl::traits::Instrument;
     use finstack_core::currency::Currency;
     use finstack_core::dates::DayCountCtx;
@@ -898,11 +919,11 @@ mod tests {
         );
     }
 
-    /// Tests that compounded OIS pricing succeeds with weekday stepping when no fixing
-    /// calendar is specified.
+    /// Tests that compounded OIS pricing succeeds with convention defaults when no
+    /// fixing calendar is specified.
     ///
-    /// When fixing_calendar_id is None, weekday-only stepping (Mon-Fri) is intentional
-    /// and the pricing should proceed without error.
+    /// When fixing_calendar_id is None, we fall back to the rate index conventions
+    /// (calendar + payment lag) instead of weekday-only stepping.
     #[test]
     fn compounded_ois_succeeds_with_weekday_stepping_when_no_calendar() {
         let as_of = date(2024, 1, 1);
@@ -918,7 +939,7 @@ mod tests {
 
         let ctx = MarketContext::new().insert_discount(disc);
 
-        // Create swap with NO fixing_calendar_id (intentional weekday stepping)
+        // Create swap with NO fixing_calendar_id (defaults should be applied)
         let swap = InterestRateSwap::builder()
             .id(InstrumentId::new("OIS-NO-CALENDAR"))
             .notional(Money::new(10_000_000.0, Currency::USD))
@@ -961,11 +982,16 @@ mod tests {
             .build()
             .expect("swap");
 
-        // Pricing should succeed when no calendar is specified
+        let resolved = swap.resolved_float_leg();
+        assert_eq!(resolved.calendar_id.as_deref(), Some("usny"));
+        assert_eq!(resolved.fixing_calendar_id.as_deref(), Some("usny"));
+        assert_eq!(resolved.payment_delay_days, 2);
+
+        // Pricing should succeed when defaults are applied
         let result = swap.value(&ctx, as_of);
         assert!(
             result.is_ok(),
-            "Expected pricing to succeed with weekday stepping when no calendar specified, got: {:?}",
+            "Expected pricing to succeed with convention defaults, got: {:?}",
             result.err()
         );
 

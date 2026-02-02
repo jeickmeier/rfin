@@ -54,19 +54,21 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 /// - Term-style floating leg (`Simple`) with **no spread**
 /// - No payment delays on either leg (otherwise numerator dates don't align with payment DFs)
 fn discount_ratio_allowed(irs: &InterestRateSwap, as_of: Date) -> bool {
-    if as_of > irs.fixed.start {
+    let fixed = irs.resolved_fixed_leg();
+    let float = irs.resolved_float_leg();
+    if as_of > fixed.start {
         return false;
     }
-    if irs.float.forward_curve_id != irs.fixed.discount_curve_id {
+    if float.forward_curve_id != fixed.discount_curve_id {
         return false;
     }
-    if !matches!(irs.float.compounding, FloatingLegCompounding::Simple) {
+    if !matches!(float.compounding, FloatingLegCompounding::Simple) {
         return false;
     }
-    if !irs.float.spread_bp.is_zero() {
+    if !float.spread_bp.is_zero() {
         return false;
     }
-    if irs.fixed.payment_delay_days != 0 || irs.float.payment_delay_days != 0 {
+    if fixed.payment_delay_days != 0 || float.payment_delay_days != 0 {
         return false;
     }
     true
@@ -103,15 +105,16 @@ impl MetricCalculator for ParRateCalculator {
                     // Safer default: fall back to PV-based par rate when identity prerequisites do not hold.
                     return par_rate_pv_based(irs, context, &disc);
                 }
+                let fixed = irs.resolved_fixed_leg();
                 let sched = crate::cashflow::builder::build_dates(
-                    irs.fixed.start,
-                    irs.fixed.end,
-                    irs.fixed.freq,
-                    irs.fixed.stub,
-                    irs.fixed.bdc,
+                    fixed.start,
+                    fixed.end,
+                    fixed.freq,
+                    fixed.stub,
+                    fixed.bdc,
                     false,
-                    irs.fixed.payment_delay_days,
-                    irs.fixed
+                    fixed.payment_delay_days,
+                    fixed
                         .calendar_id
                         .as_deref()
                         .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
@@ -123,15 +126,12 @@ impl MetricCalculator for ParRateCalculator {
                     ));
                 }
 
-                if as_of > irs.fixed.start {
+                if as_of > fixed.start {
                     return par_rate_pv_based(irs, context, &disc);
                 }
 
-                let p0 = crate::instruments::rates::irs::pricer::relative_df(
-                    &disc,
-                    as_of,
-                    irs.fixed.start,
-                )?;
+                let p0 =
+                    crate::instruments::rates::irs::pricer::relative_df(&disc, as_of, fixed.start)?;
                 let last_date = dates.last().copied().ok_or_else(|| {
                     finstack_core::Error::Validation(
                         "Par rate calculation failed: swap schedule has no dates.".into(),

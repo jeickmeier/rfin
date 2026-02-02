@@ -64,21 +64,21 @@ impl MetricCalculator for AnnuityCalculator {
 
         let disc = context.curves.get_discount(&irs.fixed.discount_curve_id)?;
 
+        let fixed = irs.resolved_fixed_leg();
         let periods = crate::cashflow::builder::periods::build_periods(
             crate::cashflow::builder::periods::BuildPeriodsParams {
-                start: irs.fixed.start,
-                end: irs.fixed.end,
-                frequency: irs.fixed.freq,
-                stub: irs.fixed.stub,
-                bdc: irs.fixed.bdc,
-                calendar_id: irs
-                    .fixed
+                start: fixed.start,
+                end: fixed.end,
+                frequency: fixed.freq,
+                stub: fixed.stub,
+                bdc: fixed.bdc,
+                calendar_id: fixed
                     .calendar_id
                     .as_deref()
                     .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
                 end_of_month: false,
-                day_count: irs.fixed.dc,
-                payment_lag_days: irs.fixed.payment_delay_days,
+                day_count: fixed.dc,
+                payment_lag_days: fixed.payment_delay_days,
                 reset_lag_days: None,
             },
         )?;

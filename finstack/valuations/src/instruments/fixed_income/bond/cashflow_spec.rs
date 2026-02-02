@@ -39,9 +39,18 @@ use crate::cashflow::builder::specs::{
     CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
 };
 use crate::cashflow::builder::AmortizationSpec;
+use crate::market::conventions::ids::IndexId;
+use crate::market::conventions::ConventionRegistry;
+use crate::market::conventions::RateIndexConventions;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::types::{Bps, CurveId, Rate};
 use rust_decimal::Decimal;
+
+fn rate_index_defaults(index_id: &CurveId) -> Option<RateIndexConventions> {
+    let registry = ConventionRegistry::try_global().ok()?;
+    let id = IndexId::new(index_id.as_str());
+    registry.require_rate_index(&id).ok().cloned()
+}
 
 /// Thin facade over canonical builder coupon specs for bond cashflows.
 ///
@@ -152,13 +161,13 @@ impl CashflowSpec {
     ///
     /// - `coupon_type`: Cash (100% cash payment)
     /// - `gearing`: 1.0
-    /// - `reset_lag_days`: 2 (T-2 convention, standard for SOFR)
+    /// - `reset_lag_days`: Market default from index registry (fallback: T-2)
     /// - `floor_bp`: None
     /// - `cap_bp`: None
     /// - `reset_freq`: Same as payment frequency
     /// - `bdc`: Following
     /// - `stub`: None
-    /// - `calendar_id`: "weekends_only"
+    /// - `calendar_id`: Market default from index registry (fallback: "weekends_only")
     ///
     /// # Market Conventions for Reset Lag
     ///
@@ -197,12 +206,23 @@ impl CashflowSpec {
     ///   and wrap in `CashflowSpec::Floating(...)`.
     #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn floating(index_id: CurveId, margin_bp: f64, freq: Tenor, dc: DayCount) -> Self {
-        Self::floating_with_reset_lag(index_id, margin_bp, freq, dc, 2)
+        let reset_lag = rate_index_defaults(&index_id)
+            .map(|conv| conv.default_reset_lag_days)
+            .unwrap_or(2);
+        Self::floating_with_reset_lag(index_id, margin_bp, freq, dc, reset_lag)
     }
 
     /// Create a floating-rate specification using a typed margin in basis points.
     pub fn floating_bps(index_id: CurveId, margin_bp: Bps, freq: Tenor, dc: DayCount) -> Self {
         let spread_bp = Decimal::try_from(margin_bp.as_bps() as f64).unwrap_or(Decimal::ZERO);
+        let defaults = rate_index_defaults(&index_id);
+        let reset_lag_days = defaults
+            .as_ref()
+            .map(|conv| conv.default_reset_lag_days)
+            .unwrap_or(2);
+        let calendar_id = defaults
+            .map(|conv| conv.market_calendar_id)
+            .unwrap_or_else(|| "weekends_only".to_string());
         Self::Floating(FloatingCouponSpec {
             rate_spec: FloatingRateSpec {
                 index_id,
@@ -214,10 +234,10 @@ impl CashflowSpec {
                 all_in_floor_bp: None,
                 index_cap_bp: None,
                 reset_freq: freq,
-                reset_lag_days: 2,
+                reset_lag_days,
                 dc,
                 bdc: BusinessDayConvention::Following,
-                calendar_id: "weekends_only".to_string(),
+                calendar_id,
                 fixing_calendar_id: None,
                 end_of_month: false,
                 payment_lag_days: 0,
@@ -286,6 +306,9 @@ impl CashflowSpec {
     ) -> Self {
         // Convert f64 to Decimal for exact representation
         let spread_bp = Decimal::try_from(margin_bp).unwrap_or(Decimal::ZERO);
+        let calendar_id = rate_index_defaults(&index_id)
+            .map(|conv| conv.market_calendar_id)
+            .unwrap_or_else(|| "weekends_only".to_string());
         Self::Floating(FloatingCouponSpec {
             rate_spec: FloatingRateSpec {
                 index_id,
@@ -300,7 +323,7 @@ impl CashflowSpec {
                 reset_lag_days,
                 dc,
                 bdc: BusinessDayConvention::Following,
-                calendar_id: "weekends_only".to_string(),
+                calendar_id,
                 fixing_calendar_id: None,
                 end_of_month: false,
                 payment_lag_days: 0,
@@ -320,6 +343,9 @@ impl CashflowSpec {
         reset_lag_days: i32,
     ) -> Self {
         let spread_bp = Decimal::try_from(margin_bp.as_bps() as f64).unwrap_or(Decimal::ZERO);
+        let calendar_id = rate_index_defaults(&index_id)
+            .map(|conv| conv.market_calendar_id)
+            .unwrap_or_else(|| "weekends_only".to_string());
         Self::Floating(FloatingCouponSpec {
             rate_spec: FloatingRateSpec {
                 index_id,
@@ -334,7 +360,7 @@ impl CashflowSpec {
                 reset_lag_days,
                 dc,
                 bdc: BusinessDayConvention::Following,
-                calendar_id: "weekends_only".to_string(),
+                calendar_id,
                 fixing_calendar_id: None,
                 end_of_month: false,
                 payment_lag_days: 0,

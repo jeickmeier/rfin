@@ -210,6 +210,14 @@ mod tests {
             bond.cashflow_spec.day_count(),
             BondConvention::USTreasury.day_count()
         );
+        assert_eq!(
+            bond.settlement_days,
+            Some(BondConvention::USTreasury.settlement_days())
+        );
+        assert_eq!(
+            bond.ex_coupon_days,
+            BondConvention::USTreasury.ex_coupon_days()
+        );
     }
 
     #[test]
@@ -233,6 +241,31 @@ mod tests {
             bond.cashflow_spec.day_count(),
             BondConvention::UKGilt.day_count()
         );
+        assert_eq!(
+            bond.settlement_days,
+            Some(BondConvention::UKGilt.settlement_days())
+        );
+        assert_eq!(bond.ex_coupon_days, BondConvention::UKGilt.ex_coupon_days());
+    }
+
+    #[test]
+    fn test_bond_with_convention_sets_end_of_month() {
+        let bond = Bond::with_convention(
+            "EOM-UST",
+            Money::new(1000.0, Currency::USD),
+            0.03,
+            date!(2025 - 01 - 31),
+            date!(2030 - 01 - 31),
+            BondConvention::USTreasury,
+            "USD-TREASURY",
+        )
+        .expect("Bond::with_convention should succeed for EOM bond");
+
+        if let CashflowSpec::Fixed(spec) = &bond.cashflow_spec {
+            assert!(spec.end_of_month, "EOM bonds should enable EOM roll");
+        } else {
+            panic!("Expected fixed cashflow spec");
+        }
     }
 
     #[test]

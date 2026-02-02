@@ -42,7 +42,7 @@ pub const FRA_REPRICE_ABS_TOL_DOLLARS: f64 = 5.0;
 #[allow(dead_code)]
 pub const BBG_DF_TOL_BP_SHORT: f64 = 2.0;
 #[allow(dead_code)]
-pub const BBG_DF_TOL_BP_MID: f64 = 4.0;
+pub const BBG_DF_TOL_BP_MID: f64 = 3.5;
 #[allow(dead_code)]
 pub const BBG_DF_TOL_BP_LONG: f64 = 5.0;
 

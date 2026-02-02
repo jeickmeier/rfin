@@ -1025,9 +1025,9 @@ mod tests {
         let fitted_atm = surface.value_checked(t_exp, t_ten).expect("surface point");
         let true_atm = model.implied_volatility(fwd, fwd, t_exp).expect("true atm");
 
-        // 6 vol bp in decimal units = 0.0006
+        // 5 vol bp in decimal units = 0.0005
         assert!(
-            (fitted_atm - true_atm).abs() <= 0.0006,
+            (fitted_atm - true_atm).abs() <= 0.0005,
             "atm mismatch: fitted={} true={}",
             fitted_atm,
             true_atm

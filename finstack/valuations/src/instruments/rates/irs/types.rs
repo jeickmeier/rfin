@@ -19,6 +19,8 @@ use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
 use crate::margin::types::OtcMarginSpec;
+use crate::market::conventions::ids::IndexId;
+use crate::market::conventions::ConventionRegistry;
 
 // Re-export common enums from parameters
 pub use crate::instruments::common_impl::parameters::legs::{ParRateMethod, PayReceive};
@@ -145,6 +147,44 @@ const NOTIONAL_EPSILON: f64 = 1e-6;
 const MAX_RATE_MAGNITUDE: f64 = 100.0;
 
 impl InterestRateSwap {
+    fn rate_index_conventions(&self) -> Option<crate::market::conventions::RateIndexConventions> {
+        let registry = ConventionRegistry::try_global().ok()?;
+        let idx = IndexId::new(self.float.forward_curve_id.as_str());
+        registry.require_rate_index(&idx).ok().cloned()
+    }
+
+    pub(crate) fn resolved_fixed_leg(&self) -> FixedLegSpec {
+        let mut fixed = self.fixed.clone();
+        if let Some(conv) = self.rate_index_conventions() {
+            if fixed.calendar_id.is_none() {
+                fixed.calendar_id = Some(conv.market_calendar_id);
+            }
+            if fixed.payment_delay_days == 0 {
+                fixed.payment_delay_days = conv.default_payment_delay_days;
+            }
+        }
+        fixed
+    }
+
+    pub(crate) fn resolved_float_leg(&self) -> FloatLegSpec {
+        let mut float = self.float.clone();
+        if let Some(conv) = self.rate_index_conventions() {
+            if float.calendar_id.is_none() {
+                float.calendar_id = Some(conv.market_calendar_id.clone());
+            }
+            if float.fixing_calendar_id.is_none() {
+                float.fixing_calendar_id = Some(conv.market_calendar_id);
+            }
+            if float.reset_lag_days == 0 {
+                float.reset_lag_days = conv.default_reset_lag_days;
+            }
+            if float.payment_delay_days == 0 {
+                float.payment_delay_days = conv.default_payment_delay_days;
+            }
+        }
+        float
+    }
+
     /// Validate swap parameters for market-standard compliance.
     ///
     /// Checks:

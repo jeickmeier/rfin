@@ -69,23 +69,23 @@ use crate::instruments::rates::irs::{InterestRateSwap, PayReceive};
 /// # }
 /// ```
 pub fn fixed_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
+    let fixed = irs.resolved_fixed_leg();
     let mut fixed_b = CashFlowSchedule::builder();
     let _ = fixed_b
-        .principal(irs.notional, irs.fixed.start, irs.fixed.end)
+        .principal(irs.notional, fixed.start, fixed.end)
         .fixed_cf(FixedCouponSpec {
             coupon_type: crate::cashflow::builder::CouponType::Cash,
-            rate: irs.fixed.rate,
-            freq: irs.fixed.freq,
-            dc: irs.fixed.dc,
-            bdc: irs.fixed.bdc,
-            calendar_id: irs
-                .fixed
+            rate: fixed.rate,
+            freq: fixed.freq,
+            dc: fixed.dc,
+            bdc: fixed.bdc,
+            calendar_id: fixed
                 .calendar_id
                 .clone()
                 .unwrap_or_else(|| "weekends_only".to_string()),
-            stub: irs.fixed.stub,
+            stub: fixed.stub,
             end_of_month: false,
-            payment_lag_days: irs.fixed.payment_delay_days,
+            payment_lag_days: fixed.payment_delay_days,
         });
     let mut sched = fixed_b.build_with_curves(None)?;
     // IRS do not exchange notionals; return coupon-only schedule as documented.
@@ -152,35 +152,35 @@ pub fn float_leg_schedule_with_curves(
     irs: &InterestRateSwap,
     curves: Option<&finstack_core::market_data::context::MarketContext>,
 ) -> Result<CashFlowSchedule> {
+    let float = irs.resolved_float_leg();
     let mut float_b = CashFlowSchedule::builder();
     let _ = float_b
-        .principal(irs.notional, irs.float.start, irs.float.end)
+        .principal(irs.notional, float.start, float.end)
         .floating_cf(FloatingCouponSpec {
             rate_spec: FloatingRateSpec {
-                index_id: irs.float.forward_curve_id.to_owned(),
-                spread_bp: irs.float.spread_bp,
+                index_id: float.forward_curve_id.to_owned(),
+                spread_bp: float.spread_bp,
                 gearing: Decimal::ONE,
                 gearing_includes_spread: true,
                 floor_bp: None,
                 cap_bp: None,
                 all_in_floor_bp: None,
                 index_cap_bp: None,
-                reset_freq: irs.float.freq,
-                reset_lag_days: irs.float.reset_lag_days,
-                dc: irs.float.dc,
-                bdc: irs.float.bdc,
-                calendar_id: irs
-                    .float
+                reset_freq: float.freq,
+                reset_lag_days: float.reset_lag_days,
+                dc: float.dc,
+                bdc: float.bdc,
+                calendar_id: float
                     .calendar_id
                     .clone()
                     .unwrap_or_else(|| "weekends_only".to_string()),
-                fixing_calendar_id: irs.float.fixing_calendar_id.clone(),
+                fixing_calendar_id: float.fixing_calendar_id.clone(),
                 end_of_month: false,
-                payment_lag_days: irs.float.payment_delay_days,
+                payment_lag_days: float.payment_delay_days,
             },
             coupon_type: crate::cashflow::builder::CouponType::Cash,
-            freq: irs.float.freq,
-            stub: irs.float.stub,
+            freq: float.freq,
+            stub: float.stub,
         });
     let mut sched = float_b.build_with_curves(curves)?;
     // IRS do not exchange notionals; return coupon-only schedule as documented.
