@@ -111,7 +111,9 @@ fn test_cs01_hazard_vs_risky_pv01_consistency() {
         ctx
     };
 
-    let base_pv = cds.value(&market, as_of).unwrap().amount();
+    // Use value_raw for high-precision comparison (matches how CS01 metric is now computed)
+    use finstack_valuations::instruments::Instrument;
+    let base_pv = cds.value_raw(&market, as_of).unwrap();
 
     // Manually bump hazard curve by +1bp in hazard-rate units (i.e. +0.0001) and revalue.
     use finstack_valuations::calibration::bumps::{bump_hazard_shift, BumpRequest};
@@ -120,7 +122,7 @@ fn test_cs01_hazard_vs_risky_pv01_consistency() {
         .unwrap();
     let bumped = bump_hazard_shift(hazard.as_ref(), &BumpRequest::Parallel(1.0)).unwrap();
     let bumped_market = market.clone().insert_hazard(bumped);
-    let bumped_pv = cds.value(&bumped_market, as_of).unwrap().amount();
+    let bumped_pv = cds.value_raw(&bumped_market, as_of).unwrap();
     let expected_cs01 = bumped_pv - base_pv; // per 1bp
 
     let result = cds

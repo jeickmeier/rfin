@@ -211,6 +211,12 @@ where
     I: Instrument + CurveDependencies + 'static,
 {
     /// Collect curves based on configuration and what exists in the market.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the instrument declares rate curve dependencies but
+    /// none of them are found in the market context. This ensures that missing
+    /// market data is surfaced explicitly rather than silently returning 0.0.
     fn collect_curves(
         &self,
         instrument: &I,
@@ -218,16 +224,22 @@ where
     ) -> finstack_core::Result<Vec<(CurveId, RatesCurveKind)>> {
         let deps = instrument.curve_dependencies();
         let mut curves = Vec::new();
+        let mut missing_curves = Vec::new();
+
         for (curve_id, kind) in deps.all_with_kind() {
             match kind {
                 RatesCurveKind::Discount => {
                     if market.get_discount(curve_id.as_str()).is_ok() {
                         curves.push((curve_id, kind));
+                    } else {
+                        missing_curves.push(curve_id.as_str().to_string());
                     }
                 }
                 RatesCurveKind::Forward => {
                     if market.get_forward(curve_id.as_str()).is_ok() {
                         curves.push((curve_id, kind));
+                    } else {
+                        missing_curves.push(curve_id.as_str().to_string());
                     }
                 }
                 RatesCurveKind::Credit => {
@@ -236,11 +248,19 @@ where
             }
         }
 
-        if curves.is_empty() {
-            tracing::warn!(
-                instrument_type = std::any::type_name::<I>(),
-                "UnifiedDv01Calculator: No rate curves found in market context, returning 0.0"
-            );
+        // If the instrument declares rate curve dependencies but none are found,
+        // this is a market data error that should be surfaced explicitly.
+        let has_rate_deps = !deps.discount_curves.is_empty() || !deps.forward_curves.is_empty();
+
+        if curves.is_empty() && has_rate_deps {
+            return Err(finstack_core::Error::from(
+                finstack_core::InputError::NotFound {
+                    id: format!(
+                        "rate_curves for DV01 (missing: {})",
+                        missing_curves.join(", ")
+                    ),
+                },
+            ));
         }
 
         Ok(curves)

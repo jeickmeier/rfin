@@ -354,4 +354,87 @@ mod tests {
         test_metric_determinism(option.clone(), &market, as_of, MetricId::Delta, 10);
         test_metric_determinism(option, &market, as_of, MetricId::Vega, 10);
     }
+
+    /// Test that CRN (Common Random Numbers) produces smooth, stable greeks.
+    ///
+    /// This test verifies that delta varies smoothly as spot changes, which is
+    /// the hallmark of effective CRN variance reduction. Without CRN, MC noise
+    /// would cause erratic delta changes even for small spot perturbations.
+    #[test]
+    fn test_crn_produces_smooth_delta_curve() {
+        let as_of = date!(2024 - 01 - 01);
+        let expiry = date!(2025 - 01 - 01);
+
+        // Use minimal fixing dates for faster execution
+        let option = AsianOption {
+            id: "CRN_SMOOTHNESS_TEST".into(),
+            underlying_ticker: "SPOT".to_string(),
+            spot_id: "SPOT".to_string(),
+            strike: Money::new(100.0, Currency::USD),
+            option_type: OptionType::Call,
+            expiry,
+            notional: Money::new(1.0, Currency::USD),
+            averaging_method: AveragingMethod::Arithmetic,
+            fixing_dates: vec![date!(2024 - 07 - 01), date!(2025 - 01 - 01)],
+            day_count: DayCount::Act365F,
+            discount_curve_id: "USD-OIS".into(),
+            vol_surface_id: "SPOT_VOL".into(),
+            div_yield_id: None,
+            pricing_overrides: Default::default(),
+            attributes: Default::default(),
+            past_fixings: vec![],
+        };
+
+        let registry = standard_registry();
+
+        // Compute delta at several spot levels
+        let spot_levels = [95.0, 97.0, 99.0, 100.0, 101.0, 103.0, 105.0];
+        let mut deltas = Vec::new();
+
+        for &spot in &spot_levels {
+            let market = create_mc_market(as_of, spot, 0.25, 0.05);
+            let pv = option.value(&market, as_of).unwrap();
+            let mut context = MetricContext::new(
+                Arc::new(option.clone()),
+                Arc::new(market),
+                as_of,
+                pv,
+                MetricContext::default_config(),
+            );
+            let computed = registry.compute(&[MetricId::Delta], &mut context).unwrap();
+            deltas.push(*computed.get(&MetricId::Delta).unwrap());
+        }
+
+        // Verify deltas are monotonically non-decreasing for a call option
+        // (higher spot => higher delta for calls, approaching 1)
+        for i in 1..deltas.len() {
+            assert!(
+                deltas[i] >= deltas[i - 1] - 0.01, // Allow small tolerance for MC noise
+                "Delta should be monotonically increasing for call option. \
+                 At spots [{}, {}], deltas were [{}, {}]",
+                spot_levels[i - 1],
+                spot_levels[i],
+                deltas[i - 1],
+                deltas[i]
+            );
+        }
+
+        // Verify delta changes smoothly (no large jumps between adjacent spots)
+        // For a 2% spot change, delta shouldn't jump by more than ~0.15
+        for i in 1..deltas.len() {
+            let delta_change = (deltas[i] - deltas[i - 1]).abs();
+            let spot_change_pct = (spot_levels[i] - spot_levels[i - 1]) / spot_levels[i - 1];
+            let max_allowed_delta_change = 0.15 + spot_change_pct * 2.0; // Scale with spot change
+
+            assert!(
+                delta_change <= max_allowed_delta_change,
+                "Delta change {} between spots {} and {} exceeds max {} - \
+                 possible CRN failure or excessive MC noise",
+                delta_change,
+                spot_levels[i - 1],
+                spot_levels[i],
+                max_allowed_delta_change
+            );
+        }
+    }
 }

@@ -5,6 +5,16 @@
 //!
 //! This eliminates code duplication across exotic options (AsianOption, Autocallable,
 //! BarrierOption, LookbackOption, etc.) that all use the same finite difference pattern.
+//!
+//! # Numerical Stability
+//!
+//! These calculators implement guards against numerical instability:
+//! - **Minimum bump size**: Absolute bump sizes are floored at [`MIN_ABSOLUTE_BUMP`] to
+//!   prevent division by zero or explosive greeks at low spot levels.
+//! - **Common random numbers (CRN)**: For Monte Carlo priced instruments, all bump
+//!   scenarios use the same seed ("greeks_crn") to ensure variance reduction and
+//!   stable finite differences.
+//! - **Non-positive spot validation**: Returns an error if spot price is non-positive.
 
 use std::marker::PhantomData;
 
@@ -15,6 +25,58 @@ use crate::metrics::{bump_scalar_price, bump_surface_vol_absolute};
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::Result;
+
+/// Minimum absolute bump size for spot-based finite differences.
+///
+/// This floor prevents division by zero or numerically unstable greeks when
+/// the underlying spot price is very small. The denominator in finite differences
+/// scales with this bump size, so an excessively small bump leads to explosive greeks.
+///
+/// # Value Rationale
+///
+/// The value 1e-8 is chosen as a balance:
+/// - **Equity prices** (typically $1-$10,000): 1% bump on a $0.01 stock = $0.0001,
+///   well above 1e-8, so the floor rarely activates for normal equities.
+/// - **FX rates** (typically 0.5-200): 1% bump on a 0.01 rate = 1e-4, still safe.
+/// - **Fractional shares or near-zero prices**: The floor activates to prevent
+///   instability when spot × bump_pct would be dangerously small.
+///
+/// # Limitations
+///
+/// This is a conservative fixed floor. For instruments with atypical price scales
+/// (e.g., cryptocurrencies with 8+ decimal places, or very large notionals), users
+/// may need to adjust bump percentages in `FinstackConfig` rather than relying on
+/// this floor.
+pub const MIN_ABSOLUTE_BUMP: f64 = 1e-8;
+
+/// Common random number seed scenario for MC greek calculations.
+///
+/// Using the same seed for all bump scenarios (up/down/base) ensures that
+/// Monte Carlo noise cancels in finite differences, providing stable greeks.
+/// This is the standard "common random numbers" (CRN) variance reduction technique.
+const CRN_SEED_SCENARIO: &str = "greeks_crn";
+
+/// Validate that spot price is positive and finite.
+///
+/// Returns an error if the spot is non-positive, NaN, or infinite.
+fn validate_spot(spot: f64, greek_name: &str) -> Result<()> {
+    if !spot.is_finite() || spot <= 0.0 {
+        return Err(finstack_core::Error::Validation(format!(
+            "Non-positive or invalid spot price ({}) for {} calculation. \
+             Spot must be positive and finite.",
+            spot, greek_name
+        )));
+    }
+    Ok(())
+}
+
+/// Compute the absolute bump size with a minimum floor.
+///
+/// Returns `max(spot * bump_pct, MIN_ABSOLUTE_BUMP)` to ensure numerical stability.
+#[inline]
+fn safe_bump_size(spot: f64, bump_pct: f64) -> f64 {
+    (spot * bump_pct).abs().max(MIN_ABSOLUTE_BUMP)
+}
 
 // ================================================================================================
 // Traits for Instruments with Expiry and DayCount Information
@@ -239,19 +301,25 @@ where
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
         };
 
+        // Validate spot is positive and finite
+        validate_spot(current_spot, "delta")?;
+
         // Fixed bump size from `FinstackConfig` (user-facing, reproducible).
         let bump_pct = defaults.spot_bump_pct;
 
-        let bump_size = current_spot * bump_pct;
+        // Use safe bump size with minimum floor to prevent division by zero
+        let bump_size = safe_bump_size(current_spot, bump_pct);
 
-        // Clone instruments for bumping and set deterministic MC seed scenarios
-        // This ensures MC-priced instruments produce identical results for up/down bumps
+        // Clone instruments for bumping and set CRN seed scenario
+        // Using the same seed for all bumps ensures Monte Carlo noise cancels in FD
         let mut instrument_up = instrument.clone();
         let mut instrument_down = instrument.clone();
 
-        // Set different seed scenarios for up and down bumps to ensure deterministic greeks
-        instrument_up.pricing_overrides_mut().mc_seed_scenario = Some("delta_up".to_string());
-        instrument_down.pricing_overrides_mut().mc_seed_scenario = Some("delta_down".to_string());
+        // Common Random Numbers: same seed for all scenarios ensures variance reduction
+        instrument_up.pricing_overrides_mut().mc_seed_scenario =
+            Some(CRN_SEED_SCENARIO.to_string());
+        instrument_down.pricing_overrides_mut().mc_seed_scenario =
+            Some(CRN_SEED_SCENARIO.to_string());
 
         // Bump spot up
         let curves_up = bump_scalar_price(&context.curves, spot_id, bump_pct)?;
@@ -314,10 +382,14 @@ where
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
         };
 
+        // Validate spot is positive and finite
+        validate_spot(current_spot, "gamma")?;
+
         // Fixed bump size from `FinstackConfig` (user-facing, reproducible).
         let bump_pct = defaults.spot_bump_pct;
 
-        let bump_size = current_spot * bump_pct;
+        // Use safe bump size with minimum floor to prevent division by zero
+        let bump_size = safe_bump_size(current_spot, bump_pct);
 
         // Use the 3-point central difference formula directly:
         //
@@ -325,17 +397,24 @@ where
         //
         // This avoids "bump-of-bump" scaling artifacts when bumps are applied multiplicatively
         // (percentage bumps) and yields exact results for quadratic payoffs.
-        let base_pv = instrument.value_raw(&context.curves, as_of)?;
+
+        // Clone instruments and set CRN seed for variance reduction
+        let mut instrument_base = instrument.clone();
+        instrument_base.pricing_overrides_mut().mc_seed_scenario =
+            Some(CRN_SEED_SCENARIO.to_string());
+        let base_pv = instrument_base.value_raw(&context.curves, as_of)?;
 
         let mut instrument_up = instrument.clone();
-        instrument_up.pricing_overrides_mut().mc_seed_scenario = Some("gamma_up".to_string());
+        instrument_up.pricing_overrides_mut().mc_seed_scenario =
+            Some(CRN_SEED_SCENARIO.to_string());
         let pv_up = instrument_up.value_raw(
             &bump_scalar_price(&context.curves, spot_id, bump_pct)?,
             as_of,
         )?;
 
         let mut instrument_down = instrument.clone();
-        instrument_down.pricing_overrides_mut().mc_seed_scenario = Some("gamma_down".to_string());
+        instrument_down.pricing_overrides_mut().mc_seed_scenario =
+            Some(CRN_SEED_SCENARIO.to_string());
         let pv_down = instrument_down.value_raw(
             &bump_scalar_price(&context.curves, spot_id, -bump_pct)?,
             as_of,
@@ -370,26 +449,40 @@ where
         let instrument: &I = context.instrument_as()?;
         let as_of = context.as_of;
         let defaults = sens_config::from_finstack_config_or_default(context.config())?;
-        let base_pv = instrument.value_raw(&context.curves, as_of)?;
 
         // Get equity dependencies
         let eq_deps = instrument.equity_dependencies();
 
-        // Get vol surface id from instrument
-        let Some(ref vol_surface_id) = eq_deps.vol_surface_id else {
-            tracing::warn!(
-                instrument_type = std::any::type_name::<I>(),
-                "GenericFdVega: No vol surface ID found for instrument, returning 0.0"
-            );
-            return Ok(0.0);
-        };
+        // Get vol surface id from instrument - error if missing
+        let vol_surface_id = eq_deps.vol_surface_id.as_ref().ok_or_else(|| {
+            finstack_core::Error::Validation(format!(
+                "Instrument {} missing vol_surface_id for vega calculation. \
+                 Cannot compute vega without a volatility surface.",
+                instrument.id()
+            ))
+        })?;
+
+        // Verify the vol surface exists in the market context
+        if context.curves.surface(vol_surface_id.as_str()).is_err() {
+            return Err(finstack_core::Error::from(
+                finstack_core::InputError::NotFound {
+                    id: format!("vol_surface:{}", vol_surface_id),
+                },
+            ));
+        }
+
+        // Clone instruments and set CRN seed for variance reduction
+        let mut instrument_base = instrument.clone();
+        instrument_base.pricing_overrides_mut().mc_seed_scenario =
+            Some(CRN_SEED_SCENARIO.to_string());
+        let base_pv = instrument_base.value_raw(&context.curves, as_of)?;
 
         // Fixed bump size from `FinstackConfig` (user-facing, reproducible).
         // Interpreted as an **absolute** implied vol bump in decimal units (e.g., 0.01 = +1 vol point).
         let bump_abs = defaults.vol_bump_pct;
 
         let mut inst_up = instrument.clone();
-        inst_up.pricing_overrides_mut().mc_seed_scenario = Some("vega_up".to_string());
+        inst_up.pricing_overrides_mut().mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
 
         let curves_up =
             bump_surface_vol_absolute(&context.curves, vol_surface_id.as_str(), bump_abs)?;
@@ -422,27 +515,41 @@ where
         let instrument: &I = context.instrument_as()?;
         let as_of = context.as_of;
         let defaults = sens_config::from_finstack_config_or_default(context.config())?;
-        let base_pv = instrument.value_raw(&context.curves, as_of)?;
 
         // Get equity dependencies
         let eq_deps = instrument.equity_dependencies();
 
-        // Get vol surface id from instrument
-        let Some(ref vol_surface_id) = eq_deps.vol_surface_id else {
-            tracing::warn!(
-                instrument_type = std::any::type_name::<I>(),
-                "GenericFdVolga: No vol surface ID found for instrument, returning 0.0"
-            );
-            return Ok(0.0);
-        };
+        // Get vol surface id from instrument - error if missing
+        let vol_surface_id = eq_deps.vol_surface_id.as_ref().ok_or_else(|| {
+            finstack_core::Error::Validation(format!(
+                "Instrument {} missing vol_surface_id for volga calculation. \
+                 Cannot compute volga without a volatility surface.",
+                instrument.id()
+            ))
+        })?;
+
+        // Verify the vol surface exists in the market context
+        if context.curves.surface(vol_surface_id.as_str()).is_err() {
+            return Err(finstack_core::Error::from(
+                finstack_core::InputError::NotFound {
+                    id: format!("vol_surface:{}", vol_surface_id),
+                },
+            ));
+        }
+
+        // Clone instruments and set CRN seed for variance reduction
+        let mut instrument_base = instrument.clone();
+        instrument_base.pricing_overrides_mut().mc_seed_scenario =
+            Some(CRN_SEED_SCENARIO.to_string());
+        let base_pv = instrument_base.value_raw(&context.curves, as_of)?;
 
         // Absolute implied vol bump (vol points).
         let bump_abs = defaults.vol_bump_pct;
 
         let mut inst_up = instrument.clone();
-        inst_up.pricing_overrides_mut().mc_seed_scenario = Some("volga_up".to_string());
+        inst_up.pricing_overrides_mut().mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
         let mut inst_down = instrument.clone();
-        inst_down.pricing_overrides_mut().mc_seed_scenario = Some("volga_down".to_string());
+        inst_down.pricing_overrides_mut().mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
 
         let curves_up =
             bump_surface_vol_absolute(&context.curves, vol_surface_id.as_str(), bump_abs)?;
@@ -514,16 +621,19 @@ where
             finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
         };
 
-        // Bump sizes
+        // Validate spot is positive and finite
+        validate_spot(current_spot, "vanna")?;
+
+        // Bump sizes with minimum floor for numerical stability
         let (spot_bump_pct, vol_bump_abs) = (defaults.spot_bump_pct, defaults.vol_bump_pct);
 
-        let h_abs = current_spot * spot_bump_pct; // absolute spot change
+        let h_abs = safe_bump_size(current_spot, spot_bump_pct); // absolute spot change
         let k_abs = vol_bump_abs; // absolute vol change (vol points)
 
-        // Prepare evaluators for four combinations
+        // Prepare evaluators for four combinations using CRN for variance reduction
         let su_vu = {
             let mut inst = instrument.clone();
-            inst.pricing_overrides_mut().mc_seed_scenario = Some("vanna_su_vu".to_string());
+            inst.pricing_overrides_mut().mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
             let curves = bump_surface_vol_absolute(
                 &bump_scalar_price(&context.curves, spot_id, spot_bump_pct)?,
                 vol_surface_id.as_str(),
@@ -534,7 +644,7 @@ where
 
         let su_vd = {
             let mut inst = instrument.clone();
-            inst.pricing_overrides_mut().mc_seed_scenario = Some("vanna_su_vd".to_string());
+            inst.pricing_overrides_mut().mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
             let curves = bump_surface_vol_absolute(
                 &bump_scalar_price(&context.curves, spot_id, spot_bump_pct)?,
                 vol_surface_id.as_str(),
@@ -545,7 +655,7 @@ where
 
         let sd_vu = {
             let mut inst = instrument.clone();
-            inst.pricing_overrides_mut().mc_seed_scenario = Some("vanna_sd_vu".to_string());
+            inst.pricing_overrides_mut().mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
             let curves = bump_surface_vol_absolute(
                 &bump_scalar_price(&context.curves, spot_id, -spot_bump_pct)?,
                 vol_surface_id.as_str(),
@@ -556,7 +666,7 @@ where
 
         let sd_vd = {
             let mut inst = instrument.clone();
-            inst.pricing_overrides_mut().mc_seed_scenario = Some("vanna_sd_vd".to_string());
+            inst.pricing_overrides_mut().mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
             let curves = bump_surface_vol_absolute(
                 &bump_scalar_price(&context.curves, spot_id, -spot_bump_pct)?,
                 vol_surface_id.as_str(),
@@ -958,5 +1068,85 @@ mod tests {
             0.0,
             "expired gamma should be zero"
         );
+    }
+
+    #[test]
+    fn delta_errors_on_zero_spot() {
+        let as_of = date!(2025 - 01 - 01);
+        let inst = TestFdInstrument::new("FD-TEST", date!(2026 - 01 - 01), "SPOT");
+        let market = market_with_spot("SPOT", 0.0);
+
+        let base_value = Money::new(0.0, Currency::USD);
+        let registry = registry_for_test::<TestFdInstrument>();
+        let mut ctx = MetricContext::new(
+            Arc::new(inst),
+            Arc::new(market),
+            as_of,
+            base_value,
+            MetricContext::default_config(),
+        );
+
+        let result = registry.compute(&[MetricId::Delta], &mut ctx);
+        assert!(result.is_err(), "delta should error on zero spot");
+        let err_msg = result.expect_err("already asserted is_err").to_string();
+        assert!(
+            err_msg.contains("Non-positive") || err_msg.contains("invalid spot"),
+            "error should mention non-positive spot: {}",
+            err_msg
+        );
+    }
+
+    #[test]
+    fn gamma_errors_on_negative_spot() {
+        let as_of = date!(2025 - 01 - 01);
+        let inst = TestFdInstrument::new("FD-TEST", date!(2026 - 01 - 01), "SPOT");
+        let market = market_with_spot("SPOT", -10.0);
+
+        let base_value = Money::new(0.0, Currency::USD);
+        let registry = registry_for_test::<TestFdInstrument>();
+        let mut ctx = MetricContext::new(
+            Arc::new(inst),
+            Arc::new(market),
+            as_of,
+            base_value,
+            MetricContext::default_config(),
+        );
+
+        let result = registry.compute(&[MetricId::Gamma], &mut ctx);
+        assert!(result.is_err(), "gamma should error on negative spot");
+    }
+
+    #[test]
+    fn safe_bump_size_applies_minimum_floor() {
+        // Very small spot should still produce a usable bump size
+        let tiny_spot = 1e-12;
+        let bump_pct = 0.01;
+        let bump = super::safe_bump_size(tiny_spot, bump_pct);
+
+        // Should be floored at MIN_ABSOLUTE_BUMP
+        assert!(
+            bump >= super::MIN_ABSOLUTE_BUMP,
+            "bump {} should be >= MIN_ABSOLUTE_BUMP {}",
+            bump,
+            super::MIN_ABSOLUTE_BUMP
+        );
+    }
+
+    #[test]
+    fn validate_spot_rejects_nan() {
+        let result = super::validate_spot(f64::NAN, "test");
+        assert!(result.is_err(), "NaN spot should be rejected");
+    }
+
+    #[test]
+    fn validate_spot_rejects_infinity() {
+        let result = super::validate_spot(f64::INFINITY, "test");
+        assert!(result.is_err(), "infinite spot should be rejected");
+    }
+
+    #[test]
+    fn validate_spot_accepts_positive_finite() {
+        let result = super::validate_spot(100.0, "test");
+        assert!(result.is_ok(), "positive finite spot should be accepted");
     }
 }
