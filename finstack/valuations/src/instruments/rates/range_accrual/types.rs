@@ -347,6 +347,10 @@ impl crate::instruments::common_impl::traits::Instrument for RangeAccrual {
             None,
         )
     }
+
+    fn effective_start_date(&self) -> Option<Date> {
+        self.observation_dates.first().copied()
+    }
 }
 
 // Implement CurveDependencies for DV01 calculator

@@ -199,6 +199,7 @@
 mod core;
 pub mod risk;
 mod sensitivities;
+mod shared;
 
 // Core surface (supported)
 pub use core::ids::MetricId;
@@ -234,6 +235,8 @@ pub(crate) use sensitivities::theta::{
     calculate_theta_date, generic_theta_calculator, GenericTheta, GenericThetaAny,
 };
 pub(crate) use sensitivities::vega::KeyRateVega;
+pub(crate) use shared::df_end::GenericDfEndCalculator;
+pub(crate) use shared::df_start::GenericDfStartCalculator;
 
 // Only used in unit tests (e.g. hazard engine sanity checks).
 #[cfg(test)]

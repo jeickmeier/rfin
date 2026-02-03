@@ -509,6 +509,10 @@ impl crate::instruments::common_impl::traits::Instrument for CommodityForward {
             None,
         )
     }
+
+    fn effective_start_date(&self) -> Option<Date> {
+        None
+    }
 }
 
 #[cfg(test)]

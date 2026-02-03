@@ -469,6 +469,10 @@ impl crate::instruments::common_impl::traits::Instrument for TermLoan {
             None,
         )
     }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.issue)
+    }
 }
 
 impl crate::cashflow::traits::CashflowProvider for TermLoan {

@@ -188,6 +188,10 @@ impl Instrument for DiscountedCashFlow {
             None,
         )
     }
+
+    fn effective_start_date(&self) -> Option<Date> {
+        None
+    }
 }
 impl CurveDependencies for DiscountedCashFlow {
     fn curve_dependencies(&self) -> InstrumentCurves {

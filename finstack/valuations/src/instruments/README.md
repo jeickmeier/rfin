@@ -167,6 +167,9 @@ pub trait Instrument: Send + Sync {
         metrics: &[MetricId],
     ) -> Result<ValuationResult>;
 
+    // Instrument lifecycle
+    fn expiry(&self) -> Option<Date>;  // Maturity/expiry date for theta, roll calculations
+
     // Market data introspection (for attribution)
     fn market_dependencies(&self) -> MarketDependencies;
     fn fx_exposure(&self) -> Option<(Currency, Currency)>;
@@ -177,6 +180,8 @@ pub trait Instrument: Send + Sync {
     fn clone_box(&self) -> Box<dyn Instrument>;
 }
 ```
+
+**Note**: The `expiry()` method returns `Some(date)` for instruments with a defined expiry/maturity (bonds, swaps, options) or `None` for instruments without a clear expiry (e.g., equity spot positions). This is used by theta calculations to cap the roll date.
 
 ### Attributes and Selection
 
@@ -619,11 +624,46 @@ impl Instrument for MyInstrument {
 }
 ```
 
-### 4. Implement the Pricer (`pricer.rs`)
+### 4. Implement the Pricer
+
+**Option A: Use GenericInstrumentPricer (Recommended for most instruments)**
+
+If your instrument's pricing logic is fully contained in its `value()` method, use `GenericInstrumentPricer` to eliminate boilerplate:
 
 ```rust
-//! Pricer for MyInstrument.
+// In your registration (pricer/registry.rs), no separate pricer.rs needed:
+use crate::instruments::common::pricing::GenericInstrumentPricer;
+use crate::instruments::my_instrument::MyInstrument;
 
+// Register the generic pricer
+registry.register(
+    Arc::new(GenericInstrumentPricer::<MyInstrument>::discounting(InstrumentType::MyInstrument))
+);
+```
+
+This approach:
+- Delegates to `MyInstrument::value()` automatically
+- Handles type-safe downcasting
+- Returns properly stamped `ValuationResult`
+- Requires no separate `pricer.rs` file
+
+For instruments using specialized models (e.g., hazard rates for CDS):
+
+```rust
+registry.register(
+    Arc::new(GenericInstrumentPricer::<MyInstrument>::new(
+        InstrumentType::MyInstrument,
+        ModelKey::HazardRate
+    ))
+);
+```
+
+**Option B: Custom Pricer (For complex pricing logic)**
+
+If you need custom pricer logic beyond the instrument's `value()` method:
+
+```rust
+// pricer.rs
 use super::MyInstrument;
 use crate::pricer::Pricer;
 use finstack_core::dates::Date;
@@ -653,6 +693,13 @@ impl Pricer<MyInstrument> for MyInstrumentPricer {
     }
 }
 ```
+
+**When to use each approach:**
+- Use `GenericInstrumentPricer` (Option A) for most instruments where pricing logic is in `value()`
+- Use a custom pricer (Option B) when you need:
+  - Multiple pricing models with different registration
+  - Specialized caching or optimization
+  - Complex model switching logic
 
 ### 5. Add Metrics (`metrics/mod.rs`)
 

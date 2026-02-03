@@ -215,4 +215,8 @@ impl crate::instruments::common_impl::traits::Instrument for Autocallable {
             None,
         )
     }
+
+    fn effective_start_date(&self) -> Option<Date> {
+        self.observation_dates.first().copied()
+    }
 }

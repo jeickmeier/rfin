@@ -475,6 +475,10 @@ impl crate::instruments::common_impl::traits::Instrument for InflationCapFloor {
             None,
         )
     }
+
+    fn effective_start_date(&self) -> Option<Date> {
+        Some(self.start_date)
+    }
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for InflationCapFloor {

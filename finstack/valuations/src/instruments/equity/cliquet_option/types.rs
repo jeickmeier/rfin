@@ -170,4 +170,8 @@ impl crate::instruments::common_impl::traits::Instrument for CliquetOption {
             None,
         )
     }
+
+    fn effective_start_date(&self) -> Option<Date> {
+        self.reset_dates.first().copied()
+    }
 }

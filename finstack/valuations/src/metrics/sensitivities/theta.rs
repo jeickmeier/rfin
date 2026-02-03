@@ -236,7 +236,6 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::Result;
-use std::any::Any;
 use std::marker::PhantomData;
 
 /// Parse a period string to an **approximate** number of calendar days.
@@ -460,8 +459,8 @@ where
         .and_then(|po| po.theta_period.as_deref())
         .unwrap_or("1D");
 
-    // Get expiry date if available (instrument-specific)
-    let expiry_date = get_instrument_expiry(instrument);
+    // Get expiry date if available (via Instrument trait method)
+    let expiry_date = instrument.expiry();
 
     // Calculate rolled date
     let rolled_date = calculate_theta_date(context.as_of, period_str, expiry_date)?;
@@ -577,81 +576,10 @@ fn collect_cashflows_in_period(
     Ok(sum)
 }
 
-/// Helper to extract expiry date from an instrument (trait object).
-///
-/// Uses Any downcasting to check for common expiry field patterns.
-/// Returns None if the instrument doesn't have a clear expiry concept.
-fn get_instrument_expiry(instrument: &dyn Any) -> Option<Date> {
-    use crate::instruments::*;
-
-    // Try downcasting to each instrument type with expiry
-    if let Some(bond) = instrument.downcast_ref::<Bond>() {
-        return Some(bond.maturity);
-    }
-    if let Some(cds) = instrument.downcast_ref::<CreditDefaultSwap>() {
-        return Some(cds.premium.end);
-    }
-    if let Some(cds_idx) = instrument.downcast_ref::<CDSIndex>() {
-        return Some(cds_idx.premium.end);
-    }
-    if let Some(cds_tr) = instrument.downcast_ref::<CdsTranche>() {
-        return Some(cds_tr.maturity);
-    }
-    if let Some(cap) = instrument.downcast_ref::<InterestRateOption>() {
-        return Some(cap.end_date);
-    }
-    if let Some(eq_opt) = instrument.downcast_ref::<EquityOption>() {
-        return Some(eq_opt.expiry);
-    }
-    if let Some(fx_opt) = instrument.downcast_ref::<FxOption>() {
-        return Some(fx_opt.expiry);
-    }
-    if let Some(swaption) = instrument.downcast_ref::<Swaption>() {
-        return Some(swaption.expiry);
-    }
-    if let Some(cds_opt) = instrument.downcast_ref::<CdsOption>() {
-        return Some(cds_opt.expiry);
-    }
-    if let Some(fra) = instrument.downcast_ref::<ForwardRateAgreement>() {
-        return Some(fra.end_date);
-    }
-    if let Some(irs) = instrument.downcast_ref::<InterestRateSwap>() {
-        return Some(irs.fixed.end);
-    }
-    if let Some(basis) = instrument.downcast_ref::<BasisSwap>() {
-        return Some(basis.maturity_date);
-    }
-    if let Some(deposit) = instrument.downcast_ref::<Deposit>() {
-        return Some(deposit.end);
-    }
-    if let Some(inf_swap) = instrument.downcast_ref::<InflationSwap>() {
-        return Some(inf_swap.maturity);
-    }
-    if let Some(inf_bond) = instrument.downcast_ref::<InflationLinkedBond>() {
-        return Some(inf_bond.maturity);
-    }
-    if let Some(repo) = instrument.downcast_ref::<Repo>() {
-        return Some(repo.maturity);
-    }
-    if let Some(eq_trs) = instrument.downcast_ref::<EquityTotalReturnSwap>() {
-        return Some(eq_trs.schedule.end);
-    }
-    if let Some(fi_trs) = instrument.downcast_ref::<FIIndexTotalReturnSwap>() {
-        return Some(fi_trs.schedule.end);
-    }
-    if let Some(var_swap) = instrument.downcast_ref::<VarianceSwap>() {
-        return Some(var_swap.maturity);
-    }
-    if let Some(ir_fut) = instrument.downcast_ref::<InterestRateFuture>() {
-        return Some(ir_fut.expiry_date);
-    }
-    if let Some(fx_swap) = instrument.downcast_ref::<FxSwap>() {
-        return Some(fx_swap.far_date);
-    }
-
-    // No expiry for: equity, basket, convertible, structured_credit, private_markets_fund
-    None
-}
+// Note: The `get_instrument_expiry` function has been replaced by the `Instrument::expiry()` trait method.
+// Instruments now implement `expiry()` directly, returning `Some(date)` for instruments with expiry/maturity
+// or `None` for instruments without a clear expiry concept (e.g., equity spot positions).
+// See the `Instrument` trait in `instruments/common/traits.rs`.
 
 /// Universal theta calculator that works with any instrument via the Instrument trait.
 ///
@@ -677,8 +605,8 @@ impl crate::metrics::MetricCalculator for GenericThetaAny {
             .and_then(|po| po.theta_period.as_deref())
             .unwrap_or("1D");
 
-        // Get expiry date if available (instrument-specific via as_any downcast)
-        let expiry_date = get_instrument_expiry(context.instrument.as_any());
+        // Get expiry date if available (via Instrument trait method)
+        let expiry_date = context.instrument.expiry();
 
         // Calculate rolled date
         let rolled_date = calculate_theta_date(context.as_of, period_str, expiry_date)?;

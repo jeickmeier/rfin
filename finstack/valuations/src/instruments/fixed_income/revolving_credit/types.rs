@@ -695,6 +695,10 @@ impl crate::instruments::common_impl::traits::Instrument for RevolvingCredit {
             None,
         )
     }
+
+    fn effective_start_date(&self) -> Option<Date> {
+        Some(self.commitment_date)
+    }
 }
 
 // Implement CurveDependencies for DV01 calculator

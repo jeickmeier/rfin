@@ -229,6 +229,10 @@ impl Instrument for RealEstateAsset {
             None,
         )
     }
+
+    fn effective_start_date(&self) -> Option<Date> {
+        None
+    }
 }
 impl CurveDependencies for RealEstateAsset {
     fn curve_dependencies(&self) -> InstrumentCurves {

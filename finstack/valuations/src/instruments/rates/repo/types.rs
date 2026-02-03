@@ -649,6 +649,14 @@ impl Instrument for Repo {
     fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
         Some(self)
     }
+
+    fn expiry(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.maturity)
+    }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.start_date)
+    }
 }
 
 // Do not add explicit Instrument impl; provided by blanket impl.

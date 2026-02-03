@@ -1012,6 +1012,14 @@ impl crate::instruments::common_impl::traits::Instrument for InflationLinkedBond
     fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
         Some(self)
     }
+
+    fn expiry(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.maturity)
+    }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.issue)
+    }
 }
 
 impl CashflowProvider for InflationLinkedBond {

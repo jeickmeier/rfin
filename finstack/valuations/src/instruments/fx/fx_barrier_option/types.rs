@@ -427,6 +427,10 @@ impl crate::instruments::common_impl::traits::Instrument for FxBarrierOption {
             None,
         )
     }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        None
+    }
 }
 
 #[cfg(test)]

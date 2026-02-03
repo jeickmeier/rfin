@@ -431,6 +431,10 @@ impl Instrument for CommodityOption {
             None,
         )
     }
+
+    fn effective_start_date(&self) -> Option<Date> {
+        None
+    }
 }
 
 impl crate::instruments::common_impl::traits::OptionDeltaProvider for CommodityOption {

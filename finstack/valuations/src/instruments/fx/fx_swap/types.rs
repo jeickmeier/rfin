@@ -255,6 +255,14 @@ impl crate::instruments::common_impl::traits::Instrument for FxSwap {
             None,
         )
     }
+
+    fn expiry(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.far_date)
+    }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.near_date)
+    }
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for FxSwap {

@@ -162,6 +162,10 @@ impl crate::instruments::common_impl::traits::Instrument for CmsOption {
             None,
         )
     }
+
+    fn effective_start_date(&self) -> Option<Date> {
+        self.fixing_dates.first().copied()
+    }
 }
 
 // Implement CurveDependencies for DV01 calculator

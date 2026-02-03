@@ -2105,6 +2105,10 @@ Provide it at construction time via BondFutureBuilder::ctd_bond(...) or by using
             None,
         )
     }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.delivery_start)
+    }
 }
 
 // Implement CurveDependencies for DV01 calculators

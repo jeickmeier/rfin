@@ -820,6 +820,14 @@ impl crate::instruments::common_impl::traits::Instrument for CreditDefaultSwap {
             None,
         )
     }
+
+    fn expiry(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.premium.end)
+    }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.premium.start)
+    }
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for CreditDefaultSwap {

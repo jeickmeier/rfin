@@ -206,8 +206,24 @@ impl crate::instruments::common_impl::traits::Instrument for Deposit {
         )
     }
 
+    fn market_dependencies(
+        &self,
+    ) -> crate::instruments::common_impl::dependencies::MarketDependencies {
+        crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
+            self,
+        )
+    }
+
     fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
         Some(self)
+    }
+
+    fn expiry(&self) -> Option<finstack_core::dates::Date> {
+        self.effective_end_date().ok()
+    }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        self.effective_start_date().ok()
     }
 }
 

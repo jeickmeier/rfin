@@ -331,6 +331,14 @@ impl crate::instruments::common_impl::traits::Instrument for EquityTotalReturnSw
     fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
         Some(self)
     }
+
+    fn expiry(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.schedule.end)
+    }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.schedule.start)
+    }
 }
 
 impl CashflowProvider for EquityTotalReturnSwap {

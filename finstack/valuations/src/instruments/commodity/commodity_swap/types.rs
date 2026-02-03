@@ -417,6 +417,10 @@ impl crate::instruments::common_impl::traits::Instrument for CommoditySwap {
             None,
         )
     }
+
+    fn effective_start_date(&self) -> Option<Date> {
+        Some(self.start_date)
+    }
 }
 
 #[cfg(test)]

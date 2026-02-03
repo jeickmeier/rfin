@@ -463,6 +463,14 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
             None,
         )
     }
+
+    fn expiry(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.end_date)
+    }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.start_date)
+    }
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for InterestRateOption {

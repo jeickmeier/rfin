@@ -495,6 +495,14 @@ impl crate::instruments::common_impl::traits::Instrument for CdsOption {
             None,
         )
     }
+
+    fn expiry(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.expiry)
+    }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        None
+    }
 }
 
 // Implement CurveDependencies for DV01 calculator

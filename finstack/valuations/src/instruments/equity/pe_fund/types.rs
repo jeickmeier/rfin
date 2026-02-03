@@ -179,6 +179,10 @@ impl Instrument for PrivateMarketsFund {
         )
     }
 
+    fn effective_start_date(&self) -> Option<Date> {
+        None
+    }
+
     fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
         Some(self)
     }

@@ -228,4 +228,8 @@ impl crate::instruments::common_impl::traits::Instrument for LookbackOption {
             None,
         )
     }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        None
+    }
 }

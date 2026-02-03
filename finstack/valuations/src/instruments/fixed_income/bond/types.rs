@@ -1013,6 +1013,14 @@ impl crate::instruments::common_impl::traits::Instrument for Bond {
     ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
         Some(&self.pricing_overrides)
     }
+
+    fn expiry(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.maturity)
+    }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.issue)
+    }
 }
 
 // Implement CurveDependencies for DV01/CS01 calculators

@@ -419,6 +419,10 @@ impl crate::instruments::common_impl::traits::Instrument for AgencyCmo {
         )
     }
 
+    fn effective_start_date(&self) -> Option<Date> {
+        Some(self.issue_date)
+    }
+
     fn scenario_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {

@@ -775,6 +775,10 @@ impl Instrument for StructuredCredit {
     fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
         Some(self)
     }
+
+    fn effective_start_date(&self) -> Option<Date> {
+        None
+    }
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for StructuredCredit {

@@ -500,6 +500,14 @@ impl crate::instruments::common_impl::traits::Instrument for CDSIndex {
             None,
         )
     }
+
+    fn expiry(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.premium.end)
+    }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.premium.start)
+    }
 }
 
 // Implement CurveDependencies for DV01 calculator

@@ -483,6 +483,14 @@ impl crate::instruments::common_impl::traits::Instrument for ForwardRateAgreemen
     fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
         Some(self)
     }
+
+    fn expiry(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.end_date)
+    }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.start_date)
+    }
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for ForwardRateAgreement {

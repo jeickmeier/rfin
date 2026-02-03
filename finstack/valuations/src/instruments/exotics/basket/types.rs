@@ -371,6 +371,10 @@ impl Instrument for Basket {
             None,
         )
     }
+
+    fn effective_start_date(&self) -> Option<Date> {
+        None
+    }
 }
 
 // Implement CurveDependencies for DV01 calculator

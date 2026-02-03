@@ -563,6 +563,10 @@ impl crate::instruments::common_impl::traits::Instrument for FxForward {
             None,
         )
     }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        None
+    }
 }
 
 #[cfg(test)]

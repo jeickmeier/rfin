@@ -683,6 +683,14 @@ impl crate::instruments::common_impl::traits::Instrument for BasisSwap {
             None,
         )
     }
+
+    fn expiry(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.maturity_date)
+    }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.start_date)
+    }
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for BasisSwap {

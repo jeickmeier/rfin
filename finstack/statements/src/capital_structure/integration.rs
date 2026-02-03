@@ -18,6 +18,18 @@ use indexmap::IndexMap;
 use serde::Deserialize;
 use std::sync::Arc;
 
+/// Snapshot date used for "end of period" quantities under half-open period semantics `[start, end)`.
+///
+/// We use `end - 1 day` so that cashflows dated exactly on `period.end` are attributed to the
+/// *next* period and do not incorrectly affect the prior period's end-of-period balance/accrual.
+fn period_snapshot_date(period: &Period) -> Date {
+    if period.end <= period.start {
+        // Defensive: periods should always have positive length, but clamp to start if malformed.
+        return period.start;
+    }
+    period.end - time::Duration::days(1)
+}
+
 /// Calculate contractual flows for a single period.
 ///
 /// This helper extracts flows for a specific period from an instrument's full schedule,
@@ -42,6 +54,7 @@ pub fn calculate_period_flows(
     let full_schedule = instrument.build_full_schedule(market_ctx, as_of)?;
     let currency = opening_balance.currency();
     let mut breakdown = CashflowBreakdown::with_currency(currency);
+    let snapshot_date = period_snapshot_date(period);
 
     // Extract flows that fall within this period
     for cf in &full_schedule.flows {
@@ -59,16 +72,37 @@ pub fn calculate_period_flows(
                 CFKind::Amortization => {
                     breakdown.principal_payment += abs_value;
                 }
+                CFKind::PrePayment | CFKind::RevolvingRepayment => {
+                    breakdown.principal_payment += abs_value;
+                }
                 CFKind::Notional if cf.amount.amount() > 0.0 => {
                     breakdown.principal_payment += abs_value;
                 }
-                CFKind::Fee => {
+                CFKind::Fee | CFKind::CommitmentFee | CFKind::UsageFee | CFKind::FacilityFee => {
                     breakdown.fees += abs_value;
                 }
                 CFKind::PIK => {
                     breakdown.interest_expense_pik += abs_value;
                 }
-                _ => {}
+                CFKind::Notional | CFKind::RevolvingDraw => {
+                    // Funding / draw events are not treated as scheduled principal payments in statements.
+                }
+                CFKind::DefaultedNotional | CFKind::Recovery => {
+                    // Credit events are not modeled as part of standard debt service in statements.
+                    log::warn!(
+                        "Ignoring credit-event CFKind={:?} for period flow calc (date={:?})",
+                        cf.kind,
+                        cf.date
+                    );
+                }
+                _ => {
+                    // CFKind is non-exhaustive; ignore unknown variants to avoid misclassification.
+                    log::warn!(
+                        "Unhandled CFKind={:?} for period flow calc (date={:?}); ignoring",
+                        cf.kind,
+                        cf.date
+                    );
+                }
             }
         }
     }
@@ -81,7 +115,7 @@ pub fn calculate_period_flows(
     let closing_balance = outstanding_path
         .iter()
         .rev()
-        .find(|(date, _)| *date <= period.end)
+        .find(|(date, _)| *date <= snapshot_date)
         .map(|(_, balance)| {
             if balance.amount() < 0.0 {
                 Money::new(-balance.amount(), balance.currency())
@@ -105,7 +139,7 @@ pub fn calculate_period_flows(
     // Calculate accrued interest at period end
     // Note: detailed accrual config (day count, compounding) comes from the schedule itself
     let accrued_scalar =
-        accrued_interest_amount(&full_schedule, period.end, &AccrualConfig::default())?;
+        accrued_interest_amount(&full_schedule, snapshot_date, &AccrualConfig::default())?;
     breakdown.accrued_interest = Money::new(accrued_scalar, currency);
 
     Ok((breakdown, closing_balance))
@@ -263,6 +297,17 @@ pub fn aggregate_instrument_cashflows(
                                 }
                             }
                         }
+                        CFKind::PrePayment | CFKind::RevolvingRepayment => {
+                            // Principal repayments (unscheduled prepayments, revolving repayments)
+                            breakdown.principal_payment += abs_value;
+                            if let (Some(map), Some(money)) =
+                                (reporting_totals.as_mut(), converted_abs)
+                            {
+                                if let Some(total) = map.get_mut(&period_id) {
+                                    total.principal_payment += money;
+                                }
+                            }
+                        }
                         CFKind::Notional if cf.amount.amount() > 0.0 => {
                             // Principal redemption (bullet payment)
                             breakdown.principal_payment += abs_value;
@@ -274,7 +319,10 @@ pub fn aggregate_instrument_cashflows(
                                 }
                             }
                         }
-                        CFKind::Fee => {
+                        CFKind::Fee
+                        | CFKind::CommitmentFee
+                        | CFKind::UsageFee
+                        | CFKind::FacilityFee => {
                             // Commitment fees, facility fees, etc.
                             breakdown.fees += abs_value;
                             if let (Some(map), Some(money)) =
@@ -297,24 +345,32 @@ pub fn aggregate_instrument_cashflows(
                                 }
                             }
                         }
+                        CFKind::DefaultedNotional | CFKind::Recovery => {
+                            // Credit events are not modeled as part of standard debt service in statements.
+                            log::warn!(
+                                "Ignoring credit-event CFKind={:?} in CS aggregation (instrument={}, date={:?})",
+                                cf.kind,
+                                instrument_id,
+                                cf.date
+                            );
+                        }
                         CFKind::Notional if cf.amount.amount() <= 0.0 => {
                             // Negative notional flows (initial exchange) - typically netted against principal
                             // For simplicity, we ignore these as they represent the initial funding, not ongoing cashflows
                             // The debt_balance is tracked separately via outstanding_by_date()
                         }
+                        CFKind::RevolvingDraw => {
+                            // Funding / draws are not treated as principal payments in statements.
+                            // The debt_balance is tracked separately via outstanding_by_date().
+                        }
                         _ => {
-                            // CFKind is non-exhaustive, so we need this catch-all for forward compatibility.
-                            // If new CFKind variants are added in the future, conservatively treat them as cash interest.
-                            // Note: If this case is hit frequently, consider adding explicit handling for the new CFKind.
-                            // In production, this should be logged with: tracing::warn!("Unknown CFKind: {:?}", cf.kind)
-                            breakdown.interest_expense_cash += abs_value;
-                            if let (Some(map), Some(money)) =
-                                (reporting_totals.as_mut(), converted_abs)
-                            {
-                                if let Some(total) = map.get_mut(&period_id) {
-                                    total.interest_expense_cash += money;
-                                }
-                            }
+                            // CFKind is non-exhaustive; ignore unknown variants to avoid misclassification.
+                            log::warn!(
+                                "Unhandled CFKind={:?} in CS aggregation (instrument={}, date={:?}); ignoring",
+                                cf.kind,
+                                instrument_id,
+                                cf.date
+                            );
                         }
                     }
                 }
@@ -331,15 +387,15 @@ pub fn aggregate_instrument_cashflows(
         // between coupon payment dates.
         for period in periods {
             let period_id = period.id;
-            let period_end = period.end;
+            let snapshot_date = period_snapshot_date(period);
 
             if let Some(breakdown) = instrument_periods.get_mut(&period_id) {
                 // Find the most recent outstanding balance at or before period end.
-                // Use rev().find() to efficiently get the latest entry <= period_end.
+                // Use rev().find() to efficiently get the latest entry <= snapshot_date.
                 let outstanding_at_period = outstanding_path
                     .iter()
                     .rev()
-                    .find(|(date, _)| *date <= period_end)
+                    .find(|(date, _)| *date <= snapshot_date)
                     .map(|(_, amount)| *amount)
                     .unwrap_or(full_schedule.notional.initial);
 
@@ -354,18 +410,11 @@ pub fn aggregate_instrument_cashflows(
                 };
                 breakdown.debt_balance = issuer_balance;
 
-                // Calculate accrued interest at the last day of the period.
-                // Periods use half-open intervals [start, end), so the last day is end - 1.
-                // This is important because coupon dates that fall exactly on period_end
-                // would otherwise show 0 accrued (since the coupon has just been paid).
-                //
-                // Example: M6 = [June 1, July 1) with coupon on July 1
-                // - Query at July 1: accrued = 0 (coupon period ended, payment due)
-                // - Query at June 30: accrued = full coupon amount
-                let accrual_date = period_end - time::Duration::days(1);
+                // Accrued interest is measured at the period snapshot date (`end - 1 day`)
+                // to align with half-open `[start, end)` attribution.
                 let accrued_scalar = accrued_interest_amount(
                     &full_schedule,
-                    accrual_date,
+                    snapshot_date,
                     &AccrualConfig::default(),
                 )?;
                 let accrued_money = Money::new(accrued_scalar, currency);
@@ -376,14 +425,14 @@ pub fn aggregate_instrument_cashflows(
                     reporting_totals.as_mut(),
                     convert_to_reporting(
                         issuer_balance,
-                        period_end,
+                        snapshot_date,
                         reporting_currency,
                         fx_matrix,
                         fx_policy,
                     )?,
                 ) {
                     if let Some(total) = map.get_mut(&period_id) {
-                        total.debt_balance = money;
+                        total.debt_balance += money;
                     }
                 }
 
@@ -391,14 +440,14 @@ pub fn aggregate_instrument_cashflows(
                     reporting_totals.as_mut(),
                     convert_to_reporting(
                         accrued_money,
-                        period_end,
+                        snapshot_date,
                         reporting_currency,
                         fx_matrix,
                         fx_policy,
                     )?,
                 ) {
                     if let Some(total) = map.get_mut(&period_id) {
-                        total.accrued_interest = money;
+                        total.accrued_interest += money;
                     }
                 }
             }
@@ -448,20 +497,31 @@ fn convert_to_reporting(
     fx_matrix: Option<&Arc<finstack_core::money::fx::FxMatrix>>,
     fx_policy: finstack_core::money::fx::FxConversionPolicy,
 ) -> Result<Option<finstack_core::money::Money>> {
-    if let (Some(rc), Some(fx)) = (reporting_currency, fx_matrix) {
-        if rc == money.currency() {
-            return Ok(Some(money));
-        }
-        let rate = fx
-            .rate(FxQuery::with_policy(money.currency(), rc, on, fx_policy))?
-            .rate;
-        Ok(Some(finstack_core::money::Money::new(
-            money.amount() * rate,
-            rc,
-        )))
-    } else {
-        Ok(None)
+    let Some(rc) = reporting_currency else {
+        return Ok(None);
+    };
+
+    if rc == money.currency() {
+        return Ok(Some(money));
     }
+
+    let Some(fx) = fx_matrix else {
+        return Err(crate::error::Error::capital_structure(format!(
+            "Cannot convert {} to reporting currency {} on {}: no FX matrix present. \
+             Supply FX in MarketContext (or remove reporting_currency / keep single-currency portfolios).",
+            money.currency(),
+            rc,
+            on
+        )));
+    };
+
+    let rate = fx
+        .rate(FxQuery::with_policy(money.currency(), rc, on, fx_policy))?
+        .rate;
+    Ok(Some(finstack_core::money::Money::new(
+        money.amount() * rate,
+        rc,
+    )))
 }
 
 /// Build a [`Bond`] instrument from a [`DebtInstrumentSpec`].

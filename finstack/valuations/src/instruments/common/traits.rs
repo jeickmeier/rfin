@@ -1039,6 +1039,45 @@ pub trait Instrument: Send + Sync {
     fn to_instrument_json(&self) -> Option<crate::instruments::InstrumentJson> {
         None
     }
+
+    /// Get the instrument's expiry or maturity date, if applicable.
+    ///
+    /// Returns the date at which the instrument expires, matures, or otherwise
+    /// terminates. This is used by theta calculations to cap the roll date
+    /// and by other time-dependent calculations.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(Date)` for instruments with a defined expiry/maturity
+    /// - `None` for instruments without a clear expiry (e.g., equity spot positions)
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// use finstack_valuations::instruments::{Bond, Instrument};
+    ///
+    /// let bond = Bond::example();
+    /// if let Some(maturity) = bond.expiry() {
+    ///     println!("Bond matures on: {}", maturity);
+    /// }
+    /// ```
+    fn expiry(&self) -> Option<Date> {
+        None
+    }
+
+    /// Get the instrument's effective start/value date, if applicable.
+    ///
+    /// Returns the date at which the instrument's economics begin (e.g., accrual start,
+    /// effective date, or issue date). This is used by shared metrics such as DfStart
+    /// and year-fraction calculations.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(Date)` for instruments with a defined effective start/value date
+    /// - `None` for instruments without a clear start (e.g., equity spot positions)
+    fn effective_start_date(&self) -> Option<Date> {
+        None
+    }
 }
 // Note: Methods formerly on the `Attributable` trait are now default methods on `Instrument`.
 

@@ -594,7 +594,7 @@ where
         // If expired, vanna is zero (avoid bumping / repricing beyond expiry).
         let t = instrument.day_count().year_fraction(
             as_of,
-            instrument.expiry(),
+            HasExpiry::expiry(instrument),
             finstack_core::dates::DayCountCtx::default(),
         )?;
         if t <= 0.0 {

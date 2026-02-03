@@ -51,13 +51,7 @@ fn default_fx_underlying(base_currency: Currency, quote_currency: Currency) -> F
 }
 
 /// FX option instrument (Garman-Kohlhagen model)
-#[derive(
-    Clone,
-    Debug,
-    finstack_valuations_macros::FinancialBuilder,
-    finstack_valuations_macros::Instrument,
-)]
-#[instrument(key = "FxOption", price_fn = "value")]
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
 pub struct FxOption {
@@ -376,6 +370,66 @@ impl FxOption {
             // Spot delta convention: K = F × exp(+0.5 × σ² × T)
             forward * (0.5 * variance).exp()
         }
+    }
+}
+
+impl crate::instruments::common_impl::traits::Instrument for FxOption {
+    fn id(&self) -> &str {
+        self.id.as_str()
+    }
+
+    fn key(&self) -> crate::pricer::InstrumentType {
+        crate::pricer::InstrumentType::FxOption
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
+        &self.attributes
+    }
+
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
+        &mut self.attributes
+    }
+
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
+        Box::new(self.clone())
+    }
+
+    fn value(
+        &self,
+        curves: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<finstack_core::money::Money> {
+        self.price_internal(curves, as_of)
+    }
+
+    fn price_with_metrics(
+        &self,
+        curves: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+        metrics: &[crate::metrics::MetricId],
+    ) -> finstack_core::Result<crate::results::ValuationResult> {
+        let base_value = self.value(curves, as_of)?;
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
+            std::sync::Arc::new(self.clone()),
+            std::sync::Arc::new(curves.clone()),
+            as_of,
+            base_value,
+            metrics,
+            None,
+            None,
+        )
+    }
+
+    fn expiry(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.expiry)
+    }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        None
     }
 }
 

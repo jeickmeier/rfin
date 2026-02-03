@@ -478,6 +478,10 @@ impl crate::instruments::common_impl::traits::Instrument for FxSpot {
         )
     }
 
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        None
+    }
+
     fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
         Some(self)
     }

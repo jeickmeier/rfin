@@ -380,6 +380,10 @@ impl crate::instruments::common_impl::traits::Instrument for ConvertibleBond {
             None,
         )
     }
+
+    fn effective_start_date(&self) -> Option<Date> {
+        Some(self.issue)
+    }
 }
 
 // Implement CurveDependencies for DV01 calculator

@@ -428,6 +428,14 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateFuture 
     fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
         Some(self)
     }
+
+    fn expiry(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.expiry_date)
+    }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.period_start)
+    }
 }
 
 impl CashflowProvider for InterestRateFuture {

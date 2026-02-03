@@ -487,6 +487,14 @@ impl crate::instruments::common_impl::traits::Instrument for InflationSwap {
             None,
         )
     }
+
+    fn expiry(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.maturity)
+    }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.start)
+    }
 }
 
 // Implement CurveDependencies for DV01 calculator
@@ -817,6 +825,10 @@ impl crate::instruments::common_impl::traits::Instrument for YoYInflationSwap {
             None,
             None,
         )
+    }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.start)
     }
 }
 

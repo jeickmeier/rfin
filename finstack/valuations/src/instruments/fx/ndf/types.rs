@@ -726,6 +726,10 @@ impl crate::instruments::common_impl::traits::Instrument for Ndf {
             None,
         )
     }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        None
+    }
 }
 
 #[cfg(test)]

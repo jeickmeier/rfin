@@ -257,6 +257,10 @@ impl crate::instruments::common_impl::traits::Instrument for AsianOption {
             None,
         )
     }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        self.fixing_dates.first().copied()
+    }
 }
 
 #[cfg(test)]

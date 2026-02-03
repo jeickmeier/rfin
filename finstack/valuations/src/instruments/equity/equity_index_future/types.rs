@@ -583,6 +583,10 @@ impl crate::instruments::common_impl::traits::Instrument for EquityIndexFuture {
         )
     }
 
+    fn effective_start_date(&self) -> Option<Date> {
+        None
+    }
+
     fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
         Some(self)
     }

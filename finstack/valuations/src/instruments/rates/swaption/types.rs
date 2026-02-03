@@ -1195,6 +1195,14 @@ impl crate::instruments::common_impl::traits::Instrument for Swaption {
         }
     }
 
+    fn expiry(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.expiry)
+    }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.swap_start)
+    }
+
     fn price_with_metrics(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
@@ -1687,6 +1695,10 @@ impl crate::instruments::common_impl::traits::Instrument for BermudanSwaption {
         Err(Error::Validation(
             "BermudanSwaption requires tree or LSMC pricing via BermudanSwaptionPricer".into(),
         ))
+    }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.swap_start)
     }
 }
 

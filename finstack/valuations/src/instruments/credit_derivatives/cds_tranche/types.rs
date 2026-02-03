@@ -361,6 +361,14 @@ impl Instrument for CdsTranche {
             None,
         )
     }
+
+    fn expiry(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.maturity)
+    }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        self.effective_date
+    }
 }
 
 // Implement CurveDependencies for DV01 calculator

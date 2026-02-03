@@ -485,6 +485,10 @@ impl crate::instruments::common_impl::traits::Instrument for XccySwap {
             None,
         )
     }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.start_date)
+    }
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for XccySwap {

@@ -635,6 +635,14 @@ impl crate::instruments::common_impl::traits::Instrument for EquityOption {
             None,
         )
     }
+
+    fn expiry(&self) -> Option<finstack_core::dates::Date> {
+        Some(self.expiry)
+    }
+
+    fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
+        None
+    }
 }
 
 #[cfg(test)]

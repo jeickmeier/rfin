@@ -247,6 +247,10 @@ impl crate::instruments::common_impl::traits::Instrument for DollarRoll {
         )
     }
 
+    fn effective_start_date(&self) -> Option<Date> {
+        self.trade_date
+    }
+
     fn scenario_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
