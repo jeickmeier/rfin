@@ -6,4 +6,20 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[features]
+default = ["sqlite"]
+sqlite = ["dep:rusqlite"]
+
 [dependencies]
+finstack-core = { path = "../core" }
+finstack-portfolio = { path = "../portfolio" }
+finstack-valuations = { path = "../valuations" }
+finstack-statements = { path = "../statements" }
+finstack-scenarios = { path = "../scenarios" }
+rusqlite = { version = "0.32", features = ["bundled"], optional = true }
+serde_json = "1"
+thiserror = "2"
+
+[dev-dependencies]
+tempfile = "3"
+time = { version = "0.3", features = ["macros"] }

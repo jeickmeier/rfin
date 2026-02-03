@@ -1,8 +1,12 @@
-//! I/O utilities for the Finstack library.
+//! Persistence and interop utilities for the Finstack workspace.
 //!
-//! This crate provides serialization, deserialization, and data interchange
-//! functionality for financial data formats including CSV, Parquet, JSON,
-//! and integration with external data providers.
+//! The primary goal of this crate is to provide a **stable persistence boundary**
+//! for domain crates:
+//! - market data snapshots (`MarketContext`) for historical lookbacks
+//! - instruments, portfolios, scenarios, and statement model specs
+//!
+//! The recommended default backend is SQLite (embedded, transactional, easy to
+//! operate). Backends are designed to be swappable via the [`Store`] trait.
 
 #![deny(unsafe_code)]
 #![warn(missing_docs)]
@@ -11,9 +15,17 @@
 // Use proper error propagation with Result<T, E> instead.
 #![deny(clippy::expect_used)]
 #![deny(clippy::panic)]
+// Allow expect() in doc tests (they are test code)
+#![doc(test(attr(allow(clippy::expect_used))))]
 
-/// Placeholder function for the I/O crate.
-///
-/// This function exists to provide a valid compilation target until
-/// the I/O functionality is fully implemented.
-pub fn _placeholder() {}
+pub mod error;
+pub mod store;
+
+#[cfg(feature = "sqlite")]
+pub mod sqlite;
+
+pub use error::{Error, Result};
+pub use store::{LookbackStore, MarketContextSnapshot, PortfolioSnapshot, Store};
+
+#[cfg(feature = "sqlite")]
+pub use sqlite::SqliteStore;

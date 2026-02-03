@@ -106,6 +106,7 @@ pub use optimization::{
     WeightingScheme,
 };
 pub use portfolio::Portfolio;
+pub use portfolio::PortfolioSpec;
 pub use position::{Position, PositionUnit};
 pub use results::PortfolioResults;
 pub use types::{Entity, EntityId, PositionId, DUMMY_ENTITY_ID};
