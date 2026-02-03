@@ -25,7 +25,7 @@ pub mod store;
 pub mod sqlite;
 
 pub use error::{Error, Result};
-pub use store::{LookbackStore, MarketContextSnapshot, PortfolioSnapshot, Store};
+pub use store::{BulkStore, LookbackStore, MarketContextSnapshot, PortfolioSnapshot, Store};
 
 #[cfg(feature = "sqlite")]
 pub use sqlite::SqliteStore;

@@ -145,3 +145,9 @@ required-features = ["scenarios"]
 name = "portfolio_example"
 path = "examples/portfolio/portfolio_example.rs"
 required-features = ["portfolio", "scenarios"]
+
+# IO Examples
+[[example]]
+name = "io_basic_example"
+path = "examples/io/io_basic_example.rs"
+required-features = ["all"]

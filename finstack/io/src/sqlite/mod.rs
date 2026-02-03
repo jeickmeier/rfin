@@ -3,11 +3,14 @@
 //! This module provides a minimal, predictable schema with JSON payload blobs
 //! for domain objects, indexed by `(id, as_of)` where applicable.
 
-use crate::{Error, LookbackStore, MarketContextSnapshot, PortfolioSnapshot, Result, Store};
+use crate::{
+    BulkStore, Error, LookbackStore, MarketContextSnapshot, PortfolioSnapshot, Result, Store,
+};
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::{MarketContext, MarketContextState};
 use finstack_portfolio::PortfolioSpec;
 use finstack_scenarios::ScenarioSpec;
+use finstack_statements::registry::MetricRegistry;
 use finstack_statements::FinancialModelSpec;
 use finstack_valuations::instruments::InstrumentJson;
 use rusqlite::OptionalExtension;
@@ -15,7 +18,7 @@ use rusqlite::{params, Connection};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-const SCHEMA_VERSION: i64 = 1;
+const SCHEMA_VERSION: i64 = 2;
 
 // RFC3339-ish timestamp without timezone offsets (UTC 'Z').
 const NOW_SQL: &str = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
@@ -71,6 +74,28 @@ CREATE TABLE IF NOT EXISTS statement_models (
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
+CREATE TABLE IF NOT EXISTS metric_registries (
+  namespace TEXT PRIMARY KEY NOT NULL,
+  payload BLOB NOT NULL,
+  meta TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+COMMIT;
+"#;
+
+const SCHEMA_SQL_V2_UPGRADE: &str = r#"
+BEGIN;
+
+CREATE TABLE IF NOT EXISTS metric_registries (
+  namespace TEXT PRIMARY KEY NOT NULL,
+  payload BLOB NOT NULL,
+  meta TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
 COMMIT;
 "#;
 
@@ -119,7 +144,14 @@ fn migrate(conn: &Connection) -> Result<()> {
     let current: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
     match current {
         0 => {
+            // Fresh database: apply latest schema (includes all tables)
             conn.execute_batch(SCHEMA_SQL_V1)?;
+            conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
+            Ok(())
+        }
+        1 => {
+            // Upgrade from v1 to v2: add metric_registries table
+            conn.execute_batch(SCHEMA_SQL_V2_UPGRADE)?;
             conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
             Ok(())
         }
@@ -138,8 +170,24 @@ fn meta_json(meta: Option<&serde_json::Value>) -> Result<String> {
     }
 }
 
+/// Format a date as ISO 8601 (YYYY-MM-DD) for use as a database key.
+///
+/// This format is critical for correct lexicographic ordering in SQL `BETWEEN` queries.
 fn as_of_key(as_of: Date) -> String {
-    as_of.to_string()
+    // Explicitly format as ISO 8601 to ensure lexicographic ordering works correctly.
+    // Do not change this format without updating all existing data and SQL queries.
+    format!(
+        "{:04}-{:02}-{:02}",
+        as_of.year(),
+        as_of.month() as u8,
+        as_of.day()
+    )
+}
+
+/// Parse a date from ISO 8601 (YYYY-MM-DD) format.
+fn parse_as_of_key(s: &str) -> Result<Date> {
+    Date::parse(s, &time::format_description::well_known::Iso8601::DATE)
+        .map_err(|e| Error::Invariant(format!("Invalid date format in database: {s} ({e})")))
 }
 
 impl Store for SqliteStore {
@@ -358,6 +406,71 @@ impl Store for SqliteStore {
             }
         })
     }
+
+    fn put_metric_registry(
+        &self,
+        namespace: &str,
+        registry: &MetricRegistry,
+        meta: Option<&serde_json::Value>,
+    ) -> Result<()> {
+        let payload = serde_json::to_vec(registry)?;
+        let meta = meta_json(meta)?;
+
+        self.with_conn(|conn| {
+            conn.execute(
+                &format!(
+                    "INSERT INTO metric_registries (namespace, payload, meta) VALUES (?1, ?2, ?3)
+                     ON CONFLICT(namespace) DO UPDATE SET
+                       payload = excluded.payload,
+                       meta = excluded.meta,
+                       updated_at = ({NOW_SQL})"
+                ),
+                params![namespace, payload, meta],
+            )?;
+            Ok(())
+        })
+    }
+
+    fn get_metric_registry(&self, namespace: &str) -> Result<Option<MetricRegistry>> {
+        self.with_conn(|conn| {
+            let payload: Option<Vec<u8>> = conn
+                .query_row(
+                    "SELECT payload FROM metric_registries WHERE namespace = ?1",
+                    params![namespace],
+                    |row| row.get(0),
+                )
+                .optional()?;
+
+            match payload {
+                Some(bytes) => Ok(Some(serde_json::from_slice::<MetricRegistry>(&bytes)?)),
+                None => Ok(None),
+            }
+        })
+    }
+
+    fn list_metric_registries(&self) -> Result<Vec<String>> {
+        self.with_conn(|conn| {
+            let mut stmt =
+                conn.prepare("SELECT namespace FROM metric_registries ORDER BY namespace ASC")?;
+            let rows = stmt.query_map([], |row| row.get(0))?;
+
+            let mut out = Vec::new();
+            for row in rows {
+                out.push(row?);
+            }
+            Ok(out)
+        })
+    }
+
+    fn delete_metric_registry(&self, namespace: &str) -> Result<bool> {
+        self.with_conn(|conn| {
+            let rows_affected = conn.execute(
+                "DELETE FROM metric_registries WHERE namespace = ?1",
+                params![namespace],
+            )?;
+            Ok(rows_affected > 0)
+        })
+    }
 }
 
 impl LookbackStore for SqliteStore {
@@ -382,7 +495,8 @@ impl LookbackStore for SqliteStore {
 
             let mut out = Vec::new();
             for row in rows {
-                let (as_of, bytes) = row?;
+                let (as_of_str, bytes) = row?;
+                let as_of = parse_as_of_key(&as_of_str)?;
                 let state: MarketContextState = serde_json::from_slice(&bytes)?;
                 let ctx = MarketContext::try_from(state)?;
                 out.push(MarketContextSnapshot {
@@ -413,7 +527,8 @@ impl LookbackStore for SqliteStore {
                 .optional()?;
 
             match row {
-                Some((as_of, bytes)) => {
+                Some((as_of_str, bytes)) => {
+                    let as_of = parse_as_of_key(&as_of_str)?;
                     let state: MarketContextState = serde_json::from_slice(&bytes)?;
                     let ctx = MarketContext::try_from(state)?;
                     Ok(Some(MarketContextSnapshot {
@@ -447,11 +562,124 @@ impl LookbackStore for SqliteStore {
 
             let mut out = Vec::new();
             for row in rows {
-                let (as_of, bytes) = row?;
+                let (as_of_str, bytes) = row?;
+                let as_of = parse_as_of_key(&as_of_str)?;
                 let spec: PortfolioSpec = serde_json::from_slice(&bytes)?;
                 out.push(PortfolioSnapshot { as_of, spec });
             }
             Ok(out)
+        })
+    }
+
+    fn latest_portfolio_on_or_before(
+        &self,
+        portfolio_id: &str,
+        as_of: Date,
+    ) -> Result<Option<PortfolioSnapshot>> {
+        let as_of = as_of_key(as_of);
+        self.with_conn(|conn| {
+            let row: Option<(String, Vec<u8>)> = conn
+                .query_row(
+                    "SELECT as_of, payload FROM portfolios
+                     WHERE id = ?1 AND as_of <= ?2
+                     ORDER BY as_of DESC
+                     LIMIT 1",
+                    params![portfolio_id, as_of],
+                    |row| Ok((row.get(0)?, row.get(1)?)),
+                )
+                .optional()?;
+
+            match row {
+                Some((as_of_str, bytes)) => {
+                    let as_of = parse_as_of_key(&as_of_str)?;
+                    let spec: PortfolioSpec = serde_json::from_slice(&bytes)?;
+                    Ok(Some(PortfolioSnapshot { as_of, spec }))
+                }
+                None => Ok(None),
+            }
+        })
+    }
+}
+
+impl BulkStore for SqliteStore {
+    fn put_instruments_batch(
+        &self,
+        instruments: &[(&str, &InstrumentJson, Option<&serde_json::Value>)],
+    ) -> Result<()> {
+        self.with_conn(|conn| {
+            let tx = conn.unchecked_transaction()?;
+            {
+                let mut stmt = tx.prepare(&format!(
+                    "INSERT INTO instruments (id, payload, meta) VALUES (?1, ?2, ?3)
+                     ON CONFLICT(id) DO UPDATE SET
+                       payload = excluded.payload,
+                       meta = excluded.meta,
+                       updated_at = ({NOW_SQL})"
+                ))?;
+
+                for (instrument_id, instrument, meta) in instruments {
+                    let payload = serde_json::to_vec(instrument)?;
+                    let meta = meta_json(*meta)?;
+                    stmt.execute(params![instrument_id, payload, meta])?;
+                }
+            }
+            tx.commit()?;
+            Ok(())
+        })
+    }
+
+    fn put_market_contexts_batch(
+        &self,
+        contexts: &[(&str, Date, &MarketContext, Option<&serde_json::Value>)],
+    ) -> Result<()> {
+        self.with_conn(|conn| {
+            let tx = conn.unchecked_transaction()?;
+            {
+                let mut stmt = tx.prepare(&format!(
+                    "INSERT INTO market_contexts (id, as_of, payload, meta) VALUES (?1, ?2, ?3, ?4)
+                     ON CONFLICT(id, as_of) DO UPDATE SET
+                       payload = excluded.payload,
+                       meta = excluded.meta,
+                       updated_at = ({NOW_SQL})"
+                ))?;
+
+                for (market_id, as_of, context, meta) in contexts {
+                    let state: MarketContextState = (*context).into();
+                    let payload = serde_json::to_vec(&state)?;
+                    let meta = meta_json(*meta)?;
+                    let as_of = as_of_key(*as_of);
+                    stmt.execute(params![market_id, as_of, payload, meta])?;
+                }
+            }
+            tx.commit()?;
+            Ok(())
+        })
+    }
+
+    fn put_portfolio_specs_batch(
+        &self,
+        portfolios: &[(&str, Date, &PortfolioSpec, Option<&serde_json::Value>)],
+    ) -> Result<()> {
+        self.with_conn(|conn| {
+            let tx = conn.unchecked_transaction()?;
+            {
+                let mut stmt = tx.prepare(&format!(
+                    "INSERT INTO portfolios (id, as_of, payload, meta) VALUES (?1, ?2, ?3, ?4)
+                     ON CONFLICT(id, as_of) DO UPDATE SET
+                       payload = excluded.payload,
+                       meta = excluded.meta,
+                       updated_at = ({NOW_SQL})"
+                ))?;
+
+                for (portfolio_id, as_of, spec, meta) in portfolios {
+                    let payload = serde_json::to_vec(spec)?;
+                    let meta = meta_json(*meta)?;
+                    let as_of = as_of_key(*as_of);
+                    stmt.execute(params![portfolio_id, as_of, payload, meta])?;
+                }
+            }
+            tx.commit()?;
+            Ok(())
         })
     }
 }
