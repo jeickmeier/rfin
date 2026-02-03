@@ -371,58 +371,56 @@ impl<'a> WaterfallContext<'a> {
     }
 
     fn build_market_for_factor(&self, factor: &AttributionFactor) -> Result<MarketContext> {
-        let market = match factor {
-            AttributionFactor::Carry => self.current_market.clone(),
+        match factor {
+            AttributionFactor::Carry => Ok(self.current_market.clone()),
             AttributionFactor::RatesCurves => {
                 let rates_t1 = MarketSnapshot::extract(self.market_t1, CurveRestoreFlags::RATES);
-                MarketSnapshot::restore_market(
+                Ok(MarketSnapshot::restore_market(
                     &self.current_market,
                     &rates_t1,
                     CurveRestoreFlags::RATES,
-                )
+                ))
             }
             AttributionFactor::CreditCurves => {
                 let credit_t1 = MarketSnapshot::extract(self.market_t1, CurveRestoreFlags::CREDIT);
-                MarketSnapshot::restore_market(
+                Ok(MarketSnapshot::restore_market(
                     &self.current_market,
                     &credit_t1,
                     CurveRestoreFlags::CREDIT,
-                )
+                ))
             }
             AttributionFactor::InflationCurves => {
                 let inflation_t1 =
                     MarketSnapshot::extract(self.market_t1, CurveRestoreFlags::INFLATION);
-                MarketSnapshot::restore_market(
+                Ok(MarketSnapshot::restore_market(
                     &self.current_market,
                     &inflation_t1,
                     CurveRestoreFlags::INFLATION,
-                )
+                ))
             }
             AttributionFactor::Correlations => {
                 let corr_t1 =
                     MarketSnapshot::extract(self.market_t1, CurveRestoreFlags::CORRELATION);
-                MarketSnapshot::restore_market(
+                Ok(MarketSnapshot::restore_market(
                     &self.current_market,
                     &corr_t1,
                     CurveRestoreFlags::CORRELATION,
-                )
+                ))
             }
             AttributionFactor::Fx => {
                 let fx_t1 = extract_fx(self.market_t1);
-                restore_fx(&self.current_market, fx_t1)
+                Ok(restore_fx(&self.current_market, fx_t1))
             }
             AttributionFactor::Volatility => {
                 let vol_t1 = VolatilitySnapshot::extract(self.market_t1);
-                restore_volatility(&self.current_market, &vol_t1)
+                Ok(restore_volatility(&self.current_market, &vol_t1))
             }
             AttributionFactor::MarketScalars => {
                 let scalars_t1 = ScalarsSnapshot::extract(self.market_t1);
-                restore_scalars(&self.current_market, &scalars_t1)
+                Ok(restore_scalars(&self.current_market, &scalars_t1))
             }
-            AttributionFactor::ModelParameters => unreachable!(),
-        };
-
-        Ok(market)
+            AttributionFactor::ModelParameters => Err(Error::Internal),
+        }
     }
 
     /// Update the current accumulated value by adding a factor's P&L delta.

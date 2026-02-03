@@ -23,6 +23,7 @@ mod test_utils;
 
 mod test_equity_trs;
 mod test_fi_index_trs;
+mod test_trs_curve_dependencies;
 mod test_trs_edge_cases;
 mod test_trs_metrics;
 mod test_trs_pricing_engine;

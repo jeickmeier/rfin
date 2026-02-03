@@ -335,6 +335,7 @@ impl crate::instruments::common_impl::traits::CurveDependencies for FIIndexTotal
     fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.financing.discount_curve_id.clone())
+            .forward(self.financing.forward_curve_id.clone())
             .build()
     }
 }
