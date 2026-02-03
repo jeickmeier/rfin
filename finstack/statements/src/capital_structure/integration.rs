@@ -52,9 +52,40 @@ pub fn calculate_period_flows(
     as_of: Date,
 ) -> Result<(CashflowBreakdown, Money)> {
     let full_schedule = instrument.build_full_schedule(market_ctx, as_of)?;
-    let currency = opening_balance.currency();
+    let currency = full_schedule.notional.initial.currency();
+    if opening_balance.amount() != 0.0 && opening_balance.currency() != currency {
+        return Err(crate::error::Error::currency_mismatch(
+            currency,
+            opening_balance.currency(),
+        ));
+    }
     let mut breakdown = CashflowBreakdown::with_currency(currency);
     let snapshot_date = period_snapshot_date(period);
+    let outstanding_path = full_schedule.outstanding_by_date()?;
+
+    // Use opening balance to scale cashflows when the schedule notional differs from the
+    // stateful outstanding (e.g., after applying sweeps). This is an approximation but
+    // prevents obviously overstated interest after large paydowns.
+    let scale = {
+        let scheduled_opening = outstanding_path
+            .iter()
+            .filter(|(d, _)| *d <= period.start)
+            .map(|(_, balance)| {
+                if balance.amount() < 0.0 {
+                    Money::new(-balance.amount(), balance.currency())
+                } else {
+                    *balance
+                }
+            })
+            .next_back()
+            .unwrap_or(full_schedule.notional.initial);
+
+        if opening_balance.amount() == 0.0 || scheduled_opening.amount() == 0.0 {
+            1.0
+        } else {
+            opening_balance.amount() / scheduled_opening.amount()
+        }
+    };
 
     // Extract flows that fall within this period
     for cf in &full_schedule.flows {
@@ -65,24 +96,26 @@ pub fn calculate_period_flows(
                 cf.amount
             };
 
+            let scaled_abs_value = Money::new(abs_value.amount() * scale, abs_value.currency());
+
             match cf.kind {
                 CFKind::Fixed | CFKind::Stub | CFKind::FloatReset => {
-                    breakdown.interest_expense_cash += abs_value;
+                    breakdown.interest_expense_cash += scaled_abs_value;
                 }
                 CFKind::Amortization => {
-                    breakdown.principal_payment += abs_value;
+                    breakdown.principal_payment += scaled_abs_value;
                 }
                 CFKind::PrePayment | CFKind::RevolvingRepayment => {
-                    breakdown.principal_payment += abs_value;
+                    breakdown.principal_payment += scaled_abs_value;
                 }
                 CFKind::Notional if cf.amount.amount() > 0.0 => {
-                    breakdown.principal_payment += abs_value;
+                    breakdown.principal_payment += scaled_abs_value;
                 }
                 CFKind::Fee | CFKind::CommitmentFee | CFKind::UsageFee | CFKind::FacilityFee => {
-                    breakdown.fees += abs_value;
+                    breakdown.fees += scaled_abs_value;
                 }
                 CFKind::PIK => {
-                    breakdown.interest_expense_pik += abs_value;
+                    breakdown.interest_expense_pik += scaled_abs_value;
                 }
                 CFKind::Notional | CFKind::RevolvingDraw => {
                     // Funding / draw events are not treated as scheduled principal payments in statements.
@@ -111,7 +144,6 @@ pub fn calculate_period_flows(
     // Find the most recent outstanding balance at or before period end.
     // Note: outstanding_path only has entries on dates when cashflows occur,
     // so we need to find the latest entry <= period.end to get the correct balance.
-    let outstanding_path = full_schedule.outstanding_by_date()?;
     let closing_balance = outstanding_path
         .iter()
         .rev()
@@ -140,7 +172,7 @@ pub fn calculate_period_flows(
     // Note: detailed accrual config (day count, compounding) comes from the schedule itself
     let accrued_scalar =
         accrued_interest_amount(&full_schedule, snapshot_date, &AccrualConfig::default())?;
-    breakdown.accrued_interest = Money::new(accrued_scalar, currency);
+    breakdown.accrued_interest = Money::new(accrued_scalar * scale, currency);
 
     Ok((breakdown, closing_balance))
 }
@@ -227,11 +259,7 @@ pub fn aggregate_instrument_cashflows(
         let full_schedule = instrument.build_full_schedule(market_ctx, as_of)?;
 
         // Determine currency from first cashflow (all cashflows should be same currency)
-        let currency = full_schedule
-            .flows
-            .first()
-            .map(|cf| cf.amount.currency())
-            .unwrap_or(finstack_core::currency::Currency::USD);
+        let currency = full_schedule.notional.initial.currency();
 
         // Initialize period map for this instrument
         let mut instrument_periods: IndexMap<PeriodId, CashflowBreakdown> = IndexMap::new();
@@ -626,46 +654,38 @@ pub fn build_any_instrument_from_spec(
             id,
             spec: json_spec,
         } => {
-            // Try to deserialize as known types in order of likelihood
+            // Try to deserialize as known types in order of likelihood and
+            // surface a helpful error if none match.
+            let mut attempts: Vec<String> = Vec::new();
 
-            // Try as Bond first (most common)
-            if let Ok(bond) = Bond::deserialize(json_spec) {
-                return Ok(Arc::new(bond));
+            match Bond::deserialize(json_spec) {
+                Ok(bond) => return Ok(Arc::new(bond)),
+                Err(e) => attempts.push(format!("Bond: {e}")),
             }
 
-            // Try as InterestRateSwap
-            if let Ok(swap) = InterestRateSwap::deserialize(json_spec) {
-                return Ok(Arc::new(swap));
+            match InterestRateSwap::deserialize(json_spec) {
+                Ok(swap) => return Ok(Arc::new(swap)),
+                Err(e) => attempts.push(format!("InterestRateSwap: {e}")),
             }
 
-            // Try as TermLoan (bank debt)
             match TermLoan::deserialize(json_spec) {
                 Ok(term_loan) => return Ok(Arc::new(term_loan)),
-                Err(e) => {
-                    eprintln!("TermLoan deserialization error for '{}': {:?}", id, e);
-                    eprintln!(
-                        "JSON spec: {}",
-                        serde_json::to_string_pretty(json_spec)
-                            .unwrap_or_else(|_| "failed to serialize".to_string())
-                    );
-                }
+                Err(e) => attempts.push(format!("TermLoan: {e}")),
             }
 
-            // Try as Deposit (cash management)
-            if let Ok(deposit) = finstack_valuations::instruments::Deposit::deserialize(json_spec) {
-                return Ok(Arc::new(deposit));
+            match finstack_valuations::instruments::Deposit::deserialize(json_spec) {
+                Ok(deposit) => return Ok(Arc::new(deposit)),
+                Err(e) => attempts.push(format!("Deposit: {e}")),
             }
 
-            // Try as FRA (forward rate hedge)
-            if let Ok(fra) =
-                finstack_valuations::instruments::ForwardRateAgreement::deserialize(json_spec)
-            {
-                return Ok(Arc::new(fra));
+            match finstack_valuations::instruments::ForwardRateAgreement::deserialize(json_spec) {
+                Ok(fra) => return Ok(Arc::new(fra)),
+                Err(e) => attempts.push(format!("ForwardRateAgreement: {e}")),
             }
 
-            // Try as Repo (repurchase agreement)
-            if let Ok(repo) = finstack_valuations::instruments::Repo::deserialize(json_spec) {
-                return Ok(Arc::new(repo));
+            match finstack_valuations::instruments::Repo::deserialize(json_spec) {
+                Ok(repo) => return Ok(Arc::new(repo)),
+                Err(e) => attempts.push(format!("Repo: {e}")),
             }
 
             // Commented out until revolving_credit module is implemented
@@ -681,8 +701,9 @@ pub fn build_any_instrument_from_spec(
             Err(crate::error::Error::build(format!(
                 "Failed to deserialize generic debt instrument '{}' as any known type. \
                  Tried: Bond, InterestRateSwap, TermLoan, Deposit, ForwardRateAgreement, Repo. \
-                 The JSON structure must match one of these types exactly.",
-                id
+                 The JSON structure must match one of these types exactly. Errors: {}",
+                id,
+                attempts.join("; ")
             )))
         }
     }

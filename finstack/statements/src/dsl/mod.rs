@@ -16,6 +16,7 @@
 //!
 //! ### Logical
 //! - `and`, `or`
+//! - `not expr` / `!expr`
 //!
 //! ### Time-Series Functions
 //! - `lag(expr, n)` - Previous n periods

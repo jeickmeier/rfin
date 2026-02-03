@@ -152,16 +152,27 @@ impl Evaluator {
             .map(|(i, node_id)| (node_id.clone(), i))
             .collect();
 
-        let cs_formula_nodes: HashSet<String> = model
+        let cs_seed_nodes: HashSet<String> = model
             .nodes
             .iter()
             .filter_map(|(node_id, spec)| {
-                spec.formula_text
+                if spec
+                    .formula_text
                     .as_deref()
-                    .filter(|formula| formula.contains("cs."))
-                    .map(|_| node_id.clone())
+                    .is_some_and(|text| text.contains("cs."))
+                    || spec
+                        .where_text
+                        .as_deref()
+                        .is_some_and(|text| text.contains("cs."))
+                {
+                    Some(node_id.clone())
+                } else {
+                    None
+                }
             })
             .collect();
+
+        let cs_affected_nodes = dependent_closure(&dag, &cs_seed_nodes);
 
         // Initialize capital structure state for dynamic evaluation
         let mut cs_state = if let (Some(_market_ctx), Some(_as_of)) = (market_ctx, as_of) {
@@ -247,7 +258,7 @@ impl Evaluator {
                         as_of,
                         insts,
                         state,
-                        &cs_formula_nodes,
+                        &cs_affected_nodes,
                     )?
                 } else {
                     self.evaluate_period(
@@ -552,7 +563,7 @@ impl Evaluator {
             std::sync::Arc<dyn finstack_valuations::cashflow::CashflowProvider + Send + Sync>,
         >,
         cs_state: &mut crate::capital_structure::CapitalStructureState,
-        cs_formula_nodes: &HashSet<String>,
+        cs_affected_nodes: &HashSet<String>,
     ) -> Result<(IndexMap<String, f64>, Vec<EvalWarning>)> {
         use crate::capital_structure::integration;
         use indexmap::IndexMap;
@@ -562,14 +573,15 @@ impl Evaluator {
             IndexMap::new();
 
         for (instrument_id, instrument) in instruments {
-            // Get currency from instrument's first cashflow
-            let temp_schedule = instrument.build_full_schedule(market_ctx, as_of)?;
-            let currency = temp_schedule
-                .flows
-                .first()
-                .map(|cf| cf.amount.currency())
-                .unwrap_or(finstack_core::currency::Currency::USD);
-            let opening_balance = cs_state.get_opening_balance(instrument_id.as_str(), currency);
+            let opening_balance =
+                if let Some(balance) = cs_state.opening_balances.get(instrument_id).copied() {
+                    balance
+                } else {
+                    // Fallback: if state has no opening balance for this instrument, seed a
+                    // zero balance in the instrument's currency.
+                    let schedule = instrument.build_full_schedule(market_ctx, as_of)?;
+                    Money::new(0.0, schedule.notional.initial.currency())
+                };
 
             let (breakdown, closing_balance) = integration::calculate_period_flows(
                 instrument.as_ref(),
@@ -600,6 +612,7 @@ impl Evaluator {
                         total.principal_payment += breakdown.principal_payment;
                         total.fees += breakdown.fees;
                         total.debt_balance += breakdown.debt_balance;
+                        total.accrued_interest += breakdown.accrued_interest;
                     } else {
                         total_breakdown = Some(breakdown.clone());
                     }
@@ -703,18 +716,49 @@ impl Evaluator {
             }
         }
 
-        if context.capital_structure_cashflows.is_some() && !cs_formula_nodes.is_empty() {
-            for node_id in cs_formula_nodes {
-                if let Some(node_spec) = model.get_node(node_id) {
-                    let source = resolve_node_value(node_spec, &period.id, is_actual)?;
+        if context.capital_structure_cashflows.is_some() && !cs_affected_nodes.is_empty() {
+            // Re-evaluate any nodes that are downstream of CS references now that CS cashflows have
+            // been updated by the waterfall.
+            for node_id in eval_order {
+                if !cs_affected_nodes.contains(node_id) {
+                    continue;
+                }
 
-                    if matches!(source, NodeValueSource::Formula(_)) {
-                        if let Some(expr) = self.compiled_cache.get(node_id) {
-                            let value = evaluate_formula(expr, &mut context, Some(node_id))?;
-                            context.set_value(node_id, value)?;
+                let node_spec = model
+                    .get_node(node_id)
+                    .ok_or_else(|| Error::eval(format!("Node '{}' not found in model", node_id)))?;
+
+                if node_spec.where_text.is_some() {
+                    let where_key = format!("__where__{}", node_id);
+                    if let Some(where_expr) = self.compiled_cache.get(&where_key) {
+                        let where_result = evaluate_formula(where_expr, &mut context, None)?;
+                        if where_result == 0.0 {
+                            context.set_value(node_id, 0.0)?;
+                            continue;
                         }
                     }
                 }
+
+                let source = resolve_node_value(node_spec, &period.id, is_actual)?;
+                let value = match source {
+                    NodeValueSource::Value(v) => v,
+                    NodeValueSource::Forecast => forecast_eval::evaluate_forecast(
+                        node_spec,
+                        model,
+                        &period.id,
+                        &context,
+                        &mut self.forecast_cache,
+                        None,
+                    )?,
+                    NodeValueSource::Formula(_) => {
+                        let expr = self.compiled_cache.get(node_id).ok_or_else(|| {
+                            Error::eval(format!("No compiled formula for node '{}'", node_id))
+                        })?;
+                        evaluate_formula(expr, &mut context, Some(node_id))?
+                    }
+                };
+
+                context.set_value(node_id, value)?;
             }
         }
 
@@ -869,6 +913,23 @@ impl Evaluator {
         let (values, warnings) = context.into_results();
         Ok((values, warnings))
     }
+}
+
+fn dependent_closure(graph: &DependencyGraph, seeds: &HashSet<String>) -> HashSet<String> {
+    let mut visited: HashSet<String> = seeds.iter().cloned().collect();
+    let mut stack: Vec<String> = seeds.iter().cloned().collect();
+
+    while let Some(node) = stack.pop() {
+        if let Some(dependents) = graph.dependents.get(&node) {
+            for dependent in dependents {
+                if visited.insert(dependent.clone()) {
+                    stack.push(dependent.clone());
+                }
+            }
+        }
+    }
+
+    visited
 }
 
 impl Default for Evaluator {

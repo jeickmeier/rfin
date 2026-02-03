@@ -14,7 +14,7 @@ use indexmap::IndexMap;
 /// Evaluation context for a single period.
 ///
 /// Tracks node values for the current period and provides access to historical values.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EvaluationContext {
     /// Current period being evaluated
     pub period_id: PeriodId,

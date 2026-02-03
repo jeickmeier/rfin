@@ -51,6 +51,7 @@ use crate::evaluator::EvaluationContext;
 use finstack_core::dates::PeriodId;
 use finstack_core::money::Money;
 use indexmap::IndexMap;
+use std::collections::HashSet;
 
 /// Execute waterfall logic for a single period.
 ///
@@ -79,9 +80,18 @@ pub fn execute_waterfall(
     let mut result = IndexMap::new();
 
     // Step 1: Check PIK toggle conditions
-    if let Some(pik_spec) = &waterfall_spec.pik_toggle {
-        evaluate_pik_toggle(context, pik_spec, state)?;
-    }
+    let (pik_enable, pik_targets): (Option<bool>, Option<HashSet<String>>) =
+        if let Some(pik_spec) = &waterfall_spec.pik_toggle {
+            (
+                Some(evaluate_pik_toggle(context, pik_spec)?),
+                pik_spec
+                    .target_instrument_ids
+                    .as_ref()
+                    .map(|ids| ids.iter().cloned().collect()),
+            )
+        } else {
+            (None, None)
+        };
 
     // Step 2: Calculate ECF and sweep amount
     let sweep_amount = if let Some(ecf_spec) = &waterfall_spec.ecf_sweep {
@@ -96,6 +106,17 @@ pub fn execute_waterfall(
 
         // Get opening balance for this instrument
         let opening_balance = state.get_opening_balance(&instrument_id, currency);
+
+        // Apply PIK mode update for this instrument (if configured)
+        if let Some(enable_pik) = pik_enable {
+            let should_apply = pik_targets
+                .as_ref()
+                .map(|set| set.contains(&instrument_id))
+                .unwrap_or(true);
+            if should_apply {
+                state.pik_mode.insert(instrument_id.clone(), enable_pik);
+            }
+        }
 
         // If PIK mode is enabled, move cash interest into PIK bucket
         let is_pik_enabled = state.pik_mode.get(&instrument_id).copied().unwrap_or(false);
@@ -147,31 +168,24 @@ pub fn execute_waterfall(
     Ok(result)
 }
 
-/// Evaluate PIK toggle conditions and update state.
-fn evaluate_pik_toggle(
-    context: &EvaluationContext,
-    pik_spec: &PikToggleSpec,
-    state: &mut CapitalStructureState,
-) -> Result<()> {
-    let _ = state; // Will be used when we update PIK mode for all instruments
-                   // Try to get liquidity metric value from context
-                   // For now, we'll try to evaluate it as a node reference
-                   // In a full implementation, this might need to parse and evaluate a formula
-    let metric_value = context.get_value(&pik_spec.liquidity_metric).unwrap_or(0.0);
-
-    let enable_pik = metric_value < pik_spec.threshold;
-
-    // Update PIK mode for target instruments
-    if let Some(target_ids) = &pik_spec.target_instrument_ids {
-        for instrument_id in target_ids {
-            state.pik_mode.insert(instrument_id.clone(), enable_pik);
-        }
-    } else {
-        // Apply to all instruments (we'll need to know which instruments exist)
-        // For now, we'll update as we encounter them in execute_waterfall
+fn eval_value_or_formula(context: &EvaluationContext, expr: &str) -> Result<f64> {
+    // Fast path: treat as a node reference.
+    if let Ok(value) = context.get_value(expr) {
+        return Ok(value);
     }
 
-    Ok(())
+    // Otherwise, treat as a DSL expression and evaluate against the current context.
+    let compiled = crate::dsl::parse_and_compile(expr)?;
+    let mut scratch = context.clone();
+    crate::evaluator::formula::evaluate_formula(&compiled, &mut scratch, None)
+}
+
+/// Evaluate PIK toggle conditions and return whether PIK should be enabled.
+fn evaluate_pik_toggle(context: &EvaluationContext, pik_spec: &PikToggleSpec) -> Result<bool> {
+    let metric_value = eval_value_or_formula(context, &pik_spec.liquidity_metric)?;
+
+    let enable_pik = metric_value < pik_spec.threshold;
+    Ok(enable_pik)
 }
 
 /// Calculate Excess Cash Flow and determine sweep amount.
@@ -182,27 +196,30 @@ fn calculate_ecf_sweep(
     contractual_flows: &IndexMap<String, CashflowBreakdown>,
 ) -> Result<Money> {
     // Get EBITDA
-    let ebitda = context.get_value(&ecf_spec.ebitda_node).unwrap_or(0.0);
+    let ebitda = eval_value_or_formula(context, &ecf_spec.ebitda_node)?;
 
     // Get taxes (if specified)
     let taxes = ecf_spec
         .taxes_node
         .as_ref()
-        .and_then(|node| context.get_value(node).ok())
+        .map(|expr| eval_value_or_formula(context, expr))
+        .transpose()?
         .unwrap_or(0.0);
 
     // Get capex (if specified)
     let capex = ecf_spec
         .capex_node
         .as_ref()
-        .and_then(|node| context.get_value(node).ok())
+        .map(|expr| eval_value_or_formula(context, expr))
+        .transpose()?
         .unwrap_or(0.0);
 
     // Get working capital change (if specified)
     let wc_change = ecf_spec
         .working_capital_node
         .as_ref()
-        .and_then(|node| context.get_value(node).ok())
+        .map(|expr| eval_value_or_formula(context, expr))
+        .transpose()?
         .unwrap_or(0.0);
 
     // Calculate ECF: EBITDA - Taxes - Capex - Working Capital Change

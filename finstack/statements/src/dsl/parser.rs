@@ -140,6 +140,12 @@ fn multiplicative(input: &str) -> IResult<&str, StmtExpr> {
 // Unary operators
 fn unary(input: &str) -> IResult<&str, StmtExpr> {
     alt((
+        map(preceded(char('!'), unary), |expr| {
+            StmtExpr::unary_op(UnaryOp::Not, expr)
+        }),
+        map(preceded(tuple((tag("not"), multispace1)), unary), |expr| {
+            StmtExpr::unary_op(UnaryOp::Not, expr)
+        }),
         map(preceded(char('-'), unary), |expr| {
             StmtExpr::unary_op(UnaryOp::Neg, expr)
         }),
@@ -392,6 +398,36 @@ mod tests {
             } => {}
             _ => panic!("Expected unary negation"),
         }
+    }
+
+    #[test]
+    fn test_parse_unary_not_bang() {
+        let result = parse_formula("!revenue").expect("test should succeed");
+        match result {
+            StmtExpr::UnaryOp {
+                op: UnaryOp::Not,
+                operand,
+            } => assert_eq!(*operand, StmtExpr::NodeRef("revenue".into())),
+            _ => panic!("Expected unary not"),
+        }
+    }
+
+    #[test]
+    fn test_parse_unary_not_keyword() {
+        let result = parse_formula("not revenue").expect("test should succeed");
+        match result {
+            StmtExpr::UnaryOp {
+                op: UnaryOp::Not,
+                operand,
+            } => assert_eq!(*operand, StmtExpr::NodeRef("revenue".into())),
+            _ => panic!("Expected unary not"),
+        }
+    }
+
+    #[test]
+    fn test_parse_not_is_not_identifier_prefix() {
+        let result = parse_formula("notional").expect("test should succeed");
+        assert_eq!(result, StmtExpr::NodeRef("notional".into()));
     }
 
     #[test]
