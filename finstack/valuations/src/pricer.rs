@@ -809,9 +809,45 @@ impl From<PricingError> for finstack_core::Error {
 
 impl From<finstack_core::Error> for PricingError {
     fn from(err: finstack_core::Error) -> Self {
-        PricingError::ModelFailure {
-            message: err.to_string(),
-            context: PricingErrorContext::default(),
+        match err {
+            finstack_core::Error::Input(input) => match input {
+                finstack_core::InputError::NotFound { id } => PricingError::MissingMarketData {
+                    missing_id: id,
+                    context: PricingErrorContext::default(),
+                },
+                finstack_core::InputError::MissingCurve { requested, .. } => {
+                    PricingError::MissingMarketData {
+                        missing_id: requested,
+                        context: PricingErrorContext::default(),
+                    }
+                }
+                finstack_core::InputError::WrongCurveType {
+                    id,
+                    expected,
+                    actual,
+                } => PricingError::InvalidInput {
+                    message: format!(
+                        "Curve type mismatch for '{id}': expected '{expected}', got '{actual}'"
+                    ),
+                    context: PricingErrorContext::default(),
+                },
+                other => PricingError::InvalidInput {
+                    message: other.to_string(),
+                    context: PricingErrorContext::default(),
+                },
+            },
+            finstack_core::Error::Validation(msg) => PricingError::InvalidInput {
+                message: msg,
+                context: PricingErrorContext::default(),
+            },
+            finstack_core::Error::Calibration { message, .. } => PricingError::ModelFailure {
+                message,
+                context: PricingErrorContext::default(),
+            },
+            other => PricingError::ModelFailure {
+                message: other.to_string(),
+                context: PricingErrorContext::default(),
+            },
         }
     }
 }
@@ -2029,6 +2065,43 @@ mod tests {
                 assert!(message.contains("solver did not converge"));
             }
             other => panic!("unexpected mapping for model failure: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn core_error_maps_to_pricing_error_categories() {
+        // Input::NotFound -> MissingMarketData
+        let core_missing: finstack_core::Error = finstack_core::InputError::NotFound {
+            id: "USD-OIS".to_string(),
+        }
+        .into();
+        let pricing: PricingError = core_missing.into();
+        match pricing {
+            PricingError::MissingMarketData { missing_id, .. } => assert_eq!(missing_id, "USD-OIS"),
+            other => panic!("unexpected mapping for missing input: {other:?}"),
+        }
+
+        // Validation -> InvalidInput (not ModelFailure)
+        let core_invalid = finstack_core::Error::Validation("bad parameter".to_string());
+        let pricing: PricingError = core_invalid.into();
+        match pricing {
+            PricingError::InvalidInput { message, .. } => {
+                assert!(message.contains("bad parameter"));
+            }
+            other => panic!("unexpected mapping for validation: {other:?}"),
+        }
+
+        // Calibration -> ModelFailure
+        let core_calibration = finstack_core::Error::Calibration {
+            message: "solver did not converge".to_string(),
+            category: "solver".to_string(),
+        };
+        let pricing: PricingError = core_calibration.into();
+        match pricing {
+            PricingError::ModelFailure { message, .. } => {
+                assert!(message.contains("solver did not converge"));
+            }
+            other => panic!("unexpected mapping for calibration: {other:?}"),
         }
     }
 

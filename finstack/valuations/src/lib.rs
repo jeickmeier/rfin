@@ -313,7 +313,7 @@ pub mod market;
 pub mod prelude;
 pub mod pricer;
 pub mod results;
-pub(crate) mod schema;
+pub mod schema;
 
 // Export macros before instruments module
 #[macro_use]

@@ -108,7 +108,7 @@ pub struct PricingOptions {
     /// Optional market history for Historical VaR / Expected Shortfall metrics
     pub market_history: Option<Arc<MarketHistory>>,
 }
-// End of file
+
 impl PricingOptions {
     /// Create new pricing options with no extras.
     pub fn new() -> Self {
