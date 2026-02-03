@@ -14,7 +14,7 @@ from typing import Any as _Any
 
 from . import finstack as _finstack
 
-__all__ = tuple(
+__all__ = tuple(  # pyright: ignore[reportUnsupportedDunderAll]
     getattr(
         _finstack,
         "__all__",
@@ -117,6 +117,10 @@ _rust_portfolio = _finstack.portfolio
 _portfolio = _setup_hybrid_module(_rust_portfolio, "portfolio", _pkg_path / "portfolio")
 globals()["portfolio"] = _portfolio
 
+_rust_io = _finstack.io
+_io = _setup_hybrid_module(_rust_io, "io", _pkg_path / "io")
+globals()["io"] = _io
+
 del (
     _finstack,
     _name,
@@ -130,6 +134,8 @@ del (
     _statements,
     _rust_portfolio,
     _portfolio,
+    _rust_io,
+    _io,
     _types,
     _setup_hybrid_module,
     _Any,

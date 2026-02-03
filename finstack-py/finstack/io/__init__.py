@@ -1,7 +1,8 @@
-"""Scenarios bindings (Rust).
+"""Persistence layer for Finstack domain objects.
 
-This package is a thin re-export of the Rust extension module.
-No runtime monkeypatching or compatibility shims are applied.
+This module provides a typed repository interface for storing and retrieving
+market contexts, instruments, portfolios, scenarios, statement models, and
+metric registries. The default implementation uses SQLite.
 """
 
 from __future__ import annotations
@@ -11,12 +12,12 @@ import types as _types
 
 from finstack import finstack as _finstack
 
-_rust_scenarios = _finstack.scenarios
+_rust_io = _finstack.io
 
-for _name in dir(_rust_scenarios):
+for _name in dir(_rust_io):
     if _name.startswith("_"):
         continue
-    _attr = getattr(_rust_scenarios, _name)
+    _attr = getattr(_rust_io, _name)
     globals()[_name] = _attr
     if isinstance(_attr, _types.ModuleType):
         _sys.modules[f"{__name__}.{_name}"] = _attr

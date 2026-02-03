@@ -17,6 +17,7 @@ finstack-valuations = { path = "../finstack/valuations", features = ["mc", "serd
 finstack-statements = { path = "../finstack/statements", features = ["dataframes"] }
 finstack-scenarios = { path = "../finstack/scenarios" }
 finstack-portfolio = { path = "../finstack/portfolio", features = ["scenarios"] }
+finstack-io = { path = "../finstack/io" }
 pyo3 = { version = "0.26", features = ["extension-module"] }
 pyo3-polars = "0.25"
 polars = { version = "0.52", default-features = false }
