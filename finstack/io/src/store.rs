@@ -12,7 +12,6 @@ use finstack_statements::registry::MetricRegistry;
 use finstack_statements::FinancialModelSpec;
 use finstack_valuations::instruments::InstrumentJson;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 /// Typed persistence interface for Finstack domain objects.
 ///
@@ -31,6 +30,14 @@ use std::sync::Arc;
 ///   which execute within a single transaction
 /// - Implementing application-level locking
 /// - Using portfolio specs with inline `instrument_spec` to avoid the lookup
+///
+/// ## Metadata Handling
+///
+/// All `put_*` methods accept an optional `meta` parameter for storing provenance
+/// information (source, version, tags, etc.). This metadata is persisted alongside
+/// the payload for auditing and debugging purposes, but is **not returned** by
+/// `get_*` methods. If you need to retrieve metadata, access the store directly
+/// or implement custom queries.
 pub trait Store {
     /// Store a market context snapshot for a given `as_of` date.
     fn put_market_context(
@@ -42,6 +49,8 @@ pub trait Store {
     ) -> Result<()>;
 
     /// Load a market context snapshot for a given `as_of` date.
+    ///
+    /// Note: The `meta` field is stored for auditing purposes but not returned by this method.
     #[must_use = "this returns the market context, which should be used"]
     fn get_market_context(&self, market_id: &str, as_of: Date) -> Result<Option<MarketContext>>;
 
@@ -54,8 +63,24 @@ pub trait Store {
     ) -> Result<()>;
 
     /// Load an instrument definition.
+    ///
+    /// Note: The `meta` field is stored for auditing purposes but not returned by this method.
     #[must_use = "this returns the instrument, which should be used"]
     fn get_instrument(&self, instrument_id: &str) -> Result<Option<InstrumentJson>>;
+
+    /// Load multiple instruments by ID in a single query.
+    ///
+    /// Returns a map of instrument_id -> InstrumentJson for all found instruments.
+    /// Missing instruments are silently omitted from the result (no error).
+    #[must_use = "this returns the instruments map, which should be used"]
+    fn get_instruments_batch(
+        &self,
+        instrument_ids: &[String],
+    ) -> Result<HashMap<String, InstrumentJson>>;
+
+    /// List all stored instrument IDs.
+    #[must_use = "this returns the list of instrument IDs, which should be used"]
+    fn list_instruments(&self) -> Result<Vec<String>>;
 
     /// Store a portfolio snapshot for a given `as_of` date.
     fn put_portfolio_spec(
@@ -67,6 +92,8 @@ pub trait Store {
     ) -> Result<()>;
 
     /// Load a portfolio snapshot for a given `as_of` date.
+    ///
+    /// Note: The `meta` field is stored for auditing purposes but not returned by this method.
     #[must_use = "this returns the portfolio spec, which should be used"]
     fn get_portfolio_spec(&self, portfolio_id: &str, as_of: Date) -> Result<Option<PortfolioSpec>>;
 
@@ -79,8 +106,14 @@ pub trait Store {
     ) -> Result<()>;
 
     /// Load a scenario specification.
+    ///
+    /// Note: The `meta` field is stored for auditing purposes but not returned by this method.
     #[must_use = "this returns the scenario spec, which should be used"]
     fn get_scenario(&self, scenario_id: &str) -> Result<Option<ScenarioSpec>>;
+
+    /// List all stored scenario IDs.
+    #[must_use = "this returns the list of scenario IDs, which should be used"]
+    fn list_scenarios(&self) -> Result<Vec<String>>;
 
     /// Store a statements model specification.
     fn put_statement_model(
@@ -91,8 +124,14 @@ pub trait Store {
     ) -> Result<()>;
 
     /// Load a statements model specification.
+    ///
+    /// Note: The `meta` field is stored for auditing purposes but not returned by this method.
     #[must_use = "this returns the statement model spec, which should be used"]
     fn get_statement_model(&self, model_id: &str) -> Result<Option<FinancialModelSpec>>;
+
+    /// List all stored statement model IDs.
+    #[must_use = "this returns the list of model IDs, which should be used"]
+    fn list_statement_models(&self) -> Result<Vec<String>>;
 
     /// Store a metric registry by namespace.
     ///
@@ -107,6 +146,8 @@ pub trait Store {
     ) -> Result<()>;
 
     /// Load a metric registry by namespace.
+    ///
+    /// Note: The `meta` field is stored for auditing purposes but not returned by this method.
     #[must_use = "this returns the metric registry, which should be used"]
     fn get_metric_registry(&self, namespace: &str) -> Result<Option<MetricRegistry>>;
 
@@ -146,30 +187,30 @@ pub trait Store {
     fn load_portfolio(&self, portfolio_id: &str, as_of: Date) -> Result<Portfolio> {
         let mut spec = self.load_portfolio_spec(portfolio_id, as_of)?;
 
-        // Resolve missing instrument specs from the instrument registry.
-        // Use Arc to avoid cloning large instrument definitions when the same
-        // instrument appears in multiple positions.
-        let mut cache: HashMap<String, Arc<InstrumentJson>> = HashMap::new();
+        // Collect unique instrument IDs that need resolution
+        let missing_ids: Vec<String> = spec
+            .positions
+            .iter()
+            .filter(|pos| pos.instrument_spec.is_none())
+            .map(|pos| pos.instrument_id.clone())
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect();
+
+        // Batch-fetch all missing instruments
+        let instruments = self.get_instruments_batch(&missing_ids)?;
+
+        // Resolve missing instrument specs from the fetched batch
         for pos in &mut spec.positions {
             if pos.instrument_spec.is_some() {
                 continue;
             }
 
-            let instrument_id = &pos.instrument_id;
-            let resolved = if let Some(instr) = cache.get(instrument_id) {
-                Arc::clone(instr)
-            } else {
-                let instr = self
-                    .get_instrument(instrument_id)?
-                    .ok_or_else(|| Error::not_found("instrument", instrument_id.clone()))?;
-                let instr = Arc::new(instr);
-                cache.insert(instrument_id.clone(), Arc::clone(&instr));
-                instr
-            };
+            let instrument = instruments
+                .get(&pos.instrument_id)
+                .ok_or_else(|| Error::not_found("instrument", pos.instrument_id.clone()))?;
 
-            // Unwrap the Arc for assignment (positions don't share ownership)
-            pos.instrument_spec =
-                Some(Arc::try_unwrap(resolved).unwrap_or_else(|arc| (*arc).clone()));
+            pos.instrument_spec = Some(instrument.clone());
         }
 
         Ok(Portfolio::from_spec(spec)?)
@@ -212,7 +253,7 @@ pub trait BulkStore: Store {
     ) -> Result<()>;
 
     /// Store multiple portfolio specs in a single transaction.
-    fn put_portfolio_specs_batch(
+    fn put_portfolios_batch(
         &self,
         portfolios: &[(&str, Date, &PortfolioSpec, Option<&serde_json::Value>)],
     ) -> Result<()>;

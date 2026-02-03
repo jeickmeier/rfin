@@ -600,6 +600,152 @@ fn sqlite_metric_registry_list_and_delete() -> finstack_io::Result<()> {
 }
 
 #[test]
+fn sqlite_list_instruments() -> finstack_io::Result<()> {
+    let dir = tempfile::tempdir()?;
+    let store = SqliteStore::open(dir.path().join("finstack.db"))?;
+
+    let as_of = date!(2024 - 01 - 01);
+
+    // Start with no instruments
+    let ids = store.list_instruments()?;
+    assert!(ids.is_empty());
+
+    // Add some instruments
+    let deposit1 = Deposit::builder()
+        .id("DEP_1M".into())
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .start(as_of)
+        .end(date!(2024 - 02 - 01))
+        .day_count(finstack_core::dates::DayCount::Act360)
+        .discount_curve_id("USD-OIS".into())
+        .build()?;
+
+    let deposit2 = Deposit::builder()
+        .id("DEP_3M".into())
+        .notional(Money::new(2_000_000.0, Currency::USD))
+        .start(as_of)
+        .end(date!(2024 - 04 - 01))
+        .day_count(finstack_core::dates::DayCount::Act360)
+        .discount_curve_id("USD-OIS".into())
+        .build()?;
+
+    store.put_instrument("DEP_1M", &InstrumentJson::Deposit(deposit1), None)?;
+    store.put_instrument("DEP_3M", &InstrumentJson::Deposit(deposit2), None)?;
+
+    // List should return both, sorted alphabetically
+    let ids = store.list_instruments()?;
+    assert_eq!(ids, vec!["DEP_1M", "DEP_3M"]);
+
+    Ok(())
+}
+
+#[test]
+fn sqlite_get_instruments_batch() -> finstack_io::Result<()> {
+    let dir = tempfile::tempdir()?;
+    let store = SqliteStore::open(dir.path().join("finstack.db"))?;
+
+    let as_of = date!(2024 - 01 - 01);
+
+    // Add some instruments
+    let deposit1 = Deposit::builder()
+        .id("DEP_1M".into())
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .start(as_of)
+        .end(date!(2024 - 02 - 01))
+        .day_count(finstack_core::dates::DayCount::Act360)
+        .discount_curve_id("USD-OIS".into())
+        .build()?;
+
+    let deposit2 = Deposit::builder()
+        .id("DEP_3M".into())
+        .notional(Money::new(2_000_000.0, Currency::USD))
+        .start(as_of)
+        .end(date!(2024 - 04 - 01))
+        .day_count(finstack_core::dates::DayCount::Act360)
+        .discount_curve_id("USD-OIS".into())
+        .build()?;
+
+    store.put_instrument("DEP_1M", &InstrumentJson::Deposit(deposit1), None)?;
+    store.put_instrument("DEP_3M", &InstrumentJson::Deposit(deposit2), None)?;
+
+    // Batch fetch both
+    let result = store.get_instruments_batch(&["DEP_1M".into(), "DEP_3M".into()])?;
+    assert_eq!(result.len(), 2);
+    assert!(result.contains_key("DEP_1M"));
+    assert!(result.contains_key("DEP_3M"));
+
+    // Batch fetch with some missing
+    let result = store.get_instruments_batch(&["DEP_1M".into(), "NONEXISTENT".into()])?;
+    assert_eq!(result.len(), 1);
+    assert!(result.contains_key("DEP_1M"));
+
+    // Empty batch
+    let result = store.get_instruments_batch(&[])?;
+    assert!(result.is_empty());
+
+    Ok(())
+}
+
+#[test]
+fn sqlite_list_scenarios() -> finstack_io::Result<()> {
+    let dir = tempfile::tempdir()?;
+    let store = SqliteStore::open(dir.path().join("finstack.db"))?;
+
+    // Start with no scenarios
+    let ids = store.list_scenarios()?;
+    assert!(ids.is_empty());
+
+    // Add some scenarios
+    let spec1 = finstack_scenarios::ScenarioSpec {
+        id: "scenario_a".into(),
+        name: Some("Scenario A".into()),
+        description: None,
+        operations: vec![],
+        priority: 0,
+    };
+
+    let spec2 = finstack_scenarios::ScenarioSpec {
+        id: "scenario_b".into(),
+        name: Some("Scenario B".into()),
+        description: None,
+        operations: vec![],
+        priority: 1,
+    };
+
+    store.put_scenario("SCENARIO_A", &spec1, None)?;
+    store.put_scenario("SCENARIO_B", &spec2, None)?;
+
+    // List should return both, sorted alphabetically
+    let ids = store.list_scenarios()?;
+    assert_eq!(ids, vec!["SCENARIO_A", "SCENARIO_B"]);
+
+    Ok(())
+}
+
+#[test]
+fn sqlite_list_statement_models() -> finstack_io::Result<()> {
+    let dir = tempfile::tempdir()?;
+    let store = SqliteStore::open(dir.path().join("finstack.db"))?;
+
+    // Start with no models
+    let ids = store.list_statement_models()?;
+    assert!(ids.is_empty());
+
+    // Add some models
+    let spec1 = finstack_statements::FinancialModelSpec::new("model_a", vec![]);
+    let spec2 = finstack_statements::FinancialModelSpec::new("model_b", vec![]);
+
+    store.put_statement_model("MODEL_A", &spec1, None)?;
+    store.put_statement_model("MODEL_B", &spec2, None)?;
+
+    // List should return both, sorted alphabetically
+    let ids = store.list_statement_models()?;
+    assert_eq!(ids, vec!["MODEL_A", "MODEL_B"]);
+
+    Ok(())
+}
+
+#[test]
 fn sqlite_metric_registry_upsert() -> finstack_io::Result<()> {
     use finstack_statements::registry::{MetricDefinition, MetricRegistry, UnitType};
 

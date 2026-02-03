@@ -220,6 +220,47 @@ impl PySqliteStore {
         }
     }
 
+    /// Retrieve multiple instruments by ID in a single query.
+    ///
+    /// Args:
+    ///     instrument_ids: List of instrument identifiers.
+    ///
+    /// Returns:
+    ///     dict[str, dict]: Map of instrument_id to instrument definition.
+    ///                      Missing instruments are silently omitted.
+    ///
+    /// Examples:
+    ///     >>> instruments = store.get_instruments_batch(["DEP_1M", "DEP_3M"])
+    ///     >>> for id, instr in instruments.items():
+    ///     ...     print(f"{id}: {instr['type']}")
+    #[pyo3(text_signature = "($self, instrument_ids)")]
+    fn get_instruments_batch(
+        &self,
+        py: Python<'_>,
+        instrument_ids: Vec<String>,
+    ) -> PyResult<Py<PyAny>> {
+        let result = self
+            .inner
+            .get_instruments_batch(&instrument_ids)
+            .map_err(map_io_error)?;
+        let py_dict = pythonize::pythonize(py, &result)
+            .map_err(|e| PyValueError::new_err(format!("Failed to serialize: {}", e)))?;
+        Ok(py_dict.unbind())
+    }
+
+    /// List all stored instrument IDs.
+    ///
+    /// Returns:
+    ///     list[str]: List of instrument IDs, sorted alphabetically.
+    ///
+    /// Examples:
+    ///     >>> ids = store.list_instruments()
+    ///     >>> print(f"Found {len(ids)} instruments")
+    #[pyo3(text_signature = "($self)")]
+    fn list_instruments(&self) -> PyResult<Vec<String>> {
+        self.inner.list_instruments().map_err(map_io_error)
+    }
+
     // =========================================================================
     // Portfolio Operations
     // =========================================================================
@@ -369,6 +410,19 @@ impl PySqliteStore {
         Ok(result.map(PyScenarioSpec::from_inner))
     }
 
+    /// List all stored scenario IDs.
+    ///
+    /// Returns:
+    ///     list[str]: List of scenario IDs, sorted alphabetically.
+    ///
+    /// Examples:
+    ///     >>> ids = store.list_scenarios()
+    ///     >>> print(f"Found {len(ids)} scenarios")
+    #[pyo3(text_signature = "($self)")]
+    fn list_scenarios(&self) -> PyResult<Vec<String>> {
+        self.inner.list_scenarios().map_err(map_io_error)
+    }
+
     // =========================================================================
     // Statement Model Operations
     // =========================================================================
@@ -408,6 +462,19 @@ impl PySqliteStore {
             .get_statement_model(model_id)
             .map_err(map_io_error)?;
         Ok(result.map(PyFinancialModelSpec::new))
+    }
+
+    /// List all stored statement model IDs.
+    ///
+    /// Returns:
+    ///     list[str]: List of model IDs, sorted alphabetically.
+    ///
+    /// Examples:
+    ///     >>> ids = store.list_statement_models()
+    ///     >>> print(f"Found {len(ids)} models")
+    #[pyo3(text_signature = "($self)")]
+    fn list_statement_models(&self) -> PyResult<Vec<String>> {
+        self.inner.list_statement_models().map_err(map_io_error)
     }
 
     // =========================================================================
@@ -594,7 +661,7 @@ impl PySqliteStore {
     ///     portfolios: List of (portfolio_id, as_of, spec) tuples,
     ///                 or (portfolio_id, as_of, spec, meta) tuples.
     #[pyo3(text_signature = "($self, portfolios)")]
-    fn put_portfolio_specs_batch(&self, portfolios: &Bound<'_, PyList>) -> PyResult<()> {
+    fn put_portfolios_batch(&self, portfolios: &Bound<'_, PyList>) -> PyResult<()> {
         let mut batch: Vec<(
             String,
             finstack_core::dates::Date,
@@ -633,9 +700,7 @@ impl PySqliteStore {
             .map(|(id, date, spec, meta)| (id.as_str(), *date, spec, meta.as_ref()))
             .collect();
 
-        self.inner
-            .put_portfolio_specs_batch(&refs)
-            .map_err(map_io_error)
+        self.inner.put_portfolios_batch(&refs).map_err(map_io_error)
     }
 
     // =========================================================================

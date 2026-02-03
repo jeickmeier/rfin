@@ -15,13 +15,61 @@ use finstack_statements::FinancialModelSpec;
 use finstack_valuations::instruments::InstrumentJson;
 use rusqlite::OptionalExtension;
 use rusqlite::{params, Connection};
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 const SCHEMA_VERSION: i64 = 2;
 
-// RFC3339-ish timestamp without timezone offsets (UTC 'Z').
-const NOW_SQL: &str = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
+// Pre-defined SQL statements to avoid runtime format! allocations.
+// Timestamp format: RFC3339-ish without timezone offsets (UTC 'Z').
+const PUT_MARKET_CONTEXT_SQL: &str = concat!(
+    "INSERT INTO market_contexts (id, as_of, payload, meta) VALUES (?1, ?2, ?3, ?4) ",
+    "ON CONFLICT(id, as_of) DO UPDATE SET ",
+    "payload = excluded.payload, ",
+    "meta = excluded.meta, ",
+    "updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')"
+);
+
+const PUT_INSTRUMENT_SQL: &str = concat!(
+    "INSERT INTO instruments (id, payload, meta) VALUES (?1, ?2, ?3) ",
+    "ON CONFLICT(id) DO UPDATE SET ",
+    "payload = excluded.payload, ",
+    "meta = excluded.meta, ",
+    "updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')"
+);
+
+const PUT_PORTFOLIO_SQL: &str = concat!(
+    "INSERT INTO portfolios (id, as_of, payload, meta) VALUES (?1, ?2, ?3, ?4) ",
+    "ON CONFLICT(id, as_of) DO UPDATE SET ",
+    "payload = excluded.payload, ",
+    "meta = excluded.meta, ",
+    "updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')"
+);
+
+const PUT_SCENARIO_SQL: &str = concat!(
+    "INSERT INTO scenarios (id, payload, meta) VALUES (?1, ?2, ?3) ",
+    "ON CONFLICT(id) DO UPDATE SET ",
+    "payload = excluded.payload, ",
+    "meta = excluded.meta, ",
+    "updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')"
+);
+
+const PUT_STATEMENT_MODEL_SQL: &str = concat!(
+    "INSERT INTO statement_models (id, payload, meta) VALUES (?1, ?2, ?3) ",
+    "ON CONFLICT(id) DO UPDATE SET ",
+    "payload = excluded.payload, ",
+    "meta = excluded.meta, ",
+    "updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')"
+);
+
+const PUT_METRIC_REGISTRY_SQL: &str = concat!(
+    "INSERT INTO metric_registries (namespace, payload, meta) VALUES (?1, ?2, ?3) ",
+    "ON CONFLICT(namespace) DO UPDATE SET ",
+    "payload = excluded.payload, ",
+    "meta = excluded.meta, ",
+    "updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')"
+);
 
 const SCHEMA_SQL_V1: &str = r#"
 BEGIN;
@@ -205,13 +253,7 @@ impl Store for SqliteStore {
 
         self.with_conn(|conn| {
             conn.execute(
-                &format!(
-                    "INSERT INTO market_contexts (id, as_of, payload, meta) VALUES (?1, ?2, ?3, ?4)
-                     ON CONFLICT(id, as_of) DO UPDATE SET
-                       payload = excluded.payload,
-                       meta = excluded.meta,
-                       updated_at = ({NOW_SQL})"
-                ),
+                PUT_MARKET_CONTEXT_SQL,
                 params![market_id, as_of, payload, meta],
             )?;
             Ok(())
@@ -250,16 +292,7 @@ impl Store for SqliteStore {
         let meta = meta_json(meta)?;
 
         self.with_conn(|conn| {
-            conn.execute(
-                &format!(
-                    "INSERT INTO instruments (id, payload, meta) VALUES (?1, ?2, ?3)
-                     ON CONFLICT(id) DO UPDATE SET
-                       payload = excluded.payload,
-                       meta = excluded.meta,
-                       updated_at = ({NOW_SQL})"
-                ),
-                params![instrument_id, payload, meta],
-            )?;
+            conn.execute(PUT_INSTRUMENT_SQL, params![instrument_id, payload, meta])?;
             Ok(())
         })
     }
@@ -281,6 +314,55 @@ impl Store for SqliteStore {
         })
     }
 
+    fn get_instruments_batch(
+        &self,
+        instrument_ids: &[String],
+    ) -> Result<HashMap<String, InstrumentJson>> {
+        if instrument_ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+
+        self.with_conn(|conn| {
+            // Build a parameterized query with the right number of placeholders
+            let placeholders: Vec<&str> = (0..instrument_ids.len()).map(|_| "?").collect();
+            let sql = format!(
+                "SELECT id, payload FROM instruments WHERE id IN ({})",
+                placeholders.join(", ")
+            );
+
+            let mut stmt = conn.prepare(&sql)?;
+            let params: Vec<&dyn rusqlite::ToSql> = instrument_ids
+                .iter()
+                .map(|s| s as &dyn rusqlite::ToSql)
+                .collect();
+
+            let rows = stmt.query_map(params.as_slice(), |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, Vec<u8>>(1)?))
+            })?;
+
+            let mut result = HashMap::new();
+            for row in rows {
+                let (id, bytes) = row?;
+                let instrument: InstrumentJson = serde_json::from_slice(&bytes)?;
+                result.insert(id, instrument);
+            }
+            Ok(result)
+        })
+    }
+
+    fn list_instruments(&self) -> Result<Vec<String>> {
+        self.with_conn(|conn| {
+            let mut stmt = conn.prepare("SELECT id FROM instruments ORDER BY id ASC")?;
+            let rows = stmt.query_map([], |row| row.get(0))?;
+
+            let mut out = Vec::new();
+            for row in rows {
+                out.push(row?);
+            }
+            Ok(out)
+        })
+    }
+
     fn put_portfolio_spec(
         &self,
         portfolio_id: &str,
@@ -294,13 +376,7 @@ impl Store for SqliteStore {
 
         self.with_conn(|conn| {
             conn.execute(
-                &format!(
-                    "INSERT INTO portfolios (id, as_of, payload, meta) VALUES (?1, ?2, ?3, ?4)
-                     ON CONFLICT(id, as_of) DO UPDATE SET
-                       payload = excluded.payload,
-                       meta = excluded.meta,
-                       updated_at = ({NOW_SQL})"
-                ),
+                PUT_PORTFOLIO_SQL,
                 params![portfolio_id, as_of, payload, meta],
             )?;
             Ok(())
@@ -335,16 +411,7 @@ impl Store for SqliteStore {
         let meta = meta_json(meta)?;
 
         self.with_conn(|conn| {
-            conn.execute(
-                &format!(
-                    "INSERT INTO scenarios (id, payload, meta) VALUES (?1, ?2, ?3)
-                     ON CONFLICT(id) DO UPDATE SET
-                       payload = excluded.payload,
-                       meta = excluded.meta,
-                       updated_at = ({NOW_SQL})"
-                ),
-                params![scenario_id, payload, meta],
-            )?;
+            conn.execute(PUT_SCENARIO_SQL, params![scenario_id, payload, meta])?;
             Ok(())
         })
     }
@@ -366,6 +433,19 @@ impl Store for SqliteStore {
         })
     }
 
+    fn list_scenarios(&self) -> Result<Vec<String>> {
+        self.with_conn(|conn| {
+            let mut stmt = conn.prepare("SELECT id FROM scenarios ORDER BY id ASC")?;
+            let rows = stmt.query_map([], |row| row.get(0))?;
+
+            let mut out = Vec::new();
+            for row in rows {
+                out.push(row?);
+            }
+            Ok(out)
+        })
+    }
+
     fn put_statement_model(
         &self,
         model_id: &str,
@@ -376,16 +456,7 @@ impl Store for SqliteStore {
         let meta = meta_json(meta)?;
 
         self.with_conn(|conn| {
-            conn.execute(
-                &format!(
-                    "INSERT INTO statement_models (id, payload, meta) VALUES (?1, ?2, ?3)
-                     ON CONFLICT(id) DO UPDATE SET
-                       payload = excluded.payload,
-                       meta = excluded.meta,
-                       updated_at = ({NOW_SQL})"
-                ),
-                params![model_id, payload, meta],
-            )?;
+            conn.execute(PUT_STATEMENT_MODEL_SQL, params![model_id, payload, meta])?;
             Ok(())
         })
     }
@@ -407,6 +478,19 @@ impl Store for SqliteStore {
         })
     }
 
+    fn list_statement_models(&self) -> Result<Vec<String>> {
+        self.with_conn(|conn| {
+            let mut stmt = conn.prepare("SELECT id FROM statement_models ORDER BY id ASC")?;
+            let rows = stmt.query_map([], |row| row.get(0))?;
+
+            let mut out = Vec::new();
+            for row in rows {
+                out.push(row?);
+            }
+            Ok(out)
+        })
+    }
+
     fn put_metric_registry(
         &self,
         namespace: &str,
@@ -417,16 +501,7 @@ impl Store for SqliteStore {
         let meta = meta_json(meta)?;
 
         self.with_conn(|conn| {
-            conn.execute(
-                &format!(
-                    "INSERT INTO metric_registries (namespace, payload, meta) VALUES (?1, ?2, ?3)
-                     ON CONFLICT(namespace) DO UPDATE SET
-                       payload = excluded.payload,
-                       meta = excluded.meta,
-                       updated_at = ({NOW_SQL})"
-                ),
-                params![namespace, payload, meta],
-            )?;
+            conn.execute(PUT_METRIC_REGISTRY_SQL, params![namespace, payload, meta])?;
             Ok(())
         })
     }
@@ -609,13 +684,7 @@ impl BulkStore for SqliteStore {
         self.with_conn(|conn| {
             let tx = conn.unchecked_transaction()?;
             {
-                let mut stmt = tx.prepare(&format!(
-                    "INSERT INTO instruments (id, payload, meta) VALUES (?1, ?2, ?3)
-                     ON CONFLICT(id) DO UPDATE SET
-                       payload = excluded.payload,
-                       meta = excluded.meta,
-                       updated_at = ({NOW_SQL})"
-                ))?;
+                let mut stmt = tx.prepare(PUT_INSTRUMENT_SQL)?;
 
                 for (instrument_id, instrument, meta) in instruments {
                     let payload = serde_json::to_vec(instrument)?;
@@ -635,13 +704,7 @@ impl BulkStore for SqliteStore {
         self.with_conn(|conn| {
             let tx = conn.unchecked_transaction()?;
             {
-                let mut stmt = tx.prepare(&format!(
-                    "INSERT INTO market_contexts (id, as_of, payload, meta) VALUES (?1, ?2, ?3, ?4)
-                     ON CONFLICT(id, as_of) DO UPDATE SET
-                       payload = excluded.payload,
-                       meta = excluded.meta,
-                       updated_at = ({NOW_SQL})"
-                ))?;
+                let mut stmt = tx.prepare(PUT_MARKET_CONTEXT_SQL)?;
 
                 for (market_id, as_of, context, meta) in contexts {
                     let state: MarketContextState = (*context).into();
@@ -656,20 +719,14 @@ impl BulkStore for SqliteStore {
         })
     }
 
-    fn put_portfolio_specs_batch(
+    fn put_portfolios_batch(
         &self,
         portfolios: &[(&str, Date, &PortfolioSpec, Option<&serde_json::Value>)],
     ) -> Result<()> {
         self.with_conn(|conn| {
             let tx = conn.unchecked_transaction()?;
             {
-                let mut stmt = tx.prepare(&format!(
-                    "INSERT INTO portfolios (id, as_of, payload, meta) VALUES (?1, ?2, ?3, ?4)
-                     ON CONFLICT(id, as_of) DO UPDATE SET
-                       payload = excluded.payload,
-                       meta = excluded.meta,
-                       updated_at = ({NOW_SQL})"
-                ))?;
+                let mut stmt = tx.prepare(PUT_PORTFOLIO_SQL)?;
 
                 for (portfolio_id, as_of, spec, meta) in portfolios {
                     let payload = serde_json::to_vec(spec)?;

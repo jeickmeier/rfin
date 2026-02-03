@@ -326,6 +326,35 @@ class SqliteStore:
         """
         ...
 
+    def get_instruments_batch(self, instrument_ids: list[str]) -> dict[str, dict[str, Any]]:
+        """Retrieve multiple instruments by ID in a single query.
+
+        Args:
+            instrument_ids: List of instrument identifiers.
+
+        Returns:
+            dict[str, dict]: Map of instrument_id to instrument definition.
+                Missing instruments are silently omitted.
+
+        Examples:
+            >>> instruments = store.get_instruments_batch(["DEP_1M", "DEP_3M"])
+            >>> for id, instr in instruments.items():
+            ...     print(f"{id}: {instr['type']}")
+        """
+        ...
+
+    def list_instruments(self) -> list[str]:
+        """List all stored instrument IDs.
+
+        Returns:
+            list[str]: List of instrument IDs, sorted alphabetically.
+
+        Examples:
+            >>> ids = store.list_instruments()
+            >>> print(f"Found {len(ids)} instruments")
+        """
+        ...
+
     # =========================================================================
     # Portfolio Operations
     # =========================================================================
@@ -428,6 +457,18 @@ class SqliteStore:
         """
         ...
 
+    def list_scenarios(self) -> list[str]:
+        """List all stored scenario IDs.
+
+        Returns:
+            list[str]: List of scenario IDs, sorted alphabetically.
+
+        Examples:
+            >>> ids = store.list_scenarios()
+            >>> print(f"Found {len(ids)} scenarios")
+        """
+        ...
+
     # =========================================================================
     # Statement Model Operations
     # =========================================================================
@@ -455,6 +496,18 @@ class SqliteStore:
 
         Returns:
             FinancialModelSpec or None: The model spec if found.
+        """
+        ...
+
+    def list_statement_models(self) -> list[str]:
+        """List all stored statement model IDs.
+
+        Returns:
+            list[str]: List of model IDs, sorted alphabetically.
+
+        Examples:
+            >>> ids = store.list_statement_models()
+            >>> print(f"Found {len(ids)} models")
         """
         ...
 
@@ -558,7 +611,7 @@ class SqliteStore:
         """
         ...
 
-    def put_portfolio_specs_batch(
+    def put_portfolios_batch(
         self,
         portfolios: list[
             tuple[str, date, PortfolioSpec | dict[str, Any]]
