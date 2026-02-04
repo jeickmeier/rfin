@@ -19,6 +19,11 @@ pub enum Error {
     #[error(transparent)]
     Postgres(#[from] postgres::Error),
 
+    /// Turso backend error.
+    #[cfg(feature = "turso")]
+    #[error(transparent)]
+    Turso(#[from] turso::Error),
+
     /// JSON serialization/deserialization error.
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),

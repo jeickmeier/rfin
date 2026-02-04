@@ -23,10 +23,10 @@ This crate provides a **stable persistence boundary** for domain crates:
 │                    sql/statements.rs (sea-query)                     │
 ├─────────────────────────────────────────────────────────────────────┤
 │  sql/migrations.rs  │  sql/schema/*.rs (TableDefinition trait)      │
-├──────────────────────────────┬──────────────────────────────────────┤
-│      SqliteStore             │         PostgresStore                │
-│  (default, embedded)         │     (optional, scale-out)            │
-└──────────────────────────────┴──────────────────────────────────────┘
+├───────────────────────┬───────────────────────┬───────────────────────┤
+│      SqliteStore      │     PostgresStore     │      TursoStore       │
+│  (default, embedded)  │  (optional, scale-out)│ (optional, embedded)  │
+└───────────────────────┴───────────────────────┴───────────────────────┘
 ```
 
 ### Design Principles
@@ -76,14 +76,41 @@ let store = PostgresStore::connect("postgres://user:pass@localhost/finstack")?;
 store.put_instrument("DEPO-001", &instrument, None)?;
 ```
 
+### Turso
+
+Turso is an in-process SQL database engine compatible with SQLite, written in Rust.
+It offers native JSON support, optional encryption at rest, and modern async I/O.
+
+Enable the `turso` feature in `Cargo.toml`:
+
+```toml
+finstack-io = { version = "0.4", features = ["turso"] }
+```
+
+```rust
+use finstack_io::{TursoStore, Store};
+
+let store = TursoStore::open("finstack.db")?;
+store.put_instrument("DEPO-001", &instrument, None)?;
+```
+
+Turso can read/write standard SQLite database files, so you can migrate between
+SQLite and Turso backends seamlessly.
+
 ### Environment-Based Configuration
 
 ```rust
 use finstack_io::{open_store_from_env, StoreHandle};
 
-// Reads FINSTACK_IO_BACKEND and FINSTACK_IO_URL from environment
+// Reads configuration from environment variables
 let store: StoreHandle = open_store_from_env()?;
 ```
+
+Environment variables:
+- `FINSTACK_IO_BACKEND`: `sqlite` (default), `postgres`, or `turso`
+- `FINSTACK_SQLITE_PATH`: Path for SQLite database (required when backend is `sqlite`)
+- `FINSTACK_POSTGRES_URL`: Connection URL for Postgres (required when backend is `postgres`)
+- `FINSTACK_TURSO_PATH`: Path for Turso database (required when backend is `turso`)
 
 ## Database Setup
 
@@ -126,6 +153,20 @@ let store = PostgresStore::connect("postgres://user:secret@localhost/finstack")?
 Postgres configuration:
 - **Statement timeout**: 5 seconds (per-statement limit)
 - New connection per operation (no pooling; add pooling layer if needed)
+
+### Turso
+
+No setup required. The database file is created automatically:
+
+```rust
+let store = TursoStore::open("path/to/finstack.db")?;
+// Migrations run automatically on first connect
+```
+
+Turso configuration:
+- SQLite-compatible file format (can read/write standard `.db` files)
+- Async I/O with io_uring on Linux
+- Optional encryption at rest (not yet exposed in this wrapper)
 
 ### Custom Table Names
 
@@ -447,6 +488,7 @@ All operations return `Result<T, Error>` with typed error variants:
 pub enum Error {
     Sqlite(rusqlite::Error),
     Postgres(postgres::Error),
+    Turso(turso::Error),
     SerdeJson(serde_json::Error),
     NotFound { entity, id },
     UnsupportedSchema { found, expected },
@@ -462,3 +504,4 @@ pub enum Error {
 |---------|---------|-------------|
 | `sqlite` | Yes | SQLite backend via `rusqlite` |
 | `postgres` | No | Postgres backend via `postgres` crate |
+| `turso` | No | Turso backend via `turso` crate (SQLite-compatible) |

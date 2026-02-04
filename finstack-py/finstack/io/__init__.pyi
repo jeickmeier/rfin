@@ -32,6 +32,7 @@ __all__ = [
     "SchemaVersionError",
     "SqliteStore",
     "PostgresStore",
+    "TursoStore",
     "MarketContextSnapshot",
     "PortfolioSnapshot",
     "PortfolioSpec",
@@ -750,6 +751,80 @@ class PostgresStore(SqliteStore):
         """Get the database connection URL."""
         ...
 
-def open_store_from_env() -> SqliteStore | PostgresStore:
-    """Open a store based on FINSTACK_IO_BACKEND and connection env vars."""
+class TursoStore(SqliteStore):
+    """A Turso-backed persistence store for Finstack domain objects.
+
+    Turso is an in-process SQL database engine compatible with SQLite.
+    It offers native JSON support, optional encryption at rest, and modern async I/O.
+
+    Examples:
+        >>> from finstack.io import TursoStore
+        >>> from datetime import date
+        >>> # Open or create a database
+        >>> store = TursoStore.open("finstack.db")
+        >>> # Store a market context
+        >>> from finstack.core.market_data import MarketContext
+        >>> market = MarketContext.empty()
+        >>> store.put_market_context("USD_MKT", date(2024, 1, 1), market)
+        >>> # Retrieve it later
+        >>> retrieved = store.get_market_context("USD_MKT", date(2024, 1, 1))
+    """
+
+    @staticmethod
+    def open(path: str) -> "TursoStore":
+        """Open or create a Turso database at the given path.
+
+        The database schema is automatically created and migrated on open.
+        Parent directories are created if they don't exist.
+
+        Turso uses the same file format as SQLite, so existing SQLite databases
+        can be opened directly.
+
+        Args:
+            path: Path to the database file. Use `:memory:` for an
+                in-memory database.
+
+        Returns:
+            TursoStore: The opened store instance.
+
+        Raises:
+            IoError: If the database cannot be opened or migrated.
+
+        Examples:
+            >>> store = TursoStore.open("data/finstack.db")
+            >>> store = TursoStore.open(":memory:")  # In-memory database
+        """
+        ...
+
+    @property
+    def path(self) -> str:
+        """Get the database file path."""
+        ...
+
+def open_store_from_env() -> SqliteStore | PostgresStore | TursoStore:
+    """Open a store based on FINSTACK_IO_BACKEND and connection env vars.
+
+    Environment Variables:
+        FINSTACK_IO_BACKEND: Backend to use ("sqlite", "postgres", or "turso").
+            Defaults to "sqlite".
+        FINSTACK_SQLITE_PATH: Path to SQLite database file.
+            Defaults to "finstack.db".
+        FINSTACK_POSTGRES_URL: Postgres connection URL.
+            Required when FINSTACK_IO_BACKEND="postgres".
+        FINSTACK_TURSO_PATH: Path to Turso database file.
+            Required when FINSTACK_IO_BACKEND="turso".
+
+    Returns:
+        SqliteStore, PostgresStore, or TursoStore: The opened store instance.
+
+    Raises:
+        IoError: If the store cannot be opened.
+        ValueError: If required environment variables are missing.
+
+    Examples:
+        >>> import os
+        >>> os.environ["FINSTACK_IO_BACKEND"] = "turso"
+        >>> os.environ["FINSTACK_TURSO_PATH"] = "data/finstack.db"
+        >>> store = open_store_from_env()
+    """
     ...

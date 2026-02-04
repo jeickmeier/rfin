@@ -11,6 +11,8 @@ pub enum IoBackend {
     Sqlite,
     /// Postgres backend.
     Postgres,
+    /// Turso backend.
+    Turso,
 }
 
 impl IoBackend {
@@ -18,6 +20,7 @@ impl IoBackend {
         match value.trim().to_lowercase().as_str() {
             "sqlite" => Some(Self::Sqlite),
             "postgres" | "postgresql" => Some(Self::Postgres),
+            "turso" => Some(Self::Turso),
             _ => None,
         }
     }
@@ -32,6 +35,8 @@ pub struct FinstackIoConfig {
     pub sqlite_path: Option<PathBuf>,
     /// Postgres connection URL (required when backend is Postgres).
     pub postgres_url: Option<String>,
+    /// Turso database path (required when backend is Turso).
+    pub turso_path: Option<PathBuf>,
 }
 
 impl FinstackIoConfig {
@@ -41,6 +46,7 @@ impl FinstackIoConfig {
     /// - `FINSTACK_IO_BACKEND` (default: `sqlite`)
     /// - `FINSTACK_SQLITE_PATH`
     /// - `FINSTACK_POSTGRES_URL`
+    /// - `FINSTACK_TURSO_PATH`
     pub fn from_env() -> Result<Self> {
         let backend = std::env::var("FINSTACK_IO_BACKEND")
             .ok()
@@ -51,11 +57,13 @@ impl FinstackIoConfig {
             .ok()
             .map(PathBuf::from);
         let postgres_url = std::env::var("FINSTACK_POSTGRES_URL").ok();
+        let turso_path = std::env::var("FINSTACK_TURSO_PATH").ok().map(PathBuf::from);
 
         Ok(Self {
             backend,
             sqlite_path,
             postgres_url,
+            turso_path,
         })
     }
 }
@@ -69,6 +77,9 @@ pub enum StoreHandle {
     /// Postgres-backed store.
     #[cfg(feature = "postgres")]
     Postgres(crate::postgres::PostgresStore),
+    /// Turso-backed store.
+    #[cfg(feature = "turso")]
+    Turso(crate::turso::TursoStore),
 }
 
 impl Store for StoreHandle {
@@ -86,6 +97,8 @@ impl Store for StoreHandle {
             StoreHandle::Postgres(store) => {
                 store.put_market_context(market_id, as_of, context, meta)
             }
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.put_market_context(market_id, as_of, context, meta),
         }
     }
 
@@ -99,6 +112,8 @@ impl Store for StoreHandle {
             StoreHandle::Sqlite(store) => store.get_market_context(market_id, as_of),
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => store.get_market_context(market_id, as_of),
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.get_market_context(market_id, as_of),
         }
     }
 
@@ -113,6 +128,8 @@ impl Store for StoreHandle {
             StoreHandle::Sqlite(store) => store.put_instrument(instrument_id, instrument, meta),
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => store.put_instrument(instrument_id, instrument, meta),
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.put_instrument(instrument_id, instrument, meta),
         }
     }
 
@@ -125,6 +142,8 @@ impl Store for StoreHandle {
             StoreHandle::Sqlite(store) => store.get_instrument(instrument_id),
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => store.get_instrument(instrument_id),
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.get_instrument(instrument_id),
         }
     }
 
@@ -138,6 +157,8 @@ impl Store for StoreHandle {
             StoreHandle::Sqlite(store) => store.get_instruments_batch(instrument_ids),
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => store.get_instruments_batch(instrument_ids),
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.get_instruments_batch(instrument_ids),
         }
     }
 
@@ -147,6 +168,8 @@ impl Store for StoreHandle {
             StoreHandle::Sqlite(store) => store.list_instruments(),
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => store.list_instruments(),
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.list_instruments(),
         }
     }
 
@@ -164,6 +187,8 @@ impl Store for StoreHandle {
             StoreHandle::Postgres(store) => {
                 store.put_portfolio_spec(portfolio_id, as_of, spec, meta)
             }
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.put_portfolio_spec(portfolio_id, as_of, spec, meta),
         }
     }
 
@@ -177,6 +202,8 @@ impl Store for StoreHandle {
             StoreHandle::Sqlite(store) => store.get_portfolio_spec(portfolio_id, as_of),
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => store.get_portfolio_spec(portfolio_id, as_of),
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.get_portfolio_spec(portfolio_id, as_of),
         }
     }
 
@@ -191,6 +218,8 @@ impl Store for StoreHandle {
             StoreHandle::Sqlite(store) => store.put_scenario(scenario_id, spec, meta),
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => store.put_scenario(scenario_id, spec, meta),
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.put_scenario(scenario_id, spec, meta),
         }
     }
 
@@ -200,6 +229,8 @@ impl Store for StoreHandle {
             StoreHandle::Sqlite(store) => store.get_scenario(scenario_id),
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => store.get_scenario(scenario_id),
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.get_scenario(scenario_id),
         }
     }
 
@@ -209,6 +240,8 @@ impl Store for StoreHandle {
             StoreHandle::Sqlite(store) => store.list_scenarios(),
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => store.list_scenarios(),
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.list_scenarios(),
         }
     }
 
@@ -223,6 +256,8 @@ impl Store for StoreHandle {
             StoreHandle::Sqlite(store) => store.put_statement_model(model_id, spec, meta),
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => store.put_statement_model(model_id, spec, meta),
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.put_statement_model(model_id, spec, meta),
         }
     }
 
@@ -235,6 +270,8 @@ impl Store for StoreHandle {
             StoreHandle::Sqlite(store) => store.get_statement_model(model_id),
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => store.get_statement_model(model_id),
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.get_statement_model(model_id),
         }
     }
 
@@ -244,6 +281,8 @@ impl Store for StoreHandle {
             StoreHandle::Sqlite(store) => store.list_statement_models(),
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => store.list_statement_models(),
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.list_statement_models(),
         }
     }
 
@@ -258,6 +297,8 @@ impl Store for StoreHandle {
             StoreHandle::Sqlite(store) => store.put_metric_registry(namespace, registry, meta),
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => store.put_metric_registry(namespace, registry, meta),
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.put_metric_registry(namespace, registry, meta),
         }
     }
 
@@ -270,6 +311,8 @@ impl Store for StoreHandle {
             StoreHandle::Sqlite(store) => store.get_metric_registry(namespace),
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => store.get_metric_registry(namespace),
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.get_metric_registry(namespace),
         }
     }
 
@@ -279,6 +322,8 @@ impl Store for StoreHandle {
             StoreHandle::Sqlite(store) => store.list_metric_registries(),
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => store.list_metric_registries(),
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.list_metric_registries(),
         }
     }
 
@@ -288,6 +333,8 @@ impl Store for StoreHandle {
             StoreHandle::Sqlite(store) => store.delete_metric_registry(namespace),
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => store.delete_metric_registry(namespace),
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.delete_metric_registry(namespace),
         }
     }
 }
@@ -306,6 +353,8 @@ impl BulkStore for StoreHandle {
             StoreHandle::Sqlite(store) => store.put_instruments_batch(instruments),
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => store.put_instruments_batch(instruments),
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.put_instruments_batch(instruments),
         }
     }
 
@@ -323,6 +372,8 @@ impl BulkStore for StoreHandle {
             StoreHandle::Sqlite(store) => store.put_market_contexts_batch(contexts),
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => store.put_market_contexts_batch(contexts),
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.put_market_contexts_batch(contexts),
         }
     }
 
@@ -340,6 +391,8 @@ impl BulkStore for StoreHandle {
             StoreHandle::Sqlite(store) => store.put_portfolios_batch(portfolios),
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => store.put_portfolios_batch(portfolios),
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.put_portfolios_batch(portfolios),
         }
     }
 }
@@ -356,6 +409,8 @@ impl LookbackStore for StoreHandle {
             StoreHandle::Sqlite(store) => store.list_market_contexts(market_id, start, end),
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => store.list_market_contexts(market_id, start, end),
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.list_market_contexts(market_id, start, end),
         }
     }
 
@@ -373,6 +428,8 @@ impl LookbackStore for StoreHandle {
             StoreHandle::Postgres(store) => {
                 store.latest_market_context_on_or_before(market_id, as_of)
             }
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.latest_market_context_on_or_before(market_id, as_of),
         }
     }
 
@@ -387,6 +444,8 @@ impl LookbackStore for StoreHandle {
             StoreHandle::Sqlite(store) => store.list_portfolios(portfolio_id, start, end),
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => store.list_portfolios(portfolio_id, start, end),
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.list_portfolios(portfolio_id, start, end),
         }
     }
 
@@ -402,6 +461,8 @@ impl LookbackStore for StoreHandle {
             StoreHandle::Postgres(store) => {
                 store.latest_portfolio_on_or_before(portfolio_id, as_of)
             }
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.latest_portfolio_on_or_before(portfolio_id, as_of),
         }
     }
 }
@@ -417,6 +478,8 @@ impl TimeSeriesStore for StoreHandle {
             StoreHandle::Sqlite(store) => store.put_series_meta(key, meta),
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => store.put_series_meta(key, meta),
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.put_series_meta(key, meta),
         }
     }
 
@@ -426,6 +489,8 @@ impl TimeSeriesStore for StoreHandle {
             StoreHandle::Sqlite(store) => store.get_series_meta(key),
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => store.get_series_meta(key),
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.get_series_meta(key),
         }
     }
 
@@ -435,6 +500,8 @@ impl TimeSeriesStore for StoreHandle {
             StoreHandle::Sqlite(store) => store.list_series(namespace, kind),
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => store.list_series(namespace, kind),
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.list_series(namespace, kind),
         }
     }
 
@@ -448,6 +515,8 @@ impl TimeSeriesStore for StoreHandle {
             StoreHandle::Sqlite(store) => store.put_points_batch(key, points),
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => store.put_points_batch(key, points),
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.put_points_batch(key, points),
         }
     }
 
@@ -463,6 +532,8 @@ impl TimeSeriesStore for StoreHandle {
             StoreHandle::Sqlite(store) => store.get_points_range(key, start, end, limit),
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => store.get_points_range(key, start, end, limit),
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.get_points_range(key, start, end, limit),
         }
     }
 
@@ -476,6 +547,8 @@ impl TimeSeriesStore for StoreHandle {
             StoreHandle::Sqlite(store) => store.latest_point_on_or_before(key, ts),
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => store.latest_point_on_or_before(key, ts),
+            #[cfg(feature = "turso")]
+            StoreHandle::Turso(store) => store.latest_point_on_or_before(key, ts),
         }
     }
 }
@@ -515,6 +588,21 @@ pub fn open_store_from_env() -> Result<StoreHandle> {
             {
                 Err(Error::Invariant(
                     "postgres backend requested but feature is disabled".into(),
+                ))
+            }
+        }
+        IoBackend::Turso => {
+            #[cfg(feature = "turso")]
+            {
+                let path = config.turso_path.ok_or_else(|| {
+                    Error::Invariant("FINSTACK_TURSO_PATH is required for turso backend".into())
+                })?;
+                Ok(StoreHandle::Turso(crate::turso::TursoStore::open(path)?))
+            }
+            #[cfg(not(feature = "turso"))]
+            {
+                Err(Error::Invariant(
+                    "turso backend requested but feature is disabled".into(),
                 ))
             }
         }

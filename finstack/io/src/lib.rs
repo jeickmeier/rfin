@@ -27,6 +27,8 @@ pub mod store;
 pub mod postgres;
 #[cfg(feature = "sqlite")]
 pub mod sqlite;
+#[cfg(feature = "turso")]
+pub mod turso;
 
 pub use config::{open_store_from_env, FinstackIoConfig, IoBackend, StoreHandle};
 pub use error::{Error, Result};
@@ -39,3 +41,5 @@ pub use store::{
 pub use postgres::PostgresStore;
 #[cfg(feature = "sqlite")]
 pub use sqlite::SqliteStore;
+#[cfg(feature = "turso")]
+pub use turso::TursoStore;
