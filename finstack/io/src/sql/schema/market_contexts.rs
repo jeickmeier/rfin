@@ -50,6 +50,7 @@ impl TableDefinition for MarketContexts {
             naming.suffix()
         );
         vec![Index::create()
+            .if_not_exists()
             .name(&idx_name)
             .table(naming.alias(Self::BASE_NAME))
             .col(MarketContexts::AsOf)

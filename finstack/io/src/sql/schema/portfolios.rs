@@ -42,6 +42,7 @@ impl TableDefinition for Portfolios {
     fn indexes_with_naming(_backend: Backend, naming: &TableNaming) -> Vec<IndexCreateStatement> {
         let idx_name = format!("idx_{}portfolios{}_as_of", naming.prefix(), naming.suffix());
         vec![Index::create()
+            .if_not_exists()
             .name(&idx_name)
             .table(naming.alias(Self::BASE_NAME))
             .col(Portfolios::AsOf)

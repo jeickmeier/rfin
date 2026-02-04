@@ -40,8 +40,6 @@ for _name in dir(_rust_io):
     if isinstance(_attr, _types.ModuleType):
         _sys.modules[f"{__name__}.{_name}"] = _attr
 
-__all__ = [name for name in globals() if not name.startswith("_")]  # pyright: ignore[reportUnsupportedDunderAll]
-
 
 def open_store_from_env() -> Store:
     """Open a store based on environment variables.
@@ -75,3 +73,7 @@ def open_store_from_env() -> Store:
     if store_cls is None:
         raise RuntimeError("Store class is not available")
     return store_cls.from_env()
+
+
+# Define __all__ after all functions are defined to include everything
+__all__ = [name for name in globals() if not name.startswith("_") and name not in ("TYPE_CHECKING",)]

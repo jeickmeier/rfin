@@ -7,7 +7,6 @@ use crate::{
 use finstack_core::dates::Date;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 use tokio::runtime::Runtime;
 use turso::{Builder, Connection, Database};
@@ -172,14 +171,36 @@ pub(crate) fn parse_as_of_key(s: &str) -> Result<Date> {
         .map_err(|e| Error::Invariant(format!("Invalid date format in database: {s} ({e})")))
 }
 
-/// Format a timestamp as RFC3339 for use as a database key.
+/// Format a timestamp as a fixed-width ISO 8601 string for use as a database key.
+///
+/// Uses format: `YYYY-MM-DDTHH:MM:SS.ffffffZ` (always 27 characters)
+///
+/// This fixed-width format is critical for correct lexicographic ordering in SQL queries.
+/// Unlike RFC3339, which omits fractional seconds when they are zero, this format always
+/// includes 6 decimal places for microseconds, ensuring consistent string width and
+/// correct chronological ordering when sorted lexicographically.
 pub(crate) fn ts_key(ts: OffsetDateTime) -> Result<String> {
-    ts.format(&Rfc3339)
-        .map_err(|e| Error::Invariant(format!("Invalid timestamp format: {e}")))
+    // Convert to UTC for consistent storage
+    let ts_utc = ts.to_offset(time::UtcOffset::UTC);
+    Ok(format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:06}Z",
+        ts_utc.year(),
+        ts_utc.month() as u8,
+        ts_utc.day(),
+        ts_utc.hour(),
+        ts_utc.minute(),
+        ts_utc.second(),
+        ts_utc.microsecond(),
+    ))
 }
 
-/// Parse a timestamp from RFC3339 format.
+/// Parse a timestamp from a fixed-width ISO 8601 string.
+///
+/// Accepts format: `YYYY-MM-DDTHH:MM:SS.ffffffZ`
+///
+/// Also accepts RFC3339 format for backwards compatibility with existing data.
 pub(crate) fn parse_ts_key(s: &str) -> Result<OffsetDateTime> {
+    use time::format_description::well_known::Rfc3339;
     OffsetDateTime::parse(s, &Rfc3339)
         .map_err(|e| Error::Invariant(format!("Invalid timestamp format in database: {s} ({e})")))
 }

@@ -42,7 +42,38 @@ __all__ = [
     "PortfolioSnapshot",
     "PortfolioSpec",
     "TimeSeriesPoint",
+    "open_store_from_env",
 ]
+
+def open_store_from_env() -> Store:
+    """Open a store based on environment variables.
+
+    This is a convenience wrapper for `Store.from_env()`.
+
+    Environment Variables:
+        FINSTACK_IO_BACKEND: Backend to use ("sqlite", "postgres", or "turso").
+            Defaults to "sqlite".
+        FINSTACK_SQLITE_PATH: Path to SQLite database file.
+            Required when FINSTACK_IO_BACKEND="sqlite" (or not set).
+        FINSTACK_POSTGRES_URL: Postgres connection URL.
+            Required when FINSTACK_IO_BACKEND="postgres".
+        FINSTACK_TURSO_PATH: Path to Turso database file.
+            Required when FINSTACK_IO_BACKEND="turso".
+
+    Returns:
+        Store: The opened store instance.
+
+    Raises:
+        IoError: If the store cannot be opened.
+        ValueError: If required environment variables are missing.
+
+    Examples:
+        >>> import os
+        >>> os.environ["FINSTACK_IO_BACKEND"] = "turso"
+        >>> os.environ["FINSTACK_TURSO_PATH"] = "data/finstack.db"
+        >>> store = open_store_from_env()
+    """
+    ...
 
 # =============================================================================
 # Exceptions

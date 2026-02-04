@@ -22,6 +22,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{
     PyAny, PyDate, PyDateAccess, PyDateTime, PyList, PyModule, PyTimeAccess, PyTuple,
+    PyTzInfoAccess,
 };
 use pyo3::Bound;
 use std::path::PathBuf;
@@ -475,20 +476,11 @@ impl PyStore {
         as_of: &Bound<'_, PyAny>,
     ) -> PyResult<PyPortfolio> {
         let date = py_to_date(as_of)?;
-        // Get portfolio spec
-        let spec = self
+        // Use the Store trait's default implementation which properly hydrates instruments
+        let portfolio = self
             .inner
-            .get_portfolio_spec(portfolio_id, date)
-            .map_err(map_io_error)?
-            .ok_or_else(|| {
-                map_io_error(finstack_io::Error::not_found(
-                    "portfolio",
-                    format!("{portfolio_id}@{date}"),
-                ))
-            })?;
-        // Convert to Portfolio
-        let portfolio =
-            finstack_portfolio::Portfolio::from_spec(spec).map_err(|e| map_io_error(e.into()))?;
+            .load_portfolio(portfolio_id, date)
+            .map_err(map_io_error)?;
         Ok(PyPortfolio::new(portfolio))
     }
 
@@ -512,31 +504,11 @@ impl PyStore {
         as_of: &Bound<'_, PyAny>,
     ) -> PyResult<(PyPortfolio, PyMarketContext)> {
         let date = py_to_date(as_of)?;
-        // Get portfolio spec
-        let spec = self
+        // Use the Store trait's default implementation which properly hydrates instruments
+        let (portfolio, market) = self
             .inner
-            .get_portfolio_spec(portfolio_id, date)
-            .map_err(map_io_error)?
-            .ok_or_else(|| {
-                map_io_error(finstack_io::Error::not_found(
-                    "portfolio",
-                    format!("{portfolio_id}@{date}"),
-                ))
-            })?;
-        // Get market context
-        let market = self
-            .inner
-            .get_market_context(market_id, date)
-            .map_err(map_io_error)?
-            .ok_or_else(|| {
-                map_io_error(finstack_io::Error::not_found(
-                    "market context",
-                    format!("{market_id}@{date}"),
-                ))
-            })?;
-        // Convert to Portfolio
-        let portfolio =
-            finstack_portfolio::Portfolio::from_spec(spec).map_err(|e| map_io_error(e.into()))?;
+            .load_portfolio_with_market(portfolio_id, market_id, date)
+            .map_err(map_io_error)?;
         Ok((
             PyPortfolio::new(portfolio),
             PyMarketContext { inner: market },
@@ -1243,7 +1215,29 @@ fn py_to_offset_datetime(obj: &Bound<'_, PyAny>) -> PyResult<OffsetDateTime> {
         )
         .map_err(|e| PyValueError::new_err(format!("Invalid time: {e}")))?;
         let naive = PrimitiveDateTime::new(date, time);
-        Ok(naive.assume_offset(UtcOffset::UTC))
+
+        // Extract timezone offset if present, otherwise assume UTC
+        let offset = if let Some(tzinfo) = dt.get_tzinfo() {
+            // Try to get utcoffset() from tzinfo
+            if let Ok(utc_offset) = tzinfo.call_method1("utcoffset", (dt,)) {
+                if !utc_offset.is_none() {
+                    // utcoffset returns a timedelta, total_seconds() returns a float
+                    let total_seconds_f64: f64 =
+                        utc_offset.call_method0("total_seconds")?.extract()?;
+                    let total_seconds_i32 = total_seconds_f64 as i32;
+                    UtcOffset::from_whole_seconds(total_seconds_i32)
+                        .map_err(|e| PyValueError::new_err(format!("Invalid UTC offset: {e}")))?
+                } else {
+                    UtcOffset::UTC
+                }
+            } else {
+                UtcOffset::UTC
+            }
+        } else {
+            UtcOffset::UTC
+        };
+
+        Ok(naive.assume_offset(offset))
     } else if let Ok(d) = obj.downcast::<PyDate>() {
         let date = TimeDate::from_calendar_date(
             d.get_year(),
@@ -1262,8 +1256,16 @@ fn py_to_offset_datetime(obj: &Bound<'_, PyAny>) -> PyResult<OffsetDateTime> {
 }
 
 fn offset_datetime_to_py(py: Python<'_>, dt: OffsetDateTime) -> PyResult<Py<PyAny>> {
-    let date = dt.date();
-    let time = dt.time();
+    // Convert to UTC for consistent output
+    let dt_utc = dt.to_offset(UtcOffset::UTC);
+    let date = dt_utc.date();
+    let time = dt_utc.time();
+
+    // Import datetime.timezone.utc for timezone-aware output
+    let datetime_module = py.import("datetime")?;
+    let timezone_utc = datetime_module.getattr("timezone")?.getattr("utc")?;
+    let timezone_utc_tzinfo = timezone_utc.downcast::<pyo3::types::PyTzInfo>()?;
+
     let py_dt = PyDateTime::new(
         py,
         date.year(),
@@ -1273,7 +1275,7 @@ fn offset_datetime_to_py(py: Python<'_>, dt: OffsetDateTime) -> PyResult<Py<PyAn
         time.minute(),
         time.second(),
         time.microsecond(),
-        None,
+        Some(timezone_utc_tzinfo),
     )?;
     Ok(py_dt.unbind().into())
 }
