@@ -1,0 +1,178 @@
+//! TimeSeriesStore trait implementation for SqliteStore.
+
+use crate::{
+    sql::{statements, Backend},
+    Result, SeriesKey, SeriesKind, TimeSeriesPoint, TimeSeriesStore,
+};
+use rusqlite::{params, OptionalExtension};
+use time::OffsetDateTime;
+
+use super::store::{parse_ts_key, ts_key, SqliteStore};
+
+type SeriesRow = (String, Option<f64>, Option<String>, Option<String>);
+
+impl TimeSeriesStore for SqliteStore {
+    fn put_series_meta(&self, key: &SeriesKey, meta: Option<&serde_json::Value>) -> Result<()> {
+        let meta = match meta {
+            Some(value) => Some(serde_json::to_string(value)?),
+            None => None,
+        };
+        let sql = statements::upsert_series_meta_sql(Backend::Sqlite);
+        self.with_conn(|conn| {
+            conn.execute(
+                &sql,
+                params![key.namespace, key.kind.as_str(), key.series_id, meta],
+            )?;
+            Ok(())
+        })
+    }
+
+    fn get_series_meta(&self, key: &SeriesKey) -> Result<Option<serde_json::Value>> {
+        let sql = statements::select_series_meta_sql(Backend::Sqlite);
+        self.with_conn(|conn| {
+            let meta: Option<String> = conn
+                .query_row(
+                    &sql,
+                    params![key.namespace, key.kind.as_str(), key.series_id],
+                    |row| row.get(0),
+                )
+                .optional()?;
+
+            match meta {
+                Some(value) => Ok(Some(serde_json::from_str(&value)?)),
+                None => Ok(None),
+            }
+        })
+    }
+
+    fn list_series(&self, namespace: &str, kind: SeriesKind) -> Result<Vec<String>> {
+        let sql = statements::list_series_sql(Backend::Sqlite);
+        self.with_conn(|conn| {
+            let mut stmt = conn.prepare(&sql)?;
+            let rows = stmt.query_map(params![namespace, kind.as_str()], |row| row.get(0))?;
+            let mut out = Vec::new();
+            for row in rows {
+                out.push(row?);
+            }
+            Ok(out)
+        })
+    }
+
+    fn put_points_batch(&self, key: &SeriesKey, points: &[TimeSeriesPoint]) -> Result<()> {
+        let sql = statements::upsert_series_point_sql(Backend::Sqlite);
+        self.with_conn(|conn| {
+            let tx = conn.unchecked_transaction()?;
+            {
+                let mut stmt = tx.prepare(&sql)?;
+                for point in points {
+                    let ts = ts_key(point.ts)?;
+                    let payload = match &point.payload {
+                        Some(value) => Some(serde_json::to_string(value)?),
+                        None => None,
+                    };
+                    let meta = match &point.meta {
+                        Some(value) => Some(serde_json::to_string(value)?),
+                        None => None,
+                    };
+                    stmt.execute(params![
+                        key.namespace,
+                        key.kind.as_str(),
+                        key.series_id,
+                        ts,
+                        point.value,
+                        payload,
+                        meta
+                    ])?;
+                }
+            }
+            tx.commit()?;
+            Ok(())
+        })
+    }
+
+    fn get_points_range(
+        &self,
+        key: &SeriesKey,
+        start: OffsetDateTime,
+        end: OffsetDateTime,
+        limit: Option<usize>,
+    ) -> Result<Vec<TimeSeriesPoint>> {
+        let mut sql = statements::select_points_range_sql(Backend::Sqlite);
+        if let Some(max) = limit {
+            sql = format!("{sql} LIMIT {max}");
+        }
+        let start = ts_key(start)?;
+        let end = ts_key(end)?;
+        self.with_conn(|conn| {
+            let mut stmt = conn.prepare(&sql)?;
+            let rows = stmt.query_map(
+                params![key.namespace, key.kind.as_str(), key.series_id, start, end],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, Option<f64>>(1)?,
+                        row.get::<_, Option<String>>(2)?,
+                        row.get::<_, Option<String>>(3)?,
+                    ))
+                },
+            )?;
+            let mut out = Vec::new();
+            for row in rows {
+                let (ts_str, value, payload, meta) = row?;
+                let payload = match payload {
+                    Some(value) => Some(serde_json::from_str(&value)?),
+                    None => None,
+                };
+                let meta = match meta {
+                    Some(value) => Some(serde_json::from_str(&value)?),
+                    None => None,
+                };
+                out.push(TimeSeriesPoint {
+                    ts: parse_ts_key(&ts_str)?,
+                    value,
+                    payload,
+                    meta,
+                });
+            }
+            Ok(out)
+        })
+    }
+
+    fn latest_point_on_or_before(
+        &self,
+        key: &SeriesKey,
+        ts: OffsetDateTime,
+    ) -> Result<Option<TimeSeriesPoint>> {
+        let sql = statements::latest_point_sql(Backend::Sqlite);
+        let ts = ts_key(ts)?;
+        self.with_conn(|conn| {
+            let row: Option<SeriesRow> = conn
+                .query_row(
+                    &sql,
+                    params![key.namespace, key.kind.as_str(), key.series_id, ts],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+                )
+                .optional()?;
+
+            match row {
+                Some((ts_str, value, payload, meta)) => {
+                    let payload = match payload {
+                        Some(value) => Some(serde_json::from_str(&value)?),
+                        None => None,
+                    };
+                    let meta = match meta {
+                        Some(value) => Some(serde_json::from_str(&value)?),
+                        None => None,
+                    };
+                    Ok(Some(TimeSeriesPoint {
+                        ts: parse_ts_key(&ts_str)?,
+                        value,
+                        payload,
+                        meta,
+                    }))
+                }
+                None => Ok(None),
+            }
+        })
+    }
+}
