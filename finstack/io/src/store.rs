@@ -12,6 +12,7 @@ use finstack_statements::registry::MetricRegistry;
 use finstack_statements::FinancialModelSpec;
 use finstack_valuations::instruments::InstrumentJson;
 use std::collections::HashMap;
+use time::OffsetDateTime;
 
 /// Typed persistence interface for Finstack domain objects.
 ///
@@ -317,4 +318,121 @@ pub trait LookbackStore {
         portfolio_id: &str,
         as_of: Date,
     ) -> Result<Option<PortfolioSnapshot>>;
+}
+
+/// Kind of time-series data stored in the IO backend.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum SeriesKind {
+    /// Market quotes and prices (bid/ask/last, etc.).
+    Quote,
+    /// Computed metrics (e.g., risk measures, KPIs).
+    Metric,
+    /// Result series (e.g., valuation outputs, scenario results).
+    Result,
+    /// Profit and loss series.
+    Pnl,
+    /// Risk series (e.g., VaR, stress metrics).
+    Risk,
+}
+
+impl SeriesKind {
+    /// Render the kind as a stable, lowercase identifier.
+    #[must_use]
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            SeriesKind::Quote => "quote",
+            SeriesKind::Metric => "metric",
+            SeriesKind::Result => "result",
+            SeriesKind::Pnl => "pnl",
+            SeriesKind::Risk => "risk",
+        }
+    }
+
+    /// Parse a kind from a lowercase identifier.
+    #[must_use]
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "quote" => Some(SeriesKind::Quote),
+            "metric" => Some(SeriesKind::Metric),
+            "result" => Some(SeriesKind::Result),
+            "pnl" => Some(SeriesKind::Pnl),
+            "risk" => Some(SeriesKind::Risk),
+            _ => None,
+        }
+    }
+}
+
+/// Unique identifier for a time-series.
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+pub struct SeriesKey {
+    /// Logical namespace (e.g., "market", "portfolio", "risk").
+    pub namespace: String,
+    /// Series identifier within the namespace.
+    pub series_id: String,
+    /// Series kind.
+    pub kind: SeriesKind,
+}
+
+impl SeriesKey {
+    /// Create a new series key.
+    #[must_use]
+    pub fn new(
+        namespace: impl Into<String>,
+        series_id: impl Into<String>,
+        kind: SeriesKind,
+    ) -> Self {
+        Self {
+            namespace: namespace.into(),
+            series_id: series_id.into(),
+            kind,
+        }
+    }
+}
+
+/// A single time-series point.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TimeSeriesPoint {
+    /// Timestamp for this point.
+    pub ts: OffsetDateTime,
+    /// Optional numeric value for quick analytics.
+    pub value: Option<f64>,
+    /// Optional structured payload (e.g., bid/ask/last).
+    pub payload: Option<serde_json::Value>,
+    /// Optional metadata (provenance, tags).
+    pub meta: Option<serde_json::Value>,
+}
+
+/// Typed persistence interface for time-series data.
+pub trait TimeSeriesStore {
+    /// Store metadata for a time-series key.
+    fn put_series_meta(&self, key: &SeriesKey, meta: Option<&serde_json::Value>) -> Result<()>;
+
+    /// Load metadata for a time-series key.
+    #[must_use = "this returns the series metadata, which should be used"]
+    fn get_series_meta(&self, key: &SeriesKey) -> Result<Option<serde_json::Value>>;
+
+    /// List series ids for a namespace and kind.
+    #[must_use = "this returns the list of series ids, which should be used"]
+    fn list_series(&self, namespace: &str, kind: SeriesKind) -> Result<Vec<String>>;
+
+    /// Store multiple points in a single transaction.
+    fn put_points_batch(&self, key: &SeriesKey, points: &[TimeSeriesPoint]) -> Result<()>;
+
+    /// Load points in a time range, ordered by timestamp.
+    #[must_use = "this returns the points, which should be used"]
+    fn get_points_range(
+        &self,
+        key: &SeriesKey,
+        start: OffsetDateTime,
+        end: OffsetDateTime,
+        limit: Option<usize>,
+    ) -> Result<Vec<TimeSeriesPoint>>;
+
+    /// Get the latest point on or before a given timestamp.
+    #[must_use = "this returns the latest point, which should be used"]
+    fn latest_point_on_or_before(
+        &self,
+        key: &SeriesKey,
+        ts: OffsetDateTime,
+    ) -> Result<Option<TimeSeriesPoint>>;
 }

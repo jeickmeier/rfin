@@ -17,7 +17,7 @@ Examples:
     >>> retrieved = store.get_market_context("USD_MKT", date(2024, 1, 1))
 """
 
-from datetime import date
+from datetime import date, datetime
 from typing import Any, Optional, overload
 
 from finstack.core.market_data.context import MarketContext
@@ -31,9 +31,11 @@ __all__ = [
     "NotFoundError",
     "SchemaVersionError",
     "SqliteStore",
+    "PostgresStore",
     "MarketContextSnapshot",
     "PortfolioSnapshot",
     "PortfolioSpec",
+    "TimeSeriesPoint",
 ]
 
 # =============================================================================
@@ -176,6 +178,13 @@ class PortfolioSnapshot:
     def spec(self) -> PortfolioSpec:
         """The portfolio specification snapshot."""
         ...
+
+TimeSeriesPoint = tuple[
+    datetime,
+    Optional[float],
+    Optional[dict[str, Any]],
+    Optional[dict[str, Any]],
+]
 
 # =============================================================================
 # Store
@@ -575,6 +584,54 @@ class SqliteStore:
         ...
 
     # =========================================================================
+    # Time Series Operations
+    # =========================================================================
+
+    def put_series_meta(
+        self,
+        namespace: str,
+        kind: str,
+        series_id: str,
+        meta: Optional[dict[str, Any]] = None,
+    ) -> None:
+        """Store metadata for a time-series key."""
+        ...
+
+    def get_series_meta(self, namespace: str, kind: str, series_id: str) -> Optional[dict[str, Any]]:
+        """Retrieve metadata for a time-series key."""
+        ...
+
+    def list_series(self, namespace: str, kind: str) -> list[str]:
+        """List series IDs for a namespace and kind."""
+        ...
+
+    def put_points_batch(self, namespace: str, kind: str, series_id: str, points: list[TimeSeriesPoint]) -> None:
+        """Store multiple time-series points."""
+        ...
+
+    def get_points_range(
+        self,
+        namespace: str,
+        kind: str,
+        series_id: str,
+        start: datetime | date,
+        end: datetime | date,
+        limit: Optional[int] = None,
+    ) -> list[TimeSeriesPoint]:
+        """Retrieve points in a time range."""
+        ...
+
+    def latest_point_on_or_before(
+        self,
+        namespace: str,
+        kind: str,
+        series_id: str,
+        ts: datetime | date,
+    ) -> Optional[TimeSeriesPoint]:
+        """Get the latest point on or before a timestamp."""
+        ...
+
+    # =========================================================================
     # Bulk Operations
     # =========================================================================
 
@@ -679,3 +736,20 @@ class SqliteStore:
             PortfolioSnapshot or None: The latest snapshot if found.
         """
         ...
+
+class PostgresStore(SqliteStore):
+    """A Postgres-backed persistence store for Finstack domain objects."""
+
+    @staticmethod
+    def connect(url: str) -> "PostgresStore":
+        """Connect to a Postgres database."""
+        ...
+
+    @property
+    def url(self) -> str:
+        """Get the database connection URL."""
+        ...
+
+def open_store_from_env() -> SqliteStore | PostgresStore:
+    """Open a store based on FINSTACK_IO_BACKEND and connection env vars."""
+    ...

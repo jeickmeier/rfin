@@ -4,7 +4,9 @@
 //! for domain objects, indexed by `(id, as_of)` where applicable.
 
 use crate::{
-    BulkStore, Error, LookbackStore, MarketContextSnapshot, PortfolioSnapshot, Result, Store,
+    sql::{migrations, statements, Backend},
+    BulkStore, Error, LookbackStore, MarketContextSnapshot, PortfolioSnapshot, Result, SeriesKey,
+    SeriesKind, Store, TimeSeriesPoint, TimeSeriesStore,
 };
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::{MarketContext, MarketContextState};
@@ -18,134 +20,10 @@ use rusqlite::{params, Connection};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+use time::format_description::well_known::Rfc3339;
+use time::OffsetDateTime;
 
-const SCHEMA_VERSION: i64 = 2;
-
-// Pre-defined SQL statements to avoid runtime format! allocations.
-// Timestamp format: RFC3339-ish without timezone offsets (UTC 'Z').
-const PUT_MARKET_CONTEXT_SQL: &str = concat!(
-    "INSERT INTO market_contexts (id, as_of, payload, meta) VALUES (?1, ?2, ?3, ?4) ",
-    "ON CONFLICT(id, as_of) DO UPDATE SET ",
-    "payload = excluded.payload, ",
-    "meta = excluded.meta, ",
-    "updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')"
-);
-
-const PUT_INSTRUMENT_SQL: &str = concat!(
-    "INSERT INTO instruments (id, payload, meta) VALUES (?1, ?2, ?3) ",
-    "ON CONFLICT(id) DO UPDATE SET ",
-    "payload = excluded.payload, ",
-    "meta = excluded.meta, ",
-    "updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')"
-);
-
-const PUT_PORTFOLIO_SQL: &str = concat!(
-    "INSERT INTO portfolios (id, as_of, payload, meta) VALUES (?1, ?2, ?3, ?4) ",
-    "ON CONFLICT(id, as_of) DO UPDATE SET ",
-    "payload = excluded.payload, ",
-    "meta = excluded.meta, ",
-    "updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')"
-);
-
-const PUT_SCENARIO_SQL: &str = concat!(
-    "INSERT INTO scenarios (id, payload, meta) VALUES (?1, ?2, ?3) ",
-    "ON CONFLICT(id) DO UPDATE SET ",
-    "payload = excluded.payload, ",
-    "meta = excluded.meta, ",
-    "updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')"
-);
-
-const PUT_STATEMENT_MODEL_SQL: &str = concat!(
-    "INSERT INTO statement_models (id, payload, meta) VALUES (?1, ?2, ?3) ",
-    "ON CONFLICT(id) DO UPDATE SET ",
-    "payload = excluded.payload, ",
-    "meta = excluded.meta, ",
-    "updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')"
-);
-
-const PUT_METRIC_REGISTRY_SQL: &str = concat!(
-    "INSERT INTO metric_registries (namespace, payload, meta) VALUES (?1, ?2, ?3) ",
-    "ON CONFLICT(namespace) DO UPDATE SET ",
-    "payload = excluded.payload, ",
-    "meta = excluded.meta, ",
-    "updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')"
-);
-
-const SCHEMA_SQL_V1: &str = r#"
-BEGIN;
-
-CREATE TABLE IF NOT EXISTS instruments (
-  id TEXT PRIMARY KEY NOT NULL,
-  payload BLOB NOT NULL,
-  meta TEXT NOT NULL DEFAULT '{}',
-  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-);
-
-CREATE TABLE IF NOT EXISTS portfolios (
-  id TEXT NOT NULL,
-  as_of TEXT NOT NULL,
-  payload BLOB NOT NULL,
-  meta TEXT NOT NULL DEFAULT '{}',
-  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  PRIMARY KEY (id, as_of)
-);
-
-CREATE INDEX IF NOT EXISTS idx_portfolios_as_of ON portfolios(as_of);
-
-CREATE TABLE IF NOT EXISTS market_contexts (
-  id TEXT NOT NULL,
-  as_of TEXT NOT NULL,
-  payload BLOB NOT NULL,
-  meta TEXT NOT NULL DEFAULT '{}',
-  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  PRIMARY KEY (id, as_of)
-);
-
-CREATE INDEX IF NOT EXISTS idx_market_contexts_as_of ON market_contexts(as_of);
-
-CREATE TABLE IF NOT EXISTS scenarios (
-  id TEXT PRIMARY KEY NOT NULL,
-  payload BLOB NOT NULL,
-  meta TEXT NOT NULL DEFAULT '{}',
-  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-);
-
-CREATE TABLE IF NOT EXISTS statement_models (
-  id TEXT PRIMARY KEY NOT NULL,
-  payload BLOB NOT NULL,
-  meta TEXT NOT NULL DEFAULT '{}',
-  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-);
-
-CREATE TABLE IF NOT EXISTS metric_registries (
-  namespace TEXT PRIMARY KEY NOT NULL,
-  payload BLOB NOT NULL,
-  meta TEXT NOT NULL DEFAULT '{}',
-  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-);
-
-COMMIT;
-"#;
-
-const SCHEMA_SQL_V2_UPGRADE: &str = r#"
-BEGIN;
-
-CREATE TABLE IF NOT EXISTS metric_registries (
-  namespace TEXT PRIMARY KEY NOT NULL,
-  payload BLOB NOT NULL,
-  meta TEXT NOT NULL DEFAULT '{}',
-  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
-  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
-);
-
-COMMIT;
-"#;
+const SCHEMA_VERSION: i64 = migrations::LATEST_VERSION;
 
 /// A SQLite-backed store.
 ///
@@ -190,25 +68,30 @@ fn open_conn(path: &Path) -> Result<Connection> {
 
 fn migrate(conn: &Connection) -> Result<()> {
     let current: i64 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
-    match current {
-        0 => {
-            // Fresh database: apply latest schema (includes all tables)
-            conn.execute_batch(SCHEMA_SQL_V1)?;
-            conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
-            Ok(())
-        }
-        1 => {
-            // Upgrade from v1 to v2: add metric_registries table
-            conn.execute_batch(SCHEMA_SQL_V2_UPGRADE)?;
-            conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
-            Ok(())
-        }
-        SCHEMA_VERSION => Ok(()),
-        found => Err(Error::UnsupportedSchema {
-            found,
+    if current > SCHEMA_VERSION {
+        return Err(Error::UnsupportedSchema {
+            found: current,
             expected: SCHEMA_VERSION,
-        }),
+        });
     }
+
+    if current == SCHEMA_VERSION {
+        return Ok(());
+    }
+
+    let migrations = migrations::migrations_for(Backend::Sqlite);
+    let tx = conn.unchecked_transaction()?;
+    for (version, statements) in migrations {
+        if version <= current {
+            continue;
+        }
+        for sql in statements {
+            tx.execute_batch(&sql)?;
+        }
+    }
+    tx.commit()?;
+    conn.pragma_update(None, "user_version", SCHEMA_VERSION)?;
+    Ok(())
 }
 
 fn meta_json(meta: Option<&serde_json::Value>) -> Result<String> {
@@ -238,6 +121,16 @@ fn parse_as_of_key(s: &str) -> Result<Date> {
         .map_err(|e| Error::Invariant(format!("Invalid date format in database: {s} ({e})")))
 }
 
+fn ts_key(ts: OffsetDateTime) -> Result<String> {
+    ts.format(&Rfc3339)
+        .map_err(|e| Error::Invariant(format!("Invalid timestamp format: {e}")))
+}
+
+fn parse_ts_key(s: &str) -> Result<OffsetDateTime> {
+    OffsetDateTime::parse(s, &Rfc3339)
+        .map_err(|e| Error::Invariant(format!("Invalid timestamp format in database: {s} ({e})")))
+}
+
 impl Store for SqliteStore {
     fn put_market_context(
         &self,
@@ -252,10 +145,8 @@ impl Store for SqliteStore {
         let as_of = as_of_key(as_of);
 
         self.with_conn(|conn| {
-            conn.execute(
-                PUT_MARKET_CONTEXT_SQL,
-                params![market_id, as_of, payload, meta],
-            )?;
+            let sql = statements::upsert_market_context_sql(Backend::Sqlite);
+            conn.execute(&sql, params![market_id, as_of, payload, meta])?;
             Ok(())
         })
     }
@@ -263,12 +154,9 @@ impl Store for SqliteStore {
     fn get_market_context(&self, market_id: &str, as_of: Date) -> Result<Option<MarketContext>> {
         let as_of = as_of_key(as_of);
         self.with_conn(|conn| {
+            let sql = statements::select_market_context_sql(Backend::Sqlite);
             let payload: Option<Vec<u8>> = conn
-                .query_row(
-                    "SELECT payload FROM market_contexts WHERE id = ?1 AND as_of = ?2",
-                    params![market_id, as_of],
-                    |row| row.get(0),
-                )
+                .query_row(&sql, params![market_id, as_of], |row| row.get(0))
                 .optional()?;
 
             match payload {
@@ -292,19 +180,17 @@ impl Store for SqliteStore {
         let meta = meta_json(meta)?;
 
         self.with_conn(|conn| {
-            conn.execute(PUT_INSTRUMENT_SQL, params![instrument_id, payload, meta])?;
+            let sql = statements::upsert_instrument_sql(Backend::Sqlite);
+            conn.execute(&sql, params![instrument_id, payload, meta])?;
             Ok(())
         })
     }
 
     fn get_instrument(&self, instrument_id: &str) -> Result<Option<InstrumentJson>> {
         self.with_conn(|conn| {
+            let sql = statements::select_instrument_sql(Backend::Sqlite);
             let payload: Option<Vec<u8>> = conn
-                .query_row(
-                    "SELECT payload FROM instruments WHERE id = ?1",
-                    params![instrument_id],
-                    |row| row.get(0),
-                )
+                .query_row(&sql, params![instrument_id], |row| row.get(0))
                 .optional()?;
 
             match payload {
@@ -323,13 +209,8 @@ impl Store for SqliteStore {
         }
 
         self.with_conn(|conn| {
-            // Build a parameterized query with the right number of placeholders
-            let placeholders: Vec<&str> = (0..instrument_ids.len()).map(|_| "?").collect();
-            let sql = format!(
-                "SELECT id, payload FROM instruments WHERE id IN ({})",
-                placeholders.join(", ")
-            );
-
+            let sql =
+                statements::select_instruments_batch_sql(Backend::Sqlite, instrument_ids.len());
             let mut stmt = conn.prepare(&sql)?;
             let params: Vec<&dyn rusqlite::ToSql> = instrument_ids
                 .iter()
@@ -352,7 +233,8 @@ impl Store for SqliteStore {
 
     fn list_instruments(&self) -> Result<Vec<String>> {
         self.with_conn(|conn| {
-            let mut stmt = conn.prepare("SELECT id FROM instruments ORDER BY id ASC")?;
+            let sql = statements::list_instruments_sql(Backend::Sqlite);
+            let mut stmt = conn.prepare(&sql)?;
             let rows = stmt.query_map([], |row| row.get(0))?;
 
             let mut out = Vec::new();
@@ -375,10 +257,8 @@ impl Store for SqliteStore {
         let as_of = as_of_key(as_of);
 
         self.with_conn(|conn| {
-            conn.execute(
-                PUT_PORTFOLIO_SQL,
-                params![portfolio_id, as_of, payload, meta],
-            )?;
+            let sql = statements::upsert_portfolio_sql(Backend::Sqlite);
+            conn.execute(&sql, params![portfolio_id, as_of, payload, meta])?;
             Ok(())
         })
     }
@@ -386,12 +266,9 @@ impl Store for SqliteStore {
     fn get_portfolio_spec(&self, portfolio_id: &str, as_of: Date) -> Result<Option<PortfolioSpec>> {
         let as_of = as_of_key(as_of);
         self.with_conn(|conn| {
+            let sql = statements::select_portfolio_sql(Backend::Sqlite);
             let payload: Option<Vec<u8>> = conn
-                .query_row(
-                    "SELECT payload FROM portfolios WHERE id = ?1 AND as_of = ?2",
-                    params![portfolio_id, as_of],
-                    |row| row.get(0),
-                )
+                .query_row(&sql, params![portfolio_id, as_of], |row| row.get(0))
                 .optional()?;
 
             match payload {
@@ -411,19 +288,17 @@ impl Store for SqliteStore {
         let meta = meta_json(meta)?;
 
         self.with_conn(|conn| {
-            conn.execute(PUT_SCENARIO_SQL, params![scenario_id, payload, meta])?;
+            let sql = statements::upsert_scenario_sql(Backend::Sqlite);
+            conn.execute(&sql, params![scenario_id, payload, meta])?;
             Ok(())
         })
     }
 
     fn get_scenario(&self, scenario_id: &str) -> Result<Option<ScenarioSpec>> {
         self.with_conn(|conn| {
+            let sql = statements::select_scenario_sql(Backend::Sqlite);
             let payload: Option<Vec<u8>> = conn
-                .query_row(
-                    "SELECT payload FROM scenarios WHERE id = ?1",
-                    params![scenario_id],
-                    |row| row.get(0),
-                )
+                .query_row(&sql, params![scenario_id], |row| row.get(0))
                 .optional()?;
 
             match payload {
@@ -435,7 +310,8 @@ impl Store for SqliteStore {
 
     fn list_scenarios(&self) -> Result<Vec<String>> {
         self.with_conn(|conn| {
-            let mut stmt = conn.prepare("SELECT id FROM scenarios ORDER BY id ASC")?;
+            let sql = statements::list_scenarios_sql(Backend::Sqlite);
+            let mut stmt = conn.prepare(&sql)?;
             let rows = stmt.query_map([], |row| row.get(0))?;
 
             let mut out = Vec::new();
@@ -456,19 +332,17 @@ impl Store for SqliteStore {
         let meta = meta_json(meta)?;
 
         self.with_conn(|conn| {
-            conn.execute(PUT_STATEMENT_MODEL_SQL, params![model_id, payload, meta])?;
+            let sql = statements::upsert_statement_model_sql(Backend::Sqlite);
+            conn.execute(&sql, params![model_id, payload, meta])?;
             Ok(())
         })
     }
 
     fn get_statement_model(&self, model_id: &str) -> Result<Option<FinancialModelSpec>> {
         self.with_conn(|conn| {
+            let sql = statements::select_statement_model_sql(Backend::Sqlite);
             let payload: Option<Vec<u8>> = conn
-                .query_row(
-                    "SELECT payload FROM statement_models WHERE id = ?1",
-                    params![model_id],
-                    |row| row.get(0),
-                )
+                .query_row(&sql, params![model_id], |row| row.get(0))
                 .optional()?;
 
             match payload {
@@ -480,7 +354,8 @@ impl Store for SqliteStore {
 
     fn list_statement_models(&self) -> Result<Vec<String>> {
         self.with_conn(|conn| {
-            let mut stmt = conn.prepare("SELECT id FROM statement_models ORDER BY id ASC")?;
+            let sql = statements::list_statement_models_sql(Backend::Sqlite);
+            let mut stmt = conn.prepare(&sql)?;
             let rows = stmt.query_map([], |row| row.get(0))?;
 
             let mut out = Vec::new();
@@ -501,19 +376,17 @@ impl Store for SqliteStore {
         let meta = meta_json(meta)?;
 
         self.with_conn(|conn| {
-            conn.execute(PUT_METRIC_REGISTRY_SQL, params![namespace, payload, meta])?;
+            let sql = statements::upsert_metric_registry_sql(Backend::Sqlite);
+            conn.execute(&sql, params![namespace, payload, meta])?;
             Ok(())
         })
     }
 
     fn get_metric_registry(&self, namespace: &str) -> Result<Option<MetricRegistry>> {
         self.with_conn(|conn| {
+            let sql = statements::select_metric_registry_sql(Backend::Sqlite);
             let payload: Option<Vec<u8>> = conn
-                .query_row(
-                    "SELECT payload FROM metric_registries WHERE namespace = ?1",
-                    params![namespace],
-                    |row| row.get(0),
-                )
+                .query_row(&sql, params![namespace], |row| row.get(0))
                 .optional()?;
 
             match payload {
@@ -525,8 +398,8 @@ impl Store for SqliteStore {
 
     fn list_metric_registries(&self) -> Result<Vec<String>> {
         self.with_conn(|conn| {
-            let mut stmt =
-                conn.prepare("SELECT namespace FROM metric_registries ORDER BY namespace ASC")?;
+            let sql = statements::list_metric_registries_sql(Backend::Sqlite);
+            let mut stmt = conn.prepare(&sql)?;
             let rows = stmt.query_map([], |row| row.get(0))?;
 
             let mut out = Vec::new();
@@ -539,10 +412,8 @@ impl Store for SqliteStore {
 
     fn delete_metric_registry(&self, namespace: &str) -> Result<bool> {
         self.with_conn(|conn| {
-            let rows_affected = conn.execute(
-                "DELETE FROM metric_registries WHERE namespace = ?1",
-                params![namespace],
-            )?;
+            let sql = statements::delete_metric_registry_sql(Backend::Sqlite);
+            let rows_affected = conn.execute(&sql, params![namespace])?;
             Ok(rows_affected > 0)
         })
     }
@@ -559,11 +430,8 @@ impl LookbackStore for SqliteStore {
         let end = as_of_key(end);
 
         self.with_conn(|conn| {
-            let mut stmt = conn.prepare(
-                "SELECT as_of, payload FROM market_contexts
-                 WHERE id = ?1 AND as_of BETWEEN ?2 AND ?3
-                 ORDER BY as_of ASC",
-            )?;
+            let sql = statements::list_market_contexts_sql(Backend::Sqlite);
+            let mut stmt = conn.prepare(&sql)?;
             let rows = stmt.query_map(params![market_id, start, end], |row| {
                 Ok((row.get::<_, String>(0)?, row.get::<_, Vec<u8>>(1)?))
             })?;
@@ -590,15 +458,11 @@ impl LookbackStore for SqliteStore {
     ) -> Result<Option<MarketContextSnapshot>> {
         let as_of = as_of_key(as_of);
         self.with_conn(|conn| {
+            let sql = statements::latest_market_context_sql(Backend::Sqlite);
             let row: Option<(String, Vec<u8>)> = conn
-                .query_row(
-                    "SELECT as_of, payload FROM market_contexts
-                     WHERE id = ?1 AND as_of <= ?2
-                     ORDER BY as_of DESC
-                     LIMIT 1",
-                    params![market_id, as_of],
-                    |row| Ok((row.get(0)?, row.get(1)?)),
-                )
+                .query_row(&sql, params![market_id, as_of], |row| {
+                    Ok((row.get(0)?, row.get(1)?))
+                })
                 .optional()?;
 
             match row {
@@ -626,11 +490,8 @@ impl LookbackStore for SqliteStore {
         let end = as_of_key(end);
 
         self.with_conn(|conn| {
-            let mut stmt = conn.prepare(
-                "SELECT as_of, payload FROM portfolios
-                 WHERE id = ?1 AND as_of BETWEEN ?2 AND ?3
-                 ORDER BY as_of ASC",
-            )?;
+            let sql = statements::list_portfolios_sql(Backend::Sqlite);
+            let mut stmt = conn.prepare(&sql)?;
             let rows = stmt.query_map(params![portfolio_id, start, end], |row| {
                 Ok((row.get::<_, String>(0)?, row.get::<_, Vec<u8>>(1)?))
             })?;
@@ -653,15 +514,11 @@ impl LookbackStore for SqliteStore {
     ) -> Result<Option<PortfolioSnapshot>> {
         let as_of = as_of_key(as_of);
         self.with_conn(|conn| {
+            let sql = statements::latest_portfolio_sql(Backend::Sqlite);
             let row: Option<(String, Vec<u8>)> = conn
-                .query_row(
-                    "SELECT as_of, payload FROM portfolios
-                     WHERE id = ?1 AND as_of <= ?2
-                     ORDER BY as_of DESC
-                     LIMIT 1",
-                    params![portfolio_id, as_of],
-                    |row| Ok((row.get(0)?, row.get(1)?)),
-                )
+                .query_row(&sql, params![portfolio_id, as_of], |row| {
+                    Ok((row.get(0)?, row.get(1)?))
+                })
                 .optional()?;
 
             match row {
@@ -669,6 +526,174 @@ impl LookbackStore for SqliteStore {
                     let as_of = parse_as_of_key(&as_of_str)?;
                     let spec: PortfolioSpec = serde_json::from_slice(&bytes)?;
                     Ok(Some(PortfolioSnapshot { as_of, spec }))
+                }
+                None => Ok(None),
+            }
+        })
+    }
+}
+
+type SeriesRow = (String, Option<f64>, Option<String>, Option<String>);
+
+impl TimeSeriesStore for SqliteStore {
+    fn put_series_meta(&self, key: &SeriesKey, meta: Option<&serde_json::Value>) -> Result<()> {
+        let meta = match meta {
+            Some(value) => Some(serde_json::to_string(value)?),
+            None => None,
+        };
+        let sql = statements::upsert_series_meta_sql(Backend::Sqlite);
+        self.with_conn(|conn| {
+            conn.execute(
+                &sql,
+                params![key.namespace, key.kind.as_str(), key.series_id, meta],
+            )?;
+            Ok(())
+        })
+    }
+
+    fn get_series_meta(&self, key: &SeriesKey) -> Result<Option<serde_json::Value>> {
+        let sql = statements::select_series_meta_sql(Backend::Sqlite);
+        self.with_conn(|conn| {
+            let meta: Option<String> = conn
+                .query_row(
+                    &sql,
+                    params![key.namespace, key.kind.as_str(), key.series_id],
+                    |row| row.get(0),
+                )
+                .optional()?;
+
+            match meta {
+                Some(value) => Ok(Some(serde_json::from_str(&value)?)),
+                None => Ok(None),
+            }
+        })
+    }
+
+    fn list_series(&self, namespace: &str, kind: SeriesKind) -> Result<Vec<String>> {
+        let sql = statements::list_series_sql(Backend::Sqlite);
+        self.with_conn(|conn| {
+            let mut stmt = conn.prepare(&sql)?;
+            let rows = stmt.query_map(params![namespace, kind.as_str()], |row| row.get(0))?;
+            let mut out = Vec::new();
+            for row in rows {
+                out.push(row?);
+            }
+            Ok(out)
+        })
+    }
+
+    fn put_points_batch(&self, key: &SeriesKey, points: &[TimeSeriesPoint]) -> Result<()> {
+        let sql = statements::upsert_series_point_sql(Backend::Sqlite);
+        self.with_conn(|conn| {
+            let tx = conn.unchecked_transaction()?;
+            {
+                let mut stmt = tx.prepare(&sql)?;
+                for point in points {
+                    let ts = ts_key(point.ts)?;
+                    let payload = match &point.payload {
+                        Some(value) => Some(serde_json::to_string(value)?),
+                        None => None,
+                    };
+                    let meta = match &point.meta {
+                        Some(value) => Some(serde_json::to_string(value)?),
+                        None => None,
+                    };
+                    stmt.execute(params![
+                        key.namespace,
+                        key.kind.as_str(),
+                        key.series_id,
+                        ts,
+                        point.value,
+                        payload,
+                        meta
+                    ])?;
+                }
+            }
+            tx.commit()?;
+            Ok(())
+        })
+    }
+
+    fn get_points_range(
+        &self,
+        key: &SeriesKey,
+        start: OffsetDateTime,
+        end: OffsetDateTime,
+        limit: Option<usize>,
+    ) -> Result<Vec<TimeSeriesPoint>> {
+        let mut sql = statements::select_points_range_sql(Backend::Sqlite);
+        if let Some(max) = limit {
+            sql = format!("{sql} LIMIT {max}");
+        }
+        let start = ts_key(start)?;
+        let end = ts_key(end)?;
+        self.with_conn(|conn| {
+            let mut stmt = conn.prepare(&sql)?;
+            let rows = stmt.query_map(
+                params![key.namespace, key.kind.as_str(), key.series_id, start, end],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, Option<f64>>(1)?,
+                        row.get::<_, Option<String>>(2)?,
+                        row.get::<_, Option<String>>(3)?,
+                    ))
+                },
+            )?;
+            let mut out = Vec::new();
+            for row in rows {
+                let (ts_str, value, payload, meta) = row?;
+                let payload = match payload {
+                    Some(value) => Some(serde_json::from_str(&value)?),
+                    None => None,
+                };
+                let meta = match meta {
+                    Some(value) => Some(serde_json::from_str(&value)?),
+                    None => None,
+                };
+                out.push(TimeSeriesPoint {
+                    ts: parse_ts_key(&ts_str)?,
+                    value,
+                    payload,
+                    meta,
+                });
+            }
+            Ok(out)
+        })
+    }
+
+    fn latest_point_on_or_before(
+        &self,
+        key: &SeriesKey,
+        ts: OffsetDateTime,
+    ) -> Result<Option<TimeSeriesPoint>> {
+        let sql = statements::latest_point_sql(Backend::Sqlite);
+        let ts = ts_key(ts)?;
+        self.with_conn(|conn| {
+            let row: Option<SeriesRow> = conn
+                .query_row(
+                    &sql,
+                    params![key.namespace, key.kind.as_str(), key.series_id, ts],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+                )
+                .optional()?;
+
+            match row {
+                Some((ts_str, value, payload, meta)) => {
+                    let payload = match payload {
+                        Some(value) => Some(serde_json::from_str(&value)?),
+                        None => None,
+                    };
+                    let meta = match meta {
+                        Some(value) => Some(serde_json::from_str(&value)?),
+                        None => None,
+                    };
+                    Ok(Some(TimeSeriesPoint {
+                        ts: parse_ts_key(&ts_str)?,
+                        value,
+                        payload,
+                        meta,
+                    }))
                 }
                 None => Ok(None),
             }
@@ -684,7 +709,8 @@ impl BulkStore for SqliteStore {
         self.with_conn(|conn| {
             let tx = conn.unchecked_transaction()?;
             {
-                let mut stmt = tx.prepare(PUT_INSTRUMENT_SQL)?;
+                let sql = statements::upsert_instrument_sql(Backend::Sqlite);
+                let mut stmt = tx.prepare(&sql)?;
 
                 for (instrument_id, instrument, meta) in instruments {
                     let payload = serde_json::to_vec(instrument)?;
@@ -704,7 +730,8 @@ impl BulkStore for SqliteStore {
         self.with_conn(|conn| {
             let tx = conn.unchecked_transaction()?;
             {
-                let mut stmt = tx.prepare(PUT_MARKET_CONTEXT_SQL)?;
+                let sql = statements::upsert_market_context_sql(Backend::Sqlite);
+                let mut stmt = tx.prepare(&sql)?;
 
                 for (market_id, as_of, context, meta) in contexts {
                     let state: MarketContextState = (*context).into();
@@ -726,7 +753,8 @@ impl BulkStore for SqliteStore {
         self.with_conn(|conn| {
             let tx = conn.unchecked_transaction()?;
             {
-                let mut stmt = tx.prepare(PUT_PORTFOLIO_SQL)?;
+                let sql = statements::upsert_portfolio_sql(Backend::Sqlite);
+                let mut stmt = tx.prepare(&sql)?;
 
                 for (portfolio_id, as_of, spec, meta) in portfolios {
                     let payload = serde_json::to_vec(spec)?;

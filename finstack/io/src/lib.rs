@@ -18,14 +18,24 @@
 // Allow expect() in doc tests (they are test code)
 #![doc(test(attr(allow(clippy::expect_used))))]
 
+pub mod config;
 pub mod error;
+pub(crate) mod sql;
 pub mod store;
 
+#[cfg(feature = "postgres")]
+pub mod postgres;
 #[cfg(feature = "sqlite")]
 pub mod sqlite;
 
+pub use config::{open_store_from_env, FinstackIoConfig, IoBackend, StoreHandle};
 pub use error::{Error, Result};
-pub use store::{BulkStore, LookbackStore, MarketContextSnapshot, PortfolioSnapshot, Store};
+pub use store::{
+    BulkStore, LookbackStore, MarketContextSnapshot, PortfolioSnapshot, SeriesKey, SeriesKind,
+    Store, TimeSeriesPoint, TimeSeriesStore,
+};
 
+#[cfg(feature = "postgres")]
+pub use postgres::PostgresStore;
 #[cfg(feature = "sqlite")]
 pub use sqlite::SqliteStore;

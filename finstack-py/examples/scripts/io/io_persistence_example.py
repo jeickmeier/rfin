@@ -20,6 +20,7 @@ The database is created at: examples/scripts/io/finstack_example.db
 from __future__ import annotations
 
 from datetime import date
+import os
 from pathlib import Path
 
 import finstack
@@ -54,15 +55,32 @@ def main() -> None:
     print("Finstack IO - Python Persistence Example")
     print("=" * 70)
 
-    # Create a persistent database in the same directory as this script
-    script_dir = Path(__file__).parent
-    db_path = script_dir / "finstack_example.db"
-    print(f"\n📁 Database path: {db_path}\n")
+    backend = os.getenv("FINSTACK_IO_BACKEND", "sqlite").strip().lower()
 
-    # Open (or create) the database - migrations run automatically
-    store = SqliteStore.open(str(db_path))
-    print("✅ Database opened successfully")
-    print(f"   Path: {store.path}\n")
+    if backend in {"postgres", "postgresql"}:
+        postgres_url = os.getenv("FINSTACK_POSTGRES_URL")
+        if not postgres_url:
+            raise RuntimeError("FINSTACK_POSTGRES_URL is required for postgres backend")
+        PostgresStore = getattr(finstack.io, "PostgresStore", None)
+        if PostgresStore is None:
+            raise RuntimeError("PostgresStore is not available in this build")
+        store = PostgresStore.connect(postgres_url)
+        print("✅ Postgres database opened successfully")
+        print(f"   URL: {postgres_url}\n")
+    else:
+        # Create a persistent database in the same directory as this script
+        script_dir = Path(__file__).parent
+        db_path = os.getenv("FINSTACK_SQLITE_PATH")
+        if db_path:
+            db_path = Path(db_path)
+        else:
+            db_path = script_dir / "finstack_example.db"
+        print(f"\n📁 Database path: {db_path}\n")
+
+        # Open (or create) the database - migrations run automatically
+        store = SqliteStore.open(str(db_path))
+        print("✅ Database opened successfully")
+        print(f"   Path: {store.path}\n")
 
     # =========================================================================
     # 1. SAVING AND LOADING MARKET DATA

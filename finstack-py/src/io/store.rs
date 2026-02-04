@@ -9,7 +9,12 @@ use crate::scenarios::spec::PyScenarioSpec;
 use crate::statements::registry::PyMetricRegistry;
 use crate::statements::types::model::PyFinancialModelSpec;
 use finstack_core::market_data::context::MarketContext;
-use finstack_io::{BulkStore, LookbackStore, SqliteStore, Store};
+#[cfg(feature = "postgres")]
+use finstack_io::PostgresStore;
+use finstack_io::{
+    BulkStore, LookbackStore, SeriesKey, SeriesKind, SqliteStore, Store, TimeSeriesPoint,
+    TimeSeriesStore,
+};
 use finstack_portfolio::PortfolioSpec;
 use finstack_scenarios::ScenarioSpec;
 use finstack_statements::registry::MetricRegistry;
@@ -17,9 +22,12 @@ use finstack_statements::FinancialModelSpec;
 use finstack_valuations::instruments::InstrumentJson;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyList, PyModule};
+use pyo3::types::{
+    PyAny, PyDate, PyDateAccess, PyDateTime, PyList, PyModule, PyTimeAccess, PyTuple,
+};
 use pyo3::Bound;
 use std::path::PathBuf;
+use time::{Date as TimeDate, Month, OffsetDateTime, PrimitiveDateTime, Time, UtcOffset};
 
 /// A SQLite-backed persistence store for Finstack domain objects.
 ///
@@ -552,6 +560,168 @@ impl PySqliteStore {
     }
 
     // =========================================================================
+    // Time Series Operations
+    // =========================================================================
+
+    /// Store metadata for a time-series key.
+    ///
+    /// Args:
+    ///     namespace: Logical namespace for the series.
+    ///     kind: Series kind (quote, metric, result, pnl, risk).
+    ///     series_id: Series identifier.
+    ///     meta: Optional metadata dict.
+    #[pyo3(signature = (namespace, kind, series_id, meta=None))]
+    #[pyo3(text_signature = "($self, namespace, kind, series_id, meta=None)")]
+    fn put_series_meta(
+        &self,
+        namespace: &str,
+        kind: &str,
+        series_id: &str,
+        meta: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<()> {
+        let kind = parse_series_kind(kind)?;
+        let meta_json = extract_meta(meta)?;
+        let key = SeriesKey::new(namespace, series_id, kind);
+        self.inner
+            .put_series_meta(&key, meta_json.as_ref())
+            .map_err(map_io_error)
+    }
+
+    /// Retrieve metadata for a time-series key.
+    #[pyo3(text_signature = "($self, namespace, kind, series_id)")]
+    fn get_series_meta(
+        &self,
+        py: Python<'_>,
+        namespace: &str,
+        kind: &str,
+        series_id: &str,
+    ) -> PyResult<Option<Py<PyAny>>> {
+        let kind = parse_series_kind(kind)?;
+        let key = SeriesKey::new(namespace, series_id, kind);
+        let meta = self.inner.get_series_meta(&key).map_err(map_io_error)?;
+        match meta {
+            Some(value) => {
+                let py_obj = pythonize::pythonize(py, &value)
+                    .map_err(|e| PyValueError::new_err(format!("Failed to serialize: {e}")))?;
+                Ok(Some(py_obj.unbind()))
+            }
+            None => Ok(None),
+        }
+    }
+
+    /// List series IDs for a namespace and kind.
+    #[pyo3(text_signature = "($self, namespace, kind)")]
+    fn list_series(&self, namespace: &str, kind: &str) -> PyResult<Vec<String>> {
+        let kind = parse_series_kind(kind)?;
+        self.inner
+            .list_series(namespace, kind)
+            .map_err(map_io_error)
+    }
+
+    /// Store multiple time-series points in a single transaction.
+    #[pyo3(text_signature = "($self, namespace, kind, series_id, points)")]
+    fn put_points_batch(
+        &self,
+        namespace: &str,
+        kind: &str,
+        series_id: &str,
+        points: &Bound<'_, PyList>,
+    ) -> PyResult<()> {
+        let kind = parse_series_kind(kind)?;
+        let key = SeriesKey::new(namespace, series_id, kind);
+        let mut batch = Vec::new();
+        for item in points.iter() {
+            let tuple = item.downcast::<PyTuple>()?;
+            if tuple.len() < 1 {
+                return Err(PyValueError::new_err(
+                    "Point tuples must include a timestamp",
+                ));
+            }
+            let ts = py_to_offset_datetime(&tuple.get_item(0)?)?;
+            let value = if tuple.len() > 1 && !tuple.get_item(1)?.is_none() {
+                Some(tuple.get_item(1)?.extract::<f64>()?)
+            } else {
+                None
+            };
+            let payload = if tuple.len() > 2 && !tuple.get_item(2)?.is_none() {
+                Some(
+                    pythonize::depythonize(&tuple.get_item(2)?)
+                        .map_err(|e| PyValueError::new_err(format!("Invalid payload: {e}")))?,
+                )
+            } else {
+                None
+            };
+            let meta = if tuple.len() > 3 && !tuple.get_item(3)?.is_none() {
+                Some(
+                    pythonize::depythonize(&tuple.get_item(3)?)
+                        .map_err(|e| PyValueError::new_err(format!("Invalid meta: {e}")))?,
+                )
+            } else {
+                None
+            };
+            batch.push(TimeSeriesPoint {
+                ts,
+                value,
+                payload,
+                meta,
+            });
+        }
+        self.inner
+            .put_points_batch(&key, &batch)
+            .map_err(map_io_error)
+    }
+
+    /// Retrieve points in a time range.
+    #[pyo3(signature = (namespace, kind, series_id, start, end, limit=None))]
+    #[pyo3(text_signature = "($self, namespace, kind, series_id, start, end, limit=None)")]
+    fn get_points_range(
+        &self,
+        py: Python<'_>,
+        namespace: &str,
+        kind: &str,
+        series_id: &str,
+        start: &Bound<'_, PyAny>,
+        end: &Bound<'_, PyAny>,
+        limit: Option<usize>,
+    ) -> PyResult<Vec<Py<PyAny>>> {
+        let kind = parse_series_kind(kind)?;
+        let key = SeriesKey::new(namespace, series_id, kind);
+        let start = py_to_offset_datetime(start)?;
+        let end = py_to_offset_datetime(end)?;
+        let points = self
+            .inner
+            .get_points_range(&key, start, end, limit)
+            .map_err(map_io_error)?;
+        points
+            .iter()
+            .map(|point| time_series_point_to_py(py, point))
+            .collect()
+    }
+
+    /// Get the latest point on or before a timestamp.
+    #[pyo3(text_signature = "($self, namespace, kind, series_id, ts)")]
+    fn latest_point_on_or_before(
+        &self,
+        py: Python<'_>,
+        namespace: &str,
+        kind: &str,
+        series_id: &str,
+        ts: &Bound<'_, PyAny>,
+    ) -> PyResult<Option<Py<PyAny>>> {
+        let kind = parse_series_kind(kind)?;
+        let key = SeriesKey::new(namespace, series_id, kind);
+        let ts = py_to_offset_datetime(ts)?;
+        let point = self
+            .inner
+            .latest_point_on_or_before(&key, ts)
+            .map_err(map_io_error)?;
+        match point {
+            Some(value) => Ok(Some(time_series_point_to_py(py, &value)?)),
+            None => Ok(None),
+        }
+    }
+
+    // =========================================================================
     // Bulk Operations
     // =========================================================================
 
@@ -813,6 +983,671 @@ impl PySqliteStore {
 }
 
 // =============================================================================
+// Postgres Store (optional)
+// =============================================================================
+
+#[cfg(feature = "postgres")]
+#[pyclass(module = "finstack.io", name = "PostgresStore")]
+pub struct PyPostgresStore {
+    inner: PostgresStore,
+}
+
+#[cfg(feature = "postgres")]
+#[pymethods]
+impl PyPostgresStore {
+    /// Connect to a Postgres database with the given URL.
+    ///
+    /// Args:
+    ///     url: Postgres connection URL.
+    #[staticmethod]
+    #[pyo3(text_signature = "(url)")]
+    fn connect(url: &str) -> PyResult<Self> {
+        let store = PostgresStore::connect(url).map_err(map_io_error)?;
+        Ok(Self { inner: store })
+    }
+
+    /// Get the database connection URL.
+    #[getter]
+    fn url(&self) -> String {
+        self.inner.url().to_string()
+    }
+
+    // =========================================================================
+    // Market Context Operations
+    // =========================================================================
+
+    #[pyo3(signature = (market_id, as_of, context, meta=None))]
+    #[pyo3(text_signature = "($self, market_id, as_of, context, meta=None)")]
+    fn put_market_context(
+        &self,
+        market_id: &str,
+        as_of: &Bound<'_, PyAny>,
+        context: &PyMarketContext,
+        meta: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<()> {
+        let date = py_to_date(as_of)?;
+        let meta_json = extract_meta(meta)?;
+        self.inner
+            .put_market_context(market_id, date, &context.inner, meta_json.as_ref())
+            .map_err(map_io_error)
+    }
+
+    #[pyo3(text_signature = "($self, market_id, as_of)")]
+    fn get_market_context(
+        &self,
+        market_id: &str,
+        as_of: &Bound<'_, PyAny>,
+    ) -> PyResult<Option<PyMarketContext>> {
+        let date = py_to_date(as_of)?;
+        let result = self
+            .inner
+            .get_market_context(market_id, date)
+            .map_err(map_io_error)?;
+        Ok(result.map(|inner| PyMarketContext { inner }))
+    }
+
+    #[pyo3(text_signature = "($self, market_id, as_of)")]
+    fn load_market_context(
+        &self,
+        market_id: &str,
+        as_of: &Bound<'_, PyAny>,
+    ) -> PyResult<PyMarketContext> {
+        let date = py_to_date(as_of)?;
+        let inner = self
+            .inner
+            .load_market_context(market_id, date)
+            .map_err(map_io_error)?;
+        Ok(PyMarketContext { inner })
+    }
+
+    // =========================================================================
+    // Instrument Operations
+    // =========================================================================
+
+    #[pyo3(signature = (instrument_id, instrument, meta=None))]
+    #[pyo3(text_signature = "($self, instrument_id, instrument, meta=None)")]
+    fn put_instrument(
+        &self,
+        instrument_id: &str,
+        instrument: &Bound<'_, PyAny>,
+        meta: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<()> {
+        let instr: InstrumentJson = pythonize::depythonize(instrument)
+            .map_err(|e| PyValueError::new_err(format!("Invalid instrument: {}", e)))?;
+        let meta_json = extract_meta(meta)?;
+        self.inner
+            .put_instrument(instrument_id, &instr, meta_json.as_ref())
+            .map_err(map_io_error)
+    }
+
+    #[pyo3(text_signature = "($self, instrument_id)")]
+    fn get_instrument(&self, py: Python<'_>, instrument_id: &str) -> PyResult<Option<Py<PyAny>>> {
+        let result = self
+            .inner
+            .get_instrument(instrument_id)
+            .map_err(map_io_error)?;
+        match result {
+            Some(instr) => {
+                let py_obj = pythonize::pythonize(py, &instr)
+                    .map_err(|e| PyValueError::new_err(format!("Failed to serialize: {}", e)))?;
+                Ok(Some(py_obj.unbind()))
+            }
+            None => Ok(None),
+        }
+    }
+
+    #[pyo3(text_signature = "($self, instrument_ids)")]
+    fn get_instruments_batch(
+        &self,
+        py: Python<'_>,
+        instrument_ids: Vec<String>,
+    ) -> PyResult<Py<PyAny>> {
+        let result = self
+            .inner
+            .get_instruments_batch(&instrument_ids)
+            .map_err(map_io_error)?;
+        let py_dict = pythonize::pythonize(py, &result)
+            .map_err(|e| PyValueError::new_err(format!("Failed to serialize: {}", e)))?;
+        Ok(py_dict.unbind())
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    fn list_instruments(&self) -> PyResult<Vec<String>> {
+        self.inner.list_instruments().map_err(map_io_error)
+    }
+
+    // =========================================================================
+    // Portfolio Operations
+    // =========================================================================
+
+    #[pyo3(signature = (portfolio_id, as_of, spec, meta=None))]
+    #[pyo3(text_signature = "($self, portfolio_id, as_of, spec, meta=None)")]
+    fn put_portfolio_spec(
+        &self,
+        portfolio_id: &str,
+        as_of: &Bound<'_, PyAny>,
+        spec: &Bound<'_, PyAny>,
+        meta: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<()> {
+        let date = py_to_date(as_of)?;
+        let portfolio_spec = extract_portfolio_spec(spec)?;
+        let meta_json = extract_meta(meta)?;
+        self.inner
+            .put_portfolio_spec(portfolio_id, date, &portfolio_spec, meta_json.as_ref())
+            .map_err(map_io_error)
+    }
+
+    #[pyo3(text_signature = "($self, portfolio_id, as_of)")]
+    fn get_portfolio_spec(
+        &self,
+        portfolio_id: &str,
+        as_of: &Bound<'_, PyAny>,
+    ) -> PyResult<Option<PyPortfolioSpec>> {
+        let date = py_to_date(as_of)?;
+        let result = self
+            .inner
+            .get_portfolio_spec(portfolio_id, date)
+            .map_err(map_io_error)?;
+        Ok(result.map(PyPortfolioSpec::new))
+    }
+
+    #[pyo3(text_signature = "($self, portfolio_id, as_of)")]
+    fn load_portfolio(
+        &self,
+        portfolio_id: &str,
+        as_of: &Bound<'_, PyAny>,
+    ) -> PyResult<PyPortfolio> {
+        let date = py_to_date(as_of)?;
+        let portfolio = self
+            .inner
+            .load_portfolio(portfolio_id, date)
+            .map_err(map_io_error)?;
+        Ok(PyPortfolio::new(portfolio))
+    }
+
+    #[pyo3(text_signature = "($self, portfolio_id, market_id, as_of)")]
+    fn load_portfolio_with_market(
+        &self,
+        portfolio_id: &str,
+        market_id: &str,
+        as_of: &Bound<'_, PyAny>,
+    ) -> PyResult<(PyPortfolio, PyMarketContext)> {
+        let date = py_to_date(as_of)?;
+        let (portfolio, market) = self
+            .inner
+            .load_portfolio_with_market(portfolio_id, market_id, date)
+            .map_err(map_io_error)?;
+        Ok((
+            PyPortfolio::new(portfolio),
+            PyMarketContext { inner: market },
+        ))
+    }
+
+    // =========================================================================
+    // Scenario Operations
+    // =========================================================================
+
+    #[pyo3(signature = (scenario_id, spec, meta=None))]
+    #[pyo3(text_signature = "($self, scenario_id, spec, meta=None)")]
+    fn put_scenario(
+        &self,
+        scenario_id: &str,
+        spec: &Bound<'_, PyAny>,
+        meta: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<()> {
+        let scenario_spec = extract_scenario_spec(spec)?;
+        let meta_json = extract_meta(meta)?;
+        self.inner
+            .put_scenario(scenario_id, &scenario_spec, meta_json.as_ref())
+            .map_err(map_io_error)
+    }
+
+    #[pyo3(text_signature = "($self, scenario_id)")]
+    fn get_scenario(&self, scenario_id: &str) -> PyResult<Option<PyScenarioSpec>> {
+        let result = self.inner.get_scenario(scenario_id).map_err(map_io_error)?;
+        Ok(result.map(PyScenarioSpec::from_inner))
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    fn list_scenarios(&self) -> PyResult<Vec<String>> {
+        self.inner.list_scenarios().map_err(map_io_error)
+    }
+
+    // =========================================================================
+    // Statement Model Operations
+    // =========================================================================
+
+    #[pyo3(signature = (model_id, spec, meta=None))]
+    #[pyo3(text_signature = "($self, model_id, spec, meta=None)")]
+    fn put_statement_model(
+        &self,
+        model_id: &str,
+        spec: &Bound<'_, PyAny>,
+        meta: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<()> {
+        let model_spec = extract_statement_model(spec)?;
+        let meta_json = extract_meta(meta)?;
+        self.inner
+            .put_statement_model(model_id, &model_spec, meta_json.as_ref())
+            .map_err(map_io_error)
+    }
+
+    #[pyo3(text_signature = "($self, model_id)")]
+    fn get_statement_model(&self, model_id: &str) -> PyResult<Option<PyFinancialModelSpec>> {
+        let result = self
+            .inner
+            .get_statement_model(model_id)
+            .map_err(map_io_error)?;
+        Ok(result.map(PyFinancialModelSpec::new))
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    fn list_statement_models(&self) -> PyResult<Vec<String>> {
+        self.inner.list_statement_models().map_err(map_io_error)
+    }
+
+    // =========================================================================
+    // Metric Registry Operations
+    // =========================================================================
+
+    #[pyo3(signature = (namespace, registry, meta=None))]
+    #[pyo3(text_signature = "($self, namespace, registry, meta=None)")]
+    fn put_metric_registry(
+        &self,
+        namespace: &str,
+        registry: &Bound<'_, PyAny>,
+        meta: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<()> {
+        let reg = extract_metric_registry(registry)?;
+        let meta_json = extract_meta(meta)?;
+        self.inner
+            .put_metric_registry(namespace, &reg, meta_json.as_ref())
+            .map_err(map_io_error)
+    }
+
+    #[pyo3(text_signature = "($self, namespace)")]
+    fn get_metric_registry(&self, namespace: &str) -> PyResult<Option<PyMetricRegistry>> {
+        let result = self
+            .inner
+            .get_metric_registry(namespace)
+            .map_err(map_io_error)?;
+        Ok(result.map(PyMetricRegistry::new))
+    }
+
+    #[pyo3(text_signature = "($self, namespace)")]
+    fn load_metric_registry(&self, namespace: &str) -> PyResult<PyMetricRegistry> {
+        let reg = self
+            .inner
+            .load_metric_registry(namespace)
+            .map_err(map_io_error)?;
+        Ok(PyMetricRegistry::new(reg))
+    }
+
+    #[pyo3(text_signature = "($self)")]
+    fn list_metric_registries(&self) -> PyResult<Vec<String>> {
+        self.inner.list_metric_registries().map_err(map_io_error)
+    }
+
+    #[pyo3(text_signature = "($self, namespace)")]
+    fn delete_metric_registry(&self, namespace: &str) -> PyResult<bool> {
+        self.inner
+            .delete_metric_registry(namespace)
+            .map_err(map_io_error)
+    }
+
+    // =========================================================================
+    // Time Series Operations
+    // =========================================================================
+
+    #[pyo3(signature = (namespace, kind, series_id, meta=None))]
+    #[pyo3(text_signature = "($self, namespace, kind, series_id, meta=None)")]
+    fn put_series_meta(
+        &self,
+        namespace: &str,
+        kind: &str,
+        series_id: &str,
+        meta: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<()> {
+        let kind = parse_series_kind(kind)?;
+        let meta_json = extract_meta(meta)?;
+        let key = SeriesKey::new(namespace, series_id, kind);
+        self.inner
+            .put_series_meta(&key, meta_json.as_ref())
+            .map_err(map_io_error)
+    }
+
+    #[pyo3(text_signature = "($self, namespace, kind, series_id)")]
+    fn get_series_meta(
+        &self,
+        py: Python<'_>,
+        namespace: &str,
+        kind: &str,
+        series_id: &str,
+    ) -> PyResult<Option<Py<PyAny>>> {
+        let kind = parse_series_kind(kind)?;
+        let key = SeriesKey::new(namespace, series_id, kind);
+        let meta = self.inner.get_series_meta(&key).map_err(map_io_error)?;
+        match meta {
+            Some(value) => {
+                let py_obj = pythonize::pythonize(py, &value)
+                    .map_err(|e| PyValueError::new_err(format!("Failed to serialize: {e}")))?;
+                Ok(Some(py_obj.unbind()))
+            }
+            None => Ok(None),
+        }
+    }
+
+    #[pyo3(text_signature = "($self, namespace, kind)")]
+    fn list_series(&self, namespace: &str, kind: &str) -> PyResult<Vec<String>> {
+        let kind = parse_series_kind(kind)?;
+        self.inner
+            .list_series(namespace, kind)
+            .map_err(map_io_error)
+    }
+
+    #[pyo3(text_signature = "($self, namespace, kind, series_id, points)")]
+    fn put_points_batch(
+        &self,
+        namespace: &str,
+        kind: &str,
+        series_id: &str,
+        points: &Bound<'_, PyList>,
+    ) -> PyResult<()> {
+        let kind = parse_series_kind(kind)?;
+        let key = SeriesKey::new(namespace, series_id, kind);
+        let mut batch = Vec::new();
+        for item in points.iter() {
+            let tuple = item.downcast::<PyTuple>()?;
+            if tuple.len() < 1 {
+                return Err(PyValueError::new_err(
+                    "Point tuples must include a timestamp",
+                ));
+            }
+            let ts = py_to_offset_datetime(&tuple.get_item(0)?)?;
+            let value = if tuple.len() > 1 && !tuple.get_item(1)?.is_none() {
+                Some(tuple.get_item(1)?.extract::<f64>()?)
+            } else {
+                None
+            };
+            let payload = if tuple.len() > 2 && !tuple.get_item(2)?.is_none() {
+                Some(
+                    pythonize::depythonize(&tuple.get_item(2)?)
+                        .map_err(|e| PyValueError::new_err(format!("Invalid payload: {e}")))?,
+                )
+            } else {
+                None
+            };
+            let meta = if tuple.len() > 3 && !tuple.get_item(3)?.is_none() {
+                Some(
+                    pythonize::depythonize(&tuple.get_item(3)?)
+                        .map_err(|e| PyValueError::new_err(format!("Invalid meta: {e}")))?,
+                )
+            } else {
+                None
+            };
+            batch.push(TimeSeriesPoint {
+                ts,
+                value,
+                payload,
+                meta,
+            });
+        }
+        self.inner
+            .put_points_batch(&key, &batch)
+            .map_err(map_io_error)
+    }
+
+    #[pyo3(signature = (namespace, kind, series_id, start, end, limit=None))]
+    #[pyo3(text_signature = "($self, namespace, kind, series_id, start, end, limit=None)")]
+    fn get_points_range(
+        &self,
+        py: Python<'_>,
+        namespace: &str,
+        kind: &str,
+        series_id: &str,
+        start: &Bound<'_, PyAny>,
+        end: &Bound<'_, PyAny>,
+        limit: Option<usize>,
+    ) -> PyResult<Vec<Py<PyAny>>> {
+        let kind = parse_series_kind(kind)?;
+        let key = SeriesKey::new(namespace, series_id, kind);
+        let start = py_to_offset_datetime(start)?;
+        let end = py_to_offset_datetime(end)?;
+        let points = self
+            .inner
+            .get_points_range(&key, start, end, limit)
+            .map_err(map_io_error)?;
+        points
+            .iter()
+            .map(|point| time_series_point_to_py(py, point))
+            .collect()
+    }
+
+    #[pyo3(text_signature = "($self, namespace, kind, series_id, ts)")]
+    fn latest_point_on_or_before(
+        &self,
+        py: Python<'_>,
+        namespace: &str,
+        kind: &str,
+        series_id: &str,
+        ts: &Bound<'_, PyAny>,
+    ) -> PyResult<Option<Py<PyAny>>> {
+        let kind = parse_series_kind(kind)?;
+        let key = SeriesKey::new(namespace, series_id, kind);
+        let ts = py_to_offset_datetime(ts)?;
+        let point = self
+            .inner
+            .latest_point_on_or_before(&key, ts)
+            .map_err(map_io_error)?;
+        match point {
+            Some(value) => Ok(Some(time_series_point_to_py(py, &value)?)),
+            None => Ok(None),
+        }
+    }
+
+    // =========================================================================
+    // Bulk Operations
+    // =========================================================================
+
+    #[pyo3(text_signature = "($self, instruments)")]
+    fn put_instruments_batch(&self, instruments: &Bound<'_, PyList>) -> PyResult<()> {
+        let mut batch: Vec<(String, InstrumentJson, Option<serde_json::Value>)> = Vec::new();
+
+        for item in instruments.iter() {
+            let tuple = item.downcast::<pyo3::types::PyTuple>()?;
+            let id: String = tuple.get_item(0)?.extract()?;
+            let instr: InstrumentJson = pythonize::depythonize(&tuple.get_item(1)?)
+                .map_err(|e| PyValueError::new_err(format!("Invalid instrument: {}", e)))?;
+            let meta = if tuple.len() > 2 {
+                let meta_item = tuple.get_item(2)?;
+                if meta_item.is_none() {
+                    None
+                } else {
+                    Some(
+                        pythonize::depythonize(&meta_item)
+                            .map_err(|e| PyValueError::new_err(format!("Invalid meta: {}", e)))?,
+                    )
+                }
+            } else {
+                None
+            };
+            batch.push((id, instr, meta));
+        }
+
+        let refs: Vec<(&str, &InstrumentJson, Option<&serde_json::Value>)> = batch
+            .iter()
+            .map(|(id, instr, meta)| (id.as_str(), instr, meta.as_ref()))
+            .collect();
+
+        self.inner
+            .put_instruments_batch(&refs)
+            .map_err(map_io_error)
+    }
+
+    #[pyo3(text_signature = "($self, contexts)")]
+    fn put_market_contexts_batch(&self, contexts: &Bound<'_, PyList>) -> PyResult<()> {
+        let mut batch: Vec<(
+            String,
+            finstack_core::dates::Date,
+            MarketContext,
+            Option<serde_json::Value>,
+        )> = Vec::new();
+
+        for item in contexts.iter() {
+            let tuple = item.downcast::<pyo3::types::PyTuple>()?;
+            let id: String = tuple.get_item(0)?.extract()?;
+            let date = py_to_date(&tuple.get_item(1)?)?;
+            let ctx: PyRef<PyMarketContext> = tuple.get_item(2)?.extract()?;
+            let meta = if tuple.len() > 3 {
+                let meta_item = tuple.get_item(3)?;
+                if meta_item.is_none() {
+                    None
+                } else {
+                    Some(
+                        pythonize::depythonize(&meta_item)
+                            .map_err(|e| PyValueError::new_err(format!("Invalid meta: {}", e)))?,
+                    )
+                }
+            } else {
+                None
+            };
+            batch.push((id, date, ctx.inner.clone(), meta));
+        }
+
+        let refs: Vec<(
+            &str,
+            finstack_core::dates::Date,
+            &MarketContext,
+            Option<&serde_json::Value>,
+        )> = batch
+            .iter()
+            .map(|(id, date, ctx, meta)| (id.as_str(), *date, ctx, meta.as_ref()))
+            .collect();
+
+        self.inner
+            .put_market_contexts_batch(&refs)
+            .map_err(map_io_error)
+    }
+
+    #[pyo3(text_signature = "($self, portfolios)")]
+    fn put_portfolios_batch(&self, portfolios: &Bound<'_, PyList>) -> PyResult<()> {
+        let mut batch: Vec<(
+            String,
+            finstack_core::dates::Date,
+            PortfolioSpec,
+            Option<serde_json::Value>,
+        )> = Vec::new();
+
+        for item in portfolios.iter() {
+            let tuple = item.downcast::<pyo3::types::PyTuple>()?;
+            let id: String = tuple.get_item(0)?.extract()?;
+            let date = py_to_date(&tuple.get_item(1)?)?;
+            let spec = extract_portfolio_spec(&tuple.get_item(2)?)?;
+            let meta = if tuple.len() > 3 {
+                let meta_item = tuple.get_item(3)?;
+                if meta_item.is_none() {
+                    None
+                } else {
+                    Some(
+                        pythonize::depythonize(&meta_item)
+                            .map_err(|e| PyValueError::new_err(format!("Invalid meta: {}", e)))?,
+                    )
+                }
+            } else {
+                None
+            };
+            batch.push((id, date, spec, meta));
+        }
+
+        let refs: Vec<(
+            &str,
+            finstack_core::dates::Date,
+            &PortfolioSpec,
+            Option<&serde_json::Value>,
+        )> = batch
+            .iter()
+            .map(|(id, date, spec, meta)| (id.as_str(), *date, spec, meta.as_ref()))
+            .collect();
+
+        self.inner.put_portfolios_batch(&refs).map_err(map_io_error)
+    }
+
+    // =========================================================================
+    // Lookback Operations
+    // =========================================================================
+
+    #[pyo3(text_signature = "($self, market_id, start, end)")]
+    fn list_market_contexts(
+        &self,
+        market_id: &str,
+        start: &Bound<'_, PyAny>,
+        end: &Bound<'_, PyAny>,
+    ) -> PyResult<Vec<PyMarketContextSnapshot>> {
+        let start_date = py_to_date(start)?;
+        let end_date = py_to_date(end)?;
+        let snapshots = self
+            .inner
+            .list_market_contexts(market_id, start_date, end_date)
+            .map_err(map_io_error)?;
+        Ok(snapshots
+            .into_iter()
+            .map(PyMarketContextSnapshot::new)
+            .collect())
+    }
+
+    #[pyo3(text_signature = "($self, market_id, as_of)")]
+    fn latest_market_context_on_or_before(
+        &self,
+        market_id: &str,
+        as_of: &Bound<'_, PyAny>,
+    ) -> PyResult<Option<PyMarketContextSnapshot>> {
+        let date = py_to_date(as_of)?;
+        let result = self
+            .inner
+            .latest_market_context_on_or_before(market_id, date)
+            .map_err(map_io_error)?;
+        Ok(result.map(PyMarketContextSnapshot::new))
+    }
+
+    #[pyo3(text_signature = "($self, portfolio_id, start, end)")]
+    fn list_portfolios(
+        &self,
+        portfolio_id: &str,
+        start: &Bound<'_, PyAny>,
+        end: &Bound<'_, PyAny>,
+    ) -> PyResult<Vec<PyPortfolioSnapshot>> {
+        let start_date = py_to_date(start)?;
+        let end_date = py_to_date(end)?;
+        let snapshots = self
+            .inner
+            .list_portfolios(portfolio_id, start_date, end_date)
+            .map_err(map_io_error)?;
+        Ok(snapshots
+            .into_iter()
+            .map(PyPortfolioSnapshot::new)
+            .collect())
+    }
+
+    #[pyo3(text_signature = "($self, portfolio_id, as_of)")]
+    fn latest_portfolio_on_or_before(
+        &self,
+        portfolio_id: &str,
+        as_of: &Bound<'_, PyAny>,
+    ) -> PyResult<Option<PyPortfolioSnapshot>> {
+        let date = py_to_date(as_of)?;
+        let result = self
+            .inner
+            .latest_portfolio_on_or_before(portfolio_id, date)
+            .map_err(map_io_error)?;
+        Ok(result.map(PyPortfolioSnapshot::new))
+    }
+
+    fn __repr__(&self) -> String {
+        format!("PostgresStore(url='{}')", self.inner.url())
+    }
+}
+
+// =============================================================================
 // Helper Functions
 // =============================================================================
 
@@ -870,11 +1705,98 @@ fn extract_metric_registry(registry: &Bound<'_, PyAny>) -> PyResult<MetricRegist
         .map_err(|e| PyValueError::new_err(format!("Invalid metric registry: {}", e)))
 }
 
+fn parse_series_kind(kind: &str) -> PyResult<SeriesKind> {
+    SeriesKind::parse(kind).ok_or_else(|| {
+        PyValueError::new_err(format!(
+            "Invalid series kind '{kind}'. Expected: quote, metric, result, pnl, risk."
+        ))
+    })
+}
+
+fn py_to_offset_datetime(obj: &Bound<'_, PyAny>) -> PyResult<OffsetDateTime> {
+    if let Ok(dt) = obj.downcast::<PyDateTime>() {
+        let date = TimeDate::from_calendar_date(
+            dt.get_year(),
+            Month::try_from(dt.get_month() as u8)
+                .map_err(|_| PyValueError::new_err("Invalid month"))?,
+            dt.get_day(),
+        )
+        .map_err(|e| PyValueError::new_err(format!("Invalid date: {e}")))?;
+        let time = Time::from_hms_micro(
+            dt.get_hour() as u8,
+            dt.get_minute() as u8,
+            dt.get_second() as u8,
+            dt.get_microsecond(),
+        )
+        .map_err(|e| PyValueError::new_err(format!("Invalid time: {e}")))?;
+        let naive = PrimitiveDateTime::new(date, time);
+        Ok(naive.assume_offset(UtcOffset::UTC))
+    } else if let Ok(d) = obj.downcast::<PyDate>() {
+        let date = TimeDate::from_calendar_date(
+            d.get_year(),
+            Month::try_from(d.get_month() as u8)
+                .map_err(|_| PyValueError::new_err("Invalid month"))?,
+            d.get_day(),
+        )
+        .map_err(|e| PyValueError::new_err(format!("Invalid date: {e}")))?;
+        let naive = PrimitiveDateTime::new(date, Time::MIDNIGHT);
+        Ok(naive.assume_offset(UtcOffset::UTC))
+    } else {
+        Err(PyValueError::new_err(
+            "Expected datetime.datetime or datetime.date",
+        ))
+    }
+}
+
+fn offset_datetime_to_py(py: Python<'_>, dt: OffsetDateTime) -> PyResult<Py<PyAny>> {
+    let date = dt.date();
+    let time = dt.time();
+    let py_dt = PyDateTime::new(
+        py,
+        date.year(),
+        date.month() as u8,
+        date.day(),
+        time.hour(),
+        time.minute(),
+        time.second(),
+        time.microsecond(),
+        None,
+    )?;
+    Ok(py_dt.unbind().into())
+}
+
+fn time_series_point_to_py(py: Python<'_>, point: &TimeSeriesPoint) -> PyResult<Py<PyAny>> {
+    let ts = offset_datetime_to_py(py, point.ts)?;
+    let value = pythonize::pythonize(py, &point.value)
+        .map_err(|e| PyValueError::new_err(format!("Failed to serialize value: {e}")))?
+        .unbind();
+    let payload: Py<PyAny> = match &point.payload {
+        Some(value) => pythonize::pythonize(py, value)
+            .map_err(|e| PyValueError::new_err(format!("Failed to serialize payload: {e}")))?
+            .unbind(),
+        None => py.None(),
+    };
+    let meta: Py<PyAny> = match &point.meta {
+        Some(value) => pythonize::pythonize(py, value)
+            .map_err(|e| PyValueError::new_err(format!("Failed to serialize meta: {e}")))?
+            .unbind(),
+        None => py.None(),
+    };
+    let tuple = PyTuple::new(py, [ts, value, payload, meta])?;
+    Ok(tuple.unbind().into())
+}
+
 /// Register the store in the module.
 pub(crate) fn register<'py>(
     _py: Python<'py>,
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<String>> {
     parent.add_class::<PySqliteStore>()?;
-    Ok(vec!["SqliteStore".to_string()])
+    let mut exports = vec!["SqliteStore".to_string()];
+    #[cfg(feature = "postgres")]
+    {
+        parent.add_class::<PyPostgresStore>()?;
+        exports.push("PostgresStore".to_string());
+    }
+    Ok(exports)
 }

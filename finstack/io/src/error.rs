@@ -14,6 +14,11 @@ pub enum Error {
     #[error(transparent)]
     Sqlite(#[from] rusqlite::Error),
 
+    /// Postgres backend error.
+    #[cfg(feature = "postgres")]
+    #[error(transparent)]
+    Postgres(#[from] postgres::Error),
+
     /// JSON serialization/deserialization error.
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),

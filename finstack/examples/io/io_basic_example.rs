@@ -17,7 +17,7 @@ use finstack::{
         math::interp::InterpStyle,
         money::Money,
     },
-    io::{BulkStore, LookbackStore, SqliteStore, Store},
+    io::{open_store_from_env, BulkStore, LookbackStore, SqliteStore, Store, StoreHandle},
     portfolio::{Entity, EntityId, Portfolio, Position, PositionUnit},
     valuations::instruments::{rates::deposit::Deposit, InstrumentJson},
 };
@@ -28,12 +28,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🗄️  Finstack IO - Basic Persistence Example");
     println!("=============================================\n");
 
-    // Create a temporary database (in real usage, use a persistent path)
-    let db_path = std::env::temp_dir().join("finstack_example.db");
-    println!("📁 Database path: {}\n", db_path.display());
+    let use_env = std::env::var("FINSTACK_IO_BACKEND").is_ok()
+        || std::env::var("FINSTACK_SQLITE_PATH").is_ok();
 
-    // Open (or create) the database - migrations run automatically
-    let store = SqliteStore::open(&db_path)?;
+    let store = if use_env {
+        open_store_from_env()?
+    } else {
+        // Create a temporary database (in real usage, use a persistent path)
+        let db_path = std::env::temp_dir().join("finstack_example.db");
+        println!("📁 Database path: {}\n", db_path.display());
+        StoreHandle::Sqlite(SqliteStore::open(&db_path)?)
+    };
+
     println!("✅ Database opened successfully\n");
 
     // =========================================================================

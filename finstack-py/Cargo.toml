@@ -34,3 +34,4 @@ rust_decimal = { version = "1.39" }
 [features]
 default = ["scenarios"]
 scenarios = []
+postgres = ["finstack-io/postgres"]
