@@ -17,7 +17,7 @@ finstack-valuations = { path = "../finstack/valuations", features = ["mc", "serd
 finstack-statements = { path = "../finstack/statements", features = ["dataframes"] }
 finstack-scenarios = { path = "../finstack/scenarios" }
 finstack-portfolio = { path = "../finstack/portfolio", features = ["scenarios"] }
-finstack-io = { path = "../finstack/io" }
+finstack-io = { path = "../finstack/io", default-features = false }
 pyo3 = { version = "0.26", features = ["extension-module"] }
 pyo3-polars = "0.25"
 polars = { version = "0.52", default-features = false }
@@ -32,7 +32,8 @@ rayon = "1.11.0"
 rust_decimal = { version = "1.39" }
 
 [features]
-default = ["scenarios"]
+default = ["scenarios", "sqlite"]
 scenarios = []
+sqlite = ["finstack-io/sqlite"]
 postgres = ["finstack-io/postgres"]
 turso = ["finstack-io/turso"]

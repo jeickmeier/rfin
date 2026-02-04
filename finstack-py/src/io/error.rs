@@ -35,6 +35,8 @@ pub(crate) fn map_io_error(err: IoError) -> PyErr {
             found, expected
         )),
         IoError::Sqlite(e) => PyIoError::new_err(format!("SQLite error: {}", e)),
+        #[cfg(feature = "postgres")]
+        IoError::Postgres(e) => PyIoError::new_err(format!("PostgreSQL error: {:?}", e)),
         IoError::SerdeJson(e) => PyIoError::new_err(format!("JSON serialization error: {}", e)),
         IoError::Io(e) => PyIoError::new_err(format!("I/O error: {}", e)),
         IoError::Invariant(msg) => PyIoError::new_err(format!("Internal error: {}", msg)),

@@ -151,7 +151,7 @@ python-dev: ## Install dependencies and build bindings
 	@if [ ! -d "$(VENV)" ]; then uv venv; fi
 	@printf "Installing Python dependencies and building extension...\n"
 	@$(call py_run,uv pip install maturin pytest pytest-benchmark black mypy ruff ipython jupyter)
-	@cd finstack-py && $(call py_run,python -m maturin develop --profile release-perf)
+	@cd finstack-py && $(call py_run,python -m maturin develop --features postgres,turso --profile release-perf)
 
 .PHONY: test-python
 test-python: ## Run Python tests

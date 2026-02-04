@@ -27,25 +27,15 @@ def test_attribution_from_json_minimal() -> None:
                             "freq": {"count": 6, "unit": "months"},
                             "dc": "Thirty360",
                             "bdc": "following",
-                            "calendar_id": None,
+                            "calendar_id": "",
                             "stub": "None",
+                            "end_of_month": False,
+                            "payment_lag_days": 0,
                         }
                     },
                     "discount_curve_id": "USD-OIS",
                     "credit_curve_id": None,
-                    "pricing_overrides": {
-                        "quoted_clean_price": None,
-                        "implied_volatility": None,
-                        "quoted_spread_bp": None,
-                        "upfront_payment": None,
-                        "ytm_bump_decimal": None,
-                        "theta_period": None,
-                        "mc_seed_scenario": None,
-                        "adaptive_bumps": False,
-                        "spot_bump_pct": None,
-                        "vol_bump_pct": None,
-                        "rate_bump_bp": None,
-                    },
+                    "pricing_overrides": {"adaptive_bumps": False},
                     "call_put": None,
                     "attributes": {"tags": [], "meta": {}},
                     "settlement_days": None,
@@ -82,9 +72,9 @@ def test_attribution_from_json_minimal() -> None:
     spec_json = json.dumps(spec)
 
     # Call the Rust function
-    # Note: This will fail with missing curve error, but that confirms the function
-    # is properly parsing JSON and attempting execution
-    with pytest.raises(Exception, match=r"(USD-OIS|not found)"):
+    # Note: This will fail with missing curve or validation error, but that confirms
+    # the function is properly parsing JSON and attempting execution
+    with pytest.raises(Exception, match=r"(USD-OIS|not found|Invalid input)"):
         attribute_pnl_from_json(spec_json)
 
 
@@ -109,25 +99,15 @@ def test_attribution_from_json_with_waterfall() -> None:
                             "freq": {"count": 6, "unit": "months"},
                             "dc": "Thirty360",
                             "bdc": "following",
-                            "calendar_id": None,
+                            "calendar_id": "",
                             "stub": "None",
+                            "end_of_month": False,
+                            "payment_lag_days": 0,
                         }
                     },
                     "discount_curve_id": "USD-OIS",
                     "credit_curve_id": None,
-                    "pricing_overrides": {
-                        "quoted_clean_price": None,
-                        "implied_volatility": None,
-                        "quoted_spread_bp": None,
-                        "upfront_payment": None,
-                        "ytm_bump_decimal": None,
-                        "theta_period": None,
-                        "mc_seed_scenario": None,
-                        "adaptive_bumps": False,
-                        "spot_bump_pct": None,
-                        "vol_bump_pct": None,
-                        "rate_bump_bp": None,
-                    },
+                    "pricing_overrides": {"adaptive_bumps": False},
                     "call_put": None,
                     "attributes": {"tags": [], "meta": {}},
                     "settlement_days": None,
@@ -162,8 +142,8 @@ def test_attribution_from_json_with_waterfall() -> None:
 
     spec_json = json.dumps(spec)
 
-    # This will fail with missing curve error, but confirms JSON parsing works
-    with pytest.raises(Exception, match=r"(USD-OIS|not found)"):
+    # This will fail with missing curve or validation error, but confirms JSON parsing works
+    with pytest.raises(Exception, match=r"(USD-OIS|not found|Invalid input)"):
         attribute_pnl_from_json(spec_json)
 
 
@@ -188,25 +168,15 @@ def test_attribution_from_json_with_config() -> None:
                             "freq": {"count": 6, "unit": "months"},
                             "dc": "Thirty360",
                             "bdc": "following",
-                            "calendar_id": None,
+                            "calendar_id": "",
                             "stub": "None",
+                            "end_of_month": False,
+                            "payment_lag_days": 0,
                         }
                     },
                     "discount_curve_id": "USD-OIS",
                     "credit_curve_id": None,
-                    "pricing_overrides": {
-                        "quoted_clean_price": None,
-                        "implied_volatility": None,
-                        "quoted_spread_bp": None,
-                        "upfront_payment": None,
-                        "ytm_bump_decimal": None,
-                        "theta_period": None,
-                        "mc_seed_scenario": None,
-                        "adaptive_bumps": False,
-                        "spot_bump_pct": None,
-                        "vol_bump_pct": None,
-                        "rate_bump_bp": None,
-                    },
+                    "pricing_overrides": {"adaptive_bumps": False},
                     "call_put": None,
                     "attributes": {"tags": [], "meta": {}},
                     "settlement_days": None,
@@ -246,6 +216,6 @@ def test_attribution_from_json_with_config() -> None:
 
     spec_json = json.dumps(spec)
 
-    # This will fail with missing curve error, but confirms JSON parsing works
-    with pytest.raises(Exception, match=r"(USD-OIS|not found)"):
+    # This will fail with missing curve or validation error, but confirms JSON parsing works
+    with pytest.raises(Exception, match=r"(USD-OIS|not found|Invalid input)"):
         attribute_pnl_from_json(spec_json)

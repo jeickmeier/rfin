@@ -2,23 +2,30 @@
 
 This module provides a typed repository interface for storing and retrieving
 market contexts, instruments, portfolios, scenarios, statement models, and
-metric registries. The default implementation uses SQLite.
+metric registries.
+
+Three backends are supported:
+- **SQLite**: Embedded, transactional, zero-config (default)
+- **PostgreSQL**: Production-grade relational database (requires `postgres` feature)
+- **Turso**: SQLite-compatible with native JSON support (requires `turso` feature)
 
 Examples:
-    >>> from finstack.io import SqliteStore
+    >>> from finstack.io import Store
     >>> from datetime import date
-    >>> # Open or create a database
-    >>> store = SqliteStore.open("finstack.db")
+    >>> # Open a SQLite database
+    >>> store = Store.open_sqlite("finstack.db")
+    >>> # Or use Turso
+    >>> store = Store.open_turso("finstack.db")
     >>> # Store a market context
     >>> from finstack.core.market_data import MarketContext
-    >>> market = MarketContext.empty()
+    >>> market = MarketContext()
     >>> store.put_market_context("USD_MKT", date(2024, 1, 1), market)
     >>> # Retrieve it later
     >>> retrieved = store.get_market_context("USD_MKT", date(2024, 1, 1))
 """
 
 from datetime import date, datetime
-from typing import Any, Optional, overload
+from typing import Any, Literal, Optional
 
 from finstack.core.market_data.context import MarketContext
 from finstack.portfolio import Portfolio
@@ -30,9 +37,7 @@ __all__ = [
     "IoError",
     "NotFoundError",
     "SchemaVersionError",
-    "SqliteStore",
-    "PostgresStore",
-    "TursoStore",
+    "Store",
     "MarketContextSnapshot",
     "PortfolioSnapshot",
     "PortfolioSpec",
@@ -72,9 +77,9 @@ class MarketContextSnapshot:
     historical analysis and time-series operations.
 
     Examples:
-        >>> from finstack.io import SqliteStore
+        >>> from finstack.io import Store
         >>> from datetime import date
-        >>> store = SqliteStore.open("data.db")
+        >>> store = Store.open_sqlite("data.db")
         >>> snapshots = store.list_market_contexts("USD", date(2024, 1, 1), date(2024, 12, 31))
         >>> for snap in snapshots:
         ...     print(f"{snap.as_of}: {snap.context}")
@@ -97,12 +102,13 @@ class PortfolioSpec:
     and retrieved from the database. Use `Portfolio.from_spec()` to hydrate it
     into a full `Portfolio` object.
 
-    Examples:
-        >>> from finstack.io import SqliteStore, PortfolioSpec
-        >>> store = SqliteStore.open("data.db")
-        >>> spec = store.get_portfolio_spec("FUND_A", date(2024, 1, 1))
-        >>> spec.id
-        'FUND_A'
+    Attributes:
+        id: Portfolio identifier.
+        name: Human-readable name (optional).
+        base_ccy: Base currency for aggregation.
+        as_of: Valuation date.
+        position_count: Number of positions.
+        entity_count: Number of entities.
     """
 
     @property
@@ -162,9 +168,9 @@ class PortfolioSnapshot:
     useful for historical analysis and time-series operations.
 
     Examples:
-        >>> from finstack.io import SqliteStore
+        >>> from finstack.io import Store
         >>> from datetime import date
-        >>> store = SqliteStore.open("data.db")
+        >>> store = Store.open_sqlite("data.db")
         >>> snapshots = store.list_portfolios("FUND_A", date(2024, 1, 1), date(2024, 12, 31))
         >>> for snap in snapshots:
         ...     print(f"{snap.as_of}: {snap.spec.position_count} positions")
@@ -191,28 +197,29 @@ TimeSeriesPoint = tuple[
 # Store
 # =============================================================================
 
-class SqliteStore:
-    """A SQLite-backed persistence store for Finstack domain objects.
+class Store:
+    """A unified persistence store for Finstack domain objects.
 
     This store provides CRUD operations for market contexts, instruments, portfolios,
     scenarios, statement models, and metric registries. All operations are atomic
     and idempotent (upserts).
 
+    The store supports multiple backends:
+    - **SQLite**: Embedded, transactional, zero-config (default)
+    - **PostgreSQL**: Production-grade relational database (requires `postgres` feature)
+    - **Turso**: SQLite-compatible with native JSON support (requires `turso` feature)
+
     Examples:
-        >>> from finstack.io import SqliteStore
-        >>> from datetime import date
-        >>> # Open or create a database
-        >>> store = SqliteStore.open("finstack.db")
-        >>> # Store a market context
-        >>> from finstack.core.market_data import MarketContext
-        >>> market = MarketContext.empty()
-        >>> store.put_market_context("USD_MKT", date(2024, 1, 1), market)
-        >>> # Retrieve it later
-        >>> retrieved = store.get_market_context("USD_MKT", date(2024, 1, 1))
+        >>> from finstack.io import Store
+        >>> # Open an in-memory SQLite database
+        >>> store = Store.open_sqlite(":memory:")
+        >>> # Check which backend is in use
+        >>> store.backend
+        'sqlite'
     """
 
     @staticmethod
-    def open(path: str) -> "SqliteStore":
+    def open_sqlite(path: str) -> "Store":
         """Open or create a SQLite database at the given path.
 
         The database schema is automatically created and migrated on open.
@@ -223,20 +230,96 @@ class SqliteStore:
                 in-memory database.
 
         Returns:
-            SqliteStore: The opened store instance.
+            Store: The opened store instance.
 
         Raises:
             IoError: If the database cannot be opened or migrated.
+            RuntimeError: If the SQLite backend is not available in this build.
 
         Examples:
-            >>> store = SqliteStore.open("data/finstack.db")
-            >>> store = SqliteStore.open(":memory:")  # In-memory database
+            >>> store = Store.open_sqlite("data/finstack.db")
+            >>> store = Store.open_sqlite(":memory:")  # In-memory database
+        """
+        ...
+
+    @staticmethod
+    def connect_postgres(url: str) -> "Store":
+        """Connect to a PostgreSQL database.
+
+        Args:
+            url: PostgreSQL connection URL (e.g., "postgresql://user:pass@host/db").
+
+        Returns:
+            Store: The connected store instance.
+
+        Raises:
+            IoError: If the connection fails or migration fails.
+            RuntimeError: If the PostgreSQL backend is not available in this build.
+
+        Examples:
+            >>> store = Store.connect_postgres("postgresql://localhost/finstack")
+        """
+        ...
+
+    @staticmethod
+    def open_turso(path: str) -> "Store":
+        """Open or create a Turso database at the given path.
+
+        Turso is an in-process SQL database engine compatible with SQLite,
+        offering native JSON support and modern async I/O.
+
+        Args:
+            path: Path to the database file. Use `:memory:` for an
+                in-memory database.
+
+        Returns:
+            Store: The opened store instance.
+
+        Raises:
+            IoError: If the database cannot be opened or migrated.
+            RuntimeError: If the Turso backend is not available in this build.
+
+        Examples:
+            >>> store = Store.open_turso("data/finstack.db")
+        """
+        ...
+
+    @staticmethod
+    def from_env() -> "Store":
+        """Open a store based on environment variables.
+
+        Environment Variables:
+            FINSTACK_IO_BACKEND: Backend to use ("sqlite", "postgres", or "turso").
+                Defaults to "sqlite".
+            FINSTACK_SQLITE_PATH: Path to SQLite database file.
+                Required when FINSTACK_IO_BACKEND="sqlite".
+            FINSTACK_POSTGRES_URL: PostgreSQL connection URL.
+                Required when FINSTACK_IO_BACKEND="postgres".
+            FINSTACK_TURSO_PATH: Path to Turso database file.
+                Required when FINSTACK_IO_BACKEND="turso".
+
+        Returns:
+            Store: The opened store instance.
+
+        Raises:
+            IoError: If the store cannot be opened.
+            ValueError: If required environment variables are missing.
+
+        Examples:
+            >>> import os
+            >>> os.environ["FINSTACK_IO_BACKEND"] = "turso"
+            >>> os.environ["FINSTACK_TURSO_PATH"] = "data/finstack.db"
+            >>> store = Store.from_env()
         """
         ...
 
     @property
-    def path(self) -> str:
-        """Get the database file path."""
+    def backend(self) -> Literal["sqlite", "postgres", "turso"]:
+        """Get the backend type name.
+
+        Returns:
+            str: One of "sqlite", "postgres", or "turso".
+        """
         ...
 
     # =========================================================================
@@ -315,8 +398,8 @@ class SqliteStore:
             meta: Optional metadata dict.
 
         Examples:
-            >>> instrument = {"type": "Deposit", "currency": "USD", ...}
-            >>> store.put_instrument("DEP_1M_USD", instrument)
+            >>> instrument = {"type": "equity", "spec": {...}}
+            >>> store.put_instrument("EQUITY_SPY", instrument)
         """
         ...
 
@@ -330,7 +413,7 @@ class SqliteStore:
             dict or None: The instrument as a dict if found.
 
         Examples:
-            >>> instr = store.get_instrument("DEP_1M_USD")
+            >>> instr = store.get_instrument("EQUITY_SPY")
             >>> if instr:
             ...     print(instr["type"])
         """
@@ -347,7 +430,7 @@ class SqliteStore:
                 Missing instruments are silently omitted.
 
         Examples:
-            >>> instruments = store.get_instruments_batch(["DEP_1M", "DEP_3M"])
+            >>> instruments = store.get_instruments_batch(["EQUITY_SPY", "EQUITY_QQQ"])
             >>> for id, instr in instruments.items():
             ...     print(f"{id}: {instr['type']}")
         """
@@ -650,8 +733,8 @@ class SqliteStore:
 
         Examples:
             >>> instruments = [
-            ...     ("DEP_1M", {"type": "Deposit", ...}),
-            ...     ("DEP_3M", {"type": "Deposit", ...}),
+            ...     ("EQUITY_SPY", {"type": "equity", "spec": {...}}),
+            ...     ("EQUITY_QQQ", {"type": "equity", "spec": {...}}),
             ... ]
             >>> store.put_instruments_batch(instruments)
         """
@@ -737,94 +820,3 @@ class SqliteStore:
             PortfolioSnapshot or None: The latest snapshot if found.
         """
         ...
-
-class PostgresStore(SqliteStore):
-    """A Postgres-backed persistence store for Finstack domain objects."""
-
-    @staticmethod
-    def connect(url: str) -> "PostgresStore":
-        """Connect to a Postgres database."""
-        ...
-
-    @property
-    def url(self) -> str:
-        """Get the database connection URL."""
-        ...
-
-class TursoStore(SqliteStore):
-    """A Turso-backed persistence store for Finstack domain objects.
-
-    Turso is an in-process SQL database engine compatible with SQLite.
-    It offers native JSON support, optional encryption at rest, and modern async I/O.
-
-    Examples:
-        >>> from finstack.io import TursoStore
-        >>> from datetime import date
-        >>> # Open or create a database
-        >>> store = TursoStore.open("finstack.db")
-        >>> # Store a market context
-        >>> from finstack.core.market_data import MarketContext
-        >>> market = MarketContext.empty()
-        >>> store.put_market_context("USD_MKT", date(2024, 1, 1), market)
-        >>> # Retrieve it later
-        >>> retrieved = store.get_market_context("USD_MKT", date(2024, 1, 1))
-    """
-
-    @staticmethod
-    def open(path: str) -> "TursoStore":
-        """Open or create a Turso database at the given path.
-
-        The database schema is automatically created and migrated on open.
-        Parent directories are created if they don't exist.
-
-        Turso uses the same file format as SQLite, so existing SQLite databases
-        can be opened directly.
-
-        Args:
-            path: Path to the database file. Use `:memory:` for an
-                in-memory database.
-
-        Returns:
-            TursoStore: The opened store instance.
-
-        Raises:
-            IoError: If the database cannot be opened or migrated.
-
-        Examples:
-            >>> store = TursoStore.open("data/finstack.db")
-            >>> store = TursoStore.open(":memory:")  # In-memory database
-        """
-        ...
-
-    @property
-    def path(self) -> str:
-        """Get the database file path."""
-        ...
-
-def open_store_from_env() -> SqliteStore | PostgresStore | TursoStore:
-    """Open a store based on FINSTACK_IO_BACKEND and connection env vars.
-
-    Environment Variables:
-        FINSTACK_IO_BACKEND: Backend to use ("sqlite", "postgres", or "turso").
-            Defaults to "sqlite".
-        FINSTACK_SQLITE_PATH: Path to SQLite database file.
-            Defaults to "finstack.db".
-        FINSTACK_POSTGRES_URL: Postgres connection URL.
-            Required when FINSTACK_IO_BACKEND="postgres".
-        FINSTACK_TURSO_PATH: Path to Turso database file.
-            Required when FINSTACK_IO_BACKEND="turso".
-
-    Returns:
-        SqliteStore, PostgresStore, or TursoStore: The opened store instance.
-
-    Raises:
-        IoError: If the store cannot be opened.
-        ValueError: If required environment variables are missing.
-
-    Examples:
-        >>> import os
-        >>> os.environ["FINSTACK_IO_BACKEND"] = "turso"
-        >>> os.environ["FINSTACK_TURSO_PATH"] = "data/finstack.db"
-        >>> store = open_store_from_env()
-    """
-    ...

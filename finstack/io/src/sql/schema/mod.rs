@@ -362,9 +362,11 @@ pub fn meta_col<T: Iden + 'static>(backend: Backend, col: T) -> ColumnDef {
         }
     }
     def.not_null();
+    // Use Expr::cust() to create a raw SQL expression for the default value.
+    // Using a string literal would result in the expression being doubly-quoted.
     match backend {
-        Backend::Sqlite => def.default("'{}'"),
-        Backend::Postgres => def.default("'{}'::jsonb"),
+        Backend::Sqlite => def.default(Expr::cust("'{}'")),
+        Backend::Postgres => def.default(Expr::cust("'{}'::jsonb")),
     };
     def
 }

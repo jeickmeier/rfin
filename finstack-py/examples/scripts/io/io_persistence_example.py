@@ -2,7 +2,7 @@
 """Example demonstrating the finstack.io Python bindings.
 
 This example shows how to:
-1. Open/create a SQLite database for persistence
+1. Open/create a database with the unified Store API (SQLite, Turso, or PostgreSQL)
 2. Save and load market data (curves, contexts)
 3. Use bulk operations for efficiency
 4. Use lookback queries for historical data
@@ -16,15 +16,27 @@ This example shows how to:
 Run with: uv run examples/scripts/io/io_persistence_example.py
 
 The database is created at: examples/scripts/io/finstack_example.db
+
+Backend selection via environment variables:
+  FINSTACK_IO_BACKEND=sqlite (default) | turso | postgres
+  FINSTACK_SQLITE_PATH=/path/to/db.sqlite  (for sqlite backend)
+  FINSTACK_TURSO_PATH=/path/to/db.db       (for turso backend)
+  FINSTACK_POSTGRES_URL=postgresql://...   (for postgres backend)
 """
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 import finstack
+
+# Load environment variables from .env file (project root or current directory)
+# This allows configuration via .env file in addition to shell environment
+load_dotenv()  # Loads from .env in current directory or parents
 
 # Core imports
 Currency = finstack.Currency
@@ -33,8 +45,8 @@ MarketContext = finstack.core.market_data.context.MarketContext
 DiscountCurve = finstack.core.market_data.term_structures.DiscountCurve
 MarketScalar = finstack.core.market_data.scalars.MarketScalar
 
-# IO imports
-SqliteStore = finstack.io.SqliteStore
+# IO imports - unified Store API
+Store = finstack.io.Store
 PortfolioSpec = finstack.io.PortfolioSpec
 MarketContextSnapshot = finstack.io.MarketContextSnapshot
 PortfolioSnapshot = finstack.io.PortfolioSnapshot
@@ -56,32 +68,31 @@ def main() -> None:
     print("Finstack IO - Python Persistence Example")
     print("=" * 70)
 
+    # Get backend from environment, defaulting to sqlite
     backend = os.getenv("FINSTACK_IO_BACKEND", "sqlite").strip().lower()
+    script_dir = Path(__file__).parent
+    db_path = script_dir / "finstack_example.db"
 
+    # Create store using the unified Store API
     if backend in {"postgres", "postgresql"}:
         postgres_url = os.getenv("FINSTACK_POSTGRES_URL")
         if not postgres_url:
             raise RuntimeError("FINSTACK_POSTGRES_URL is required for postgres backend")
-        PostgresStore = getattr(finstack.io, "PostgresStore", None)
-        if PostgresStore is None:
-            raise RuntimeError("PostgresStore is not available in this build")
-        store = PostgresStore.connect(postgres_url)
-        print("✅ Postgres database opened successfully")
+        store = Store.connect_postgres(postgres_url)
+        print(f"\n✅ PostgreSQL database connected (backend: {store.backend})")
         print(f"   URL: {postgres_url}\n")
+    elif backend == "turso":
+        turso_path = os.getenv("FINSTACK_TURSO_PATH", str(db_path))
+        store = Store.open_turso(turso_path)
+        print(f"\n✅ Turso database opened (backend: {store.backend})")
+        print(f"   Path: {turso_path}\n")
     else:
-        # Create a persistent database in the same directory as this script
-        script_dir = Path(__file__).parent
-        db_path = os.getenv("FINSTACK_SQLITE_PATH")
-        if db_path:
-            db_path = Path(db_path)
-        else:
-            db_path = script_dir / "finstack_example.db"
-        print(f"\n📁 Database path: {db_path}\n")
-
-        # Open (or create) the database - migrations run automatically
-        store = SqliteStore.open(str(db_path))
-        print("✅ Database opened successfully")
-        print(f"   Path: {store.path}\n")
+        # Default to SQLite
+        sqlite_path = os.getenv("FINSTACK_SQLITE_PATH", str(db_path))
+        db_path = Path(sqlite_path)
+        store = Store.open_sqlite(str(db_path))
+        print(f"\n✅ SQLite database opened (backend: {store.backend})")
+        print(f"   Path: {db_path}\n")
 
     # =========================================================================
     # 1. SAVING AND LOADING MARKET DATA
@@ -638,7 +649,7 @@ def main() -> None:
     # - value: float or None
     # - payload: dict or None (arbitrary JSON data)
     # - meta: dict or None (metadata about the point)
-    base_time = datetime(2024, 1, 15, 9, 30, 0, tzinfo=timezone.utc)
+    base_time = datetime(2024, 1, 15, 9, 30, 0, tzinfo=UTC)
     quote_points = []
     for i in range(10):
         ts = base_time + timedelta(minutes=i)
@@ -667,6 +678,7 @@ def main() -> None:
     print(f"   Retrieved {len(retrieved_points)} points from {start_ts} to {end_ts}:")
     for pt in retrieved_points[:3]:  # Show first 3
         ts, value, payload, meta = pt
+        assert payload is not None, "Expected payload with bid/ask data"
         print(f"      {ts}: ${value:.2f} (bid/ask: {payload['bid']:.2f}/{payload['ask']:.2f})")
     if len(retrieved_points) > 3:
         print(f"      ... and {len(retrieved_points) - 3} more")
@@ -693,7 +705,7 @@ def main() -> None:
     print("   ✅ Saved VaR series metadata")
 
     # Store daily VaR calculations
-    var_base_date = datetime(2024, 1, 15, 17, 0, 0, tzinfo=timezone.utc)
+    var_base_date = datetime(2024, 1, 15, 17, 0, 0, tzinfo=UTC)
     var_points = []
     for day in range(5):
         ts = var_base_date + timedelta(days=day)
@@ -723,6 +735,7 @@ def main() -> None:
     print(f"   VaR History ({len(var_history)} points):")
     for pt in var_history:
         ts, value, payload, meta = pt
+        assert payload is not None, "Expected payload with expected_shortfall data"
         es = payload["expected_shortfall"]
         print(f"      {ts.date()}: VaR=${value:,.0f}, ES=${es:,.0f}")
 
@@ -740,7 +753,7 @@ def main() -> None:
     print("   ✅ Saved PnL series metadata")
 
     # Store daily PnL with attribution breakdown
-    pnl_base_date = datetime(2024, 1, 15, 18, 0, 0, tzinfo=timezone.utc)
+    pnl_base_date = datetime(2024, 1, 15, 18, 0, 0, tzinfo=UTC)
     pnl_points = []
     cumulative_pnl = 0.0
     for day in range(5):
@@ -778,6 +791,7 @@ def main() -> None:
     print(f"   Daily PnL ({len(pnl_history)} points):")
     for pt in pnl_history:
         ts, daily, payload, meta = pt
+        assert payload is not None, "Expected payload with cumulative/breakdown data"
         cumul = payload["cumulative"]
         breakdown = payload["breakdown"]
         print(
@@ -824,7 +838,12 @@ def main() -> None:
     print("🎉 Example Complete!")
     print("=" * 70)
     print("\nKey takeaways:")
-    print("  • SqliteStore.open() creates/migrates the database automatically")
+    print("  • Unified Store API - same interface for all backends:")
+    print("      - Store.open_sqlite('/path/to/db.sqlite')  # SQLite")
+    print("      - Store.open_turso('/path/to/db.db')       # Turso")
+    print("      - Store.connect_postgres('postgresql://...')  # PostgreSQL")
+    print("      - Store.from_env()  # Auto-detect from environment")
+    print("  • Use store.backend to check which backend is active")
     print("  • Use put_*/get_* for individual operations")
     print("  • Use bulk methods (put_*_batch) for efficiency with many records")
     print("  • list_* and latest_*_on_or_before provide historical lookbacks")
@@ -839,7 +858,7 @@ def main() -> None:
     print("      - latest_point_on_or_before() finds the most recent point")
     print("      - Series kinds: quote, metric, result, pnl, risk")
     print("  • All data persists as JSON blobs with SQL indexes for fast lookup")
-    print(f"\n📁 Database persisted at: {db_path}")
+    print(f"\n📁 Database persisted at: {db_path} (backend: {store.backend})")
 
 
 if __name__ == "__main__":

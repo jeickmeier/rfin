@@ -2,26 +2,31 @@
 
 This module provides a typed repository interface for storing and retrieving
 market contexts, instruments, portfolios, scenarios, statement models, and
-metric registries. Three backends are supported:
+metric registries.
 
-- **SqliteStore**: SQLite (default, embedded, transactional)
-- **PostgresStore**: PostgreSQL (requires `postgres` feature)
-- **TursoStore**: Turso (SQLite-compatible with native JSON support, requires `turso` feature)
+Three backends are supported:
+- **SQLite**: Embedded, transactional, zero-config (default)
+- **PostgreSQL**: Production-grade relational database (requires `postgres` feature)
+- **Turso**: SQLite-compatible with native JSON support (requires `turso` feature)
+
+Examples:
+    >>> from finstack.io import Store
+    >>> # Create stores with specific backends
+    >>> store = Store.open_sqlite("finstack.db")
+    >>> store = Store.open_turso("finstack.db")
+    >>> store = Store.connect_postgres("postgresql://...")
+    >>> # Or auto-detect from environment
+    >>> store = Store.from_env()
 """
 
 from __future__ import annotations
 
-import os as _os
 import sys as _sys
 import types as _types
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from finstack.io import PostgresStore, SqliteStore, TursoStore
-
-    StoreType = SqliteStore | PostgresStore | TursoStore
-else:
-    StoreType = object
+    from finstack.io import Store
 
 from finstack import finstack as _finstack
 
@@ -38,8 +43,10 @@ for _name in dir(_rust_io):
 __all__ = [name for name in globals() if not name.startswith("_")]  # pyright: ignore[reportUnsupportedDunderAll]
 
 
-def open_store_from_env() -> StoreType:
+def open_store_from_env() -> Store:
     """Open a store based on environment variables.
+
+    This is a convenience wrapper for `Store.from_env()`.
 
     Environment Variables:
         FINSTACK_IO_BACKEND: Backend to use ("sqlite", "postgres", or "turso").
@@ -52,10 +59,11 @@ def open_store_from_env() -> StoreType:
             Required when FINSTACK_IO_BACKEND="turso".
 
     Returns:
-        SqliteStore, PostgresStore, or TursoStore: The opened store instance.
+        Store: The opened store instance.
 
     Raises:
-        ValueError: If required environment variables are missing or backend is unavailable.
+        IoError: If the store cannot be opened.
+        ValueError: If required environment variables are missing.
 
     Examples:
         >>> import os
@@ -63,31 +71,7 @@ def open_store_from_env() -> StoreType:
         >>> os.environ["FINSTACK_TURSO_PATH"] = "data/finstack.db"
         >>> store = open_store_from_env()
     """
-    backend = _os.getenv("FINSTACK_IO_BACKEND", "sqlite").strip().lower()
-
-    if backend in {"postgres", "postgresql"}:
-        url = _os.getenv("FINSTACK_POSTGRES_URL")
-        if not url:
-            raise ValueError("FINSTACK_POSTGRES_URL is required for postgres backend")
-        store_cls = globals().get("PostgresStore")
-        if store_cls is None:
-            raise ValueError("PostgresStore is not available in this build")
-        return store_cls.connect(url)
-
-    if backend == "turso":
-        path = _os.getenv("FINSTACK_TURSO_PATH")
-        if not path:
-            raise ValueError("FINSTACK_TURSO_PATH is required for turso backend")
-        store_cls = globals().get("TursoStore")
-        if store_cls is None:
-            raise ValueError("TursoStore is not available in this build")
-        return store_cls.open(path)
-
-    # Default to sqlite
-    path = _os.getenv("FINSTACK_SQLITE_PATH")
-    if not path:
-        raise ValueError("FINSTACK_SQLITE_PATH is required for sqlite backend")
-    store_cls = globals().get("SqliteStore")
+    store_cls = globals().get("Store")
     if store_cls is None:
-        raise ValueError("SqliteStore is not available in this build")
-    return store_cls.open(path)
+        raise RuntimeError("Store class is not available")
+    return store_cls.from_env()
