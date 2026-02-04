@@ -64,6 +64,10 @@ pub enum Error {
     /// Internal invariant violated (bug or corrupted store).
     #[error("Storage invariant violated: {0}")]
     Invariant(String),
+
+    /// Invalid series kind identifier.
+    #[error("Invalid series kind: '{0}' (expected one of: quote, metric, result, pnl, risk)")]
+    InvalidSeriesKind(String),
 }
 
 impl Error {
@@ -73,5 +77,10 @@ impl Error {
             entity,
             id: id.into(),
         }
+    }
+
+    /// Convenience constructor for an invalid series kind error.
+    pub fn invalid_series_kind(value: impl Into<String>) -> Self {
+        Self::InvalidSeriesKind(value.into())
     }
 }

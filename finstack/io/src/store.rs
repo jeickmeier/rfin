@@ -157,6 +157,9 @@ pub trait Store {
     fn list_metric_registries(&self) -> Result<Vec<String>>;
 
     /// Delete a metric registry by namespace.
+    ///
+    /// Returns `true` if a registry was deleted, `false` if no registry existed.
+    #[must_use = "this returns whether a registry was deleted, which should be checked"]
     fn delete_metric_registry(&self, namespace: &str) -> Result<bool>;
 
     /// Load a market context snapshot, returning a not-found error if missing.
@@ -183,8 +186,18 @@ pub trait Store {
     /// - If a position's `instrument_spec` is `None`, resolve it from the
     ///   instruments registry using `instrument_id`.
     ///
-    /// Note: This method performs multiple database reads without transaction isolation.
-    /// See the trait-level documentation for details on consistency guarantees.
+    /// # Transaction Isolation Warning
+    ///
+    /// This method performs multiple database reads (portfolio spec + instruments batch)
+    /// **without transaction isolation**. If instruments are modified concurrently between
+    /// these reads, the hydrated portfolio could contain:
+    /// - Stale instrument definitions (if an instrument was updated)
+    /// - A `NotFound` error (if an instrument was deleted)
+    ///
+    /// For strict consistency requirements, consider:
+    /// - Using portfolio specs with inline `instrument_spec` to avoid the lookup
+    /// - Implementing application-level locking around portfolio operations
+    /// - Using bulk write operations (`put_instruments_batch`) which are transactional
     fn load_portfolio(&self, portfolio_id: &str, as_of: Date) -> Result<Portfolio> {
         let mut spec = self.load_portfolio_spec(portfolio_id, as_of)?;
 
@@ -349,8 +362,17 @@ impl SeriesKind {
     }
 
     /// Parse a kind from a lowercase identifier.
+    ///
+    /// Returns an error if the value is not one of the known kinds.
+    pub fn parse(value: &str) -> Result<Self> {
+        Self::try_parse(value).ok_or_else(|| Error::invalid_series_kind(value))
+    }
+
+    /// Try to parse a kind from a lowercase identifier.
+    ///
+    /// Returns `None` if the value is not recognized.
     #[must_use]
-    pub fn parse(value: &str) -> Option<Self> {
+    pub fn try_parse(value: &str) -> Option<Self> {
         match value {
             "quote" => Some(SeriesKind::Quote),
             "metric" => Some(SeriesKind::Metric),

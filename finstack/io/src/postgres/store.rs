@@ -42,10 +42,9 @@ pub(crate) fn migrate(client: &mut Client) -> Result<()> {
     client.batch_execute(&migrations::schema_migrations_table_sql(Backend::Postgres))?;
 
     let row = client.query_opt("SELECT MAX(version) FROM finstack_schema_migrations", &[])?;
-    let current: i64 = match row {
-        Some(row) => row.get::<_, Option<i64>>(0).unwrap_or(0),
-        None => 0,
-    };
+    // MAX() returns NULL when the table is empty (no migrations applied yet).
+    // In that case, we treat it as version 0 to apply all migrations.
+    let current: i64 = row.and_then(|r| r.get::<_, Option<i64>>(0)).unwrap_or(0);
 
     if current > migrations::LATEST_VERSION {
         return Err(Error::UnsupportedSchema {

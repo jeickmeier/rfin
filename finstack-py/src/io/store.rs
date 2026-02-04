@@ -1706,7 +1706,7 @@ fn extract_metric_registry(registry: &Bound<'_, PyAny>) -> PyResult<MetricRegist
 }
 
 fn parse_series_kind(kind: &str) -> PyResult<SeriesKind> {
-    SeriesKind::parse(kind).ok_or_else(|| {
+    SeriesKind::try_parse(kind).ok_or_else(|| {
         PyValueError::new_err(format!(
             "Invalid series kind '{kind}'. Expected: quote, metric, result, pnl, risk."
         ))
@@ -1792,6 +1792,7 @@ pub(crate) fn register<'py>(
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<String>> {
     parent.add_class::<PySqliteStore>()?;
+    #[allow(unused_mut)] // mut needed when postgres feature is enabled
     let mut exports = vec!["SqliteStore".to_string()];
     #[cfg(feature = "postgres")]
     {

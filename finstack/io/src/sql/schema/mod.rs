@@ -30,7 +30,7 @@ mod statement_models;
 
 use std::collections::HashMap;
 
-use sea_query::{Alias, ColumnDef, Iden, IndexCreateStatement, TableCreateStatement};
+use sea_query::{Alias, ColumnDef, Expr, Iden, IndexCreateStatement, TableCreateStatement};
 
 use crate::sql::Backend;
 
@@ -305,9 +305,11 @@ pub fn created_at_col<T: Iden + 'static>(backend: Backend, col: T) -> ColumnDef 
         }
     }
     col.not_null();
+    // Use Expr::cust() to create a raw SQL expression for the default value.
+    // Using a string literal here would result in the expression being quoted.
     match backend {
-        Backend::Sqlite => col.default("strftime('%Y-%m-%dT%H:%M:%fZ','now')"),
-        Backend::Postgres => col.default("now()"),
+        Backend::Sqlite => col.default(Expr::cust("(strftime('%Y-%m-%dT%H:%M:%fZ','now'))")),
+        Backend::Postgres => col.default(Expr::cust("now()")),
     };
     col
 }
@@ -324,9 +326,11 @@ pub fn updated_at_col<T: Iden + 'static>(backend: Backend, col: T) -> ColumnDef 
         }
     }
     col.not_null();
+    // Use Expr::cust() to create a raw SQL expression for the default value.
+    // Using a string literal here would result in the expression being quoted.
     match backend {
-        Backend::Sqlite => col.default("strftime('%Y-%m-%dT%H:%M:%fZ','now')"),
-        Backend::Postgres => col.default("now()"),
+        Backend::Sqlite => col.default(Expr::cust("(strftime('%Y-%m-%dT%H:%M:%fZ','now'))")),
+        Backend::Postgres => col.default(Expr::cust("now()")),
     };
     col
 }

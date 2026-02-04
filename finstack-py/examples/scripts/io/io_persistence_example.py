@@ -11,6 +11,7 @@ This example shows how to:
 7. Save and load metric registries
 8. Save and load statement models (financial modeling)
 9. Save and load scenarios
+10. Store and query time series data (quotes, metrics, PnL)
 
 Run with: uv run examples/scripts/io/io_persistence_example.py
 
@@ -607,6 +608,216 @@ def main() -> None:
         print(f"      Operations: {len(loaded_scenario.operations)}")
 
     # =========================================================================
+    # 10. TIME SERIES DATA (Series Meta & Series Points)
+    # =========================================================================
+    print("\n📈 10. Time Series Data")
+    print("   " + "-" * 30)
+
+    from datetime import datetime, timedelta, timezone
+
+    # Time series are identified by (namespace, kind, series_id) tuples.
+    # Available kinds: "quote", "metric", "result", "pnl", "risk"
+
+    # --- Example 1: Market Quote Time Series ---
+    print("\n   📊 Market Quote Time Series")
+
+    # Store metadata describing this series
+    quote_meta = {
+        "source": "bloomberg",
+        "ticker": "SPY",
+        "description": "S&P 500 ETF mid price",
+        "currency": "USD",
+        "frequency": "1min",
+    }
+    store.put_series_meta("market_data", "quote", "SPY_MID", quote_meta)
+    print("   ✅ Saved series metadata for SPY_MID")
+
+    # Store quote data points
+    # Each point is a tuple: (ts, value, payload, meta)
+    # - ts: datetime with timezone
+    # - value: float or None
+    # - payload: dict or None (arbitrary JSON data)
+    # - meta: dict or None (metadata about the point)
+    base_time = datetime(2024, 1, 15, 9, 30, 0, tzinfo=timezone.utc)
+    quote_points = []
+    for i in range(10):
+        ts = base_time + timedelta(minutes=i)
+        price = 450.0 + i * 0.25 + (i % 3) * 0.1  # Simulated price movement
+        quote_points.append((
+            ts,
+            price,
+            {
+                "bid": price - 0.02,
+                "ask": price + 0.02,
+                "volume": 1000 + i * 100,
+            },
+            {"quality": "good"},
+        ))
+
+    store.put_points_batch("market_data", "quote", "SPY_MID", quote_points)
+    print(f"   ✅ Saved {len(quote_points)} quote data points")
+
+    # Query points in a time range
+    # Returns list of tuples: (ts, value, payload, meta)
+    start_ts = base_time
+    end_ts = base_time + timedelta(minutes=5)
+    retrieved_points = store.get_points_range(
+        "market_data", "quote", "SPY_MID", start_ts, end_ts
+    )
+    print(f"   Retrieved {len(retrieved_points)} points from {start_ts} to {end_ts}:")
+    for pt in retrieved_points[:3]:  # Show first 3
+        ts, value, payload, meta = pt
+        print(f"      {ts}: ${value:.2f} (bid/ask: {payload['bid']:.2f}/{payload['ask']:.2f})")
+    if len(retrieved_points) > 3:
+        print(f"      ... and {len(retrieved_points) - 3} more")
+
+    # Get latest point on or before a timestamp
+    query_ts = base_time + timedelta(minutes=7)
+    latest_quote = store.latest_point_on_or_before("market_data", "quote", "SPY_MID", query_ts)
+    if latest_quote:
+        ts, value, payload, meta = latest_quote
+        print(f"   Latest quote on or before {query_ts}: ${value:.2f} at {ts}")
+
+    # --- Example 2: Risk Metric Time Series ---
+    print("\n   📉 Risk Metric Time Series")
+
+    # Store metadata for a VaR time series
+    var_meta = {
+        "metric_type": "VaR",
+        "confidence_level": 0.99,
+        "holding_period_days": 1,
+        "portfolio_id": "TREASURY_DESK",
+        "calculation_method": "historical_simulation",
+    }
+    store.put_series_meta("risk", "metric", "TREASURY_VAR_99", var_meta)
+    print("   ✅ Saved VaR series metadata")
+
+    # Store daily VaR calculations
+    var_base_date = datetime(2024, 1, 15, 17, 0, 0, tzinfo=timezone.utc)
+    var_points = []
+    for day in range(5):
+        ts = var_base_date + timedelta(days=day)
+        var_value = 25000 + day * 500 + (day % 2) * 1000  # Simulated VaR
+        var_points.append((
+            ts,
+            var_value,
+            {
+                "p95_var": var_value * 0.8,
+                "expected_shortfall": var_value * 1.3,
+                "num_scenarios": 1000,
+            },
+            {"run_id": f"var_run_{day + 1}"},
+        ))
+
+    store.put_points_batch("risk", "metric", "TREASURY_VAR_99", var_points)
+    print(f"   ✅ Saved {len(var_points)} VaR data points")
+
+    # Query the full VaR history
+    var_history = store.get_points_range(
+        "risk",
+        "metric",
+        "TREASURY_VAR_99",
+        var_base_date - timedelta(days=1),
+        var_base_date + timedelta(days=10),
+    )
+    print(f"   VaR History ({len(var_history)} points):")
+    for pt in var_history:
+        ts, value, payload, meta = pt
+        es = payload["expected_shortfall"]
+        print(f"      {ts.date()}: VaR=${value:,.0f}, ES=${es:,.0f}")
+
+    # --- Example 3: PnL Time Series ---
+    print("\n   💰 PnL Time Series")
+
+    # Store metadata for daily PnL series
+    pnl_meta = {
+        "portfolio_id": "TREASURY_DESK",
+        "pnl_type": "total",
+        "currency": "USD",
+        "includes_unrealized": True,
+    }
+    store.put_series_meta("attribution", "pnl", "TREASURY_DAILY_PNL", pnl_meta)
+    print("   ✅ Saved PnL series metadata")
+
+    # Store daily PnL with attribution breakdown
+    pnl_base_date = datetime(2024, 1, 15, 18, 0, 0, tzinfo=timezone.utc)
+    pnl_points = []
+    cumulative_pnl = 0.0
+    for day in range(5):
+        ts = pnl_base_date + timedelta(days=day)
+        # Simulated daily PnL
+        daily_pnl = 5000 + (day - 2) * 3000 + ((-1) ** day) * 2000
+        cumulative_pnl += daily_pnl
+        pnl_points.append((
+            ts,
+            daily_pnl,
+            {
+                "cumulative": cumulative_pnl,
+                "realized": daily_pnl * 0.6,
+                "unrealized": daily_pnl * 0.4,
+                "breakdown": {
+                    "rates": daily_pnl * 0.3,
+                    "fx": daily_pnl * 0.2,
+                    "equity": daily_pnl * 0.5,
+                },
+            },
+            {"reporting_ccy": "USD"},
+        ))
+
+    store.put_points_batch("attribution", "pnl", "TREASURY_DAILY_PNL", pnl_points)
+    print(f"   ✅ Saved {len(pnl_points)} PnL data points")
+
+    # Retrieve and display PnL history
+    pnl_history = store.get_points_range(
+        "attribution",
+        "pnl",
+        "TREASURY_DAILY_PNL",
+        pnl_base_date - timedelta(days=1),
+        pnl_base_date + timedelta(days=10),
+    )
+    print(f"   Daily PnL ({len(pnl_history)} points):")
+    for pt in pnl_history:
+        ts, daily, payload, meta = pt
+        cumul = payload["cumulative"]
+        breakdown = payload["breakdown"]
+        print(
+            f"      {ts.date()}: Daily ${daily:+,.0f} | Cumulative ${cumul:+,.0f} "
+            f"(rates: ${breakdown['rates']:+,.0f}, equity: ${breakdown['equity']:+,.0f})"
+        )
+
+    # --- Example 4: Retrieve Series Metadata ---
+    print("\n   📋 Retrieving Series Metadata")
+
+    spy_meta = store.get_series_meta("market_data", "quote", "SPY_MID")
+    if spy_meta:
+        print(f"   SPY_MID metadata: source={spy_meta['source']}, frequency={spy_meta['frequency']}")
+
+    var_meta_loaded = store.get_series_meta("risk", "metric", "TREASURY_VAR_99")
+    if var_meta_loaded:
+        print(
+            f"   TREASURY_VAR_99 metadata: "
+            f"confidence={var_meta_loaded['confidence_level']}, "
+            f"method={var_meta_loaded['calculation_method']}"
+        )
+
+    # --- Example 5: Query with Limit ---
+    print("\n   🔍 Querying with Limit")
+
+    # Get only the last 3 points
+    recent_quotes = store.get_points_range(
+        "market_data",
+        "quote",
+        "SPY_MID",
+        base_time,
+        base_time + timedelta(hours=1),
+        limit=3,
+    )
+    print(f"   Last 3 quotes (with limit=3): {len(recent_quotes)} points")
+    for pt in recent_quotes:
+        ts, value, payload, meta = pt
+        print(f"      {ts.strftime('%H:%M:%S')}: ${value:.2f}")
+
+    # =========================================================================
     # SUMMARY
     # =========================================================================
     print("\n" + "=" * 70)
@@ -621,6 +832,12 @@ def main() -> None:
     print("  • MetricRegistry provides reusable financial metric definitions")
     print("  • FinancialModelSpec stores complete statement models with nodes/periods")
     print("  • Instruments are stored as tagged union JSON: {'type': ..., 'spec': ...}")
+    print("  • Time series use (namespace, kind, series_id) keys:")
+    print("      - put_series_meta() stores descriptive metadata")
+    print("      - put_points_batch() stores timestamped data points")
+    print("      - get_points_range() queries points in a time window")
+    print("      - latest_point_on_or_before() finds the most recent point")
+    print("      - Series kinds: quote, metric, result, pnl, risk")
     print("  • All data persists as JSON blobs with SQL indexes for fast lookup")
     print(f"\n📁 Database persisted at: {db_path}")
 

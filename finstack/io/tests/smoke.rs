@@ -820,3 +820,117 @@ fn sqlite_metric_registry_upsert() -> finstack_io::Result<()> {
 
     Ok(())
 }
+
+// ---------------------------------------------------------------------------
+// Concurrent access tests
+// ---------------------------------------------------------------------------
+// These tests verify that SQLite's busy timeout (5 seconds) handles concurrent
+// access correctly. SQLite uses file-level locking, and the busy timeout allows
+// waiting for locks to be released rather than immediately failing.
+
+#[test]
+fn sqlite_concurrent_writes_succeed() -> finstack_io::Result<()> {
+    use std::thread;
+
+    let dir = tempfile::tempdir()?;
+    let db_path = dir.path().join("concurrent.db");
+    let store = SqliteStore::open(&db_path)?;
+
+    // Pre-populate with an instrument
+    let deposit = Deposit::builder()
+        .id("DEPO-001".into())
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .start(date!(2024 - 01 - 01))
+        .end(date!(2025 - 01 - 01))
+        .day_count(finstack_core::dates::DayCount::Act360)
+        .discount_curve_id("USD-OIS".into())
+        .build()?;
+    let instrument = InstrumentJson::Deposit(deposit);
+    store.put_instrument("DEPO-001", &instrument, None)?;
+
+    // Clone store for concurrent access (each thread gets its own connection)
+    let store1 = store.clone();
+    let store2 = store.clone();
+    let instrument1 = instrument.clone();
+    let instrument2 = instrument.clone();
+
+    // Spawn two threads that write concurrently
+    let handle1 = thread::spawn(move || -> finstack_io::Result<()> {
+        for i in 0..10 {
+            store1.put_instrument(&format!("THREAD1-{i}"), &instrument1, None)?;
+        }
+        Ok(())
+    });
+
+    let handle2 = thread::spawn(move || -> finstack_io::Result<()> {
+        for i in 0..10 {
+            store2.put_instrument(&format!("THREAD2-{i}"), &instrument2, None)?;
+        }
+        Ok(())
+    });
+
+    // Both threads should complete successfully
+    handle1.join().expect("Thread 1 panicked")?;
+    handle2.join().expect("Thread 2 panicked")?;
+
+    // Verify all instruments were written
+    let instruments = store.list_instruments()?;
+    assert!(instruments.len() >= 21); // 1 original + 10 from each thread
+
+    Ok(())
+}
+
+#[test]
+fn sqlite_concurrent_reads_and_writes() -> finstack_io::Result<()> {
+    use std::thread;
+
+    let dir = tempfile::tempdir()?;
+    let db_path = dir.path().join("concurrent_rw.db");
+    let store = SqliteStore::open(&db_path)?;
+
+    // Pre-populate with instruments
+    let deposit = Deposit::builder()
+        .id("DEPO-BASE".into())
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .start(date!(2024 - 01 - 01))
+        .end(date!(2025 - 01 - 01))
+        .day_count(finstack_core::dates::DayCount::Act360)
+        .discount_curve_id("USD-OIS".into())
+        .build()?;
+    let instrument = InstrumentJson::Deposit(deposit);
+
+    for i in 0..5 {
+        store.put_instrument(&format!("INIT-{i}"), &instrument, None)?;
+    }
+
+    let store_writer = store.clone();
+    let store_reader = store.clone();
+    let instrument_for_writer = instrument.clone();
+
+    // Writer thread: continuously writes new instruments
+    let writer = thread::spawn(move || -> finstack_io::Result<()> {
+        for i in 0..20 {
+            store_writer.put_instrument(&format!("WRITE-{i}"), &instrument_for_writer, None)?;
+        }
+        Ok(())
+    });
+
+    // Reader thread: continuously reads and lists instruments
+    let reader = thread::spawn(move || -> finstack_io::Result<()> {
+        for _ in 0..20 {
+            let _ = store_reader.list_instruments()?;
+            let _ = store_reader.get_instrument("INIT-0")?;
+        }
+        Ok(())
+    });
+
+    // Both should complete without errors
+    writer.join().expect("Writer thread panicked")?;
+    reader.join().expect("Reader thread panicked")?;
+
+    // Verify writes succeeded
+    let instruments = store.list_instruments()?;
+    assert!(instruments.len() >= 25); // 5 initial + 20 written
+
+    Ok(())
+}

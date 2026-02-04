@@ -1,3 +1,47 @@
+//! Backend conformance tests for `finstack-io`.
+//!
+//! These tests verify that all storage backends (SQLite, Postgres) implement
+//! the storage traits consistently.
+//!
+//! # Running Tests
+//!
+//! ## SQLite (default)
+//!
+//! SQLite tests run automatically with no configuration:
+//!
+//! ```bash
+//! cargo test -p finstack-io
+//! ```
+//!
+//! ## Postgres
+//!
+//! Postgres tests require:
+//! 1. The `postgres` feature enabled
+//! 2. A running Postgres instance
+//! 3. The `POSTGRES_URL` environment variable set
+//!
+//! ```bash
+//! # Start a local Postgres (example using Docker)
+//! docker run -d --name finstack-pg \
+//!     -e POSTGRES_PASSWORD=test \
+//!     -e POSTGRES_DB=finstack_test \
+//!     -p 5432:5432 \
+//!     postgres:15
+//!
+//! # Run tests with Postgres
+//! POSTGRES_URL="postgres://postgres:test@localhost:5432/finstack_test" \
+//!     cargo test -p finstack-io --features postgres
+//! ```
+//!
+//! If `POSTGRES_URL` is not set, Postgres tests are skipped with a message.
+//!
+//! # CI Considerations
+//!
+//! In CI environments, you may want to:
+//! - Always run SQLite tests (no external dependencies)
+//! - Optionally run Postgres tests when a Postgres service is available
+//! - Use GitHub Actions services or similar to provision Postgres
+
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;

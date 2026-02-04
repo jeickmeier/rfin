@@ -2,112 +2,463 @@
 
 Persistent storage and import/export adapters for the Finstack workspace.
 
-This crate is intended to be the “persistence boundary” for the rest of the
-library: market data snapshots for historical lookbacks, instrument/portfolio
-registries, statements models/results, and scenario definitions.
+This crate provides a **stable persistence boundary** for domain crates:
 
-## Recommended architecture (simple + extensible)
+- Market data snapshots (`MarketContext`) for historical lookbacks
+- Instrument registries (`InstrumentJson`)
+- Portfolio snapshots (`PortfolioSpec`)
+- Scenario definitions (`ScenarioSpec`)
+- Statement models (`FinancialModelSpec`)
+- Metric registries (`MetricRegistry`)
+- Time-series data (quotes, metrics, results)
 
-### 1) Separate *domain types* from *persistence*
+## Architecture
 
-- Domain crates (`finstack-core`, `finstack-portfolio`, `finstack-valuations`,
-  `finstack-statements`, `finstack-scenarios`) own the canonical types and
-  business logic.
-- `finstack-io` owns:
-  - Storage backends (SQLite first; Postgres later)
-  - Schemas/migrations
-  - Codecs (JSON today; optional compression later)
-  - High-level “loader” helpers (hydrate `Portfolio`, build `MarketContext`)
+```text
+┌─────────────────────────────────────────────────────────────────────┐
+│                           Application                                │
+├─────────────────────────────────────────────────────────────────────┤
+│  Store trait    │  BulkStore    │  LookbackStore  │  TimeSeriesStore│
+├─────────────────────────────────────────────────────────────────────┤
+│                    sql/statements.rs (sea-query)                     │
+├─────────────────────────────────────────────────────────────────────┤
+│  sql/migrations.rs  │  sql/schema/*.rs (TableDefinition trait)      │
+├──────────────────────────────┬──────────────────────────────────────┤
+│      SqliteStore             │         PostgresStore                │
+│  (default, embedded)         │     (optional, scale-out)            │
+└──────────────────────────────┴──────────────────────────────────────┘
+```
 
-This keeps persistence concerns (SQL, filenames, codecs) out of pricing,
-portfolio aggregation, and scenario engines.
+### Design Principles
 
-### 2) Pick storage “tool for the job”
+1. **Separate domain types from persistence** - Domain crates own types and logic;
+   `finstack-io` owns storage, schemas, and codecs.
 
-**Default (local / embedded / test)**: SQLite
-- One-file DB, ACID, easy migrations, easy to ship.
-- Good fit for:
-  - MarketContext snapshots by `as_of` (daily curves/surfaces, FX matrices)
-  - Instruments registry (JSON)
-  - Portfolios by `as_of` (positions snapshots)
-  - Scenario specs and statement model specs
+2. **Backend-agnostic traits** - The `Store` trait abstracts over SQLite and Postgres,
+   making backends swappable.
 
-**Scale-out (multi-user / central service)**: Postgres (future optional backend)
-- Same logical schema, different connection + migrations.
+3. **Versioned snapshots** - Data is keyed by `(id, as_of)` for reproducible lookbacks.
 
-**Very large time-series payloads (optional)**: Parquet on filesystem/object-store
-- Store the blob (Parquet) separately and keep a pointer + checksum in SQL.
-- Good fit for:
-  - Tick/quote history
-  - Large valuation result tables
-  - Statement outputs exported as DataFrames
+4. **Typed payloads** - SQL tables provide indexing; payloads are stored as JSON blobs
+   of stable serde types.
 
-### 3) Store *versioned snapshots* for reproducibility
+5. **Auto-discovered migrations** - New tables implement `TableDefinition` and are
+   automatically picked up by the migration system.
 
-For calibration/backtesting and deterministic lookbacks, prefer persisting:
-- **MarketContext snapshots** (`MarketContextState`) keyed by `(market_id, as_of)`
-- **Portfolio snapshots** (`PortfolioSpec`) keyed by `(portfolio_id, as_of)`
+## Quick Start
 
-This makes historical reruns reproducible: you can re-load “what we knew then”
-without needing to replay external vendor data.
+### SQLite (Default)
 
-### 4) Keep schemas narrow and payloads typed
+```rust
+use finstack_io::{SqliteStore, Store};
+use time::macros::date;
 
-Use SQL tables for indexing + integrity, but store the “payload” as bytes:
-- `payload` = JSON bytes (or compressed bytes) of a stable, serde type
-- SQL columns capture query keys (`id`, `as_of`, optional `scope`, `kind`, etc.)
+// Open (or create) a database file
+let store = SqliteStore::open("finstack.db")?;
 
-This avoids over-normalization early while staying easy to evolve.
+// Store and retrieve data
+store.put_instrument("DEPO-001", &instrument, None)?;
+let loaded = store.get_instrument("DEPO-001")?;
+```
 
-## Data model (initial)
+### Postgres
 
-Suggested minimal tables (SQLite / Postgres):
+Enable the `postgres` feature in `Cargo.toml`:
 
-- `market_contexts(id, as_of, payload, meta, created_at, updated_at)`
-- `instruments(id, payload, meta, created_at, updated_at)`
-- `portfolios(id, as_of, payload, meta, created_at, updated_at)`
-- `scenarios(id, payload, meta, created_at, updated_at)`
-- `statement_models(id, payload, meta, created_at, updated_at)`
+```toml
+finstack-io = { version = "0.4", features = ["postgres"] }
+```
 
-Where:
-- `payload` is the JSON snapshot of the domain type:
-  - market: `finstack_core::market_data::context::MarketContextState`
-  - instrument: `finstack_valuations::instruments::InstrumentJson`
-  - portfolio: `finstack_portfolio::PortfolioSpec`
-  - scenario: `finstack_scenarios::ScenarioSpec`
-  - statements: `finstack_statements::FinancialModelSpec`
-- `meta` is a small JSON object for provenance (vendor, run id, notes, tags).
+```rust
+use finstack_io::{PostgresStore, Store};
 
-## Loader helpers (what “easy setup” means)
+let store = PostgresStore::connect("postgres://user:pass@localhost/finstack")?;
+store.put_instrument("DEPO-001", &instrument, None)?;
+```
 
-The core ergonomic goal is to provide:
+### Environment-Based Configuration
 
-- `load_market_context(market_id, as_of) -> MarketContext`
-- `load_portfolio(portfolio_id, as_of) -> Portfolio` (hydrated with instruments)
-- `load_portfolio_with_market(...) -> (Portfolio, MarketContext)`
+```rust
+use finstack_io::{open_store_from_env, StoreHandle};
 
-Hydration rule:
-- Positions can either inline `instrument_spec` (self-contained portfolios), or
-  store only `instrument_id` and resolve missing specs from the instruments
-  registry.
+// Reads FINSTACK_IO_BACKEND and FINSTACK_IO_URL from environment
+let store: StoreHandle = open_store_from_env()?;
+```
 
-## Additional considerations
+## Database Setup
 
-- **As-of vs observed-at**: store both if you ingest real market feeds.
-- **Provenance**: source/vendor, curve build config hash, and calibration trace
-  (`finstack_core::explain::ExplanationTrace`) are often more valuable than the
-  numbers themselves.
-- **Schema versioning**: track a DB schema version and keep snapshot payloads
-  versioned (domain crates already do this for `MarketContextState`).
-- **Transactions**: portfolio + instruments + market snapshot updates should be
-  atomic when used for official “runs”.
-- **Determinism**: avoid “latest” reads by default; require an `as_of`.
-- **Caching**: consider an in-memory cache layer for hot reads, but keep it
-  behind the persistence API (don’t leak caches into domain code).
+### SQLite
 
-## Current crate surface
+No setup required. The database file is created automatically:
 
-- `Store`: backend-agnostic CRUD for market contexts, instruments, portfolios,
-  scenarios, and statement models.
-- `LookbackStore`: optional range-query API (historical lookbacks).
-- `SqliteStore`: default SQLite backend (feature `sqlite`, enabled by default).
+```rust
+let store = SqliteStore::open("path/to/finstack.db")?;
+// Migrations run automatically on first connect
+```
+
+SQLite configuration:
+- **Busy timeout**: 5 seconds (handles concurrent access)
+- **Journal mode**: WAL (write-ahead logging for better concurrency)
+
+### Postgres
+
+1. Create a database:
+
+```bash
+# Using Docker
+docker run -d --name finstack-pg \
+    -e POSTGRES_PASSWORD=secret \
+    -e POSTGRES_DB=finstack \
+    -p 5432:5432 \
+    postgres:15
+
+# Or using psql
+createdb finstack
+```
+
+2. Connect and run migrations:
+
+```rust
+let store = PostgresStore::connect("postgres://user:secret@localhost/finstack")?;
+// Migrations run automatically on connect
+```
+
+Postgres configuration:
+- **Statement timeout**: 5 seconds (per-statement limit)
+- New connection per operation (no pooling; add pooling layer if needed)
+
+### Custom Table Names
+
+For deployments requiring custom naming conventions:
+
+```rust
+use finstack_io::sql::schema::TableNaming;
+use finstack_io::sql::migrations;
+
+// Add prefix to all tables: instruments -> ref_cln_instruments
+let naming = TableNaming::new().with_prefix("ref_cln_");
+
+// Or override specific tables
+let naming = TableNaming::new()
+    .with_prefix("app_")
+    .with_override("instruments", "custom_instruments_table");
+
+// Generate migrations with custom naming
+let migrations = migrations::migrations_for_with_naming(Backend::Sqlite, &naming);
+```
+
+## Schema & Migrations
+
+### Schema Version
+
+The current schema version is tracked in `sql/migrations.rs`:
+
+```rust
+pub const LATEST_VERSION: i64 = 3;
+```
+
+Migrations are tracked in the `finstack_schema_migrations` table.
+
+### Tables
+
+| Table | Primary Key | Description |
+|-------|-------------|-------------|
+| `instruments` | `id` | Instrument definitions (bonds, deposits, swaps, etc.) |
+| `market_contexts` | `(id, as_of)` | Market data snapshots (curves, surfaces, FX) |
+| `portfolios` | `(id, as_of)` | Portfolio position snapshots |
+| `scenarios` | `id` | Scenario specifications |
+| `statement_models` | `id` | Financial statement model specs |
+| `metric_registries` | `namespace` | Metric definition registries |
+| `series_meta` | `(namespace, series_id, kind)` | Time-series metadata |
+| `series_points` | `(namespace, series_id, kind, ts)` | Time-series data points |
+
+### Adding a New Table
+
+1. **Create the table module** in `src/sql/schema/`:
+
+```rust
+// src/sql/schema/my_table.rs
+use sea_query::{ColumnDef, Iden, Index, IndexCreateStatement, Table, TableCreateStatement};
+use super::{created_at_col, meta_col, payload_col, updated_at_col, TableDefinition, TableNaming};
+use crate::sql::Backend;
+
+#[derive(Iden)]
+pub enum MyTable {
+    Table,
+    Id,
+    Payload,
+    Meta,
+    CreatedAt,
+    UpdatedAt,
+}
+
+impl TableDefinition for MyTable {
+    // Base name used for custom naming (prefix/suffix applied to this)
+    const BASE_NAME: &'static str = "my_table";
+
+    // Migration version when this table was introduced
+    fn migration_version() -> i64 {
+        4  // Next version after current LATEST_VERSION
+    }
+
+    fn create_table_with_naming(backend: Backend, naming: &TableNaming) -> TableCreateStatement {
+        Table::create()
+            .if_not_exists()
+            .table(naming.alias(Self::BASE_NAME))
+            .col(
+                ColumnDef::new(MyTable::Id)
+                    .string()
+                    .not_null()
+                    .primary_key(),
+            )
+            .col(payload_col(backend, MyTable::Payload))
+            .col(meta_col(backend, MyTable::Meta))
+            .col(created_at_col(backend, MyTable::CreatedAt))
+            .col(updated_at_col(backend, MyTable::UpdatedAt))
+            .to_owned()
+    }
+
+    // Optional: Add indexes for this table
+    fn indexes_with_naming(_backend: Backend, naming: &TableNaming) -> Vec<IndexCreateStatement> {
+        let idx_name = format!("idx_{}my_table{}_created_at", naming.prefix(), naming.suffix());
+        vec![Index::create()
+            .name(&idx_name)
+            .table(naming.alias(Self::BASE_NAME))
+            .col(MyTable::CreatedAt)
+            .to_owned()]
+    }
+}
+```
+
+2. **Register the module** in `src/sql/schema/mod.rs`:
+
+```rust
+mod my_table;
+pub use my_table::MyTable;
+```
+
+3. **Add to migration discovery** in `tables_by_version_with_naming()`:
+
+```rust
+// In schema/mod.rs, add to the appropriate version
+(4, vec![MyTable::create_table_with_naming(backend, naming)]),
+```
+
+4. **Update LATEST_VERSION** in `src/sql/migrations.rs`:
+
+```rust
+pub const LATEST_VERSION: i64 = 4;
+```
+
+5. **Add Store trait methods** (optional) - see next section.
+
+### Adding New Statements (Queries)
+
+SQL statements are defined in `src/sql/statements.rs` using `sea-query`.
+
+1. **Add the query builder**:
+
+```rust
+// src/sql/statements.rs
+pub fn upsert_my_table_sql(backend: Backend) -> String {
+    let query = Query::insert()
+        .into_table(schema::MyTable::Table)
+        .columns([
+            schema::MyTable::Id,
+            schema::MyTable::Payload,
+            schema::MyTable::Meta,
+        ])
+        .values_panic([dummy_value(), dummy_value(), dummy_value()])
+        .on_conflict(
+            OnConflict::column(schema::MyTable::Id)
+                .update_columns([schema::MyTable::Payload, schema::MyTable::Meta])
+                .value(schema::MyTable::UpdatedAt, updated_at_expr(backend))
+                .to_owned(),
+        )
+        .to_owned();
+    build_sql(backend, query)
+}
+
+pub fn select_my_table_sql(backend: Backend) -> String {
+    let query = Query::select()
+        .columns([schema::MyTable::Id, schema::MyTable::Payload])
+        .from(schema::MyTable::Table)
+        .and_where(Expr::col(schema::MyTable::Id).eq("?"))
+        .to_owned();
+    build_sql(backend, query)
+}
+```
+
+2. **Add Store trait methods** in `src/store.rs`:
+
+```rust
+pub trait Store {
+    // ... existing methods ...
+
+    fn put_my_entity(&self, id: &str, entity: &MyEntity, meta: Option<&serde_json::Value>) -> Result<()>;
+
+    #[must_use]
+    fn get_my_entity(&self, id: &str) -> Result<Option<MyEntity>>;
+}
+```
+
+3. **Implement for each backend** (`src/sqlite/core_store.rs`, `src/postgres/core_store.rs`):
+
+```rust
+impl Store for SqliteStore {
+    fn put_my_entity(&self, id: &str, entity: &MyEntity, meta: Option<&serde_json::Value>) -> Result<()> {
+        self.with_conn(|conn| {
+            let sql = statements::upsert_my_table_sql(Backend::Sqlite);
+            let payload = serde_json::to_string(entity)?;
+            let meta_json = meta.cloned().unwrap_or_else(|| serde_json::json!({}));
+            conn.execute(&sql, params![id, payload, meta_json.to_string()])?;
+            Ok(())
+        })
+    }
+
+    fn get_my_entity(&self, id: &str) -> Result<Option<MyEntity>> {
+        self.with_conn(|conn| {
+            let sql = statements::select_my_table_sql(Backend::Sqlite);
+            let mut stmt = conn.prepare(&sql)?;
+            let mut rows = stmt.query(params![id])?;
+            match rows.next()? {
+                Some(row) => {
+                    let payload: String = row.get(1)?;
+                    Ok(Some(serde_json::from_str(&payload)?))
+                }
+                None => Ok(None),
+            }
+        })
+    }
+}
+```
+
+## API Reference
+
+### Core Traits
+
+| Trait | Purpose |
+|-------|---------|
+| `Store` | Basic CRUD for all entity types |
+| `BulkStore` | Batch operations (transactional) |
+| `LookbackStore` | Range queries by `as_of` date |
+| `TimeSeriesStore` | Time-series data operations |
+
+### Store Methods
+
+```rust
+// Market contexts (keyed by id + as_of)
+store.put_market_context(market_id, as_of, &context, meta)?;
+store.get_market_context(market_id, as_of)?;
+store.load_market_context(market_id, as_of)?;  // Returns error if not found
+
+// Instruments
+store.put_instrument(id, &instrument, meta)?;
+store.get_instrument(id)?;
+store.list_instruments()?;  // Returns all instrument IDs
+
+// Portfolios (keyed by id + as_of)
+store.put_portfolio_spec(portfolio_id, as_of, &spec, meta)?;
+store.get_portfolio_spec(portfolio_id, as_of)?;
+store.load_portfolio(portfolio_id, as_of)?;  // Hydrates with instruments
+
+// Convenience: load portfolio + market together
+let (portfolio, market) = store.load_portfolio_with_market(
+    portfolio_id, market_id, as_of
+)?;
+
+// Scenarios
+store.put_scenario(id, &spec, meta)?;
+store.get_scenario(id)?;
+
+// Statement models
+store.put_statement_model(id, &spec, meta)?;
+store.get_statement_model(id)?;
+
+// Metric registries
+store.put_metric_registry(namespace, &registry, meta)?;
+store.get_metric_registry(namespace)?;
+store.list_metric_registries()?;
+store.delete_metric_registry(namespace)?;
+```
+
+### Bulk Operations
+
+```rust
+// Batch insert (transactional)
+store.put_instruments_batch(&[(id1, instr1), (id2, instr2)])?;
+store.put_market_contexts_batch(&[(id, as_of, ctx, meta), ...])?;
+```
+
+### Lookback Queries
+
+```rust
+// Get latest snapshot on or before a date
+store.latest_market_context_on_or_before(market_id, as_of)?;
+store.latest_portfolio_on_or_before(portfolio_id, as_of)?;
+
+// List all snapshots in a date range
+store.list_market_contexts(market_id, start_date, end_date)?;
+store.list_portfolios(portfolio_id, start_date, end_date)?;
+```
+
+### Time-Series
+
+```rust
+let key = SeriesKey::new("namespace", "series_id", SeriesKind::Quote);
+
+// Store metadata
+store.put_series_meta(&key, Some(&serde_json::json!({"source": "bloomberg"})))?;
+
+// Store points
+store.put_points_batch(&key, &[
+    TimeSeriesPoint { ts, value: Some(100.0), payload: None, meta: None },
+])?;
+
+// Query range
+let points = store.get_points_range(&key, start_ts, end_ts, Some(limit))?;
+
+// Get latest point
+let latest = store.latest_point_on_or_before(&key, as_of_ts)?;
+```
+
+## Testing
+
+```bash
+# Run all tests (SQLite only)
+cargo test -p finstack-io
+
+# Run with Postgres (requires running Postgres instance)
+POSTGRES_URL="postgres://user:pass@localhost/finstack_test" \
+    cargo test -p finstack-io --features postgres
+```
+
+## Error Handling
+
+The crate uses strict error handling:
+
+- `#![deny(clippy::unwrap_used)]` - No panics from unwrap
+- `#![deny(clippy::expect_used)]` - No panics from expect
+- `#![deny(clippy::panic)]` - No explicit panics
+
+All operations return `Result<T, Error>` with typed error variants:
+
+```rust
+pub enum Error {
+    Sqlite(rusqlite::Error),
+    Postgres(postgres::Error),
+    SerdeJson(serde_json::Error),
+    NotFound { entity, id },
+    UnsupportedSchema { found, expected },
+    InvalidSeriesKind(String),
+    Invariant(String),
+    // ...
+}
+```
+
+## Features
+
+| Feature | Default | Description |
+|---------|---------|-------------|
+| `sqlite` | Yes | SQLite backend via `rusqlite` |
+| `postgres` | No | Postgres backend via `postgres` crate |
