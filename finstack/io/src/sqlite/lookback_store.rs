@@ -29,7 +29,7 @@ impl LookbackStore for SqliteStore {
             .call(
                 move |conn| -> tokio_rusqlite::Result<Vec<(String, Vec<u8>)>> {
                     let sql = statements::list_market_contexts_sql(Backend::Sqlite);
-                    let mut stmt = conn.prepare(&sql)?;
+                    let mut stmt = conn.prepare(sql)?;
                     let rows = stmt.query_map(params![market_id, start, end], |row| {
                         Ok((row.get::<_, String>(0)?, row.get::<_, Vec<u8>>(1)?))
                     })?;
@@ -70,7 +70,7 @@ impl LookbackStore for SqliteStore {
                 move |conn| -> tokio_rusqlite::Result<Option<(String, Vec<u8>)>> {
                     let sql = statements::latest_market_context_sql(Backend::Sqlite);
                     Ok(optional_row(conn.query_row(
-                        &sql,
+                        sql,
                         params![market_id, as_of],
                         |row| Ok((row.get(0)?, row.get(1)?)),
                     ))?)
@@ -107,7 +107,7 @@ impl LookbackStore for SqliteStore {
             .call(
                 move |conn| -> tokio_rusqlite::Result<Vec<(String, Vec<u8>)>> {
                     let sql = statements::list_portfolios_sql(Backend::Sqlite);
-                    let mut stmt = conn.prepare(&sql)?;
+                    let mut stmt = conn.prepare(sql)?;
                     let rows = stmt.query_map(params![portfolio_id, start, end], |row| {
                         Ok((row.get::<_, String>(0)?, row.get::<_, Vec<u8>>(1)?))
                     })?;
@@ -144,7 +144,7 @@ impl LookbackStore for SqliteStore {
                 move |conn| -> tokio_rusqlite::Result<Option<(String, Vec<u8>)>> {
                     let sql = statements::latest_portfolio_sql(Backend::Sqlite);
                     Ok(optional_row(conn.query_row(
-                        &sql,
+                        sql,
                         params![portfolio_id, as_of],
                         |row| Ok((row.get(0)?, row.get(1)?)),
                     ))?)

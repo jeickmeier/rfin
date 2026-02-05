@@ -24,7 +24,7 @@ impl LookbackStore for TursoStore {
         let end_key = as_of_key(end);
         let conn = self.get_conn()?;
         let sql = statements::list_market_contexts_sql(Backend::Sqlite);
-        let mut stmt = conn.prepare(&sql).await?;
+        let mut stmt = conn.prepare(sql).await?;
         let mut rows = stmt.query(params![market_id, start_key, end_key]).await?;
 
         let mut out = Vec::new();
@@ -47,7 +47,7 @@ impl LookbackStore for TursoStore {
         let as_of_key_str = as_of_key(as_of);
         let conn = self.get_conn()?;
         let sql = statements::latest_market_context_sql(Backend::Sqlite);
-        let mut stmt = conn.prepare(&sql).await?;
+        let mut stmt = conn.prepare(sql).await?;
         let mut rows = stmt.query(params![market_id, as_of_key_str]).await?;
 
         match rows.next().await.map_err(Error::Turso)? {
@@ -73,7 +73,7 @@ impl LookbackStore for TursoStore {
         let end_key = as_of_key(end);
         let conn = self.get_conn()?;
         let sql = statements::list_portfolios_sql(Backend::Sqlite);
-        let mut stmt = conn.prepare(&sql).await?;
+        let mut stmt = conn.prepare(sql).await?;
         let mut rows = stmt
             .query(params![portfolio_id, start_key, end_key])
             .await?;
@@ -97,7 +97,7 @@ impl LookbackStore for TursoStore {
         let as_of_key_str = as_of_key(as_of);
         let conn = self.get_conn()?;
         let sql = statements::latest_portfolio_sql(Backend::Sqlite);
-        let mut stmt = conn.prepare(&sql).await?;
+        let mut stmt = conn.prepare(sql).await?;
         let mut rows = stmt.query(params![portfolio_id, as_of_key_str]).await?;
 
         match rows.next().await.map_err(Error::Turso)? {

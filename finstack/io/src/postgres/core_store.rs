@@ -2,6 +2,7 @@
 
 use crate::{
     sql::{statements, Backend},
+    store::MAX_BATCH_SIZE,
     Result, Store,
 };
 use async_trait::async_trait;
@@ -32,7 +33,7 @@ impl Store for PostgresStore {
         let sql = statements::upsert_market_context_sql(Backend::Postgres);
 
         let conn = self.get_conn().await?;
-        conn.execute(&sql, &[&market_id, &as_of, &payload, &meta])
+        conn.execute(sql, &[&market_id, &as_of, &payload, &meta])
             .await?;
         Ok(())
     }
@@ -46,7 +47,7 @@ impl Store for PostgresStore {
         let sql = statements::select_market_context_sql(Backend::Postgres);
 
         let conn = self.get_conn().await?;
-        let row = conn.query_opt(&sql, &[&market_id, &as_of]).await?;
+        let row = conn.query_opt(sql, &[&market_id, &as_of]).await?;
         match row {
             Some(row) => {
                 let payload: serde_json::Value = row.get(0);
@@ -68,7 +69,7 @@ impl Store for PostgresStore {
         let sql = statements::upsert_instrument_sql(Backend::Postgres);
 
         let conn = self.get_conn().await?;
-        conn.execute(&sql, &[&instrument_id, &payload, &meta])
+        conn.execute(sql, &[&instrument_id, &payload, &meta])
             .await?;
         Ok(())
     }
@@ -77,7 +78,7 @@ impl Store for PostgresStore {
         let sql = statements::select_instrument_sql(Backend::Postgres);
 
         let conn = self.get_conn().await?;
-        let row = conn.query_opt(&sql, &[&instrument_id]).await?;
+        let row = conn.query_opt(sql, &[&instrument_id]).await?;
         match row {
             Some(row) => {
                 let payload: serde_json::Value = row.get(0);
@@ -94,29 +95,36 @@ impl Store for PostgresStore {
         if instrument_ids.is_empty() {
             return Ok(HashMap::new());
         }
-        let sql = statements::select_instruments_batch_sql(Backend::Postgres, instrument_ids.len());
 
-        let conn = self.get_conn().await?;
-        let params: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> = instrument_ids
-            .iter()
-            .map(|s| s as &(dyn tokio_postgres::types::ToSql + Sync))
-            .collect();
-        let rows = conn.query(&sql, &params).await?;
-        let mut out = HashMap::new();
-        for row in rows {
-            let id: String = row.get(0);
-            let payload: serde_json::Value = row.get(1);
-            let instrument: InstrumentJson = serde_json::from_value(payload)?;
-            out.insert(id, instrument);
+        let mut result = HashMap::with_capacity(instrument_ids.len());
+
+        // Chunk large batches to avoid query plan cache pollution and excessive IN clause sizes
+        for chunk in instrument_ids.chunks(MAX_BATCH_SIZE) {
+            let sql = statements::select_instruments_batch_sql(Backend::Postgres, chunk.len());
+
+            let conn = self.get_conn().await?;
+            let params: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> = chunk
+                .iter()
+                .map(|s| s as &(dyn tokio_postgres::types::ToSql + Sync))
+                .collect();
+            let rows = conn.query(&sql, &params).await?;
+
+            for row in rows {
+                let id: String = row.get(0);
+                let payload: serde_json::Value = row.get(1);
+                let instrument: InstrumentJson = serde_json::from_value(payload)?;
+                result.insert(id, instrument);
+            }
         }
-        Ok(out)
+
+        Ok(result)
     }
 
     async fn list_instruments(&self) -> Result<Vec<String>> {
         let sql = statements::list_instruments_sql(Backend::Postgres);
 
         let conn = self.get_conn().await?;
-        let rows = conn.query(&sql, &[]).await?;
+        let rows = conn.query(sql, &[]).await?;
         Ok(rows.into_iter().map(|row| row.get(0)).collect())
     }
 
@@ -133,7 +141,7 @@ impl Store for PostgresStore {
         let sql = statements::upsert_portfolio_sql(Backend::Postgres);
 
         let conn = self.get_conn().await?;
-        conn.execute(&sql, &[&portfolio_id, &as_of, &payload, &meta])
+        conn.execute(sql, &[&portfolio_id, &as_of, &payload, &meta])
             .await?;
         Ok(())
     }
@@ -147,7 +155,7 @@ impl Store for PostgresStore {
         let sql = statements::select_portfolio_sql(Backend::Postgres);
 
         let conn = self.get_conn().await?;
-        let row = conn.query_opt(&sql, &[&portfolio_id, &as_of]).await?;
+        let row = conn.query_opt(sql, &[&portfolio_id, &as_of]).await?;
         match row {
             Some(row) => {
                 let payload: serde_json::Value = row.get(0);
@@ -168,7 +176,7 @@ impl Store for PostgresStore {
         let sql = statements::upsert_scenario_sql(Backend::Postgres);
 
         let conn = self.get_conn().await?;
-        conn.execute(&sql, &[&scenario_id, &payload, &meta]).await?;
+        conn.execute(sql, &[&scenario_id, &payload, &meta]).await?;
         Ok(())
     }
 
@@ -176,7 +184,7 @@ impl Store for PostgresStore {
         let sql = statements::select_scenario_sql(Backend::Postgres);
 
         let conn = self.get_conn().await?;
-        let row = conn.query_opt(&sql, &[&scenario_id]).await?;
+        let row = conn.query_opt(sql, &[&scenario_id]).await?;
         match row {
             Some(row) => {
                 let payload: serde_json::Value = row.get(0);
@@ -190,7 +198,7 @@ impl Store for PostgresStore {
         let sql = statements::list_scenarios_sql(Backend::Postgres);
 
         let conn = self.get_conn().await?;
-        let rows = conn.query(&sql, &[]).await?;
+        let rows = conn.query(sql, &[]).await?;
         Ok(rows.into_iter().map(|row| row.get(0)).collect())
     }
 
@@ -205,7 +213,7 @@ impl Store for PostgresStore {
         let sql = statements::upsert_statement_model_sql(Backend::Postgres);
 
         let conn = self.get_conn().await?;
-        conn.execute(&sql, &[&model_id, &payload, &meta]).await?;
+        conn.execute(sql, &[&model_id, &payload, &meta]).await?;
         Ok(())
     }
 
@@ -213,7 +221,7 @@ impl Store for PostgresStore {
         let sql = statements::select_statement_model_sql(Backend::Postgres);
 
         let conn = self.get_conn().await?;
-        let row = conn.query_opt(&sql, &[&model_id]).await?;
+        let row = conn.query_opt(sql, &[&model_id]).await?;
         match row {
             Some(row) => {
                 let payload: serde_json::Value = row.get(0);
@@ -227,7 +235,7 @@ impl Store for PostgresStore {
         let sql = statements::list_statement_models_sql(Backend::Postgres);
 
         let conn = self.get_conn().await?;
-        let rows = conn.query(&sql, &[]).await?;
+        let rows = conn.query(sql, &[]).await?;
         Ok(rows.into_iter().map(|row| row.get(0)).collect())
     }
 
@@ -242,7 +250,7 @@ impl Store for PostgresStore {
         let sql = statements::upsert_metric_registry_sql(Backend::Postgres);
 
         let conn = self.get_conn().await?;
-        conn.execute(&sql, &[&namespace, &payload, &meta]).await?;
+        conn.execute(sql, &[&namespace, &payload, &meta]).await?;
         Ok(())
     }
 
@@ -250,7 +258,7 @@ impl Store for PostgresStore {
         let sql = statements::select_metric_registry_sql(Backend::Postgres);
 
         let conn = self.get_conn().await?;
-        let row = conn.query_opt(&sql, &[&namespace]).await?;
+        let row = conn.query_opt(sql, &[&namespace]).await?;
         match row {
             Some(row) => {
                 let payload: serde_json::Value = row.get(0);
@@ -264,7 +272,7 @@ impl Store for PostgresStore {
         let sql = statements::list_metric_registries_sql(Backend::Postgres);
 
         let conn = self.get_conn().await?;
-        let rows = conn.query(&sql, &[]).await?;
+        let rows = conn.query(sql, &[]).await?;
         Ok(rows.into_iter().map(|row| row.get(0)).collect())
     }
 
@@ -272,7 +280,7 @@ impl Store for PostgresStore {
         let sql = statements::delete_metric_registry_sql(Backend::Postgres);
 
         let conn = self.get_conn().await?;
-        let rows_affected = conn.execute(&sql, &[&namespace]).await?;
+        let rows_affected = conn.execute(sql, &[&namespace]).await?;
         Ok(rows_affected > 0)
     }
 }

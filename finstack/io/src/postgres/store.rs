@@ -7,7 +7,51 @@ use crate::{
 use chrono::{DateTime, Datelike, NaiveDate, Utc};
 use deadpool_postgres::{Config, ManagerConfig, Pool, RecyclingMethod, Runtime};
 use finstack_core::dates::Date;
+use std::time::Duration;
 use tokio_postgres::NoTls;
+
+/// Default maximum number of connections in the pool.
+pub const DEFAULT_POOL_SIZE: usize = 16;
+
+/// Default statement timeout (5 seconds).
+pub const DEFAULT_STATEMENT_TIMEOUT: Duration = Duration::from_millis(5000);
+
+/// Configuration options for PostgresStore.
+#[derive(Clone, Debug)]
+pub struct PostgresConfig {
+    /// Maximum number of connections in the pool.
+    pub pool_size: usize,
+    /// Statement timeout for queries.
+    pub statement_timeout: Duration,
+}
+
+impl Default for PostgresConfig {
+    fn default() -> Self {
+        Self {
+            pool_size: DEFAULT_POOL_SIZE,
+            statement_timeout: DEFAULT_STATEMENT_TIMEOUT,
+        }
+    }
+}
+
+impl PostgresConfig {
+    /// Create a new configuration with default values.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set the maximum pool size.
+    pub fn with_pool_size(mut self, pool_size: usize) -> Self {
+        self.pool_size = pool_size;
+        self
+    }
+
+    /// Set the statement timeout.
+    pub fn with_statement_timeout(mut self, timeout: Duration) -> Self {
+        self.statement_timeout = timeout;
+        self
+    }
+}
 
 /// A Postgres-backed store using async connection pooling.
 ///
@@ -17,12 +61,14 @@ use tokio_postgres::NoTls;
 pub struct PostgresStore {
     pub(crate) pool: Pool,
     pub(crate) url: String,
+    pub(crate) statement_timeout_ms: u64,
 }
 
 impl std::fmt::Debug for PostgresStore {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PostgresStore")
             .field("url", &self.url)
+            .field("statement_timeout_ms", &self.statement_timeout_ms)
             .finish_non_exhaustive()
     }
 }
@@ -32,13 +78,20 @@ impl PostgresStore {
     ///
     /// This creates a connection pool with default settings:
     /// - Max connections: 16
+    /// - Statement timeout: 5000ms
     /// - Connection recycling: Fast (check connection on borrow)
     pub async fn connect(url: &str) -> Result<Self> {
-        Self::connect_with_pool_size(url, 16).await
+        Self::connect_with_config(url, PostgresConfig::default()).await
     }
 
     /// Connect with a custom pool size.
+    #[deprecated(since = "0.9.0", note = "Use connect_with_config instead")]
     pub async fn connect_with_pool_size(url: &str, max_size: usize) -> Result<Self> {
+        Self::connect_with_config(url, PostgresConfig::default().with_pool_size(max_size)).await
+    }
+
+    /// Connect with custom configuration options.
+    pub async fn connect_with_config(url: &str, pg_config: PostgresConfig) -> Result<Self> {
         let mut config = Config::new();
         config.url = Some(url.to_string());
         config.manager = Some(ManagerConfig {
@@ -48,11 +101,12 @@ impl PostgresStore {
         let pool = config.create_pool(Some(Runtime::Tokio1), NoTls)?;
 
         // Set max pool size
-        pool.resize(max_size);
+        pool.resize(pg_config.pool_size);
 
         let store = Self {
             pool,
             url: url.to_string(),
+            statement_timeout_ms: pg_config.statement_timeout.as_millis() as u64,
         };
 
         // Run migrations
@@ -69,7 +123,8 @@ impl PostgresStore {
     /// Get a connection from the pool.
     pub(crate) async fn get_conn(&self) -> Result<deadpool_postgres::Object> {
         let conn = self.pool.get().await?;
-        conn.execute("SET statement_timeout = 5000", &[]).await?;
+        let timeout_sql = format!("SET statement_timeout = {}", self.statement_timeout_ms);
+        conn.execute(&timeout_sql, &[]).await?;
         Ok(conn)
     }
 

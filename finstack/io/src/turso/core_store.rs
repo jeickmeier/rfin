@@ -2,6 +2,7 @@
 
 use crate::{
     sql::{statements, Backend},
+    store::MAX_BATCH_SIZE,
     Error, Result, Store,
 };
 use async_trait::async_trait;
@@ -33,7 +34,7 @@ impl Store for TursoStore {
 
         let conn = self.get_conn()?;
         let sql = statements::upsert_market_context_sql(Backend::Sqlite);
-        conn.execute(&sql, params![market_id, as_of, payload, meta])
+        conn.execute(sql, params![market_id, as_of, payload, meta])
             .await?;
         Ok(())
     }
@@ -47,7 +48,7 @@ impl Store for TursoStore {
 
         let conn = self.get_conn()?;
         let sql = statements::select_market_context_sql(Backend::Sqlite);
-        let mut stmt = conn.prepare(&sql).await?;
+        let mut stmt = conn.prepare(sql).await?;
         let mut rows = stmt.query(params![market_id, as_of]).await?;
 
         match rows.next().await.map_err(Error::Turso)? {
@@ -72,7 +73,7 @@ impl Store for TursoStore {
 
         let conn = self.get_conn()?;
         let sql = statements::upsert_instrument_sql(Backend::Sqlite);
-        conn.execute(&sql, params![instrument_id, payload, meta])
+        conn.execute(sql, params![instrument_id, payload, meta])
             .await?;
         Ok(())
     }
@@ -80,7 +81,7 @@ impl Store for TursoStore {
     async fn get_instrument(&self, instrument_id: &str) -> Result<Option<InstrumentJson>> {
         let conn = self.get_conn()?;
         let sql = statements::select_instrument_sql(Backend::Sqlite);
-        let mut stmt = conn.prepare(&sql).await?;
+        let mut stmt = conn.prepare(sql).await?;
         let mut rows = stmt.query(params![instrument_id]).await?;
 
         match rows.next().await.map_err(Error::Turso)? {
@@ -100,32 +101,37 @@ impl Store for TursoStore {
             return Ok(HashMap::new());
         }
 
-        let conn = self.get_conn()?;
-        let sql = statements::select_instruments_batch_sql(Backend::Sqlite, instrument_ids.len());
-        let mut stmt = conn.prepare(&sql).await?;
+        let mut result = HashMap::with_capacity(instrument_ids.len());
 
-        // Build params dynamically
-        let params: Vec<libsql::Value> = instrument_ids
-            .iter()
-            .map(|s| libsql::Value::Text(s.clone()))
-            .collect();
+        // Chunk large batches to avoid query plan cache pollution and excessive IN clause sizes
+        for chunk in instrument_ids.chunks(MAX_BATCH_SIZE) {
+            let conn = self.get_conn()?;
+            let sql = statements::select_instruments_batch_sql(Backend::Sqlite, chunk.len());
+            let mut stmt = conn.prepare(&sql).await?;
 
-        let mut rows = stmt.query(params).await?;
+            // Build params dynamically
+            let params: Vec<libsql::Value> = chunk
+                .iter()
+                .map(|s| libsql::Value::Text(s.clone()))
+                .collect();
 
-        let mut result = HashMap::new();
-        while let Some(row) = rows.next().await.map_err(Error::Turso)? {
-            let id = get_string(&row, 0)?;
-            let bytes = get_blob(&row, 1)?;
-            let instrument: InstrumentJson = serde_json::from_slice(&bytes)?;
-            result.insert(id, instrument);
+            let mut rows = stmt.query(params).await?;
+
+            while let Some(row) = rows.next().await.map_err(Error::Turso)? {
+                let id = get_string(&row, 0)?;
+                let bytes = get_blob(&row, 1)?;
+                let instrument: InstrumentJson = serde_json::from_slice(&bytes)?;
+                result.insert(id, instrument);
+            }
         }
+
         Ok(result)
     }
 
     async fn list_instruments(&self) -> Result<Vec<String>> {
         let conn = self.get_conn()?;
         let sql = statements::list_instruments_sql(Backend::Sqlite);
-        let mut stmt = conn.prepare(&sql).await?;
+        let mut stmt = conn.prepare(sql).await?;
         let mut rows = stmt.query(()).await?;
 
         let mut out = Vec::new();
@@ -148,7 +154,7 @@ impl Store for TursoStore {
 
         let conn = self.get_conn()?;
         let sql = statements::upsert_portfolio_sql(Backend::Sqlite);
-        conn.execute(&sql, params![portfolio_id, as_of, payload, meta])
+        conn.execute(sql, params![portfolio_id, as_of, payload, meta])
             .await?;
         Ok(())
     }
@@ -162,7 +168,7 @@ impl Store for TursoStore {
 
         let conn = self.get_conn()?;
         let sql = statements::select_portfolio_sql(Backend::Sqlite);
-        let mut stmt = conn.prepare(&sql).await?;
+        let mut stmt = conn.prepare(sql).await?;
         let mut rows = stmt.query(params![portfolio_id, as_of]).await?;
 
         match rows.next().await.map_err(Error::Turso)? {
@@ -185,7 +191,7 @@ impl Store for TursoStore {
 
         let conn = self.get_conn()?;
         let sql = statements::upsert_scenario_sql(Backend::Sqlite);
-        conn.execute(&sql, params![scenario_id, payload, meta])
+        conn.execute(sql, params![scenario_id, payload, meta])
             .await?;
         Ok(())
     }
@@ -193,7 +199,7 @@ impl Store for TursoStore {
     async fn get_scenario(&self, scenario_id: &str) -> Result<Option<ScenarioSpec>> {
         let conn = self.get_conn()?;
         let sql = statements::select_scenario_sql(Backend::Sqlite);
-        let mut stmt = conn.prepare(&sql).await?;
+        let mut stmt = conn.prepare(sql).await?;
         let mut rows = stmt.query(params![scenario_id]).await?;
 
         match rows.next().await.map_err(Error::Turso)? {
@@ -208,7 +214,7 @@ impl Store for TursoStore {
     async fn list_scenarios(&self) -> Result<Vec<String>> {
         let conn = self.get_conn()?;
         let sql = statements::list_scenarios_sql(Backend::Sqlite);
-        let mut stmt = conn.prepare(&sql).await?;
+        let mut stmt = conn.prepare(sql).await?;
         let mut rows = stmt.query(()).await?;
 
         let mut out = Vec::new();
@@ -229,14 +235,14 @@ impl Store for TursoStore {
 
         let conn = self.get_conn()?;
         let sql = statements::upsert_statement_model_sql(Backend::Sqlite);
-        conn.execute(&sql, params![model_id, payload, meta]).await?;
+        conn.execute(sql, params![model_id, payload, meta]).await?;
         Ok(())
     }
 
     async fn get_statement_model(&self, model_id: &str) -> Result<Option<FinancialModelSpec>> {
         let conn = self.get_conn()?;
         let sql = statements::select_statement_model_sql(Backend::Sqlite);
-        let mut stmt = conn.prepare(&sql).await?;
+        let mut stmt = conn.prepare(sql).await?;
         let mut rows = stmt.query(params![model_id]).await?;
 
         match rows.next().await.map_err(Error::Turso)? {
@@ -251,7 +257,7 @@ impl Store for TursoStore {
     async fn list_statement_models(&self) -> Result<Vec<String>> {
         let conn = self.get_conn()?;
         let sql = statements::list_statement_models_sql(Backend::Sqlite);
-        let mut stmt = conn.prepare(&sql).await?;
+        let mut stmt = conn.prepare(sql).await?;
         let mut rows = stmt.query(()).await?;
 
         let mut out = Vec::new();
@@ -272,15 +278,14 @@ impl Store for TursoStore {
 
         let conn = self.get_conn()?;
         let sql = statements::upsert_metric_registry_sql(Backend::Sqlite);
-        conn.execute(&sql, params![namespace, payload, meta])
-            .await?;
+        conn.execute(sql, params![namespace, payload, meta]).await?;
         Ok(())
     }
 
     async fn get_metric_registry(&self, namespace: &str) -> Result<Option<MetricRegistry>> {
         let conn = self.get_conn()?;
         let sql = statements::select_metric_registry_sql(Backend::Sqlite);
-        let mut stmt = conn.prepare(&sql).await?;
+        let mut stmt = conn.prepare(sql).await?;
         let mut rows = stmt.query(params![namespace]).await?;
 
         match rows.next().await.map_err(Error::Turso)? {
@@ -295,7 +300,7 @@ impl Store for TursoStore {
     async fn list_metric_registries(&self) -> Result<Vec<String>> {
         let conn = self.get_conn()?;
         let sql = statements::list_metric_registries_sql(Backend::Sqlite);
-        let mut stmt = conn.prepare(&sql).await?;
+        let mut stmt = conn.prepare(sql).await?;
         let mut rows = stmt.query(()).await?;
 
         let mut out = Vec::new();
@@ -308,7 +313,7 @@ impl Store for TursoStore {
     async fn delete_metric_registry(&self, namespace: &str) -> Result<bool> {
         let conn = self.get_conn()?;
         let sql = statements::delete_metric_registry_sql(Backend::Sqlite);
-        let rows_affected = conn.execute(&sql, params![namespace]).await?;
+        let rows_affected = conn.execute(sql, params![namespace]).await?;
         Ok(rows_affected > 0)
     }
 }

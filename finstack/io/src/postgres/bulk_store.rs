@@ -25,7 +25,7 @@ impl BulkStore for PostgresStore {
         for (instrument_id, instrument, meta) in instruments {
             let payload = serde_json::to_value(instrument)?;
             let meta = meta_json(*meta);
-            tx.execute(&sql, &[instrument_id, &payload, &meta]).await?;
+            tx.execute(sql, &[instrument_id, &payload, &meta]).await?;
         }
         tx.commit().await?;
         Ok(())
@@ -44,7 +44,7 @@ impl BulkStore for PostgresStore {
             let payload = serde_json::to_value(&state)?;
             let meta = meta_json(*meta);
             let as_of = as_of_key(*as_of)?;
-            tx.execute(&sql, &[market_id, &as_of, &payload, &meta])
+            tx.execute(sql, &[market_id, &as_of, &payload, &meta])
                 .await?;
         }
         tx.commit().await?;
@@ -63,7 +63,7 @@ impl BulkStore for PostgresStore {
             let payload = serde_json::to_value(spec)?;
             let meta = meta_json(*meta);
             let as_of = as_of_key(*as_of)?;
-            tx.execute(&sql, &[portfolio_id, &as_of, &payload, &meta])
+            tx.execute(sql, &[portfolio_id, &as_of, &payload, &meta])
                 .await?;
         }
         tx.commit().await?;

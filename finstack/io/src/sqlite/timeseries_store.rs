@@ -30,7 +30,7 @@ impl TimeSeriesStore for SqliteStore {
         self.conn
             .call(move |conn| -> tokio_rusqlite::Result<()> {
                 let sql = statements::upsert_series_meta_sql(Backend::Sqlite);
-                conn.execute(&sql, params![namespace, kind, series_id, meta])?;
+                conn.execute(sql, params![namespace, kind, series_id, meta])?;
                 Ok(())
             })
             .await?;
@@ -47,7 +47,7 @@ impl TimeSeriesStore for SqliteStore {
             .call(move |conn| -> tokio_rusqlite::Result<Option<String>> {
                 let sql = statements::select_series_meta_sql(Backend::Sqlite);
                 Ok(optional_row(conn.query_row(
-                    &sql,
+                    sql,
                     params![namespace, kind, series_id],
                     |row| row.get(0),
                 ))?)
@@ -68,7 +68,7 @@ impl TimeSeriesStore for SqliteStore {
             .conn
             .call(move |conn| -> tokio_rusqlite::Result<Vec<String>> {
                 let sql = statements::list_series_sql(Backend::Sqlite);
-                let mut stmt = conn.prepare(&sql)?;
+                let mut stmt = conn.prepare(sql)?;
                 let rows = stmt.query_map(params![namespace, kind_str], |row| row.get(0))?;
                 let mut out = Vec::new();
                 for row in rows {
@@ -107,7 +107,7 @@ impl TimeSeriesStore for SqliteStore {
                 let tx = conn.unchecked_transaction()?;
                 {
                     let sql = statements::upsert_series_point_sql(Backend::Sqlite);
-                    let mut stmt = tx.prepare(&sql)?;
+                    let mut stmt = tx.prepare(sql)?;
                     for (ts, value, payload, meta) in &serialized {
                         stmt.execute(params![
                             namespace, kind, series_id, ts, value, payload, meta
@@ -137,10 +137,11 @@ impl TimeSeriesStore for SqliteStore {
         let rows: Vec<SeriesRow> = self
             .conn
             .call(move |conn| -> tokio_rusqlite::Result<Vec<SeriesRow>> {
-                let mut sql = statements::select_points_range_sql(Backend::Sqlite);
-                if let Some(max) = limit {
-                    sql = format!("{sql} LIMIT {max}");
-                }
+                let base_sql = statements::select_points_range_sql(Backend::Sqlite);
+                let sql = match limit {
+                    Some(max) => format!("{base_sql} LIMIT {max}"),
+                    None => base_sql.to_string(),
+                };
                 let mut stmt = conn.prepare(&sql)?;
                 let rows =
                     stmt.query_map(params![namespace, kind, series_id, start, end], |row| {
@@ -194,7 +195,7 @@ impl TimeSeriesStore for SqliteStore {
             .call(move |conn| -> tokio_rusqlite::Result<Option<SeriesRow>> {
                 let sql = statements::latest_point_sql(Backend::Sqlite);
                 Ok(optional_row(conn.query_row(
-                    &sql,
+                    sql,
                     params![namespace, kind, series_id, ts],
                     |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
                 ))?)

@@ -17,6 +17,17 @@ use finstack_valuations::instruments::InstrumentJson;
 use std::collections::HashMap;
 use time::OffsetDateTime;
 
+/// Maximum number of items in a single batch query.
+///
+/// Larger batches are automatically chunked to avoid:
+/// - Query plan cache pollution (Postgres creates a new plan per distinct param count)
+/// - Excessive query string length
+/// - Memory pressure from large IN clauses
+///
+/// The default value of 500 balances efficiency (fewer round-trips) with reasonable
+/// query complexity.
+pub const MAX_BATCH_SIZE: usize = 500;
+
 /// Async typed persistence interface for Finstack domain objects.
 ///
 /// Backends should treat `put_*` operations as **idempotent** (upsert) whenever
@@ -75,10 +86,16 @@ pub trait Store: Send + Sync {
     /// Note: The `meta` field is stored for auditing purposes but not returned by this method.
     async fn get_instrument(&self, instrument_id: &str) -> Result<Option<InstrumentJson>>;
 
-    /// Load multiple instruments by ID in a single query.
+    /// Load multiple instruments by ID.
     ///
     /// Returns a map of instrument_id -> InstrumentJson for all found instruments.
     /// Missing instruments are silently omitted from the result (no error).
+    ///
+    /// # Batching
+    ///
+    /// Large requests are automatically chunked into batches of [`MAX_BATCH_SIZE`]
+    /// to avoid query plan cache pollution and excessive query complexity. Results
+    /// are merged from all chunks.
     async fn get_instruments_batch(
         &self,
         instrument_ids: &[String],

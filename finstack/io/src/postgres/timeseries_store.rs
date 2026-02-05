@@ -21,7 +21,7 @@ impl TimeSeriesStore for PostgresStore {
 
         let conn = self.get_conn().await?;
         conn.execute(
-            &sql,
+            sql,
             &[&key.namespace, &key.kind.as_str(), &key.series_id, &meta],
         )
         .await?;
@@ -33,7 +33,7 @@ impl TimeSeriesStore for PostgresStore {
 
         let conn = self.get_conn().await?;
         let row = conn
-            .query_opt(&sql, &[&key.namespace, &key.kind.as_str(), &key.series_id])
+            .query_opt(sql, &[&key.namespace, &key.kind.as_str(), &key.series_id])
             .await?;
         match row {
             Some(row) => {
@@ -48,7 +48,7 @@ impl TimeSeriesStore for PostgresStore {
         let sql = statements::list_series_sql(Backend::Postgres);
 
         let conn = self.get_conn().await?;
-        let rows = conn.query(&sql, &[&namespace, &kind.as_str()]).await?;
+        let rows = conn.query(sql, &[&namespace, &kind.as_str()]).await?;
         Ok(rows.into_iter().map(|row| row.get(0)).collect())
     }
 
@@ -62,7 +62,7 @@ impl TimeSeriesStore for PostgresStore {
             let payload = point.payload.clone();
             let meta = point.meta.clone();
             tx.execute(
-                &sql,
+                sql,
                 &[
                     &key.namespace,
                     &key.kind.as_str(),
@@ -86,10 +86,11 @@ impl TimeSeriesStore for PostgresStore {
         end: time::OffsetDateTime,
         limit: Option<usize>,
     ) -> Result<Vec<TimeSeriesPoint>> {
-        let mut sql = statements::select_points_range_sql(Backend::Postgres);
-        if let Some(max) = limit {
-            sql = format!("{sql} LIMIT {max}");
-        }
+        let base_sql = statements::select_points_range_sql(Backend::Postgres);
+        let sql = match limit {
+            Some(max) => format!("{base_sql} LIMIT {max}"),
+            None => base_sql.to_string(),
+        };
         let start = ts_key(start)?;
         let end = ts_key(end)?;
 
@@ -133,7 +134,7 @@ impl TimeSeriesStore for PostgresStore {
         let conn = self.get_conn().await?;
         let row = conn
             .query_opt(
-                &sql,
+                sql,
                 &[&key.namespace, &key.kind.as_str(), &key.series_id, &ts],
             )
             .await?;

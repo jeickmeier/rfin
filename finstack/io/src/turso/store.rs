@@ -4,11 +4,9 @@ use crate::{
     sql::{migrations, Backend},
     Error, Result,
 };
-use finstack_core::dates::Date;
 use libsql::{Builder, Connection, Database};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use time::OffsetDateTime;
 
 pub(crate) const SCHEMA_VERSION: i64 = migrations::LATEST_VERSION;
 
@@ -133,73 +131,13 @@ impl TursoStore {
     }
 }
 
-/// Convert metadata to JSON string.
-pub(crate) fn meta_json(meta: Option<&serde_json::Value>) -> Result<String> {
-    match meta {
-        Some(v) => Ok(serde_json::to_string(v)?),
-        None => Ok("{}".to_string()),
-    }
-}
-
-/// Convert metadata to optional JSON string (for time-series where null is allowed).
-pub(crate) fn meta_json_str(meta: Option<&serde_json::Value>) -> Result<Option<String>> {
-    match meta {
-        Some(v) => Ok(Some(serde_json::to_string(v)?)),
-        None => Ok(None),
-    }
-}
-
-/// Format a date as ISO 8601 (YYYY-MM-DD) for use as a database key.
-///
-/// This format is critical for correct lexicographic ordering in SQL `BETWEEN` queries.
-pub(crate) fn as_of_key(as_of: Date) -> String {
-    format!(
-        "{:04}-{:02}-{:02}",
-        as_of.year(),
-        as_of.month() as u8,
-        as_of.day()
-    )
-}
-
-/// Parse a date from ISO 8601 (YYYY-MM-DD) format.
-pub(crate) fn parse_as_of_key(s: &str) -> Result<Date> {
-    Date::parse(s, &time::format_description::well_known::Iso8601::DATE)
-        .map_err(|e| Error::Invariant(format!("Invalid date format in database: {s} ({e})")))
-}
-
-/// Format a timestamp as a fixed-width ISO 8601 string for use as a database key.
-///
-/// Uses format: `YYYY-MM-DDTHH:MM:SS.ffffffZ` (always 27 characters)
-///
-/// This fixed-width format is critical for correct lexicographic ordering in SQL queries.
-/// Unlike RFC3339, which omits fractional seconds when they are zero, this format always
-/// includes 6 decimal places for microseconds, ensuring consistent string width and
-/// correct chronological ordering when sorted lexicographically.
-pub(crate) fn ts_key(ts: OffsetDateTime) -> Result<String> {
-    // Convert to UTC for consistent storage
-    let ts_utc = ts.to_offset(time::UtcOffset::UTC);
-    Ok(format!(
-        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}.{:06}Z",
-        ts_utc.year(),
-        ts_utc.month() as u8,
-        ts_utc.day(),
-        ts_utc.hour(),
-        ts_utc.minute(),
-        ts_utc.second(),
-        ts_utc.microsecond(),
-    ))
-}
-
-/// Parse a timestamp from a fixed-width ISO 8601 string.
-///
-/// Accepts format: `YYYY-MM-DDTHH:MM:SS.ffffffZ`
-///
-/// Also accepts RFC3339 format for backwards compatibility with existing data.
-pub(crate) fn parse_ts_key(s: &str) -> Result<OffsetDateTime> {
-    use time::format_description::well_known::Rfc3339;
-    OffsetDateTime::parse(s, &Rfc3339)
-        .map_err(|e| Error::Invariant(format!("Invalid timestamp format in database: {s} ({e})")))
-}
+// Re-export common helpers with backend-specific names for compatibility
+pub(crate) use crate::helpers::format_date_key as as_of_key;
+pub(crate) use crate::helpers::format_timestamp_key as ts_key;
+pub(crate) use crate::helpers::meta_json_optional_string as meta_json_str;
+pub(crate) use crate::helpers::meta_json_string as meta_json;
+pub(crate) use crate::helpers::parse_date_key as parse_as_of_key;
+pub(crate) use crate::helpers::parse_timestamp_key as parse_ts_key;
 
 /// Helper to get a string from a libsql row.
 pub(crate) fn get_string(row: &libsql::Row, idx: i32) -> Result<String> {

@@ -1,11 +1,75 @@
 //! Shared statement builders using sea-query.
+//!
+//! SQL strings are cached using `OnceLock` to avoid repeated string allocations
+//! and sea-query AST construction on every database operation.
 
 use sea_query::{
     Expr, OnConflict, Order, PostgresQueryBuilder, Query, QueryStatementBuilder, SimpleExpr,
     SqliteQueryBuilder,
 };
+use std::sync::OnceLock;
 
 use super::{schema, Backend};
+
+// ---------------------------------------------------------------------------
+// SQL Statement Cache
+// ---------------------------------------------------------------------------
+
+/// Cached SQL statements for each backend.
+/// Each statement is lazily initialized on first use.
+struct SqlCache {
+    sqlite: OnceLock<String>,
+    postgres: OnceLock<String>,
+}
+
+impl SqlCache {
+    const fn new() -> Self {
+        Self {
+            sqlite: OnceLock::new(),
+            postgres: OnceLock::new(),
+        }
+    }
+
+    fn get(&self, backend: Backend, builder: impl FnOnce(Backend) -> String) -> &str {
+        match backend {
+            Backend::Sqlite => self.sqlite.get_or_init(|| builder(Backend::Sqlite)),
+            Backend::Postgres => self.postgres.get_or_init(|| builder(Backend::Postgres)),
+        }
+    }
+}
+
+// Static caches for each SQL statement type
+static UPSERT_MARKET_CONTEXT: SqlCache = SqlCache::new();
+static UPSERT_INSTRUMENT: SqlCache = SqlCache::new();
+static UPSERT_PORTFOLIO: SqlCache = SqlCache::new();
+static UPSERT_SCENARIO: SqlCache = SqlCache::new();
+static UPSERT_STATEMENT_MODEL: SqlCache = SqlCache::new();
+static UPSERT_METRIC_REGISTRY: SqlCache = SqlCache::new();
+static SELECT_MARKET_CONTEXT: SqlCache = SqlCache::new();
+static SELECT_INSTRUMENT: SqlCache = SqlCache::new();
+static LIST_INSTRUMENTS: SqlCache = SqlCache::new();
+static SELECT_PORTFOLIO: SqlCache = SqlCache::new();
+static SELECT_SCENARIO: SqlCache = SqlCache::new();
+static LIST_SCENARIOS: SqlCache = SqlCache::new();
+static SELECT_STATEMENT_MODEL: SqlCache = SqlCache::new();
+static LIST_STATEMENT_MODELS: SqlCache = SqlCache::new();
+static SELECT_METRIC_REGISTRY: SqlCache = SqlCache::new();
+static LIST_METRIC_REGISTRIES: SqlCache = SqlCache::new();
+static DELETE_METRIC_REGISTRY: SqlCache = SqlCache::new();
+static LIST_MARKET_CONTEXTS: SqlCache = SqlCache::new();
+static LATEST_MARKET_CONTEXT: SqlCache = SqlCache::new();
+static LIST_PORTFOLIOS: SqlCache = SqlCache::new();
+static LATEST_PORTFOLIO: SqlCache = SqlCache::new();
+static UPSERT_SERIES_META: SqlCache = SqlCache::new();
+static SELECT_SERIES_META: SqlCache = SqlCache::new();
+static LIST_SERIES: SqlCache = SqlCache::new();
+static UPSERT_SERIES_POINT: SqlCache = SqlCache::new();
+static SELECT_POINTS_RANGE: SqlCache = SqlCache::new();
+static LATEST_POINT: SqlCache = SqlCache::new();
+
+// ---------------------------------------------------------------------------
+// Core SQL Building Functions
+// ---------------------------------------------------------------------------
 
 fn build_sql<T: QueryStatementBuilder + sea_query::QueryStatementWriter>(
     backend: Backend,
@@ -48,7 +112,16 @@ impl Placeholders {
     }
 }
 
-pub fn upsert_market_context_sql(backend: Backend) -> String {
+// ---------------------------------------------------------------------------
+// Public SQL Statement Accessors (Cached)
+// ---------------------------------------------------------------------------
+
+/// Returns cached SQL for upserting a market context.
+pub fn upsert_market_context_sql(backend: Backend) -> &'static str {
+    UPSERT_MARKET_CONTEXT.get(backend, build_upsert_market_context_sql)
+}
+
+fn build_upsert_market_context_sql(backend: Backend) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::insert()
         .into_table(schema::MarketContexts::Table)
@@ -72,7 +145,12 @@ pub fn upsert_market_context_sql(backend: Backend) -> String {
     build_sql(backend, query)
 }
 
-pub fn upsert_instrument_sql(backend: Backend) -> String {
+/// Returns cached SQL for upserting an instrument.
+pub fn upsert_instrument_sql(backend: Backend) -> &'static str {
+    UPSERT_INSTRUMENT.get(backend, build_upsert_instrument_sql)
+}
+
+fn build_upsert_instrument_sql(backend: Backend) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::insert()
         .into_table(schema::Instruments::Table)
@@ -92,7 +170,12 @@ pub fn upsert_instrument_sql(backend: Backend) -> String {
     build_sql(backend, query)
 }
 
-pub fn upsert_portfolio_sql(backend: Backend) -> String {
+/// Returns cached SQL for upserting a portfolio.
+pub fn upsert_portfolio_sql(backend: Backend) -> &'static str {
+    UPSERT_PORTFOLIO.get(backend, build_upsert_portfolio_sql)
+}
+
+fn build_upsert_portfolio_sql(backend: Backend) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::insert()
         .into_table(schema::Portfolios::Table)
@@ -113,7 +196,12 @@ pub fn upsert_portfolio_sql(backend: Backend) -> String {
     build_sql(backend, query)
 }
 
-pub fn upsert_scenario_sql(backend: Backend) -> String {
+/// Returns cached SQL for upserting a scenario.
+pub fn upsert_scenario_sql(backend: Backend) -> &'static str {
+    UPSERT_SCENARIO.get(backend, build_upsert_scenario_sql)
+}
+
+fn build_upsert_scenario_sql(backend: Backend) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::insert()
         .into_table(schema::Scenarios::Table)
@@ -133,7 +221,12 @@ pub fn upsert_scenario_sql(backend: Backend) -> String {
     build_sql(backend, query)
 }
 
-pub fn upsert_statement_model_sql(backend: Backend) -> String {
+/// Returns cached SQL for upserting a statement model.
+pub fn upsert_statement_model_sql(backend: Backend) -> &'static str {
+    UPSERT_STATEMENT_MODEL.get(backend, build_upsert_statement_model_sql)
+}
+
+fn build_upsert_statement_model_sql(backend: Backend) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::insert()
         .into_table(schema::StatementModels::Table)
@@ -156,7 +249,12 @@ pub fn upsert_statement_model_sql(backend: Backend) -> String {
     build_sql(backend, query)
 }
 
-pub fn upsert_metric_registry_sql(backend: Backend) -> String {
+/// Returns cached SQL for upserting a metric registry.
+pub fn upsert_metric_registry_sql(backend: Backend) -> &'static str {
+    UPSERT_METRIC_REGISTRY.get(backend, build_upsert_metric_registry_sql)
+}
+
+fn build_upsert_metric_registry_sql(backend: Backend) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::insert()
         .into_table(schema::MetricRegistries::Table)
@@ -182,7 +280,12 @@ pub fn upsert_metric_registry_sql(backend: Backend) -> String {
     build_sql(backend, query)
 }
 
-pub fn select_market_context_sql(backend: Backend) -> String {
+/// Returns cached SQL for selecting a market context.
+pub fn select_market_context_sql(backend: Backend) -> &'static str {
+    SELECT_MARKET_CONTEXT.get(backend, build_select_market_context_sql)
+}
+
+fn build_select_market_context_sql(backend: Backend) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::select()
         .from(schema::MarketContexts::Table)
@@ -193,7 +296,12 @@ pub fn select_market_context_sql(backend: Backend) -> String {
     build_sql(backend, query)
 }
 
-pub fn select_instrument_sql(backend: Backend) -> String {
+/// Returns cached SQL for selecting an instrument.
+pub fn select_instrument_sql(backend: Backend) -> &'static str {
+    SELECT_INSTRUMENT.get(backend, build_select_instrument_sql)
+}
+
+fn build_select_instrument_sql(backend: Backend) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::select()
         .from(schema::Instruments::Table)
@@ -203,6 +311,10 @@ pub fn select_instrument_sql(backend: Backend) -> String {
     build_sql(backend, query)
 }
 
+/// Builds SQL for selecting instruments in a batch.
+///
+/// Note: This function is NOT cached because the number of placeholders varies
+/// per call. See `MAX_BATCH_SIZE` for chunking large batches.
 pub fn select_instruments_batch_sql(backend: Backend, count: usize) -> String {
     let mut p = Placeholders::new(backend);
     let placeholders: Vec<SimpleExpr> = (0..count).map(|_| p.next()).collect();
@@ -214,7 +326,12 @@ pub fn select_instruments_batch_sql(backend: Backend, count: usize) -> String {
     build_sql(backend, query)
 }
 
-pub fn list_instruments_sql(backend: Backend) -> String {
+/// Returns cached SQL for listing instruments.
+pub fn list_instruments_sql(backend: Backend) -> &'static str {
+    LIST_INSTRUMENTS.get(backend, build_list_instruments_sql)
+}
+
+fn build_list_instruments_sql(backend: Backend) -> String {
     let query = Query::select()
         .from(schema::Instruments::Table)
         .column(schema::Instruments::Id)
@@ -223,7 +340,12 @@ pub fn list_instruments_sql(backend: Backend) -> String {
     build_sql(backend, query)
 }
 
-pub fn select_portfolio_sql(backend: Backend) -> String {
+/// Returns cached SQL for selecting a portfolio.
+pub fn select_portfolio_sql(backend: Backend) -> &'static str {
+    SELECT_PORTFOLIO.get(backend, build_select_portfolio_sql)
+}
+
+fn build_select_portfolio_sql(backend: Backend) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::select()
         .from(schema::Portfolios::Table)
@@ -234,7 +356,12 @@ pub fn select_portfolio_sql(backend: Backend) -> String {
     build_sql(backend, query)
 }
 
-pub fn select_scenario_sql(backend: Backend) -> String {
+/// Returns cached SQL for selecting a scenario.
+pub fn select_scenario_sql(backend: Backend) -> &'static str {
+    SELECT_SCENARIO.get(backend, build_select_scenario_sql)
+}
+
+fn build_select_scenario_sql(backend: Backend) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::select()
         .from(schema::Scenarios::Table)
@@ -244,7 +371,12 @@ pub fn select_scenario_sql(backend: Backend) -> String {
     build_sql(backend, query)
 }
 
-pub fn list_scenarios_sql(backend: Backend) -> String {
+/// Returns cached SQL for listing scenarios.
+pub fn list_scenarios_sql(backend: Backend) -> &'static str {
+    LIST_SCENARIOS.get(backend, build_list_scenarios_sql)
+}
+
+fn build_list_scenarios_sql(backend: Backend) -> String {
     let query = Query::select()
         .from(schema::Scenarios::Table)
         .column(schema::Scenarios::Id)
@@ -253,7 +385,12 @@ pub fn list_scenarios_sql(backend: Backend) -> String {
     build_sql(backend, query)
 }
 
-pub fn select_statement_model_sql(backend: Backend) -> String {
+/// Returns cached SQL for selecting a statement model.
+pub fn select_statement_model_sql(backend: Backend) -> &'static str {
+    SELECT_STATEMENT_MODEL.get(backend, build_select_statement_model_sql)
+}
+
+fn build_select_statement_model_sql(backend: Backend) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::select()
         .from(schema::StatementModels::Table)
@@ -263,7 +400,12 @@ pub fn select_statement_model_sql(backend: Backend) -> String {
     build_sql(backend, query)
 }
 
-pub fn list_statement_models_sql(backend: Backend) -> String {
+/// Returns cached SQL for listing statement models.
+pub fn list_statement_models_sql(backend: Backend) -> &'static str {
+    LIST_STATEMENT_MODELS.get(backend, build_list_statement_models_sql)
+}
+
+fn build_list_statement_models_sql(backend: Backend) -> String {
     let query = Query::select()
         .from(schema::StatementModels::Table)
         .column(schema::StatementModels::Id)
@@ -272,7 +414,12 @@ pub fn list_statement_models_sql(backend: Backend) -> String {
     build_sql(backend, query)
 }
 
-pub fn select_metric_registry_sql(backend: Backend) -> String {
+/// Returns cached SQL for selecting a metric registry.
+pub fn select_metric_registry_sql(backend: Backend) -> &'static str {
+    SELECT_METRIC_REGISTRY.get(backend, build_select_metric_registry_sql)
+}
+
+fn build_select_metric_registry_sql(backend: Backend) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::select()
         .from(schema::MetricRegistries::Table)
@@ -282,7 +429,12 @@ pub fn select_metric_registry_sql(backend: Backend) -> String {
     build_sql(backend, query)
 }
 
-pub fn list_metric_registries_sql(backend: Backend) -> String {
+/// Returns cached SQL for listing metric registries.
+pub fn list_metric_registries_sql(backend: Backend) -> &'static str {
+    LIST_METRIC_REGISTRIES.get(backend, build_list_metric_registries_sql)
+}
+
+fn build_list_metric_registries_sql(backend: Backend) -> String {
     let query = Query::select()
         .from(schema::MetricRegistries::Table)
         .column(schema::MetricRegistries::Namespace)
@@ -291,7 +443,12 @@ pub fn list_metric_registries_sql(backend: Backend) -> String {
     build_sql(backend, query)
 }
 
-pub fn delete_metric_registry_sql(backend: Backend) -> String {
+/// Returns cached SQL for deleting a metric registry.
+pub fn delete_metric_registry_sql(backend: Backend) -> &'static str {
+    DELETE_METRIC_REGISTRY.get(backend, build_delete_metric_registry_sql)
+}
+
+fn build_delete_metric_registry_sql(backend: Backend) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::delete()
         .from_table(schema::MetricRegistries::Table)
@@ -300,7 +457,12 @@ pub fn delete_metric_registry_sql(backend: Backend) -> String {
     build_sql(backend, query)
 }
 
-pub fn list_market_contexts_sql(backend: Backend) -> String {
+/// Returns cached SQL for listing market contexts in a date range.
+pub fn list_market_contexts_sql(backend: Backend) -> &'static str {
+    LIST_MARKET_CONTEXTS.get(backend, build_list_market_contexts_sql)
+}
+
+fn build_list_market_contexts_sql(backend: Backend) -> String {
     if matches!(backend, Backend::Sqlite) {
         return "SELECT as_of, payload FROM market_contexts \
                 WHERE id = ?1 AND as_of BETWEEN ?2 AND ?3 \
@@ -322,7 +484,12 @@ pub fn list_market_contexts_sql(backend: Backend) -> String {
     build_sql(backend, query)
 }
 
-pub fn latest_market_context_sql(backend: Backend) -> String {
+/// Returns cached SQL for getting the latest market context on or before a date.
+pub fn latest_market_context_sql(backend: Backend) -> &'static str {
+    LATEST_MARKET_CONTEXT.get(backend, build_latest_market_context_sql)
+}
+
+fn build_latest_market_context_sql(backend: Backend) -> String {
     if matches!(backend, Backend::Sqlite) {
         return "SELECT as_of, payload FROM market_contexts \
                 WHERE id = ?1 AND as_of <= ?2 \
@@ -344,7 +511,12 @@ pub fn latest_market_context_sql(backend: Backend) -> String {
     build_sql(backend, query)
 }
 
-pub fn list_portfolios_sql(backend: Backend) -> String {
+/// Returns cached SQL for listing portfolios in a date range.
+pub fn list_portfolios_sql(backend: Backend) -> &'static str {
+    LIST_PORTFOLIOS.get(backend, build_list_portfolios_sql)
+}
+
+fn build_list_portfolios_sql(backend: Backend) -> String {
     if matches!(backend, Backend::Sqlite) {
         return "SELECT as_of, payload FROM portfolios \
                 WHERE id = ?1 AND as_of BETWEEN ?2 AND ?3 \
@@ -363,7 +535,12 @@ pub fn list_portfolios_sql(backend: Backend) -> String {
     build_sql(backend, query)
 }
 
-pub fn latest_portfolio_sql(backend: Backend) -> String {
+/// Returns cached SQL for getting the latest portfolio on or before a date.
+pub fn latest_portfolio_sql(backend: Backend) -> &'static str {
+    LATEST_PORTFOLIO.get(backend, build_latest_portfolio_sql)
+}
+
+fn build_latest_portfolio_sql(backend: Backend) -> String {
     if matches!(backend, Backend::Sqlite) {
         return "SELECT as_of, payload FROM portfolios \
                 WHERE id = ?1 AND as_of <= ?2 \
@@ -382,7 +559,12 @@ pub fn latest_portfolio_sql(backend: Backend) -> String {
     build_sql(backend, query)
 }
 
-pub fn upsert_series_meta_sql(backend: Backend) -> String {
+/// Returns cached SQL for upserting series metadata.
+pub fn upsert_series_meta_sql(backend: Backend) -> &'static str {
+    UPSERT_SERIES_META.get(backend, build_upsert_series_meta_sql)
+}
+
+fn build_upsert_series_meta_sql(backend: Backend) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::insert()
         .into_table(schema::SeriesMeta::Table)
@@ -407,7 +589,12 @@ pub fn upsert_series_meta_sql(backend: Backend) -> String {
     build_sql(backend, query)
 }
 
-pub fn select_series_meta_sql(backend: Backend) -> String {
+/// Returns cached SQL for selecting series metadata.
+pub fn select_series_meta_sql(backend: Backend) -> &'static str {
+    SELECT_SERIES_META.get(backend, build_select_series_meta_sql)
+}
+
+fn build_select_series_meta_sql(backend: Backend) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::select()
         .from(schema::SeriesMeta::Table)
@@ -419,7 +606,12 @@ pub fn select_series_meta_sql(backend: Backend) -> String {
     build_sql(backend, query)
 }
 
-pub fn list_series_sql(backend: Backend) -> String {
+/// Returns cached SQL for listing series.
+pub fn list_series_sql(backend: Backend) -> &'static str {
+    LIST_SERIES.get(backend, build_list_series_sql)
+}
+
+fn build_list_series_sql(backend: Backend) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::select()
         .from(schema::SeriesMeta::Table)
@@ -431,7 +623,12 @@ pub fn list_series_sql(backend: Backend) -> String {
     build_sql(backend, query)
 }
 
-pub fn upsert_series_point_sql(backend: Backend) -> String {
+/// Returns cached SQL for upserting a series point.
+pub fn upsert_series_point_sql(backend: Backend) -> &'static str {
+    UPSERT_SERIES_POINT.get(backend, build_upsert_series_point_sql)
+}
+
+fn build_upsert_series_point_sql(backend: Backend) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::insert()
         .into_table(schema::SeriesPoints::Table)
@@ -472,7 +669,12 @@ pub fn upsert_series_point_sql(backend: Backend) -> String {
     build_sql(backend, query)
 }
 
-pub fn select_points_range_sql(backend: Backend) -> String {
+/// Returns cached SQL for selecting points in a time range.
+pub fn select_points_range_sql(backend: Backend) -> &'static str {
+    SELECT_POINTS_RANGE.get(backend, build_select_points_range_sql)
+}
+
+fn build_select_points_range_sql(backend: Backend) -> String {
     if matches!(backend, Backend::Sqlite) {
         return "SELECT ts, value, payload, meta FROM series_points \
                 WHERE namespace = ?1 AND kind = ?2 AND series_id = ?3 \
@@ -499,7 +701,12 @@ pub fn select_points_range_sql(backend: Backend) -> String {
     build_sql(backend, query)
 }
 
-pub fn latest_point_sql(backend: Backend) -> String {
+/// Returns cached SQL for getting the latest point on or before a timestamp.
+pub fn latest_point_sql(backend: Backend) -> &'static str {
+    LATEST_POINT.get(backend, build_latest_point_sql)
+}
+
+fn build_latest_point_sql(backend: Backend) -> String {
     if matches!(backend, Backend::Sqlite) {
         return "SELECT ts, value, payload, meta FROM series_points \
                 WHERE namespace = ?1 AND kind = ?2 AND series_id = ?3 \
@@ -552,5 +759,26 @@ mod test_generated_sql {
         assert!(sql.contains("?1"), "Should contain ?1 placeholder");
         assert!(sql.contains("?2"), "Should contain ?2 placeholder");
         assert!(!sql.contains("?3"), "Should NOT contain ?3 placeholder");
+    }
+
+    #[test]
+    fn sql_cache_returns_same_reference() {
+        // First call initializes the cache
+        let sql1 = upsert_instrument_sql(Backend::Sqlite);
+        // Second call should return the same reference
+        let sql2 = upsert_instrument_sql(Backend::Sqlite);
+        // Both should point to the same string in memory
+        assert!(std::ptr::eq(sql1.as_ptr(), sql2.as_ptr()));
+    }
+
+    #[test]
+    fn different_backends_have_different_cached_sql() {
+        let sqlite_sql = upsert_instrument_sql(Backend::Sqlite);
+        let postgres_sql = upsert_instrument_sql(Backend::Postgres);
+        // Different backends should have different SQL
+        assert_ne!(sqlite_sql, postgres_sql);
+        // SQLite uses ?N, Postgres uses $N
+        assert!(sqlite_sql.contains("?1"));
+        assert!(postgres_sql.contains("$1"));
     }
 }

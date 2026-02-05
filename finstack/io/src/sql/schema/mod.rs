@@ -591,8 +591,8 @@ mod tests {
         assert_eq!(indexes[1].0, 2);
         assert_eq!(indexes[1].1.len(), 0);
 
-        // v3 has no indexes (series_meta, series_points)
+        // v3 has 2 indexes (series_points: namespace_ts, ts)
         assert_eq!(indexes[2].0, 3);
-        assert_eq!(indexes[2].1.len(), 0);
+        assert_eq!(indexes[2].1.len(), 2);
     }
 }

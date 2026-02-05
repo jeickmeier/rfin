@@ -34,7 +34,7 @@ impl BulkStore for SqliteStore {
                 let tx = conn.unchecked_transaction()?;
                 {
                     let sql = statements::upsert_instrument_sql(Backend::Sqlite);
-                    let mut stmt = tx.prepare(&sql)?;
+                    let mut stmt = tx.prepare(sql)?;
 
                     for (instrument_id, payload, meta) in &serialized {
                         stmt.execute(params![instrument_id, payload, meta])?;
@@ -68,7 +68,7 @@ impl BulkStore for SqliteStore {
                 let tx = conn.unchecked_transaction()?;
                 {
                     let sql = statements::upsert_market_context_sql(Backend::Sqlite);
-                    let mut stmt = tx.prepare(&sql)?;
+                    let mut stmt = tx.prepare(sql)?;
 
                     for (market_id, as_of, payload, meta) in &serialized {
                         stmt.execute(params![market_id, as_of, payload, meta])?;
@@ -101,7 +101,7 @@ impl BulkStore for SqliteStore {
                 let tx = conn.unchecked_transaction()?;
                 {
                     let sql = statements::upsert_portfolio_sql(Backend::Sqlite);
-                    let mut stmt = tx.prepare(&sql)?;
+                    let mut stmt = tx.prepare(sql)?;
 
                     for (portfolio_id, as_of, payload, meta) in &serialized {
                         stmt.execute(params![portfolio_id, as_of, payload, meta])?;

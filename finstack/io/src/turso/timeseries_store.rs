@@ -26,7 +26,7 @@ impl TimeSeriesStore for TursoStore {
         let namespace = key.namespace.clone();
         let kind = key.kind.as_str().to_string();
         let series_id = key.series_id.clone();
-        conn.execute(&sql, params![namespace, kind, series_id, meta_str])
+        conn.execute(sql, params![namespace, kind, series_id, meta_str])
             .await?;
         Ok(())
     }
@@ -37,7 +37,7 @@ impl TimeSeriesStore for TursoStore {
         let namespace = key.namespace.clone();
         let kind = key.kind.as_str().to_string();
         let series_id = key.series_id.clone();
-        let mut stmt = conn.prepare(&sql).await?;
+        let mut stmt = conn.prepare(sql).await?;
         let mut rows = stmt.query(params![namespace, kind, series_id]).await?;
 
         match rows.next().await.map_err(Error::Turso)? {
@@ -57,7 +57,7 @@ impl TimeSeriesStore for TursoStore {
         let sql = statements::list_series_sql(Backend::Sqlite);
         let namespace = namespace.to_string();
         let kind_str = kind.as_str().to_string();
-        let mut stmt = conn.prepare(&sql).await?;
+        let mut stmt = conn.prepare(sql).await?;
         let mut rows = stmt.query(params![namespace, kind_str]).await?;
 
         let mut out = Vec::new();
@@ -84,7 +84,7 @@ impl TimeSeriesStore for TursoStore {
             };
             let meta = meta_json_str(point.meta.as_ref())?;
             tx.execute(
-                &sql,
+                sql,
                 params![
                     namespace.clone(),
                     kind.clone(),
@@ -110,10 +110,11 @@ impl TimeSeriesStore for TursoStore {
         limit: Option<usize>,
     ) -> Result<Vec<TimeSeriesPoint>> {
         let conn = self.get_conn()?;
-        let mut sql = statements::select_points_range_sql(Backend::Sqlite);
-        if let Some(max) = limit {
-            sql = format!("{sql} LIMIT {max}");
-        }
+        let base_sql = statements::select_points_range_sql(Backend::Sqlite);
+        let sql = match limit {
+            Some(max) => format!("{base_sql} LIMIT {max}"),
+            None => base_sql.to_string(),
+        };
         let start_ts = ts_key(start)?;
         let end_ts = ts_key(end)?;
         let namespace = key.namespace.clone();
@@ -161,7 +162,7 @@ impl TimeSeriesStore for TursoStore {
         let namespace = key.namespace.clone();
         let kind = key.kind.as_str().to_string();
         let series_id = key.series_id.clone();
-        let mut stmt = conn.prepare(&sql).await?;
+        let mut stmt = conn.prepare(sql).await?;
         let mut rows = stmt
             .query(params![namespace, kind, series_id, ts_str])
             .await?;

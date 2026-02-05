@@ -2,6 +2,7 @@
 
 use crate::{
     sql::{statements, Backend},
+    store::MAX_BATCH_SIZE,
     Result, Store,
 };
 use async_trait::async_trait;
@@ -35,7 +36,7 @@ impl Store for SqliteStore {
         self.conn
             .call(move |conn| -> tokio_rusqlite::Result<()> {
                 let sql = statements::upsert_market_context_sql(Backend::Sqlite);
-                conn.execute(&sql, params![market_id, as_of, payload, meta])?;
+                conn.execute(sql, params![market_id, as_of, payload, meta])?;
                 Ok(())
             })
             .await?;
@@ -55,7 +56,7 @@ impl Store for SqliteStore {
             .call(move |conn| -> tokio_rusqlite::Result<Option<Vec<u8>>> {
                 let sql = statements::select_market_context_sql(Backend::Sqlite);
                 Ok(optional_row(conn.query_row(
-                    &sql,
+                    sql,
                     params![market_id, as_of],
                     |row| row.get(0),
                 ))?)
@@ -85,7 +86,7 @@ impl Store for SqliteStore {
         self.conn
             .call(move |conn| -> tokio_rusqlite::Result<()> {
                 let sql = statements::upsert_instrument_sql(Backend::Sqlite);
-                conn.execute(&sql, params![instrument_id, payload, meta])?;
+                conn.execute(sql, params![instrument_id, payload, meta])?;
                 Ok(())
             })
             .await?;
@@ -100,7 +101,7 @@ impl Store for SqliteStore {
             .call(move |conn| -> tokio_rusqlite::Result<Option<Vec<u8>>> {
                 let sql = statements::select_instrument_sql(Backend::Sqlite);
                 Ok(optional_row(conn.query_row(
-                    &sql,
+                    sql,
                     params![instrument_id],
                     |row| row.get(0),
                 ))?)
@@ -121,40 +122,45 @@ impl Store for SqliteStore {
             return Ok(HashMap::new());
         }
 
-        let instrument_ids = instrument_ids.to_vec();
+        let mut result = HashMap::with_capacity(instrument_ids.len());
 
-        let rows: Vec<(String, Vec<u8>)> = self
-            .conn
-            .call(
-                move |conn| -> tokio_rusqlite::Result<Vec<(String, Vec<u8>)>> {
-                    let sql = statements::select_instruments_batch_sql(
-                        Backend::Sqlite,
-                        instrument_ids.len(),
-                    );
-                    let mut stmt = conn.prepare(&sql)?;
-                    let params: Vec<&dyn rusqlite::ToSql> = instrument_ids
-                        .iter()
-                        .map(|s| s as &dyn rusqlite::ToSql)
-                        .collect();
+        // Chunk large batches to avoid query plan cache pollution and excessive IN clause sizes
+        for chunk in instrument_ids.chunks(MAX_BATCH_SIZE) {
+            let chunk_ids = chunk.to_vec();
 
-                    let rows = stmt.query_map(params.as_slice(), |row| {
-                        Ok((row.get::<_, String>(0)?, row.get::<_, Vec<u8>>(1)?))
-                    })?;
+            let rows: Vec<(String, Vec<u8>)> = self
+                .conn
+                .call(
+                    move |conn| -> tokio_rusqlite::Result<Vec<(String, Vec<u8>)>> {
+                        let sql = statements::select_instruments_batch_sql(
+                            Backend::Sqlite,
+                            chunk_ids.len(),
+                        );
+                        let mut stmt = conn.prepare(&sql)?;
+                        let params: Vec<&dyn rusqlite::ToSql> = chunk_ids
+                            .iter()
+                            .map(|s| s as &dyn rusqlite::ToSql)
+                            .collect();
 
-                    let mut result = Vec::new();
-                    for row in rows {
-                        result.push(row?);
-                    }
-                    Ok(result)
-                },
-            )
-            .await?;
+                        let rows = stmt.query_map(params.as_slice(), |row| {
+                            Ok((row.get::<_, String>(0)?, row.get::<_, Vec<u8>>(1)?))
+                        })?;
 
-        let mut result = HashMap::new();
-        for (id, bytes) in rows {
-            let instrument: InstrumentJson = serde_json::from_slice(&bytes)?;
-            result.insert(id, instrument);
+                        let mut chunk_result = Vec::new();
+                        for row in rows {
+                            chunk_result.push(row?);
+                        }
+                        Ok(chunk_result)
+                    },
+                )
+                .await?;
+
+            for (id, bytes) in rows {
+                let instrument: InstrumentJson = serde_json::from_slice(&bytes)?;
+                result.insert(id, instrument);
+            }
         }
+
         Ok(result)
     }
 
@@ -163,7 +169,7 @@ impl Store for SqliteStore {
             .conn
             .call(|conn| -> tokio_rusqlite::Result<Vec<String>> {
                 let sql = statements::list_instruments_sql(Backend::Sqlite);
-                let mut stmt = conn.prepare(&sql)?;
+                let mut stmt = conn.prepare(sql)?;
                 let rows = stmt.query_map([], |row| row.get(0))?;
 
                 let mut out = Vec::new();
@@ -191,7 +197,7 @@ impl Store for SqliteStore {
         self.conn
             .call(move |conn| -> tokio_rusqlite::Result<()> {
                 let sql = statements::upsert_portfolio_sql(Backend::Sqlite);
-                conn.execute(&sql, params![portfolio_id, as_of, payload, meta])?;
+                conn.execute(sql, params![portfolio_id, as_of, payload, meta])?;
                 Ok(())
             })
             .await?;
@@ -211,7 +217,7 @@ impl Store for SqliteStore {
             .call(move |conn| -> tokio_rusqlite::Result<Option<Vec<u8>>> {
                 let sql = statements::select_portfolio_sql(Backend::Sqlite);
                 Ok(optional_row(conn.query_row(
-                    &sql,
+                    sql,
                     params![portfolio_id, as_of],
                     |row| row.get(0),
                 ))?)
@@ -237,7 +243,7 @@ impl Store for SqliteStore {
         self.conn
             .call(move |conn| -> tokio_rusqlite::Result<()> {
                 let sql = statements::upsert_scenario_sql(Backend::Sqlite);
-                conn.execute(&sql, params![scenario_id, payload, meta])?;
+                conn.execute(sql, params![scenario_id, payload, meta])?;
                 Ok(())
             })
             .await?;
@@ -252,7 +258,7 @@ impl Store for SqliteStore {
             .call(move |conn| -> tokio_rusqlite::Result<Option<Vec<u8>>> {
                 let sql = statements::select_scenario_sql(Backend::Sqlite);
                 Ok(optional_row(conn.query_row(
-                    &sql,
+                    sql,
                     params![scenario_id],
                     |row| row.get(0),
                 ))?)
@@ -270,7 +276,7 @@ impl Store for SqliteStore {
             .conn
             .call(|conn| -> tokio_rusqlite::Result<Vec<String>> {
                 let sql = statements::list_scenarios_sql(Backend::Sqlite);
-                let mut stmt = conn.prepare(&sql)?;
+                let mut stmt = conn.prepare(sql)?;
                 let rows = stmt.query_map([], |row| row.get(0))?;
 
                 let mut out = Vec::new();
@@ -296,7 +302,7 @@ impl Store for SqliteStore {
         self.conn
             .call(move |conn| -> tokio_rusqlite::Result<()> {
                 let sql = statements::upsert_statement_model_sql(Backend::Sqlite);
-                conn.execute(&sql, params![model_id, payload, meta])?;
+                conn.execute(sql, params![model_id, payload, meta])?;
                 Ok(())
             })
             .await?;
@@ -311,7 +317,7 @@ impl Store for SqliteStore {
             .call(move |conn| -> tokio_rusqlite::Result<Option<Vec<u8>>> {
                 let sql = statements::select_statement_model_sql(Backend::Sqlite);
                 Ok(optional_row(conn.query_row(
-                    &sql,
+                    sql,
                     params![model_id],
                     |row| row.get(0),
                 ))?)
@@ -329,7 +335,7 @@ impl Store for SqliteStore {
             .conn
             .call(|conn| -> tokio_rusqlite::Result<Vec<String>> {
                 let sql = statements::list_statement_models_sql(Backend::Sqlite);
-                let mut stmt = conn.prepare(&sql)?;
+                let mut stmt = conn.prepare(sql)?;
                 let rows = stmt.query_map([], |row| row.get(0))?;
 
                 let mut out = Vec::new();
@@ -355,7 +361,7 @@ impl Store for SqliteStore {
         self.conn
             .call(move |conn| -> tokio_rusqlite::Result<()> {
                 let sql = statements::upsert_metric_registry_sql(Backend::Sqlite);
-                conn.execute(&sql, params![namespace, payload, meta])?;
+                conn.execute(sql, params![namespace, payload, meta])?;
                 Ok(())
             })
             .await?;
@@ -370,7 +376,7 @@ impl Store for SqliteStore {
             .call(move |conn| -> tokio_rusqlite::Result<Option<Vec<u8>>> {
                 let sql = statements::select_metric_registry_sql(Backend::Sqlite);
                 Ok(optional_row(conn.query_row(
-                    &sql,
+                    sql,
                     params![namespace],
                     |row| row.get(0),
                 ))?)
@@ -388,7 +394,7 @@ impl Store for SqliteStore {
             .conn
             .call(|conn| -> tokio_rusqlite::Result<Vec<String>> {
                 let sql = statements::list_metric_registries_sql(Backend::Sqlite);
-                let mut stmt = conn.prepare(&sql)?;
+                let mut stmt = conn.prepare(sql)?;
                 let rows = stmt.query_map([], |row| row.get(0))?;
 
                 let mut out = Vec::new();
@@ -408,7 +414,7 @@ impl Store for SqliteStore {
             .conn
             .call(move |conn| -> tokio_rusqlite::Result<usize> {
                 let sql = statements::delete_metric_registry_sql(Backend::Sqlite);
-                Ok(conn.execute(&sql, params![namespace])?)
+                Ok(conn.execute(sql, params![namespace])?)
             })
             .await?;
         Ok(rows_affected > 0)

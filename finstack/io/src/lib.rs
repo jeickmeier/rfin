@@ -20,6 +20,7 @@
 
 pub mod config;
 pub mod error;
+pub(crate) mod helpers;
 pub(crate) mod sql;
 pub mod store;
 
@@ -34,11 +35,11 @@ pub use config::{open_store_from_env, FinstackIoConfig, IoBackend, StoreHandle};
 pub use error::{Error, Result};
 pub use store::{
     BulkStore, LookbackStore, MarketContextSnapshot, PortfolioSnapshot, SeriesKey, SeriesKind,
-    Store, TimeSeriesPoint, TimeSeriesStore,
+    Store, TimeSeriesPoint, TimeSeriesStore, MAX_BATCH_SIZE,
 };
 
 #[cfg(feature = "postgres")]
-pub use postgres::PostgresStore;
+pub use postgres::{PostgresConfig, PostgresStore, DEFAULT_POOL_SIZE, DEFAULT_STATEMENT_TIMEOUT};
 #[cfg(feature = "sqlite")]
 pub use sqlite::SqliteStore;
 #[cfg(feature = "turso")]

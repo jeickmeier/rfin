@@ -1,6 +1,6 @@
 //! SeriesPoints table definition.
 
-use sea_query::{ColumnDef, Iden, Index, Table, TableCreateStatement};
+use sea_query::{ColumnDef, Iden, Index, IndexCreateStatement, Table, TableCreateStatement};
 
 use super::{created_at_col, json_col, ts_col, updated_at_col, TableDefinition, TableNaming};
 use crate::sql::Backend;
@@ -47,5 +47,31 @@ impl TableDefinition for SeriesPoints {
                     .col(SeriesPoints::Ts),
             )
             .to_owned()
+    }
+
+    fn indexes_with_naming(_backend: Backend, naming: &TableNaming) -> Vec<IndexCreateStatement> {
+        let prefix = naming.prefix();
+        let suffix = naming.suffix();
+
+        vec![
+            // Index for time-range scans within a namespace (common query pattern)
+            Index::create()
+                .if_not_exists()
+                .name(format!(
+                    "idx_{prefix}{}{suffix}_namespace_ts",
+                    Self::BASE_NAME
+                ))
+                .table(naming.alias(Self::BASE_NAME))
+                .col(SeriesPoints::Namespace)
+                .col(SeriesPoints::Ts)
+                .to_owned(),
+            // Index for global time-range queries across all series
+            Index::create()
+                .if_not_exists()
+                .name(format!("idx_{prefix}{}{suffix}_ts", Self::BASE_NAME))
+                .table(naming.alias(Self::BASE_NAME))
+                .col(SeriesPoints::Ts)
+                .to_owned(),
+        ]
     }
 }
