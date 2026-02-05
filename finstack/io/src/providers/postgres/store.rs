@@ -1,12 +1,14 @@
 //! PostgresStore struct and helper utilities.
 
 use crate::{
+    sql::schema::TableNaming,
     sql::{migrations, Backend},
     Error, Result,
 };
 use chrono::{DateTime, Datelike, NaiveDate, Utc};
 use deadpool_postgres::{Config, ManagerConfig, Pool, RecyclingMethod, Runtime};
 use finstack_core::dates::Date;
+use std::sync::Arc;
 use std::time::Duration;
 use tokio_postgres::NoTls;
 
@@ -62,6 +64,7 @@ pub struct PostgresStore {
     pub(crate) pool: Pool,
     pub(crate) url: String,
     pub(crate) statement_timeout_ms: u64,
+    pub(crate) naming: Arc<TableNaming>,
 }
 
 impl std::fmt::Debug for PostgresStore {
@@ -92,8 +95,20 @@ impl PostgresStore {
 
     /// Connect with custom configuration options.
     pub async fn connect_with_config(url: &str, pg_config: PostgresConfig) -> Result<Self> {
+        Self::connect_with_config_and_naming(url, pg_config, TableNaming::default()).await
+    }
+
+    /// Connect with custom configuration options and custom table naming.
+    pub async fn connect_with_config_and_naming(
+        url: &str,
+        pg_config: PostgresConfig,
+        naming: TableNaming,
+    ) -> Result<Self> {
+        let statement_timeout_ms = pg_config.statement_timeout.as_millis() as u64;
+        let effective_url = url_with_statement_timeout(url, statement_timeout_ms);
+
         let mut config = Config::new();
-        config.url = Some(url.to_string());
+        config.url = Some(effective_url.clone());
         config.manager = Some(ManagerConfig {
             recycling_method: RecyclingMethod::Fast,
         });
@@ -105,8 +120,9 @@ impl PostgresStore {
 
         let store = Self {
             pool,
-            url: url.to_string(),
-            statement_timeout_ms: pg_config.statement_timeout.as_millis() as u64,
+            url: effective_url,
+            statement_timeout_ms,
+            naming: Arc::new(naming),
         };
 
         // Run migrations
@@ -120,23 +136,29 @@ impl PostgresStore {
         &self.url
     }
 
+    /// Table naming used by this store.
+    pub fn naming(&self) -> &TableNaming {
+        self.naming.as_ref()
+    }
+
     /// Get a connection from the pool.
     pub(crate) async fn get_conn(&self) -> Result<deadpool_postgres::Object> {
-        let conn = self.pool.get().await?;
-        let timeout_sql = format!("SET statement_timeout = {}", self.statement_timeout_ms);
-        conn.execute(&timeout_sql, &[]).await?;
-        Ok(conn)
+        Ok(self.pool.get().await?)
     }
 
     /// Run schema migrations.
     async fn migrate(&self) -> Result<()> {
         let mut conn = self.get_conn().await?;
 
-        conn.batch_execute(&migrations::schema_migrations_table_sql(Backend::Postgres))
-            .await?;
+        conn.batch_execute(&migrations::schema_migrations_table_sql_with_naming(
+            Backend::Postgres,
+            self.naming(),
+        ))
+        .await?;
 
+        let migrations_table = quote_ident(&self.naming().resolve("finstack_schema_migrations"));
         let row = conn
-            .query_opt("SELECT MAX(version) FROM finstack_schema_migrations", &[])
+            .query_opt(&format!("SELECT MAX(version) FROM {migrations_table}"), &[])
             .await?;
         // MAX() returns NULL when the table is empty (no migrations applied yet).
         // In that case, we treat it as version 0 to apply all migrations.
@@ -153,7 +175,7 @@ impl PostgresStore {
             return Ok(());
         }
 
-        let migrations = migrations::migrations_for(Backend::Postgres);
+        let migrations = migrations::migrations_for_with_naming(Backend::Postgres, self.naming());
         let tx = conn.transaction().await?;
         for (version, statements) in migrations {
             if version <= current {
@@ -163,13 +185,35 @@ impl PostgresStore {
                 tx.batch_execute(&sql).await?;
             }
             tx.execute(
-                "INSERT INTO finstack_schema_migrations (version, applied_at) VALUES ($1, now())",
+                &format!("INSERT INTO {migrations_table} (version, applied_at) VALUES ($1, now())"),
                 &[&version],
             )
             .await?;
         }
         tx.commit().await?;
         Ok(())
+    }
+}
+
+pub(crate) fn quote_ident(name: &str) -> String {
+    format!("\"{}\"", name.replace('"', "\"\""))
+}
+
+fn url_with_statement_timeout(url: &str, statement_timeout_ms: u64) -> String {
+    // If the user already configured libpq `options=...`, don't override it.
+    // (We can't safely merge options strings without a URL parser dependency.)
+    if url.contains("options=") {
+        return url.to_string();
+    }
+
+    // libpq supports `options=-c statement_timeout=...` passed via the URL query string.
+    // We URL-encode the minimal characters we introduce (space, '=') to avoid ambiguity.
+    let options_value = format!("-c%20statement_timeout%3D{statement_timeout_ms}");
+
+    if url.contains('?') {
+        format!("{url}&options={options_value}")
+    } else {
+        format!("{url}?options={options_value}")
     }
 }
 

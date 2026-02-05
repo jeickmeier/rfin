@@ -84,6 +84,7 @@ pub fn migrations_for_with_naming(
 ///
 /// This is a convenience function that uses [`TableNaming::default()`].
 /// For custom table names, use [`migrations_for_with_naming`].
+#[allow(dead_code)]
 pub fn migrations_for(backend: Backend) -> Vec<(i64, Vec<String>)> {
     migrations_for_with_naming(backend, &TableNaming::default())
 }

@@ -7,8 +7,10 @@ use sea_query::{
     Expr, OnConflict, Order, PostgresQueryBuilder, Query, QueryStatementBuilder, SimpleExpr,
     SqliteQueryBuilder,
 };
+use std::borrow::Cow;
 use std::sync::OnceLock;
 
+use super::schema::TableNaming;
 use super::{schema, Backend};
 
 // ---------------------------------------------------------------------------
@@ -121,10 +123,26 @@ pub fn upsert_market_context_sql(backend: Backend) -> &'static str {
     UPSERT_MARKET_CONTEXT.get(backend, build_upsert_market_context_sql)
 }
 
+/// Returns SQL for upserting a market context using custom table naming.
+pub fn upsert_market_context_sql_with_naming(
+    backend: Backend,
+    naming: &TableNaming,
+) -> Cow<'static, str> {
+    if naming.is_identity() {
+        Cow::Borrowed(upsert_market_context_sql(backend))
+    } else {
+        Cow::Owned(build_upsert_market_context_sql_with_naming(backend, naming))
+    }
+}
+
 fn build_upsert_market_context_sql(backend: Backend) -> String {
+    build_upsert_market_context_sql_with_naming(backend, &TableNaming::default())
+}
+
+fn build_upsert_market_context_sql_with_naming(backend: Backend, naming: &TableNaming) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::insert()
-        .into_table(schema::MarketContexts::Table)
+        .into_table(naming.alias("market_contexts"))
         .columns([
             schema::MarketContexts::Id,
             schema::MarketContexts::AsOf,
@@ -150,10 +168,26 @@ pub fn upsert_instrument_sql(backend: Backend) -> &'static str {
     UPSERT_INSTRUMENT.get(backend, build_upsert_instrument_sql)
 }
 
+/// Returns SQL for upserting an instrument using custom table naming.
+pub fn upsert_instrument_sql_with_naming(
+    backend: Backend,
+    naming: &TableNaming,
+) -> Cow<'static, str> {
+    if naming.is_identity() {
+        Cow::Borrowed(upsert_instrument_sql(backend))
+    } else {
+        Cow::Owned(build_upsert_instrument_sql_with_naming(backend, naming))
+    }
+}
+
 fn build_upsert_instrument_sql(backend: Backend) -> String {
+    build_upsert_instrument_sql_with_naming(backend, &TableNaming::default())
+}
+
+fn build_upsert_instrument_sql_with_naming(backend: Backend, naming: &TableNaming) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::insert()
-        .into_table(schema::Instruments::Table)
+        .into_table(naming.alias("instruments"))
         .columns([
             schema::Instruments::Id,
             schema::Instruments::Payload,
@@ -175,10 +209,26 @@ pub fn upsert_portfolio_sql(backend: Backend) -> &'static str {
     UPSERT_PORTFOLIO.get(backend, build_upsert_portfolio_sql)
 }
 
+/// Returns SQL for upserting a portfolio using custom table naming.
+pub fn upsert_portfolio_sql_with_naming(
+    backend: Backend,
+    naming: &TableNaming,
+) -> Cow<'static, str> {
+    if naming.is_identity() {
+        Cow::Borrowed(upsert_portfolio_sql(backend))
+    } else {
+        Cow::Owned(build_upsert_portfolio_sql_with_naming(backend, naming))
+    }
+}
+
 fn build_upsert_portfolio_sql(backend: Backend) -> String {
+    build_upsert_portfolio_sql_with_naming(backend, &TableNaming::default())
+}
+
+fn build_upsert_portfolio_sql_with_naming(backend: Backend, naming: &TableNaming) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::insert()
-        .into_table(schema::Portfolios::Table)
+        .into_table(naming.alias("portfolios"))
         .columns([
             schema::Portfolios::Id,
             schema::Portfolios::AsOf,
@@ -201,10 +251,26 @@ pub fn upsert_scenario_sql(backend: Backend) -> &'static str {
     UPSERT_SCENARIO.get(backend, build_upsert_scenario_sql)
 }
 
+/// Returns SQL for upserting a scenario using custom table naming.
+pub fn upsert_scenario_sql_with_naming(
+    backend: Backend,
+    naming: &TableNaming,
+) -> Cow<'static, str> {
+    if naming.is_identity() {
+        Cow::Borrowed(upsert_scenario_sql(backend))
+    } else {
+        Cow::Owned(build_upsert_scenario_sql_with_naming(backend, naming))
+    }
+}
+
 fn build_upsert_scenario_sql(backend: Backend) -> String {
+    build_upsert_scenario_sql_with_naming(backend, &TableNaming::default())
+}
+
+fn build_upsert_scenario_sql_with_naming(backend: Backend, naming: &TableNaming) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::insert()
-        .into_table(schema::Scenarios::Table)
+        .into_table(naming.alias("scenarios"))
         .columns([
             schema::Scenarios::Id,
             schema::Scenarios::Payload,
@@ -226,10 +292,28 @@ pub fn upsert_statement_model_sql(backend: Backend) -> &'static str {
     UPSERT_STATEMENT_MODEL.get(backend, build_upsert_statement_model_sql)
 }
 
+/// Returns SQL for upserting a statement model using custom table naming.
+pub fn upsert_statement_model_sql_with_naming(
+    backend: Backend,
+    naming: &TableNaming,
+) -> Cow<'static, str> {
+    if naming.is_identity() {
+        Cow::Borrowed(upsert_statement_model_sql(backend))
+    } else {
+        Cow::Owned(build_upsert_statement_model_sql_with_naming(
+            backend, naming,
+        ))
+    }
+}
+
 fn build_upsert_statement_model_sql(backend: Backend) -> String {
+    build_upsert_statement_model_sql_with_naming(backend, &TableNaming::default())
+}
+
+fn build_upsert_statement_model_sql_with_naming(backend: Backend, naming: &TableNaming) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::insert()
-        .into_table(schema::StatementModels::Table)
+        .into_table(naming.alias("statement_models"))
         .columns([
             schema::StatementModels::Id,
             schema::StatementModels::Payload,
@@ -254,10 +338,28 @@ pub fn upsert_metric_registry_sql(backend: Backend) -> &'static str {
     UPSERT_METRIC_REGISTRY.get(backend, build_upsert_metric_registry_sql)
 }
 
+/// Returns SQL for upserting a metric registry using custom table naming.
+pub fn upsert_metric_registry_sql_with_naming(
+    backend: Backend,
+    naming: &TableNaming,
+) -> Cow<'static, str> {
+    if naming.is_identity() {
+        Cow::Borrowed(upsert_metric_registry_sql(backend))
+    } else {
+        Cow::Owned(build_upsert_metric_registry_sql_with_naming(
+            backend, naming,
+        ))
+    }
+}
+
 fn build_upsert_metric_registry_sql(backend: Backend) -> String {
+    build_upsert_metric_registry_sql_with_naming(backend, &TableNaming::default())
+}
+
+fn build_upsert_metric_registry_sql_with_naming(backend: Backend, naming: &TableNaming) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::insert()
-        .into_table(schema::MetricRegistries::Table)
+        .into_table(naming.alias("metric_registries"))
         .columns([
             schema::MetricRegistries::Namespace,
             schema::MetricRegistries::Payload,
@@ -285,10 +387,26 @@ pub fn select_market_context_sql(backend: Backend) -> &'static str {
     SELECT_MARKET_CONTEXT.get(backend, build_select_market_context_sql)
 }
 
+/// Returns SQL for selecting a market context using custom table naming.
+pub fn select_market_context_sql_with_naming(
+    backend: Backend,
+    naming: &TableNaming,
+) -> Cow<'static, str> {
+    if naming.is_identity() {
+        Cow::Borrowed(select_market_context_sql(backend))
+    } else {
+        Cow::Owned(build_select_market_context_sql_with_naming(backend, naming))
+    }
+}
+
 fn build_select_market_context_sql(backend: Backend) -> String {
+    build_select_market_context_sql_with_naming(backend, &TableNaming::default())
+}
+
+fn build_select_market_context_sql_with_naming(backend: Backend, naming: &TableNaming) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::select()
-        .from(schema::MarketContexts::Table)
+        .from(naming.alias("market_contexts"))
         .column(schema::MarketContexts::Payload)
         .and_where(Expr::col(schema::MarketContexts::Id).eq(p.next()))
         .and_where(Expr::col(schema::MarketContexts::AsOf).eq(p.next()))
@@ -301,10 +419,26 @@ pub fn select_instrument_sql(backend: Backend) -> &'static str {
     SELECT_INSTRUMENT.get(backend, build_select_instrument_sql)
 }
 
+/// Returns SQL for selecting an instrument using custom table naming.
+pub fn select_instrument_sql_with_naming(
+    backend: Backend,
+    naming: &TableNaming,
+) -> Cow<'static, str> {
+    if naming.is_identity() {
+        Cow::Borrowed(select_instrument_sql(backend))
+    } else {
+        Cow::Owned(build_select_instrument_sql_with_naming(backend, naming))
+    }
+}
+
 fn build_select_instrument_sql(backend: Backend) -> String {
+    build_select_instrument_sql_with_naming(backend, &TableNaming::default())
+}
+
+fn build_select_instrument_sql_with_naming(backend: Backend, naming: &TableNaming) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::select()
-        .from(schema::Instruments::Table)
+        .from(naming.alias("instruments"))
         .column(schema::Instruments::Payload)
         .and_where(Expr::col(schema::Instruments::Id).eq(p.next()))
         .to_owned();
@@ -315,11 +449,21 @@ fn build_select_instrument_sql(backend: Backend) -> String {
 ///
 /// Note: This function is NOT cached because the number of placeholders varies
 /// per call. See `MAX_BATCH_SIZE` for chunking large batches.
+#[allow(dead_code)]
 pub fn select_instruments_batch_sql(backend: Backend, count: usize) -> String {
+    select_instruments_batch_sql_with_naming(backend, &TableNaming::default(), count)
+}
+
+/// Builds SQL for selecting instruments in a batch with custom table naming.
+pub fn select_instruments_batch_sql_with_naming(
+    backend: Backend,
+    naming: &TableNaming,
+    count: usize,
+) -> String {
     let mut p = Placeholders::new(backend);
     let placeholders: Vec<SimpleExpr> = (0..count).map(|_| p.next()).collect();
     let query = Query::select()
-        .from(schema::Instruments::Table)
+        .from(naming.alias("instruments"))
         .columns([schema::Instruments::Id, schema::Instruments::Payload])
         .and_where(Expr::col(schema::Instruments::Id).is_in(placeholders))
         .to_owned();
@@ -331,9 +475,25 @@ pub fn list_instruments_sql(backend: Backend) -> &'static str {
     LIST_INSTRUMENTS.get(backend, build_list_instruments_sql)
 }
 
+/// Returns SQL for listing instruments using custom table naming.
+pub fn list_instruments_sql_with_naming(
+    backend: Backend,
+    naming: &TableNaming,
+) -> Cow<'static, str> {
+    if naming.is_identity() {
+        Cow::Borrowed(list_instruments_sql(backend))
+    } else {
+        Cow::Owned(build_list_instruments_sql_with_naming(backend, naming))
+    }
+}
+
 fn build_list_instruments_sql(backend: Backend) -> String {
+    build_list_instruments_sql_with_naming(backend, &TableNaming::default())
+}
+
+fn build_list_instruments_sql_with_naming(backend: Backend, naming: &TableNaming) -> String {
     let query = Query::select()
-        .from(schema::Instruments::Table)
+        .from(naming.alias("instruments"))
         .column(schema::Instruments::Id)
         .order_by(schema::Instruments::Id, Order::Asc)
         .to_owned();
@@ -345,10 +505,26 @@ pub fn select_portfolio_sql(backend: Backend) -> &'static str {
     SELECT_PORTFOLIO.get(backend, build_select_portfolio_sql)
 }
 
+/// Returns SQL for selecting a portfolio using custom table naming.
+pub fn select_portfolio_sql_with_naming(
+    backend: Backend,
+    naming: &TableNaming,
+) -> Cow<'static, str> {
+    if naming.is_identity() {
+        Cow::Borrowed(select_portfolio_sql(backend))
+    } else {
+        Cow::Owned(build_select_portfolio_sql_with_naming(backend, naming))
+    }
+}
+
 fn build_select_portfolio_sql(backend: Backend) -> String {
+    build_select_portfolio_sql_with_naming(backend, &TableNaming::default())
+}
+
+fn build_select_portfolio_sql_with_naming(backend: Backend, naming: &TableNaming) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::select()
-        .from(schema::Portfolios::Table)
+        .from(naming.alias("portfolios"))
         .column(schema::Portfolios::Payload)
         .and_where(Expr::col(schema::Portfolios::Id).eq(p.next()))
         .and_where(Expr::col(schema::Portfolios::AsOf).eq(p.next()))
@@ -361,10 +537,26 @@ pub fn select_scenario_sql(backend: Backend) -> &'static str {
     SELECT_SCENARIO.get(backend, build_select_scenario_sql)
 }
 
+/// Returns SQL for selecting a scenario using custom table naming.
+pub fn select_scenario_sql_with_naming(
+    backend: Backend,
+    naming: &TableNaming,
+) -> Cow<'static, str> {
+    if naming.is_identity() {
+        Cow::Borrowed(select_scenario_sql(backend))
+    } else {
+        Cow::Owned(build_select_scenario_sql_with_naming(backend, naming))
+    }
+}
+
 fn build_select_scenario_sql(backend: Backend) -> String {
+    build_select_scenario_sql_with_naming(backend, &TableNaming::default())
+}
+
+fn build_select_scenario_sql_with_naming(backend: Backend, naming: &TableNaming) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::select()
-        .from(schema::Scenarios::Table)
+        .from(naming.alias("scenarios"))
         .column(schema::Scenarios::Payload)
         .and_where(Expr::col(schema::Scenarios::Id).eq(p.next()))
         .to_owned();
@@ -376,9 +568,22 @@ pub fn list_scenarios_sql(backend: Backend) -> &'static str {
     LIST_SCENARIOS.get(backend, build_list_scenarios_sql)
 }
 
+/// Returns SQL for listing scenarios using custom table naming.
+pub fn list_scenarios_sql_with_naming(backend: Backend, naming: &TableNaming) -> Cow<'static, str> {
+    if naming.is_identity() {
+        Cow::Borrowed(list_scenarios_sql(backend))
+    } else {
+        Cow::Owned(build_list_scenarios_sql_with_naming(backend, naming))
+    }
+}
+
 fn build_list_scenarios_sql(backend: Backend) -> String {
+    build_list_scenarios_sql_with_naming(backend, &TableNaming::default())
+}
+
+fn build_list_scenarios_sql_with_naming(backend: Backend, naming: &TableNaming) -> String {
     let query = Query::select()
-        .from(schema::Scenarios::Table)
+        .from(naming.alias("scenarios"))
         .column(schema::Scenarios::Id)
         .order_by(schema::Scenarios::Id, Order::Asc)
         .to_owned();
@@ -390,10 +595,28 @@ pub fn select_statement_model_sql(backend: Backend) -> &'static str {
     SELECT_STATEMENT_MODEL.get(backend, build_select_statement_model_sql)
 }
 
+/// Returns SQL for selecting a statement model using custom table naming.
+pub fn select_statement_model_sql_with_naming(
+    backend: Backend,
+    naming: &TableNaming,
+) -> Cow<'static, str> {
+    if naming.is_identity() {
+        Cow::Borrowed(select_statement_model_sql(backend))
+    } else {
+        Cow::Owned(build_select_statement_model_sql_with_naming(
+            backend, naming,
+        ))
+    }
+}
+
 fn build_select_statement_model_sql(backend: Backend) -> String {
+    build_select_statement_model_sql_with_naming(backend, &TableNaming::default())
+}
+
+fn build_select_statement_model_sql_with_naming(backend: Backend, naming: &TableNaming) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::select()
-        .from(schema::StatementModels::Table)
+        .from(naming.alias("statement_models"))
         .column(schema::StatementModels::Payload)
         .and_where(Expr::col(schema::StatementModels::Id).eq(p.next()))
         .to_owned();
@@ -405,9 +628,25 @@ pub fn list_statement_models_sql(backend: Backend) -> &'static str {
     LIST_STATEMENT_MODELS.get(backend, build_list_statement_models_sql)
 }
 
+/// Returns SQL for listing statement models using custom table naming.
+pub fn list_statement_models_sql_with_naming(
+    backend: Backend,
+    naming: &TableNaming,
+) -> Cow<'static, str> {
+    if naming.is_identity() {
+        Cow::Borrowed(list_statement_models_sql(backend))
+    } else {
+        Cow::Owned(build_list_statement_models_sql_with_naming(backend, naming))
+    }
+}
+
 fn build_list_statement_models_sql(backend: Backend) -> String {
+    build_list_statement_models_sql_with_naming(backend, &TableNaming::default())
+}
+
+fn build_list_statement_models_sql_with_naming(backend: Backend, naming: &TableNaming) -> String {
     let query = Query::select()
-        .from(schema::StatementModels::Table)
+        .from(naming.alias("statement_models"))
         .column(schema::StatementModels::Id)
         .order_by(schema::StatementModels::Id, Order::Asc)
         .to_owned();
@@ -419,10 +658,28 @@ pub fn select_metric_registry_sql(backend: Backend) -> &'static str {
     SELECT_METRIC_REGISTRY.get(backend, build_select_metric_registry_sql)
 }
 
+/// Returns SQL for selecting a metric registry using custom table naming.
+pub fn select_metric_registry_sql_with_naming(
+    backend: Backend,
+    naming: &TableNaming,
+) -> Cow<'static, str> {
+    if naming.is_identity() {
+        Cow::Borrowed(select_metric_registry_sql(backend))
+    } else {
+        Cow::Owned(build_select_metric_registry_sql_with_naming(
+            backend, naming,
+        ))
+    }
+}
+
 fn build_select_metric_registry_sql(backend: Backend) -> String {
+    build_select_metric_registry_sql_with_naming(backend, &TableNaming::default())
+}
+
+fn build_select_metric_registry_sql_with_naming(backend: Backend, naming: &TableNaming) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::select()
-        .from(schema::MetricRegistries::Table)
+        .from(naming.alias("metric_registries"))
         .column(schema::MetricRegistries::Payload)
         .and_where(Expr::col(schema::MetricRegistries::Namespace).eq(p.next()))
         .to_owned();
@@ -434,9 +691,27 @@ pub fn list_metric_registries_sql(backend: Backend) -> &'static str {
     LIST_METRIC_REGISTRIES.get(backend, build_list_metric_registries_sql)
 }
 
+/// Returns SQL for listing metric registries using custom table naming.
+pub fn list_metric_registries_sql_with_naming(
+    backend: Backend,
+    naming: &TableNaming,
+) -> Cow<'static, str> {
+    if naming.is_identity() {
+        Cow::Borrowed(list_metric_registries_sql(backend))
+    } else {
+        Cow::Owned(build_list_metric_registries_sql_with_naming(
+            backend, naming,
+        ))
+    }
+}
+
 fn build_list_metric_registries_sql(backend: Backend) -> String {
+    build_list_metric_registries_sql_with_naming(backend, &TableNaming::default())
+}
+
+fn build_list_metric_registries_sql_with_naming(backend: Backend, naming: &TableNaming) -> String {
     let query = Query::select()
-        .from(schema::MetricRegistries::Table)
+        .from(naming.alias("metric_registries"))
         .column(schema::MetricRegistries::Namespace)
         .order_by(schema::MetricRegistries::Namespace, Order::Asc)
         .to_owned();
@@ -448,10 +723,28 @@ pub fn delete_metric_registry_sql(backend: Backend) -> &'static str {
     DELETE_METRIC_REGISTRY.get(backend, build_delete_metric_registry_sql)
 }
 
+/// Returns SQL for deleting a metric registry using custom table naming.
+pub fn delete_metric_registry_sql_with_naming(
+    backend: Backend,
+    naming: &TableNaming,
+) -> Cow<'static, str> {
+    if naming.is_identity() {
+        Cow::Borrowed(delete_metric_registry_sql(backend))
+    } else {
+        Cow::Owned(build_delete_metric_registry_sql_with_naming(
+            backend, naming,
+        ))
+    }
+}
+
 fn build_delete_metric_registry_sql(backend: Backend) -> String {
+    build_delete_metric_registry_sql_with_naming(backend, &TableNaming::default())
+}
+
+fn build_delete_metric_registry_sql_with_naming(backend: Backend, naming: &TableNaming) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::delete()
-        .from_table(schema::MetricRegistries::Table)
+        .from_table(naming.alias("metric_registries"))
         .and_where(Expr::col(schema::MetricRegistries::Namespace).eq(p.next()))
         .to_owned();
     build_sql(backend, query)
@@ -462,8 +755,24 @@ pub fn list_market_contexts_sql(backend: Backend) -> &'static str {
     LIST_MARKET_CONTEXTS.get(backend, build_list_market_contexts_sql)
 }
 
+/// Returns SQL for listing market contexts in a date range using custom table naming.
+pub fn list_market_contexts_sql_with_naming(
+    backend: Backend,
+    naming: &TableNaming,
+) -> Cow<'static, str> {
+    if naming.is_identity() {
+        Cow::Borrowed(list_market_contexts_sql(backend))
+    } else {
+        Cow::Owned(build_list_market_contexts_sql_with_naming(backend, naming))
+    }
+}
+
 fn build_list_market_contexts_sql(backend: Backend) -> String {
-    if matches!(backend, Backend::Sqlite) {
+    build_list_market_contexts_sql_with_naming(backend, &TableNaming::default())
+}
+
+fn build_list_market_contexts_sql_with_naming(backend: Backend, naming: &TableNaming) -> String {
+    if matches!(backend, Backend::Sqlite) && naming.is_identity() {
         return "SELECT as_of, payload FROM market_contexts \
                 WHERE id = ?1 AND as_of BETWEEN ?2 AND ?3 \
                 ORDER BY as_of ASC"
@@ -471,7 +780,7 @@ fn build_list_market_contexts_sql(backend: Backend) -> String {
     }
     let mut p = Placeholders::new(backend);
     let query = Query::select()
-        .from(schema::MarketContexts::Table)
+        .from(naming.alias("market_contexts"))
         .columns([
             schema::MarketContexts::AsOf,
             schema::MarketContexts::Payload,
@@ -489,8 +798,24 @@ pub fn latest_market_context_sql(backend: Backend) -> &'static str {
     LATEST_MARKET_CONTEXT.get(backend, build_latest_market_context_sql)
 }
 
+/// Returns SQL for getting the latest market context on or before a date using custom table naming.
+pub fn latest_market_context_sql_with_naming(
+    backend: Backend,
+    naming: &TableNaming,
+) -> Cow<'static, str> {
+    if naming.is_identity() {
+        Cow::Borrowed(latest_market_context_sql(backend))
+    } else {
+        Cow::Owned(build_latest_market_context_sql_with_naming(backend, naming))
+    }
+}
+
 fn build_latest_market_context_sql(backend: Backend) -> String {
-    if matches!(backend, Backend::Sqlite) {
+    build_latest_market_context_sql_with_naming(backend, &TableNaming::default())
+}
+
+fn build_latest_market_context_sql_with_naming(backend: Backend, naming: &TableNaming) -> String {
+    if matches!(backend, Backend::Sqlite) && naming.is_identity() {
         return "SELECT as_of, payload FROM market_contexts \
                 WHERE id = ?1 AND as_of <= ?2 \
                 ORDER BY as_of DESC LIMIT 1"
@@ -498,7 +823,7 @@ fn build_latest_market_context_sql(backend: Backend) -> String {
     }
     let mut p = Placeholders::new(backend);
     let query = Query::select()
-        .from(schema::MarketContexts::Table)
+        .from(naming.alias("market_contexts"))
         .columns([
             schema::MarketContexts::AsOf,
             schema::MarketContexts::Payload,
@@ -516,8 +841,24 @@ pub fn list_portfolios_sql(backend: Backend) -> &'static str {
     LIST_PORTFOLIOS.get(backend, build_list_portfolios_sql)
 }
 
+/// Returns SQL for listing portfolios in a date range using custom table naming.
+pub fn list_portfolios_sql_with_naming(
+    backend: Backend,
+    naming: &TableNaming,
+) -> Cow<'static, str> {
+    if naming.is_identity() {
+        Cow::Borrowed(list_portfolios_sql(backend))
+    } else {
+        Cow::Owned(build_list_portfolios_sql_with_naming(backend, naming))
+    }
+}
+
 fn build_list_portfolios_sql(backend: Backend) -> String {
-    if matches!(backend, Backend::Sqlite) {
+    build_list_portfolios_sql_with_naming(backend, &TableNaming::default())
+}
+
+fn build_list_portfolios_sql_with_naming(backend: Backend, naming: &TableNaming) -> String {
+    if matches!(backend, Backend::Sqlite) && naming.is_identity() {
         return "SELECT as_of, payload FROM portfolios \
                 WHERE id = ?1 AND as_of BETWEEN ?2 AND ?3 \
                 ORDER BY as_of ASC"
@@ -525,7 +866,7 @@ fn build_list_portfolios_sql(backend: Backend) -> String {
     }
     let mut p = Placeholders::new(backend);
     let query = Query::select()
-        .from(schema::Portfolios::Table)
+        .from(naming.alias("portfolios"))
         .columns([schema::Portfolios::AsOf, schema::Portfolios::Payload])
         .and_where(Expr::col(schema::Portfolios::Id).eq(p.next()))
         .and_where(Expr::col(schema::Portfolios::AsOf).gte(p.next()))
@@ -540,8 +881,24 @@ pub fn latest_portfolio_sql(backend: Backend) -> &'static str {
     LATEST_PORTFOLIO.get(backend, build_latest_portfolio_sql)
 }
 
+/// Returns SQL for getting the latest portfolio on or before a date using custom table naming.
+pub fn latest_portfolio_sql_with_naming(
+    backend: Backend,
+    naming: &TableNaming,
+) -> Cow<'static, str> {
+    if naming.is_identity() {
+        Cow::Borrowed(latest_portfolio_sql(backend))
+    } else {
+        Cow::Owned(build_latest_portfolio_sql_with_naming(backend, naming))
+    }
+}
+
 fn build_latest_portfolio_sql(backend: Backend) -> String {
-    if matches!(backend, Backend::Sqlite) {
+    build_latest_portfolio_sql_with_naming(backend, &TableNaming::default())
+}
+
+fn build_latest_portfolio_sql_with_naming(backend: Backend, naming: &TableNaming) -> String {
+    if matches!(backend, Backend::Sqlite) && naming.is_identity() {
         return "SELECT as_of, payload FROM portfolios \
                 WHERE id = ?1 AND as_of <= ?2 \
                 ORDER BY as_of DESC LIMIT 1"
@@ -549,7 +906,7 @@ fn build_latest_portfolio_sql(backend: Backend) -> String {
     }
     let mut p = Placeholders::new(backend);
     let query = Query::select()
-        .from(schema::Portfolios::Table)
+        .from(naming.alias("portfolios"))
         .columns([schema::Portfolios::AsOf, schema::Portfolios::Payload])
         .and_where(Expr::col(schema::Portfolios::Id).eq(p.next()))
         .and_where(Expr::col(schema::Portfolios::AsOf).lte(p.next()))
@@ -564,10 +921,26 @@ pub fn upsert_series_meta_sql(backend: Backend) -> &'static str {
     UPSERT_SERIES_META.get(backend, build_upsert_series_meta_sql)
 }
 
+/// Returns SQL for upserting series metadata using custom table naming.
+pub fn upsert_series_meta_sql_with_naming(
+    backend: Backend,
+    naming: &TableNaming,
+) -> Cow<'static, str> {
+    if naming.is_identity() {
+        Cow::Borrowed(upsert_series_meta_sql(backend))
+    } else {
+        Cow::Owned(build_upsert_series_meta_sql_with_naming(backend, naming))
+    }
+}
+
 fn build_upsert_series_meta_sql(backend: Backend) -> String {
+    build_upsert_series_meta_sql_with_naming(backend, &TableNaming::default())
+}
+
+fn build_upsert_series_meta_sql_with_naming(backend: Backend, naming: &TableNaming) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::insert()
-        .into_table(schema::SeriesMeta::Table)
+        .into_table(naming.alias("series_meta"))
         .columns([
             schema::SeriesMeta::Namespace,
             schema::SeriesMeta::Kind,
@@ -594,10 +967,26 @@ pub fn select_series_meta_sql(backend: Backend) -> &'static str {
     SELECT_SERIES_META.get(backend, build_select_series_meta_sql)
 }
 
+/// Returns SQL for selecting series metadata using custom table naming.
+pub fn select_series_meta_sql_with_naming(
+    backend: Backend,
+    naming: &TableNaming,
+) -> Cow<'static, str> {
+    if naming.is_identity() {
+        Cow::Borrowed(select_series_meta_sql(backend))
+    } else {
+        Cow::Owned(build_select_series_meta_sql_with_naming(backend, naming))
+    }
+}
+
 fn build_select_series_meta_sql(backend: Backend) -> String {
+    build_select_series_meta_sql_with_naming(backend, &TableNaming::default())
+}
+
+fn build_select_series_meta_sql_with_naming(backend: Backend, naming: &TableNaming) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::select()
-        .from(schema::SeriesMeta::Table)
+        .from(naming.alias("series_meta"))
         .column(schema::SeriesMeta::Meta)
         .and_where(Expr::col(schema::SeriesMeta::Namespace).eq(p.next()))
         .and_where(Expr::col(schema::SeriesMeta::Kind).eq(p.next()))
@@ -611,10 +1000,23 @@ pub fn list_series_sql(backend: Backend) -> &'static str {
     LIST_SERIES.get(backend, build_list_series_sql)
 }
 
+/// Returns SQL for listing series using custom table naming.
+pub fn list_series_sql_with_naming(backend: Backend, naming: &TableNaming) -> Cow<'static, str> {
+    if naming.is_identity() {
+        Cow::Borrowed(list_series_sql(backend))
+    } else {
+        Cow::Owned(build_list_series_sql_with_naming(backend, naming))
+    }
+}
+
 fn build_list_series_sql(backend: Backend) -> String {
+    build_list_series_sql_with_naming(backend, &TableNaming::default())
+}
+
+fn build_list_series_sql_with_naming(backend: Backend, naming: &TableNaming) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::select()
-        .from(schema::SeriesMeta::Table)
+        .from(naming.alias("series_meta"))
         .column(schema::SeriesMeta::SeriesId)
         .and_where(Expr::col(schema::SeriesMeta::Namespace).eq(p.next()))
         .and_where(Expr::col(schema::SeriesMeta::Kind).eq(p.next()))
@@ -628,10 +1030,26 @@ pub fn upsert_series_point_sql(backend: Backend) -> &'static str {
     UPSERT_SERIES_POINT.get(backend, build_upsert_series_point_sql)
 }
 
+/// Returns SQL for upserting a series point using custom table naming.
+pub fn upsert_series_point_sql_with_naming(
+    backend: Backend,
+    naming: &TableNaming,
+) -> Cow<'static, str> {
+    if naming.is_identity() {
+        Cow::Borrowed(upsert_series_point_sql(backend))
+    } else {
+        Cow::Owned(build_upsert_series_point_sql_with_naming(backend, naming))
+    }
+}
+
 fn build_upsert_series_point_sql(backend: Backend) -> String {
+    build_upsert_series_point_sql_with_naming(backend, &TableNaming::default())
+}
+
+fn build_upsert_series_point_sql_with_naming(backend: Backend, naming: &TableNaming) -> String {
     let mut p = Placeholders::new(backend);
     let query = Query::insert()
-        .into_table(schema::SeriesPoints::Table)
+        .into_table(naming.alias("series_points"))
         .columns([
             schema::SeriesPoints::Namespace,
             schema::SeriesPoints::Kind,
@@ -674,8 +1092,24 @@ pub fn select_points_range_sql(backend: Backend) -> &'static str {
     SELECT_POINTS_RANGE.get(backend, build_select_points_range_sql)
 }
 
+/// Returns SQL for selecting points in a time range using custom table naming.
+pub fn select_points_range_sql_with_naming(
+    backend: Backend,
+    naming: &TableNaming,
+) -> Cow<'static, str> {
+    if naming.is_identity() {
+        Cow::Borrowed(select_points_range_sql(backend))
+    } else {
+        Cow::Owned(build_select_points_range_sql_with_naming(backend, naming))
+    }
+}
+
 fn build_select_points_range_sql(backend: Backend) -> String {
-    if matches!(backend, Backend::Sqlite) {
+    build_select_points_range_sql_with_naming(backend, &TableNaming::default())
+}
+
+fn build_select_points_range_sql_with_naming(backend: Backend, naming: &TableNaming) -> String {
+    if matches!(backend, Backend::Sqlite) && naming.is_identity() {
         return "SELECT ts, value, payload, meta FROM series_points \
                 WHERE namespace = ?1 AND kind = ?2 AND series_id = ?3 \
                 AND ts BETWEEN ?4 AND ?5 ORDER BY ts ASC"
@@ -683,7 +1117,7 @@ fn build_select_points_range_sql(backend: Backend) -> String {
     }
     let mut p = Placeholders::new(backend);
     let query = Query::select()
-        .from(schema::SeriesPoints::Table)
+        .from(naming.alias("series_points"))
         .columns([
             schema::SeriesPoints::Ts,
             schema::SeriesPoints::Value,
@@ -706,8 +1140,21 @@ pub fn latest_point_sql(backend: Backend) -> &'static str {
     LATEST_POINT.get(backend, build_latest_point_sql)
 }
 
+/// Returns SQL for getting the latest point on or before a timestamp using custom table naming.
+pub fn latest_point_sql_with_naming(backend: Backend, naming: &TableNaming) -> Cow<'static, str> {
+    if naming.is_identity() {
+        Cow::Borrowed(latest_point_sql(backend))
+    } else {
+        Cow::Owned(build_latest_point_sql_with_naming(backend, naming))
+    }
+}
+
 fn build_latest_point_sql(backend: Backend) -> String {
-    if matches!(backend, Backend::Sqlite) {
+    build_latest_point_sql_with_naming(backend, &TableNaming::default())
+}
+
+fn build_latest_point_sql_with_naming(backend: Backend, naming: &TableNaming) -> String {
+    if matches!(backend, Backend::Sqlite) && naming.is_identity() {
         return "SELECT ts, value, payload, meta FROM series_points \
                 WHERE namespace = ?1 AND kind = ?2 AND series_id = ?3 \
                 AND ts <= ?4 ORDER BY ts DESC LIMIT 1"
@@ -715,7 +1162,7 @@ fn build_latest_point_sql(backend: Backend) -> String {
     }
     let mut p = Placeholders::new(backend);
     let query = Query::select()
-        .from(schema::SeriesPoints::Table)
+        .from(naming.alias("series_points"))
         .columns([
             schema::SeriesPoints::Ts,
             schema::SeriesPoints::Value,

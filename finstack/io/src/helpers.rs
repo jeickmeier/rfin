@@ -18,6 +18,7 @@ pub(crate) fn meta_json_string(meta: Option<&serde_json::Value>) -> Result<Strin
 }
 
 /// Convert metadata to optional JSON string (for time-series where null is allowed).
+#[cfg(feature = "turso")]
 pub(crate) fn meta_json_optional_string(
     meta: Option<&serde_json::Value>,
 ) -> Result<Option<String>> {

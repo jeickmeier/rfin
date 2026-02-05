@@ -21,23 +21,23 @@ impl TimeSeriesStore for TursoStore {
         meta: Option<&serde_json::Value>,
     ) -> Result<()> {
         let conn = self.get_conn()?;
-        let sql = statements::upsert_series_meta_sql(Backend::Sqlite);
+        let sql = statements::upsert_series_meta_sql_with_naming(Backend::Sqlite, self.naming());
         let meta_str = meta_json_str(meta)?;
         let namespace = key.namespace.clone();
         let kind = key.kind.as_str().to_string();
         let series_id = key.series_id.clone();
-        conn.execute(sql, params![namespace, kind, series_id, meta_str])
+        conn.execute(sql.as_ref(), params![namespace, kind, series_id, meta_str])
             .await?;
         Ok(())
     }
 
     async fn get_series_meta(&self, key: &SeriesKey) -> Result<Option<serde_json::Value>> {
         let conn = self.get_conn()?;
-        let sql = statements::select_series_meta_sql(Backend::Sqlite);
+        let sql = statements::select_series_meta_sql_with_naming(Backend::Sqlite, self.naming());
         let namespace = key.namespace.clone();
         let kind = key.kind.as_str().to_string();
         let series_id = key.series_id.clone();
-        let mut stmt = conn.prepare(sql).await?;
+        let mut stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt.query(params![namespace, kind, series_id]).await?;
 
         match rows.next().await.map_err(Error::Turso)? {
@@ -54,10 +54,10 @@ impl TimeSeriesStore for TursoStore {
 
     async fn list_series(&self, namespace: &str, kind: SeriesKind) -> Result<Vec<String>> {
         let conn = self.get_conn()?;
-        let sql = statements::list_series_sql(Backend::Sqlite);
+        let sql = statements::list_series_sql_with_naming(Backend::Sqlite, self.naming());
         let namespace = namespace.to_string();
         let kind_str = kind.as_str().to_string();
-        let mut stmt = conn.prepare(sql).await?;
+        let mut stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt.query(params![namespace, kind_str]).await?;
 
         let mut out = Vec::new();
@@ -71,10 +71,10 @@ impl TimeSeriesStore for TursoStore {
         let conn = self.get_conn()?;
         let tx = conn.transaction().await?;
 
-        let sql = statements::upsert_series_point_sql(Backend::Sqlite);
-        let namespace = key.namespace.clone();
-        let kind = key.kind.as_str().to_string();
-        let series_id = key.series_id.clone();
+        let sql = statements::upsert_series_point_sql_with_naming(Backend::Sqlite, self.naming());
+        let namespace = key.namespace.as_str();
+        let kind = key.kind.as_str();
+        let series_id = key.series_id.as_str();
 
         for point in points {
             let ts = ts_key(point.ts)?;
@@ -84,16 +84,8 @@ impl TimeSeriesStore for TursoStore {
             };
             let meta = meta_json_str(point.meta.as_ref())?;
             tx.execute(
-                sql,
-                params![
-                    namespace.clone(),
-                    kind.clone(),
-                    series_id.clone(),
-                    ts,
-                    point.value,
-                    payload,
-                    meta
-                ],
+                sql.as_ref(),
+                params![namespace, kind, series_id, ts, point.value, payload, meta],
             )
             .await?;
         }
@@ -110,10 +102,11 @@ impl TimeSeriesStore for TursoStore {
         limit: Option<usize>,
     ) -> Result<Vec<TimeSeriesPoint>> {
         let conn = self.get_conn()?;
-        let base_sql = statements::select_points_range_sql(Backend::Sqlite);
+        let base_sql =
+            statements::select_points_range_sql_with_naming(Backend::Sqlite, self.naming());
         let sql = match limit {
-            Some(max) => format!("{base_sql} LIMIT {max}"),
-            None => base_sql.to_string(),
+            Some(max) => format!("{} LIMIT {max}", base_sql.as_ref()),
+            None => base_sql.as_ref().to_string(),
         };
         let start_ts = ts_key(start)?;
         let end_ts = ts_key(end)?;
@@ -157,12 +150,12 @@ impl TimeSeriesStore for TursoStore {
         ts: OffsetDateTime,
     ) -> Result<Option<TimeSeriesPoint>> {
         let conn = self.get_conn()?;
-        let sql = statements::latest_point_sql(Backend::Sqlite);
+        let sql = statements::latest_point_sql_with_naming(Backend::Sqlite, self.naming());
         let ts_str = ts_key(ts)?;
         let namespace = key.namespace.clone();
         let kind = key.kind.as_str().to_string();
         let series_id = key.series_id.clone();
-        let mut stmt = conn.prepare(sql).await?;
+        let mut stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt
             .query(params![namespace, kind, series_id, ts_str])
             .await?;

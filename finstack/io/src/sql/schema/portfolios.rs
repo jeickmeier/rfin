@@ -9,6 +9,7 @@ use crate::sql::Backend;
 
 #[derive(Iden)]
 pub enum Portfolios {
+    #[allow(dead_code)]
     Table,
     Id,
     AsOf,

@@ -23,13 +23,15 @@ impl LookbackStore for SqliteStore {
         let start = as_of_key(start);
         let end = as_of_key(end);
         let market_id = market_id.to_string();
+        let naming = std::sync::Arc::clone(&self.naming);
 
         let rows: Vec<(String, Vec<u8>)> = self
             .conn
             .call(
                 move |conn| -> tokio_rusqlite::Result<Vec<(String, Vec<u8>)>> {
-                    let sql = statements::list_market_contexts_sql(Backend::Sqlite);
-                    let mut stmt = conn.prepare(sql)?;
+                    let sql =
+                        statements::list_market_contexts_sql_with_naming(Backend::Sqlite, &naming);
+                    let mut stmt = conn.prepare(sql.as_ref())?;
                     let rows = stmt.query_map(params![market_id, start, end], |row| {
                         Ok((row.get::<_, String>(0)?, row.get::<_, Vec<u8>>(1)?))
                     })?;
@@ -63,14 +65,16 @@ impl LookbackStore for SqliteStore {
     ) -> Result<Option<MarketContextSnapshot>> {
         let as_of = as_of_key(as_of);
         let market_id = market_id.to_string();
+        let naming = std::sync::Arc::clone(&self.naming);
 
         let row: Option<(String, Vec<u8>)> = self
             .conn
             .call(
                 move |conn| -> tokio_rusqlite::Result<Option<(String, Vec<u8>)>> {
-                    let sql = statements::latest_market_context_sql(Backend::Sqlite);
+                    let sql =
+                        statements::latest_market_context_sql_with_naming(Backend::Sqlite, &naming);
                     Ok(optional_row(conn.query_row(
-                        sql,
+                        sql.as_ref(),
                         params![market_id, as_of],
                         |row| Ok((row.get(0)?, row.get(1)?)),
                     ))?)
@@ -101,13 +105,14 @@ impl LookbackStore for SqliteStore {
         let start = as_of_key(start);
         let end = as_of_key(end);
         let portfolio_id = portfolio_id.to_string();
+        let naming = std::sync::Arc::clone(&self.naming);
 
         let rows: Vec<(String, Vec<u8>)> = self
             .conn
             .call(
                 move |conn| -> tokio_rusqlite::Result<Vec<(String, Vec<u8>)>> {
-                    let sql = statements::list_portfolios_sql(Backend::Sqlite);
-                    let mut stmt = conn.prepare(sql)?;
+                    let sql = statements::list_portfolios_sql_with_naming(Backend::Sqlite, &naming);
+                    let mut stmt = conn.prepare(sql.as_ref())?;
                     let rows = stmt.query_map(params![portfolio_id, start, end], |row| {
                         Ok((row.get::<_, String>(0)?, row.get::<_, Vec<u8>>(1)?))
                     })?;
@@ -137,14 +142,16 @@ impl LookbackStore for SqliteStore {
     ) -> Result<Option<PortfolioSnapshot>> {
         let as_of = as_of_key(as_of);
         let portfolio_id = portfolio_id.to_string();
+        let naming = std::sync::Arc::clone(&self.naming);
 
         let row: Option<(String, Vec<u8>)> = self
             .conn
             .call(
                 move |conn| -> tokio_rusqlite::Result<Option<(String, Vec<u8>)>> {
-                    let sql = statements::latest_portfolio_sql(Backend::Sqlite);
+                    let sql =
+                        statements::latest_portfolio_sql_with_naming(Backend::Sqlite, &naming);
                     Ok(optional_row(conn.query_row(
-                        sql,
+                        sql.as_ref(),
                         params![portfolio_id, as_of],
                         |row| Ok((row.get(0)?, row.get(1)?)),
                     ))?)

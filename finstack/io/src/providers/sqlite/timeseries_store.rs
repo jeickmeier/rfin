@@ -26,11 +26,12 @@ impl TimeSeriesStore for SqliteStore {
         let namespace = key.namespace.clone();
         let kind = key.kind.as_str().to_string();
         let series_id = key.series_id.clone();
+        let naming = std::sync::Arc::clone(&self.naming);
 
         self.conn
             .call(move |conn| -> tokio_rusqlite::Result<()> {
-                let sql = statements::upsert_series_meta_sql(Backend::Sqlite);
-                conn.execute(sql, params![namespace, kind, series_id, meta])?;
+                let sql = statements::upsert_series_meta_sql_with_naming(Backend::Sqlite, &naming);
+                conn.execute(sql.as_ref(), params![namespace, kind, series_id, meta])?;
                 Ok(())
             })
             .await?;
@@ -41,13 +42,14 @@ impl TimeSeriesStore for SqliteStore {
         let namespace = key.namespace.clone();
         let kind = key.kind.as_str().to_string();
         let series_id = key.series_id.clone();
+        let naming = std::sync::Arc::clone(&self.naming);
 
         let meta: Option<String> = self
             .conn
             .call(move |conn| -> tokio_rusqlite::Result<Option<String>> {
-                let sql = statements::select_series_meta_sql(Backend::Sqlite);
+                let sql = statements::select_series_meta_sql_with_naming(Backend::Sqlite, &naming);
                 Ok(optional_row(conn.query_row(
-                    sql,
+                    sql.as_ref(),
                     params![namespace, kind, series_id],
                     |row| row.get(0),
                 ))?)
@@ -63,12 +65,13 @@ impl TimeSeriesStore for SqliteStore {
     async fn list_series(&self, namespace: &str, kind: SeriesKind) -> Result<Vec<String>> {
         let namespace = namespace.to_string();
         let kind_str = kind.as_str().to_string();
+        let naming = std::sync::Arc::clone(&self.naming);
 
         let ids = self
             .conn
             .call(move |conn| -> tokio_rusqlite::Result<Vec<String>> {
-                let sql = statements::list_series_sql(Backend::Sqlite);
-                let mut stmt = conn.prepare(sql)?;
+                let sql = statements::list_series_sql_with_naming(Backend::Sqlite, &naming);
+                let mut stmt = conn.prepare(sql.as_ref())?;
                 let rows = stmt.query_map(params![namespace, kind_str], |row| row.get(0))?;
                 let mut out = Vec::new();
                 for row in rows {
@@ -101,13 +104,15 @@ impl TimeSeriesStore for SqliteStore {
         let namespace = key.namespace.clone();
         let kind = key.kind.as_str().to_string();
         let series_id = key.series_id.clone();
+        let naming = std::sync::Arc::clone(&self.naming);
 
         self.conn
             .call(move |conn| -> tokio_rusqlite::Result<()> {
                 let tx = conn.unchecked_transaction()?;
                 {
-                    let sql = statements::upsert_series_point_sql(Backend::Sqlite);
-                    let mut stmt = tx.prepare(sql)?;
+                    let sql =
+                        statements::upsert_series_point_sql_with_naming(Backend::Sqlite, &naming);
+                    let mut stmt = tx.prepare(sql.as_ref())?;
                     for (ts, value, payload, meta) in &serialized {
                         stmt.execute(params![
                             namespace, kind, series_id, ts, value, payload, meta
@@ -133,14 +138,16 @@ impl TimeSeriesStore for SqliteStore {
         let namespace = key.namespace.clone();
         let kind = key.kind.as_str().to_string();
         let series_id = key.series_id.clone();
+        let naming = std::sync::Arc::clone(&self.naming);
 
         let rows: Vec<SeriesRow> = self
             .conn
             .call(move |conn| -> tokio_rusqlite::Result<Vec<SeriesRow>> {
-                let base_sql = statements::select_points_range_sql(Backend::Sqlite);
+                let base_sql =
+                    statements::select_points_range_sql_with_naming(Backend::Sqlite, &naming);
                 let sql = match limit {
-                    Some(max) => format!("{base_sql} LIMIT {max}"),
-                    None => base_sql.to_string(),
+                    Some(max) => format!("{} LIMIT {max}", base_sql.as_ref()),
+                    None => base_sql.as_ref().to_string(),
                 };
                 let mut stmt = conn.prepare(&sql)?;
                 let rows =
@@ -189,13 +196,14 @@ impl TimeSeriesStore for SqliteStore {
         let namespace = key.namespace.clone();
         let kind = key.kind.as_str().to_string();
         let series_id = key.series_id.clone();
+        let naming = std::sync::Arc::clone(&self.naming);
 
         let row: Option<SeriesRow> = self
             .conn
             .call(move |conn| -> tokio_rusqlite::Result<Option<SeriesRow>> {
-                let sql = statements::latest_point_sql(Backend::Sqlite);
+                let sql = statements::latest_point_sql_with_naming(Backend::Sqlite, &naming);
                 Ok(optional_row(conn.query_row(
-                    sql,
+                    sql.as_ref(),
                     params![namespace, kind, series_id, ts],
                     |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
                 ))?)

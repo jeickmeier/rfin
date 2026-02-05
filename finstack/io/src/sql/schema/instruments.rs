@@ -7,6 +7,7 @@ use crate::sql::Backend;
 
 #[derive(Iden)]
 pub enum Instruments {
+    #[allow(dead_code)]
     Table,
     Id,
     Payload,

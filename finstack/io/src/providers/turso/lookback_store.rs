@@ -23,8 +23,8 @@ impl LookbackStore for TursoStore {
         let start_key = as_of_key(start);
         let end_key = as_of_key(end);
         let conn = self.get_conn()?;
-        let sql = statements::list_market_contexts_sql(Backend::Sqlite);
-        let mut stmt = conn.prepare(sql).await?;
+        let sql = statements::list_market_contexts_sql_with_naming(Backend::Sqlite, self.naming());
+        let mut stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt.query(params![market_id, start_key, end_key]).await?;
 
         let mut out = Vec::new();
@@ -46,8 +46,8 @@ impl LookbackStore for TursoStore {
     ) -> Result<Option<MarketContextSnapshot>> {
         let as_of_key_str = as_of_key(as_of);
         let conn = self.get_conn()?;
-        let sql = statements::latest_market_context_sql(Backend::Sqlite);
-        let mut stmt = conn.prepare(sql).await?;
+        let sql = statements::latest_market_context_sql_with_naming(Backend::Sqlite, self.naming());
+        let mut stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt.query(params![market_id, as_of_key_str]).await?;
 
         match rows.next().await.map_err(Error::Turso)? {
@@ -72,8 +72,8 @@ impl LookbackStore for TursoStore {
         let start_key = as_of_key(start);
         let end_key = as_of_key(end);
         let conn = self.get_conn()?;
-        let sql = statements::list_portfolios_sql(Backend::Sqlite);
-        let mut stmt = conn.prepare(sql).await?;
+        let sql = statements::list_portfolios_sql_with_naming(Backend::Sqlite, self.naming());
+        let mut stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt
             .query(params![portfolio_id, start_key, end_key])
             .await?;
@@ -96,8 +96,8 @@ impl LookbackStore for TursoStore {
     ) -> Result<Option<PortfolioSnapshot>> {
         let as_of_key_str = as_of_key(as_of);
         let conn = self.get_conn()?;
-        let sql = statements::latest_portfolio_sql(Backend::Sqlite);
-        let mut stmt = conn.prepare(sql).await?;
+        let sql = statements::latest_portfolio_sql_with_naming(Backend::Sqlite, self.naming());
+        let mut stmt = conn.prepare(sql.as_ref()).await?;
         let mut rows = stmt.query(params![portfolio_id, as_of_key_str]).await?;
 
         match rows.next().await.map_err(Error::Turso)? {

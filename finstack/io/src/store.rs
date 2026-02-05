@@ -231,15 +231,18 @@ pub trait Store: Send + Sync {
     async fn load_portfolio(&self, portfolio_id: &str, as_of: Date) -> Result<Portfolio> {
         let mut spec = self.load_portfolio_spec(portfolio_id, as_of).await?;
 
-        // Collect unique instrument IDs that need resolution
-        let missing_ids: Vec<String> = spec
-            .positions
-            .iter()
-            .filter(|pos| pos.instrument_spec.is_none())
-            .map(|pos| pos.instrument_id.clone())
-            .collect::<std::collections::HashSet<_>>()
-            .into_iter()
-            .collect();
+        // Collect unique instrument IDs that need resolution, preserving first-seen order.
+        let mut seen = std::collections::HashSet::<String>::new();
+        let mut missing_ids = Vec::new();
+        for pos in &spec.positions {
+            if pos.instrument_spec.is_some() {
+                continue;
+            }
+            let id = pos.instrument_id.clone();
+            if seen.insert(id.clone()) {
+                missing_ids.push(id);
+            }
+        }
 
         // Batch-fetch all missing instruments
         let instruments = self.get_instruments_batch(&missing_ids).await?;

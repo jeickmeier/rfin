@@ -20,12 +20,15 @@ impl LookbackStore for PostgresStore {
         start: Date,
         end: Date,
     ) -> Result<Vec<MarketContextSnapshot>> {
-        let sql = statements::list_market_contexts_sql(Backend::Postgres);
+        let sql =
+            statements::list_market_contexts_sql_with_naming(Backend::Postgres, self.naming());
         let start = as_of_key(start)?;
         let end = as_of_key(end)?;
 
         let conn = self.get_conn().await?;
-        let rows = conn.query(sql, &[&market_id, &start, &end]).await?;
+        let rows = conn
+            .query(sql.as_ref(), &[&market_id, &start, &end])
+            .await?;
         let mut out = Vec::new();
         for row in rows {
             let as_of: NaiveDate = row.get(0);
@@ -45,11 +48,12 @@ impl LookbackStore for PostgresStore {
         market_id: &str,
         as_of: Date,
     ) -> Result<Option<MarketContextSnapshot>> {
-        let sql = statements::latest_market_context_sql(Backend::Postgres);
+        let sql =
+            statements::latest_market_context_sql_with_naming(Backend::Postgres, self.naming());
         let as_of = as_of_key(as_of)?;
 
         let conn = self.get_conn().await?;
-        let row = conn.query_opt(sql, &[&market_id, &as_of]).await?;
+        let row = conn.query_opt(sql.as_ref(), &[&market_id, &as_of]).await?;
         match row {
             Some(row) => {
                 let as_of: NaiveDate = row.get(0);
@@ -71,12 +75,14 @@ impl LookbackStore for PostgresStore {
         start: Date,
         end: Date,
     ) -> Result<Vec<PortfolioSnapshot>> {
-        let sql = statements::list_portfolios_sql(Backend::Postgres);
+        let sql = statements::list_portfolios_sql_with_naming(Backend::Postgres, self.naming());
         let start = as_of_key(start)?;
         let end = as_of_key(end)?;
 
         let conn = self.get_conn().await?;
-        let rows = conn.query(sql, &[&portfolio_id, &start, &end]).await?;
+        let rows = conn
+            .query(sql.as_ref(), &[&portfolio_id, &start, &end])
+            .await?;
         let mut out = Vec::new();
         for row in rows {
             let as_of: NaiveDate = row.get(0);
@@ -95,11 +101,13 @@ impl LookbackStore for PostgresStore {
         portfolio_id: &str,
         as_of: Date,
     ) -> Result<Option<PortfolioSnapshot>> {
-        let sql = statements::latest_portfolio_sql(Backend::Postgres);
+        let sql = statements::latest_portfolio_sql_with_naming(Backend::Postgres, self.naming());
         let as_of = as_of_key(as_of)?;
 
         let conn = self.get_conn().await?;
-        let row = conn.query_opt(sql, &[&portfolio_id, &as_of]).await?;
+        let row = conn
+            .query_opt(sql.as_ref(), &[&portfolio_id, &as_of])
+            .await?;
         match row {
             Some(row) => {
                 let as_of: NaiveDate = row.get(0);

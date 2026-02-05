@@ -137,6 +137,12 @@ impl TableNaming {
         }
     }
 
+    /// Returns `true` if this naming leaves all table names unchanged.
+    #[must_use]
+    pub fn is_identity(&self) -> bool {
+        self.prefix.is_empty() && self.suffix.is_empty() && self.overrides.is_empty()
+    }
+
     /// Returns a sea-query Alias for use in table definitions.
     pub fn alias(&self, base_name: &str) -> Alias {
         Alias::new(self.resolve(base_name))

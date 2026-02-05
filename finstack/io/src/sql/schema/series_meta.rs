@@ -7,6 +7,7 @@ use crate::sql::Backend;
 
 #[derive(Iden)]
 pub enum SeriesMeta {
+    #[allow(dead_code)]
     Table,
     Namespace,
     Kind,

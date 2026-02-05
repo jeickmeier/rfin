@@ -28,13 +28,15 @@ impl BulkStore for SqliteStore {
                 Ok((id.to_string(), payload, meta))
             })
             .collect::<Result<Vec<_>>>()?;
+        let naming = std::sync::Arc::clone(&self.naming);
 
         self.conn
             .call(move |conn| -> tokio_rusqlite::Result<()> {
                 let tx = conn.unchecked_transaction()?;
                 {
-                    let sql = statements::upsert_instrument_sql(Backend::Sqlite);
-                    let mut stmt = tx.prepare(sql)?;
+                    let sql =
+                        statements::upsert_instrument_sql_with_naming(Backend::Sqlite, &naming);
+                    let mut stmt = tx.prepare(sql.as_ref())?;
 
                     for (instrument_id, payload, meta) in &serialized {
                         stmt.execute(params![instrument_id, payload, meta])?;
@@ -62,13 +64,15 @@ impl BulkStore for SqliteStore {
                 Ok((market_id.to_string(), as_of, payload, meta))
             })
             .collect::<Result<Vec<_>>>()?;
+        let naming = std::sync::Arc::clone(&self.naming);
 
         self.conn
             .call(move |conn| -> tokio_rusqlite::Result<()> {
                 let tx = conn.unchecked_transaction()?;
                 {
-                    let sql = statements::upsert_market_context_sql(Backend::Sqlite);
-                    let mut stmt = tx.prepare(sql)?;
+                    let sql =
+                        statements::upsert_market_context_sql_with_naming(Backend::Sqlite, &naming);
+                    let mut stmt = tx.prepare(sql.as_ref())?;
 
                     for (market_id, as_of, payload, meta) in &serialized {
                         stmt.execute(params![market_id, as_of, payload, meta])?;
@@ -95,13 +99,15 @@ impl BulkStore for SqliteStore {
                 Ok((portfolio_id.to_string(), as_of, payload, meta))
             })
             .collect::<Result<Vec<_>>>()?;
+        let naming = std::sync::Arc::clone(&self.naming);
 
         self.conn
             .call(move |conn| -> tokio_rusqlite::Result<()> {
                 let tx = conn.unchecked_transaction()?;
                 {
-                    let sql = statements::upsert_portfolio_sql(Backend::Sqlite);
-                    let mut stmt = tx.prepare(sql)?;
+                    let sql =
+                        statements::upsert_portfolio_sql_with_naming(Backend::Sqlite, &naming);
+                    let mut stmt = tx.prepare(sql.as_ref())?;
 
                     for (portfolio_id, as_of, payload, meta) in &serialized {
                         stmt.execute(params![portfolio_id, as_of, payload, meta])?;

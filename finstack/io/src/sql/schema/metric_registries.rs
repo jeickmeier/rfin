@@ -7,6 +7,7 @@ use crate::sql::Backend;
 
 #[derive(Iden)]
 pub enum MetricRegistries {
+    #[allow(dead_code)]
     Table,
     Namespace,
     Payload,

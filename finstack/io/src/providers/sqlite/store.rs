@@ -1,8 +1,9 @@
 //! SqliteStore struct and helper utilities.
 
 use crate::{
+    sql::schema::TableNaming,
     sql::{migrations, Backend},
-    Result,
+    Error, Result,
 };
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -23,6 +24,7 @@ pub(crate) const SCHEMA_VERSION: i64 = migrations::LATEST_VERSION;
 pub struct SqliteStore {
     pub(crate) path: PathBuf,
     pub(crate) conn: Arc<Connection>,
+    pub(crate) naming: Arc<TableNaming>,
 }
 
 impl std::fmt::Debug for SqliteStore {
@@ -36,6 +38,11 @@ impl std::fmt::Debug for SqliteStore {
 impl SqliteStore {
     /// Open (or create) a SQLite database at `path`, applying migrations.
     pub async fn open(path: impl Into<PathBuf>) -> Result<Self> {
+        Self::open_with_naming(path, TableNaming::default()).await
+    }
+
+    /// Open (or create) a SQLite database at `path`, applying migrations with custom table naming.
+    pub async fn open_with_naming(path: impl Into<PathBuf>, naming: TableNaming) -> Result<Self> {
         let path = path.into();
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
@@ -60,6 +67,7 @@ impl SqliteStore {
         let store = Self {
             path,
             conn: Arc::new(conn),
+            naming: Arc::new(naming),
         };
 
         // Run migrations
@@ -70,6 +78,11 @@ impl SqliteStore {
 
     /// Open an in-memory SQLite database (useful for testing).
     pub async fn open_in_memory() -> Result<Self> {
+        Self::open_in_memory_with_naming(TableNaming::default()).await
+    }
+
+    /// Open an in-memory SQLite database (useful for testing) with custom table naming.
+    pub async fn open_in_memory_with_naming(naming: TableNaming) -> Result<Self> {
         let conn = Connection::open_in_memory().await?;
 
         // Configure connection pragmas
@@ -83,6 +96,7 @@ impl SqliteStore {
         let store = Self {
             path: PathBuf::from(":memory:"),
             conn: Arc::new(conn),
+            naming: Arc::new(naming),
         };
 
         // Run migrations
@@ -96,25 +110,35 @@ impl SqliteStore {
         &self.path
     }
 
+    /// Table naming used by this store.
+    pub fn naming(&self) -> &TableNaming {
+        self.naming.as_ref()
+    }
+
     /// Run schema migrations.
     async fn migrate(&self) -> Result<()> {
         let schema_version = SCHEMA_VERSION;
+        let current: i64 = self
+            .conn
+            .call(|conn| -> tokio_rusqlite::Result<i64> {
+                Ok(conn.pragma_query_value(None, "user_version", |row| row.get(0))?)
+            })
+            .await?;
+
+        if current > schema_version {
+            return Err(Error::UnsupportedSchema {
+                found: current,
+                expected: schema_version,
+            });
+        }
+
+        if current == schema_version {
+            return Ok(());
+        }
+
+        let migrations = migrations::migrations_for_with_naming(Backend::Sqlite, self.naming());
         self.conn
             .call(move |conn| -> tokio_rusqlite::Result<()> {
-                let current: i64 =
-                    conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
-                if current > schema_version {
-                    return Err(rusqlite::Error::InvalidParameterName(format!(
-                        "Unsupported schema version: found={current}, expected={schema_version}"
-                    ))
-                    .into());
-                }
-
-                if current == schema_version {
-                    return Ok(());
-                }
-
-                let migrations = migrations::migrations_for(Backend::Sqlite);
                 let tx = conn.unchecked_transaction()?;
                 for (version, statements) in migrations {
                     if version <= current {

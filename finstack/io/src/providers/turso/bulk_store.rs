@@ -38,10 +38,10 @@ impl BulkStore for TursoStore {
         let conn = self.get_conn()?;
         let tx = conn.transaction().await?;
 
-        let sql = statements::upsert_instrument_sql(Backend::Sqlite);
+        let sql = statements::upsert_instrument_sql_with_naming(Backend::Sqlite, self.naming());
         for (instrument_id, payload, meta) in &serialized {
             tx.execute(
-                sql,
+                sql.as_ref(),
                 params![instrument_id.as_str(), payload.clone(), meta.as_str()],
             )
             .await?;
@@ -70,10 +70,10 @@ impl BulkStore for TursoStore {
         let conn = self.get_conn()?;
         let tx = conn.transaction().await?;
 
-        let sql = statements::upsert_market_context_sql(Backend::Sqlite);
+        let sql = statements::upsert_market_context_sql_with_naming(Backend::Sqlite, self.naming());
         for (market_id, as_of, payload, meta) in &serialized {
             tx.execute(
-                sql,
+                sql.as_ref(),
                 params![
                     market_id.as_str(),
                     as_of.as_str(),
@@ -106,10 +106,10 @@ impl BulkStore for TursoStore {
         let conn = self.get_conn()?;
         let tx = conn.transaction().await?;
 
-        let sql = statements::upsert_portfolio_sql(Backend::Sqlite);
+        let sql = statements::upsert_portfolio_sql_with_naming(Backend::Sqlite, self.naming());
         for (portfolio_id, as_of, payload, meta) in &serialized {
             tx.execute(
-                sql,
+                sql.as_ref(),
                 params![
                     portfolio_id.as_str(),
                     as_of.as_str(),

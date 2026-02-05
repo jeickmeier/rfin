@@ -9,6 +9,7 @@ use crate::sql::Backend;
 
 #[derive(Iden)]
 pub enum MarketContexts {
+    #[allow(dead_code)]
     Table,
     Id,
     AsOf,

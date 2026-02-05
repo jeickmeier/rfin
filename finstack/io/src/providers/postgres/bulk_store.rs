@@ -35,12 +35,13 @@ impl BulkStore for PostgresStore {
             })
             .collect::<Result<Vec<_>>>()?;
 
-        let sql = statements::upsert_instrument_sql(Backend::Postgres);
+        let sql = statements::upsert_instrument_sql_with_naming(Backend::Postgres, self.naming());
 
         let mut conn = self.get_conn().await?;
         let tx = conn.transaction().await?;
         for (instrument_id, payload, meta) in &serialized {
-            tx.execute(sql, &[instrument_id, payload, meta]).await?;
+            tx.execute(sql.as_ref(), &[instrument_id, payload, meta])
+                .await?;
         }
         tx.commit().await?;
         Ok(())
@@ -62,12 +63,14 @@ impl BulkStore for PostgresStore {
             })
             .collect::<Result<Vec<_>>>()?;
 
-        let sql = statements::upsert_market_context_sql(Backend::Postgres);
+        let sql =
+            statements::upsert_market_context_sql_with_naming(Backend::Postgres, self.naming());
 
         let mut conn = self.get_conn().await?;
         let tx = conn.transaction().await?;
         for (market_id, as_of, payload, meta) in &serialized {
-            tx.execute(sql, &[market_id, as_of, payload, meta]).await?;
+            tx.execute(sql.as_ref(), &[market_id, as_of, payload, meta])
+                .await?;
         }
         tx.commit().await?;
         Ok(())
@@ -88,12 +91,12 @@ impl BulkStore for PostgresStore {
             })
             .collect::<Result<Vec<_>>>()?;
 
-        let sql = statements::upsert_portfolio_sql(Backend::Postgres);
+        let sql = statements::upsert_portfolio_sql_with_naming(Backend::Postgres, self.naming());
 
         let mut conn = self.get_conn().await?;
         let tx = conn.transaction().await?;
         for (portfolio_id, as_of, payload, meta) in &serialized {
-            tx.execute(sql, &[portfolio_id, as_of, payload, meta])
+            tx.execute(sql.as_ref(), &[portfolio_id, as_of, payload, meta])
                 .await?;
         }
         tx.commit().await?;

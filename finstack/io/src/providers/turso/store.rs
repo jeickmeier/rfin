@@ -1,6 +1,7 @@
 //! TursoStore struct and helper utilities.
 
 use crate::{
+    sql::schema::TableNaming,
     sql::{migrations, Backend},
     Error, Result,
 };
@@ -24,6 +25,7 @@ pub(crate) const SCHEMA_VERSION: i64 = migrations::LATEST_VERSION;
 pub struct TursoStore {
     pub(crate) path: PathBuf,
     pub(crate) db: Arc<Database>,
+    pub(crate) naming: Arc<TableNaming>,
 }
 
 impl std::fmt::Debug for TursoStore {
@@ -37,6 +39,11 @@ impl std::fmt::Debug for TursoStore {
 impl TursoStore {
     /// Open (or create) a Turso database at `path`, applying migrations.
     pub async fn open(path: impl Into<PathBuf>) -> Result<Self> {
+        Self::open_with_naming(path, TableNaming::default()).await
+    }
+
+    /// Open (or create) a Turso database at `path`, applying migrations with custom table naming.
+    pub async fn open_with_naming(path: impl Into<PathBuf>, naming: TableNaming) -> Result<Self> {
         let path = path.into();
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
@@ -49,6 +56,7 @@ impl TursoStore {
         let store = Self {
             path,
             db: Arc::new(db),
+            naming: Arc::new(naming),
         };
 
         // Run migrations
@@ -59,11 +67,17 @@ impl TursoStore {
 
     /// Open an in-memory Turso database (useful for testing).
     pub async fn open_in_memory() -> Result<Self> {
+        Self::open_in_memory_with_naming(TableNaming::default()).await
+    }
+
+    /// Open an in-memory Turso database (useful for testing) with custom table naming.
+    pub async fn open_in_memory_with_naming(naming: TableNaming) -> Result<Self> {
         let db = Builder::new_local(":memory:").build().await?;
 
         let store = Self {
             path: PathBuf::from(":memory:"),
             db: Arc::new(db),
+            naming: Arc::new(naming),
         };
 
         // Run migrations
@@ -75,6 +89,11 @@ impl TursoStore {
     /// Database path used by this store.
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    /// Table naming used by this store.
+    pub fn naming(&self) -> &TableNaming {
+        self.naming.as_ref()
     }
 
     /// Get a connection from the database.
@@ -90,7 +109,7 @@ impl TursoStore {
         let mut stmt = conn.prepare("PRAGMA user_version").await?;
         let mut rows = stmt.query(()).await?;
         let current: i64 = match rows.next().await? {
-            Some(row) => row.get::<i64>(0).unwrap_or(0),
+            Some(row) => row.get::<i64>(0).map_err(Error::Turso)?,
             None => 0i64,
         };
         drop(rows);
@@ -107,7 +126,7 @@ impl TursoStore {
             return Ok(());
         }
 
-        let migrations = migrations::migrations_for(Backend::Sqlite);
+        let migrations = migrations::migrations_for_with_naming(Backend::Sqlite, self.naming());
 
         // Begin transaction
         let tx = conn.transaction().await?;
