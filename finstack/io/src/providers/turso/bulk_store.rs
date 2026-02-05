@@ -1,4 +1,10 @@
 //! BulkStore trait implementation for TursoStore.
+//!
+//! This implementation pre-serializes all data before opening the transaction,
+//! matching the pattern used by SQLite and Postgres backends. This provides:
+//! - Early error detection (serialization errors before transaction starts)
+//! - Reduced transaction hold time (no serialization inside the transaction)
+//! - Consistent behavior across all backends
 
 use crate::{
     sql::{statements, Backend},
@@ -19,15 +25,26 @@ impl BulkStore for TursoStore {
         &self,
         instruments: &[(&str, &InstrumentJson, Option<&serde_json::Value>)],
     ) -> Result<()> {
+        // Pre-serialize all data before opening the transaction
+        let serialized: Vec<(String, Vec<u8>, String)> = instruments
+            .iter()
+            .map(|(id, instrument, meta)| {
+                let payload = serde_json::to_vec(instrument)?;
+                let meta = meta_json(*meta)?;
+                Ok((id.to_string(), payload, meta))
+            })
+            .collect::<Result<Vec<_>>>()?;
+
         let conn = self.get_conn()?;
         let tx = conn.transaction().await?;
 
         let sql = statements::upsert_instrument_sql(Backend::Sqlite);
-        for (instrument_id, instrument, meta) in instruments {
-            let payload = serde_json::to_vec(instrument)?;
-            let meta = meta_json(*meta)?;
-            tx.execute(sql, params![*instrument_id, payload, meta])
-                .await?;
+        for (instrument_id, payload, meta) in &serialized {
+            tx.execute(
+                sql,
+                params![instrument_id.as_str(), payload.clone(), meta.as_str()],
+            )
+            .await?;
         }
 
         tx.commit().await?;
@@ -38,17 +55,33 @@ impl BulkStore for TursoStore {
         &self,
         contexts: &[(&str, Date, &MarketContext, Option<&serde_json::Value>)],
     ) -> Result<()> {
+        // Pre-serialize all data before opening the transaction
+        let serialized: Vec<(String, String, Vec<u8>, String)> = contexts
+            .iter()
+            .map(|(market_id, as_of, context, meta)| {
+                let state: MarketContextState = (*context).into();
+                let payload = serde_json::to_vec(&state)?;
+                let meta = meta_json(*meta)?;
+                let as_of = as_of_key(*as_of);
+                Ok((market_id.to_string(), as_of, payload, meta))
+            })
+            .collect::<Result<Vec<_>>>()?;
+
         let conn = self.get_conn()?;
         let tx = conn.transaction().await?;
 
         let sql = statements::upsert_market_context_sql(Backend::Sqlite);
-        for (market_id, as_of, context, meta) in contexts {
-            let state: MarketContextState = (*context).into();
-            let payload = serde_json::to_vec(&state)?;
-            let meta = meta_json(*meta)?;
-            let as_of = as_of_key(*as_of);
-            tx.execute(sql, params![*market_id, as_of, payload, meta])
-                .await?;
+        for (market_id, as_of, payload, meta) in &serialized {
+            tx.execute(
+                sql,
+                params![
+                    market_id.as_str(),
+                    as_of.as_str(),
+                    payload.clone(),
+                    meta.as_str()
+                ],
+            )
+            .await?;
         }
 
         tx.commit().await?;
@@ -59,16 +92,32 @@ impl BulkStore for TursoStore {
         &self,
         portfolios: &[(&str, Date, &PortfolioSpec, Option<&serde_json::Value>)],
     ) -> Result<()> {
+        // Pre-serialize all data before opening the transaction
+        let serialized: Vec<(String, String, Vec<u8>, String)> = portfolios
+            .iter()
+            .map(|(portfolio_id, as_of, spec, meta)| {
+                let payload = serde_json::to_vec(spec)?;
+                let meta = meta_json(*meta)?;
+                let as_of = as_of_key(*as_of);
+                Ok((portfolio_id.to_string(), as_of, payload, meta))
+            })
+            .collect::<Result<Vec<_>>>()?;
+
         let conn = self.get_conn()?;
         let tx = conn.transaction().await?;
 
         let sql = statements::upsert_portfolio_sql(Backend::Sqlite);
-        for (portfolio_id, as_of, spec, meta) in portfolios {
-            let payload = serde_json::to_vec(spec)?;
-            let meta = meta_json(*meta)?;
-            let as_of = as_of_key(*as_of);
-            tx.execute(sql, params![*portfolio_id, as_of, payload, meta])
-                .await?;
+        for (portfolio_id, as_of, payload, meta) in &serialized {
+            tx.execute(
+                sql,
+                params![
+                    portfolio_id.as_str(),
+                    as_of.as_str(),
+                    payload.clone(),
+                    meta.as_str()
+                ],
+            )
+            .await?;
         }
 
         tx.commit().await?;

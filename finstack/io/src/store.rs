@@ -33,7 +33,17 @@ pub const MAX_BATCH_SIZE: usize = 500;
 /// Backends should treat `put_*` operations as **idempotent** (upsert) whenever
 /// the underlying store supports it.
 ///
-/// ## Transaction Isolation
+/// # Cloneability
+///
+/// All built-in backends (`SqliteStore`, `PostgresStore`, `TursoStore`) implement
+/// `Clone` cheaply via internal `Arc`. Users should feel free to clone store handles
+/// for use across tasks or threads. The underlying connection pool or connection
+/// wrapper is shared, not duplicated.
+///
+/// Custom backend implementations should follow this pattern to maintain consistency
+/// with the built-in backends.
+///
+/// # Transaction Isolation
 ///
 /// Individual `put_*` and `get_*` calls are atomic, but compound operations like
 /// [`load_portfolio`](Store::load_portfolio) (which reads the portfolio spec and
@@ -46,7 +56,7 @@ pub const MAX_BATCH_SIZE: usize = 500;
 /// - Implementing application-level locking
 /// - Using portfolio specs with inline `instrument_spec` to avoid the lookup
 ///
-/// ## Metadata Handling
+/// # Metadata Handling
 ///
 /// All `put_*` methods accept an optional `meta` parameter for storing provenance
 /// information (source, version, tags, etc.). This metadata is persisted alongside
