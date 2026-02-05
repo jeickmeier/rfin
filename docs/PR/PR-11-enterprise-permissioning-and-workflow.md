@@ -73,6 +73,8 @@ We also need a controlled promotion path:
   - Persist provenance (source system, run id, ingest timestamp).
 - Audit and history:
   - Persistent log of workflow transitions and applied changes.
+- Better Auth compatibility:
+  - Auth and org membership storage must be compatible with Better Auth core tables and the organization plugin (roles), using schema overrides or adapter views as needed.
 - Backend support:
   - SQLite, Postgres, Turso all supported with identical semantics.
   - Optional Postgres RLS as an additional guardrail.

@@ -224,6 +224,24 @@ All tables are created via `finstack/io/src/sql/schema/*` and discovered by the 
 - `auth_user_roles(user_id TEXT, role_id TEXT, group_id TEXT NULL, created_at, PRIMARY KEY(user_id, role_id, group_id))`
 - `auth_user_groups(user_id TEXT, group_id TEXT, created_at, PRIMARY KEY(user_id, group_id))`
 
+### Better Auth Compatibility
+
+Better Auth provides its own core tables plus organization plugin tables. To keep the storage design compatible with Better Auth:
+
+- Prefer Better Auth as the source of truth for user/org membership and use **schema overrides** so Better Auth writes directly into the `auth_*` table names in this design.
+- Adapters or views are still possible if a deployment wants to keep Better Auth defaults, but schema overrides are the preferred path.
+- The organization plugin adds `organization` and `member` tables, and optionally `organizationRole`, `team`, and `teamMember` tables. Roles can be multi-valued in `member.role`.
+- Better Auth allows custom table and column names for core schema and plugin tables using `modelName`, `fields`, and `schema` config.
+
+Recommended mapping when using Better Auth default tables:
+- `auth_users` maps to Better Auth `user`.
+- `auth_groups` maps to `organization` and optionally `team`.
+- `auth_user_groups` maps to `member` and `teamMember`.
+- `auth_roles` and `auth_user_roles` map to `organizationRole` plus `member.role` (string list).
+
+Group identity collision avoidance:
+- When storing organization or team identifiers in `visibility_id` and `resource_shares.share_id`, use a typed prefix such as `org:<id>` or `team:<id>`. This avoids ambiguity and allows the adapter to resolve membership against `organization` and `team` tables without adding new columns.
+
 ### Resource Entitlements
 
 - `resource_entities(resource_type TEXT, resource_id TEXT, owner_user_id TEXT, visibility_scope TEXT, visibility_id TEXT NULL, created_at, updated_at, PRIMARY KEY(resource_type, resource_id))`

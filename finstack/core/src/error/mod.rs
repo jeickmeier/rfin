@@ -65,7 +65,7 @@
 //! let eur = Money::new(85.0, Currency::EUR);
 //!
 //! // Attempting to add different currencies returns CurrencyMismatch
-//! let result = usd + eur;
+//! let result = usd.checked_add(eur);
 //! assert!(result.is_err());
 //!
 //! match result {
