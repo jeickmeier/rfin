@@ -463,34 +463,41 @@ impl PyEquityTotalReturnSwap {
         }
     }
 
-    fn value(&self, market: &PyMarketContext, as_of: Bound<'_, PyAny>) -> PyResult<PyMoney> {
+    fn value(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<PyMoney> {
         let date = py_to_date(&as_of)?;
-        let value = self.inner.value(&market.inner, date).map_err(core_to_py)?;
+        let value = py
+            .detach(|| self.inner.value(&market.inner, date))
+            .map_err(core_to_py)?;
         Ok(PyMoney::new(value))
     }
 
     fn pv_total_return_leg(
         &self,
+        py: Python<'_>,
         market: &PyMarketContext,
         as_of: Bound<'_, PyAny>,
     ) -> PyResult<PyMoney> {
         let date = py_to_date(&as_of)?;
-        let value = self
-            .inner
-            .pv_total_return_leg(&market.inner, date)
+        let value = py
+            .detach(|| self.inner.pv_total_return_leg(&market.inner, date))
             .map_err(core_to_py)?;
         Ok(PyMoney::new(value))
     }
 
     fn pv_financing_leg(
         &self,
+        py: Python<'_>,
         market: &PyMarketContext,
         as_of: Bound<'_, PyAny>,
     ) -> PyResult<PyMoney> {
         let date = py_to_date(&as_of)?;
-        let value = self
-            .inner
-            .pv_financing_leg(&market.inner, date)
+        let value = py
+            .detach(|| self.inner.pv_financing_leg(&market.inner, date))
             .map_err(core_to_py)?;
         Ok(PyMoney::new(value))
     }
@@ -713,34 +720,41 @@ impl PyFiIndexTotalReturnSwap {
         }
     }
 
-    fn value(&self, market: &PyMarketContext, as_of: Bound<'_, PyAny>) -> PyResult<PyMoney> {
+    fn value(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<PyMoney> {
         let date = py_to_date(&as_of)?;
-        let value = self.inner.value(&market.inner, date).map_err(core_to_py)?;
+        let value = py
+            .detach(|| self.inner.value(&market.inner, date))
+            .map_err(core_to_py)?;
         Ok(PyMoney::new(value))
     }
 
     fn pv_total_return_leg(
         &self,
+        py: Python<'_>,
         market: &PyMarketContext,
         as_of: Bound<'_, PyAny>,
     ) -> PyResult<PyMoney> {
         let date = py_to_date(&as_of)?;
-        let value = self
-            .inner
-            .pv_total_return_leg(&market.inner, date)
+        let value = py
+            .detach(|| self.inner.pv_total_return_leg(&market.inner, date))
             .map_err(core_to_py)?;
         Ok(PyMoney::new(value))
     }
 
     fn pv_financing_leg(
         &self,
+        py: Python<'_>,
         market: &PyMarketContext,
         as_of: Bound<'_, PyAny>,
     ) -> PyResult<PyMoney> {
         let date = py_to_date(&as_of)?;
-        let value = self
-            .inner
-            .pv_financing_leg(&market.inner, date)
+        let value = py
+            .detach(|| self.inner.pv_financing_leg(&market.inner, date))
             .map_err(core_to_py)?;
         Ok(PyMoney::new(value))
     }

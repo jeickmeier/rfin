@@ -92,3 +92,6 @@ finstack-py/examples/scripts/io/*.db
 .cursor/
 .agent/
 .codex/
+
+# Database files
+*.db

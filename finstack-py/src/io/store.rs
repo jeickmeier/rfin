@@ -25,8 +25,9 @@ use pyo3::types::{
     PyTzInfoAccess,
 };
 use pyo3::Bound;
+use std::future::Future;
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use time::{Date as TimeDate, Month, OffsetDateTime, PrimitiveDateTime, Time, UtcOffset};
 use tokio::runtime::Runtime;
 
@@ -58,14 +59,45 @@ use tokio::runtime::Runtime;
 pub struct PyStore {
     inner: StoreHandle,
     backend_name: &'static str,
-    runtime: Arc<Runtime>,
+    runtime: PyRuntime,
 }
 
-/// Create a shared tokio runtime for async operations.
-fn create_runtime() -> PyResult<Arc<Runtime>> {
-    Runtime::new().map(Arc::new).map_err(|e| {
+#[derive(Clone)]
+struct PyRuntime {
+    inner: Arc<Runtime>,
+}
+
+impl PyRuntime {
+    fn new(inner: Arc<Runtime>) -> Self {
+        Self { inner }
+    }
+
+    fn block_on<T, F>(&self, fut: F) -> T
+    where
+        F: Future<Output = T> + Send,
+        T: Send,
+    {
+        Python::attach(|py| py.detach(|| self.inner.block_on(fut)))
+    }
+}
+
+/// Create or reuse a shared tokio runtime for async operations.
+fn create_runtime() -> PyResult<PyRuntime> {
+    static RUNTIME: OnceLock<Arc<Runtime>> = OnceLock::new();
+    if let Some(runtime) = RUNTIME.get() {
+        return Ok(PyRuntime::new(runtime.clone()));
+    }
+
+    let runtime = Runtime::new().map(Arc::new).map_err(|e| {
         pyo3::exceptions::PyRuntimeError::new_err(format!("Failed to create async runtime: {e}"))
-    })
+    })?;
+    if RUNTIME.set(runtime.clone()).is_err() {
+        let shared = RUNTIME
+            .get()
+            .expect("Runtime initialized after set failure");
+        return Ok(PyRuntime::new(shared.clone()));
+    }
+    Ok(PyRuntime::new(runtime))
 }
 
 #[pymethods]
@@ -831,7 +863,7 @@ impl PyStore {
     ) -> PyResult<()> {
         let kind = parse_series_kind(kind)?;
         let key = SeriesKey::new(namespace, series_id, kind);
-        let mut batch = Vec::new();
+        let mut batch = Vec::with_capacity(points.len());
         for item in points.iter() {
             let tuple = item.downcast::<PyTuple>()?;
             if tuple.len() < 1 {

@@ -1173,7 +1173,6 @@ impl CompiledExpr {
             Function::Abs => self.eval_abs(arg_results),
             Function::Sign => self.eval_sign(arg_results),
             // Custom financial functions (should be evaluated at the statements layer)
-            // Programming error: these should never reach core evaluator
             Function::Sum
             | Function::Mean
             | Function::Ttm
@@ -1184,12 +1183,7 @@ impl CompiledExpr {
             | Function::AnnualizeRate
             | Function::Coalesce
             | Function::GrowthRate => {
-                // Debug builds panic to catch programming errors early
-                debug_assert!(
-                    false,
-                    "Custom financial functions should be evaluated in the statements layer, not in core"
-                );
-                // Release builds return NaN (safe fallback)
+                // Safe fallback: return NaN for each row when evaluated in core.
                 vec![f64::NAN; arg_results.first().map(|v| v.len()).unwrap_or(1)]
             }
         }

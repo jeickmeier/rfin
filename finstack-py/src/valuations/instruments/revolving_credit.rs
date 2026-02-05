@@ -279,15 +279,20 @@ impl PyRevolvingCredit {
     ///     >>> from datetime import date
     ///     >>> pv = rc.value(market, date.today())
     ///     >>> print(f"PV: {pv}")
-    fn value(&self, market: &PyMarketContext, as_of: Bound<'_, pyo3::PyAny>) -> PyResult<PyMoney> {
+    fn value(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, pyo3::PyAny>,
+    ) -> PyResult<PyMoney> {
         use crate::core::dates::utils::py_to_date;
         use finstack_valuations::instruments::Instrument;
 
         let as_of_date = py_to_date(&as_of)?;
-        self.inner
-            .value(&market.inner, as_of_date)
-            .map(PyMoney::new)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+        let value = py
+            .detach(|| self.inner.value(&market.inner, as_of_date))
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+        Ok(PyMoney::new(value))
     }
 
     /// Price with requested risk metrics.

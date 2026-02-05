@@ -569,10 +569,24 @@ impl PyCashFlowSchedule {
             .to_period_dataframe(&periods, &mkt.inner, curve_id, options)
             .map_err(core_to_py)?;
 
-        // Convert dates to strings for Polars
-        let start_dates: Vec<String> = frame.start_dates.iter().map(|d| d.to_string()).collect();
-        let end_dates: Vec<String> = frame.end_dates.iter().map(|d| d.to_string()).collect();
-        let pay_dates: Vec<String> = frame.pay_dates.iter().map(|d| d.to_string()).collect();
+        // Convert dates to Polars Date (days since epoch)
+        let epoch =
+            time::Date::from_calendar_date(1970, time::Month::January, 1).expect("Epoch valid");
+        let start_dates: Vec<i32> = frame
+            .start_dates
+            .iter()
+            .map(|d| (*d - epoch).whole_days() as i32)
+            .collect();
+        let end_dates: Vec<i32> = frame
+            .end_dates
+            .iter()
+            .map(|d| (*d - epoch).whole_days() as i32)
+            .collect();
+        let pay_dates: Vec<i32> = frame
+            .pay_dates
+            .iter()
+            .map(|d| (*d - epoch).whole_days() as i32)
+            .collect();
 
         // Convert kinds to string labels
         let kinds: Vec<String> = frame
@@ -585,11 +599,11 @@ impl PyCashFlowSchedule {
             })
             .collect();
 
-        // Convert reset dates to Option<String>
-        let reset_dates: Vec<Option<String>> = frame
+        // Convert reset dates to Option<i32> (days since epoch)
+        let reset_dates: Vec<Option<i32>> = frame
             .reset_dates
             .iter()
-            .map(|opt_d| opt_d.map(|d| d.to_string()))
+            .map(|opt_d| opt_d.map(|d| (d - epoch).whole_days() as i32))
             .collect();
 
         // Convert notionals from Option<f64> to f64 (None -> NaN)
@@ -600,20 +614,32 @@ impl PyCashFlowSchedule {
             .collect();
 
         // Build base DataFrame with core columns
-        let mut df = df![
-            "start_date" => start_dates,
-            "end_date" => end_dates,
-            "pay_date" => pay_dates,
-            "reset_date" => reset_dates,
-            "kind" => kinds,
-            "amount" => frame.amounts,
-            "accrual_factor" => frame.accrual_factors,
-            "rate" => frame.rates,
-            "notional" => notionals_f64,
-            "yr_fraq" => frame.yr_fraqs,
-            "discount_factor" => frame.discount_factors,
-            "pv" => frame.pvs,
-        ]
+        let start_dates = Series::new("start_date".into(), start_dates)
+            .cast(&DataType::Date)
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        let end_dates = Series::new("end_date".into(), end_dates)
+            .cast(&DataType::Date)
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        let pay_dates = Series::new("pay_date".into(), pay_dates)
+            .cast(&DataType::Date)
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        let reset_dates = Series::new("reset_date".into(), reset_dates)
+            .cast(&DataType::Date)
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
+        let mut df = DataFrame::new(vec![
+            start_dates.into(),
+            end_dates.into(),
+            pay_dates.into(),
+            reset_dates.into(),
+            Series::new("kind".into(), kinds).into(),
+            Series::new("amount".into(), frame.amounts).into(),
+            Series::new("accrual_factor".into(), frame.accrual_factors).into(),
+            Series::new("rate".into(), frame.rates).into(),
+            Series::new("notional".into(), notionals_f64).into(),
+            Series::new("yr_fraq".into(), frame.yr_fraqs).into(),
+            Series::new("discount_factor".into(), frame.discount_factors).into(),
+            Series::new("pv".into(), frame.pvs).into(),
+        ])
         .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
 
         // Add optional columns

@@ -555,9 +555,16 @@ impl PyFxVarianceSwap {
     /// -------
     /// Money
     ///     Present value in quote currency
-    fn value(&self, market: &PyMarketContext, as_of: Bound<'_, PyAny>) -> PyResult<PyMoney> {
+    fn value(
+        &self,
+        py: Python<'_>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<PyMoney> {
         let date = py_to_date(&as_of)?;
-        let value = self.inner.value(&market.inner, date).map_err(core_to_py)?;
+        let value = py
+            .detach(|| self.inner.value(&market.inner, date))
+            .map_err(core_to_py)?;
         Ok(PyMoney::new(value))
     }
 
