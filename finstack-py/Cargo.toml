@@ -31,6 +31,9 @@ strum = { workspace = true }
 rayon = "1.11.0"
 rust_decimal = { version = "1.39" }
 
+# Async runtime for IO operations
+tokio = { version = "1", features = ["rt-multi-thread"] }
+
 [features]
 default = ["scenarios", "sqlite"]
 scenarios = []

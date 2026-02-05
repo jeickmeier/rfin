@@ -55,7 +55,7 @@ use finstack_valuations::instruments::InstrumentJson;
 use time::macros::date;
 use time::OffsetDateTime;
 
-fn run_conformance<S: Store + BulkStore + LookbackStore + TimeSeriesStore>(
+async fn run_conformance<S: Store + BulkStore + LookbackStore + TimeSeriesStore>(
     store: &S,
     prefix: &str,
 ) -> finstack_io::Result<()> {
@@ -69,9 +69,12 @@ fn run_conformance<S: Store + BulkStore + LookbackStore + TimeSeriesStore>(
     let ctx = MarketContext::new().insert_discount(curve);
 
     let market_id = format!("{prefix}_MARKET");
-    store.put_market_context(&market_id, as_of, &ctx, None)?;
+    store
+        .put_market_context(&market_id, as_of, &ctx, None)
+        .await?;
     let loaded = store
-        .get_market_context(&market_id, as_of)?
+        .get_market_context(&market_id, as_of)
+        .await?
         .ok_or_else(|| finstack_io::Error::not_found("market_context", &market_id))?;
     let disc = loaded.get_discount("USD-OIS")?;
     assert_eq!(disc.id().as_str(), "USD-OIS");
@@ -84,18 +87,22 @@ fn run_conformance<S: Store + BulkStore + LookbackStore + TimeSeriesStore>(
         .day_count(DayCount::Act360)
         .discount_curve_id("USD-OIS".into())
         .build()?;
-    store.put_instrument(
-        &format!("{prefix}_DEP_1M"),
-        &InstrumentJson::Deposit(deposit),
-        None,
-    )?;
+    store
+        .put_instrument(
+            &format!("{prefix}_DEP_1M"),
+            &InstrumentJson::Deposit(deposit),
+            None,
+        )
+        .await?;
 
     let series_key = SeriesKey::new(
         format!("{prefix}_ns"),
         format!("{prefix}_series"),
         SeriesKind::Quote,
     );
-    store.put_series_meta(&series_key, Some(&serde_json::json!({"source": "test"})))?;
+    store
+        .put_series_meta(&series_key, Some(&serde_json::json!({"source": "test"})))
+        .await?;
 
     let now = OffsetDateTime::now_utc();
     let points = vec![
@@ -112,32 +119,36 @@ fn run_conformance<S: Store + BulkStore + LookbackStore + TimeSeriesStore>(
             meta: None,
         },
     ];
-    store.put_points_batch(&series_key, &points)?;
+    store.put_points_batch(&series_key, &points).await?;
 
-    let range = store.get_points_range(
-        &series_key,
-        now - time::Duration::hours(1),
-        now + time::Duration::hours(2),
-        None,
-    )?;
+    let range = store
+        .get_points_range(
+            &series_key,
+            now - time::Duration::hours(1),
+            now + time::Duration::hours(2),
+            None,
+        )
+        .await?;
     assert_eq!(range.len(), 2);
 
-    let latest = store.latest_point_on_or_before(&series_key, now + time::Duration::hours(2))?;
+    let latest = store
+        .latest_point_on_or_before(&series_key, now + time::Duration::hours(2))
+        .await?;
     assert!(latest.is_some());
 
     Ok(())
 }
 
-#[test]
-fn sqlite_conformance() -> finstack_io::Result<()> {
+#[tokio::test]
+async fn sqlite_conformance() -> finstack_io::Result<()> {
     let dir = tempfile::tempdir()?;
-    let store = finstack_io::SqliteStore::open(dir.path().join("finstack.db"))?;
-    run_conformance(&store, "sqlite")
+    let store = finstack_io::SqliteStore::open(dir.path().join("finstack.db")).await?;
+    run_conformance(&store, "sqlite").await
 }
 
 #[cfg(feature = "postgres")]
-#[test]
-fn postgres_conformance() -> finstack_io::Result<()> {
+#[tokio::test]
+async fn postgres_conformance() -> finstack_io::Result<()> {
     let url = match std::env::var("POSTGRES_URL") {
         Ok(value) => value,
         Err(_) => {
@@ -145,6 +156,6 @@ fn postgres_conformance() -> finstack_io::Result<()> {
             return Ok(());
         }
     };
-    let store = finstack_io::PostgresStore::connect(&url)?;
-    run_conformance(&store, "postgres")
+    let store = finstack_io::PostgresStore::connect(&url).await?;
+    run_conformance(&store, "postgres").await
 }

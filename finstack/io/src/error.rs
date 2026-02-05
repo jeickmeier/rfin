@@ -9,20 +9,45 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum Error {
-    /// SQLite backend error.
+    /// SQLite backend error (synchronous rusqlite).
     #[cfg(feature = "sqlite")]
     #[error(transparent)]
     Sqlite(#[from] rusqlite::Error),
 
-    /// Postgres backend error.
+    /// Async SQLite backend error (tokio-rusqlite).
+    #[cfg(feature = "sqlite")]
+    #[error(transparent)]
+    SqliteAsync(#[from] tokio_rusqlite::Error),
+
+    /// Postgres backend error (tokio-postgres).
     #[cfg(feature = "postgres")]
     #[error(transparent)]
-    Postgres(#[from] postgres::Error),
+    Postgres(#[from] tokio_postgres::Error),
 
-    /// Turso backend error.
+    /// Postgres pool error (deadpool).
+    #[cfg(feature = "postgres")]
+    #[error("Postgres pool error: {0}")]
+    PostgresPool(#[from] deadpool_postgres::PoolError),
+
+    /// Postgres config error (deadpool).
+    #[cfg(feature = "postgres")]
+    #[error("Postgres config error: {0}")]
+    PostgresConfig(#[from] deadpool_postgres::ConfigError),
+
+    /// Postgres build error (deadpool).
+    #[cfg(feature = "postgres")]
+    #[error("Postgres build error: {0}")]
+    PostgresBuild(#[from] deadpool_postgres::BuildError),
+
+    /// Postgres create pool error (deadpool).
+    #[cfg(feature = "postgres")]
+    #[error("Postgres create pool error: {0}")]
+    PostgresCreatePool(#[from] deadpool_postgres::CreatePoolError),
+
+    /// Turso/libsql backend error.
     #[cfg(feature = "turso")]
     #[error(transparent)]
-    Turso(#[from] turso::Error),
+    Turso(#[from] libsql::Error),
 
     /// JSON serialization/deserialization error.
     #[error(transparent)]

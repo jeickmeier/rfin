@@ -1,9 +1,12 @@
-//! Backend-agnostic persistence API.
+//! Backend-agnostic async persistence API.
 //!
 //! `finstack-io` provides a small, typed repository interface via [`Store`].
-//! Storage backends (SQLite, Postgres, filesystem, etc.) implement this trait.
+//! Storage backends (SQLite, Postgres, Turso, etc.) implement this trait.
+//!
+//! All operations are async to support efficient I/O across different backends.
 
 use crate::{Error, Result};
+use async_trait::async_trait;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_portfolio::{Portfolio, PortfolioSpec};
@@ -14,7 +17,7 @@ use finstack_valuations::instruments::InstrumentJson;
 use std::collections::HashMap;
 use time::OffsetDateTime;
 
-/// Typed persistence interface for Finstack domain objects.
+/// Async typed persistence interface for Finstack domain objects.
 ///
 /// Backends should treat `put_*` operations as **idempotent** (upsert) whenever
 /// the underlying store supports it.
@@ -39,9 +42,10 @@ use time::OffsetDateTime;
 /// the payload for auditing and debugging purposes, but is **not returned** by
 /// `get_*` methods. If you need to retrieve metadata, access the store directly
 /// or implement custom queries.
-pub trait Store {
+#[async_trait]
+pub trait Store: Send + Sync {
     /// Store a market context snapshot for a given `as_of` date.
-    fn put_market_context(
+    async fn put_market_context(
         &self,
         market_id: &str,
         as_of: Date,
@@ -52,11 +56,14 @@ pub trait Store {
     /// Load a market context snapshot for a given `as_of` date.
     ///
     /// Note: The `meta` field is stored for auditing purposes but not returned by this method.
-    #[must_use = "this returns the market context, which should be used"]
-    fn get_market_context(&self, market_id: &str, as_of: Date) -> Result<Option<MarketContext>>;
+    async fn get_market_context(
+        &self,
+        market_id: &str,
+        as_of: Date,
+    ) -> Result<Option<MarketContext>>;
 
     /// Store an instrument definition.
-    fn put_instrument(
+    async fn put_instrument(
         &self,
         instrument_id: &str,
         instrument: &InstrumentJson,
@@ -66,25 +73,22 @@ pub trait Store {
     /// Load an instrument definition.
     ///
     /// Note: The `meta` field is stored for auditing purposes but not returned by this method.
-    #[must_use = "this returns the instrument, which should be used"]
-    fn get_instrument(&self, instrument_id: &str) -> Result<Option<InstrumentJson>>;
+    async fn get_instrument(&self, instrument_id: &str) -> Result<Option<InstrumentJson>>;
 
     /// Load multiple instruments by ID in a single query.
     ///
     /// Returns a map of instrument_id -> InstrumentJson for all found instruments.
     /// Missing instruments are silently omitted from the result (no error).
-    #[must_use = "this returns the instruments map, which should be used"]
-    fn get_instruments_batch(
+    async fn get_instruments_batch(
         &self,
         instrument_ids: &[String],
     ) -> Result<HashMap<String, InstrumentJson>>;
 
     /// List all stored instrument IDs.
-    #[must_use = "this returns the list of instrument IDs, which should be used"]
-    fn list_instruments(&self) -> Result<Vec<String>>;
+    async fn list_instruments(&self) -> Result<Vec<String>>;
 
     /// Store a portfolio snapshot for a given `as_of` date.
-    fn put_portfolio_spec(
+    async fn put_portfolio_spec(
         &self,
         portfolio_id: &str,
         as_of: Date,
@@ -95,11 +99,14 @@ pub trait Store {
     /// Load a portfolio snapshot for a given `as_of` date.
     ///
     /// Note: The `meta` field is stored for auditing purposes but not returned by this method.
-    #[must_use = "this returns the portfolio spec, which should be used"]
-    fn get_portfolio_spec(&self, portfolio_id: &str, as_of: Date) -> Result<Option<PortfolioSpec>>;
+    async fn get_portfolio_spec(
+        &self,
+        portfolio_id: &str,
+        as_of: Date,
+    ) -> Result<Option<PortfolioSpec>>;
 
     /// Store a scenario specification.
-    fn put_scenario(
+    async fn put_scenario(
         &self,
         scenario_id: &str,
         spec: &ScenarioSpec,
@@ -109,15 +116,13 @@ pub trait Store {
     /// Load a scenario specification.
     ///
     /// Note: The `meta` field is stored for auditing purposes but not returned by this method.
-    #[must_use = "this returns the scenario spec, which should be used"]
-    fn get_scenario(&self, scenario_id: &str) -> Result<Option<ScenarioSpec>>;
+    async fn get_scenario(&self, scenario_id: &str) -> Result<Option<ScenarioSpec>>;
 
     /// List all stored scenario IDs.
-    #[must_use = "this returns the list of scenario IDs, which should be used"]
-    fn list_scenarios(&self) -> Result<Vec<String>>;
+    async fn list_scenarios(&self) -> Result<Vec<String>>;
 
     /// Store a statements model specification.
-    fn put_statement_model(
+    async fn put_statement_model(
         &self,
         model_id: &str,
         spec: &FinancialModelSpec,
@@ -127,19 +132,17 @@ pub trait Store {
     /// Load a statements model specification.
     ///
     /// Note: The `meta` field is stored for auditing purposes but not returned by this method.
-    #[must_use = "this returns the statement model spec, which should be used"]
-    fn get_statement_model(&self, model_id: &str) -> Result<Option<FinancialModelSpec>>;
+    async fn get_statement_model(&self, model_id: &str) -> Result<Option<FinancialModelSpec>>;
 
     /// List all stored statement model IDs.
-    #[must_use = "this returns the list of model IDs, which should be used"]
-    fn list_statement_models(&self) -> Result<Vec<String>>;
+    async fn list_statement_models(&self) -> Result<Vec<String>>;
 
     /// Store a metric registry by namespace.
     ///
     /// Metric registries define reusable financial metrics (ratios, KPIs) that can be
     /// shared across multiple statement models. The namespace (e.g., "fin", "custom")
     /// serves as the primary key.
-    fn put_metric_registry(
+    async fn put_metric_registry(
         &self,
         namespace: &str,
         registry: &MetricRegistry,
@@ -149,34 +152,34 @@ pub trait Store {
     /// Load a metric registry by namespace.
     ///
     /// Note: The `meta` field is stored for auditing purposes but not returned by this method.
-    #[must_use = "this returns the metric registry, which should be used"]
-    fn get_metric_registry(&self, namespace: &str) -> Result<Option<MetricRegistry>>;
+    async fn get_metric_registry(&self, namespace: &str) -> Result<Option<MetricRegistry>>;
 
     /// List all stored metric registry namespaces.
-    #[must_use = "this returns the list of namespaces, which should be used"]
-    fn list_metric_registries(&self) -> Result<Vec<String>>;
+    async fn list_metric_registries(&self) -> Result<Vec<String>>;
 
     /// Delete a metric registry by namespace.
     ///
     /// Returns `true` if a registry was deleted, `false` if no registry existed.
-    #[must_use = "this returns whether a registry was deleted, which should be checked"]
-    fn delete_metric_registry(&self, namespace: &str) -> Result<bool>;
+    async fn delete_metric_registry(&self, namespace: &str) -> Result<bool>;
 
     /// Load a market context snapshot, returning a not-found error if missing.
-    fn load_market_context(&self, market_id: &str, as_of: Date) -> Result<MarketContext> {
-        self.get_market_context(market_id, as_of)?
+    async fn load_market_context(&self, market_id: &str, as_of: Date) -> Result<MarketContext> {
+        self.get_market_context(market_id, as_of)
+            .await?
             .ok_or_else(|| Error::not_found("market_context", format!("{market_id}@{as_of}")))
     }
 
     /// Load a portfolio spec snapshot, returning a not-found error if missing.
-    fn load_portfolio_spec(&self, portfolio_id: &str, as_of: Date) -> Result<PortfolioSpec> {
-        self.get_portfolio_spec(portfolio_id, as_of)?
+    async fn load_portfolio_spec(&self, portfolio_id: &str, as_of: Date) -> Result<PortfolioSpec> {
+        self.get_portfolio_spec(portfolio_id, as_of)
+            .await?
             .ok_or_else(|| Error::not_found("portfolio", format!("{portfolio_id}@{as_of}")))
     }
 
     /// Load a metric registry, returning a not-found error if missing.
-    fn load_metric_registry(&self, namespace: &str) -> Result<MetricRegistry> {
-        self.get_metric_registry(namespace)?
+    async fn load_metric_registry(&self, namespace: &str) -> Result<MetricRegistry> {
+        self.get_metric_registry(namespace)
+            .await?
             .ok_or_else(|| Error::not_found("metric_registry", namespace))
     }
 
@@ -198,8 +201,8 @@ pub trait Store {
     /// - Using portfolio specs with inline `instrument_spec` to avoid the lookup
     /// - Implementing application-level locking around portfolio operations
     /// - Using bulk write operations (`put_instruments_batch`) which are transactional
-    fn load_portfolio(&self, portfolio_id: &str, as_of: Date) -> Result<Portfolio> {
-        let mut spec = self.load_portfolio_spec(portfolio_id, as_of)?;
+    async fn load_portfolio(&self, portfolio_id: &str, as_of: Date) -> Result<Portfolio> {
+        let mut spec = self.load_portfolio_spec(portfolio_id, as_of).await?;
 
         // Collect unique instrument IDs that need resolution
         let missing_ids: Vec<String> = spec
@@ -212,7 +215,7 @@ pub trait Store {
             .collect();
 
         // Batch-fetch all missing instruments
-        let instruments = self.get_instruments_batch(&missing_ids)?;
+        let instruments = self.get_instruments_batch(&missing_ids).await?;
 
         // Resolve missing instrument specs from the fetched batch
         for pos in &mut spec.positions {
@@ -231,14 +234,14 @@ pub trait Store {
     }
 
     /// Convenience helper: load a portfolio and matching market context for the same `as_of`.
-    fn load_portfolio_with_market(
+    async fn load_portfolio_with_market(
         &self,
         portfolio_id: &str,
         market_id: &str,
         as_of: Date,
     ) -> Result<(Portfolio, MarketContext)> {
-        let portfolio = self.load_portfolio(portfolio_id, as_of)?;
-        let market = self.load_market_context(market_id, as_of)?;
+        let portfolio = self.load_portfolio(portfolio_id, as_of).await?;
+        let market = self.load_market_context(market_id, as_of).await?;
         Ok((portfolio, market))
     }
 }
@@ -247,12 +250,13 @@ pub trait Store {
 ///
 /// Bulk methods execute within a single transaction for atomicity and better performance
 /// when inserting many records.
+#[async_trait]
 pub trait BulkStore: Store {
     /// Store multiple instruments in a single transaction.
     ///
     /// This is more efficient than calling `put_instrument` repeatedly and provides
     /// atomicity (all-or-nothing).
-    fn put_instruments_batch(
+    async fn put_instruments_batch(
         &self,
         instruments: &[(&str, &InstrumentJson, Option<&serde_json::Value>)],
     ) -> Result<()>;
@@ -261,13 +265,13 @@ pub trait BulkStore: Store {
     ///
     /// This is more efficient than calling `put_market_context` repeatedly and provides
     /// atomicity (all-or-nothing).
-    fn put_market_contexts_batch(
+    async fn put_market_contexts_batch(
         &self,
         contexts: &[(&str, Date, &MarketContext, Option<&serde_json::Value>)],
     ) -> Result<()>;
 
     /// Store multiple portfolio specs in a single transaction.
-    fn put_portfolios_batch(
+    async fn put_portfolios_batch(
         &self,
         portfolios: &[(&str, Date, &PortfolioSpec, Option<&serde_json::Value>)],
     ) -> Result<()>;
@@ -301,9 +305,10 @@ pub struct PortfolioSnapshot {
 }
 
 /// Optional extension trait for backends that support range queries / lookbacks.
-pub trait LookbackStore {
+#[async_trait]
+pub trait LookbackStore: Send + Sync {
     /// List market contexts for a given id in `[start, end]`, ordered by `as_of`.
-    fn list_market_contexts(
+    async fn list_market_contexts(
         &self,
         market_id: &str,
         start: Date,
@@ -311,14 +316,14 @@ pub trait LookbackStore {
     ) -> Result<Vec<MarketContextSnapshot>>;
 
     /// Get the latest market context with `as_of <= as_of`, if any.
-    fn latest_market_context_on_or_before(
+    async fn latest_market_context_on_or_before(
         &self,
         market_id: &str,
         as_of: Date,
     ) -> Result<Option<MarketContextSnapshot>>;
 
     /// List portfolio specs for a given id in `[start, end]`, ordered by `as_of`.
-    fn list_portfolios(
+    async fn list_portfolios(
         &self,
         portfolio_id: &str,
         start: Date,
@@ -326,7 +331,7 @@ pub trait LookbackStore {
     ) -> Result<Vec<PortfolioSnapshot>>;
 
     /// Get the latest portfolio with `as_of <= as_of`, if any.
-    fn latest_portfolio_on_or_before(
+    async fn latest_portfolio_on_or_before(
         &self,
         portfolio_id: &str,
         as_of: Date,
@@ -334,7 +339,7 @@ pub trait LookbackStore {
 }
 
 /// Kind of time-series data stored in the IO backend.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
 pub enum SeriesKind {
     /// Market quotes and prices (bid/ask/last, etc.).
     Quote,
@@ -424,25 +429,27 @@ pub struct TimeSeriesPoint {
     pub meta: Option<serde_json::Value>,
 }
 
-/// Typed persistence interface for time-series data.
-pub trait TimeSeriesStore {
+/// Typed async persistence interface for time-series data.
+#[async_trait]
+pub trait TimeSeriesStore: Send + Sync {
     /// Store metadata for a time-series key.
-    fn put_series_meta(&self, key: &SeriesKey, meta: Option<&serde_json::Value>) -> Result<()>;
+    async fn put_series_meta(
+        &self,
+        key: &SeriesKey,
+        meta: Option<&serde_json::Value>,
+    ) -> Result<()>;
 
     /// Load metadata for a time-series key.
-    #[must_use = "this returns the series metadata, which should be used"]
-    fn get_series_meta(&self, key: &SeriesKey) -> Result<Option<serde_json::Value>>;
+    async fn get_series_meta(&self, key: &SeriesKey) -> Result<Option<serde_json::Value>>;
 
     /// List series ids for a namespace and kind.
-    #[must_use = "this returns the list of series ids, which should be used"]
-    fn list_series(&self, namespace: &str, kind: SeriesKind) -> Result<Vec<String>>;
+    async fn list_series(&self, namespace: &str, kind: SeriesKind) -> Result<Vec<String>>;
 
     /// Store multiple points in a single transaction.
-    fn put_points_batch(&self, key: &SeriesKey, points: &[TimeSeriesPoint]) -> Result<()>;
+    async fn put_points_batch(&self, key: &SeriesKey, points: &[TimeSeriesPoint]) -> Result<()>;
 
     /// Load points in a time range, ordered by timestamp.
-    #[must_use = "this returns the points, which should be used"]
-    fn get_points_range(
+    async fn get_points_range(
         &self,
         key: &SeriesKey,
         start: OffsetDateTime,
@@ -451,8 +458,7 @@ pub trait TimeSeriesStore {
     ) -> Result<Vec<TimeSeriesPoint>>;
 
     /// Get the latest point on or before a given timestamp.
-    #[must_use = "this returns the latest point, which should be used"]
-    fn latest_point_on_or_before(
+    async fn latest_point_on_or_before(
         &self,
         key: &SeriesKey,
         ts: OffsetDateTime,

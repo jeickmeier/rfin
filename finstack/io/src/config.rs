@@ -2,6 +2,7 @@
 
 use crate::{BulkStore, LookbackStore, Store, TimeSeriesStore};
 use crate::{Error, Result};
+use async_trait::async_trait;
 use std::path::PathBuf;
 
 /// Available IO backends.
@@ -82,8 +83,9 @@ pub enum StoreHandle {
     Turso(crate::turso::TursoStore),
 }
 
+#[async_trait]
 impl Store for StoreHandle {
-    fn put_market_context(
+    async fn put_market_context(
         &self,
         market_id: &str,
         as_of: finstack_core::dates::Date,
@@ -92,32 +94,42 @@ impl Store for StoreHandle {
     ) -> Result<()> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.put_market_context(market_id, as_of, context, meta),
+            StoreHandle::Sqlite(store) => {
+                store
+                    .put_market_context(market_id, as_of, context, meta)
+                    .await
+            }
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => {
-                store.put_market_context(market_id, as_of, context, meta)
+                store
+                    .put_market_context(market_id, as_of, context, meta)
+                    .await
             }
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.put_market_context(market_id, as_of, context, meta),
+            StoreHandle::Turso(store) => {
+                store
+                    .put_market_context(market_id, as_of, context, meta)
+                    .await
+            }
         }
     }
 
-    fn get_market_context(
+    async fn get_market_context(
         &self,
         market_id: &str,
         as_of: finstack_core::dates::Date,
     ) -> Result<Option<finstack_core::market_data::context::MarketContext>> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.get_market_context(market_id, as_of),
+            StoreHandle::Sqlite(store) => store.get_market_context(market_id, as_of).await,
             #[cfg(feature = "postgres")]
-            StoreHandle::Postgres(store) => store.get_market_context(market_id, as_of),
+            StoreHandle::Postgres(store) => store.get_market_context(market_id, as_of).await,
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.get_market_context(market_id, as_of),
+            StoreHandle::Turso(store) => store.get_market_context(market_id, as_of).await,
         }
     }
 
-    fn put_instrument(
+    async fn put_instrument(
         &self,
         instrument_id: &str,
         instrument: &finstack_valuations::instruments::InstrumentJson,
@@ -125,55 +137,61 @@ impl Store for StoreHandle {
     ) -> Result<()> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.put_instrument(instrument_id, instrument, meta),
+            StoreHandle::Sqlite(store) => {
+                store.put_instrument(instrument_id, instrument, meta).await
+            }
             #[cfg(feature = "postgres")]
-            StoreHandle::Postgres(store) => store.put_instrument(instrument_id, instrument, meta),
+            StoreHandle::Postgres(store) => {
+                store.put_instrument(instrument_id, instrument, meta).await
+            }
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.put_instrument(instrument_id, instrument, meta),
+            StoreHandle::Turso(store) => {
+                store.put_instrument(instrument_id, instrument, meta).await
+            }
         }
     }
 
-    fn get_instrument(
+    async fn get_instrument(
         &self,
         instrument_id: &str,
     ) -> Result<Option<finstack_valuations::instruments::InstrumentJson>> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.get_instrument(instrument_id),
+            StoreHandle::Sqlite(store) => store.get_instrument(instrument_id).await,
             #[cfg(feature = "postgres")]
-            StoreHandle::Postgres(store) => store.get_instrument(instrument_id),
+            StoreHandle::Postgres(store) => store.get_instrument(instrument_id).await,
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.get_instrument(instrument_id),
+            StoreHandle::Turso(store) => store.get_instrument(instrument_id).await,
         }
     }
 
-    fn get_instruments_batch(
+    async fn get_instruments_batch(
         &self,
         instrument_ids: &[String],
     ) -> Result<std::collections::HashMap<String, finstack_valuations::instruments::InstrumentJson>>
     {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.get_instruments_batch(instrument_ids),
+            StoreHandle::Sqlite(store) => store.get_instruments_batch(instrument_ids).await,
             #[cfg(feature = "postgres")]
-            StoreHandle::Postgres(store) => store.get_instruments_batch(instrument_ids),
+            StoreHandle::Postgres(store) => store.get_instruments_batch(instrument_ids).await,
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.get_instruments_batch(instrument_ids),
+            StoreHandle::Turso(store) => store.get_instruments_batch(instrument_ids).await,
         }
     }
 
-    fn list_instruments(&self) -> Result<Vec<String>> {
+    async fn list_instruments(&self) -> Result<Vec<String>> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.list_instruments(),
+            StoreHandle::Sqlite(store) => store.list_instruments().await,
             #[cfg(feature = "postgres")]
-            StoreHandle::Postgres(store) => store.list_instruments(),
+            StoreHandle::Postgres(store) => store.list_instruments().await,
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.list_instruments(),
+            StoreHandle::Turso(store) => store.list_instruments().await,
         }
     }
 
-    fn put_portfolio_spec(
+    async fn put_portfolio_spec(
         &self,
         portfolio_id: &str,
         as_of: finstack_core::dates::Date,
@@ -182,32 +200,42 @@ impl Store for StoreHandle {
     ) -> Result<()> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.put_portfolio_spec(portfolio_id, as_of, spec, meta),
+            StoreHandle::Sqlite(store) => {
+                store
+                    .put_portfolio_spec(portfolio_id, as_of, spec, meta)
+                    .await
+            }
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => {
-                store.put_portfolio_spec(portfolio_id, as_of, spec, meta)
+                store
+                    .put_portfolio_spec(portfolio_id, as_of, spec, meta)
+                    .await
             }
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.put_portfolio_spec(portfolio_id, as_of, spec, meta),
+            StoreHandle::Turso(store) => {
+                store
+                    .put_portfolio_spec(portfolio_id, as_of, spec, meta)
+                    .await
+            }
         }
     }
 
-    fn get_portfolio_spec(
+    async fn get_portfolio_spec(
         &self,
         portfolio_id: &str,
         as_of: finstack_core::dates::Date,
     ) -> Result<Option<finstack_portfolio::PortfolioSpec>> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.get_portfolio_spec(portfolio_id, as_of),
+            StoreHandle::Sqlite(store) => store.get_portfolio_spec(portfolio_id, as_of).await,
             #[cfg(feature = "postgres")]
-            StoreHandle::Postgres(store) => store.get_portfolio_spec(portfolio_id, as_of),
+            StoreHandle::Postgres(store) => store.get_portfolio_spec(portfolio_id, as_of).await,
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.get_portfolio_spec(portfolio_id, as_of),
+            StoreHandle::Turso(store) => store.get_portfolio_spec(portfolio_id, as_of).await,
         }
     }
 
-    fn put_scenario(
+    async fn put_scenario(
         &self,
         scenario_id: &str,
         spec: &finstack_scenarios::ScenarioSpec,
@@ -215,37 +243,40 @@ impl Store for StoreHandle {
     ) -> Result<()> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.put_scenario(scenario_id, spec, meta),
+            StoreHandle::Sqlite(store) => store.put_scenario(scenario_id, spec, meta).await,
             #[cfg(feature = "postgres")]
-            StoreHandle::Postgres(store) => store.put_scenario(scenario_id, spec, meta),
+            StoreHandle::Postgres(store) => store.put_scenario(scenario_id, spec, meta).await,
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.put_scenario(scenario_id, spec, meta),
+            StoreHandle::Turso(store) => store.put_scenario(scenario_id, spec, meta).await,
         }
     }
 
-    fn get_scenario(&self, scenario_id: &str) -> Result<Option<finstack_scenarios::ScenarioSpec>> {
+    async fn get_scenario(
+        &self,
+        scenario_id: &str,
+    ) -> Result<Option<finstack_scenarios::ScenarioSpec>> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.get_scenario(scenario_id),
+            StoreHandle::Sqlite(store) => store.get_scenario(scenario_id).await,
             #[cfg(feature = "postgres")]
-            StoreHandle::Postgres(store) => store.get_scenario(scenario_id),
+            StoreHandle::Postgres(store) => store.get_scenario(scenario_id).await,
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.get_scenario(scenario_id),
+            StoreHandle::Turso(store) => store.get_scenario(scenario_id).await,
         }
     }
 
-    fn list_scenarios(&self) -> Result<Vec<String>> {
+    async fn list_scenarios(&self) -> Result<Vec<String>> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.list_scenarios(),
+            StoreHandle::Sqlite(store) => store.list_scenarios().await,
             #[cfg(feature = "postgres")]
-            StoreHandle::Postgres(store) => store.list_scenarios(),
+            StoreHandle::Postgres(store) => store.list_scenarios().await,
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.list_scenarios(),
+            StoreHandle::Turso(store) => store.list_scenarios().await,
         }
     }
 
-    fn put_statement_model(
+    async fn put_statement_model(
         &self,
         model_id: &str,
         spec: &finstack_statements::FinancialModelSpec,
@@ -253,40 +284,40 @@ impl Store for StoreHandle {
     ) -> Result<()> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.put_statement_model(model_id, spec, meta),
+            StoreHandle::Sqlite(store) => store.put_statement_model(model_id, spec, meta).await,
             #[cfg(feature = "postgres")]
-            StoreHandle::Postgres(store) => store.put_statement_model(model_id, spec, meta),
+            StoreHandle::Postgres(store) => store.put_statement_model(model_id, spec, meta).await,
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.put_statement_model(model_id, spec, meta),
+            StoreHandle::Turso(store) => store.put_statement_model(model_id, spec, meta).await,
         }
     }
 
-    fn get_statement_model(
+    async fn get_statement_model(
         &self,
         model_id: &str,
     ) -> Result<Option<finstack_statements::FinancialModelSpec>> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.get_statement_model(model_id),
+            StoreHandle::Sqlite(store) => store.get_statement_model(model_id).await,
             #[cfg(feature = "postgres")]
-            StoreHandle::Postgres(store) => store.get_statement_model(model_id),
+            StoreHandle::Postgres(store) => store.get_statement_model(model_id).await,
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.get_statement_model(model_id),
+            StoreHandle::Turso(store) => store.get_statement_model(model_id).await,
         }
     }
 
-    fn list_statement_models(&self) -> Result<Vec<String>> {
+    async fn list_statement_models(&self) -> Result<Vec<String>> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.list_statement_models(),
+            StoreHandle::Sqlite(store) => store.list_statement_models().await,
             #[cfg(feature = "postgres")]
-            StoreHandle::Postgres(store) => store.list_statement_models(),
+            StoreHandle::Postgres(store) => store.list_statement_models().await,
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.list_statement_models(),
+            StoreHandle::Turso(store) => store.list_statement_models().await,
         }
     }
 
-    fn put_metric_registry(
+    async fn put_metric_registry(
         &self,
         namespace: &str,
         registry: &finstack_statements::registry::MetricRegistry,
@@ -294,53 +325,58 @@ impl Store for StoreHandle {
     ) -> Result<()> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.put_metric_registry(namespace, registry, meta),
+            StoreHandle::Sqlite(store) => {
+                store.put_metric_registry(namespace, registry, meta).await
+            }
             #[cfg(feature = "postgres")]
-            StoreHandle::Postgres(store) => store.put_metric_registry(namespace, registry, meta),
+            StoreHandle::Postgres(store) => {
+                store.put_metric_registry(namespace, registry, meta).await
+            }
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.put_metric_registry(namespace, registry, meta),
+            StoreHandle::Turso(store) => store.put_metric_registry(namespace, registry, meta).await,
         }
     }
 
-    fn get_metric_registry(
+    async fn get_metric_registry(
         &self,
         namespace: &str,
     ) -> Result<Option<finstack_statements::registry::MetricRegistry>> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.get_metric_registry(namespace),
+            StoreHandle::Sqlite(store) => store.get_metric_registry(namespace).await,
             #[cfg(feature = "postgres")]
-            StoreHandle::Postgres(store) => store.get_metric_registry(namespace),
+            StoreHandle::Postgres(store) => store.get_metric_registry(namespace).await,
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.get_metric_registry(namespace),
+            StoreHandle::Turso(store) => store.get_metric_registry(namespace).await,
         }
     }
 
-    fn list_metric_registries(&self) -> Result<Vec<String>> {
+    async fn list_metric_registries(&self) -> Result<Vec<String>> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.list_metric_registries(),
+            StoreHandle::Sqlite(store) => store.list_metric_registries().await,
             #[cfg(feature = "postgres")]
-            StoreHandle::Postgres(store) => store.list_metric_registries(),
+            StoreHandle::Postgres(store) => store.list_metric_registries().await,
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.list_metric_registries(),
+            StoreHandle::Turso(store) => store.list_metric_registries().await,
         }
     }
 
-    fn delete_metric_registry(&self, namespace: &str) -> Result<bool> {
+    async fn delete_metric_registry(&self, namespace: &str) -> Result<bool> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.delete_metric_registry(namespace),
+            StoreHandle::Sqlite(store) => store.delete_metric_registry(namespace).await,
             #[cfg(feature = "postgres")]
-            StoreHandle::Postgres(store) => store.delete_metric_registry(namespace),
+            StoreHandle::Postgres(store) => store.delete_metric_registry(namespace).await,
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.delete_metric_registry(namespace),
+            StoreHandle::Turso(store) => store.delete_metric_registry(namespace).await,
         }
     }
 }
 
+#[async_trait]
 impl BulkStore for StoreHandle {
-    fn put_instruments_batch(
+    async fn put_instruments_batch(
         &self,
         instruments: &[(
             &str,
@@ -350,15 +386,15 @@ impl BulkStore for StoreHandle {
     ) -> Result<()> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.put_instruments_batch(instruments),
+            StoreHandle::Sqlite(store) => store.put_instruments_batch(instruments).await,
             #[cfg(feature = "postgres")]
-            StoreHandle::Postgres(store) => store.put_instruments_batch(instruments),
+            StoreHandle::Postgres(store) => store.put_instruments_batch(instruments).await,
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.put_instruments_batch(instruments),
+            StoreHandle::Turso(store) => store.put_instruments_batch(instruments).await,
         }
     }
 
-    fn put_market_contexts_batch(
+    async fn put_market_contexts_batch(
         &self,
         contexts: &[(
             &str,
@@ -369,15 +405,15 @@ impl BulkStore for StoreHandle {
     ) -> Result<()> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.put_market_contexts_batch(contexts),
+            StoreHandle::Sqlite(store) => store.put_market_contexts_batch(contexts).await,
             #[cfg(feature = "postgres")]
-            StoreHandle::Postgres(store) => store.put_market_contexts_batch(contexts),
+            StoreHandle::Postgres(store) => store.put_market_contexts_batch(contexts).await,
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.put_market_contexts_batch(contexts),
+            StoreHandle::Turso(store) => store.put_market_contexts_batch(contexts).await,
         }
     }
 
-    fn put_portfolios_batch(
+    async fn put_portfolios_batch(
         &self,
         portfolios: &[(
             &str,
@@ -388,17 +424,18 @@ impl BulkStore for StoreHandle {
     ) -> Result<()> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.put_portfolios_batch(portfolios),
+            StoreHandle::Sqlite(store) => store.put_portfolios_batch(portfolios).await,
             #[cfg(feature = "postgres")]
-            StoreHandle::Postgres(store) => store.put_portfolios_batch(portfolios),
+            StoreHandle::Postgres(store) => store.put_portfolios_batch(portfolios).await,
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.put_portfolios_batch(portfolios),
+            StoreHandle::Turso(store) => store.put_portfolios_batch(portfolios).await,
         }
     }
 }
 
+#[async_trait]
 impl LookbackStore for StoreHandle {
-    fn list_market_contexts(
+    async fn list_market_contexts(
         &self,
         market_id: &str,
         start: finstack_core::dates::Date,
@@ -406,15 +443,15 @@ impl LookbackStore for StoreHandle {
     ) -> Result<Vec<crate::MarketContextSnapshot>> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.list_market_contexts(market_id, start, end),
+            StoreHandle::Sqlite(store) => store.list_market_contexts(market_id, start, end).await,
             #[cfg(feature = "postgres")]
-            StoreHandle::Postgres(store) => store.list_market_contexts(market_id, start, end),
+            StoreHandle::Postgres(store) => store.list_market_contexts(market_id, start, end).await,
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.list_market_contexts(market_id, start, end),
+            StoreHandle::Turso(store) => store.list_market_contexts(market_id, start, end).await,
         }
     }
 
-    fn latest_market_context_on_or_before(
+    async fn latest_market_context_on_or_before(
         &self,
         market_id: &str,
         as_of: finstack_core::dates::Date,
@@ -422,18 +459,26 @@ impl LookbackStore for StoreHandle {
         match self {
             #[cfg(feature = "sqlite")]
             StoreHandle::Sqlite(store) => {
-                store.latest_market_context_on_or_before(market_id, as_of)
+                store
+                    .latest_market_context_on_or_before(market_id, as_of)
+                    .await
             }
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => {
-                store.latest_market_context_on_or_before(market_id, as_of)
+                store
+                    .latest_market_context_on_or_before(market_id, as_of)
+                    .await
             }
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.latest_market_context_on_or_before(market_id, as_of),
+            StoreHandle::Turso(store) => {
+                store
+                    .latest_market_context_on_or_before(market_id, as_of)
+                    .await
+            }
         }
     }
 
-    fn list_portfolios(
+    async fn list_portfolios(
         &self,
         portfolio_id: &str,
         start: finstack_core::dates::Date,
@@ -441,86 +486,97 @@ impl LookbackStore for StoreHandle {
     ) -> Result<Vec<crate::PortfolioSnapshot>> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.list_portfolios(portfolio_id, start, end),
+            StoreHandle::Sqlite(store) => store.list_portfolios(portfolio_id, start, end).await,
             #[cfg(feature = "postgres")]
-            StoreHandle::Postgres(store) => store.list_portfolios(portfolio_id, start, end),
+            StoreHandle::Postgres(store) => store.list_portfolios(portfolio_id, start, end).await,
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.list_portfolios(portfolio_id, start, end),
+            StoreHandle::Turso(store) => store.list_portfolios(portfolio_id, start, end).await,
         }
     }
 
-    fn latest_portfolio_on_or_before(
+    async fn latest_portfolio_on_or_before(
         &self,
         portfolio_id: &str,
         as_of: finstack_core::dates::Date,
     ) -> Result<Option<crate::PortfolioSnapshot>> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.latest_portfolio_on_or_before(portfolio_id, as_of),
+            StoreHandle::Sqlite(store) => {
+                store
+                    .latest_portfolio_on_or_before(portfolio_id, as_of)
+                    .await
+            }
             #[cfg(feature = "postgres")]
             StoreHandle::Postgres(store) => {
-                store.latest_portfolio_on_or_before(portfolio_id, as_of)
+                store
+                    .latest_portfolio_on_or_before(portfolio_id, as_of)
+                    .await
             }
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.latest_portfolio_on_or_before(portfolio_id, as_of),
+            StoreHandle::Turso(store) => {
+                store
+                    .latest_portfolio_on_or_before(portfolio_id, as_of)
+                    .await
+            }
         }
     }
 }
 
+#[async_trait]
 impl TimeSeriesStore for StoreHandle {
-    fn put_series_meta(
+    async fn put_series_meta(
         &self,
         key: &crate::SeriesKey,
         meta: Option<&serde_json::Value>,
     ) -> Result<()> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.put_series_meta(key, meta),
+            StoreHandle::Sqlite(store) => store.put_series_meta(key, meta).await,
             #[cfg(feature = "postgres")]
-            StoreHandle::Postgres(store) => store.put_series_meta(key, meta),
+            StoreHandle::Postgres(store) => store.put_series_meta(key, meta).await,
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.put_series_meta(key, meta),
+            StoreHandle::Turso(store) => store.put_series_meta(key, meta).await,
         }
     }
 
-    fn get_series_meta(&self, key: &crate::SeriesKey) -> Result<Option<serde_json::Value>> {
+    async fn get_series_meta(&self, key: &crate::SeriesKey) -> Result<Option<serde_json::Value>> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.get_series_meta(key),
+            StoreHandle::Sqlite(store) => store.get_series_meta(key).await,
             #[cfg(feature = "postgres")]
-            StoreHandle::Postgres(store) => store.get_series_meta(key),
+            StoreHandle::Postgres(store) => store.get_series_meta(key).await,
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.get_series_meta(key),
+            StoreHandle::Turso(store) => store.get_series_meta(key).await,
         }
     }
 
-    fn list_series(&self, namespace: &str, kind: crate::SeriesKind) -> Result<Vec<String>> {
+    async fn list_series(&self, namespace: &str, kind: crate::SeriesKind) -> Result<Vec<String>> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.list_series(namespace, kind),
+            StoreHandle::Sqlite(store) => store.list_series(namespace, kind).await,
             #[cfg(feature = "postgres")]
-            StoreHandle::Postgres(store) => store.list_series(namespace, kind),
+            StoreHandle::Postgres(store) => store.list_series(namespace, kind).await,
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.list_series(namespace, kind),
+            StoreHandle::Turso(store) => store.list_series(namespace, kind).await,
         }
     }
 
-    fn put_points_batch(
+    async fn put_points_batch(
         &self,
         key: &crate::SeriesKey,
         points: &[crate::TimeSeriesPoint],
     ) -> Result<()> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.put_points_batch(key, points),
+            StoreHandle::Sqlite(store) => store.put_points_batch(key, points).await,
             #[cfg(feature = "postgres")]
-            StoreHandle::Postgres(store) => store.put_points_batch(key, points),
+            StoreHandle::Postgres(store) => store.put_points_batch(key, points).await,
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.put_points_batch(key, points),
+            StoreHandle::Turso(store) => store.put_points_batch(key, points).await,
         }
     }
 
-    fn get_points_range(
+    async fn get_points_range(
         &self,
         key: &crate::SeriesKey,
         start: time::OffsetDateTime,
@@ -529,32 +585,32 @@ impl TimeSeriesStore for StoreHandle {
     ) -> Result<Vec<crate::TimeSeriesPoint>> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.get_points_range(key, start, end, limit),
+            StoreHandle::Sqlite(store) => store.get_points_range(key, start, end, limit).await,
             #[cfg(feature = "postgres")]
-            StoreHandle::Postgres(store) => store.get_points_range(key, start, end, limit),
+            StoreHandle::Postgres(store) => store.get_points_range(key, start, end, limit).await,
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.get_points_range(key, start, end, limit),
+            StoreHandle::Turso(store) => store.get_points_range(key, start, end, limit).await,
         }
     }
 
-    fn latest_point_on_or_before(
+    async fn latest_point_on_or_before(
         &self,
         key: &crate::SeriesKey,
         ts: time::OffsetDateTime,
     ) -> Result<Option<crate::TimeSeriesPoint>> {
         match self {
             #[cfg(feature = "sqlite")]
-            StoreHandle::Sqlite(store) => store.latest_point_on_or_before(key, ts),
+            StoreHandle::Sqlite(store) => store.latest_point_on_or_before(key, ts).await,
             #[cfg(feature = "postgres")]
-            StoreHandle::Postgres(store) => store.latest_point_on_or_before(key, ts),
+            StoreHandle::Postgres(store) => store.latest_point_on_or_before(key, ts).await,
             #[cfg(feature = "turso")]
-            StoreHandle::Turso(store) => store.latest_point_on_or_before(key, ts),
+            StoreHandle::Turso(store) => store.latest_point_on_or_before(key, ts).await,
         }
     }
 }
 
 /// Open a store using the current environment configuration.
-pub fn open_store_from_env() -> Result<StoreHandle> {
+pub async fn open_store_from_env() -> Result<StoreHandle> {
     let config = FinstackIoConfig::from_env()?;
     match config.backend {
         IoBackend::Sqlite => {
@@ -563,7 +619,9 @@ pub fn open_store_from_env() -> Result<StoreHandle> {
                 let path = config.sqlite_path.ok_or_else(|| {
                     Error::Invariant("FINSTACK_SQLITE_PATH is required for sqlite backend".into())
                 })?;
-                Ok(StoreHandle::Sqlite(crate::sqlite::SqliteStore::open(path)?))
+                Ok(StoreHandle::Sqlite(
+                    crate::sqlite::SqliteStore::open(path).await?,
+                ))
             }
             #[cfg(not(feature = "sqlite"))]
             {
@@ -581,7 +639,7 @@ pub fn open_store_from_env() -> Result<StoreHandle> {
                     )
                 })?;
                 Ok(StoreHandle::Postgres(
-                    crate::postgres::PostgresStore::connect(&url)?,
+                    crate::postgres::PostgresStore::connect(&url).await?,
                 ))
             }
             #[cfg(not(feature = "postgres"))]
@@ -597,7 +655,9 @@ pub fn open_store_from_env() -> Result<StoreHandle> {
                 let path = config.turso_path.ok_or_else(|| {
                     Error::Invariant("FINSTACK_TURSO_PATH is required for turso backend".into())
                 })?;
-                Ok(StoreHandle::Turso(crate::turso::TursoStore::open(path)?))
+                Ok(StoreHandle::Turso(
+                    crate::turso::TursoStore::open(path).await?,
+                ))
             }
             #[cfg(not(feature = "turso"))]
             {

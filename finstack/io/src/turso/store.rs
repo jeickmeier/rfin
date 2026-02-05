@@ -5,19 +5,17 @@ use crate::{
     Error, Result,
 };
 use finstack_core::dates::Date;
+use libsql::{Builder, Connection, Database};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use time::OffsetDateTime;
-use tokio::runtime::Runtime;
-use turso::{Builder, Connection, Database};
 
 pub(crate) const SCHEMA_VERSION: i64 = migrations::LATEST_VERSION;
 
-/// A Turso-backed store.
+/// A Turso-backed store using async operations.
 ///
-/// This store uses Turso, an in-process SQL database engine compatible with SQLite.
-/// It wraps the async Turso API with a blocking runtime for compatibility with the
-/// synchronous `Store` trait.
+/// This store uses libsql, an in-process SQL database engine compatible with SQLite.
+/// It provides native async operations without needing a blocking runtime wrapper.
 ///
 /// Turso offers several advantages over standard SQLite:
 /// - Native JSON support with built-in JSON functions
@@ -27,7 +25,6 @@ pub(crate) const SCHEMA_VERSION: i64 = migrations::LATEST_VERSION;
 #[derive(Clone)]
 pub struct TursoStore {
     pub(crate) path: PathBuf,
-    pub(crate) runtime: Arc<Runtime>,
     pub(crate) db: Arc<Database>,
 }
 
@@ -41,33 +38,38 @@ impl std::fmt::Debug for TursoStore {
 
 impl TursoStore {
     /// Open (or create) a Turso database at `path`, applying migrations.
-    pub fn open(path: impl Into<PathBuf>) -> Result<Self> {
+    pub async fn open(path: impl Into<PathBuf>) -> Result<Self> {
         let path = path.into();
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)?;
         }
 
-        // Create a tokio runtime for blocking on async operations
-        let runtime = Runtime::new()
-            .map_err(|e| Error::Invariant(format!("Failed to create tokio runtime: {e}")))?;
-
         // Build the Turso database
-        let path_str = path.to_string_lossy();
-        let db = runtime.block_on(async move {
-            Builder::new_local(&path_str)
-                .build()
-                .await
-                .map_err(Error::Turso)
-        })?;
+        let path_str = path.to_string_lossy().into_owned();
+        let db = Builder::new_local(&path_str).build().await?;
 
         let store = Self {
             path,
-            runtime: Arc::new(runtime),
             db: Arc::new(db),
         };
 
         // Run migrations
-        store.with_conn(migrate)?;
+        store.migrate().await?;
+
+        Ok(store)
+    }
+
+    /// Open an in-memory Turso database (useful for testing).
+    pub async fn open_in_memory() -> Result<Self> {
+        let db = Builder::new_local(":memory:").build().await?;
+
+        let store = Self {
+            path: PathBuf::from(":memory:"),
+            db: Arc::new(db),
+        };
+
+        // Run migrations
+        store.migrate().await?;
 
         Ok(store)
     }
@@ -77,36 +79,20 @@ impl TursoStore {
         &self.path
     }
 
-    /// Execute a function with a database connection.
-    pub(crate) fn with_conn<R>(
-        &self,
-        f: impl FnOnce(&mut Connection, &Runtime) -> Result<R>,
-    ) -> Result<R> {
-        let mut conn = self.db.connect().map_err(Error::Turso)?;
-        f(&mut conn, &self.runtime)
+    /// Get a connection from the database.
+    pub(crate) fn get_conn(&self) -> Result<Connection> {
+        self.db.connect().map_err(Error::Turso)
     }
-}
 
-/// Run migrations on the database.
-pub(crate) fn migrate(conn: &mut Connection, runtime: &Runtime) -> Result<()> {
-    // Run everything in a single async block to avoid ownership issues
-    let migrations_list = migrations::migrations_for(Backend::Sqlite);
+    /// Run schema migrations.
+    async fn migrate(&self) -> Result<()> {
+        let conn = self.get_conn()?;
 
-    runtime.block_on(async move {
         // Get current schema version using PRAGMA user_version
-        let mut stmt = conn
-            .prepare("PRAGMA user_version")
-            .await
-            .map_err(Error::Turso)?;
-        let mut rows = stmt.query(()).await.map_err(Error::Turso)?;
-        let current: i64 = match rows.next().await.map_err(Error::Turso)? {
-            Some(row) => {
-                let val = row.get_value(0).map_err(Error::Turso)?;
-                match val {
-                    turso::value::Value::Integer(i) => i,
-                    _ => 0i64,
-                }
-            }
+        let mut stmt = conn.prepare("PRAGMA user_version").await?;
+        let mut rows = stmt.query(()).await?;
+        let current: i64 = match rows.next().await? {
+            Some(row) => row.get::<i64>(0).unwrap_or(0),
             None => 0i64,
         };
         drop(rows);
@@ -123,26 +109,28 @@ pub(crate) fn migrate(conn: &mut Connection, runtime: &Runtime) -> Result<()> {
             return Ok(());
         }
 
-        // Begin transaction
-        let tx = conn.transaction().await.map_err(Error::Turso)?;
+        let migrations = migrations::migrations_for(Backend::Sqlite);
 
-        for (version, statements) in migrations_list {
+        // Begin transaction
+        let tx = conn.transaction().await?;
+
+        for (version, statements) in migrations {
             if version <= current {
                 continue;
             }
             for sql in statements {
-                tx.execute(&sql, ()).await.map_err(Error::Turso)?;
+                tx.execute(&sql, ()).await?;
             }
         }
 
-        tx.commit().await.map_err(Error::Turso)?;
+        tx.commit().await?;
 
         // Update schema version
         let pragma_sql = format!("PRAGMA user_version = {SCHEMA_VERSION}");
-        conn.execute(&pragma_sql, ()).await.map_err(Error::Turso)?;
+        conn.execute(&pragma_sql, ()).await?;
 
         Ok(())
-    })
+    }
 }
 
 /// Convert metadata to JSON string.
@@ -150,6 +138,14 @@ pub(crate) fn meta_json(meta: Option<&serde_json::Value>) -> Result<String> {
     match meta {
         Some(v) => Ok(serde_json::to_string(v)?),
         None => Ok("{}".to_string()),
+    }
+}
+
+/// Convert metadata to optional JSON string (for time-series where null is allowed).
+pub(crate) fn meta_json_str(meta: Option<&serde_json::Value>) -> Result<Option<String>> {
+    match meta {
+        Some(v) => Ok(Some(serde_json::to_string(v)?)),
+        None => Ok(None),
     }
 }
 
@@ -203,4 +199,31 @@ pub(crate) fn parse_ts_key(s: &str) -> Result<OffsetDateTime> {
     use time::format_description::well_known::Rfc3339;
     OffsetDateTime::parse(s, &Rfc3339)
         .map_err(|e| Error::Invariant(format!("Invalid timestamp format in database: {s} ({e})")))
+}
+
+/// Helper to get a string from a libsql row.
+pub(crate) fn get_string(row: &libsql::Row, idx: i32) -> Result<String> {
+    row.get::<String>(idx)
+        .map_err(|e| Error::Invariant(format!("Failed to get string at column {idx}: {e}")))
+}
+
+/// Helper to get a blob from a libsql row.
+pub(crate) fn get_blob(row: &libsql::Row, idx: i32) -> Result<Vec<u8>> {
+    row.get::<Vec<u8>>(idx)
+        .map_err(|e| Error::Invariant(format!("Failed to get blob at column {idx}: {e}")))
+}
+
+/// Helper to get an optional f64 from a libsql row.
+pub(crate) fn get_optional_f64(row: &libsql::Row, idx: i32) -> Result<Option<f64>> {
+    row.get::<Option<f64>>(idx)
+        .map_err(|e| Error::Invariant(format!("Failed to get optional f64 at column {idx}: {e}")))
+}
+
+/// Helper to get an optional string from a libsql row.
+pub(crate) fn get_optional_string(row: &libsql::Row, idx: i32) -> Result<Option<String>> {
+    row.get::<Option<String>>(idx).map_err(|e| {
+        Error::Invariant(format!(
+            "Failed to get optional string at column {idx}: {e}"
+        ))
+    })
 }

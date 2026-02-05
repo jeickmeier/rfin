@@ -26,7 +26,9 @@ use pyo3::types::{
 };
 use pyo3::Bound;
 use std::path::PathBuf;
+use std::sync::Arc;
 use time::{Date as TimeDate, Month, OffsetDateTime, PrimitiveDateTime, Time, UtcOffset};
+use tokio::runtime::Runtime;
 
 /// A unified persistence store for Finstack domain objects.
 ///
@@ -56,6 +58,14 @@ use time::{Date as TimeDate, Month, OffsetDateTime, PrimitiveDateTime, Time, Utc
 pub struct PyStore {
     inner: StoreHandle,
     backend_name: &'static str,
+    runtime: Arc<Runtime>,
+}
+
+/// Create a shared tokio runtime for async operations.
+fn create_runtime() -> PyResult<Arc<Runtime>> {
+    Runtime::new().map(Arc::new).map_err(|e| {
+        pyo3::exceptions::PyRuntimeError::new_err(format!("Failed to create async runtime: {e}"))
+    })
 }
 
 #[pymethods]
@@ -83,11 +93,14 @@ impl PyStore {
     fn open_sqlite(path: &str) -> PyResult<Self> {
         #[cfg(feature = "sqlite")]
         {
-            let store =
-                finstack_io::SqliteStore::open(PathBuf::from(path)).map_err(map_io_error)?;
+            let runtime = create_runtime()?;
+            let store = runtime
+                .block_on(finstack_io::SqliteStore::open(PathBuf::from(path)))
+                .map_err(map_io_error)?;
             Ok(Self {
                 inner: StoreHandle::Sqlite(store),
                 backend_name: "sqlite",
+                runtime,
             })
         }
         #[cfg(not(feature = "sqlite"))]
@@ -117,10 +130,14 @@ impl PyStore {
     fn connect_postgres(url: &str) -> PyResult<Self> {
         #[cfg(feature = "postgres")]
         {
-            let store = finstack_io::PostgresStore::connect(url).map_err(map_io_error)?;
+            let runtime = create_runtime()?;
+            let store = runtime
+                .block_on(finstack_io::PostgresStore::connect(url))
+                .map_err(map_io_error)?;
             Ok(Self {
                 inner: StoreHandle::Postgres(store),
                 backend_name: "postgres",
+                runtime,
             })
         }
         #[cfg(not(feature = "postgres"))]
@@ -154,10 +171,14 @@ impl PyStore {
     fn open_turso(path: &str) -> PyResult<Self> {
         #[cfg(feature = "turso")]
         {
-            let store = finstack_io::TursoStore::open(PathBuf::from(path)).map_err(map_io_error)?;
+            let runtime = create_runtime()?;
+            let store = runtime
+                .block_on(finstack_io::TursoStore::open(PathBuf::from(path)))
+                .map_err(map_io_error)?;
             Ok(Self {
                 inner: StoreHandle::Turso(store),
                 backend_name: "turso",
+                runtime,
             })
         }
         #[cfg(not(feature = "turso"))]
@@ -196,11 +217,15 @@ impl PyStore {
     #[staticmethod]
     #[pyo3(text_signature = "()")]
     fn from_env() -> PyResult<Self> {
-        let handle = finstack_io::open_store_from_env().map_err(map_io_error)?;
+        let runtime = create_runtime()?;
+        let handle = runtime
+            .block_on(finstack_io::open_store_from_env())
+            .map_err(map_io_error)?;
         let backend_name = store_handle_backend_name(&handle);
         Ok(Self {
             inner: handle,
             backend_name,
+            runtime,
         })
     }
 
@@ -240,8 +265,13 @@ impl PyStore {
     ) -> PyResult<()> {
         let date = py_to_date(as_of)?;
         let meta_json = extract_meta(meta)?;
-        self.inner
-            .put_market_context(market_id, date, &context.inner, meta_json.as_ref())
+        self.runtime
+            .block_on(self.inner.put_market_context(
+                market_id,
+                date,
+                &context.inner,
+                meta_json.as_ref(),
+            ))
             .map_err(map_io_error)
     }
 
@@ -264,8 +294,8 @@ impl PyStore {
     ) -> PyResult<Option<PyMarketContext>> {
         let date = py_to_date(as_of)?;
         let result = self
-            .inner
-            .get_market_context(market_id, date)
+            .runtime
+            .block_on(self.inner.get_market_context(market_id, date))
             .map_err(map_io_error)?;
         Ok(result.map(|inner| PyMarketContext { inner }))
     }
@@ -289,8 +319,8 @@ impl PyStore {
     ) -> PyResult<PyMarketContext> {
         let date = py_to_date(as_of)?;
         let inner = self
-            .inner
-            .get_market_context(market_id, date)
+            .runtime
+            .block_on(self.inner.get_market_context(market_id, date))
             .map_err(map_io_error)?
             .ok_or_else(|| {
                 map_io_error(finstack_io::Error::not_found(
@@ -328,8 +358,11 @@ impl PyStore {
         let instr: InstrumentJson = pythonize::depythonize(instrument)
             .map_err(|e| PyValueError::new_err(format!("Invalid instrument: {}", e)))?;
         let meta_json = extract_meta(meta)?;
-        self.inner
-            .put_instrument(instrument_id, &instr, meta_json.as_ref())
+        self.runtime
+            .block_on(
+                self.inner
+                    .put_instrument(instrument_id, &instr, meta_json.as_ref()),
+            )
             .map_err(map_io_error)
     }
 
@@ -348,8 +381,8 @@ impl PyStore {
     #[pyo3(text_signature = "($self, instrument_id)")]
     fn get_instrument(&self, py: Python<'_>, instrument_id: &str) -> PyResult<Option<Py<PyAny>>> {
         let result = self
-            .inner
-            .get_instrument(instrument_id)
+            .runtime
+            .block_on(self.inner.get_instrument(instrument_id))
             .map_err(map_io_error)?;
         match result {
             Some(instr) => {
@@ -381,8 +414,8 @@ impl PyStore {
         instrument_ids: Vec<String>,
     ) -> PyResult<Py<PyAny>> {
         let result = self
-            .inner
-            .get_instruments_batch(&instrument_ids)
+            .runtime
+            .block_on(self.inner.get_instruments_batch(&instrument_ids))
             .map_err(map_io_error)?;
         let py_dict = pythonize::pythonize(py, &result)
             .map_err(|e| PyValueError::new_err(format!("Failed to serialize: {}", e)))?;
@@ -399,7 +432,9 @@ impl PyStore {
     ///     >>> print(f"Found {len(ids)} instruments")
     #[pyo3(text_signature = "($self)")]
     fn list_instruments(&self) -> PyResult<Vec<String>> {
-        self.inner.list_instruments().map_err(map_io_error)
+        self.runtime
+            .block_on(self.inner.list_instruments())
+            .map_err(map_io_error)
     }
 
     // =========================================================================
@@ -428,8 +463,13 @@ impl PyStore {
         let date = py_to_date(as_of)?;
         let portfolio_spec = extract_portfolio_spec(spec)?;
         let meta_json = extract_meta(meta)?;
-        self.inner
-            .put_portfolio_spec(portfolio_id, date, &portfolio_spec, meta_json.as_ref())
+        self.runtime
+            .block_on(self.inner.put_portfolio_spec(
+                portfolio_id,
+                date,
+                &portfolio_spec,
+                meta_json.as_ref(),
+            ))
             .map_err(map_io_error)
     }
 
@@ -449,8 +489,8 @@ impl PyStore {
     ) -> PyResult<Option<PyPortfolioSpec>> {
         let date = py_to_date(as_of)?;
         let result = self
-            .inner
-            .get_portfolio_spec(portfolio_id, date)
+            .runtime
+            .block_on(self.inner.get_portfolio_spec(portfolio_id, date))
             .map_err(map_io_error)?;
         Ok(result.map(PyPortfolioSpec::new))
     }
@@ -478,8 +518,8 @@ impl PyStore {
         let date = py_to_date(as_of)?;
         // Use the Store trait's default implementation which properly hydrates instruments
         let portfolio = self
-            .inner
-            .load_portfolio(portfolio_id, date)
+            .runtime
+            .block_on(self.inner.load_portfolio(portfolio_id, date))
             .map_err(map_io_error)?;
         Ok(PyPortfolio::new(portfolio))
     }
@@ -506,8 +546,11 @@ impl PyStore {
         let date = py_to_date(as_of)?;
         // Use the Store trait's default implementation which properly hydrates instruments
         let (portfolio, market) = self
-            .inner
-            .load_portfolio_with_market(portfolio_id, market_id, date)
+            .runtime
+            .block_on(
+                self.inner
+                    .load_portfolio_with_market(portfolio_id, market_id, date),
+            )
             .map_err(map_io_error)?;
         Ok((
             PyPortfolio::new(portfolio),
@@ -535,8 +578,11 @@ impl PyStore {
     ) -> PyResult<()> {
         let scenario_spec = extract_scenario_spec(spec)?;
         let meta_json = extract_meta(meta)?;
-        self.inner
-            .put_scenario(scenario_id, &scenario_spec, meta_json.as_ref())
+        self.runtime
+            .block_on(
+                self.inner
+                    .put_scenario(scenario_id, &scenario_spec, meta_json.as_ref()),
+            )
             .map_err(map_io_error)
     }
 
@@ -549,7 +595,10 @@ impl PyStore {
     ///     ScenarioSpec or None: The scenario spec if found.
     #[pyo3(text_signature = "($self, scenario_id)")]
     fn get_scenario(&self, scenario_id: &str) -> PyResult<Option<PyScenarioSpec>> {
-        let result = self.inner.get_scenario(scenario_id).map_err(map_io_error)?;
+        let result = self
+            .runtime
+            .block_on(self.inner.get_scenario(scenario_id))
+            .map_err(map_io_error)?;
         Ok(result.map(PyScenarioSpec::from_inner))
     }
 
@@ -563,7 +612,9 @@ impl PyStore {
     ///     >>> print(f"Found {len(ids)} scenarios")
     #[pyo3(text_signature = "($self)")]
     fn list_scenarios(&self) -> PyResult<Vec<String>> {
-        self.inner.list_scenarios().map_err(map_io_error)
+        self.runtime
+            .block_on(self.inner.list_scenarios())
+            .map_err(map_io_error)
     }
 
     // =========================================================================
@@ -586,8 +637,11 @@ impl PyStore {
     ) -> PyResult<()> {
         let model_spec = extract_statement_model(spec)?;
         let meta_json = extract_meta(meta)?;
-        self.inner
-            .put_statement_model(model_id, &model_spec, meta_json.as_ref())
+        self.runtime
+            .block_on(
+                self.inner
+                    .put_statement_model(model_id, &model_spec, meta_json.as_ref()),
+            )
             .map_err(map_io_error)
     }
 
@@ -601,8 +655,8 @@ impl PyStore {
     #[pyo3(text_signature = "($self, model_id)")]
     fn get_statement_model(&self, model_id: &str) -> PyResult<Option<PyFinancialModelSpec>> {
         let result = self
-            .inner
-            .get_statement_model(model_id)
+            .runtime
+            .block_on(self.inner.get_statement_model(model_id))
             .map_err(map_io_error)?;
         Ok(result.map(PyFinancialModelSpec::new))
     }
@@ -617,7 +671,9 @@ impl PyStore {
     ///     >>> print(f"Found {len(ids)} models")
     #[pyo3(text_signature = "($self)")]
     fn list_statement_models(&self) -> PyResult<Vec<String>> {
-        self.inner.list_statement_models().map_err(map_io_error)
+        self.runtime
+            .block_on(self.inner.list_statement_models())
+            .map_err(map_io_error)
     }
 
     // =========================================================================
@@ -640,8 +696,11 @@ impl PyStore {
     ) -> PyResult<()> {
         let reg = extract_metric_registry(registry)?;
         let meta_json = extract_meta(meta)?;
-        self.inner
-            .put_metric_registry(namespace, &reg, meta_json.as_ref())
+        self.runtime
+            .block_on(
+                self.inner
+                    .put_metric_registry(namespace, &reg, meta_json.as_ref()),
+            )
             .map_err(map_io_error)
     }
 
@@ -655,8 +714,8 @@ impl PyStore {
     #[pyo3(text_signature = "($self, namespace)")]
     fn get_metric_registry(&self, namespace: &str) -> PyResult<Option<PyMetricRegistry>> {
         let result = self
-            .inner
-            .get_metric_registry(namespace)
+            .runtime
+            .block_on(self.inner.get_metric_registry(namespace))
             .map_err(map_io_error)?;
         Ok(result.map(PyMetricRegistry::new))
     }
@@ -665,8 +724,8 @@ impl PyStore {
     #[pyo3(text_signature = "($self, namespace)")]
     fn load_metric_registry(&self, namespace: &str) -> PyResult<PyMetricRegistry> {
         let reg = self
-            .inner
-            .get_metric_registry(namespace)
+            .runtime
+            .block_on(self.inner.get_metric_registry(namespace))
             .map_err(map_io_error)?
             .ok_or_else(|| {
                 map_io_error(finstack_io::Error::not_found("metric registry", namespace))
@@ -680,7 +739,9 @@ impl PyStore {
     ///     list[str]: List of namespace names.
     #[pyo3(text_signature = "($self)")]
     fn list_metric_registries(&self) -> PyResult<Vec<String>> {
-        self.inner.list_metric_registries().map_err(map_io_error)
+        self.runtime
+            .block_on(self.inner.list_metric_registries())
+            .map_err(map_io_error)
     }
 
     /// Delete a metric registry.
@@ -692,8 +753,8 @@ impl PyStore {
     ///     bool: True if the registry was deleted, False if not found.
     #[pyo3(text_signature = "($self, namespace)")]
     fn delete_metric_registry(&self, namespace: &str) -> PyResult<bool> {
-        self.inner
-            .delete_metric_registry(namespace)
+        self.runtime
+            .block_on(self.inner.delete_metric_registry(namespace))
             .map_err(map_io_error)
     }
 
@@ -720,8 +781,8 @@ impl PyStore {
         let kind = parse_series_kind(kind)?;
         let meta_json = extract_meta(meta)?;
         let key = SeriesKey::new(namespace, series_id, kind);
-        self.inner
-            .put_series_meta(&key, meta_json.as_ref())
+        self.runtime
+            .block_on(self.inner.put_series_meta(&key, meta_json.as_ref()))
             .map_err(map_io_error)
     }
 
@@ -736,7 +797,10 @@ impl PyStore {
     ) -> PyResult<Option<Py<PyAny>>> {
         let kind = parse_series_kind(kind)?;
         let key = SeriesKey::new(namespace, series_id, kind);
-        let meta = self.inner.get_series_meta(&key).map_err(map_io_error)?;
+        let meta = self
+            .runtime
+            .block_on(self.inner.get_series_meta(&key))
+            .map_err(map_io_error)?;
         match meta {
             Some(value) => {
                 let py_obj = pythonize::pythonize(py, &value)
@@ -751,8 +815,8 @@ impl PyStore {
     #[pyo3(text_signature = "($self, namespace, kind)")]
     fn list_series(&self, namespace: &str, kind: &str) -> PyResult<Vec<String>> {
         let kind = parse_series_kind(kind)?;
-        self.inner
-            .list_series(namespace, kind)
+        self.runtime
+            .block_on(self.inner.list_series(namespace, kind))
             .map_err(map_io_error)
     }
 
@@ -804,8 +868,8 @@ impl PyStore {
                 meta,
             });
         }
-        self.inner
-            .put_points_batch(&key, &batch)
+        self.runtime
+            .block_on(self.inner.put_points_batch(&key, &batch))
             .map_err(map_io_error)
     }
 
@@ -827,8 +891,8 @@ impl PyStore {
         let start = py_to_offset_datetime(start)?;
         let end = py_to_offset_datetime(end)?;
         let points = self
-            .inner
-            .get_points_range(&key, start, end, limit)
+            .runtime
+            .block_on(self.inner.get_points_range(&key, start, end, limit))
             .map_err(map_io_error)?;
         points
             .iter()
@@ -850,8 +914,8 @@ impl PyStore {
         let key = SeriesKey::new(namespace, series_id, kind);
         let ts = py_to_offset_datetime(ts)?;
         let point = self
-            .inner
-            .latest_point_on_or_before(&key, ts)
+            .runtime
+            .block_on(self.inner.latest_point_on_or_before(&key, ts))
             .map_err(map_io_error)?;
         match point {
             Some(value) => Ok(Some(time_series_point_to_py(py, &value)?)),
@@ -908,8 +972,8 @@ impl PyStore {
             .map(|(id, instr, meta)| (id.as_str(), instr, meta.as_ref()))
             .collect();
 
-        self.inner
-            .put_instruments_batch(&refs)
+        self.runtime
+            .block_on(self.inner.put_instruments_batch(&refs))
             .map_err(map_io_error)
     }
 
@@ -958,8 +1022,8 @@ impl PyStore {
             .map(|(id, date, ctx, meta)| (id.as_str(), *date, ctx, meta.as_ref()))
             .collect();
 
-        self.inner
-            .put_market_contexts_batch(&refs)
+        self.runtime
+            .block_on(self.inner.put_market_contexts_batch(&refs))
             .map_err(map_io_error)
     }
 
@@ -1008,7 +1072,9 @@ impl PyStore {
             .map(|(id, date, spec, meta)| (id.as_str(), *date, spec, meta.as_ref()))
             .collect();
 
-        self.inner.put_portfolios_batch(&refs).map_err(map_io_error)
+        self.runtime
+            .block_on(self.inner.put_portfolios_batch(&refs))
+            .map_err(map_io_error)
     }
 
     // =========================================================================
@@ -1034,8 +1100,11 @@ impl PyStore {
         let start_date = py_to_date(start)?;
         let end_date = py_to_date(end)?;
         let snapshots = self
-            .inner
-            .list_market_contexts(market_id, start_date, end_date)
+            .runtime
+            .block_on(
+                self.inner
+                    .list_market_contexts(market_id, start_date, end_date),
+            )
             .map_err(map_io_error)?;
         Ok(snapshots
             .into_iter()
@@ -1059,8 +1128,11 @@ impl PyStore {
     ) -> PyResult<Option<PyMarketContextSnapshot>> {
         let date = py_to_date(as_of)?;
         let result = self
-            .inner
-            .latest_market_context_on_or_before(market_id, date)
+            .runtime
+            .block_on(
+                self.inner
+                    .latest_market_context_on_or_before(market_id, date),
+            )
             .map_err(map_io_error)?;
         Ok(result.map(PyMarketContextSnapshot::new))
     }
@@ -1084,8 +1156,11 @@ impl PyStore {
         let start_date = py_to_date(start)?;
         let end_date = py_to_date(end)?;
         let snapshots = self
-            .inner
-            .list_portfolios(portfolio_id, start_date, end_date)
+            .runtime
+            .block_on(
+                self.inner
+                    .list_portfolios(portfolio_id, start_date, end_date),
+            )
             .map_err(map_io_error)?;
         Ok(snapshots
             .into_iter()
@@ -1109,8 +1184,8 @@ impl PyStore {
     ) -> PyResult<Option<PyPortfolioSnapshot>> {
         let date = py_to_date(as_of)?;
         let result = self
-            .inner
-            .latest_portfolio_on_or_before(portfolio_id, date)
+            .runtime
+            .block_on(self.inner.latest_portfolio_on_or_before(portfolio_id, date))
             .map_err(map_io_error)?;
         Ok(result.map(PyPortfolioSnapshot::new))
     }

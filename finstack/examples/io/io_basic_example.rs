@@ -24,7 +24,8 @@ use finstack::{
 use indexmap::IndexMap;
 use std::sync::Arc;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🗄️  Finstack IO - Basic Persistence Example");
     println!("=============================================\n");
 
@@ -32,12 +33,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         || std::env::var("FINSTACK_SQLITE_PATH").is_ok();
 
     let store = if use_env {
-        open_store_from_env()?
+        open_store_from_env().await?
     } else {
         // Create a temporary database (in real usage, use a persistent path)
         let db_path = std::env::temp_dir().join("finstack_example.db");
         println!("📁 Database path: {}\n", db_path.display());
-        StoreHandle::Sqlite(SqliteStore::open(&db_path)?)
+        StoreHandle::Sqlite(SqliteStore::open(&db_path).await?)
     };
 
     println!("✅ Database opened successfully\n");
@@ -73,12 +74,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "source": "example",
         "curve_build_version": "1.0"
     });
-    store.put_market_context("DEFAULT", as_of, &market_ctx, Some(&meta))?;
+    store
+        .put_market_context("DEFAULT", as_of, &market_ctx, Some(&meta))
+        .await?;
     println!("   ✅ Saved market context for {}", as_of);
 
     // Load it back
     let loaded_ctx = store
-        .get_market_context("DEFAULT", as_of)?
+        .get_market_context("DEFAULT", as_of)
+        .await?
         .expect("Market context should exist");
 
     let loaded_curve = loaded_ctx.get_discount("USD-OIS")?;
@@ -115,21 +119,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build()?;
 
     // Save instruments individually
-    store.put_instrument(
-        "USD_DEP_1M",
-        &InstrumentJson::Deposit(deposit_1m.clone()),
-        None,
-    )?;
-    store.put_instrument(
-        "USD_DEP_3M",
-        &InstrumentJson::Deposit(deposit_3m.clone()),
-        None,
-    )?;
+    store
+        .put_instrument(
+            "USD_DEP_1M",
+            &InstrumentJson::Deposit(deposit_1m.clone()),
+            None,
+        )
+        .await?;
+    store
+        .put_instrument(
+            "USD_DEP_3M",
+            &InstrumentJson::Deposit(deposit_3m.clone()),
+            None,
+        )
+        .await?;
     println!("   ✅ Saved 2 instruments");
 
     // Load an instrument
     let loaded_instr = store
-        .get_instrument("USD_DEP_1M")?
+        .get_instrument("USD_DEP_1M")
+        .await?
         .expect("Instrument should exist");
 
     if let InstrumentJson::Deposit(dep) = loaded_instr {
@@ -165,7 +174,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let ctx2 = MarketContext::new().insert_discount(curve2);
 
     store
-        .put_market_contexts_batch(&[("DEFAULT", d1, &ctx1, None), ("DEFAULT", d2, &ctx2, None)])?;
+        .put_market_contexts_batch(&[("DEFAULT", d1, &ctx1, None), ("DEFAULT", d2, &ctx2, None)])
+        .await?;
     println!("   ✅ Bulk saved 2 market contexts in single transaction");
 
     // =========================================================================
@@ -175,7 +185,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   --------------------");
 
     // List all market contexts in a date range
-    let snapshots = store.list_market_contexts("DEFAULT", as_of, d2)?;
+    let snapshots = store.list_market_contexts("DEFAULT", as_of, d2).await?;
     println!("   Found {} market context snapshots:", snapshots.len());
     for snap in &snapshots {
         let curve = snap.context.get_discount("USD-OIS")?;
@@ -184,7 +194,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Get the latest context on or before a date
     let latest = store
-        .latest_market_context_on_or_before("DEFAULT", d2)?
+        .latest_market_context_on_or_before("DEFAULT", d2)
+        .await?
         .expect("Should have at least one context");
     println!("   Latest context on or before {}: {}", d2, latest.as_of);
 
@@ -228,11 +239,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Save portfolio spec (positions reference instruments by ID only)
-    store.put_portfolio_spec("TREASURY_DESK", as_of, &spec, None)?;
+    store
+        .put_portfolio_spec("TREASURY_DESK", as_of, &spec, None)
+        .await?;
     println!("   ✅ Saved portfolio spec (instruments referenced by ID)");
 
     // Load portfolio - instruments are automatically hydrated from the registry
-    let hydrated = store.load_portfolio("TREASURY_DESK", as_of)?;
+    let hydrated = store.load_portfolio("TREASURY_DESK", as_of).await?;
     println!("   ✅ Loaded and hydrated portfolio");
     println!("      Positions: {}", hydrated.positions.len());
     for pos in &hydrated.positions {
@@ -249,7 +262,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n🎯 6. Load Portfolio with Market Data");
     println!("   ------------------------------------");
 
-    let (port, mkt) = store.load_portfolio_with_market("TREASURY_DESK", "DEFAULT", as_of)?;
+    let (port, mkt) = store
+        .load_portfolio_with_market("TREASURY_DESK", "DEFAULT", as_of)
+        .await?;
     println!("   ✅ Loaded portfolio and market context together");
     println!(
         "      Portfolio: {} ({} positions)",
@@ -281,7 +296,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ],
         priority: 0,
     };
-    store.put_scenario("RATE_SHOCK_100BP", &rate_shock, None)?;
+    store
+        .put_scenario("RATE_SHOCK_100BP", &rate_shock, None)
+        .await?;
     println!("   ✅ Saved scenario: {}", rate_shock.id);
     println!("      Operations: {} shock(s)", rate_shock.operations.len());
 
@@ -309,7 +326,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ],
         priority: 1,
     };
-    store.put_scenario("CURVE_STEEPENER", &steepener, None)?;
+    store
+        .put_scenario("CURVE_STEEPENER", &steepener, None)
+        .await?;
     println!("   ✅ Saved scenario: {}", steepener.id);
     println!("      Operations: {} shock(s)", steepener.operations.len());
 
@@ -337,13 +356,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         ],
         priority: 0,
     };
-    store.put_scenario("USD_STRENGTHENING", &fx_stress, None)?;
+    store
+        .put_scenario("USD_STRENGTHENING", &fx_stress, None)
+        .await?;
     println!("   ✅ Saved scenario: {}", fx_stress.id);
     println!("      Operations: {} shock(s)", fx_stress.operations.len());
 
     // Load and display a scenario
     let loaded_scenario = store
-        .get_scenario("CURVE_STEEPENER")?
+        .get_scenario("CURVE_STEEPENER")
+        .await?
         .expect("Scenario should exist");
     println!(
         "\n   📋 Loaded scenario: {} - {:?}",
@@ -524,7 +546,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         serde_json::to_value(&normalization)?,
     );
 
-    store.put_statement_model("QUARTERLY_PNL", &model, None)?;
+    store
+        .put_statement_model("QUARTERLY_PNL", &model, None)
+        .await?;
     println!("\n   📊 Saved statement model: {}", model.id);
     println!("      Periods: {} quarters", model.periods.len());
     for p in &model.periods {
@@ -551,7 +575,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Load and verify - check that forecasts round-trip correctly
     let loaded_model = store
-        .get_statement_model("QUARTERLY_PNL")?
+        .get_statement_model("QUARTERLY_PNL")
+        .await?
         .expect("Statement model should exist");
     println!(
         "\n   ✅ Loaded statement model: {} with {} periods and {} nodes",
@@ -692,17 +717,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Store both registries using the dedicated API
-    store.put_metric_registry("fin", &fin_registry, None)?;
-    store.put_metric_registry("custom", &custom_registry, None)?;
+    store
+        .put_metric_registry("fin", &fin_registry, None)
+        .await?;
+    store
+        .put_metric_registry("custom", &custom_registry, None)
+        .await?;
     println!("   ✅ Saved metric registries: 'fin' and 'custom'");
 
     // List all available registries
-    let namespaces = store.list_metric_registries()?;
+    let namespaces = store.list_metric_registries().await?;
     println!("   Available namespaces: {:?}", namespaces);
 
     // Load and display each registry
     for ns in &namespaces {
-        let loaded = store.load_metric_registry(ns)?;
+        let loaded = store.load_metric_registry(ns).await?;
         println!(
             "\n   📊 Registry '{}' (v{}, {} metrics):",
             loaded.namespace,
@@ -728,10 +757,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Demonstrate deletion
     println!("\n   Deleting 'custom' registry...");
-    let deleted = store.delete_metric_registry("custom")?;
+    let deleted = store.delete_metric_registry("custom").await?;
     println!("   Deleted: {}", deleted);
 
-    let remaining = store.list_metric_registries()?;
+    let remaining = store.list_metric_registries().await?;
     println!("   Remaining namespaces: {:?}", remaining);
 
     // =========================================================================

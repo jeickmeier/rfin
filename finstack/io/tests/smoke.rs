@@ -13,10 +13,10 @@ use indexmap::IndexMap;
 use std::sync::Arc;
 use time::macros::date;
 
-#[test]
-fn sqlite_market_context_roundtrip() -> finstack_io::Result<()> {
+#[tokio::test]
+async fn sqlite_market_context_roundtrip() -> finstack_io::Result<()> {
     let dir = tempfile::tempdir()?;
-    let store = SqliteStore::open(dir.path().join("finstack.db"))?;
+    let store = SqliteStore::open(dir.path().join("finstack.db")).await?;
 
     let as_of = date!(2024 - 01 - 01);
     let curve = DiscountCurve::builder("USD-OIS")
@@ -26,9 +26,12 @@ fn sqlite_market_context_roundtrip() -> finstack_io::Result<()> {
         .build()?;
     let ctx = MarketContext::new().insert_discount(curve);
 
-    store.put_market_context("DEFAULT", as_of, &ctx, None)?;
+    store
+        .put_market_context("DEFAULT", as_of, &ctx, None)
+        .await?;
     let loaded = store
-        .get_market_context("DEFAULT", as_of)?
+        .get_market_context("DEFAULT", as_of)
+        .await?
         .ok_or_else(|| finstack_io::Error::not_found("market_context", "DEFAULT@2024-01-01"))?;
 
     let disc = loaded.get_discount("USD-OIS")?;
@@ -36,10 +39,10 @@ fn sqlite_market_context_roundtrip() -> finstack_io::Result<()> {
     Ok(())
 }
 
-#[test]
-fn sqlite_portfolio_hydrates_instruments() -> finstack_io::Result<()> {
+#[tokio::test]
+async fn sqlite_portfolio_hydrates_instruments() -> finstack_io::Result<()> {
     let dir = tempfile::tempdir()?;
-    let store = SqliteStore::open(dir.path().join("finstack.db"))?;
+    let store = SqliteStore::open(dir.path().join("finstack.db")).await?;
 
     let as_of = date!(2024 - 01 - 01);
 
@@ -53,7 +56,9 @@ fn sqlite_portfolio_hydrates_instruments() -> finstack_io::Result<()> {
         .discount_curve_id("USD-OIS".into())
         .build()?;
 
-    store.put_instrument("DEP_1M", &InstrumentJson::Deposit(deposit), None)?;
+    store
+        .put_instrument("DEP_1M", &InstrumentJson::Deposit(deposit), None)
+        .await?;
 
     // Create a portfolio spec with missing inline instrument_spec (should be resolved from registry).
     let mut portfolio = Portfolio::new("FUND_A", Currency::USD, as_of);
@@ -95,9 +100,11 @@ fn sqlite_portfolio_hydrates_instruments() -> finstack_io::Result<()> {
         ));
     }
 
-    store.put_portfolio_spec("FUND_A", as_of, &spec, None)?;
+    store
+        .put_portfolio_spec("FUND_A", as_of, &spec, None)
+        .await?;
 
-    let hydrated = store.load_portfolio("FUND_A", as_of)?;
+    let hydrated = store.load_portfolio("FUND_A", as_of).await?;
     assert_eq!(hydrated.positions.len(), 1);
     let first = hydrated.positions.first().ok_or_else(|| {
         finstack_io::Error::Invariant("Expected at least one hydrated position".into())
@@ -107,10 +114,10 @@ fn sqlite_portfolio_hydrates_instruments() -> finstack_io::Result<()> {
     Ok(())
 }
 
-#[test]
-fn sqlite_market_context_lookback_queries() -> finstack_io::Result<()> {
+#[tokio::test]
+async fn sqlite_market_context_lookback_queries() -> finstack_io::Result<()> {
     let dir = tempfile::tempdir()?;
-    let store = SqliteStore::open(dir.path().join("finstack.db"))?;
+    let store = SqliteStore::open(dir.path().join("finstack.db")).await?;
 
     let d1 = date!(2024 - 01 - 01);
     let d2 = date!(2024 - 01 - 02);
@@ -129,10 +136,10 @@ fn sqlite_market_context_lookback_queries() -> finstack_io::Result<()> {
         .build()?;
     let ctx2 = MarketContext::new().insert_discount(curve2);
 
-    store.put_market_context("DEFAULT", d1, &ctx1, None)?;
-    store.put_market_context("DEFAULT", d2, &ctx2, None)?;
+    store.put_market_context("DEFAULT", d1, &ctx1, None).await?;
+    store.put_market_context("DEFAULT", d2, &ctx2, None).await?;
 
-    let snaps = store.list_market_contexts("DEFAULT", d1, d2)?;
+    let snaps = store.list_market_contexts("DEFAULT", d1, d2).await?;
     assert_eq!(snaps.len(), 2);
 
     let first = snaps
@@ -141,17 +148,18 @@ fn sqlite_market_context_lookback_queries() -> finstack_io::Result<()> {
     assert_eq!(first.as_of, d1);
 
     let latest = store
-        .latest_market_context_on_or_before("DEFAULT", d2)?
+        .latest_market_context_on_or_before("DEFAULT", d2)
+        .await?
         .ok_or_else(|| finstack_io::Error::Invariant("Expected latest snapshot".into()))?;
     assert_eq!(latest.as_of, d2);
 
     Ok(())
 }
 
-#[test]
-fn sqlite_portfolio_lookback_queries() -> finstack_io::Result<()> {
+#[tokio::test]
+async fn sqlite_portfolio_lookback_queries() -> finstack_io::Result<()> {
     let dir = tempfile::tempdir()?;
-    let store = SqliteStore::open(dir.path().join("finstack.db"))?;
+    let store = SqliteStore::open(dir.path().join("finstack.db")).await?;
 
     let d1 = date!(2024 - 01 - 01);
     let d2 = date!(2024 - 01 - 02);
@@ -169,32 +177,35 @@ fn sqlite_portfolio_lookback_queries() -> finstack_io::Result<()> {
         meta: IndexMap::new(),
     };
 
-    store.put_portfolio_spec("TEST", d1, &spec, None)?;
-    store.put_portfolio_spec("TEST", d2, &spec, None)?;
+    store.put_portfolio_spec("TEST", d1, &spec, None).await?;
+    store.put_portfolio_spec("TEST", d2, &spec, None).await?;
 
     // Test list_portfolios
-    let snaps = store.list_portfolios("TEST", d1, d2)?;
+    let snaps = store.list_portfolios("TEST", d1, d2).await?;
     assert_eq!(snaps.len(), 2);
     assert_eq!(snaps[0].as_of, d1);
     assert_eq!(snaps[1].as_of, d2);
 
     // Test latest_portfolio_on_or_before
     let latest = store
-        .latest_portfolio_on_or_before("TEST", d3)?
+        .latest_portfolio_on_or_before("TEST", d3)
+        .await?
         .ok_or_else(|| finstack_io::Error::Invariant("Expected latest portfolio".into()))?;
     assert_eq!(latest.as_of, d2);
 
     // Test latest_portfolio_on_or_before when no match
-    let no_match = store.latest_portfolio_on_or_before("TEST", date!(2023 - 12 - 31))?;
+    let no_match = store
+        .latest_portfolio_on_or_before("TEST", date!(2023 - 12 - 31))
+        .await?;
     assert!(no_match.is_none());
 
     Ok(())
 }
 
-#[test]
-fn sqlite_scenario_roundtrip() -> finstack_io::Result<()> {
+#[tokio::test]
+async fn sqlite_scenario_roundtrip() -> finstack_io::Result<()> {
     let dir = tempfile::tempdir()?;
-    let store = SqliteStore::open(dir.path().join("finstack.db"))?;
+    let store = SqliteStore::open(dir.path().join("finstack.db")).await?;
 
     let spec = finstack_scenarios::ScenarioSpec {
         id: "test_scenario".into(),
@@ -204,44 +215,46 @@ fn sqlite_scenario_roundtrip() -> finstack_io::Result<()> {
         priority: 0,
     };
 
-    store.put_scenario("SCENARIO_1", &spec, None)?;
+    store.put_scenario("SCENARIO_1", &spec, None).await?;
     let loaded = store
-        .get_scenario("SCENARIO_1")?
+        .get_scenario("SCENARIO_1")
+        .await?
         .ok_or_else(|| finstack_io::Error::not_found("scenario", "SCENARIO_1"))?;
 
     assert_eq!(loaded.id, "test_scenario");
     assert_eq!(loaded.name, Some("Test Scenario".into()));
 
     // Test not found
-    assert!(store.get_scenario("NONEXISTENT")?.is_none());
+    assert!(store.get_scenario("NONEXISTENT").await?.is_none());
 
     Ok(())
 }
 
-#[test]
-fn sqlite_statement_model_roundtrip() -> finstack_io::Result<()> {
+#[tokio::test]
+async fn sqlite_statement_model_roundtrip() -> finstack_io::Result<()> {
     let dir = tempfile::tempdir()?;
-    let store = SqliteStore::open(dir.path().join("finstack.db"))?;
+    let store = SqliteStore::open(dir.path().join("finstack.db")).await?;
 
     let spec = finstack_statements::FinancialModelSpec::new("test_model", vec![]);
 
-    store.put_statement_model("MODEL_1", &spec, None)?;
+    store.put_statement_model("MODEL_1", &spec, None).await?;
     let loaded = store
-        .get_statement_model("MODEL_1")?
+        .get_statement_model("MODEL_1")
+        .await?
         .ok_or_else(|| finstack_io::Error::not_found("statement_model", "MODEL_1"))?;
 
     assert_eq!(loaded.id, "test_model");
 
     // Test not found
-    assert!(store.get_statement_model("NONEXISTENT")?.is_none());
+    assert!(store.get_statement_model("NONEXISTENT").await?.is_none());
 
     Ok(())
 }
 
-#[test]
-fn sqlite_bulk_instruments() -> finstack_io::Result<()> {
+#[tokio::test]
+async fn sqlite_bulk_instruments() -> finstack_io::Result<()> {
     let dir = tempfile::tempdir()?;
-    let store = SqliteStore::open(dir.path().join("finstack.db"))?;
+    let store = SqliteStore::open(dir.path().join("finstack.db")).await?;
 
     let as_of = date!(2024 - 01 - 01);
 
@@ -266,13 +279,17 @@ fn sqlite_bulk_instruments() -> finstack_io::Result<()> {
     let instr1 = InstrumentJson::Deposit(deposit1);
     let instr2 = InstrumentJson::Deposit(deposit2);
 
-    store.put_instruments_batch(&[("DEP_1M", &instr1, None), ("DEP_3M", &instr2, None)])?;
+    store
+        .put_instruments_batch(&[("DEP_1M", &instr1, None), ("DEP_3M", &instr2, None)])
+        .await?;
 
     let loaded1 = store
-        .get_instrument("DEP_1M")?
+        .get_instrument("DEP_1M")
+        .await?
         .ok_or_else(|| finstack_io::Error::not_found("instrument", "DEP_1M"))?;
     let loaded2 = store
-        .get_instrument("DEP_3M")?
+        .get_instrument("DEP_3M")
+        .await?
         .ok_or_else(|| finstack_io::Error::not_found("instrument", "DEP_3M"))?;
 
     assert!(matches!(loaded1, InstrumentJson::Deposit(_)));
@@ -281,10 +298,10 @@ fn sqlite_bulk_instruments() -> finstack_io::Result<()> {
     Ok(())
 }
 
-#[test]
-fn sqlite_bulk_market_contexts() -> finstack_io::Result<()> {
+#[tokio::test]
+async fn sqlite_bulk_market_contexts() -> finstack_io::Result<()> {
     let dir = tempfile::tempdir()?;
-    let store = SqliteStore::open(dir.path().join("finstack.db"))?;
+    let store = SqliteStore::open(dir.path().join("finstack.db")).await?;
 
     let d1 = date!(2024 - 01 - 01);
     let d2 = date!(2024 - 01 - 02);
@@ -304,22 +321,23 @@ fn sqlite_bulk_market_contexts() -> finstack_io::Result<()> {
     let ctx2 = MarketContext::new().insert_discount(curve2);
 
     store
-        .put_market_contexts_batch(&[("DEFAULT", d1, &ctx1, None), ("DEFAULT", d2, &ctx2, None)])?;
+        .put_market_contexts_batch(&[("DEFAULT", d1, &ctx1, None), ("DEFAULT", d2, &ctx2, None)])
+        .await?;
 
-    let snaps = store.list_market_contexts("DEFAULT", d1, d2)?;
+    let snaps = store.list_market_contexts("DEFAULT", d1, d2).await?;
     assert_eq!(snaps.len(), 2);
 
     Ok(())
 }
 
-#[test]
-fn sqlite_schema_migration_idempotent() -> finstack_io::Result<()> {
+#[tokio::test]
+async fn sqlite_schema_migration_idempotent() -> finstack_io::Result<()> {
     let dir = tempfile::tempdir()?;
     let path = dir.path().join("finstack.db");
 
     // Open twice - second open should be idempotent
-    let _store1 = SqliteStore::open(&path)?;
-    let store2 = SqliteStore::open(&path)?;
+    let _store1 = SqliteStore::open(&path).await?;
+    let store2 = SqliteStore::open(&path).await?;
 
     // Verify store still works
     let as_of = date!(2024 - 01 - 01);
@@ -330,16 +348,18 @@ fn sqlite_schema_migration_idempotent() -> finstack_io::Result<()> {
         .build()?;
     let ctx = MarketContext::new().insert_discount(curve);
 
-    store2.put_market_context("DEFAULT", as_of, &ctx, None)?;
-    assert!(store2.get_market_context("DEFAULT", as_of)?.is_some());
+    store2
+        .put_market_context("DEFAULT", as_of, &ctx, None)
+        .await?;
+    assert!(store2.get_market_context("DEFAULT", as_of).await?.is_some());
 
     Ok(())
 }
 
-#[test]
-fn sqlite_upsert_overwrites() -> finstack_io::Result<()> {
+#[tokio::test]
+async fn sqlite_upsert_overwrites() -> finstack_io::Result<()> {
     let dir = tempfile::tempdir()?;
-    let store = SqliteStore::open(dir.path().join("finstack.db"))?;
+    let store = SqliteStore::open(dir.path().join("finstack.db")).await?;
 
     let as_of = date!(2024 - 01 - 01);
 
@@ -350,7 +370,9 @@ fn sqlite_upsert_overwrites() -> finstack_io::Result<()> {
         .set_interp(InterpStyle::Linear)
         .build()?;
     let ctx1 = MarketContext::new().insert_discount(curve1);
-    store.put_market_context("DEFAULT", as_of, &ctx1, None)?;
+    store
+        .put_market_context("DEFAULT", as_of, &ctx1, None)
+        .await?;
 
     // Upsert with different data
     let curve2 = DiscountCurve::builder("USD-OIS")
@@ -359,11 +381,14 @@ fn sqlite_upsert_overwrites() -> finstack_io::Result<()> {
         .set_interp(InterpStyle::Linear)
         .build()?;
     let ctx2 = MarketContext::new().insert_discount(curve2);
-    store.put_market_context("DEFAULT", as_of, &ctx2, None)?;
+    store
+        .put_market_context("DEFAULT", as_of, &ctx2, None)
+        .await?;
 
     // Verify the second version is stored
     let loaded = store
-        .get_market_context("DEFAULT", as_of)?
+        .get_market_context("DEFAULT", as_of)
+        .await?
         .ok_or_else(|| finstack_io::Error::not_found("market_context", "DEFAULT@2024-01-01"))?;
     let disc = loaded.get_discount("USD-OIS")?;
 
@@ -409,10 +434,10 @@ fn sqlite_date_format_is_iso8601() {
     }
 }
 
-#[test]
-fn sqlite_meta_json_stored() -> finstack_io::Result<()> {
+#[tokio::test]
+async fn sqlite_meta_json_stored() -> finstack_io::Result<()> {
     let dir = tempfile::tempdir()?;
-    let store = SqliteStore::open(dir.path().join("finstack.db"))?;
+    let store = SqliteStore::open(dir.path().join("finstack.db")).await?;
 
     let as_of = date!(2024 - 01 - 01);
 
@@ -430,49 +455,51 @@ fn sqlite_meta_json_stored() -> finstack_io::Result<()> {
         "version": 1
     });
 
-    store.put_instrument("DEP_1M", &InstrumentJson::Deposit(deposit), Some(&meta))?;
+    store
+        .put_instrument("DEP_1M", &InstrumentJson::Deposit(deposit), Some(&meta))
+        .await?;
 
     // Verify instrument can be loaded (meta is stored but not returned by get_instrument)
-    let loaded = store.get_instrument("DEP_1M")?;
+    let loaded = store.get_instrument("DEP_1M").await?;
     assert!(loaded.is_some());
 
     Ok(())
 }
 
-#[test]
-fn sqlite_not_found_errors() -> finstack_io::Result<()> {
+#[tokio::test]
+async fn sqlite_not_found_errors() -> finstack_io::Result<()> {
     let dir = tempfile::tempdir()?;
-    let store = SqliteStore::open(dir.path().join("finstack.db"))?;
+    let store = SqliteStore::open(dir.path().join("finstack.db")).await?;
 
     let as_of = date!(2024 - 01 - 01);
 
     // Test get_* methods return None for missing entries
-    assert!(store.get_market_context("MISSING", as_of)?.is_none());
-    assert!(store.get_instrument("MISSING")?.is_none());
-    assert!(store.get_portfolio_spec("MISSING", as_of)?.is_none());
-    assert!(store.get_scenario("MISSING")?.is_none());
-    assert!(store.get_statement_model("MISSING")?.is_none());
-    assert!(store.get_metric_registry("MISSING")?.is_none());
+    assert!(store.get_market_context("MISSING", as_of).await?.is_none());
+    assert!(store.get_instrument("MISSING").await?.is_none());
+    assert!(store.get_portfolio_spec("MISSING", as_of).await?.is_none());
+    assert!(store.get_scenario("MISSING").await?.is_none());
+    assert!(store.get_statement_model("MISSING").await?.is_none());
+    assert!(store.get_metric_registry("MISSING").await?.is_none());
 
     // Test load_* methods return NotFound errors
-    let result = store.load_market_context("MISSING", as_of);
+    let result = store.load_market_context("MISSING", as_of).await;
     assert!(matches!(result, Err(finstack_io::Error::NotFound { .. })));
 
-    let result = store.load_portfolio_spec("MISSING", as_of);
+    let result = store.load_portfolio_spec("MISSING", as_of).await;
     assert!(matches!(result, Err(finstack_io::Error::NotFound { .. })));
 
-    let result = store.load_metric_registry("MISSING");
+    let result = store.load_metric_registry("MISSING").await;
     assert!(matches!(result, Err(finstack_io::Error::NotFound { .. })));
 
     Ok(())
 }
 
-#[test]
-fn sqlite_metric_registry_roundtrip() -> finstack_io::Result<()> {
+#[tokio::test]
+async fn sqlite_metric_registry_roundtrip() -> finstack_io::Result<()> {
     use finstack_statements::registry::{MetricDefinition, MetricRegistry, UnitType};
 
     let dir = tempfile::tempdir()?;
-    let store = SqliteStore::open(dir.path().join("finstack.db"))?;
+    let store = SqliteStore::open(dir.path().join("finstack.db")).await?;
 
     // Create a metric registry with some standard financial metrics
     let registry = MetricRegistry {
@@ -506,11 +533,12 @@ fn sqlite_metric_registry_roundtrip() -> finstack_io::Result<()> {
     };
 
     // Store the registry
-    store.put_metric_registry("fin", &registry, None)?;
+    store.put_metric_registry("fin", &registry, None).await?;
 
     // Load and verify
     let loaded = store
-        .get_metric_registry("fin")?
+        .get_metric_registry("fin")
+        .await?
         .expect("Registry should exist");
     assert_eq!(loaded.namespace, "fin");
     assert_eq!(loaded.schema_version, 1);
@@ -528,15 +556,15 @@ fn sqlite_metric_registry_roundtrip() -> finstack_io::Result<()> {
     Ok(())
 }
 
-#[test]
-fn sqlite_metric_registry_list_and_delete() -> finstack_io::Result<()> {
+#[tokio::test]
+async fn sqlite_metric_registry_list_and_delete() -> finstack_io::Result<()> {
     use finstack_statements::registry::{MetricDefinition, MetricRegistry};
 
     let dir = tempfile::tempdir()?;
-    let store = SqliteStore::open(dir.path().join("finstack.db"))?;
+    let store = SqliteStore::open(dir.path().join("finstack.db")).await?;
 
     // Start with no registries
-    let namespaces = store.list_metric_registries()?;
+    let namespaces = store.list_metric_registries().await?;
     assert!(namespaces.is_empty());
 
     // Create multiple registries
@@ -574,40 +602,44 @@ fn sqlite_metric_registry_list_and_delete() -> finstack_io::Result<()> {
         meta: IndexMap::new(),
     };
 
-    store.put_metric_registry("fin", &fin_registry, None)?;
-    store.put_metric_registry("custom", &custom_registry, None)?;
+    store
+        .put_metric_registry("fin", &fin_registry, None)
+        .await?;
+    store
+        .put_metric_registry("custom", &custom_registry, None)
+        .await?;
 
     // List should return both, sorted alphabetically
-    let namespaces = store.list_metric_registries()?;
+    let namespaces = store.list_metric_registries().await?;
     assert_eq!(namespaces, vec!["custom", "fin"]);
 
     // Delete one registry
-    let deleted = store.delete_metric_registry("custom")?;
+    let deleted = store.delete_metric_registry("custom").await?;
     assert!(deleted);
 
     // Verify it's gone
-    assert!(store.get_metric_registry("custom")?.is_none());
+    assert!(store.get_metric_registry("custom").await?.is_none());
 
     // List should only show "fin" now
-    let namespaces = store.list_metric_registries()?;
+    let namespaces = store.list_metric_registries().await?;
     assert_eq!(namespaces, vec!["fin"]);
 
     // Delete non-existent should return false
-    let deleted = store.delete_metric_registry("nonexistent")?;
+    let deleted = store.delete_metric_registry("nonexistent").await?;
     assert!(!deleted);
 
     Ok(())
 }
 
-#[test]
-fn sqlite_list_instruments() -> finstack_io::Result<()> {
+#[tokio::test]
+async fn sqlite_list_instruments() -> finstack_io::Result<()> {
     let dir = tempfile::tempdir()?;
-    let store = SqliteStore::open(dir.path().join("finstack.db"))?;
+    let store = SqliteStore::open(dir.path().join("finstack.db")).await?;
 
     let as_of = date!(2024 - 01 - 01);
 
     // Start with no instruments
-    let ids = store.list_instruments()?;
+    let ids = store.list_instruments().await?;
     assert!(ids.is_empty());
 
     // Add some instruments
@@ -629,20 +661,24 @@ fn sqlite_list_instruments() -> finstack_io::Result<()> {
         .discount_curve_id("USD-OIS".into())
         .build()?;
 
-    store.put_instrument("DEP_1M", &InstrumentJson::Deposit(deposit1), None)?;
-    store.put_instrument("DEP_3M", &InstrumentJson::Deposit(deposit2), None)?;
+    store
+        .put_instrument("DEP_1M", &InstrumentJson::Deposit(deposit1), None)
+        .await?;
+    store
+        .put_instrument("DEP_3M", &InstrumentJson::Deposit(deposit2), None)
+        .await?;
 
     // List should return both, sorted alphabetically
-    let ids = store.list_instruments()?;
+    let ids = store.list_instruments().await?;
     assert_eq!(ids, vec!["DEP_1M", "DEP_3M"]);
 
     Ok(())
 }
 
-#[test]
-fn sqlite_get_instruments_batch() -> finstack_io::Result<()> {
+#[tokio::test]
+async fn sqlite_get_instruments_batch() -> finstack_io::Result<()> {
     let dir = tempfile::tempdir()?;
-    let store = SqliteStore::open(dir.path().join("finstack.db"))?;
+    let store = SqliteStore::open(dir.path().join("finstack.db")).await?;
 
     let as_of = date!(2024 - 01 - 01);
 
@@ -665,34 +701,42 @@ fn sqlite_get_instruments_batch() -> finstack_io::Result<()> {
         .discount_curve_id("USD-OIS".into())
         .build()?;
 
-    store.put_instrument("DEP_1M", &InstrumentJson::Deposit(deposit1), None)?;
-    store.put_instrument("DEP_3M", &InstrumentJson::Deposit(deposit2), None)?;
+    store
+        .put_instrument("DEP_1M", &InstrumentJson::Deposit(deposit1), None)
+        .await?;
+    store
+        .put_instrument("DEP_3M", &InstrumentJson::Deposit(deposit2), None)
+        .await?;
 
     // Batch fetch both
-    let result = store.get_instruments_batch(&["DEP_1M".into(), "DEP_3M".into()])?;
+    let result = store
+        .get_instruments_batch(&["DEP_1M".into(), "DEP_3M".into()])
+        .await?;
     assert_eq!(result.len(), 2);
     assert!(result.contains_key("DEP_1M"));
     assert!(result.contains_key("DEP_3M"));
 
     // Batch fetch with some missing
-    let result = store.get_instruments_batch(&["DEP_1M".into(), "NONEXISTENT".into()])?;
+    let result = store
+        .get_instruments_batch(&["DEP_1M".into(), "NONEXISTENT".into()])
+        .await?;
     assert_eq!(result.len(), 1);
     assert!(result.contains_key("DEP_1M"));
 
     // Empty batch
-    let result = store.get_instruments_batch(&[])?;
+    let result = store.get_instruments_batch(&[]).await?;
     assert!(result.is_empty());
 
     Ok(())
 }
 
-#[test]
-fn sqlite_list_scenarios() -> finstack_io::Result<()> {
+#[tokio::test]
+async fn sqlite_list_scenarios() -> finstack_io::Result<()> {
     let dir = tempfile::tempdir()?;
-    let store = SqliteStore::open(dir.path().join("finstack.db"))?;
+    let store = SqliteStore::open(dir.path().join("finstack.db")).await?;
 
     // Start with no scenarios
-    let ids = store.list_scenarios()?;
+    let ids = store.list_scenarios().await?;
     assert!(ids.is_empty());
 
     // Add some scenarios
@@ -712,45 +756,45 @@ fn sqlite_list_scenarios() -> finstack_io::Result<()> {
         priority: 1,
     };
 
-    store.put_scenario("SCENARIO_A", &spec1, None)?;
-    store.put_scenario("SCENARIO_B", &spec2, None)?;
+    store.put_scenario("SCENARIO_A", &spec1, None).await?;
+    store.put_scenario("SCENARIO_B", &spec2, None).await?;
 
     // List should return both, sorted alphabetically
-    let ids = store.list_scenarios()?;
+    let ids = store.list_scenarios().await?;
     assert_eq!(ids, vec!["SCENARIO_A", "SCENARIO_B"]);
 
     Ok(())
 }
 
-#[test]
-fn sqlite_list_statement_models() -> finstack_io::Result<()> {
+#[tokio::test]
+async fn sqlite_list_statement_models() -> finstack_io::Result<()> {
     let dir = tempfile::tempdir()?;
-    let store = SqliteStore::open(dir.path().join("finstack.db"))?;
+    let store = SqliteStore::open(dir.path().join("finstack.db")).await?;
 
     // Start with no models
-    let ids = store.list_statement_models()?;
+    let ids = store.list_statement_models().await?;
     assert!(ids.is_empty());
 
     // Add some models
     let spec1 = finstack_statements::FinancialModelSpec::new("model_a", vec![]);
     let spec2 = finstack_statements::FinancialModelSpec::new("model_b", vec![]);
 
-    store.put_statement_model("MODEL_A", &spec1, None)?;
-    store.put_statement_model("MODEL_B", &spec2, None)?;
+    store.put_statement_model("MODEL_A", &spec1, None).await?;
+    store.put_statement_model("MODEL_B", &spec2, None).await?;
 
     // List should return both, sorted alphabetically
-    let ids = store.list_statement_models()?;
+    let ids = store.list_statement_models().await?;
     assert_eq!(ids, vec!["MODEL_A", "MODEL_B"]);
 
     Ok(())
 }
 
-#[test]
-fn sqlite_metric_registry_upsert() -> finstack_io::Result<()> {
+#[tokio::test]
+async fn sqlite_metric_registry_upsert() -> finstack_io::Result<()> {
     use finstack_statements::registry::{MetricDefinition, MetricRegistry, UnitType};
 
     let dir = tempfile::tempdir()?;
-    let store = SqliteStore::open(dir.path().join("finstack.db"))?;
+    let store = SqliteStore::open(dir.path().join("finstack.db")).await?;
 
     // Initial registry with one metric
     let registry_v1 = MetricRegistry {
@@ -770,7 +814,7 @@ fn sqlite_metric_registry_upsert() -> finstack_io::Result<()> {
         meta: IndexMap::new(),
     };
 
-    store.put_metric_registry("fin", &registry_v1, None)?;
+    store.put_metric_registry("fin", &registry_v1, None).await?;
 
     // Updated registry with two metrics
     let registry_v2 = MetricRegistry {
@@ -804,10 +848,11 @@ fn sqlite_metric_registry_upsert() -> finstack_io::Result<()> {
     };
 
     // Upsert should overwrite
-    store.put_metric_registry("fin", &registry_v2, None)?;
+    store.put_metric_registry("fin", &registry_v2, None).await?;
 
     let loaded = store
-        .get_metric_registry("fin")?
+        .get_metric_registry("fin")
+        .await?
         .expect("Registry should exist");
     assert_eq!(loaded.schema_version, 2);
     assert_eq!(loaded.metrics.len(), 2);
@@ -824,17 +869,15 @@ fn sqlite_metric_registry_upsert() -> finstack_io::Result<()> {
 // ---------------------------------------------------------------------------
 // Concurrent access tests
 // ---------------------------------------------------------------------------
-// These tests verify that SQLite's busy timeout (5 seconds) handles concurrent
-// access correctly. SQLite uses file-level locking, and the busy timeout allows
-// waiting for locks to be released rather than immediately failing.
+// These tests verify that SQLite's async handling works correctly with concurrent
+// access. The tokio-rusqlite crate uses a dedicated thread for SQLite operations,
+// so multiple async tasks can safely access the same connection.
 
-#[test]
-fn sqlite_concurrent_writes_succeed() -> finstack_io::Result<()> {
-    use std::thread;
-
+#[tokio::test]
+async fn sqlite_concurrent_writes_succeed() -> finstack_io::Result<()> {
     let dir = tempfile::tempdir()?;
     let db_path = dir.path().join("concurrent.db");
-    let store = SqliteStore::open(&db_path)?;
+    let store = SqliteStore::open(&db_path).await?;
 
     // Pre-populate with an instrument
     let deposit = Deposit::builder()
@@ -846,47 +889,49 @@ fn sqlite_concurrent_writes_succeed() -> finstack_io::Result<()> {
         .discount_curve_id("USD-OIS".into())
         .build()?;
     let instrument = InstrumentJson::Deposit(deposit);
-    store.put_instrument("DEPO-001", &instrument, None)?;
+    store.put_instrument("DEPO-001", &instrument, None).await?;
 
-    // Clone store for concurrent access (each thread gets its own connection)
+    // Clone store for concurrent access
     let store1 = store.clone();
     let store2 = store.clone();
     let instrument1 = instrument.clone();
     let instrument2 = instrument.clone();
 
-    // Spawn two threads that write concurrently
-    let handle1 = thread::spawn(move || -> finstack_io::Result<()> {
+    // Spawn two tasks that write concurrently
+    let handle1 = tokio::spawn(async move {
         for i in 0..10 {
-            store1.put_instrument(&format!("THREAD1-{i}"), &instrument1, None)?;
+            store1
+                .put_instrument(&format!("THREAD1-{i}"), &instrument1, None)
+                .await?;
         }
-        Ok(())
+        Ok::<_, finstack_io::Error>(())
     });
 
-    let handle2 = thread::spawn(move || -> finstack_io::Result<()> {
+    let handle2 = tokio::spawn(async move {
         for i in 0..10 {
-            store2.put_instrument(&format!("THREAD2-{i}"), &instrument2, None)?;
+            store2
+                .put_instrument(&format!("THREAD2-{i}"), &instrument2, None)
+                .await?;
         }
-        Ok(())
+        Ok::<_, finstack_io::Error>(())
     });
 
-    // Both threads should complete successfully
-    handle1.join().expect("Thread 1 panicked")?;
-    handle2.join().expect("Thread 2 panicked")?;
+    // Both tasks should complete successfully
+    handle1.await.expect("Task 1 panicked")?;
+    handle2.await.expect("Task 2 panicked")?;
 
     // Verify all instruments were written
-    let instruments = store.list_instruments()?;
-    assert!(instruments.len() >= 21); // 1 original + 10 from each thread
+    let instruments = store.list_instruments().await?;
+    assert!(instruments.len() >= 21); // 1 original + 10 from each task
 
     Ok(())
 }
 
-#[test]
-fn sqlite_concurrent_reads_and_writes() -> finstack_io::Result<()> {
-    use std::thread;
-
+#[tokio::test]
+async fn sqlite_concurrent_reads_and_writes() -> finstack_io::Result<()> {
     let dir = tempfile::tempdir()?;
     let db_path = dir.path().join("concurrent_rw.db");
-    let store = SqliteStore::open(&db_path)?;
+    let store = SqliteStore::open(&db_path).await?;
 
     // Pre-populate with instruments
     let deposit = Deposit::builder()
@@ -900,36 +945,40 @@ fn sqlite_concurrent_reads_and_writes() -> finstack_io::Result<()> {
     let instrument = InstrumentJson::Deposit(deposit);
 
     for i in 0..5 {
-        store.put_instrument(&format!("INIT-{i}"), &instrument, None)?;
+        store
+            .put_instrument(&format!("INIT-{i}"), &instrument, None)
+            .await?;
     }
 
     let store_writer = store.clone();
     let store_reader = store.clone();
     let instrument_for_writer = instrument.clone();
 
-    // Writer thread: continuously writes new instruments
-    let writer = thread::spawn(move || -> finstack_io::Result<()> {
+    // Writer task: continuously writes new instruments
+    let writer = tokio::spawn(async move {
         for i in 0..20 {
-            store_writer.put_instrument(&format!("WRITE-{i}"), &instrument_for_writer, None)?;
+            store_writer
+                .put_instrument(&format!("WRITE-{i}"), &instrument_for_writer, None)
+                .await?;
         }
-        Ok(())
+        Ok::<_, finstack_io::Error>(())
     });
 
-    // Reader thread: continuously reads and lists instruments
-    let reader = thread::spawn(move || -> finstack_io::Result<()> {
+    // Reader task: continuously reads and lists instruments
+    let reader = tokio::spawn(async move {
         for _ in 0..20 {
-            let _ = store_reader.list_instruments()?;
-            let _ = store_reader.get_instrument("INIT-0")?;
+            let _ = store_reader.list_instruments().await?;
+            let _ = store_reader.get_instrument("INIT-0").await?;
         }
-        Ok(())
+        Ok::<_, finstack_io::Error>(())
     });
 
     // Both should complete without errors
-    writer.join().expect("Writer thread panicked")?;
-    reader.join().expect("Reader thread panicked")?;
+    writer.await.expect("Writer task panicked")?;
+    reader.await.expect("Reader task panicked")?;
 
     // Verify writes succeeded
-    let instruments = store.list_instruments()?;
+    let instruments = store.list_instruments().await?;
     assert!(instruments.len() >= 25); // 5 initial + 20 written
 
     Ok(())

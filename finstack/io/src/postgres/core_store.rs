@@ -4,6 +4,7 @@ use crate::{
     sql::{statements, Backend},
     Result, Store,
 };
+use async_trait::async_trait;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::{MarketContext, MarketContextState};
 use finstack_portfolio::PortfolioSpec;
@@ -15,8 +16,9 @@ use std::collections::HashMap;
 
 use super::store::{as_of_key, meta_json, PostgresStore};
 
+#[async_trait]
 impl Store for PostgresStore {
-    fn put_market_context(
+    async fn put_market_context(
         &self,
         market_id: &str,
         as_of: Date,
@@ -29,29 +31,33 @@ impl Store for PostgresStore {
         let as_of = as_of_key(as_of)?;
         let sql = statements::upsert_market_context_sql(Backend::Postgres);
 
-        self.with_conn(|client| {
-            client.execute(&sql, &[&market_id, &as_of, &payload, &meta])?;
-            Ok(())
-        })
+        let conn = self.get_conn().await?;
+        conn.execute(&sql, &[&market_id, &as_of, &payload, &meta])
+            .await?;
+        Ok(())
     }
 
-    fn get_market_context(&self, market_id: &str, as_of: Date) -> Result<Option<MarketContext>> {
+    async fn get_market_context(
+        &self,
+        market_id: &str,
+        as_of: Date,
+    ) -> Result<Option<MarketContext>> {
         let as_of = as_of_key(as_of)?;
         let sql = statements::select_market_context_sql(Backend::Postgres);
-        self.with_conn(|client| {
-            let row = client.query_opt(&sql, &[&market_id, &as_of])?;
-            match row {
-                Some(row) => {
-                    let payload: serde_json::Value = row.get(0);
-                    let state: MarketContextState = serde_json::from_value(payload)?;
-                    Ok(Some(MarketContext::try_from(state)?))
-                }
-                None => Ok(None),
+
+        let conn = self.get_conn().await?;
+        let row = conn.query_opt(&sql, &[&market_id, &as_of]).await?;
+        match row {
+            Some(row) => {
+                let payload: serde_json::Value = row.get(0);
+                let state: MarketContextState = serde_json::from_value(payload)?;
+                Ok(Some(MarketContext::try_from(state)?))
             }
-        })
+            None => Ok(None),
+        }
     }
 
-    fn put_instrument(
+    async fn put_instrument(
         &self,
         instrument_id: &str,
         instrument: &InstrumentJson,
@@ -60,27 +66,28 @@ impl Store for PostgresStore {
         let payload = serde_json::to_value(instrument)?;
         let meta = meta_json(meta);
         let sql = statements::upsert_instrument_sql(Backend::Postgres);
-        self.with_conn(|client| {
-            client.execute(&sql, &[&instrument_id, &payload, &meta])?;
-            Ok(())
-        })
+
+        let conn = self.get_conn().await?;
+        conn.execute(&sql, &[&instrument_id, &payload, &meta])
+            .await?;
+        Ok(())
     }
 
-    fn get_instrument(&self, instrument_id: &str) -> Result<Option<InstrumentJson>> {
+    async fn get_instrument(&self, instrument_id: &str) -> Result<Option<InstrumentJson>> {
         let sql = statements::select_instrument_sql(Backend::Postgres);
-        self.with_conn(|client| {
-            let row = client.query_opt(&sql, &[&instrument_id])?;
-            match row {
-                Some(row) => {
-                    let payload: serde_json::Value = row.get(0);
-                    Ok(Some(serde_json::from_value(payload)?))
-                }
-                None => Ok(None),
+
+        let conn = self.get_conn().await?;
+        let row = conn.query_opt(&sql, &[&instrument_id]).await?;
+        match row {
+            Some(row) => {
+                let payload: serde_json::Value = row.get(0);
+                Ok(Some(serde_json::from_value(payload)?))
             }
-        })
+            None => Ok(None),
+        }
     }
 
-    fn get_instruments_batch(
+    async fn get_instruments_batch(
         &self,
         instrument_ids: &[String],
     ) -> Result<HashMap<String, InstrumentJson>> {
@@ -88,32 +95,32 @@ impl Store for PostgresStore {
             return Ok(HashMap::new());
         }
         let sql = statements::select_instruments_batch_sql(Backend::Postgres, instrument_ids.len());
-        self.with_conn(|client| {
-            let params: Vec<&(dyn postgres::types::ToSql + Sync)> = instrument_ids
-                .iter()
-                .map(|s| s as &(dyn postgres::types::ToSql + Sync))
-                .collect();
-            let rows = client.query(&sql, &params)?;
-            let mut out = HashMap::new();
-            for row in rows {
-                let id: String = row.get(0);
-                let payload: serde_json::Value = row.get(1);
-                let instrument: InstrumentJson = serde_json::from_value(payload)?;
-                out.insert(id, instrument);
-            }
-            Ok(out)
-        })
+
+        let conn = self.get_conn().await?;
+        let params: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> = instrument_ids
+            .iter()
+            .map(|s| s as &(dyn tokio_postgres::types::ToSql + Sync))
+            .collect();
+        let rows = conn.query(&sql, &params).await?;
+        let mut out = HashMap::new();
+        for row in rows {
+            let id: String = row.get(0);
+            let payload: serde_json::Value = row.get(1);
+            let instrument: InstrumentJson = serde_json::from_value(payload)?;
+            out.insert(id, instrument);
+        }
+        Ok(out)
     }
 
-    fn list_instruments(&self) -> Result<Vec<String>> {
+    async fn list_instruments(&self) -> Result<Vec<String>> {
         let sql = statements::list_instruments_sql(Backend::Postgres);
-        self.with_conn(|client| {
-            let rows = client.query(&sql, &[])?;
-            Ok(rows.into_iter().map(|row| row.get(0)).collect())
-        })
+
+        let conn = self.get_conn().await?;
+        let rows = conn.query(&sql, &[]).await?;
+        Ok(rows.into_iter().map(|row| row.get(0)).collect())
     }
 
-    fn put_portfolio_spec(
+    async fn put_portfolio_spec(
         &self,
         portfolio_id: &str,
         as_of: Date,
@@ -124,28 +131,33 @@ impl Store for PostgresStore {
         let meta = meta_json(meta);
         let as_of = as_of_key(as_of)?;
         let sql = statements::upsert_portfolio_sql(Backend::Postgres);
-        self.with_conn(|client| {
-            client.execute(&sql, &[&portfolio_id, &as_of, &payload, &meta])?;
-            Ok(())
-        })
+
+        let conn = self.get_conn().await?;
+        conn.execute(&sql, &[&portfolio_id, &as_of, &payload, &meta])
+            .await?;
+        Ok(())
     }
 
-    fn get_portfolio_spec(&self, portfolio_id: &str, as_of: Date) -> Result<Option<PortfolioSpec>> {
+    async fn get_portfolio_spec(
+        &self,
+        portfolio_id: &str,
+        as_of: Date,
+    ) -> Result<Option<PortfolioSpec>> {
         let as_of = as_of_key(as_of)?;
         let sql = statements::select_portfolio_sql(Backend::Postgres);
-        self.with_conn(|client| {
-            let row = client.query_opt(&sql, &[&portfolio_id, &as_of])?;
-            match row {
-                Some(row) => {
-                    let payload: serde_json::Value = row.get(0);
-                    Ok(Some(serde_json::from_value(payload)?))
-                }
-                None => Ok(None),
+
+        let conn = self.get_conn().await?;
+        let row = conn.query_opt(&sql, &[&portfolio_id, &as_of]).await?;
+        match row {
+            Some(row) => {
+                let payload: serde_json::Value = row.get(0);
+                Ok(Some(serde_json::from_value(payload)?))
             }
-        })
+            None => Ok(None),
+        }
     }
 
-    fn put_scenario(
+    async fn put_scenario(
         &self,
         scenario_id: &str,
         spec: &ScenarioSpec,
@@ -154,35 +166,35 @@ impl Store for PostgresStore {
         let payload = serde_json::to_value(spec)?;
         let meta = meta_json(meta);
         let sql = statements::upsert_scenario_sql(Backend::Postgres);
-        self.with_conn(|client| {
-            client.execute(&sql, &[&scenario_id, &payload, &meta])?;
-            Ok(())
-        })
+
+        let conn = self.get_conn().await?;
+        conn.execute(&sql, &[&scenario_id, &payload, &meta]).await?;
+        Ok(())
     }
 
-    fn get_scenario(&self, scenario_id: &str) -> Result<Option<ScenarioSpec>> {
+    async fn get_scenario(&self, scenario_id: &str) -> Result<Option<ScenarioSpec>> {
         let sql = statements::select_scenario_sql(Backend::Postgres);
-        self.with_conn(|client| {
-            let row = client.query_opt(&sql, &[&scenario_id])?;
-            match row {
-                Some(row) => {
-                    let payload: serde_json::Value = row.get(0);
-                    Ok(Some(serde_json::from_value(payload)?))
-                }
-                None => Ok(None),
+
+        let conn = self.get_conn().await?;
+        let row = conn.query_opt(&sql, &[&scenario_id]).await?;
+        match row {
+            Some(row) => {
+                let payload: serde_json::Value = row.get(0);
+                Ok(Some(serde_json::from_value(payload)?))
             }
-        })
+            None => Ok(None),
+        }
     }
 
-    fn list_scenarios(&self) -> Result<Vec<String>> {
+    async fn list_scenarios(&self) -> Result<Vec<String>> {
         let sql = statements::list_scenarios_sql(Backend::Postgres);
-        self.with_conn(|client| {
-            let rows = client.query(&sql, &[])?;
-            Ok(rows.into_iter().map(|row| row.get(0)).collect())
-        })
+
+        let conn = self.get_conn().await?;
+        let rows = conn.query(&sql, &[]).await?;
+        Ok(rows.into_iter().map(|row| row.get(0)).collect())
     }
 
-    fn put_statement_model(
+    async fn put_statement_model(
         &self,
         model_id: &str,
         spec: &FinancialModelSpec,
@@ -191,35 +203,35 @@ impl Store for PostgresStore {
         let payload = serde_json::to_value(spec)?;
         let meta = meta_json(meta);
         let sql = statements::upsert_statement_model_sql(Backend::Postgres);
-        self.with_conn(|client| {
-            client.execute(&sql, &[&model_id, &payload, &meta])?;
-            Ok(())
-        })
+
+        let conn = self.get_conn().await?;
+        conn.execute(&sql, &[&model_id, &payload, &meta]).await?;
+        Ok(())
     }
 
-    fn get_statement_model(&self, model_id: &str) -> Result<Option<FinancialModelSpec>> {
+    async fn get_statement_model(&self, model_id: &str) -> Result<Option<FinancialModelSpec>> {
         let sql = statements::select_statement_model_sql(Backend::Postgres);
-        self.with_conn(|client| {
-            let row = client.query_opt(&sql, &[&model_id])?;
-            match row {
-                Some(row) => {
-                    let payload: serde_json::Value = row.get(0);
-                    Ok(Some(serde_json::from_value(payload)?))
-                }
-                None => Ok(None),
+
+        let conn = self.get_conn().await?;
+        let row = conn.query_opt(&sql, &[&model_id]).await?;
+        match row {
+            Some(row) => {
+                let payload: serde_json::Value = row.get(0);
+                Ok(Some(serde_json::from_value(payload)?))
             }
-        })
+            None => Ok(None),
+        }
     }
 
-    fn list_statement_models(&self) -> Result<Vec<String>> {
+    async fn list_statement_models(&self) -> Result<Vec<String>> {
         let sql = statements::list_statement_models_sql(Backend::Postgres);
-        self.with_conn(|client| {
-            let rows = client.query(&sql, &[])?;
-            Ok(rows.into_iter().map(|row| row.get(0)).collect())
-        })
+
+        let conn = self.get_conn().await?;
+        let rows = conn.query(&sql, &[]).await?;
+        Ok(rows.into_iter().map(|row| row.get(0)).collect())
     }
 
-    fn put_metric_registry(
+    async fn put_metric_registry(
         &self,
         namespace: &str,
         registry: &MetricRegistry,
@@ -228,39 +240,39 @@ impl Store for PostgresStore {
         let payload = serde_json::to_value(registry)?;
         let meta = meta_json(meta);
         let sql = statements::upsert_metric_registry_sql(Backend::Postgres);
-        self.with_conn(|client| {
-            client.execute(&sql, &[&namespace, &payload, &meta])?;
-            Ok(())
-        })
+
+        let conn = self.get_conn().await?;
+        conn.execute(&sql, &[&namespace, &payload, &meta]).await?;
+        Ok(())
     }
 
-    fn get_metric_registry(&self, namespace: &str) -> Result<Option<MetricRegistry>> {
+    async fn get_metric_registry(&self, namespace: &str) -> Result<Option<MetricRegistry>> {
         let sql = statements::select_metric_registry_sql(Backend::Postgres);
-        self.with_conn(|client| {
-            let row = client.query_opt(&sql, &[&namespace])?;
-            match row {
-                Some(row) => {
-                    let payload: serde_json::Value = row.get(0);
-                    Ok(Some(serde_json::from_value(payload)?))
-                }
-                None => Ok(None),
+
+        let conn = self.get_conn().await?;
+        let row = conn.query_opt(&sql, &[&namespace]).await?;
+        match row {
+            Some(row) => {
+                let payload: serde_json::Value = row.get(0);
+                Ok(Some(serde_json::from_value(payload)?))
             }
-        })
+            None => Ok(None),
+        }
     }
 
-    fn list_metric_registries(&self) -> Result<Vec<String>> {
+    async fn list_metric_registries(&self) -> Result<Vec<String>> {
         let sql = statements::list_metric_registries_sql(Backend::Postgres);
-        self.with_conn(|client| {
-            let rows = client.query(&sql, &[])?;
-            Ok(rows.into_iter().map(|row| row.get(0)).collect())
-        })
+
+        let conn = self.get_conn().await?;
+        let rows = conn.query(&sql, &[]).await?;
+        Ok(rows.into_iter().map(|row| row.get(0)).collect())
     }
 
-    fn delete_metric_registry(&self, namespace: &str) -> Result<bool> {
+    async fn delete_metric_registry(&self, namespace: &str) -> Result<bool> {
         let sql = statements::delete_metric_registry_sql(Backend::Postgres);
-        self.with_conn(|client| {
-            let rows_affected = client.execute(&sql, &[&namespace])?;
-            Ok(rows_affected > 0)
-        })
+
+        let conn = self.get_conn().await?;
+        let rows_affected = conn.execute(&sql, &[&namespace]).await?;
+        Ok(rows_affected > 0)
     }
 }
