@@ -54,11 +54,11 @@ use finstack_io::{SqliteStore, Store};
 use time::macros::date;
 
 // Open (or create) a database file
-let store = SqliteStore::open("finstack.db")?;
+let store = SqliteStore::open("finstack.db").await?;
 
 // Store and retrieve data
-store.put_instrument("DEPO-001", &instrument, None)?;
-let loaded = store.get_instrument("DEPO-001")?;
+store.put_instrument("DEPO-001", &instrument, None).await?;
+let loaded = store.get_instrument("DEPO-001").await?;
 ```
 
 ### Postgres
@@ -72,8 +72,8 @@ finstack-io = { version = "0.4", features = ["postgres"] }
 ```rust
 use finstack_io::{PostgresStore, Store};
 
-let store = PostgresStore::connect("postgres://user:pass@localhost/finstack")?;
-store.put_instrument("DEPO-001", &instrument, None)?;
+let store = PostgresStore::connect("postgres://user:pass@localhost/finstack").await?;
+store.put_instrument("DEPO-001", &instrument, None).await?;
 ```
 
 ### Turso
@@ -90,8 +90,8 @@ finstack-io = { version = "0.4", features = ["turso"] }
 ```rust
 use finstack_io::{TursoStore, Store};
 
-let store = TursoStore::open("finstack.db")?;
-store.put_instrument("DEPO-001", &instrument, None)?;
+let store = TursoStore::open("finstack.db").await?;
+store.put_instrument("DEPO-001", &instrument, None).await?;
 ```
 
 Turso can read/write standard SQLite database files, so you can migrate between
@@ -103,7 +103,7 @@ SQLite and Turso backends seamlessly.
 use finstack_io::{open_store_from_env, StoreHandle};
 
 // Reads configuration from environment variables
-let store: StoreHandle = open_store_from_env()?;
+let store: StoreHandle = open_store_from_env().await?;
 ```
 
 Environment variables:
@@ -119,7 +119,7 @@ Environment variables:
 No setup required. The database file is created automatically:
 
 ```rust
-let store = SqliteStore::open("path/to/finstack.db")?;
+let store = SqliteStore::open("path/to/finstack.db").await?;
 // Migrations run automatically on first connect
 ```
 
@@ -146,20 +146,20 @@ createdb finstack
 2. Connect and run migrations:
 
 ```rust
-let store = PostgresStore::connect("postgres://user:secret@localhost/finstack")?;
+let store = PostgresStore::connect("postgres://user:secret@localhost/finstack").await?;
 // Migrations run automatically on connect
 ```
 
 Postgres configuration:
-- **Statement timeout**: 5 seconds (per-statement limit)
-- New connection per operation (no pooling; add pooling layer if needed)
+- **Statement timeout**: 5 seconds (per-statement limit, configurable)
+- **Connection pooling**: built-in via `deadpool-postgres` (configurable pool size)
 
 ### Turso
 
 No setup required. The database file is created automatically:
 
 ```rust
-let store = TursoStore::open("path/to/finstack.db")?;
+let store = TursoStore::open("path/to/finstack.db").await?;
 // Migrations run automatically on first connect
 ```
 
@@ -389,58 +389,58 @@ impl Store for SqliteStore {
 
 ```rust
 // Market contexts (keyed by id + as_of)
-store.put_market_context(market_id, as_of, &context, meta)?;
-store.get_market_context(market_id, as_of)?;
-store.load_market_context(market_id, as_of)?;  // Returns error if not found
+store.put_market_context(market_id, as_of, &context, meta).await?;
+store.get_market_context(market_id, as_of).await?;
+store.load_market_context(market_id, as_of).await?;  // Returns error if not found
 
 // Instruments
-store.put_instrument(id, &instrument, meta)?;
-store.get_instrument(id)?;
-store.list_instruments()?;  // Returns all instrument IDs
+store.put_instrument(id, &instrument, meta).await?;
+store.get_instrument(id).await?;
+store.list_instruments().await?;  // Returns all instrument IDs
 
 // Portfolios (keyed by id + as_of)
-store.put_portfolio_spec(portfolio_id, as_of, &spec, meta)?;
-store.get_portfolio_spec(portfolio_id, as_of)?;
-store.load_portfolio(portfolio_id, as_of)?;  // Hydrates with instruments
+store.put_portfolio_spec(portfolio_id, as_of, &spec, meta).await?;
+store.get_portfolio_spec(portfolio_id, as_of).await?;
+store.load_portfolio(portfolio_id, as_of).await?;  // Hydrates with instruments
 
 // Convenience: load portfolio + market together
 let (portfolio, market) = store.load_portfolio_with_market(
     portfolio_id, market_id, as_of
-)?;
+).await?;
 
 // Scenarios
-store.put_scenario(id, &spec, meta)?;
-store.get_scenario(id)?;
+store.put_scenario(id, &spec, meta).await?;
+store.get_scenario(id).await?;
 
 // Statement models
-store.put_statement_model(id, &spec, meta)?;
-store.get_statement_model(id)?;
+store.put_statement_model(id, &spec, meta).await?;
+store.get_statement_model(id).await?;
 
 // Metric registries
-store.put_metric_registry(namespace, &registry, meta)?;
-store.get_metric_registry(namespace)?;
-store.list_metric_registries()?;
-store.delete_metric_registry(namespace)?;
+store.put_metric_registry(namespace, &registry, meta).await?;
+store.get_metric_registry(namespace).await?;
+store.list_metric_registries().await?;
+store.delete_metric_registry(namespace).await?;
 ```
 
 ### Bulk Operations
 
 ```rust
 // Batch insert (transactional)
-store.put_instruments_batch(&[(id1, instr1), (id2, instr2)])?;
-store.put_market_contexts_batch(&[(id, as_of, ctx, meta), ...])?;
+store.put_instruments_batch(&[(id1, instr1), (id2, instr2)]).await?;
+store.put_market_contexts_batch(&[(id, as_of, ctx, meta), ...]).await?;
 ```
 
 ### Lookback Queries
 
 ```rust
 // Get latest snapshot on or before a date
-store.latest_market_context_on_or_before(market_id, as_of)?;
-store.latest_portfolio_on_or_before(portfolio_id, as_of)?;
+store.latest_market_context_on_or_before(market_id, as_of).await?;
+store.latest_portfolio_on_or_before(portfolio_id, as_of).await?;
 
 // List all snapshots in a date range
-store.list_market_contexts(market_id, start_date, end_date)?;
-store.list_portfolios(portfolio_id, start_date, end_date)?;
+store.list_market_contexts(market_id, start_date, end_date).await?;
+store.list_portfolios(portfolio_id, start_date, end_date).await?;
 ```
 
 ### Time-Series
@@ -449,18 +449,18 @@ store.list_portfolios(portfolio_id, start_date, end_date)?;
 let key = SeriesKey::new("namespace", "series_id", SeriesKind::Quote);
 
 // Store metadata
-store.put_series_meta(&key, Some(&serde_json::json!({"source": "bloomberg"})))?;
+store.put_series_meta(&key, Some(&serde_json::json!({"source": "bloomberg"}))).await?;
 
 // Store points
 store.put_points_batch(&key, &[
     TimeSeriesPoint { ts, value: Some(100.0), payload: None, meta: None },
-])?;
+]).await?;
 
 // Query range
-let points = store.get_points_range(&key, start_ts, end_ts, Some(limit))?;
+let points = store.get_points_range(&key, start_ts, end_ts, Some(limit)).await?;
 
 // Get latest point
-let latest = store.latest_point_on_or_before(&key, as_of_ts)?;
+let latest = store.latest_point_on_or_before(&key, as_of_ts).await?;
 ```
 
 ## Testing

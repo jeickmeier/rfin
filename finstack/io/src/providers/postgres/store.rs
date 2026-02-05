@@ -157,7 +157,24 @@ impl PostgresStore {
         .await?;
 
         let migrations_table = quote_ident(&self.naming().resolve("finstack_schema_migrations"));
-        let row = conn
+
+        // Migrations are a cross-process critical section:
+        // - concurrent `CREATE TABLE IF NOT EXISTS` is safe
+        // - but recording applied versions can race on the PK
+        //
+        // Use an advisory *transaction-scoped* lock so that only one migrator runs at once.
+        // This avoids startup failures in multi-instance deployments.
+        let tx = conn.transaction().await?;
+        // Migrations can be slow on large schemas or under contention; avoid per-statement timeouts.
+        tx.execute("SET LOCAL statement_timeout = 0", &[]).await?;
+        // 64-bit key constant (chosen arbitrarily but stable).
+        tx.execute(
+            "SELECT pg_advisory_xact_lock($1)",
+            &[&0x4653_5441_434B_494Fi64],
+        )
+        .await?;
+
+        let row = tx
             .query_opt(&format!("SELECT MAX(version) FROM {migrations_table}"), &[])
             .await?;
         // MAX() returns NULL when the table is empty (no migrations applied yet).
@@ -172,11 +189,11 @@ impl PostgresStore {
         }
 
         if current == migrations::LATEST_VERSION {
+            tx.commit().await?;
             return Ok(());
         }
 
         let migrations = migrations::migrations_for_with_naming(Backend::Postgres, self.naming());
-        let tx = conn.transaction().await?;
         for (version, statements) in migrations {
             if version <= current {
                 continue;
@@ -184,12 +201,18 @@ impl PostgresStore {
             for sql in statements {
                 tx.batch_execute(&sql).await?;
             }
+            // Be tolerant of races (e.g., if another migrator applied the same version
+            // between MAX(version) and this insert in an unusual failure scenario).
             tx.execute(
-                &format!("INSERT INTO {migrations_table} (version, applied_at) VALUES ($1, now())"),
+                &format!(
+                    "INSERT INTO {migrations_table} (version, applied_at) VALUES ($1, now()) \
+                     ON CONFLICT (version) DO NOTHING"
+                ),
                 &[&version],
             )
             .await?;
         }
+
         tx.commit().await?;
         Ok(())
     }

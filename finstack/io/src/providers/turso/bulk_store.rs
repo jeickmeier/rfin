@@ -25,6 +25,10 @@ impl BulkStore for TursoStore {
         &self,
         instruments: &[(&str, &InstrumentJson, Option<&serde_json::Value>)],
     ) -> Result<()> {
+        if instruments.is_empty() {
+            return Ok(());
+        }
+
         // Pre-serialize all data before opening the transaction
         let serialized: Vec<(String, Vec<u8>, String)> = instruments
             .iter()
@@ -39,10 +43,10 @@ impl BulkStore for TursoStore {
         let tx = conn.transaction().await?;
 
         let sql = statements::upsert_instrument_sql_with_naming(Backend::Sqlite, self.naming());
-        for (instrument_id, payload, meta) in &serialized {
+        for (instrument_id, payload, meta) in serialized {
             tx.execute(
                 sql.as_ref(),
-                params![instrument_id.as_str(), payload.clone(), meta.as_str()],
+                params![instrument_id.as_str(), payload, meta.as_str()],
             )
             .await?;
         }
@@ -55,6 +59,10 @@ impl BulkStore for TursoStore {
         &self,
         contexts: &[(&str, Date, &MarketContext, Option<&serde_json::Value>)],
     ) -> Result<()> {
+        if contexts.is_empty() {
+            return Ok(());
+        }
+
         // Pre-serialize all data before opening the transaction
         let serialized: Vec<(String, String, Vec<u8>, String)> = contexts
             .iter()
@@ -71,15 +79,10 @@ impl BulkStore for TursoStore {
         let tx = conn.transaction().await?;
 
         let sql = statements::upsert_market_context_sql_with_naming(Backend::Sqlite, self.naming());
-        for (market_id, as_of, payload, meta) in &serialized {
+        for (market_id, as_of, payload, meta) in serialized {
             tx.execute(
                 sql.as_ref(),
-                params![
-                    market_id.as_str(),
-                    as_of.as_str(),
-                    payload.clone(),
-                    meta.as_str()
-                ],
+                params![market_id.as_str(), as_of.as_str(), payload, meta.as_str()],
             )
             .await?;
         }
@@ -92,6 +95,10 @@ impl BulkStore for TursoStore {
         &self,
         portfolios: &[(&str, Date, &PortfolioSpec, Option<&serde_json::Value>)],
     ) -> Result<()> {
+        if portfolios.is_empty() {
+            return Ok(());
+        }
+
         // Pre-serialize all data before opening the transaction
         let serialized: Vec<(String, String, Vec<u8>, String)> = portfolios
             .iter()
@@ -107,13 +114,13 @@ impl BulkStore for TursoStore {
         let tx = conn.transaction().await?;
 
         let sql = statements::upsert_portfolio_sql_with_naming(Backend::Sqlite, self.naming());
-        for (portfolio_id, as_of, payload, meta) in &serialized {
+        for (portfolio_id, as_of, payload, meta) in serialized {
             tx.execute(
                 sql.as_ref(),
                 params![
                     portfolio_id.as_str(),
                     as_of.as_str(),
-                    payload.clone(),
+                    payload,
                     meta.as_str()
                 ],
             )

@@ -68,6 +68,24 @@ impl TimeSeriesStore for TursoStore {
     }
 
     async fn put_points_batch(&self, key: &SeriesKey, points: &[TimeSeriesPoint]) -> Result<()> {
+        if points.is_empty() {
+            return Ok(());
+        }
+
+        // Pre-serialize outside the transaction to fail fast and minimize transaction time.
+        let serialized: Vec<(String, Option<f64>, Option<String>, Option<String>)> = points
+            .iter()
+            .map(|point| {
+                let ts = ts_key(point.ts)?;
+                let payload = match &point.payload {
+                    Some(value) => Some(serde_json::to_string(value)?),
+                    None => None,
+                };
+                let meta = meta_json_str(point.meta.as_ref())?;
+                Ok((ts, point.value, payload, meta))
+            })
+            .collect::<Result<Vec<_>>>()?;
+
         let conn = self.get_conn()?;
         let tx = conn.transaction().await?;
 
@@ -76,16 +94,10 @@ impl TimeSeriesStore for TursoStore {
         let kind = key.kind.as_str();
         let series_id = key.series_id.as_str();
 
-        for point in points {
-            let ts = ts_key(point.ts)?;
-            let payload = match &point.payload {
-                Some(value) => Some(serde_json::to_string(value)?),
-                None => None,
-            };
-            let meta = meta_json_str(point.meta.as_ref())?;
+        for (ts, value, payload, meta) in serialized {
             tx.execute(
                 sql.as_ref(),
-                params![namespace, kind, series_id, ts, point.value, payload, meta],
+                params![namespace, kind, series_id, ts, value, payload, meta],
             )
             .await?;
         }

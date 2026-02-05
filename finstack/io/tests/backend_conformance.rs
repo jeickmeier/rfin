@@ -52,6 +52,8 @@ use finstack_io::{
 };
 use finstack_valuations::instruments::rates::deposit::Deposit;
 use finstack_valuations::instruments::InstrumentJson;
+#[cfg(feature = "postgres")]
+use indexmap::IndexMap;
 use time::macros::date;
 use time::OffsetDateTime;
 
@@ -158,4 +160,113 @@ async fn postgres_conformance() -> finstack_io::Result<()> {
     };
     let store = finstack_io::PostgresStore::connect(&url).await?;
     run_conformance(&store, "postgres").await
+}
+
+#[cfg(feature = "postgres")]
+#[tokio::test]
+async fn postgres_bulk_store_roundtrip() -> finstack_io::Result<()> {
+    let url = match std::env::var("POSTGRES_URL") {
+        Ok(value) => value,
+        Err(_) => {
+            eprintln!("POSTGRES_URL not set; skipping postgres_bulk_store_roundtrip");
+            return Ok(());
+        }
+    };
+
+    let store = finstack_io::PostgresStore::connect(&url).await?;
+    let as_of = date!(2024 - 01 - 01);
+    let prefix = format!("bulk_{}", OffsetDateTime::now_utc().unix_timestamp_nanos());
+
+    // ---------------------------------------------------------------------
+    // Instruments: large batch to cross chunk boundary
+    // ---------------------------------------------------------------------
+    let count = 2_001; // > CHUNK_SIZE (2_000)
+    let mut ids = Vec::with_capacity(count);
+    let mut instruments = Vec::with_capacity(count);
+    for i in 0..count {
+        let id = format!("{prefix}_DEP_{i}");
+        let deposit = Deposit::builder()
+            .id(id.clone().into())
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .start(as_of)
+            .end(date!(2024 - 02 - 01))
+            .day_count(DayCount::Act360)
+            .discount_curve_id("USD-OIS".into())
+            .build()?;
+        ids.push(id);
+        instruments.push(InstrumentJson::Deposit(deposit));
+    }
+
+    let instrument_batch: Vec<(&str, &InstrumentJson, Option<&serde_json::Value>)> = ids
+        .iter()
+        .zip(instruments.iter())
+        .map(|(id, instr)| (id.as_str(), instr, None))
+        .collect();
+    store.put_instruments_batch(&instrument_batch).await?;
+
+    let loaded_first = store
+        .get_instrument(&ids[0])
+        .await?
+        .ok_or_else(|| finstack_io::Error::not_found("instrument", &ids[0]))?;
+    assert!(matches!(loaded_first, InstrumentJson::Deposit(_)));
+
+    let loaded_last = store
+        .get_instrument(&ids[count - 1])
+        .await?
+        .ok_or_else(|| finstack_io::Error::not_found("instrument", &ids[count - 1]))?;
+    assert!(matches!(loaded_last, InstrumentJson::Deposit(_)));
+
+    // ---------------------------------------------------------------------
+    // Market contexts: small batch
+    // ---------------------------------------------------------------------
+    let curve = DiscountCurve::builder("USD-OIS")
+        .base_date(as_of)
+        .knots(vec![(0.0, 1.0), (1.0, 0.98)])
+        .set_interp(InterpStyle::Linear)
+        .build()?;
+    let ctx = MarketContext::new().insert_discount(curve);
+
+    let market_id = format!("{prefix}_MARKET");
+    let d1 = date!(2024 - 01 - 01);
+    let d2 = date!(2024 - 01 - 02);
+    store
+        .put_market_contexts_batch(&[(&market_id, d1, &ctx, None), (&market_id, d2, &ctx, None)])
+        .await?;
+
+    let loaded = store
+        .get_market_context(&market_id, d2)
+        .await?
+        .ok_or_else(|| finstack_io::Error::not_found("market_context", &market_id))?;
+    let disc = loaded.get_discount("USD-OIS")?;
+    assert_eq!(disc.id().as_str(), "USD-OIS");
+
+    // ---------------------------------------------------------------------
+    // Portfolios: small batch
+    // ---------------------------------------------------------------------
+    let portfolio_id = format!("{prefix}_PORT");
+    let spec = finstack_portfolio::PortfolioSpec {
+        id: portfolio_id.clone(),
+        name: None,
+        base_ccy: Currency::USD,
+        as_of: d1,
+        positions: vec![],
+        entities: IndexMap::new(),
+        books: IndexMap::new(),
+        tags: IndexMap::new(),
+        meta: IndexMap::new(),
+    };
+
+    store
+        .put_portfolios_batch(&[
+            (&portfolio_id, d1, &spec, None),
+            (&portfolio_id, d2, &spec, None),
+        ])
+        .await?;
+    let loaded = store
+        .get_portfolio_spec(&portfolio_id, d2)
+        .await?
+        .ok_or_else(|| finstack_io::Error::not_found("portfolio", &portfolio_id))?;
+    assert_eq!(loaded.id, portfolio_id);
+
+    Ok(())
 }

@@ -5,7 +5,7 @@ use crate::{
     sql::{migrations, Backend},
     Error, Result,
 };
-use libsql::{Builder, Connection, Database};
+use libsql::{Builder, Connection};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -24,7 +24,7 @@ pub(crate) const SCHEMA_VERSION: i64 = migrations::LATEST_VERSION;
 #[derive(Clone)]
 pub struct TursoStore {
     pub(crate) path: PathBuf,
-    pub(crate) db: Arc<Database>,
+    pub(crate) conn: Arc<Connection>,
     pub(crate) naming: Arc<TableNaming>,
 }
 
@@ -52,10 +52,11 @@ impl TursoStore {
         // Build the Turso database
         let path_str = path.to_string_lossy().into_owned();
         let db = Builder::new_local(&path_str).build().await?;
+        let conn = db.connect().map_err(Error::Turso)?;
 
         let store = Self {
             path,
-            db: Arc::new(db),
+            conn: Arc::new(conn),
             naming: Arc::new(naming),
         };
 
@@ -73,10 +74,11 @@ impl TursoStore {
     /// Open an in-memory Turso database (useful for testing) with custom table naming.
     pub async fn open_in_memory_with_naming(naming: TableNaming) -> Result<Self> {
         let db = Builder::new_local(":memory:").build().await?;
+        let conn = db.connect().map_err(Error::Turso)?;
 
         let store = Self {
             path: PathBuf::from(":memory:"),
-            db: Arc::new(db),
+            conn: Arc::new(conn),
             naming: Arc::new(naming),
         };
 
@@ -97,8 +99,8 @@ impl TursoStore {
     }
 
     /// Get a connection from the database.
-    pub(crate) fn get_conn(&self) -> Result<Connection> {
-        self.db.connect().map_err(Error::Turso)
+    pub(crate) fn get_conn(&self) -> Result<Arc<Connection>> {
+        Ok(Arc::clone(&self.conn))
     }
 
     /// Run schema migrations.

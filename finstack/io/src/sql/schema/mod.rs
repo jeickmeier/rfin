@@ -588,10 +588,9 @@ mod tests {
         let indexes = indexes_by_version(Backend::Sqlite);
         assert_eq!(indexes.len(), 3); // v1, v2, v3
 
-        // v1 has indexes for instruments, portfolios, market_contexts
-        // (instruments: created_at, portfolios: as_of, market_contexts: as_of)
+        // v1 has indexes for instruments (created_at)
         assert_eq!(indexes[0].0, 1);
-        assert_eq!(indexes[0].1.len(), 3);
+        assert_eq!(indexes[0].1.len(), 1);
 
         // v2 has no indexes (metric_registries)
         assert_eq!(indexes[1].0, 2);

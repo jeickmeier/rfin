@@ -232,15 +232,14 @@ pub trait Store: Send + Sync {
         let mut spec = self.load_portfolio_spec(portfolio_id, as_of).await?;
 
         // Collect unique instrument IDs that need resolution, preserving first-seen order.
-        let mut seen = std::collections::HashSet::<String>::new();
+        let mut seen = std::collections::HashSet::<&str>::new();
         let mut missing_ids = Vec::new();
         for pos in &spec.positions {
             if pos.instrument_spec.is_some() {
                 continue;
             }
-            let id = pos.instrument_id.clone();
-            if seen.insert(id.clone()) {
-                missing_ids.push(id);
+            if seen.insert(pos.instrument_id.as_str()) {
+                missing_ids.push(pos.instrument_id.clone());
             }
         }
 

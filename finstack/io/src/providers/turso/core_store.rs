@@ -103,9 +103,10 @@ impl Store for TursoStore {
 
         let mut result = HashMap::with_capacity(instrument_ids.len());
 
+        let conn = self.get_conn()?;
+
         // Chunk large batches to avoid query plan cache pollution and excessive IN clause sizes
         for chunk in instrument_ids.chunks(MAX_BATCH_SIZE) {
-            let conn = self.get_conn()?;
             let sql = statements::select_instruments_batch_sql_with_naming(
                 Backend::Sqlite,
                 self.naming(),

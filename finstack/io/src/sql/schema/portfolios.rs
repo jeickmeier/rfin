@@ -1,6 +1,6 @@
 //! Portfolios table definition.
 
-use sea_query::{ColumnDef, Iden, Index, IndexCreateStatement, Table, TableCreateStatement};
+use sea_query::{ColumnDef, Iden, Index, Table, TableCreateStatement};
 
 use super::{
     as_of_col, created_at_col, meta_col, payload_col, updated_at_col, TableDefinition, TableNaming,
@@ -40,13 +40,9 @@ impl TableDefinition for Portfolios {
             .to_owned()
     }
 
-    fn indexes_with_naming(_backend: Backend, naming: &TableNaming) -> Vec<IndexCreateStatement> {
-        let idx_name = format!("idx_{}portfolios{}_as_of", naming.prefix(), naming.suffix());
-        vec![Index::create()
-            .if_not_exists()
-            .name(&idx_name)
-            .table(naming.alias(Self::BASE_NAME))
-            .col(Portfolios::AsOf)
-            .to_owned()]
-    }
+    // No additional indexes by default:
+    // the primary key (id, as_of) supports the common access patterns:
+    // - exact snapshot lookup (id, as_of)
+    // - latest on/before (id with ordered as_of)
+    // - range scans (id with as_of BETWEEN)
 }
