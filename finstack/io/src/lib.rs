@@ -24,12 +24,14 @@ pub(crate) mod helpers;
 pub(crate) mod sql;
 pub mod store;
 
+pub mod providers;
+
 #[cfg(feature = "postgres")]
-pub mod postgres;
+pub use providers::postgres;
 #[cfg(feature = "sqlite")]
-pub mod sqlite;
+pub use providers::sqlite;
 #[cfg(feature = "turso")]
-pub mod turso;
+pub use providers::turso;
 
 pub use config::{open_store_from_env, FinstackIoConfig, IoBackend, StoreHandle};
 pub use error::{Error, Result};
