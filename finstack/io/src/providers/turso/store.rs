@@ -13,14 +13,22 @@ pub(crate) const SCHEMA_VERSION: i64 = migrations::LATEST_VERSION;
 
 /// A Turso-backed store using async operations.
 ///
-/// This store uses libsql, an in-process SQL database engine compatible with SQLite.
-/// It provides native async operations without needing a blocking runtime wrapper.
+/// This store uses [libsql](https://docs.turso.tech/libsql), an in-process SQL
+/// database engine compatible with SQLite. It provides native async operations
+/// without needing a blocking runtime wrapper (unlike `tokio-rusqlite`).
 ///
-/// Turso offers several advantages over standard SQLite:
-/// - Native JSON support with built-in JSON functions
-/// - Optional encryption at rest
-/// - Modern async I/O (io_uring on Linux)
-/// - Vector search capabilities
+/// # Advantages over SQLite
+///
+/// - **Native async I/O** — uses `io_uring` on Linux for efficient async reads/writes.
+/// - **Native JSON support** — built-in JSON functions.
+/// - **Optional encryption at rest** — (not yet exposed in this wrapper).
+/// - **SQLite-compatible file format** — can read/write standard `.db` files,
+///   so you can migrate between SQLite and Turso seamlessly.
+///
+/// # Cloneability
+///
+/// `TursoStore` implements `Clone` cheaply (via `Arc`). The underlying
+/// connection is shared, not duplicated.
 #[derive(Clone)]
 pub struct TursoStore {
     pub(crate) path: PathBuf,
@@ -38,6 +46,25 @@ impl std::fmt::Debug for TursoStore {
 
 impl TursoStore {
     /// Open (or create) a Turso database at `path`, applying migrations.
+    ///
+    /// Parent directories are created automatically if they do not exist.
+    /// Schema migrations run on first connect and are idempotent.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database file cannot be opened, parent
+    /// directories cannot be created, or migrations fail.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use finstack_io::TursoStore;
+    /// # async fn example() -> finstack_io::Result<()> {
+    /// let store = TursoStore::open("data/finstack.db").await?;
+    /// // Store is ready — migrations ran automatically
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn open(path: impl Into<PathBuf>) -> Result<Self> {
         Self::open_with_naming(path, TableNaming::default()).await
     }
@@ -67,6 +94,18 @@ impl TursoStore {
     }
 
     /// Open an in-memory Turso database (useful for testing).
+    ///
+    /// The database exists only for the lifetime of the returned handle.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use finstack_io::TursoStore;
+    /// # async fn example() -> finstack_io::Result<()> {
+    /// let store = TursoStore::open_in_memory().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn open_in_memory() -> Result<Self> {
         Self::open_in_memory_with_naming(TableNaming::default()).await
     }

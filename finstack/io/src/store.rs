@@ -1,9 +1,42 @@
 //! Backend-agnostic async persistence API.
 //!
-//! `finstack-io` provides a small, typed repository interface via [`Store`].
-//! Storage backends (SQLite, Postgres, Turso, etc.) implement this trait.
+//! This module defines the core persistence traits that all backends implement.
+//! The trait hierarchy is:
 //!
-//! All operations are async to support efficient I/O across different backends.
+//! - [`Store`] — Basic CRUD for instruments, portfolios, market contexts,
+//!   scenarios, statement models, and metric registries.
+//! - [`BulkStore`] — Batch insert operations that execute within a single
+//!   transaction for atomicity and performance.
+//! - [`LookbackStore`] — Range queries over time-indexed snapshots (market
+//!   contexts and portfolios keyed by `as_of` date).
+//! - [`TimeSeriesStore`] — Storage and retrieval of time-series data points
+//!   (quotes, metrics, results, PnL, risk).
+//!
+//! All built-in backends (`SqliteStore`, `PostgresStore`, `TursoStore`) implement
+//! all four traits. The [`StoreHandle`](crate::StoreHandle) enum dispatches to
+//! whichever backend was selected at runtime.
+//!
+//! # Example
+//!
+//! ```rust,no_run
+//! use finstack_io::{SqliteStore, Store};
+//!
+//! # async fn example() -> finstack_io::Result<()> {
+//! let store = SqliteStore::open("finstack.db").await?;
+//!
+//! // Store an instrument definition
+//! # let instrument = todo!();
+//! store.put_instrument("DEPO-001", &instrument, None).await?;
+//!
+//! // Retrieve it (returns None if not found)
+//! let loaded = store.get_instrument("DEPO-001").await?;
+//! assert!(loaded.is_some());
+//!
+//! // List all stored instrument IDs
+//! let ids = store.list_instruments().await?;
+//! # Ok(())
+//! # }
+//! ```
 
 use crate::governance::{
     ActorKind, ResourceChange, ResourceChangeInsert, ResourceEntity, ResourceShare, UserRole,
@@ -70,6 +103,23 @@ pub const MAX_BATCH_SIZE: usize = 500;
 #[async_trait]
 pub trait Store: Send + Sync {
     /// Store a market context snapshot for a given `as_of` date.
+    ///
+    /// This is an **upsert** operation — if a snapshot for the same
+    /// `(market_id, as_of)` already exists, it is replaced.
+    ///
+    /// # Arguments
+    ///
+    /// * `market_id` - Logical identifier for the market dataset (e.g., `"USD-CURVES"`).
+    /// * `as_of` - Observation date for the snapshot.
+    /// * `context` - The market data to store (curves, surfaces, FX rates, etc.).
+    /// * `meta` - Optional provenance metadata (source, version, tags).
+    ///   Stored alongside the payload for auditing but **not** returned by
+    ///   [`get_market_context`](Store::get_market_context).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if serialization fails or the backend encounters a
+    /// connection / write error.
     async fn put_market_context(
         &self,
         market_id: &str,
@@ -80,7 +130,17 @@ pub trait Store: Send + Sync {
 
     /// Load a market context snapshot for a given `as_of` date.
     ///
-    /// Note: The `meta` field is stored for auditing purposes but not returned by this method.
+    /// Returns `None` if no snapshot exists for the exact `(market_id, as_of)` pair.
+    /// Use [`load_market_context`](Store::load_market_context) if you want a
+    /// `NotFound` error instead of `None`.
+    ///
+    /// Note: The `meta` field is stored for auditing purposes but not returned
+    /// by this method.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if deserialization fails or the backend encounters a
+    /// connection / read error.
     async fn get_market_context(
         &self,
         market_id: &str,
@@ -88,6 +148,38 @@ pub trait Store: Send + Sync {
     ) -> Result<Option<MarketContext>>;
 
     /// Store an instrument definition.
+    ///
+    /// This is an **upsert** — if an instrument with the same `instrument_id`
+    /// already exists, it is replaced.
+    ///
+    /// # Arguments
+    ///
+    /// * `instrument_id` - Unique identifier (e.g., `"DEPO-001"`, `"SWAP-USD-5Y"`).
+    /// * `instrument` - The instrument definition to store.
+    /// * `meta` - Optional provenance metadata. Stored for auditing but **not**
+    ///   returned by [`get_instrument`](Store::get_instrument).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if serialization fails or the backend encounters a write error.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use finstack_io::{SqliteStore, Store};
+    /// # async fn example() -> finstack_io::Result<()> {
+    /// let store = SqliteStore::open("finstack.db").await?;
+    /// # let instrument = todo!();
+    ///
+    /// // Store without metadata
+    /// store.put_instrument("DEPO-001", &instrument, None).await?;
+    ///
+    /// // Store with provenance metadata
+    /// let meta = serde_json::json!({ "source": "bloomberg", "version": 2 });
+    /// store.put_instrument("DEPO-001", &instrument, Some(&meta)).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     async fn put_instrument(
         &self,
         instrument_id: &str,
@@ -95,30 +187,78 @@ pub trait Store: Send + Sync {
         meta: Option<&serde_json::Value>,
     ) -> Result<()>;
 
-    /// Load an instrument definition.
+    /// Load an instrument definition by ID.
     ///
-    /// Note: The `meta` field is stored for auditing purposes but not returned by this method.
+    /// Returns `None` if no instrument with the given ID exists.
+    ///
+    /// Note: The `meta` field is stored for auditing purposes but not returned
+    /// by this method.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if deserialization fails or the backend encounters a read error.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use finstack_io::{SqliteStore, Store};
+    /// # async fn example() -> finstack_io::Result<()> {
+    /// let store = SqliteStore::open("finstack.db").await?;
+    ///
+    /// match store.get_instrument("DEPO-001").await? {
+    ///     Some(instrument) => println!("Found instrument"),
+    ///     None => println!("Instrument not found"),
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
     async fn get_instrument(&self, instrument_id: &str) -> Result<Option<InstrumentJson>>;
 
-    /// Load multiple instruments by ID.
+    /// Load multiple instruments by ID in a single query.
     ///
-    /// Returns a map of instrument_id -> InstrumentJson for all found instruments.
-    /// Missing instruments are silently omitted from the result (no error).
+    /// Returns a map of `instrument_id -> InstrumentJson` for all found instruments.
+    /// Missing instruments are silently omitted from the result (no error is
+    /// raised for IDs that don't exist).
     ///
     /// # Batching
     ///
     /// Large requests are automatically chunked into batches of [`MAX_BATCH_SIZE`]
     /// to avoid query plan cache pollution and excessive query complexity. Results
     /// are merged from all chunks.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if deserialization fails or the backend encounters a read error.
     async fn get_instruments_batch(
         &self,
         instrument_ids: &[String],
     ) -> Result<HashMap<String, InstrumentJson>>;
 
     /// List all stored instrument IDs.
+    ///
+    /// Returns an empty vector if no instruments have been stored.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the backend encounters a read error.
     async fn list_instruments(&self) -> Result<Vec<String>>;
 
     /// Store a portfolio snapshot for a given `as_of` date.
+    ///
+    /// This is an **upsert** — if a snapshot for the same `(portfolio_id, as_of)`
+    /// already exists, it is replaced.
+    ///
+    /// # Arguments
+    ///
+    /// * `portfolio_id` - Logical identifier for the portfolio (e.g., `"equity-book"`).
+    /// * `as_of` - Observation date for the snapshot.
+    /// * `spec` - The portfolio specification to store.
+    /// * `meta` - Optional provenance metadata. Stored for auditing but **not**
+    ///   returned by [`get_portfolio_spec`](Store::get_portfolio_spec).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if serialization fails or the backend encounters a write error.
     async fn put_portfolio_spec(
         &self,
         portfolio_id: &str,
@@ -129,7 +269,16 @@ pub trait Store: Send + Sync {
 
     /// Load a portfolio snapshot for a given `as_of` date.
     ///
-    /// Note: The `meta` field is stored for auditing purposes but not returned by this method.
+    /// Returns `None` if no snapshot exists for the exact `(portfolio_id, as_of)`.
+    /// Use [`load_portfolio_spec`](Store::load_portfolio_spec) if you want a
+    /// `NotFound` error instead.
+    ///
+    /// Note: The `meta` field is stored for auditing purposes but not returned
+    /// by this method.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if deserialization fails or the backend encounters a read error.
     async fn get_portfolio_spec(
         &self,
         portfolio_id: &str,
@@ -137,6 +286,13 @@ pub trait Store: Send + Sync {
     ) -> Result<Option<PortfolioSpec>>;
 
     /// Store a scenario specification.
+    ///
+    /// This is an **upsert** — if a scenario with the same `scenario_id`
+    /// already exists, it is replaced.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if serialization fails or the backend encounters a write error.
     async fn put_scenario(
         &self,
         scenario_id: &str,
@@ -146,13 +302,31 @@ pub trait Store: Send + Sync {
 
     /// Load a scenario specification.
     ///
-    /// Note: The `meta` field is stored for auditing purposes but not returned by this method.
+    /// Returns `None` if no scenario with the given ID exists.
+    ///
+    /// Note: The `meta` field is stored for auditing purposes but not returned
+    /// by this method.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if deserialization fails or the backend encounters a read error.
     async fn get_scenario(&self, scenario_id: &str) -> Result<Option<ScenarioSpec>>;
 
     /// List all stored scenario IDs.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the backend encounters a read error.
     async fn list_scenarios(&self) -> Result<Vec<String>>;
 
-    /// Store a statements model specification.
+    /// Store a financial statement model specification.
+    ///
+    /// This is an **upsert** — if a model with the same `model_id` already
+    /// exists, it is replaced.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if serialization fails or the backend encounters a write error.
     async fn put_statement_model(
         &self,
         model_id: &str,
@@ -160,19 +334,37 @@ pub trait Store: Send + Sync {
         meta: Option<&serde_json::Value>,
     ) -> Result<()>;
 
-    /// Load a statements model specification.
+    /// Load a financial statement model specification.
     ///
-    /// Note: The `meta` field is stored for auditing purposes but not returned by this method.
+    /// Returns `None` if no model with the given ID exists.
+    ///
+    /// Note: The `meta` field is stored for auditing purposes but not returned
+    /// by this method.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if deserialization fails or the backend encounters a read error.
     async fn get_statement_model(&self, model_id: &str) -> Result<Option<FinancialModelSpec>>;
 
     /// List all stored statement model IDs.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the backend encounters a read error.
     async fn list_statement_models(&self) -> Result<Vec<String>>;
 
     /// Store a metric registry by namespace.
     ///
     /// Metric registries define reusable financial metrics (ratios, KPIs) that can be
-    /// shared across multiple statement models. The namespace (e.g., "fin", "custom")
+    /// shared across multiple statement models. The namespace (e.g., `"fin"`, `"custom"`)
     /// serves as the primary key.
+    ///
+    /// This is an **upsert** — if a registry with the same namespace already exists,
+    /// it is replaced.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if serialization fails or the backend encounters a write error.
     async fn put_metric_registry(
         &self,
         namespace: &str,
@@ -182,18 +374,44 @@ pub trait Store: Send + Sync {
 
     /// Load a metric registry by namespace.
     ///
-    /// Note: The `meta` field is stored for auditing purposes but not returned by this method.
+    /// Returns `None` if no registry with the given namespace exists.
+    /// Use [`load_metric_registry`](Store::load_metric_registry) if you want a
+    /// `NotFound` error instead.
+    ///
+    /// Note: The `meta` field is stored for auditing purposes but not returned
+    /// by this method.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if deserialization fails or the backend encounters a read error.
     async fn get_metric_registry(&self, namespace: &str) -> Result<Option<MetricRegistry>>;
 
     /// List all stored metric registry namespaces.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the backend encounters a read error.
     async fn list_metric_registries(&self) -> Result<Vec<String>>;
 
     /// Delete a metric registry by namespace.
     ///
-    /// Returns `true` if a registry was deleted, `false` if no registry existed.
+    /// Returns `true` if a registry was deleted, `false` if no registry existed
+    /// for the given namespace.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the backend encounters a write error.
     async fn delete_metric_registry(&self, namespace: &str) -> Result<bool>;
 
     /// Load a market context snapshot, returning a not-found error if missing.
+    ///
+    /// This is a convenience wrapper around [`get_market_context`](Store::get_market_context)
+    /// that converts `None` into [`Error::NotFound`](crate::Error::NotFound).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::NotFound`](crate::Error::NotFound) if no snapshot exists
+    /// for the given `(market_id, as_of)`. Also propagates backend errors.
     async fn load_market_context(&self, market_id: &str, as_of: Date) -> Result<MarketContext> {
         self.get_market_context(market_id, as_of)
             .await?
@@ -201,6 +419,14 @@ pub trait Store: Send + Sync {
     }
 
     /// Load a portfolio spec snapshot, returning a not-found error if missing.
+    ///
+    /// This is a convenience wrapper around [`get_portfolio_spec`](Store::get_portfolio_spec)
+    /// that converts `None` into [`Error::NotFound`](crate::Error::NotFound).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::NotFound`](crate::Error::NotFound) if no snapshot exists
+    /// for the given `(portfolio_id, as_of)`. Also propagates backend errors.
     async fn load_portfolio_spec(&self, portfolio_id: &str, as_of: Date) -> Result<PortfolioSpec> {
         self.get_portfolio_spec(portfolio_id, as_of)
             .await?
@@ -208,6 +434,14 @@ pub trait Store: Send + Sync {
     }
 
     /// Load a metric registry, returning a not-found error if missing.
+    ///
+    /// This is a convenience wrapper around [`get_metric_registry`](Store::get_metric_registry)
+    /// that converts `None` into [`Error::NotFound`](crate::Error::NotFound).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::NotFound`](crate::Error::NotFound) if no registry exists
+    /// for the given namespace. Also propagates backend errors.
     async fn load_metric_registry(&self, namespace: &str) -> Result<MetricRegistry> {
         self.get_metric_registry(namespace)
             .await?
@@ -216,9 +450,16 @@ pub trait Store: Send + Sync {
 
     /// Load and hydrate a portfolio for valuation/aggregation.
     ///
-    /// Hydration rule:
-    /// - If a position's `instrument_spec` is `None`, resolve it from the
-    ///   instruments registry using `instrument_id`.
+    /// This loads the portfolio spec and then resolves any positions whose
+    /// `instrument_spec` is `None` by batch-fetching the corresponding
+    /// instruments from the store. The result is a fully hydrated
+    /// [`Portfolio`] ready for valuation.
+    ///
+    /// # Hydration Rule
+    ///
+    /// For each position where `instrument_spec` is `None`, the instrument
+    /// is resolved from the instruments registry using `instrument_id`.
+    /// Positions that already have an inline `instrument_spec` are left as-is.
     ///
     /// # Transaction Isolation Warning
     ///
@@ -232,6 +473,27 @@ pub trait Store: Send + Sync {
     /// - Using portfolio specs with inline `instrument_spec` to avoid the lookup
     /// - Implementing application-level locking around portfolio operations
     /// - Using bulk write operations (`put_instruments_batch`) which are transactional
+    ///
+    /// # Errors
+    ///
+    /// - [`Error::NotFound`](crate::Error::NotFound) if the portfolio spec or any
+    ///   referenced instrument does not exist.
+    /// - Backend or deserialization errors from the underlying reads.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use finstack_io::{SqliteStore, Store};
+    /// # use time::macros::date;
+    /// # async fn example() -> finstack_io::Result<()> {
+    /// let store = SqliteStore::open("finstack.db").await?;
+    ///
+    /// // Load and hydrate a portfolio (instruments are resolved automatically)
+    /// let portfolio = store.load_portfolio("equity-book", date!(2025-01-15)).await?;
+    /// println!("Positions: {}", portfolio.positions.len());
+    /// # Ok(())
+    /// # }
+    /// ```
     async fn load_portfolio(&self, portfolio_id: &str, as_of: Date) -> Result<Portfolio> {
         let mut spec = self.load_portfolio_spec(portfolio_id, as_of).await?;
 
@@ -267,6 +529,32 @@ pub trait Store: Send + Sync {
     }
 
     /// Convenience helper: load a portfolio and matching market context for the same `as_of`.
+    ///
+    /// This is equivalent to calling [`load_portfolio`](Store::load_portfolio) and
+    /// [`load_market_context`](Store::load_market_context) in sequence. Both must
+    /// exist or a `NotFound` error is returned.
+    ///
+    /// # Errors
+    ///
+    /// - [`Error::NotFound`](crate::Error::NotFound) if either the portfolio or
+    ///   the market context does not exist.
+    /// - Backend or deserialization errors from the underlying reads.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use finstack_io::{SqliteStore, Store};
+    /// # use time::macros::date;
+    /// # async fn example() -> finstack_io::Result<()> {
+    /// let store = SqliteStore::open("finstack.db").await?;
+    /// let as_of = date!(2025-01-15);
+    ///
+    /// let (portfolio, market) = store
+    ///     .load_portfolio_with_market("equity-book", "USD-CURVES", as_of)
+    ///     .await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     async fn load_portfolio_with_market(
         &self,
         portfolio_id: &str,
@@ -415,14 +703,40 @@ pub(crate) trait GovernanceStore: Send + Sync {
 
 /// Extension trait for bulk operations.
 ///
-/// Bulk methods execute within a single transaction for atomicity and better performance
-/// when inserting many records.
+/// Bulk methods execute within a **single transaction** for atomicity and better
+/// performance when inserting many records. If any item in the batch fails, the
+/// entire batch is rolled back (all-or-nothing).
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_io::{SqliteStore, BulkStore};
+///
+/// # async fn example(
+/// #     store: SqliteStore,
+/// #     instr_a: finstack_valuations::instruments::InstrumentJson,
+/// #     instr_b: finstack_valuations::instruments::InstrumentJson,
+/// # ) -> finstack_io::Result<()> {
+/// // Insert multiple instruments atomically
+/// store.put_instruments_batch(&[
+///     ("DEPO-001", &instr_a, None),
+///     ("DEPO-002", &instr_b, None),
+/// ]).await?;
+/// # Ok(())
+/// # }
+/// ```
 #[async_trait]
 pub trait BulkStore: Store {
     /// Store multiple instruments in a single transaction.
     ///
-    /// This is more efficient than calling `put_instrument` repeatedly and provides
-    /// atomicity (all-or-nothing).
+    /// Each tuple is `(instrument_id, instrument, optional_meta)`.
+    /// This is more efficient than calling [`put_instrument`](Store::put_instrument)
+    /// repeatedly and provides atomicity (all-or-nothing).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if serialization of any item fails or the backend
+    /// encounters a write error. On error, no items are committed.
     async fn put_instruments_batch(
         &self,
         instruments: &[(&str, &InstrumentJson, Option<&serde_json::Value>)],
@@ -430,14 +744,27 @@ pub trait BulkStore: Store {
 
     /// Store multiple market contexts in a single transaction.
     ///
-    /// This is more efficient than calling `put_market_context` repeatedly and provides
-    /// atomicity (all-or-nothing).
+    /// Each tuple is `(market_id, as_of, context, optional_meta)`.
+    /// This is more efficient than calling [`put_market_context`](Store::put_market_context)
+    /// repeatedly and provides atomicity (all-or-nothing).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if serialization of any item fails or the backend
+    /// encounters a write error. On error, no items are committed.
     async fn put_market_contexts_batch(
         &self,
         contexts: &[(&str, Date, &MarketContext, Option<&serde_json::Value>)],
     ) -> Result<()>;
 
     /// Store multiple portfolio specs in a single transaction.
+    ///
+    /// Each tuple is `(portfolio_id, as_of, spec, optional_meta)`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if serialization of any item fails or the backend
+    /// encounters a write error. On error, no items are committed.
     async fn put_portfolios_batch(
         &self,
         portfolios: &[(&str, Date, &PortfolioSpec, Option<&serde_json::Value>)],
@@ -471,10 +798,41 @@ pub struct PortfolioSnapshot {
     pub spec: PortfolioSpec,
 }
 
-/// Optional extension trait for backends that support range queries / lookbacks.
+/// Extension trait for backends that support range queries over time-indexed snapshots.
+///
+/// Use these methods to query historical market data and portfolio snapshots
+/// within a date range or to find the latest snapshot on or before a given date.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// # use finstack_io::{SqliteStore, LookbackStore};
+/// # use time::macros::date;
+/// # async fn example() -> finstack_io::Result<()> {
+/// let store = SqliteStore::open("finstack.db").await?;
+///
+/// // Get all market snapshots for Q1 2025
+/// let snapshots = store
+///     .list_market_contexts("USD-CURVES", date!(2025-01-01), date!(2025-03-31))
+///     .await?;
+///
+/// // Get the latest snapshot on or before a date
+/// let latest = store
+///     .latest_market_context_on_or_before("USD-CURVES", date!(2025-02-15))
+///     .await?;
+/// # Ok(())
+/// # }
+/// ```
 #[async_trait]
 pub trait LookbackStore: Send + Sync {
-    /// List market contexts for a given id in `[start, end]`, ordered by `as_of`.
+    /// List market contexts for a given id in the date range `[start, end]`,
+    /// ordered by `as_of` ascending.
+    ///
+    /// Returns an empty vector if no snapshots exist in the range.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the backend encounters a read error.
     async fn list_market_contexts(
         &self,
         market_id: &str,
@@ -483,13 +841,26 @@ pub trait LookbackStore: Send + Sync {
     ) -> Result<Vec<MarketContextSnapshot>>;
 
     /// Get the latest market context with `as_of <= as_of`, if any.
+    ///
+    /// Returns `None` if no snapshot exists on or before the given date.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the backend encounters a read error.
     async fn latest_market_context_on_or_before(
         &self,
         market_id: &str,
         as_of: Date,
     ) -> Result<Option<MarketContextSnapshot>>;
 
-    /// List portfolio specs for a given id in `[start, end]`, ordered by `as_of`.
+    /// List portfolio specs for a given id in the date range `[start, end]`,
+    /// ordered by `as_of` ascending.
+    ///
+    /// Returns an empty vector if no snapshots exist in the range.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the backend encounters a read error.
     async fn list_portfolios(
         &self,
         portfolio_id: &str,
@@ -498,6 +869,12 @@ pub trait LookbackStore: Send + Sync {
     ) -> Result<Vec<PortfolioSnapshot>>;
 
     /// Get the latest portfolio with `as_of <= as_of`, if any.
+    ///
+    /// Returns `None` if no snapshot exists on or before the given date.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the backend encounters a read error.
     async fn latest_portfolio_on_or_before(
         &self,
         portfolio_id: &str,
@@ -569,6 +946,17 @@ pub struct SeriesKey {
 
 impl SeriesKey {
     /// Create a new series key.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use finstack_io::{SeriesKey, SeriesKind};
+    ///
+    /// let key = SeriesKey::new("market", "AAPL", SeriesKind::Quote);
+    /// assert_eq!(key.namespace, "market");
+    /// assert_eq!(key.series_id, "AAPL");
+    /// assert_eq!(key.kind, SeriesKind::Quote);
+    /// ```
     #[must_use]
     pub fn new(
         namespace: impl Into<String>,
@@ -597,9 +985,46 @@ pub struct TimeSeriesPoint {
 }
 
 /// Typed async persistence interface for time-series data.
+///
+/// Time-series are identified by a [`SeriesKey`] (namespace + series_id + kind).
+/// Each point has a timestamp, an optional numeric value for quick aggregation,
+/// and an optional structured JSON payload.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// # use finstack_io::{SqliteStore, TimeSeriesStore, SeriesKey, SeriesKind, TimeSeriesPoint};
+/// # use time::OffsetDateTime;
+/// # async fn example() -> finstack_io::Result<()> {
+/// let store = SqliteStore::open("finstack.db").await?;
+/// let key = SeriesKey::new("market", "AAPL", SeriesKind::Quote);
+///
+/// // Store a batch of points
+/// let now = OffsetDateTime::now_utc();
+/// store.put_points_batch(&key, &[
+///     TimeSeriesPoint { ts: now, value: Some(150.25), payload: None, meta: None },
+/// ]).await?;
+///
+/// // Query a range
+/// let points = store.get_points_range(
+///     &key,
+///     now - time::Duration::hours(1),
+///     now,
+///     Some(100),
+/// ).await?;
+/// # Ok(())
+/// # }
+/// ```
 #[async_trait]
 pub trait TimeSeriesStore: Send + Sync {
-    /// Store metadata for a time-series key.
+    /// Store or update metadata for a time-series key.
+    ///
+    /// This creates the series entry if it does not exist, or updates its
+    /// metadata if it does (upsert).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the backend encounters a write error.
     async fn put_series_meta(
         &self,
         key: &SeriesKey,
@@ -607,15 +1032,46 @@ pub trait TimeSeriesStore: Send + Sync {
     ) -> Result<()>;
 
     /// Load metadata for a time-series key.
+    ///
+    /// Returns `None` if the series does not exist.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the backend encounters a read error.
     async fn get_series_meta(&self, key: &SeriesKey) -> Result<Option<serde_json::Value>>;
 
-    /// List series ids for a namespace and kind.
+    /// List series IDs for a namespace and kind.
+    ///
+    /// Returns an empty vector if no series exist for the given criteria.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the backend encounters a read error.
     async fn list_series(&self, namespace: &str, kind: SeriesKind) -> Result<Vec<String>>;
 
     /// Store multiple points in a single transaction.
+    ///
+    /// Points are upserted — if a point with the same timestamp already
+    /// exists for the series, it is replaced.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if serialization of any point fails or the backend
+    /// encounters a write error. On error, no points are committed.
     async fn put_points_batch(&self, key: &SeriesKey, points: &[TimeSeriesPoint]) -> Result<()>;
 
-    /// Load points in a time range, ordered by timestamp.
+    /// Load points in the time range `[start, end]`, ordered by timestamp ascending.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - The series to query.
+    /// * `start` - Inclusive start of the time range.
+    /// * `end` - Inclusive end of the time range.
+    /// * `limit` - Optional maximum number of points to return.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the backend encounters a read error.
     async fn get_points_range(
         &self,
         key: &SeriesKey,
@@ -624,7 +1080,13 @@ pub trait TimeSeriesStore: Send + Sync {
         limit: Option<usize>,
     ) -> Result<Vec<TimeSeriesPoint>>;
 
-    /// Get the latest point on or before a given timestamp.
+    /// Get the latest point with `ts <= ts`, if any.
+    ///
+    /// Returns `None` if no point exists on or before the given timestamp.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the backend encounters a read error.
     async fn latest_point_on_or_before(
         &self,
         key: &SeriesKey,

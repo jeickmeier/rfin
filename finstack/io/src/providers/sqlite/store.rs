@@ -20,6 +20,19 @@ pub(crate) const SCHEMA_VERSION: i64 = migrations::LATEST_VERSION;
 /// dispatched to that thread.
 ///
 /// For concurrent access, the connection serializes requests internally.
+///
+/// # Configuration
+///
+/// The following SQLite pragmas are applied on connection:
+/// - **`journal_mode = WAL`** — Write-ahead logging for better read concurrency.
+/// - **`foreign_keys = ON`** — Enforces foreign key constraints.
+/// - **`synchronous = NORMAL`** — Balances durability and performance.
+/// - **`busy_timeout = 5000`** — Waits up to 5 seconds on lock contention.
+///
+/// # Cloneability
+///
+/// `SqliteStore` implements `Clone` cheaply (via `Arc`). The underlying
+/// connection is shared, not duplicated. Clone freely for use across tasks.
 #[derive(Clone)]
 pub struct SqliteStore {
     pub(crate) path: PathBuf,
@@ -37,6 +50,26 @@ impl std::fmt::Debug for SqliteStore {
 
 impl SqliteStore {
     /// Open (or create) a SQLite database at `path`, applying migrations.
+    ///
+    /// Parent directories are created automatically if they do not exist.
+    /// Schema migrations run on first connect and are idempotent.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the database file cannot be opened, parent
+    /// directories cannot be created, or migrations fail (e.g., schema
+    /// version is newer than this crate supports).
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use finstack_io::SqliteStore;
+    /// # async fn example() -> finstack_io::Result<()> {
+    /// let store = SqliteStore::open("data/finstack.db").await?;
+    /// // Store is ready — migrations ran automatically
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn open(path: impl Into<PathBuf>) -> Result<Self> {
         Self::open_with_naming(path, TableNaming::default()).await
     }
@@ -77,6 +110,20 @@ impl SqliteStore {
     }
 
     /// Open an in-memory SQLite database (useful for testing).
+    ///
+    /// The database exists only for the lifetime of the returned handle.
+    /// Migrations run automatically.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use finstack_io::SqliteStore;
+    /// # async fn example() -> finstack_io::Result<()> {
+    /// let store = SqliteStore::open_in_memory().await?;
+    /// // Use in tests — data is discarded when `store` is dropped
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn open_in_memory() -> Result<Self> {
         Self::open_in_memory_with_naming(TableNaming::default()).await
     }

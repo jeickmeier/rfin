@@ -1,12 +1,84 @@
 //! Persistence and interop utilities for the Finstack workspace.
 //!
-//! The primary goal of this crate is to provide a **stable persistence boundary**
-//! for domain crates:
-//! - market data snapshots (`MarketContext`) for historical lookbacks
-//! - instruments, portfolios, scenarios, and statement model specs
+//! `finstack-io` provides a **stable persistence boundary** for domain crates,
+//! storing and retrieving:
 //!
-//! The recommended default backend is SQLite (embedded, transactional, easy to
-//! operate). Backends are designed to be swappable via the [`Store`] trait.
+//! - **Market data** — [`MarketContext`](finstack_core::market_data::context::MarketContext)
+//!   snapshots keyed by `(market_id, as_of)` for historical lookbacks
+//! - **Instruments** — [`InstrumentJson`](finstack_valuations::instruments::InstrumentJson)
+//!   definitions (bonds, deposits, swaps, etc.)
+//! - **Portfolios** — [`PortfolioSpec`](finstack_portfolio::PortfolioSpec) snapshots
+//!   keyed by `(portfolio_id, as_of)`
+//! - **Scenarios** — [`ScenarioSpec`](finstack_scenarios::ScenarioSpec) definitions
+//! - **Statement models** — [`FinancialModelSpec`](finstack_statements::FinancialModelSpec)
+//!   specifications
+//! - **Metric registries** — [`MetricRegistry`](finstack_statements::registry::MetricRegistry)
+//!   namespaced metric definitions
+//! - **Time-series** — quote, metric, result, PnL, and risk series via [`TimeSeriesStore`]
+//!
+//! # Architecture
+//!
+//! ```text
+//! ┌──────────────────────────────────────────────────────────────────┐
+//! │                          Application                             │
+//! ├──────────────────────────────────────────────────────────────────┤
+//! │  Store trait  │  BulkStore  │  LookbackStore  │ TimeSeriesStore  │
+//! ├──────────────────────────────────────────────────────────────────┤
+//! │  GovernedHandle  (optional row-level permissions & workflow)     │
+//! ├──────────────────────────────────────────────────────────────────┤
+//! │                sql/statements.rs  (sea-query builders)           │
+//! ├──────────────────┬──────────────────┬────────────────────────────┤
+//! │   SqliteStore    │  PostgresStore   │       TursoStore           │
+//! │ (default, embed) │ (scale-out)      │  (embedded, async)         │
+//! └──────────────────┴──────────────────┴────────────────────────────┘
+//! ```
+//!
+//! # Quick Start
+//!
+//! ```rust,no_run
+//! use finstack_io::{SqliteStore, Store};
+//!
+//! # async fn example() -> finstack_io::Result<()> {
+//! // Open (or create) a SQLite database — migrations run automatically
+//! let store = SqliteStore::open("finstack.db").await?;
+//!
+//! // Store an instrument
+//! # let instrument = todo!();
+//! store.put_instrument("DEPO-001", &instrument, None).await?;
+//!
+//! // Load it back
+//! let loaded = store.get_instrument("DEPO-001").await?;
+//! assert!(loaded.is_some());
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! # Feature Flags
+//!
+//! | Feature    | Default | Backend                                         |
+//! |------------|---------|--------------------------------------------------|
+//! | `sqlite`   | **yes** | Embedded SQLite via `rusqlite` / `tokio-rusqlite` |
+//! | `postgres` | no      | Postgres via `deadpool-postgres`                  |
+//! | `turso`    | no      | Turso/libsql (SQLite-compatible, async I/O)       |
+//!
+//! Enable additional backends in your `Cargo.toml`:
+//!
+//! ```toml
+//! [dependencies]
+//! finstack-io = { version = "0.4", features = ["postgres", "turso"] }
+//! ```
+//!
+//! # Modules
+//!
+//! - [`store`] — Core persistence traits ([`Store`], [`BulkStore`], [`LookbackStore`],
+//!   [`TimeSeriesStore`]) and associated types.
+//! - [`governance`] — Optional enterprise governance layer with row-level
+//!   permissions, change proposals, and configurable approval workflows.
+//!   See [`GovernedHandle`] for the primary API.
+//! - [`config`] — Environment-based configuration for backend selection
+//!   ([`open_store_from_env`], [`FinstackIoConfig`]).
+//! - [`error`] — Error types ([`Error`], [`Result`]).
+//! - [`providers`] — Backend implementations (SQLite, Postgres, Turso).
 
 #![deny(unsafe_code)]
 #![warn(missing_docs)]

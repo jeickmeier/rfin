@@ -1,4 +1,57 @@
 //! Governance types and helpers for row-level permissions and workflow.
+//!
+//! This module provides an optional enterprise governance layer on top of the
+//! core [`Store`](crate::Store) trait. When enabled, it enforces:
+//!
+//! - **Row-level access control** — Each resource has an owner and a
+//!   [`VisibilityScope`] (Private, Role, Group, or Public). Explicit
+//!   [`ResourceShare`] grants can give additional users Read, Write, or Admin
+//!   access.
+//! - **Change proposals and approval workflows** — Mutations go through a
+//!   draft/submit/verify lifecycle instead of writing directly to the verified
+//!   tables.
+//!
+//! # Workflow Lifecycle
+//!
+//! ```text
+//! DRAFT ──submit──▶ PENDING ──verify──▶ VERIFIED
+//!                       │                    ▲
+//!                       │                    │
+//!                       └──check──▶ CHECKING─┘
+//!
+//! System ingestion: DRAFT ──auto──▶ SYSTEM_VERIFIED
+//! ```
+//!
+//! Human users create drafts, submit them for review, and reviewers verify
+//! (or reject) the changes. System actors (ingestion pipelines) bypass
+//! review via [`GovernedHandle::ingest_system_change`].
+//!
+//! # Enabling Governance
+//!
+//! Governance is off by default. Enable it with the environment variable:
+//!
+//! ```bash
+//! export FINSTACK_IO_GOVERNANCE=on
+//! export FINSTACK_IO_ADMIN_ROLES="EnterpriseAdmin,Auditor"   # optional
+//! ```
+//!
+//! # Example
+//!
+//! ```rust,no_run
+//! use finstack_io::{ActorContext, GovernedHandle, GovernanceConfig, StoreHandle};
+//!
+//! # async fn example(store: StoreHandle) -> finstack_io::Result<()> {
+//! // Wrap a store handle with governance for a specific user
+//! let governed = store.as_actor(ActorContext::user("alice"));
+//!
+//! // Reads are checked against row-level permissions
+//! let instrument = governed.get_instrument("DEPO-001").await?;
+//!
+//! // Lists are filtered to only resources the actor can read
+//! let ids = governed.list_instruments().await?;
+//! # Ok(())
+//! # }
+//! ```
 
 use crate::{Error, Result};
 use std::cmp::Ordering;
@@ -434,7 +487,23 @@ pub struct ResourceChangeInsert {
 
 /// Evaluate whether the actor has at least the required permission on a resource.
 ///
-/// Checks in order: owner, admin override, visibility scope, then explicit shares.
+/// Checks are evaluated in short-circuit order:
+/// 1. **Owner** — the resource owner always has full access.
+/// 2. **Admin override** — any actor holding an admin role has full access.
+/// 3. **Visibility scope** — grants implicit **read-only** access based on
+///    the resource's [`VisibilityScope`] (Public, Role, or Group).
+/// 4. **Explicit shares** — [`ResourceShare`] entries granting Read, Write,
+///    or Admin to specific users, roles, groups, or role-in-group combos.
+///
+/// # Arguments
+///
+/// * `entity` - The resource's ownership and visibility metadata.
+/// * `shares` - Explicit share grants for the resource.
+/// * `actor` - The principal requesting access.
+/// * `roles` - Roles held by the actor.
+/// * `groups` - Groups the actor belongs to.
+/// * `admin_roles` - Role IDs that confer admin privileges.
+/// * `required` - Minimum permission level needed (Read, Write, or Admin).
 #[must_use]
 pub fn can_access_resource(
     entity: &ResourceEntity,
@@ -497,6 +566,9 @@ pub fn can_access_resource(
 }
 
 /// Evaluate whether the actor can read a resource.
+///
+/// Shorthand for [`can_access_resource`] with
+/// `required = SharePermission::Read`.
 #[must_use]
 pub fn can_read_resource(
     entity: &ResourceEntity,
@@ -518,6 +590,9 @@ pub fn can_read_resource(
 }
 
 /// Evaluate whether the actor can write to a resource.
+///
+/// Shorthand for [`can_access_resource`] with
+/// `required = SharePermission::Write`.
 #[must_use]
 pub fn can_write_resource(
     entity: &ResourceEntity,
@@ -539,6 +614,9 @@ pub fn can_write_resource(
 }
 
 /// Evaluate whether the actor has administrative privileges.
+///
+/// Returns `true` if any of the actor's roles appears in `admin_roles`.
+/// Returns `false` when `admin_roles` is empty (no admin roles configured).
 #[must_use]
 pub fn is_admin(roles: &[UserRole], admin_roles: &[String]) -> bool {
     if admin_roles.is_empty() {
@@ -549,7 +627,22 @@ pub fn is_admin(roles: &[UserRole], admin_roles: &[String]) -> bool {
         .any(|role| admin_roles.iter().any(|admin| admin == &role.role_id))
 }
 
-/// Select the best workflow binding given criteria.
+/// Select the best workflow binding for the given criteria.
+///
+/// Filters bindings by `resource_type` and optional field matches, then picks
+/// the winner by highest priority; ties are broken by specificity (number of
+/// non-`None` filter fields in the binding).
+///
+/// # Arguments
+///
+/// * `bindings` - All available workflow bindings for the system.
+/// * `resource_type` - Resource type to match (e.g., `"instrument"`).
+/// * `visibility_scope` - Optional visibility scope to match against.
+/// * `visibility_id` - Optional visibility ID (role or group) to match.
+/// * `change_kind` - Optional change kind (`"CREATE"`, `"EDIT"`, `"INGEST"`).
+/// * `base_verified_source` - Optional base verified source (`"HUMAN"`, `"SYSTEM"`).
+///
+/// Returns `None` if no binding matches.
 #[must_use]
 pub fn select_workflow_binding<'a>(
     bindings: &'a [WorkflowBinding],
@@ -608,7 +701,30 @@ fn specificity(binding: &WorkflowBinding) -> usize {
     score
 }
 
-/// Validate whether an actor can perform a transition.
+/// Validate whether an actor can perform a workflow transition.
+///
+/// Checks the transition's requirements against the actor's identity and roles:
+/// - System actors are only allowed if `allow_system_actor` is set.
+/// - Human actors must either be the owner (if `allow_owner` is set) or hold
+///   the required role (optionally scoped to a group).
+/// - Separation-of-duty constraints (`require_verifier_not_owner`,
+///   `require_verifier_not_submitter`, `require_distinct_from_last_actor`)
+///   are enforced when configured.
+///
+/// # Arguments
+///
+/// * `transition` - The transition definition with permission requirements.
+/// * `actor` - The principal attempting the transition.
+/// * `owner_user_id` - Owner of the change proposal.
+/// * `submitter_id` - User who submitted the change (if any).
+/// * `roles` - Roles held by the actor.
+/// * `groups` - Groups the actor belongs to.
+/// * `last_actor_id` - Actor who performed the last transition on this change.
+///
+/// # Errors
+///
+/// Returns [`Error::PermissionDenied`](crate::Error::PermissionDenied) if any
+/// check fails.
 pub fn validate_transition(
     transition: &WorkflowTransition,
     actor: &ActorContext,
@@ -827,6 +943,30 @@ fn validate_change_payload(change: &ResourceChange) -> Result<()> {
 }
 
 /// Governed API wrapper around a store handle.
+///
+/// `GovernedHandle` wraps a [`StoreHandle`] together with an [`ActorContext`]
+/// and a [`GovernanceConfig`]. Every read operation checks row-level permissions
+/// before returning data. Write operations go through the change-proposal
+/// workflow.
+///
+/// When governance is **disabled** (the default), all permission checks are
+/// skipped and the handle behaves like a thin pass-through to the underlying
+/// store.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_io::{ActorContext, GovernedHandle, StoreHandle};
+///
+/// # async fn example(store: StoreHandle) -> finstack_io::Result<()> {
+/// // Create a governed handle for a user (reads env config once, then caches)
+/// let governed = GovernedHandle::new(store, ActorContext::user("alice"));
+///
+/// // Governed reads — will check permissions if governance is enabled
+/// let ids = governed.list_instruments().await?;
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Clone, Debug)]
 pub struct GovernedHandle {
     store: StoreHandle,
@@ -837,9 +977,13 @@ pub struct GovernedHandle {
 impl GovernedHandle {
     /// Create a governed handle using environment configuration.
     ///
-    /// Configuration is read from environment variables once per process
-    /// and cached for subsequent calls. Use [`GovernedHandle::with_config`]
-    /// to override with explicit configuration (e.g., in tests).
+    /// Configuration is read from environment variables **once per process**
+    /// and cached for subsequent calls via `OnceLock`. This reads:
+    /// - `FINSTACK_IO_GOVERNANCE` — `"on"` to enable, anything else to disable.
+    /// - `FINSTACK_IO_ADMIN_ROLES` — comma-separated role IDs that confer admin.
+    ///
+    /// Use [`GovernedHandle::with_config`] to override with explicit
+    /// configuration (e.g., in tests).
     pub fn new(store: StoreHandle, actor: ActorContext) -> Self {
         let config = GOVERNANCE_CONFIG
             .get_or_init(GovernanceConfig::from_env)
@@ -852,6 +996,27 @@ impl GovernedHandle {
     }
 
     /// Create a governed handle with explicit configuration.
+    ///
+    /// This bypasses the environment-based `OnceLock` cache and uses the
+    /// provided `config` directly. Useful for testing with governance
+    /// enabled/disabled without setting environment variables.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use finstack_io::{ActorContext, GovernedHandle, GovernanceConfig, StoreHandle};
+    /// # fn example(store: StoreHandle) {
+    /// let config = GovernanceConfig {
+    ///     enabled: true,
+    ///     admin_role_ids: vec!["admin".to_string()],
+    /// };
+    /// let governed = GovernedHandle::with_config(
+    ///     store,
+    ///     ActorContext::user("alice"),
+    ///     config,
+    /// );
+    /// # }
+    /// ```
     pub fn with_config(store: StoreHandle, actor: ActorContext, config: GovernanceConfig) -> Self {
         Self {
             store,
@@ -1135,6 +1300,16 @@ impl GovernedHandle {
     }
 
     /// Upsert the visibility settings for a resource.
+    ///
+    /// Only the resource owner or an admin can change visibility. If the
+    /// resource entity does not exist yet, it is created with the current
+    /// actor as owner.
+    ///
+    /// # Errors
+    ///
+    /// - [`Error::PermissionDenied`](crate::Error::PermissionDenied) if the
+    ///   actor is not the owner and not an admin.
+    /// - Backend errors from reading or writing the resource entity.
     pub async fn set_visibility(
         &self,
         resource_type: &str,
@@ -1176,6 +1351,37 @@ impl GovernedHandle {
     }
 
     /// Create a draft change proposal.
+    ///
+    /// Creates a new change in the `DRAFT` workflow state. The caller must
+    /// be a human user (`ActorKind::User`). For system ingestion, use
+    /// [`ingest_system_change`](GovernedHandle::ingest_system_change) instead.
+    ///
+    /// # Arguments
+    ///
+    /// * `resource_type` - Canonical type identifier (see [`resource_types`]).
+    /// * `resource_id` - Unique ID for the resource being changed.
+    /// * `resource_key2` - Optional secondary key (e.g., `as_of` date for
+    ///   market contexts and portfolios).
+    /// * `change_kind` - [`ChangeKind::Create`] for new or [`ChangeKind::Edit`]
+    ///   for existing. [`ChangeKind::Ingest`] is **not** allowed here.
+    /// * `payload` - Serialized resource payload as JSON.
+    /// * `meta` - Optional metadata (defaults to `{}`).
+    /// * `visibility_scope` - Initial visibility for new resources (defaults to Private).
+    /// * `visibility_id` - Role or group ID for Role/Group visibility scopes.
+    ///
+    /// # Returns
+    ///
+    /// The generated `change_id` string on success.
+    ///
+    /// # Errors
+    ///
+    /// - [`Error::PermissionDenied`](crate::Error::PermissionDenied) if the
+    ///   actor is a system principal, the change kind is `Ingest`, or the
+    ///   actor lacks write permission on an existing resource.
+    /// - [`Error::Invariant`](crate::Error::Invariant) if attempting
+    ///   `Create` on an existing resource or `Edit` on a missing one.
+    /// - [`Error::NotFound`](crate::Error::NotFound) if the resource entity
+    ///   does not exist for an edit.
     #[allow(clippy::too_many_arguments)]
     pub async fn create_draft_change(
         &self,
@@ -1268,6 +1474,19 @@ impl GovernedHandle {
     }
 
     /// Submit a draft change for review (DRAFT -> PENDING).
+    ///
+    /// This transitions the change from `DRAFT` to `PENDING`, selects the
+    /// appropriate workflow binding, validates the transition, and records
+    /// a workflow event.
+    ///
+    /// # Errors
+    ///
+    /// - [`Error::NotFound`](crate::Error::NotFound) if the change or its
+    ///   resource entity does not exist.
+    /// - [`Error::Invariant`](crate::Error::Invariant) if the change is not
+    ///   in `DRAFT` state or no workflow binding matches.
+    /// - [`Error::PermissionDenied`](crate::Error::PermissionDenied) if the
+    ///   actor is not the change owner or fails transition validation.
     pub async fn submit_change(&self, change_id: &str) -> Result<()> {
         let change = self
             .store
@@ -1474,7 +1693,26 @@ impl GovernedHandle {
         Ok(())
     }
 
-    /// Ingest a change as a system actor, bypassing review into SYSTEM_VERIFIED.
+    /// Ingest a change as a system actor, bypassing review.
+    ///
+    /// Creates a change proposal with `ChangeKind::Ingest`, selects the
+    /// matching workflow binding, and immediately transitions it to
+    /// `SYSTEM_VERIFIED` — applying the payload to the verified tables
+    /// without human review.
+    ///
+    /// Only system actors (`ActorKind::System`) may call this method.
+    ///
+    /// # Returns
+    ///
+    /// The generated `change_id` string on success.
+    ///
+    /// # Errors
+    ///
+    /// - [`Error::PermissionDenied`](crate::Error::PermissionDenied) if the
+    ///   actor is not a system principal.
+    /// - [`Error::Invariant`](crate::Error::Invariant) if no workflow binding
+    ///   matches the ingestion criteria.
+    /// - Backend errors from writing the change or applying to verified tables.
     #[allow(clippy::too_many_arguments)]
     pub async fn ingest_system_change(
         &self,
@@ -1541,6 +1779,12 @@ impl GovernedHandle {
     ///
     /// Only the change owner or an admin can view a change. When governance is
     /// disabled the check is skipped and all changes are readable.
+    ///
+    /// # Errors
+    ///
+    /// - [`Error::PermissionDenied`](crate::Error::PermissionDenied) if
+    ///   governance is enabled and the actor is neither the owner nor an admin.
+    /// - Backend errors from reading the change.
     pub async fn get_change(&self, change_id: &str) -> Result<Option<ResourceChange>> {
         let change = self.store.get_resource_change(change_id).await?;
         if let Some(ref c) = change {
@@ -1559,6 +1803,10 @@ impl GovernedHandle {
     }
 
     /// List change proposals owned by the current actor.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the backend encounters a read error.
     pub async fn list_changes_for_owner(&self) -> Result<Vec<ResourceChange>> {
         self.store
             .list_resource_changes_for_owner(&self.actor.actor_id)

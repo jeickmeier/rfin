@@ -18,7 +18,18 @@ pub const DEFAULT_POOL_SIZE: usize = 16;
 /// Default statement timeout (5 seconds).
 pub const DEFAULT_STATEMENT_TIMEOUT: Duration = Duration::from_millis(5000);
 
-/// Configuration options for PostgresStore.
+/// Configuration options for [`PostgresStore`].
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_io::PostgresConfig;
+/// use std::time::Duration;
+///
+/// let config = PostgresConfig::new()
+///     .with_pool_size(32)
+///     .with_statement_timeout(Duration::from_secs(10));
+/// ```
 #[derive(Clone, Debug)]
 pub struct PostgresConfig {
     /// Maximum number of connections in the pool.
@@ -59,6 +70,25 @@ impl PostgresConfig {
 ///
 /// This store uses `deadpool-postgres` for connection pooling, providing
 /// efficient async access to Postgres with automatic connection management.
+///
+/// # Configuration Defaults
+///
+/// | Setting | Default | Configurable via |
+/// |---------|---------|------------------|
+/// | Pool size | 16 connections | [`PostgresConfig::with_pool_size`] |
+/// | Statement timeout | 5 000 ms | [`PostgresConfig::with_statement_timeout`] |
+/// | Recycling | Fast (check on borrow) | — |
+///
+/// # Migrations
+///
+/// Schema migrations run automatically on [`connect`](PostgresStore::connect).
+/// Concurrent migration from multiple processes is safe — an advisory lock
+/// ensures only one migrator runs at a time.
+///
+/// # Cloneability
+///
+/// `PostgresStore` implements `Clone` cheaply (the connection pool is shared
+/// via `Arc`). Clone freely for use across tasks.
 #[derive(Clone)]
 pub struct PostgresStore {
     pub(crate) pool: Pool,
@@ -79,10 +109,28 @@ impl std::fmt::Debug for PostgresStore {
 impl PostgresStore {
     /// Connect to a Postgres database at `url`, applying migrations.
     ///
-    /// This creates a connection pool with default settings:
-    /// - Max connections: 16
-    /// - Statement timeout: 5000ms
-    /// - Connection recycling: Fast (check connection on borrow)
+    /// This creates a connection pool with default settings (see struct docs).
+    /// Schema migrations run automatically and are safe for concurrent processes.
+    ///
+    /// # Arguments
+    ///
+    /// * `url` - Postgres connection URL (e.g., `"postgres://user:pass@localhost/finstack"`).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the connection cannot be established, the pool
+    /// cannot be created, or migrations fail.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use finstack_io::PostgresStore;
+    /// # async fn example() -> finstack_io::Result<()> {
+    /// let store = PostgresStore::connect("postgres://user:pass@localhost/finstack").await?;
+    /// // Store is ready — migrations ran automatically
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn connect(url: &str) -> Result<Self> {
         Self::connect_with_config(url, PostgresConfig::default()).await
     }
@@ -94,6 +142,24 @@ impl PostgresStore {
     }
 
     /// Connect with custom configuration options.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use finstack_io::{PostgresStore, PostgresConfig};
+    /// # use std::time::Duration;
+    /// # async fn example() -> finstack_io::Result<()> {
+    /// let config = PostgresConfig::new()
+    ///     .with_pool_size(32)
+    ///     .with_statement_timeout(Duration::from_secs(10));
+    ///
+    /// let store = PostgresStore::connect_with_config(
+    ///     "postgres://user:pass@localhost/finstack",
+    ///     config,
+    /// ).await?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub async fn connect_with_config(url: &str, pg_config: PostgresConfig) -> Result<Self> {
         Self::connect_with_config_and_naming(url, pg_config, TableNaming::default()).await
     }

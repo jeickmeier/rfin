@@ -1,4 +1,18 @@
 //! Environment-based configuration helpers for `finstack-io`.
+//!
+//! This module provides [`FinstackIoConfig`] for loading backend selection from
+//! environment variables, [`StoreHandle`] as a concrete enum dispatching to the
+//! selected backend, and [`open_store_from_env`] as a one-liner to go from
+//! environment variables to a ready-to-use store.
+//!
+//! # Environment Variables
+//!
+//! | Variable | Default | Description |
+//! |----------|---------|-------------|
+//! | `FINSTACK_IO_BACKEND` | `sqlite` | Backend to use: `sqlite`, `postgres`, or `turso` |
+//! | `FINSTACK_SQLITE_PATH` | — | Path to SQLite database file |
+//! | `FINSTACK_POSTGRES_URL` | — | Postgres connection URL |
+//! | `FINSTACK_TURSO_PATH` | — | Path to Turso database file |
 
 use crate::governance::{ActorContext, GovernedHandle};
 use crate::store::GovernanceStore;
@@ -63,10 +77,13 @@ impl FinstackIoConfig {
     /// Load configuration from environment variables.
     ///
     /// Reads:
-    /// - `FINSTACK_IO_BACKEND` (default: `sqlite`)
-    /// - `FINSTACK_SQLITE_PATH`
-    /// - `FINSTACK_POSTGRES_URL`
-    /// - `FINSTACK_TURSO_PATH`
+    /// - `FINSTACK_IO_BACKEND` — `"sqlite"` (default), `"postgres"`, or `"turso"`.
+    /// - `FINSTACK_SQLITE_PATH` — Path for SQLite database file.
+    /// - `FINSTACK_POSTGRES_URL` — Postgres connection URL.
+    /// - `FINSTACK_TURSO_PATH` — Path for Turso database file.
+    ///
+    /// Missing path/URL variables are not errors here — they are checked
+    /// lazily when [`open_store_from_env`] attempts to open the backend.
     pub fn from_env() -> Result<Self> {
         let backend = std::env::var("FINSTACK_IO_BACKEND")
             .ok()
@@ -90,6 +107,20 @@ impl FinstackIoConfig {
 
 impl StoreHandle {
     /// Create a governed handle for the given actor.
+    ///
+    /// This wraps the store with governance checks for the specified actor.
+    /// Governance configuration is read from the environment on the first
+    /// call and cached for the process lifetime.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// # use finstack_io::{ActorContext, StoreHandle};
+    /// # fn example(store: StoreHandle) {
+    /// let governed = store.as_actor(ActorContext::user("alice"));
+    /// // `governed` now checks permissions on every read
+    /// # }
+    /// ```
     #[must_use]
     pub fn as_actor(&self, actor: ActorContext) -> GovernedHandle {
         GovernedHandle::new(self.clone(), actor)
@@ -516,6 +547,30 @@ impl TimeSeriesStore for StoreHandle {
 }
 
 /// Open a store using the current environment configuration.
+///
+/// Reads `FINSTACK_IO_BACKEND` to select the provider, then reads the
+/// corresponding path/URL variable. Migrations run automatically.
+///
+/// # Errors
+///
+/// - [`Error::Invariant`](crate::Error::Invariant) if the required path/URL
+///   variable is not set for the selected backend, or if the selected feature
+///   is not compiled in.
+/// - Backend-specific errors from opening the connection.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_io::{open_store_from_env, Store, StoreHandle};
+///
+/// # async fn example() -> finstack_io::Result<()> {
+/// // Assumes FINSTACK_IO_BACKEND and the corresponding path/URL are set
+/// let store: StoreHandle = open_store_from_env().await?;
+///
+/// let ids = store.list_instruments().await?;
+/// # Ok(())
+/// # }
+/// ```
 pub async fn open_store_from_env() -> Result<StoreHandle> {
     let config = FinstackIoConfig::from_env()?;
     match config.backend {

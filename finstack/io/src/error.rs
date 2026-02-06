@@ -1,11 +1,30 @@
 //! Error types for the `finstack-io` crate.
+//!
+//! All fallible operations in this crate return [`Result<T>`], which is an alias
+//! for `std::result::Result<T, Error>`.
 
 use thiserror::Error;
 
 /// Result alias for `finstack-io`.
+///
+/// All public methods in this crate return this type.
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Errors that can occur while persisting or loading data.
+///
+/// Error variants are grouped into categories:
+///
+/// - **Backend errors** — `Sqlite`, `SqliteAsync`, `Postgres*`, `Turso`:
+///   low-level driver errors from the selected database provider. Only present
+///   when the corresponding feature is enabled.
+/// - **Serialization** — `SerdeJson`: JSON (de)serialization failures,
+///   typically when a stored payload does not match the expected Rust type.
+/// - **I/O** — `Io`: filesystem errors (e.g., cannot create directory for database file).
+/// - **Domain** — `Core`, `Portfolio`, `Statements`, `Scenarios`: errors
+///   propagated from Finstack domain crates during hydration or conversion.
+/// - **Application** — `NotFound`, `PermissionDenied`, `UnsupportedSchema`,
+///   `Invariant`, `InvalidSeriesKind`: semantic errors raised by this crate's
+///   business logic.
 #[derive(Debug, Error)]
 #[non_exhaustive]
 pub enum Error {
@@ -113,6 +132,15 @@ pub enum Error {
 
 impl Error {
     /// Convenience constructor for a not-found error.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use finstack_io::Error;
+    ///
+    /// let err = Error::not_found("instrument", "DEPO-001");
+    /// assert_eq!(err.to_string(), "Not found: instrument 'DEPO-001'");
+    /// ```
     pub fn not_found(entity: &'static str, id: impl Into<String>) -> Self {
         Self::NotFound {
             entity,
