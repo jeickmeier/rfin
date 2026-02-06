@@ -38,10 +38,15 @@
 
 use crate::dates::{Date, DayCount, DayCountCtx};
 use crate::error::InputError;
-use crate::math::solver::NewtonSolver;
+use crate::math::solver::{BrentSolver, NewtonSolver, Solver};
+use crate::math::NeumaierAccumulator;
 
 /// Default tolerance for IRR/XIRR solver.
-pub const DEFAULT_TOLERANCE: f64 = 1e-6;
+///
+/// Set to 1e-8 to match QuantLib's `CashFlows::irr()` standard.
+/// Previous value (1e-6) was Excel-grade; 1e-8 provides professional-grade
+/// precision suitable for long-duration cashflows where tolerance matters.
+pub const DEFAULT_TOLERANCE: f64 = 1e-8;
 
 /// Default maximum iterations for IRR/XIRR solver.
 pub const DEFAULT_MAX_ITERATIONS: usize = 100;
@@ -302,28 +307,28 @@ where
         return Err(InputError::Invalid.into());
     }
 
-    // Define NPV function: Σ C_t / (1+r)^t
+    // Define NPV function: Σ C_t / (1+r)^t using Neumaier compensated summation
     let npv = |rate: f64| -> f64 {
-        let mut sum = 0.0;
+        let mut acc = NeumaierAccumulator::new();
         let df_base = 1.0 + rate;
         for &(t, amount) in &data {
-            sum += amount / df_base.powf(t);
+            acc.add(amount / df_base.powf(t));
         }
-        sum
+        acc.total()
     };
 
-    // Define derivative d(NPV)/dr: Σ -t * C_t / (1+r)^(t+1)
+    // Define derivative d(NPV)/dr: Σ -t * C_t / (1+r)^(t+1) using Neumaier
     let npv_derivative = |rate: f64| -> f64 {
-        let mut sum = 0.0;
+        let mut acc = NeumaierAccumulator::new();
         let df_base = 1.0 + rate;
         for &(t, amount) in &data {
-            sum += -t * amount / df_base.powf(t + 1.0);
+            acc.add(-t * amount / df_base.powf(t + 1.0));
         }
-        sum
+        acc.total()
     };
 
-    // Solver with default configuration
-    let solver = NewtonSolver::new()
+    // Newton solver with default configuration
+    let newton = NewtonSolver::new()
         .with_tolerance(DEFAULT_TOLERANCE)
         .with_max_iterations(DEFAULT_MAX_ITERATIONS);
 
@@ -351,10 +356,29 @@ where
         5.0,   // 500%
     ];
 
+    // Phase 1: Try Newton-Raphson (fast, quadratic convergence) with all seeds
     for &g in seeds {
-        if let Ok(root) = solver.solve_with_derivative(npv, npv_derivative, g) {
+        if let Ok(root) = newton.solve_with_derivative(npv, npv_derivative, g) {
             // Reject rates at or below MIN_VALID_RATE (-99.9%)
             // Such extreme rates are economically implausible and numerically unstable
+            if root > MIN_VALID_RATE {
+                return Ok(root);
+            }
+        }
+    }
+
+    // Phase 2: Fall back to Brent's method (robust, guaranteed convergence given bracket)
+    // Use XIRR bracket hint with wide bounds for the initial bracket search
+    let brent = BrentSolver::new()
+        .with_tolerance(DEFAULT_TOLERANCE)
+        .with_max_iterations(DEFAULT_MAX_ITERATIONS)
+        .with_bracket_hint(crate::math::solver::BracketHint::Xirr)
+        .with_bracket_bounds(-0.99, 10.0);
+
+    let brent_seeds: &[f64] = &[0.1, 0.0, -0.5, 0.5, -0.9, 1.0, 2.0, 5.0];
+
+    for &g in brent_seeds {
+        if let Ok(root) = brent.solve(npv, g) {
             if root > MIN_VALID_RATE {
                 return Ok(root);
             }

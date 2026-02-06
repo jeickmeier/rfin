@@ -31,6 +31,7 @@
 mod conventions;
 mod convert;
 mod pricing;
+pub mod sabr;
 
 pub use conventions::VolatilityConvention;
 pub use convert::convert_atm_volatility;

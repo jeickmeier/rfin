@@ -1173,7 +1173,22 @@ impl DiscountCurveBuilder {
     }
 
     /// Validate input and create the [`DiscountCurve`].
-    pub fn build(self) -> crate::Result<DiscountCurve> {
+    ///
+    /// If the first knot time is `> 0.0`, automatically prepends `(0.0, 1.0)` to
+    /// ensure the round-trip invariant `DF(0) = 1.0` (ISDA/QuantLib standard).
+    pub fn build(mut self) -> crate::Result<DiscountCurve> {
+        // Auto-enforce DF(0) = 1.0: if no knot at t=0, prepend one.
+        // This matches QuantLib/Bloomberg convention where DF(0) = 1.0 always.
+        if !self.points.is_empty() {
+            self.points
+                .sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
+            let first_t = self.points[0].0;
+            if first_t > 1e-14 {
+                // First knot is after t=0, auto-prepend DF(0)=1.0
+                self.points.insert(0, (0.0, 1.0));
+            }
+        }
+
         if self.points.len() < 2 {
             return Err(crate::error::InputError::TooFewPoints.into());
         }
@@ -1367,11 +1382,20 @@ mod tests {
     }
 
     #[test]
-    fn rejects_unsorted_knots() {
+    fn auto_sorts_and_prepends_df0() {
+        // Previously this rejected unsorted knots; now the builder sorts and
+        // auto-prepends (0, 1.0) so the curve builds successfully.
         let res = DiscountCurve::builder("USD")
             .knots([(1.0, 0.99), (0.5, 0.995)])
             .build();
-        assert!(res.is_err());
+        assert!(
+            res.is_ok(),
+            "Builder should auto-sort and prepend DF(0)=1.0"
+        );
+        let curve = res.expect("curve should build");
+        // Should have 3 knots: (0.0, 1.0), (0.5, 0.995), (1.0, 0.99)
+        assert_eq!(curve.knots().len(), 3);
+        assert!((curve.df(0.0) - 1.0).abs() < 1e-12);
     }
 
     #[test]
@@ -1745,10 +1769,11 @@ mod tests {
     fn roll_forward_uses_curve_day_count() {
         let base =
             Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date");
+        // Include t=0 knot explicitly so auto-prepend doesn't change the count
         let curve = DiscountCurve::builder("ROLL")
             .base_date(base)
             .day_count(DayCount::Act360)
-            .knots([(0.05, 0.999), (0.15, 0.998), (0.30, 0.995)])
+            .knots([(0.0, 1.0), (0.05, 0.999), (0.15, 0.998), (0.30, 0.995)])
             .set_interp(InterpStyle::Linear)
             .build()
             .expect("DiscountCurve builder should succeed with valid test data");
@@ -1756,8 +1781,14 @@ mod tests {
         // Roll 36 days => Act/360 year fraction = 0.1
         let rolled = curve.roll_forward(36).expect("roll_forward should succeed");
         let ks = rolled.knots();
-        assert_eq!(ks.len(), 2, "First knot should expire after rolling");
-        assert!((ks[0] - 0.05).abs() < 1e-12, "Expected 0.15-0.10=0.05");
-        assert!((ks[1] - 0.20).abs() < 1e-12, "Expected 0.30-0.10=0.20");
+        // After rolling 0.1: t=0.0 and t=0.05 expire, leaving t=0.15-0.1=0.05 and t=0.30-0.1=0.20
+        // The rolled curve then auto-prepends (0, DF(0)=1.0), giving 3 knots
+        assert_eq!(
+            ks.len(),
+            3,
+            "Should have auto-prepended (0,1) + 2 surviving knots"
+        );
+        assert!((ks[1] - 0.05).abs() < 1e-12, "Expected 0.15-0.10=0.05");
+        assert!((ks[2] - 0.20).abs() < 1e-12, "Expected 0.30-0.10=0.20");
     }
 }

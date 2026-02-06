@@ -942,8 +942,10 @@ impl PyHazardCurve {
     /// float
     ///     Default probability between ``t1`` and ``t2``.
     #[pyo3(text_signature = "(self, t1, t2)")]
-    fn default_prob(&self, t1: f64, t2: f64) -> f64 {
-        self.inner.default_prob(t1, t2)
+    fn default_prob(&self, t1: f64, t2: f64) -> PyResult<f64> {
+        self.inner
+            .default_prob(t1, t2)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 }
 

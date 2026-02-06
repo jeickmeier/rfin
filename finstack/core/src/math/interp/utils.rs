@@ -29,13 +29,19 @@ where
 
     // Left extrapolation
     if x <= knots[0] {
-        return Some(on_left(extrapolation));
+        return match extrapolation {
+            ExtrapolationPolicy::None => Some(f64::NAN),
+            _ => Some(on_left(extrapolation)),
+        };
     }
 
     // Right extrapolation
     if let Some(&last_knot) = knots.last() {
         if x >= last_knot {
-            return Some(on_right(extrapolation));
+            return match extrapolation {
+                ExtrapolationPolicy::None => Some(f64::NAN),
+                _ => Some(on_right(extrapolation)),
+            };
         }
     }
 

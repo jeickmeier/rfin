@@ -405,8 +405,10 @@ impl JsHazardCurve {
     }
 
     #[wasm_bindgen(js_name = defaultProb)]
-    pub fn default_prob(&self, t1: f64, t2: f64) -> f64 {
-        self.inner.default_prob(t1, t2)
+    pub fn default_prob(&self, t1: f64, t2: f64) -> Result<f64, JsValue> {
+        self.inner
+            .default_prob(t1, t2)
+            .map_err(|e| JsValue::from_str(&e.to_string()))
     }
 }
 

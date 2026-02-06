@@ -274,12 +274,22 @@ impl HazardCurve {
     }
 
     /// Default probability between `t1` and `t2`.
-    #[must_use]
-    pub fn default_prob(&self, t1: f64, t2: f64) -> f64 {
-        assert!(t2 >= t1, "default_prob requires t2 >= t1");
+    ///
+    /// Returns `S(t1) - S(t2)`, the probability of default occurring
+    /// in the interval `[t1, t2]`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `t2 < t1`.
+    pub fn default_prob(&self, t1: f64, t2: f64) -> crate::Result<f64> {
+        if t2 < t1 {
+            return Err(crate::Error::Validation(format!(
+                "default_prob requires t2 >= t1 (t1={t1}, t2={t2})"
+            )));
+        }
         let sp1 = self.sp(t1);
         let sp2 = self.sp(t2);
-        sp1 - sp2
+        Ok(sp1 - sp2)
     }
 
     /// Instantaneous hazard rate λ(t) at time `t`.
@@ -784,7 +794,9 @@ mod tests {
             .knots([(0.0, 0.01), (10.0, 0.015)])
             .build()
             .expect("HazardCurve builder should succeed with valid test data");
-        let dp = hc.default_prob(2.0, 4.0);
+        let dp = hc
+            .default_prob(2.0, 4.0)
+            .expect("default_prob should succeed with valid inputs");
         assert!(dp >= 0.0);
     }
 

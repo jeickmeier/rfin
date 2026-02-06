@@ -51,7 +51,7 @@ fn survival_and_default_probabilities() {
 
     assert!(curve.sp(0.0) - 1.0 < 1e-12);
     assert!(curve.sp(4.0) < curve.sp(1.0));
-    assert!(curve.default_prob(1.0, 3.0) > 0.0);
+    assert!(curve.default_prob(1.0, 3.0).unwrap() > 0.0);
 
     let linear = curve.quoted_spread_bp(2.0, ParInterp::Linear);
     let log = curve.quoted_spread_bp(2.0, ParInterp::LogLinear);
@@ -165,9 +165,9 @@ fn sp_piecewise_verification() {
     // Default prob P(1,3) = S(1) - S(3)
     let expected_dp = expected_1 - expected_3;
     assert!(
-        (curve.default_prob(1.0, 3.0) - expected_dp).abs() < 1e-12,
+        (curve.default_prob(1.0, 3.0).unwrap() - expected_dp).abs() < 1e-12,
         "Default prob 1-3: got {}, expected {}",
-        curve.default_prob(1.0, 3.0),
+        curve.default_prob(1.0, 3.0).unwrap(),
         expected_dp
     );
 }

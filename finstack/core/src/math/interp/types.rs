@@ -75,6 +75,24 @@ pub enum ExtrapolationPolicy {
     FlatZero,
     /// Tangent/forward extension using boundary slope.
     FlatForward,
+    /// Return `NaN` for queries outside the knot range.
+    ///
+    /// Use this to prevent silent extrapolation in production risk systems
+    /// where extrapolated values should be explicitly opted-in.
+    /// Callers should check `.is_nan()` on the result and handle accordingly.
+    ///
+    /// # When to Use
+    ///
+    /// - Risk management systems where extrapolated values are unreliable
+    /// - Validation pipelines where out-of-range queries indicate data errors
+    /// - Any context where silent extrapolation could mask problems
+    ///
+    /// # Note
+    ///
+    /// Since interpolation returns `f64` (not `Result`), this policy returns
+    /// `f64::NAN` rather than an error. This avoids changing the hot-path
+    /// signature while still making out-of-range queries detectable.
+    None,
 }
 
 /// Enum of supported interpolation styles. The default is `Linear`.

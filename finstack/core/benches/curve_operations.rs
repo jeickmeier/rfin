@@ -182,7 +182,9 @@ fn bench_hazard_curve(c: &mut Criterion) {
 
     c.bench_function("curve_default_prob_single", |b| {
         b.iter(|| {
-            let prob = black_box(&curve).default_prob(black_box(1.0), black_box(2.5));
+            let prob = black_box(&curve)
+                .default_prob(black_box(1.0), black_box(2.5))
+                .unwrap();
             black_box(prob);
         })
     });

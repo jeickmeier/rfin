@@ -57,6 +57,7 @@ impl InterpolationStrategy for LinearStrategy {
                     let slope = segment_slope(knots, values, 0, 1);
                     values.first().copied().unwrap_or(f64::NAN) + slope * (x - knots[0])
                 }
+                _ => f64::NAN,
             },
             |policy| match policy {
                 ExtrapolationPolicy::FlatZero => values.last().copied().unwrap_or(f64::NAN),
@@ -65,6 +66,7 @@ impl InterpolationStrategy for LinearStrategy {
                     let slope = segment_slope(knots, values, n - 2, n - 1);
                     values.last().copied().unwrap_or(f64::NAN) + slope * (x - knots[n - 1])
                 }
+                _ => f64::NAN,
             },
         ) {
             return val;
@@ -111,6 +113,7 @@ impl InterpolationStrategy for LinearStrategy {
             |policy| match policy {
                 ExtrapolationPolicy::FlatZero => 0.0,
                 ExtrapolationPolicy::FlatForward => segment_slope(knots, values, 0, 1),
+                _ => f64::NAN,
             },
             |policy| match policy {
                 ExtrapolationPolicy::FlatZero => 0.0,
@@ -118,6 +121,7 @@ impl InterpolationStrategy for LinearStrategy {
                     let n = knots.len();
                     segment_slope(knots, values, n - 2, n - 1)
                 }
+                _ => f64::NAN,
             },
         ) {
             return val;
@@ -199,6 +203,7 @@ impl InterpolationStrategy for LogLinearStrategy {
                     let extrapolated_log = first_log + slope * (x - knots[0]);
                     extrapolated_log.exp()
                 }
+                _ => f64::NAN,
             },
             |policy| match policy {
                 ExtrapolationPolicy::FlatZero => {
@@ -211,6 +216,7 @@ impl InterpolationStrategy for LogLinearStrategy {
                     let extrapolated_log = last_log + slope * (x - knots[n - 1]);
                     extrapolated_log.exp()
                 }
+                _ => f64::NAN,
             },
         ) {
             return val;
@@ -264,6 +270,7 @@ impl InterpolationStrategy for LogLinearStrategy {
                     let extrapolated_log = self.log_values[0] + slope * (x - knots[0]);
                     extrapolated_log.exp() * slope
                 }
+                _ => f64::NAN,
             },
             |policy| match policy {
                 ExtrapolationPolicy::FlatZero => 0.0,
@@ -273,6 +280,7 @@ impl InterpolationStrategy for LogLinearStrategy {
                     let extrapolated_log = self.log_values[n - 1] + slope * (x - knots[n - 1]);
                     extrapolated_log.exp() * slope
                 }
+                _ => f64::NAN,
             },
         ) {
             return val;
@@ -431,10 +439,12 @@ impl InterpolationStrategy for PiecewiseQuadraticForwardStrategy {
             |policy| match policy {
                 ExtrapolationPolicy::FlatZero => self.boundary_df(0),
                 ExtrapolationPolicy::FlatForward => self.flat_forward_df(x, 0),
+                _ => f64::NAN,
             },
             |policy| match policy {
                 ExtrapolationPolicy::FlatZero => self.boundary_df(knots.len() - 1),
                 ExtrapolationPolicy::FlatForward => self.flat_forward_df(x, knots.len() - 1),
+                _ => f64::NAN,
             },
         ) {
             return val;
@@ -469,10 +479,12 @@ impl InterpolationStrategy for PiecewiseQuadraticForwardStrategy {
             |policy| match policy {
                 ExtrapolationPolicy::FlatZero => 0.0,
                 ExtrapolationPolicy::FlatForward => self.flat_forward_df_prime(x, 0),
+                _ => f64::NAN,
             },
             |policy| match policy {
                 ExtrapolationPolicy::FlatZero => 0.0,
                 ExtrapolationPolicy::FlatForward => self.flat_forward_df_prime(x, knots.len() - 1),
+                _ => f64::NAN,
             },
         ) {
             return val;
@@ -588,6 +600,7 @@ impl InterpolationStrategy for CubicHermiteStrategy {
                     let dx = x - x0;
                     values.first().copied().unwrap_or(f64::NAN) + slope * dx
                 }
+                _ => f64::NAN,
             },
             |policy| match policy {
                 ExtrapolationPolicy::FlatZero => values.last().copied().unwrap_or(f64::NAN),
@@ -597,6 +610,7 @@ impl InterpolationStrategy for CubicHermiteStrategy {
                     let dx = x - x_last;
                     values.last().copied().unwrap_or(f64::NAN) + slope * dx
                 }
+                _ => f64::NAN,
             },
         ) {
             return val;
@@ -659,10 +673,12 @@ impl InterpolationStrategy for CubicHermiteStrategy {
             |policy| match policy {
                 ExtrapolationPolicy::FlatZero => 0.0,
                 ExtrapolationPolicy::FlatForward => self.ms[0],
+                _ => f64::NAN,
             },
             |policy| match policy {
                 ExtrapolationPolicy::FlatZero => 0.0,
                 ExtrapolationPolicy::FlatForward => self.ms[self.ms.len() - 1],
+                _ => f64::NAN,
             },
         ) {
             return val;
@@ -858,6 +874,7 @@ impl InterpolationStrategy for MonotoneConvexStrategy {
                     let extra_integral = f0 * dt;
                     (-(log_df0 + extra_integral)).exp()
                 }
+                _ => f64::NAN,
             },
             |policy| match policy {
                 ExtrapolationPolicy::FlatZero => values.last().copied().unwrap_or(f64::NAN),
@@ -870,6 +887,7 @@ impl InterpolationStrategy for MonotoneConvexStrategy {
                     let extra_integral = f_last * dt;
                     (-(log_df_last + extra_integral)).exp()
                 }
+                _ => f64::NAN,
             },
         ) {
             return val;
@@ -917,6 +935,7 @@ impl InterpolationStrategy for MonotoneConvexStrategy {
                     let df = (-(self.log_df[0] + extra_integral)).exp();
                     -self.f[0] * df
                 }
+                _ => f64::NAN,
             },
             |policy| match policy {
                 ExtrapolationPolicy::FlatZero => 0.0,
@@ -927,6 +946,7 @@ impl InterpolationStrategy for MonotoneConvexStrategy {
                     let df = (-(self.log_df[n - 1] + extra_integral)).exp();
                     -self.f[n - 1] * df
                 }
+                _ => f64::NAN,
             },
         ) {
             return val;

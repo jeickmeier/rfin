@@ -250,7 +250,7 @@ pub trait Discounting: TermStructure {
 ///
 /// let curve = FlatForward { id: CurveId::from("USD-3M"), rate: 0.05 };
 /// assert_eq!(curve.rate(1.0), 0.05);
-/// assert_eq!(curve.rate_period(0.5, 1.0), 0.05); // Flat curve: period average = rate
+/// assert!((curve.rate_period(0.5, 1.0) - 0.05).abs() < 1e-14); // Flat curve: period average ≈ rate
 /// ```
 pub trait Forward: TermStructure {
     /// Simple forward rate starting at time `t`.
@@ -264,7 +264,11 @@ pub trait Forward: TermStructure {
     /// The instantaneous forward rate at time `t`.
     fn rate(&self, t: f64) -> f64;
 
-    /// Average rate over the period `[t1, t2]`.
+    /// Average rate over the period `[t1, t2]` using Simpson's rule.
+    ///
+    /// Uses 8-interval composite Simpson's rule for accurate integration
+    /// of the forward rate curve over the period, matching the concrete
+    /// `ForwardCurve::rate_period()` implementation.
     ///
     /// # Arguments
     ///
@@ -273,7 +277,7 @@ pub trait Forward: TermStructure {
     ///
     /// # Returns
     ///
-    /// The average of the forward rates at `t1` and `t2`.
+    /// The average forward rate over `[t1, t2]`.
     ///
     /// # Panics
     ///
@@ -281,7 +285,16 @@ pub trait Forward: TermStructure {
     #[inline]
     fn rate_period(&self, t1: f64, t2: f64) -> f64 {
         debug_assert!(t2 > t1, "t2 must be after t1");
-        (self.rate(t1) + self.rate(t2)) * 0.5
+        // 8-interval composite Simpson's rule: ∫f(x)dx ≈ (h/3)[f(x0) + 4f(x1) + 2f(x2) + ... + f(xn)]
+        let n = 8_usize;
+        let h = (t2 - t1) / n as f64;
+        let mut sum = self.rate(t1) + self.rate(t2);
+        for i in 1..n {
+            let t = t1 + i as f64 * h;
+            let coeff = if i % 2 == 0 { 2.0 } else { 4.0 };
+            sum += coeff * self.rate(t);
+        }
+        sum * h / (3.0 * (t2 - t1))
     }
 }
 

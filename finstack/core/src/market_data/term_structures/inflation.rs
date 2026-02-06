@@ -45,7 +45,11 @@
 //! ```rust
 //! use finstack_core::market_data::term_structures::InflationCurve;
 //! # use finstack_core::math::interp::InterpStyle;
+//! # use finstack_core::dates::Date;
+//! # use time::Month;
+//! # let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
 //! let ic = InflationCurve::builder("US-CPI")
+//!     .base_date(base)
 //!     .base_cpi(300.0)
 //!     .knots([(0.0, 300.0), (5.0, 327.0)])
 //!     .set_interp(InterpStyle::LogLinear)
@@ -69,11 +73,20 @@
 //!     *Review of Financial Studies*, 30(8), 2719-2760.
 
 use super::common::{build_interp, split_points};
+use crate::dates::{Date, DayCount, DayCountCtx};
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     error::InputError, market_data::traits::TermStructure, math::interp::types::Interp,
     types::CurveId,
 };
+
+/// Default indexation lag in months for inflation-linked securities.
+///
+/// Most inflation-linked bonds (US TIPS, UK IL Gilts, Euro ILBs, JGBi) use a
+/// 3-month lag per the Canadian model (ISDA standard). This means the CPI index
+/// ratio for a given settlement date is based on CPI values published 3 months
+/// prior, with linear interpolation between monthly values.
+pub const DEFAULT_INDEXATION_LAG_MONTHS: u32 = 3;
 
 /// Inflation curve representing CPI/RPI index levels over time.
 ///
@@ -86,8 +99,16 @@ use crate::{
 /// ```text
 /// I(t) = CPI index level at time t
 /// π(t₁, t₂) = annualized inflation rate from t₁ to t₂
-///           = [I(t₂) / I(t₁)]^(1/(t₂-t₁)) - 1
+///           = [I(t₂) / I(t₁)]^(1/(t₂-t₁)) - 1  (CAGR formula)
 /// ```
+///
+/// # Indexation Lag
+///
+/// Inflation-linked bonds use a publication lag (default: 3 months). When
+/// computing the CPI index ratio for a settlement date, the curve applies
+/// this lag and linearly interpolates between the lagged monthly CPI values.
+/// Use [`cpi_with_lag`](Self::cpi_with_lag) for lag-adjusted lookups, or
+/// [`cpi`](Self::cpi) for raw (no-lag) lookups.
 ///
 /// # Use Cases
 ///
@@ -100,6 +121,12 @@ use crate::{
 pub struct InflationCurve {
     id: CurveId,
     base_cpi: f64,
+    /// Base (valuation) date of the curve.
+    base_date: Date,
+    /// Day-count basis for time conversions.
+    day_count: DayCount,
+    /// Indexation lag in months (default: 3 for TIPS/linkers).
+    indexation_lag_months: u32,
     /// Knot times in **years**.
     knots: Box<[f64]>,
     /// CPI index levels at each knot.
@@ -112,6 +139,9 @@ impl Clone for InflationCurve {
         Self {
             id: self.id.clone(),
             base_cpi: self.base_cpi,
+            base_date: self.base_date,
+            day_count: self.day_count,
+            indexation_lag_months: self.indexation_lag_months,
             knots: self.knots.clone(),
             cpi_levels: self.cpi_levels.clone(),
             interp: self.interp.clone(),
@@ -127,10 +157,26 @@ struct RawInflationCurve {
     common_id: super::common::StateId,
     /// Base CPI level at t=0
     pub base_cpi: f64,
+    /// Base date
+    pub base_date: Date,
+    /// Day count convention
+    #[serde(default = "default_day_count")]
+    pub day_count: DayCount,
+    /// Indexation lag in months
+    #[serde(default = "default_lag")]
+    pub indexation_lag_months: u32,
     #[serde(flatten)]
     points: super::common::StateKnotPoints,
     #[serde(flatten)]
     interp: super::common::StateInterp,
+}
+
+fn default_day_count() -> DayCount {
+    DayCount::Act365F
+}
+
+fn default_lag() -> u32 {
+    DEFAULT_INDEXATION_LAG_MONTHS
 }
 
 impl From<InflationCurve> for RawInflationCurve {
@@ -147,6 +193,9 @@ impl From<InflationCurve> for RawInflationCurve {
                 id: curve.id.to_string(),
             },
             base_cpi: curve.base_cpi,
+            base_date: curve.base_date,
+            day_count: curve.day_count,
+            indexation_lag_months: curve.indexation_lag_months,
             points: super::common::StateKnotPoints { knot_points },
             interp: super::common::StateInterp {
                 interp_style: curve.interp.style(),
@@ -162,6 +211,9 @@ impl TryFrom<RawInflationCurve> for InflationCurve {
     fn try_from(state: RawInflationCurve) -> crate::Result<Self> {
         InflationCurve::builder(state.common_id.id)
             .base_cpi(state.base_cpi)
+            .base_date(state.base_date)
+            .day_count(state.day_count)
+            .indexation_lag_months(state.indexation_lag_months)
             .knots(state.points.knot_points)
             .set_interp(state.interp.interp_style)
             .build()
@@ -175,8 +227,12 @@ impl InflationCurve {
     /// ```rust
     /// use finstack_core::market_data::term_structures::InflationCurve;
     /// use finstack_core::math::interp::InterpStyle;
+    /// use finstack_core::dates::Date;
+    /// use time::Month;
     ///
+    /// let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
     /// let curve = InflationCurve::builder("US-CPI")
+    ///     .base_date(base)
     ///     .base_cpi(300.0)
     ///     .knots([(0.0, 300.0), (5.0, 325.0)])
     ///     .set_interp(InterpStyle::LogLinear)
@@ -185,15 +241,20 @@ impl InflationCurve {
     /// assert!(curve.inflation_rate(0.0, 5.0) > 0.0);
     /// ```
     pub fn builder(id: impl Into<CurveId>) -> InflationCurveBuilder {
+        let base_date =
+            Date::from_calendar_date(1970, time::Month::January, 1).unwrap_or(time::Date::MIN);
         InflationCurveBuilder {
             id: id.into(),
             base_cpi: 100.0,
+            base_date,
+            day_count: DayCount::Act365F,
+            indexation_lag_months: DEFAULT_INDEXATION_LAG_MONTHS,
             points: Vec::new(),
             style: InterpStyle::LogLinear,
         }
     }
 
-    /// CPI level at time `t` (years).
+    /// CPI level at time `t` (years), without indexation lag.
     pub fn cpi(&self, t: f64) -> f64 {
         if t <= 0.0 {
             return self.base_cpi;
@@ -201,12 +262,70 @@ impl InflationCurve {
         self.interp.interp(t)
     }
 
-    /// Simple annualised inflation rate between `t1` and `t2`.
+    /// CPI level at time `t` (years), adjusted for the indexation lag.
+    ///
+    /// For TIPS/linker pricing, the CPI value at settlement is actually the
+    /// CPI value from `indexation_lag_months` earlier, linearly interpolated
+    /// between monthly CPI values. This method applies that lag.
+    ///
+    /// # Arguments
+    /// * `t` - Time in years from base date (the settlement date)
+    ///
+    /// # Returns
+    /// CPI level corresponding to `t - lag`, where lag is the configured
+    /// indexation lag in years.
+    pub fn cpi_with_lag(&self, t: f64) -> f64 {
+        let lag_years = self.indexation_lag_months as f64 / 12.0;
+        self.cpi(t - lag_years)
+    }
+
+    /// Annualised inflation rate between `t1` and `t2` using CAGR formula.
+    ///
+    /// Uses the Compound Annual Growth Rate, which is the market-standard
+    /// formula for annualised inflation:
+    /// ```text
+    /// π(t₁, t₂) = [I(t₂) / I(t₁)]^(1/(t₂-t₁)) - 1
+    /// ```
+    ///
+    /// This correctly compounds and matches QuantLib/Bloomberg conventions.
+    /// For short periods (< 1 year), this equals `(I2/I1)^(1/dt) - 1`
+    /// rather than the simple linear approximation `(I2/I1 - 1) / dt`.
     pub fn inflation_rate(&self, t1: f64, t2: f64) -> f64 {
         debug_assert!(t2 > t1);
         let c1 = self.cpi(t1);
         let c2 = self.cpi(t2);
+        let dt = t2 - t1;
+        (c2 / c1).powf(1.0 / dt) - 1.0
+    }
+
+    /// Simple (non-compounded) inflation rate between `t1` and `t2`.
+    ///
+    /// Returns `(I(t2) / I(t1) - 1) / (t2 - t1)`, which is the simple
+    /// linear approximation. For most applications, prefer [`inflation_rate`](Self::inflation_rate)
+    /// which uses the correct CAGR formula.
+    pub fn inflation_rate_simple(&self, t1: f64, t2: f64) -> f64 {
+        debug_assert!(t2 > t1);
+        let c1 = self.cpi(t1);
+        let c2 = self.cpi(t2);
         (c2 / c1 - 1.0) / (t2 - t1)
+    }
+
+    /// Base (valuation) date of the curve.
+    #[inline]
+    pub fn base_date(&self) -> Date {
+        self.base_date
+    }
+
+    /// Day count convention used by this curve.
+    #[inline]
+    pub fn day_count(&self) -> DayCount {
+        self.day_count
+    }
+
+    /// Indexation lag in months.
+    #[inline]
+    pub fn indexation_lag_months(&self) -> u32 {
+        self.indexation_lag_months
     }
 
     /// Curve identifier.
@@ -236,6 +355,7 @@ impl InflationCurve {
     /// Roll the curve forward by a specified number of days.
     ///
     /// This creates a new curve with:
+    /// - Base date advanced by `days`
     /// - Knot times shifted backwards (t' = t - dt_years)
     /// - Points with t' <= 0 are filtered out (expired)
     /// - CPI levels are preserved
@@ -250,7 +370,10 @@ impl InflationCurve {
     /// # Errors
     /// Returns an error if no knot points remain after filtering expired points.
     pub fn roll_forward(&self, days: i64) -> crate::Result<Self> {
-        let dt_years = days as f64 / 365.0;
+        let new_base = self.base_date + time::Duration::days(days);
+        let dt_years =
+            self.day_count
+                .year_fraction(self.base_date, new_base, DayCountCtx::default())?;
 
         // Get the new base CPI by interpolating at the roll time
         let new_base_cpi = self.cpi(dt_years);
@@ -275,6 +398,9 @@ impl InflationCurve {
         }
 
         InflationCurve::builder(self.id.clone())
+            .base_date(new_base)
+            .day_count(self.day_count)
+            .indexation_lag_months(self.indexation_lag_months)
             .base_cpi(new_base_cpi)
             .knots(rolled_points)
             .build()
@@ -294,6 +420,9 @@ impl TermStructure for InflationCurve {
 pub struct InflationCurveBuilder {
     id: CurveId,
     base_cpi: f64,
+    base_date: Date,
+    day_count: DayCount,
+    indexation_lag_months: u32,
     points: Vec<(f64, f64)>, // (t, cpi)
     style: InterpStyle,
 }
@@ -304,6 +433,28 @@ impl InflationCurveBuilder {
         self.base_cpi = cpi;
         self
     }
+
+    /// Override the default **base date** (valuation date).
+    pub fn base_date(mut self, d: Date) -> Self {
+        self.base_date = d;
+        self
+    }
+
+    /// Choose the day-count basis for time calculations.
+    pub fn day_count(mut self, dc: DayCount) -> Self {
+        self.day_count = dc;
+        self
+    }
+
+    /// Set the indexation lag in months.
+    ///
+    /// Default is 3 months (Canadian model, used by TIPS, IL Gilts, etc.).
+    /// Set to 0 to disable lag adjustment.
+    pub fn indexation_lag_months(mut self, months: u32) -> Self {
+        self.indexation_lag_months = months;
+        self
+    }
+
     /// Supply knot points `(t, cpi_level)`.
     pub fn knots<I>(mut self, pts: I) -> Self
     where
@@ -342,6 +493,9 @@ impl InflationCurveBuilder {
         Ok(InflationCurve {
             id: self.id,
             base_cpi: self.base_cpi,
+            base_date: self.base_date,
+            day_count: self.day_count,
+            indexation_lag_months: self.indexation_lag_months,
             knots,
             cpi_levels,
             interp,
@@ -362,7 +516,10 @@ mod tests {
     use super::*;
 
     fn sample_curve() -> InflationCurve {
+        let base =
+            Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date");
         InflationCurve::builder("US-CPI")
+            .base_date(base)
             .base_cpi(300.0)
             .knots([(0.0, 300.0), (1.0, 306.0), (2.0, 312.0)])
             .build()
@@ -380,5 +537,73 @@ mod tests {
         let ic = sample_curve();
         let r = ic.inflation_rate(0.0, 1.0);
         assert!(r > 0.0);
+    }
+
+    #[test]
+    fn inflation_rate_uses_cagr() {
+        let ic = sample_curve();
+        // CPI goes from 300 to 306 in 1 year → CAGR = (306/300)^1 - 1 = 2%
+        let r = ic.inflation_rate(0.0, 1.0);
+        assert!(
+            (r - 0.02).abs() < 1e-6,
+            "Expected ~2% CAGR inflation rate, got {:.4}%",
+            r * 100.0
+        );
+    }
+
+    #[test]
+    fn inflation_rate_simple_differs_from_cagr() {
+        let ic = sample_curve();
+        let cagr = ic.inflation_rate(0.0, 2.0);
+        let simple = ic.inflation_rate_simple(0.0, 2.0);
+        // For multi-year periods, CAGR and simple rates should differ
+        assert!(
+            (cagr - simple).abs() > 1e-8,
+            "CAGR ({cagr}) and simple ({simple}) should differ over 2 years"
+        );
+    }
+
+    #[test]
+    fn cpi_with_lag_applies_3_month_lag() {
+        let ic = sample_curve();
+        // At t=1.0 with 3-month lag, should return CPI at t=0.75
+        let lagged = ic.cpi_with_lag(1.0);
+        let direct = ic.cpi(0.75);
+        assert!(
+            (lagged - direct).abs() < 1e-12,
+            "Lagged CPI at t=1.0 should equal CPI at t=0.75"
+        );
+    }
+
+    #[test]
+    fn base_date_is_set() {
+        let ic = sample_curve();
+        let expected =
+            Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date");
+        assert_eq!(ic.base_date(), expected);
+    }
+
+    #[test]
+    fn roll_forward_uses_day_count() {
+        let base =
+            Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date");
+        let ic = InflationCurve::builder("CPI-ROLL")
+            .base_date(base)
+            .base_cpi(300.0)
+            .knots([
+                (0.5, 303.0),
+                (1.0, 306.0),
+                (2.0, 312.0),
+                (5.0, 330.0),
+                (10.0, 360.0),
+            ])
+            .build()
+            .expect("InflationCurve builder should succeed in test");
+
+        let rolled = ic.roll_forward(365).expect("roll_forward should succeed");
+        // After rolling 365 days (~1 year), base date should advance
+        assert!(rolled.base_date() > base);
+        // And knot count should decrease as early knots expire
+        assert!(rolled.knots().len() < ic.knots().len());
     }
 }
