@@ -200,9 +200,8 @@ pub enum CashSettlementMethod {
     /// This is a closed-form approximation that assumes the forward swap rate
     /// is a constant discount rate. Fast but less accurate for steep curves.
     ///
-    /// **Note**: This is the default for backwards compatibility, but
-    /// [`IsdaParPar`](Self::IsdaParPar) is recommended for production use.
-    #[default]
+    /// **Note**: This was the legacy default. As of the market standards audit,
+    /// [`IsdaParPar`](Self::IsdaParPar) is now the default for ISDA compliance.
     ParYield,
 
     /// ISDA Par-Par method using actual swap annuity from discount curve.
@@ -215,23 +214,16 @@ pub enum CashSettlementMethod {
     /// matching the PV01 of the underlying swap. This is the most accurate
     /// method and matches professional library implementations.
     ///
-    /// # ✅ Recommended for Production
+    /// # ✅ Default (ISDA Compliant)
     ///
-    /// Use this method for:
+    /// This is the default method, matching professional library implementations
+    /// (Bloomberg VCUB/SWPM, QuantLib). Suitable for:
     /// - Production pricing requiring ISDA compliance
     /// - Steep yield curve environments
     /// - Long-dated swaptions (> 5Y into > 10Y swap)
     /// - Trade confirmation matching
     /// - Any situation where cash settlement valuation precision matters
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// let swaption = Swaption::builder()
-    ///     // ... other fields ...
-    ///     .cash_settlement_method(CashSettlementMethod::IsdaParPar)
-    ///     .build()?;
-    /// ```
+    #[default]
     IsdaParPar,
 
     /// Zero coupon method discounting the single payment to swap maturity.

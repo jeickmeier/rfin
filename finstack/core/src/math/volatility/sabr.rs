@@ -431,14 +431,150 @@ pub fn calibrate_sabr(
     // Initial guess: α from ATM vol, ρ = 0, ν = 0.5
     let f_omb = forward.powf(1.0 - beta);
     let alpha_init = (atm_vol * f_omb).max(0.001);
-    let rho_init = 0.0;
-    let nu_init = 0.5;
+    let rho_init: f64 = 0.0;
+    let nu_init: f64 = 0.5;
 
-    // Simple grid search + Nelder-Mead style optimization
-    // We search around the initial guess using a multi-start approach
     let default_weights: Vec<f64> = vec![1.0; strikes.len()];
     let w = weights.unwrap_or(&default_weights);
 
+    // ------------------------------------------------------------------
+    // Primary solver: Levenberg-Marquardt on weighted residual vector
+    // ------------------------------------------------------------------
+    // Unconstrained parametrisation:
+    //   x[0] = ln(alpha)        → alpha = exp(x[0])  > 0
+    //   x[1] = atanh(rho)       → rho   = tanh(x[1]) ∈ (-1, 1)
+    //   x[2] = ln(nu)           → nu    = exp(x[2])  > 0
+    let n_strikes = strikes.len();
+
+    let residuals = |x: &[f64], resid: &mut [f64]| {
+        let alpha = x[0].exp();
+        let rho = x[1].tanh();
+        let nu = x[2].exp();
+
+        let params = SabrParams {
+            alpha,
+            beta,
+            rho,
+            nu,
+        };
+
+        for (i, (&k, &mv)) in strikes.iter().zip(market_vols.iter()).enumerate() {
+            let model_vol = params.implied_vol_lognormal(forward, k, expiry);
+            if model_vol.is_finite() {
+                resid[i] = w[i].sqrt() * (model_vol - mv);
+            } else {
+                resid[i] = w[i].sqrt() * 1.0; // Penalise non-finite vols
+            }
+        }
+    };
+
+    let x0 = [
+        alpha_init.ln(),
+        rho_init.clamp(-0.999, 0.999).atanh(),
+        nu_init.ln(),
+    ];
+
+    let solver = crate::math::solver_multi::LevenbergMarquardtSolver::new()
+        .with_tolerance(1e-10)
+        .with_max_iterations(200);
+
+    let lm_result = solver.solve_system_with_dim_stats(residuals, &x0, n_strikes);
+
+    // Attempt to extract LM solution and compute RMSE
+    let lm_params = lm_result.ok().and_then(|sol| {
+        let alpha = sol.params[0].exp();
+        let rho = sol.params[1].tanh();
+        let nu = sol.params[2].exp();
+
+        // Compute weighted SSE for RMSE check
+        let p = SabrParams {
+            alpha,
+            beta,
+            rho,
+            nu,
+        };
+        let sse: f64 = strikes
+            .iter()
+            .zip(market_vols.iter())
+            .enumerate()
+            .map(|(i, (&k, &mv))| {
+                let mv_hat = p.implied_vol_lognormal(forward, k, expiry);
+                if mv_hat.is_finite() {
+                    w[i] * (mv_hat - mv) * (mv_hat - mv)
+                } else {
+                    f64::MAX
+                }
+            })
+            .sum();
+
+        if sse.is_finite() {
+            Some((alpha, rho, nu, sse))
+        } else {
+            None
+        }
+    });
+
+    // ------------------------------------------------------------------
+    // Fallback: coordinate descent (if LM failed or produced worse RMSE)
+    // ------------------------------------------------------------------
+    let cd_result = calibrate_sabr_coordinate_descent(
+        forward,
+        expiry,
+        beta,
+        strikes,
+        market_vols,
+        w,
+        alpha_init,
+        rho_init,
+        nu_init,
+    );
+
+    // Pick the better result
+    let (alpha, rho, nu, best_obj) = match (lm_params, cd_result) {
+        (Some(lm), Some(cd)) => {
+            if lm.3 <= cd.3 {
+                lm
+            } else {
+                cd
+            }
+        }
+        (Some(lm), None) => lm,
+        (None, Some(cd)) => cd,
+        (None, None) => {
+            return Err(crate::Error::Validation(
+                "SABR calibration failed: both LM and fallback solvers failed to converge"
+                    .to_string(),
+            ));
+        }
+    };
+
+    // Validate convergence: RMSE should be reasonable
+    let rmse = (best_obj / strikes.len() as f64).sqrt();
+    if rmse > 0.05 {
+        return Err(crate::Error::Validation(format!(
+            "SABR calibration RMSE too high: {rmse:.4} (>5%). Parameters may not fit the market data well."
+        )));
+    }
+
+    SabrParams::new(alpha, beta, rho, nu)
+}
+
+/// Coordinate-descent fallback for SABR calibration.
+///
+/// Returns `Some((alpha, rho, nu, sse))` on success, `None` if the objective
+/// stays at `f64::MAX` (all parameter trials produced non-finite vols).
+#[allow(clippy::too_many_arguments)]
+fn calibrate_sabr_coordinate_descent(
+    forward: f64,
+    expiry: f64,
+    beta: f64,
+    strikes: &[f64],
+    market_vols: &[f64],
+    w: &[f64],
+    alpha_init: f64,
+    rho_init: f64,
+    nu_init: f64,
+) -> Option<(f64, f64, f64, f64)> {
     let objective = |alpha: f64, rho: f64, nu: f64| -> f64 {
         if alpha <= 0.0 || nu <= 0.0 || rho <= -1.0 || rho >= 1.0 {
             return f64::MAX;
@@ -461,7 +597,6 @@ pub fn calibrate_sabr(
         sse
     };
 
-    // Coordinate descent with adaptive step sizes
     let mut alpha = alpha_init;
     let mut rho = rho_init;
     let mut nu = nu_init;
@@ -513,21 +648,16 @@ pub fn calibrate_sabr(
             }
         }
 
-        // Convergence check
         if best_obj < 1e-12 {
             break;
         }
     }
 
-    // Validate convergence: RMSE should be reasonable
-    let rmse = (best_obj / strikes.len() as f64).sqrt();
-    if rmse > 0.05 {
-        return Err(crate::Error::Validation(format!(
-            "SABR calibration RMSE too high: {rmse:.4} (>5%). Parameters may not fit the market data well."
-        )));
+    if best_obj < f64::MAX {
+        Some((alpha, rho, nu, best_obj))
+    } else {
+        None
     }
-
-    SabrParams::new(alpha, beta, rho, nu)
 }
 
 // =============================================================================

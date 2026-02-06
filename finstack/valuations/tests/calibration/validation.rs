@@ -132,9 +132,10 @@ fn test_base_correlation_validation() {
 
     assert!(valid_curve.validate(&config).is_ok());
 
-    // Invalid curve - decreasing correlation
+    // Invalid curve - decreasing correlation (opt in to allow non-monotonic)
     let invalid_curve = BaseCorrelationCurve::builder("TEST-INVALID-CORR")
         .knots(vec![(3.0, 0.40), (7.0, 0.30), (10.0, 0.50)])
+        .allow_non_monotonic()
         .build()
         .expect("should build invalid curve for testing");
 

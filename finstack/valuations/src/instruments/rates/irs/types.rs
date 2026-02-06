@@ -356,6 +356,7 @@ impl InterestRateSwap {
                 par_method: None,
                 compounding_simple: true,
                 payment_delay_days: 0,
+                end_of_month: false,
             })
             .float(crate::instruments::common_impl::parameters::FloatLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
@@ -377,6 +378,7 @@ impl InterestRateSwap {
                 compounding: Default::default(),
                 fixing_calendar_id: None,
                 payment_delay_days: 0,
+                end_of_month: false,
             })
             .build()?;
 

@@ -57,6 +57,7 @@ fn main() -> finstack_core::Result<()> {
             par_method: None,
             compounding_simple: true,
             payment_delay_days: 0,
+            end_of_month: false,
         })
         .float(FloatLegSpec {
             discount_curve_id: "USD-OIS".into(),
@@ -73,6 +74,7 @@ fn main() -> finstack_core::Result<()> {
             end: maturity_5y,
             compounding: FloatingLegCompounding::Simple,
             payment_delay_days: 0,
+            end_of_month: false,
         })
         .build()
         .expect("Failed to create swap");
@@ -184,6 +186,7 @@ fn main() -> finstack_core::Result<()> {
             par_method: None,
             compounding_simple: true,
             payment_delay_days: 0,
+            end_of_month: false,
         })
         .float(finstack_valuations::instruments::rates::irs::FloatLegSpec {
             discount_curve_id: "USD-OIS".into(),
@@ -200,6 +203,7 @@ fn main() -> finstack_core::Result<()> {
             end: maturity_5y,
             compounding: Default::default(),
             payment_delay_days: 0,
+            end_of_month: false,
         })
         .build()?;
     println!(

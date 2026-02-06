@@ -348,6 +348,7 @@ fn test_irs_receive_vs_pay_fixed() {
         par_method: None,
         compounding_simple: true,
         payment_delay_days: 0,
+        end_of_month: false,
         start: as_of,
         end,
     };
@@ -364,6 +365,7 @@ fn test_irs_receive_vs_pay_fixed() {
         reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
         compounding: Default::default(),
         payment_delay_days: 0,
+        end_of_month: false,
         start: as_of,
         end,
         fixing_calendar_id: None,
@@ -433,6 +435,7 @@ fn test_irs_rate_sensitivity() {
         par_method: None,
         compounding_simple: true,
         payment_delay_days: 0,
+        end_of_month: false,
         start: as_of,
         end,
     };
@@ -449,6 +452,7 @@ fn test_irs_rate_sensitivity() {
         reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
         compounding: Default::default(),
         payment_delay_days: 0,
+        end_of_month: false,
         start: as_of,
         end,
         fixing_calendar_id: None,
@@ -532,6 +536,7 @@ fn test_irs_leg_pvs_consistency() {
             par_method: None,
             compounding_simple: true,
             payment_delay_days: 0,
+            end_of_month: false,
             start: as_of,
             end,
         },
@@ -547,6 +552,7 @@ fn test_irs_leg_pvs_consistency() {
             reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
+            end_of_month: false,
             start: as_of,
             end,
             fixing_calendar_id: None,
@@ -602,6 +608,7 @@ fn test_daycount_convention_impact_on_annuity() {
             par_method: None,
             compounding_simple: true,
             payment_delay_days: 0,
+            end_of_month: false,
             start: as_of,
             end,
         })
@@ -618,6 +625,7 @@ fn test_daycount_convention_impact_on_annuity() {
             reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
+            end_of_month: false,
             start: as_of,
             end,
         })
@@ -640,6 +648,7 @@ fn test_daycount_convention_impact_on_annuity() {
             par_method: None,
             compounding_simple: true,
             payment_delay_days: 0,
+            end_of_month: false,
             start: as_of,
             end,
         })
@@ -656,6 +665,7 @@ fn test_daycount_convention_impact_on_annuity() {
             reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
+            end_of_month: false,
             start: as_of,
             end,
         })
@@ -769,6 +779,7 @@ fn test_irs_t_minus_2_fixing_calendar_isda_standard() {
             par_method: None,
             compounding_simple: true,
             payment_delay_days: 0,
+            end_of_month: false,
             start,
             end,
         })
@@ -785,6 +796,7 @@ fn test_irs_t_minus_2_fixing_calendar_isda_standard() {
             reset_lag_days: 2, // T-2 reset lag per ISDA standard
             compounding: Default::default(),
             payment_delay_days: 0,
+            end_of_month: false,
             start,
             end,
         })
@@ -945,6 +957,7 @@ fn test_irs_forward_curve_daycount_used_for_projection() {
             par_method: None,
             compounding_simple: true,
             payment_delay_days: 0,
+            end_of_month: false,
             start,
             end,
         })
@@ -961,6 +974,7 @@ fn test_irs_forward_curve_daycount_used_for_projection() {
             reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
+            end_of_month: false,
             start,
             end,
         })
@@ -982,6 +996,7 @@ fn test_irs_forward_curve_daycount_used_for_projection() {
             par_method: None,
             compounding_simple: true,
             payment_delay_days: 0,
+            end_of_month: false,
             start,
             end,
         })
@@ -998,6 +1013,7 @@ fn test_irs_forward_curve_daycount_used_for_projection() {
             reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
+            end_of_month: false,
             start,
             end,
         })
@@ -1080,6 +1096,7 @@ fn test_sofr_ois_par_rate_matches_quantlib_identity() {
             par_method: None,
             compounding_simple: true,
             payment_delay_days: 0,
+            end_of_month: false,
         })
         .float(FloatLegSpec {
             discount_curve_id: curve_id.into(),
@@ -1097,6 +1114,7 @@ fn test_sofr_ois_par_rate_matches_quantlib_identity() {
                 observation_shift: None,
             },
             payment_delay_days: 0,
+            end_of_month: false,
             start,
             end,
         })

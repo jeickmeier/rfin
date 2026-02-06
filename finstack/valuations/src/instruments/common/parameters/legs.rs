@@ -102,6 +102,19 @@ pub struct FixedLegSpec {
     /// this many business days using the leg's calendar.
     #[cfg_attr(feature = "serde", serde(default))]
     pub payment_delay_days: i32,
+    /// End-of-month roll convention (default: false).
+    ///
+    /// When `true`, if the start date falls on the last business day of a month,
+    /// all subsequent roll dates will also fall on the last business day of their
+    /// respective months. This matches QuantLib's `MakeOIS` default behavior.
+    ///
+    /// # Market Standard
+    ///
+    /// Per ISDA 2006 Definitions Section 4.18, the End-of-Month convention should
+    /// be applied when the effective date is the last business day of a month.
+    /// Most professional systems (QuantLib, Bloomberg SWDF) default to `true`.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub end_of_month: bool,
 }
 
 /// Specification for floating rate legs in interest rate swaps
@@ -154,6 +167,19 @@ pub struct FloatLegSpec {
     /// this many business days using the leg's calendar.
     #[cfg_attr(feature = "serde", serde(default))]
     pub payment_delay_days: i32,
+    /// End-of-month roll convention (default: false).
+    ///
+    /// When `true`, if the start date falls on the last business day of a month,
+    /// all subsequent roll dates will also fall on the last business day of their
+    /// respective months. This matches QuantLib's `MakeOIS` default behavior.
+    ///
+    /// # Market Standard
+    ///
+    /// Per ISDA 2006 Definitions Section 4.18, the End-of-Month convention should
+    /// be applied when the effective date is the last business day of a month.
+    /// Most professional systems (QuantLib, Bloomberg SWDF) default to `true`.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub end_of_month: bool,
 }
 
 /// Specification for basis swap legs (floating vs floating)

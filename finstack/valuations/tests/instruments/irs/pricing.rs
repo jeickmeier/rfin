@@ -41,6 +41,7 @@ fn test_irs_at_par_npv_zero() {
             par_method: None,
             compounding_simple: true,
             payment_delay_days: 0,
+            end_of_month: false,
             start: as_of,
             end,
         },
@@ -57,6 +58,7 @@ fn test_irs_at_par_npv_zero() {
             reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
+            end_of_month: false,
             start: as_of,
             end,
         },
@@ -97,6 +99,7 @@ fn test_irs_receive_fixed_below_market() {
             par_method: None,
             compounding_simple: true,
             payment_delay_days: 0,
+            end_of_month: false,
             start: as_of,
             end,
         },
@@ -113,6 +116,7 @@ fn test_irs_receive_fixed_below_market() {
             reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
+            end_of_month: false,
             start: as_of,
             end,
         },
@@ -152,6 +156,7 @@ fn test_irs_receive_fixed_above_market() {
             par_method: None,
             compounding_simple: true,
             payment_delay_days: 0,
+            end_of_month: false,
             start: as_of,
             end,
         },
@@ -168,6 +173,7 @@ fn test_irs_receive_fixed_above_market() {
             reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
+            end_of_month: false,
             start: as_of,
             end,
         },
@@ -204,6 +210,7 @@ fn test_irs_pay_vs_receive_opposite_signs() {
         par_method: None,
         compounding_simple: true,
         payment_delay_days: 0,
+        end_of_month: false,
         start: as_of,
         end,
     };
@@ -221,6 +228,7 @@ fn test_irs_pay_vs_receive_opposite_signs() {
         reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
         compounding: Default::default(),
         payment_delay_days: 0,
+        end_of_month: false,
         start: as_of,
         end,
     };

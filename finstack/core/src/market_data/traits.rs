@@ -285,8 +285,19 @@ pub trait Forward: TermStructure {
     #[inline]
     fn rate_period(&self, t1: f64, t2: f64) -> f64 {
         debug_assert!(t2 > t1, "t2 must be after t1");
-        // 8-interval composite Simpson's rule: ∫f(x)dx ≈ (h/3)[f(x0) + 4f(x1) + 2f(x2) + ... + f(xn)]
-        let n = 8_usize;
+        // Adaptive-interval composite Simpson's rule:
+        //   ∫f(x)dx ≈ (h/3)[f(x0) + 4f(x1) + 2f(x2) + ... + f(xn)]
+        //
+        // Use more intervals for longer periods to maintain accuracy for
+        // long-dated forward averages while keeping performance for short periods.
+        let period = t2 - t1;
+        let n = if period > 20.0 {
+            32_usize
+        } else if period > 5.0 {
+            16_usize
+        } else {
+            8_usize
+        };
         let h = (t2 - t1) / n as f64;
         let mut sum = self.rate(t1) + self.rate(t2);
         for i in 1..n {

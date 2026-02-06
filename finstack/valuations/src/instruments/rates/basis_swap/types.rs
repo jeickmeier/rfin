@@ -42,6 +42,19 @@ pub use crate::instruments::common_impl::parameters::legs::BasisSwapLeg;
 /// reference rates (e.g., 3M SOFR vs 6M SOFR) plus an optional spread on one leg.
 /// The primary leg typically receives the spread, while the reference leg pays flat.
 ///
+/// # Cross-Currency (XCCY) Basis Swaps
+///
+/// **Important**: This implementation supports **single-currency** basis swaps only.
+/// For cross-currency basis swaps (e.g., EUR 3M EURIBOR vs USD 3M SOFR), additional
+/// features are required:
+///
+/// - **Notional exchange**: XCCY swaps exchange notionals at start and maturity
+/// - **FX reset**: Mark-to-market XCCY swaps reset the foreign notional periodically
+/// - **Dual discounting**: Each leg uses its own currency's discount curve
+///
+/// If both legs have the same `notional.currency()`, this is a single-currency basis
+/// swap (validated). Cross-currency support is planned for a future release.
+///
 /// # Examples
 /// ```rust
 /// use finstack_core::{dates::*, money::Money, currency::Currency, types::CurveId};

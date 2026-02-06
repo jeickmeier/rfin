@@ -1078,8 +1078,50 @@ impl DiscountCurveBuilder {
     /// **Warning:** Non-monotonic discount factors create arbitrage opportunities
     /// and will produce incorrect pricing results. Only use this override if you
     /// understand the implications.
+    ///
+    /// For negative rate environments, prefer [`allow_non_monotonic_with_floor`](Self::allow_non_monotonic_with_floor)
+    /// which adds a -5% safety floor on implied forward rates.
     pub fn allow_non_monotonic(mut self) -> Self {
         self.allow_non_monotonic = true;
+        self
+    }
+
+    /// Allow non-monotonic discount factors with a safety floor on forward rates.
+    ///
+    /// This is the recommended way to handle negative rate environments.
+    /// Disables monotonicity validation but sets a -5% floor on implied forward
+    /// rates to catch data errors.
+    ///
+    /// The -5% floor is a conservative bound that accommodates historical negative
+    /// rate regimes (e.g., ECB deposit facility at -0.50%) while catching obviously
+    /// erroneous data.
+    ///
+    /// For full override without any floor, use [`allow_non_monotonic`](Self::allow_non_monotonic)
+    /// or chain with `.with_min_forward_rate(f64::NEG_INFINITY)`.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// use finstack_core::market_data::term_structures::DiscountCurve;
+    /// # use time::macros::date;
+    /// # fn main() -> finstack_core::Result<()> {
+    /// let curve = DiscountCurve::builder("EUR-OIS")
+    ///     .base_date(date!(2025-01-01))
+    ///     .knots([(0.0, 1.0), (1.0, 1.002), (5.0, 0.99)])
+    ///     .allow_non_monotonic_with_floor()
+    ///     .build()?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn allow_non_monotonic_with_floor(mut self) -> Self {
+        self.allow_non_monotonic = true;
+        // Set a default forward rate floor when monotonicity is relaxed,
+        // unless the user has already set one explicitly.
+        // -5% is a reasonable floor that allows negative rate environments
+        // (ECB deposit facility) while catching data errors.
+        if self.min_forward_rate.is_none() {
+            self.min_forward_rate = Some(-0.05);
+        }
         self
     }
 
@@ -1745,6 +1787,60 @@ mod tests {
             .set_interp(InterpStyle::LogLinear)
             .build();
         assert!(curve.is_ok(), "Flat DF segments should be allowed");
+    }
+
+    #[test]
+    fn allow_non_monotonic_with_floor_sets_default_floor() {
+        let base =
+            Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date");
+        // Slightly increasing DF (negative rates) but within -5% floor
+        let curve = DiscountCurve::builder("EUR-OIS")
+            .base_date(base)
+            .knots([(0.0, 1.0), (1.0, 1.002), (5.0, 0.99)])
+            .set_interp(InterpStyle::Linear)
+            .allow_non_monotonic_with_floor()
+            .build();
+        assert!(
+            curve.is_ok(),
+            "Mild negative rates should pass with -5% floor"
+        );
+    }
+
+    #[test]
+    fn allow_non_monotonic_with_floor_rejects_wildly_negative_forwards() {
+        let base =
+            Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date");
+        // Drastically increasing DFs implying > -5% forward rates
+        let curve = DiscountCurve::builder("BAD-DF")
+            .base_date(base)
+            .knots([(0.0, 1.0), (1.0, 1.10), (5.0, 1.50)])
+            .set_interp(InterpStyle::Linear)
+            .allow_non_monotonic_with_floor()
+            .build();
+        assert!(
+            curve.is_err(),
+            "Wildly negative forward rates should be rejected by -5% floor"
+        );
+    }
+
+    #[test]
+    fn allow_non_monotonic_with_floor_respects_explicit_floor() {
+        let base =
+            Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date");
+        // Set a custom floor first, then call allow_non_monotonic_with_floor
+        // The custom floor should be preserved (not overwritten by -5%)
+        let curve = DiscountCurve::builder("EUR-OIS")
+            .base_date(base)
+            .knots([(0.0, 1.0), (1.0, 1.002), (5.0, 0.99)])
+            .set_interp(InterpStyle::Linear)
+            .with_min_forward_rate(-0.01) // Stricter floor: -1%
+            .allow_non_monotonic_with_floor()
+            .build();
+        // The -1% floor should be preserved since it was set before
+        assert!(
+            curve.is_ok(),
+            "Custom floor should be preserved by allow_non_monotonic_with_floor"
+        );
     }
 
     #[test]

@@ -103,7 +103,7 @@ proptest! {
                 par_method: None,
                 compounding_simple: true,
                 payment_delay_days: 0,
-            })
+                end_of_month: false,            })
             .float(FloatLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 forward_curve_id: CurveId::new("USD-SOFR-3M"),
@@ -119,7 +119,7 @@ proptest! {
                 end,
                 compounding: Default::default(),
                 payment_delay_days: 0,
-            })
+                end_of_month: false,            })
             .build()?;
 
         let irs_high = InterestRateSwap::builder()
@@ -139,7 +139,7 @@ proptest! {
                 par_method: None,
                 compounding_simple: true,
                 payment_delay_days: 0,
-            })
+                end_of_month: false,            })
             .float(FloatLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 forward_curve_id: CurveId::new("USD-SOFR-3M"),
@@ -155,7 +155,7 @@ proptest! {
                 end,
                 compounding: Default::default(),
                 payment_delay_days: 0,
-            })
+                end_of_month: false,            })
             .build()?;
 
         let npv_low = irs_low.value(&context, base_date)?;
@@ -205,7 +205,7 @@ proptest! {
                 par_method: None,
                 compounding_simple: true,
                 payment_delay_days: 0,
-            })
+                end_of_month: false,            })
             .float(FloatLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 forward_curve_id: CurveId::new("USD-SOFR-3M"),
@@ -221,7 +221,7 @@ proptest! {
                 end,
                 compounding: Default::default(),
                 payment_delay_days: 0,
-            })
+                end_of_month: false,            })
             .build()?;
 
         let receiver = InterestRateSwap::builder()
@@ -241,7 +241,7 @@ proptest! {
                 par_method: None,
                 compounding_simple: true,
                 payment_delay_days: 0,
-            })
+                end_of_month: false,            })
             .float(FloatLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 forward_curve_id: CurveId::new("USD-SOFR-3M"),
@@ -257,7 +257,7 @@ proptest! {
                 end,
                 compounding: Default::default(),
                 payment_delay_days: 0,
-            })
+                end_of_month: false,            })
             .build()?;
 
         let npv_payer = payer.value(&context, base_date)?;
@@ -334,7 +334,7 @@ proptest! {
                 par_method: None,
                 compounding_simple: true,
                 payment_delay_days: 0,
-            })
+                end_of_month: false,            })
             .float(FloatLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
                 forward_curve_id: CurveId::new("USD-SOFR-3M"),
@@ -350,7 +350,7 @@ proptest! {
                 end,
                 compounding: Default::default(),
                 payment_delay_days: 0,
-            })
+                end_of_month: false,            })
             .build()?;
 
         let npv = irs.value(&context, base_date)?;

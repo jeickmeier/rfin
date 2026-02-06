@@ -182,6 +182,7 @@ impl<State> ModelBuilder<State> {
             par_method: None,
             compounding_simple: true,
             payment_delay_days: 0,
+            end_of_month: false,
         };
 
         let float = FloatLegSpec {
@@ -199,6 +200,7 @@ impl<State> ModelBuilder<State> {
             end: maturity_date,
             compounding: FloatingLegCompounding::Simple,
             payment_delay_days: 0,
+            end_of_month: false,
         };
 
         let swap = InterestRateSwap::builder()

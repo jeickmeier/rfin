@@ -261,6 +261,7 @@ impl HazardCurve {
             day_count: DayCount::Act365F,
             par_points: Vec::new(),
             par_interp: ParInterp::Linear,
+            max_hazard_rate: 10.0,
         }
     }
 
@@ -595,6 +596,9 @@ pub struct HazardCurveBuilder {
     day_count: DayCount,
     par_points: Vec<(f64, f64)>, // (t, spread_bp)
     par_interp: ParInterp,
+    /// Maximum allowed hazard rate (default 10.0).
+    /// Rates above this trigger an error in `build()`.
+    max_hazard_rate: f64,
 }
 
 impl HazardCurveBuilder {
@@ -650,6 +654,24 @@ impl HazardCurveBuilder {
         self
     }
 
+    /// Set the maximum allowed hazard rate.
+    ///
+    /// During `build()`, any hazard rate exceeding this value triggers an error.
+    /// The default is `10.0` (implies >99.995% 1Y default probability).
+    pub fn with_max_hazard_rate(mut self, max: f64) -> Self {
+        self.max_hazard_rate = max;
+        self
+    }
+
+    /// Remove the upper bound on hazard rates (sets the limit to infinity).
+    ///
+    /// Useful for stress-testing or distressed-credit scenarios where very high
+    /// hazard rates are intentional.
+    pub fn allow_high_hazard_rates(mut self) -> Self {
+        self.max_hazard_rate = f64::INFINITY;
+        self
+    }
+
     /// Validate input and build the [`HazardCurve`].
     ///
     /// # Validation
@@ -657,7 +679,7 @@ impl HazardCurveBuilder {
     /// - Base date must be explicitly set (not the default 1970-01-01)
     /// - At least one knot point required
     /// - All hazard rates must be non-negative and finite
-    /// - Hazard rates > 10.0 trigger a warning (implies >99.995% 1Y default prob)
+    /// - Hazard rates > `max_hazard_rate` (default 10.0) trigger an error
     /// - Recovery rate must be in [0, 1]
     /// - Knot times must be strictly increasing
     pub fn build(self) -> crate::Result<HazardCurve> {
@@ -683,15 +705,15 @@ impl HazardCurveBuilder {
             if !lambda.is_finite() {
                 return Err(InputError::Invalid.into());
             }
-            // Sanity check: λ > 10 implies > 99.995% default probability over 1 year
-            // This is almost certainly a data error (units confusion, etc.)
-            if lambda > 10.0 {
-                #[cfg(debug_assertions)]
-                eprintln!(
-                    "Warning: Hazard rate {:.4} at t={:.2}y implies >99.995% 1Y default probability. \
-                    Check for units confusion (annual vs bps).",
-                    lambda, t
-                );
+            // Sanity check: λ exceeding max_hazard_rate is almost certainly a
+            // data error (units confusion, etc.).  Default limit is 10.0 which
+            // implies >99.995% 1Y default probability.
+            if lambda > self.max_hazard_rate {
+                return Err(crate::Error::Validation(format!(
+                    "Hazard rate {lambda:.4} at t={t:.2}y exceeds maximum {:.4}. \
+                     Use .allow_high_hazard_rates() or .with_max_hazard_rate() to override.",
+                    self.max_hazard_rate
+                )));
             }
         }
 

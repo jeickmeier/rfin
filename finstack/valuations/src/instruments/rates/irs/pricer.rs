@@ -713,6 +713,7 @@ mod tests {
                     par_method: None,
                     compounding_simple: true,
                     payment_delay_days: 0,
+                    end_of_month: false,
                 },
             )
             .float(
@@ -731,6 +732,7 @@ mod tests {
                     end,
                     compounding: FloatingLegCompounding::fedfunds(),
                     payment_delay_days: 0,
+                    end_of_month: false,
                 },
             )
             .build()
@@ -799,6 +801,7 @@ mod tests {
                     par_method: None,
                     compounding_simple: true,
                     payment_delay_days: 0,
+                    end_of_month: false,
                 },
             )
             .float(
@@ -817,6 +820,7 @@ mod tests {
                     compounding: FloatingLegCompounding::fedfunds(), // lookback=0
                     fixing_calendar_id: None,
                     payment_delay_days: 0,
+                    end_of_month: false,
                 },
             )
             .build()
@@ -879,6 +883,7 @@ mod tests {
                     par_method: None,
                     compounding_simple: true,
                     payment_delay_days: 0,
+                    end_of_month: false,
                 },
             )
             .float(
@@ -898,6 +903,7 @@ mod tests {
                     // This calendar ID does not exist in the registry
                     fixing_calendar_id: Some("NONEXISTENT-CALENDAR-XYZ".to_string()),
                     payment_delay_days: 0,
+                    end_of_month: false,
                 },
             )
             .build()
@@ -958,6 +964,7 @@ mod tests {
                     par_method: None,
                     compounding_simple: true,
                     payment_delay_days: 0,
+                    end_of_month: false,
                 },
             )
             .float(
@@ -977,6 +984,7 @@ mod tests {
                     // No fixing_calendar_id - intentional weekday stepping
                     fixing_calendar_id: None,
                     payment_delay_days: 0,
+                    end_of_month: false,
                 },
             )
             .build()
@@ -1063,6 +1071,7 @@ mod tests {
                     par_method: None,
                     compounding_simple: true,
                     payment_delay_days: 0, // No payment delay for exact identity
+                    end_of_month: false,
                 },
             )
             .float(
@@ -1084,6 +1093,7 @@ mod tests {
                     },
                     fixing_calendar_id: None,
                     payment_delay_days: 0, // No payment delay
+                    end_of_month: false,
                 },
             )
             .build()

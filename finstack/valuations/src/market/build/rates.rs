@@ -378,6 +378,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
                 par_method: None,
                 compounding_simple: true,
                 payment_delay_days: leg_conv.payment_delay_days,
+                end_of_month: false,
             };
 
             let float = crate::instruments::common_impl::parameters::legs::FloatLegSpec {
@@ -395,6 +396,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
                 end: maturity,
                 compounding,
                 payment_delay_days: leg_conv.payment_delay_days,
+                end_of_month: false,
             };
 
             let mut swap = InterestRateSwap::builder()

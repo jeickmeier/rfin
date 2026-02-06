@@ -57,6 +57,7 @@ fn test_irs_builder_pattern() {
             par_method: None,
             compounding_simple: true,
             payment_delay_days: 0,
+            end_of_month: false,
         })
         .float(finstack_valuations::instruments::FloatLegSpec {
             discount_curve_id: "USD_OIS".into(),
@@ -71,6 +72,7 @@ fn test_irs_builder_pattern() {
             reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
+            end_of_month: false,
             start: date!(2024 - 01 - 15),
             end: date!(2034 - 01 - 15),
         })
@@ -242,6 +244,7 @@ fn test_irs_different_leg_frequencies() {
             par_method: None,
             compounding_simple: true,
             payment_delay_days: 0,
+            end_of_month: false,
         })
         .float(finstack_valuations::instruments::FloatLegSpec {
             discount_curve_id: "USD_OIS".into(),
@@ -256,6 +259,7 @@ fn test_irs_different_leg_frequencies() {
             reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
+            end_of_month: false,
             start: date!(2024 - 01 - 01),
             end: date!(2029 - 01 - 01),
         })
@@ -312,6 +316,7 @@ fn test_irs_calendar_specification() {
             par_method: None,
             compounding_simple: true,
             payment_delay_days: 0,
+            end_of_month: false,
         })
         .float(finstack_valuations::instruments::FloatLegSpec {
             discount_curve_id: "USD_OIS".into(),
@@ -326,6 +331,7 @@ fn test_irs_calendar_specification() {
             reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
+            end_of_month: false,
             start: date!(2024 - 01 - 01),
             end: date!(2029 - 01 - 01),
         })
@@ -355,6 +361,7 @@ fn test_irs_stub_specification() {
             par_method: None,
             compounding_simple: true,
             payment_delay_days: 0,
+            end_of_month: false,
         })
         .float(finstack_valuations::instruments::FloatLegSpec {
             discount_curve_id: "USD_OIS".into(),
@@ -369,6 +376,7 @@ fn test_irs_stub_specification() {
             reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
+            end_of_month: false,
             start: date!(2024 - 01 - 15),
             end: date!(2029 - 01 - 01),
         })

@@ -84,6 +84,7 @@ fn create_monthly_swap(tenor_years: i32) -> InterestRateSwap {
             par_method: None,
             compounding_simple: true,
             payment_delay_days: 0,
+            end_of_month: false,
         })
         .float(FloatLegSpec {
             discount_curve_id: disc_id,
@@ -100,6 +101,7 @@ fn create_monthly_swap(tenor_years: i32) -> InterestRateSwap {
             compounding: FloatingLegCompounding::Simple,
             fixing_calendar_id: None,
             payment_delay_days: 0,
+            end_of_month: false,
         })
         .build()
         .expect("Failed to create monthly swap for benchmark")
@@ -130,6 +132,7 @@ fn create_ois_swap(tenor_years: i32) -> InterestRateSwap {
             par_method: None,
             compounding_simple: true,
             payment_delay_days: 2,
+            end_of_month: false,
         })
         .float(FloatLegSpec {
             discount_curve_id: disc_id.clone(),
@@ -146,6 +149,7 @@ fn create_ois_swap(tenor_years: i32) -> InterestRateSwap {
             compounding: FloatingLegCompounding::sofr(), // Compounded in arrears
             fixing_calendar_id: None,
             payment_delay_days: 2,
+            end_of_month: false,
         })
         .build()
         .expect("Failed to create OIS swap for benchmark")

@@ -296,9 +296,19 @@ impl FxOptionCalculator {
             self.config.theta_days_per_year,
         );
 
+        // Forward delta: N(d1) for calls, N(d1) - 1 for puts (no foreign discount factor).
+        // This is the interbank FX convention used for vol surface interpolation.
+        let d1 = crate::instruments::common_impl::models::d1(spot, inst.strike, r_d, sigma, t, r_f);
+        let cdf_d1 = finstack_core::math::norm_cdf(d1);
+        let delta_forward_unit = match inst.option_type {
+            OptionType::Call => cdf_d1,
+            OptionType::Put => cdf_d1 - 1.0,
+        };
+
         let scale = inst.notional.amount();
         Ok(FxOptionGreeks {
             delta: greeks_unit.delta * scale,
+            delta_forward: delta_forward_unit * scale,
             gamma: greeks_unit.gamma * scale,
             vega: greeks_unit.vega * scale,
             theta: greeks_unit.theta * scale,
@@ -335,12 +345,24 @@ impl FxOptionCalculator {
 
 /// Cash greeks for an FX option (scaled by notional amount).
 #[derive(Clone, Copy, Debug, Default)]
+#[allow(dead_code)] // Public API: fields exposed for external bindings and downstream crates
 pub struct FxOptionGreeks {
     /// Delta: sensitivity to spot FX rate (spot delta convention).
     ///
     /// Spot delta = e^(-r_f × T) × N(d1) for calls, -e^(-r_f × T) × N(-d1) for puts.
     /// This is the Bloomberg default convention.
     pub delta: f64,
+    /// Forward delta: interbank convention for FX option hedging and vol surface interpolation.
+    ///
+    /// Forward delta = N(d1) for calls, N(d1) - 1 for puts.
+    /// This does not include the foreign rate discount factor, making it the
+    /// convention used in professional FX interbank markets for quoting vol surfaces.
+    ///
+    /// # References
+    ///
+    /// - Garman, M. & Kohlhagen, S. (1983). "Foreign Currency Option Values"
+    /// - Clark, I. (2011). "Foreign Exchange Option Pricing" Chapter 2
+    pub delta_forward: f64,
     /// Gamma: rate of change of delta with respect to spot
     pub gamma: f64,
     /// Vega: sensitivity to 1% change in volatility

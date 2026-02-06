@@ -509,9 +509,10 @@ impl BaseCorrelationCurve {
     ///     BaseCorrelationCurve, SmoothingMethod
     /// };
     ///
-    /// // Create a non-monotonic curve
+    /// // Create a non-monotonic curve (opt in to allow non-monotonic data)
     /// let raw = BaseCorrelationCurve::builder("TEST")
     ///     .knots(vec![(3.0, 0.50), (7.0, 0.40), (10.0, 0.60)])
+    ///     .allow_non_monotonic()
     ///     .build()
     ///     .expect("Valid curve");
     ///
@@ -707,6 +708,9 @@ impl BaseCorrelationCurve {
 pub struct BaseCorrelationCurveBuilder {
     id: CurveId,
     points: Vec<(f64, f64)>, // (detachment_pct, correlation)
+    /// When `true`, skip the post-build monotonicity / bounds check.
+    /// Default is `false`, meaning the builder rejects non-monotonic curves.
+    allow_non_monotonic: bool,
 }
 
 impl BaseCorrelationCurveBuilder {
@@ -715,7 +719,18 @@ impl BaseCorrelationCurveBuilder {
         Self {
             id: id.into(),
             points: Vec::new(),
+            allow_non_monotonic: false,
         }
+    }
+
+    /// Allow the curve to be non-monotonic (skip arbitrage-free validation on build).
+    ///
+    /// By default, `build()` rejects curves that violate monotonicity or
+    /// correlation bounds.  Call this method to bypass that check, for example
+    /// when constructing a curve that will subsequently be smoothed.
+    pub fn allow_non_monotonic(mut self) -> Self {
+        self.allow_non_monotonic = true;
+        self
     }
 
     /// Add a single point (detachment_pct, correlation).
@@ -734,10 +749,16 @@ impl BaseCorrelationCurveBuilder {
     }
 
     /// Build the base correlation curve.
+    ///
+    /// Unless [`allow_non_monotonic`](Self::allow_non_monotonic) has been called,
+    /// the builder validates that the resulting curve is arbitrage-free
+    /// (monotonic correlations within `[0, 1]`).
     pub fn build(self) -> Result<BaseCorrelationCurve> {
         if self.points.len() < 2 {
             return Err(InputError::TooFewPoints.into());
         }
+
+        let allow_non_monotonic = self.allow_non_monotonic;
 
         // Sort by detachment point deterministically (panic-free even with NaNs).
         let mut sorted_points = self.points;
@@ -762,12 +783,40 @@ impl BaseCorrelationCurveBuilder {
             ExtrapolationPolicy::FlatZero,
         )?;
 
-        Ok(BaseCorrelationCurve {
+        let curve = BaseCorrelationCurve {
             id: self.id,
             detachment_points: kvec,
             correlations: cvec,
             interp,
-        })
+        };
+
+        // Arbitrage-free validation (unless explicitly opted out)
+        if !allow_non_monotonic {
+            let check = curve.validate_arbitrage_free();
+            let hard_violations: Vec<_> = check
+                .violations
+                .iter()
+                .filter(|v| {
+                    matches!(
+                        v,
+                        ArbitrageViolation::NonMonotonicCorrelation { .. }
+                            | ArbitrageViolation::InvalidCorrelationBounds { .. }
+                    )
+                })
+                .collect();
+
+            if !hard_violations.is_empty() {
+                let descriptions: Vec<String> =
+                    hard_violations.iter().map(|v| v.description()).collect();
+                return Err(crate::Error::Validation(format!(
+                    "Base correlation curve is not arbitrage-free: {}. \
+                     Use .allow_non_monotonic() to bypass this check.",
+                    descriptions.join("; ")
+                )));
+            }
+        }
+
+        Ok(curve)
     }
 }
 
@@ -795,8 +844,9 @@ mod tests {
                 (7.0, 0.40), // Violation: decreases
                 (10.0, 0.60),
             ])
+            .allow_non_monotonic()
             .build()
-            .expect("Builder should accept non-monotonic curves")
+            .expect("Builder should accept non-monotonic curves when opted in")
     }
 
     #[test]
@@ -949,8 +999,9 @@ mod tests {
                 (10.0, 0.50), // Rises but still below first
                 (15.0, 0.45), // Drops again
             ])
+            .allow_non_monotonic()
             .build()
-            .expect("Builder should accept");
+            .expect("Builder should accept when non-monotonic allowed");
 
         let smoothed = curve
             .apply_smoothing(SmoothingMethod::IsotonicRegression)
@@ -1021,8 +1072,9 @@ mod tests {
                 (7.0, 0.20),  // Violation
                 (10.0, 0.60), // Last - should be preserved
             ])
+            .allow_non_monotonic()
             .build()
-            .expect("Builder should accept");
+            .expect("Builder should accept when non-monotonic allowed");
 
         let smoothed = curve
             .apply_smoothing(SmoothingMethod::IsotonicRegression)

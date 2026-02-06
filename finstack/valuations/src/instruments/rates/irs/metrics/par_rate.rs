@@ -246,6 +246,7 @@ mod tests {
                     par_method: Some(ParRateMethod::DiscountRatio),
                     compounding_simple: true,
                     payment_delay_days: 0,
+                    end_of_month: false,
                 },
             )
             .float(
@@ -264,6 +265,7 @@ mod tests {
                     compounding: FloatingLegCompounding::Simple,
                     fixing_calendar_id: None,
                     payment_delay_days: 0,
+                    end_of_month: false,
                 },
             )
             .build()

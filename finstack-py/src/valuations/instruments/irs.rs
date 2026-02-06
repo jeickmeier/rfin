@@ -425,6 +425,7 @@ impl PyInterestRateSwapBuilder {
             par_method: None,
             compounding_simple: true,
             payment_delay_days: 0,
+            end_of_month: false,
         };
 
         let float_leg = FloatLegSpec {
@@ -443,6 +444,7 @@ impl PyInterestRateSwapBuilder {
             compounding: Default::default(),
             fixing_calendar_id: calendar,
             payment_delay_days: 0,
+            end_of_month: false,
         };
 
         InterestRateSwap::builder()

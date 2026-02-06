@@ -271,16 +271,21 @@ impl ForwardCurve {
             return self.rate(t1);
         }
 
-        // 8 sub-intervals (must be even). Chosen as a stable compromise:
-        // - deterministic
-        // - cheap
-        // - accurate enough for daily/short intervals used by RFR compounding
-        const N: usize = 8;
-        let h = dt / (N as f64);
+        // Adaptive sub-intervals (must be even). More intervals for longer
+        // periods to maintain accuracy for long-dated forward averages while
+        // keeping performance for short periods used by RFR compounding.
+        let n: usize = if dt > 20.0 {
+            32
+        } else if dt > 5.0 {
+            16
+        } else {
+            8
+        };
+        let h = dt / (n as f64);
 
         // Simpson weights: 1,4,2,4,...,2,4,1
         let mut sum = self.rate(t1) + self.rate(t2);
-        for i in 1..N {
+        for i in 1..n {
             let t = t1 + (i as f64) * h;
             let w = if i % 2 == 0 { 2.0 } else { 4.0 };
             sum += w * self.rate(t);

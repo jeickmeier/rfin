@@ -145,6 +145,102 @@ impl Compounding {
     pub fn is_periodic(&self) -> bool {
         matches!(self, Compounding::Annual | Compounding::Periodic(_))
     }
+
+    /// Convert an interest rate to a discount factor for time `t` (in years).
+    ///
+    /// Uses the compounding convention of `self`:
+    ///
+    /// ```text
+    /// Continuous:   DF = exp(-r × t)
+    /// Annual:       DF = (1 + r)^(-t)
+    /// Periodic(n):  DF = (1 + r/n)^(-n × t)
+    /// Simple:       DF = 1 / (1 + r × t)
+    /// ```
+    ///
+    /// When `t == 0.0`, returns `1.0` regardless of the rate (instantaneous
+    /// observation implies no discounting).
+    ///
+    /// # References
+    ///
+    /// Hull, J. C. (2018). *Options, Futures, and Other Derivatives* (10th ed.),
+    /// Chapter 4 — Interest Rates.
+    #[must_use]
+    #[inline]
+    pub fn df_from_rate(&self, rate: f64, t: f64) -> f64 {
+        if t == 0.0 {
+            return 1.0;
+        }
+        match self {
+            Compounding::Continuous => (-rate * t).exp(),
+            Compounding::Annual => (1.0 + rate).powf(-t),
+            Compounding::Periodic(n) => {
+                let n = f64::from(n.get());
+                (1.0 + rate / n).powf(-n * t)
+            }
+            Compounding::Simple => 1.0 / (1.0 + rate * t),
+        }
+    }
+
+    /// Convert a discount factor to an interest rate for time `t` (in years).
+    ///
+    /// Inverts the discount-factor formula for the compounding convention of `self`:
+    ///
+    /// ```text
+    /// Continuous:   r = -ln(DF) / t
+    /// Annual:       r = DF^(-1/t) - 1
+    /// Periodic(n):  r = n × (DF^(-1/(n×t)) - 1)
+    /// Simple:       r = (1/DF - 1) / t
+    /// ```
+    ///
+    /// When `t == 0.0`, returns `0.0` (the rate is undefined for an
+    /// instantaneous observation; zero is a safe sentinel).
+    ///
+    /// # References
+    ///
+    /// Hull, J. C. (2018). *Options, Futures, and Other Derivatives* (10th ed.),
+    /// Chapter 4 — Interest Rates.
+    #[must_use]
+    #[inline]
+    pub fn rate_from_df(&self, df: f64, t: f64) -> f64 {
+        if t == 0.0 {
+            return 0.0;
+        }
+        match self {
+            Compounding::Continuous => -df.ln() / t,
+            Compounding::Annual => df.powf(-1.0 / t) - 1.0,
+            Compounding::Periodic(n) => {
+                let n = f64::from(n.get());
+                n * (df.powf(-1.0 / (n * t)) - 1.0)
+            }
+            Compounding::Simple => (1.0 / df - 1.0) / t,
+        }
+    }
+
+    /// Convert a rate quoted under `self` to the equivalent rate under `to`.
+    ///
+    /// Internally this computes the discount factor from the source convention
+    /// and then inverts it under the target convention, ensuring exact
+    /// consistency:
+    ///
+    /// ```text
+    /// r_to = to.rate_from_df(self.df_from_rate(r_from, t), t)
+    /// ```
+    ///
+    /// When `t == 0.0`, returns `0.0`.
+    ///
+    /// # References
+    ///
+    /// Hull, J. C. (2018). *Options, Futures, and Other Derivatives* (10th ed.),
+    /// Chapter 4 — Interest Rates.
+    #[must_use]
+    #[inline]
+    pub fn convert_rate(&self, rate: f64, t: f64, to: &Compounding) -> f64 {
+        if t == 0.0 {
+            return 0.0;
+        }
+        let df = self.df_from_rate(rate, t);
+        to.rate_from_df(df, t)
+    }
 }
 
 impl Default for Compounding {
@@ -230,6 +326,227 @@ mod tests {
             let json = serde_json::to_string(&variant).expect("serialize");
             let deserialized: Compounding = serde_json::from_str(&json).expect("deserialize");
             assert_eq!(variant, deserialized);
+        }
+    }
+
+    // ── Rate conversion tests ───────────────────────────────────────────
+
+    /// All compounding conventions used in round-trip tests.
+    fn all_conventions() -> Vec<Compounding> {
+        vec![
+            Compounding::Continuous,
+            Compounding::Annual,
+            Compounding::SEMI_ANNUAL,
+            Compounding::QUARTERLY,
+            Compounding::MONTHLY,
+            Compounding::Simple,
+        ]
+    }
+
+    const TOL: f64 = 1e-12;
+
+    #[test]
+    fn test_df_rate_roundtrip_all_conventions() {
+        let rate = 0.05;
+        let t = 2.0;
+        for conv in all_conventions() {
+            let df = conv.df_from_rate(rate, t);
+            let recovered = conv.rate_from_df(df, t);
+            assert!(
+                (recovered - rate).abs() < TOL,
+                "{conv}: rate round-trip failed: {recovered} vs {rate}",
+            );
+        }
+    }
+
+    #[test]
+    fn test_rate_df_roundtrip_all_conventions() {
+        let df = 0.92;
+        let t = 1.5;
+        for conv in all_conventions() {
+            let rate = conv.rate_from_df(df, t);
+            let recovered = conv.df_from_rate(rate, t);
+            assert!(
+                (recovered - df).abs() < TOL,
+                "{conv}: DF round-trip failed: {recovered} vs {df}",
+            );
+        }
+    }
+
+    #[test]
+    fn test_convert_rate_roundtrip_cross_convention() {
+        let rate = 0.06;
+        let t = 3.0;
+        let conventions = all_conventions();
+        for from in &conventions {
+            for to in &conventions {
+                let converted = from.convert_rate(rate, t, to);
+                let back = to.convert_rate(converted, t, from);
+                assert!(
+                    (back - rate).abs() < TOL,
+                    "{from}->{to}->{from}: convert round-trip failed: {back} vs {rate}",
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_convert_rate_same_convention_is_identity() {
+        let rate = 0.04;
+        let t = 5.0;
+        for conv in all_conventions() {
+            let converted = conv.convert_rate(rate, t, &conv);
+            assert!(
+                (converted - rate).abs() < TOL,
+                "{conv}: self-conversion should be identity, got {converted}",
+            );
+        }
+    }
+
+    #[test]
+    fn test_known_value_continuous_5pct_1y() {
+        let df = Compounding::Continuous.df_from_rate(0.05, 1.0);
+        let expected = (-0.05_f64).exp(); // ≈ 0.951229424500714
+        assert!(
+            (df - expected).abs() < TOL,
+            "Continuous 5% 1Y: DF = {df}, expected {expected}",
+        );
+    }
+
+    #[test]
+    fn test_known_value_annual_5pct_1y() {
+        let df = Compounding::Annual.df_from_rate(0.05, 1.0);
+        let expected = 1.0 / 1.05; // ≈ 0.952380952380952
+        assert!(
+            (df - expected).abs() < TOL,
+            "Annual 5% 1Y: DF = {df}, expected {expected}",
+        );
+    }
+
+    #[test]
+    fn test_known_value_simple_5pct_half_year() {
+        let df = Compounding::Simple.df_from_rate(0.05, 0.5);
+        let expected = 1.0 / (1.0 + 0.05 * 0.5); // = 1 / 1.025
+        assert!(
+            (df - expected).abs() < TOL,
+            "Simple 5% 0.5Y: DF = {df}, expected {expected}",
+        );
+    }
+
+    #[test]
+    fn test_known_value_semiannual_5pct_1y() {
+        let df = Compounding::SEMI_ANNUAL.df_from_rate(0.05, 1.0);
+        let expected = (1.0 + 0.05 / 2.0_f64).powf(-2.0); // (1.025)^-2
+        assert!(
+            (df - expected).abs() < TOL,
+            "Semi-annual 5% 1Y: DF = {df}, expected {expected}",
+        );
+    }
+
+    #[test]
+    fn test_edge_case_t_zero() {
+        for conv in all_conventions() {
+            let df = conv.df_from_rate(0.10, 0.0);
+            assert_eq!(df, 1.0, "{conv}: df_from_rate(_, 0) should be 1.0");
+
+            let rate = conv.rate_from_df(0.95, 0.0);
+            assert_eq!(rate, 0.0, "{conv}: rate_from_df(_, 0) should be 0.0");
+        }
+    }
+
+    #[test]
+    fn test_edge_case_zero_rate() {
+        let t = 2.0;
+        for conv in all_conventions() {
+            let df = conv.df_from_rate(0.0, t);
+            assert!(
+                (df - 1.0).abs() < TOL,
+                "{conv}: zero rate should give DF = 1.0, got {df}",
+            );
+        }
+    }
+
+    #[test]
+    fn test_edge_case_high_rate() {
+        let rate = 1.0; // 100%
+        let t = 1.0;
+        for conv in all_conventions() {
+            let df = conv.df_from_rate(rate, t);
+            assert!(df > 0.0, "{conv}: DF must be positive for high rate");
+            assert!(df < 1.0, "{conv}: DF must be < 1 for positive rate");
+            let recovered = conv.rate_from_df(df, t);
+            assert!(
+                (recovered - rate).abs() < TOL,
+                "{conv}: high-rate round-trip failed: {recovered} vs {rate}",
+            );
+        }
+    }
+
+    #[test]
+    fn test_convert_rate_t_zero_returns_zero() {
+        let rate = 0.05;
+        let t = 0.0;
+        let result = Compounding::Continuous.convert_rate(rate, t, &Compounding::Annual);
+        assert_eq!(result, 0.0, "convert_rate at t=0 should return 0.0");
+    }
+
+    #[test]
+    fn test_rate_ordering_simple_gt_annual_gt_continuous() {
+        // For positive rates and t > 0, less frequent compounding requires
+        // a higher quoted rate for the same discount factor.
+        // Note: at t=1 Simple and Annual collapse to the same formula
+        // (1/DF - 1), so we use t=2 where they diverge.
+        let df = 0.90;
+        let t = 2.0;
+        let r_cont = Compounding::Continuous.rate_from_df(df, t);
+        let r_ann = Compounding::Annual.rate_from_df(df, t);
+        let r_simple = Compounding::Simple.rate_from_df(df, t);
+
+        assert!(
+            r_simple > r_ann,
+            "r_simple ({r_simple}) should be > r_annual ({r_ann})",
+        );
+        assert!(
+            r_ann > r_cont,
+            "r_annual ({r_ann}) should be > r_continuous ({r_cont})",
+        );
+    }
+
+    #[test]
+    fn test_rate_ordering_periodic_between_annual_and_continuous() {
+        // Semi-annual compounds more frequently than annual but less than
+        // continuous, so: r_annual > r_semi > r_continuous.
+        let df = 0.90;
+        let t = 2.0;
+        let r_cont = Compounding::Continuous.rate_from_df(df, t);
+        let r_semi = Compounding::SEMI_ANNUAL.rate_from_df(df, t);
+        let r_ann = Compounding::Annual.rate_from_df(df, t);
+
+        assert!(
+            r_ann > r_semi,
+            "r_annual ({r_ann}) should be > r_semi ({r_semi})",
+        );
+        assert!(
+            r_semi > r_cont,
+            "r_semi ({r_semi}) should be > r_continuous ({r_cont})",
+        );
+    }
+
+    #[test]
+    fn test_all_conventions_agree_on_df() {
+        // Converting the same 5% continuous rate to each convention and back
+        // to a DF should always yield the same DF.
+        let r_cont = 0.05;
+        let t = 2.5;
+        let df_expected = Compounding::Continuous.df_from_rate(r_cont, t);
+
+        for conv in all_conventions() {
+            let r_conv = Compounding::Continuous.convert_rate(r_cont, t, &conv);
+            let df_conv = conv.df_from_rate(r_conv, t);
+            assert!(
+                (df_conv - df_expected).abs() < TOL,
+                "{conv}: DF mismatch after conversion: {df_conv} vs {df_expected}",
+            );
         }
     }
 }

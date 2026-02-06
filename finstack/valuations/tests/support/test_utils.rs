@@ -67,7 +67,7 @@ pub fn usd_irs_swap(
         par_method: None,
         compounding_simple: true,
         payment_delay_days: 0,
-    };
+        end_of_month: false,    };
 
     let float = FloatLegSpec {
         discount_curve_id: CurveId::new("USD-OIS"),
@@ -84,7 +84,7 @@ pub fn usd_irs_swap(
         end,
         compounding: FloatingLegCompounding::Simple,
         payment_delay_days: 0,
-    };
+        end_of_month: false,    };
 
     let swap = InterestRateSwap::builder()
         .id(id.into())

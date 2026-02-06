@@ -194,6 +194,56 @@ pub fn year_fraction(start: Date, end: Date, dc: DayCount) -> Result<f64> {
     dc.year_fraction(start, end, finstack_core::dates::DayCountCtx::default())
 }
 
+/// Adjust spot price for discrete dividends using the present-value method.
+///
+/// This is the QuantLib-standard approach for handling discrete dividends in
+/// the Black-Scholes framework. The adjusted spot replaces the original spot
+/// in all BS formulas (pricing, Greeks, implied vol):
+///
+/// ```text
+/// S_adj = S - Σ D_i × e^{-r × t_i}
+/// ```
+///
+/// where:
+/// - `S` = current spot price
+/// - `D_i` = dividend amount at time `t_i`
+/// - `r` = risk-free rate
+/// - `t_i` = time to dividend payment in years (only dividends before expiry)
+///
+/// # Arguments
+///
+/// * `spot` - Current spot price of the underlying
+/// * `rate` - Risk-free rate (annualized, continuous compounding)
+/// * `dividends` - Slice of `(time_to_payment, dividend_amount)` pairs
+///   where `time_to_payment` is in years from valuation date
+///
+/// # Returns
+///
+/// Adjusted spot price. Always returns at least `1e-8` to avoid degenerate
+/// pricing when PV of dividends exceeds spot (deep ITM dividend scenario).
+///
+/// # Example
+///
+/// ```rust,ignore
+/// // Stock at $100, dividend of $2 in 0.25 years, r = 5%
+/// let s_adj = adjust_spot_for_discrete_dividends(100.0, 0.05, &[(0.25, 2.0)]);
+/// // s_adj ≈ 100 - 2 × e^{-0.05×0.25} ≈ 98.01
+/// assert!((s_adj - 98.01).abs() < 0.01);
+/// ```
+///
+/// # References
+///
+/// - Hull, J. C. (2018). *Options, Futures, and Other Derivatives*, Chapter 15.
+/// - QuantLib: `DividendVanillaOption` with `AnalyticEuropeanEngine`
+pub fn adjust_spot_for_discrete_dividends(spot: f64, rate: f64, dividends: &[(f64, f64)]) -> f64 {
+    let pv_dividends: f64 = dividends
+        .iter()
+        .filter(|(t, _)| *t > 0.0)
+        .map(|(t, d)| d * (-rate * t).exp())
+        .sum();
+    (spot - pv_dividends).max(1e-8)
+}
+
 /// Unit price under Black–Scholes (no contract size scaling).
 #[inline]
 pub fn price_bs_unit(
@@ -621,5 +671,45 @@ impl crate::pricer::Pricer for EquityOptionHestonFourierPricer {
             as_of,
             pv,
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_adjust_spot_for_discrete_dividends_single() {
+        // Stock at $100, dividend of $2 in 0.25 years, r = 5%
+        let s_adj = adjust_spot_for_discrete_dividends(100.0, 0.05, &[(0.25, 2.0)]);
+        // PV(div) = 2 × e^{-0.05×0.25} ≈ 1.9751
+        assert!((s_adj - 98.0248).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_adjust_spot_for_discrete_dividends_multiple() {
+        let s_adj = adjust_spot_for_discrete_dividends(100.0, 0.05, &[(0.25, 1.5), (0.5, 1.5)]);
+        let expected = 100.0 - 1.5 * (-0.05 * 0.25_f64).exp() - 1.5 * (-0.05 * 0.5_f64).exp();
+        assert!((s_adj - expected).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_adjust_spot_for_discrete_dividends_floor() {
+        // Dividends exceed spot → clamped to 1e-8
+        let s_adj = adjust_spot_for_discrete_dividends(1.0, 0.01, &[(0.1, 50.0)]);
+        assert!((s_adj - 1e-8).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_adjust_spot_for_discrete_dividends_empty() {
+        let s_adj = adjust_spot_for_discrete_dividends(100.0, 0.05, &[]);
+        assert!((s_adj - 100.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_adjust_spot_for_discrete_dividends_skips_past() {
+        // Dividend at t=0 or negative should be skipped
+        let s_adj = adjust_spot_for_discrete_dividends(100.0, 0.05, &[(0.0, 5.0), (-0.1, 3.0)]);
+        assert!((s_adj - 100.0).abs() < 1e-12);
     }
 }

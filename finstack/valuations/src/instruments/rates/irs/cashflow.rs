@@ -84,7 +84,7 @@ pub fn fixed_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
                 .clone()
                 .unwrap_or_else(|| "weekends_only".to_string()),
             stub: fixed.stub,
-            end_of_month: false,
+            end_of_month: fixed.end_of_month,
             payment_lag_days: fixed.payment_delay_days,
         });
     let mut sched = fixed_b.build_with_curves(None)?;
@@ -175,7 +175,7 @@ pub fn float_leg_schedule_with_curves(
                     .clone()
                     .unwrap_or_else(|| "weekends_only".to_string()),
                 fixing_calendar_id: float.fixing_calendar_id.clone(),
-                end_of_month: false,
+                end_of_month: float.end_of_month,
                 payment_lag_days: float.payment_delay_days,
             },
             coupon_type: crate::cashflow::builder::CouponType::Cash,

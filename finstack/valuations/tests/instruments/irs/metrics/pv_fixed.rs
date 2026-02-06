@@ -60,6 +60,7 @@ fn create_swap(as_of: Date, end: Date, fixed_rate: rust_decimal::Decimal) -> Int
             par_method: None,
             compounding_simple: true,
             payment_delay_days: 0,
+            end_of_month: false,
             start: as_of,
             end,
         },
@@ -76,6 +77,7 @@ fn create_swap(as_of: Date, end: Date, fixed_rate: rust_decimal::Decimal) -> Int
             reset_lag_days: 0, // Use 0 for spot-starting swaps to avoid needing historical fixings
             compounding: Default::default(),
             payment_delay_days: 0,
+            end_of_month: false,
             start: as_of,
             end,
         },

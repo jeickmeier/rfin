@@ -640,6 +640,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
             par_method: None,
             compounding_simple: true,
             payment_delay_days: 0,
+            end_of_month: false,
         })
         .float(FloatLegSpec {
             discount_curve_id: "USD".into(),
@@ -656,6 +657,7 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
             reset_lag_days: 2,
             compounding: Default::default(),
             payment_delay_days: 0,
+            end_of_month: false,
         })
         .build()
         .unwrap();
