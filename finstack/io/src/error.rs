@@ -82,6 +82,17 @@ pub enum Error {
         id: String,
     },
 
+    /// Permission denied for an action.
+    #[error("Permission denied: {action} on {resource_type} '{resource_id}'")]
+    PermissionDenied {
+        /// Action attempted.
+        action: &'static str,
+        /// Resource type.
+        resource_type: String,
+        /// Resource id or identifier.
+        resource_id: String,
+    },
+
     /// Storage schema version mismatch.
     #[error("Unsupported schema version: found={found}, expected={expected}")]
     UnsupportedSchema {

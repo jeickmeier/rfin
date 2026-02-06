@@ -20,6 +20,7 @@
 
 pub mod config;
 pub mod error;
+pub mod governance;
 pub(crate) mod helpers;
 pub(crate) mod sql;
 pub mod store;
@@ -35,6 +36,11 @@ pub use providers::turso;
 
 pub use config::{open_store_from_env, FinstackIoConfig, IoBackend, StoreHandle};
 pub use error::{Error, Result};
+pub use governance::{
+    ActorContext, ActorKind, ChangeKind, GovernanceConfig, GovernedHandle, ResourceChange,
+    ResourceChangeInsert, ResourceEntity, ResourceShare, SharePermission, ShareType, UserRole,
+    VisibilityScope,
+};
 pub use store::{
     BulkStore, LookbackStore, MarketContextSnapshot, PortfolioSnapshot, SeriesKey, SeriesKind,
     Store, TimeSeriesPoint, TimeSeriesStore, MAX_BATCH_SIZE,

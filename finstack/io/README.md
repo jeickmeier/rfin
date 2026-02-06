@@ -112,6 +112,40 @@ Environment variables:
 - `FINSTACK_POSTGRES_URL`: Connection URL for Postgres (required when backend is `postgres`)
 - `FINSTACK_TURSO_PATH`: Path for Turso database (required when backend is `turso`)
 
+## Governance (Row-Level Permissioning & Workflow)
+
+`finstack-io` includes an optional governance layer for enterprise deployments:
+
+- Row-level access control via `resource_entities` and `resource_shares`.
+- Draft/submit/verify workflows via `resource_changes` and workflow tables.
+- System ingestion flow that lands in `SYSTEM_VERIFIED`.
+
+Enable governance with:
+
+```bash
+export FINSTACK_IO_GOVERNANCE=on
+```
+
+Optional admin override roles:
+
+```bash
+export FINSTACK_IO_ADMIN_ROLES="EnterpriseAdmin,Auditor"
+```
+
+Usage (Rust):
+
+```rust
+use finstack_io::{ActorContext, StoreHandle};
+
+let store: StoreHandle = finstack_io::open_store_from_env().await?;
+let governed = store.as_actor(ActorContext::user("alice"));
+
+// Governed reads
+let instrument = governed.get_instrument("DEPO-001").await?;
+```
+
+See `docs/TDD/TDD-11-enterprise-permissioning-and-workflow.md` for policy configuration and workflow details.
+
 ## Database Setup
 
 ### SQLite

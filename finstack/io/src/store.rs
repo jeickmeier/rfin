@@ -5,6 +5,10 @@
 //!
 //! All operations are async to support efficient I/O across different backends.
 
+use crate::governance::{
+    ActorKind, ResourceChange, ResourceChangeInsert, ResourceEntity, ResourceShare, UserRole,
+    WorkflowBinding, WorkflowState, WorkflowTransition,
+};
 use crate::{Error, Result};
 use async_trait::async_trait;
 use finstack_core::dates::Date;
@@ -273,6 +277,118 @@ pub trait Store: Send + Sync {
         let market = self.load_market_context(market_id, as_of).await?;
         Ok((portfolio, market))
     }
+}
+
+/// Internal governance store interface for authorization and workflow operations.
+#[async_trait]
+pub(crate) trait GovernanceStore: Send + Sync {
+    /// Load a resource entity row.
+    async fn get_resource_entity(
+        &self,
+        resource_type: &str,
+        resource_id: &str,
+    ) -> Result<Option<ResourceEntity>>;
+
+    /// Upsert a resource entity row.
+    async fn upsert_resource_entity(&self, entity: &ResourceEntity) -> Result<()>;
+
+    /// List resource entities for a given type.
+    async fn list_resource_entities(&self, resource_type: &str) -> Result<Vec<ResourceEntity>>;
+
+    /// List explicit shares for a resource.
+    async fn list_resource_shares(
+        &self,
+        resource_type: &str,
+        resource_id: &str,
+    ) -> Result<Vec<ResourceShare>>;
+
+    /// List all shares for a given resource type, keyed by resource id.
+    ///
+    /// This avoids N+1 queries when filtering a list of resources by
+    /// authorization. The default implementation falls back to per-resource
+    /// queries but providers should override with a single batch query.
+    async fn list_all_resource_shares(
+        &self,
+        resource_type: &str,
+    ) -> Result<HashMap<String, Vec<ResourceShare>>> {
+        let _ = resource_type;
+        Ok(HashMap::new())
+    }
+
+    /// List roles for a user.
+    async fn list_user_roles(&self, user_id: &str) -> Result<Vec<UserRole>>;
+
+    /// List groups for a user.
+    async fn list_user_groups(&self, user_id: &str) -> Result<Vec<String>>;
+
+    /// List workflow bindings for a resource type.
+    async fn list_workflow_bindings(&self, resource_type: &str) -> Result<Vec<WorkflowBinding>>;
+
+    /// Load a workflow transition definition.
+    async fn get_workflow_transition(
+        &self,
+        policy_id: &str,
+        from_state: &str,
+        to_state: &str,
+    ) -> Result<Option<WorkflowTransition>>;
+
+    /// Load a workflow state definition.
+    async fn get_workflow_state(
+        &self,
+        policy_id: &str,
+        state_key: &str,
+    ) -> Result<Option<WorkflowState>>;
+
+    /// Insert a workflow event row.
+    #[allow(clippy::too_many_arguments)]
+    async fn insert_workflow_event(
+        &self,
+        event_id: &str,
+        change_id: &str,
+        resource_type: &str,
+        resource_id: &str,
+        resource_key2: &str,
+        from_state: &str,
+        to_state: &str,
+        actor_kind: ActorKind,
+        actor_id: &str,
+        note: Option<&str>,
+    ) -> Result<()>;
+
+    /// Get the last workflow event actor id for a change.
+    async fn last_workflow_event_actor(&self, change_id: &str) -> Result<Option<String>>;
+
+    /// Insert a resource change proposal.
+    async fn insert_resource_change(&self, change: &ResourceChangeInsert) -> Result<()>;
+
+    /// Update workflow state for a change proposal.
+    async fn update_resource_change_state(
+        &self,
+        change_id: &str,
+        workflow_state: &str,
+        workflow_policy_id: Option<&str>,
+        submitted_at: Option<&str>,
+        applied_at: Option<&str>,
+    ) -> Result<()>;
+
+    /// Load a resource change proposal by id.
+    async fn get_resource_change(&self, change_id: &str) -> Result<Option<ResourceChange>>;
+
+    /// List resource changes for an owner.
+    async fn list_resource_changes_for_owner(
+        &self,
+        owner_user_id: &str,
+    ) -> Result<Vec<ResourceChange>>;
+
+    /// Get the latest final workflow state for a resource.
+    async fn latest_verified_state(
+        &self,
+        resource_type: &str,
+        resource_id: &str,
+    ) -> Result<Option<String>>;
+
+    /// Apply a resource change to the verified tables.
+    async fn apply_change_to_verified(&self, change: &ResourceChange) -> Result<()>;
 }
 
 /// Extension trait for bulk operations.

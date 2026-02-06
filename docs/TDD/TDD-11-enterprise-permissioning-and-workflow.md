@@ -218,7 +218,7 @@ All tables are created via `finstack/io/src/sql/schema/*` and discovered by the 
 
 ### Identity and Membership
 
-- `auth_users(id TEXT PRIMARY KEY, external_id TEXT NULL, name TEXT NULL, status TEXT NOT NULL, created_at, updated_at)`
+- `auth_users(id TEXT PRIMARY KEY, external_id TEXT NULL, name TEXT NULL, email TEXT NOT NULL, email_verified BOOL NOT NULL, image TEXT NULL, status TEXT NOT NULL, created_at, updated_at)`
 - `auth_roles(id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at, updated_at)`
 - `auth_groups(id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at, updated_at)`
 - `auth_user_roles(user_id TEXT, role_id TEXT, group_id TEXT NULL, created_at, PRIMARY KEY(user_id, role_id, group_id))`
@@ -233,11 +233,57 @@ Better Auth provides its own core tables plus organization plugin tables. To kee
 - The organization plugin adds `organization` and `member` tables, and optionally `organizationRole`, `team`, and `teamMember` tables. Roles can be multi-valued in `member.role`.
 - Better Auth allows custom table and column names for core schema and plugin tables using `modelName`, `fields`, and `schema` config.
 
-Recommended mapping when using Better Auth default tables:
-- `auth_users` maps to Better Auth `user`.
-- `auth_groups` maps to `organization` and optionally `team`.
-- `auth_user_groups` maps to `member` and `teamMember`.
-- `auth_roles` and `auth_user_roles` map to `organizationRole` plus `member.role` (string list).
+Preferred schema override mapping:
+- Map Better Auth `user` -> `auth_users`.
+- Map org plugin `organization` -> `auth_groups`.
+- Map org plugin `member` -> `auth_user_roles` with fields: `user_id`, `group_id`, `role_id`.
+- If you need a dedicated `auth_user_groups` table, create a view as `SELECT DISTINCT user_id, group_id FROM auth_user_roles`.
+
+Example (TypeScript, schema overrides):
+
+```ts
+import { betterAuth } from "better-auth";
+import { organization } from "better-auth/plugins";
+
+export const auth = betterAuth({
+  user: {
+    modelName: "auth_users",
+    fields: {
+      id: "id",
+      name: "name",
+      email: "email",
+      createdAt: "created_at",
+      updatedAt: "updated_at",
+    },
+  },
+  plugins: [
+    organization({
+      schema: {
+        organization: {
+          modelName: "auth_groups",
+          fields: {
+            id: "id",
+            name: "name",
+            createdAt: "created_at",
+            updatedAt: "updated_at",
+          },
+        },
+        member: {
+          modelName: "auth_user_roles",
+          fields: {
+            userId: "user_id",
+            organizationId: "group_id",
+            role: "role_id",
+            createdAt: "created_at",
+          },
+        },
+      },
+    }),
+  ],
+});
+```
+
+Adjust field names to match your column names and any custom IDs.
 
 Group identity collision avoidance:
 - When storing organization or team identifiers in `visibility_id` and `resource_shares.share_id`, use a typed prefix such as `org:<id>` or `team:<id>`. This avoids ambiguity and allows the adapter to resolve membership against `organization` and `team` tables without adding new columns.
