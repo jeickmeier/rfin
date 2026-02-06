@@ -271,6 +271,7 @@ impl TestOptionBuilder {
             spot_id: self.spot_id,
             vol_surface_id: self.vol_surface_id.into(),
             div_yield_id: self.div_yield_id,
+            discrete_dividends: Vec::new(),
             pricing_overrides: PricingOverrides::default(),
             attributes: Default::default(),
         }

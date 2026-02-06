@@ -223,6 +223,7 @@ fn test_zero_volatility_option_limits() {
         spot_id: "SPOT".into(),
         vol_surface_id: "SPOT_VOL".into(),
         div_yield_id: None,
+        discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };
@@ -261,6 +262,7 @@ fn test_zero_volatility_option_limits() {
         spot_id: "SPOT".into(),
         vol_surface_id: "SPOT_VOL".into(),
         div_yield_id: None,
+        discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };
@@ -313,6 +315,7 @@ fn test_zero_notional_handling() {
         spot_id: "SPOT".into(),
         vol_surface_id: "SPOT_VOL".into(),
         div_yield_id: None,
+        discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };
@@ -376,6 +379,7 @@ fn test_deep_otm_option_greeks() {
         spot_id: "SPOT".into(),
         vol_surface_id: "SPOT_VOL".into(),
         div_yield_id: None,
+        discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };
@@ -426,6 +430,7 @@ fn test_deep_itm_put_greeks() {
         spot_id: "SPOT".into(),
         vol_surface_id: "SPOT_VOL".into(),
         div_yield_id: None,
+        discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };
@@ -475,6 +480,7 @@ fn test_deep_otm_put_greeks() {
         spot_id: "SPOT".into(),
         vol_surface_id: "SPOT_VOL".into(),
         div_yield_id: None,
+        discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };
@@ -539,6 +545,7 @@ fn test_atm_option_gamma_peak() {
             spot_id: "SPOT".into(),
             vol_surface_id: "SPOT_VOL".into(),
             div_yield_id: None,
+            discrete_dividends: Vec::new(),
             pricing_overrides: PricingOverrides::default(),
             attributes: Default::default(),
         };
@@ -598,6 +605,7 @@ fn test_extreme_volatility_handling() {
         spot_id: "SPOT".into(),
         vol_surface_id: "SPOT_VOL".into(),
         div_yield_id: None,
+        discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };
@@ -651,6 +659,7 @@ fn test_very_short_dated_option() {
         spot_id: "SPOT".into(),
         vol_surface_id: "SPOT_VOL".into(),
         div_yield_id: None,
+        discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };
@@ -726,6 +735,7 @@ fn test_very_low_interest_rate_greeks() {
         spot_id: "SPOT".into(),
         vol_surface_id: "SPOT_VOL".into(),
         div_yield_id: None,
+        discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };
@@ -806,6 +816,7 @@ fn test_vol_smile_greeks() {
         spot_id: "SPOT".into(),
         vol_surface_id: "SMILE_VOL".into(),
         div_yield_id: None,
+        discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };

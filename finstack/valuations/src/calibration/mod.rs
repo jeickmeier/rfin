@@ -56,6 +56,8 @@
 
 /// Plan-driven calibration API (schema + execution engine).
 pub mod api;
+/// Hull-White one-factor model calibration to European swaptions.
+pub mod hull_white;
 /// Prepared quotes for calibration.
 pub(crate) mod prepared;
 /// Solver utilities and implementations used by calibration.

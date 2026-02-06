@@ -125,6 +125,7 @@ impl RevolvingCredit {
             fixing_calendar_id: None,
             end_of_month: false,
             payment_lag_days: 0,
+            overnight_compounding: None,
         });
         let fees = RevolvingCreditFees::flat(25.0, 10.0, 5.0);
         let draw_repay = DrawRepaySpec::Deterministic(vec![

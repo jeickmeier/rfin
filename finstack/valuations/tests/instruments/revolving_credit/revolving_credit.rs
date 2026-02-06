@@ -399,6 +399,7 @@ fn test_term_forward_with_floor() {
                 calendar_id: "weekends_only".to_string(),
                 fixing_calendar_id: None,
                 end_of_month: false,
+                overnight_compounding: None,
                 payment_lag_days: 0,
             },
         ))
@@ -434,6 +435,7 @@ fn test_term_forward_with_floor() {
                 calendar_id: "weekends_only".to_string(),
                 fixing_calendar_id: None,
                 end_of_month: false,
+                overnight_compounding: None,
                 payment_lag_days: 0,
             },
         ))

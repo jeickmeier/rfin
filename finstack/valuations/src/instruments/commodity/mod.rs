@@ -58,6 +58,8 @@
 //! - [`CommoditySwap`] for fixed-float swaps
 //! - [`CommodityOption`] for commodity options
 
+/// Commodity Asian option module.
+pub mod commodity_asian_option;
 /// Commodity forward module.
 pub mod commodity_forward;
 /// Commodity option module.
@@ -66,6 +68,7 @@ pub mod commodity_option;
 pub mod commodity_swap;
 
 // Re-export primary types
+pub use commodity_asian_option::CommodityAsianOption;
 pub use commodity_forward::CommodityForward;
 pub use commodity_option::CommodityOption;
 pub use commodity_swap::CommoditySwap;

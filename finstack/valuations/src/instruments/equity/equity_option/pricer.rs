@@ -121,6 +121,15 @@ pub fn collect_inputs(
 /// Returns `EquityOptionInputs` with properly separated day count handling:
 /// - `t_rate`: Uses the discount curve's day count for rate lookups
 /// - `t_vol`: Uses ACT/365F for volatility surface lookups (equity market standard)
+///
+/// # Discrete Dividend Handling
+///
+/// When `discrete_dividends` is non-empty and contains future dividends (ex-date > as_of
+/// and ex-date <= expiry), the escrowed dividend model is applied:
+/// - Spot is adjusted: `S* = S - Σ D_i × e^{-r × t_i}`
+/// - Dividend yield `q` is set to 0.0 (dividends are already priced into S*)
+///
+/// This is the QuantLib-standard approach for discrete dividends in Black-Scholes.
 pub fn collect_inputs_extended(
     inst: &EquityOption,
     curves: &MarketContext,
@@ -139,35 +148,60 @@ pub fn collect_inputs_extended(
 
     // Spot from scalar id (unitless or price)
     let spot_scalar = curves.price(&inst.spot_id)?;
-    let spot = match spot_scalar {
+    let raw_spot = match spot_scalar {
         finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
         finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
     };
 
-    // Dividend yield from scalar id if provided
-    //
-    // When a dividend yield ID is explicitly provided, we require the lookup to succeed
-    // and return a unitless scalar. Silent fallback to 0.0 would mask market data
-    // configuration errors.
-    let q = if let Some(div_id) = &inst.div_yield_id {
-        let ms = curves.price(div_id.as_str()).map_err(|e| {
-            finstack_core::Error::Validation(format!(
-                "Failed to fetch dividend yield '{}': {}",
-                div_id, e
-            ))
-        })?;
-        match ms {
-            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-            finstack_core::market_data::scalars::MarketScalar::Price(m) => {
-                return Err(finstack_core::Error::Validation(format!(
-                    "Dividend yield '{}' should be a unitless scalar, got Price({})",
-                    div_id,
-                    m.currency()
-                )));
-            }
-        }
+    // Check for discrete dividends — if present, adjust spot and zero out q
+    let future_divs: Vec<(f64, f64)> = if !inst.discrete_dividends.is_empty() {
+        inst.discrete_dividends
+            .iter()
+            .filter(|(ex_date, _)| *ex_date > as_of && *ex_date <= inst.expiry)
+            .filter_map(|(ex_date, amount)| {
+                let t_div = year_fraction(as_of, *ex_date, DayCount::Act365F).ok()?;
+                if t_div > 0.0 {
+                    Some((t_div, *amount))
+                } else {
+                    None
+                }
+            })
+            .collect()
     } else {
-        0.0
+        Vec::new()
+    };
+
+    let (spot, q) = if !future_divs.is_empty() {
+        // Escrowed dividend model: adjust spot, set q=0
+        let s_adj = adjust_spot_for_discrete_dividends(raw_spot, r, &future_divs);
+        (s_adj, 0.0)
+    } else {
+        // Continuous dividend yield from scalar id if provided
+        //
+        // When a dividend yield ID is explicitly provided, we require the lookup to succeed
+        // and return a unitless scalar. Silent fallback to 0.0 would mask market data
+        // configuration errors.
+        let q = if let Some(div_id) = &inst.div_yield_id {
+            let ms = curves.price(div_id.as_str()).map_err(|e| {
+                finstack_core::Error::Validation(format!(
+                    "Failed to fetch dividend yield '{}': {}",
+                    div_id, e
+                ))
+            })?;
+            match ms {
+                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+                finstack_core::market_data::scalars::MarketScalar::Price(m) => {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "Dividend yield '{}' should be a unitless scalar, got Price({})",
+                        div_id,
+                        m.currency()
+                    )));
+                }
+            }
+        } else {
+            0.0
+        };
+        (raw_spot, q)
     };
 
     // Volatility from override or surface (using t_vol for surface lookup)

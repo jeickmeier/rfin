@@ -503,6 +503,7 @@ pub(super) fn compute_coupon_schedules(
                         fixing_calendar_id: None,
                         end_of_month: chosen_coupon.schedule.end_of_month,
                         payment_lag_days: chosen_coupon.schedule.payment_lag_days,
+                        overnight_compounding: None,
                     },
                     coupon_type: split,
                     freq: chosen_coupon.schedule.freq,

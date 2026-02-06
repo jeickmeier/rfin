@@ -33,7 +33,9 @@ mod schedule;
 
 // Re-export all public types to maintain the same API
 pub use amortization::{AmortizationSpec, Notional};
-pub use coupon::{CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec};
+pub use coupon::{
+    CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec, OvernightCompoundingMethod,
+};
 pub use default::{DefaultCurve, DefaultEvent, DefaultModelSpec};
 pub use fees::{evaluate_fee_tiers, FeeBase, FeeSpec, FeeTier};
 pub use prepayment::{PrepaymentCurve, PrepaymentModelSpec};

@@ -243,10 +243,13 @@ pub use equity::{
 
 // FX
 pub use fx::FxVarianceSwap;
+pub use fx::{
+    BarrierDirection, DigitalPayoutType, FxDigitalOption, FxTouchOption, PayoutTiming, TouchType,
+};
 pub use fx::{FxBarrierOption, FxForward, FxOption, FxSpot, FxSwap, Ndf, QuantoOption};
 
 // Commodity
-pub use commodity::{CommodityForward, CommodityOption, CommoditySwap};
+pub use commodity::{CommodityAsianOption, CommodityForward, CommodityOption, CommoditySwap};
 
 // Exotics
 pub use exotics::{

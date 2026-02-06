@@ -689,6 +689,7 @@ impl CashFlowBuilder {
             fixing_calendar_id: _fixing_calendar_id,
             end_of_month,
             payment_lag_days,
+            overnight_compounding: _,
         } = rate_spec;
         self.coupon_program.push(CouponProgramPiece {
             window: DateWindow {

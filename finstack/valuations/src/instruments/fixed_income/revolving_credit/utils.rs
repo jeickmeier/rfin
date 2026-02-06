@@ -378,6 +378,7 @@ mod tests {
                 fixing_calendar_id: None,
                 end_of_month: false,
                 payment_lag_days: 0,
+                overnight_compounding: None,
             }),
             None,
         );

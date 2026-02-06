@@ -111,6 +111,28 @@ pub struct EquityOption {
     /// will return an error rather than silently defaulting to zero, preventing
     /// market data configuration errors from affecting P&L.
     pub div_yield_id: Option<String>,
+    /// Optional discrete dividend schedule for more accurate pricing.
+    ///
+    /// Each entry is (ex-date, dividend_amount). When provided, the escrowed
+    /// dividend model is used: the spot price is adjusted by subtracting the
+    /// PV of future dividends before option pricing.
+    ///
+    /// # Escrowed Dividend Model
+    ///
+    /// The adjusted spot is:
+    /// ```text
+    /// S* = S - Σ D_i × DF(t_i)
+    /// ```
+    /// where D_i is each dividend amount and DF(t_i) is the discount factor
+    /// to the ex-date. The adjusted spot S* is then used in Black-Scholes
+    /// with zero dividend yield.
+    ///
+    /// # Reference
+    ///
+    /// - Haug, Haug, Lewis (2003). "Back to Basics: a new approach to the
+    ///   discrete dividend problem"
+    #[builder(default)]
+    pub discrete_dividends: Vec<(Date, f64)>,
     /// Pricing overrides (manual price, yield, spread)
     pub pricing_overrides: PricingOverrides,
     /// Attributes for scenario selection and grouping
@@ -301,6 +323,7 @@ impl EquityOption {
             spot_id: underlying_params.spot_id.to_owned(),
             vol_surface_id,
             div_yield_id: underlying_params.div_yield_id.to_owned(),
+            discrete_dividends: Vec::new(),
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
         }
@@ -1046,6 +1069,199 @@ mod tests {
             "Error message should mention the type mismatch, got: {}",
             err_msg
         );
+    }
+
+    // ==================== DISCRETE DIVIDEND TESTS ====================
+
+    #[test]
+    fn discrete_dividends_adjusts_spot_and_zeroes_yield() {
+        let as_of = date(2025, 1, 3);
+        let expiry = date(2025, 7, 3);
+
+        // Build option with two discrete dividends
+        let mut option = base_option(expiry);
+        option.discrete_dividends = vec![
+            (date(2025, 3, 15), 1.50), // $1.50 div in ~2.5 months
+            (date(2025, 6, 15), 1.50), // $1.50 div in ~5.5 months
+        ];
+
+        let curves = build_market_context(as_of, 100.0, 0.25, 0.05, 0.02);
+
+        // Verify inputs reflect spot adjustment and q=0
+        let (spot, r, q, _sigma, _t) =
+            pricer::collect_inputs(&option, &curves, as_of).expect("collect_inputs should succeed");
+        assert!(
+            spot < 100.0,
+            "Adjusted spot should be less than raw spot of 100.0, got {}",
+            spot
+        );
+        assert!(
+            (q - 0.0).abs() < 1e-12,
+            "Dividend yield should be 0 when discrete dividends are present, got {}",
+            q
+        );
+        // PV of two $1.50 dividends at 5% rate should reduce spot by ~$2.97
+        let expected_adj =
+            100.0 - 1.50 * (-r * 71.0 / 365.0).exp() - 1.50 * (-r * 163.0 / 365.0).exp();
+        assert!(
+            (spot - expected_adj).abs() < 0.05,
+            "Spot adjustment mismatch: got {}, expected ~{}",
+            spot,
+            expected_adj
+        );
+    }
+
+    #[test]
+    fn discrete_dividends_empty_falls_back_to_continuous_yield() {
+        let as_of = date(2025, 1, 3);
+        let expiry = date(2025, 7, 3);
+        let option = base_option(expiry);
+        let curves = build_market_context(as_of, 100.0, 0.25, 0.05, 0.02);
+
+        // With empty discrete_dividends (default), should use continuous yield
+        let (spot, _r, q, _sigma, _t) =
+            pricer::collect_inputs(&option, &curves, as_of).expect("collect_inputs should succeed");
+
+        assert!(
+            (spot - 100.0).abs() < 1e-10,
+            "Spot should be unadjusted: got {}",
+            spot
+        );
+        assert!(
+            (q - 0.02).abs() < 1e-10,
+            "Dividend yield should be 0.02: got {}",
+            q
+        );
+    }
+
+    #[test]
+    fn discrete_dividends_after_expiry_are_excluded() {
+        let as_of = date(2025, 1, 3);
+        let expiry = date(2025, 7, 3);
+
+        let mut option = base_option(expiry);
+        // Only dividend is after expiry — should be excluded
+        option.discrete_dividends = vec![(date(2025, 9, 15), 2.00)];
+        // Also clear div_yield_id to ensure we get q=0 from the discrete path
+        option.div_yield_id = None;
+
+        let curves = build_market_context(as_of, 100.0, 0.25, 0.05, 0.0);
+
+        let (spot, _r, q, _sigma, _t) =
+            pricer::collect_inputs(&option, &curves, as_of).expect("collect_inputs should succeed");
+
+        // No future dividends within option life — spot unadjusted, q=0
+        assert!(
+            (spot - 100.0).abs() < 1e-10,
+            "Spot should be unadjusted when all dividends are after expiry: got {}",
+            spot
+        );
+        assert!(
+            (q - 0.0).abs() < 1e-12,
+            "q should be 0.0 when discrete divs are empty (after filtering): got {}",
+            q
+        );
+    }
+
+    #[test]
+    fn discrete_dividends_past_dates_are_excluded() {
+        let as_of = date(2025, 6, 1);
+        let expiry = date(2025, 12, 31);
+
+        let mut option = base_option(expiry);
+        option.div_yield_id = None;
+        option.discrete_dividends = vec![
+            (date(2025, 3, 15), 1.00), // Already past as_of
+            (date(2025, 9, 15), 1.50), // Future — should be included
+        ];
+
+        let curves = build_market_context(as_of, 100.0, 0.25, 0.05, 0.0);
+
+        let (spot, r, q, _sigma, _t) =
+            pricer::collect_inputs(&option, &curves, as_of).expect("collect_inputs should succeed");
+
+        // Only the $1.50 September dividend should reduce spot
+        let t_sep = DayCount::Act365F
+            .year_fraction(
+                as_of,
+                date(2025, 9, 15),
+                finstack_core::dates::DayCountCtx::default(),
+            )
+            .unwrap();
+        let expected_adj = 100.0 - 1.50 * (-r * t_sep).exp();
+        assert!(
+            (spot - expected_adj).abs() < 0.02,
+            "Only future dividend should adjust spot: got {}, expected ~{}",
+            spot,
+            expected_adj
+        );
+        assert!(
+            (q - 0.0).abs() < 1e-12,
+            "q should be 0.0 with discrete dividends: got {}",
+            q
+        );
+    }
+
+    #[test]
+    fn discrete_vs_continuous_pricing_comparison() {
+        // Verify that discrete dividends produce a different (but reasonable) price
+        // compared to continuous yield
+        let as_of = date(2025, 1, 3);
+        let expiry = date(2025, 7, 3);
+
+        let continuous_option = base_option(expiry);
+        let curves = build_market_context(as_of, 100.0, 0.25, 0.05, 0.02);
+
+        let continuous_pv = continuous_option
+            .value(&curves, as_of)
+            .expect("should succeed")
+            .amount();
+
+        // Create a discrete dividend option with roughly equivalent total yield
+        // 2% annual on $100 over ~6 months ≈ $1 total dividends
+        let mut discrete_option = base_option(expiry);
+        discrete_option.discrete_dividends =
+            vec![(date(2025, 3, 15), 0.50), (date(2025, 6, 15), 0.50)];
+
+        let discrete_curves = build_market_context(as_of, 100.0, 0.25, 0.05, 0.0);
+        let discrete_pv = discrete_option
+            .value(&discrete_curves, as_of)
+            .expect("should succeed")
+            .amount();
+
+        // Both should be positive
+        assert!(continuous_pv > 0.0, "Continuous PV should be positive");
+        assert!(discrete_pv > 0.0, "Discrete PV should be positive");
+
+        // They should be in the same ballpark (within 20% of each other)
+        let ratio = discrete_pv / continuous_pv;
+        assert!(
+            (0.5..2.0).contains(&ratio),
+            "Discrete/continuous ratio {} seems unreasonable (cont={}, disc={})",
+            ratio,
+            continuous_pv,
+            discrete_pv,
+        );
+    }
+
+    #[test]
+    fn discrete_dividend_greeks_are_computed() {
+        let as_of = date(2025, 1, 3);
+        let expiry = date(2025, 7, 3);
+
+        let mut option = base_option(expiry);
+        option.discrete_dividends = vec![(date(2025, 4, 15), 1.00)];
+
+        let curves = build_market_context(as_of, 105.0, 0.22, 0.03, 0.0);
+
+        let greeks = option
+            .greeks(&curves, as_of)
+            .expect("Greeks should succeed with discrete dividends");
+
+        // For an ITM call with dividends, delta should be positive
+        assert!(greeks.delta > 0.0, "Delta should be positive for ITM call");
+        assert!(greeks.gamma > 0.0, "Gamma should be positive");
+        assert!(greeks.vega > 0.0, "Vega should be positive");
     }
 
     #[test]

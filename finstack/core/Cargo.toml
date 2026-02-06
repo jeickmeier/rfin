@@ -24,6 +24,7 @@ lru = "0.16"
 rust_decimal = { version = "1.39", default-features = false, features = ["serde-with-str"] }
 statrs = { version = "0.18", default-features = false }
 nalgebra = "0.34"
+num-complex = "0.4"
 # Production-grade random number generation
 rand = { version = "0.8", default-features = false, features = ["std"] }
 rand_pcg = "0.3"

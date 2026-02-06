@@ -256,6 +256,7 @@ impl JsFloatingCouponSpec {
                     calendar_id: calendar_id.clone(),
                     fixing_calendar_id: Some(calendar_id),
                     end_of_month: sched.end_of_month,
+                    overnight_compounding: None,
                     payment_lag_days: sched.payment_lag_days,
                 },
                 coupon_type: coupon_type.inner(),

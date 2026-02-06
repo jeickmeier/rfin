@@ -85,6 +85,66 @@ pub struct FixedCouponSpec {
     pub payment_lag_days: i32,
 }
 
+/// Compounding method for overnight rate indices (SOFR, ESTR, SONIA).
+///
+/// Controls how daily overnight fixings are aggregated into a period rate
+/// for floating rate coupons. The choice of compounding method affects both
+/// the accrued amount and the payment timing/certainty.
+///
+/// # Market Conventions
+///
+/// | Index | Standard Method | Lookback | Reference |
+/// |-------|----------------|----------|-----------|
+/// | USD SOFR | CompoundedInArrears | 2 BD | ISDA 2021 |
+/// | EUR €STR | CompoundedWithObservationShift | 2 BD | ECB |
+/// | GBP SONIA | CompoundedWithObservationShift | 5 BD | BoE |
+/// | JPY TONA | CompoundedInArrears | 2 BD | BoJ |
+///
+/// # Reference
+///
+/// - ISDA (2021). "IBOR Fallbacks Supplement." Section 7.
+/// - ARRC (2020). "SOFR: A User's Guide." Federal Reserve Bank of New York.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum OvernightCompoundingMethod {
+    /// Simple average of daily rates (non-standard, for reference only).
+    SimpleAverage,
+
+    /// Compounded in arrears with daily compounding (ISDA 2021 standard).
+    ///
+    /// ```text
+    /// Rate = [∏(1 + r_i × d_i/360) - 1] × 360/D
+    /// ```
+    #[default]
+    CompoundedInArrears,
+
+    /// Compounded in arrears with lookback (shift observation period).
+    ///
+    /// Uses rates from `lookback_days` business days before each accrual date.
+    CompoundedWithLookback {
+        /// Number of business days to look back for rate observations.
+        lookback_days: u32,
+    },
+
+    /// Compounded in arrears with lockout (freeze rate near end of period).
+    ///
+    /// Uses the rate from `lockout_days` business days before period end for all
+    /// remaining days in the period.
+    CompoundedWithLockout {
+        /// Number of business days before period end to freeze the rate.
+        lockout_days: u32,
+    },
+
+    /// Compounded in arrears with observation shift.
+    ///
+    /// Both observation dates AND weights are shifted back by `shift_days`
+    /// business days. This is the ISDA 2021 recommended convention for SOFR
+    /// and the standard for GBP SONIA and EUR €STR.
+    CompoundedWithObservationShift {
+        /// Number of business days to shift observations.
+        shift_days: u32,
+    },
+}
+
 /// Default gearing for floating rates.
 fn default_gearing() -> Decimal {
     Decimal::ONE
@@ -220,6 +280,16 @@ pub struct FloatingRateSpec {
     pub end_of_month: bool,
     /// Payment lag in business days after accrual end.
     pub payment_lag_days: i32,
+
+    /// Overnight compounding method for overnight rate indices (SOFR, ESTR, SONIA).
+    ///
+    /// When set to `Some(method)`, the rate for each accrual period is computed
+    /// by compounding daily overnight fixings according to the specified method,
+    /// rather than looking up a single forward rate for the period.
+    ///
+    /// Leave as `None` for term rates (e.g., 3M EURIBOR, 6M LIBOR).
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub overnight_compounding: Option<OvernightCompoundingMethod>,
 }
 
 fn default_gearing_includes_spread() -> bool {

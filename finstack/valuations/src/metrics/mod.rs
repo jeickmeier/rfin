@@ -470,6 +470,9 @@ pub fn standard_registry() -> &'static MetricRegistry {
         crate::instruments::commodity::commodity_option::metrics::register_commodity_option_metrics(
             &mut registry,
         );
+        crate::instruments::commodity::commodity_asian_option::metrics::register_commodity_asian_option_metrics(
+            &mut registry,
+        );
         // FX instruments
         crate::instruments::fx::fx_forward::metrics::register_fx_forward_metrics(&mut registry);
         crate::instruments::fx::ndf::metrics::register_ndf_metrics(&mut registry);
@@ -478,6 +481,12 @@ pub fn standard_registry() -> &'static MetricRegistry {
         );
         // Exotic options
         crate::instruments::fx::fx_barrier_option::metrics::register_fx_barrier_option_metrics(
+            &mut registry,
+        );
+        crate::instruments::fx::fx_digital_option::metrics::register_fx_digital_option_metrics(
+            &mut registry,
+        );
+        crate::instruments::fx::fx_touch_option::metrics::register_fx_touch_option_metrics(
             &mut registry,
         );
         crate::instruments::exotics::lookback_option::metrics::register_lookback_option_metrics(

@@ -30,9 +30,12 @@
 
 mod conventions;
 mod convert;
+pub mod heston;
 mod implied;
+pub mod local_vol;
 mod pricing;
 pub mod sabr;
+pub mod svi;
 
 pub use conventions::VolatilityConvention;
 pub use convert::convert_atm_volatility;

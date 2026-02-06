@@ -1,0 +1,305 @@
+//! Commodity Asian option instrument definition.
+//!
+//! Asian options on commodity forward prices, the dominant option type in
+//! commodity markets. The average is typically computed over commodity
+//! forward/futures prices for specific delivery periods.
+//!
+//! # Key Differences from Equity Asian Options
+//!
+//! - Uses **forward prices** from a price curve for each fixing date, not spot
+//! - No dividend yield parameter (cost of carry is embedded in the forward curve)
+//! - Seasoned options combine realized fixings with projected forwards
+//!
+//! # References
+//!
+//! - Kemna, A. G. Z., & Vorst, A. C. F. (1990). "A Pricing Method for Options
+//!   Based on Average Asset Values."
+//! - Turnbull, S. M., & Wakeman, L. M. (1991). "A Quick Algorithm for Pricing
+//!   European Average Options."
+
+use crate::instruments::common_impl::traits::Attributes;
+use crate::instruments::exotics::asian_option::AveragingMethod;
+use crate::instruments::OptionType;
+use crate::instruments::PricingOverrides;
+use finstack_core::currency::Currency;
+use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::money::Money;
+use finstack_core::types::{CurveId, InstrumentId};
+
+/// Commodity Asian option: option on the arithmetic or geometric average of
+/// commodity prices.
+///
+/// This is the dominant option type in commodity markets. The average is
+/// typically computed over commodity forward/futures prices for specific
+/// delivery periods.
+///
+/// # Pricing Models
+///
+/// | Averaging | Model | Accuracy |
+/// |-----------|-------|----------|
+/// | Geometric | Kemna-Vorst (1990) with forwards | Exact closed-form |
+/// | Arithmetic | Turnbull-Wakeman (1991) with forwards | ~1% vs Monte Carlo |
+///
+/// # Forward-Based Averaging
+///
+/// For each future fixing date `t_i`, the forward price `F(t_i)` is read from
+/// the price curve. The average forward is:
+/// ```text
+/// F_avg = (Σ_realized + Σ F(t_i)) / n
+/// ```
+/// where the sum includes both realized fixings and projected forwards.
+#[derive(Clone, Debug, finstack_valuations_macros::FinancialBuilder)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(deny_unknown_fields))]
+pub struct CommodityAsianOption {
+    /// Unique instrument identifier.
+    pub id: InstrumentId,
+    /// Commodity type (e.g., "Energy", "Metal", "Agricultural").
+    pub commodity_type: String,
+    /// Ticker or symbol (e.g., "CL" for WTI, "GC" for Gold).
+    pub ticker: String,
+    /// Strike price per unit.
+    pub strike: f64,
+    /// Option type (call or put).
+    pub option_type: OptionType,
+    /// Averaging method (arithmetic or geometric).
+    pub averaging_method: AveragingMethod,
+    /// Dates on which the commodity price is observed for averaging.
+    ///
+    /// **Note**: These dates should be pre-adjusted for business day conventions.
+    pub fixing_dates: Vec<Date>,
+    /// Already observed fixings for seasoned options (ex-date, price pairs).
+    #[builder(default)]
+    pub realized_fixings: Vec<(Date, f64)>,
+    /// Contract quantity in commodity units.
+    pub quantity: f64,
+    /// Settlement date for the option payoff.
+    pub settlement_date: Date,
+    /// Currency for pricing.
+    pub currency: Currency,
+    /// Forward/futures price curve ID.
+    pub forward_curve_id: CurveId,
+    /// Discount curve ID for present value calculations.
+    pub discount_curve_id: CurveId,
+    /// Volatility surface ID for implied vol.
+    pub vol_surface_id: CurveId,
+    /// Day count convention.
+    pub day_count: DayCount,
+    /// Pricing overrides.
+    pub pricing_overrides: PricingOverrides,
+    /// Attributes for scenario selection and grouping.
+    #[builder(default)]
+    pub attributes: Attributes,
+}
+
+impl CommodityAsianOption {
+    /// Create a canonical example commodity Asian option for testing.
+    ///
+    /// Returns a WTI arithmetic average call option with monthly fixings.
+    #[allow(clippy::expect_used)]
+    pub fn example() -> Self {
+        use time::macros::date;
+        let fixing_dates = vec![
+            date!(2025 - 01 - 31),
+            date!(2025 - 02 - 28),
+            date!(2025 - 03 - 31),
+            date!(2025 - 04 - 30),
+            date!(2025 - 05 - 31),
+            date!(2025 - 06 - 30),
+        ];
+        Self::builder()
+            .id(InstrumentId::new("WTI-ASIAN-6M"))
+            .commodity_type("Energy".to_string())
+            .ticker("CL".to_string())
+            .strike(75.0)
+            .option_type(OptionType::Call)
+            .averaging_method(AveragingMethod::Arithmetic)
+            .fixing_dates(fixing_dates)
+            .quantity(1000.0)
+            .settlement_date(date!(2025 - 07 - 02))
+            .currency(Currency::USD)
+            .forward_curve_id(CurveId::new("CL-FORWARD"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .vol_surface_id(CurveId::new("CL-VOL"))
+            .day_count(DayCount::Act365F)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("Example CommodityAsianOption with valid constants should never fail")
+    }
+
+    /// Get the accumulated state (sum, log_sum, count) from realized fixings.
+    ///
+    /// Only considers fixings that match dates in `fixing_dates` and are on or
+    /// before `as_of`.
+    pub fn accumulated_state(&self, as_of: Date) -> (f64, f64, usize) {
+        let mut sum = 0.0;
+        let mut product_log = 0.0;
+        let mut count = 0;
+
+        for (d, v) in &self.realized_fixings {
+            if *d <= as_of && self.fixing_dates.contains(d) {
+                sum += v;
+                if *v > 0.0 {
+                    product_log += v.ln();
+                }
+                count += 1;
+            }
+        }
+        (sum, product_log, count)
+    }
+
+    /// Compute the average forward price for remaining (future) fixing dates.
+    ///
+    /// Returns `(sum_of_forwards, count_of_future_fixings)`.
+    pub fn future_forwards(
+        &self,
+        market: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<(f64, usize)> {
+        let price_curve = market.get_price_curve(self.forward_curve_id.as_str())?;
+        let mut sum = 0.0;
+        let mut count = 0;
+
+        for &fixing_date in &self.fixing_dates {
+            if fixing_date > as_of {
+                let fwd = price_curve.price_on_date(fixing_date)?;
+                sum += fwd;
+                count += 1;
+            }
+        }
+        Ok((sum, count))
+    }
+
+    /// Compute the time to settlement for this option.
+    #[allow(dead_code)] // Used by pricer module
+    pub(crate) fn time_to_settlement(&self, as_of: Date) -> finstack_core::Result<f64> {
+        self.day_count
+            .year_fraction(as_of, self.settlement_date, DayCountCtx::default())
+            .map(|t| t.max(0.0))
+    }
+}
+
+impl crate::instruments::common_impl::traits::CurveDependencies for CommodityAsianOption {
+    fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
+        crate::instruments::common_impl::traits::InstrumentCurves::builder()
+            .discount(self.discount_curve_id.clone())
+            .forward(self.forward_curve_id.clone())
+            .build()
+    }
+}
+
+impl crate::instruments::common_impl::traits::Instrument for CommodityAsianOption {
+    fn id(&self) -> &str {
+        self.id.as_str()
+    }
+
+    fn key(&self) -> crate::pricer::InstrumentType {
+        crate::pricer::InstrumentType::CommodityAsianOption
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
+        &self.attributes
+    }
+
+    fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
+        &mut self.attributes
+    }
+
+    fn clone_box(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
+        Box::new(self.clone())
+    }
+
+    fn market_dependencies(
+        &self,
+    ) -> crate::instruments::common_impl::dependencies::MarketDependencies {
+        let mut deps =
+            crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
+                self,
+            );
+        deps.add_vol_surface_id(self.vol_surface_id.as_str());
+        deps
+    }
+
+    fn value(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
+        use crate::instruments::commodity::commodity_asian_option::pricer;
+        pricer::compute_pv(self, market, as_of)
+    }
+
+    fn price_with_metrics(
+        &self,
+        market: &MarketContext,
+        as_of: Date,
+        metrics: &[crate::metrics::MetricId],
+    ) -> finstack_core::Result<crate::results::ValuationResult> {
+        let base_value = self.value(market, as_of)?;
+        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
+            std::sync::Arc::new(self.clone()),
+            std::sync::Arc::new(market.clone()),
+            as_of,
+            base_value,
+            metrics,
+            None,
+            None,
+        )
+    }
+
+    fn effective_start_date(&self) -> Option<Date> {
+        self.fixing_dates.first().copied()
+    }
+
+    fn expiry(&self) -> Option<Date> {
+        Some(self.settlement_date)
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use finstack_core::dates::Date;
+    use time::Month;
+
+    #[test]
+    fn test_accumulated_state() {
+        let fixings = vec![
+            Date::from_calendar_date(2025, Month::January, 31).expect("valid date"),
+            Date::from_calendar_date(2025, Month::February, 28).expect("valid date"),
+            Date::from_calendar_date(2025, Month::March, 31).expect("valid date"),
+        ];
+
+        let mut asian = CommodityAsianOption::example();
+        asian.fixing_dates = fixings.clone();
+
+        // No history
+        let (sum, _log_prod, count) = asian.accumulated_state(
+            Date::from_calendar_date(2025, Month::April, 1).expect("valid date"),
+        );
+        assert_eq!(sum, 0.0);
+        assert_eq!(count, 0);
+
+        // Add history
+        asian.realized_fixings = vec![(fixings[0], 72.0), (fixings[1], 74.0)];
+
+        // Check at date between Feb and Mar
+        let as_of = Date::from_calendar_date(2025, Month::March, 15).expect("valid date");
+        let (sum, log_prod, count) = asian.accumulated_state(as_of);
+
+        assert_eq!(sum, 146.0);
+        assert_eq!(count, 2);
+        assert!((log_prod - (72.0f64.ln() + 74.0f64.ln())).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_example_construction() {
+        let asian = CommodityAsianOption::example();
+        assert_eq!(asian.fixing_dates.len(), 6);
+        assert_eq!(asian.strike, 75.0);
+        assert_eq!(asian.quantity, 1000.0);
+    }
+}

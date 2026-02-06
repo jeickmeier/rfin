@@ -416,6 +416,163 @@ pub fn project_floating_rate_from_market(
     project_floating_rate(reset_date, reset_period_end, fwd.as_ref(), params)
 }
 
+/// Compute a compounded overnight rate for a single accrual period.
+///
+/// Implements the ISDA 2021 compounded-in-arrears formula:
+///
+/// ```text
+/// Rate = [∏(1 + r_i × d_i / 360) - 1] × 360 / D
+/// ```
+///
+/// # Arguments
+///
+/// * `daily_rates` — slice of (rate, accrual_days) pairs for each overnight fixing
+/// * `total_days` — total calendar days in the accrual period
+/// * `day_count_basis` — annual day count basis (typically 360 for USD SOFR)
+///
+/// # Returns
+///
+/// The annualized compounded rate in decimal form.
+///
+/// # Example
+///
+/// ```rust
+/// use finstack_valuations::cashflow::builder::rate_helpers::compute_compounded_rate;
+///
+/// let fixings = vec![
+///     (0.05, 1u32), (0.05, 1), (0.05, 1), (0.05, 1), (0.05, 3),
+/// ];
+/// let rate = compute_compounded_rate(&fixings, 7, 360.0);
+/// assert!((rate - 0.05).abs() < 0.001);
+/// ```
+pub fn compute_compounded_rate(
+    daily_rates: &[(f64, u32)],
+    total_days: u32,
+    day_count_basis: f64,
+) -> f64 {
+    if daily_rates.is_empty() || total_days == 0 {
+        return 0.0;
+    }
+    let mut product = 1.0;
+    for &(rate, days) in daily_rates {
+        product *= 1.0 + rate * (days as f64) / day_count_basis;
+    }
+    (product - 1.0) * day_count_basis / (total_days as f64)
+}
+
+/// Compute a simple average overnight rate for a single accrual period.
+///
+/// ```text
+/// Rate = (Σ r_i × d_i) / D
+/// ```
+pub fn compute_simple_average_rate(daily_rates: &[(f64, u32)], total_days: u32) -> f64 {
+    if daily_rates.is_empty() || total_days == 0 {
+        return 0.0;
+    }
+    let weighted_sum: f64 = daily_rates
+        .iter()
+        .map(|&(rate, days)| rate * (days as f64))
+        .sum();
+    weighted_sum / (total_days as f64)
+}
+
+/// Apply overnight compounding method to compute the period rate from daily fixings.
+///
+/// Dispatches to the appropriate calculation based on the [`OvernightCompoundingMethod`].
+///
+/// # Arguments
+///
+/// * `method` — the compounding convention to apply
+/// * `daily_rates` — slice of (rate, accrual_days) pairs, ordered chronologically
+/// * `total_days` — total calendar days in the accrual period
+/// * `day_count_basis` — annual day count basis (typically 360 for USD)
+///
+/// # Returns
+///
+/// The period rate as a decimal.
+pub fn compute_overnight_rate(
+    method: super::specs::OvernightCompoundingMethod,
+    daily_rates: &[(f64, u32)],
+    total_days: u32,
+    day_count_basis: f64,
+) -> f64 {
+    use super::specs::OvernightCompoundingMethod;
+
+    match method {
+        OvernightCompoundingMethod::SimpleAverage => {
+            compute_simple_average_rate(daily_rates, total_days)
+        }
+        OvernightCompoundingMethod::CompoundedInArrears => {
+            compute_compounded_rate(daily_rates, total_days, day_count_basis)
+        }
+        OvernightCompoundingMethod::CompoundedWithLookback { lookback_days } => {
+            let lb = lookback_days as usize;
+            if lb >= daily_rates.len() {
+                if let Some(&(rate, _)) = daily_rates.first() {
+                    let total_accrual: u32 = daily_rates.iter().map(|&(_, d)| d).sum();
+                    compute_compounded_rate(&[(rate, total_accrual)], total_days, day_count_basis)
+                } else {
+                    0.0
+                }
+            } else {
+                let shifted: Vec<(f64, u32)> = daily_rates
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &(_, days))| {
+                        let source = i.saturating_sub(lb);
+                        (daily_rates[source].0, days)
+                    })
+                    .collect();
+                compute_compounded_rate(&shifted, total_days, day_count_basis)
+            }
+        }
+        OvernightCompoundingMethod::CompoundedWithLockout { lockout_days } => {
+            let n = daily_rates.len();
+            let lockout = lockout_days as usize;
+            if n == 0 {
+                return 0.0;
+            }
+            let lockout_rate = if n > lockout {
+                daily_rates[n - lockout - 1].0
+            } else {
+                daily_rates[0].0
+            };
+            let locked: Vec<(f64, u32)> = daily_rates
+                .iter()
+                .enumerate()
+                .map(|(i, &(rate, days))| {
+                    if i >= n.saturating_sub(lockout) {
+                        (lockout_rate, days)
+                    } else {
+                        (rate, days)
+                    }
+                })
+                .collect();
+            compute_compounded_rate(&locked, total_days, day_count_basis)
+        }
+        OvernightCompoundingMethod::CompoundedWithObservationShift { shift_days } => {
+            let shift = shift_days as usize;
+            if shift >= daily_rates.len() {
+                if let Some(&(rate, _)) = daily_rates.first() {
+                    compute_compounded_rate(&[(rate, total_days)], total_days, day_count_basis)
+                } else {
+                    0.0
+                }
+            } else {
+                let shifted: Vec<(f64, u32)> = daily_rates
+                    .iter()
+                    .enumerate()
+                    .map(|(i, _)| {
+                        let source = i.saturating_sub(shift);
+                        daily_rates[source]
+                    })
+                    .collect();
+                compute_compounded_rate(&shifted, total_days, day_count_basis)
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
@@ -748,5 +905,117 @@ mod tests {
 
         let result = project_floating_rate(reset, period_end, &fwd_curve, &params);
         assert!(result.is_err(), "Should fail with contradictory floor/cap");
+    }
+
+    // =========================================================================
+    // Overnight compounding tests
+    // =========================================================================
+
+    #[test]
+    fn test_compounded_rate_constant_fixings() {
+        let fixings = vec![(0.05, 1u32), (0.05, 1), (0.05, 1), (0.05, 1), (0.05, 3)];
+        let rate = compute_compounded_rate(&fixings, 7, 360.0);
+        assert!(
+            (rate - 0.05).abs() < 0.001,
+            "Compounded rate with constant fixings should be ~5%: {rate:.6}"
+        );
+    }
+
+    #[test]
+    fn test_compounded_rate_varying_fixings() {
+        let fixings = vec![
+            (0.0530, 1u32),
+            (0.0528, 1),
+            (0.0531, 1),
+            (0.0529, 1),
+            (0.0530, 3),
+        ];
+        let rate = compute_compounded_rate(&fixings, 7, 360.0);
+        assert!(
+            rate > 0.052 && rate < 0.054,
+            "Rate should be in range: {rate:.6}"
+        );
+    }
+
+    #[test]
+    fn test_compounded_rate_empty() {
+        assert_eq!(compute_compounded_rate(&[], 7, 360.0), 0.0);
+    }
+
+    #[test]
+    fn test_simple_average_rate() {
+        let fixings = vec![(0.05, 1u32), (0.06, 1), (0.04, 1), (0.05, 1), (0.05, 3)];
+        let rate = compute_simple_average_rate(&fixings, 7);
+        let expected = (0.05 + 0.06 + 0.04 + 0.05 + 0.15) / 7.0;
+        assert!(
+            (rate - expected).abs() < 1e-12,
+            "got {rate:.6}, expected {expected:.6}"
+        );
+    }
+
+    #[test]
+    fn test_overnight_compounded_in_arrears() {
+        use crate::cashflow::builder::specs::OvernightCompoundingMethod;
+        let fixings = vec![(0.05, 1u32), (0.05, 1), (0.05, 1), (0.05, 1), (0.05, 3)];
+        let rate = compute_overnight_rate(
+            OvernightCompoundingMethod::CompoundedInArrears,
+            &fixings,
+            7,
+            360.0,
+        );
+        assert!(
+            (rate - 0.05).abs() < 0.001,
+            "CompoundedInArrears: {rate:.6}"
+        );
+    }
+
+    #[test]
+    fn test_overnight_lockout() {
+        use crate::cashflow::builder::specs::OvernightCompoundingMethod;
+        let fixings = vec![(0.05, 1u32), (0.05, 1), (0.05, 1), (0.06, 1), (0.07, 3)];
+        let rate = compute_overnight_rate(
+            OvernightCompoundingMethod::CompoundedWithLockout { lockout_days: 2 },
+            &fixings,
+            7,
+            360.0,
+        );
+        // Lockout freezes last 2 fixings to rate of day 2 (0.05)
+        assert!((rate - 0.05).abs() < 0.001, "Lockout rate: {rate:.6}");
+    }
+
+    #[test]
+    fn test_overnight_simple_average() {
+        use crate::cashflow::builder::specs::OvernightCompoundingMethod;
+        let fixings = vec![(0.05, 1u32), (0.05, 1), (0.05, 1), (0.05, 1), (0.05, 3)];
+        let rate = compute_overnight_rate(
+            OvernightCompoundingMethod::SimpleAverage,
+            &fixings,
+            7,
+            360.0,
+        );
+        assert!((rate - 0.05).abs() < 1e-12, "Simple average: {rate:.6}");
+    }
+
+    #[test]
+    fn test_compounded_vs_simple_divergence() {
+        let fixings = vec![(0.01, 1u32), (0.10, 1), (0.01, 1), (0.10, 1), (0.01, 3)];
+        let compounded = compute_compounded_rate(&fixings, 7, 360.0);
+        let simple = compute_simple_average_rate(&fixings, 7);
+        assert!(compounded > 0.0);
+        assert!(simple > 0.0);
+        assert!((compounded - simple).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_overnight_lookback() {
+        use crate::cashflow::builder::specs::OvernightCompoundingMethod;
+        let fixings = vec![(0.04, 1u32), (0.05, 1), (0.06, 1), (0.07, 1), (0.08, 3)];
+        let rate = compute_overnight_rate(
+            OvernightCompoundingMethod::CompoundedWithLookback { lookback_days: 2 },
+            &fixings,
+            7,
+            360.0,
+        );
+        assert!(rate > 0.0 && rate.is_finite(), "Lookback rate: {rate:.6}");
     }
 }

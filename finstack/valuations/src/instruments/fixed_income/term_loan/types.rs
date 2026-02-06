@@ -100,6 +100,7 @@ use crate::instruments::pricing_overrides::PricingOverrides;
 /// ```
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[allow(clippy::large_enum_variant)]
 pub enum RateSpec {
     /// Fixed annual rate in basis points
     Fixed {

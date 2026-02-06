@@ -181,6 +181,7 @@ fn test_equity_option_all_analytical_greeks() {
         spot_id: "AAPL".into(),
         vol_surface_id: "AAPL_VOL".into(),
         div_yield_id: None,
+        discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };
@@ -227,6 +228,7 @@ fn test_equity_option_fd_matches_analytical_greeks() {
         spot_id: "AAPL".into(),
         vol_surface_id: "AAPL_VOL".into(),
         div_yield_id: None,
+        discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };
@@ -597,6 +599,7 @@ fn test_bucketed_vega_sums_to_total() {
         spot_id: "AAPL".into(),
         vol_surface_id: "AAPL_VOL".into(),
         div_yield_id: None,
+        discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     };

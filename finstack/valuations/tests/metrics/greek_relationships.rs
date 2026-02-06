@@ -94,6 +94,7 @@ fn create_test_option(
         spot_id: "AAPL".into(),
         vol_surface_id: "AAPL_VOL".into(),
         div_yield_id: Some("AAPL_DIV".into()),
+        discrete_dividends: Vec::new(),
         pricing_overrides: PricingOverrides::default(),
         attributes: Default::default(),
     }

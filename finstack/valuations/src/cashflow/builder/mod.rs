@@ -82,14 +82,15 @@ pub use builder::{CashFlowBuilder, PrincipalEvent};
 pub use dataframe::{PeriodDataFrame, PeriodDataFrameOptions};
 pub use date_generation::{build_dates, PeriodSchedule};
 pub use rate_helpers::{
+    compute_compounded_rate, compute_overnight_rate, compute_simple_average_rate,
     project_floating_rate, project_floating_rate_from_market, FloatingRateParams,
 };
 pub use schedule::{CashFlowMeta, CashFlowSchedule};
 pub use specs::{
     evaluate_fee_tiers, AmortizationSpec, CouponType, DefaultCurve, DefaultEvent, DefaultModelSpec,
     FeeBase, FeeSpec, FeeTier, FixedCouponSpec, FixedWindow, FloatCouponParams, FloatWindow,
-    FloatingCouponSpec, FloatingRateSpec, Notional, PrepaymentCurve, PrepaymentModelSpec,
-    RecoveryModelSpec, ScheduleParams,
+    FloatingCouponSpec, FloatingRateSpec, Notional, OvernightCompoundingMethod, PrepaymentCurve,
+    PrepaymentModelSpec, RecoveryModelSpec, ScheduleParams,
 };
 
 // Re-export credit rate conversions (hazard-style CPR↔SMM helpers)

@@ -32,5 +32,7 @@
 pub(crate) mod metrics;
 pub(crate) mod pricer;
 pub(crate) mod types;
+pub mod vanna_volga;
 
 pub use types::FxBarrierOption;
+pub use vanna_volga::VannaVolgaQuotes;

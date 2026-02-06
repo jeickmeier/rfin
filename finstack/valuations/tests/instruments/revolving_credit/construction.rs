@@ -28,6 +28,7 @@ fn floating_rate_spec(index_id: &str, spread_bp: f64) -> FloatingRateSpec {
         calendar_id: "weekends_only".to_string(),
         fixing_calendar_id: None,
         end_of_month: false,
+        overnight_compounding: None,
         payment_lag_days: 0,
     }
 }

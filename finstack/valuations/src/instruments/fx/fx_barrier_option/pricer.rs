@@ -308,6 +308,70 @@ impl Default for FxBarrierOptionAnalyticalPricer {
     }
 }
 
+/// Map from the instrument's BarrierType to the analytical BarrierType.
+fn map_barrier_type(
+    bt: crate::instruments::exotics::barrier_option::types::BarrierType,
+) -> AnalyticalBarrierType {
+    use crate::instruments::exotics::barrier_option::types::BarrierType;
+    match bt {
+        BarrierType::UpAndIn => AnalyticalBarrierType::UpIn,
+        BarrierType::UpAndOut => AnalyticalBarrierType::UpOut,
+        BarrierType::DownAndIn => AnalyticalBarrierType::DownIn,
+        BarrierType::DownAndOut => AnalyticalBarrierType::DownOut,
+    }
+}
+
+/// Compute the BS barrier price + optional rebate (without notional scaling).
+fn bs_barrier_price_per_unit(
+    fx_barrier: &FxBarrierOption,
+    fx_spot: f64,
+    r_dom: f64,
+    r_for: f64,
+    sigma: f64,
+    t: f64,
+    analytical_barrier_type: AnalyticalBarrierType,
+) -> f64 {
+    let price = match fx_barrier.option_type {
+        crate::instruments::OptionType::Call => barrier_call_continuous(
+            fx_spot,
+            fx_barrier.strike.amount(),
+            fx_barrier.barrier.amount(),
+            t,
+            r_dom,
+            r_for,
+            sigma,
+            analytical_barrier_type,
+        ),
+        crate::instruments::OptionType::Put => barrier_put_continuous(
+            fx_spot,
+            fx_barrier.strike.amount(),
+            fx_barrier.barrier.amount(),
+            t,
+            r_dom,
+            r_for,
+            sigma,
+            analytical_barrier_type,
+        ),
+    };
+
+    let rebate_val = if let Some(rebate) = fx_barrier.rebate {
+        barrier_rebate_continuous(
+            fx_spot,
+            fx_barrier.barrier.amount(),
+            rebate.amount(),
+            t,
+            r_dom,
+            r_for,
+            sigma,
+            analytical_barrier_type,
+        )
+    } else {
+        0.0
+    };
+
+    price + rebate_val
+}
+
 impl Pricer for FxBarrierOptionAnalyticalPricer {
     fn key(&self) -> PricerKey {
         PricerKey::new(
@@ -342,57 +406,96 @@ impl Pricer for FxBarrierOptionAnalyticalPricer {
             ));
         }
 
-        // Map barrier type
-        use crate::instruments::exotics::barrier_option::types::BarrierType;
-        let analytical_barrier_type = match fx_barrier.barrier_type {
-            BarrierType::UpAndIn => AnalyticalBarrierType::UpIn,
-            BarrierType::UpAndOut => AnalyticalBarrierType::UpOut,
-            BarrierType::DownAndIn => AnalyticalBarrierType::DownIn,
-            BarrierType::DownAndOut => AnalyticalBarrierType::DownOut,
-        };
+        let analytical_barrier_type = map_barrier_type(fx_barrier.barrier_type);
 
-        let price = match fx_barrier.option_type {
-            crate::instruments::OptionType::Call => barrier_call_continuous(
-                fx_spot,
-                fx_barrier.strike.amount(),
-                fx_barrier.barrier.amount(),
-                t,
-                r_dom,
-                r_for, // q = r_for for FX
-                sigma,
-                analytical_barrier_type,
-            ),
-            crate::instruments::OptionType::Put => barrier_put_continuous(
-                fx_spot,
-                fx_barrier.strike.amount(),
-                fx_barrier.barrier.amount(),
-                t,
-                r_dom,
-                r_for,
-                sigma,
-                analytical_barrier_type,
-            ),
-        };
-
-        let rebate_val = if let Some(rebate) = fx_barrier.rebate {
-            barrier_rebate_continuous(
-                fx_spot,
-                fx_barrier.barrier.amount(),
-                rebate.amount(),
-                t,
-                r_dom,
-                r_for,
-                sigma,
-                analytical_barrier_type,
-            )
-        } else {
-            0.0
-        };
+        let price_per_unit = bs_barrier_price_per_unit(
+            fx_barrier,
+            fx_spot,
+            r_dom,
+            r_for,
+            sigma,
+            t,
+            analytical_barrier_type,
+        );
 
         let pv = Money::new(
-            (price + rebate_val) * fx_barrier.notional.amount(),
+            price_per_unit * fx_barrier.notional.amount(),
             fx_barrier.domestic_currency,
         );
         Ok(ValuationResult::stamped(fx_barrier.id(), as_of, pv))
+    }
+}
+
+// ========================= VANNA-VOLGA PRICER =========================
+
+use crate::instruments::fx::fx_barrier_option::vanna_volga::{
+    vanna_volga_barrier_adjustment, VannaVolgaQuotes,
+};
+
+/// FX Barrier option Vanna-Volga pricer (continuous monitoring with smile correction).
+///
+/// Applies the Vanna-Volga method to adjust the analytical BS barrier price for
+/// smile effects, using three market pillar volatilities (25Δ put, ATM, 25Δ call).
+#[allow(dead_code)]
+pub struct FxBarrierOptionVannaVolgaPricer {
+    /// Market quotes for the three-point smile
+    pub quotes: VannaVolgaQuotes,
+}
+
+#[allow(dead_code)]
+impl FxBarrierOptionVannaVolgaPricer {
+    /// Create a new Vanna-Volga pricer with the given market quotes.
+    pub fn new(quotes: VannaVolgaQuotes) -> Self {
+        Self { quotes }
+    }
+
+    /// Price an FX barrier option with Vanna-Volga smile adjustment.
+    pub fn price_with_vv(
+        &self,
+        fx_barrier: &FxBarrierOption,
+        market: &MarketContext,
+        as_of: Date,
+    ) -> PricingResult<Money> {
+        let (fx_spot, r_dom, r_for, sigma, t) =
+            collect_fx_barrier_inputs(fx_barrier, market, as_of).map_err(|e| {
+                PricingError::model_failure_ctx(e.to_string(), PricingErrorContext::default())
+            })?;
+
+        if t <= 0.0 {
+            return Ok(Money::new(0.0, fx_barrier.domestic_currency));
+        }
+
+        let analytical_barrier_type = map_barrier_type(fx_barrier.barrier_type);
+        let is_call = matches!(fx_barrier.option_type, crate::instruments::OptionType::Call);
+
+        // Compute BS barrier price at ATM vol
+        let bs_price = bs_barrier_price_per_unit(
+            fx_barrier,
+            fx_spot,
+            r_dom,
+            r_for,
+            sigma,
+            t,
+            analytical_barrier_type,
+        );
+
+        // Apply Vanna-Volga correction
+        let vv_price = vanna_volga_barrier_adjustment(
+            bs_price,
+            fx_spot,
+            fx_barrier.barrier.amount(),
+            fx_barrier.strike.amount(),
+            r_dom,
+            r_for,
+            t,
+            &self.quotes,
+            is_call,
+            analytical_barrier_type,
+        );
+
+        Ok(Money::new(
+            vv_price * fx_barrier.notional.amount(),
+            fx_barrier.domestic_currency,
+        ))
     }
 }

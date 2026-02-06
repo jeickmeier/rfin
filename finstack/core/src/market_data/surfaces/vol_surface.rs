@@ -63,6 +63,7 @@ use crate::{
         traits::TermStructure,
     },
     math::interp::utils::locate_segment,
+    math::volatility::svi,
     types::CurveId,
     Error,
 };
@@ -433,6 +434,123 @@ impl VolSurface {
     }
 }
 
+impl VolSurface {
+    /// Evaluate implied vol with SVI-based wing extrapolation for out-of-bounds strikes.
+    ///
+    /// For strikes within the grid, this method uses the standard bilinear interpolation.
+    /// For strikes outside the grid bounds, it fits an SVI parameterization to the
+    /// nearest expiry slice and extrapolates the wings. For expiries outside the grid,
+    /// the nearest expiry slice is used (flat in the expiry dimension).
+    ///
+    /// This provides a theoretically consistent wing extrapolation that:
+    /// - Produces the correct asymptotic slope (linear in log-moneyness)
+    /// - Avoids flat extrapolation artifacts at extreme strikes
+    /// - Matches the smile shape at the boundary
+    ///
+    /// # Arguments
+    ///
+    /// * `expiry` — option expiry in years
+    /// * `strike` — option strike
+    /// * `forward` — forward price at this expiry (needed for log-moneyness)
+    ///
+    /// # Returns
+    ///
+    /// Implied volatility. Returns the SVI-extrapolated value for out-of-bounds strikes,
+    /// or bilinear interpolated value for in-bounds coordinates. Falls back to
+    /// `value_clamped` if SVI calibration fails (e.g., too few strikes).
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use finstack_core::market_data::surfaces::VolSurface;
+    ///
+    /// let surface = VolSurface::builder("EQ-SMILE")
+    ///     .expiries(&[0.5, 1.0, 2.0])
+    ///     .strikes(&[80.0, 90.0, 95.0, 100.0, 105.0, 110.0, 120.0])
+    ///     .row(&[0.30, 0.25, 0.22, 0.20, 0.21, 0.23, 0.28])
+    ///     .row(&[0.28, 0.24, 0.21, 0.19, 0.20, 0.22, 0.26])
+    ///     .row(&[0.26, 0.22, 0.20, 0.18, 0.19, 0.21, 0.24])
+    ///     .build()
+    ///     .expect("surface should build");
+    ///
+    /// // In-bounds: uses bilinear interpolation
+    /// let v_in = surface.value_extrapolated(1.0, 100.0, 100.0);
+    /// assert!(v_in > 0.0);
+    ///
+    /// // Out-of-bounds strike: SVI wing extrapolation
+    /// let v_deep_otm = surface.value_extrapolated(1.0, 60.0, 100.0);
+    /// assert!(v_deep_otm > 0.0);
+    /// ```
+    pub fn value_extrapolated(&self, expiry: f64, strike: f64, forward: f64) -> f64 {
+        // Try bilinear interpolation first
+        if let Ok(v) = self.value_checked(expiry, strike) {
+            return v;
+        }
+
+        // Determine the expiry slice to use
+        let exp_min = match self.expiries.first() {
+            Some(&e) => e,
+            None => return f64::NAN,
+        };
+        let exp_max = match self.expiries.last() {
+            Some(&e) => e,
+            None => return f64::NAN,
+        };
+
+        // Clamp expiry to grid range
+        let clamped_expiry = expiry.clamp(exp_min, exp_max);
+
+        // If the strike is in bounds, the issue is only expiry — clamp works fine
+        let str_min = match self.strikes.first() {
+            Some(&s) => s,
+            None => return f64::NAN,
+        };
+        let str_max = match self.strikes.last() {
+            Some(&s) => s,
+            None => return f64::NAN,
+        };
+
+        if strike >= str_min && strike <= str_max {
+            // Strike is in range, expiry was out of range — flat extrapolate in expiry
+            return self.value_clamped(clamped_expiry, strike);
+        }
+
+        // Strike is out of bounds — use SVI wing extrapolation
+        // Find the closest expiry index for the slice
+        let expiry_idx = find_closest_grid_index(&self.expiries, clamped_expiry);
+        let n_strikes = self.strikes.len();
+
+        // Need at least 5 strikes for SVI calibration
+        if n_strikes < 5 {
+            return self.value_clamped(clamped_expiry, strike);
+        }
+
+        // Extract the vol slice at this expiry
+        let slice_vols: Vec<f64> = (0..n_strikes)
+            .map(|si| self.vols[expiry_idx * n_strikes + si])
+            .collect();
+
+        let slice_expiry = self.expiries[expiry_idx];
+
+        // Calibrate SVI to this slice
+        match svi::calibrate_svi(&self.strikes, &slice_vols, forward, slice_expiry) {
+            Ok(params) => {
+                let k = (strike / forward).ln();
+                let vol = params.implied_vol(k, slice_expiry);
+                if vol.is_finite() && vol > 0.0 {
+                    vol
+                } else {
+                    self.value_clamped(clamped_expiry, strike)
+                }
+            }
+            Err(_) => {
+                // SVI calibration failed — fall back to flat extrapolation
+                self.value_clamped(clamped_expiry, strike)
+            }
+        }
+    }
+}
+
 /// Helper to find the closest grid index for a target value.
 fn find_closest_grid_index(arr: &[f64], target: f64) -> usize {
     if target <= arr[0] {
@@ -721,6 +839,86 @@ mod tests {
         assert!(
             low_strike_vol > atm_vol,
             "Expected left skew: vol(K=3%) = {low_strike_vol:.4} should be > vol(ATM) = {atm_vol:.4}"
+        );
+    }
+
+    fn smile_surface() -> VolSurface {
+        VolSurface::builder("EQ-SMILE")
+            .expiries(&[0.5, 1.0, 2.0])
+            .strikes(&[80.0, 85.0, 90.0, 95.0, 100.0, 105.0, 110.0, 115.0, 120.0])
+            .row(&[0.32, 0.29, 0.26, 0.23, 0.20, 0.21, 0.23, 0.26, 0.30])
+            .row(&[0.30, 0.27, 0.24, 0.21, 0.19, 0.20, 0.22, 0.25, 0.28])
+            .row(&[0.28, 0.25, 0.22, 0.20, 0.18, 0.19, 0.21, 0.23, 0.26])
+            .build()
+            .expect("VolSurface builder should succeed in test")
+    }
+
+    #[test]
+    fn extrapolated_in_bounds_matches_checked() {
+        let vs = smile_surface();
+        let forward = 100.0;
+
+        // In-bounds query should match value_checked
+        let checked = vs
+            .value_checked(1.0, 100.0)
+            .expect("in-bounds should succeed");
+        let extrap = vs.value_extrapolated(1.0, 100.0, forward);
+        assert!(
+            (checked - extrap).abs() < 1e-12,
+            "In-bounds: checked={checked}, extrapolated={extrap}"
+        );
+    }
+
+    #[test]
+    fn extrapolated_deep_otm_returns_positive_vol() {
+        let vs = smile_surface();
+        let forward = 100.0;
+
+        // Deep OTM put (strike far below grid)
+        let vol_low = vs.value_extrapolated(1.0, 50.0, forward);
+        assert!(
+            vol_low > 0.0 && vol_low.is_finite(),
+            "Deep OTM low strike vol should be positive: {vol_low}"
+        );
+
+        // Deep OTM call (strike far above grid)
+        let vol_high = vs.value_extrapolated(1.0, 160.0, forward);
+        assert!(
+            vol_high > 0.0 && vol_high.is_finite(),
+            "Deep OTM high strike vol should be positive: {vol_high}"
+        );
+    }
+
+    #[test]
+    fn extrapolated_wings_higher_than_atm() {
+        let vs = smile_surface();
+        let forward = 100.0;
+
+        let atm_vol = vs.value_extrapolated(1.0, 100.0, forward);
+        let wing_low = vs.value_extrapolated(1.0, 50.0, forward);
+        let wing_high = vs.value_extrapolated(1.0, 160.0, forward);
+
+        // Wings should be higher than ATM for a typical smile
+        assert!(
+            wing_low > atm_vol,
+            "Low wing vol {wing_low:.4} should exceed ATM {atm_vol:.4}"
+        );
+        assert!(
+            wing_high > atm_vol,
+            "High wing vol {wing_high:.4} should exceed ATM {atm_vol:.4}"
+        );
+    }
+
+    #[test]
+    fn extrapolated_expiry_out_of_bounds() {
+        let vs = smile_surface();
+        let forward = 100.0;
+
+        // Expiry below grid (0.5 is min), strike in bounds
+        let vol = vs.value_extrapolated(0.1, 100.0, forward);
+        assert!(
+            vol > 0.0 && vol.is_finite(),
+            "Extrapolated for short expiry should be valid: {vol}"
         );
     }
 

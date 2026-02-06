@@ -179,6 +179,7 @@ fn test_floating_vs_margin_only() {
                 calendar_id: "weekends_only".to_string(),
                 fixing_calendar_id: None,
                 end_of_month: false,
+                overnight_compounding: None,
                 payment_lag_days: 0,
             },
         ))
@@ -258,6 +259,7 @@ fn test_reset_frequency_mismatch() {
                 calendar_id: "weekends_only".to_string(),
                 fixing_calendar_id: None,
                 end_of_month: false,
+                overnight_compounding: None,
                 payment_lag_days: 0,
             },
         ))

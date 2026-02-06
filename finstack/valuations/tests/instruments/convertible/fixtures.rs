@@ -258,6 +258,7 @@ pub fn create_floating_convertible() -> ConvertibleBond {
             calendar_id: "weekends_only".to_string(),
             fixing_calendar_id: None,
             end_of_month: false,
+            overnight_compounding: None,
             payment_lag_days: 0,
         },
         coupon_type: CouponType::Cash,

@@ -275,6 +275,7 @@ impl PyFloatingCouponSpec {
                     calendar_id: calendar_id.clone(),
                     fixing_calendar_id: Some(calendar_id),
                     end_of_month: schedule.inner.end_of_month,
+                    overnight_compounding: None,
                     payment_lag_days: schedule.inner.payment_lag_days,
                 },
                 coupon_type: coupon_type

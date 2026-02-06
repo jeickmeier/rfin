@@ -321,3 +321,8 @@ pub mod instruments;
 pub mod attribution;
 pub mod covenants;
 pub mod metrics;
+/// XVA (Valuation Adjustments) framework.
+///
+/// Provides credit valuation adjustment (CVA) and exposure simulation
+/// for OTC derivative portfolios under ISDA netting and CSA collateral.
+pub mod xva;

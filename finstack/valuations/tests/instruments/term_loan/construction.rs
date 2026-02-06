@@ -68,6 +68,7 @@ fn test_builder_floating_rate_loan() {
             calendar_id: "weekends_only".to_string(),
             fixing_calendar_id: None,
             end_of_month: false,
+            overnight_compounding: None,
             payment_lag_days: 0,
         }))
         .pay_freq(Tenor::quarterly())

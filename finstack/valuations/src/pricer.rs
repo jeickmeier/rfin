@@ -120,6 +120,8 @@ pub enum InstrumentType {
     CommoditySwap = 56,
     /// Commodity option (option on commodity forward or spot).
     CommodityOption = 68,
+    /// Commodity Asian option (option on arithmetic/geometric average of commodity prices).
+    CommodityAsianOption = 72,
     /// Volatility index future (VIX, VXN, VSTOXX).
     VolatilityIndexFuture = 57,
     /// Volatility index option (options on VIX, etc.).
@@ -138,6 +140,10 @@ pub enum InstrumentType {
     DollarRoll = 64,
     /// Agency CMO (Collateralized Mortgage Obligation).
     AgencyCmo = 65,
+    /// FX digital (binary) option (cash-or-nothing / asset-or-nothing).
+    FxDigitalOption = 70,
+    /// FX touch option (one-touch / no-touch American binary).
+    FxTouchOption = 71,
 }
 
 impl InstrumentType {
@@ -197,6 +203,7 @@ impl InstrumentType {
             InstrumentType::CommodityForward => "CommodityForward",
             InstrumentType::CommoditySwap => "CommoditySwap",
             InstrumentType::CommodityOption => "CommodityOption",
+            InstrumentType::CommodityAsianOption => "CommodityAsianOption",
             InstrumentType::VolatilityIndexFuture => "VolatilityIndexFuture",
             InstrumentType::VolatilityIndexOption => "VolatilityIndexOption",
             InstrumentType::EquityIndexFuture => "EquityIndexFuture",
@@ -206,6 +213,8 @@ impl InstrumentType {
             InstrumentType::AgencyTba => "AgencyTba",
             InstrumentType::DollarRoll => "DollarRoll",
             InstrumentType::AgencyCmo => "AgencyCmo",
+            InstrumentType::FxDigitalOption => "FxDigitalOption",
+            InstrumentType::FxTouchOption => "FxTouchOption",
         }
     }
 }
@@ -263,6 +272,7 @@ impl std::fmt::Display for InstrumentType {
             InstrumentType::CommodityForward => "commodity_forward",
             InstrumentType::CommoditySwap => "commodity_swap",
             InstrumentType::CommodityOption => "commodity_option",
+            InstrumentType::CommodityAsianOption => "commodity_asian_option",
             InstrumentType::VolatilityIndexFuture => "volatility_index_future",
             InstrumentType::VolatilityIndexOption => "volatility_index_option",
             InstrumentType::EquityIndexFuture => "equity_index_future",
@@ -272,6 +282,8 @@ impl std::fmt::Display for InstrumentType {
             InstrumentType::AgencyTba => "agency_tba",
             InstrumentType::DollarRoll => "dollar_roll",
             InstrumentType::AgencyCmo => "agency_cmo",
+            InstrumentType::FxDigitalOption => "fx_digital_option",
+            InstrumentType::FxTouchOption => "fx_touch_option",
         };
         write!(f, "{}", label)
     }
@@ -368,6 +380,11 @@ impl std::str::FromStr for InstrumentType {
             "agency_tba" | "tba" => Ok(InstrumentType::AgencyTba),
             "dollar_roll" | "dollarroll" | "roll" => Ok(InstrumentType::DollarRoll),
             "agency_cmo" | "cmo" => Ok(InstrumentType::AgencyCmo),
+            "fx_digital_option" | "fxdigitaloption" | "fx_digital" | "digital_option" => {
+                Ok(InstrumentType::FxDigitalOption)
+            }
+            "fx_touch_option" | "fxtouchoption" | "fx_touch" | "touch_option" | "one_touch"
+            | "no_touch" => Ok(InstrumentType::FxTouchOption),
             other => Err(format!("Unknown instrument type: {}", other)),
         }
     }
@@ -1936,6 +1953,38 @@ pub fn register_fx_pricers(registry: &mut PricerRegistry) {
         FxBarrierOption,
         FxBarrierBSContinuous,
         crate::instruments::fx::fx_barrier_option::pricer::FxBarrierOptionAnalyticalPricer
+    );
+
+    // FX Digital Option
+    register_pricer!(
+        registry,
+        FxDigitalOption,
+        Black76,
+        crate::instruments::fx::fx_digital_option::SimpleFxDigitalOptionPricer::default()
+    );
+    register_pricer!(
+        registry,
+        FxDigitalOption,
+        Discounting,
+        crate::instruments::fx::fx_digital_option::SimpleFxDigitalOptionPricer::with_model(
+            ModelKey::Discounting
+        )
+    );
+
+    // FX Touch Option
+    register_pricer!(
+        registry,
+        FxTouchOption,
+        Black76,
+        crate::instruments::fx::fx_touch_option::SimpleFxTouchOptionPricer::default()
+    );
+    register_pricer!(
+        registry,
+        FxTouchOption,
+        Discounting,
+        crate::instruments::fx::fx_touch_option::SimpleFxTouchOptionPricer::with_model(
+            ModelKey::Discounting
+        )
     );
 }
 
