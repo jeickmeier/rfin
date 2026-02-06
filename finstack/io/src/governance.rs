@@ -3,6 +3,7 @@
 use crate::{Error, Result};
 use std::cmp::Ordering;
 use std::env;
+use std::sync::OnceLock;
 
 use crate::store::GovernanceStore;
 use crate::{
@@ -382,7 +383,12 @@ pub struct ResourceChange {
     pub ingestion_source: Option<String>,
     /// Ingestion run id.
     pub ingestion_run_id: Option<String>,
-    /// Payload.
+    /// Resource payload as JSON.
+    ///
+    /// Must use the same serialization format as the corresponding `put_*`
+    /// method for the resource type. See
+    /// [`GovernanceStore::apply_change_to_verified`](crate::store::GovernanceStore::apply_change_to_verified)
+    /// for the expected types per resource.
     pub payload: serde_json::Value,
     /// Metadata.
     pub meta: serde_json::Value,
@@ -415,7 +421,12 @@ pub struct ResourceChangeInsert {
     pub ingestion_source: Option<String>,
     /// Ingestion run id.
     pub ingestion_run_id: Option<String>,
-    /// Payload.
+    /// Resource payload as JSON.
+    ///
+    /// Must use the same serialization format as the corresponding `put_*`
+    /// method for the resource type. See
+    /// [`GovernanceStore::apply_change_to_verified`](crate::store::GovernanceStore::apply_change_to_verified)
+    /// for the expected types per resource.
     pub payload: serde_json::Value,
     /// Metadata.
     pub meta: serde_json::Value,
@@ -734,6 +745,87 @@ pub mod resource_types {
     pub const SERIES_META: &str = "series_meta";
 }
 
+/// Cached governance configuration, loaded from environment on first access.
+static GOVERNANCE_CONFIG: OnceLock<GovernanceConfig> = OnceLock::new();
+
+/// Validate that a change's payload can deserialize as the expected domain type.
+///
+/// This catches payload format mismatches early (e.g., providing a raw
+/// `MarketContext` instead of `MarketContextState`) that would cause silent
+/// corruption in the verified tables.
+///
+/// Only compiled in debug builds to avoid redundant deserialization in release.
+#[cfg(debug_assertions)]
+fn validate_change_payload(change: &ResourceChange) -> Result<()> {
+    use finstack_core::market_data::context::MarketContextState;
+
+    match change.resource_type.as_str() {
+        resource_types::INSTRUMENT => {
+            serde_json::from_value::<InstrumentJson>(change.payload.clone()).map_err(|e| {
+                Error::Invariant(format!(
+                    "Invalid payload for instrument '{}': {e}. \
+                     Payload must be a serialized InstrumentJson.",
+                    change.resource_id
+                ))
+            })?;
+        }
+        resource_types::MARKET_CONTEXT => {
+            serde_json::from_value::<MarketContextState>(change.payload.clone()).map_err(|e| {
+                Error::Invariant(format!(
+                    "Invalid payload for market_context '{}': {e}. \
+                     Payload must be a serialized MarketContextState (not MarketContext).",
+                    change.resource_id
+                ))
+            })?;
+        }
+        resource_types::PORTFOLIO => {
+            serde_json::from_value::<PortfolioSpec>(change.payload.clone()).map_err(|e| {
+                Error::Invariant(format!(
+                    "Invalid payload for portfolio '{}': {e}. \
+                     Payload must be a serialized PortfolioSpec.",
+                    change.resource_id
+                ))
+            })?;
+        }
+        resource_types::SCENARIO => {
+            serde_json::from_value::<ScenarioSpec>(change.payload.clone()).map_err(|e| {
+                Error::Invariant(format!(
+                    "Invalid payload for scenario '{}': {e}. \
+                     Payload must be a serialized ScenarioSpec.",
+                    change.resource_id
+                ))
+            })?;
+        }
+        resource_types::STATEMENT_MODEL => {
+            serde_json::from_value::<FinancialModelSpec>(change.payload.clone()).map_err(|e| {
+                Error::Invariant(format!(
+                    "Invalid payload for statement_model '{}': {e}. \
+                     Payload must be a serialized FinancialModelSpec.",
+                    change.resource_id
+                ))
+            })?;
+        }
+        resource_types::METRIC_REGISTRY => {
+            serde_json::from_value::<MetricRegistry>(change.payload.clone()).map_err(|e| {
+                Error::Invariant(format!(
+                    "Invalid payload for metric_registry '{}': {e}. \
+                     Payload must be a serialized MetricRegistry.",
+                    change.resource_id
+                ))
+            })?;
+        }
+        resource_types::SERIES_META => {
+            // Series meta payloads are arbitrary JSON metadata; no schema validation needed.
+        }
+        other => {
+            return Err(Error::Invariant(format!(
+                "Cannot validate payload for unknown resource_type: {other}"
+            )));
+        }
+    }
+    Ok(())
+}
+
 /// Governed API wrapper around a store handle.
 #[derive(Clone, Debug)]
 pub struct GovernedHandle {
@@ -744,11 +836,18 @@ pub struct GovernedHandle {
 
 impl GovernedHandle {
     /// Create a governed handle using environment configuration.
+    ///
+    /// Configuration is read from environment variables once per process
+    /// and cached for subsequent calls. Use [`GovernedHandle::with_config`]
+    /// to override with explicit configuration (e.g., in tests).
     pub fn new(store: StoreHandle, actor: ActorContext) -> Self {
+        let config = GOVERNANCE_CONFIG
+            .get_or_init(GovernanceConfig::from_env)
+            .clone();
         Self {
             store,
             actor,
-            config: GovernanceConfig::from_env(),
+            config,
         }
     }
 
@@ -1340,6 +1439,8 @@ impl GovernedHandle {
 
         let mut applied_at: Option<String> = None;
         if target_state.is_final {
+            #[cfg(debug_assertions)]
+            validate_change_payload(&change)?;
             self.store.apply_change_to_verified(&change).await?;
             applied_at = Some(now_timestamp_string()?);
         }

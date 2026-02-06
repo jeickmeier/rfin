@@ -388,6 +388,28 @@ pub(crate) trait GovernanceStore: Send + Sync {
     ) -> Result<Option<String>>;
 
     /// Apply a resource change to the verified tables.
+    ///
+    /// # Payload Format Contract
+    ///
+    /// The `change.payload` **must** use the same serialization format as the
+    /// corresponding `put_*` method for the resource type. Specifically:
+    ///
+    /// | Resource type     | Expected payload type               |
+    /// |-------------------|-------------------------------------|
+    /// | `instrument`      | `InstrumentJson`                    |
+    /// | `market_context`  | `MarketContextState` (not `MarketContext`) |
+    /// | `portfolio`       | `PortfolioSpec`                     |
+    /// | `scenario`        | `ScenarioSpec`                      |
+    /// | `statement_model` | `FinancialModelSpec`                |
+    /// | `metric_registry` | `MetricRegistry`                    |
+    /// | `series_meta`     | Arbitrary JSON metadata             |
+    ///
+    /// Passing a payload in the wrong format (e.g., a raw `MarketContext`
+    /// instead of `MarketContextState`) will succeed at write time but cause
+    /// deserialization failures on subsequent reads from the verified table.
+    ///
+    /// In debug builds, `GovernedHandle` validates the payload format before
+    /// calling this method.
     async fn apply_change_to_verified(&self, change: &ResourceChange) -> Result<()>;
 }
 

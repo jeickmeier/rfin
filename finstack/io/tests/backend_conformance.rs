@@ -1,7 +1,7 @@
 //! Backend conformance tests for `finstack-io`.
 //!
-//! These tests verify that all storage backends (SQLite, Postgres) implement
-//! the storage traits consistently.
+//! These tests verify that all storage backends (SQLite, Postgres, Turso)
+//! implement the storage traits consistently.
 //!
 //! # Running Tests
 //!
@@ -146,6 +146,13 @@ async fn sqlite_conformance() -> finstack_io::Result<()> {
     let dir = tempfile::tempdir()?;
     let store = finstack_io::SqliteStore::open(dir.path().join("finstack.db")).await?;
     run_conformance(&store, "sqlite").await
+}
+
+#[cfg(feature = "turso")]
+#[tokio::test]
+async fn turso_conformance() -> finstack_io::Result<()> {
+    let store = finstack_io::TursoStore::open_in_memory().await?;
+    run_conformance(&store, "turso").await
 }
 
 #[cfg(feature = "postgres")]
