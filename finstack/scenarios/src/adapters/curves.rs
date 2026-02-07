@@ -19,8 +19,11 @@ pub struct CurveAdapter;
 
 /// Result of resolving bump targets, including any warnings.
 struct BumpTargetResult {
-    /// Resolved (time, bump_value) pairs for curve knots.
+    /// Resolved (time, bump_value) pairs for curve knots (used by BumpRequest::Tenors).
     targets: Vec<(f64, f64)>,
+    /// Resolved (knot_index, bump_value) pairs for direct curve modification.
+    /// Avoids tolerance-sensitive float matching when applying node bumps.
+    indexed_targets: Vec<(usize, f64)>,
     /// Warnings generated during resolution (e.g., extrapolation).
     warnings: Vec<String>,
 }
@@ -34,6 +37,7 @@ fn resolve_bump_targets(
     day_count: DayCount,
 ) -> Result<BumpTargetResult> {
     let mut targets = Vec::new();
+    let mut indexed_targets = Vec::new();
     let mut warnings = Vec::new();
 
     // Calculate max knot for extrapolation warnings
@@ -58,14 +62,18 @@ fn resolve_bump_targets(
 
         match match_mode {
             TenorMatchMode::Exact => {
-                let match_ctx = knots.iter().find(|&t| (t - tenor_years_ctx).abs() < 1e-6);
+                let match_ctx = knots
+                    .iter()
+                    .enumerate()
+                    .find(|(_, t)| (**t - tenor_years_ctx).abs() < 1e-6);
                 let match_simple = knots
                     .iter()
-                    .find(|&t| (t - tenor_years_simple).abs() < 1e-6);
+                    .enumerate()
+                    .find(|(_, t)| (**t - tenor_years_simple).abs() < 1e-6);
 
-                let target_years = match (match_ctx, match_simple) {
-                    (Some(_), _) => tenor_years_ctx,
-                    (None, Some(_)) => tenor_years_simple,
+                let (idx, target_years) = match (match_ctx, match_simple) {
+                    (Some((i, _)), _) => (i, tenor_years_ctx),
+                    (None, Some((i, _))) => (i, tenor_years_simple),
                     (None, None) => {
                         return Err(Error::TenorNotFound {
                             tenor: tenor_str.clone(),
@@ -75,6 +83,7 @@ fn resolve_bump_targets(
                 };
 
                 targets.push((target_years, add));
+                indexed_targets.push((idx, add));
             }
             TenorMatchMode::Interpolate => {
                 // For interpolate, we prefer context-aware, but if simple falls exactly on a knot, maybe use that?
@@ -107,11 +116,16 @@ fn resolve_bump_targets(
 
                 for (idx, weight) in result.weights {
                     targets.push((knots[idx], add * weight));
+                    indexed_targets.push((idx, add * weight));
                 }
             }
         }
     }
-    Ok(BumpTargetResult { targets, warnings })
+    Ok(BumpTargetResult {
+        targets,
+        indexed_targets,
+        warnings,
+    })
 }
 
 /// Resolve a deterministic discount curve ID for (re)calibration-based bumps.
@@ -120,16 +134,44 @@ fn resolve_bump_targets(
 /// require a discount curve for repricing during re-calibration. Rather than
 /// hard-coding a specific curve id (like `"USD-OIS"`), pick the first discount
 /// curve from the context snapshot (which is deterministically sorted by curve id).
+/// Resolve a deterministic discount curve ID, preferring one whose 3-letter
+/// ISO currency prefix matches the curve being bumped.
+///
+/// # Arguments
+/// - `market`: Market context to search for discount curves.
+/// - `hint_curve_id`: Optional curve ID whose currency prefix is used for matching
+///   (e.g., "EUR_CPI" → prefers "EUR_ESTR" over "USD_SOFR").
 fn resolve_discount_curve_id(
     market: &finstack_core::market_data::context::MarketContext,
+    hint_curve_id: Option<&str>,
 ) -> Option<finstack_core::types::CurveId> {
     let state: finstack_core::market_data::context::MarketContextState = market.into();
-    state.curves.iter().find_map(|c| match c {
-        finstack_core::market_data::context::CurveState::Discount(dc) => {
-            Some(finstack_core::types::CurveId::from(dc.id().as_str()))
+    let discount_curves: Vec<_> = state
+        .curves
+        .iter()
+        .filter_map(|c| match c {
+            finstack_core::market_data::context::CurveState::Discount(dc) => Some(dc),
+            _ => None,
+        })
+        .collect();
+
+    // If hint provided, prefer a discount curve with matching 3-letter currency prefix
+    if let Some(hint) = hint_curve_id {
+        let ccy_prefix = hint.get(..3).unwrap_or("");
+        if ccy_prefix.len() == 3 && ccy_prefix.chars().all(|c| c.is_ascii_uppercase()) {
+            for dc in &discount_curves {
+                let dc_id = dc.id().as_str();
+                if dc_id.starts_with(ccy_prefix) {
+                    return Some(finstack_core::types::CurveId::from(dc_id));
+                }
+            }
         }
-        _ => None,
-    })
+    }
+
+    // Fallback: first available discount curve
+    discount_curves
+        .first()
+        .map(|dc| finstack_core::types::CurveId::from(dc.id().as_str()))
 }
 
 impl ScenarioAdapter for CurveAdapter {
@@ -163,42 +205,6 @@ impl ScenarioAdapter for CurveAdapter {
                                 id: curve_id.to_string(),
                             }
                         })?;
-                        // We need access to concret types if possible, but the shared function takes generalized traits?
-                        // No, shared functions take concrete structs usually (DiscountCurve, HazardCurve).
-                        // The context returns Arc<dyn DiscountCurve>.
-                        // We need to downcast or clone to concrete.
-                        // Ideally `ctx.market` returns concrete types if we use specialized methods,
-                        // but `get_discount` returns `&Arc<dyn DiscountCurve>`.
-                        // However, `finstack_core` implementations are usually `InterpolatedDiscountCurve`.
-                        // AND `DiscountCurve` trait doesn't easily allow cloning to concrete.
-                        // BUT: `bump_discount_curve_synthetic` takes `&dyn DiscountCurve`?
-                        // Checking rates.rs signature: `curve: &finstack_core::market_data::term_structures::DiscountCurve`.
-                        // That is the STRUCT `DiscountCurve` (if defined as struct in core/term_structures/discount_curve.rs).
-                        // Wait, `DiscountCurve` in core is usually a TRAIT?
-                        // I need to check if `DiscountCurve` is a Struct or Trait.
-                        // In `rates.rs` I treated it as a struct with `knots()`, `df()`, `id()`.
-                        // If it is a TRAIT, I can use it if `bump_discount_curve_synthetic` accepts the trait object (or reference to it).
-                        // In `rates.rs`: `curve: &...DiscountCurve`.
-                        // If `DiscountCurve` is a trait, this is `&dyn DiscountCurve`? No, `&DiscountCurve` implies struct.
-                        //
-                        // Let's assume for now it is the struct `InterpolatedDiscountCurve` or `DiscountCurve` struct.
-                        // If `ctx.market.get_discount` returns `Arc<dyn DiscountCurve>`, I might have trouble.
-                        //
-                        // CHECK: `finstack_core::market_data::term_structures::discount_curve`.
-                        // I suspect it's a TRAIT.
-                        // If so, I need to cast.
-                        // Or `bump_discount_curve_synthetic` should accept `&dyn DiscountCurve`.
-
-                        // Assuming I can call it:
-                        // We'll need to handle the type mismatch if it exists.
-                        // For now let's write the code assuming we can pass it or fix it.
-                        // The core `DiscountCurve` is likely a struct in `finstack_core` (new architecture).
-                        // The user info says "refactor... to ensure consistency".
-                        //
-                        // Let's try to assume it works or I'll fix the signature.
-
-                        // Wait, `get_discount` usually returns `&DiscountCurve` (the struct).
-                        // Let's proceed.
 
                         let new_curve = bump_discount_curve_synthetic(
                             &base_curve,
@@ -249,7 +255,7 @@ impl ScenarioAdapter for CurveAdapter {
                                 id: curve_id.to_string(),
                             }
                         })?;
-                        let discount_id = resolve_discount_curve_id(ctx.market);
+                        let discount_id = resolve_discount_curve_id(ctx.market, Some(curve_id));
                         let new_curve = bump_hazard_spreads(
                             &base_curve,
                             ctx.market,
@@ -272,16 +278,8 @@ impl ScenarioAdapter for CurveAdapter {
                                 id: curve_id.to_string(),
                             }
                         })?;
-                        // Need discount curve ID for inflation calibration.
-                        // Context usually has a main discount curve?
-                        // I'll use a placeholder or try to find "USD-OIS" etc?
-                        // Actually `bump_inflation_rates` *requires* `discount_id`.
-                        // I'll assume "USD-OIS" for now as default?
-                        // Or pass a dummy if the calibrator allows?
-                        // `InflationCurveCalibrator` needs it to discount flows.
-                        // I'll default to the curve_id's currency OIS.
 
-                        let discount_id = resolve_discount_curve_id(ctx.market)
+                        let discount_id = resolve_discount_curve_id(ctx.market, Some(curve_id))
                             .unwrap_or_else(|| finstack_core::types::CurveId::from("USD-OIS"));
 
                         let new_curve = bump_inflation_rates(
@@ -301,31 +299,21 @@ impl ScenarioAdapter for CurveAdapter {
                         }]))
                     }
                     CurveKind::Commodity => {
-                        // Commodity curves are treated like discount curves for bump purposes
-                        // They store forward prices, which we bump like rates
-                        let base_curve = ctx.market.get_discount(curve_id).map_err(|_| {
+                        // Commodity curves stored as DiscountCurve (convenience yields/cost-of-carry).
+                        // Use direct additive rate shifts, NOT solve-to-par (which would
+                        // incorrectly apply swap-rate calibration to commodity yields).
+                        let _base_curve = ctx.market.get_discount(curve_id).map_err(|_| {
                             Error::MarketDataNotFound {
                                 id: curve_id.to_string(),
                             }
                         })?;
 
-                        let new_curve = bump_discount_curve_synthetic(
-                            &base_curve,
-                            ctx.market,
-                            &bump_req,
-                            as_of,
-                        )
-                        .map_err(|e| {
-                            Error::Internal(format!(
-                                "Failed to bump commodity curve components: {}",
-                                e
-                            ))
-                        })?;
-
-                        Ok(Some(vec![ScenarioEffect::UpdateDiscountCurve {
-                            id: curve_id.clone(),
-                            curve: std::sync::Arc::new(new_curve),
-                        }]))
+                        let spec = BumpSpec::parallel_bp(*bp);
+                        let bump = MarketBump::Curve {
+                            id: finstack_core::types::CurveId::from(curve_id.as_str()),
+                            spec,
+                        };
+                        Ok(Some(vec![ScenarioEffect::MarketBump(bump)]))
                     }
                     CurveKind::VolIndex => {
                         // Volatility index curves store forward volatility levels (e.g., VIX, VSTOXX)
@@ -438,12 +426,11 @@ impl ScenarioAdapter for CurveAdapter {
                             base_curve.day_count(),
                         )?;
 
-                        for (t, bp) in &result.targets {
-                            // Find exact match in knots (within tolerance for floating point)
-                            if let Some(idx) = knots.iter().position(|&k| (k - *t).abs() < 1e-4) {
-                                // bp is in basis points; 1bp = 0.0001 = 1e-4
-                                forwards[idx] += bp * 1e-4;
-                            }
+                        // Use indexed_targets for precise knot matching (avoids
+                        // float tolerance issues from round-tripping through time values).
+                        for &(idx, bp) in &result.indexed_targets {
+                            // bp is in basis points; 1bp = 0.0001 = 1e-4
+                            forwards[idx] += bp * 1e-4;
                         }
 
                         // Rebuild the curve with bumped forward rates
@@ -485,7 +472,7 @@ impl ScenarioAdapter for CurveAdapter {
                         )?;
                         let bump_req = BumpRequest::Tenors(result.targets);
 
-                        let discount_id = resolve_discount_curve_id(ctx.market);
+                        let discount_id = resolve_discount_curve_id(ctx.market, Some(curve_id));
 
                         let new_curve = bump_hazard_spreads(
                             &base_curve,
@@ -522,7 +509,7 @@ impl ScenarioAdapter for CurveAdapter {
                         // when matching tenor strings (like "5Y") to curve knots, we use:
                         // 1. The discount curve's day count if one is available (for consistency)
                         // 2. Act365F as fallback (standard for inflation markets)
-                        let tenor_day_count = resolve_discount_curve_id(ctx.market)
+                        let tenor_day_count = resolve_discount_curve_id(ctx.market, Some(curve_id))
                             .and_then(|dc_id| {
                                 ctx.market
                                     .get_discount(dc_id.as_str())
@@ -540,7 +527,7 @@ impl ScenarioAdapter for CurveAdapter {
                         )?;
                         let bump_req = BumpRequest::Tenors(result.targets);
 
-                        let discount_id = resolve_discount_curve_id(ctx.market)
+                        let discount_id = resolve_discount_curve_id(ctx.market, Some(curve_id))
                             .unwrap_or_else(|| finstack_core::types::CurveId::from("USD-OIS"));
 
                         let new_curve = bump_inflation_rates(
@@ -565,7 +552,9 @@ impl ScenarioAdapter for CurveAdapter {
                         Ok(Some(effects))
                     }
                     CurveKind::Commodity => {
-                        // Commodity curves treated like discount curves for bump purposes
+                        // Commodity curves stored as DiscountCurve (convenience yields).
+                        // Apply node-specific additive zero-rate shifts rather than
+                        // solve-to-par, preserving curve shape at unshocked tenors.
                         let base_curve = ctx.market.get_discount(curve_id).map_err(|_| {
                             Error::MarketDataNotFound {
                                 id: curve_id.to_string(),
@@ -580,20 +569,35 @@ impl ScenarioAdapter for CurveAdapter {
                             as_of,
                             base_curve.day_count(),
                         )?;
-                        let bump_req = BumpRequest::Tenors(result.targets);
 
-                        let new_curve = bump_discount_curve_synthetic(
-                            &base_curve,
-                            ctx.market,
-                            &bump_req,
-                            as_of,
-                        )
-                        .map_err(|e| {
-                            Error::Internal(format!(
-                                "Failed to bump commodity curve components: {}",
-                                e
-                            ))
-                        })?;
+                        // Direct zero-rate shifts: convert DF → zero rate, bump, convert back.
+                        // This avoids solve-to-par calibration which is inappropriate for
+                        // commodity convenience yields.
+                        let mut dfs: Vec<f64> = base_curve.dfs().to_vec();
+                        for &(idx, bp_shift) in &result.indexed_targets {
+                            let t = knots[idx];
+                            if t > 1e-12 {
+                                let zero = -(dfs[idx].ln()) / t;
+                                let shifted = zero + bp_shift * 1e-4;
+                                dfs[idx] = (-shifted * t).exp();
+                            }
+                        }
+
+                        let bumped_points: Vec<(f64, f64)> = knots.into_iter().zip(dfs).collect();
+                        let new_curve =
+                            finstack_core::market_data::term_structures::DiscountCurve::builder(
+                                base_curve.id().as_str(),
+                            )
+                            .base_date(base_curve.base_date())
+                            .day_count(base_curve.day_count())
+                            .set_interp(base_curve.interp_style())
+                            .extrapolation(base_curve.extrapolation())
+                            .allow_non_monotonic()
+                            .knots(bumped_points)
+                            .build()
+                            .map_err(|e| {
+                                Error::Internal(format!("Failed to rebuild commodity curve: {}", e))
+                            })?;
 
                         let mut effects = vec![ScenarioEffect::UpdateDiscountCurve {
                             id: curve_id.clone(),
@@ -630,12 +634,11 @@ impl ScenarioAdapter for CurveAdapter {
                         // Apply node bumps by rebuilding the curve with shifted levels
                         let mut levels: Vec<f64> = base_curve.levels().to_vec();
 
-                        for (t, bp) in &result.targets {
-                            // Find exact match in knots
-                            if let Some(idx) = knots.iter().position(|&k| (k - *t).abs() < 1e-4) {
-                                // bp / 100 converts to index points: bp=100 → +1.0 index point
-                                levels[idx] += bp / 100.0;
-                            }
+                        // Use indexed_targets for precise knot matching (avoids
+                        // float tolerance issues from round-tripping through time values).
+                        for &(idx, bp) in &result.indexed_targets {
+                            // bp / 100 converts to index points: bp=100 → +1.0 index point
+                            levels[idx] += bp / 100.0;
                         }
 
                         // Rebuild the vol index curve

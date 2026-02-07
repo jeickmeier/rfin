@@ -148,9 +148,22 @@ pub fn update_rate_from_binding(
             }
         }
 
+        // Compute forward start date from binding tenor so the accrual period
+        // is anchored at the forward start, not the curve base date.
+        // E.g., a 3M accrual starting 1Y from now may span different days
+        // than one starting today (Feb→May vs Jan→Apr).
+        let forward_start = Tenor::parse(&binding.tenor)
+            .map_err(|e| Error::InvalidTenor(e.to_string()))?
+            .add_to_date(
+                curve.base_date(),
+                None,
+                BusinessDayConvention::ModifiedFollowing,
+            )
+            .map_err(|e| Error::Internal(e.to_string()))?;
+
         let accrual_years = Tenor::from_years(curve.tenor(), effective_dc)
             .to_years_with_context(
-                curve.base_date(),
+                forward_start,
                 None,
                 BusinessDayConvention::ModifiedFollowing,
                 effective_dc,
@@ -217,13 +230,10 @@ fn convert_continuous_rate(
     Ok(converted)
 }
 
-/// Re-evaluate the financial model to propagate changes (no-op placeholder).
+/// Re-evaluate the financial model to propagate scenario changes.
 ///
-/// # Arguments
-/// - `_model`: Financial model that would be re-evaluated. Currently unused.
-///
-/// # Returns
-/// Always returns `Ok(())`.
+/// Runs the evaluator and returns any warnings (division by zero, NaN
+/// propagation, etc.) that were encountered during evaluation.
 ///
 /// # Examples
 /// ```rust
@@ -231,13 +241,17 @@ fn convert_continuous_rate(
 /// use finstack_statements::FinancialModelSpec;
 ///
 /// let mut model = FinancialModelSpec::new("demo", vec![]);
-/// assert!(reevaluate_model(&mut model).is_ok());
+/// let warnings = reevaluate_model(&mut model).unwrap();
+/// assert!(warnings.is_empty());
 /// ```
-pub fn reevaluate_model(_model: &mut FinancialModelSpec) -> Result<()> {
-    // Evaluate the model to propagate any changes made by scenario operations.
-    // Results are intentionally discarded here; callers can re-run evaluation
-    // and consume results as needed after scenarios are applied.
+pub fn reevaluate_model(model: &mut FinancialModelSpec) -> Result<Vec<String>> {
     let mut evaluator = Evaluator::new();
-    evaluator.evaluate(_model)?;
-    Ok(())
+    let results = evaluator.evaluate(model)?;
+    let warnings: Vec<String> = results
+        .meta
+        .warnings
+        .iter()
+        .map(|w| format!("{:?}", w))
+        .collect();
+    Ok(warnings)
 }

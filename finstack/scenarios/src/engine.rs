@@ -180,8 +180,9 @@ impl ScenarioEngine {
             all_operations.extend(scenario.operations);
         }
 
-        // In Phase A, we use simple last-wins for same target
-        // (No deduplication; engine applies in order and last application wins)
+        // Operations from all scenarios are concatenated in priority order.
+        // No deduplication: multiple operations targeting the same curve stack
+        // additively (e.g., two +25bp shocks produce +50bp, NOT last-wins).
 
         ScenarioSpec {
             id: "composed".into(),
@@ -264,6 +265,19 @@ impl ScenarioEngine {
         // Track whether model was re-evaluated if we wanted to report it,
         // but ApplicationReport doesn't support it yet.
         // We focus on operations_applied and warnings.
+
+        // Validate: at most one TimeRollForward per scenario
+        let time_roll_count = spec
+            .operations
+            .iter()
+            .filter(|op| matches!(op, OperationSpec::TimeRollForward { .. }))
+            .count();
+        if time_roll_count > 1 {
+            return Err(crate::error::Error::Validation(format!(
+                "Scenario contains {} TimeRollForward operations; at most one is allowed",
+                time_roll_count
+            )));
+        }
 
         // Phase 0: Time Roll Forward
         for op in &spec.operations {
@@ -542,9 +556,13 @@ impl ScenarioEngine {
         }
 
         // Phase 4: Re-evaluate statements to propagate changes
-        let eval_result = crate::adapters::statements::reevaluate_model(ctx.model);
-        if let Err(e) = eval_result {
-            warnings.push(format!("Model re-evaluation: {}", e));
+        match crate::adapters::statements::reevaluate_model(ctx.model) {
+            Ok(eval_warnings) => warnings.extend(
+                eval_warnings
+                    .into_iter()
+                    .map(|w| format!("Model evaluation: {}", w)),
+            ),
+            Err(e) => warnings.push(format!("Model re-evaluation: {}", e)),
         }
 
         Ok(ApplicationReport {

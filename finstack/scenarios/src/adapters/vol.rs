@@ -36,30 +36,27 @@
 //! ```
 
 use crate::error::Result;
-use crate::utils::parse_tenor_to_years;
+use crate::utils::parse_tenor_to_years_with_context;
+use finstack_core::dates::{BusinessDayConvention, DayCount};
 use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits, MarketBump};
 
-/// Relative tolerance for expiry matching (2%)
-#[allow(dead_code)]
+// Tolerance constants and matching helpers used only in tests.
+// Bucket matching for vol surface shocks is delegated to the market context
+// via MarketBump::VolBucketPct; these helpers are retained for test validation.
+#[cfg(test)]
 const EXPIRY_REL_TOL: f64 = 0.02;
-
-/// Relative tolerance for strike matching (0.5%)
-#[allow(dead_code)]
+#[cfg(test)]
 const STRIKE_REL_TOL: f64 = 0.005;
 
-/// Check if two expiries match within relative tolerance.
-#[inline]
-#[allow(dead_code)]
+#[cfg(test)]
 fn matches_expiry(target: f64, actual: f64) -> bool {
-    let base = target.abs().max(0.01); // Avoid division by zero for very short expiries
+    let base = target.abs().max(0.01);
     (target - actual).abs() < base * EXPIRY_REL_TOL
 }
 
-/// Check if two strikes match within relative tolerance.
-#[inline]
-#[allow(dead_code)]
+#[cfg(test)]
 fn matches_strike(target: f64, actual: f64) -> bool {
-    let base = actual.abs().max(1e-6); // Avoid division by zero
+    let base = actual.abs().max(1e-6);
     (target - actual).abs() / base < STRIKE_REL_TOL
 }
 
@@ -207,12 +204,13 @@ impl ScenarioAdapter for VolAdapter {
     fn try_generate_effects(
         &self,
         op: &OperationSpec,
-        _ctx: &ExecutionContext,
+        ctx: &ExecutionContext,
     ) -> Result<Option<Vec<ScenarioEffect>>> {
         match op {
             OperationSpec::VolSurfaceParallelPct {
                 surface_id, pct, ..
             } => {
+                // NOTE: `surface_kind` is informational metadata; lookup is by surface_id only.
                 let mut effects = Vec::new();
 
                 // Warn about potentially problematic vol shocks
@@ -245,6 +243,8 @@ impl ScenarioAdapter for VolAdapter {
                 pct,
                 ..
             } => {
+                // NOTE: `surface_kind` is informational metadata; lookup is by surface_id only.
+                // The market context stores all vol surfaces in a single collection keyed by ID.
                 let mut warnings = Vec::new();
 
                 // Warn about potentially problematic vol shocks
@@ -257,10 +257,21 @@ impl ScenarioAdapter for VolAdapter {
                     ));
                 }
 
-                // Parse tenor strings to years if present
+                // Parse tenor strings to years using calendar-aware computation
+                // (consistent with curve adapter which also uses calendar-aware parsing).
                 let exp_years = if let Some(t) = tenors {
-                    let parsed: std::result::Result<Vec<f64>, _> =
-                        t.iter().map(|s| parse_tenor_to_years(s)).collect();
+                    let parsed: std::result::Result<Vec<f64>, _> = t
+                        .iter()
+                        .map(|s| {
+                            parse_tenor_to_years_with_context(
+                                s,
+                                ctx.as_of,
+                                ctx.calendar,
+                                BusinessDayConvention::Unadjusted,
+                                DayCount::Act365F,
+                            )
+                        })
+                        .collect();
                     match parsed {
                         Ok(v) => Some(v),
                         Err(e) => {

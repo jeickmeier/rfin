@@ -53,9 +53,12 @@ impl ScenarioAdapter for AssetCorrAdapter {
             | OperationSpec::RecoveryCorrelationPts { .. }
             | OperationSpec::PrepayFactorLoadingPts { .. } => {
                 // Currently returning warning as engine only holds generic instruments
-                Ok(Some(vec![ScenarioEffect::Warning(
-                    "Correlation operation: requires StructuredCredit instruments (not supported in generic context)".to_string(),
-                )]))
+                Ok(Some(vec![ScenarioEffect::Warning(format!(
+                    "Correlation operation {:?} skipped: ExecutionContext does not support \
+                         typed StructuredCredit instruments. Use the standalone \
+                         apply_*_correlation_shock() functions directly.",
+                    op,
+                ))]))
             }
             _ => Ok(None),
         }

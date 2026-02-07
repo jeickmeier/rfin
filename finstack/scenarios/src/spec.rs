@@ -693,6 +693,17 @@ impl ScenarioSpec {
                 "Scenario ID cannot be empty".into(),
             ));
         }
+        let time_roll_count = self
+            .operations
+            .iter()
+            .filter(|op| matches!(op, OperationSpec::TimeRollForward { .. }))
+            .count();
+        if time_roll_count > 1 {
+            return Err(crate::error::Error::Validation(format!(
+                "Scenario contains {} TimeRollForward operations; at most one is allowed",
+                time_roll_count
+            )));
+        }
         for (i, op) in self.operations.iter().enumerate() {
             op.validate()
                 .map_err(|e| crate::error::Error::Validation(format!("Operation {}: {}", i, e)))?;
@@ -725,9 +736,11 @@ impl OperationSpec {
                     ));
                 }
                 check_finite(*pct, "pct")?;
+                check_pct_floor(*pct, "pct")?;
             }
             OperationSpec::InstrumentPricePctByAttr { pct, .. } => {
                 check_finite(*pct, "pct")?;
+                check_pct_floor(*pct, "pct")?;
             }
             OperationSpec::CurveParallelBp { curve_id, bp, .. } => {
                 check_id(curve_id, "curve_id")?;
@@ -766,12 +779,14 @@ impl OperationSpec {
             } => {
                 check_id(surface_id, "surface_id")?;
                 check_finite(*pct, "pct")?;
+                check_pct_floor(*pct, "pct")?;
             }
             OperationSpec::VolSurfaceBucketPct {
                 surface_id, pct, ..
             } => {
                 check_id(surface_id, "surface_id")?;
                 check_finite(*pct, "pct")?;
+                check_pct_floor(*pct, "pct")?;
             }
             OperationSpec::StmtForecastPercent { node_id, pct } => {
                 check_id(node_id, "node_id")?;
@@ -786,6 +801,7 @@ impl OperationSpec {
             }
             OperationSpec::InstrumentPricePctByType { pct, .. } => {
                 check_finite(*pct, "pct")?;
+                check_pct_floor(*pct, "pct")?;
             }
             OperationSpec::InstrumentSpreadBpByType { bp, .. } => {
                 check_finite(*bp, "bp")?;
@@ -830,6 +846,17 @@ fn check_id(id: &str, name: &str) -> crate::error::Result<()> {
         Err(crate::error::Error::Validation(format!(
             "Identifier '{}' cannot be empty",
             name
+        )))
+    } else {
+        Ok(())
+    }
+}
+
+fn check_pct_floor(val: f64, name: &str) -> crate::error::Result<()> {
+    if val <= -100.0 {
+        Err(crate::error::Error::Validation(format!(
+            "Percentage '{}' must be greater than -100% (got {:.1}%)",
+            name, val
         )))
     } else {
         Ok(())
