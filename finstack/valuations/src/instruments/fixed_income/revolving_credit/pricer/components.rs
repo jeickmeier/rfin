@@ -31,14 +31,8 @@ impl DiscountFactors {
     ///
     /// * `curve` - Discount curve for factor computation
     /// * `dates` - Dates at which to compute factors
-    /// * `day_count` - Day count convention to use
     /// * `as_of` - Valuation date for relative discounting
-    pub fn from_curve(
-        curve: &dyn Discounting,
-        dates: &[Date],
-        _day_count: DayCount,
-        as_of: Date,
-    ) -> Result<Self> {
+    pub fn from_curve(curve: &dyn Discounting, dates: &[Date], as_of: Date) -> Result<Self> {
         // Compute discount factors relative to as_of
         let mut factors = Vec::with_capacity(dates.len());
         for &date in dates {
@@ -377,7 +371,6 @@ pub fn compute_upfront_fee_pv(
     commitment_date: Date,
     as_of: Date,
     disc_curve: &dyn Discounting,
-    _day_count: DayCount,
 ) -> Result<f64> {
     let upfront_fee = match upfront_fee_opt {
         Some(fee) => fee,
@@ -423,8 +416,7 @@ mod tests {
             base_date + time::Duration::days(730),
         ];
 
-        let factors = DiscountFactors::from_curve(&curve, &dates, DayCount::Act365F, as_of)
-            .expect("should succeed");
+        let factors = DiscountFactors::from_curve(&curve, &dates, as_of).expect("should succeed");
 
         assert_eq!(factors.len(), 3);
         assert!((factors.get(0) - 1.0).abs() < 1e-10);

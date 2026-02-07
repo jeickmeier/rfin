@@ -311,7 +311,6 @@ impl RevolvingCreditPricer {
                 facility.commitment_date,
                 as_of,
                 disc_curve.as_ref(),
-                disc_dc,
             )?;
         }
 

@@ -588,13 +588,17 @@ impl<'a> CashflowEngine<'a> {
                 BaseRateSpec::Floating(spec) => {
                     // Convert Decimal spread to f64 for rate calculations
                     let spread_bp_f64 = spec.spread_bp.to_f64().unwrap_or(0.0);
-                    // Floor applies to the index rate (short_rate) BEFORE adding spread,
-                    // matching ISDA floating rate convention and the deterministic engine's
-                    // use of index_floor_bp in project_floating_rate.
+                    // Floor and cap apply to the index rate (short_rate) BEFORE adding
+                    // spread, matching ISDA floating rate convention and the deterministic
+                    // engine's use of index_floor_bp / index_cap_bp in project_floating_rate.
                     let mut index_rate = short_rate;
                     if let Some(floor) = spec.floor_bp {
                         let floor_f64 = floor.to_f64().unwrap_or(0.0);
                         index_rate = index_rate.max(floor_f64 * 1e-4);
+                    }
+                    if let Some(cap) = spec.index_cap_bp {
+                        let cap_f64 = cap.to_f64().unwrap_or(f64::MAX);
+                        index_rate = index_rate.min(cap_f64 * 1e-4);
                     }
                     index_rate + (spread_bp_f64 * 1e-4)
                 }

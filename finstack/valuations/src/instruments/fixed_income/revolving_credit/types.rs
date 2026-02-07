@@ -11,7 +11,6 @@ use rust_decimal::Decimal;
 
 use crate::cashflow::builder::{evaluate_fee_tiers, FeeTier, FloatingRateSpec};
 use crate::instruments::common_impl::traits::Attributes;
-#[cfg(feature = "mc")]
 use crate::instruments::common_impl::validation;
 use rust_decimal::prelude::ToPrimitive;
 
@@ -96,6 +95,28 @@ pub struct RevolvingCredit {
 /// Default stub kind for revolving credit facilities.
 fn default_stub_kind() -> StubKind {
     StubKind::ShortFront
+}
+
+/// Validate that fee tiers are sorted by threshold in strictly ascending order.
+///
+/// Fee tier evaluation picks the highest tier where utilization >= threshold,
+/// so tiers must be strictly ascending for the algorithm to work correctly.
+/// Duplicate thresholds are rejected because the first would be unreachable.
+fn validate_fee_tier_ordering(tiers: &[FeeTier], context: &str) -> finstack_core::Result<()> {
+    for i in 1..tiers.len() {
+        if tiers[i].threshold <= tiers[i - 1].threshold {
+            return Err(finstack_core::Error::Validation(format!(
+                "RevolvingCredit {} must be sorted by threshold strictly ascending: \
+                 tier[{}].threshold ({}) <= tier[{}].threshold ({})",
+                context,
+                i,
+                tiers[i].threshold,
+                i - 1,
+                tiers[i - 1].threshold
+            )));
+        }
+    }
+    Ok(())
 }
 
 impl RevolvingCredit {
@@ -380,8 +401,11 @@ pub struct McConfig {
 
     /// Recovery rate on default (e.g., 0.4 for 40% recovery).
     ///
-    /// Note: This field is currently ignored in favor of `RevolvingCredit::recovery_rate`
-    /// to ensure consistency between path generation and pricing.
+    /// Used when propagating credit risk from market-anchored stochastic specs to
+    /// the deterministic fallback in `value()`. The path generator itself uses
+    /// `RevolvingCredit::recovery_rate` for hazard-to-spread mapping, so these
+    /// values should be kept consistent. When constructing `McConfig`, set this
+    /// to the same value as `RevolvingCredit::recovery_rate`.
     pub recovery_rate: f64,
 
     /// Credit spread process specification.
@@ -571,6 +595,111 @@ pub enum UtilizationProcess {
 }
 
 impl RevolvingCredit {
+    /// Validate all structural invariants of the revolving credit facility.
+    ///
+    /// Checks:
+    /// - Commitment amount is positive
+    /// - Drawn amount does not exceed commitment
+    /// - Currency consistency between drawn and commitment amounts
+    /// - Commitment date is before maturity date
+    /// - Recovery rate is in [0, 1) (must be strictly less than 1 to avoid
+    ///   division by zero in hazard-to-spread mapping: λ = s / (1 - R))
+    /// - Fee tiers are sorted by threshold ascending
+    /// - Base rate fixed rate is finite
+    ///
+    /// # Errors
+    ///
+    /// Returns a validation error describing the first failed check.
+    ///
+    /// # Example
+    ///
+    /// ```text
+    /// let facility = RevolvingCredit::builder()
+    ///     .id("RCF-001".into())
+    ///     // ... other fields ...
+    ///     .build()?;
+    /// facility.validate()?; // Validates all parameters
+    /// ```
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        use super::MAX_RECOVERY_RATE;
+
+        // Commitment amount must be positive
+        validation::validate_money_gt(
+            self.commitment_amount,
+            0.0,
+            "RevolvingCredit commitment_amount",
+        )?;
+
+        // Drawn amount must be non-negative (check before relationship check
+        // so a negative drawn_amount is reported clearly rather than passing
+        // the drawn <= commitment check vacuously)
+        validation::require_with(self.drawn_amount.amount() >= 0.0, || {
+            format!(
+                "RevolvingCredit drawn_amount must be non-negative, got {}",
+                self.drawn_amount
+            )
+        })?;
+
+        // Drawn amount must not exceed commitment
+        validation::require_with(
+            self.drawn_amount.amount() <= self.commitment_amount.amount(),
+            || {
+                format!(
+                    "RevolvingCredit drawn_amount ({}) must not exceed commitment_amount ({})",
+                    self.drawn_amount, self.commitment_amount
+                )
+            },
+        )?;
+
+        // Currency consistency
+        validation::validate_money_currency(
+            self.drawn_amount,
+            self.commitment_amount.currency(),
+            "RevolvingCredit drawn_amount currency must match commitment_amount",
+        )?;
+
+        // Date ordering: commitment must be before maturity
+        validation::validate_date_range_strict_with(
+            self.commitment_date,
+            self.maturity_date,
+            |start, end| {
+                format!(
+                    "RevolvingCredit commitment_date ({}) must be before maturity_date ({})",
+                    start, end
+                )
+            },
+        )?;
+
+        // Recovery rate bounds: must be in [0, MAX_RECOVERY_RATE) to avoid
+        // division by zero in hazard-to-spread mapping: λ = s / (1 - R)
+        validation::require_with(
+            self.recovery_rate >= 0.0 && self.recovery_rate < MAX_RECOVERY_RATE,
+            || {
+                format!(
+                    "RevolvingCredit recovery_rate must be in [0, {:.6}), got {}",
+                    MAX_RECOVERY_RATE, self.recovery_rate
+                )
+            },
+        )?;
+
+        // Validate fee tier ordering: thresholds must be strictly ascending
+        validate_fee_tier_ordering(&self.fees.commitment_fee_tiers, "commitment_fee_tiers")?;
+        validate_fee_tier_ordering(&self.fees.usage_fee_tiers, "usage_fee_tiers")?;
+
+        // Validate facility fee is non-negative
+        validation::validate_f64_non_negative(
+            self.fees.facility_fee_bp,
+            "RevolvingCredit facility_fee_bp",
+        )?;
+
+        // Validate base rate if fixed
+        if let BaseRateSpec::Fixed { rate } = &self.base_rate_spec {
+            validation::validate_f64_finite(*rate, "RevolvingCredit fixed base rate")?;
+        }
+
+        Ok(())
+    }
+
     /// Get the current undrawn amount.
     pub fn undrawn_amount(&self) -> finstack_core::Result<Money> {
         self.commitment_amount.checked_sub(self.drawn_amount)

@@ -3,13 +3,15 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::HazardCurve;
+use finstack_core::market_data::term_structures::{ForwardCurve, HazardCurve};
 use finstack_core::money::Money;
+use finstack_valuations::cashflow::builder::FloatingRateSpec;
 use finstack_valuations::instruments::fixed_income::revolving_credit::{
     BaseRateSpec, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees, StochasticUtilizationSpec,
     UtilizationProcess,
 };
 use finstack_valuations::instruments::Instrument;
+use rust_decimal::Decimal;
 use time::macros::date;
 
 use crate::common::test_helpers::flat_discount_curve;
@@ -391,5 +393,138 @@ fn test_mc_utilization_mean_reversion() {
     assert!(
         pv.amount() < pv_high.amount(),
         "Lower initial utilization should result in lower PV"
+    );
+}
+
+/// Verify that `index_cap_bp` is applied in the stochastic (MC) cashflow engine.
+///
+/// Creates two floating-rate stochastic facilities against a high forward curve (8%):
+/// - One without a cap → uses full 8% index rate
+/// - One with `index_cap_bp = 300` (3% cap) → caps index to 3%
+///
+/// Uses `RevolvingCreditPricer::price_with_paths` to invoke the MC engine directly
+/// (the `value()` fast path falls back to deterministic pricing for stochastic specs).
+///
+/// Near-zero utilization volatility ensures deterministic paths so the
+/// difference is entirely due to the cap reducing the interest rate.
+#[test]
+#[cfg(feature = "mc")]
+fn test_mc_stochastic_floating_rate_index_cap() {
+    use finstack_valuations::instruments::fixed_income::revolving_credit::RevolvingCreditPricer;
+
+    let val_date = date!(2025 - 01 - 01);
+    let commitment_date = date!(2025 - 01 - 01);
+    let maturity_date = date!(2026 - 01 - 01);
+
+    // Flat forward curve at 8% — well above the 3% cap
+    let fwd_curve = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+        .base_date(val_date)
+        .day_count(DayCount::Act360)
+        .knots([(0.0, 0.08), (1.0, 0.08), (5.0, 0.08)])
+        .build()
+        .unwrap();
+
+    let disc_curve = build_flat_discount_curve(0.03, val_date, "USD-OIS");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve);
+
+    // Helper to build a floating rate spec with optional index cap
+    let make_float_spec = |cap_bp: Option<Decimal>| -> FloatingRateSpec {
+        FloatingRateSpec {
+            index_id: "USD-SOFR-3M".into(),
+            spread_bp: Decimal::try_from(100.0).expect("valid"), // 100 bps spread
+            gearing: Decimal::try_from(1.0).expect("valid"),
+            gearing_includes_spread: true,
+            floor_bp: None,
+            all_in_floor_bp: None,
+            cap_bp: None,
+            index_cap_bp: cap_bp,
+            reset_freq: Tenor::quarterly(),
+            reset_lag_days: 2,
+            dc: DayCount::Act360,
+            bdc: finstack_core::dates::BusinessDayConvention::ModifiedFollowing,
+            calendar_id: "weekends_only".to_string(),
+            fixing_calendar_id: None,
+            end_of_month: false,
+            payment_lag_days: 0,
+            overnight_compounding: None,
+        }
+    };
+
+    // Near-zero vol stochastic spec for deterministic-like utilization
+    let make_stoch_spec = |id: &str, cap_bp: Option<Decimal>| -> RevolvingCredit {
+        RevolvingCredit::builder()
+            .id(id.into())
+            .commitment_amount(Money::new(10_000_000.0, Currency::USD))
+            .drawn_amount(Money::new(5_000_000.0, Currency::USD))
+            .commitment_date(commitment_date)
+            .maturity_date(maturity_date)
+            .base_rate_spec(BaseRateSpec::Floating(make_float_spec(cap_bp)))
+            .day_count(DayCount::Act360)
+            .payment_frequency(Tenor::quarterly())
+            .fees(RevolvingCreditFees::default())
+            .draw_repay_spec(DrawRepaySpec::Stochastic(Box::new(
+                StochasticUtilizationSpec {
+                    utilization_process: UtilizationProcess::MeanReverting {
+                        target_rate: 0.5,
+                        speed: 0.5,
+                        volatility: 1e-8, // near-zero to keep utilization deterministic
+                    },
+                    num_paths: 1000,
+                    seed: Some(42),
+                    antithetic: false,
+                    use_sobol_qmc: false,
+                    mc_config: None,
+                },
+            )))
+            .discount_curve_id("USD-OIS".into())
+            .build()
+            .unwrap()
+    };
+
+    // Price via the MC engine (not value() which uses the deterministic fast path)
+    // Facility without cap: index rate ≈ 8%, all-in ≈ 9%
+    let facility_no_cap = make_stoch_spec("RC-MC-NOCAP", None);
+    let mc_no_cap =
+        RevolvingCreditPricer::price_with_paths(&facility_no_cap, &market, val_date).unwrap();
+    let pv_no_cap = mc_no_cap.mc_result.estimate.mean.amount();
+
+    // Facility with index cap at 300 bps (3%): index rate capped at 3%, all-in ≈ 4%
+    let cap_300 = Decimal::try_from(300.0).expect("valid");
+    let facility_with_cap = make_stoch_spec("RC-MC-CAP300", Some(cap_300));
+    let mc_with_cap =
+        RevolvingCreditPricer::price_with_paths(&facility_with_cap, &market, val_date).unwrap();
+    let pv_with_cap = mc_with_cap.mc_result.estimate.mean.amount();
+
+    // Both should produce positive PV
+    assert!(
+        pv_no_cap > 0.0,
+        "Uncapped PV should be positive, got {}",
+        pv_no_cap
+    );
+    assert!(
+        pv_with_cap > 0.0,
+        "Capped PV should be positive, got {}",
+        pv_with_cap
+    );
+
+    // The capped facility should have lower PV because the lender earns less interest
+    // (index rate 3% + 100bps = 4% vs uncapped 8% + 100bps = 9%)
+    assert!(
+        pv_with_cap < pv_no_cap,
+        "Capped PV ({}) should be less than uncapped PV ({}) because cap \
+         limits the index rate and hence the interest income",
+        pv_with_cap,
+        pv_no_cap
+    );
+
+    // The difference should be material (on ~5M drawn, 5% rate diff over 1 year ≈ $250k)
+    let diff = pv_no_cap - pv_with_cap;
+    assert!(
+        diff > 100_000.0,
+        "PV difference ({}) should be material (> 100k) given 5% index rate gap",
+        diff
     );
 }
