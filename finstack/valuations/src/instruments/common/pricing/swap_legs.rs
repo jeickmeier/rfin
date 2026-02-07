@@ -968,7 +968,7 @@ pub fn leg_annuity<I>(
 where
     I: Iterator<Item = LegPeriod>,
 {
-    let mut annuity = 0.0;
+    let mut acc = NeumaierAccumulator::new();
 
     for period in periods {
         // Apply payment delay (strict: calendar must resolve if specified)
@@ -977,9 +977,11 @@ where
         // Only include future payments
         if payment_date > as_of {
             let df = robust_relative_df(disc, as_of, payment_date)?;
-            annuity += period.year_fraction * df;
+            acc.add(period.year_fraction * df);
         }
     }
+
+    let annuity = acc.total();
 
     // Guard against zero annuity which would cause divide-by-zero in par spread calculations
     if annuity < ANNUITY_EPSILON {

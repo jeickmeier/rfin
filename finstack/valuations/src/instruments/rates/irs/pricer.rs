@@ -36,7 +36,7 @@ use crate::instruments::rates::irs::InterestRateSwap;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::ScalarTimeSeries;
-use finstack_core::math::kahan_sum;
+use finstack_core::math::NeumaierAccumulator;
 use finstack_core::money::Money;
 use finstack_core::Result;
 use rust_decimal::prelude::ToPrimitive;
@@ -73,10 +73,15 @@ impl InterestRateSwap {
         ) && self.float.forward_curve_id == self.fixed.discount_curve_id
     }
 
-    /// Total observation shift (business days) for compounded RFR conventions.
+    /// Total observation date shift (business days) for compounded RFR conventions.
     ///
     /// Convention: lookback shifts observations *back* (negative), observation_shift
-    /// can shift forward/back. Total shift = -lookback + observation_shift.
+    /// can shift forward/back.  Total shift = -lookback + observation_shift.
+    ///
+    /// **Important:** this shifts observation dates only.  Day-count-fraction (DCF)
+    /// weights remain anchored to the original accrual period dates (lookback
+    /// semantics).  See [`FloatingLegCompounding::CompoundedInArrears`] for details
+    /// on the distinction from true ISDA 2021 observation shift.
     fn compounded_total_shift_days(&self) -> i32 {
         match self.float.compounding {
             FloatingLegCompounding::CompoundedInArrears {
@@ -85,18 +90,6 @@ impl InterestRateSwap {
             } => -lookback_days + observation_shift.unwrap_or(0),
             _ => 0,
         }
-    }
-
-    /// Compute PV of an overnight-indexed (compounded-in-arrears) floating leg.
-    #[inline]
-    pub(crate) fn pv_compounded_float_leg(
-        &self,
-        disc: &DiscountCurve,
-        proj: Option<&ForwardCurve>,
-        as_of: Date,
-        fixings: Option<&ScalarTimeSeries>,
-    ) -> Result<f64> {
-        self.pv_compounded_in_arrears_float_leg(disc, proj, as_of, fixings)
     }
 
     /// Compute PV of an overnight-indexed (compounded-in-arrears) floating leg.
@@ -110,6 +103,7 @@ impl InterestRateSwap {
     /// * `disc` - Discount curve for discounting coupon payments
     /// * `proj` - Projection curve (forward curve or discount curve for OIS)
     /// * `as_of` - Valuation date
+    /// * `fixings` - Optional historical fixings for seasoned swaps
     ///
     /// # Errors
     ///
@@ -117,7 +111,7 @@ impl InterestRateSwap {
     /// - Historical fixings are required but missing for observation dates before `as_of`
     /// - Calendar or date calculations fail
     /// - Numerical stability thresholds are breached
-    pub(crate) fn pv_compounded_in_arrears_float_leg(
+    pub(crate) fn pv_compounded_float_leg(
         &self,
         disc: &DiscountCurve,
         proj: Option<&ForwardCurve>,
@@ -135,7 +129,7 @@ impl InterestRateSwap {
                 .calendar_id
                 .as_deref()
                 .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
-            end_of_month: false,
+            end_of_month: float.end_of_month,
             day_count: float.dc,
             payment_lag_days: float.payment_delay_days,
             reset_lag_days: None,
@@ -168,7 +162,7 @@ impl InterestRateSwap {
 
         let total_shift = self.compounded_total_shift_days();
 
-        let mut terms = Vec::with_capacity(periods.len());
+        let mut acc = NeumaierAccumulator::new();
 
         for period in periods {
             let accrual_start = period.accrual_start;
@@ -185,12 +179,10 @@ impl InterestRateSwap {
                 && total_shift == 0
                 && proj.is_none_or(|p| disc.id() == p.id());
 
-            let compound_factor = if allow_fast_path && proj.is_none() {
-                // Single-curve discount-only fast path when no observation shifting:
-                // Product of (1 + r_i * dcf_i) is exactly DF(S)/DF(E).
-                1.0 / robust_relative_df(disc, accrual_start, accrual_end)?
-            } else if allow_fast_path {
-                // Fast path for single-curve OIS without lookback/shift:
+            let compound_factor = if allow_fast_path {
+                // Single-curve fast path (no lookback/shift, unseasoned):
+                // ∏(1 + r_i × dcf_i) = DF(accrual_start) / DF(accrual_end)
+                // regardless of whether proj is Some or None.
                 1.0 / robust_relative_df(disc, accrual_start, accrual_end)?
             } else {
                 let mut acc = 1.0;
@@ -209,6 +201,10 @@ impl InterestRateSwap {
                         next_d
                     };
 
+                    // DCF is computed from the original accrual dates (d, step_end),
+                    // NOT from the shifted observation dates.  This implements
+                    // "lookback" semantics per ARRC/ISDA conventions for SOFR,
+                    // SONIA, ESTR, and TONA.  See compounding.rs for details.
                     let dcf = self
                         .float
                         .dc
@@ -330,11 +326,10 @@ impl InterestRateSwap {
             // Discount to payment date (holiday-aware, strict) using shared helper
             let df = robust_relative_df(disc, as_of, payment_date)?;
 
-            terms.push((interest + spread_contrib) * df);
+            acc.add((interest + spread_contrib) * df);
         }
 
-        let total_pv = kahan_sum(terms);
-        Ok(total_pv)
+        Ok(acc.total())
     }
 
     /// Compute PV of fixed leg (helper for value calculation).
@@ -370,11 +365,12 @@ impl InterestRateSwap {
 
         // Convert cashflow schedule to LegPeriod iterator for shared pricing.
         //
-        // Note: For fixed legs, `accrual_start` and `accrual_end` are both set to the payment
-        // date because the actual year fraction is pre-computed by the cashflow builder and
-        // stored in `cf.accrual_factor`. The shared pricing function uses `period.year_fraction`
-        // directly rather than recomputing from dates. This avoids redundant date arithmetic
-        // while preserving the `LegPeriod` interface for consistency with floating leg pricing.
+        // `cf.date` is the **accrual-end date** (see cashflow.rs module docs).
+        // `accrual_end` is used downstream by `pv_fixed_leg` → `add_payment_delay`
+        // to derive the actual payment date.  `accrual_start` is not used by the
+        // shared fixed-leg pricing path so it is set to `accrual_end` for
+        // simplicity.  The year fraction is pre-computed by the cashflow builder
+        // and stored in `cf.accrual_factor`.
         let periods = sched
             .flows
             .iter()
@@ -383,8 +379,8 @@ impl InterestRateSwap {
                     || cf.kind == crate::cashflow::primitives::CFKind::Stub
             })
             .map(|cf| LegPeriod {
-                accrual_start: cf.date, // Placeholder; year_fraction is pre-computed
-                accrual_end: cf.date,   // Placeholder; year_fraction is pre-computed
+                accrual_start: cf.date, // Not used by fixed-leg pricer
+                accrual_end: cf.date,   // Accrual-end date; used for payment delay
                 reset_date: None,
                 year_fraction: cf.accrual_factor,
             });
@@ -465,7 +461,7 @@ impl InterestRateSwap {
                 .calendar_id
                 .as_deref()
                 .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
-            end_of_month: false,
+            end_of_month: float.end_of_month,
             day_count: float.dc,
             payment_lag_days: float.payment_delay_days,
             reset_lag_days: Some(float.reset_lag_days),

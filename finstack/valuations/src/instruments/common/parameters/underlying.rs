@@ -148,7 +148,11 @@ pub struct IndexUnderlyingParams {
     pub yield_id: Option<String>,
     /// Optional duration identifier for risk calculations
     pub duration_id: Option<String>,
-    /// Optional convexity identifier for risk calculations
+    /// Optional convexity identifier for risk calculations.
+    ///
+    /// **Note**: Currently unused in pricing. Convexity adjustment to the forward
+    /// price is not yet implemented. This field is reserved for future enhancement
+    /// (e.g., second-order yield sensitivity for long-dated TRS).
     pub convexity_id: Option<String>,
     /// Contract size (index units per contract, defaults to 1.0)
     pub contract_size: f64,

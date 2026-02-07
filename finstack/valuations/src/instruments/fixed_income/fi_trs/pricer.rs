@@ -1,7 +1,25 @@
-//! Fixed Income Index TRS pricing - yield/carry model.
+//! Fixed Income Index TRS pricing - carry/yield model.
 //!
 //! This module implements the total return leg pricing for fixed income index TRS
-//! using a forward price plus income model.
+//! using a carry-based model where the index yield drives the expected total return.
+//!
+//! # Model Choice
+//!
+//! For fixed income index TRS, two approaches exist:
+//!
+//! 1. **No-arbitrage forward model**: `F_t = S_0 * e^{(r-y)*t}`, total return equals
+//!    the risk-free rate. Mathematically correct but has no yield sensitivity since
+//!    the price return and income terms cancel exactly under the multiplicative formula.
+//!
+//! 2. **Carry model** (used here): Total return per period = `e^{y * dt} - 1`.
+//!    This models the index as earning its yield continuously, which is the primary
+//!    economic driver of FI index TRS. Rate sensitivity comes from discounting future
+//!    payments and is captured separately by the DV01/DurationDv01 metrics.
+//!
+//! We use the carry model because:
+//! - FI index TRS are fundamentally carry products (yield vs financing cost)
+//! - Yield sensitivity is essential for what-if analysis and hedge ratio computation
+//! - It matches how dealers think about TRS economics: par spread ≈ yield - financing rate
 
 use super::types::FIIndexTotalReturnSwap;
 use crate::instruments::common_impl::pricing::{TotalReturnLegParams, TrsEngine, TrsReturnModel};
@@ -11,93 +29,99 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
-/// Extracts spot price and index yield from market data.
-fn extract_underlying_data(
-    trs: &FIIndexTotalReturnSwap,
-    context: &MarketContext,
-) -> Result<(f64, f64)> {
-    // Try to get index spot price, default to 100.0 if not found (cancels out for % returns)
-    let spot = match context.price(trs.underlying.index_id.as_str()) {
-        Ok(s) => match s {
-            MarketScalar::Unitless(v) => *v,
-            MarketScalar::Price(p) => p.amount(),
-        },
-        Err(_) => 100.0,
-    };
-
-    let index_yield = trs
-        .underlying
-        .yield_id
-        .as_ref()
-        .and_then(|id| {
-            context.price(id.as_str()).ok().map(|s| match s {
-                MarketScalar::Unitless(v) => *v,
-                MarketScalar::Price(p) => p.amount(),
-            })
-        })
-        .unwrap_or(0.0);
-
-    Ok((spot, index_yield))
+/// Extracts index yield from market data.
+///
+/// # Errors
+///
+/// Returns an error if `yield_id` is configured but the corresponding market data
+/// is missing. This prevents silent zero-yield assumptions that would materially
+/// affect carry calculations.
+fn extract_index_yield(trs: &FIIndexTotalReturnSwap, context: &MarketContext) -> Result<f64> {
+    match &trs.underlying.yield_id {
+        Some(id) => {
+            let scalar = context.price(id.as_str()).map_err(|_| {
+                finstack_core::Error::Validation(format!(
+                    "Index yield data '{}' is configured but not found in market context. \
+                     Provide the yield scalar or remove yield_id to use zero yield.",
+                    id
+                ))
+            })?;
+            Ok(require_unitless_scalar(scalar, "yield", id)?)
+        }
+        None => Ok(0.0), // No yield configured — intentional zero carry
+    }
 }
 
-/// Fixed income index return model using forward price plus income.
+/// Extracts a unitless f64 from a [`MarketScalar`], returning an error if the
+/// variant is `Price` (which indicates a likely configuration mistake — yield
+/// and duration are dimensionless quantities, not monetary amounts).
+fn require_unitless_scalar(scalar: &MarketScalar, kind: &str, id: &str) -> Result<f64> {
+    match scalar {
+        MarketScalar::Unitless(v) => Ok(*v),
+        MarketScalar::Price(_) => Err(finstack_core::Error::Validation(format!(
+            "Market scalar '{}' for index {} has type Price, but {} is a unitless quantity. \
+             Use MarketScalar::Unitless instead.",
+            id, kind, kind
+        ))),
+    }
+}
+
+/// Fixed income index return model using the carry/yield approach.
 ///
-/// Models the total return as:
-/// - **Price return**: Forward price change using F_t = S_0 * e^{(r-y)t}
-/// - **Income return**: Continuous yield approximation (y * dt)
+/// Models the total return per period as:
+///
+/// ```text
+/// Total Return = e^{y * dt} - 1
+/// ```
+///
+/// where `y` is the continuous index yield and `dt` is the accrual period year fraction.
+///
+/// This is the exponential (multiplicative) form of the income-based return model.
+/// For typical quarterly periods and HY yields (5-6%), the difference between
+/// `e^{y*dt} - 1` and the linear approximation `y*dt` is about 1bp/quarter.
+///
+/// # Rate sensitivity
+///
+/// Rate sensitivity in the total return leg comes from discounting future payments
+/// (handled by `TrsEngine`). Direct rate sensitivity of the underlying index is
+/// captured by the [`DurationDv01`](super::metrics::DurationDv01Calculator) metric.
 struct FiIndexReturnModel<'a> {
     trs: &'a FIIndexTotalReturnSwap,
-    spot: f64,
     index_yield: f64,
 }
 
 impl TrsReturnModel for FiIndexReturnModel<'_> {
     fn period_return(
         &self,
-        _period_start: Date,
-        _period_end: Date,
-        t_start: f64,
-        t_end: f64,
+        period_start: Date,
+        period_end: Date,
+        _t_start: f64,
+        _t_end: f64,
         _initial_level: f64,
-        context: &MarketContext,
+        _context: &MarketContext,
     ) -> Result<f64> {
-        // Market Standard Model: Forward Price + Income
-        // We model the index as an asset paying continuous income (yield).
-        // F_t = S_0 * e^{(r - y)t}
-        // Price Return = (F_end - F_start) / F_start
-        // Income Return = y * dt
+        // Carry model: the index earns its yield as total return.
+        //
+        // Year fraction computed using the schedule's day count convention
+        // (same convention used for the financing leg accrual).
+        let ctx = finstack_core::dates::DayCountCtx::default();
+        let dt = self
+            .trs
+            .schedule
+            .params
+            .dc
+            .year_fraction(period_start, period_end, ctx)?;
 
-        let disc = context.get_discount(self.trs.financing.discount_curve_id.as_str())?;
-        let df_start = disc.df(t_start);
-        let df_end = disc.df(t_end);
-
-        // Use the captured spot price (S_0) for projection base
-        // Note: for percentage returns, S_0 cancels out, but we use it for correctness
-        let s0 = self.spot;
-
-        // Projected Forward Prices
-        // F_t = S_0 * (1/DF_t) * e^(-y*t)
-        let fwd_start = s0 * df_start.recip() * (-self.index_yield * t_start).exp();
-        let fwd_end = s0 * df_end.recip() * (-self.index_yield * t_end).exp();
-
-        let price_return = (fwd_end - fwd_start) / fwd_start;
-
-        // Income Return (Coupons/Carry)
-        // Approx: y * dt
-        let dt = t_end - t_start;
-        let income_return = self.index_yield * dt;
-
-        Ok(price_return + income_return)
+        // Multiplicative income return: e^{y * dt} - 1
+        // This avoids the ~1bp/quarter linearization error of `y * dt`.
+        Ok((self.index_yield * dt).exp() - 1.0)
     }
 }
 
 /// Calculates the present value of the total return leg for a fixed income index TRS.
 ///
-/// Uses a forward price plus income model where:
-/// ```text
-/// F_t = S_0 * e^{(r - y) * t}
-/// Total return = Price return + Income return
-/// ```
+/// Uses a carry/yield model where the expected total return per period is `e^{y * dt} - 1`.
+/// Each period's return is discounted back to the valuation date using the discount curve.
 ///
 /// # Arguments
 /// * `trs` — The fixed income index TRS instrument
@@ -107,15 +131,18 @@ impl TrsReturnModel for FiIndexReturnModel<'_> {
 /// # Returns
 /// Present value of the total return leg in the instrument's currency.
 ///
-/// # Note
-/// This implementation uses an arbitrage-free Forward Price + Income model,
-/// treating the index yield as a continuous income rate.
+/// # Errors
+///
+/// Returns an error if:
+/// - The TRS has already matured (`end <= as_of`)
+/// - The yield_id is configured but missing from the market context
+/// - The discount curve is not found
 pub fn pv_total_return_leg(
     trs: &FIIndexTotalReturnSwap,
     context: &MarketContext,
     as_of: Date,
 ) -> Result<Money> {
-    let (spot, index_yield) = extract_underlying_data(trs, context)?;
+    let index_yield = extract_index_yield(trs, context)?;
 
     let params = TotalReturnLegParams {
         schedule: &trs.schedule,
@@ -125,10 +152,6 @@ pub fn pv_total_return_leg(
         initial_level: trs.initial_level,
     };
 
-    let model = FiIndexReturnModel {
-        trs,
-        spot,
-        index_yield,
-    };
+    let model = FiIndexReturnModel { trs, index_yield };
     TrsEngine::pv_total_return_leg_with_model(params, context, as_of, &model)
 }

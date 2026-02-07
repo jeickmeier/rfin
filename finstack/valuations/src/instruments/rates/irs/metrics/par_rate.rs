@@ -112,7 +112,7 @@ impl MetricCalculator for ParRateCalculator {
                     fixed.freq,
                     fixed.stub,
                     fixed.bdc,
-                    false,
+                    fixed.end_of_month,
                     fixed.payment_delay_days,
                     fixed
                         .calendar_id
@@ -124,10 +124,6 @@ impl MetricCalculator for ParRateCalculator {
                     return Err(finstack_core::Error::Validation(
                         "Par rate calculation failed: swap schedule has no dates.".into(),
                     ));
-                }
-
-                if as_of > fixed.start {
-                    return par_rate_pv_based(irs, context, &disc);
                 }
 
                 let p0 =
@@ -150,12 +146,8 @@ impl MetricCalculator for ParRateCalculator {
                     return Err(finstack_core::Error::Validation("Annuity near zero".into()));
                 }
 
-                // Note: DiscountRatio usually assumes zero spread on the floating leg.
-                // If there's a spread, we must use the PV-based method.
-                if !irs.float.spread_bp.is_zero() {
-                    return par_rate_pv_based(irs, context, &disc);
-                }
-
+                // Note: discount_ratio_allowed() already rejects non-zero spread,
+                // so we can proceed directly.
                 Ok(num / annuity)
             }
         }

@@ -566,3 +566,310 @@ fn test_fi_index_trs_hy_vs_ig() {
     assert!(tr_pv_hy.amount().is_finite());
     assert!(tr_pv_ig.amount().is_finite());
 }
+
+// ================================================================================================
+// Analytical Verification Tests
+// ================================================================================================
+
+/// Verifies TRS pricing against a closed-form result under flat rates and flat yield.
+///
+/// Under a flat discount rate `r` and flat index yield `y`, with quarterly payments:
+/// - Each period return = `e^{y * dt} - 1`
+/// - Each period payment = `Notional * (e^{y*dt} - 1)`
+/// - Discounted at DF(as_of → period_end)
+///
+/// The financing leg uses the flat forward rate `r` + spread.
+///
+/// This test verifies that the pricer matches the analytical sum.
+#[test]
+fn test_fi_index_trs_analytical_flat_rate_flat_yield() {
+    use finstack_core::dates::DayCount;
+    use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
+
+    let as_of = as_of_date();
+    let notional_amount = 10_000_000.0;
+    let index_yield = 0.055; // 5.5%
+    let flat_rate = 0.02; // 2% flat rate
+    let spread_bp_val = 100.0; // 100bp spread
+    let spread_decimal = spread_bp_val / 10000.0;
+
+    // Build flat discount curve: DF(t) = e^{-r*t}
+    // We approximate by using knot points that trace e^{-0.02*t}
+    let disc = DiscountCurve::builder("USD-OIS")
+        .base_date(as_of)
+        .day_count(DayCount::Act360)
+        .knots(vec![
+            (0.0, 1.0),
+            (0.25, (-0.02_f64 * 0.25).exp()),
+            (0.50, (-0.02_f64 * 0.50).exp()),
+            (0.75, (-0.02_f64 * 0.75).exp()),
+            (1.00, (-0.02_f64 * 1.00).exp()),
+        ])
+        .set_interp(finstack_core::math::interp::InterpStyle::LogLinear)
+        .build()
+        .unwrap();
+
+    // Build flat forward curve at the same rate
+    let fwd = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+        .base_date(as_of)
+        .day_count(DayCount::Act360)
+        .knots(vec![(0.0, flat_rate), (1.0, flat_rate)])
+        .set_interp(finstack_core::math::interp::InterpStyle::Linear)
+        .build()
+        .unwrap();
+
+    let market = MarketContext::new()
+        .insert_discount(disc)
+        .insert_forward(fwd)
+        .insert_price("HY-INDEX-YIELD", MarketScalar::Unitless(index_yield))
+        .insert_price("HY-INDEX-DURATION", MarketScalar::Unitless(4.5));
+
+    let trs = TestFIIndexTrsBuilder::new()
+        .side(TrsSide::ReceiveTotalReturn)
+        .spread_bp(spread_bp_val)
+        .tenor_months(12)
+        .build();
+
+    // Compute PVs
+    let tr_pv = trs.pv_total_return_leg(&market, as_of).unwrap();
+    let fin_pv = trs.pv_financing_leg(&market, as_of).unwrap();
+    let npv = trs.value(&market, as_of).unwrap();
+
+    // Analytical total return leg PV (4 quarterly periods, flat rate)
+    let dt = 0.25; // Approximate quarterly fraction
+    let period_return = (index_yield * dt).exp() - 1.0;
+    let mut analytical_tr_pv = 0.0;
+    for i in 1..=4 {
+        let t_end = dt * i as f64;
+        let df_end = (-flat_rate * t_end).exp();
+        analytical_tr_pv += notional_amount * period_return * df_end;
+    }
+
+    // Analytical financing leg PV
+    let mut analytical_fin_pv = 0.0;
+    for i in 1..=4 {
+        let t_end = dt * i as f64;
+        let df_end = (-flat_rate * t_end).exp();
+        let total_rate = flat_rate + spread_decimal;
+        analytical_fin_pv += notional_amount * total_rate * dt * df_end;
+    }
+
+    // The pricer should match the analytical values within tolerance.
+    // Tolerance is relaxed because the actual schedule dates may differ slightly
+    // from the idealized 0.25Y quarters (due to business day adjustments).
+    let tolerance = notional_amount * 0.001; // 0.1% of notional = $10,000
+
+    assert_approx_eq(
+        tr_pv.amount(),
+        analytical_tr_pv,
+        tolerance,
+        "Total return leg PV should match analytical (carry model, flat rate)",
+    );
+
+    assert_approx_eq(
+        fin_pv.amount(),
+        analytical_fin_pv,
+        tolerance,
+        "Financing leg PV should match analytical (flat rate + spread)",
+    );
+
+    // NPV = TR - Financing (for receive side)
+    assert_approx_eq(
+        npv.amount(),
+        analytical_tr_pv - analytical_fin_pv,
+        tolerance,
+        "NPV should equal analytical TR - Financing",
+    );
+
+    // Sanity: For HY index (5.5% yield) vs financing at (2% + 1% = 3%),
+    // the receiver should have positive NPV (carry advantage)
+    assert!(
+        npv.amount() > 0.0,
+        "Receive TR with 5.5% yield vs 3% financing should have positive NPV, got {}",
+        npv.amount()
+    );
+}
+
+// ================================================================================================
+// Validation / Error Path Tests
+// ================================================================================================
+
+/// When `yield_id` is configured but the market context lacks the corresponding
+/// scalar, pricing must fail with a descriptive error rather than silently
+/// assuming zero carry.
+#[test]
+fn test_fi_index_trs_errors_on_missing_configured_yield() {
+    let as_of = as_of_date();
+
+    // Market context has curves but deliberately omits the yield scalar
+    let market = MarketContext::new()
+        .insert_discount(
+            finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
+                .base_date(as_of)
+                .knots(vec![(0.0, 1.0), (1.0, 0.98)])
+                .set_interp(finstack_core::math::interp::InterpStyle::LogLinear)
+                .build()
+                .unwrap(),
+        )
+        .insert_forward(
+            finstack_core::market_data::term_structures::ForwardCurve::builder("USD-SOFR-3M", 0.25)
+                .base_date(as_of)
+                .knots(vec![(0.0, 0.02), (1.0, 0.02)])
+                .set_interp(finstack_core::math::interp::InterpStyle::Linear)
+                .build()
+                .unwrap(),
+        );
+    // NOTE: "MISSING-YIELD" is NOT inserted into the market context
+
+    let trs = TestFIIndexTrsBuilder::new()
+        .yield_id(Some("MISSING-YIELD".into()))
+        .duration_id(None) // duration not needed for this test
+        .build();
+
+    let result = trs.pv_total_return_leg(&market, as_of);
+    assert!(
+        result.is_err(),
+        "Should fail when yield_id is configured but missing from market data"
+    );
+
+    let err_msg = format!("{}", result.unwrap_err());
+    assert!(
+        err_msg.contains("MISSING-YIELD"),
+        "Error should mention the missing yield_id, got: {}",
+        err_msg
+    );
+}
+
+/// When `yield_id` is `None`, the pricer should default to zero carry and
+/// succeed without requiring any yield scalar in the market context.
+#[test]
+fn test_fi_index_trs_zero_carry_when_yield_id_is_none() {
+    let as_of = as_of_date();
+    let market = create_market_context();
+
+    let trs = TestFIIndexTrsBuilder::new()
+        .yield_id(None)
+        .duration_id(None)
+        .build();
+
+    let tr_pv = trs.pv_total_return_leg(&market, as_of).unwrap();
+
+    // With zero yield, total return leg should be zero (e^{0 * dt} - 1 = 0)
+    assert_approx_eq(
+        tr_pv.amount(),
+        0.0,
+        0.01,
+        "Zero yield should produce zero total return leg PV",
+    );
+}
+
+/// When `duration_id` is configured but the market context lacks the
+/// corresponding scalar, the DurationDv01 metric must fail.
+#[test]
+fn test_fi_index_trs_duration_dv01_errors_on_missing_configured_duration() {
+    use finstack_valuations::metrics::MetricId;
+
+    let as_of = as_of_date();
+    let market = create_market_context();
+
+    // Build a TRS with a duration_id that does NOT exist in create_market_context()
+    let trs = TestFIIndexTrsBuilder::new()
+        .duration_id(Some("MISSING-DURATION".into()))
+        .build();
+
+    let result = trs.price_with_metrics(&market, as_of, &[MetricId::DurationDv01]);
+    assert!(
+        result.is_err(),
+        "Should fail when duration_id is configured but missing from market data"
+    );
+
+    let err_msg = format!("{}", result.unwrap_err());
+    assert!(
+        err_msg.contains("MISSING-DURATION"),
+        "Error should mention the missing duration_id, got: {}",
+        err_msg
+    );
+}
+
+/// When `duration_id` is `None`, the DurationDv01 metric should default to 5.0Y
+/// and compute successfully.
+#[test]
+fn test_fi_index_trs_duration_dv01_defaults_when_duration_id_is_none() {
+    use finstack_valuations::metrics::MetricId;
+
+    let as_of = as_of_date();
+    let market = create_market_context();
+
+    let trs = TestFIIndexTrsBuilder::new().duration_id(None).build();
+
+    let result = trs
+        .price_with_metrics(&market, as_of, &[MetricId::DurationDv01])
+        .unwrap();
+
+    let dv01 = *result.measures.get("duration_dv01").unwrap();
+    // Expected: 10_000_000 × 5.0 × 0.0001 = 5_000
+    assert_approx_eq(
+        dv01,
+        5_000.0,
+        1.0, // $1 tolerance
+        "DurationDv01 should use 5.0Y default when duration_id is None",
+    );
+}
+
+/// Providing a `MarketScalar::Price` for yield should fail with a descriptive error.
+#[test]
+fn test_fi_index_trs_errors_on_price_scalar_for_yield() {
+    let as_of = as_of_date();
+
+    let market = create_market_context().insert_price(
+        "BAD-YIELD",
+        MarketScalar::Price(Money::new(100.0, finstack_core::currency::Currency::USD)),
+    );
+
+    let trs = TestFIIndexTrsBuilder::new()
+        .yield_id(Some("BAD-YIELD".into()))
+        .build();
+
+    let result = trs.pv_total_return_leg(&market, as_of);
+    assert!(
+        result.is_err(),
+        "Should fail when yield is provided as Price scalar"
+    );
+
+    let err_msg = format!("{}", result.unwrap_err());
+    assert!(
+        err_msg.contains("unitless"),
+        "Error should mention unitless, got: {}",
+        err_msg
+    );
+}
+
+/// Providing a `MarketScalar::Price` for duration should fail with a descriptive error.
+#[test]
+fn test_fi_index_trs_errors_on_price_scalar_for_duration() {
+    use finstack_valuations::metrics::MetricId;
+
+    let as_of = as_of_date();
+
+    let market = create_market_context().insert_price(
+        "BAD-DURATION",
+        MarketScalar::Price(Money::new(5.0, finstack_core::currency::Currency::USD)),
+    );
+
+    let trs = TestFIIndexTrsBuilder::new()
+        .duration_id(Some("BAD-DURATION".into()))
+        .build();
+
+    let result = trs.price_with_metrics(&market, as_of, &[MetricId::DurationDv01]);
+    assert!(
+        result.is_err(),
+        "Should fail when duration is provided as Price scalar"
+    );
+
+    let err_msg = format!("{}", result.unwrap_err());
+    assert!(
+        err_msg.contains("unitless"),
+        "Error should mention unitless, got: {}",
+        err_msg
+    );
+}

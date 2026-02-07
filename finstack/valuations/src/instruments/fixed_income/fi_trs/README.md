@@ -4,15 +4,16 @@
 
 - Synthetic fixed income index exposure via total return swap
 - Supports receive/pay total return via `TrsSide`
-- Yield/carry forward model for accurate pricing
+- Carry/yield model for pricing (`e^{y × dt} - 1` per period)
 - ETF replication convenience constructor
 
 ## Methodology & References
 
 - PV = PV(total-return leg) − PV(financing leg)
-- Forward price model: F_t = S_0 × e^{(r-y)t}
-- Total return = Price return + Income return (carry)
-- Deterministic curves and index prices; no stochastic credit modeling
+- Carry model: total return per period = `e^{y × dt} - 1` where `y` is the continuous index yield
+- Rate sensitivity comes from discounting; yield sensitivity captured by `DurationDv01`
+- Par spread ≈ yield − financing rate (for intuition)
+- Deterministic curves and index yields; no stochastic credit modeling
 
 ## Usage Example
 
@@ -30,6 +31,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, BusinessDayConvention, StubKind, Tenor};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
+use rust_decimal::Decimal;
 use finstack_valuations::cashflow::builder::ScheduleParams;
 use finstack_valuations::instruments::FinancingLegSpec;
 use finstack_valuations::instruments::IndexUnderlyingParams;
@@ -40,18 +42,18 @@ use finstack_valuations::instruments::fixed_income::fi_trs::{
 // 1. Define the financing leg specification
 let financing_spec = FinancingLegSpec {
     discount_curve_id: CurveId::new("USD-OIS"),      // OIS curve for discounting
-    forward_curve_id: CurveId::new("USD-SOFR-3M"),  // SOFR 3M for floating rate
-    spread_bp: 35.0,                                 // 35bp spread over SOFR
+    forward_curve_id: CurveId::new("USD-SOFR-3M"),   // SOFR 3M for floating rate
+    spread_bp: Decimal::from(35),                     // 35bp spread over SOFR
     day_count: DayCount::Act360,
 };
 
 // 2. Define the schedule parameters
 let schedule_params = ScheduleParams {
     freq: Tenor::quarterly(),                        // Quarterly resets
-    dc: DayCount::Act360,                           // Day count for accrual
-    bdc: BusinessDayConvention::ModifiedFollowing,  // Business day adjustment
-    calendar_id: "NYC".to_string(),           // New York calendar
-    stub: StubKind::ShortFront,                     // Short stub at front
+    dc: DayCount::Act360,                            // Day count for accrual
+    bdc: BusinessDayConvention::ModifiedFollowing,   // Business day adjustment
+    calendar_id: "NYC".to_string(),                  // New York calendar
+    stub: StubKind::ShortFront,                      // Short stub at front
     end_of_month: false,
     payment_lag_days: 0,
 };
@@ -62,12 +64,9 @@ let end_date = Date::from_calendar_date(2025, time::Month::January, 15).unwrap()
 let schedule_spec = TrsScheduleSpec::from_params(start_date, end_date, schedule_params);
 
 // 4. Define the underlying index parameters (e.g., Bloomberg US Corporate Bond Index)
-let underlying = IndexUnderlyingParams {
-    index_id: "LUACTRUU".to_string(),               // Bloomberg ticker
-    notional_currency: Currency::USD,
-    yield_curve_id: Some(CurveId::new("LUACTRUU-YIELD")),
-    duration_curve_id: Some(CurveId::new("LUACTRUU-DURATION")),
-};
+let underlying = IndexUnderlyingParams::new("LUACTRUU", Currency::USD)
+    .with_yield("LUACTRUU-YIELD")         // Optional yield scalar ID
+    .with_duration("LUACTRUU-DURATION");   // Optional duration scalar ID
 
 // 5. Build the fixed income index TRS
 let trs = FIIndexTotalReturnSwap::builder()
@@ -98,8 +97,8 @@ let lqd_trs = FIIndexTotalReturnSwap::replicate_etf(
     Money::new(10_000_000.0, Currency::USD),        // Notional
     financing_spec,                                 // Financing leg
     schedule_spec,                                  // Payment schedule
-    Some("LQD-YIELD"),                              // Optional yield curve ID
-    Some("LQD-DURATION"),                           // Optional duration curve ID
+    Some("LQD-YIELD"),                              // Optional yield scalar ID
+    Some("LQD-DURATION"),                           // Optional duration scalar ID
 )?;
 ```
 
@@ -113,16 +112,16 @@ Fixed income index TRS implement full margin support following **ISDA CSA** stan
 
 ## Metrics
 
-- **DurationDelta**: Sensitivity to index level (duration-weighted, 1bp yield change)
+- **DurationDv01**: Duration-based yield sensitivity (`Notional × Duration × 1bp`)
 - **DV01**: Sensitivity to financing rate
 - **BucketedDV01**: Key-rate DV01 on financing leg
-- **ParSpread**: Spread that makes NPV = 0
+- **ParSpread**: Spread that makes NPV = 0 (from receiver's perspective)
 - **FinancingAnnuity**: PV01 of financing leg
 
 ## Limitations / Known Issues
 
-- Total-return path is deterministic from supplied prices/yields
-- Index duration is estimated; actual index duration from market data would improve SIMM accuracy
+- Total-return path is deterministic from supplied yields
+- `CashflowProvider` returns placeholder zero-amount flows (actual TRS amounts depend on realized returns)
 - Does not model early termination or bespoke fee structures
 
 ## TODO: Basket/Constituent Support
@@ -148,7 +147,7 @@ Currently, the underlying is modeled as a single index (e.g., "LUACTRUU" or "LQD
    - **Maturity bucket DV01**: Key-rate duration by tenor bucket
 
 3. **Aggregate vs. Decomposed Pricing**
-   - Index-level pricing (current): Uses index price + yield/duration estimates
+   - Index-level pricing (current): Uses index yield/duration estimates
    - Constituent-level pricing (future): Sum of individual bond valuations
    - Tracking difference: Index NAV vs. synthetic basket value
 

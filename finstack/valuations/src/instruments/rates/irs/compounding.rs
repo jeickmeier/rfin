@@ -150,12 +150,26 @@ pub enum FloatingLegCompounding {
     /// - **€STR**: 2-day shift (ECB convention)
     /// - **TONA**: 2-day lag (JSCC convention)
     CompoundedInArrears {
-        /// Number of business days to shift observation end (lookback).
-        /// Typically 2-5 days depending on market convention.
+        /// Number of business days to shift observation dates back from the accrual
+        /// period (lookback).  Typically 2–5 days depending on market convention.
+        ///
+        /// The observation dates are shifted while the day-count-fraction (DCF)
+        /// weights remain anchored to the **original** accrual period dates.
+        /// This is consistent with "lookback without observation shift" as
+        /// described in the ISDA 2021 Definitions and ARRC SOFR conventions.
         lookback_days: i32,
 
-        /// Optional observation shift (in business days).
-        /// Some markets use observation shift instead of lookback.
+        /// Optional additional date shift applied on top of the lookback
+        /// (in business days).
+        ///
+        /// **Implementation note – lookback semantics, not true observation shift:**
+        /// This parameter shifts observation dates only; DCF weights are always
+        /// computed from the original (unshifted) accrual period dates.  Under the
+        /// ISDA 2021 "observation shift" convention, both observation dates *and*
+        /// DCF weights should be shifted.  All current market presets (SOFR, SONIA,
+        /// ESTR, TONA) use lookback semantics so this distinction does not affect
+        /// standard swaps.  If true observation-shift behavior is required, a
+        /// dedicated variant should be added.
         observation_shift: Option<i32>,
     },
 }

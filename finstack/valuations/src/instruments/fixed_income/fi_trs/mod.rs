@@ -6,11 +6,14 @@
 //! # Overview
 //!
 //! Total return swaps exchange the total return of an underlying index for a financing
-//! rate. For fixed income index TRS:
+//! rate. For fixed income index TRS, we use a carry model:
 //!
 //! ```text
-//! Total return = (Price_T - Price_0) / Price_0 + Coupon_accrual
+//! Total return per period = e^{y × dt} - 1
 //! ```
+//!
+//! where `y` is the continuous index yield and `dt` is the accrual period year fraction.
+//! See [`pricer`] for full model documentation and rationale.
 //!
 //! # Use Cases
 //!
@@ -21,7 +24,7 @@
 //!
 //! # Key Metrics
 //!
-//! - **DurationDelta**: Sensitivity to underlying index (duration-weighted)
+//! - **DurationDv01**: Duration-based yield sensitivity (`N × D × 1bp`)
 //! - **DV01**: Sensitivity to financing rate
 //! - **BucketedDV01**: Key-rate sensitivities
 //! - **ParSpread**: Spread that makes NPV = 0

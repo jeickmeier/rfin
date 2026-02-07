@@ -76,7 +76,7 @@ impl MetricCalculator for AnnuityCalculator {
                     .calendar_id
                     .as_deref()
                     .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
-                end_of_month: false,
+                end_of_month: fixed.end_of_month,
                 day_count: fixed.dc,
                 payment_lag_days: fixed.payment_delay_days,
                 reset_lag_days: None,

@@ -307,16 +307,27 @@ impl Marginable for FIIndexTotalReturnSwap {
 
     fn simm_sensitivities(
         &self,
-        _market: &MarketContext,
+        market: &MarketContext,
         _as_of: Date,
     ) -> Result<SimmSensitivities> {
         let currency = self.notional.currency();
         let mut sens = SimmSensitivities::new(currency);
 
-        // For FI Index TRS, sensitivity depends on the underlying index
-        // Use default duration for bond indices when actual data unavailable
-        let estimated_duration = DEFAULT_BOND_INDEX_DURATION;
-        let dv01 = self.notional.amount().abs() * estimated_duration * ONE_BP;
+        // Use duration from market data when available, otherwise fall back to default.
+        // This mirrors the logic in DurationDv01Calculator for consistency.
+        let duration = self
+            .underlying
+            .duration_id
+            .as_ref()
+            .and_then(|id| {
+                market.price(id.as_str()).ok().and_then(|s| match s {
+                    finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Some(*v),
+                    finstack_core::market_data::scalars::MarketScalar::Price(_) => None,
+                })
+            })
+            .unwrap_or(DEFAULT_BOND_INDEX_DURATION);
+
+        let dv01 = self.notional.amount().abs() * duration * ONE_BP;
 
         let signed_dv01 = match self.side {
             TrsSide::ReceiveTotalReturn => -dv01, // Long bond = short rates
@@ -324,7 +335,7 @@ impl Marginable for FIIndexTotalReturnSwap {
         };
 
         // Map duration to appropriate tenor bucket
-        let tenor = assign_ir_tenor_bucket(estimated_duration);
+        let tenor = assign_ir_tenor_bucket(duration);
 
         sens.add_ir_delta(currency, tenor, signed_dv01);
 

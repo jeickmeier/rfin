@@ -527,8 +527,17 @@ impl MetricId {
     /// Financing annuity for TRS
     pub const FinancingAnnuity: Self = Self(Cow::Borrowed("financing_annuity"));
 
-    /// Index delta for TRS
+    /// Index delta for TRS (equity: dV/dS per unit, FI: duration-weighted yield sensitivity)
     pub const IndexDelta: Self = Self(Cow::Borrowed("index_delta"));
+
+    /// Duration-based DV01 for fixed income index TRS.
+    ///
+    /// Measures the dollar sensitivity to a 1bp yield change using the index duration:
+    /// `DurationDv01 = Notional × Duration × 0.0001`.
+    ///
+    /// Distinct from `IndexDelta` (which measures sensitivity to the underlying index level)
+    /// and from `Dv01` (which measures sensitivity to a parallel shift in the financing curve).
+    pub const DurationDv01: Self = Self(Cow::Borrowed("duration_dv01"));
 
     // ========================================================================
     // Basis Swap Metrics
@@ -882,6 +891,7 @@ impl MetricId {
         MetricId::ConvexityAdjustmentRisk,
         MetricId::FinancingAnnuity,
         MetricId::IndexDelta,
+        MetricId::DurationDv01,
         MetricId::PvPrimary,
         MetricId::PvReference,
         MetricId::AnnuityPrimary,

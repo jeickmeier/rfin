@@ -424,7 +424,7 @@ fn test_equity_trs_delta_magnitude_check() {
 }
 
 #[test]
-fn test_fi_index_trs_index_delta_based_on_duration() {
+fn test_fi_index_trs_duration_dv01_based_on_duration() {
     // Arrange
     let market = create_market_context();
     let as_of = as_of_date();
@@ -434,12 +434,13 @@ fn test_fi_index_trs_index_delta_based_on_duration() {
 
     // Act
     let result = trs
-        .price_with_metrics(&market, as_of, &[MetricId::IndexDelta])
+        .price_with_metrics(&market, as_of, &[MetricId::DurationDv01])
         .unwrap();
 
     // Assert
-    let delta = *result.measures.get("index_delta").unwrap();
-    assert!(delta.is_finite(), "FI index delta should be finite");
+    let dv01 = *result.measures.get("duration_dv01").unwrap();
+    assert!(dv01.is_finite(), "FI duration DV01 should be finite");
+    assert!(dv01 > 0.0, "Receive TR should have positive duration DV01");
 }
 
 // ================================================================================================
@@ -591,7 +592,7 @@ fn test_fi_index_trs_all_metrics_together() {
                 MetricId::ParSpread,
                 MetricId::FinancingAnnuity,
                 MetricId::Dv01,
-                MetricId::IndexDelta,
+                MetricId::DurationDv01,
                 MetricId::Theta,
                 MetricId::BucketedDv01,
             ],
@@ -606,7 +607,7 @@ fn test_fi_index_trs_all_metrics_together() {
         .unwrap()
         .is_finite());
     assert!(result.measures.get("dv01").unwrap().is_finite());
-    assert!(result.measures.get("index_delta").unwrap().is_finite());
+    assert!(result.measures.get("duration_dv01").unwrap().is_finite());
     assert!(result.measures.get("theta").unwrap().is_finite());
     assert!(result.measures.get("bucketed_dv01").unwrap().is_finite());
 }

@@ -9,6 +9,9 @@ use finstack_core::{Error, Result};
 /// The par spread is the spread over the floating rate that makes the net present value
 /// of the TRS equal to zero. This is calculated as the ratio of the total return leg PV
 /// to the financing annuity, scaled to basis points.
+///
+/// Computed from the total-return-receiver's perspective regardless of trade side,
+/// since par spread is a market-level quote (analogous to a swap rate).
 pub struct ParSpreadCalculator;
 
 impl MetricCalculator for ParSpreadCalculator {

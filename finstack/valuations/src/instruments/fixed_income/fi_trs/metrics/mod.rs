@@ -1,16 +1,17 @@
 //! Risk metrics for Fixed Income Index Total Return Swaps.
 //!
 //! This module provides FI TRS-specific risk metrics:
-//! - **DurationDelta**: Sensitivity to index level (duration-weighted)
+//! - **DurationDv01**: Duration-based yield sensitivity (`N × D × 1bp`)
 //! - **ParSpread**: Spread that makes NPV = 0
 //! - **FinancingAnnuity**: PV01 of the financing leg
+//! - **Dv01 / BucketedDv01**: Financing curve rate sensitivity
 
 mod annuity;
-mod duration_delta;
+mod duration_dv01;
 mod par_spread;
 
 pub use annuity::FinancingAnnuityCalculator;
-pub use duration_delta::DurationDeltaCalculator;
+pub use duration_dv01::DurationDv01Calculator;
 pub use par_spread::ParSpreadCalculator;
 
 use crate::metrics::MetricRegistry;
@@ -27,9 +28,13 @@ pub fn register_fi_trs_metrics(registry: &mut MetricRegistry) {
     let instruments = [InstrumentType::FIIndexTotalReturnSwap];
 
     // FI TRS specific metrics
+    //
+    // Duration-based yield sensitivity. Registered under DurationDv01 (not IndexDelta)
+    // because this measures yield sensitivity (N × D × 1bp), which is conceptually
+    // distinct from equity IndexDelta (dV/dS per unit of index level change).
     registry.register_metric(
-        MetricId::IndexDelta,
-        Arc::new(DurationDeltaCalculator),
+        MetricId::DurationDv01,
+        Arc::new(DurationDv01Calculator),
         &instruments,
     );
     registry.register_metric(

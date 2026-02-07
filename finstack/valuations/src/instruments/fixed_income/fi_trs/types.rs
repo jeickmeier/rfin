@@ -317,13 +317,15 @@ impl CashflowProvider for FIIndexTotalReturnSwap {
         _context: &MarketContext,
         _as_of: Date,
     ) -> Result<crate::cashflow::builder::CashFlowSchedule> {
-        // For TRS, we return the expected payment dates
-        // Actual amounts depend on realized returns
+        // TRS cashflow amounts depend on realized returns and are therefore
+        // unknown at trade time. We return the payment-date skeleton with
+        // zero amounts so that schedule-based queries (e.g., next payment
+        // date, period count) work correctly. Consumers that need projected
+        // amounts should use `pv_total_return_leg` / `pv_financing_leg` instead.
         let period_schedule = self.schedule.period_schedule()?;
 
         let mut flows = Vec::new();
         for date in period_schedule.dates.iter().skip(1) {
-            // Add a placeholder flow for each payment date
             flows.push((*date, Money::new(0.0, self.notional.currency())));
         }
 
