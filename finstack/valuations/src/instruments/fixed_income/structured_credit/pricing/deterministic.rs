@@ -88,7 +88,7 @@ pub fn run_simulation(
 
     let convention = instrument
         .payment_bdc
-        .unwrap_or(BusinessDayConvention::Following);
+        .unwrap_or(BusinessDayConvention::ModifiedFollowing);
 
     // Generate payment schedule with calendar-adjusted dates
     let schedule = ScheduleBuilder::new(
@@ -192,6 +192,8 @@ struct SimulationState<'a> {
     pool_outstanding: Money,
     recovery_queue: RecoveryQueue,
     tranche_balances: HashMap<String, Money>,
+    /// Deferred (PIK) interest per tranche, carried forward to next period.
+    deferred_interest: HashMap<String, Money>,
     results: HashMap<String, TrancheCashflows>,
     prev_date: Option<Date>,
     base_ccy: Currency,
@@ -251,11 +253,18 @@ impl<'a> SimulationState<'a> {
         // Future optimization: Support RepLine conversion to PoolState.
         let pool_state = PoolState::from_pool(pool);
 
+        let deferred_interest: HashMap<String, Money> = tranches
+            .tranches
+            .iter()
+            .map(|t| (t.id.to_string(), Money::new(0.0, base_ccy)))
+            .collect();
+
         Self {
             pool_state,
             pool_outstanding: pool.total_balance().unwrap_or(Money::new(0.0, base_ccy)), // Safe fallback for init
             recovery_queue: RecoveryQueue::new(),
             tranche_balances,
+            deferred_interest,
             results,
             prev_date: Some(closing_date),
             base_ccy,
@@ -391,53 +400,86 @@ fn simulate_period(
     // Step 3: Record flows and update balances for all tranches
     for (idx, tranche) in state.tranches.tranches.iter().enumerate() {
         let recipient_key = &state.tranche_recipient_keys[idx];
+        let tranche_id_str = tranche.id.as_str();
 
-        if let Some(payment) = waterfall_result.distributions.get(recipient_key) {
-            if payment.amount() > 0.0 {
-                let tranche_id_str = tranche.id.as_str();
+        let current_balance = state
+            .tranche_balances
+            .get(tranche_id_str)
+            .copied()
+            .unwrap_or(Money::new(0.0, state.base_ccy));
+        let coupon_rate = tranche
+            .coupon
+            .try_current_rate_with_index(pay_date, context)?;
 
-                let current_balance = state
-                    .tranche_balances
-                    .get(tranche_id_str)
-                    .copied()
-                    .unwrap_or(Money::new(0.0, state.base_ccy));
-                let coupon_rate = tranche
-                    .coupon
-                    .try_current_rate_with_index(pay_date, context)?;
+        // Use tranche's day-count convention for proper accrual calculation
+        let accrual_factor =
+            tranche
+                .day_count
+                .year_fraction(period_start, pay_date, DayCountCtx::default())?;
 
-                // Use tranche's day-count convention for proper accrual calculation
-                let accrual_factor = tranche.day_count.year_fraction(
-                    period_start,
-                    pay_date,
-                    DayCountCtx::default(),
-                )?;
+        // Include any previously deferred interest in the amount due
+        let deferred = state
+            .deferred_interest
+            .get(tranche_id_str)
+            .copied()
+            .unwrap_or(Money::new(0.0, state.base_ccy));
 
-                let interest_portion = Money::new(
-                    current_balance.amount() * coupon_rate * accrual_factor,
-                    state.base_ccy,
-                );
+        let interest_due = Money::new(
+            current_balance.amount() * coupon_rate * accrual_factor + deferred.amount(),
+            state.base_ccy,
+        );
 
-                let principal_payment = payment
-                    .checked_sub(interest_portion)
-                    .unwrap_or(Money::new(0.0, state.base_ccy));
+        let payment_received = waterfall_result
+            .distributions
+            .get(recipient_key)
+            .copied()
+            .unwrap_or(Money::new(0.0, state.base_ccy));
 
-                if let Some(res) = state.results.get_mut(tranche_id_str) {
-                    res.cashflows.push((pay_date, *payment));
-                    if interest_portion.amount() > 0.0 {
-                        res.interest_flows.push((pay_date, interest_portion));
-                        res.total_interest = res.total_interest.checked_add(interest_portion)?;
-                    }
-                    if principal_payment.amount() > 0.0 {
-                        res.principal_flows.push((pay_date, principal_payment));
-                        res.total_principal = res.total_principal.checked_add(principal_payment)?;
-                    }
-                }
+        // Determine how much interest was actually paid vs. shortfall (PIK)
+        let interest_paid = if payment_received.amount() >= interest_due.amount() {
+            interest_due
+        } else {
+            payment_received
+        };
 
-                // Update tranche balance
-                if let Some(current) = state.tranche_balances.get_mut(tranche_id_str) {
-                    *current = current.checked_sub(principal_payment).unwrap_or(*current);
-                }
+        let interest_shortfall = Money::new(
+            (interest_due.amount() - interest_paid.amount()).max(0.0),
+            state.base_ccy,
+        );
+
+        let principal_payment = payment_received
+            .checked_sub(interest_paid)
+            .unwrap_or(Money::new(0.0, state.base_ccy));
+
+        if let Some(res) = state.results.get_mut(tranche_id_str) {
+            if payment_received.amount() > 0.0 {
+                res.cashflows.push((pay_date, payment_received));
             }
+            if interest_paid.amount() > 0.0 {
+                res.interest_flows.push((pay_date, interest_paid));
+                res.total_interest = res.total_interest.checked_add(interest_paid)?;
+            }
+            if principal_payment.amount() > 0.0 {
+                res.principal_flows.push((pay_date, principal_payment));
+                res.total_principal = res.total_principal.checked_add(principal_payment)?;
+            }
+            // Record PIK (interest shortfall deferred to future periods)
+            if interest_shortfall.amount() > 0.0 {
+                res.pik_flows.push((pay_date, interest_shortfall));
+                res.total_pik = res.total_pik.checked_add(interest_shortfall)?;
+            }
+        }
+
+        // Update deferred interest: accumulate shortfall, clear if fully paid
+        state
+            .deferred_interest
+            .insert(tranche_id_str.to_string(), interest_shortfall);
+
+        // Update tranche balance (PIK shortfall adds to balance)
+        if let Some(current) = state.tranche_balances.get_mut(tranche_id_str) {
+            let after_principal = current.checked_sub(principal_payment).unwrap_or(*current);
+            // PIK accretes the tranche balance
+            *current = after_principal.checked_add(interest_shortfall)?;
         }
     }
 

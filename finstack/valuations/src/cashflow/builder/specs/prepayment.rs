@@ -14,6 +14,15 @@ pub enum PrepaymentCurve {
         /// Speed multiplier (1.0 = 100% PSA)
         speed_multiplier: f64,
     },
+    /// CMBS-style lockout: zero prepayment for an initial period, then constant CPR.
+    ///
+    /// Commercial mortgage-backed securities typically have prepayment lockout
+    /// periods (defeasance/yield maintenance) lasting 5-10 years, after which
+    /// voluntary prepayment resumes at the specified CPR.
+    CmbsLockout {
+        /// Number of months with zero prepayment (e.g., 60 for 5-year lockout)
+        lockout_months: u32,
+    },
 }
 
 /// Prepayment model specification.
@@ -43,6 +52,14 @@ impl PrepaymentModelSpec {
                     TERMINAL_CPR
                 };
                 base * speed_multiplier
+            }
+            Some(PrepaymentCurve::CmbsLockout { lockout_months }) => {
+                // Zero prepayment during lockout, then constant CPR
+                if seasoning_months <= *lockout_months {
+                    0.0
+                } else {
+                    self.cpr
+                }
             }
         };
 
@@ -74,5 +91,31 @@ impl PrepaymentModelSpec {
     /// 100% PSA (standard prepayment assumption).
     pub fn psa_100() -> Self {
         Self::psa(1.0)
+    }
+
+    /// CMBS-style lockout: zero prepayment for `lockout_months`, then constant CPR.
+    ///
+    /// This models the common CMBS pattern where commercial mortgage borrowers
+    /// face defeasance or yield maintenance penalties for an initial period,
+    /// effectively preventing voluntary prepayment.
+    ///
+    /// # Arguments
+    ///
+    /// * `lockout_months` - Number of months with zero prepayment (e.g., 60 for 5 years)
+    /// * `post_lockout_cpr` - Annual CPR after lockout expires (e.g., 0.10 for 10%)
+    ///
+    /// # Example
+    ///
+    /// ```text
+    /// // 5-year lockout, then 10% CPR
+    /// let spec = PrepaymentModelSpec::cmbs_with_lockout(60, 0.10);
+    /// assert_eq!(spec.smm(30), 0.0);  // During lockout
+    /// assert!(spec.smm(61) > 0.0);    // After lockout
+    /// ```
+    pub fn cmbs_with_lockout(lockout_months: u32, post_lockout_cpr: f64) -> Self {
+        Self {
+            cpr: post_lockout_cpr,
+            curve: Some(PrepaymentCurve::CmbsLockout { lockout_months }),
+        }
     }
 }

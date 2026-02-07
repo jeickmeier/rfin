@@ -123,6 +123,7 @@ fn execute_waterfall_core(
         context.payment_date,
         context.available_cash,
         context.interest_collections,
+        context.market,
     )?;
 
     // Check if diversions are active
@@ -626,6 +627,7 @@ fn evaluate_coverage_tests(
     as_of: Date,
     available_cash: Money,
     interest_collections: Money,
+    market: &MarketContext,
 ) -> Result<Vec<(String, f64, bool)>> {
     let mut results = Vec::with_capacity(waterfall.coverage_triggers.len() * 2);
 
@@ -652,6 +654,7 @@ fn evaluate_coverage_tests(
                 interest_collections,
                 haircuts,
                 par_value_threshold,
+                market: Some(market),
             };
 
             let oc_test = CoverageTest::new_oc(oc_trigger_level);
@@ -673,6 +676,7 @@ fn evaluate_coverage_tests(
                 interest_collections,
                 haircuts,
                 par_value_threshold,
+                market: Some(market),
             };
 
             let ic_test = CoverageTest::new_ic(ic_trigger_level);

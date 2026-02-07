@@ -40,6 +40,7 @@ fn context_for_tranche<'a>(
         interest_collections,
         haircuts: None,
         par_value_threshold: None,
+        market: None,
     }
 }
 

@@ -4,6 +4,7 @@
 
 use crate::instruments::fixed_income::structured_credit::types::{Pool, TrancheStructure};
 use crate::instruments::fixed_income::structured_credit::utils::frequency_periods_per_year;
+use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CreditRating;
 use finstack_core::HashMap;
@@ -191,9 +192,20 @@ impl CoverageTest {
             })?;
 
         let periods_per_year = frequency_periods_per_year(tranche.payment_frequency);
+
+        // Use full all-in rate (index + spread) when market context is available,
+        // falling back to spread-only when market data is absent.
+        let tranche_rate = if let Some(market) = context.market {
+            tranche
+                .coupon
+                .try_current_rate_with_index(context.as_of, market)
+                .unwrap_or_else(|_| tranche.coupon.current_rate(context.as_of))
+        } else {
+            tranche.coupon.current_rate(context.as_of)
+        };
+
         let interest_due = Money::new(
-            tranche.current_balance.amount() * tranche.coupon.current_rate(context.as_of)
-                / periods_per_year,
+            tranche.current_balance.amount() * tranche_rate / periods_per_year,
             tranche.current_balance.currency(),
         );
 
@@ -202,8 +214,15 @@ impl CoverageTest {
             .iter()
             .try_fold(Money::new(0.0, interest_due.currency()), |acc, t| {
                 let t_periods = frequency_periods_per_year(t.payment_frequency);
+                let rate = if let Some(market) = context.market {
+                    t.coupon
+                        .try_current_rate_with_index(context.as_of, market)
+                        .unwrap_or_else(|_| t.coupon.current_rate(context.as_of))
+                } else {
+                    t.coupon.current_rate(context.as_of)
+                };
                 let interest = Money::new(
-                    t.current_balance.amount() * t.coupon.current_rate(context.as_of) / t_periods,
+                    t.current_balance.amount() * rate / t_periods,
                     t.current_balance.currency(),
                 );
                 acc.checked_add(interest)
@@ -232,7 +251,6 @@ impl CoverageTest {
 }
 
 /// Context needed to calculate coverage tests.
-#[derive(Debug)]
 pub struct TestContext<'a> {
     /// Pool reference.
     pub pool: &'a Pool,
@@ -250,6 +268,8 @@ pub struct TestContext<'a> {
     pub haircuts: Option<&'a HashMap<CreditRating, f64>>,
     /// Optional par value threshold (ratio).
     pub par_value_threshold: Option<f64>,
+    /// Optional market context for floating rate index lookups in IC tests.
+    pub market: Option<&'a MarketContext>,
 }
 
 /// Result of a coverage test calculation.
@@ -346,6 +366,7 @@ mod tests {
             interest_collections: Money::new(0.0, Currency::USD),
             haircuts: None,
             par_value_threshold: None,
+            market: None,
         };
 
         let result = test
@@ -383,6 +404,7 @@ mod tests {
             interest_collections: Money::new(1_500.0, Currency::USD),
             haircuts: None,
             par_value_threshold: None,
+            market: None,
         };
 
         let result = test

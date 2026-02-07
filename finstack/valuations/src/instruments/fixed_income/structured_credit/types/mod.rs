@@ -548,14 +548,14 @@ impl StructuredCredit {
         (prepay, default, correlation)
     }
 
-    /// Calculate Option-Adjusted Spread (OAS) given a market price.
+    /// Calculate Z-Spread given a market price.
     ///
-    /// This solves for the spread over the discount curve that equates the
-    /// present value of cashflows to the market price.
+    /// Solves for the constant spread over the discount curve that equates the
+    /// present value of deterministic cashflows to the market price.
     ///
-    /// Note: This currently uses deterministic cashflows (Z-Spread equivalent).
+    /// This uses deterministic cashflows (no prepayment optionality).
     /// For true OAS with stochastic prepayment, use `StochasticPricer`.
-    pub fn calculate_oas(
+    pub fn calculate_z_spread(
         &self,
         context: &MarketContext,
         as_of: Date,
@@ -607,6 +607,23 @@ impl StructuredCredit {
         // BrentSolver finds bracket automatically if not provided.
         let solver = BrentSolver::new().with_tolerance(1e-6);
         solver.solve(price_fn, 0.01)
+    }
+
+    /// Deprecated: use [`calculate_z_spread`](Self::calculate_z_spread) instead.
+    ///
+    /// This method computes a Z-spread (deterministic cashflows), not a true OAS.
+    /// It is retained for backward compatibility.
+    #[deprecated(
+        since = "0.1.0",
+        note = "Renamed to `calculate_z_spread` — this method uses deterministic cashflows and is not a true OAS"
+    )]
+    pub fn calculate_oas(
+        &self,
+        context: &MarketContext,
+        as_of: Date,
+        market_price: f64,
+    ) -> finstack_core::Result<f64> {
+        self.calculate_z_spread(context, as_of, market_price)
     }
 
     fn prepayment_rate_override(&self, _pay_date: Date, seasoning: u32) -> Option<f64> {

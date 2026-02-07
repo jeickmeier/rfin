@@ -8,6 +8,11 @@ use super::{
     PrepaymentModelSpec, RecoveryModelSpec, StructuredCredit, Tranche, TrancheCoupon,
     TrancheSeniority, TrancheStructure,
 };
+use crate::instruments::fixed_income::structured_credit::types::constants::{
+    ABS_AUTO_STANDARD_CDR, ABS_AUTO_STANDARD_RECOVERY, ABS_AUTO_STANDARD_SPEED, CLO_STANDARD_CDR,
+    CLO_STANDARD_CPR, CLO_STANDARD_RECOVERY, CMBS_STANDARD_CDR, CMBS_STANDARD_CPR,
+    CMBS_STANDARD_RECOVERY, RMBS_STANDARD_CDR, RMBS_STANDARD_RECOVERY,
+};
 use crate::instruments::fixed_income::structured_credit::types::setup::DefaultAssumptions;
 use finstack_core::dates::{Date, Tenor};
 use finstack_core::money::Money;
@@ -216,9 +221,9 @@ impl StructuredCredit {
                 first_payment_date: Date::from_calendar_date(2025, time::Month::February, 1)
                     .expect("Valid example date"),
                 payment_frequency: Tenor::monthly(),
-                prepayment_spec: PrepaymentModelSpec::constant_cpr(0.18), // Auto ABS standard
-                default_spec: DefaultModelSpec::constant_cdr(0.015),      // Consumer standard
-                recovery_spec: RecoveryModelSpec::with_lag(0.70, 12),     // Collateral-backed
+                prepayment_spec: PrepaymentModelSpec::constant_cpr(ABS_AUTO_STANDARD_SPEED * 12.0), // Annualized from monthly speed
+                default_spec: DefaultModelSpec::constant_cdr(ABS_AUTO_STANDARD_CDR),
+                recovery_spec: RecoveryModelSpec::with_lag(ABS_AUTO_STANDARD_RECOVERY, 12),
                 credit_factors: CreditFactors::default(),
                 deal_metadata: Metadata::default(),
                 behavior_overrides: Overrides::default(),
@@ -254,9 +259,9 @@ impl StructuredCredit {
                 first_payment_date: Date::from_calendar_date(2025, time::Month::April, 1)
                     .expect("Valid example date"),
                 payment_frequency: Tenor::quarterly(),
-                prepayment_spec: PrepaymentModelSpec::constant_cpr(0.15),
-                default_spec: DefaultModelSpec::constant_cdr(0.025), // Corporate standard
-                recovery_spec: RecoveryModelSpec::with_lag(0.40, 18), // Corporate unsecured
+                prepayment_spec: PrepaymentModelSpec::constant_cpr(CLO_STANDARD_CPR),
+                default_spec: DefaultModelSpec::constant_cdr(CLO_STANDARD_CDR),
+                recovery_spec: RecoveryModelSpec::with_lag(CLO_STANDARD_RECOVERY, 18),
                 credit_factors: CreditFactors::default(),
                 deal_metadata: Metadata::default(),
                 behavior_overrides: Overrides::default(),
@@ -292,9 +297,9 @@ impl StructuredCredit {
                 first_payment_date: Date::from_calendar_date(2025, time::Month::February, 1)
                     .expect("Valid example date"),
                 payment_frequency: Tenor::monthly(),
-                prepayment_spec: PrepaymentModelSpec::constant_cpr(0.10), // CMBS standard
-                default_spec: DefaultModelSpec::constant_cdr(0.01),       // Commercial real estate
-                recovery_spec: RecoveryModelSpec::with_lag(0.60, 24),     // Commercial collateral
+                prepayment_spec: PrepaymentModelSpec::cmbs_with_lockout(60, CMBS_STANDARD_CPR), // 5yr lockout
+                default_spec: DefaultModelSpec::constant_cdr(CMBS_STANDARD_CDR),
+                recovery_spec: RecoveryModelSpec::with_lag(CMBS_STANDARD_RECOVERY, 24),
                 credit_factors: CreditFactors::default(),
                 deal_metadata: Metadata::default(),
                 behavior_overrides: Overrides::default(),
@@ -331,8 +336,8 @@ impl StructuredCredit {
                     .expect("Valid example date"),
                 payment_frequency: Tenor::monthly(),
                 prepayment_spec: PrepaymentModelSpec::psa(1.0), // 100% PSA
-                default_spec: DefaultModelSpec::constant_cdr(0.005), // RMBS standard
-                recovery_spec: RecoveryModelSpec::with_lag(0.70, 18), // Mortgage collateral
+                default_spec: DefaultModelSpec::constant_cdr(RMBS_STANDARD_CDR),
+                recovery_spec: RecoveryModelSpec::with_lag(RMBS_STANDARD_RECOVERY, 18),
                 credit_factors: CreditFactors {
                     ltv: Some(0.80),
                     ..Default::default()

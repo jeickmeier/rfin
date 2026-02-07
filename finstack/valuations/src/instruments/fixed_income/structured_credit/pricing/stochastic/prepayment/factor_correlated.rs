@@ -117,6 +117,14 @@ impl FactorCorrelatedPrepay {
                 };
                 base_cpr * speed_multiplier
             }
+            Some(PrepaymentCurve::CmbsLockout { lockout_months }) => {
+                // Zero prepayment during lockout, then constant CPR
+                if seasoning <= *lockout_months {
+                    0.0
+                } else {
+                    self.base_spec.cpr
+                }
+            }
         }
     }
 }
