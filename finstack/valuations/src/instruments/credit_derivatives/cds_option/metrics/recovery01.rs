@@ -2,6 +2,13 @@
 //!
 //! Computes Recovery01 (recovery rate sensitivity) using finite differences.
 //! Recovery01 measures the change in PV for a 1% (100bp) change in recovery rate.
+//!
+//! ## Limitation: Frozen Hazard Curve
+//!
+//! This calculator bumps the recovery rate but does **not** recalibrate the hazard
+//! curve. Since `h ≈ S / (1 - R)`, changing R without recalibrating understates the
+//! true recovery sensitivity. Professional systems (Bloomberg, QuantLib) recalibrate.
+//! This provides a "local" or "partial" recovery sensitivity only.
 
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds_option::CdsOption;
@@ -23,14 +30,17 @@ impl MetricCalculator for Recovery01Calculator {
         // Get base recovery rate
         let base_recovery = option.recovery_rate;
 
-        // Create option with bumped recovery (up)
+        // Create option with bumped recovery (up).
+        // Clamp to (0.001, 0.999) to stay within the valid domain required by
+        // CdsOption::validate() which requires R in the open interval (0, 1).
+        // At R=1.0 the protection leg PV is zero; at R=0.0 synthetic CDS may fail.
         let mut option_up = option.clone();
-        option_up.recovery_rate = (base_recovery + RECOVERY_BUMP).clamp(0.0, 1.0);
+        option_up.recovery_rate = (base_recovery + RECOVERY_BUMP).clamp(0.001, 0.999);
         let pv_up = option_up.value(&context.curves, as_of)?.amount();
 
         // Create option with bumped recovery (down)
         let mut option_down = option.clone();
-        option_down.recovery_rate = (base_recovery - RECOVERY_BUMP).clamp(0.0, 1.0);
+        option_down.recovery_rate = (base_recovery - RECOVERY_BUMP).clamp(0.001, 0.999);
         let pv_down = option_down.value(&context.curves, as_of)?.amount();
 
         // Recovery01 = (PV_up - PV_down) / (2 * bump_size)

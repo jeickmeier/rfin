@@ -12,15 +12,8 @@ pub struct ExpectedLossCalculator;
 impl MetricCalculator for ExpectedLossCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let tranche: &CdsTranche = context.instrument_as()?;
-        if context
-            .curves
-            .as_ref()
-            .credit_index(&tranche.credit_index_id)
-            .is_ok()
-        {
-            tranche.expected_loss(&context.curves)
-        } else {
-            Ok(0.0)
-        }
+        // Propagate error when credit index data is missing rather than silently
+        // returning zero, which would mask missing market data in risk reports.
+        tranche.expected_loss(&context.curves)
     }
 }

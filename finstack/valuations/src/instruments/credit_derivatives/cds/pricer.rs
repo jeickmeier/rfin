@@ -2238,18 +2238,20 @@ impl CDSBootstrapper {
         // IMM months are Mar(3), Jun(6), Sep(9), Dec(12)
         let month_num: u8 = month.into();
 
-        // Find the current or previous IMM month
-        let (imm_year, imm_month) = if month_num >= 12 || (month_num == 12 && day >= 20) {
+        // Find the current or previous IMM month.
+        // For dates within an IMM month but before the 20th, we must fall back
+        // to the previous IMM month (e.g., Dec 5 → Sep 20, not Dec 20).
+        let (imm_year, imm_month) = if month_num == 12 && day >= 20 {
             // Dec 20 or later -> Dec 20 of this year
             (year, Month::December)
-        } else if month_num >= 9 || (month_num == 9 && day >= 20) {
-            // Sep 20 or later -> Sep 20 of this year
+        } else if month_num > 9 || (month_num == 9 && day >= 20) {
+            // Sep 20 or later (through Dec 19) -> Sep 20 of this year
             (year, Month::September)
-        } else if month_num >= 6 || (month_num == 6 && day >= 20) {
-            // Jun 20 or later -> Jun 20 of this year
+        } else if month_num > 6 || (month_num == 6 && day >= 20) {
+            // Jun 20 or later (through Sep 19) -> Jun 20 of this year
             (year, Month::June)
-        } else if month_num >= 3 || (month_num == 3 && day >= 20) {
-            // Mar 20 or later -> Mar 20 of this year
+        } else if month_num > 3 || (month_num == 3 && day >= 20) {
+            // Mar 20 or later (through Jun 19) -> Mar 20 of this year
             (year, Month::March)
         } else {
             // Before Mar 20 -> Dec 20 of previous year

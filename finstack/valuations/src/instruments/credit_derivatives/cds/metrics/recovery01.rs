@@ -15,11 +15,23 @@
 //! This ensures consistent, unbiased sensitivity estimates even when the base
 //! recovery rate is near the valid bounds [0, 1].
 //!
+//! ## Limitation: Frozen Hazard Curve
+//!
+//! This calculator bumps the recovery rate on the instrument but does **not**
+//! recalibrate the hazard curve. Since hazard rates are typically bootstrapped
+//! from market spreads via `h ≈ S / (1 - R)`, changing R without recalibrating
+//! understates the true recovery sensitivity. The indirect effect through hazard
+//! recalibration typically dominates the direct effect.
+//!
+//! Professional systems (Bloomberg CDSW, QuantLib) recalibrate the hazard curve
+//! after bumping recovery. This implementation provides a "local" or "partial"
+//! recovery sensitivity only.
+//!
 //! ## Note
 //!
 //! Recovery rate changes affect both the protection leg (LGD = 1 - recovery)
 //! and the premium leg (accrued on default settlement). This metric captures
-//! the full sensitivity across both legs.
+//! the full direct sensitivity across both legs.
 
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds::CreditDefaultSwap;

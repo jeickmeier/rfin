@@ -221,7 +221,9 @@ impl CopulaSpec {
 }
 
 /// Default quadrature order for copula integration.
-pub(crate) const DEFAULT_QUADRATURE_ORDER: u8 = 7;
+///
+/// Industry standard (QuantLib, Bloomberg) uses 20-50 points for tranche pricing.
+pub(crate) const DEFAULT_QUADRATURE_ORDER: u8 = 20;
 
 /// Select quadrature based on order.
 pub(crate) fn select_quadrature(order: u8) -> GaussHermiteQuadrature {

@@ -124,7 +124,14 @@ impl CdsTranche {
             TrancheSide::BuyProtection,
         )
     }
-    /// Create a new CDS tranche using parameter structs
+    /// Create a new CDS tranche using parameter structs.
+    ///
+    /// # Panics
+    ///
+    /// Panics if tranche parameters are invalid:
+    /// - `attach_pct` must be less than `detach_pct`
+    /// - Both must be in [0, 100] (percent, not fraction)
+    /// - Notional must be positive
     pub fn new(
         id: impl Into<InstrumentId>,
         tranche_params: &CDSTrancheParams,
@@ -133,13 +140,23 @@ impl CdsTranche {
         credit_index_id: impl Into<CurveId>,
         side: TrancheSide,
     ) -> Self {
-        // Validate percent vs fraction - catch common misuse
-        // attach_pct and detach_pct should be in percent (0-100), not fractions (0-1)
-        debug_assert!(
-            tranche_params.attach_pct <= 100.0 && tranche_params.detach_pct <= 100.0,
-            "attach_pct ({}) and detach_pct ({}) should be in percent (0-100), not fraction",
+        // Runtime validation (active in both debug and release builds)
+        assert!(
+            tranche_params.attach_pct < tranche_params.detach_pct,
+            "attach_pct ({}) must be less than detach_pct ({})",
             tranche_params.attach_pct,
             tranche_params.detach_pct
+        );
+        assert!(
+            tranche_params.attach_pct >= 0.0 && tranche_params.detach_pct <= 100.0,
+            "attach_pct ({}) and detach_pct ({}) must be in [0, 100] (percent, not fraction)",
+            tranche_params.attach_pct,
+            tranche_params.detach_pct
+        );
+        assert!(
+            tranche_params.notional.amount() > 0.0,
+            "Tranche notional must be positive, got {}",
+            tranche_params.notional.amount()
         );
 
         // Warn if values look like fractions (very small non-zero detachment)

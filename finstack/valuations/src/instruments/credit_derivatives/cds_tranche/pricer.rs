@@ -81,8 +81,13 @@ use finstack_core::math::log_factorial;
 // Default Configuration Constants
 // ============================================================================
 
-/// Default quadrature order for Gauss-Hermite integration (5, 7, or 10 points)
-const DEFAULT_QUADRATURE_ORDER: u8 = 7;
+/// Default quadrature order for Gauss-Hermite integration.
+///
+/// Industry standard (QuantLib, Bloomberg) uses 20-50 points.
+/// 7 points is insufficient for accurate resolution of:
+/// - Step-function-like integrands at extreme correlations
+/// - Student-t heavy tails
+const DEFAULT_QUADRATURE_ORDER: u8 = 20;
 
 /// Minimum correlation value for numerical stability (avoids division by near-zero)
 const DEFAULT_MIN_CORRELATION: f64 = 0.01;
@@ -1168,13 +1173,15 @@ impl CDSTranchePricer {
                 }
 
                 // SPA/normal approximation for E[min(L, K)] with K = detachment_notional
+                // Formula: E[min(L,K)] = mu*Phi(a) - sigma*phi(a) + K*(1 - Phi(a))
+                // Reference: O'Kane (2008) Eq. 9.12, Hull-White (2004)
                 let k = tranche_width;
                 if var <= self.params.spa_variance_floor {
                     return mean.min(k);
                 }
                 let s = var.sqrt();
                 let a = (k - mean) / s;
-                mean * norm_cdf(a) + s * norm_pdf(a) + k * (1.0 - norm_cdf(a))
+                mean * norm_cdf(a) - s * norm_pdf(a) + k * (1.0 - norm_cdf(a))
             };
 
             let el = if n_const <= credit::SMALL_POOL_THRESHOLD {
@@ -1241,7 +1248,7 @@ impl CDSTranchePricer {
             }
             let s = var.sqrt();
             let a = (k - mean) / s;
-            mean * norm_cdf(a) + s * norm_pdf(a) + k * (1.0 - norm_cdf(a))
+            mean * norm_cdf(a) - s * norm_pdf(a) + k * (1.0 - norm_cdf(a))
         };
 
         let el = if n_const <= credit::SMALL_POOL_THRESHOLD {
@@ -1468,7 +1475,7 @@ impl CDSTranchePricer {
                 }
                 let s = var.sqrt();
                 let a = (k - mean) / s;
-                mean * norm_cdf(a) + s * norm_pdf(a) + k * (1.0 - norm_cdf(a))
+                mean * norm_cdf(a) - s * norm_pdf(a) + k * (1.0 - norm_cdf(a))
             };
 
             let value = if !(self.params.adaptive_integration_low
@@ -1507,7 +1514,7 @@ impl CDSTranchePricer {
             }
             let s = var.sqrt();
             let a = (k - mean) / s;
-            mean * norm_cdf(a) + s * norm_pdf(a) + k * (1.0 - norm_cdf(a))
+            mean * norm_cdf(a) - s * norm_pdf(a) + k * (1.0 - norm_cdf(a))
         };
 
         Ok(copula_ref.integrate_fn(&integrand))
@@ -1968,22 +1975,27 @@ impl CDSTranchePricer {
     }
 
     /// Calculate Spread DV01 (sensitivity to 1bp change in running coupon).
+    ///
+    /// Uses central difference for O(h²) accuracy, consistent with CS01 and Correlation01.
     pub fn calculate_spread_dv01(
         &self,
         tranche: &CdsTranche,
         market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<f64> {
-        // Create bumped tranche with +1bp running coupon
-        let mut bumped_tranche = tranche.clone();
-        bumped_tranche.running_coupon_bp += 1.0;
+        // Central difference: (PV(c+1bp) - PV(c-1bp)) / 2
+        let mut tranche_up = tranche.clone();
+        tranche_up.running_coupon_bp += 1.0;
 
-        let base_pv = self.price_tranche(tranche, market_ctx, as_of)?.amount();
-        let bumped_pv = self
-            .price_tranche(&bumped_tranche, market_ctx, as_of)?
+        let mut tranche_down = tranche.clone();
+        tranche_down.running_coupon_bp -= 1.0;
+
+        let pv_up = self.price_tranche(&tranche_up, market_ctx, as_of)?.amount();
+        let pv_down = self
+            .price_tranche(&tranche_down, market_ctx, as_of)?
             .amount();
 
-        Ok(bumped_pv - base_pv)
+        Ok((pv_up - pv_down) / 2.0)
     }
 
     /// Calculate the par spread (running coupon in bp that sets PV = 0).

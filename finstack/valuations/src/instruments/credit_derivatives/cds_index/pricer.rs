@@ -182,20 +182,18 @@ impl CDSIndexPricer {
                     pricer.par_spread(&cds, disc.as_ref(), surv.as_ref(), as_of)?;
                 let numerator_protection_pv =
                     pricer.pv_protection_leg(&cds, disc.as_ref(), surv.as_ref(), as_of)?;
-                let (denom_per_unit, method) = if self
-                    .config
-                    .cds_config
-                    .par_spread_uses_full_premium
-                {
-                    (
+                // Use the unified par_spread_method config for both SingleCurve and
+                // Constituents modes to avoid silent divergence between two independent
+                // config fields (cds_config.par_spread_uses_full_premium vs par_spread_method).
+                let (denom_per_unit, method) = match self.config.par_spread_method {
+                    ParSpreadMethod::FullPremiumAoD => (
                         pricer.premium_leg_pv_per_bp(&cds, disc.as_ref(), surv.as_ref(), as_of)?,
                         ParSpreadMethod::FullPremiumAoD,
-                    )
-                } else {
-                    (
+                    ),
+                    ParSpreadMethod::RiskyAnnuity => (
                         pricer.risky_annuity(&cds, disc.as_ref(), surv.as_ref(), as_of)?,
                         ParSpreadMethod::RiskyAnnuity,
-                    )
+                    ),
                 };
                 let denominator = denom_per_unit * cds.notional.amount();
                 Ok(IndexParSpreadResult {
@@ -234,12 +232,18 @@ impl CDSIndexPricer {
                         }
                     };
                     denominator += denom_per_unit * cds.notional.amount();
-                    let constituent_spread_bp = if used_full_premium {
-                        prot_pv.amount() / (denom_per_unit * cds.notional.amount())
-                    } else {
-                        prot_pv.amount() / (denom_per_unit * cds.notional.amount())
-                            * BASIS_POINTS_PER_UNIT
-                    };
+                    // Guard per-constituent division: if the local denominator is near zero
+                    // (e.g., for a near-defaulted name with negligible survival probability),
+                    // report NaN rather than propagating Inf which corrupts aggregation.
+                    let local_denom = denom_per_unit * cds.notional.amount();
+                    let constituent_spread_bp =
+                        if local_denom.abs() < credit::PAR_SPREAD_DENOM_TOLERANCE {
+                            f64::NAN
+                        } else if used_full_premium {
+                            prot_pv.amount() / local_denom
+                        } else {
+                            prot_pv.amount() / local_denom * BASIS_POINTS_PER_UNIT
+                        };
                     constituents_spread_bp.push(ConstituentResult {
                         credit_curve_id: position.credit_curve_id,
                         recovery_rate: position.recovery_rate,

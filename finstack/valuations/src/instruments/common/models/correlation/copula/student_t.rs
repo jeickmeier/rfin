@@ -220,14 +220,12 @@ impl Copula for StudentTCopula {
         let sqrt_rho = rho.sqrt();
         let sqrt_1mr = (1.0 - rho).sqrt();
 
-        // For Student-t, the conditional threshold involves the t-distribution
-        // P(default | T=z) = t_{ν}((t^{-1}(PD) - √ρ·z) / √(1-ρ))
+        // For Student-t, the conditional threshold involves the t-distribution:
+        // P(default | T=z) = t_ν((t^{-1}(PD) - √ρ·z) / √(1-ρ))
         //
-        // Note: default_threshold is Φ⁻¹(PD), so we convert to t-scale
-        let p_default = finstack_core::math::norm_cdf(default_threshold);
-        let t_threshold = student_t_inv_cdf(p_default, nu);
-
-        let conditional_threshold = (t_threshold - sqrt_rho * z) / sqrt_1mr;
+        // The caller (`default_threshold_for_copula`) already provides the threshold
+        // in t-scale (i.e., default_threshold = t_inv(PD)), so we use it directly.
+        let conditional_threshold = (default_threshold - sqrt_rho * z) / sqrt_1mr;
 
         student_t_cdf(conditional_threshold, nu)
     }

@@ -5,6 +5,14 @@
 //!
 //! Note: Recovery rate is stored in the credit index, so we need to bump
 //! the recovery rate in the CreditIndexData.
+//!
+//! ## Limitation: Frozen Hazard Curve
+//!
+//! This calculator bumps the recovery rate in the credit index data but does **not**
+//! recalibrate the underlying hazard curves. Since `h ≈ S / (1 - R)`, changing R
+//! without recalibrating understates the true recovery sensitivity. Professional
+//! systems (Bloomberg, QuantLib) recalibrate. This provides a "local" or "partial"
+//! recovery sensitivity only.
 
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds_tranche::CdsTranche;

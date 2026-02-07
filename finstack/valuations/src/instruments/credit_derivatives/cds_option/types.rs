@@ -309,7 +309,8 @@ impl CdsOption {
     /// Calculate delta of this CDS option.
     ///
     /// Delta measures the sensitivity of the option value to changes in the forward spread.
-    /// Returns the dollar value change per unit spread (i.e., per 100%).
+    /// **WARNING**: Returns the dollar value change per *unit* (decimal) spread, i.e., per 100%.
+    /// For a per-basis-point delta, divide by 10,000.
     pub fn delta(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
@@ -333,8 +334,9 @@ impl CdsOption {
 
     /// Calculate gamma of this CDS option.
     ///
-    /// Gamma measures the rate of change of delta with respect to the forward spread
-    /// per unit spread.
+    /// Gamma measures the rate of change of delta with respect to the forward spread.
+    /// **WARNING**: Returns sensitivity per *unit* (decimal) spread squared.
+    /// For per-bp² gamma, divide by 10,000².
     pub fn gamma(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,

@@ -70,10 +70,8 @@ impl CdsOptionPricer {
             finstack_core::dates::DayCountCtx::default(),
         )?;
 
-        if t <= 0.0 {
-            // Expired: intrinsic payoff approximation using forward = strike
-            // Delegate to instrument to compute intrinsic using risky annuity below
-        }
+        // Note: t <= 0 (expired) is handled downstream in credit_option_price
+        // which computes the intrinsic payoff.
 
         // Market curves
         let disc = curves.get_discount(&option.discount_curve_id)?;
@@ -250,7 +248,10 @@ impl CdsOptionPricer {
         Ok(Money::new(value, option.notional.currency()))
     }
 
-    /// Delta for CDS option w.r.t. forward spread (per unit spread).
+    /// Delta for CDS option w.r.t. forward spread (per unit spread, i.e., per 100%).
+    ///
+    /// **WARNING**: Returns sensitivity per *decimal* spread, not per basis point.
+    /// For a per-bp delta, use [`delta_per_bp`] or divide by `bp_per_unit` (10,000).
     ///
     /// Note: Requires `risky_annuity` (PV of annuity) to scale the result properly.
     pub fn delta(
@@ -297,7 +298,10 @@ impl CdsOptionPricer {
         }
     }
 
-    /// Gamma per unit spread.
+    /// Gamma per unit spread squared (i.e., ∂²V/∂S² where S is the decimal spread).
+    ///
+    /// **WARNING**: Returns sensitivity per *decimal* spread squared, not per bp squared.
+    /// For a per-bp² gamma, use [`gamma_per_bp`] or divide by `bp_per_unit²` (10⁸).
     ///
     /// Returns 0.0 when time-to-expiry or volatility are too small for stable
     /// numerical calculation (denominator approaches zero).
@@ -361,6 +365,38 @@ impl CdsOptionPricer {
         scale * risky_annuity * forward * norm_pdf(d1) * t.sqrt() / 100.0
     }
 
+    /// Delta per basis point: sensitivity of option value to a 1bp change in forward spread.
+    ///
+    /// This is the market-standard unit for credit option delta on trading desks.
+    /// Equals `delta(...)  / bp_per_unit`.
+    #[allow(dead_code)]
+    pub fn delta_per_bp(
+        &self,
+        option: &CdsOption,
+        forward_spread_bp: f64,
+        risky_annuity: f64,
+        sigma: f64,
+        t: f64,
+    ) -> f64 {
+        self.delta(option, forward_spread_bp, risky_annuity, sigma, t) / self.config.bp_per_unit
+    }
+
+    /// Gamma per basis point squared: second derivative per 1bp² change in spread.
+    ///
+    /// Equals `gamma(...)  / bp_per_unit²`.
+    #[allow(dead_code)]
+    pub fn gamma_per_bp(
+        &self,
+        option: &CdsOption,
+        forward_spread_bp: f64,
+        risky_annuity: f64,
+        sigma: f64,
+        t: f64,
+    ) -> f64 {
+        self.gamma(option, forward_spread_bp, risky_annuity, sigma, t)
+            / (self.config.bp_per_unit * self.config.bp_per_unit)
+    }
+
     /// Finite-difference theta (complete, including risky annuity decay).
     ///
     /// Computes theta by repricing the option with a 1-day time shift.
@@ -369,9 +405,11 @@ impl CdsOptionPricer {
     ///
     /// # Formula
     ///
-    /// θ = (V(t - dt) - V(t)) / dt
+    /// θ_daily = V(as_of + 1d) - V(as_of)
     ///
-    /// where dt = 1/365 (one calendar day).
+    /// This is the 1-day dollar theta (not annualized). Moving forward in time
+    /// by one calendar day reduces time-to-expiry, capturing both Black formula
+    /// time decay and risky annuity decay.
     ///
     /// # Returns
     ///
@@ -450,6 +488,10 @@ impl CdsOptionPricer {
     /// Solve for implied volatility σ such that model price(σ) = target_price.
     ///
     /// Uses log-σ parameterization to enforce positivity and HybridSolver (Newton + Brent fallback).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `target_price` is negative (options have non-negative value).
     pub fn implied_vol(
         &self,
         option: &CdsOption,
@@ -458,6 +500,13 @@ impl CdsOptionPricer {
         target_price: f64,
         initial_guess: Option<f64>,
     ) -> Result<f64> {
+        // Options have non-negative value; reject negative target prices
+        if target_price < 0.0 {
+            return Err(finstack_core::Error::Validation(
+                "Implied vol target price must be non-negative".to_string(),
+            ));
+        }
+
         // Pre-compute market inputs independent of σ
         let t = option.day_count.year_fraction(
             as_of,

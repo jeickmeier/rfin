@@ -24,8 +24,8 @@ fn test_default_config_quadrature_order() {
 
     // Assert
     assert_eq!(
-        config.quadrature_order, 7,
-        "Default quadrature order should be 7"
+        config.quadrature_order, 20,
+        "Default quadrature order should be 20 (industry standard)"
     );
 }
 
@@ -306,7 +306,7 @@ fn test_config_independent_after_clone() {
     // Assert
     assert_eq!(config1.quadrature_order, 10);
     assert_eq!(
-        config2.quadrature_order, 7,
+        config2.quadrature_order, 20,
         "Cloned config should not be affected"
     );
 }

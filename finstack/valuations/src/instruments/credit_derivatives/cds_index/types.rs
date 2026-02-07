@@ -54,6 +54,12 @@ pub struct CDSIndexConstituent {
     pub credit: CreditParams,
     /// Weight of the issuer in the index notional (e.g., 1/125.0 for CDX IG)
     pub weight: f64,
+    /// Whether the constituent has defaulted. Defaulted names are excluded from the
+    /// premium leg but their settled protection payment is already reflected in `index_factor`.
+    /// Per O'Kane (2008) Ch. 7: "On default, the protection payment is settled and the
+    /// name is removed from the index. The index factor adjusts to reflect the reduced notional."
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub defaulted: bool,
 }
 
 /// Per-constituent result entry for index-level analytics.
@@ -265,6 +271,7 @@ impl CDSIndex {
                     .map(|c: &CDSIndexConstituentParam| CDSIndexConstituent {
                         credit: c.credit.clone(),
                         weight: c.weight,
+                        defaulted: false,
                     })
                     .collect();
             }
@@ -304,7 +311,11 @@ impl CDSIndex {
         let w = 1.0 / (list.len() as f64);
         self.constituents = list
             .into_iter()
-            .map(|credit| CDSIndexConstituent { credit, weight: w })
+            .map(|credit| CDSIndexConstituent {
+                credit,
+                weight: w,
+                defaulted: false,
+            })
             .collect();
         self.pricing = IndexPricing::Constituents;
         self
@@ -514,12 +525,23 @@ impl crate::instruments::common_impl::traits::Instrument for CDSIndex {
     }
 }
 
-// Implement CurveDependencies for DV01 calculator
+// Implement CurveDependencies for DV01 calculator.
+// In Constituents mode, include per-constituent credit curves so that DV01/BucketedDV01
+// correctly bump all credit curves, not just the index-level one.
 impl crate::instruments::common_impl::traits::CurveDependencies for CDSIndex {
     fn curve_dependencies(&self) -> crate::instruments::common_impl::traits::InstrumentCurves {
-        crate::instruments::common_impl::traits::InstrumentCurves::builder()
+        let mut builder = crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.premium.discount_curve_id.clone())
-            .credit(self.protection.credit_curve_id.clone())
-            .build()
+            .credit(self.protection.credit_curve_id.clone());
+
+        if self.pricing == IndexPricing::Constituents {
+            for constituent in &self.constituents {
+                if !constituent.defaulted {
+                    builder = builder.credit(constituent.credit.credit_curve_id.clone());
+                }
+            }
+        }
+
+        builder.build()
     }
 }

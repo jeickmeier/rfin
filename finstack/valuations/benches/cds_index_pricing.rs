@@ -81,6 +81,7 @@ fn create_cds_index_constituents(tenor_years: i32, num_names: usize) -> CDSIndex
                 recovery_rate: 0.40,
             },
             weight,
+            defaulted: false,
         });
     }
 

@@ -378,28 +378,15 @@ fn test_super_senior_low_expected_loss() {
 // ==================== Edge Cases ====================
 
 #[test]
+#[should_panic(expected = "attach_pct (5) must be less than detach_pct (5)")]
 fn test_zero_width_tranche_expected_loss() {
-    // Arrange
-    let pricer = CDSTranchePricer::new();
-    let market = standard_market_context();
-
-    // Degenerate tranche: 5-5%
-    let zero_width = custom_tranche(
+    // Degenerate tranche: 5-5% should be rejected by validation
+    // attach_pct must be strictly less than detach_pct
+    let _zero_width = custom_tranche(
         5.0,
         5.0,
         100.0,
         finstack_valuations::instruments::credit_derivatives::cds_tranche::TrancheSide::SellProtection,
-    );
-
-    // Act
-    let el = pricer
-        .calculate_expected_loss(&zero_width, &market)
-        .unwrap();
-
-    // Assert: Should be zero or very small
-    assert!(
-        el < 1.0,
-        "Zero-width tranche should have minimal expected loss"
     );
 }
 

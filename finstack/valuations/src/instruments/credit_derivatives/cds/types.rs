@@ -723,7 +723,9 @@ impl CreditDefaultSwap {
             0.0
         };
 
-        // PV adjustment upfront (already discounted at as_of, no sign flip)
+        // PV adjustment upfront: an override that represents an additional model-level
+        // upfront amount. Positive = paid by protection buyer (reduces buyer NPV,
+        // increases seller NPV), matching the economic convention of the dated upfront.
         let upfront_adjustment = self
             .pricing_overrides
             .upfront_payment
@@ -736,7 +738,7 @@ impl CreditDefaultSwap {
         let npv_amount = match self.side {
             PayReceive::PayFixed => {
                 // Protection buyer: pays premium, receives protection, pays upfront (if positive)
-                protection_pv - premium_pv - upfront_pv + upfront_adjustment
+                protection_pv - premium_pv - upfront_pv - upfront_adjustment
             }
             PayReceive::ReceiveFixed => {
                 // Protection seller: receives premium, pays protection, receives upfront (if positive)

@@ -12,15 +12,8 @@ pub struct SpreadDv01Calculator;
 impl MetricCalculator for SpreadDv01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let tranche: &CdsTranche = context.instrument_as()?;
-        if context
-            .curves
-            .as_ref()
-            .credit_index(&tranche.credit_index_id)
-            .is_ok()
-        {
-            tranche.spread_dv01(&context.curves, context.as_of)
-        } else {
-            Ok(0.0)
-        }
+        // Propagate error when credit index data is missing rather than silently
+        // returning zero, which would mask missing market data in risk reports.
+        tranche.spread_dv01(&context.curves, context.as_of)
     }
 }

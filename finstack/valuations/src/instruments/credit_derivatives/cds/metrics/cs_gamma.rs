@@ -3,7 +3,9 @@
 //! Calculates the second derivative of the CDS value with respect to parallel
 //! credit spread shifts. CS-Gamma measures how CS01 changes as spreads move.
 //!
-//! Uses numerical differentiation with 1bp bumps to the hazard curve.
+//! Uses central finite difference with 5bp bumps to the hazard curve.
+//! A 5bp bump reduces noise in the second derivative while maintaining accuracy.
+//! Reference: O'Kane (2008) Ch. 7 recommends 5-10bp for gamma calculations.
 
 use crate::constants::BASIS_POINTS_PER_UNIT;
 use crate::instruments::common_impl::traits::{CurveDependencies, Instrument};
@@ -26,8 +28,11 @@ impl MetricCalculator for CsGammaCalculator {
         // Get base value
         let base_pv = context.base_value.amount();
 
-        // Bump size: 1bp for numerical convexity
-        let bump_bp = 1.0;
+        // Bump size: 5bp for numerical convexity.
+        // With 1bp, the divisor is 1e-8 which amplifies float noise for second-order
+        // differences. 5bp gives a divisor of 25e-8, reducing noise-to-signal ratio
+        // while keeping the bump small enough for accurate derivatives.
+        let bump_bp = 5.0;
 
         // Get all hazard curves used by this CDS
         let curve_ids = cds.curve_dependencies().credit_curves;

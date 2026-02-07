@@ -375,13 +375,13 @@ fn test_gaussian_copula_quadrature_orders() {
 
 #[test]
 fn test_default_quadrature_order() {
-    // Market Standard: 7-point Gauss-Hermite is typical for production
+    // Market Standard: 20-point Gauss-Hermite per QuantLib/Bloomberg convention
 
     let config =
         finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTranchePricerConfig::default();
     assert_eq!(
-        config.quadrature_order, 7,
-        "Default quadrature order should be 7"
+        config.quadrature_order, 20,
+        "Default quadrature order should be 20 (industry standard: 20-50 points)"
     );
 }
 

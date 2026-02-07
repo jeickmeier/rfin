@@ -90,14 +90,13 @@ impl MetricCalculator for JumpToDefaultLgdOnlyCalculator {
 }
 
 /// Calculate accrued premium from the last coupon date to the given date.
+///
+/// Uses the CDS pricer's ISDA schedule generation to ensure consistency
+/// with the pricing engine's coupon dates (IMM dates: 20th of Mar/Jun/Sep/Dec).
 fn calculate_accrued_premium(
     cds: &CreditDefaultSwap,
     as_of: finstack_core::dates::Date,
 ) -> Result<f64> {
-    // Find the last scheduled coupon date before as_of, respecting:
-    // - IMM dates if configured by the pricer (default)
-    // - Business day adjustments via `calendar_id`
-    // - Stubs via the instrument spec
     let premium_start = cds.premium.start;
     let premium_end = cds.premium.end;
 
@@ -105,20 +104,9 @@ fn calculate_accrued_premium(
         return Ok(0.0);
     }
 
-    let schedule = crate::cashflow::builder::build_dates(
-        cds.premium.start,
-        cds.premium.end,
-        cds.premium.freq,
-        cds.premium.stub,
-        cds.premium.bdc,
-        false,
-        0,
-        cds.premium
-            .calendar_id
-            .as_deref()
-            .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
-    )?
-    .dates;
+    // Use the same ISDA schedule the pricer uses to avoid date mismatches
+    let pricer = crate::instruments::credit_derivatives::cds::pricer::CDSPricer::new();
+    let schedule = pricer.generate_schedule(cds, as_of)?;
     if schedule.is_empty() {
         return Ok(0.0);
     }

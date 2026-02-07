@@ -2,6 +2,13 @@
 //!
 //! Computes Recovery01 (recovery rate sensitivity) using finite differences.
 //! Recovery01 measures the change in PV for a 1% (100bp) absolute change in recovery rate.
+//!
+//! ## Limitation: Frozen Hazard Curve
+//!
+//! This calculator bumps the recovery rate but does **not** recalibrate the hazard
+//! curves. Since `h ≈ S / (1 - R)`, changing R without recalibrating understates the
+//! true recovery sensitivity. Professional systems (Bloomberg, QuantLib) recalibrate.
+//! This provides a "local" or "partial" recovery sensitivity only.
 
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds_index::CDSIndex;

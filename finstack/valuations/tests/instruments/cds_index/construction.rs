@@ -117,14 +117,17 @@ fn test_builder_with_explicit_weights() {
         CDSIndexConstituent {
             credit: CreditParams::corporate_standard("N1", "HZ1"),
             weight: 0.5,
+            defaulted: false,
         },
         CDSIndexConstituent {
             credit: CreditParams::corporate_standard("N2", "HZ2"),
             weight: 0.3,
+            defaulted: false,
         },
         CDSIndexConstituent {
             credit: CreditParams::corporate_standard("N3", "HZ3"),
             weight: 0.2,
+            defaulted: false,
         },
     ];
 
