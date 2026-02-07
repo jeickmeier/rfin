@@ -35,6 +35,7 @@
 //! ```
 #[allow(dead_code)] // Public API items may be used by external bindings or tests
 use crate::instruments::common_impl::parameters::OptionType;
+use crate::instruments::rates::swaption::types::BermudanType;
 use crate::instruments::rates::swaption::BermudanSwaption;
 use crate::instruments::rates::swaption::CalibratedHullWhiteModel;
 use finstack_core::dates::Date;
@@ -95,6 +96,18 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
         discount_curve: &'a dyn Discounting,
         as_of: Date,
     ) -> Result<Self> {
+        // Non-co-terminal Bermudans require per-exercise-date swap end dates,
+        // which this valuator does not yet support. Reject early with a clear
+        // message rather than silently pricing incorrectly.
+        if swaption.bermudan_type == BermudanType::NonCoTerminal {
+            return Err(finstack_core::Error::Validation(
+                "Non-co-terminal Bermudan swaptions are not yet supported by the tree valuator. \
+                 Each exercise date would require a different swap end date, which is not \
+                 implemented. Use BermudanType::CoTerminal instead."
+                    .into(),
+            ));
+        }
+
         let tree = model.tree();
         // Get exercise times and map to tree steps
         let exercise_times = swaption.exercise_times(as_of)?;
@@ -478,6 +491,7 @@ mod tests {
             )
             .expect("valid Bermudan schedule"),
             bermudan_type: BermudanType::CoTerminal,
+            calendar_id: None,
             pricing_overrides: Default::default(),
             attributes: Default::default(),
         }

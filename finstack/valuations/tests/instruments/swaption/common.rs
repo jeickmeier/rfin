@@ -93,6 +93,7 @@ pub fn create_standard_payer_swaption(
         // to avoid making results depend on the surface strike grid.
         pricing_overrides: PricingOverrides::default()
             .with_vol_surface_extrapolation(VolSurfaceExtrapolation::Clamp),
+        calendar_id: None,
         sabr_params: None,
         attributes: Default::default(),
     }

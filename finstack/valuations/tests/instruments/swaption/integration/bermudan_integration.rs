@@ -58,6 +58,7 @@ fn test_bermudan_swaption(
         )
         .expect("valid Bermudan schedule"),
         bermudan_type: BermudanType::CoTerminal,
+        calendar_id: None,
         pricing_overrides: Default::default(),
         attributes: Default::default(),
     }

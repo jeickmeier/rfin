@@ -143,7 +143,6 @@ impl std::fmt::Display for VolatilityModel {
     }
 }
 
-/// Swaption settlement type
 /// Swaption settlement method
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -483,6 +482,21 @@ pub struct Swaption {
     pub forward_id: CurveId,
     /// Volatility surface ID for option pricing
     pub vol_surface_id: CurveId,
+    /// Holiday calendar ID for schedule generation.
+    ///
+    /// Controls business day adjustment and payment date calculation for the
+    /// underlying swap schedule. When `None`, uses weekends-only calendar
+    /// (no holiday adjustments). For production use, set to the appropriate
+    /// currency calendar (e.g., `"nyse"` for USD, `"target"` for EUR).
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// let swaption = Swaption::example()
+    ///     .with_calendar("nyse");
+    /// ```
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub calendar_id: Option<String>,
     /// Pricing overrides (manual price, yield, spread)
     pub pricing_overrides: PricingOverrides,
     /// Optional SABR volatility model parameters
@@ -502,11 +516,11 @@ impl Swaption {
             option_type: OptionType::Call,
             notional: Money::new(10_000_000.0, Currency::USD),
             strike_rate: 0.03,
-            expiry: Date::from_calendar_date(2025, time::Month::January, 15)
+            expiry: Date::from_calendar_date(2027, time::Month::January, 15)
                 .expect("Valid example date"),
-            swap_start: Date::from_calendar_date(2025, time::Month::January, 17)
+            swap_start: Date::from_calendar_date(2027, time::Month::January, 17)
                 .expect("Valid example date"),
-            swap_end: Date::from_calendar_date(2030, time::Month::January, 17)
+            swap_end: Date::from_calendar_date(2032, time::Month::January, 17)
                 .expect("Valid example date"),
             fixed_freq: Tenor::semi_annual(),
             float_freq: Tenor::quarterly(),
@@ -518,6 +532,7 @@ impl Swaption {
             discount_curve_id: CurveId::new("USD-OIS"),
             forward_id: CurveId::new("USD-SOFR-3M"),
             vol_surface_id: CurveId::new("USD-SWPNVOL"),
+            calendar_id: None,
             pricing_overrides: PricingOverrides::default(),
             sabr_params: None,
             attributes: Attributes::new(),
@@ -549,6 +564,7 @@ impl Swaption {
             discount_curve_id: discount_curve_id.into(),
             forward_id: forward_id.into(),
             vol_surface_id: vol_surface_id.into(),
+            calendar_id: None,
             pricing_overrides: PricingOverrides::default(),
             sabr_params: None,
             attributes: Attributes::default(),
@@ -562,6 +578,9 @@ impl Swaption {
         }
         if let Some(dc) = params.day_count {
             s.day_count = dc;
+        }
+        if let Some(vm) = params.vol_model {
+            s.vol_model = vm;
         }
         s
     }
@@ -591,6 +610,7 @@ impl Swaption {
             discount_curve_id: discount_curve_id.into(),
             forward_id: forward_id.into(),
             vol_surface_id: vol_surface_id.into(),
+            calendar_id: None,
             pricing_overrides: PricingOverrides::default(),
             sabr_params: None,
             attributes: Attributes::default(),
@@ -605,6 +625,9 @@ impl Swaption {
         if let Some(dc) = params.day_count {
             s.day_count = dc;
         }
+        if let Some(vm) = params.vol_model {
+            s.vol_model = vm;
+        }
         s
     }
 
@@ -612,6 +635,25 @@ impl Swaption {
     pub fn with_sabr(mut self, params: SABRParameters) -> Self {
         self.sabr_params = Some(params);
         self
+    }
+
+    /// Set the holiday calendar for schedule generation.
+    ///
+    /// # Arguments
+    /// * `calendar_id` - Calendar ID registered in `CalendarRegistry`
+    ///   (e.g., `"nyse"` for USD, `"target"` for EUR)
+    pub fn with_calendar(mut self, calendar_id: impl Into<String>) -> Self {
+        self.calendar_id = Some(calendar_id.into());
+        self
+    }
+
+    /// Resolve the effective calendar ID for schedule generation.
+    ///
+    /// Returns the user-configured calendar or falls back to weekends-only.
+    fn effective_calendar_id(&self) -> &str {
+        self.calendar_id
+            .as_deref()
+            .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID)
     }
 
     /// Set the cash settlement annuity method.
@@ -735,6 +777,14 @@ impl Swaption {
     /// the approximation is accurate to within a few basis points for typical
     /// market conditions.
     ///
+    /// # Negative Rates
+    ///
+    /// When SABR `shift` is set, the lognormal-to-normal conversion operates on
+    /// shifted rates (F + shift, K + shift) which are guaranteed positive.
+    /// Without a shift, non-positive rates fall back to a crude approximation.
+    /// For negative-rate currencies (EUR, JPY, CHF), always use shifted SABR
+    /// via [`SABRParameters::new_with_shift`].
+    ///
     /// # References
     ///
     /// - Hagan, P. et al. (2002). "Managing Smile Risk" *Wilmott Magazine*
@@ -756,64 +806,13 @@ impl Swaption {
         match self.vol_model {
             VolatilityModel::Black => self.price_black(curves, sabr_lognormal_vol, as_of),
             VolatilityModel::Normal => {
-                // Convert lognormal vol to normal vol using the Brenner-Subrahmanyam / Hagan
-                // approximation with second-order correction.
-                //
-                // The exact relationship between lognormal (Black) and normal (Bachelier)
-                // volatilities involves solving a non-linear equation. We use the
-                // well-known approximation:
-                //
-                // For ATM (F = K):
-                //   σ_normal ≈ σ_lognormal × F × [1 - σ_lognormal²T / 24]
-                //
-                // For general F ≠ K, using the Brenner-Subrahmanyam (1988) approximation
-                // with Hagan's refinement:
-                //   σ_normal ≈ σ_lognormal × (F - K) / ln(F/K) × [1 - σ_lognormal²T / 24]
-                //
-                // The term (F - K) / ln(F/K) converges to F when K → F (ATM limit).
-                // For deep OTM/ITM, additional correction using ln(F/K)² improves accuracy.
-                //
-                // References:
-                // - Brenner, M. & Subrahmanyam, M.G. (1988). "A Simple Formula to Compute
-                //   the Implied Standard Deviation"
-                // - Hagan, P. et al. (2002). "Managing Smile Risk" Wilmott Magazine
-                // - Jaeckel, P. (2017). "Let's Be Rational" for exact conversion
-                let f = forward_rate;
-                let k = self.strike_rate;
-                let variance = sabr_lognormal_vol * sabr_lognormal_vol * time_to_expiry;
-
-                let sabr_normal_vol = if f <= 0.0 || k <= 0.0 {
-                    // Fallback for non-positive rates: use absolute value approximation
-                    sabr_lognormal_vol * f.abs().max(1e-4)
-                } else {
-                    let log_fk = (f / k).ln();
-
-                    // Moneyness-adjusted forward level
-                    // For ATM: limit of (F-K)/ln(F/K) as K→F is F
-                    // For non-ATM: this gives the "effective" forward for normal vol
-                    let effective_forward = if log_fk.abs() < 1e-8 {
-                        // Near ATM: use Taylor expansion to avoid 0/0
-                        // (F-K)/ln(F/K) ≈ F × [1 - ln(F/K)/2 + ln(F/K)²/12 - ...]
-                        f * (1.0 - log_fk / 2.0 + log_fk * log_fk / 12.0)
-                    } else {
-                        (f - k) / log_fk
-                    };
-
-                    // Second-order correction from Hagan (2002):
-                    // The correction accounts for the difference in convexity between
-                    // lognormal and normal models. For typical parameters this is ~0.1-1%.
-                    //
-                    // Correction = 1 - σ²T/24 × [1 - (1/12)(ln(F/K))²]
-                    let moneyness_factor = 1.0 - log_fk * log_fk / 12.0;
-                    let correction = if variance > 1e-10 {
-                        (1.0 - (variance / 24.0) * moneyness_factor).max(0.5)
-                    } else {
-                        1.0
-                    };
-
-                    sabr_lognormal_vol * effective_forward * correction
-                };
-
+                let sabr_normal_vol = lognormal_to_normal_vol(
+                    sabr_lognormal_vol,
+                    forward_rate,
+                    self.strike_rate,
+                    time_to_expiry,
+                    params.shift,
+                );
                 self.price_normal(curves, sabr_normal_vol, as_of)
             }
         }
@@ -865,7 +864,7 @@ impl Swaption {
             BusinessDayConvention::ModifiedFollowing, // Market standard per ISDA
             false,
             0,
-            crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID,
+            self.effective_calendar_id(),
         )?;
         let dates = sched.dates;
         if dates.len() < 2 {
@@ -1014,7 +1013,7 @@ impl Swaption {
             BusinessDayConvention::ModifiedFollowing, // Market standard per ISDA
             false,
             0,
-            crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID,
+            self.effective_calendar_id(),
         )?;
 
         let mut pv_float = 0.0;
@@ -1288,6 +1287,13 @@ pub struct BermudanSwaption {
     pub bermudan_schedule: BermudanSchedule,
     /// Co-terminal or non-co-terminal exercise
     pub bermudan_type: BermudanType,
+    /// Holiday calendar ID for schedule generation.
+    ///
+    /// Controls business day adjustment for the underlying swap schedule.
+    /// When `None`, uses weekends-only calendar. For production use, set to
+    /// the appropriate currency calendar (e.g., `"nyse"` for USD).
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub calendar_id: Option<String>,
     /// Pricing overrides (manual price, yield, spread)
     #[cfg_attr(feature = "serde", serde(default))]
     pub pricing_overrides: PricingOverrides,
@@ -1303,11 +1309,11 @@ impl BermudanSwaption {
     #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         let swap_start =
-            Date::from_calendar_date(2025, time::Month::January, 17).expect("Valid example date");
-        let swap_end =
-            Date::from_calendar_date(2035, time::Month::January, 17).expect("Valid example date");
-        let first_exercise =
             Date::from_calendar_date(2027, time::Month::January, 17).expect("Valid example date");
+        let swap_end =
+            Date::from_calendar_date(2037, time::Month::January, 17).expect("Valid example date");
+        let first_exercise =
+            Date::from_calendar_date(2029, time::Month::January, 17).expect("Valid example date");
 
         Self {
             id: InstrumentId::new("BERM-10NC2-USD"),
@@ -1330,6 +1336,7 @@ impl BermudanSwaption {
             )
             .expect("valid Bermudan schedule"),
             bermudan_type: BermudanType::CoTerminal,
+            calendar_id: None,
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::new(),
         }
@@ -1364,6 +1371,7 @@ impl BermudanSwaption {
             vol_surface_id: vol_surface_id.into(),
             bermudan_schedule,
             bermudan_type: BermudanType::CoTerminal,
+            calendar_id: None,
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::default(),
         }
@@ -1398,6 +1406,7 @@ impl BermudanSwaption {
             vol_surface_id: vol_surface_id.into(),
             bermudan_schedule,
             bermudan_type: BermudanType::CoTerminal,
+            calendar_id: None,
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::default(),
         }
@@ -1431,6 +1440,19 @@ impl BermudanSwaption {
     pub fn with_bermudan_type(mut self, bermudan_type: BermudanType) -> Self {
         self.bermudan_type = bermudan_type;
         self
+    }
+
+    /// Set the holiday calendar for schedule generation.
+    pub fn with_calendar(mut self, calendar_id: impl Into<String>) -> Self {
+        self.calendar_id = Some(calendar_id.into());
+        self
+    }
+
+    /// Resolve the effective calendar ID for schedule generation.
+    fn effective_calendar_id(&self) -> &str {
+        self.calendar_id
+            .as_deref()
+            .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID)
     }
 
     /// Get the first exercise date.
@@ -1488,7 +1510,7 @@ impl BermudanSwaption {
                 frequency: self.fixed_freq,
                 stub: StubKind::None,
                 bdc: BusinessDayConvention::ModifiedFollowing, // Market standard per ISDA
-                calendar_id: crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID,
+                calendar_id: self.effective_calendar_id(),
                 end_of_month: false,
                 day_count: self.day_count,
                 payment_lag_days: 0,
@@ -1561,7 +1583,7 @@ impl BermudanSwaption {
                 frequency: self.float_freq,
                 stub: StubKind::None,
                 bdc: BusinessDayConvention::ModifiedFollowing, // Market standard per ISDA
-                calendar_id: crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID,
+                calendar_id: self.effective_calendar_id(),
                 end_of_month: false,
                 day_count: fwd_dc,
                 payment_lag_days: 0,
@@ -1635,6 +1657,7 @@ impl BermudanSwaption {
             discount_curve_id: self.discount_curve_id.clone(),
             forward_id: self.forward_id.clone(),
             vol_surface_id: self.vol_surface_id.clone(),
+            calendar_id: self.calendar_id.clone(),
             pricing_overrides: self.pricing_overrides.clone(),
             sabr_params: None,
             attributes: self.attributes.clone(),
@@ -1703,6 +1726,106 @@ impl crate::instruments::common_impl::traits::CurveDependencies for BermudanSwap
     }
 }
 
+/// Convert lognormal (Black) volatility to normal (Bachelier) volatility.
+///
+/// Uses the Brenner-Subrahmanyam (1988) / Hagan (2002) approximation with
+/// second-order correction. When a SABR shift is provided, the conversion
+/// operates on shifted rates (F + shift, K + shift), ensuring positivity
+/// even for negative-rate environments.
+///
+/// # Arguments
+///
+/// * `sigma_ln` - Lognormal (Black) volatility
+/// * `forward` - Forward swap rate
+/// * `strike` - Strike rate
+/// * `time_to_expiry` - Time to option expiry in years
+/// * `shift` - Optional SABR shift for negative rate handling
+///
+/// # Formula
+///
+/// For ATM (F = K):
+/// ```text
+/// σ_normal ≈ σ_lognormal × F_eff × [1 - σ²T/24]
+/// ```
+///
+/// For general F ≠ K:
+/// ```text
+/// σ_normal ≈ σ_lognormal × (F_eff - K_eff) / ln(F_eff/K_eff)
+///             × [1 - σ²T/24 × (1 - ln²(F_eff/K_eff)/12)]
+/// ```
+///
+/// where F_eff = F + shift, K_eff = K + shift when shift is provided.
+///
+/// # References
+///
+/// - Brenner, M. & Subrahmanyam, M.G. (1988). "A Simple Formula to Compute
+///   the Implied Standard Deviation"
+/// - Hagan, P. et al. (2002). "Managing Smile Risk" Wilmott Magazine
+/// - Jaeckel, P. (2017). "Let's Be Rational" for exact conversion
+fn lognormal_to_normal_vol(
+    sigma_ln: f64,
+    forward: f64,
+    strike: f64,
+    time_to_expiry: f64,
+    shift: Option<f64>,
+) -> f64 {
+    // Apply shift to ensure positive rates for the lognormal-to-normal mapping.
+    // Shifted SABR models define F_eff = F + shift, K_eff = K + shift where
+    // shift is chosen so that both are positive (e.g., shift = 3% for EUR).
+    let (f, k) = match shift {
+        Some(s) => (forward + s, strike + s),
+        None => (forward, strike),
+    };
+
+    let variance = sigma_ln * sigma_ln * time_to_expiry;
+
+    if f <= 0.0 || k <= 0.0 {
+        // Without shift, non-positive rates can't use the lognormal approximation.
+        // Fall back to linear approximation using the arithmetic mean of absolute
+        // values. This is crude and will produce unreliable normal vols -- callers
+        // should supply a SABR shift for negative-rate currencies instead.
+        //
+        // WARNING: This fallback is inherently unreliable. For negative-rate
+        // currencies (EUR, JPY, CHF), always configure `SABRParameters.shift`
+        // so that F + shift and K + shift are positive.
+        let effective_level = ((f.abs() + k.abs()) / 2.0).max(1e-6);
+        return sigma_ln * effective_level;
+    }
+
+    let log_fk = (f / k).ln();
+
+    // Moneyness-adjusted forward level
+    // For ATM: limit of (F-K)/ln(F/K) as K→F is F
+    // For non-ATM: this gives the "effective" forward for normal vol
+    let effective_forward = if log_fk.abs() < 1e-8 {
+        // Near ATM: use Taylor expansion to avoid 0/0
+        // (F-K)/ln(F/K) ≈ F × [1 - ln(F/K)/2 + ln(F/K)²/12 - ...]
+        f * (1.0 - log_fk / 2.0 + log_fk * log_fk / 12.0)
+    } else {
+        (f - k) / log_fk
+    };
+
+    // Second-order correction from Hagan (2002):
+    // The correction accounts for the difference in convexity between
+    // lognormal and normal models. For typical parameters this is ~0.1-1%.
+    //
+    // Correction = 1 - σ²T/24 × [1 - (1/12)(ln(F/K))²]
+    //
+    // For extreme parameters (σ²T > 12), the raw correction becomes negative.
+    // We floor at 0.5 to keep the result positive and bounded. This floor only
+    // activates for unrealistic combinations (e.g., 80% vol + 30Y tenor) where
+    // the second-order approximation itself has broken down anyway.
+    let moneyness_factor = 1.0 - log_fk * log_fk / 12.0;
+    let correction = if variance > 1e-10 {
+        let raw = 1.0 - (variance / 24.0) * moneyness_factor;
+        raw.max(0.5)
+    } else {
+        1.0
+    };
+
+    sigma_ln * effective_forward * correction
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
@@ -1713,6 +1836,8 @@ mod tests {
     //! 2. Non-ATM: σ_N ≈ σ_LN × (F-K)/ln(F/K) × [1 - σ²T/24 × (1 - ln²(F/K)/12)]
     //! 3. Convergence: as K → F, the formula converges to the ATM limit
 
+    use super::lognormal_to_normal_vol;
+
     /// Test the lognormal-to-normal vol conversion formula at ATM.
     ///
     /// At ATM (F = K), the formula should give:
@@ -1720,7 +1845,6 @@ mod tests {
     #[test]
     fn test_lognormal_to_normal_vol_atm() {
         let f: f64 = 0.03; // 3% forward rate
-        let k: f64 = f; // ATM
         let sigma_ln: f64 = 0.20; // 20% lognormal vol
         let t: f64 = 1.0; // 1 year
 
@@ -1728,25 +1852,7 @@ mod tests {
         let correction = 1.0 - (sigma_ln * sigma_ln * t) / 24.0;
         let expected_sigma_n = sigma_ln * f * correction;
 
-        // Compute using our formula
-        let variance = sigma_ln * sigma_ln * t;
-        let log_fk = (f / k).ln();
-
-        // Near ATM: effective_forward ≈ F
-        let effective_forward = if log_fk.abs() < 1e-8 {
-            f * (1.0 - log_fk / 2.0 + log_fk * log_fk / 12.0)
-        } else {
-            (f - k) / log_fk
-        };
-
-        let moneyness_factor = 1.0 - log_fk * log_fk / 12.0;
-        let computed_correction = if variance > 1e-10 {
-            (1.0 - (variance / 24.0) * moneyness_factor).max(0.5)
-        } else {
-            1.0
-        };
-
-        let computed_sigma_n = sigma_ln * effective_forward * computed_correction;
+        let computed_sigma_n = lognormal_to_normal_vol(sigma_ln, f, f, t, None);
 
         // Should be very close at ATM
         assert!(
@@ -1758,8 +1864,6 @@ mod tests {
     }
 
     /// Test the lognormal-to-normal vol conversion formula for OTM options.
-    ///
-    /// For non-ATM options, the effective forward (F-K)/ln(F/K) should differ from F.
     #[test]
     fn test_lognormal_to_normal_vol_otm() {
         let f: f64 = 0.03; // 3% forward rate
@@ -1767,25 +1871,7 @@ mod tests {
         let sigma_ln: f64 = 0.20; // 20% lognormal vol
         let t: f64 = 1.0; // 1 year
 
-        let variance = sigma_ln * sigma_ln * t;
-        let log_fk = (f / k).ln(); // Negative for F < K
-
-        // (F-K)/ln(F/K) gives a value between F and K
-        let effective_forward = (f - k) / log_fk;
-
-        // Verify effective_forward is between F and K
-        assert!(
-            effective_forward > f.min(k) && effective_forward < f.max(k),
-            "Effective forward should be between F={} and K={}, got {}",
-            f,
-            k,
-            effective_forward
-        );
-
-        let moneyness_factor = 1.0 - log_fk * log_fk / 12.0;
-        let correction = (1.0 - (variance / 24.0) * moneyness_factor).max(0.5);
-
-        let sigma_n = sigma_ln * effective_forward * correction;
+        let sigma_n = lognormal_to_normal_vol(sigma_ln, f, k, t, None);
 
         // Normal vol should be positive and reasonable
         assert!(sigma_n > 0.0, "Normal vol should be positive");
@@ -1806,32 +1892,12 @@ mod tests {
         let t: f64 = 1.0;
 
         // Compute at exactly ATM
-        let sigma_n_atm: f64 = {
-            let variance = sigma_ln * sigma_ln * t;
-            let correction = 1.0 - variance / 24.0;
-            sigma_ln * f * correction
-        };
+        let sigma_n_atm = lognormal_to_normal_vol(sigma_ln, f, f, t, None);
 
         // Compute at K very close to F
         for delta in [1e-6_f64, 1e-8_f64, 1e-10_f64] {
             let k = f * (1.0 + delta);
-            let variance = sigma_ln * sigma_ln * t;
-            let log_fk = (f / k).ln();
-
-            let effective_forward = if log_fk.abs() < 1e-8 {
-                f * (1.0 - log_fk / 2.0 + log_fk * log_fk / 12.0)
-            } else {
-                (f - k) / log_fk
-            };
-
-            let moneyness_factor = 1.0 - log_fk * log_fk / 12.0;
-            let correction = if variance > 1e-10 {
-                (1.0 - (variance / 24.0) * moneyness_factor).max(0.5)
-            } else {
-                1.0
-            };
-
-            let sigma_n = sigma_ln * effective_forward * correction;
+            let sigma_n = lognormal_to_normal_vol(sigma_ln, f, k, t, None);
 
             // Should converge to ATM value
             let diff = (sigma_n - sigma_n_atm).abs();
@@ -1847,20 +1913,77 @@ mod tests {
     /// Test that the correction factor stays in reasonable bounds.
     #[test]
     fn test_correction_factor_bounds() {
-        // High vol, long maturity: correction should be floored at 0.5
+        // High vol, long maturity: correction should be floored near 0.5
+        let f: f64 = 0.03;
         let sigma_ln: f64 = 0.80; // 80% vol (extreme)
         let t: f64 = 30.0; // 30 years
-        let variance = sigma_ln * sigma_ln * t;
 
-        // Without floor: 1 - 0.64 * 30 / 24 = 1 - 0.8 = 0.2 (too low)
-        let raw_correction: f64 = 1.0 - variance / 24.0;
-        assert!(raw_correction < 0.5, "Expected extreme case to need floor");
+        let sigma_n = lognormal_to_normal_vol(sigma_ln, f, f, t, None);
 
-        // With floor:
-        let floored_correction = raw_correction.max(0.5);
+        // Even with extreme parameters, result should be positive and bounded
+        assert!(sigma_n > 0.0, "Normal vol should be positive");
+
+        // The correction should floor near 0.5, so normal vol ≈ σ_LN × F × 0.5
+        let approx_floor = sigma_ln * f * 0.5;
         assert!(
-            (floored_correction - 0.5).abs() < 1e-10,
-            "Floor should be applied"
+            sigma_n >= approx_floor * 0.9, // Allow some tolerance from hard floor at 0.5
+            "Correction floor should prevent unreasonably low vol: got {}, expected >= {}",
+            sigma_n,
+            approx_floor * 0.9
+        );
+    }
+
+    /// Test shifted SABR lognormal-to-normal conversion for negative rates.
+    ///
+    /// With a shift, negative rates become positive in the shifted domain,
+    /// allowing the standard lognormal-to-normal approximation to apply.
+    #[test]
+    fn test_lognormal_to_normal_vol_shifted_negative_rates() {
+        // EUR-like scenario: negative forward and strike
+        let f: f64 = -0.005; // -0.5% forward rate
+        let k: f64 = -0.003; // -0.3% strike
+        let sigma_ln: f64 = 0.30; // 30% lognormal vol (on shifted rates)
+        let t: f64 = 1.0;
+        let shift = 0.03; // 3% shift (standard for EUR)
+
+        let sigma_n = lognormal_to_normal_vol(sigma_ln, f, k, t, Some(shift));
+
+        // With shift: F_eff = -0.5% + 3% = 2.5%, K_eff = -0.3% + 3% = 2.7%
+        // Both positive, so standard approximation applies
+        assert!(sigma_n > 0.0, "Normal vol should be positive with shift");
+
+        // For 30% lognormal vol on ~2.5% shifted rates, expect ~75bp = 0.0075
+        assert!(
+            sigma_n > 0.003 && sigma_n < 0.02,
+            "Shifted normal vol {} seems unreasonable",
+            sigma_n
+        );
+
+        // Without shift, should still produce a positive result (fallback)
+        let sigma_n_no_shift = lognormal_to_normal_vol(sigma_ln, f, k, t, None);
+        assert!(
+            sigma_n_no_shift > 0.0,
+            "Fallback should produce positive vol"
+        );
+    }
+
+    /// Test that shifted conversion is consistent with unshifted for positive rates.
+    #[test]
+    fn test_shifted_vs_unshifted_positive_rates() {
+        let f: f64 = 0.03;
+        let k: f64 = 0.035;
+        let sigma_ln: f64 = 0.20;
+        let t: f64 = 1.0;
+
+        // With zero shift, should give same result as no shift
+        let sigma_n_none = lognormal_to_normal_vol(sigma_ln, f, k, t, None);
+        let sigma_n_zero = lognormal_to_normal_vol(sigma_ln, f, k, t, Some(0.0));
+
+        assert!(
+            (sigma_n_none - sigma_n_zero).abs() < 1e-12,
+            "Zero shift should match no shift: none={}, zero={}",
+            sigma_n_none,
+            sigma_n_zero
         );
     }
 }

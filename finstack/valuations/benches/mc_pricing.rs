@@ -46,6 +46,7 @@ fn build_swaption(as_of: Date) -> BermudanSwaption {
         )
         .expect("valid Bermudan schedule"),
         bermudan_type: finstack_valuations::instruments::rates::swaption::BermudanType::CoTerminal,
+        calendar_id: None,
         pricing_overrides: Default::default(),
         attributes: Default::default(),
     }

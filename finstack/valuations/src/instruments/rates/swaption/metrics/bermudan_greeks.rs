@@ -102,7 +102,12 @@ impl BermudanDeltaCalculator {
     }
 
     /// Set Hull-White parameters.
+    ///
+    /// # Panics (debug only)
+    /// Panics if `sigma <= 0` or `kappa < 0`, which would produce invalid tree calibration.
     pub fn with_hw_params(mut self, kappa: f64, sigma: f64) -> Self {
+        debug_assert!(sigma > 0.0, "HW sigma must be positive, got {sigma}");
+        debug_assert!(kappa >= 0.0, "HW kappa must be non-negative, got {kappa}");
         self.kappa = kappa;
         self.sigma = sigma;
         self
@@ -153,6 +158,22 @@ impl MetricCalculator for BermudanDeltaCalculator {
             return Ok(0.0);
         }
 
+        // Bump the discount curve for rate sensitivity.
+        //
+        // NOTE: The Hull-White tree is a single-factor short-rate model that
+        // calibrates to and derives all rates (both discount and forward swap
+        // rates) from the input discount curve's term structure. The forward
+        // curve stored on the swaption (`forward_id`) is NOT used by the tree
+        // pricer -- forward rates at each node are endogenous to the calibrated
+        // short-rate dynamics.
+        //
+        // Consequence: this delta captures sensitivity to the discount/funding
+        // curve only. If the discount and forward curves are different (e.g.,
+        // OIS vs SOFR), sensitivity to the forward-discount spread is NOT
+        // captured. A proper multi-curve delta would require either:
+        //   (a) a two-factor tree, or
+        //   (b) separate "discount delta" and "forward delta" calculators
+        //       with the tree reading forward rates from the forward curve.
         let curves_up = context.curves.bump([MarketBump::Curve {
             id: swaption.discount_curve_id.clone(),
             spec: BumpSpec::parallel_bp(bump_bp),
@@ -217,7 +238,12 @@ impl BermudanVegaCalculator {
     }
 
     /// Set Hull-White parameters.
+    ///
+    /// # Panics (debug only)
+    /// Panics if `sigma <= 0` or `kappa < 0`, which would produce invalid tree calibration.
     pub fn with_hw_params(mut self, kappa: f64, sigma: f64) -> Self {
+        debug_assert!(sigma > 0.0, "HW sigma must be positive, got {sigma}");
+        debug_assert!(kappa >= 0.0, "HW kappa must be non-negative, got {kappa}");
         self.kappa = kappa;
         self.sigma = sigma;
         self
@@ -325,6 +351,18 @@ impl BermudanGammaCalculator {
         self
     }
 
+    /// Set Hull-White parameters.
+    ///
+    /// # Panics (debug only)
+    /// Panics if `sigma <= 0` or `kappa < 0`, which would produce invalid tree calibration.
+    pub fn with_hw_params(mut self, kappa: f64, sigma: f64) -> Self {
+        debug_assert!(sigma > 0.0, "HW sigma must be positive, got {sigma}");
+        debug_assert!(kappa >= 0.0, "HW kappa must be non-negative, got {kappa}");
+        self.kappa = kappa;
+        self.sigma = sigma;
+        self
+    }
+
     /// Set Hull-White parameters using typed values.
     pub fn with_hw_params_rate(mut self, kappa: Rate, sigma: Percentage) -> Self {
         self.kappa = kappa.as_decimal();
@@ -381,6 +419,8 @@ impl MetricCalculator for BermudanGammaCalculator {
 
         let base_price = self.price_bermudan(swaption, disc.as_ref(), context.as_of, self.sigma)?;
 
+        // Bump discount curve only -- see BermudanDeltaCalculator::calculate()
+        // for documentation on single-factor HW tree limitations.
         let curves_up = context.curves.bump([MarketBump::Curve {
             id: swaption.discount_curve_id.clone(),
             spec: BumpSpec::parallel_bp(bump_bp),
@@ -500,11 +540,25 @@ pub struct ExerciseProbabilityCalculator {
 }
 
 impl ExerciseProbabilityCalculator {
-    /// Create a new calculator.
+    /// Create a new calculator with default (uncalibrated) parameters.
     pub fn new() -> Self {
         Self {
             kappa: DEFAULT_KAPPA,
             sigma: DEFAULT_SIGMA,
+            tree_steps: DEFAULT_TREE_STEPS,
+        }
+    }
+
+    /// Create a new calculator with calibrated Hull-White parameters.
+    ///
+    /// # Panics (debug only)
+    /// Panics if `sigma <= 0` or `kappa < 0`, which would produce invalid tree calibration.
+    pub fn new_with_hw(kappa: f64, sigma: f64) -> Self {
+        debug_assert!(sigma > 0.0, "HW sigma must be positive, got {sigma}");
+        debug_assert!(kappa >= 0.0, "HW kappa must be non-negative, got {kappa}");
+        Self {
+            kappa,
+            sigma,
             tree_steps: DEFAULT_TREE_STEPS,
         }
     }
@@ -631,6 +685,7 @@ mod tests {
             )
             .expect("valid Bermudan schedule"),
             bermudan_type: BermudanType::CoTerminal,
+            calendar_id: None,
             pricing_overrides: Default::default(),
             attributes: Default::default(),
         };
