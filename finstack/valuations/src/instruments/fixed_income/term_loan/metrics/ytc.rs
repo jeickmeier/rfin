@@ -1,18 +1,19 @@
 //! Yield-to-first-call for term loans.
 //!
-//! Computes the IRR to the earliest valid call date, using the holder-view cashflows
-//! up to the call date plus the call redemption based on outstanding principal.
+//! Computes the IRR to the earliest valid call date, using the full cashflow
+//! schedule with kind-aware filtering plus the call redemption based on
+//! pre-exercise outstanding principal.
 
 use crate::instruments::TermLoan;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::money::Money;
 
-use super::irr_helpers::solve_irr_to_exercise;
+use super::irr_helpers::{outstanding_before, solve_irr_to_exercise};
 
 /// Yield-to-call calculator for callable term loans.
 ///
 /// For loans with call schedules, solves for IRR to the first valid call date.
-/// Redemption amount equals outstanding principal at call date times the call price.
+/// Redemption amount equals pre-exercise outstanding principal times the call price.
 pub struct YtcCalculator;
 
 impl MetricCalculator for YtcCalculator {
@@ -44,26 +45,21 @@ impl MetricCalculator for YtcCalculator {
             as_of,
         )?;
 
-        // Use outstanding_by_date to get correct principal path
+        // Use pre-exercise outstanding (< call.date) for redemption calculation.
+        // outstanding_by_date returns balances AFTER each date, so < gives the
+        // balance before any events on the call date.
         let out_path = schedule.outstanding_by_date()?;
-        let mut outstanding_at = Money::new(0.0, loan.currency);
-        for (d, amt) in &out_path {
-            if *d <= call.date {
-                outstanding_at = *amt;
-            } else {
-                break;
-            }
-        }
+        let outstanding = outstanding_before(&out_path, call.date, loan.currency);
 
         // Redemption = outstanding * call price (as percentage of par)
         let redemption = Money::new(
-            outstanding_at.amount() * (call.price_pct_of_par / 100.0),
+            outstanding.amount() * (call.price_pct_of_par / 100.0),
             loan.currency,
         );
 
         solve_irr_to_exercise(
             loan,
-            &context.curves,
+            &schedule,
             as_of,
             context.base_value,
             call.date,

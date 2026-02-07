@@ -172,12 +172,13 @@ impl TermLoanDiscountingPricer {
         // internal base date.
         let disc = market.get_discount(loan.discount_curve_id.as_str())?;
 
-        // Filter flows: exclude PIK (capitalized interest) from PV
-        // PIK increases outstanding and is repaid via principal redemption
+        // Filter flows: exclude PIK (capitalized interest) and past flows from PV.
+        // PIK increases outstanding and is repaid via principal redemption.
+        // Past flows (before as_of) have already settled and must not be discounted.
         let flows: Vec<(finstack_core::dates::Date, Money)> = schedule
             .flows
             .iter()
-            .filter(|cf| cf.kind != CFKind::PIK)
+            .filter(|cf| cf.kind != CFKind::PIK && cf.date >= as_of)
             .map(|cf| (cf.date, cf.amount))
             .collect();
 

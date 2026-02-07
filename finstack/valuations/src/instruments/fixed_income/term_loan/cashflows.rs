@@ -34,7 +34,7 @@ pub(super) fn margin_bp_at(loan: &TermLoan, d: Date) -> f64 {
             c.margin_stepups
                 .iter()
                 .filter(|m| m.date <= d)
-                .map(|m| m.delta_bp as f64)
+                .map(|m| f64::from(m.delta_bp))
                 .sum::<f64>()
         })
         .unwrap_or(0.0);
@@ -46,7 +46,7 @@ pub(super) fn margin_bp_at(loan: &TermLoan, d: Date) -> f64 {
             ov.margin_add_bp_by_date
                 .iter()
                 .filter(|(dt, _)| *dt <= d)
-                .map(|(_, bp)| *bp as f64)
+                .map(|(_, bp)| f64::from(*bp))
                 .sum::<f64>()
         })
         .unwrap_or(0.0);
@@ -82,7 +82,7 @@ pub fn generate_cashflows(
             if let Some(oid) = &ddtl.oid_policy {
                 match oid {
                     super::spec::OidPolicy::WithheldPct(bp) => {
-                        let pct = (*bp as f64) * 1e-4;
+                        let pct = f64::from(*bp) * 1e-4;
                         cash_inflow =
                             Money::new(ev.amount.amount() * (1.0 - pct), ev.amount.currency());
                     }
@@ -90,7 +90,7 @@ pub fn generate_cashflows(
                         cash_inflow = ev.amount.checked_sub(*m)?;
                     }
                     super::spec::OidPolicy::SeparatePct(bp) => {
-                        let pct = (*bp as f64) * 1e-4;
+                        let pct = f64::from(*bp) * 1e-4;
                         let fee_amt = Money::new(ev.amount.amount() * pct, ev.amount.currency());
                         if fee_amt.amount() > 0.0 {
                             fees.push(FeeSpec::Fixed {
@@ -191,7 +191,7 @@ pub fn generate_cashflows(
             }
         }
         super::spec::AmortizationSpec::PercentPerPeriod { bp } => {
-            let pct = (*bp as f64) * 1e-4;
+            let pct = f64::from(*bp) * 1e-4;
             for d in coupon_dates.iter().copied().skip(1) {
                 let pay = Money::new(loan.notional_limit.amount() * pct, loan.currency);
                 principal_events.push(PrincipalEvent {
@@ -225,6 +225,32 @@ pub fn generate_cashflows(
 
     principal_events.sort_by_key(|e| e.date);
 
+    // Cap amortization events to prevent negative outstanding balance.
+    // Track running outstanding from funding events and cap each amort at
+    // the remaining balance.  This guards against over-amortization when
+    // PercentPerPeriod bp × num_periods > 10 000 or when cash sweeps
+    // combine with scheduled amortization to exceed the notional.
+    {
+        let mut running = 0.0_f64;
+        for event in &mut principal_events {
+            match event.kind {
+                CFKind::Notional => {
+                    running += event.delta.amount();
+                }
+                CFKind::Amortization => {
+                    let requested = (-event.delta.amount()).max(0.0);
+                    let capped = requested.min(running.max(0.0));
+                    if (capped - requested).abs() > 1e-10 {
+                        event.delta = Money::new(-capped, event.delta.currency());
+                        event.cash = Money::new(capped, event.cash.currency());
+                    }
+                    running -= capped;
+                }
+                _ => {}
+            }
+        }
+    }
+
     // Build coupon program via unified builder
     let mut builder = CashFlowBuilder::default();
     let _ = builder
@@ -234,8 +260,9 @@ pub fn generate_cashflows(
 
     match &loan.rate {
         super::types::RateSpec::Fixed { rate_bp } => {
-            // Convert rate from basis points to decimal, then to Decimal
-            let rate_decimal = Decimal::try_from((*rate_bp as f64) * 1e-4).unwrap_or(Decimal::ZERO);
+            // Convert rate from basis points to decimal using exact Decimal arithmetic
+            // to avoid f64 representation errors (e.g., 333 bp → 0.0333 exactly).
+            let rate_decimal = Decimal::from(*rate_bp) / Decimal::from(10_000);
             let spec = FixedCouponSpec {
                 coupon_type: loan.coupon_type,
                 rate: rate_decimal,
@@ -254,32 +281,45 @@ pub fn generate_cashflows(
         super::types::RateSpec::Floating(spec) => {
             // Convert Decimal spread_bp to f64 for calculations
             let spread_bp_f64 = spec.spread_bp.to_f64().unwrap_or(0.0);
-            // Build cumulative margin steps (base + step-ups + overrides)
-            let mut margin_events: Vec<(Date, f64)> = vec![(loan.issue, spread_bp_f64)];
+
+            // Build margin step-up schedule for `float_margin_stepup`.
+            //
+            // Convention: each entry `(date, margin_bp)` defines the END of a window
+            // and the margin that applies from the PREVIOUS endpoint (or issue) up to
+            // `date`.  So for a constant-spread loan the list is simply
+            // `[(maturity, base_spread)]`, creating one window `[issue, maturity)`.
+            //
+            // Covenant step-ups and pricing overrides are deltas added at their
+            // effective dates.  We push a breakpoint BEFORE applying the delta so
+            // that the preceding window has the pre-step-up margin.
+            let mut step_ups: Vec<(Date, f64)> = Vec::new();
             if let Some(cov) = &loan.covenants {
                 for step in &cov.margin_stepups {
-                    margin_events.push((step.date, step.delta_bp as f64));
+                    step_ups.push((step.date, f64::from(step.delta_bp)));
                 }
             }
             if let Some(ov) = &loan.pricing_overrides.term_loan {
                 for (dt, bp) in &ov.margin_add_bp_by_date {
-                    margin_events.push((*dt, *bp as f64));
+                    step_ups.push((*dt, f64::from(*bp)));
                 }
             }
-            margin_events.sort_by_key(|(d, _)| *d);
+            step_ups.sort_by_key(|(d, _)| *d);
+
             let mut steps: Vec<(Date, f64)> = Vec::new();
-            let mut running = 0.0;
-            for (d, delta) in margin_events {
+            let mut running = spread_bp_f64;
+            for (d, delta) in &step_ups {
+                // Close the preceding window at the step-up date with the
+                // current running margin (before the step-up takes effect).
+                steps.push((*d, running));
                 running += delta;
-                steps.push((d, running));
             }
+            // Final window extends to maturity with the final running margin.
             if steps
                 .last()
                 .map(|(d, _)| *d != loan.maturity)
                 .unwrap_or(true)
             {
-                let last = steps.last().map(|(_, m)| *m).unwrap_or(spread_bp_f64);
-                steps.push((loan.maturity, last));
+                steps.push((loan.maturity, running));
             }
 
             let gearing_f64 = spec.gearing.to_f64().unwrap_or(1.0);
@@ -334,7 +374,7 @@ pub fn generate_cashflows(
         if ddtl.usage_fee_bp != 0 {
             let _ = builder.fee(FeeSpec::PeriodicBps {
                 base: FeeBase::Drawn,
-                bps: Decimal::try_from(ddtl.usage_fee_bp as f64).unwrap_or(Decimal::ZERO),
+                bps: Decimal::from(ddtl.usage_fee_bp),
                 freq: loan.pay_freq,
                 dc: loan.day_count,
                 bdc: loan.bdc,
@@ -469,7 +509,8 @@ fn build_commitment_fee_flows(
             }
         };
         if base > 0.0 {
-            let fee_amt = base * (ddtl.commitment_fee_bp as f64) * 1e-4 * yf;
+            let fee_rate = f64::from(ddtl.commitment_fee_bp) * 1e-4;
+            let fee_amt = base * fee_rate * yf;
             if fee_amt > 0.0 {
                 flows.push(CashFlow {
                     date: d,
@@ -477,7 +518,7 @@ fn build_commitment_fee_flows(
                     amount: Money::new(fee_amt, loan.currency),
                     kind: CFKind::Fee,
                     accrual_factor: 0.0,
-                    rate: Some((ddtl.commitment_fee_bp as f64) * 1e-4),
+                    rate: Some(fee_rate),
                 });
             }
         }
@@ -516,6 +557,13 @@ fn cumulative_drawn_at(ddtl: &super::spec::DdtlSpec, draw_stop: Option<Date>, da
 }
 
 /// Convenience: build simple dated flows (no CFKind) from full schedule.
+///
+/// **Deprecated**: This function returns ALL flows (including PIK and funding legs)
+/// without holder-view filtering.  Use the `CashflowProvider::build_dated_flows()`
+/// trait method on `TermLoan` instead for correctly filtered holder-view flows.
+#[deprecated(
+    note = "Use CashflowProvider::build_dated_flows() trait method instead for holder-view flows"
+)]
 pub fn build_dated_flows(schedule: &CashFlowSchedule) -> DatedFlows {
     schedule
         .flows

@@ -1,13 +1,16 @@
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, Tenor};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
+use finstack_valuations::cashflow::builder::specs::{CouponType, FloatingRateSpec};
 use finstack_valuations::instruments::fixed_income::term_loan::{
-    self, LoanCall, LoanCallSchedule, TermLoan,
+    self, LoanCall, LoanCallSchedule, RateSpec, TermLoan,
 };
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
+use rust_decimal::Decimal;
 use time::macros::date;
 
 use crate::common::test_helpers::flat_discount_curve;
@@ -128,4 +131,101 @@ fn test_term_loan_yields_to_horizons() {
 
     // YT4Y equals YTM when maturity is 4 years
     assert!((yt4y - ytm).abs() < 1e-8);
+}
+
+/// End-to-end floating-rate term loan yield and discount margin test.
+///
+/// Builds a floating-rate (SOFR + 250bp) term loan with a flat forward curve,
+/// prices it, then verifies YTM and Discount Margin are both computed and
+/// internally consistent.
+#[test]
+fn test_floating_rate_term_loan_yield_and_dm() {
+    let as_of = date!(2025 - 01 - 01);
+    let maturity = date!(2028 - 01 - 01); // 3Y
+
+    // Build floating-rate loan: SOFR + 250bp
+    let loan = TermLoan::builder()
+        .id("TL-FLOAT-DM".into())
+        .currency(Currency::USD)
+        .notional_limit(Money::new(10_000_000.0, Currency::USD))
+        .issue(as_of)
+        .maturity(maturity)
+        .rate(RateSpec::Floating(FloatingRateSpec {
+            index_id: CurveId::from("USD-SOFR"),
+            spread_bp: Decimal::from(250),
+            gearing: Decimal::from(1),
+            gearing_includes_spread: true,
+            floor_bp: None,
+            all_in_floor_bp: None,
+            cap_bp: None,
+            index_cap_bp: None,
+            reset_freq: Tenor::quarterly(),
+            reset_lag_days: 2,
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: "weekends_only".to_string(),
+            fixing_calendar_id: None,
+            end_of_month: false,
+            overnight_compounding: None,
+            payment_lag_days: 0,
+        }))
+        .pay_freq(Tenor::quarterly())
+        .day_count(DayCount::Act360)
+        .bdc(BusinessDayConvention::ModifiedFollowing)
+        .calendar_id_opt(None)
+        .stub(StubKind::None)
+        .discount_curve_id(CurveId::from("USD-OIS"))
+        .amortization(term_loan::AmortizationSpec::None)
+        .coupon_type(CouponType::Cash)
+        .upfront_fee_opt(None)
+        .ddtl_opt(None)
+        .covenants_opt(None)
+        .pricing_overrides(Default::default())
+        .attributes(Default::default())
+        .build()
+        .expect("floating loan construction should succeed");
+
+    // Market: flat SOFR = 4.5%, flat discount = 5%
+    let disc_curve = flat_discount_curve(0.05, as_of, "USD-OIS");
+    let fwd_curve = ForwardCurve::builder("USD-SOFR", 0.25)
+        .base_date(as_of)
+        .knots([(0.0, 0.045), (3.0, 0.045), (10.0, 0.045)])
+        .build()
+        .expect("forward curve");
+
+    let market = MarketContext::new()
+        .insert_discount(disc_curve)
+        .insert_forward(fwd_curve);
+
+    // Act: compute PV, YTM, and Discount Margin
+    let result = loan
+        .price_with_metrics(&market, as_of, &[MetricId::Ytm, MetricId::DiscountMargin])
+        .expect("pricing should succeed");
+
+    let pv = result.value.amount();
+    let ytm = *result.measures.get("ytm").unwrap();
+    let dm = *result.measures.get("discount_margin").unwrap();
+
+    // Sanity: PV should be positive and in the right ballpark
+    assert!(
+        pv > 0.0 && pv < 15_000_000.0,
+        "PV = {pv} should be reasonable"
+    );
+
+    // YTM should be positive and reflect the SOFR + spread
+    assert!(
+        ytm.is_finite() && ytm > 0.0,
+        "YTM = {ytm} should be finite and positive"
+    );
+
+    // Discount margin should be finite
+    assert!(dm.is_finite(), "Discount margin = {dm} should be finite");
+
+    // For a par-ish loan, DM should be in the neighborhood of the spread (250bp = 0.025).
+    // We allow a band of ~300bp because DM depends on the discount/forward curves,
+    // but anything beyond that signals a regression.
+    assert!(
+        dm.abs() < 0.03,
+        "Discount margin = {dm} should be within reasonable range (< 300bp)"
+    );
 }

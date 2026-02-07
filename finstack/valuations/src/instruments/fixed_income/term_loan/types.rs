@@ -493,15 +493,26 @@ impl crate::cashflow::traits::CashflowProvider for TermLoan {
             self, curves, as_of,
         )?;
 
-        // Filter to holder-view: only contractual inflows to a long lender
-        // Include: coupons, amortization, positive notional redemptions
-        // Exclude: funding legs (negative notional draws), PIK capitalization
+        // Filter to holder-view: only contractual inflows to a long lender.
+        // Include: coupons, amortization, fees, positive notional redemptions.
+        // Exclude: funding legs (negative notional draws), PIK capitalization.
+        //
+        // Fees (commitment, usage, facility) ARE included because they represent
+        // cash inflows to the lender.  This ensures YTM (which consumes these
+        // flows) captures the full economic return, consistent with YTC/YTW
+        // which also include fees via the kind-aware filter in irr_helpers.
         let mut flows: Vec<(finstack_core::dates::Date, finstack_core::money::Money)> = Vec::new();
 
         for cf in &schedule.flows {
             match cf.kind {
-                // Include coupons and interest flows as-is (holder receives them)
-                CFKind::Fixed | CFKind::FloatReset | CFKind::Stub => {
+                // Include coupons, interest, and all fee variants (holder receives them)
+                CFKind::Fixed
+                | CFKind::FloatReset
+                | CFKind::Stub
+                | CFKind::Fee
+                | CFKind::CommitmentFee
+                | CFKind::UsageFee
+                | CFKind::FacilityFee => {
                     flows.push((cf.date, cf.amount));
                 }
                 // Amortization principal repayment: holder receives this

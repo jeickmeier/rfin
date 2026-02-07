@@ -10,6 +10,7 @@ use crate::instruments::TermLoan;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::DayCountCtx;
 use finstack_core::money::Money;
+use rust_decimal::prelude::ToPrimitive;
 
 /// All-in rate calculator for term loans.
 ///
@@ -76,7 +77,7 @@ impl MetricCalculator for AllInRateCalculator {
             // Compute period rate with centralized projection
             let rate = match &loan.rate {
                 crate::instruments::fixed_income::term_loan::types::RateSpec::Fixed { rate_bp } => {
-                    (*rate_bp as f64) * 1e-4
+                    f64::from(*rate_bp) * 1e-4
                 }
                 crate::instruments::fixed_income::term_loan::types::RateSpec::Floating(spec) => {
                     // Use shared margin helper (includes base spread + covenant step-ups + overrides)
@@ -85,13 +86,12 @@ impl MetricCalculator for AllInRateCalculator {
                             loan, d,
                         );
 
-                    // Compute period end from year fraction (approximate)
-                    let period_end = prev + time::Duration::days((yf * 365.25) as i64);
+                    // Use actual coupon date as period end for forward rate lookup
+                    // (avoids approximation error from `yf * 365.25`)
+                    let period_end = d;
 
-                    // Convert Decimal to f64 for projection (market curves are f64)
-                    use rust_decimal::prelude::ToPrimitive;
                     let params = crate::cashflow::builder::FloatingRateParams::with_full(
-                        total_spread.to_f64().unwrap_or(0.0),
+                        total_spread,
                         spec.gearing.to_f64().unwrap_or(1.0),
                         spec.floor_bp.and_then(|d| d.to_f64()),
                         spec.cap_bp.and_then(|d| d.to_f64()),
@@ -163,10 +163,10 @@ impl MetricCalculator for AllInRateCalculator {
                     }
                 };
                 if ddtl.commitment_fee_bp != 0 {
-                    fees += undrawn * (ddtl.commitment_fee_bp as f64) * 1e-4 * yf;
+                    fees += undrawn * f64::from(ddtl.commitment_fee_bp) * 1e-4 * yf;
                 }
                 if ddtl.usage_fee_bp != 0 {
-                    fees += outstanding.amount() * (ddtl.usage_fee_bp as f64) * 1e-4 * yf;
+                    fees += outstanding.amount() * f64::from(ddtl.usage_fee_bp) * 1e-4 * yf;
                 }
             }
 

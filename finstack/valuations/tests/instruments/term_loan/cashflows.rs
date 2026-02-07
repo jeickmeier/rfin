@@ -1,5 +1,6 @@
 //! Term loan cashflow generation tests.
 
+use finstack_core::cashflow::CFKind;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
@@ -134,4 +135,80 @@ fn test_pik_interest_capitalization() {
     // Assert
     assert!(!cashflows.is_empty());
     // PIK interest capitalizes, so fewer cash payments expected
+}
+
+/// Property test: PercentPerPeriod with bp such that total amortization would exceed
+/// the notional should be capped so that outstanding never goes negative.
+///
+/// Here we use bp=5000 (50% per quarter) over 4 quarters = 200% of notional.
+/// The over-amortization guard should cap total amortization at 100%.
+#[test]
+fn test_over_amortization_is_capped() {
+    let loan = TermLoan::builder()
+        .id("TL-CF-OVERCAP".into())
+        .currency(Currency::USD)
+        .notional_limit(Money::new(1_000_000.0, Currency::USD))
+        .issue(date!(2025 - 01 - 01))
+        .maturity(date!(2026 - 01 - 01)) // 1 year, 4 quarterly periods
+        .rate(RateSpec::Fixed { rate_bp: 500 })
+        .pay_freq(Tenor::quarterly())
+        .day_count(DayCount::Act360)
+        .bdc(BusinessDayConvention::ModifiedFollowing)
+        .calendar_id_opt(None)
+        .stub(StubKind::None)
+        .discount_curve_id(CurveId::from("USD-OIS"))
+        // 50% per quarter × 4 quarters = 200% → should be capped at 100%
+        .amortization(AmortizationSpec::PercentPerPeriod { bp: 5000 })
+        .coupon_type(CouponType::Cash)
+        .upfront_fee_opt(None)
+        .ddtl_opt(None)
+        .covenants_opt(None)
+        .pricing_overrides(Default::default())
+        .attributes(Default::default())
+        .build()
+        .unwrap();
+
+    let market = build_market_context();
+    let as_of = date!(2025 - 01 - 01);
+
+    // Generate the full schedule and check outstanding path
+    let schedule =
+        finstack_valuations::instruments::fixed_income::term_loan::cashflows::generate_cashflows(
+            &loan, &market, as_of,
+        )
+        .expect("cashflow generation should succeed even with excessive amort");
+
+    let out_path = schedule
+        .outstanding_by_date()
+        .expect("outstanding path should succeed");
+
+    // Outstanding must never go negative
+    for (d, amt) in &out_path {
+        assert!(
+            amt.amount() >= -1e-10,
+            "Outstanding at {d} = {} -- must never be negative",
+            amt.amount()
+        );
+    }
+
+    // Total amortization should equal exactly the notional (capped)
+    let total_amort: f64 = schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::Amortization)
+        .map(|cf| cf.amount.amount())
+        .sum();
+
+    // Amort amounts are positive from holder view (principal returned),
+    // so total should be approximately the notional (capped tightly)
+    assert!(
+        total_amort <= 1_000_000.0 + 1e-6,
+        "Total amort ({total_amort}) should not exceed notional (1,000,000)"
+    );
+    // The 50%-per-quarter schedule should fully amortize the notional
+    // (first two payments exhaust it, remaining two are capped to zero)
+    assert!(
+        total_amort > 999_999.0,
+        "Total amort ({total_amort}) should be approximately equal to the notional (1,000,000)"
+    );
 }

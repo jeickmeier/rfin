@@ -1,7 +1,7 @@
 //! Yield-to-N-years calculators for term loans.
 //!
-//! Computes IRR to fixed horizons (2y, 3y, 4y) using holder-view cashflows
-//! and outstanding principal at the horizon date for redemption.
+//! Computes IRR to fixed horizons (2y, 3y, 4y) using kind-aware cashflow
+//! filtering and outstanding principal at the horizon date for redemption.
 
 use crate::instruments::TermLoan;
 use crate::metrics::{MetricCalculator, MetricContext};
@@ -9,16 +9,17 @@ use finstack_core::dates::Date;
 
 use super::irr_helpers::solve_irr_to_date;
 
-fn years_ahead(as_of: Date, years: i32) -> Date {
-    // Attempt to construct same month/day years ahead; fall back to maturity elsewhere
-    // We'll clamp invalid days (e.g., Feb 29) by using last valid day of month via simple fallback to day 28
-    // but since we only use min with maturity, we can try direct construct and on error, use as_of end-of-month heuristic.
+/// Compute a date N years ahead of `as_of`, with leap-year fallback.
+///
+/// For Feb 29 valuations in non-leap target years, falls back to Feb 28.
+/// Returns an error if the target date cannot be constructed at all.
+fn years_ahead(as_of: Date, years: i32) -> finstack_core::Result<Date> {
     match Date::from_calendar_date(as_of.year() + years, as_of.month(), as_of.day()) {
-        Ok(d) => d,
+        Ok(d) => Ok(d),
         Err(_) => {
-            // Fallback to 28th of same month
-            let day = 28;
-            Date::from_calendar_date(as_of.year() + years, as_of.month(), day).unwrap_or(as_of)
+            // Feb 29 → Feb 28 fallback for leap year → non-leap year transitions
+            Date::from_calendar_date(as_of.year() + years, as_of.month(), 28)
+                .map_err(|_| finstack_core::InputError::InvalidDateRange.into())
         }
     }
 }
@@ -33,14 +34,14 @@ macro_rules! define_ytn {
                 let loan: &TermLoan = context.instrument_as()?;
                 let as_of = context.as_of;
 
-                let target = years_ahead(as_of, $years);
+                let target = years_ahead(as_of, $years)?;
                 let exercise_date = if target < loan.maturity {
                     target
                 } else {
                     loan.maturity
                 };
                 if exercise_date <= as_of {
-                    return Ok(0.0);
+                    return Err(finstack_core::InputError::InvalidDateRange.into());
                 }
 
                 solve_irr_to_date(

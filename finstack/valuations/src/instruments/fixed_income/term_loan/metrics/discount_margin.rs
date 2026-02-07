@@ -22,7 +22,10 @@ use crate::instruments::TermLoan;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::math::solver::{BrentSolver, Solver};
 
-/// Discount margin calculator for floating rate term loans
+/// Discount margin calculator for floating rate term loans.
+///
+/// Returns an error if called on a fixed-rate loan (DM is only defined for
+/// floating-rate instruments).
 pub struct DiscountMarginCalculator;
 
 impl DiscountMarginCalculator {
@@ -30,6 +33,10 @@ impl DiscountMarginCalculator {
     ///
     /// Clones the loan, adds `dm_bp` to the floating spread, and re-prices using
     /// the full cashflow engine and pricer.
+    ///
+    /// # Errors
+    ///
+    /// Returns `InputError::Invalid` if called on a fixed-rate loan.
     fn pv_given_dm(
         loan: &TermLoan,
         curves: &finstack_core::market_data::context::MarketContext,
@@ -43,13 +50,16 @@ impl DiscountMarginCalculator {
 
         match &mut loan_with_dm.rate {
             RateSpec::Floating(spec) => {
-                // Add DM (in bp) to base spread
+                // Add DM (in bp) to base spread.
+                // Propagate conversion error to surface solver divergence (NaN/Inf).
                 use rust_decimal::Decimal;
-                spec.spread_bp += Decimal::try_from(dm_bp).unwrap_or(Decimal::ZERO);
+                let dm_decimal =
+                    Decimal::try_from(dm_bp).map_err(|_| finstack_core::InputError::Invalid)?;
+                spec.spread_bp += dm_decimal;
             }
             RateSpec::Fixed { .. } => {
-                // Should not happen (caller checks), but return zero if called on fixed rate
-                return Ok(0.0);
+                // DM is not defined for fixed-rate loans
+                return Err(finstack_core::InputError::Invalid.into());
             }
         }
 
@@ -69,11 +79,12 @@ impl MetricCalculator for DiscountMarginCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let loan: &TermLoan = context.instrument_as()?;
 
-        // If not floating, DM = 0.0
+        // DM is only defined for floating-rate loans; fixed-rate instruments
+        // should not request this metric.
         if let crate::instruments::fixed_income::term_loan::types::RateSpec::Fixed { .. } =
             loan.rate
         {
-            return Ok(0.0);
+            return Err(finstack_core::InputError::Invalid.into());
         }
 
         // Target price: quoted_clean_price% of par if set, else base PV
