@@ -350,7 +350,7 @@ impl CreditScorecardExtension {
 
     /// Check if rating meets minimum requirement.
     ///
-    /// Compares ratings using the configured rating scale.
+    /// Compares ratings using the configured rating scale with exact matching.
     /// Returns true if the rating is equal to or better than the minimum.
     fn meets_minimum_rating(&self, rating: &str, min_rating: &str) -> bool {
         let scale = self
@@ -359,12 +359,10 @@ impl CreditScorecardExtension {
             .map(|c| get_rating_scale(&c.rating_scale))
             .unwrap_or_else(get_sp_scale);
 
-        // Find positions in the rating scale (lower index = better rating)
-        let rating_pos = scale.ratings.iter().position(|l| rating.contains(&l.name));
-        let min_pos = scale
-            .ratings
-            .iter()
-            .position(|l| min_rating.contains(&l.name));
+        // Find positions in the rating scale (lower index = better rating).
+        // Use exact string matching to avoid false matches (e.g., "AA" matching "A").
+        let rating_pos = scale.ratings.iter().position(|l| l.name == rating);
+        let min_pos = scale.ratings.iter().position(|l| l.name == min_rating);
 
         match (rating_pos, min_pos) {
             (Some(r), Some(m)) => r <= m, // Lower index = better rating

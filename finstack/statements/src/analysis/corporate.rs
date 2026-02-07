@@ -130,6 +130,19 @@ pub fn evaluate_dcf_with_trace(
         )));
     }
 
+    // Validate Gordon Growth constraint: terminal growth rate must be < WACC.
+    // If g >= WACC, the terminal value formula FCF*(1+g)/(WACC-g) produces
+    // a negative or infinite result, invalidating the entire DCF.
+    if let TerminalValueSpec::GordonGrowth { growth_rate } = &terminal_value {
+        if *growth_rate >= wacc {
+            return Err(crate::error::Error::Eval(format!(
+                "Gordon Growth terminal value requires growth_rate ({:.4}) < WACC ({:.4}). \
+                 A growth rate >= WACC produces an infinite terminal value.",
+                growth_rate, wacc
+            )));
+        }
+    }
+
     // Determine net debt
     let net_debt = if let Some(override_val) = net_debt_override {
         override_val
@@ -287,8 +300,10 @@ pub fn evaluate_dcf_with_trace(
 }
 
 /// Extract currency from the model (assumes uniform currency).
+///
+/// Checks model metadata for a `"currency"` key. Falls back to USD with a
+/// warning log when no currency is specified, since many models are USD-based.
 fn extract_currency_from_model(model: &FinancialModelSpec) -> Result<Currency> {
-    // Try to find currency from metadata or default to USD
     if let Some(currency_meta) = model.meta.get("currency") {
         if let Some(currency_str) = currency_meta.as_str() {
             return currency_str.parse::<Currency>().map_err(|_| {
@@ -297,7 +312,12 @@ fn extract_currency_from_model(model: &FinancialModelSpec) -> Result<Currency> {
         }
     }
 
-    // Default to USD if not specified
+    // Warn instead of silently defaulting — callers should set model.meta["currency"]
+    log::warn!(
+        "No 'currency' key in model metadata for '{}'; defaulting to USD. \
+         Set model.meta[\"currency\"] to avoid this warning.",
+        model.id
+    );
     Ok(Currency::USD)
 }
 
@@ -316,17 +336,27 @@ fn calculate_net_debt_from_model(
         .last()
         .ok_or_else(|| crate::error::Error::Eval("Model has no periods".into()))?;
 
-    // Try to find total debt
+    // Try to find total debt — warn if not found so users know the value is assumed
     let total_debt = results
         .get("total_debt", &last_period.id)
-        .or_else(|| results.get("debt", &last_period.id))
-        .unwrap_or(0.0);
+        .or_else(|| results.get("debt", &last_period.id));
 
-    // Try to find cash
     let cash = results
         .get("cash", &last_period.id)
-        .or_else(|| results.get("cash_and_equivalents", &last_period.id))
-        .unwrap_or(0.0);
+        .or_else(|| results.get("cash_and_equivalents", &last_period.id));
 
-    Ok(total_debt - cash)
+    if total_debt.is_none() {
+        log::warn!(
+            "Net debt: 'total_debt' / 'debt' node not found in model results; assuming 0.0. \
+             Add a 'total_debt' node or use net_debt_override for accurate equity value."
+        );
+    }
+    if cash.is_none() {
+        log::warn!(
+            "Net debt: 'cash' / 'cash_and_equivalents' node not found in model results; assuming 0.0. \
+             Add a 'cash' node or use net_debt_override for accurate equity value."
+        );
+    }
+
+    Ok(total_debt.unwrap_or(0.0) - cash.unwrap_or(0.0))
 }

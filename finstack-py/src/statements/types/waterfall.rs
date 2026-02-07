@@ -63,8 +63,8 @@ pub struct PyEcfSweepSpec {
 impl PyEcfSweepSpec {
     #[new]
     #[pyo3(
-        signature = (ebitda_node, sweep_percentage, *, taxes_node=None, capex_node=None, working_capital_node=None, target_instrument_id=None),
-        text_signature = "(ebitda_node, sweep_percentage, *, taxes_node=None, capex_node=None, working_capital_node=None, target_instrument_id=None)"
+        signature = (ebitda_node, sweep_percentage, *, taxes_node=None, capex_node=None, working_capital_node=None, cash_interest_node=None, target_instrument_id=None),
+        text_signature = "(ebitda_node, sweep_percentage, *, taxes_node=None, capex_node=None, working_capital_node=None, cash_interest_node=None, target_instrument_id=None)"
     )]
     fn new(
         ebitda_node: String,
@@ -72,6 +72,7 @@ impl PyEcfSweepSpec {
         taxes_node: Option<String>,
         capex_node: Option<String>,
         working_capital_node: Option<String>,
+        cash_interest_node: Option<String>,
         target_instrument_id: Option<String>,
     ) -> Self {
         Self {
@@ -80,6 +81,7 @@ impl PyEcfSweepSpec {
                 taxes_node,
                 capex_node,
                 working_capital_node,
+                cash_interest_node,
                 sweep_percentage,
                 target_instrument_id,
             },
@@ -112,6 +114,11 @@ impl PyEcfSweepSpec {
     }
 
     #[getter]
+    fn cash_interest_node(&self) -> Option<String> {
+        self.inner.cash_interest_node.clone()
+    }
+
+    #[getter]
     fn target_instrument_id(&self) -> Option<String> {
         self.inner.target_instrument_id.clone()
     }
@@ -136,19 +143,21 @@ pub struct PyPikToggleSpec {
 impl PyPikToggleSpec {
     #[new]
     #[pyo3(
-        signature = (liquidity_metric, threshold, *, target_instrument_ids=None),
-        text_signature = "(liquidity_metric, threshold, *, target_instrument_ids=None)"
+        signature = (liquidity_metric, threshold, *, target_instrument_ids=None, min_periods_in_pik=0),
+        text_signature = "(liquidity_metric, threshold, *, target_instrument_ids=None, min_periods_in_pik=0)"
     )]
     fn new(
         liquidity_metric: String,
         threshold: f64,
         target_instrument_ids: Option<Vec<String>>,
+        min_periods_in_pik: usize,
     ) -> Self {
         Self {
             inner: PikToggleSpec {
                 liquidity_metric,
                 threshold,
                 target_instrument_ids,
+                min_periods_in_pik,
             },
         }
     }
@@ -166,6 +175,11 @@ impl PyPikToggleSpec {
     #[getter]
     fn target_instrument_ids(&self) -> Option<Vec<String>> {
         self.inner.target_instrument_ids.clone()
+    }
+
+    #[getter]
+    fn min_periods_in_pik(&self) -> usize {
+        self.inner.min_periods_in_pik
     }
 
     fn __repr__(&self) -> String {

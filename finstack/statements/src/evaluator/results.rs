@@ -244,4 +244,16 @@ pub enum EvalWarning {
         /// Period in which the warning occurred.
         period: PeriodId,
     },
+    /// Non-finite value (NaN, Inf, -Inf) detected when storing a node result.
+    ///
+    /// This warning is emitted by the finiteness validation pipeline so that
+    /// consumers can identify which node/period introduced bad values.
+    NonFiniteValue {
+        /// Identifier of the node that produced the non-finite value.
+        node_id: String,
+        /// Period in which the warning occurred.
+        period: PeriodId,
+        /// The actual non-finite value (NaN, Inf, or -Inf).
+        value: f64,
+    },
 }

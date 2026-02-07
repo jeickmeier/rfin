@@ -213,17 +213,19 @@ impl CorkscrewExtension {
                 }
             }
 
-            // Validate the roll-forward
+            // Validate the roll-forward using relative tolerance.
+            // Relative tolerance avoids being too strict for large balances or
+            // too loose for small ones: threshold = tol * (1 + |expected|).
             let error = (curr_balance - expected_balance).abs();
             validation.max_error = validation.max_error.max(error);
             validation.periods_validated += 1;
 
-            if error
-                > self
-                    .config
-                    .as_ref()
-                    .map_or(DEFAULT_CORKSCREW_TOLERANCE, |c| c.tolerance)
-            {
+            let tol = self
+                .config
+                .as_ref()
+                .map_or(DEFAULT_CORKSCREW_TOLERANCE, |c| c.tolerance);
+            let relative_threshold = tol * (1.0 + expected_balance.abs());
+            if error > relative_threshold {
                 validation.is_valid = false;
             }
         }
@@ -231,27 +233,36 @@ impl CorkscrewExtension {
         Ok(validation)
     }
 
-    /// Check balance sheet articulation (A = L + E).
+    /// Check balance sheet articulation (A = L + E) using actual balances.
+    ///
+    /// Sums the most recent period's balance for each configured account,
+    /// grouped by account type, and checks that Assets = Liabilities + Equity.
+    /// Uses relative tolerance to handle large balances correctly.
     fn check_articulation(
         &self,
-        validations: &[AccountValidation],
+        context: &ExtensionContext,
         tolerance: f64,
     ) -> Option<ArticulationResult> {
+        let config = self.config.as_ref()?;
+
+        let last_period = context.model.periods.last()?;
+        let period_id = &last_period.id;
+
         let mut assets = 0.0;
         let mut liabilities = 0.0;
         let mut equity = 0.0;
         let mut has_balance_sheet = false;
 
-        for validation in validations {
-            if validation.account_type.contains("Asset") {
-                assets += 1.0; // In real impl, would sum actual balances
-                has_balance_sheet = true;
-            } else if validation.account_type.contains("Liability") {
-                liabilities += 1.0;
-                has_balance_sheet = true;
-            } else if validation.account_type.contains("Equity") {
-                equity += 1.0;
-                has_balance_sheet = true;
+        for account in &config.accounts {
+            if let Some(node_values) = context.results.nodes.get(&account.node_id) {
+                if let Some(balance) = node_values.get(period_id) {
+                    has_balance_sheet = true;
+                    match account.account_type {
+                        AccountType::Asset => assets += balance,
+                        AccountType::Liability => liabilities += balance,
+                        AccountType::Equity => equity += balance,
+                    }
+                }
             }
         }
 
@@ -259,11 +270,14 @@ impl CorkscrewExtension {
             return None;
         }
 
-        let imbalance: f64 = assets - (liabilities + equity);
+        let imbalance = assets - (liabilities + equity);
+        // Use relative tolerance: tol * (1 + max(|A|, |L+E|)) to handle large balances
+        let scale = 1.0 + assets.abs().max((liabilities + equity).abs());
+        let is_balanced = imbalance.abs() <= tolerance * scale;
 
         Some(ArticulationResult {
             total_imbalance: imbalance.abs(),
-            is_balanced: imbalance.abs() <= tolerance,
+            is_balanced,
         })
     }
 }
@@ -323,8 +337,8 @@ impl Extension for CorkscrewExtension {
             }
         }
 
-        // Check for balance sheet articulation
-        if let Some(articulation_result) = self.check_articulation(&validations, config.tolerance) {
+        // Check for balance sheet articulation using actual balances
+        if let Some(articulation_result) = self.check_articulation(context, config.tolerance) {
             if !articulation_result.is_balanced {
                 let msg = format!(
                     "Balance sheet not articulated. Total imbalance: {:.2}",

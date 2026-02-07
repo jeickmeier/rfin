@@ -671,7 +671,23 @@ fn evaluate_function(
 
             match func {
                 Function::CumSum => Ok(neumaier_sum(values.iter().copied())),
-                Function::CumProd => Ok(values.iter().product()),
+                Function::CumProd => {
+                    // Use iterative multiplication with overflow detection.
+                    // For long series with values > 1, naïve product can overflow
+                    // to Inf. We detect non-finite intermediate results early.
+                    let mut product = 1.0_f64;
+                    for &v in &values {
+                        product *= v;
+                        if !product.is_finite() {
+                            log::warn!(
+                                "cumprod() overflow detected in period {:?}",
+                                context.period_id
+                            );
+                            return Ok(f64::NAN);
+                        }
+                    }
+                    Ok(product)
+                }
                 Function::CumMin => Ok(values.iter().fold(f64::INFINITY, |a, b| a.min(*b))),
                 Function::CumMax => Ok(values.iter().fold(f64::NEG_INFINITY, |a, b| a.max(*b))),
                 _ => Err(eval_error(
@@ -1153,7 +1169,17 @@ fn evaluate_function(
                 Ok(rate * periods_per_year)
             } else {
                 // Compound annualization: (1 + rate)^periods - 1
-                Ok((1.0 + rate).powf(periods_per_year) - 1.0)
+                let result = (1.0 + rate).powf(periods_per_year) - 1.0;
+                if result.is_finite() {
+                    Ok(result)
+                } else {
+                    log::warn!(
+                        "annualize_rate() overflow: (1 + {})^{} is not finite",
+                        rate,
+                        periods_per_year
+                    );
+                    Ok(f64::NAN)
+                }
             }
         }
 

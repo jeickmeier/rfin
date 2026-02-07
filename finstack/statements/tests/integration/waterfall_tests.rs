@@ -74,6 +74,7 @@ fn test_ecf_sweep_basic() {
                 taxes_node: Some("taxes".to_string()),
                 capex_node: Some("capex".to_string()),
                 working_capital_node: None,
+                cash_interest_node: None,
                 sweep_percentage: 0.5,      // 50% sweep
                 target_instrument_id: None, // Apply to all
             }),

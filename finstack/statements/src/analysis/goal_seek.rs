@@ -305,7 +305,11 @@ where
             ));
         }
 
-        if fmid.abs() < TOLERANCE || (hi - lo).abs() < TOLERANCE {
+        // Use combined absolute + relative tolerance so that:
+        // - For small values, absolute tolerance governs
+        // - For large values (e.g., billions), relative tolerance governs
+        let relative_tol = TOLERANCE * (1.0 + hi.abs().max(lo.abs()));
+        if fmid.abs() < TOLERANCE || (hi - lo).abs() < relative_tol {
             return Ok(mid);
         }
 

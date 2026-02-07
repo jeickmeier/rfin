@@ -102,6 +102,9 @@ impl EvaluationContext {
     /// originate from forecasts or capital-structure flows so that precedence
     /// resolution can make informed decisions later.
     ///
+    /// Non-finite values (`NaN`, `Inf`, `-Inf`) are accepted but emit a warning
+    /// so downstream consumers can detect propagation of bad values.
+    ///
     /// # Arguments
     /// * `node_id` - Identifier of the node being updated
     /// * `value` - Numeric result to store for the current period
@@ -110,6 +113,19 @@ impl EvaluationContext {
             .node_to_column
             .get(node_id)
             .ok_or_else(|| Error::node_not_found(node_id))?;
+
+        // Finiteness validation: detect NaN / Inf early and emit a warning.
+        // We still store the value so that downstream formulas can decide how
+        // to handle it (e.g., coalesce, if-then-else guards), but the warning
+        // makes it visible in results metadata.
+        if !value.is_finite() {
+            self.warnings.push(EvalWarning::NonFiniteValue {
+                node_id: node_id.to_string(),
+                period: self.period_id,
+                value,
+            });
+        }
+
         self.current_values[*idx] = Some(value);
         Ok(())
     }

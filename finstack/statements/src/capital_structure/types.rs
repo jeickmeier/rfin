@@ -530,6 +530,17 @@ pub enum PaymentPriority {
 /// Excess Cash Flow (ECF) sweep specification.
 ///
 /// Defines how to calculate ECF and what percentage to sweep to pay down debt.
+///
+/// # ECF Calculation
+///
+/// The standard ECF formula deducts cash interest from EBITDA:
+///
+/// ```text
+/// ECF = EBITDA - Taxes - CapEx - ΔWC - Cash Interest Paid
+/// ```
+///
+/// Set `cash_interest_node` to include cash interest in the deduction (recommended
+/// for LBO models). If omitted, cash interest is not deducted (legacy behavior).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EcfSweepSpec {
@@ -548,6 +559,13 @@ pub struct EcfSweepSpec {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub working_capital_node: Option<String>,
 
+    /// Formula or node reference for cash interest paid (e.g., "cs.interest_expense_cash.total").
+    ///
+    /// Per S&P LCD / standard LPA definitions, ECF should deduct cash interest paid.
+    /// If omitted, cash interest is NOT deducted (legacy behavior).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cash_interest_node: Option<String>,
+
     /// Sweep percentage (e.g., 0.5 for 50%, 0.75 for 75%)
     pub sweep_percentage: f64,
 
@@ -559,6 +577,12 @@ pub struct EcfSweepSpec {
 /// PIK toggle specification.
 ///
 /// Defines conditions for switching between cash and PIK interest modes.
+///
+/// # Hysteresis
+///
+/// Set `min_periods_in_pik` to prevent oscillation when the liquidity metric
+/// hovers near the threshold. Once PIK is triggered, it stays active for at
+/// least that many periods before it can switch back.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PikToggleSpec {
@@ -571,6 +595,12 @@ pub struct PikToggleSpec {
     /// Target instrument IDs (if None, applies to all instruments with PIK capability)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_instrument_ids: Option<Vec<String>>,
+
+    /// Minimum number of periods PIK must stay active once triggered (hysteresis).
+    /// Prevents oscillation when the metric hovers near the threshold.
+    /// Default: 0 (no hysteresis, PIK can toggle every period).
+    #[serde(default)]
+    pub min_periods_in_pik: usize,
 }
 
 /// Capital structure state tracking for dynamic evaluation.
@@ -595,6 +625,10 @@ pub struct CapitalStructureState {
 
     /// Current PIK mode by instrument (true = PIK enabled, false = cash)
     pub pik_mode: IndexMap<String, bool>,
+
+    /// Number of consecutive periods each instrument has been in PIK mode.
+    /// Used for hysteresis: PIK stays active until `min_periods_in_pik` is met.
+    pub pik_periods_active: IndexMap<String, usize>,
 }
 
 impl CapitalStructureState {

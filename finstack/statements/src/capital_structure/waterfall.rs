@@ -26,9 +26,12 @@
 //! ## ECF Calculation
 //!
 //! ```text
-//! ECF = EBITDA - Taxes - CapEx - Working_Capital_Change
+//! ECF = EBITDA - Taxes - CapEx - Working_Capital_Change - Cash_Interest
 //! Sweep = max(0, ECF × sweep_percentage)
 //! ```
+//!
+//! The `cash_interest_node` is optional. Per S&P LCD / standard LPA definitions,
+//! ECF should include a cash interest deduction. Set it to include this deduction.
 //!
 //! The sweep is floored at zero (cannot sweep negative cash flow) and then
 //! applied as additional principal prepayment to the target instrument.
@@ -101,6 +104,15 @@ pub fn execute_waterfall(
     };
 
     // Step 3: Allocate cash according to priority stack
+    //
+    // Execution order per standard loan documentation:
+    //   1. Determine sweep amount (already computed above)
+    //   2. Apply sweep as additional principal prepayment
+    //   3. Update balance after sweep + scheduled amortization
+    //   4. Apply PIK mode — PIK accrues on post-sweep balance
+    //
+    // This ensures PIK interest accrues on the reduced (post-sweep) balance,
+    // matching standard LPA (Loan and Purchase Agreement) conventions.
     for (instrument_id, mut breakdown) in contractual_flows.clone() {
         let currency = breakdown.interest_expense_cash.currency();
 
@@ -114,18 +126,42 @@ pub fn execute_waterfall(
                 .map(|set| set.contains(&instrument_id))
                 .unwrap_or(true);
             if should_apply {
-                state.pik_mode.insert(instrument_id.clone(), enable_pik);
+                // Apply hysteresis: once PIK is enabled, it must stay active for
+                // `min_periods_in_pik` periods before it can switch off.
+                let min_periods = waterfall_spec
+                    .pik_toggle
+                    .as_ref()
+                    .map(|spec| spec.min_periods_in_pik)
+                    .unwrap_or(0);
+                let periods_active = state
+                    .pik_periods_active
+                    .get(&instrument_id)
+                    .copied()
+                    .unwrap_or(0);
+                let currently_pik = state.pik_mode.get(&instrument_id).copied().unwrap_or(false);
+
+                let effective_pik = if currently_pik && !enable_pik && periods_active < min_periods
+                {
+                    // Hysteresis: keep PIK active until minimum period count is met
+                    true
+                } else {
+                    enable_pik
+                };
+
+                state.pik_mode.insert(instrument_id.clone(), effective_pik);
+
+                // Track consecutive PIK periods
+                if effective_pik {
+                    state
+                        .pik_periods_active
+                        .insert(instrument_id.clone(), periods_active + 1);
+                } else {
+                    state.pik_periods_active.insert(instrument_id.clone(), 0);
+                }
             }
         }
 
-        // If PIK mode is enabled, move cash interest into PIK bucket
-        let is_pik_enabled = state.pik_mode.get(&instrument_id).copied().unwrap_or(false);
-        if is_pik_enabled {
-            breakdown.interest_expense_pik += breakdown.interest_expense_cash;
-            breakdown.interest_expense_cash = Money::new(0.0, currency);
-        }
-
-        // Apply sweep if this is the target instrument
+        // Step 3a: Apply sweep BEFORE PIK conversion (sweep reduces balance first)
         let sweep_for_instrument = if let Some(ecf_spec) = &waterfall_spec.ecf_sweep {
             if ecf_spec
                 .target_instrument_id
@@ -152,10 +188,18 @@ pub fn execute_waterfall(
             .principal_payment
             .checked_add(sweep_for_instrument)?;
 
-        // Update closing balance
-        let closing_balance = opening_balance
-            .checked_sub(breakdown.principal_payment)?
-            .checked_add(breakdown.interest_expense_pik)?; // PIK increases balance
+        // Step 3b: Calculate post-sweep balance (before PIK accrual)
+        let post_sweep_balance = opening_balance.checked_sub(breakdown.principal_payment)?;
+
+        // Step 3c: Apply PIK mode — PIK accrues on post-sweep balance
+        let is_pik_enabled = state.pik_mode.get(&instrument_id).copied().unwrap_or(false);
+        if is_pik_enabled {
+            breakdown.interest_expense_pik += breakdown.interest_expense_cash;
+            breakdown.interest_expense_cash = Money::new(0.0, currency);
+        }
+
+        // Step 3d: Closing balance = post-sweep + PIK accrual
+        let closing_balance = post_sweep_balance.checked_add(breakdown.interest_expense_pik)?;
         state.set_closing_balance(instrument_id.clone(), closing_balance);
         breakdown.debt_balance = closing_balance;
 
@@ -222,8 +266,17 @@ fn calculate_ecf_sweep(
         .transpose()?
         .unwrap_or(0.0);
 
-    // Calculate ECF: EBITDA - Taxes - Capex - Working Capital Change
-    let ecf = ebitda - taxes - capex - wc_change;
+    // Get cash interest paid (if specified)
+    // Per S&P LCD / standard LPA definitions, ECF should deduct cash interest paid.
+    let cash_interest = ecf_spec
+        .cash_interest_node
+        .as_ref()
+        .map(|expr| eval_value_or_formula(context, expr))
+        .transpose()?
+        .unwrap_or(0.0);
+
+    // Calculate ECF: EBITDA - Taxes - Capex - Working Capital Change - Cash Interest
+    let ecf = ebitda - taxes - capex - wc_change - cash_interest;
 
     // Apply sweep percentage
     let sweep_amount = ecf * ecf_spec.sweep_percentage;
@@ -348,6 +401,7 @@ mod tests {
                 taxes_node: Some("taxes".into()),
                 capex_node: Some("capex".into()),
                 working_capital_node: None,
+                cash_interest_node: None,
                 sweep_percentage: 0.5, // 50% of ECF
                 target_instrument_id: Some("TL-1".into()),
             }),
@@ -413,6 +467,7 @@ mod tests {
                 liquidity_metric: "liquidity".into(),
                 threshold: 100.0,
                 target_instrument_ids: Some(vec!["TL-PIK".into()]),
+                min_periods_in_pik: 0,
             }),
         };
 

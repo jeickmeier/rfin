@@ -20,6 +20,24 @@ pub fn compile(ast: &StmtExpr) -> Result<Expr> {
             component,
             instrument_or_total,
         } => {
+            // Validate component name at compile time to catch typos early
+            const VALID_CS_COMPONENTS: &[&str] = &[
+                "interest_expense",
+                "interest_expense_cash",
+                "interest_expense_pik",
+                "principal_payment",
+                "debt_balance",
+                "fees",
+                "accrued_interest",
+            ];
+            if !VALID_CS_COMPONENTS.contains(&component.as_str()) {
+                return Err(crate::error::Error::eval(format!(
+                    "Unknown capital structure component: '{}'. Valid components: {}",
+                    component,
+                    VALID_CS_COMPONENTS.join(", ")
+                )));
+            }
+
             let encoded = format!("__cs__{}__{}", component, instrument_or_total);
             Ok(Expr::column(encoded))
         }

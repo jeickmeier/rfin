@@ -96,16 +96,24 @@ pub fn timeseries_forecast(
                 )
             })?;
 
-            // Validate parameter ranges
-            if !(0.0..=1.0).contains(&alpha) {
+            // Validate parameter ranges — use open interval (0, 1).
+            // alpha=0 means the level never updates (forecast ignores data).
+            // beta=0 freezes the trend at the initial value.
+            // alpha=1 or beta=1 degenerates to naïve methods.
+            // See Hyndman & Athanasopoulos, "Forecasting: Principles and Practice", §8.1.
+            if alpha <= 0.0 || alpha >= 1.0 {
                 return Err(Error::forecast(format!(
-                    "alpha must be in (0, 1), got {}. Typical values: 0.05 to 0.3",
+                    "alpha must be in the open interval (0, 1), got {}. \
+                     alpha=0 means the level never updates; alpha=1 uses only the latest observation. \
+                     Typical values: 0.05 to 0.3",
                     alpha
                 )));
             }
-            if !(0.0..=1.0).contains(&beta) {
+            if beta <= 0.0 || beta >= 1.0 {
                 return Err(Error::forecast(format!(
-                    "beta must be in (0, 1), got {}. Typical values: 0.05 to 0.2",
+                    "beta must be in the open interval (0, 1), got {}. \
+                     beta=0 freezes the trend at its initial value; beta=1 uses only the latest trend. \
+                     Typical values: 0.05 to 0.2",
                     beta
                 )));
             }
@@ -181,15 +189,20 @@ pub fn timeseries_forecast(
     Ok(result)
 }
 
-/// Calculate linear trend using least squares regression.
+/// Calculate linear trend using numerically stable least squares regression.
 ///
 /// # Numerical Stability
 ///
-/// The standard least-squares formula can suffer from catastrophic cancellation
-/// when the denominator `n*sum_xx - sum_x²` is close to zero (highly correlated
-/// x values or insufficient variation). This function guards against this by
-/// checking for a near-zero denominator and returning a flat trend (mean value)
-/// in degenerate cases.
+/// Uses the mean-centered formulation to avoid catastrophic cancellation:
+///
+/// ```text
+/// slope = Σ((x_i - x̄)(y_i - ȳ)) / Σ((x_i - x̄)²)
+/// intercept = ȳ - slope × x̄
+/// ```
+///
+/// This is equivalent to the standard formula but avoids subtracting two large
+/// nearly-equal numbers, which causes precision loss for large `n` or correlated
+/// data. See Welford's algorithm / Knuth TAOCP Vol. 2, Section 4.2.2.
 ///
 /// # Returns
 ///
@@ -197,31 +210,32 @@ pub fn timeseries_forecast(
 /// For degenerate cases (constant x or insufficient data), returns `(0.0, mean_y)`.
 fn calculate_linear_trend(data: &[f64]) -> (f64, f64) {
     let n = data.len() as f64;
-    let mut sum_x = 0.0;
-    let mut sum_y = 0.0;
-    let mut sum_xx = 0.0;
-    let mut sum_xy = 0.0;
+    if n == 0.0 {
+        return (0.0, 0.0);
+    }
+
+    // Mean of x values (1-indexed: 1, 2, ..., n)
+    let x_bar = (n + 1.0) / 2.0;
+    let y_bar = data.iter().sum::<f64>() / n;
+
+    // Compute slope using mean-centered formula (numerically stable)
+    let mut num = 0.0; // Σ (x_i - x̄)(y_i - ȳ)
+    let mut den = 0.0; // Σ (x_i - x̄)²
 
     for (i, &y) in data.iter().enumerate() {
-        let x = (i + 1) as f64;
-        sum_x += x;
-        sum_y += y;
-        sum_xx += x * x;
-        sum_xy += x * y;
+        let dx = (i + 1) as f64 - x_bar;
+        let dy = y - y_bar;
+        num += dx * dy;
+        den += dx * dx;
     }
 
-    let denominator = n * sum_xx - sum_x * sum_x;
-
-    // Guard against degenerate cases (near-zero denominator causes numerical instability)
-    if denominator.abs() < EPSILON {
-        // Degenerate case: constant x values or insufficient variation
-        // Return flat trend at mean value
-        let mean_y = if n > 0.0 { sum_y / n } else { 0.0 };
-        return (0.0, mean_y);
+    // Guard against degenerate cases (near-zero denominator)
+    if den.abs() < EPSILON {
+        return (0.0, y_bar);
     }
 
-    let slope = (n * sum_xy - sum_x * sum_y) / denominator;
-    let intercept = (sum_y - slope * sum_x) / n;
+    let slope = num / den;
+    let intercept = y_bar - slope * x_bar;
 
     (slope, intercept)
 }
@@ -349,18 +363,21 @@ fn seasonal_forecast_with_decomposition(
         let value = match mode {
             SeasonalMode::Additive => trend_value + seasonal_value,
             SeasonalMode::Multiplicative => {
-                // For multiplicative, seasonal is a factor relative to trend level.
-                // Guard against near-zero trend to avoid numerical instability.
-                let seasonal_factor = if trend[0].abs() < EPSILON {
+                // For multiplicative decomposition, the seasonal component should be
+                // relative to the period-specific trend, not trend[0].
+                // We use the last available trend value as the reference level,
+                // matching classical seasonal decomposition (X-11, STL).
+                let ref_trend = last_trend;
+                let seasonal_factor = if ref_trend.abs() < EPSILON {
                     log::warn!(
-                        "Near-zero trend ({:.2e}) in multiplicative seasonal decomposition at period {:?}; \
+                        "Near-zero reference trend ({:.2e}) in multiplicative seasonal decomposition at period {:?}; \
                          using seasonal_factor=1.0 to avoid division instability",
-                        trend[0],
+                        ref_trend,
                         period_id
                     );
                     1.0
                 } else {
-                    1.0 + seasonal_value / trend[0]
+                    1.0 + seasonal_value / ref_trend
                 };
                 trend_value * seasonal_factor
             }
