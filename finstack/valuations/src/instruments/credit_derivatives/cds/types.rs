@@ -771,6 +771,10 @@ impl crate::instruments::common_impl::traits::Instrument for CreditDefaultSwap {
         self
     }
 
+    fn as_marginable(&self) -> Option<&dyn crate::margin::traits::Marginable> {
+        Some(self)
+    }
+
     fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
         &self.attributes
     }

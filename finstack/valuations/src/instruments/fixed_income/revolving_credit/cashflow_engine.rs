@@ -29,6 +29,29 @@ use finstack_core::cashflow::{CFKind, CashFlow};
 
 use super::types::{BaseRateSpec, DrawRepaySpec, RevolvingCredit};
 
+/// Canonical sort rank for cashflow kinds within the same date.
+///
+/// Interest/reset flows first, then fees (commitment → facility → usage),
+/// then structural flows (PIK, amortization), and finally notional exchanges last.
+/// This ordering ensures deterministic and stochastic engines produce identical
+/// cashflow sequences for the same dates.
+fn cashflow_kind_rank(kind: &CFKind) -> usize {
+    match kind {
+        CFKind::Fixed => 0,
+        CFKind::Stub => 1,
+        CFKind::FloatReset => 2,
+        CFKind::CommitmentFee => 3,
+        CFKind::FacilityFee => 4,
+        CFKind::UsageFee => 5,
+        CFKind::Fee => 6,
+        CFKind::PIK => 7,
+        CFKind::Amortization => 8,
+        CFKind::Notional => 9,
+        // Any new/unclassified CFKind goes last
+        _ => 100,
+    }
+}
+
 /// Path data from 3-factor Monte Carlo simulation.
 ///
 /// Contains the full trajectory of utilization, interest rates, and credit spreads
@@ -192,13 +215,16 @@ impl<'a> CashflowEngine<'a> {
             (self.payment_dates.len().saturating_sub(1)) * 4 + draw_repay_events.len() + 2,
         );
 
-        // Resolve forward curve once if floating rate
+        // Resolve forward curve once if floating rate (required for rate projection)
         let fwd_curve = match &self.facility.base_rate_spec {
             BaseRateSpec::Floating(spec) => {
                 if let Some(market) = self.market {
-                    market.get_forward(&spec.index_id).ok()
+                    Some(market.get_forward(&spec.index_id)?)
                 } else {
-                    None
+                    return Err(finstack_core::Error::Validation(format!(
+                        "Market context required for floating rate facility (index: {})",
+                        spec.index_id
+                    )));
                 }
             }
             _ => None,
@@ -307,21 +333,21 @@ impl<'a> CashflowEngine<'a> {
                         // Convert Decimal spread to f64 for rate calculations
                         let spread_bp_f64 = spec.spread_bp.to_f64().unwrap_or(0.0);
                         let floor_bp_f64 = spec.floor_bp.and_then(|d| d.to_f64());
-                        let mut coupon_rate = spread_bp_f64 * 1e-4;
-                        if let Some(fwd) = fwd_curve.as_ref() {
-                            if let Some(reset_d) = sub_reset_date {
-                                if let Ok(rate) = super::utils::project_floating_rate_with_curve(
-                                    reset_d,
-                                    &spec.reset_freq,
-                                    spread_bp_f64,
-                                    floor_bp_f64,
-                                    fwd.as_ref(),
-                                    &self.facility.attributes,
-                                ) {
-                                    coupon_rate = rate;
-                                }
-                            }
-                        }
+                        // Forward curve is guaranteed to be present (validated above)
+                        let fwd = fwd_curve.as_ref().ok_or_else(|| {
+                            finstack_core::Error::Validation(
+                                "forward curve required for floating rate".into(),
+                            )
+                        })?;
+                        let reset_d = sub_reset_date.unwrap_or(period_start);
+                        let coupon_rate = super::utils::project_floating_rate_with_curve(
+                            reset_d,
+                            &spec.reset_freq,
+                            spread_bp_f64,
+                            floor_bp_f64,
+                            fwd.as_ref(),
+                            &self.facility.attributes,
+                        )?;
                         let interest = current_balance * (coupon_rate * dt);
                         total_interest = total_interest.checked_add(interest)?;
                         coupon_rate
@@ -487,27 +513,11 @@ impl<'a> CashflowEngine<'a> {
             });
         }
 
-        // Sort flows
+        // Sort flows — canonical order shared with stochastic engine
         flows.sort_by(|a, b| {
-            a.date.cmp(&b.date).then_with(|| {
-                fn kind_rank(kind: &CFKind) -> usize {
-                    match kind {
-                        CFKind::Fixed => 0,
-                        CFKind::Stub => 1,
-                        CFKind::FloatReset => 2,
-                        CFKind::CommitmentFee => 3,
-                        CFKind::FacilityFee => 4,
-                        CFKind::UsageFee => 5,
-                        CFKind::Fee => 6,
-                        CFKind::PIK => 7,
-                        CFKind::Amortization => 8,
-                        CFKind::Notional => 9,
-                        // Any new/unclassified CFKind goes last
-                        _ => 100,
-                    }
-                }
-                kind_rank(&a.kind).cmp(&kind_rank(&b.kind))
-            })
+            a.date
+                .cmp(&b.date)
+                .then_with(|| cashflow_kind_rank(&a.kind).cmp(&cashflow_kind_rank(&b.kind)))
         });
 
         Ok(CashFlowSchedule {
@@ -578,12 +588,15 @@ impl<'a> CashflowEngine<'a> {
                 BaseRateSpec::Floating(spec) => {
                     // Convert Decimal spread to f64 for rate calculations
                     let spread_bp_f64 = spec.spread_bp.to_f64().unwrap_or(0.0);
-                    let mut rate = short_rate + (spread_bp_f64 * 1e-4);
+                    // Floor applies to the index rate (short_rate) BEFORE adding spread,
+                    // matching ISDA floating rate convention and the deterministic engine's
+                    // use of index_floor_bp in project_floating_rate.
+                    let mut index_rate = short_rate;
                     if let Some(floor) = spec.floor_bp {
                         let floor_f64 = floor.to_f64().unwrap_or(0.0);
-                        rate = rate.max(floor_f64 * 1e-4);
+                        index_rate = index_rate.max(floor_f64 * 1e-4);
                     }
-                    rate
+                    index_rate + (spread_bp_f64 * 1e-4)
                 }
             };
 
@@ -675,24 +688,11 @@ impl<'a> CashflowEngine<'a> {
             });
         }
 
-        // Sort flows
+        // Sort flows — canonical order matching deterministic engine
         flows.sort_by(|a, b| {
-            a.date.cmp(&b.date).then_with(|| {
-                let rank = |kind: &CFKind| match kind {
-                    CFKind::Fixed | CFKind::Stub | CFKind::FloatReset => 0,
-                    CFKind::CommitmentFee => 1,
-                    CFKind::FacilityFee => 2,
-                    CFKind::UsageFee => 3,
-                    CFKind::Fee => 4,
-                    CFKind::Amortization => 4,
-                    CFKind::PIK => 6,
-                    CFKind::Notional => 7,
-                    _ => 9,
-                };
-                let rank_a = rank(&a.kind);
-                let rank_b = rank(&b.kind);
-                rank_a.cmp(&rank_b)
-            })
+            a.date
+                .cmp(&b.date)
+                .then_with(|| cashflow_kind_rank(&a.kind).cmp(&cashflow_kind_rank(&b.kind)))
         });
 
         Ok(CashFlowSchedule {

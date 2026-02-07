@@ -550,33 +550,29 @@ fn refine_time_grid(times: &[f64]) -> RefinedGrid {
     }
 }
 
-/// Interpolate rate from knot points (linear interpolation).
+/// Interpolate rate from knot points (linear interpolation with binary search).
+///
+/// Uses `partition_point` for O(log n) interval lookup on sorted time grids,
+/// with flat extrapolation beyond boundaries.
 #[cfg(feature = "mc")]
 fn interpolate_rate(t: f64, times: &[f64], rates: &[f64]) -> f64 {
     if times.is_empty() {
         return 0.0;
     }
-    if times.len() == 1 {
+    if times.len() == 1 || t <= times[0] {
         return rates[0];
     }
-
-    // Find bracketing interval
-    if t <= times[0] {
-        return rates[0];
-    }
-    if t >= times[times.len() - 1] {
-        return rates[rates.len() - 1];
+    let n = times.len();
+    if t >= times[n - 1] {
+        return rates[n - 1];
     }
 
-    // Binary search for interval
-    for i in 0..(times.len() - 1) {
-        if t >= times[i] && t <= times[i + 1] {
-            let alpha = (t - times[i]) / (times[i + 1] - times[i]);
-            return rates[i] + alpha * (rates[i + 1] - rates[i]);
-        }
-    }
-
-    rates[rates.len() - 1]
+    // Binary search: find first index where times[idx] > t
+    let idx = times.partition_point(|&ti| ti <= t);
+    // idx is in [1, n-1] since t > times[0] and t < times[n-1]
+    let i = idx.saturating_sub(1);
+    let alpha = (t - times[i]) / (times[i + 1] - times[i]);
+    rates[i] + alpha * (rates[i + 1] - rates[i])
 }
 
 /// Stub for non-MC builds

@@ -55,17 +55,9 @@ fn validate_unknown_entity_fails() {
 
     let p = Position::new("P", "UNKNOWN", "D", Arc::new(dep), 1.0, PositionUnit::Units).unwrap();
 
-    let portfolio = Portfolio {
-        id: "P".to_string(),
-        name: None,
-        base_ccy: Currency::USD,
-        as_of,
-        entities: indexmap::IndexMap::new(),
-        positions: vec![p],
-        books: indexmap::IndexMap::new(),
-        tags: indexmap::IndexMap::new(),
-        meta: indexmap::IndexMap::new(),
-    };
+    let mut portfolio = Portfolio::new("P", Currency::USD, as_of);
+    portfolio.positions.push(p);
+    portfolio.rebuild_index();
 
     let err = portfolio.validate().unwrap_err();
     match err {

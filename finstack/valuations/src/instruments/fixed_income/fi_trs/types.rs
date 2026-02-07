@@ -294,6 +294,10 @@ impl crate::instruments::common_impl::traits::Instrument for FIIndexTotalReturnS
         Some(self)
     }
 
+    fn as_marginable(&self) -> Option<&dyn crate::margin::traits::Marginable> {
+        Some(self)
+    }
+
     fn expiry(&self) -> Option<finstack_core::dates::Date> {
         Some(self.schedule.end)
     }

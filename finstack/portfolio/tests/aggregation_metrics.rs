@@ -48,7 +48,8 @@ fn summable_vs_non_summable_metrics() {
     let market = market_with_usd();
     let config = FinstackConfig::default();
     let valuation = finstack_portfolio::value_portfolio(&portfolio, &market, &config).unwrap();
-    let metrics = finstack_portfolio::aggregate_metrics(&valuation).unwrap();
+    let metrics =
+        finstack_portfolio::aggregate_metrics(&valuation, Currency::USD, &market).unwrap();
 
     // Position should have some metrics recorded (may be empty depending on measure availability)
     assert!(metrics.get_position_metrics("POS_1").is_some());

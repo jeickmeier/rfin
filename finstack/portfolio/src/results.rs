@@ -109,7 +109,8 @@ mod tests {
         let config = FinstackConfig::default();
 
         let valuation = value_portfolio(&portfolio, &market, &config).expect("test should succeed");
-        let metrics = aggregate_metrics(&valuation).expect("test should succeed");
+        let metrics =
+            aggregate_metrics(&valuation, Currency::USD, &market).expect("test should succeed");
         let meta = results_meta_now(&config);
 
         let results = PortfolioResults::new(valuation, metrics, meta);

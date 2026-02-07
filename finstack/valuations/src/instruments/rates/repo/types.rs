@@ -650,6 +650,10 @@ impl Instrument for Repo {
         Some(self)
     }
 
+    fn as_marginable(&self) -> Option<&dyn crate::margin::traits::Marginable> {
+        Some(self)
+    }
+
     fn expiry(&self) -> Option<finstack_core::dates::Date> {
         Some(self.maturity)
     }

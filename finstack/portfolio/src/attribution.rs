@@ -10,6 +10,7 @@ use crate::types::PositionId;
 use finstack_core::config::FinstackConfig;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::math::summation::neumaier_sum;
 use finstack_core::money::{fx::FxQuery, Money};
 use finstack_valuations::attribution::{
     attribute_pnl_metrics_based, attribute_pnl_parallel, default_attribution_metrics,
@@ -214,30 +215,22 @@ pub fn attribute_portfolio_pnl(
     method: AttributionMethod,
 ) -> Result<PortfolioAttribution> {
     let base_ccy = portfolio.base_ccy;
-    let zero = Money::new(0.0, base_ccy);
 
-    let mut portfolio_attr = PortfolioAttribution {
-        total_pnl: zero,
-        carry: zero,
-        rates_curves_pnl: zero,
-        credit_curves_pnl: zero,
-        inflation_curves_pnl: zero,
-        correlations_pnl: zero,
-        fx_pnl: zero,
-        fx_translation_pnl: zero,
-        vol_pnl: zero,
-        model_params_pnl: zero,
-        market_scalars_pnl: zero,
-        residual: zero,
-        by_position: IndexMap::new(),
-        rates_detail: None,
-        credit_detail: None,
-        inflation_detail: None,
-        correlations_detail: None,
-        fx_detail: None,
-        vol_detail: None,
-        scalars_detail: None,
-    };
+    // Accumulators for Neumaier summation (collect per-factor, then sum once)
+    let mut total_pnl_vals: Vec<f64> = Vec::with_capacity(portfolio.positions.len());
+    let mut carry_vals: Vec<f64> = Vec::with_capacity(portfolio.positions.len());
+    let mut rates_vals: Vec<f64> = Vec::with_capacity(portfolio.positions.len());
+    let mut credit_vals: Vec<f64> = Vec::with_capacity(portfolio.positions.len());
+    let mut inflation_vals: Vec<f64> = Vec::with_capacity(portfolio.positions.len());
+    let mut corr_vals: Vec<f64> = Vec::with_capacity(portfolio.positions.len());
+    let mut fx_vals: Vec<f64> = Vec::with_capacity(portfolio.positions.len());
+    let mut vol_vals: Vec<f64> = Vec::with_capacity(portfolio.positions.len());
+    let mut model_vals: Vec<f64> = Vec::with_capacity(portfolio.positions.len());
+    let mut scalars_vals: Vec<f64> = Vec::with_capacity(portfolio.positions.len());
+    let mut residual_vals: Vec<f64> = Vec::with_capacity(portfolio.positions.len());
+    let mut fx_translation_vals: Vec<f64> = Vec::new();
+
+    let mut by_position: IndexMap<PositionId, PnlAttribution> = IndexMap::new();
 
     // Attribute each position
     for position in &portfolio.positions {
@@ -372,63 +365,18 @@ pub fn attribute_portfolio_pnl(
             }
         };
 
-        // Aggregate to portfolio level
-        let total_pnl_base = convert(pos_attr.total_pnl)?;
-        let carry_base = convert(pos_attr.carry)?;
-        let rates_base = convert(pos_attr.rates_curves_pnl)?;
-        let credit_base = convert(pos_attr.credit_curves_pnl)?;
-        let inflation_base = convert(pos_attr.inflation_curves_pnl)?;
-        let corr_base = convert(pos_attr.correlations_pnl)?;
-        let fx_base = convert(pos_attr.fx_pnl)?;
-        let vol_base = convert(pos_attr.vol_pnl)?;
-        let model_base = convert(pos_attr.model_params_pnl)?;
-        let scalars_base = convert(pos_attr.market_scalars_pnl)?;
-        let residual_base = convert(pos_attr.residual)?;
-
-        portfolio_attr.total_pnl = portfolio_attr
-            .total_pnl
-            .checked_add(total_pnl_base)
-            .map_err(PortfolioError::Core)?;
-        portfolio_attr.carry = portfolio_attr
-            .carry
-            .checked_add(carry_base)
-            .map_err(PortfolioError::Core)?;
-        portfolio_attr.rates_curves_pnl = portfolio_attr
-            .rates_curves_pnl
-            .checked_add(rates_base)
-            .map_err(PortfolioError::Core)?;
-        portfolio_attr.credit_curves_pnl = portfolio_attr
-            .credit_curves_pnl
-            .checked_add(credit_base)
-            .map_err(PortfolioError::Core)?;
-        portfolio_attr.inflation_curves_pnl = portfolio_attr
-            .inflation_curves_pnl
-            .checked_add(inflation_base)
-            .map_err(PortfolioError::Core)?;
-        portfolio_attr.correlations_pnl = portfolio_attr
-            .correlations_pnl
-            .checked_add(corr_base)
-            .map_err(PortfolioError::Core)?;
-        portfolio_attr.fx_pnl = portfolio_attr
-            .fx_pnl
-            .checked_add(fx_base)
-            .map_err(PortfolioError::Core)?;
-        portfolio_attr.vol_pnl = portfolio_attr
-            .vol_pnl
-            .checked_add(vol_base)
-            .map_err(PortfolioError::Core)?;
-        portfolio_attr.model_params_pnl = portfolio_attr
-            .model_params_pnl
-            .checked_add(model_base)
-            .map_err(PortfolioError::Core)?;
-        portfolio_attr.market_scalars_pnl = portfolio_attr
-            .market_scalars_pnl
-            .checked_add(scalars_base)
-            .map_err(PortfolioError::Core)?;
-        portfolio_attr.residual = portfolio_attr
-            .residual
-            .checked_add(residual_base)
-            .map_err(PortfolioError::Core)?;
+        // Collect FX-converted factor values for Neumaier summation
+        total_pnl_vals.push(convert(pos_attr.total_pnl)?.amount());
+        carry_vals.push(convert(pos_attr.carry)?.amount());
+        rates_vals.push(convert(pos_attr.rates_curves_pnl)?.amount());
+        credit_vals.push(convert(pos_attr.credit_curves_pnl)?.amount());
+        inflation_vals.push(convert(pos_attr.inflation_curves_pnl)?.amount());
+        corr_vals.push(convert(pos_attr.correlations_pnl)?.amount());
+        fx_vals.push(convert(pos_attr.fx_pnl)?.amount());
+        vol_vals.push(convert(pos_attr.vol_pnl)?.amount());
+        model_vals.push(convert(pos_attr.model_params_pnl)?.amount());
+        scalars_vals.push(convert(pos_attr.market_scalars_pnl)?.amount());
+        residual_vals.push(convert(pos_attr.residual)?.amount());
 
         // FX translation P&L: effect of translating instrument-currency P&L
         // into portfolio base currency as FX rates move from T₀ to T₁.
@@ -460,45 +408,50 @@ pub fn attribute_portfolio_pnl(
 
             // 1. Translation of P&L Flow: (Pnl_Native * R1) - (Pnl_Native * R0)
             let pnl_amount = pos_attr.total_pnl.amount();
-            let base_t0 = Money::new(pnl_amount * rate_t0.rate, base_ccy);
-            let base_t1 = Money::new(pnl_amount * rate_t1.rate, base_ccy);
-
-            let translation_of_pnl = base_t1.checked_sub(base_t0).map_err(PortfolioError::Core)?;
+            let flow_translation = pnl_amount * (rate_t1.rate - rate_t0.rate);
 
             // 2. Revaluation of Opening Principal: Val_T0_Native * (R1 - R0)
             // This captures the FX risk on the principal amount held.
             let principal_amount = val_t0_native.amount();
-            let principal_base_t0 = Money::new(principal_amount * rate_t0.rate, base_ccy);
-            let principal_base_t1 = Money::new(principal_amount * rate_t1.rate, base_ccy);
-
-            let translation_of_principal = principal_base_t1
-                .checked_sub(principal_base_t0)
-                .map_err(PortfolioError::Core)?;
+            let principal_translation = principal_amount * (rate_t1.rate - rate_t0.rate);
 
             // Total FX Translation P&L
-            let total_translation = translation_of_pnl
-                .checked_add(translation_of_principal)
-                .map_err(PortfolioError::Core)?;
-
-            portfolio_attr.fx_translation_pnl = portfolio_attr
-                .fx_translation_pnl
-                .checked_add(total_translation)
-                .map_err(PortfolioError::Core)?;
+            let total_translation = flow_translation + principal_translation;
+            fx_translation_vals.push(total_translation);
 
             // Add principal translation to total portfolio P&L
             // (Note: translation_of_pnl is already included because we added
             // total_pnl_base = Pnl_Native * R1 above)
-            portfolio_attr.total_pnl = portfolio_attr
-                .total_pnl
-                .checked_add(translation_of_principal)
-                .map_err(PortfolioError::Core)?;
+            total_pnl_vals.push(principal_translation);
         }
 
         // Store position-level attribution
-        portfolio_attr
-            .by_position
-            .insert(position.position_id.clone(), pos_attr);
+        by_position.insert(position.position_id.clone(), pos_attr);
     }
+
+    // Apply Neumaier compensated summation to collected values
+    let portfolio_attr = PortfolioAttribution {
+        total_pnl: Money::new(neumaier_sum(total_pnl_vals), base_ccy),
+        carry: Money::new(neumaier_sum(carry_vals), base_ccy),
+        rates_curves_pnl: Money::new(neumaier_sum(rates_vals), base_ccy),
+        credit_curves_pnl: Money::new(neumaier_sum(credit_vals), base_ccy),
+        inflation_curves_pnl: Money::new(neumaier_sum(inflation_vals), base_ccy),
+        correlations_pnl: Money::new(neumaier_sum(corr_vals), base_ccy),
+        fx_pnl: Money::new(neumaier_sum(fx_vals), base_ccy),
+        fx_translation_pnl: Money::new(neumaier_sum(fx_translation_vals), base_ccy),
+        vol_pnl: Money::new(neumaier_sum(vol_vals), base_ccy),
+        model_params_pnl: Money::new(neumaier_sum(model_vals), base_ccy),
+        market_scalars_pnl: Money::new(neumaier_sum(scalars_vals), base_ccy),
+        residual: Money::new(neumaier_sum(residual_vals), base_ccy),
+        by_position,
+        rates_detail: None,
+        credit_detail: None,
+        inflation_detail: None,
+        correlations_detail: None,
+        fx_detail: None,
+        vol_detail: None,
+        scalars_detail: None,
+    };
 
     Ok(portfolio_attr)
 }

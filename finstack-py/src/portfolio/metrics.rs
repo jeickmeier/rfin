@@ -1,5 +1,6 @@
 //! Python bindings for portfolio metrics.
 
+use crate::core::market_data::context::PyMarketContext;
 use crate::portfolio::error::portfolio_to_py;
 use crate::portfolio::valuation::extract_portfolio_valuation;
 use finstack_portfolio::metrics::{
@@ -200,8 +201,13 @@ impl PyPortfolioMetrics {
 /// Computes portfolio-wide metrics by summing position-level results where appropriate.
 /// Only summable metrics (DV01, CS01, Theta, etc.) are aggregated.
 ///
+/// Risk metrics are FX-converted to the specified base currency before aggregation,
+/// ensuring correct portfolio-level totals for multi-currency books.
+///
 /// Args:
 ///     valuation: Portfolio valuation results.
+///     base_ccy: Portfolio base currency string (e.g. "USD").
+///     market_context: Market data context providing FX rates.
 ///
 /// Returns:
 ///     PortfolioMetrics: Aggregated metrics results.
@@ -211,13 +217,23 @@ impl PyPortfolioMetrics {
 ///
 /// Examples:
 ///     >>> from finstack.portfolio import aggregate_metrics
-///     >>> metrics = aggregate_metrics(valuation)
+///     >>> metrics = aggregate_metrics(valuation, "USD", market_context)
 ///     >>> metrics.get_total("dv01")
 ///     125.0
 #[pyfunction]
-fn py_aggregate_metrics(valuation: &Bound<'_, PyAny>) -> PyResult<PyPortfolioMetrics> {
+#[pyo3(signature = (valuation, base_ccy, market_context))]
+fn py_aggregate_metrics(
+    valuation: &Bound<'_, PyAny>,
+    base_ccy: &str,
+    market_context: &Bound<'_, PyAny>,
+) -> PyResult<PyPortfolioMetrics> {
     let valuation_inner = extract_portfolio_valuation(valuation)?;
-    let metrics = aggregate_metrics(&valuation_inner).map_err(portfolio_to_py)?;
+    let currency: finstack_core::currency::Currency = base_ccy.parse().map_err(|_| {
+        pyo3::exceptions::PyValueError::new_err(format!("Invalid currency: {}", base_ccy))
+    })?;
+    let market_ctx = market_context.extract::<PyRef<PyMarketContext>>()?;
+    let metrics = aggregate_metrics(&valuation_inner, currency, &market_ctx.inner)
+        .map_err(portfolio_to_py)?;
     Ok(PyPortfolioMetrics::new(metrics))
 }
 

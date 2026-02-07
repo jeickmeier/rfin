@@ -200,7 +200,8 @@ fn main() -> finstack_portfolio::Result<()> {
     // revaluing the portfolio with implied quantities.
     let rebalanced = result.to_rebalanced_portfolio()?;
     let valuation = finstack_portfolio::valuation::value_portfolio(&rebalanced, &market, &config)?;
-    let metrics: finstack_portfolio::PortfolioMetrics = aggregate_metrics(&valuation)?;
+    let metrics: finstack_portfolio::PortfolioMetrics =
+        aggregate_metrics(&valuation, rebalanced.base_ccy, &market)?;
 
     println!("\nAggregated metrics at optimum (first few):");
     for (metric_id, metric) in metrics.aggregated.iter().take(5) {

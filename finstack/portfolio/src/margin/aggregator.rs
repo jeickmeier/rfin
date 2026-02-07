@@ -3,75 +3,15 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::Instrument;
-// Note: InitialMarginMetric and VariationMarginMetric are available but
-// netting set margin is calculated via aggregated sensitivities directly.
-use finstack_valuations::margin::{
-    ImMethodology, Marginable, NettingSetId, SimmCalculator, SimmSensitivities,
-};
+use finstack_valuations::margin::{ImMethodology, NettingSetId, SimmCalculator, SimmSensitivities};
 
 use crate::margin::netting_set::{NettingSet, NettingSetManager};
 use crate::margin::results::{NettingSetMargin, PortfolioMarginResult};
 use crate::portfolio::Portfolio;
 use crate::position::Position;
 use crate::{PortfolioError, PositionId, Result};
-use std::sync::Arc;
-
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-/// Try to get a reference to the `Marginable` implementation from a dynamic instrument.
-///
-/// Returns `Some(&dyn Marginable)` if the instrument implements `Marginable`,
-/// otherwise returns `None`.
-fn as_marginable(instrument: &Arc<dyn Instrument>) -> Option<&dyn Marginable> {
-    // Try each known marginable type
-    if let Some(irs) = instrument
-        .as_any()
-        .downcast_ref::<finstack_valuations::instruments::rates::irs::InterestRateSwap>(
-    ) {
-        return Some(irs as &dyn Marginable);
-    }
-
-    if let Some(cds) = instrument
-        .as_any()
-        .downcast_ref::<finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap>()
-    {
-        return Some(cds as &dyn Marginable);
-    }
-
-    if let Some(repo) = instrument
-        .as_any()
-        .downcast_ref::<finstack_valuations::instruments::rates::repo::Repo>()
-    {
-        return Some(repo as &dyn Marginable);
-    }
-
-    if let Some(cds_index) = instrument
-        .as_any()
-        .downcast_ref::<finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndex>(
-    ) {
-        return Some(cds_index as &dyn Marginable);
-    }
-
-    if let Some(eq_trs) = instrument
-        .as_any()
-        .downcast_ref::<finstack_valuations::instruments::equity::equity_trs::EquityTotalReturnSwap>(
-    ) {
-        return Some(eq_trs as &dyn Marginable);
-    }
-
-    if let Some(fi_trs) = instrument
-        .as_any()
-        .downcast_ref::<finstack_valuations::instruments::fixed_income::fi_trs::FIIndexTotalReturnSwap>(
-    ) {
-        return Some(fi_trs as &dyn Marginable);
-    }
-
-    None
-}
 
 // ============================================================================
 // Portfolio Margin Aggregator
@@ -138,7 +78,10 @@ impl PortfolioMarginAggregator {
 
     /// Get the netting set ID for a position based on its instrument.
     fn get_netting_set_for_position(&self, position: &Position) -> Option<NettingSetId> {
-        as_marginable(&position.instrument).and_then(|m| m.netting_set_id())
+        position
+            .instrument
+            .as_marginable()
+            .and_then(|m| m.netting_set_id())
     }
 
     /// Calculate margin requirements for the portfolio.
@@ -194,7 +137,7 @@ impl PortfolioMarginAggregator {
         market: &MarketContext,
         as_of: Date,
     ) -> Result<SimmSensitivities> {
-        if let Some(marginable) = as_marginable(&position.instrument) {
+        if let Some(marginable) = position.instrument.as_marginable() {
             marginable
                 .simm_sensitivities(market, as_of)
                 .map_err(|e| PortfolioError::valuation(position.position_id.clone(), e.to_string()))
@@ -212,14 +155,20 @@ impl PortfolioMarginAggregator {
         market: &MarketContext,
         as_of: Date,
     ) -> Result<NettingSetMargin> {
-        // Calculate aggregated VM from position MTMs
+        // Calculate aggregated VM from position MTMs, FX-converting to base currency
         let mut total_mtm = 0.0;
         let mut position_count = 0;
 
         for pos_id in &netting_set.positions {
             if let Some(position) = portfolio.get_position(pos_id.as_str()) {
                 if let Ok(mtm) = self.get_position_mtm(position, market, as_of) {
-                    total_mtm += mtm.amount();
+                    // FX-convert MTM to base currency if necessary
+                    let mtm_base = if mtm.currency() == self.base_currency {
+                        mtm.amount()
+                    } else {
+                        self.convert_to_base(mtm, market, as_of)
+                    };
+                    total_mtm += mtm_base;
                     position_count += 1;
                 }
             }
@@ -260,14 +209,14 @@ impl PortfolioMarginAggregator {
         Ok(result)
     }
 
-    /// Get MTM for a position.
+    /// Get MTM for a position in its native currency.
     fn get_position_mtm(
         &self,
         position: &Position,
         market: &MarketContext,
         as_of: Date,
     ) -> Result<Money> {
-        if let Some(marginable) = as_marginable(&position.instrument) {
+        if let Some(marginable) = position.instrument.as_marginable() {
             marginable
                 .mtm_for_vm(market, as_of)
                 .map_err(|e| PortfolioError::valuation(position.position_id.clone(), e.to_string()))
@@ -275,6 +224,24 @@ impl PortfolioMarginAggregator {
             // Default: return zero
             Ok(Money::new(0.0, self.base_currency))
         }
+    }
+
+    /// Convert a monetary amount to base currency using the FX matrix.
+    ///
+    /// Falls back to 1.0 if FX rate is unavailable (logs warning).
+    fn convert_to_base(&self, amount: Money, market: &MarketContext, as_of: Date) -> f64 {
+        if let Some(fx_matrix) = market.fx() {
+            let query = FxQuery::new(amount.currency(), self.base_currency, as_of);
+            if let Ok(rate_result) = fx_matrix.rate(query) {
+                return amount.amount() * rate_result.rate;
+            }
+        }
+        tracing::warn!(
+            from = %amount.currency(),
+            to = %self.base_currency,
+            "Unable to FX-convert VM to base currency; using native amount"
+        );
+        amount.amount()
     }
 
     /// Calculate SIMM from aggregated sensitivities.

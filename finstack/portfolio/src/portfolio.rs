@@ -7,9 +7,10 @@
 use crate::book::{Book, BookId};
 use crate::error::{PortfolioError, Result};
 use crate::position::Position;
-use crate::types::{Entity, EntityId, DUMMY_ENTITY_ID};
+use crate::types::{Entity, EntityId, PositionId, DUMMY_ENTITY_ID};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
+use finstack_core::HashMap;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
@@ -39,6 +40,13 @@ pub struct Portfolio {
     /// Flat list of positions (not serialized directly due to Instrument trait)
     #[serde(skip)]
     pub positions: Vec<Position>,
+
+    /// Index mapping position ID → index in `positions` for O(1) lookup.
+    ///
+    /// Rebuilt automatically via [`rebuild_index`] when constructing a portfolio
+    /// through the builder or `from_spec`.
+    #[serde(skip)]
+    pub(crate) position_index: HashMap<PositionId, usize>,
 
     /// Optional hierarchical book organization
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
@@ -99,19 +107,34 @@ impl Portfolio {
             as_of,
             entities: IndexMap::new(),
             positions: Vec::new(),
+            position_index: HashMap::default(),
             books: IndexMap::new(),
             tags: IndexMap::new(),
             meta: IndexMap::new(),
         }
     }
 
-    /// Get a position by identifier.
+    /// Rebuild the internal position-ID → index mapping.
+    ///
+    /// Call this after mutating `positions` directly to keep the O(1) lookup valid.
+    pub fn rebuild_index(&mut self) {
+        self.position_index = self
+            .positions
+            .iter()
+            .enumerate()
+            .map(|(i, p)| (p.position_id.clone(), i))
+            .collect();
+    }
+
+    /// Get a position by identifier (O(1) via index).
     ///
     /// # Arguments
     ///
     /// * `position_id` - Identifier of the position to locate.
     pub fn get_position(&self, position_id: &str) -> Option<&Position> {
-        self.positions.iter().find(|p| p.position_id == position_id)
+        self.position_index
+            .get(position_id)
+            .and_then(|&idx| self.positions.get(idx))
     }
 
     /// Get all positions for a given entity.
@@ -145,12 +168,14 @@ impl Portfolio {
     /// - All position IDs are unique
     /// - All positions reference valid entities
     /// - Dummy entity exists if needed
+    /// - Book hierarchy contains no cycles
     ///
     /// # Errors
     ///
     /// Returns [`PortfolioError::ValidationFailed`] when duplicate position IDs are found,
-    /// or [`PortfolioError::UnknownEntity`] when a position references an entity
-    /// that is not present in [`Portfolio::entities`].
+    /// [`PortfolioError::UnknownEntity`] when a position references an entity
+    /// that is not present in [`Portfolio::entities`], or when a cycle is detected
+    /// in the book hierarchy.
     pub fn validate(&self) -> Result<()> {
         use finstack_core::HashSet;
 
@@ -170,6 +195,36 @@ impl Portfolio {
                     position_id: position.position_id.clone(),
                     entity_id: position.entity_id.clone(),
                 });
+            }
+        }
+
+        // Validate book hierarchy: check for cycles via parent_id chains
+        self.validate_book_hierarchy()?;
+
+        Ok(())
+    }
+
+    /// Detect cycles in the book parent_id hierarchy using iterative tortoise-and-hare.
+    ///
+    /// For each book, follows the `parent_id` chain. If any chain revisits a
+    /// previously seen node, a cycle exists. Uses a `HashSet` per chain (bounded
+    /// by book count) for clarity.
+    fn validate_book_hierarchy(&self) -> Result<()> {
+        use finstack_core::HashSet;
+
+        for (book_id, _book) in &self.books {
+            let mut visited = HashSet::default();
+            visited.insert(book_id.clone());
+
+            let mut current = _book.parent_id.clone();
+            while let Some(ref pid) = current {
+                if !visited.insert(pid.clone()) {
+                    return Err(PortfolioError::validation(format!(
+                        "Cycle detected in book hierarchy at book '{}'",
+                        pid
+                    )));
+                }
+                current = self.books.get(pid).and_then(|b| b.parent_id.clone());
             }
         }
         Ok(())
@@ -221,13 +276,21 @@ impl Portfolio {
             .map(crate::position::Position::from_spec)
             .collect();
 
+        let positions = positions?;
+        let position_index = positions
+            .iter()
+            .enumerate()
+            .map(|(i, p)| (p.position_id.clone(), i))
+            .collect();
+
         let portfolio = Self {
             id: spec.id,
             name: spec.name,
             base_ccy: spec.base_ccy,
             as_of: spec.as_of,
             entities: spec.entities,
-            positions: positions?,
+            positions,
+            position_index,
             books: spec.books,
             tags: spec.tags,
             meta: spec.meta,

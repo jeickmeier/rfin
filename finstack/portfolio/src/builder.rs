@@ -288,6 +288,13 @@ impl PortfolioBuilder {
             self.entities.insert(dummy.id.clone(), dummy);
         }
 
+        let position_index = self
+            .positions
+            .iter()
+            .enumerate()
+            .map(|(i, p)| (p.position_id.clone(), i))
+            .collect();
+
         let portfolio = Portfolio {
             id: self.id,
             name: self.name,
@@ -295,6 +302,7 @@ impl PortfolioBuilder {
             as_of,
             entities: self.entities,
             positions: self.positions,
+            position_index,
             books: self.books,
             tags: self.tags,
             meta: self.meta,

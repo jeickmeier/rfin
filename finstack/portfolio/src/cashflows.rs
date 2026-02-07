@@ -7,6 +7,15 @@
 //! The aggregation is **currency-preserving**: no implicit FX conversion is
 //! applied. Consumers can apply explicit FX policies on top if a base-currency
 //! ladder is required.
+//!
+//! # FX Conversion Warning
+//!
+//! The convenience functions [`collapse_cashflows_to_base_by_date`] and
+//! [`cashflows_to_base_by_period`] convert using the spot-equivalent rate from
+//! the [`FxMatrix`](finstack_core::money::fx::FxMatrix) for every cashflow date.
+//! This is **not** the same as discounting future foreign-currency cashflows at
+//! the appropriate forward FX rate. For NPV-grade accuracy, derive forward FX
+//! rates from the relevant discount curves instead.
 
 use crate::error::{PortfolioError, Result};
 use crate::portfolio::Portfolio;
@@ -136,6 +145,15 @@ pub fn aggregate_cashflows(
 ///
 /// This helper applies an explicit FX policy using the cashflow date as the
 /// FX fixing date. It requires an `FxMatrix` in the market context.
+///
+/// # FX Conversion Note
+///
+/// The conversion uses spot-equivalent rates from the [`FxMatrix`] for **all**
+/// cashflow dates, including future dates. In practice, the FX matrix typically
+/// stores today's spot rate and may not account for the forward basis (interest
+/// rate differential between currencies). For precise NPV-of-cashflows analysis
+/// where the forward FX curve matters, convert future cashflows using forward
+/// FX rates derived from the appropriate discount curves instead.
 pub fn collapse_cashflows_to_base_by_date(
     ladder: &PortfolioCashflows,
     market: &MarketContext,
@@ -180,6 +198,9 @@ pub fn collapse_cashflows_to_base_by_date(
 ///
 /// This function assumes its input ladder has already been converted to
 /// base currency via [`collapse_cashflows_to_base_by_date`].
+///
+/// See that function's documentation for important notes on the use of
+/// spot-equivalent FX rates for future cashflow conversion.
 pub fn cashflows_to_base_by_period(
     ladder: &PortfolioCashflows,
     market: &MarketContext,

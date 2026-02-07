@@ -209,17 +209,13 @@ pub(super) fn compute_reset_period_end(
     attrs: &Attributes,
 ) -> Result<Date> {
     // Compute unadjusted end date based on frequency
-    let mut reset_end = reset_date;
     use finstack_core::dates::TenorUnit;
-    match reset_freq.unit {
-        TenorUnit::Months => {
-            reset_end = reset_date.add_months(reset_freq.count as i32);
-        }
-        TenorUnit::Days => {
-            reset_end = reset_date + time::Duration::days(reset_freq.count as i64);
-        }
-        _ => {}
-    }
+    let mut reset_end = match reset_freq.unit {
+        TenorUnit::Months => reset_date.add_months(reset_freq.count as i32),
+        TenorUnit::Years => reset_date.add_months(reset_freq.count as i32 * 12),
+        TenorUnit::Weeks => reset_date + time::Duration::weeks(reset_freq.count as i64),
+        TenorUnit::Days => reset_date + time::Duration::days(reset_freq.count as i64),
+    };
 
     // Apply calendar adjustment if configured
     if let Some(cal) = resolve_facility_calendar(attrs) {

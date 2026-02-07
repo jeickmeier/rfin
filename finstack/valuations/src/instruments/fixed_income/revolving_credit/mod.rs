@@ -23,10 +23,10 @@
 //!
 //! # Pricing
 //!
-//! Present value combines interest and fees:
+//! Present value combines interest, fees, and principal flows (lender perspective):
 //!
 //! ```text
-//! PV = PV(interest on drawn) + PV(commitment fees) + PV(usage fees) - Upfront
+//! PV = PV(interest) + PV(fees) + PV(upfront) - PV(initial draw) + PV(repayments)
 //! ```
 //!
 //! For stochastic utilization, Monte Carlo simulates draw/repayment paths.

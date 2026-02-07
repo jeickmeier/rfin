@@ -1,5 +1,6 @@
 //! Portfolio metrics aggregation for WASM.
 
+use crate::core::market_data::context::JsMarketContext;
 use crate::portfolio::valuation::JsPortfolioValuation;
 use finstack_portfolio::metrics::{AggregatedMetric, PortfolioMetrics};
 use js_sys::Object;
@@ -251,10 +252,13 @@ impl JsPortfolioMetrics {
 ///
 /// Computes portfolio-wide metrics by summing position-level results where appropriate.
 /// Only summable metrics (DV01, CS01, Theta, etc.) are aggregated.
+/// Metrics are FX-converted to the specified base currency before summation.
 ///
 /// # Arguments
 ///
 /// * `valuation` - Portfolio valuation results
+/// * `base_ccy` - Portfolio base currency (e.g. "USD")
+/// * `market_context` - Market data context providing FX rates
 ///
 /// # Returns
 ///
@@ -267,14 +271,19 @@ impl JsPortfolioMetrics {
 /// # Examples
 ///
 /// ```javascript
-/// const metrics = aggregateMetrics(valuation);
+/// const metrics = aggregateMetrics(valuation, "USD", market);
 /// console.log(metrics.getTotal("dv01"));
 /// ```
 #[wasm_bindgen(js_name = aggregateMetrics)]
 pub fn js_aggregate_metrics(
     valuation: &JsPortfolioValuation,
+    base_ccy: &str,
+    market_context: &JsMarketContext,
 ) -> Result<JsPortfolioMetrics, JsValue> {
-    finstack_portfolio::aggregate_metrics(&valuation.inner)
+    let currency: finstack_core::currency::Currency = base_ccy
+        .parse()
+        .map_err(|_| JsValue::from_str(&format!("Invalid currency: {}", base_ccy)))?;
+    finstack_portfolio::aggregate_metrics(&valuation.inner, currency, market_context.inner())
         .map(JsPortfolioMetrics::from_inner)
         .map_err(|e| JsValue::from_str(&e.to_string()))
 }
