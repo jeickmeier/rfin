@@ -99,10 +99,14 @@ fn test_cashflow_conservation_of_value() {
         manual_pv += amount.amount() * df;
     }
 
-    // Validate - manual calculation should match npv() within tolerance
+    // Validate - manual calculation should match npv() within machine epsilon
+    // Both calculations discount the same cashflows using the same curve,
+    // so residual should be at floating-point precision, not basis points.
     assert!(
-        (manual_pv - pv.amount()).abs() < 1000.0,
-        "Difference: {}",
+        (manual_pv - pv.amount()).abs() < 1e-6,
+        "Cashflow conservation violated: manual_pv={}, npv={}, diff={}",
+        manual_pv,
+        pv.amount(),
         (manual_pv - pv.amount()).abs()
     );
 }

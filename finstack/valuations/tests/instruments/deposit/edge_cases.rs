@@ -204,7 +204,9 @@ fn test_pricing_after_maturity() {
     // Execute - price on date after maturity
     let pv = dep.value(&ctx, base).unwrap();
 
-    // Validate - should handle gracefully
+    // Validate - value() uses signed_year_fraction (includes past flows
+    // with DF > 1 via backward extrapolation), so PV is non-zero.
+    // The key invariant is that pricing handles this gracefully.
     assert!(pv.amount().is_finite());
 }
 

@@ -283,6 +283,16 @@ impl Deposit {
             },
         )?;
 
+        // Validate non-negative spot lag (negative has no financial meaning)
+        if let Some(lag) = self.spot_lag_days {
+            if lag < 0 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "Deposit spot_lag_days must be non-negative, got {}",
+                    lag
+                )));
+            }
+        }
+
         // Warn about extreme rates (don't fail, as they may be intentional)
         if let Some(r) = self.quote_rate {
             if !(MIN_REASONABLE_RATE..=MAX_REASONABLE_RATE).contains(&r) {

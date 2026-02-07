@@ -45,5 +45,5 @@ let pv = dep.value(&market_context, as_of)?;
 
 ## Future Enhancements
 
-- Add support for compounding/linear vs ACT/360 accrual toggles and holiday-adjusted start/end shifts.
+- Add support for compounding/linear vs ACT/360 accrual toggles.
 - Include callable/extendable deposit variants if needed.

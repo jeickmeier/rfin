@@ -29,7 +29,7 @@
 //! - **USD**: ACT/360, T+2 settlement, overnight to 1 year
 //! - **EUR**: ACT/360, T+2 settlement, overnight to 1 year
 //! - **GBP**: ACT/365, T+0 settlement, overnight to 1 year
-//! - **JPY**: ACT/365F, T+2 settlement, overnight to 1 year
+//! - **JPY**: ACT/365F (TONA convention), T+2 settlement, overnight to 1 year
 //!
 //! # Curve Calibration Role
 //!

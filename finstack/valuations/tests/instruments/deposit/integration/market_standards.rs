@@ -247,8 +247,13 @@ fn test_rate_quote_vs_price_quote() {
     let pv_rate = dep_rate.value(&ctx, base).unwrap();
     let pv_par = dep_par.value(&ctx, base).unwrap();
 
-    // Validate - par deposit should have reasonably small PV (within numerical precision)
-    assert!(pv_par.amount().abs() < 200.0);
+    // Validate - par deposit should have essentially zero PV
+    // Market standard: < $0.01 on $1M notional (< 0.001bp numerical precision)
+    assert!(
+        pv_par.amount().abs() < 0.01,
+        "PV at par rate should be < $0.01, got: {}",
+        pv_par.amount()
+    );
     // Off-market rate should have non-zero PV
     assert!(pv_rate.amount().abs() > 10.0);
 }
