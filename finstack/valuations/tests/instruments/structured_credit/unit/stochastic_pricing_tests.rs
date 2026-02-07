@@ -115,8 +115,11 @@ fn current_loss_percentage_respects_defaults_and_recoveries() {
     sc.pool.cumulative_recoveries = Money::new(25_000.0, Currency::USD);
 
     let loss_pct = sc.current_loss_percentage().expect("loss percentage");
+    // Original balance ≈ current(1M) + defaults(100k) + prepays(0) = 1.1M
+    // Net loss = 100k - 25k = 75k => 75k / 1.1M * 100 ≈ 6.818%
+    let expected = (100_000.0 - 25_000.0) / 1_100_000.0 * 100.0;
     assert!(
-        (loss_pct - 7.5).abs() < 1e-9,
-        "expected 7.5%, got {loss_pct}"
+        (loss_pct - expected).abs() < 1e-9,
+        "expected {expected}%, got {loss_pct}"
     );
 }

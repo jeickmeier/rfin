@@ -400,8 +400,12 @@ impl BaseCorrelationCurve {
                 new_points.push((det, corr));
             }
         }
+        // Bucket bumps may legitimately break monotonicity (e.g., shocking
+        // only a subset of detachment points in a stress test).  Allow
+        // non-monotonic construction here; callers can re-validate if needed.
         BaseCorrelationCurve::builder(self.id.clone())
             .knots(new_points)
+            .allow_non_monotonic()
             .build()
             .ok()
     }

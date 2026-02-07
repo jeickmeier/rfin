@@ -384,6 +384,10 @@ pub struct AssetPool {
     pub cumulative_recoveries: Money,
     /// Cumulative prepayments (voluntary early repayment)
     pub cumulative_prepayments: Money,
+    /// Cumulative scheduled amortization (level-pay principal for amortizing assets).
+    /// `None` means not tracked (legacy data); treated as zero in loss calculations.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub cumulative_scheduled_amortization: Option<Money>,
 
     /// Reinvestment management
     /// Reinvestment period configuration (if applicable)
@@ -511,6 +515,7 @@ impl AssetPool {
             cumulative_defaults: zero_money,
             cumulative_recoveries: zero_money,
             cumulative_prepayments: zero_money,
+            cumulative_scheduled_amortization: None,
             reinvestment_period: None,
             collection_account: zero_money,
             reserve_account: zero_money,

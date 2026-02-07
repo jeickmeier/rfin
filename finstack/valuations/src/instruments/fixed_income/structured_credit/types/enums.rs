@@ -259,6 +259,35 @@ pub enum PaymentMode {
     },
 }
 
+impl AssetType {
+    /// Returns `true` for asset types that amortize through level payments
+    /// (mortgages, auto loans, student loans, equipment).
+    ///
+    /// Bullet instruments (corporate loans, bonds, credit cards) return `false`.
+    pub fn is_amortizing(&self) -> bool {
+        matches!(
+            self,
+            AssetType::SingleFamilyMortgage { .. }
+                | AssetType::MultifamilyMortgage { .. }
+                | AssetType::CommercialMortgage { .. }
+                | AssetType::IndustrialMortgage { .. }
+                | AssetType::RetailMortgage { .. }
+                | AssetType::OfficeMortgage { .. }
+                | AssetType::HotelMortgage { .. }
+                | AssetType::OtherMortgage { .. }
+                | AssetType::NewAutoLoan { .. }
+                | AssetType::UsedAutoLoan { .. }
+                | AssetType::LeaseAutoLoan { .. }
+                | AssetType::FleetAutoLoan { .. }
+                | AssetType::FederalStudentLoan
+                | AssetType::PrivateStudentLoan
+                | AssetType::FFELPStudentLoan
+                | AssetType::ConsolidationStudentLoan
+                | AssetType::Equipment { .. }
+        )
+    }
+}
+
 /// Consequences when triggers are breached
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]

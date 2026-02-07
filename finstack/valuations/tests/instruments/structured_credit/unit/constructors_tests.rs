@@ -178,7 +178,11 @@ fn test_current_loss_percentage_handles_zero_balance_and_offsets() {
         maturity_date(),
         "USD-OIS",
     );
-    let expected = (50_000.0 - 10_000.0) / 1_000_000.0 * DECIMAL_TO_PERCENT;
+    // Denominator is original balance approximated as:
+    // current_balance + cumulative_defaults + cumulative_prepayments
+    // = 1,000,000 + 50,000 + 0 = 1,050,000
+    let original_balance = 1_000_000.0 + 50_000.0;
+    let expected = (50_000.0 - 10_000.0) / original_balance * DECIMAL_TO_PERCENT;
     let actual = sc.current_loss_percentage().unwrap();
     assert!((actual - expected).abs() < 1e-12);
 }

@@ -131,11 +131,36 @@ impl CoverageTest {
                 })
             })?;
 
-        let tranche_balance = tranche.current_balance;
-        let senior_balance = context.tranches.senior_balance(context.tranche_id);
+        // Use current tranche balances when available (M4 fix: avoid stale balances)
+        let tranche_balance = context
+            .tranche_balances
+            .and_then(|b| b.get(tranche.id.as_str()))
+            .copied()
+            .unwrap_or(tranche.current_balance);
 
-        let mut numerator =
-            collateral_balance_with_haircuts(context.pool, performing_only, context.haircuts)?;
+        let senior_balance = if let Some(tb) = context.tranche_balances {
+            context
+                .tranches
+                .senior_to(context.tranche_id)
+                .iter()
+                .try_fold(Money::new(0.0, tranche_balance.currency()), |acc, t| {
+                    let bal = tb.get(t.id.as_str()).copied().unwrap_or(t.current_balance);
+                    acc.checked_add(bal)
+                })
+                .unwrap_or_else(|_| Money::new(0.0, tranche_balance.currency()))
+        } else {
+            context.tranches.senior_balance(context.tranche_id)
+        };
+
+        // Use current pool balance override when available and no haircuts
+        let mut numerator = if let (Some(pool_bal), true) = (
+            context.current_pool_balance,
+            context.haircuts.map(|h| h.is_empty()).unwrap_or(true),
+        ) {
+            pool_bal
+        } else {
+            collateral_balance_with_haircuts(context.pool, performing_only, context.haircuts)?
+        };
 
         if include_cash {
             numerator = numerator.checked_add(context.cash_balance)?;
@@ -191,8 +216,6 @@ impl CoverageTest {
                 })
             })?;
 
-        let periods_per_year = frequency_periods_per_year(tranche.payment_frequency);
-
         // Use full all-in rate (index + spread) when market context is available,
         // falling back to spread-only when market data is absent.
         let tranche_rate = if let Some(market) = context.market {
@@ -204,16 +227,37 @@ impl CoverageTest {
             tranche.coupon.current_rate(context.as_of)
         };
 
+        // Use current tranche balances when available (M4 fix)
+        let tranche_bal = context
+            .tranche_balances
+            .and_then(|b| b.get(tranche.id.as_str()))
+            .copied()
+            .unwrap_or(tranche.current_balance);
+
+        // Use actual day-count accrual when period_start is available (m3 fix);
+        // fall back to periods-per-year approximation for backward compatibility.
+        let accrual_factor = if let Some(period_start) = context.period_start {
+            tranche
+                .day_count
+                .year_fraction(
+                    period_start,
+                    context.as_of,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
+                .unwrap_or_else(|_| 1.0 / frequency_periods_per_year(tranche.payment_frequency))
+        } else {
+            1.0 / frequency_periods_per_year(tranche.payment_frequency)
+        };
+
         let interest_due = Money::new(
-            tranche.current_balance.amount() * tranche_rate / periods_per_year,
-            tranche.current_balance.currency(),
+            tranche_bal.amount() * tranche_rate * accrual_factor,
+            tranche_bal.currency(),
         );
 
         let senior_tranches = context.tranches.senior_to(context.tranche_id);
         let senior_interest_due = senior_tranches
             .iter()
             .try_fold(Money::new(0.0, interest_due.currency()), |acc, t| {
-                let t_periods = frequency_periods_per_year(t.payment_frequency);
                 let rate = if let Some(market) = context.market {
                     t.coupon
                         .try_current_rate_with_index(context.as_of, market)
@@ -221,10 +265,23 @@ impl CoverageTest {
                 } else {
                     t.coupon.current_rate(context.as_of)
                 };
-                let interest = Money::new(
-                    t.current_balance.amount() * rate / t_periods,
-                    t.current_balance.currency(),
-                );
+                let t_bal = context
+                    .tranche_balances
+                    .and_then(|b| b.get(t.id.as_str()))
+                    .copied()
+                    .unwrap_or(t.current_balance);
+                let t_accrual = if let Some(period_start) = context.period_start {
+                    t.day_count
+                        .year_fraction(
+                            period_start,
+                            context.as_of,
+                            finstack_core::dates::DayCountCtx::default(),
+                        )
+                        .unwrap_or_else(|_| 1.0 / frequency_periods_per_year(t.payment_frequency))
+                } else {
+                    1.0 / frequency_periods_per_year(t.payment_frequency)
+                };
+                let interest = Money::new(t_bal.amount() * rate * t_accrual, t_bal.currency());
                 acc.checked_add(interest)
             })
             .unwrap_or_else(|_| Money::new(0.0, interest_due.currency()));
@@ -260,6 +317,8 @@ pub struct TestContext<'a> {
     pub tranche_id: &'a str,
     /// As-of date.
     pub as_of: finstack_core::dates::Date,
+    /// Period start date for day-count accrual.
+    pub period_start: Option<finstack_core::dates::Date>,
     /// Cash balance.
     pub cash_balance: Money,
     /// Interest collections.
@@ -270,6 +329,10 @@ pub struct TestContext<'a> {
     pub par_value_threshold: Option<f64>,
     /// Optional market context for floating rate index lookups in IC tests.
     pub market: Option<&'a MarketContext>,
+    /// Current tranche balances (overrides `tranche.current_balance` when present).
+    pub tranche_balances: Option<&'a HashMap<String, Money>>,
+    /// Current pool balance override (used when asset-level balances are stale).
+    pub current_pool_balance: Option<Money>,
 }
 
 /// Result of a coverage test calculation.
@@ -362,11 +425,14 @@ mod tests {
             tranches: &tranches,
             tranche_id: "TEST_TRANCHE",
             as_of: Date::from_calendar_date(2025, Month::January, 1).expect("Valid date"),
+            period_start: None,
             cash_balance: Money::new(0.0, Currency::USD),
             interest_collections: Money::new(0.0, Currency::USD),
             haircuts: None,
             par_value_threshold: None,
             market: None,
+            tranche_balances: None,
+            current_pool_balance: None,
         };
 
         let result = test
@@ -400,11 +466,14 @@ mod tests {
             tranches: &tranches,
             tranche_id: "TEST_TRANCHE",
             as_of: Date::from_calendar_date(2025, Month::January, 1).expect("Valid date"),
+            period_start: None,
             cash_balance: Money::new(0.0, Currency::USD),
             interest_collections: Money::new(1_500.0, Currency::USD),
             haircuts: None,
             par_value_threshold: None,
             market: None,
+            tranche_balances: None,
+            current_pool_balance: None,
         };
 
         let result = test

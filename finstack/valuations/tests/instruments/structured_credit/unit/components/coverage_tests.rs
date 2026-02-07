@@ -36,11 +36,14 @@ fn context_for_tranche<'a>(
         tranches,
         tranche_id,
         as_of: test_date(),
+        period_start: None,
         cash_balance,
         interest_collections,
         haircuts: None,
         par_value_threshold: None,
         market: None,
+        tranche_balances: None,
+        current_pool_balance: None,
     }
 }
 

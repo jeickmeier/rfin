@@ -53,6 +53,7 @@ fn run_rounding_test(amount: f64, rounding: RoundingConvention) -> f64 {
         period_start: Date::from_calendar_date(2023, time::Month::October, 1).unwrap(),
         pool_balance: Money::new(1_000_000.0, currency),
         market: &market,
+        tranche_balances: None,
     };
 
     let result =

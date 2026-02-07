@@ -363,15 +363,32 @@ impl StructuredCredit {
     }
 
     /// Calculate current loss percentage of the pool.
+    ///
+    /// Reconstructs the original pool balance as the denominator:
+    /// `current_balance + cumulative_defaults + cumulative_prepayments + cumulative_scheduled_amortization`
+    ///
+    /// This avoids inflating the loss rate as the pool amortizes and aligns with
+    /// Moody's/S&P convention of reporting cumulative losses against original pool balance.
     pub fn current_loss_percentage(&self) -> finstack_core::Result<f64> {
-        let total_balance = self.pool.total_balance()?.amount();
-        if total_balance == 0.0 {
+        let current_balance = self.pool.total_balance()?.amount();
+        let scheduled_amort = self
+            .pool
+            .cumulative_scheduled_amortization
+            .map(|m| m.amount())
+            .unwrap_or(0.0);
+        // Reconstruct original balance from all tracked reductions
+        let original_balance = current_balance
+            + self.pool.cumulative_defaults.amount()
+            + self.pool.cumulative_prepayments.amount()
+            + scheduled_amort;
+
+        if original_balance <= 0.0 {
             return Ok(0.0);
         }
 
         Ok(
             (self.pool.cumulative_defaults.amount() - self.pool.cumulative_recoveries.amount())
-                / total_balance
+                / original_balance
                 * DECIMAL_TO_PERCENT,
         )
     }
@@ -708,10 +725,18 @@ impl CashflowProvider for StructuredCredit {
             crate::instruments::fixed_income::structured_credit::pricing::generate_cashflows(
                 self, context, as_of,
             )?;
+        // Use deal-type-appropriate day count convention:
+        // CLO/CBO: ACT/360 (standard for leveraged loan market)
+        // RMBS/CMBS: 30/360 (standard for mortgage market)
+        // ABS/Auto/Card: ACT/360
+        let dc = match self.deal_type {
+            DealType::RMBS | DealType::CMBS => finstack_core::dates::DayCount::Thirty360,
+            _ => finstack_core::dates::DayCount::Act360,
+        };
         Ok(crate::cashflow::traits::schedule_from_dated_flows(
             flows,
             self.notional(),
-            finstack_core::dates::DayCount::Act360, // Standard for structured credit
+            dc,
         ))
     }
 }

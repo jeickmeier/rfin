@@ -180,10 +180,6 @@ pub fn generate_tranche_cashflows(
 // SIMULATION STATE
 // ============================================================================
 
-// ============================================================================
-// SIMULATION STATE
-// ============================================================================
-
 /// Internal state for period-by-period simulation.
 struct SimulationState<'a> {
     /// Pool state (SoA layout)
@@ -202,6 +198,9 @@ struct SimulationState<'a> {
     tranches: &'a TrancheStructure,
     closing_date: Date,
     tranche_recipient_keys: Vec<RecipientType>,
+    /// Whether reinvestment was active in the previous period.
+    /// Used to detect the reinvestment-end transition and reconcile pool_outstanding.
+    was_reinvestment_active: bool,
 }
 
 impl<'a> SimulationState<'a> {
@@ -259,6 +258,12 @@ impl<'a> SimulationState<'a> {
             .map(|t| (t.id.to_string(), Money::new(0.0, base_ccy)))
             .collect();
 
+        // Determine if reinvestment is initially active
+        let initial_reinvestment_active = pool
+            .reinvestment_period
+            .as_ref()
+            .is_some_and(|period| closing_date <= period.end_date);
+
         Self {
             pool_state,
             pool_outstanding: pool.total_balance().unwrap_or(Money::new(0.0, base_ccy)), // Safe fallback for init
@@ -273,6 +278,7 @@ impl<'a> SimulationState<'a> {
             tranches,
             closing_date,
             tranche_recipient_keys,
+            was_reinvestment_active: initial_reinvestment_active,
         }
     }
 
@@ -328,7 +334,7 @@ impl<'a> SimulationState<'a> {
 fn simulate_period(
     state: &mut SimulationState,
     instrument: &StructuredCredit,
-    _waterfall: &Waterfall,
+    waterfall: &Waterfall,
     pay_date: Date,
     context: &MarketContext,
     months_per_period: f64,
@@ -338,9 +344,33 @@ fn simulate_period(
     // Capture period start before updating prev_date (for accrual calculations)
     let period_start = state.prev_date.unwrap_or(state.closing_date);
 
-    // Step 1: Calculate pool cashflows for the period (Interest + Principal Prepay/Default)
-    // We now do this in a unified pass over the rep lines/assets to support line-level overrides
-    let (interest_collections, prepay_amt, default_amt, recovery_amt) = calculate_pool_flows(
+    // Reinvestment logic -- determined before pool flows so reconciliation
+    // can snap pool_outstanding to the correct pre-flow asset balances.
+    let is_reinvestment_active = state
+        .pool
+        .reinvestment_period
+        .as_ref()
+        .is_some_and(|period| pay_date <= period.end_date);
+
+    // Reconciliation: When reinvestment transitions from active → inactive,
+    // snap pool_outstanding to the actual sum of asset balances BEFORE this
+    // period's flows are applied. During the reinvestment period,
+    // pool_outstanding is reduced only by defaults (gross), which can cause
+    // it to diverge from the true sum of asset-level balances (e.g. due to
+    // matured assets, rounding, or partial defaults). This one-time
+    // reconciliation eliminates the phantom balance at the transition point.
+    //
+    // Must happen before calculate_pool_flows so that Step 4's normal
+    // subtraction of this period's flows is applied to the correct base.
+    if state.was_reinvestment_active && !is_reinvestment_active {
+        let actual_sum: f64 = state.pool_state.balances.iter().sum();
+        state.pool_outstanding = Money::new(actual_sum.max(0.0), state.base_ccy);
+    }
+    state.was_reinvestment_active = is_reinvestment_active;
+
+    // Step 1: Calculate pool cashflows for the period
+    // Returns (interest, scheduled_principal, prepayment, default, recovery)
+    let pool_flows = calculate_pool_flows(
         state,
         instrument,
         pay_date,
@@ -353,7 +383,9 @@ fn simulate_period(
     state.prev_date = Some(pay_date);
 
     // Add new recoveries to the lag queue
-    state.recovery_queue.add_recovery(pay_date, recovery_amt);
+    state
+        .recovery_queue
+        .add_recovery(pay_date, pool_flows.recovery);
 
     // Release matured recoveries
     let released_recoveries = state.recovery_queue.release_matured(
@@ -362,36 +394,41 @@ fn simulate_period(
         state.base_ccy,
     )?;
 
-    // Reinvestment logic
-    let is_reinvestment_active = state
-        .pool
-        .reinvestment_period
-        .as_ref()
-        .is_some_and(|period| pay_date <= period.end_date);
+    // Total principal from pool (scheduled + prepayment)
+    let total_principal_from_pool = pool_flows
+        .scheduled_principal
+        .checked_add(pool_flows.prepayment)?;
 
+    // M2 fix: During reinvestment, principal collections (prepay + scheduled) are
+    // reinvested into new assets, but recoveries are CASH and must flow through
+    // the waterfall.
     let principal_available_for_waterfall = if is_reinvestment_active {
-        Money::new(0.0, state.base_ccy)
+        // Only released recoveries flow through waterfall; principal is reinvested
+        released_recoveries
     } else {
-        prepay_amt.checked_add(released_recoveries)?
+        total_principal_from_pool.checked_add(released_recoveries)?
     };
 
-    let total_cash_for_waterfall =
-        interest_collections.checked_add(principal_available_for_waterfall)?;
+    let total_cash_for_waterfall = pool_flows
+        .interest
+        .checked_add(principal_available_for_waterfall)?;
 
     // Step 2: Execute Waterfall
+    // B1 fix: use pre-built waterfall and pass current tranche balances
     let waterfall_context =
         crate::instruments::fixed_income::structured_credit::pricing::waterfall::WaterfallContext {
             available_cash: total_cash_for_waterfall,
-            interest_collections,
+            interest_collections: pool_flows.interest,
             payment_date: pay_date,
             period_start,
             pool_balance: state.pool_outstanding,
             market: context,
+            tranche_balances: Some(&state.tranche_balances),
         };
 
     let waterfall_result =
         crate::instruments::fixed_income::structured_credit::pricing::waterfall::execute_waterfall(
-            &instrument.create_waterfall(),
+            waterfall,
             state.tranches,
             state.pool,
             waterfall_context,
@@ -484,22 +521,17 @@ fn simulate_period(
     }
 
     // Step 4: Update pool balance
-    // Note: rep_line_balances were already updated in calculate_pool_flows
-    // We just need to update the total pool_outstanding to match
+    // M2 fix: Recoveries are cash, not assets. They should NOT restore pool balance.
     if is_reinvestment_active {
-        // Reinvestment assumes principal is recycled, so pool balance only drops by defaults (net of recoveries? No, usually gross defaults reduce pool, recoveries come back as cash)
-        // Actually, in reinvestment, principal collections are used to buy new assets.
-        // So pool balance stays constant unless defaults occur.
-        // For simplicity here, we just update pool_outstanding based on the calculated flows.
-        state.pool_outstanding = state
-            .pool_outstanding
-            .checked_sub(default_amt)?
-            .checked_add(released_recoveries)?;
+        // During reinvestment, principal is recycled into new assets.
+        // Pool balance drops only by defaults (gross).
+        state.pool_outstanding = state.pool_outstanding.checked_sub(pool_flows.default)?;
     } else {
+        // After reinvestment, all principal reductions hit pool balance.
         state.pool_outstanding = state
             .pool_outstanding
-            .checked_sub(prepay_amt)?
-            .checked_sub(default_amt)?;
+            .checked_sub(total_principal_from_pool)?
+            .checked_sub(pool_flows.default)?;
     }
 
     Ok(())
@@ -509,8 +541,21 @@ fn simulate_period(
 // CALCULATION HELPERS
 // ============================================================================
 
-/// Calculate all pool flows (Interest, Prepay, Default) for the period.
-/// Updates rep_line_balances in place.
+/// Pool flow results for a single period.
+struct PoolFlows {
+    interest: Money,
+    scheduled_principal: Money,
+    prepayment: Money,
+    default: Money,
+    recovery: Money,
+}
+
+/// Calculate all pool flows for the period.
+///
+/// Implements:
+/// - M1: Scheduled amortization for amortizing assets (mortgages, auto, etc.)
+/// - M3: Maturity/balloon payment when an asset reaches maturity
+/// - m2: Sequential default-then-prepay application (market convention)
 fn calculate_pool_flows(
     state: &mut SimulationState,
     instrument: &StructuredCredit,
@@ -519,15 +564,15 @@ fn calculate_pool_flows(
     seasoning_months: u32,
     months_per_period: f64,
     context: &MarketContext,
-) -> Result<(Money, Money, Money, Money)> {
+) -> Result<PoolFlows> {
     let base_ccy = state.base_ccy;
     let mut total_interest = Money::new(0.0, base_ccy);
+    let mut total_scheduled = Money::new(0.0, base_ccy);
     let mut total_prepay = Money::new(0.0, base_ccy);
     let mut total_default = Money::new(0.0, base_ccy);
     let mut total_recovery = Money::new(0.0, base_ccy);
 
-    // Pre-calculate global rates (optimization)
-    // Future optimization: Handle per-asset overrides if added to PoolState
+    // Pre-calculate global rates
     let smm = instrument.calculate_prepayment_rate(pay_date, seasoning_months);
     let mdr = instrument.calculate_default_rate(pay_date, seasoning_months);
     let recovery_rate = instrument.recovery_spec.rate;
@@ -547,7 +592,6 @@ fn calculate_pool_flows(
         let r = if t2 > 0.0 && t1 < t2 {
             fwd.rate_period(t1, t2)
         } else {
-            // For very short periods (t2 <= tenor or t2 == 0), use spot rate
             fwd.rate(0.0)
         };
         resolved_rates.push(r);
@@ -560,7 +604,15 @@ fn calculate_pool_flows(
             continue;
         }
 
-        // 1. Interest
+        // Skip already-defaulted assets: prevents pre-existing defaulted assets
+        // (e.g. assets that entered the pool in workout) from accruing interest,
+        // defaulting again, or prepaying. Also guards against assets marked as
+        // fully defaulted during simulation.
+        if state.pool_state.is_defaulted[i] {
+            continue;
+        }
+
+        // 1. Interest -- computed first so matured assets still pay their final coupon
         let rate = if let Some(curve_idx) = state.pool_state.curve_indices[i] {
             let base_rate = resolved_rates[curve_idx];
             base_rate + (state.pool_state.spread_bps[i].unwrap_or(0.0).max(0.0) / 10_000.0)
@@ -568,38 +620,103 @@ fn calculate_pool_flows(
             state.pool_state.rates[i]
         };
 
+        // m-FINAL-1: Cap interest accrual at asset maturity for mid-period maturities.
+        // If the asset matures between prev_date and pay_date, accrue interest only up
+        // to the maturity date, not the full period end.
+        let interest_end = state.pool_state.maturities[i].min(pay_date);
+
         let accrual_factor = state.pool_state.day_counts[i]
-            .unwrap_or(DayCount::Act360) // Should be populated now, but safe fallback
-            .year_fraction(prev_date, pay_date, DayCountCtx::default())?;
+            .unwrap_or(DayCount::Act360)
+            .year_fraction(prev_date, interest_end, DayCountCtx::default())?;
 
         let interest = Money::new(balance * rate * accrual_factor, base_ccy);
         total_interest = total_interest.checked_add(interest)?;
 
-        // 2. Prepayment & Default
-        let period_smm = if let Some(smm) = state.pool_state.smm_overrides[i] {
-            1.0 - (1.0 - smm).powf(months_per_period)
+        // M3: Check maturity -- if asset has matured, return remaining balance as
+        // a balloon payment and zero out the asset. Interest was already computed above
+        // (capped at maturity date).
+        if pay_date >= state.pool_state.maturities[i] {
+            let balloon = Money::new(balance, base_ccy);
+            total_scheduled = total_scheduled.checked_add(balloon)?;
+            state.pool_state.balances[i] = 0.0;
+            continue;
+        }
+
+        // M1: Scheduled amortization for amortizing assets
+        let scheduled_principal = if state.pool_state.is_amortizing[i] && rate > 0.0 {
+            // Compute level payment using standard mortgage math:
+            // monthly_rate = annual_rate / 12
+            // n_months = remaining months to maturity
+            // level_payment = P * r_m / (1 - (1+r_m)^-n)
+            let monthly_rate = rate / 12.0;
+            let remaining_days = (state.pool_state.maturities[i] - pay_date)
+                .whole_days()
+                .max(1) as f64;
+            let remaining_months = (remaining_days / 30.44).round().max(1.0);
+            let denom = 1.0 - (1.0 + monthly_rate).powf(-remaining_months);
+
+            let period_payment = if denom.abs() > f64::EPSILON {
+                let monthly_payment = balance * monthly_rate / denom;
+                monthly_payment * months_per_period
+            } else {
+                // If denominator is ~0 (very short term), return full balance
+                balance
+            };
+
+            // Scheduled principal = level payment - interest (for this period)
+            (period_payment - interest.amount()).max(0.0).min(balance)
         } else {
-            global_period_smm
+            0.0
         };
 
+        total_scheduled = total_scheduled.checked_add(Money::new(scheduled_principal, base_ccy))?;
+
+        // Balance after scheduled amortization
+        let balance_after_sched = balance - scheduled_principal;
+
+        // m2 fix: Apply default first, then prepayment to post-default balance
+        // (market convention per Intex/Moody's Analytics)
         let period_mdr = if let Some(mdr) = state.pool_state.mdr_overrides[i] {
             1.0 - (1.0 - mdr).powf(months_per_period)
         } else {
             global_period_mdr
         };
 
-        let prepay = Money::new(balance * period_smm, base_ccy);
-        let default = Money::new(balance * period_mdr, base_ccy);
-        let recovery = Money::new(default.amount() * recovery_rate, base_ccy);
+        let default_amt = balance_after_sched * period_mdr;
+        let balance_after_default = balance_after_sched - default_amt;
 
-        total_prepay = total_prepay.checked_add(prepay)?;
-        total_default = total_default.checked_add(default)?;
-        total_recovery = total_recovery.checked_add(recovery)?;
+        let period_smm = if let Some(smm) = state.pool_state.smm_overrides[i] {
+            1.0 - (1.0 - smm).powf(months_per_period)
+        } else {
+            global_period_smm
+        };
+
+        let prepay_amt = balance_after_default * period_smm;
+        let recovery_amt = default_amt * recovery_rate;
+
+        total_prepay = total_prepay.checked_add(Money::new(prepay_amt, base_ccy))?;
+        total_default = total_default.checked_add(Money::new(default_amt, base_ccy))?;
+        total_recovery = total_recovery.checked_add(Money::new(recovery_amt, base_ccy))?;
+
+        // Mark asset as fully defaulted if default consumed (nearly) all remaining balance.
+        // Uses relative tolerance: 1 - 1e-10 catches floating-point imprecision when
+        // the MDR is effectively 100%, without false positives from small balances.
+        // Guard on balance_after_sched > 0 prevents marking fully-amortized assets
+        // (where both sides are 0.0) as "defaulted" when they actually paid down normally.
+        if balance_after_sched > 0.0 && default_amt >= balance_after_sched * (1.0 - 1e-10) {
+            state.pool_state.is_defaulted[i] = true;
+        }
 
         // Update balance
-        let new_balance = balance - prepay.amount() - default.amount();
+        let new_balance = balance_after_default - prepay_amt;
         state.pool_state.balances[i] = new_balance.max(0.0);
     }
 
-    Ok((total_interest, total_prepay, total_default, total_recovery))
+    Ok(PoolFlows {
+        interest: total_interest,
+        scheduled_principal: total_scheduled,
+        prepayment: total_prepay,
+        default: total_default,
+        recovery: total_recovery,
+    })
 }

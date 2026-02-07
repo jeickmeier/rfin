@@ -148,6 +148,7 @@ fn run_waterfall(
         period_start,
         pool_balance,
         market,
+        tranche_balances: None,
     };
     finstack_valuations::instruments::fixed_income::structured_credit::execute_waterfall(
         waterfall, tranches, pool, context,

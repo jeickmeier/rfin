@@ -32,6 +32,8 @@ pub struct PoolState {
     pub curve_indices: Vec<Option<usize>>,
     /// Unique curve identifiers (referenced by curve_indices)
     pub unique_curves: Vec<String>,
+    /// Whether each asset amortizes through level payments (mortgages, auto, etc.)
+    pub is_amortizing: Vec<bool>,
 }
 
 impl PoolState {
@@ -50,6 +52,8 @@ impl PoolState {
         let mut smm_overrides = Vec::with_capacity(n);
         let mut mdr_overrides = Vec::with_capacity(n);
 
+        let mut is_amortizing = Vec::with_capacity(n);
+
         for asset in &pool.assets {
             ids.push(asset.id.to_string());
             balances.push(asset.balance.amount());
@@ -62,6 +66,7 @@ impl PoolState {
             recovery_amounts.push(asset.recovery_amount.map(|m| m.amount()));
             smm_overrides.push(asset.smm_override);
             mdr_overrides.push(asset.mdr_override);
+            is_amortizing.push(asset.asset_type.is_amortizing());
         }
 
         // Build unique curve index
@@ -95,6 +100,7 @@ impl PoolState {
             mdr_overrides,
             curve_indices,
             unique_curves,
+            is_amortizing,
         }
     }
 

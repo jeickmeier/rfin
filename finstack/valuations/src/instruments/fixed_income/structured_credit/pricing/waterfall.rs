@@ -68,6 +68,10 @@ pub struct WaterfallContext<'a> {
     pub pool_balance: Money,
     /// Market context for rate lookups and discounting.
     pub market: &'a MarketContext,
+    /// Current tranche balances (overrides `tranche.current_balance` when present).
+    /// This ensures the waterfall uses up-to-date balances after principal payments
+    /// and PIK accretion rather than stale original balances.
+    pub tranche_balances: Option<&'a HashMap<String, Money>>,
 }
 
 /// Execute waterfall to distribute available cash.
@@ -113,17 +117,21 @@ fn execute_waterfall_core(
         pool_balance: context.pool_balance,
         payment_date: context.payment_date,
         market: context.market,
+        tranche_balances: context.tranche_balances,
     };
 
-    // Evaluate coverage tests
+    // Evaluate coverage tests (M4: pass current balances)
     let coverage_test_results = evaluate_coverage_tests(
         waterfall,
         tranches,
         pool,
         context.payment_date,
+        context.period_start,
         context.available_cash,
         context.interest_collections,
+        context.pool_balance,
         context.market,
+        context.tranche_balances,
     )?;
 
     // Check if diversions are active
@@ -284,16 +292,23 @@ pub struct AllocationContext<'a> {
     pub payment_date: Date,
     /// Market context for rate lookups
     pub market: &'a MarketContext,
+    /// Current tranche balances (overrides tranche.current_balance when present)
+    pub tranche_balances: Option<&'a HashMap<String, Money>>,
 }
 
 impl<'a> AllocationContext<'a> {
     /// Create a new allocation context.
+    ///
+    /// Pass `tranche_balances` to use current (dynamic) tranche balances for
+    /// interest accrual and principal calculations instead of the static balances
+    /// stored on the `Tranche` definitions.
     pub fn new(
         base_currency: Currency,
         tranches: &'a TrancheStructure,
         pool_balance: Money,
         payment_date: Date,
         market: &'a MarketContext,
+        tranche_balances: Option<&'a HashMap<String, Money>>,
     ) -> Self {
         let mut tranche_index = HashMap::default();
         tranche_index.reserve(tranches.tranches.len());
@@ -308,6 +323,7 @@ impl<'a> AllocationContext<'a> {
             pool_balance,
             payment_date,
             market,
+            tranche_balances,
         }
     }
 }
@@ -371,6 +387,7 @@ fn allocate_sequential(
             available,
             ctx.tranches,
             &ctx.tranche_index,
+            ctx.tranche_balances,
             ctx.pool_balance,
             period_start,
             ctx.payment_date,
@@ -472,6 +489,7 @@ fn allocate_pro_rata(
             available,
             ctx.tranches,
             &ctx.tranche_index,
+            ctx.tranche_balances,
             ctx.pool_balance,
             period_start,
             ctx.payment_date,
@@ -620,14 +638,18 @@ fn allocate_pro_rata(
 // ============================================================================
 
 /// Evaluate coverage tests.
+#[allow(clippy::too_many_arguments)]
 fn evaluate_coverage_tests(
     waterfall: &Waterfall,
     tranches: &TrancheStructure,
     pool: &Pool,
     as_of: Date,
+    period_start: Date,
     available_cash: Money,
     interest_collections: Money,
+    current_pool_balance: Money,
     market: &MarketContext,
+    tranche_balances: Option<&HashMap<String, Money>>,
 ) -> Result<Vec<(String, f64, bool)>> {
     let mut results = Vec::with_capacity(waterfall.coverage_triggers.len() * 2);
 
@@ -650,11 +672,14 @@ fn evaluate_coverage_tests(
                 tranches,
                 tranche_id: &trigger.tranche_id,
                 as_of,
+                period_start: Some(period_start),
                 cash_balance: available_cash,
                 interest_collections,
                 haircuts,
                 par_value_threshold,
                 market: Some(market),
+                tranche_balances,
+                current_pool_balance: Some(current_pool_balance),
             };
 
             let oc_test = CoverageTest::new_oc(oc_trigger_level);
@@ -672,11 +697,14 @@ fn evaluate_coverage_tests(
                 tranches,
                 tranche_id: &trigger.tranche_id,
                 as_of,
+                period_start: Some(period_start),
                 cash_balance: available_cash,
                 interest_collections,
                 haircuts,
                 par_value_threshold,
                 market: Some(market),
+                tranche_balances,
+                current_pool_balance: Some(current_pool_balance),
             };
 
             let ic_test = CoverageTest::new_ic(ic_trigger_level);
@@ -700,6 +728,7 @@ fn calculate_payment_amount(
     available: Money,
     tranches: &TrancheStructure,
     tranche_index: &HashMap<&str, usize>,
+    tranche_balances: Option<&HashMap<String, Money>>,
     pool_balance: Money,
     period_start: Date,
     payment_date: Date,
@@ -736,6 +765,11 @@ fn calculate_payment_amount(
                 })
             })?;
             let tranche = &tranches.tranches[idx];
+            // B1 fix: use current tranche balance when available
+            let balance = tranche_balances
+                .and_then(|b| b.get(tranche_id.as_str()))
+                .copied()
+                .unwrap_or(tranche.current_balance);
             let rate = tranche
                 .coupon
                 .try_current_rate_with_index(payment_date, market)?;
@@ -744,10 +778,7 @@ fn calculate_payment_amount(
                 payment_date,
                 DayCountCtx::default(),
             )?;
-            (
-                tranche.current_balance.amount() * rate * accrual_fraction,
-                *rounding,
-            )
+            (balance.amount() * rate * accrual_fraction, *rounding)
         }
 
         PaymentCalculation::TranchePrincipal {
@@ -761,7 +792,11 @@ fn calculate_payment_amount(
                 })
             })?;
             let tranche = &tranches.tranches[idx];
-            let current = tranche.current_balance;
+            // B1 fix: use current tranche balance when available
+            let current = tranche_balances
+                .and_then(|b| b.get(tranche_id.as_str()))
+                .copied()
+                .unwrap_or(tranche.current_balance);
             let target = target_balance.unwrap_or(Money::new(0.0, base_currency));
             let needed = current
                 .checked_sub(target)
@@ -773,10 +808,8 @@ fn calculate_payment_amount(
     };
 
     if let Some(convention) = rounding {
-        // Apply rounding based on convention
-        // For now, we assume 2 decimal places for standard currencies
-        // In a real implementation, we might want to use currency-specific precision
-        let decimals = 2;
+        // m1 fix: use currency-specific decimal places
+        let decimals = currency_decimal_places(base_currency) as i32;
         let scale = 10f64.powi(decimals);
         let val = raw_amount;
         let rounded_val = match convention {

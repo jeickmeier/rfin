@@ -487,6 +487,7 @@ pub fn execute_waterfall_js(
         period_start: period_start.inner(),
         pool_balance: pool_balance.inner(),
         market: market.inner(),
+        tranche_balances: None,
     };
 
     let distribution = if explain.unwrap_or(false) {
