@@ -101,14 +101,14 @@ pub fn market_with_curves() -> MarketContext {
     let eur_curve = DiscountCurve::builder("EUR.OIS")
         .base_date(as_of)
         .knots([(0.0, 1.0), (10.0, 0.98)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
     let usd_curve = DiscountCurve::builder("USD.OIS")
         .base_date(as_of)
         .knots([(0.0, 1.0), (10.0, 0.975)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -126,14 +126,14 @@ pub fn market_full() -> MarketContext {
     let eur_curve = DiscountCurve::builder("EUR.OIS")
         .base_date(as_of)
         .knots([(0.0, 1.0), (10.0, 0.98)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
     let usd_curve = DiscountCurve::builder("USD.OIS")
         .base_date(as_of)
         .knots([(0.0, 1.0), (10.0, 0.975)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 

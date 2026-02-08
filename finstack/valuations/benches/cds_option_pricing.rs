@@ -74,7 +74,7 @@ fn create_market() -> MarketContext {
             (5.0, 0.78),
             (10.0, 0.60),
         ])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
 

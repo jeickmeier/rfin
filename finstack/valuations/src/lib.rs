@@ -326,3 +326,12 @@ pub mod metrics;
 /// Provides credit valuation adjustment (CVA) and exposure simulation
 /// for OTC derivative portfolios under ISDA netting and CSA collateral.
 pub mod xva;
+
+// Re-export pricing error for convenience.
+pub use pricer::PricingError;
+
+/// Convenient alias carrying `finstack_core`'s unified [`Error`](finstack_core::Error).
+///
+/// Mirrors `finstack_core::Result<T>` so callers can write `crate::Result<T>`
+/// consistently across both crates.
+pub type Result<T> = finstack_core::Result<T>;

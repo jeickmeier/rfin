@@ -50,7 +50,7 @@
 //!     .base_date(base)
 //!     .spot_level(18.5)
 //!     .knots([(0.0, 18.5), (0.25, 20.0), (0.5, 21.5), (1.0, 22.0)])
-//!     .set_interp(InterpStyle::Linear)
+//!     .interp(InterpStyle::Linear)
 //!     .build()
 //!     .expect("VolatilityIndexCurve builder should succeed");
 //! assert!(curve.forward_level(0.25) > 0.0);
@@ -170,7 +170,7 @@ impl TryFrom<RawVolatilityIndexCurve> for VolatilityIndexCurve {
             .day_count(state.day_count)
             .spot_level(state.spot_level)
             .knots(state.points.knot_points)
-            .set_interp(state.interp.interp_style)
+            .interp(state.interp.interp_style)
             .extrapolation(state.interp.extrapolation)
             .build()
     }
@@ -286,7 +286,7 @@ impl VolatilityIndexCurve {
             .day_count(self.day_count)
             .spot_level((self.spot_level + bump).max(0.0))
             .knots(bumped_points)
-            .set_interp(self.interp.style())
+            .interp(self.interp.style())
             .extrapolation(self.interp.extrapolation())
             .build()
     }
@@ -314,7 +314,7 @@ impl VolatilityIndexCurve {
             .day_count(self.day_count)
             .spot_level((self.spot_level * factor).max(0.0))
             .knots(bumped_points)
-            .set_interp(self.interp.style())
+            .interp(self.interp.style())
             .extrapolation(self.interp.extrapolation())
             .build()
     }
@@ -354,7 +354,7 @@ impl VolatilityIndexCurve {
             .day_count(self.day_count)
             .spot_level(self.spot_level) // Spot typically not bumped in key-rate
             .knots(bumped_points)
-            .set_interp(self.interp.style())
+            .interp(self.interp.style())
             .extrapolation(self.interp.extrapolation())
             .build()
     }
@@ -395,7 +395,7 @@ impl VolatilityIndexCurve {
             .day_count(self.day_count)
             .spot_level(new_spot)
             .knots(rolled_points)
-            .set_interp(self.interp.style())
+            .interp(self.interp.style())
             .extrapolation(self.interp.extrapolation())
             .build()
     }
@@ -443,9 +443,15 @@ impl VolatilityIndexCurveBuilder {
     }
 
     /// Select interpolation style for this curve.
-    pub fn set_interp(mut self, style: InterpStyle) -> Self {
+    pub fn interp(mut self, style: InterpStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Deprecated alias for [`interp`](Self::interp).
+    #[deprecated(since = "0.2.0", note = "renamed to `interp` for naming consistency")]
+    pub fn set_interp(self, style: InterpStyle) -> Self {
+        self.interp(style)
     }
 
     /// Set the extrapolation policy for out-of-bounds evaluation.

@@ -220,7 +220,7 @@ fn fixed_schedule_npv_equals_sum_cashflows() {
     let curve = CoreDiscCurve::builder("USD-OIS")
         .base_date(issue)
         .knots([(0.0, 1.0), (5.0, 1.0)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .allow_non_monotonic() // Flat curve for testing NPV = sum of cashflows
         .build()
         .unwrap();
@@ -551,7 +551,7 @@ fn npv_golden_value_with_realistic_discount_curve() {
     let flat_curve = CoreDiscCurve::builder("USD-OIS")
         .base_date(issue)
         .knots([(0.0, 1.0), (2.0, 1.0)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .allow_non_monotonic()
         .build()
         .unwrap();
@@ -568,7 +568,7 @@ fn npv_golden_value_with_realistic_discount_curve() {
             (0.5, (-0.05_f64 * 0.5).exp()),
             (1.0, (-0.05_f64 * 1.0).exp()),
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -866,7 +866,7 @@ fn npv_decreases_with_higher_discount_rate() {
                 (0.5, (-rate * 0.5).exp()),
                 (1.0, (-rate * 1.0).exp()),
             ])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .unwrap()
     };

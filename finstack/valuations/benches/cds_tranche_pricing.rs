@@ -68,7 +68,7 @@ fn create_market() -> MarketContext {
             (7.0, 0.70),
             (10.0, 0.60),
         ])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
 
@@ -132,7 +132,7 @@ fn create_market_with_issuers(num_issuers: usize) -> MarketContext {
             (7.0, 0.70),
             (10.0, 0.60),
         ])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
 

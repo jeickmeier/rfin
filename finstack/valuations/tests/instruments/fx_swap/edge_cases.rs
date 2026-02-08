@@ -104,14 +104,14 @@ fn test_missing_fx_matrix() {
     let usd_curve = finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .knots([(0.0, 1.0), (10.0, 0.9)])
-        .set_interp(finstack_core::math::interp::InterpStyle::Linear)
+        .interp(finstack_core::math::interp::InterpStyle::Linear)
         .build()
         .unwrap();
 
     let eur_curve = finstack_core::market_data::term_structures::DiscountCurve::builder("EUR-OIS")
         .base_date(as_of)
         .knots([(0.0, 1.0), (10.0, 0.95)])
-        .set_interp(finstack_core::math::interp::InterpStyle::Linear)
+        .interp(finstack_core::math::interp::InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -142,14 +142,14 @@ fn test_missing_fx_matrix_with_contract_rates() {
     let usd_curve = finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .knots([(0.0, 1.0), (10.0, 0.9)])
-        .set_interp(finstack_core::math::interp::InterpStyle::Linear)
+        .interp(finstack_core::math::interp::InterpStyle::Linear)
         .build()
         .unwrap();
 
     let eur_curve = finstack_core::market_data::term_structures::DiscountCurve::builder("EUR-OIS")
         .base_date(as_of)
         .knots([(0.0, 1.0), (10.0, 0.95)])
-        .set_interp(finstack_core::math::interp::InterpStyle::Linear)
+        .interp(finstack_core::math::interp::InterpStyle::Linear)
         .build()
         .unwrap();
 

@@ -608,7 +608,7 @@ mod tests {
         let curve_t0 = DiscountCurve::builder("USD-OIS")
             .base_date(base_date)
             .knots([(0.0, 1.0), (1.0, 0.96), (5.0, 0.82), (10.0, 0.67)])
-            .set_interp(InterpStyle::LogLinear)
+            .interp(InterpStyle::LogLinear)
             .build()
             .expect("Market diff calculation should succeed in test");
 
@@ -622,7 +622,7 @@ mod tests {
                 (5.0, 0.82 * (-0.005_f64 * 5.0).exp()),
                 (10.0, 0.67 * (-0.005_f64 * 10.0).exp()),
             ])
-            .set_interp(InterpStyle::LogLinear)
+            .interp(InterpStyle::LogLinear)
             .build()
             .expect("Market diff calculation should succeed in test");
 
@@ -697,7 +697,7 @@ mod tests {
         let curve_t0 = DiscountCurve::builder("USD-OIS")
             .base_date(base_date)
             .knots([(0.0, 1.0), (1.0, 0.96), (5.0, 0.82), (10.0, 0.67)])
-            .set_interp(InterpStyle::LogLinear)
+            .interp(InterpStyle::LogLinear)
             .build()
             .expect("Market diff calculation should succeed in test");
 
@@ -710,7 +710,7 @@ mod tests {
                 (5.0, 0.82 * (-0.005_f64 * 5.0).exp()),
                 (10.0, 0.67 * (-0.005_f64 * 10.0).exp()),
             ])
-            .set_interp(InterpStyle::LogLinear)
+            .interp(InterpStyle::LogLinear)
             .build()
             .expect("Market diff calculation should succeed in test");
 
@@ -736,7 +736,7 @@ mod tests {
         let curve = DiscountCurve::builder("USD-OIS")
             .base_date(base_date)
             .knots([(0.0, 1.0), (1.0, 0.98), (5.0, 0.90)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("Market diff calculation should succeed in test");
 

@@ -875,7 +875,7 @@ mod tests {
         DiscountCurve::builder(id)
             .base_date(base_date)
             .knots(vec![(0.0, 1.0), (1.0, 0.98), (5.0, 0.90)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("DiscountCurve builder should succeed with valid test data")
     }
@@ -1929,7 +1929,7 @@ mod tests {
         let forward = ForwardCurve::builder("USD-SOFR", 0.25) // 3-month forward
             .base_date(base_date)
             .knots(vec![(0.0, 0.03), (1.0, 0.035), (5.0, 0.04)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("ForwardCurve builder should succeed");
 

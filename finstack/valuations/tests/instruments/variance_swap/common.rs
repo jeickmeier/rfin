@@ -12,17 +12,14 @@ use finstack_valuations::instruments::equity::variance_swap::{
     PayReceive, RealizedVarMethod, VarianceSwap,
 };
 use finstack_valuations::instruments::Attributes;
-use time::Month;
 
 pub const DISC_ID: &str = "USD_OIS";
 pub const UNDERLYING_ID: &str = "SPX";
 pub const DEFAULT_NOTIONAL: f64 = 1_000_000.0;
 pub const DEFAULT_STRIKE_VAR: f64 = 0.04; // 20% vol => 0.04 variance
 
-/// Create a date helper.
-pub fn date(year: i32, month: u8, day: u8) -> Date {
-    Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()
-}
+// Re-export the canonical date helper from shared test utilities.
+pub use crate::finstack_test_utils::date;
 
 /// Default start and end dates for test swaps.
 pub fn default_dates() -> (Date, Date) {

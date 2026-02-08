@@ -31,7 +31,7 @@ fn test_currency_safety_mismatch() {
     let discount_curve = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots([(0.0, 1.0), (10.0, 0.741)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -482,7 +482,7 @@ fn test_missing_volatility_data() {
     let discount_curve = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots([(0.0, 1.0), (10.0, 0.741)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 

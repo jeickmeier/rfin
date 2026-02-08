@@ -94,14 +94,14 @@ pub fn setup_standard_market(as_of: Date) -> MarketContext {
     let usd_curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .knots([(0.0, 1.0), (10.0, 0.9)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
     let eur_curve = DiscountCurve::builder("EUR-OIS")
         .base_date(as_of)
         .knots([(0.0, 1.0), (10.0, 0.95)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -124,14 +124,14 @@ pub fn setup_steep_curve_market(as_of: Date) -> MarketContext {
     let usd_curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .knots([(0.0, 1.0), (1.0, 0.95), (10.0, 0.60)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
     let eur_curve = DiscountCurve::builder("EUR-OIS")
         .base_date(as_of)
         .knots([(0.0, 1.0), (1.0, 0.97), (10.0, 0.74)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -152,7 +152,7 @@ pub fn setup_inverted_curve_market(as_of: Date) -> MarketContext {
     let usd_curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .knots([(0.0, 1.0), (0.25, 0.99), (10.0, 1.05)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .allow_non_monotonic() // DFs increase for negative rates
         .build()
         .unwrap();
@@ -160,7 +160,7 @@ pub fn setup_inverted_curve_market(as_of: Date) -> MarketContext {
     let eur_curve = DiscountCurve::builder("EUR-OIS")
         .base_date(as_of)
         .knots([(0.0, 1.0), (0.25, 0.995), (10.0, 1.02)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .allow_non_monotonic() // DFs increase for negative rates
         .build()
         .unwrap();

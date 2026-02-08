@@ -66,7 +66,7 @@ fn create_market_context(spot: f64, vol: f64, div_yield: f64) -> MarketContext {
     let discount_curve = DiscountCurve::builder("USD-OIS")
         .base_date(base)
         .knots([(0.0, 1.0), (10.0, 0.741)]) // ~3% rate
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 

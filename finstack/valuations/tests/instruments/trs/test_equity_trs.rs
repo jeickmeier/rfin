@@ -341,7 +341,7 @@ fn test_equity_trs_sensitivity_to_interest_rates() {
                 (2.0, 0.920),
                 (5.0, 0.800),
             ])
-            .set_interp(finstack_core::math::interp::InterpStyle::LogLinear)
+            .interp(finstack_core::math::interp::InterpStyle::LogLinear)
             .build()
             .unwrap();
     market_shifted = market_shifted.insert_discount(disc_shifted);
@@ -356,7 +356,7 @@ fn test_equity_trs_sensitivity_to_interest_rates() {
                 (1.0, 0.033),
                 (2.0, 0.034),
             ])
-            .set_interp(finstack_core::math::interp::InterpStyle::Linear)
+            .interp(finstack_core::math::interp::InterpStyle::Linear)
             .build()
             .unwrap();
     market_shifted = market_shifted.insert_forward(fwd_shifted);

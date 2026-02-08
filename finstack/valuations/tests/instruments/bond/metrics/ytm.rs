@@ -71,7 +71,7 @@ fn test_ytm_floating_bond_is_finite_from_price() {
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .knots([(0.0, 1.0), (2.0, 0.95)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
     let fwd = ForwardCurve::builder("USD-SOFR-3M", 0.25)
@@ -139,7 +139,7 @@ fn test_ytm_amortizing_bond_is_finite_from_price() {
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .knots([(0.0, 1.0), (3.0, 0.94)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
     let market = MarketContext::new().insert_discount(disc);

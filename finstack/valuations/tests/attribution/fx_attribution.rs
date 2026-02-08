@@ -150,14 +150,14 @@ fn test_fx_attribution_parallel_internal_exposure() {
     let curve_t0 = DiscountCurve::builder("USD-OIS")
         .base_date(as_of_t0)
         .knots(vec![(0.0, 1.0), (5.0, 0.82)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
     let curve_t1 = DiscountCurve::builder("USD-OIS")
         .base_date(as_of_t1)
         .knots(vec![(0.0, 1.0), (5.0, 0.82)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -225,14 +225,14 @@ fn test_waterfall_attribution_sum_equality() {
     let curve_t0 = DiscountCurve::builder("USD-OIS")
         .base_date(as_of_t0)
         .knots(vec![(0.0, 1.0), (5.0, 0.82)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
     let curve_t1 = DiscountCurve::builder("USD-OIS")
         .base_date(as_of_t1)
         .knots(vec![(0.0, 1.0), (5.0, 0.78)]) // Rates increased
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -313,14 +313,14 @@ fn test_fx_attribution_cross_currency_exposure() {
     let eur_curve_t0 = DiscountCurve::builder("EUR-OIS")
         .base_date(as_of_t0)
         .knots(vec![(0.0, 1.0), (5.0, 0.85)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
     let eur_curve_t1 = DiscountCurve::builder("EUR-OIS")
         .base_date(as_of_t1)
         .knots(vec![(0.0, 1.0), (5.0, 0.85)]) // Same rates
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -485,7 +485,7 @@ fn test_fx_attribution_eur_weakening() {
     let eur_curve = DiscountCurve::builder("EUR-OIS")
         .base_date(as_of_t0)
         .knots(vec![(0.0, 1.0), (5.0, 0.85)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -543,14 +543,14 @@ fn test_waterfall_factor_ordering_sensitivity() {
     let curve_t0 = DiscountCurve::builder("USD-OIS")
         .base_date(as_of_t0)
         .knots(vec![(0.0, 1.0), (5.0, 0.82)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
     let curve_t1 = DiscountCurve::builder("USD-OIS")
         .base_date(as_of_t1)
         .knots(vec![(0.0, 1.0), (5.0, 0.78)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 

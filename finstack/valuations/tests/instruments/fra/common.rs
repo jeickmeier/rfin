@@ -29,7 +29,7 @@ pub fn build_flat_forward_curve(rate: f64, base_date: Date, curve_id: &str) -> F
         .base_date(base_date)
         .day_count(DayCount::Act360)
         .knots([(0.0, rate), (10.0, rate)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap()
 }
@@ -46,7 +46,7 @@ pub fn build_flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> 
             (5.0, (-rate * 5.0).exp()),
             (10.0, (-rate * 10.0).exp()),
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap()
 }
@@ -63,7 +63,7 @@ pub fn build_upward_forward_curve(base_date: Date, curve_id: &str) -> ForwardCur
             (5.0, 0.045), // 4.5% at 5Y
             (10.0, 0.05), // 5% at 10Y
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap()
 }
@@ -80,7 +80,7 @@ pub fn build_inverted_forward_curve(base_date: Date, curve_id: &str) -> ForwardC
             (2.0, 0.04), // 4% at 2Y
             (5.0, 0.03), // 3% at 5Y
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap()
 }

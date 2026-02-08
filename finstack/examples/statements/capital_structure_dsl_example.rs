@@ -118,7 +118,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             (1.0, 0.94),   // 1Y: ~6.2% rate
             (5.0, 0.74),   // 5Y: ~6% rate
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()?;
 
     let market_ctx = MarketContext::new().insert_discount(discount_curve);

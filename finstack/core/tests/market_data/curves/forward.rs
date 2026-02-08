@@ -35,7 +35,7 @@ fn clone_is_panic_free_and_equivalent() {
             (2.0, 0.042),
             (5.0, 0.045),
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -79,7 +79,7 @@ fn clone_works_for_all_interp_styles() {
         let curve = ForwardCurve::builder("TEST", 0.25)
             .base_date(test_date())
             .knots([(0.0, 0.03), (1.0, 0.04), (5.0, 0.05)])
-            .set_interp(style)
+            .interp(style)
             .build()
             .unwrap();
 
@@ -158,7 +158,7 @@ mod serde_tests {
                 (2.0, 0.042),
                 (5.0, 0.045),
             ])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .unwrap();
 
@@ -203,7 +203,7 @@ mod serde_tests {
                 .reset_lag(2)
                 .day_count(DayCount::Act360)
                 .knots([(0.0, 0.025), (1.0, 0.03), (2.0, 0.035), (5.0, 0.04)])
-                .set_interp(style)
+                .interp(style)
                 .build()
                 .unwrap();
 
@@ -243,7 +243,7 @@ fn test_forward_curve_spread_based_construction() {
     let fwd_curve = ForwardCurve::builder("FWD-SPREAD", 0.25)
         .base_date(test_date())
         .knots([(0.0, 0.01), (1.0, 0.015), (2.0, 0.02)]) // Spread (simple forwards)
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -407,7 +407,7 @@ fn test_forward_curve_serde_all_fields() {
         .reset_lag(2)
         .day_count(DayCount::Act360)
         .knots([(0.0, 0.03), (1.0, 0.04), (2.0, 0.045)])
-        .set_interp(InterpStyle::CubicHermite)
+        .interp(InterpStyle::CubicHermite)
         .extrapolation(ExtrapolationPolicy::FlatForward)
         .build()
         .unwrap();

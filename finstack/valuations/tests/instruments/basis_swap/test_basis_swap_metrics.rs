@@ -19,19 +19,19 @@ fn market() -> MarketContext {
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(d(2025, 1, 2))
         .knots(vec![(0.0, 1.0), (0.5, 0.99), (1.0, 0.98), (2.0, 0.96)])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
     let f3m = ForwardCurve::builder("USD-SOFR-3M", 0.25)
         .base_date(d(2025, 1, 2))
         .knots(vec![(0.0, 0.02), (0.5, 0.021), (1.0, 0.022), (2.0, 0.023)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
     let f1m = ForwardCurve::builder("USD-SOFR-1M", 1.0 / 12.0)
         .base_date(d(2025, 1, 2))
         .knots(vec![(0.0, 0.019), (0.5, 0.020), (1.0, 0.021), (2.0, 0.022)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
     // Provide fixings for theta calculations where the rolled as_of date

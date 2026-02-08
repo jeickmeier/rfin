@@ -46,7 +46,7 @@ fn create_flat_discount_curve(base_date: Date, rate: f64, curve_id: &str) -> Dis
     DiscountCurve::builder(curve_id)
         .base_date(base_date)
         .knots(dfs)
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap()
 }

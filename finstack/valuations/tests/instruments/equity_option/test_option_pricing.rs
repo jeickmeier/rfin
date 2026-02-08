@@ -38,7 +38,7 @@ fn create_test_market(base_date: Date) -> MarketContext {
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots([(0.0, 1.0), (0.5, 0.98), (1.0, 0.96), (2.0, 0.92)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 

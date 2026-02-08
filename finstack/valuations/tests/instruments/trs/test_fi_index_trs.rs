@@ -388,7 +388,7 @@ fn test_fi_index_trs_sensitivity_to_interest_rates() {
                 (2.0, 0.940),
                 (5.0, 0.850),
             ])
-            .set_interp(finstack_core::math::interp::InterpStyle::LogLinear)
+            .interp(finstack_core::math::interp::InterpStyle::LogLinear)
             .build()
             .unwrap();
     market_shifted = market_shifted.insert_discount(disc_shifted);
@@ -397,7 +397,7 @@ fn test_fi_index_trs_sensitivity_to_interest_rates() {
         finstack_core::market_data::term_structures::ForwardCurve::builder("USD-SOFR-3M", 0.25)
             .base_date(as_of)
             .knots(vec![(0.0, 0.03), (0.25, 0.031), (0.5, 0.032), (1.0, 0.033)])
-            .set_interp(finstack_core::math::interp::InterpStyle::Linear)
+            .interp(finstack_core::math::interp::InterpStyle::Linear)
             .build()
             .unwrap();
     market_shifted = market_shifted.insert_forward(fwd_shifted);
@@ -605,7 +605,7 @@ fn test_fi_index_trs_analytical_flat_rate_flat_yield() {
             (0.75, (-0.02_f64 * 0.75).exp()),
             (1.00, (-0.02_f64 * 1.00).exp()),
         ])
-        .set_interp(finstack_core::math::interp::InterpStyle::LogLinear)
+        .interp(finstack_core::math::interp::InterpStyle::LogLinear)
         .build()
         .unwrap();
 
@@ -614,7 +614,7 @@ fn test_fi_index_trs_analytical_flat_rate_flat_yield() {
         .base_date(as_of)
         .day_count(DayCount::Act360)
         .knots(vec![(0.0, flat_rate), (1.0, flat_rate)])
-        .set_interp(finstack_core::math::interp::InterpStyle::Linear)
+        .interp(finstack_core::math::interp::InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -707,7 +707,7 @@ fn test_fi_index_trs_errors_on_missing_configured_yield() {
             finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
                 .base_date(as_of)
                 .knots(vec![(0.0, 1.0), (1.0, 0.98)])
-                .set_interp(finstack_core::math::interp::InterpStyle::LogLinear)
+                .interp(finstack_core::math::interp::InterpStyle::LogLinear)
                 .build()
                 .unwrap(),
         )
@@ -715,7 +715,7 @@ fn test_fi_index_trs_errors_on_missing_configured_yield() {
             finstack_core::market_data::term_structures::ForwardCurve::builder("USD-SOFR-3M", 0.25)
                 .base_date(as_of)
                 .knots(vec![(0.0, 0.02), (1.0, 0.02)])
-                .set_interp(finstack_core::math::interp::InterpStyle::Linear)
+                .interp(finstack_core::math::interp::InterpStyle::Linear)
                 .build()
                 .unwrap(),
         );

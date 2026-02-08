@@ -85,7 +85,7 @@ fn test_valuation_with_negative_rates() {
             (1.0, 1.02),
         ])
         .allow_non_monotonic() // Increasing DFs for negative rates
-        .set_interp(finstack_core::math::interp::InterpStyle::Linear) // MonotoneConvex doesn't work for increasing DFs
+        .interp(finstack_core::math::interp::InterpStyle::Linear) // MonotoneConvex doesn't work for increasing DFs
         .build()
         .unwrap();
     let ctx = MarketContext::new()

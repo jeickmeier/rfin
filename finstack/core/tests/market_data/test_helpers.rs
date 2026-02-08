@@ -40,7 +40,7 @@ pub(crate) fn sample_discount_curve(id: &str) -> DiscountCurve {
         .base_date(sample_base_date())
         .day_count(DayCount::Act365F) // Explicit day count convention
         .knots([(0.0, 1.0), (1.0, 0.98), (2.0, 0.96)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap()
 }

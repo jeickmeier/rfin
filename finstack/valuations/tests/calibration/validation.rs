@@ -20,7 +20,7 @@ fn test_discount_curve_validation() {
                 (2.0, 0.9600),
                 (5.0, 0.9000),
             ])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("should build valid curve");
 
@@ -38,7 +38,7 @@ fn test_discount_curve_validation() {
                 (2.0, 0.96), // Increases! Violation.
                 (5.0, 0.90),
             ])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .allow_non_monotonic() // Allow construction of invalid curve for testing validation
             .build()
             .expect("should build invalid curve for testing");
@@ -158,7 +158,7 @@ fn test_non_monotone_positive_rate_curve_rejected() {
             (2.0, 0.96), // DF(2Y) > DF(1Y) - violation!
             (5.0, 0.90),
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .allow_non_monotonic()
         .build()
         .expect("should build non-monotone curve for testing");
@@ -193,7 +193,7 @@ fn test_negative_rate_environment_opt_in() {
             (2.0, 1.005),
             (5.0, 0.99),
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .allow_non_monotonic()
         .build()
         .expect("should build negative rate curve for testing");
@@ -327,7 +327,7 @@ fn test_discount_curve_bounds_rejects_excessive_df() {
     let curve = DiscountCurve::builder("TEST-DF-BOUNDS")
         .base_date(base_date)
         .knots(vec![(0.0, 1.0), (0.25, 1.10), (1.0, 0.95)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .allow_non_monotonic()
         .build()
         .expect("curve should build");

@@ -29,7 +29,7 @@ fn create_discount_curve(num_points: usize, style: InterpStyle) -> DiscountCurve
     DiscountCurve::builder("USD-OIS")
         .base_date(base_date())
         .knots(knots)
-        .set_interp(style)
+        .interp(style)
         .build()
         .unwrap()
 }
@@ -46,7 +46,7 @@ fn create_forward_curve(num_points: usize, tenor: f64) -> ForwardCurve {
     ForwardCurve::builder("USD-SOFR-3M", tenor)
         .base_date(base_date())
         .knots(knots)
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap()
 }
@@ -251,7 +251,7 @@ fn bench_curve_building(c: &mut Criterion) {
                     let curve = DiscountCurve::builder("USD-OIS")
                         .base_date(base_date())
                         .knots(black_box(knots.clone()))
-                        .set_interp(InterpStyle::Linear)
+                        .interp(InterpStyle::Linear)
                         .build()
                         .unwrap();
                     black_box(curve);

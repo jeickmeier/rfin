@@ -1119,7 +1119,7 @@ mod tests {
         let disc_curve = DiscountCurve::builder("USD-OIS")
             .base_date(issue)
             .knots([(0.0, 1.0), (3.0, 0.95)])
-            .set_interp(finstack_core::math::interp::InterpStyle::Linear)
+            .interp(finstack_core::math::interp::InterpStyle::Linear)
             .build()
             .expect("CashFlowSchedule builder should succeed with valid test data");
         let curves = MarketContext::new().insert_discount(disc_curve);
@@ -1295,7 +1295,7 @@ mod tests {
         let disc_curve = DiscountCurve::builder("USD-OIS")
             .base_date(issue)
             .knots([(0.0, 1.0), (2.0, 0.98)])
-            .set_interp(finstack_core::math::interp::InterpStyle::Linear)
+            .interp(finstack_core::math::interp::InterpStyle::Linear)
             .build()
             .expect("CashFlowSchedule builder should succeed with valid test data");
         let curves = MarketContext::new().insert_discount(disc_curve);
@@ -1325,13 +1325,13 @@ mod tests {
         let disc = DiscountCurve::builder("USD-OIS")
             .base_date(issue)
             .knots([(0.0, 1.0), (2.0, 0.95)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("CashFlowSchedule builder should succeed with valid test data");
         let fwd = ForwardCurve::builder("USD-SOFR-3M", 0.25)
             .base_date(issue)
             .knots([(0.0, 0.05), (2.0, 0.055)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("CashFlowSchedule builder should succeed with valid test data");
         let ctx = MarketContext::new()
@@ -1371,14 +1371,14 @@ mod tests {
         let disc = DiscountCurve::builder("USD-OIS")
             .base_date(issue)
             .knots([(0.0, 1.0), (2.0, 0.95)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("DiscountCurve builder should succeed in test");
         let fwd = ForwardCurve::builder("USD-SOFR-3M", 0.25)
             .base_date(issue)
             .day_count(DayCount::Act360)
             .knots([(0.0, 0.05), (2.0, 0.055)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("ForwardCurve builder should succeed in test");
         let ctx = MarketContext::new()
@@ -1493,7 +1493,7 @@ mod tests {
         let disc_curve = DiscountCurve::builder("USD-OIS")
             .base_date(issue)
             .knots([(0.0, 1.0), (3.0, 0.9)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("DiscountCurve builder should succeed in test");
         let ctx = MarketContext::new().insert_discount(disc_curve);
@@ -1572,7 +1572,7 @@ mod tests {
         let disc_curve = DiscountCurve::builder("USD-OIS")
             .base_date(issue)
             .knots([(0.0, 1.0), (1.0, 0.95)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("CashFlowSchedule builder should succeed with valid test data");
 
@@ -1649,7 +1649,7 @@ mod tests {
         let disc_curve = DiscountCurve::builder("USD-OIS")
             .base_date(issue)
             .knots([(0.0, 1.0), (2.0, 0.95)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("CashFlowSchedule builder should succeed with valid test data");
         let market = MarketContext::new().insert_discount(disc_curve);
@@ -1733,7 +1733,7 @@ mod tests {
         let disc_curve = DiscountCurve::builder("USD-OIS")
             .base_date(issue)
             .knots([(0.0, 1.0), (1.0, 0.97), (2.0, 0.94), (3.0, 0.91)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("DiscountCurve builder should succeed in test");
         let market = MarketContext::new().insert_discount(disc_curve);
@@ -1827,7 +1827,7 @@ mod tests {
         let disc = DiscountCurve::builder("USD-OIS")
             .base_date(issue)
             .knots([(0.0, 1.0), (2.0, 0.90)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("CashFlowSchedule builder should succeed with valid test data");
 

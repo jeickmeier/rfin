@@ -65,7 +65,7 @@ fn create_realistic_market() -> MarketContext {
     let curve = DiscountCurve::builder(CurveId::new("USD-TREASURY"))
         .base_date(base_date)
         .knots(knots)
-        .set_interp(InterpStyle::LogLinear) // Log-linear interpolation for discount factors
+        .interp(InterpStyle::LogLinear) // Log-linear interpolation for discount factors
         .build()
         .expect("Failed to build realistic discount curve");
 

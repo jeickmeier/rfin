@@ -37,7 +37,7 @@ fn create_benchmark_market() -> MarketContext {
             (7.0, 0.8400),
             (10.0, 0.7800),
         ])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
 

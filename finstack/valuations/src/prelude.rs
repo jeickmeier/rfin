@@ -22,7 +22,11 @@
 
 pub use crate::instruments::{Attributes, Instrument};
 
-pub use crate::pricer::{create_standard_registry, InstrumentType, ModelKey, PricerRegistry};
+pub use crate::pricer::{
+    create_standard_registry, InstrumentType, ModelKey, PricerRegistry, PricingError,
+};
+
+pub use crate::Result;
 
 pub use crate::metrics::{standard_registry, MetricContext, MetricId, MetricRegistry};
 

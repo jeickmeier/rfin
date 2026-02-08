@@ -36,7 +36,7 @@ fn build_market(as_of: Date) -> MarketContext {
     let curve = DiscountCurve::builder("USD")
         .base_date(as_of)
         .knots(vec![(0.0, 1.0), (1.0, 0.99), (3.0, 0.96), (5.0, 0.93)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .allow_non_monotonic()
         .build()
         .expect("example discount curve should build");

@@ -23,7 +23,7 @@ pub fn build_test_market() -> MarketContext {
     let curve = DiscountCurve::builder("USD")
         .base_date(base_date())
         .knots(vec![(0.0, 1.0), (1.0, 1.0), (5.0, 1.0)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .allow_non_monotonic()
         .build()
         .expect("test curve should build");
@@ -39,7 +39,7 @@ pub fn build_test_market_at(as_of: Date) -> MarketContext {
     let curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .knots(vec![(0.0, 1.0), (1.0, 0.98), (5.0, 0.90)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .allow_non_monotonic()
         .build()
         .expect("test curve should build");

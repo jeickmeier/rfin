@@ -30,7 +30,7 @@ fn flat_curve(id: &str, as_of: Date, rate: f64) -> DiscountCurve {
     DiscountCurve::builder(id)
         .base_date(as_of)
         .knots(knots)
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .expect("flat curve should build")
 }
@@ -40,7 +40,7 @@ fn flat_forward(id: &str, as_of: Date, rate: f64) -> ForwardCurve {
     ForwardCurve::builder(id, 0.25)
         .base_date(as_of)
         .knots([(0.0, rate), (10.0, rate)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .expect("flat forward curve should build")
 }

@@ -68,13 +68,13 @@
 //! let disc = DiscountCurve::builder("USD-OIS")
 //!     .base_date(base)
 //!     .knots([(0.0, 1.0), (5.0, 0.88)])
-//!     .set_interp(InterpStyle::MonotoneConvex)
+//!     .interp(InterpStyle::MonotoneConvex)
 //!     .build()
 //!     ?;
 //! let fwd3m = ForwardCurve::builder("USD-SOFR3M", 0.25)
 //!     .base_date(base)
 //!     .knots([(0.0, 0.03), (5.0, 0.04)])
-//!     .set_interp(InterpStyle::Linear)
+//!     .interp(InterpStyle::Linear)
 //!     .build()
 //!     ?;
 //! let hazard = HazardCurve::builder("USD-CRED")

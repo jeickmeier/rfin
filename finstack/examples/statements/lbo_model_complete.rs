@@ -151,7 +151,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             (3.0, 0.8607),  // 3Y
             (5.0, 0.7788),  // 5Y: DF = exp(-0.05 * 5)
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()?;
 
     let market_ctx = MarketContext::new().insert_discount(usd_curve);

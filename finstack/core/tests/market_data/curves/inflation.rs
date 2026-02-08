@@ -31,7 +31,7 @@ fn clone_is_panic_free_and_equivalent() {
             (5.0, 330.0),
             (10.0, 360.0),
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -71,7 +71,7 @@ fn clone_works_for_all_interp_styles() {
         let curve = InflationCurve::builder("TEST-CPI")
             .base_cpi(100.0)
             .knots([(0.0, 100.0), (1.0, 102.0), (5.0, 110.0)])
-            .set_interp(style)
+            .interp(style)
             .build()
             .unwrap();
 
@@ -141,7 +141,7 @@ mod serde_tests {
                 (5.0, 330.0),
                 (10.0, 360.0),
             ])
-            .set_interp(InterpStyle::LogLinear)
+            .interp(InterpStyle::LogLinear)
             .build()
             .unwrap();
 
@@ -195,7 +195,7 @@ mod serde_tests {
             let original = InflationCurve::builder("EUR-HICP")
                 .base_cpi(100.0)
                 .knots([(0.0, 100.0), (1.0, 102.0), (3.0, 106.5), (5.0, 111.0)])
-                .set_interp(style)
+                .interp(style)
                 .build()
                 .unwrap();
 

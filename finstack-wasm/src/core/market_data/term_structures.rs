@@ -159,7 +159,7 @@ impl JsDiscountCurve {
         let mut builder = DiscountCurve::builder(id)
             .base_date(base_date.inner())
             .knots(points)
-            .set_interp(style)
+            .interp(style)
             .extrapolation(extrap)
             .day_count(picked_day_count);
 
@@ -253,7 +253,7 @@ impl JsForwardCurve {
         let mut builder = ForwardCurve::builder(id, tenor_years)
             .base_date(base_date.inner())
             .knots(times.into_iter().zip(forwards))
-            .set_interp(style);
+            .interp(style);
 
         if let Some(dc) = parse_day_count_jsvalue(&day_count)? {
             builder = builder.day_count(dc);
@@ -448,7 +448,7 @@ impl JsInflationCurve {
         let curve = InflationCurve::builder(id)
             .base_cpi(base_cpi)
             .knots(times.into_iter().zip(cpi_levels.into_iter()))
-            .set_interp(style)
+            .interp(style)
             .build()
             .map_err(|e| js_error(e.to_string()))?;
         Ok(JsInflationCurve {
@@ -733,7 +733,7 @@ impl JsVolatilityIndexCurve {
             finstack_core::market_data::term_structures::VolatilityIndexCurve::builder(id)
                 .base_date(base_date.inner())
                 .knots(points)
-                .set_interp(style)
+                .interp(style)
                 .extrapolation(extrap)
                 .day_count(picked_day_count);
 

@@ -40,7 +40,7 @@ fn build_test_market() -> MarketContext {
     let usd_curve = DiscountCurve::builder("USD")
         .base_date(date!(2024 - 01 - 01))
         .knots(vec![(0.0, 1.0), (1.0, 1.0), (5.0, 1.0)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .allow_non_monotonic()
         .build()
         .expect("USD curve should build");

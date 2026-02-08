@@ -135,7 +135,7 @@ impl DiversionEngine {
     /// - Self-referencing rules (A → A)
     /// - Duplicate rule IDs
     pub fn validate(&self) -> Result<()> {
-        let mut seen_ids: HashSet<&String> = HashSet::default();
+        let mut seen_ids: HashSet<&str> = HashSet::default();
         for rule in &self.rules {
             validation::require_with(seen_ids.insert(&rule.id), || {
                 format!("Duplicate diversion rule ID: {}", rule.id)

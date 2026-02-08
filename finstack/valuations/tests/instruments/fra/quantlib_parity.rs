@@ -68,7 +68,7 @@ fn create_flat_forward_curve(
         .base_date(base_date)
         .day_count(DayCount::Act360)
         .knots(rates)
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap()
 }

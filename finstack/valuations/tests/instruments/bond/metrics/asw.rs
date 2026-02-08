@@ -22,7 +22,7 @@ fn simple_discount_curve(id: &str, as_of: time::Date) -> DiscountCurve {
     DiscountCurve::builder(id)
         .base_date(as_of)
         .knots([(0.0, 1.0), (5.0, 0.9)])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap()
 }

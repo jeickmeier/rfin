@@ -51,7 +51,7 @@
 //! let fc = ForwardCurve::builder("USD-SOFR3M", 0.25)
 //!     .base_date(base)
 //!     .knots([(0.0, 0.03), (5.0, 0.04)])
-//!     .set_interp(InterpStyle::Linear)
+//!     .interp(InterpStyle::Linear)
 //!     .build()
 //!     .expect("ForwardCurve builder should succeed");
 //! assert!(fc.rate(1.0) > 0.0);
@@ -180,7 +180,7 @@ impl TryFrom<RawForwardCurve> for ForwardCurve {
             .reset_lag(state.reset_lag)
             .day_count(state.day_count)
             .knots(state.points.knot_points)
-            .set_interp(state.interp.interp_style)
+            .interp(state.interp.interp_style)
             .extrapolation(state.interp.extrapolation)
             .build()
     }
@@ -466,7 +466,7 @@ impl ForwardCurve {
             .reset_lag(self.reset_lag)
             .day_count(self.day_count)
             .knots(bumped_rates)
-            .set_interp(self.interp.style())
+            .interp(self.interp.style())
             .extrapolation(self.interp.extrapolation())
             .build()
     }
@@ -494,7 +494,7 @@ impl ForwardCurve {
             .reset_lag(self.reset_lag)
             .day_count(self.day_count)
             .knots(bumped_points)
-            .set_interp(self.interp.style())
+            .interp(self.interp.style())
             .extrapolation(self.interp.extrapolation())
             .build()
     }
@@ -556,7 +556,7 @@ impl ForwardCurve {
             .reset_lag(self.reset_lag)
             .day_count(self.day_count)
             .knots(rolled_points)
-            .set_interp(self.interp.style())
+            .interp(self.interp.style())
             .extrapolation(self.interp.extrapolation())
             .build()
     }
@@ -600,9 +600,15 @@ impl ForwardCurveBuilder {
         self
     }
     /// Select interpolation style for this forward curve.
-    pub fn set_interp(mut self, style: InterpStyle) -> Self {
+    pub fn interp(mut self, style: InterpStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Deprecated alias for [`interp`](Self::interp).
+    #[deprecated(since = "0.2.0", note = "renamed to `interp` for naming consistency")]
+    pub fn set_interp(self, style: InterpStyle) -> Self {
+        self.interp(style)
     }
 
     /// Set the extrapolation policy for out-of-bounds evaluation.
@@ -612,9 +618,18 @@ impl ForwardCurveBuilder {
     }
 
     /// Enforce a minimum forward rate across the provided knot points.
-    pub fn with_min_forward_rate(mut self, min_rate: f64) -> Self {
+    pub fn min_forward_rate(mut self, min_rate: f64) -> Self {
         self.min_forward_rate = Some(min_rate);
         self
+    }
+
+    /// Deprecated alias for [`min_forward_rate`](Self::min_forward_rate).
+    #[deprecated(
+        since = "0.2.0",
+        note = "renamed to `min_forward_rate` for naming consistency"
+    )]
+    pub fn with_min_forward_rate(self, min_rate: f64) -> Self {
+        self.min_forward_rate(min_rate)
     }
 
     /// Validate input and build the [`ForwardCurve`].
@@ -704,7 +719,7 @@ mod tests {
         let fc = ForwardCurve::builder("USD-SOFR-3M", 0.25)
             .base_date(base)
             .knots([(0.0, 0.03), (1.0, 0.035), (5.0, 0.04)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .extrapolation(ExtrapolationPolicy::FlatForward)
             .build()
             .expect("ForwardCurve builder should succeed with valid test data");
@@ -751,7 +766,7 @@ mod tests {
             .base_date(base)
             .day_count(DayCount::Act360)
             .knots([(0.05, 0.03), (0.15, 0.035), (0.30, 0.04)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("ForwardCurve builder should succeed with valid test data");
 

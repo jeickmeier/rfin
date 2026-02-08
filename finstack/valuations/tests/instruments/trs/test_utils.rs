@@ -54,7 +54,7 @@ pub fn create_market_context() -> MarketContext {
             (2.0, 0.960),
             (5.0, 0.900),
         ])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
     context = context.insert_discount(disc_curve);
@@ -70,7 +70,7 @@ pub fn create_market_context() -> MarketContext {
             (2.0, 0.024),
             (5.0, 0.025),
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
     context = context.insert_forward(fwd_curve);
@@ -85,7 +85,7 @@ pub fn create_market_context() -> MarketContext {
             (1.0, 0.990),
             (2.0, 0.980),
         ])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
     context = context.insert_discount(eur_disc);
@@ -98,7 +98,7 @@ pub fn create_market_context() -> MarketContext {
             (0.5, 0.017),
             (1.0, 0.018),
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
     context = context.insert_forward(eur_fwd);

@@ -444,7 +444,7 @@ fn create_market_context() -> finstack_core::Result<MarketContext> {
             (5.0, 0.777),
             (6.0, 0.738),
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()?;
 
     // Create forward curve (USD-SOFR-3M)
@@ -459,7 +459,7 @@ fn create_market_context() -> finstack_core::Result<MarketContext> {
             (5.0, 0.06),
             (6.0, 0.061),
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()?;
 
     let market_ctx = MarketContext::new()

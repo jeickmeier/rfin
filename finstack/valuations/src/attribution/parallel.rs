@@ -473,14 +473,14 @@ mod tests {
         let curve_t0 = DiscountCurve::builder("USD-OIS")
             .base_date(as_of_t0)
             .knots(vec![(0.0, 1.0), (1.0, 0.98)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("DiscountCurve builder should succeed with valid test data");
 
         let curve_t1 = DiscountCurve::builder("USD-OIS")
             .base_date(as_of_t1)
             .knots(vec![(0.0, 1.0), (1.0, 0.97)]) // Rates increased (curve lower)
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("DiscountCurve builder should succeed with valid test data");
 

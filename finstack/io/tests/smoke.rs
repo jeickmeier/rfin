@@ -22,7 +22,7 @@ async fn sqlite_market_context_roundtrip() -> finstack_io::Result<()> {
     let curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .knots(vec![(0.0, 1.0), (1.0, 0.98)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()?;
     let ctx = MarketContext::new().insert_discount(curve);
 
@@ -125,14 +125,14 @@ async fn sqlite_market_context_lookback_queries() -> finstack_io::Result<()> {
     let curve1 = DiscountCurve::builder("USD-OIS")
         .base_date(d1)
         .knots(vec![(0.0, 1.0), (1.0, 0.98)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()?;
     let ctx1 = MarketContext::new().insert_discount(curve1);
 
     let curve2 = DiscountCurve::builder("USD-OIS")
         .base_date(d2)
         .knots(vec![(0.0, 1.0), (1.0, 0.97)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()?;
     let ctx2 = MarketContext::new().insert_discount(curve2);
 
@@ -309,14 +309,14 @@ async fn sqlite_bulk_market_contexts() -> finstack_io::Result<()> {
     let curve1 = DiscountCurve::builder("USD-OIS")
         .base_date(d1)
         .knots(vec![(0.0, 1.0), (1.0, 0.98)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()?;
     let ctx1 = MarketContext::new().insert_discount(curve1);
 
     let curve2 = DiscountCurve::builder("USD-OIS")
         .base_date(d2)
         .knots(vec![(0.0, 1.0), (1.0, 0.97)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()?;
     let ctx2 = MarketContext::new().insert_discount(curve2);
 
@@ -344,7 +344,7 @@ async fn sqlite_schema_migration_idempotent() -> finstack_io::Result<()> {
     let curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .knots(vec![(0.0, 1.0), (1.0, 0.98)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()?;
     let ctx = MarketContext::new().insert_discount(curve);
 
@@ -367,7 +367,7 @@ async fn sqlite_upsert_overwrites() -> finstack_io::Result<()> {
     let curve1 = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .knots(vec![(0.0, 1.0), (1.0, 0.98)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()?;
     let ctx1 = MarketContext::new().insert_discount(curve1);
     store
@@ -378,7 +378,7 @@ async fn sqlite_upsert_overwrites() -> finstack_io::Result<()> {
     let curve2 = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .knots(vec![(0.0, 1.0), (1.0, 0.95)]) // Different discount factor
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()?;
     let ctx2 = MarketContext::new().insert_discount(curve2);
     store

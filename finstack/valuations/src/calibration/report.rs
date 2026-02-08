@@ -342,10 +342,10 @@ impl CalibrationReport {
         // Determine success and convergence reason
         let (success, convergence_reason) = if diag.has_penalty {
             let penalty_abs_min = RESIDUAL_PENALTY_ABS_MIN;
-            let penalty_instruments: Vec<&String> = residuals
+            let penalty_instruments: Vec<&str> = residuals
                 .iter()
                 .filter(|(_, r)| !r.is_finite() || r.abs() >= penalty_abs_min)
-                .map(|(k, _)| k)
+                .map(|(k, _)| k.as_str())
                 .collect();
             (
                 false,

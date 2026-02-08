@@ -844,12 +844,12 @@ use finstack_core::dates::DayCountCtx;
 let disc_curve = DiscountCurve::builder("USD-OIS")
     .base_date(base)
     .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.75)])
-    .set_interp(InterpStyle::Linear)
+    .interp(InterpStyle::Linear)
     .build()?;
 
 let hazard_curve = HazardCurve::builder("CORP-HAZARD")
     .knots([(0.0, 1.0), (1.0, 0.98), (5.0, 0.90)])
-    .set_interp(InterpStyle::Linear)
+    .interp(InterpStyle::Linear)
     .build()?;
 
 let market = MarketContext::new()

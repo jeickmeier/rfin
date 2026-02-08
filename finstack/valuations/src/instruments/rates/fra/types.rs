@@ -559,14 +559,14 @@ mod tests {
         let disc = DiscountCurve::builder("DISC")
             .base_date(base)
             .knots([(0.0, 1.0), (5.0, 0.78)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("FRA builder should succeed in test");
 
         let fwd = ForwardCurve::builder("FWD-3M", 0.25)
             .base_date(base)
             .knots([(0.0, 0.05), (5.0, 0.05)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("FRA builder should succeed in test");
 
@@ -612,7 +612,7 @@ mod tests {
         let disc = DiscountCurve::builder("DISC")
             .base_date(base)
             .knots([(0.0, 1.0), (5.0, 0.78)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("FRA builder should succeed in test");
 
@@ -620,7 +620,7 @@ mod tests {
         let fwd = ForwardCurve::builder("FWD-3M", 0.25)
             .base_date(base)
             .knots([(0.0, fwd_rate), (5.0, fwd_rate)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("FRA builder should succeed in test");
 

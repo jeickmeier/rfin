@@ -52,7 +52,7 @@
 //!     .base_date(base)
 //!     .base_cpi(300.0)
 //!     .knots([(0.0, 300.0), (5.0, 327.0)])
-//!     .set_interp(InterpStyle::LogLinear)
+//!     .interp(InterpStyle::LogLinear)
 //!     .build()
 //!     .expect("InflationCurve builder should succeed");
 //! assert!(ic.inflation_rate(0.0, 5.0) > 0.0);
@@ -215,7 +215,7 @@ impl TryFrom<RawInflationCurve> for InflationCurve {
             .day_count(state.day_count)
             .indexation_lag_months(state.indexation_lag_months)
             .knots(state.points.knot_points)
-            .set_interp(state.interp.interp_style)
+            .interp(state.interp.interp_style)
             .build()
     }
 }
@@ -235,7 +235,7 @@ impl InflationCurve {
     ///     .base_date(base)
     ///     .base_cpi(300.0)
     ///     .knots([(0.0, 300.0), (5.0, 325.0)])
-    ///     .set_interp(InterpStyle::LogLinear)
+    ///     .interp(InterpStyle::LogLinear)
     ///     .build()
     ///     .expect("InflationCurve builder should succeed");
     /// assert!(curve.inflation_rate(0.0, 5.0) > 0.0);
@@ -464,9 +464,15 @@ impl InflationCurveBuilder {
         self
     }
     /// Select interpolation style for this curve.
-    pub fn set_interp(mut self, style: InterpStyle) -> Self {
+    pub fn interp(mut self, style: InterpStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Deprecated alias for [`interp`](Self::interp).
+    #[deprecated(since = "0.2.0", note = "renamed to `interp` for naming consistency")]
+    pub fn set_interp(self, style: InterpStyle) -> Self {
+        self.interp(style)
     }
 
     /// Validate input and build the [`InflationCurve`].

@@ -8,12 +8,9 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::rates::repo::CollateralSpec;
-use time::Month;
 
-/// Create a test date from year, month, day.
-pub fn date(year: i32, month: u8, day: u8) -> Date {
-    Date::from_calendar_date(year, Month::try_from(month).unwrap(), day).unwrap()
-}
+// Re-export the canonical date helper from shared test utilities.
+pub use crate::finstack_test_utils::date;
 
 /// Standard test base date (2025-01-01).
 pub fn base_date() -> Date {
@@ -33,7 +30,7 @@ pub fn create_usd_discount_curve() -> DiscountCurve {
             (5.0, 0.78),
             (10.0, 0.60),
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap()
 }
@@ -44,7 +41,7 @@ pub fn create_steep_discount_curve() -> DiscountCurve {
     DiscountCurve::builder("USD-OIS-STEEP")
         .base_date(base_date())
         .knots([(0.0, 1.0), (0.25, 0.98), (1.0, 0.92), (5.0, 0.70)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap()
 }
@@ -55,7 +52,7 @@ pub fn create_flat_discount_curve() -> DiscountCurve {
     DiscountCurve::builder("USD-FLAT")
         .base_date(base_date())
         .knots([(0.0, 1.0), (10.0, 1.0)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .allow_non_monotonic()
         .build()
         .unwrap()

@@ -25,7 +25,7 @@ fn build_simple_discount_curve(as_of: time::Date) -> DiscountCurve {
         .base_date(as_of)
         .day_count(DayCount::Act365F)
         .knots([(0.0, 1.0), (5.0, 0.85)])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .expect("discount curve builder should succeed in test")
 }
@@ -116,7 +116,7 @@ fn test_quote_engine_roundtrip_dm_for_frn() {
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .knots([(0.0, 1.0), (10.0, 0.6)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
     let fwd = ForwardCurve::builder("USD-SOFR-3M", 0.25)
@@ -182,7 +182,7 @@ fn test_quote_engine_roundtrip_oas_and_asw_market_fixed_bond() {
             (3.0, 0.91),
             (5.0, 0.85),
         ])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .expect("discount curve builder should succeed");
     let market = MarketContext::new().insert_discount(disc);

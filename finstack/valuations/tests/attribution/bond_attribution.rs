@@ -39,7 +39,7 @@ fn test_bond_attribution_parallel() {
     let curve_t0 = DiscountCurve::builder("USD-OIS")
         .base_date(as_of_t0)
         .knots(vec![(0.0, 1.0), (5.0, 0.82)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -47,7 +47,7 @@ fn test_bond_attribution_parallel() {
     let curve_t1 = DiscountCurve::builder("USD-OIS")
         .base_date(as_of_t1)
         .knots(vec![(0.0, 1.0), (5.0, 0.78)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -128,7 +128,7 @@ fn test_bond_attribution_structure() {
     let curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of_t0)
         .knots(vec![(0.0, 1.0), (5.0, 0.82)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 

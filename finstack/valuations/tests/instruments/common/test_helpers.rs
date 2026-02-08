@@ -299,7 +299,7 @@ pub fn flat_curve(rate: f64, curve_id: &str) -> DiscountCurve {
     DiscountCurve::builder(curve_id)
         .base_date(base)
         .knots([(0.0, 1.0), (t_max, df_max)])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap()
 }
@@ -367,9 +367,7 @@ pub fn flat_discount_curve_with_dc(
     // For negative or zero rates, DFs may be flat or increasing
     // Use linear interpolation and allow non-monotonic for robustness
     if rate.abs() < 1e-10 || rate < 0.0 {
-        builder = builder
-            .set_interp(InterpStyle::Linear)
-            .allow_non_monotonic();
+        builder = builder.interp(InterpStyle::Linear).allow_non_monotonic();
     }
 
     builder.build().unwrap()
@@ -428,7 +426,7 @@ pub fn flat_forward_curve_with_tenor(
         .base_date(base_date)
         .day_count(day_count)
         .knots([(0.0, rate), (10.0, rate), (30.0, rate)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap()
 }
@@ -465,7 +463,7 @@ pub fn sloped_forward_curve(
             (10.0, rate_10y),
             (30.0, long_rate),
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap()
 }
@@ -546,7 +544,7 @@ pub fn upward_curve(curve_id: &str) -> DiscountCurve {
             (10.0, 0.70),
             (30.0, 0.40),
         ])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap()
 }

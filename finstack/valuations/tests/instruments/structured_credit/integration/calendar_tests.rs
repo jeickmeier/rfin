@@ -66,14 +66,14 @@ fn create_test_market() -> MarketContext {
     let discount_curve = DiscountCurve::builder("USD_OIS")
         .base_date(test_date())
         .knots(vec![(0.0, 1.0), (0.25, 0.9875), (1.0, 0.95), (5.0, 0.78)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .expect("Failed to create discount curve");
 
     let forward_curve = ForwardCurve::builder("SOFR-3M", 0.25)
         .base_date(test_date())
         .knots(vec![(0.0, 0.05), (1.0, 0.051), (2.0, 0.053), (5.0, 0.055)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .expect("Failed to create forward curve");
 

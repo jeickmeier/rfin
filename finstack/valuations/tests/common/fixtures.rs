@@ -83,7 +83,7 @@ pub fn usd_discount_curve(base_date: Date, curve_id: &str) -> DiscountCurve {
             (5.0, 0.90),  // Implied rate: -ln(0.90)/5 ≈ 2.11%
             (10.0, 0.80), // Implied rate: -ln(0.80)/10 ≈ 2.23%
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .expect("valid test discount curve")
 }
@@ -108,7 +108,7 @@ pub fn usd_discount_curve_minimal(base_date: Date, curve_id: &str) -> DiscountCu
             (1.0, 0.98), // Implied rate: -ln(0.98)/1 ≈ 2.02%
             (5.0, 0.90), // Implied rate: -ln(0.90)/5 ≈ 2.11%
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .expect("valid minimal test discount curve")
 }
@@ -137,7 +137,7 @@ pub fn usd_discount_curve_monotone_convex(base_date: Date, curve_id: &str) -> Di
             (1.0, 0.9550),  // Implied rate: -ln(0.9550)/1 ≈ 4.60%
             (2.0, 0.9100),  // Implied rate: -ln(0.9100)/2 ≈ 4.72%
         ])
-        .set_interp(InterpStyle::MonotoneConvex)
+        .interp(InterpStyle::MonotoneConvex)
         .build()
         .expect("valid monotone convex test discount curve")
 }

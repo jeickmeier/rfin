@@ -90,7 +90,7 @@ fn forward_curve_triangular_key_rate_weights_match_market_standard() {
         .base_date(sample_base_date())
         // Include knots across the bucket grid so weights are visible at 0.5 and 1.0
         .knots([(0.0, 0.03), (0.5, 0.032), (1.0, 0.035), (2.0, 0.04)])
-        .set_interp(finstack_core::math::interp::InterpStyle::Linear)
+        .interp(finstack_core::math::interp::InterpStyle::Linear)
         .build()
         .unwrap();
 

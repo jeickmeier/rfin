@@ -29,7 +29,7 @@ pub fn standard_discount_curve() -> DiscountCurve {
     DiscountCurve::builder("USD-OIS")
         .base_date(base_date())
         .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.80), (10.0, 0.60)])
-        .set_interp(finstack_core::math::interp::InterpStyle::LogLinear)
+        .interp(finstack_core::math::interp::InterpStyle::LogLinear)
         .build()
         .unwrap()
 }

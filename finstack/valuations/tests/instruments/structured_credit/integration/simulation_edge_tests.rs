@@ -97,7 +97,7 @@ fn flat_market() -> MarketContext {
     let discount = DiscountCurve::builder("USD_OIS")
         .base_date(test_date())
         .knots(vec![(0.0, 1.0), (1.0, 0.95), (5.0, 0.78)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .expect("valid discount curve");
 

@@ -62,7 +62,7 @@ fn example_stepup_bond() -> finstack_core::Result<()> {
     let disc_curve = DiscountCurve::builder("USD-OIS")
         .base_date(issue)
         .knots([(0.0, 1.0), (1.0, 0.97), (2.0, 0.94), (3.0, 0.91)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()?;
 
     let curves = MarketContext::new().insert_discount(disc_curve);
@@ -143,7 +143,7 @@ fn example_pik_toggle_bond() -> finstack_core::Result<()> {
     let disc_curve = DiscountCurve::builder("USD-OIS")
         .base_date(issue)
         .knots([(0.0, 1.0), (1.0, 0.96), (2.0, 0.92)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()?;
 
     let curves = MarketContext::new().insert_discount(disc_curve);
@@ -205,7 +205,7 @@ fn example_amortizing_bond_with_fees() -> finstack_core::Result<()> {
             (5.0, 0.87),
             (6.0, 0.84),
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()?;
 
     let curves = MarketContext::new().insert_discount(disc_curve);
@@ -275,7 +275,7 @@ fn example_comparison_regular_vs_custom() -> finstack_core::Result<()> {
     let disc_curve = DiscountCurve::builder("USD-OIS")
         .base_date(issue)
         .knots([(0.0, 1.0), (1.0, 0.98)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()?;
 
     let curves = MarketContext::new().insert_discount(disc_curve);

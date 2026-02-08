@@ -34,7 +34,7 @@ fn market(as_of: Date, spot: f64, vol: f64, rate: f64, div_yield: f64) -> Market
         .base_date(as_of)
         .day_count(DayCount::Act365F)
         .knots([(0.0, 1.0), (5.0, (-rate * 5.0).exp())])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .expect("test discount curve should build");
 

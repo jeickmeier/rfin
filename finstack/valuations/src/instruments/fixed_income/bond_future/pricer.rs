@@ -464,7 +464,7 @@ mod tests {
                 (5.0, df_5y),   // 5 years
                 (10.0, df_10y), // 10 years
             ])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("Failed to build discount curve");
 

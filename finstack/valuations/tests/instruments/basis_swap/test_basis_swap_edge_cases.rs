@@ -24,19 +24,19 @@ fn market() -> MarketContext {
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(d(2025, 1, 2))
         .knots(vec![(0.0, 1.0), (0.5, 0.99), (1.0, 0.98), (5.0, 0.90)])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
     let f3m = ForwardCurve::builder("USD-SOFR-3M", 0.25)
         .base_date(d(2025, 1, 2))
         .knots(vec![(0.0, 0.02), (0.5, 0.021), (1.0, 0.022), (5.0, 0.025)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
     let f1m = ForwardCurve::builder("USD-SOFR-1M", 1.0 / 12.0)
         .base_date(d(2025, 1, 2))
         .knots(vec![(0.0, 0.019), (0.5, 0.020), (1.0, 0.021), (5.0, 0.024)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
     MarketContext::new()
@@ -360,20 +360,20 @@ fn flat_curves_zero_rates() {
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(d(2025, 1, 2))
         .knots(vec![(0.0, 1.0), (1.0, 1.0), (2.0, 1.0)])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .allow_non_monotonic()
         .build()
         .unwrap();
     let f3m = ForwardCurve::builder("USD-SOFR-3M", 0.25)
         .base_date(d(2025, 1, 2))
         .knots(vec![(0.0, 1e-6), (1.0, 1e-6), (2.0, 1e-6)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
     let f1m = ForwardCurve::builder("USD-SOFR-1M", 1.0 / 12.0)
         .base_date(d(2025, 1, 2))
         .knots(vec![(0.0, 1e-6), (1.0, 1e-6), (2.0, 1e-6)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -421,20 +421,20 @@ fn negative_rates() {
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(d(2025, 1, 2))
         .knots(vec![(0.0, 1.0), (1.0, 1.005), (2.0, 1.01)])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .allow_non_monotonic() // Allow increasing DFs for negative rate test
         .build()
         .unwrap();
     let f3m = ForwardCurve::builder("USD-SOFR-3M", 0.25)
         .base_date(d(2025, 1, 2))
         .knots(vec![(0.0, 1e-6), (1.0, 2e-6), (2.0, 3e-6)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
     let f1m = ForwardCurve::builder("USD-SOFR-1M", 1.0 / 12.0)
         .base_date(d(2025, 1, 2))
         .knots(vec![(0.0, 1e-6), (1.0, 2e-6), (2.0, 3e-6)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -632,19 +632,19 @@ fn steep_curve() {
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(d(2025, 1, 2))
         .knots(vec![(0.0, 1.0), (0.5, 0.95), (1.0, 0.85), (2.0, 0.70)])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
     let f3m = ForwardCurve::builder("USD-SOFR-3M", 0.25)
         .base_date(d(2025, 1, 2))
         .knots(vec![(0.0, 0.01), (0.5, 0.05), (1.0, 0.10), (2.0, 0.15)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
     let f1m = ForwardCurve::builder("USD-SOFR-1M", 1.0 / 12.0)
         .base_date(d(2025, 1, 2))
         .knots(vec![(0.0, 0.01), (0.5, 0.04), (1.0, 0.09), (2.0, 0.14)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -701,19 +701,19 @@ fn seasoned_swap_requires_fixings() {
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(d(2025, 2, 15)) // Base date matches valuation
         .knots(vec![(0.0, 1.0), (0.5, 0.99), (1.0, 0.98), (5.0, 0.90)])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
     let f3m = ForwardCurve::builder("USD-SOFR-3M", 0.25)
         .base_date(d(2025, 2, 15))
         .knots(vec![(0.0, 0.02), (0.5, 0.021), (1.0, 0.022), (5.0, 0.025)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
     let f1m = ForwardCurve::builder("USD-SOFR-1M", 1.0 / 12.0)
         .base_date(d(2025, 2, 15))
         .knots(vec![(0.0, 0.019), (0.5, 0.020), (1.0, 0.021), (5.0, 0.024)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -772,19 +772,19 @@ fn seasoned_swap_with_fixings_succeeds() {
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(d(2025, 1, 2))
         .knots(vec![(0.0, 1.0), (0.5, 0.99), (1.0, 0.98), (2.0, 0.96)])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
     let f3m = ForwardCurve::builder("USD-SOFR-3M", 0.25)
         .base_date(d(2025, 1, 2))
         .knots(vec![(0.0, 0.02), (0.5, 0.021), (1.0, 0.022), (2.0, 0.023)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
     let f1m = ForwardCurve::builder("USD-SOFR-1M", 1.0 / 12.0)
         .base_date(d(2025, 1, 2))
         .knots(vec![(0.0, 0.019), (0.5, 0.020), (1.0, 0.021), (2.0, 0.022)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 

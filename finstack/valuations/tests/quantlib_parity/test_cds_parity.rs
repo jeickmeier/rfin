@@ -38,7 +38,7 @@ fn flat_discount_curve(as_of: Date, rate: f64) -> DiscountCurve {
     DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .knots(knots)
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .expect("discount curve should build")
 }

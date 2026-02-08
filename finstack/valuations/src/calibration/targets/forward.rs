@@ -229,7 +229,7 @@ impl BootstrapTarget for ForwardCurveTarget {
         ForwardCurve::builder(self.fwd_curve_id.clone(), self.tenor_years)
             .base_date(self.base_date)
             .knots(full_knots)
-            .set_interp(self.solve_interp)
+            .interp(self.solve_interp)
             .day_count(self.time_day_count)
             .build()
             .map_err(|e| finstack_core::Error::Calibration {

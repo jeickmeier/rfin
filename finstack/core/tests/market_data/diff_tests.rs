@@ -90,7 +90,7 @@ fn test_discount_curve_parallel_shift() {
         .base_date(base_date)
         .day_count(DayCount::Act365F)
         .knots([(0.0, 1.0), (1.0, 0.96), (5.0, 0.82), (10.0, 0.67)])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .expect("Should build curve");
 
@@ -104,7 +104,7 @@ fn test_discount_curve_parallel_shift() {
             (5.0, 0.82 * (-0.005_f64 * 5.0).exp()),
             (10.0, 0.67 * (-0.005_f64 * 10.0).exp()),
         ])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .expect("Should build curve");
 
@@ -129,7 +129,7 @@ fn test_discount_curve_steepening() {
     let curve_t0 = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots([(0.0, 1.0), (1.0, 0.97), (5.0, 0.85), (10.0, 0.74)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .expect("Should build curve");
 
@@ -142,7 +142,7 @@ fn test_discount_curve_steepening() {
             (5.0, 0.835),  // -50bp
             (10.0, 0.704), // -100bp
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .expect("Should build curve");
 
@@ -168,7 +168,7 @@ fn test_discount_curve_zero_shift() {
     let curve = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots([(0.0, 1.0), (1.0, 0.98), (5.0, 0.90)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .expect("Should build curve");
 
@@ -203,7 +203,7 @@ fn test_discount_curve_dynamic_sampling() {
     let curve = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots([(0.0, 1.0), (1.5, 0.97), (3.5, 0.92), (7.5, 0.80)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .expect("Should build curve");
 
@@ -223,7 +223,7 @@ fn test_discount_curve_custom_sampling() {
     let curve_t0 = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots([(0.0, 1.0), (1.0, 0.96), (5.0, 0.82), (10.0, 0.67)])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .expect("Should build curve");
 
@@ -235,7 +235,7 @@ fn test_discount_curve_custom_sampling() {
             (5.0, 0.82 * (-0.005_f64 * 5.0).exp()),
             (10.0, 0.67 * (-0.005_f64 * 10.0).exp()),
         ])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .expect("Should build curve");
 
@@ -264,7 +264,7 @@ fn test_bucketed_discount_shift_detailed() {
     let curve_t0 = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots([(0.0, 1.0), (1.0, 0.96), (5.0, 0.82), (10.0, 0.67)])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .expect("Should build curve");
 
@@ -276,7 +276,7 @@ fn test_bucketed_discount_shift_detailed() {
             (5.0, 0.82 * (-0.005_f64 * 5.0).exp()),
             (10.0, 0.67 * (-0.005_f64 * 10.0).exp()),
         ])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .expect("Should build curve");
 
@@ -306,14 +306,14 @@ fn test_bucketed_discount_shift_single_tenor() {
     let curve_t0 = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots([(0.0, 1.0), (1.0, 0.96)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .expect("Should build curve");
 
     let curve_t1 = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots([(0.0, 1.0), (1.0, 0.95)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .expect("Should build curve");
 
@@ -333,14 +333,14 @@ fn test_bucketed_discount_shift_filters_negative_tenors() {
     let curve_t0 = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots([(0.0, 1.0), (1.0, 0.96)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .expect("Should build curve");
 
     let curve_t1 = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots([(0.0, 1.0), (1.0, 0.95)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .expect("Should build curve");
 
@@ -810,7 +810,7 @@ fn test_tenor_sampling_with_all_methods() {
             (5.0, 0.85),
             (10.0, 0.74),
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .expect("Should build curve");
 
@@ -852,7 +852,7 @@ fn test_discount_shift_negative_shift() {
     let curve_t0 = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots([(0.0, 1.0), (1.0, 0.97), (5.0, 0.85)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .expect("Should build curve");
 
@@ -864,7 +864,7 @@ fn test_discount_shift_negative_shift() {
             (1.0, 0.97 * (0.005_f64 * 1.0).exp()),
             (5.0, 0.85 * (0.005_f64 * 5.0).exp()),
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .expect("Should build curve");
 

@@ -249,7 +249,7 @@ fn test_accrued_interest_amortizing_schedule_driven() {
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(issue)
         .knots([(0.0, 1.0), (3.0, 0.9)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
     let curves = MarketContext::new().insert_discount(disc);

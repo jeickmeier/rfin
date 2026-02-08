@@ -135,7 +135,7 @@ fn build_flat_curve(curve_id: &str, as_of: time::Date, rate: f64) -> DiscountCur
     DiscountCurve::builder(curve_id)
         .base_date(as_of)
         .knots(knots)
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap()
 }

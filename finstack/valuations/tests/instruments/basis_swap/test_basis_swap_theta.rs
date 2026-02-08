@@ -29,7 +29,7 @@ fn market() -> MarketContext {
             (2.0, 0.96),
             (3.0, 0.94),
         ])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
     let f3m = ForwardCurve::builder("USD-SOFR-3M", 0.25)
@@ -41,7 +41,7 @@ fn market() -> MarketContext {
             (2.0, 0.023),
             (3.0, 0.024),
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
     let f1m = ForwardCurve::builder("USD-SOFR-1M", 1.0 / 12.0)
@@ -53,7 +53,7 @@ fn market() -> MarketContext {
             (2.0, 0.022),
             (3.0, 0.023),
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
     // Provide fixings for theta calculations and seasoned swaps.

@@ -23,14 +23,14 @@ fn main() -> finstack_core::Result<()> {
     let discount_curve = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.80), (10.0, 0.67)])
-        .set_interp(InterpStyle::MonotoneConvex)
+        .interp(InterpStyle::MonotoneConvex)
         .build()
         .unwrap();
 
     let forward_curve = ForwardCurve::builder("USD-SOFR3M", 0.25)
         .base_date(base_date)
         .knots([(0.0, 0.03), (1.0, 0.035), (5.0, 0.04), (10.0, 0.045)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 

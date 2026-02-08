@@ -31,7 +31,7 @@ fn base_discount_curve(base_date: finstack_core::dates::Date) -> DiscountCurve {
             (1.0, 0.9550),
             (2.0, 0.9100),
         ])
-        .set_interp(InterpStyle::MonotoneConvex)
+        .interp(InterpStyle::MonotoneConvex)
         .build()
         .unwrap()
 }

@@ -137,14 +137,14 @@ fn create_market_context() -> MarketContext {
     let usd_disc = DiscountCurve::builder("USD-OIS")
         .base_date(base)
         .knots([(0.0, 1.0), (1.0, 0.96), (5.0, 0.78), (10.0, 0.60)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
     let usd_fwd = ForwardCurve::builder("USD-SOFR-3M", 0.25)
         .base_date(base)
         .knots([(0.0, 0.04), (1.0, 0.042), (5.0, 0.045), (10.0, 0.05)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -152,7 +152,7 @@ fn create_market_context() -> MarketContext {
     let eur_disc = DiscountCurve::builder("EUR-OIS")
         .base_date(base)
         .knots([(0.0, 1.0), (1.0, 0.97), (5.0, 0.82), (10.0, 0.65)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -160,7 +160,7 @@ fn create_market_context() -> MarketContext {
     let gbp_disc = DiscountCurve::builder("GBP-OIS")
         .base_date(base)
         .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.77), (10.0, 0.59)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -234,21 +234,21 @@ fn create_market_context() -> MarketContext {
     let usd_alias = DiscountCurve::builder("USD")
         .base_date(base)
         .knots([(0.0, 1.0), (1.0, 0.96), (5.0, 0.78), (10.0, 0.60)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
     let eur_alias = DiscountCurve::builder("EUR")
         .base_date(base)
         .knots([(0.0, 1.0), (1.0, 0.97), (5.0, 0.82), (10.0, 0.65)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
     let gbp_alias = DiscountCurve::builder("GBP")
         .base_date(base)
         .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.77), (10.0, 0.59)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 

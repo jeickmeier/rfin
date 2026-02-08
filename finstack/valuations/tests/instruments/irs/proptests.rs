@@ -32,7 +32,7 @@ fn build_test_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> Disc
         // For property tests we prefer robustness over strict Hagan–West
         // monotone-convex behaviour; linear interpolation is sufficient and
         // handles flat/zero-rate curves gracefully.
-        .set_interp(InterpStyle::Linear);
+        .interp(InterpStyle::Linear);
 
     // For zero or negative rates, allow non-monotonic DFs
     if rate.abs() < 1e-10 || rate < 0.0 {
@@ -48,7 +48,7 @@ fn build_test_forward_curve(rate: f64, base_date: Date, curve_id: &str) -> Forwa
         .base_date(base_date)
         .day_count(DayCount::Act360)
         .knots([(0.0, rate), (10.0, rate), (30.0, rate)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap()
 }
@@ -301,14 +301,14 @@ proptest! {
                 (10.0, (-curve_rate * 10.0).exp()),
                 (30.0, (-curve_rate * 30.0).exp()),
             ])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build();
 
         let fwd_res = ForwardCurve::builder("USD-SOFR-3M", 0.25)
             .base_date(base_date)
             .day_count(DayCount::Act360)
             .knots([(0.0, curve_rate), (10.0, curve_rate), (30.0, curve_rate)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build();
 
         prop_assume!(disc_res.is_ok() && fwd_res.is_ok());

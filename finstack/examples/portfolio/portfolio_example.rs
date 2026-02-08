@@ -274,7 +274,7 @@ fn build_market_data(as_of: Date) -> MarketContext {
             (2.0, 0.90),              // 2 years
             (5.0, 0.80),              // 5 years
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -292,7 +292,7 @@ fn build_market_data(as_of: Date) -> MarketContext {
             (2.0, 0.94),              // 2 years
             (5.0, 0.86),              // 5 years
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -300,7 +300,7 @@ fn build_market_data(as_of: Date) -> MarketContext {
     let usd_sofr_fwd = ForwardCurve::builder("USD_SOFR_3M", 0.25)
         .base_date(as_of)
         .knots(vec![(0.0, 0.05), (1.0, 0.051), (2.0, 0.053), (5.0, 0.055)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -414,7 +414,7 @@ fn build_market_data(as_of: Date) -> MarketContext {
             (5.0, 112.0),  // 5Y: 2.4% inflation
             (10.0, 125.0), // 10Y: 2.2% inflation
         ])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
 

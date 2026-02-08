@@ -331,7 +331,7 @@ mod tests {
         DiscountCurve::builder("USD-OIS")
             .base_date(issue)
             .knots([(0.0, 1.0), (10.0, 0.8)])
-            .set_interp(InterpStyle::LogLinear)
+            .interp(InterpStyle::LogLinear)
             .build()
             .expect("DiscountCurve builder should succeed in hazard engine test")
     }

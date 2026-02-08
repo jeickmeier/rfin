@@ -26,7 +26,7 @@ fn create_test_market(base_date: Date) -> MarketContext {
     let curve = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots([(0.0, 1.0), (1.0, 0.90), (5.0, 0.70), (10.0, 0.50)])
-        .set_interp(finstack_core::math::interp::InterpStyle::LogLinear)
+        .interp(finstack_core::math::interp::InterpStyle::LogLinear)
         .build()
         .unwrap();
 

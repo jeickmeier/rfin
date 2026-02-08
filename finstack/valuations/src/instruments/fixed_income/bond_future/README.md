@@ -894,7 +894,7 @@ fn create_market_context() -> MarketContext {
     let curve = DiscountCurve::builder(CurveId::new("USD-TREASURY"))
         .base_date(base_date)
         .knots(knots)
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .expect("Failed to build curve");
 

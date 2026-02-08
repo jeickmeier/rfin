@@ -30,7 +30,7 @@ fn usd_curve() -> DiscountCurve {
     DiscountCurve::builder("USD")
         .base_date(base_date())
         .knots(vec![(0.0, 1.0), (1.0, 1.0), (5.0, 1.0)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .allow_non_monotonic()
         .build()
         .expect("flat USD curve should build")
@@ -41,7 +41,7 @@ fn eur_curve() -> DiscountCurve {
     DiscountCurve::builder("EUR")
         .base_date(base_date())
         .knots(vec![(0.0, 1.0), (1.0, 1.0), (5.0, 1.0)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .allow_non_monotonic()
         .build()
         .expect("flat EUR curve should build")
@@ -60,7 +60,7 @@ pub fn usd_curve_at_rate(rate_bp: f64) -> DiscountCurve {
             (1.0, (-rate * 1.0_f64).exp()),
             (5.0, (-rate * 5.0_f64).exp()),
         ])
-        .set_interp(InterpStyle::Linear);
+        .interp(InterpStyle::Linear);
 
     // For flat or near-zero rates, discount factors may be non-monotonic
     if rate_bp.abs() < 1.0 {

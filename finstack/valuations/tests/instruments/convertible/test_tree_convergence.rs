@@ -91,7 +91,7 @@ fn create_test_market(base_date: Date) -> MarketContext {
             (5.0, (-0.05 * 5.0_f64).exp()),
             (10.0, (-0.05 * 10.0_f64).exp()),
         ])
-        .set_interp(finstack_core::math::interp::InterpStyle::LogLinear)
+        .interp(finstack_core::math::interp::InterpStyle::LogLinear)
         .build()
         .expect("should build curve");
 

@@ -260,7 +260,7 @@ mod tests {
         DiscountCurve::builder("USD-OIS")
             .base_date(base)
             .knots(knots)
-            .set_interp(finstack_core::math::interp::InterpStyle::LogLinear)
+            .interp(finstack_core::math::interp::InterpStyle::LogLinear)
             .build()
             .expect("DiscountCurve should build")
     }

@@ -1044,7 +1044,7 @@ impl CDSTranchePricer {
 
         if let Some(curves) = &index_data.issuer_credit_curves {
             // Sort issuer IDs for determinism (HashMap iteration order is random)
-            let mut sorted_ids: Vec<&String> = curves.keys().collect();
+            let mut sorted_ids: Vec<&str> = curves.keys().map(String::as_str).collect();
             sorted_ids.sort();
 
             for id in sorted_ids {
@@ -2263,7 +2263,7 @@ impl CDSTranchePricer {
 
         if index_data.has_issuer_curves() {
             if let Some(curves) = &index_data.issuer_credit_curves {
-                let mut sorted_ids: Vec<&String> = curves.keys().collect();
+                let mut sorted_ids: Vec<&str> = curves.keys().map(String::as_str).collect();
                 sorted_ids.sort();
                 for id in sorted_ids {
                     let individual_weight = index_data.get_issuer_weight(id);
@@ -2547,7 +2547,7 @@ mod tests {
         let discount_curve = DiscountCurve::builder("USD-OIS")
             .base_date(base_date)
             .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.80), (10.0, 0.60)])
-            .set_interp(finstack_core::math::interp::InterpStyle::LogLinear)
+            .interp(finstack_core::math::interp::InterpStyle::LogLinear)
             .build()
             .expect("Curve builder should succeed with valid test data");
 

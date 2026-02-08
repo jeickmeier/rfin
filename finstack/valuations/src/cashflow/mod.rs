@@ -108,7 +108,7 @@
 //! let disc_curve = DiscountCurve::builder("USD-OIS")
 //!     .base_date(issue)
 //!     .knots([(0.0, 1.0), (1.0, 0.95)])
-//!     .set_interp(finstack_core::math::interp::InterpStyle::Linear)
+//!     .interp(finstack_core::math::interp::InterpStyle::Linear)
 //!     .build()?;
 //! let market = MarketContext::new().insert_discount(disc_curve);
 //!

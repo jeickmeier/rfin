@@ -329,14 +329,14 @@ fn test_cip_parity_forward_at_premium() {
     let usd_curve = DiscountCurve::builder("USD-HIGH")
         .base_date(as_of)
         .knots([(0.0, 1.0), (1.0, 0.9512)]) // ~5% rate
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
     let eur_curve = DiscountCurve::builder("EUR-LOW")
         .base_date(as_of)
         .knots([(0.0, 1.0), (1.0, 0.995)]) // ~0.5% rate
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 

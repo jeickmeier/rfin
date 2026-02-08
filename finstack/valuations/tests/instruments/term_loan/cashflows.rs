@@ -19,7 +19,7 @@ fn build_market_context() -> MarketContext {
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(date!(2025 - 01 - 01))
         .knots([(0.0, 1.0), (5.0, 0.85)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
     MarketContext::new().insert_discount(disc)

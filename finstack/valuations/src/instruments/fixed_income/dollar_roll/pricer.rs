@@ -93,7 +93,7 @@ mod tests {
                 (5.0, 0.80),
                 (30.0, 0.30),
             ])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("valid curve");
 

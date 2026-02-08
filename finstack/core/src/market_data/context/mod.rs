@@ -32,7 +32,7 @@
 //! let curve = DiscountCurve::builder("USD-OIS")
 //!     .base_date(base_date)
 //!     .knots([(0.0, 1.0), (1.0, 0.98)])
-//!     .set_interp(InterpStyle::Linear)
+//!     .interp(InterpStyle::Linear)
 //!     .build()
 //!     .expect("DiscountCurve builder should succeed");
 //!

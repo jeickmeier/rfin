@@ -634,7 +634,7 @@ pub type PricingResult<T> = std::result::Result<T, PricingError>;
 ///
 /// This struct captures the instrument, model, and market data context
 /// when a pricing error occurs, enabling easier troubleshooting.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct PricingErrorContext {
     /// The instrument ID that was being priced (if known).
     pub instrument_id: Option<String>,
@@ -734,7 +734,7 @@ impl std::fmt::Display for PricingErrorContext {
 ///
 /// Each variant captures the error condition along with optional context
 /// (instrument ID, type, model, and curve IDs) for actionable debugging.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, PartialEq, thiserror::Error)]
 #[non_exhaustive]
 pub enum PricingError {
     /// No pricer registered for the requested (instrument, model) combination.

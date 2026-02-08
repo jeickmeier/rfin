@@ -114,7 +114,7 @@ fn test_z_spread_solver_convergence_across_spread_regimes() {
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .knots([(0.0, 1.0), (10.0, 0.7)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
     let market = MarketContext::new().insert_discount(disc);

@@ -38,7 +38,7 @@ fn create_discount_curve(base_date: Date) -> DiscountCurve {
             (5.0, 0.88),
             (10.0, 0.70),
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap()
 }

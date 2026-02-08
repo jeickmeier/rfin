@@ -1230,7 +1230,7 @@ mod tests {
             finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
                 .base_date(base_date)
                 .knots([(0.0, 1.0), (1.0, 0.96), (5.0, 0.85), (10.0, 0.70)])
-                .set_interp(InterpStyle::LogLinear)
+                .interp(InterpStyle::LogLinear)
                 .build()
                 .expect("DiscountCurve builder should succeed with valid test data");
         MarketContext::new().insert_discount(discount_curve)
@@ -1302,7 +1302,7 @@ mod tests {
             finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
                 .base_date(base_date)
                 .knots([(0.0, 1.0), (5.0, 0.85)])
-                .set_interp(InterpStyle::LogLinear)
+                .interp(InterpStyle::LogLinear)
                 .build()
                 .expect("Curve builder should succeed with valid test data");
 
@@ -1327,7 +1327,7 @@ mod tests {
             finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
                 .base_date(base_date)
                 .knots([(0.0, 1.0), (5.0, 0.85)])
-                .set_interp(InterpStyle::LogLinear)
+                .interp(InterpStyle::LogLinear)
                 .build()
                 .expect("Curve builder should succeed with valid test data");
         let high_hazard2 =

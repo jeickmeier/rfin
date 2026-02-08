@@ -66,7 +66,7 @@ async fn run_conformance<S: Store + BulkStore + LookbackStore + TimeSeriesStore>
     let curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .knots(vec![(0.0, 1.0), (1.0, 0.98)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()?;
     let ctx = MarketContext::new().insert_discount(curve);
 
@@ -229,7 +229,7 @@ async fn postgres_bulk_store_roundtrip() -> finstack_io::Result<()> {
     let curve = DiscountCurve::builder("USD-OIS")
         .base_date(as_of)
         .knots(vec![(0.0, 1.0), (1.0, 0.98)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()?;
     let ctx = MarketContext::new().insert_discount(curve);
 

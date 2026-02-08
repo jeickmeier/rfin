@@ -43,7 +43,7 @@ pub fn build_flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> 
     if rate.abs() < 1e-10 || rate < 0.0 {
         builder = builder
             .allow_non_monotonic()
-            .set_interp(finstack_core::math::interp::InterpStyle::LogLinear);
+            .interp(finstack_core::math::interp::InterpStyle::LogLinear);
     }
 
     builder.build().unwrap()

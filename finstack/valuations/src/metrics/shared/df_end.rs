@@ -53,7 +53,7 @@ mod tests {
             .base_date(base_date)
             .day_count(DayCount::Act365F)
             .knots([(0.0, 1.0), (30.0, 0.50)])
-            .set_interp(InterpStyle::LogLinear)
+            .interp(InterpStyle::LogLinear)
             .build()
             .expect("valid discount curve")
     }

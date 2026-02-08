@@ -167,7 +167,7 @@ impl PyDiscountCurve {
         let mut builder = DiscountCurve::builder(id)
             .base_date(base)
             .knots(knots_vec)
-            .set_interp(style)
+            .interp(style)
             .extrapolation(extra);
         if let Some(dc) = parse_day_count(day_count)? {
             builder = builder.day_count(dc);
@@ -632,7 +632,7 @@ impl PyForwardCurve {
                     "interp must be InterpStyle or string",
                 ));
             };
-            builder = builder.set_interp(style);
+            builder = builder.interp(style);
         }
         let curve = Python::attach(|py| py.detach(|| builder.build().map_err(core_to_py)))?;
         Ok(Self::new_arc(Arc::new(curve)))
@@ -1015,7 +1015,7 @@ impl PyInflationCurve {
         let builder = InflationCurve::builder(id)
             .base_cpi(base_cpi)
             .knots(knots_vec)
-            .set_interp(style);
+            .interp(style);
         let curve = Python::attach(|py| py.detach(|| builder.build().map_err(core_to_py)))?;
         Ok(Self::new_arc(Arc::new(curve)))
     }
@@ -1457,7 +1457,7 @@ impl PyVolatilityIndexCurve {
             finstack_core::market_data::term_structures::VolatilityIndexCurve::builder(id)
                 .base_date(base)
                 .knots(knots_vec)
-                .set_interp(style)
+                .interp(style)
                 .extrapolation(extra);
         if let Some(dc) = parse_day_count(day_count)? {
             builder = builder.day_count(dc);

@@ -43,7 +43,7 @@ fn create_market() -> MarketContext {
             (10.0, 0.70),
             (30.0, 0.40),
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -56,7 +56,7 @@ fn create_market() -> MarketContext {
             (10.0, 0.050),
             (30.0, 0.055),
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 

@@ -63,7 +63,7 @@ fn build_market(as_of: Date) -> MarketContext {
             (5.0, 0.85),
             (10.0, 0.70),
         ])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .expect("Valid curve");
 

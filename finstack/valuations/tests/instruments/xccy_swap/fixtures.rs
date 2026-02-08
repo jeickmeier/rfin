@@ -22,26 +22,26 @@ pub fn market_with_fx() -> MarketContext {
     let usd_disc = DiscountCurve::builder("USD-OIS")
         .base_date(base)
         .knots(vec![(0.0, 1.0), (1.0, 0.98), (2.0, 0.96)])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
     let eur_disc = DiscountCurve::builder("EUR-OIS")
         .base_date(base)
         .knots(vec![(0.0, 1.0), (1.0, 0.985), (2.0, 0.97)])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
 
     let usd_fwd = ForwardCurve::builder("USD-SOFR-3M", 0.25)
         .base_date(base)
         .knots(vec![(0.0, 0.02), (2.0, 0.02)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
     let eur_fwd = ForwardCurve::builder("EUR-EURIBOR-3M", 0.25)
         .base_date(base)
         .knots(vec![(0.0, 0.015), (2.0, 0.015)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -63,26 +63,26 @@ pub fn market_without_fx() -> MarketContext {
     let usd_disc = DiscountCurve::builder("USD-OIS")
         .base_date(base)
         .knots(vec![(0.0, 1.0), (1.0, 0.98), (2.0, 0.96)])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
     let eur_disc = DiscountCurve::builder("EUR-OIS")
         .base_date(base)
         .knots(vec![(0.0, 1.0), (1.0, 0.985), (2.0, 0.97)])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
 
     let usd_fwd = ForwardCurve::builder("USD-SOFR-3M", 0.25)
         .base_date(base)
         .knots(vec![(0.0, 0.02), (2.0, 0.02)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
     let eur_fwd = ForwardCurve::builder("EUR-EURIBOR-3M", 0.25)
         .base_date(base)
         .knots(vec![(0.0, 0.015), (2.0, 0.015)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -142,7 +142,7 @@ pub fn market_with_extended_curves() -> MarketContext {
             (10.0, 0.80),
             (15.0, 0.70),
         ])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
     let eur_disc = DiscountCurve::builder("EUR-OIS")
@@ -155,7 +155,7 @@ pub fn market_with_extended_curves() -> MarketContext {
             (10.0, 0.85),
             (15.0, 0.78),
         ])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
 
@@ -163,7 +163,7 @@ pub fn market_with_extended_curves() -> MarketContext {
     let usd_fwd = ForwardCurve::builder("USD-SOFR-3M", 0.25)
         .base_date(base)
         .knots(vec![(0.0, 0.02), (5.0, 0.025), (10.0, 0.03), (15.0, 0.032)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
     let eur_fwd = ForwardCurve::builder("EUR-EURIBOR-3M", 0.25)
@@ -174,7 +174,7 @@ pub fn market_with_extended_curves() -> MarketContext {
             (10.0, 0.025),
             (15.0, 0.028),
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 

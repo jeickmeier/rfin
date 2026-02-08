@@ -655,7 +655,7 @@ mod tests {
                 (2.0, 0.94),
                 (5.0, 0.85),
             ])
-            .set_interp(InterpStyle::LogLinear)
+            .interp(InterpStyle::LogLinear)
             .build()
             .expect("Valid curve");
 

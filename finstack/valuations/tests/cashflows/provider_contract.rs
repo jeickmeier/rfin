@@ -106,14 +106,14 @@ fn minimal_market() -> MarketContext {
     let disc = DiscountCurve::builder("USD-OIS")
         .base_date(base)
         .knots([(0.0, 1.0), (10.0, 0.75)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .expect("valid discount curve");
 
     let fwd = ForwardCurve::builder("USD-SOFR-3M", 0.25)
         .base_date(base)
         .knots([(0.0, 0.04), (10.0, 0.05)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .expect("valid forward curve");
 

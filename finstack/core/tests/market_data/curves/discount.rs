@@ -67,7 +67,7 @@ fn allow_non_monotonic_flag_overrides_validation() {
     let result = DiscountCurve::builder("OVERRIDE-ALLOWED")
         .base_date(sample_base_date())
         .knots([(0.0, 1.0), (1.0, 0.95), (2.0, 0.96)]) // Non-monotonic
-        .set_interp(InterpStyle::Linear) // Required for non-monotonic DFs
+        .interp(InterpStyle::Linear) // Required for non-monotonic DFs
         .allow_non_monotonic()
         .build();
 
@@ -125,7 +125,7 @@ fn custom_forward_rate_floor() {
     let curve = DiscountCurve::builder("CUSTOM-FLOOR")
         .base_date(sample_base_date())
         .knots([(0.0, 1.0), (1.0, 0.98), (5.0, 0.85)])
-        .with_min_forward_rate(-0.01) // -100bp floor
+        .min_forward_rate(-0.01) // -100bp floor
         .build();
 
     assert!(
@@ -167,31 +167,31 @@ fn interpolation_consistency_at_knot_points() {
         DiscountCurve::builder("LINEAR")
             .base_date(base_date)
             .knots(knots)
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .unwrap(),
         DiscountCurve::builder("LOG")
             .base_date(base_date)
             .knots(knots)
-            .set_interp(InterpStyle::LogLinear)
+            .interp(InterpStyle::LogLinear)
             .build()
             .unwrap(),
         DiscountCurve::builder("MC")
             .base_date(base_date)
             .knots(knots)
-            .set_interp(InterpStyle::MonotoneConvex)
+            .interp(InterpStyle::MonotoneConvex)
             .build()
             .unwrap(),
         DiscountCurve::builder("CH")
             .base_date(base_date)
             .knots(knots)
-            .set_interp(InterpStyle::CubicHermite)
+            .interp(InterpStyle::CubicHermite)
             .build()
             .unwrap(),
         DiscountCurve::builder("FF")
             .base_date(base_date)
             .knots(knots)
-            .set_interp(InterpStyle::LogLinear)
+            .interp(InterpStyle::LogLinear)
             .build()
             .unwrap(),
     ];
@@ -219,7 +219,7 @@ fn interpolation_styles_produce_valid_results() {
         let curve = DiscountCurve::builder("TEST")
             .base_date(base_date)
             .knots(knots)
-            .set_interp(style)
+            .interp(style)
             .build()
             .unwrap();
 
@@ -239,7 +239,7 @@ fn create_test_curve(
     Ok(DiscountCurve::builder("TEST-CURVE")
         .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
         .knots([(0.0, 1.0), (1.0, 0.95), (2.0, 0.90), (5.0, 0.78)])
-        .set_interp(InterpStyle::MonotoneConvex)
+        .interp(InterpStyle::MonotoneConvex)
         .extrapolation(extrapolation)
         .build()?)
 }
@@ -336,7 +336,7 @@ fn interpolation_styles_with_both_extrapolation_policies() {
             let curve = DiscountCurve::builder("TEST")
                 .base_date(base_date)
                 .knots(knots)
-                .set_interp(style)
+                .interp(style)
                 .extrapolation(extrapolation)
                 .build()
                 .unwrap();
@@ -365,7 +365,7 @@ fn monotone_convex_guarantees_positive_forwards() {
     let curve = DiscountCurve::builder("MC-POS-FWD")
         .base_date(base_date)
         .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.78), (10.0, 0.60)])
-        .set_interp(InterpStyle::MonotoneConvex)
+        .interp(InterpStyle::MonotoneConvex)
         .build()
         .unwrap();
 
@@ -392,7 +392,7 @@ fn monotone_convex_forward_continuity_at_knots() {
     let curve = DiscountCurve::builder("MC-CONT")
         .base_date(base_date)
         .knots([(0.0, 1.0), (1.0, 0.95), (2.0, 0.90), (5.0, 0.78)])
-        .set_interp(InterpStyle::MonotoneConvex)
+        .interp(InterpStyle::MonotoneConvex)
         .build()
         .unwrap();
 
@@ -549,7 +549,7 @@ fn triangular_key_rate_bump_weight_verification() {
             (1.5, 0.965),
             (2.0, 0.95),
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -596,7 +596,7 @@ fn forward_rate_analytical_verification() {
     let curve = DiscountCurve::builder("FWD-TEST")
         .base_date(sample_base_date())
         .knots([(0.0, 1.0), (1.0, 0.98), (2.0, 0.95)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -664,7 +664,7 @@ fn df_on_date_day_count_sensitivity() {
         .base_date(base)
         .day_count(DayCount::Act360)
         .knots([(0.0, 1.0), (1.0, 0.95)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -672,7 +672,7 @@ fn df_on_date_day_count_sensitivity() {
         .base_date(base)
         .day_count(DayCount::Act365F)
         .knots([(0.0, 1.0), (1.0, 0.95)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -712,7 +712,7 @@ fn negative_rate_environment() {
         .base_date(sample_base_date())
         .knots([(0.0, 1.0), (1.0, 1.005), (2.0, 1.008)])
         .allow_non_monotonic()
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -747,7 +747,7 @@ fn credit_curve_construction() {
     let credit_curve = DiscountCurve::builder("CREDIT-5Y")
         .base_date(base_date)
         .knots(knots)
-        .set_interp(InterpStyle::MonotoneConvex)
+        .interp(InterpStyle::MonotoneConvex)
         .extrapolation(ExtrapolationPolicy::FlatForward)
         .build()
         .unwrap();
@@ -771,7 +771,7 @@ fn minimal_two_point_curve() {
     let minimal_curve = DiscountCurve::builder("MINIMAL")
         .base_date(base_date)
         .knots([(0.0, 1.0), (1.0, 0.95)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .extrapolation(ExtrapolationPolicy::FlatZero)
         .build()
         .unwrap();
@@ -796,7 +796,7 @@ mod serde_tests {
         let original = DiscountCurve::builder("USD-OIS")
             .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
             .knots([(0.0, 1.0), (1.0, 0.98), (2.0, 0.95), (5.0, 0.88)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .extrapolation(ExtrapolationPolicy::FlatForward)
             .build()
             .unwrap();
@@ -825,7 +825,7 @@ mod serde_tests {
         let original = DiscountCurve::builder("EUR-ESTR")
             .base_date(Date::from_calendar_date(2025, Month::June, 30).unwrap())
             .knots([(0.0, 1.0), (0.25, 0.995), (0.5, 0.99), (1.0, 0.98)])
-            .set_interp(InterpStyle::LogLinear)
+            .interp(InterpStyle::LogLinear)
             .build()
             .unwrap();
 
@@ -855,7 +855,7 @@ mod serde_tests {
                 (5.0, 0.88),
                 (10.0, 0.75),
             ])
-            .set_interp(InterpStyle::MonotoneConvex)
+            .interp(InterpStyle::MonotoneConvex)
             .build()
             .unwrap();
 
@@ -878,7 +878,7 @@ mod serde_tests {
         let original = DiscountCurve::builder("JPY-TONAR")
             .base_date(Date::from_calendar_date(2025, Month::September, 1).unwrap())
             .knots([(0.0, 1.0), (1.0, 0.99), (3.0, 0.96), (5.0, 0.92)])
-            .set_interp(InterpStyle::CubicHermite)
+            .interp(InterpStyle::CubicHermite)
             .build()
             .unwrap();
 
@@ -901,7 +901,7 @@ mod serde_tests {
         let original = DiscountCurve::builder("CHF-SARON")
             .base_date(Date::from_calendar_date(2025, Month::December, 31).unwrap())
             .knots([(0.0, 1.0), (0.5, 0.995), (1.0, 0.988), (2.0, 0.975)])
-            .set_interp(InterpStyle::LogLinear)
+            .interp(InterpStyle::LogLinear)
             .build()
             .unwrap();
 
@@ -925,7 +925,7 @@ mod serde_tests {
         let curve_flat_zero = DiscountCurve::builder("TEST-FLAT-ZERO")
             .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
             .knots([(0.0, 1.0), (1.0, 0.98), (2.0, 0.95)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .extrapolation(ExtrapolationPolicy::FlatZero)
             .build()
             .unwrap();
@@ -943,7 +943,7 @@ mod serde_tests {
         let curve_flat_forward = DiscountCurve::builder("TEST-FLAT-FWD")
             .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
             .knots([(0.0, 1.0), (1.0, 0.98), (2.0, 0.95)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .extrapolation(ExtrapolationPolicy::FlatForward)
             .build()
             .unwrap();
@@ -969,7 +969,7 @@ mod serde_tests {
         let original = DiscountCurve::builder("TEST-PRETTY")
             .base_date(Date::from_calendar_date(2025, Month::January, 1).unwrap())
             .knots([(0.0, 1.0), (1.0, 0.98), (2.0, 0.95)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .unwrap();
 

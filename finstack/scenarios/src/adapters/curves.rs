@@ -590,7 +590,7 @@ impl ScenarioAdapter for CurveAdapter {
                             )
                             .base_date(base_curve.base_date())
                             .day_count(base_curve.day_count())
-                            .set_interp(base_curve.interp_style())
+                            .interp(base_curve.interp_style())
                             .extrapolation(base_curve.extrapolation())
                             .allow_non_monotonic()
                             .knots(bumped_points)

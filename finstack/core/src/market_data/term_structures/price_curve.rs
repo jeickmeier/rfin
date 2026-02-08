@@ -53,7 +53,7 @@
 //!     .base_date(base)
 //!     .spot_price(75.0)
 //!     .knots([(0.0, 75.0), (0.25, 76.5), (0.5, 77.2), (1.0, 78.0)])
-//!     .set_interp(InterpStyle::Linear)
+//!     .interp(InterpStyle::Linear)
 //!     .build()
 //!     .expect("PriceCurve builder should succeed");
 //! assert!(curve.price(0.25) > 0.0);
@@ -172,7 +172,7 @@ impl TryFrom<RawPriceCurve> for PriceCurve {
             .day_count(state.day_count)
             .spot_price(state.spot_price)
             .knots(state.points.knot_points)
-            .set_interp(state.interp.interp_style)
+            .interp(state.interp.interp_style)
             .extrapolation(state.interp.extrapolation)
             .build()
     }
@@ -288,7 +288,7 @@ impl PriceCurve {
             .day_count(self.day_count)
             .spot_price((self.spot_price + bump).max(0.0))
             .knots(bumped_points)
-            .set_interp(self.interp.style())
+            .interp(self.interp.style())
             .extrapolation(self.interp.extrapolation())
             .build()
     }
@@ -316,7 +316,7 @@ impl PriceCurve {
             .day_count(self.day_count)
             .spot_price((self.spot_price * factor).max(0.0))
             .knots(bumped_points)
-            .set_interp(self.interp.style())
+            .interp(self.interp.style())
             .extrapolation(self.interp.extrapolation())
             .build()
     }
@@ -356,7 +356,7 @@ impl PriceCurve {
             .day_count(self.day_count)
             .spot_price(self.spot_price) // Spot typically not bumped in key-rate
             .knots(bumped_points)
-            .set_interp(self.interp.style())
+            .interp(self.interp.style())
             .extrapolation(self.interp.extrapolation())
             .build()
     }
@@ -397,7 +397,7 @@ impl PriceCurve {
             .day_count(self.day_count)
             .spot_price(new_spot)
             .knots(rolled_points)
-            .set_interp(self.interp.style())
+            .interp(self.interp.style())
             .extrapolation(self.interp.extrapolation())
             .build()
     }
@@ -445,9 +445,15 @@ impl PriceCurveBuilder {
     }
 
     /// Select interpolation style for this curve.
-    pub fn set_interp(mut self, style: InterpStyle) -> Self {
+    pub fn interp(mut self, style: InterpStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Deprecated alias for [`interp`](Self::interp).
+    #[deprecated(since = "0.2.0", note = "renamed to `interp` for naming consistency")]
+    pub fn set_interp(self, style: InterpStyle) -> Self {
+        self.interp(style)
     }
 
     /// Set the extrapolation policy for out-of-bounds evaluation.

@@ -583,7 +583,7 @@ impl BootstrapTarget for DiscountCurveTarget {
             .base_date(self.base_date)
             .day_count(self.curve_day_count)
             .knots(knots.iter().copied())
-            .set_interp(self.solve_interp)
+            .interp(self.solve_interp)
             .extrapolation(self.extrapolation);
 
         builder = if allow_non_monotonic {
@@ -623,7 +623,7 @@ Disable allow_non_monotonic_final or choose a compatible interpolation style."
             .base_date(self.base_date)
             .day_count(self.curve_day_count)
             .knots(knots.iter().copied())
-            .set_interp(self.solve_interp)
+            .interp(self.solve_interp)
             .extrapolation(self.extrapolation);
 
         if allow_non_monotonic {

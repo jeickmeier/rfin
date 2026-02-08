@@ -39,7 +39,7 @@ pub fn flat_discount(id: &str, base: Date, rate: f64) -> finstack_core::Result<D
     if rate.abs() < 1e-10 || rate < 0.0 {
         builder = builder
             .allow_non_monotonic()
-            .set_interp(finstack_core::math::interp::InterpStyle::Linear);
+            .interp(finstack_core::math::interp::InterpStyle::Linear);
     }
 
     builder.build()

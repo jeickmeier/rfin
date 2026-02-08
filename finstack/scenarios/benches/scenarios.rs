@@ -51,7 +51,7 @@ fn create_base_market() -> MarketContext {
             (10.0, 0.65),
             (30.0, 0.35),
         ])
-        .set_interp(InterpStyle::MonotoneConvex)
+        .interp(InterpStyle::MonotoneConvex)
         .build()
         .unwrap();
 
@@ -68,7 +68,7 @@ fn create_base_market() -> MarketContext {
             (10.0, 0.64),
             (30.0, 0.34),
         ])
-        .set_interp(InterpStyle::MonotoneConvex)
+        .interp(InterpStyle::MonotoneConvex)
         .build()
         .unwrap();
 

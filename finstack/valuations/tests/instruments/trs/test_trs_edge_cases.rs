@@ -62,7 +62,7 @@ fn test_equity_trs_missing_spot_price() {
     let disc = finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
         .base_date(as_of_date())
         .knots(vec![(0.0, 1.0), (1.0, 0.98)])
-        .set_interp(finstack_core::math::interp::InterpStyle::LogLinear)
+        .interp(finstack_core::math::interp::InterpStyle::LogLinear)
         .build()
         .unwrap();
     market = market.insert_discount(disc);
@@ -71,7 +71,7 @@ fn test_equity_trs_missing_spot_price() {
         finstack_core::market_data::term_structures::ForwardCurve::builder("USD-SOFR-3M", 0.25)
             .base_date(as_of_date())
             .knots(vec![(0.0, 0.02), (1.0, 0.02)])
-            .set_interp(finstack_core::math::interp::InterpStyle::Linear)
+            .interp(finstack_core::math::interp::InterpStyle::Linear)
             .build()
             .unwrap();
     market = market.insert_forward(fwd);
@@ -112,7 +112,7 @@ fn test_equity_trs_missing_forward_curve() {
     let disc = finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
         .base_date(as_of_date())
         .knots(vec![(0.0, 1.0), (1.0, 0.98)])
-        .set_interp(finstack_core::math::interp::InterpStyle::LogLinear)
+        .interp(finstack_core::math::interp::InterpStyle::LogLinear)
         .build()
         .unwrap();
     market = market.insert_discount(disc);

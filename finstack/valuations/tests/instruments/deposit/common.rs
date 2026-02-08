@@ -19,10 +19,8 @@ pub const PRICE_TOLERANCE: f64 = 1e-10;
 pub const RATE_TOLERANCE: f64 = 1e-12;
 pub const DF_TOLERANCE: f64 = 1e-12;
 
-/// Helper to construct dates more concisely.
-pub fn date(y: i32, m: u8, d: u8) -> Date {
-    Date::from_calendar_date(y, time::Month::try_from(m).unwrap(), d).unwrap()
-}
+// Re-export the canonical date helper from shared test utilities.
+pub use crate::finstack_test_utils::date;
 
 /// Creates a market context with a flat discount curve.
 ///

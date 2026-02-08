@@ -24,7 +24,7 @@ fn create_test_market(base_date: Date) -> MarketContext {
     let discount_curve = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
         .knots([(0.0, 1.0), (1.0, 0.96), (5.0, 0.82), (10.0, 0.70)])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .expect("Valid curve");
     MarketContext::new().insert_discount(discount_curve)

@@ -30,7 +30,7 @@ fn market() -> MarketContext {
             (2.0, 0.96),
             (3.0, 0.94),
         ])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
     let f3m = ForwardCurve::builder("USD-SOFR-3M", 0.25)
@@ -42,7 +42,7 @@ fn market() -> MarketContext {
             (2.0, 0.023),
             (3.0, 0.024),
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
     let f1m = ForwardCurve::builder("USD-SOFR-1M", 1.0 / 12.0)
@@ -54,7 +54,7 @@ fn market() -> MarketContext {
             (2.0, 0.022),
             (3.0, 0.023),
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
     MarketContext::new()
@@ -590,19 +590,19 @@ fn annuity_with_payment_lag_differs_from_no_lag() {
             (1.0, 0.85),
             (2.0, 0.72),
         ])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
     let f3m = ForwardCurve::builder("USD-SOFR-3M", 0.25)
         .base_date(d(2025, 1, 2))
         .knots(vec![(0.0, 0.02), (1.0, 0.022), (2.0, 0.024)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
     let f1m = ForwardCurve::builder("USD-SOFR-1M", 1.0 / 12.0)
         .base_date(d(2025, 1, 2))
         .knots(vec![(0.0, 0.019), (1.0, 0.021), (2.0, 0.023)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 

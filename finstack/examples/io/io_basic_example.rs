@@ -63,7 +63,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             (5.0, 0.80),    // 5Y
             (10.0, 0.67),   // 10Y
         ])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()?;
 
     // Create a market context with this curve
@@ -162,14 +162,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let curve1 = DiscountCurve::builder("USD-OIS")
         .base_date(d1)
         .knots(vec![(0.0, 1.0), (1.0, 0.951), (5.0, 0.801)])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()?;
     let ctx1 = MarketContext::new().insert_discount(curve1);
 
     let curve2 = DiscountCurve::builder("USD-OIS")
         .base_date(d2)
         .knots(vec![(0.0, 1.0), (1.0, 0.952), (5.0, 0.802)])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()?;
     let ctx2 = MarketContext::new().insert_discount(curve2);
 

@@ -888,7 +888,7 @@ mod tests {
         DiscountCurve::builder(id)
             .base_date(base_date)
             .knots(knots)
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("flat curve construction should succeed")
     }

@@ -106,7 +106,7 @@ fn create_ir_market() -> MarketContext {
             (20.0, 0.4800),
             (30.0, 0.3500),
         ])
-        .set_interp(InterpStyle::MonotoneConvex)
+        .interp(InterpStyle::MonotoneConvex)
         .build()
         .unwrap();
 
@@ -126,7 +126,7 @@ fn create_ir_market() -> MarketContext {
             (20.0, 0.0550),
             (30.0, 0.0570),
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -154,7 +154,7 @@ fn create_credit_market() -> MarketContext {
             (20.0, 0.4800),
             (30.0, 0.3500),
         ])
-        .set_interp(InterpStyle::MonotoneConvex)
+        .interp(InterpStyle::MonotoneConvex)
         .build()
         .unwrap();
 

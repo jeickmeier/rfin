@@ -80,7 +80,7 @@
 //! let curve = DiscountCurve::builder("USD-OIS")
 //!     .base_date(Date::from_calendar_date(2025, Month::January, 1).expect("Valid date"))
 //!     .knots([(0.0, 1.0), (5.0, 0.9)])
-//!     .set_interp(InterpStyle::MonotoneConvex)
+//!     .interp(InterpStyle::MonotoneConvex)
 //!     .build()
 //!     .expect("DiscountCurve builder should succeed");
 //! assert!(curve.df(3.0) < 1.0);
@@ -118,7 +118,7 @@ use crate::{
 /// Very short tenors cause precision degradation in the formula (z2 - z1) / (t2 - t1)
 /// due to catastrophic cancellation when z1*t1 ≈ z2*t2.
 ///
-/// This constant can be overridden via [`DiscountCurveBuilder::with_min_forward_tenor`].
+/// This constant can be overridden via [`DiscountCurveBuilder::min_forward_tenor`].
 pub const DEFAULT_MIN_FORWARD_TENOR: f64 = 1e-6;
 
 /// Piece-wise discount factor curve supporting several interpolation styles.
@@ -207,9 +207,9 @@ impl TryFrom<RawDiscountCurve> for DiscountCurve {
             .base_date(state.base)
             .day_count(state.day_count)
             .knots(state.points.knot_points)
-            .set_interp(state.interp.interp_style)
+            .interp(state.interp.interp_style)
             .extrapolation(state.interp.extrapolation)
-            .with_min_forward_tenor(state.min_forward_tenor);
+            .min_forward_tenor(state.min_forward_tenor);
 
         if state.allow_non_monotonic {
             builder = builder.allow_non_monotonic();
@@ -217,7 +217,7 @@ impl TryFrom<RawDiscountCurve> for DiscountCurve {
 
         // Apply forward rate floor if specified
         if let Some(min_rate) = state.min_forward_rate {
-            builder = builder.with_min_forward_rate(min_rate);
+            builder = builder.min_forward_rate(min_rate);
         }
 
         builder.build()
@@ -434,7 +434,7 @@ impl DiscountCurve {
     /// let curve = DiscountCurve::builder("USD")
     ///     .base_date(date!(2025-01-01))
     ///     .knots([(0.0, 1.0), (1.0, 0.95)])
-    ///     .with_min_forward_tenor(1e-8)  // Allow very short tenors
+    ///     .min_forward_tenor(1e-8)  // Allow very short tenors
     ///     .build()?;
     /// # Ok(())
     /// # }
@@ -646,9 +646,9 @@ impl DiscountCurve {
             .base_date(self.base)
             .day_count(self.day_count)
             .knots(bumped_points)
-            .set_interp(self.style)
+            .interp(self.style)
             .extrapolation(self.extrapolation)
-            .with_min_forward_tenor(self.min_forward_tenor)
+            .min_forward_tenor(self.min_forward_tenor)
             .allow_non_monotonic() // Allow for negative rate environments
             .build()
     }
@@ -752,9 +752,9 @@ impl DiscountCurve {
             .base_date(self.base)
             .day_count(self.day_count)
             .knots(bumped_points)
-            .set_interp(self.style)
+            .interp(self.style)
             .extrapolation(self.extrapolation)
-            .with_min_forward_tenor(self.min_forward_tenor)
+            .min_forward_tenor(self.min_forward_tenor)
             .allow_non_monotonic() // Allow for negative rate environments
             .build()
     }
@@ -815,9 +815,9 @@ impl DiscountCurve {
             .base_date(new_base)
             .day_count(self.day_count)
             .knots(rolled_points)
-            .set_interp(self.style)
+            .interp(self.style)
             .extrapolation(self.extrapolation)
-            .with_min_forward_tenor(self.min_forward_tenor)
+            .min_forward_tenor(self.min_forward_tenor)
             .build()
     }
 
@@ -950,7 +950,7 @@ impl DiscountCurve {
         ForwardCurve::builder(forward_id, tenor_years)
             .base_date(self.base)
             .knots(forward_rates)
-            .set_interp(style)
+            .interp(style)
             .build()
     }
 }
@@ -971,7 +971,7 @@ impl DiscountCurve {
 /// let curve = DiscountCurve::builder("USD-OIS")
 ///     .base_date(base)
 ///     .knots([(0.0, 1.0), (5.0, 0.9)])
-///     .set_interp(InterpStyle::Linear)
+///     .interp(InterpStyle::Linear)
 ///     .build()
 ///     .expect("DiscountCurve builder should succeed");
 /// assert!(curve.df(2.0) < 1.0);
@@ -1009,9 +1009,15 @@ impl DiscountCurveBuilder {
         self
     }
     /// Select interpolation style for this curve.
-    pub fn set_interp(mut self, style: InterpStyle) -> Self {
+    pub fn interp(mut self, style: InterpStyle) -> Self {
         self.style = style;
         self
+    }
+
+    /// Deprecated alias for [`interp`](Self::interp).
+    #[deprecated(since = "0.2.0", note = "renamed to `interp` for naming consistency")]
+    pub fn set_interp(self, style: InterpStyle) -> Self {
+        self.interp(style)
     }
 
     /// Set the extrapolation policy for out-of-bounds evaluation.
@@ -1061,13 +1067,22 @@ impl DiscountCurveBuilder {
     /// let curve = DiscountCurve::builder("USD-OIS")
     ///     .base_date(base)
     ///     .knots([(0.0, 1.0), (1.0, 0.98), (5.0, 0.85)])
-    ///     .with_min_forward_rate(-0.01)  // Floor at -100bp
+    ///     .min_forward_rate(-0.01)  // Floor at -100bp
     ///     .build()
     ///     .expect("DiscountCurve builder should succeed");
     /// ```
-    pub fn with_min_forward_rate(mut self, min_rate: f64) -> Self {
+    pub fn min_forward_rate(mut self, min_rate: f64) -> Self {
         self.min_forward_rate = Some(min_rate);
         self
+    }
+
+    /// Deprecated alias for [`min_forward_rate`](Self::min_forward_rate).
+    #[deprecated(
+        since = "0.2.0",
+        note = "renamed to `min_forward_rate` for naming consistency"
+    )]
+    pub fn with_min_forward_rate(self, min_rate: f64) -> Self {
+        self.min_forward_rate(min_rate)
     }
 
     /// Allow non-monotonic discount factors (use with extreme caution).
@@ -1097,7 +1112,7 @@ impl DiscountCurveBuilder {
     /// erroneous data.
     ///
     /// For full override without any floor, use [`allow_non_monotonic`](Self::allow_non_monotonic)
-    /// or chain with `.with_min_forward_rate(f64::NEG_INFINITY)`.
+    /// or chain with `.min_forward_rate(f64::NEG_INFINITY)`.
     ///
     /// # Example
     ///
@@ -1149,14 +1164,23 @@ impl DiscountCurveBuilder {
     /// let curve = DiscountCurve::builder("USD")
     ///     .base_date(date!(2025-01-01))
     ///     .knots([(0.0, 1.0), (1.0, 0.95)])
-    ///     .with_min_forward_tenor(1e-8)  // Allow sub-second tenors
+    ///     .min_forward_tenor(1e-8)  // Allow sub-second tenors
     ///     .build()?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn with_min_forward_tenor(mut self, tenor: f64) -> Self {
+    pub fn min_forward_tenor(mut self, tenor: f64) -> Self {
         self.min_forward_tenor = tenor;
         self
+    }
+
+    /// Deprecated alias for [`min_forward_tenor`](Self::min_forward_tenor).
+    #[deprecated(
+        since = "0.2.0",
+        note = "renamed to `min_forward_tenor` for naming consistency"
+    )]
+    pub fn with_min_forward_tenor(self, tenor: f64) -> Self {
+        self.min_forward_tenor(tenor)
     }
 
     /// Build the curve with minimal validation for solver use.
@@ -1399,7 +1423,7 @@ mod tests {
                 Date::from_calendar_date(2025, time::Month::June, 30).expect("Valid test date"),
             )
             .knots([(0.0, 1.0), (1.0, 0.98), (2.0, 0.95)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("DiscountCurve builder should succeed with valid test data")
     }
@@ -1410,7 +1434,7 @@ mod tests {
                 Date::from_calendar_date(2025, time::Month::June, 30).expect("Valid test date"),
             )
             .knots([(0.0, 1.0), (1.0, 0.98), (2.0, 0.95)])
-            .set_interp(InterpStyle::LogLinear)
+            .interp(InterpStyle::LogLinear)
             .build()
             .expect("DiscountCurve builder should succeed with valid test data")
     }
@@ -1486,21 +1510,21 @@ mod tests {
         let bad_nan = DiscountCurve::builder("USD-OIS")
             .base_date(base)
             .knots([(0.0, 1.0), (1.0, f64::NAN), (2.0, 0.95)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build();
         assert!(bad_nan.is_err());
 
         let bad_zero = DiscountCurve::builder("USD-OIS")
             .base_date(base)
             .knots([(0.0, 1.0), (1.0, 0.0), (2.0, 0.95)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build();
         assert!(bad_zero.is_err());
 
         let bad_neg = DiscountCurve::builder("USD-OIS")
             .base_date(base)
             .knots([(0.0, 1.0), (1.0, -0.01), (2.0, 0.95)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build();
         assert!(bad_neg.is_err());
     }
@@ -1519,7 +1543,7 @@ mod tests {
                 (5.0, 0.82),
                 (10.0, 0.67),
             ])
-            .set_interp(InterpStyle::MonotoneConvex)
+            .interp(InterpStyle::MonotoneConvex)
             .extrapolation(ExtrapolationPolicy::FlatForward)
             .build()
             .expect("DiscountCurve builder should succeed with valid test data");
@@ -1609,7 +1633,7 @@ mod tests {
                 (1.0, 0.9998), // ~2bp zero rate
                 (5.0, 0.9990), // ~2bp zero rate
             ])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("DiscountCurve builder should succeed with valid test data");
 
@@ -1654,7 +1678,7 @@ mod tests {
                 (0.5, 0.975), // 6M: DF = 0.975
                 (1.0, 0.95),  // 1Y: DF = 0.95
             ])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("DiscountCurve builder should succeed with valid test data");
 
@@ -1717,7 +1741,7 @@ mod tests {
                 (2.0, 0.90), // DF at 2Y
                 (5.0, 0.75),
             ])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("DiscountCurve builder should succeed with valid test data");
 
@@ -1784,7 +1808,7 @@ mod tests {
                 (1.0, 1.0),  // flat (zero rate) segment
                 (2.0, 0.99), // then decreasing
             ])
-            .set_interp(InterpStyle::LogLinear)
+            .interp(InterpStyle::LogLinear)
             .build();
         assert!(curve.is_ok(), "Flat DF segments should be allowed");
     }
@@ -1797,7 +1821,7 @@ mod tests {
         let curve = DiscountCurve::builder("EUR-OIS")
             .base_date(base)
             .knots([(0.0, 1.0), (1.0, 1.002), (5.0, 0.99)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .allow_non_monotonic_with_floor()
             .build();
         assert!(
@@ -1814,7 +1838,7 @@ mod tests {
         let curve = DiscountCurve::builder("BAD-DF")
             .base_date(base)
             .knots([(0.0, 1.0), (1.0, 1.10), (5.0, 1.50)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .allow_non_monotonic_with_floor()
             .build();
         assert!(
@@ -1832,8 +1856,8 @@ mod tests {
         let curve = DiscountCurve::builder("EUR-OIS")
             .base_date(base)
             .knots([(0.0, 1.0), (1.0, 1.002), (5.0, 0.99)])
-            .set_interp(InterpStyle::Linear)
-            .with_min_forward_rate(-0.01) // Stricter floor: -1%
+            .interp(InterpStyle::Linear)
+            .min_forward_rate(-0.01) // Stricter floor: -1%
             .allow_non_monotonic_with_floor()
             .build();
         // The -1% floor should be preserved since it was set before
@@ -1850,7 +1874,7 @@ mod tests {
         let res = DiscountCurve::builder("BAD-DF")
             .base_date(base)
             .knots([(0.0, 1.0), (1.0, 1.01), (2.0, 1.02)])
-            .set_interp(InterpStyle::MonotoneConvex)
+            .interp(InterpStyle::MonotoneConvex)
             .allow_non_monotonic()
             .build();
         assert!(res.is_err());
@@ -1870,7 +1894,7 @@ mod tests {
             .base_date(base)
             .day_count(DayCount::Act360)
             .knots([(0.0, 1.0), (0.05, 0.999), (0.15, 0.998), (0.30, 0.995)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("DiscountCurve builder should succeed with valid test data");
 

@@ -28,7 +28,7 @@ fn test_compounding_lookback_sensitivity() {
     let disc = DiscountCurve::builder("DISC")
         .base_date(base)
         .knots([(0.0, 1.0), (1.0, 0.951229)]) // exp(-0.05 * 1)
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
 
@@ -36,7 +36,7 @@ fn test_compounding_lookback_sensitivity() {
     let fwd = ForwardCurve::builder("FWD", 0.0)
         .base_date(base)
         .knots([(0.0, 0.05), (1.0, 0.10)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -127,14 +127,14 @@ fn test_payment_delay_sensitivity() {
     let disc = DiscountCurve::builder("DISC")
         .base_date(base)
         .knots([(0.0, 1.0), (1.0, 0.95)])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
 
     let fwd = ForwardCurve::builder("FWD", 0.0)
         .base_date(base)
         .knots([(0.0, 0.05), (1.0, 0.05)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -202,14 +202,14 @@ fn test_seasoned_compounded_swap_requires_fixings() {
     let disc = DiscountCurve::builder("DISC")
         .base_date(as_of)
         .knots([(0.0, 1.0), (1.0, 0.95)])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
 
     let fwd = ForwardCurve::builder("FWD", 0.0)
         .base_date(as_of)
         .knots([(0.0, 0.05), (1.0, 0.05)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -280,14 +280,14 @@ fn test_seasoned_compounded_swap_with_fixings_prices() {
     let disc = DiscountCurve::builder("DISC")
         .base_date(as_of)
         .knots([(0.0, 1.0), (1.0, 0.95)])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
 
     let fwd = ForwardCurve::builder("FWD", 0.0)
         .base_date(as_of)
         .knots([(0.0, 0.05), (1.0, 0.05)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -367,7 +367,7 @@ fn test_compounded_swap_with_spread_near_zero_rates() {
     let disc = DiscountCurve::builder("DISC")
         .base_date(base)
         .knots([(0.0, 1.0), (1.0, 0.999)])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .allow_non_monotonic() // Allow for very flat curves
         .build()
         .unwrap();
@@ -376,7 +376,7 @@ fn test_compounded_swap_with_spread_near_zero_rates() {
     let fwd = ForwardCurve::builder("FWD", 0.0)
         .base_date(base)
         .knots([(0.0, 0.001), (1.0, 0.001)]) // 0.1% flat
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -461,7 +461,7 @@ fn test_compounded_swap_with_spread_negative_rates() {
     let disc = DiscountCurve::builder("DISC")
         .base_date(base)
         .knots([(0.0, 1.0), (1.0, 1.005)]) // exp(-(-0.005)*1) ≈ 1.005
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .allow_non_monotonic() // Negative rates cause DF > 1
         .build()
         .unwrap();
@@ -470,7 +470,7 @@ fn test_compounded_swap_with_spread_negative_rates() {
     let fwd = ForwardCurve::builder("FWD", 0.0)
         .base_date(base)
         .knots([(0.0, -0.005), (1.0, -0.005)]) // -0.5% flat
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 
@@ -558,14 +558,14 @@ fn test_observation_shift_before_curve_base_date() {
     let disc = DiscountCurve::builder("DISC")
         .base_date(base)
         .knots([(0.0, 1.0), (1.0, 0.95)])
-        .set_interp(InterpStyle::LogLinear)
+        .interp(InterpStyle::LogLinear)
         .build()
         .unwrap();
 
     let fwd = ForwardCurve::builder("FWD", 0.0)
         .base_date(base)
         .knots([(0.0, 0.05), (1.0, 0.05)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 

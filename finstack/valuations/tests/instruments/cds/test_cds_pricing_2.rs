@@ -44,7 +44,7 @@ fn create_test_market(base_date: Date) -> MarketContext {
             (5.0, 0.88),
             (10.0, 0.70),
         ])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 

@@ -50,14 +50,14 @@ fn create_market() -> MarketContext {
             (10.0, 0.70),
             (30.0, 0.40),
         ])
-        .set_interp(InterpStyle::MonotoneConvex)
+        .interp(InterpStyle::MonotoneConvex)
         .build()
         .unwrap();
 
     let forward_curve = ForwardCurve::builder("USD-SOFR-3M", 0.25)
         .base_date(base)
         .knots([(0.0, 0.045), (1.0, 0.047), (3.0, 0.05), (5.0, 0.052)])
-        .set_interp(InterpStyle::Linear)
+        .interp(InterpStyle::Linear)
         .build()
         .unwrap();
 

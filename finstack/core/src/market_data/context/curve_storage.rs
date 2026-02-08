@@ -27,7 +27,7 @@ impl RebuildableWithId for DiscountCurve {
             .base_date(self.base_date())
             .day_count(self.day_count())
             .knots(self.knots().iter().copied().zip(self.dfs().iter().copied()))
-            .set_interp(self.interp_style())
+            .interp(self.interp_style())
             .extrapolation(self.extrapolation())
             .allow_non_monotonic()
             .build()

@@ -167,7 +167,7 @@ fn bump_key_rate(
         .base_date(base_date)
         .day_count(day_count)
         .knots(bumped_knots)
-        .set_interp(finstack_core::math::interp::InterpStyle::Linear)
+        .interp(finstack_core::math::interp::InterpStyle::Linear)
         .build()?;
 
     Ok(market.clone().insert_discount(bumped_curve))
@@ -248,7 +248,7 @@ mod tests {
                 (10.0, 0.60),
                 (30.0, 0.30),
             ])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("valid curve");
 

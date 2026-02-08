@@ -656,7 +656,7 @@ mod tests {
         let curve = DiscountCurve::builder("USD-OIS")
             .base_date(base)
             .knots([(0.0, 1.0), (30.0, 0.95)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("DiscountCurve builder should succeed with valid test data");
         let market = MarketContext::new().insert_discount(curve);
@@ -722,7 +722,7 @@ mod tests {
         let curve = DiscountCurve::builder("USD-OIS")
             .base_date(issue)
             .knots([(0.0, 1.0), (1.0, 0.95)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("DiscountCurve builder should succeed");
         let market = MarketContext::new().insert_discount(curve);
@@ -789,7 +789,7 @@ mod tests {
         let curve = DiscountCurve::builder("USD-OIS")
             .base_date(base)
             .knots([(0.0, 1.0), (30.0, 0.95)])
-            .set_interp(InterpStyle::Linear)
+            .interp(InterpStyle::Linear)
             .build()
             .expect("DiscountCurve builder should succeed with valid test data");
         let market = MarketContext::new().insert_discount(curve);
