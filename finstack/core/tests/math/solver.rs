@@ -5,8 +5,6 @@
 //! - Newton solver tests
 //! - Serialization tests
 
-#![allow(deprecated)] // Allow deprecated order_N() calls for testing
-
 use finstack_core::math::solver::{BrentSolver, NewtonSolver, Solver};
 
 // ============================================================================
@@ -20,7 +18,7 @@ mod brent {
     fn finds_root_simple_quadratic() {
         // f(x) = x^2 - 2 ⇒ root = sqrt(2)
         let f = |x: f64| x * x - 2.0;
-        let solver = BrentSolver::new().with_tolerance(1e-12);
+        let solver = BrentSolver::new().tolerance(1e-12);
         let r = solver.solve(f, 1.5).unwrap();
 
         assert!(
@@ -35,7 +33,7 @@ mod brent {
     fn handles_cubic() {
         // f(x)=x^3 - x, roots at -1, 0, 1 ⇒ 1
         let f = |x: f64| x * x * x - x;
-        let solver = BrentSolver::new().with_tolerance(1e-12);
+        let solver = BrentSolver::new().tolerance(1e-12);
         let r = solver.solve(f, 0.85).unwrap();
 
         assert!(
@@ -49,7 +47,7 @@ mod brent {
     #[test]
     fn simple_quadratic() {
         let f = |x: f64| x * x - 4.0; // root at x = 2
-        let solver = BrentSolver::new().with_tolerance(1e-12);
+        let solver = BrentSolver::new().tolerance(1e-12);
 
         let root = solver.solve(f, 1.8).unwrap();
 
@@ -65,7 +63,7 @@ mod brent {
     fn with_distant_guess() {
         // Case where initial guess is far from root
         let f = |x: f64| x * x * x - x - 2.0; // Cubic with root near 1.5
-        let solver = BrentSolver::new().with_tolerance(1e-12);
+        let solver = BrentSolver::new().tolerance(1e-12);
 
         // Bad initial guess that would cause Newton to diverge
         let root = solver.solve(f, 100.0).unwrap();
@@ -95,7 +93,7 @@ mod brent {
             annuity_pv + principal_pv - target_price
         };
 
-        let solver = BrentSolver::new().with_tolerance(1e-10);
+        let solver = BrentSolver::new().tolerance(1e-10);
         let yield_result = solver.solve(f, 0.06).unwrap();
 
         assert!(yield_result > 0.05 && yield_result < 0.08);
@@ -110,7 +108,7 @@ mod brent {
     fn sqrt_function() {
         // Pathological case where derivative is problematic
         let f = |x: f64| (x - 1.5).signum() * (x - 1.5).abs().powf(0.5);
-        let solver = BrentSolver::new().with_tolerance(1e-6);
+        let solver = BrentSolver::new().tolerance(1e-6);
 
         let root = solver.solve(f, 2.0).unwrap();
         assert!(
@@ -133,7 +131,7 @@ mod newton {
     fn finds_root_simple_quadratic() {
         // f(x) = x^2 - 2 ⇒ root = sqrt(2)
         let f = |x: f64| x * x - 2.0;
-        let solver = NewtonSolver::new().with_tolerance(1e-12);
+        let solver = NewtonSolver::new().tolerance(1e-12);
         let r = solver.solve(f, 1.5).unwrap();
 
         assert!(
@@ -149,7 +147,7 @@ mod newton {
         // f(x) = x^2 - 2, f'(x) = 2x
         let f = |x: f64| x * x - 2.0;
         let df = |x: f64| 2.0 * x;
-        let solver = NewtonSolver::new().with_tolerance(1e-12);
+        let solver = NewtonSolver::new().tolerance(1e-12);
         let r = solver.solve_with_derivative(f, df, 1.5).unwrap();
 
         assert!(
@@ -164,7 +162,7 @@ mod newton {
     fn handles_cubic() {
         // f(x) = x^3 - x, roots at -1, 0, 1
         let f = |x: f64| x * x * x - x;
-        let solver = NewtonSolver::new().with_tolerance(1e-12);
+        let solver = NewtonSolver::new().tolerance(1e-12);
         let r = solver.solve(f, 0.85).unwrap();
 
         assert!(
@@ -180,7 +178,7 @@ mod newton {
         // f(x) = x^3 - 2x - 5, f'(x) = 3x^2 - 2
         let f = |x: f64| x.powi(3) - 2.0 * x - 5.0;
         let df = |x: f64| 3.0 * x.powi(2) - 2.0;
-        let solver = NewtonSolver::new().with_tolerance(1e-12);
+        let solver = NewtonSolver::new().tolerance(1e-12);
         let r = solver.solve_with_derivative(f, df, 2.0).unwrap();
 
         assert!(
@@ -210,7 +208,7 @@ mod newton {
             annuity_pv + principal_pv - target_price
         };
 
-        let solver = NewtonSolver::new().with_tolerance(1e-10);
+        let solver = NewtonSolver::new().tolerance(1e-10);
         let yield_result = solver.solve(f, 0.06).unwrap();
 
         assert!(yield_result > 0.05 && yield_result < 0.08);
@@ -226,7 +224,7 @@ mod newton {
         // f(x) = e^x - 3x, has root near x ≈ 1.05
         let f = |x: f64| x.exp() - 3.0 * x;
         let df = |x: f64| x.exp() - 3.0;
-        let solver = NewtonSolver::new().with_tolerance(1e-12);
+        let solver = NewtonSolver::new().tolerance(1e-12);
         let r = solver.solve_with_derivative(f, df, 1.0).unwrap();
 
         assert!(
@@ -254,9 +252,7 @@ mod error_diagnostics {
     fn newton_error_contains_iteration_count() {
         // Function that doesn't converge - always returns 1.0
         let f = |_x: f64| 1.0;
-        let solver = NewtonSolver::new()
-            .with_tolerance(1e-12)
-            .with_max_iterations(10);
+        let solver = NewtonSolver::new().tolerance(1e-12).max_iterations(10);
 
         let result = solver.solve(f, 0.0);
         assert!(result.is_err());
@@ -276,9 +272,7 @@ mod error_diagnostics {
     fn newton_error_contains_residual() {
         // Function with no root in reasonable range
         let f = |x: f64| x * x + 1.0; // always positive
-        let solver = NewtonSolver::new()
-            .with_tolerance(1e-12)
-            .with_max_iterations(5);
+        let solver = NewtonSolver::new().tolerance(1e-12).max_iterations(5);
 
         let result = solver.solve(f, 1.0);
         assert!(result.is_err());
@@ -300,9 +294,9 @@ mod error_diagnostics {
         // f(x) = tanh(1000*(x-0.5)) has nearly zero derivative far from x=0.5
         let f = |x: f64| (1000.0 * (x - 0.5)).tanh() - 0.5;
         let solver = NewtonSolver::new()
-            .with_tolerance(1e-12)
-            .with_min_derivative(1e-10)
-            .with_max_iterations(20);
+            .tolerance(1e-12)
+            .min_derivative(1e-10)
+            .max_iterations(20);
 
         // Starting far from the root in the flat region
         let result = solver.solve(f, 10.0);
@@ -323,7 +317,7 @@ mod error_diagnostics {
     fn brent_no_bracket_found_error() {
         // Function with no roots
         let f = |x: f64| x * x + 1.0;
-        let solver = BrentSolver::new().with_tolerance(1e-12);
+        let solver = BrentSolver::new().tolerance(1e-12);
 
         let result = solver.solve(f, 0.0);
         assert!(result.is_err());
@@ -341,7 +335,7 @@ mod error_diagnostics {
 
     #[test]
     fn bracket_hint_implied_vol() {
-        let solver = BrentSolver::new().with_bracket_hint(BracketHint::ImpliedVol);
+        let solver = BrentSolver::new().bracket_hint(BracketHint::ImpliedVol);
 
         // Initial bracket should be ±0.2
         assert_eq!(solver.initial_bracket_size, Some(0.2));
@@ -349,28 +343,28 @@ mod error_diagnostics {
 
     #[test]
     fn bracket_hint_rate() {
-        let solver = BrentSolver::new().with_bracket_hint(BracketHint::Rate);
+        let solver = BrentSolver::new().bracket_hint(BracketHint::Rate);
 
         assert_eq!(solver.initial_bracket_size, Some(0.02));
     }
 
     #[test]
     fn bracket_hint_ytm() {
-        let solver = BrentSolver::new().with_bracket_hint(BracketHint::Ytm);
+        let solver = BrentSolver::new().bracket_hint(BracketHint::Ytm);
 
         assert_eq!(solver.initial_bracket_size, Some(0.02));
     }
 
     #[test]
     fn bracket_hint_spread() {
-        let solver = BrentSolver::new().with_bracket_hint(BracketHint::Spread);
+        let solver = BrentSolver::new().bracket_hint(BracketHint::Spread);
 
         assert_eq!(solver.initial_bracket_size, Some(0.005));
     }
 
     #[test]
     fn bracket_hint_custom() {
-        let solver = BrentSolver::new().with_bracket_hint(BracketHint::Custom(0.5));
+        let solver = BrentSolver::new().bracket_hint(BracketHint::Custom(0.5));
 
         assert_eq!(solver.initial_bracket_size, Some(0.5));
     }
@@ -383,8 +377,8 @@ mod error_diagnostics {
 
         // With implied vol hint (bracket ±0.2), should find root quickly
         let solver = BrentSolver::new()
-            .with_bracket_hint(BracketHint::ImpliedVol)
-            .with_tolerance(1e-10);
+            .bracket_hint(BracketHint::ImpliedVol)
+            .tolerance(1e-10);
 
         let root = solver.solve(f, 0.2).unwrap();
         assert!((root - 0.1).abs() < 1e-9);
@@ -412,9 +406,7 @@ mod serde_tests {
 
     #[test]
     fn newton_solver_roundtrip() {
-        let solver = NewtonSolver::new()
-            .with_tolerance(1e-10)
-            .with_max_iterations(100);
+        let solver = NewtonSolver::new().tolerance(1e-10).max_iterations(100);
 
         let json = serde_json::to_string(&solver).unwrap();
         let deserialized: NewtonSolver = serde_json::from_str(&json).unwrap();
@@ -427,8 +419,8 @@ mod serde_tests {
     #[test]
     fn brent_solver_roundtrip() {
         let solver = BrentSolver::new()
-            .with_tolerance(1e-8)
-            .with_initial_bracket_size(Some(0.5));
+            .tolerance(1e-8)
+            .initial_bracket_size(Some(0.5));
 
         let json = serde_json::to_string(&solver).unwrap();
         let deserialized: BrentSolver = serde_json::from_str(&json).unwrap();

@@ -238,8 +238,8 @@ impl MetricCalculator for DiscountMarginCalculator {
         // Use a maturity-aware initial bracket with production-grade tolerance.
         let bracket = self.initial_bracket_decimal(bond, quote_date)?;
         let solver = BrentSolver::new()
-            .with_tolerance(self.config.tolerance)
-            .with_initial_bracket_size(Some(bracket));
+            .tolerance(self.config.tolerance)
+            .initial_bracket_size(Some(bracket));
         // Initial guess 0.0 (0 bp). DM returned in decimal (e.g., 0.01 = 100bp)
         let dm = solver.solve(objective, 0.0)?;
 

@@ -616,7 +616,7 @@ impl StructuredCredit {
         // Initial guess: 100 bps (0.01)
         // Bracket: -10% to +50%?
         // BrentSolver finds bracket automatically if not provided.
-        let solver = BrentSolver::new().with_tolerance(1e-6);
+        let solver = BrentSolver::new().tolerance(1e-6);
         solver.solve(price_fn, 0.01)
     }
 

@@ -329,8 +329,8 @@ where
 
     // Newton solver with default configuration
     let newton = NewtonSolver::new()
-        .with_tolerance(DEFAULT_TOLERANCE)
-        .with_max_iterations(DEFAULT_MAX_ITERATIONS);
+        .tolerance(DEFAULT_TOLERANCE)
+        .max_iterations(DEFAULT_MAX_ITERATIONS);
 
     // Initial guess strategy: user-provided guess or default
     let initial_guess = guess.unwrap_or(DEFAULT_GUESS);
@@ -370,10 +370,10 @@ where
     // Phase 2: Fall back to Brent's method (robust, guaranteed convergence given bracket)
     // Use XIRR bracket hint with wide bounds for the initial bracket search
     let brent = BrentSolver::new()
-        .with_tolerance(DEFAULT_TOLERANCE)
-        .with_max_iterations(DEFAULT_MAX_ITERATIONS)
-        .with_bracket_hint(crate::math::solver::BracketHint::Xirr)
-        .with_bracket_bounds(-0.99, 10.0);
+        .tolerance(DEFAULT_TOLERANCE)
+        .max_iterations(DEFAULT_MAX_ITERATIONS)
+        .bracket_hint(crate::math::solver::BracketHint::Xirr)
+        .bracket_bounds(-0.99, 10.0);
 
     let brent_seeds: &[f64] = &[0.1, 0.0, -0.5, 0.5, -0.9, 1.0, 2.0, 5.0];
 

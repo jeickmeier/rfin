@@ -108,3 +108,23 @@ pub fn validate_monotone_nonincreasing(values: &[f64]) -> crate::Result<()> {
     }
     Ok(())
 }
+
+/// Find the first violation of non-increasing monotonicity with a relative tolerance.
+///
+/// Returns `Some((index, prev_value, curr_value))` for the first pair where
+/// `values[index + 1] > values[index] + tolerance`, or `None` if the sequence
+/// is monotone non-increasing within tolerance.
+///
+/// The tolerance is computed as `base_tol * max(|prev|, 1.0)` to handle both
+/// small and large value ranges.
+pub fn find_monotone_violation(values: &[f64], base_tol: f64) -> Option<(usize, f64, f64)> {
+    values.windows(2).enumerate().find_map(|(i, w)| {
+        let (prev, curr) = (w[0], w[1]);
+        let tol = base_tol * prev.abs().max(1.0);
+        if curr > prev + tol {
+            Some((i, prev, curr))
+        } else {
+            None
+        }
+    })
+}

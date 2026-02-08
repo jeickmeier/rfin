@@ -562,18 +562,21 @@ fn find_closest_grid_index(arr: &[f64], target: f64) -> usize {
         return arr.len() - 1;
     }
 
-    // Binary search for the segment
-    for i in 0..arr.len() - 1 {
-        if target >= arr[i] && target <= arr[i + 1] {
-            // Return the closer of the two
-            if (target - arr[i]).abs() < (target - arr[i + 1]).abs() {
-                return i;
+    arr.windows(2)
+        .enumerate()
+        .find_map(|(i, w)| {
+            if target >= w[0] && target <= w[1] {
+                // Return the closer of the two
+                Some(if (target - w[0]).abs() < (target - w[1]).abs() {
+                    i
+                } else {
+                    i + 1
+                })
             } else {
-                return i + 1;
+                None
             }
-        }
-    }
-    arr.len() - 1
+        })
+        .unwrap_or(arr.len() - 1)
 }
 
 // Minimal trait implementation for polymorphism where needed

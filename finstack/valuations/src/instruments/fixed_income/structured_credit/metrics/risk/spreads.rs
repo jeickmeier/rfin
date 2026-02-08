@@ -110,8 +110,8 @@ impl MetricCalculator for ZSpreadCalculator {
         // We start with a moderate bracket and allow expansion for edge cases.
         // Tolerance: 1e-6 = 0.01 bps precision (market standard)
         let solver = BrentSolver::new()
-            .with_tolerance(Z_SPREAD_SOLVER_TOLERANCE)
-            .with_initial_bracket_size(Some(Z_SPREAD_INITIAL_BRACKET));
+            .tolerance(Z_SPREAD_SOLVER_TOLERANCE)
+            .initial_bracket_size(Some(Z_SPREAD_INITIAL_BRACKET));
 
         let valid_range = Z_SPREAD_MIN..=Z_SPREAD_MAX;
 
@@ -138,8 +138,8 @@ impl MetricCalculator for ZSpreadCalculator {
 
                 // Final fallback: wider bracket with explicit bounds
                 let wide_solver = BrentSolver::new()
-                    .with_tolerance(Z_SPREAD_SOLVER_TOLERANCE)
-                    .with_initial_bracket_size(Some(0.20)); // ±2000 bps
+                    .tolerance(Z_SPREAD_SOLVER_TOLERANCE)
+                    .initial_bracket_size(Some(0.20)); // ±2000 bps
 
                 wide_solver.solve(objective, 0.05)
             }
@@ -341,8 +341,8 @@ pub fn calculate_tranche_z_spread(
 
     // Tolerance: 1e-6 = 0.01 bps precision (market standard)
     let solver = BrentSolver::new()
-        .with_tolerance(Z_SPREAD_SOLVER_TOLERANCE)
-        .with_initial_bracket_size(Some(Z_SPREAD_INITIAL_BRACKET));
+        .tolerance(Z_SPREAD_SOLVER_TOLERANCE)
+        .initial_bracket_size(Some(Z_SPREAD_INITIAL_BRACKET));
 
     let z_spread = solver.solve(objective, 0.0)?;
 

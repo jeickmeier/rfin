@@ -155,16 +155,19 @@ impl Rate {
     }
 
     /// Get the rate as a decimal value
+    #[must_use]
     pub fn as_decimal(self) -> f64 {
         self.0
     }
 
     /// Get the rate as a percentage value
+    #[must_use]
     pub fn as_percent(self) -> f64 {
         self.0 * 100.0
     }
 
     /// Get the rate as basis points (rounded to nearest integer)
+    #[must_use]
     pub fn as_bps(self) -> i32 {
         (self.0 * 10_000.0).round() as i32
     }

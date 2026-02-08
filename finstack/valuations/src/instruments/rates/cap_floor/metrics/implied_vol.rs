@@ -111,7 +111,7 @@ impl MetricCalculator for ImpliedVolCalculator {
         };
 
         // Solve for implied volatility using Brent solver
-        let mut solver = BrentSolver::new().with_tolerance(1e-6);
+        let mut solver = BrentSolver::new().tolerance(1e-6);
         solver.max_iterations = 50;
 
         // Initial guess: 20% volatility, reasonable bounds 0.1% to 300%

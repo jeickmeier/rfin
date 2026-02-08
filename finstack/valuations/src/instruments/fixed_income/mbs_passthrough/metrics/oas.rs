@@ -75,10 +75,10 @@ pub fn calculate_oas(
     // Use core's BrentSolver instead of a hand-rolled implementation.
     // Bracket bounds: -500 bps to +2000 bps covers virtually all OAS scenarios.
     let solver = BrentSolver::new()
-        .with_tolerance(1e-8)
-        .with_max_iterations(100)
-        .with_bracket_bounds(-0.10, 0.20)
-        .with_initial_bracket_size(Some(0.05));
+        .tolerance(1e-8)
+        .max_iterations(100)
+        .bracket_bounds(-0.10, 0.20)
+        .initial_bracket_size(Some(0.05));
 
     // Capture any pricing error from the objective in a RefCell so we can
     // propagate it after the solver finishes (the Solver trait expects Fn(f64)->f64).

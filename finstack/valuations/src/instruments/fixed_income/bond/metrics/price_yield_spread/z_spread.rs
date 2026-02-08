@@ -257,8 +257,8 @@ impl MetricCalculator for ZSpreadCalculator {
         // tolerance. Initial guess is 0.0 (0 bp).
         let bracket = self.initial_bracket_decimal(bond, quote_date)?;
         let solver = BrentSolver::new()
-            .with_tolerance(self.config.tolerance)
-            .with_initial_bracket_size(Some(bracket));
+            .tolerance(self.config.tolerance)
+            .initial_bracket_size(Some(bracket));
         let z = solver.solve(objective, 0.0)?;
 
         // If any pricing error occurred during objective evaluation, surface it instead of

@@ -233,8 +233,8 @@ pub fn calculate_irr(flows: &[(Date, Money)], day_count: DayCount) -> finstack_c
 
     // Use BrentSolver with reasonable bounds for PE returns
     let solver = BrentSolver::new()
-        .with_tolerance(1e-12)
-        .with_initial_bracket_size(Some(1.0)); // Start with reasonable IRR range
+        .tolerance(1e-12)
+        .initial_bracket_size(Some(1.0)); // Start with reasonable IRR range
 
     solver
         .solve(npv_function, 0.15) // Start with 15% initial guess for PE returns

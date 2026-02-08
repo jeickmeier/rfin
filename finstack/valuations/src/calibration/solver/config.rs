@@ -151,7 +151,7 @@ mod tests {
 
     #[test]
     fn test_solver_config_from_instances() {
-        let newton = NewtonSolver::new().with_tolerance(1e-15);
+        let newton = NewtonSolver::new().tolerance(1e-15);
         let config = SolverConfig::from_newton(&newton);
 
         if let SolverConfig::Newton { solver } = config {

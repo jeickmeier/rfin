@@ -875,7 +875,7 @@ impl<'a> EquityWaterfallEngine<'a> {
 
         let max_reasonable = total_contributions * 10.0; // Up to 10x contributions as upper bound
 
-        let solver = BrentSolver::new().with_tolerance(1e-6);
+        let solver = BrentSolver::new().tolerance(1e-6);
         match solver.solve(target_function, max_reasonable * 0.5) {
             Ok(amount) => Ok(amount.max(0.0)),
             Err(_) => {
@@ -940,8 +940,8 @@ impl<'a> EquityWaterfallEngine<'a> {
 
         // Use BrentSolver to find IRR (rate where NPV = 0)
         let solver = BrentSolver::new()
-            .with_tolerance(1e-12)
-            .with_initial_bracket_size(Some(0.5)); // Start with reasonable IRR range
+            .tolerance(1e-12)
+            .initial_bracket_size(Some(0.5)); // Start with reasonable IRR range
 
         solver
             .solve(npv_function, 0.1)

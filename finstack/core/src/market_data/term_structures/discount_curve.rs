@@ -1325,15 +1325,14 @@ impl DiscountCurveBuilder {
 /// Non-monotonic discount factors violate no-arbitrage conditions and will
 /// produce incorrect pricing results.
 fn validate_monotonic_df(knots: &[f64], dfs: &[f64]) -> crate::Result<()> {
-    for (knot_pair, df_pair) in knots.windows(2).zip(dfs.windows(2)) {
-        let (prev, curr) = (df_pair[0], df_pair[1]);
-        let tol = 1e-14 * prev.abs().max(1.0);
-        if curr > prev + tol {
-            return Err(crate::Error::Validation(format!(
-                "Discount factors must be non-increasing: DF(t={:.4}) = {:.12} > DF(t={:.4}) = {:.12}",
-                knot_pair[1], curr, knot_pair[0], prev
-            )));
-        }
+    if let Some((i, prev, curr)) = crate::math::interp::utils::find_monotone_violation(dfs, 1e-14) {
+        return Err(crate::Error::Validation(format!(
+            "Discount factors must be non-increasing: DF(t={:.4}) = {:.12} > DF(t={:.4}) = {:.12}",
+            knots[i + 1],
+            curr,
+            knots[i],
+            prev
+        )));
     }
     Ok(())
 }
@@ -1342,18 +1341,17 @@ fn validate_monotonic_df(knots: &[f64], dfs: &[f64]) -> crate::Result<()> {
 ///
 /// MonotoneConvex (Hagan–West) requires a positive, non-increasing DF term structure.
 fn validate_monotone_convex_compatible_df(knots: &[f64], dfs: &[f64]) -> crate::Result<()> {
-    for (knot_pair, df_pair) in knots.windows(2).zip(dfs.windows(2)) {
-        let (prev, curr) = (df_pair[0], df_pair[1]);
-        let tol = 1e-14 * prev.abs().max(1.0);
-        if curr > prev + tol {
-            return Err(crate::Error::Validation(format!(
-                "InterpStyle::MonotoneConvex requires non-increasing discount factors. \
-                 Found DF(t={:.4}) = {:.12} > DF(t={:.4}) = {:.12}. \
-                 Use LogLinear/Linear (and allow_non_monotonic) for negative-rate / increasing-DF inputs, \
-                 or fix the input curve.",
-                knot_pair[1], curr, knot_pair[0], prev
-            )));
-        }
+    if let Some((i, prev, curr)) = crate::math::interp::utils::find_monotone_violation(dfs, 1e-14) {
+        return Err(crate::Error::Validation(format!(
+            "InterpStyle::MonotoneConvex requires non-increasing discount factors. \
+             Found DF(t={:.4}) = {:.12} > DF(t={:.4}) = {:.12}. \
+             Use LogLinear/Linear (and allow_non_monotonic) for negative-rate / increasing-DF inputs, \
+             or fix the input curve.",
+            knots[i + 1],
+            curr,
+            knots[i],
+            prev
+        )));
     }
     Ok(())
 }

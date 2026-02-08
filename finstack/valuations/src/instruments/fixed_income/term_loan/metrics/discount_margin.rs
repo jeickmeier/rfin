@@ -107,8 +107,8 @@ impl MetricCalculator for DiscountMarginCalculator {
 
         // Solve for DM in basis points
         let solver = BrentSolver::new()
-            .with_tolerance(1e-12)
-            .with_initial_bracket_size(Some(50.0)); // Start with +/- 50bp bracket
+            .tolerance(1e-12)
+            .initial_bracket_size(Some(50.0)); // Start with +/- 50bp bracket
 
         let dm_bp = solver.solve(objective, 0.0)?;
 

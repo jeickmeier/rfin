@@ -372,12 +372,9 @@ fn find_segment(arr: &[f64], x: f64) -> usize {
         return arr.len() - 1;
     }
     // Simple linear scan (grids are typically small)
-    for i in 0..arr.len() - 1 {
-        if x >= arr[i] && x <= arr[i + 1] {
-            return i;
-        }
-    }
-    arr.len() - 2
+    arr.windows(2)
+        .position(|w| x >= w[0] && x <= w[1])
+        .unwrap_or(arr.len() - 2)
 }
 
 // =============================================================================

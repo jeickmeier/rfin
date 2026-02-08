@@ -34,7 +34,7 @@
 //! ```
 //! use finstack_core::math::solver::{NewtonSolver, Solver};
 //!
-//! let solver = NewtonSolver::new().with_tolerance(1e-10);
+//! let solver = NewtonSolver::new().tolerance(1e-10);
 //! let f = |x: f64| x * x - 2.0;
 //! let root = solver.solve(f, 1.0).expect("Root finding should succeed");
 //! assert!((root - 2.0_f64.sqrt()).abs() < 1e-10);
@@ -77,7 +77,7 @@ use crate::Result;
 /// use finstack_core::math::solver::{BrentSolver, BracketHint, Solver};
 ///
 /// // For implied volatility (typically 0.01 to 2.0)
-/// let solver = BrentSolver::new().with_bracket_hint(BracketHint::ImpliedVol);
+/// let solver = BrentSolver::new().bracket_hint(BracketHint::ImpliedVol);
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -107,8 +107,8 @@ pub enum BracketHint {
     /// use finstack_core::math::solver::{BrentSolver, BracketHint, Solver};
     ///
     /// let solver = BrentSolver::new()
-    ///     .with_bracket_hint(BracketHint::Xirr)
-    ///     .with_bracket_bounds(-0.99, 10.0);  // Allow up to 1000% returns
+    ///     .bracket_hint(BracketHint::Xirr)
+    ///     .bracket_bounds(-0.99, 10.0);  // Allow up to 1000% returns
     /// ```
     Xirr,
     /// Custom bracket size
@@ -273,7 +273,7 @@ pub trait Solver: Send + Sync {
 ///
 /// // Solve for implied volatility (simplified example)
 /// let target_price = 10.5;
-/// let solver = NewtonSolver::new().with_tolerance(1e-6);
+/// let solver = NewtonSolver::new().tolerance(1e-6);
 ///
 /// let price_error = |vol: f64| {
 ///     // In practice, this would call Black-Scholes formula
@@ -325,27 +325,69 @@ impl NewtonSolver {
     }
 
     /// Set tolerance.
-    pub fn with_tolerance(mut self, tolerance: f64) -> Self {
+    #[must_use]
+    pub fn tolerance(mut self, tolerance: f64) -> Self {
         self.tolerance = tolerance;
         self
     }
 
     /// Set maximum iterations.
-    pub fn with_max_iterations(mut self, max_iterations: usize) -> Self {
+    #[must_use]
+    pub fn max_iterations(mut self, max_iterations: usize) -> Self {
         self.max_iterations = max_iterations;
         self
     }
 
     /// Set minimum derivative threshold (absolute).
-    pub fn with_min_derivative(mut self, min_derivative: f64) -> Self {
+    #[must_use]
+    pub fn min_derivative(mut self, min_derivative: f64) -> Self {
         self.min_derivative = min_derivative;
         self
     }
 
     /// Set relative minimum derivative threshold.
-    pub fn with_min_derivative_rel(mut self, min_derivative_rel: f64) -> Self {
+    #[must_use]
+    pub fn min_derivative_rel(mut self, min_derivative_rel: f64) -> Self {
         self.min_derivative_rel = min_derivative_rel;
         self
+    }
+
+    // -- Deprecated aliases for naming consistency --
+
+    /// Deprecated: use [`tolerance`](Self::tolerance) instead.
+    #[deprecated(
+        since = "0.8.0",
+        note = "renamed to `tolerance` for naming consistency"
+    )]
+    pub fn with_tolerance(self, tolerance: f64) -> Self {
+        self.tolerance(tolerance)
+    }
+
+    /// Deprecated: use [`max_iterations`](Self::max_iterations) instead.
+    #[deprecated(
+        since = "0.8.0",
+        note = "renamed to `max_iterations` for naming consistency"
+    )]
+    pub fn with_max_iterations(self, max_iterations: usize) -> Self {
+        self.max_iterations(max_iterations)
+    }
+
+    /// Deprecated: use [`min_derivative`](Self::min_derivative) instead.
+    #[deprecated(
+        since = "0.8.0",
+        note = "renamed to `min_derivative` for naming consistency"
+    )]
+    pub fn with_min_derivative(self, min_derivative: f64) -> Self {
+        self.min_derivative(min_derivative)
+    }
+
+    /// Deprecated: use [`min_derivative_rel`](Self::min_derivative_rel) instead.
+    #[deprecated(
+        since = "0.8.0",
+        note = "renamed to `min_derivative_rel` for naming consistency"
+    )]
+    pub fn with_min_derivative_rel(self, min_derivative_rel: f64) -> Self {
+        self.min_derivative_rel(min_derivative_rel)
     }
 
     /// Compute scale-adaptive finite difference step.
@@ -629,19 +671,22 @@ impl BrentSolver {
     }
 
     /// Set tolerance.
-    pub fn with_tolerance(mut self, tolerance: f64) -> Self {
+    #[must_use]
+    pub fn tolerance(mut self, tolerance: f64) -> Self {
         self.tolerance = tolerance;
         self
     }
 
     /// Set initial bracket size. If None, will use adaptive sizing.
-    pub fn with_initial_bracket_size(mut self, size: Option<f64>) -> Self {
+    #[must_use]
+    pub fn initial_bracket_size(mut self, size: Option<f64>) -> Self {
         self.initial_bracket_size = size;
         self
     }
 
     /// Set maximum iterations.
-    pub fn with_max_iterations(mut self, max_iterations: usize) -> Self {
+    #[must_use]
+    pub fn max_iterations(mut self, max_iterations: usize) -> Self {
         self.max_iterations = max_iterations;
         self
     }
@@ -658,13 +703,14 @@ impl BrentSolver {
     ///
     /// // For implied volatility solving
     /// let solver = BrentSolver::new()
-    ///     .with_bracket_hint(BracketHint::ImpliedVol);
+    ///     .bracket_hint(BracketHint::ImpliedVol);
     ///
     /// // For yield-to-maturity solving
     /// let ytm_solver = BrentSolver::new()
-    ///     .with_bracket_hint(BracketHint::Ytm);
+    ///     .bracket_hint(BracketHint::Ytm);
     /// ```
-    pub fn with_bracket_hint(mut self, hint: BracketHint) -> Self {
+    #[must_use]
+    pub fn bracket_hint(mut self, hint: BracketHint) -> Self {
         self.initial_bracket_size = Some(hint.to_bracket_size());
         self
     }
@@ -682,16 +728,64 @@ impl BrentSolver {
     ///
     /// // For a problem where the root must be positive
     /// let solver = BrentSolver::new()
-    ///     .with_bracket_bounds(0.0, 1e9);
+    ///     .bracket_bounds(0.0, 1e9);
     ///
     /// // For implied volatility (must be positive, typically < 5.0)
     /// let vol_solver = BrentSolver::new()
-    ///     .with_bracket_bounds(1e-6, 5.0);
+    ///     .bracket_bounds(1e-6, 5.0);
     /// ```
-    pub fn with_bracket_bounds(mut self, min: f64, max: f64) -> Self {
+    #[must_use]
+    pub fn bracket_bounds(mut self, min: f64, max: f64) -> Self {
         self.bracket_min = min;
         self.bracket_max = max;
         self
+    }
+
+    // -- Deprecated aliases for naming consistency --
+
+    /// Deprecated: use [`tolerance`](Self::tolerance) instead.
+    #[deprecated(
+        since = "0.8.0",
+        note = "renamed to `tolerance` for naming consistency"
+    )]
+    pub fn with_tolerance(self, tolerance: f64) -> Self {
+        self.tolerance(tolerance)
+    }
+
+    /// Deprecated: use [`initial_bracket_size`](Self::initial_bracket_size) instead.
+    #[deprecated(
+        since = "0.8.0",
+        note = "renamed to `initial_bracket_size` for naming consistency"
+    )]
+    pub fn with_initial_bracket_size(self, size: Option<f64>) -> Self {
+        self.initial_bracket_size(size)
+    }
+
+    /// Deprecated: use [`max_iterations`](Self::max_iterations) instead.
+    #[deprecated(
+        since = "0.8.0",
+        note = "renamed to `max_iterations` for naming consistency"
+    )]
+    pub fn with_max_iterations(self, max_iterations: usize) -> Self {
+        self.max_iterations(max_iterations)
+    }
+
+    /// Deprecated: use [`bracket_hint`](Self::bracket_hint) instead.
+    #[deprecated(
+        since = "0.8.0",
+        note = "renamed to `bracket_hint` for naming consistency"
+    )]
+    pub fn with_bracket_hint(self, hint: BracketHint) -> Self {
+        self.bracket_hint(hint)
+    }
+
+    /// Deprecated: use [`bracket_bounds`](Self::bracket_bounds) instead.
+    #[deprecated(
+        since = "0.8.0",
+        note = "renamed to `bracket_bounds` for naming consistency"
+    )]
+    pub fn with_bracket_bounds(self, min: f64, max: f64) -> Self {
+        self.bracket_bounds(min, max)
     }
 
     /// Find bracket around the root starting from initial guess.
@@ -991,7 +1085,7 @@ mod tests {
         assert!((root - 100.0).abs() < 1e-6);
 
         // Test with configurable bracket size
-        let solver_custom = BrentSolver::new().with_initial_bracket_size(Some(5.0));
+        let solver_custom = BrentSolver::new().initial_bracket_size(Some(5.0));
         let root2 = solver_custom
             .solve(f, 95.0)
             .expect("Root finding should succeed in test");
@@ -1115,8 +1209,8 @@ mod tests {
     #[test]
     fn test_configurable_min_derivative() {
         // Test that min_derivative threshold is configurable
-        let _solver_strict = NewtonSolver::new().with_min_derivative(1e-10);
-        let solver_permissive = NewtonSolver::new().with_min_derivative(1e-16);
+        let _solver_strict = NewtonSolver::new().min_derivative(1e-10);
+        let solver_permissive = NewtonSolver::new().min_derivative(1e-16);
 
         // Function with very small derivative
         let f = |x: f64| x.powi(5) - 1e-12;
@@ -1195,9 +1289,7 @@ mod tests {
         // without convergence, rather than silently returning a non-root value.
 
         // Create a solver with very few iterations so it won't converge
-        let solver = BrentSolver::new()
-            .with_max_iterations(2)
-            .with_tolerance(1e-15); // Extremely tight tolerance
+        let solver = BrentSolver::new().max_iterations(2).tolerance(1e-15); // Extremely tight tolerance
 
         // A function that converges slowly (root at x ≈ 1.3247)
         let f = |x: f64| x * x * x - x - 1.0;
@@ -1231,7 +1323,7 @@ mod tests {
     #[test]
     fn test_brent_configurable_bracket_bounds() {
         // Test that bracket bounds can be configured
-        let solver = BrentSolver::new().with_bracket_bounds(0.0, 10.0);
+        let solver = BrentSolver::new().bracket_bounds(0.0, 10.0);
 
         // Function with root at x = 2
         let f = |x: f64| x - 2.0;
@@ -1241,7 +1333,7 @@ mod tests {
         assert!((root - 2.0).abs() < 1e-10);
 
         // Test that search fails when root is outside bounds
-        let solver_narrow = BrentSolver::new().with_bracket_bounds(5.0, 10.0);
+        let solver_narrow = BrentSolver::new().bracket_bounds(5.0, 10.0);
 
         // Root at x = 2 is outside [5, 10]
         let result = solver_narrow.solve(f, 7.0);
@@ -1259,8 +1351,8 @@ mod tests {
         // Test IRR-like problem with wide range of possible roots
         // NPV = -100 + 250/(1+r)^1 = 0 => r = 1.5 (150% return)
         let solver = BrentSolver::new()
-            .with_bracket_hint(BracketHint::Xirr)
-            .with_bracket_bounds(-0.99, 10.0); // Allow extreme returns
+            .bracket_hint(BracketHint::Xirr)
+            .bracket_bounds(-0.99, 10.0); // Allow extreme returns
 
         let npv = |r: f64| -100.0 + 250.0 / (1.0 + r);
         let irr = solver.solve(npv, 0.1).expect("Should find IRR");

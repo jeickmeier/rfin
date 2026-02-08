@@ -269,12 +269,14 @@ impl Money {
 
     /// Consume `self` and return just the numeric amount.
     #[inline]
+    #[must_use]
     pub fn into_amount(self) -> f64 {
         amount_from_repr(self.amount)
     }
 
     /// Consume `self` into `(amount, currency)`.
     #[inline]
+    #[must_use]
     pub fn into_parts(self) -> (f64, Currency) {
         (amount_from_repr(self.amount), self.currency)
     }

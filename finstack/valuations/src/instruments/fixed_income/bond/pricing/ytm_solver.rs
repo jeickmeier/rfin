@@ -322,7 +322,7 @@ impl YtmSolver {
         };
 
         // Always use BrentSolver for robustness
-        let solver = BrentSolver::new().with_tolerance(self.config.tolerance);
+        let solver = BrentSolver::new().tolerance(self.config.tolerance);
         let ytm = solver.solve(price_fn, initial_guess)?;
 
         // If any pricing error occurred during objective evaluation, surface it

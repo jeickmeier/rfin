@@ -1112,8 +1112,8 @@ impl TreePricer {
         };
 
         let mut solver = BrentSolver::new()
-            .with_tolerance(self.config.tolerance)
-            .with_initial_bracket_size(self.config.initial_bracket_size_bp);
+            .tolerance(self.config.tolerance)
+            .initial_bracket_size(self.config.initial_bracket_size_bp);
         // Respect the configured maximum iteration cap for OAS root-finding.
         solver.max_iterations = self.config.max_iterations;
         let initial_guess = 0.0;
