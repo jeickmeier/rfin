@@ -31,6 +31,7 @@ pub fn register_commodity_option_metrics(registry: &mut MetricRegistry) {
             (Vega, crate::metrics::OptionVegaCalculator::<crate::instruments::CommodityOption>::default()),
             (Vanna, crate::metrics::OptionVannaCalculator::<crate::instruments::CommodityOption>::default()),
             (Volga, crate::metrics::OptionVolgaCalculator::<crate::instruments::CommodityOption>::default()),
+            (Theta, crate::metrics::GenericTheta::<crate::instruments::CommodityOption>::default()),
         ]
     }
 

@@ -148,6 +148,22 @@ fn price_touch(
     payout_timing: PayoutTiming,
     payout: f64,
 ) -> f64 {
+    // Check if spot has already breached the barrier.
+    // If so, the one-touch has already triggered and the no-touch has expired worthless.
+    let already_breached = match barrier_direction {
+        BarrierDirection::Down => spot <= barrier,
+        BarrierDirection::Up => spot >= barrier,
+    };
+    if already_breached {
+        return match touch_type {
+            TouchType::OneTouch => match payout_timing {
+                PayoutTiming::AtHit => payout,
+                PayoutTiming::AtExpiry => (-r_d * t).exp() * payout,
+            },
+            TouchType::NoTouch => 0.0,
+        };
+    }
+
     let sigma2 = sigma * sigma;
     let sqrt_t = t.sqrt();
     let sigma_sqrt_t = sigma * sqrt_t;

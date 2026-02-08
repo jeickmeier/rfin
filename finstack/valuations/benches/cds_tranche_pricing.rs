@@ -51,6 +51,7 @@ fn create_tranche(attach_pct: f64, detach_pct: f64, tenor_years: i32) -> CdsTran
         "CDX.NA.IG.42",
         TrancheSide::SellProtection,
     )
+    .expect("Valid tranche parameters")
 }
 
 fn create_market() -> MarketContext {

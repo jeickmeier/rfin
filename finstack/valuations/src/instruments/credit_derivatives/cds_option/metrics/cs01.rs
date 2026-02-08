@@ -1,20 +1,25 @@
-//! CDS Option CS01 metric calculator.
+//! CDS Option CS01 (Hazard Rate Sensitivity) metric calculator.
 //!
-//! CS01 measures the change in option value for a 1 basis point change in the
-//! credit spread. For CDS options, this is a key risk metric as the option value
-//! is highly sensitive to changes in the underlying CDS spread.
+//! **Important**: This metric computes the PV sensitivity to a 1bp parallel
+//! shift in the **hazard rate curve**, not the par spread. For constant recovery
+//! R, the relationship is approximately `dh/dS ≈ 1/(1-R)`, so at R=40% the
+//! hazard-rate CS01 is approximately 60% of the true spread-based CS01.
 //!
-//! # Market Standard
-//!
-//! This implementation uses the market-standard finite-difference approach:
-//! bump the hazard curve by 1bp and reprice. This captures both the direct
-//! spread sensitivity and the second-order effects through the risky annuity.
+//! For spread-based CS01 (matching Bloomberg CDSW), one would need to
+//! recalibrate hazard rates from bumped par spreads. This implementation
+//! uses direct hazard curve bumping for computational efficiency.
 //!
 //! # Formula
 //!
 //! CS01 = (PV_bumped - PV_base) / 1bp
 //!
 //! where the bump is applied to the hazard curve (parallel shift).
+//!
+//! # Naming Convention
+//!
+//! Despite the "CS01" name, this is technically a "Hazard01" metric.
+//! Users requiring spread-based CS01 should apply the `1/(1-R)` scaling
+//! factor to approximate the spread sensitivity.
 
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds_option::CdsOption;
@@ -25,13 +30,12 @@ use finstack_core::Result;
 /// Standard credit spread bump: 1 basis point (0.0001 in decimal).
 const CS01_BUMP_BP: f64 = 1.0;
 
-/// CS01 calculator for CDS Option instruments using finite differences.
+/// CS01 (hazard rate sensitivity) calculator for CDS Option instruments.
 ///
-/// Computes CS01 by bumping the hazard curve by 1bp and repricing.
-/// This is the market-standard approach that captures:
-/// - Direct spread sensitivity through the Black formula
-/// - Second-order effects through the risky annuity
-/// - Convexity effects for large spread moves
+/// Computes sensitivity by bumping the hazard curve by 1bp and repricing.
+/// Note: this bumps hazard rates directly, not par spreads. The result is
+/// approximately `(1-R)` times the true spread-based CS01. See module docs
+/// for details on the distinction.
 pub struct Cs01Calculator;
 
 impl MetricCalculator for Cs01Calculator {

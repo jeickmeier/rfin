@@ -204,10 +204,8 @@ impl CmsOptionPricer {
 
         let mut annuity = 0.0;
         let mut prev_date = start;
-        for &d in &sched_fixed.dates {
-            if d == start {
-                continue;
-            }
+        // Skip the first date by index (not value equality) to handle BDC-adjusted dates
+        for &d in sched_fixed.dates.iter().skip(1) {
             // Accrual uses swap_day_count (correct for coupon calculation)
             let accrual =
                 inst.swap_day_count

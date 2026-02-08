@@ -91,8 +91,11 @@ pub fn generate_cashflows(
     let mortgage_rate = mbs.wac;
     let monthly_mortgage_rate = mortgage_rate / 12.0;
 
-    for period_num in 0..max_periods {
-        if balance < 0.01 {
+    // Track projected (non-skipped) periods separately so that max_periods
+    // limits only the future cashflows, not total iterations including history.
+    let mut projected_count: u32 = 0;
+    loop {
+        if balance < 0.01 || projected_count >= max_periods {
             break;
         }
 
@@ -102,11 +105,13 @@ pub fn generate_cashflows(
         // Calculate payment date with delay
         let payment_date = actual_payment_date(period_end, payment_delay, false)?;
 
-        // Skip if payment date is before valuation date
+        // Skip if payment date is before valuation date (don't count toward max_periods)
         if payment_date <= as_of {
             period_start = next_month_start(period_start)?;
             continue;
         }
+
+        projected_count += 1;
 
         // Get SMM for this period
         let seasoning = mbs.seasoning_months(period_end);
@@ -163,11 +168,6 @@ pub fn generate_cashflows(
 
         // Early termination if past maturity
         if period_end >= mbs.maturity_date {
-            break;
-        }
-
-        // Limit periods
-        if period_num >= max_periods {
             break;
         }
     }

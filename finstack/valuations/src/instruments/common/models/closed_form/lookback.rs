@@ -27,10 +27,15 @@
 use finstack_core::math::special_functions::norm_cdf;
 
 /// Tolerance for r = q degeneracy check.
-/// Set higher (0.01 = 1%) to ensure numerical stability near the singularity.
+///
 /// The formula (σ²/(2b)) diverges as b→0, causing numerical instability
-/// when |r - q| is small. Using 1% ensures smooth continuity in practice.
-const RATE_EQ_DIV_TOL: f64 = 0.01;
+/// when |r - q| is small. Using 0.01% (1e-4) captures only truly degenerate
+/// cases while avoiding unnecessary switching to the limiting form for
+/// common parameter regimes (e.g., r=3%, q=2.5% should use the general form).
+///
+/// The previous value of 0.01 (1%) was too wide, capturing normal equity
+/// parameter space and creating Greeks discontinuity at the tolerance boundary.
+const RATE_EQ_DIV_TOL: f64 = 1e-4;
 
 /// Price a fixed-strike lookback call option (continuous monitoring).
 ///

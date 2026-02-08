@@ -208,7 +208,10 @@ impl Payoff for FloatingStrikeLookbackCall {
     }
 
     fn value(&self, currency: Currency) -> Money {
-        let payoff = self.terminal_spot - self.min_spot;
+        // Floor at zero for defensive coding: while mathematically S_T >= S_min,
+        // floating-point edge cases (e.g., pathological reset states) could produce
+        // negative values without this guard.
+        let payoff = (self.terminal_spot - self.min_spot).max(0.0);
         Money::new(payoff * self.notional, currency)
     }
 
@@ -277,7 +280,9 @@ impl Payoff for FloatingStrikeLookbackPut {
     }
 
     fn value(&self, currency: Currency) -> Money {
-        let payoff = self.max_spot - self.terminal_spot;
+        // Floor at zero for defensive coding: while mathematically S_max >= S_T,
+        // floating-point edge cases could produce negative values without this guard.
+        let payoff = (self.max_spot - self.terminal_spot).max(0.0);
         Money::new(payoff * self.notional, currency)
     }
 

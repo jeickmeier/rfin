@@ -590,7 +590,11 @@ impl crate::instruments::common_impl::traits::OptionVolgaProvider for FxOption {
             market.clone().insert_surface(bumped)
         };
 
-        // Existing convention: compute volga from vega(σ±) differences and scale by 0.01.
+        // Volga = d²V/dσ² scaled to "per 1% vol move" convention.
+        // The raw second derivative d(vega)/dσ is divided by the bump and then
+        // multiplied by 0.01 to express the result per 1 vol-point (1%) change,
+        // consistent with the vega convention used across the library (see
+        // closed_form::greeks::bs_vega which also scales by 0.01).
         let vega_up = self.greeks_internal(&curves_up, as_of)?.vega;
         let vega_dn = self.greeks_internal(&curves_dn, as_of)?.vega;
         Ok((vega_up - vega_dn) / (2.0 * delta_sigma) * 0.01)

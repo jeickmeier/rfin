@@ -67,14 +67,27 @@ where
     let mut state_pos = vec![0.0; dim];
     let mut state_neg = vec![0.0; dim];
     let mut z = vec![0.0; num_factors];
+    let mut z_neg = vec![0.0; num_factors];
     let mut work = vec![0.0; work_size];
 
+    // Pre-allocate storage for all shocks in the positive path so we can
+    // replay them negated for the antithetic path. This avoids the
+    // double-negation bug where re-negating the z buffer on alternating
+    // steps produces +Z on even steps instead of -Z on all steps.
+    let num_steps = config.time_grid.num_steps();
+    let mut all_shocks = vec![0.0; num_steps * num_factors];
+
     for _pair in 0..config.num_pairs {
+        // Generate all shocks for this path pair up front
+        for step in 0..num_steps {
+            let offset = step * num_factors;
+            rng.fill_std_normals(&mut all_shocks[offset..offset + num_factors]);
+        }
+
         // Simulate positive path (Z)
         let mut payoff_pos = payoff.clone();
         payoff_pos.reset();
-        simulate_path(
-            rng,
+        simulate_path_with_stored_shocks(
             process,
             disc,
             initial_state,
@@ -83,23 +96,24 @@ where
             &mut z,
             &mut work,
             config.time_grid,
+            &all_shocks,
             1.0, // Positive shocks
         );
         let value_pos = payoff_pos.value(config.currency).amount() * config.discount_factor;
 
-        // Simulate negative path (-Z) using same z buffer (will be negated)
+        // Simulate negative path (-Z) using stored shocks
         let mut payoff_neg = payoff.clone();
         payoff_neg.reset();
-        simulate_path(
-            rng,
+        simulate_path_with_stored_shocks(
             process,
             disc,
             initial_state,
             &mut payoff_neg,
             &mut state_neg,
-            &mut z,
+            &mut z_neg,
             &mut work,
             config.time_grid,
+            &all_shocks,
             -1.0, // Negative shocks
         );
         let value_neg = payoff_neg.value(config.currency).amount() * config.discount_factor;
@@ -112,10 +126,13 @@ where
     stats
 }
 
-/// Simulate a single path with optional shock sign.
+/// Simulate a single path using pre-stored shocks with optional sign.
+///
+/// This avoids the double-negation bug in the original `simulate_path` by
+/// reading shocks from `all_shocks` (generated once per pair) and applying
+/// `shock_sign` uniformly to all steps.
 #[allow(clippy::too_many_arguments)]
-fn simulate_path<R, P, D, F>(
-    rng: &mut R,
+fn simulate_path_with_stored_shocks<P, D, F>(
     process: &P,
     disc: &D,
     initial_state: &[f64],
@@ -124,13 +141,15 @@ fn simulate_path<R, P, D, F>(
     z: &mut [f64],
     work: &mut [f64],
     time_grid: &crate::instruments::common_impl::mc::time_grid::TimeGrid,
+    all_shocks: &[f64],
     shock_sign: f64,
 ) where
-    R: RandomStream,
     P: StochasticProcess,
     D: Discretization<P>,
     F: Payoff,
 {
+    let num_factors = z.len();
+
     // Initialize state
     state.copy_from_slice(initial_state);
 
@@ -149,15 +168,10 @@ fn simulate_path<R, P, D, F>(
         let t = time_grid.time(step);
         let dt = time_grid.dt(step);
 
-        // Generate random shocks (will be reused with different signs)
-        if shock_sign > 0.0 {
-            // Only generate new shocks for positive path
-            rng.fill_std_normals(z);
-        } else {
-            // Negate existing shocks for antithetic path
-            for z_i in z.iter_mut() {
-                *z_i = -*z_i;
-            }
+        // Copy stored shocks for this step, applying sign
+        let offset = step * num_factors;
+        for i in 0..num_factors {
+            z[i] = shock_sign * all_shocks[offset + i];
         }
 
         // Advance state

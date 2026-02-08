@@ -154,6 +154,7 @@ pub fn mezzanine_tranche() -> CdsTranche {
         finstack_core::types::CurveId::from("CDX.NA.IG.42"),
         TrancheSide::SellProtection,
     )
+    .expect("Valid tranche parameters")
 }
 
 /// Create equity tranche (0-3%)
@@ -174,6 +175,7 @@ pub fn equity_tranche() -> CdsTranche {
         finstack_core::types::CurveId::from("CDX.NA.IG.42"),
         TrancheSide::SellProtection,
     )
+    .expect("Valid tranche parameters")
 }
 
 /// Create senior tranche (7-10%)
@@ -196,6 +198,7 @@ pub fn senior_tranche() -> CdsTranche {
         finstack_core::types::CurveId::from("CDX.NA.IG.42"),
         TrancheSide::SellProtection,
     )
+    .expect("Valid tranche parameters")
 }
 
 /// Create custom tranche with specified parameters
@@ -223,6 +226,7 @@ pub fn custom_tranche(
         finstack_core::types::CurveId::from("CDX.NA.IG.42"),
         side,
     )
+    .expect("Valid tranche parameters")
 }
 
 /// Assertion helper: check value is finite and non-negative

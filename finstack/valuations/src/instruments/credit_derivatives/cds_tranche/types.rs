@@ -95,6 +95,7 @@ pub struct CdsTranche {
 
 impl CdsTranche {
     /// Create a canonical example CDS tranche (CDX.NA.IG 0-3% equity tranche).
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {
         use crate::cashflow::builder::ScheduleParams;
         use finstack_core::currency::Currency;
@@ -123,12 +124,13 @@ impl CdsTranche {
             CurveId::new("CDX.NA.IG.HAZARD"),
             TrancheSide::BuyProtection,
         )
+        .expect("Valid tranche parameters")
     }
     /// Create a new CDS tranche using parameter structs.
     ///
     /// # Panics
     ///
-    /// Panics if tranche parameters are invalid:
+    /// Returns an error if tranche parameters are invalid:
     /// - `attach_pct` must be less than `detach_pct`
     /// - Both must be in [0, 100] (percent, not fraction)
     /// - Notional must be positive
@@ -139,25 +141,26 @@ impl CdsTranche {
         discount_curve_id: impl Into<CurveId>,
         credit_index_id: impl Into<CurveId>,
         side: TrancheSide,
-    ) -> Self {
-        // Runtime validation (active in both debug and release builds)
-        assert!(
-            tranche_params.attach_pct < tranche_params.detach_pct,
-            "attach_pct ({}) must be less than detach_pct ({})",
-            tranche_params.attach_pct,
-            tranche_params.detach_pct
-        );
-        assert!(
-            tranche_params.attach_pct >= 0.0 && tranche_params.detach_pct <= 100.0,
-            "attach_pct ({}) and detach_pct ({}) must be in [0, 100] (percent, not fraction)",
-            tranche_params.attach_pct,
-            tranche_params.detach_pct
-        );
-        assert!(
-            tranche_params.notional.amount() > 0.0,
-            "Tranche notional must be positive, got {}",
-            tranche_params.notional.amount()
-        );
+    ) -> finstack_core::Result<Self> {
+        // Validate tranche parameters
+        if tranche_params.attach_pct >= tranche_params.detach_pct {
+            return Err(finstack_core::Error::Validation(format!(
+                "attach_pct ({}) must be less than detach_pct ({})",
+                tranche_params.attach_pct, tranche_params.detach_pct
+            )));
+        }
+        if tranche_params.attach_pct < 0.0 || tranche_params.detach_pct > 100.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "attach_pct ({}) and detach_pct ({}) must be in [0, 100] (percent, not fraction)",
+                tranche_params.attach_pct, tranche_params.detach_pct
+            )));
+        }
+        if tranche_params.notional.amount() <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "Tranche notional must be positive, got {}",
+                tranche_params.notional.amount()
+            )));
+        }
 
         // Warn if values look like fractions (very small non-zero detachment)
         if tranche_params.detach_pct <= 1.0 && tranche_params.detach_pct > 0.0 {
@@ -167,7 +170,7 @@ impl CdsTranche {
             );
         }
 
-        Self {
+        Ok(Self {
             id: id.into(),
             index_name: tranche_params.index_name.to_owned(),
             series: tranche_params.series,
@@ -188,7 +191,7 @@ impl CdsTranche {
             standard_imm_dates: false,
             upfront: None,
             attributes: Attributes::new(),
-        }
+        })
     }
 
     /// Create a standard CDS tranche with IMM dates and market conventions
@@ -199,7 +202,7 @@ impl CdsTranche {
         discount_curve_id: impl Into<CurveId>,
         credit_index_id: impl Into<CurveId>,
         side: TrancheSide,
-    ) -> Self {
+    ) -> finstack_core::Result<Self> {
         use crate::cashflow::builder::ScheduleParams;
         let sched = ScheduleParams {
             freq: Tenor::quarterly(),
@@ -211,28 +214,17 @@ impl CdsTranche {
             payment_lag_days: 0,
         };
 
-        Self {
-            id: id.into(),
-            index_name: tranche_params.index_name.to_owned(),
-            series: tranche_params.series,
-            attach_pct: tranche_params.attach_pct,
-            detach_pct: tranche_params.detach_pct,
-            notional: tranche_params.notional,
-            maturity: tranche_params.maturity,
-            running_coupon_bp: tranche_params.running_coupon_bp,
-            payment_frequency: sched.freq,
-            day_count: sched.dc,
-            business_day_convention: sched.bdc,
-            calendar_id: None,
-            discount_curve_id: discount_curve_id.into(),
-            credit_index_id: credit_index_id.into(),
+        let mut tranche = Self::new(
+            id,
+            tranche_params,
+            &sched,
+            discount_curve_id,
+            credit_index_id,
             side,
-            effective_date: None,
-            accumulated_loss: tranche_params.accumulated_loss,
-            standard_imm_dates: true,
-            upfront: None,
-            attributes: Attributes::new(),
-        }
+        )?;
+        tranche.standard_imm_dates = true;
+        tranche.calendar_id = None;
+        Ok(tranche)
     }
 
     /// Calculate upfront amount for the tranche

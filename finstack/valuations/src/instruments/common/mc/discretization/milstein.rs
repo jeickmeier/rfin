@@ -34,15 +34,27 @@ use super::super::traits::{Discretization, StochasticProcess};
 ///
 /// For GBM (σ(X) = σX), the correction is ½σ²X(Z² - 1)Δt.
 ///
+/// # Important: Proportional Volatility Assumption
+///
+/// This implementation approximates σ'(X) ≈ σ(X)/X, which is **only exact
+/// for GBM** (σ(X) = σ_const × X, so σ' = σ_const = σ/X). For other processes:
+/// - **CIR** (σ(X) = σ√X): true σ' = σ/(2√X), but this computes σ√X/X = σ/√X — **incorrect**
+/// - **OU** (σ(X) = σ_const): true σ' = 0, but this computes σ/X — **incorrect**
+///
+/// Using Milstein with non-GBM processes will silently degrade strong convergence
+/// back to Euler-Maruyama's O(√Δt). Use exact schemes (ExactGbm, ExactHw1f) or
+/// process-specific discretizations (QE-CIR, QE-Heston) instead.
+///
 /// # When to use
 ///
-/// Use when:
+/// Use **only** when:
+/// - The process has proportional (GBM-like) volatility: σ(X) = σ_const × X
 /// - Strong convergence is important (pathwise accuracy)
-/// - Diffusion is diagonal and state-dependent
-/// - Derivative ∂σ/∂x is simple to compute
+/// - An exact scheme is not available
 ///
 /// Avoid when:
 /// - Diffusion is non-diagonal (use Euler instead)
+/// - Diffusion is not proportional to state (CIR, OU — use exact/QE schemes)
 /// - Weak convergence is sufficient (Euler is simpler)
 /// - Exact schemes are available (GBM, OU)
 #[derive(Clone, Debug, Default)]
@@ -65,8 +77,9 @@ impl<P: StochasticProcess> Discretization<P> for Milstein {
         // Compute diffusion: work[dim..2*dim] = σ(t, x)
         process.diffusion(t, x, &mut work[dim..2 * dim]);
 
-        // For diagonal diffusion, we need ∂σ/∂x
-        // For simplicity, approximate σ' ≈ σ/X (proportional volatility assumption)
+        // For diagonal diffusion, we need ∂σ/∂x.
+        // WARNING: This approximation σ' ≈ σ/X is only exact for GBM.
+        // See struct-level docs for limitations with other processes.
 
         let sqrt_dt = dt.sqrt();
 

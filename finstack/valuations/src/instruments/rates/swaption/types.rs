@@ -854,8 +854,9 @@ impl Swaption {
     /// - Accrual fractions use the instrument's day_count (correct for coupon calculation).
     pub fn swap_annuity(&self, disc: &dyn Discounting, as_of: Date) -> Result<f64> {
         use crate::instruments::common_impl::pricing::time::relative_df_discounting;
+        use finstack_core::math::NeumaierAccumulator;
 
-        let mut annuity = 0.0;
+        let mut annuity = NeumaierAccumulator::new();
         let sched = crate::cashflow::builder::build_dates(
             self.swap_start,
             self.swap_end,
@@ -877,10 +878,10 @@ impl Swaption {
             let accrual = self.year_fraction(prev, d, self.day_count)?;
             // DF uses curve-consistent relative DF (correct for discounting)
             let df = relative_df_discounting(disc, as_of, d)?;
-            annuity += accrual * df;
+            annuity.add(accrual * df);
             prev = d;
         }
-        Ok(annuity)
+        Ok(annuity.total())
     }
 
     /// Cash settlement annuity using par yield approximation.

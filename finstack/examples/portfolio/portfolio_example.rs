@@ -846,7 +846,8 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         "USD",
         "CDX_NA_IG_42",
         TrancheSide::SellProtection, // Sell protection (receive premium, pay protection)
-    );
+    )
+    .expect("Valid tranche parameters");
 
     let cds_tranche_position = Position::new(
         "POS_TRANCHE_001",

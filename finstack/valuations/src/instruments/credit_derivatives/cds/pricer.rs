@@ -2435,7 +2435,14 @@ mod tests {
         let npv = pricer
             .npv(&cds_at_par, &disc, &credit, as_of)
             .expect("should succeed");
-        assert!(npv.amount().abs() < 15000.0);
+        // A CDS at par spread should have near-zero NPV. Tolerance of $5000
+        // (~5bp on $10M) accounts for the accrual-on-default midpoint approximation
+        // and discrete quarterly premium schedule vs. continuous protection leg.
+        assert!(
+            npv.amount().abs() < 5000.0,
+            "CDS at par spread should have near-zero NPV, got {}",
+            npv.amount()
+        );
     }
 
     #[test]

@@ -577,12 +577,16 @@ impl Ndf {
         if let Some(ref foreign_curve_id) = self.foreign_curve_id {
             if let Ok(foreign_disc) = market.get_discount(foreign_curve_id.as_str()) {
                 let df_foreign = foreign_disc.df_between_dates(as_of, self.maturity_date)?;
-                // Forward rate via covered interest rate parity
-                // For BasePerSettlement: F = S × DF_base / DF_settlement
-                // For SettlementPerBase: F = S × DF_settlement / DF_base
+                // Forward rate via covered interest rate parity (Hull Ch.5)
+                // For BasePerSettlement (e.g. CNY per USD): F = S × DF_settlement / DF_base
+                //   The "base" currency is the numerator (CNY), "settlement" is denominator (USD).
+                //   CIRP: F/S = DF_denominator / DF_numerator = DF_settlement / DF_base
+                // For SettlementPerBase (e.g. USD per CNY): F = S × DF_base / DF_settlement
+                //   The "settlement" currency is the numerator (USD), "base" is denominator (CNY).
+                //   CIRP: F/S = DF_denominator / DF_numerator = DF_base / DF_settlement
                 let forward = match self.quote_convention {
-                    NdfQuoteConvention::BasePerSettlement => spot * df_foreign / df_settlement,
-                    NdfQuoteConvention::SettlementPerBase => spot * df_settlement / df_foreign,
+                    NdfQuoteConvention::BasePerSettlement => spot * df_settlement / df_foreign,
+                    NdfQuoteConvention::SettlementPerBase => spot * df_foreign / df_settlement,
                 };
                 return Ok(forward);
             }

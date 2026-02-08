@@ -322,7 +322,7 @@ pub fn build_cds_tranche_instrument(
         CurveId::new(discount_id),
         CurveId::new(credit_id),
         side,
-    );
+    )?;
     instrument.standard_imm_dates = standard_imm_dates;
     instrument.effective_date = Some(effective_date);
     instrument.upfront = upfront_payment;

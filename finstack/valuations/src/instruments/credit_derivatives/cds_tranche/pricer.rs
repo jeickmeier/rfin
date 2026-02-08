@@ -566,9 +566,18 @@ impl CDSTranchePricer {
         market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<Money> {
-        // Check if credit index data is available - if not, fallback to zero PV for backward compatibility
+        // Validate credit index data is available -- missing data must propagate
+        // as an error rather than silently returning zero PV, which would be
+        // indistinguishable from a correctly-priced at-par position.
         if market_ctx.credit_index(&tranche.credit_index_id).is_err() {
-            return Ok(Money::new(0.0, tranche.notional.currency()));
+            return Err(finstack_core::Error::Input(
+                finstack_core::InputError::NotFound {
+                    id: format!(
+                        "Credit index '{}' required for tranche '{}' pricing",
+                        tranche.credit_index_id, tranche.id
+                    ),
+                },
+            ));
         }
 
         // Check if tranche is already wiped out
@@ -2666,6 +2675,7 @@ mod tests {
                 finstack_core::types::CurveId::from("CDX.NA.IG.42"),
                 TrancheSide::SellProtection,
             )
+            .expect("Valid tranche parameters")
         }
     }
 
@@ -2766,7 +2776,8 @@ mod tests {
             finstack_core::types::CurveId::from("USD-OIS"),
             finstack_core::types::CurveId::from("CDX.NA.IG.42"),
             TrancheSide::SellProtection,
-        );
+        )
+        .expect("Valid tranche parameters");
 
         let explicit_params = CDSTrancheParams::new(
             "CDX.NA.IG.42",
@@ -2784,7 +2795,8 @@ mod tests {
             finstack_core::types::CurveId::from("USD-OIS"),
             finstack_core::types::CurveId::from("CDX.NA.IG.42"),
             TrancheSide::SellProtection,
-        );
+        )
+        .expect("Valid tranche parameters");
 
         let pv_helper = model
             .price_tranche(&helper_tranche, &market_ctx, as_of)
@@ -2866,7 +2878,8 @@ mod tests {
             finstack_core::types::CurveId::from("USD-OIS"),
             finstack_core::types::CurveId::from("CDX.NA.IG.42"),
             TrancheSide::SellProtection,
-        );
+        )
+        .expect("Valid tranche parameters");
 
         let mut spa = CDSTranchePricer::new();
         spa.params.use_issuer_curves = true;
@@ -2908,7 +2921,8 @@ mod tests {
             finstack_core::types::CurveId::from("USD-OIS"),
             finstack_core::types::CurveId::from("CDX.NA.IG.42"),
             TrancheSide::SellProtection,
-        );
+        )
+        .expect("Valid tranche parameters");
 
         let mut exact_coarse = CDSTranchePricer::new();
         exact_coarse.params.use_issuer_curves = true;
@@ -3362,7 +3376,8 @@ mod tests {
             finstack_core::types::CurveId::from("USD-OIS"),
             finstack_core::types::CurveId::from("CDX.NA.IG.42"),
             TrancheSide::SellProtection,
-        );
+        )
+        .expect("Valid tranche parameters");
 
         // Should price without panicking
         let pv = model.price_tranche(&tranche, &market_ctx, as_of);
@@ -3398,7 +3413,8 @@ mod tests {
             finstack_core::types::CurveId::from("USD-OIS"),
             finstack_core::types::CurveId::from("CDX.NA.IG.42"),
             TrancheSide::SellProtection,
-        );
+        )
+        .expect("Valid tranche parameters");
 
         let pv = model.price_tranche(&tranche, &market_ctx, as_of);
         assert!(pv.is_ok(), "Super senior tranche should price successfully");
@@ -3669,7 +3685,8 @@ mod tests {
             finstack_core::types::CurveId::from("USD-OIS"),
             finstack_core::types::CurveId::from("CDX.NA.IG.42"),
             TrancheSide::SellProtection,
-        );
+        )
+        .expect("Valid tranche parameters");
 
         // Constant recovery (default)
         let pricer_const = CDSTranchePricer::new();

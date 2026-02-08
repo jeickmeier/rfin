@@ -53,7 +53,14 @@ impl QeCir {
             + theta * sigma * sigma * (1.0 - exp_kappa_dt).powi(2) / (2.0 * kappa);
 
         // Compute ψ = s²/m²
-        let psi = if m > 1e-10 { s2 / (m * m) } else { 0.0 };
+        // When m is near zero, force Case B (exponential/uniform mixture) by
+        // setting psi above the threshold, consistent with QE-Heston implementation.
+        // Setting psi = 0.0 would send Case A into 2/psi = infinity.
+        let psi = if m > 1e-10 {
+            s2 / (m * m)
+        } else {
+            self.psi_c + 1.0
+        };
 
         if psi <= self.psi_c {
             // Case A: Power/gamma approximation

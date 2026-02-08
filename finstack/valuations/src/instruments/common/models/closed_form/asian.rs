@@ -236,21 +236,34 @@ pub fn geometric_asian_call_df(
 
     let n = num_fixings as f64;
 
-    // Adjusted volatility for geometric average
+    // Adjusted volatility and dividend yield for geometric average.
+    //
+    // For n fixings at t_i = i*T/n (i = 1..n, no t=0 fixing):
+    //   Var[ln(G)] = σ² × T × (n+1)(2n+1) / (6n²)
+    //   E[ln(G)]   = ln(S) + (r - q - σ²/2) × T × (n+1)/(2n)
+    //   F_G = E[G] = S × exp[(r - q - σ²/2)(n+1)/(2n)T + σ²T(n+1)(2n+1)/(12n²)]
+    //
+    // For BS parametrization: F_G = S × exp[(r - q_adj) × T], vol_adj² × T = Var[ln(G)]
+    // So: r - q_adj = (r-q-σ²/2)(n+1)/(2n) + σ²(n+1)(2n+1)/(12n²)
+    //
+    // Both converge to the continuous limit (σ/√3, q+(r-q-σ²/2)/2+σ²/6) for large n.
+    //
+    // Reference: Haug (2007) Chapter 3, Kemna & Vorst (1990).
     let vol_adj = if num_fixings == 0 {
         // Continuous limit
         vol / 3.0_f64.sqrt()
     } else {
-        vol * ((2.0 * n + 1.0) / (6.0 * (n + 1.0))).sqrt()
+        vol * ((n + 1.0) * (2.0 * n + 1.0) / (6.0 * n * n)).sqrt()
     };
 
-    // Adjusted drift/dividend yield for geometric average
     let div_yield_adj = if num_fixings == 0 {
         // Continuous limit: q_adj = q + (r - q - σ²/2) / 2 + σ²/6
         div_yield + (rate - div_yield - 0.5 * vol * vol) / 2.0 + vol * vol / 6.0
     } else {
-        // Discrete: q_adj = q + (r - q) / 2 - σ² / 2 * [(2n + 1) / (6(n + 1))]
-        div_yield + (rate - div_yield) / 2.0 - 0.5 * vol * vol * (2.0 * n + 1.0) / (6.0 * (n + 1.0))
+        // Discrete: q_adj = r - (r-q-σ²/2)(n+1)/(2n) - σ²(n+1)(2n+1)/(12n²)
+        let drift_factor = (n + 1.0) / (2.0 * n);
+        let var_half = vol * vol * (n + 1.0) * (2.0 * n + 1.0) / (12.0 * n * n);
+        rate - (rate - div_yield - 0.5 * vol * vol) * drift_factor - var_half
     };
 
     // Now price as vanilla option with adjusted parameters
@@ -301,18 +314,19 @@ pub fn geometric_asian_put_df(
 
     let n = num_fixings as f64;
 
-    // Adjusted volatility
+    // Adjusted volatility and dividend yield (consistent with geometric_asian_call)
     let vol_adj = if num_fixings == 0 {
         vol / 3.0_f64.sqrt()
     } else {
-        vol * ((2.0 * n + 1.0) / (6.0 * (n + 1.0))).sqrt()
+        vol * ((n + 1.0) * (2.0 * n + 1.0) / (6.0 * n * n)).sqrt()
     };
 
-    // Adjusted dividend yield
     let div_yield_adj = if num_fixings == 0 {
         div_yield + (rate - div_yield - 0.5 * vol * vol) / 2.0 + vol * vol / 6.0
     } else {
-        div_yield + (rate - div_yield) / 2.0 - 0.5 * vol * vol * (2.0 * n + 1.0) / (6.0 * (n + 1.0))
+        let drift_factor = (n + 1.0) / (2.0 * n);
+        let var_half = vol * vol * (n + 1.0) * (2.0 * n + 1.0) / (12.0 * n * n);
+        rate - (rate - div_yield - 0.5 * vol * vol) * drift_factor - var_half
     };
 
     vanilla_put_bs(spot, strike, time, rate, div_yield_adj, vol_adj)
@@ -684,8 +698,9 @@ mod tests {
         let put = geometric_asian_put(spot, strike, time, rate, div_yield, vol, num_fixings);
 
         let n = num_fixings as f64;
-        let div_yield_adj = div_yield + (rate - div_yield) / 2.0
-            - 0.5 * vol * vol * (2.0 * n + 1.0) / (6.0 * (n + 1.0));
+        let drift_factor = (n + 1.0) / (2.0 * n);
+        let var_half = vol * vol * (n + 1.0) * (2.0 * n + 1.0) / (12.0 * n * n);
+        let div_yield_adj = rate - (rate - div_yield - 0.5 * vol * vol) * drift_factor - var_half;
 
         let lhs = call - put;
         let rhs = spot * (-div_yield_adj * time).exp() - strike * (-rate * time).exp();

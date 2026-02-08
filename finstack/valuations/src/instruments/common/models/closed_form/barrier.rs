@@ -202,7 +202,6 @@ fn barrier_helper(
     }
 
     let mu = (rate - div_yield - 0.5 * vol * vol) / (vol * vol);
-    let _lambda = (mu * mu + 2.0 * rate / (vol * vol)).sqrt();
 
     let x = (spot / strike).ln() / (vol * time.sqrt()) + (1.0 + mu) * vol * time.sqrt();
     let x1 = (spot / barrier).ln() / (vol * time.sqrt()) + (1.0 + mu) * vol * time.sqrt();

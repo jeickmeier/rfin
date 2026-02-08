@@ -306,8 +306,9 @@ impl Payoff for AsianPut {
 
 /// Closed-form price for geometric Asian call under GBM.
 ///
-/// The geometric Asian has a known analytical formula which can be used
-/// as a control variate for arithmetic Asians.
+/// Delegates to the canonical implementation in `closed_form::asian::geometric_asian_call`
+/// which uses the correct adjusted volatility formula:
+///   σ_adj = σ × √((n+1)(2n+1)/(6n²))
 ///
 /// # Arguments
 ///
@@ -331,34 +332,15 @@ pub fn geometric_asian_call_closed_form(
     volatility: f64,
     num_fixings: usize,
 ) -> f64 {
-    if time_to_maturity <= 0.0 || num_fixings == 0 {
-        return (spot - strike).max(0.0);
-    }
-
-    // For continuous geometric averaging, the adjustment is:
-    // σ_G = σ / √3
-    // μ_G = (r - q - σ²/2) / 2 + (r - q + σ²/2) / 2 = r - q
-    // But we need to adjust for the fact that geometric average < arithmetic
-
-    // Adjusted volatility for geometric Asian
-    let n = num_fixings as f64;
-    let sigma_adj = volatility * ((n + 1.0) / (2.0 * n)).sqrt();
-
-    // Adjusted dividend yield
-    let nu = rate - dividend_yield - 0.5 * volatility * volatility;
-    let q_adj = dividend_yield + 0.5 * nu;
-
-    // Use Black-Scholes formula with adjusted parameters
-    let sqrt_t = time_to_maturity.sqrt();
-    let d1 = ((spot / strike).ln()
-        + (rate - q_adj + 0.5 * sigma_adj * sigma_adj) * time_to_maturity)
-        / (sigma_adj * sqrt_t);
-    let d2 = d1 - sigma_adj * sqrt_t;
-
-    let discount = (-rate * time_to_maturity).exp();
-
-    spot * (-q_adj * time_to_maturity).exp() * finstack_core::math::norm_cdf(d1)
-        - strike * discount * finstack_core::math::norm_cdf(d2)
+    crate::instruments::common_impl::models::closed_form::asian::geometric_asian_call(
+        spot,
+        strike,
+        time_to_maturity,
+        rate,
+        dividend_yield,
+        volatility,
+        num_fixings,
+    )
 }
 
 #[cfg(test)]

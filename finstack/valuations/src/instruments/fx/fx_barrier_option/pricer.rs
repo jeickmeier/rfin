@@ -270,15 +270,29 @@ fn collect_fx_barrier_inputs(
     // Validate currency semantics first
     validate_fx_barrier_currencies(inst)?;
 
+    // Vol surface time using instrument day count (typically ACT/365F for FX options)
     let t = inst
         .day_count
         .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
 
+    // Use each curve's own day count for discount factor lookup (consistent
+    // with FxOptionCalculator::collect_inputs), then convert to effective
+    // zero rates consistent with t_vol so that exp(-r * t) = df.
     let disc_curve = curves.get_discount(inst.domestic_discount_curve_id.as_str())?;
-    let r_dom = disc_curve.zero(t);
+    let t_disc_dom =
+        disc_curve
+            .day_count()
+            .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+    let df_d = disc_curve.df(t_disc_dom);
+    let r_dom = if t > 0.0 { -df_d.ln() / t } else { 0.0 };
 
     let for_curve = curves.get_discount(inst.foreign_discount_curve_id.as_str())?;
-    let r_for = for_curve.zero(t);
+    let t_disc_for =
+        for_curve
+            .day_count()
+            .year_fraction(as_of, inst.expiry, DayCountCtx::default())?;
+    let df_f = for_curve.df(t_disc_for);
+    let r_for = if t > 0.0 { -df_f.ln() / t } else { 0.0 };
 
     let spot_scalar = curves.price(&inst.fx_spot_id)?;
     let fx_spot = match spot_scalar {

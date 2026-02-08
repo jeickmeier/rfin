@@ -133,20 +133,33 @@ impl CommodityAsianOption {
     ///
     /// Only considers fixings that match dates in `fixing_dates` and are on or
     /// before `as_of`.
+    ///
+    /// # Non-positive fixings
+    ///
+    /// Non-positive fixings are included in the arithmetic sum but signal
+    /// an undefined geometric average by setting `product_log` to `NEG_INFINITY`.
     pub fn accumulated_state(&self, as_of: Date) -> (f64, f64, usize) {
         let mut sum = 0.0;
         let mut product_log = 0.0;
         let mut count = 0;
+        let mut has_non_positive = false;
 
         for (d, v) in &self.realized_fixings {
             if *d <= as_of && self.fixing_dates.contains(d) {
                 sum += v;
                 if *v > 0.0 {
                     product_log += v.ln();
+                } else {
+                    has_non_positive = true;
                 }
                 count += 1;
             }
         }
+
+        if has_non_positive {
+            product_log = f64::NEG_INFINITY;
+        }
+
         (sum, product_log, count)
     }
 
