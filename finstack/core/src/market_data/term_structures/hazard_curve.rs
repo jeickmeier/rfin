@@ -387,6 +387,20 @@ impl HazardCurve {
         self.par_interp
     }
 
+    /// Number of knot points in the curve.
+    #[inline]
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.knots.len()
+    }
+
+    /// Returns `true` if the curve has no knot points.
+    #[inline]
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.knots.is_empty()
+    }
+
     /// Create a builder with this curve's parameters, using a new ID.
     /// Useful for creating modified versions of the curve.
     pub fn to_builder_with_id(&self, new_id: impl Into<CurveId>) -> HazardCurveBuilder {
@@ -658,9 +672,15 @@ impl HazardCurveBuilder {
     ///
     /// During `build()`, any hazard rate exceeding this value triggers an error.
     /// The default is `10.0` (implies >99.995% 1Y default probability).
-    pub fn with_max_hazard_rate(mut self, max: f64) -> Self {
+    pub fn max_hazard_rate(mut self, max: f64) -> Self {
         self.max_hazard_rate = max;
         self
+    }
+
+    /// Deprecated alias for [`max_hazard_rate`](Self::max_hazard_rate).
+    #[deprecated(since = "0.2.0", note = "Use `max_hazard_rate()` instead")]
+    pub fn with_max_hazard_rate(self, max: f64) -> Self {
+        self.max_hazard_rate(max)
     }
 
     /// Remove the upper bound on hazard rates (sets the limit to infinity).
@@ -711,7 +731,7 @@ impl HazardCurveBuilder {
             if lambda > self.max_hazard_rate {
                 return Err(crate::Error::Validation(format!(
                     "Hazard rate {lambda:.4} at t={t:.2}y exceeds maximum {:.4}. \
-                     Use .allow_high_hazard_rates() or .with_max_hazard_rate() to override.",
+                     Use .allow_high_hazard_rates() or .max_hazard_rate() to override.",
                     self.max_hazard_rate
                 )));
             }

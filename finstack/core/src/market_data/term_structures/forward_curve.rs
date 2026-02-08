@@ -210,6 +210,7 @@ impl ForwardCurve {
 
     /// Forward rate starting at time `t` (in years) for the curve’s tenor.
     #[inline]
+    #[must_use]
     pub fn rate(&self, t: f64) -> f64 {
         self.interp.interp(t)
     }
@@ -255,8 +256,35 @@ impl ForwardCurve {
         self.base
     }
 
+    /// Interpolation style used by this curve.
+    #[inline]
+    pub fn interp_style(&self) -> InterpStyle {
+        self.interp.style()
+    }
+
+    /// Extrapolation policy used by this curve.
+    #[inline]
+    pub fn extrapolation(&self) -> ExtrapolationPolicy {
+        self.interp.extrapolation()
+    }
+
+    /// Number of knot points in the curve.
+    #[inline]
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.knots.len()
+    }
+
+    /// Returns `true` if the curve has no knot points.
+    #[inline]
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.knots.is_empty()
+    }
+
     /// Average rate over `[t1, t2]`.
     #[inline]
+    #[must_use]
     pub fn rate_period(&self, t1: f64, t2: f64) -> f64 {
         debug_assert!(t2 >= t1, "t2 must not be before t1");
         // Market-standard interpretation: average forward over the interval.

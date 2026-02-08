@@ -193,7 +193,7 @@ fn test_hetero_spa_matches_homogeneous_when_issuers_identical() {
         .recovery_rate(index_data.recovery_rate)
         .index_credit_curve(index_data.index_credit_curve.clone())
         .base_correlation_curve(index_data.base_correlation_curve.clone())
-        .with_issuer_curves(issuer_curves)
+        .issuer_curves(issuer_curves)
         .build()
         .unwrap();
 

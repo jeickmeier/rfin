@@ -25,15 +25,18 @@ use serde::{Deserialize, Serialize};
 // ============================================================================
 
 /// Validation error details.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
+#[non_exhaustive]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum ValidationError {
     /// Duplicate tier ID.
+    #[error("Duplicate tier ID: {tier_id}")]
     DuplicateTierId {
         /// Tier id.
         tier_id: String,
     },
     /// Duplicate recipient ID within a tier.
+    #[error("Duplicate recipient ID '{recipient_id}' in tier '{tier_id}'")]
     DuplicateRecipientId {
         /// Tier id.
         tier_id: String,
@@ -41,6 +44,7 @@ pub enum ValidationError {
         recipient_id: String,
     },
     /// Invalid priority (must be > 0).
+    #[error("Invalid priority {priority} for tier '{tier_id}' (must be > 0)")]
     InvalidPriority {
         /// Tier id.
         tier_id: String,
@@ -48,11 +52,13 @@ pub enum ValidationError {
         priority: usize,
     },
     /// Tier has no recipients.
+    #[error("Tier '{tier_id}' has no recipients")]
     EmptyTier {
         /// Tier id.
         tier_id: String,
     },
     /// Missing coverage test reference.
+    #[error("Diversion rule '{rule_id}' references missing test '{test_id}'")]
     MissingTestReference {
         /// Test id.
         test_id: String,
@@ -60,6 +66,9 @@ pub enum ValidationError {
         rule_id: String,
     },
     /// Invalid recipient weight (must be >= 0).
+    #[error(
+        "Invalid weight {weight} for recipient '{recipient_id}' in tier '{tier_id}' (must be >= 0)"
+    )]
     InvalidWeight {
         /// Tier id.
         tier_id: String,
@@ -69,6 +78,7 @@ pub enum ValidationError {
         weight: f64,
     },
     /// Pro-rata tier with invalid total weight.
+    #[error("Pro-rata tier '{tier_id}' has invalid total weight {total_weight} (must be > 0)")]
     InvalidProRataWeights {
         /// Tier id.
         tier_id: String,
@@ -76,79 +86,19 @@ pub enum ValidationError {
         total_weight: f64,
     },
     /// Circular diversion reference.
+    #[error("Circular diversion detected: {cycle_path}")]
     CircularDiversion {
         /// Cycle path.
         cycle_path: String,
     },
     /// Diversion references non-existent tier.
+    #[error("Diversion rule '{rule_id}' references non-existent tier '{tier_id}'")]
     InvalidDiversionTier {
         /// Rule id.
         rule_id: String,
         /// Tier id.
         tier_id: String,
     },
-}
-
-impl std::fmt::Display for ValidationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ValidationError::DuplicateTierId { tier_id } => {
-                write!(f, "Duplicate tier ID: {}", tier_id)
-            }
-            ValidationError::DuplicateRecipientId {
-                tier_id,
-                recipient_id,
-            } => write!(
-                f,
-                "Duplicate recipient ID '{}' in tier '{}'",
-                recipient_id, tier_id
-            ),
-            ValidationError::InvalidPriority { tier_id, priority } => {
-                write!(
-                    f,
-                    "Invalid priority {} for tier '{}' (must be > 0)",
-                    priority, tier_id
-                )
-            }
-            ValidationError::EmptyTier { tier_id } => {
-                write!(f, "Tier '{}' has no recipients", tier_id)
-            }
-            ValidationError::MissingTestReference { test_id, rule_id } => {
-                write!(
-                    f,
-                    "Diversion rule '{}' references missing test '{}'",
-                    rule_id, test_id
-                )
-            }
-            ValidationError::InvalidWeight {
-                tier_id,
-                recipient_id,
-                weight,
-            } => write!(
-                f,
-                "Invalid weight {} for recipient '{}' in tier '{}' (must be >= 0)",
-                weight, recipient_id, tier_id
-            ),
-            ValidationError::InvalidProRataWeights {
-                tier_id,
-                total_weight,
-            } => write!(
-                f,
-                "Pro-rata tier '{}' has invalid total weight {} (must be > 0)",
-                tier_id, total_weight
-            ),
-            ValidationError::CircularDiversion { cycle_path } => {
-                write!(f, "Circular diversion detected: {}", cycle_path)
-            }
-            ValidationError::InvalidDiversionTier { rule_id, tier_id } => {
-                write!(
-                    f,
-                    "Diversion rule '{}' references non-existent tier '{}'",
-                    rule_id, tier_id
-                )
-            }
-        }
-    }
 }
 
 // ============================================================================

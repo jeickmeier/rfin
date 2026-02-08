@@ -28,7 +28,10 @@ pub use crate::market_data::{
     context::MarketContext,
     scalars::MarketScalar,
     surfaces::VolSurface,
-    term_structures::{DiscountCurve, ForwardCurve, HazardCurve, InflationCurve},
+    term_structures::{
+        BaseCorrelationCurve, DiscountCurve, ForwardCurve, HazardCurve, InflationCurve, PriceCurve,
+        VolatilityIndexCurve,
+    },
 };
 
 pub use crate::config::{FinstackConfig, RoundingMode};

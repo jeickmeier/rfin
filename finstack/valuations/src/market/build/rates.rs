@@ -140,7 +140,7 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
 
             let discount_id = ctx
                 .curve_id("discount")
-                .cloned()
+                .map(String::from)
                 .ok_or_else(|| missing_role("discount"))?;
 
             // Use currency string representation
@@ -199,11 +199,11 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
 
             let discount_id = ctx
                 .curve_id("discount")
-                .cloned()
+                .map(String::from)
                 .ok_or_else(|| missing_role("discount"))?;
             let forward_id = ctx
                 .curve_id("forward")
-                .cloned()
+                .map(String::from)
                 .ok_or_else(|| missing_role("forward"))?;
 
             let fra = ForwardRateAgreement::builder()
@@ -254,11 +254,11 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
 
             let discount_id = ctx
                 .curve_id("discount")
-                .cloned()
+                .map(String::from)
                 .ok_or_else(|| missing_role("discount"))?;
             let forward_id = ctx
                 .curve_id("forward")
-                .cloned()
+                .map(String::from)
                 .ok_or_else(|| missing_role("forward"))?;
 
             let contract_specs = FutureContractSpecs {
@@ -316,11 +316,11 @@ pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dy
 
             let discount_id = ctx
                 .curve_id("discount")
-                .cloned()
+                .map(String::from)
                 .ok_or_else(|| missing_role("discount"))?;
             let forward_id = ctx
                 .curve_id("forward")
-                .cloned()
+                .map(String::from)
                 .ok_or_else(|| missing_role("forward"))?;
 
             use crate::instruments::common_impl::parameters::legs::PayReceive;

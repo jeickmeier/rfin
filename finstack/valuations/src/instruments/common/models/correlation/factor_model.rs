@@ -36,9 +36,11 @@ use finstack_core::math::linalg::{
 const CORRELATION_TOLERANCE: f64 = 1e-10;
 
 /// Error types for correlation matrix validation.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, thiserror::Error)]
+#[non_exhaustive]
 pub enum CorrelationMatrixError {
     /// Matrix size does not match expected n×n.
+    #[error("Invalid matrix size: expected {expected}×{expected}={}, got {actual}", expected * expected)]
     InvalidSize {
         /// Expected number of factors (n for n×n matrix).
         expected: usize,
@@ -46,6 +48,7 @@ pub enum CorrelationMatrixError {
         actual: usize,
     },
     /// Diagonal element is not 1.
+    #[error("Diagonal element [{index},{index}] = {value}, expected 1.0")]
     DiagonalNotOne {
         /// Index of the invalid diagonal element.
         index: usize,
@@ -53,6 +56,7 @@ pub enum CorrelationMatrixError {
         value: f64,
     },
     /// Matrix is not symmetric.
+    #[error("Matrix not symmetric: |ρ[{i},{j}] - ρ[{j},{i}]| = {diff}")]
     NotSymmetric {
         /// Row index.
         i: usize,
@@ -62,11 +66,13 @@ pub enum CorrelationMatrixError {
         diff: f64,
     },
     /// Matrix is not positive semi-definite (Cholesky failed).
+    #[error("Matrix not positive semi-definite: Cholesky failed at row {row}")]
     NotPositiveSemiDefinite {
         /// Row where Cholesky decomposition failed.
         row: usize,
     },
     /// Correlation value out of bounds [-1, 1].
+    #[error("Correlation ρ[{i},{j}] = {value} out of bounds [-1, 1]")]
     OutOfBounds {
         /// Row index.
         i: usize,
@@ -76,44 +82,6 @@ pub enum CorrelationMatrixError {
         value: f64,
     },
 }
-
-impl std::fmt::Display for CorrelationMatrixError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::InvalidSize { expected, actual } => {
-                write!(
-                    f,
-                    "Invalid matrix size: expected {0}×{0}={1}, got {actual}",
-                    expected,
-                    expected * expected
-                )
-            }
-            Self::DiagonalNotOne { index, value } => {
-                write!(
-                    f,
-                    "Diagonal element [{index},{index}] = {value}, expected 1.0"
-                )
-            }
-            Self::NotSymmetric { i, j, diff } => {
-                write!(
-                    f,
-                    "Matrix not symmetric: |ρ[{i},{j}] - ρ[{j},{i}]| = {diff}"
-                )
-            }
-            Self::NotPositiveSemiDefinite { row } => {
-                write!(
-                    f,
-                    "Matrix not positive semi-definite: Cholesky failed at row {row}"
-                )
-            }
-            Self::OutOfBounds { i, j, value } => {
-                write!(f, "Correlation ρ[{i},{j}] = {value} out of bounds [-1, 1]")
-            }
-        }
-    }
-}
-
-impl std::error::Error for CorrelationMatrixError {}
 
 /// Validate a correlation matrix for use in factor models.
 ///

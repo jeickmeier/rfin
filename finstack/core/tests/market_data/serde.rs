@@ -197,9 +197,9 @@ fn market_context_state_is_deterministically_sorted_and_roundtrips_full_snapshot
         .recovery_rate(0.4)
         .index_credit_curve(std::sync::Arc::new(hazard.clone()))
         .base_correlation_curve(std::sync::Arc::new(base_corr.clone()))
-        .with_issuer_curves(issuer_curves)
-        .with_issuer_recovery_rates(issuer_recovery)
-        .with_issuer_weights(issuer_weights)
+        .issuer_curves(issuer_curves)
+        .issuer_recovery_rates(issuer_recovery)
+        .issuer_weights(issuer_weights)
         .build()
         .unwrap();
 
@@ -426,7 +426,7 @@ fn market_context_state_roundtrip_hits_more_state_serde_lines() {
         .recovery_rate(0.4)
         .index_credit_curve(Arc::new(haz.clone()))
         .base_correlation_curve(Arc::new(bc.clone()))
-        .with_issuer_curves(issuer_curves)
+        .issuer_curves(issuer_curves)
         .build()
         .unwrap();
 

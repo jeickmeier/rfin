@@ -255,6 +255,7 @@ impl InflationCurve {
     }
 
     /// CPI level at time `t` (years), without indexation lag.
+    #[must_use]
     pub fn cpi(&self, t: f64) -> f64 {
         if t <= 0.0 {
             return self.base_cpi;
@@ -274,6 +275,7 @@ impl InflationCurve {
     /// # Returns
     /// CPI level corresponding to `t - lag`, where lag is the configured
     /// indexation lag in years.
+    #[must_use]
     pub fn cpi_with_lag(&self, t: f64) -> f64 {
         let lag_years = self.indexation_lag_months as f64 / 12.0;
         self.cpi(t - lag_years)
@@ -290,6 +292,7 @@ impl InflationCurve {
     /// This correctly compounds and matches QuantLib/Bloomberg conventions.
     /// For short periods (< 1 year), this equals `(I2/I1)^(1/dt) - 1`
     /// rather than the simple linear approximation `(I2/I1 - 1) / dt`.
+    #[must_use]
     pub fn inflation_rate(&self, t1: f64, t2: f64) -> f64 {
         debug_assert!(t2 > t1);
         let c1 = self.cpi(t1);
@@ -350,6 +353,32 @@ impl InflationCurve {
     #[inline]
     pub fn base_cpi(&self) -> f64 {
         self.base_cpi
+    }
+
+    /// Interpolation style used by this curve.
+    #[inline]
+    pub fn interp_style(&self) -> InterpStyle {
+        self.interp.style()
+    }
+
+    /// Extrapolation policy used by this curve.
+    #[inline]
+    pub fn extrapolation(&self) -> ExtrapolationPolicy {
+        self.interp.extrapolation()
+    }
+
+    /// Number of knot points in the curve.
+    #[inline]
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.knots.len()
+    }
+
+    /// Returns `true` if the curve has no knot points.
+    #[inline]
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.knots.is_empty()
     }
 
     /// Roll the curve forward by a specified number of days.

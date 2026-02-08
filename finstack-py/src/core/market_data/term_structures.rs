@@ -1244,7 +1244,7 @@ impl PyCreditIndexData {
                 .into_iter()
                 .map(|(k, v)| (k, v.inner.clone()))
                 .collect();
-            builder = builder.with_issuer_curves(mapped);
+            builder = builder.issuer_curves(mapped);
         }
 
         let data = builder.build().map_err(core_to_py)?;

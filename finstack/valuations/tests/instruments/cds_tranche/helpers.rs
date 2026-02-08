@@ -126,7 +126,7 @@ pub fn market_context_with_issuers(n: usize) -> MarketContext {
         .recovery_rate(0.40)
         .index_credit_curve(Arc::clone(&index_curve))
         .base_correlation_curve(Arc::new(base_corr_curve))
-        .with_issuer_curves(issuer_curves)
+        .issuer_curves(issuer_curves)
         .build()
         .unwrap();
 

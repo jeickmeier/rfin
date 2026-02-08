@@ -592,7 +592,7 @@ impl JsCreditIndexData {
                 for (id, curve) in ids.into_iter().zip(curves.into_iter()) {
                     map.insert(id, curve.inner());
                 }
-                builder = builder.with_issuer_curves(map);
+                builder = builder.issuer_curves(map);
             }
             (None, None) => {}
             _ => {

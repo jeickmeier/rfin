@@ -372,7 +372,7 @@ where
                     let curve_specific_id =
                         MetricId::custom(format!("bucketed_dv01::{}", curve_id.as_str()));
                     if let Some(series) = context.get_series(&metric_id) {
-                        context.store_bucketed_series(curve_specific_id, series.clone());
+                        context.store_bucketed_series(curve_specific_id, series.to_vec());
                     }
                 }
             }

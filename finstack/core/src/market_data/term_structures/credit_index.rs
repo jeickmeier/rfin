@@ -187,10 +187,16 @@ impl CreditIndexDataBuilder {
         self
     }
 
-    /// Add issuer-specific credit curves for heterogeneous portfolio modeling.
-    pub fn with_issuer_curves(mut self, curves: HashMap<String, Arc<HazardCurve>>) -> Self {
+    /// Set issuer-specific credit curves for heterogeneous portfolio modeling.
+    pub fn issuer_curves(mut self, curves: HashMap<String, Arc<HazardCurve>>) -> Self {
         self.issuer_credit_curves = Some(curves);
         self
+    }
+
+    /// Deprecated alias for [`issuer_curves`](Self::issuer_curves).
+    #[deprecated(since = "0.2.0", note = "Use `issuer_curves()` instead")]
+    pub fn with_issuer_curves(self, curves: HashMap<String, Arc<HazardCurve>>) -> Self {
+        self.issuer_curves(curves)
     }
 
     /// Add a single issuer credit curve.
@@ -208,22 +214,34 @@ impl CreditIndexDataBuilder {
         self
     }
 
-    /// Add issuer-specific recovery rates for heterogeneous portfolio modeling.
+    /// Set issuer-specific recovery rates for heterogeneous portfolio modeling.
     ///
-    /// Keys should match issuer identifiers used in `with_issuer_curves`.
+    /// Keys should match issuer identifiers used in [`issuer_curves`](Self::issuer_curves).
     /// Values are recovery rates as fractions (e.g., 0.40 for 40%).
-    pub fn with_issuer_recovery_rates(mut self, rates: HashMap<String, f64>) -> Self {
+    pub fn issuer_recovery_rates(mut self, rates: HashMap<String, f64>) -> Self {
         self.issuer_recovery_rates = Some(rates);
         self
     }
 
-    /// Add issuer-specific weights for heterogeneous portfolio modeling.
+    /// Deprecated alias for [`issuer_recovery_rates`](Self::issuer_recovery_rates).
+    #[deprecated(since = "0.2.0", note = "Use `issuer_recovery_rates()` instead")]
+    pub fn with_issuer_recovery_rates(self, rates: HashMap<String, f64>) -> Self {
+        self.issuer_recovery_rates(rates)
+    }
+
+    /// Set issuer-specific weights for heterogeneous portfolio modeling.
     ///
-    /// Keys should match issuer identifiers used in `with_issuer_curves`.
+    /// Keys should match issuer identifiers used in [`issuer_curves`](Self::issuer_curves).
     /// Values should sum to 1.0 for proper portfolio weighting.
-    pub fn with_issuer_weights(mut self, weights: HashMap<String, f64>) -> Self {
+    pub fn issuer_weights(mut self, weights: HashMap<String, f64>) -> Self {
         self.issuer_weights = Some(weights);
         self
+    }
+
+    /// Deprecated alias for [`issuer_weights`](Self::issuer_weights).
+    #[deprecated(since = "0.2.0", note = "Use `issuer_weights()` instead")]
+    pub fn with_issuer_weights(self, weights: HashMap<String, f64>) -> Self {
+        self.issuer_weights(weights)
     }
 
     /// Build the credit index data.

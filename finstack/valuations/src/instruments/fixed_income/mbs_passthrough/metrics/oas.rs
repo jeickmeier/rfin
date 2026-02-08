@@ -9,6 +9,7 @@ use crate::instruments::fixed_income::mbs_passthrough::pricer::price_with_spread
 use crate::instruments::fixed_income::mbs_passthrough::AgencyMbsPassthrough;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::Result;
 
 /// OAS calculation result.
@@ -71,133 +72,62 @@ pub fn calculate_oas(
     // Convert market price from percentage to dollar amount
     let market_price = market_price_pct / 100.0 * mbs.current_face.amount();
 
-    // Define objective function: f(spread) = model_price(spread) - market_price
-    let objective = |spread: f64| -> Result<f64> {
-        let model_price = price_with_spread(mbs, market, as_of, spread)?;
-        Ok(model_price - market_price)
+    // Use core's BrentSolver instead of a hand-rolled implementation.
+    // Bracket bounds: -500 bps to +2000 bps covers virtually all OAS scenarios.
+    let solver = BrentSolver::new()
+        .with_tolerance(1e-8)
+        .with_max_iterations(100)
+        .with_bracket_bounds(-0.10, 0.20)
+        .with_initial_bracket_size(Some(0.05));
+
+    // Capture any pricing error from the objective in a RefCell so we can
+    // propagate it after the solver finishes (the Solver trait expects Fn(f64)->f64).
+    let pricing_error: std::cell::RefCell<Option<finstack_core::Error>> =
+        std::cell::RefCell::new(None);
+
+    let objective = |spread: f64| -> f64 {
+        match price_with_spread(mbs, market, as_of, spread) {
+            Ok(model_price) => model_price - market_price,
+            Err(e) => {
+                *pricing_error.borrow_mut() = Some(e);
+                f64::NAN
+            }
+        }
     };
 
-    // Brent's method bounds and parameters
-    let mut lower = -0.05; // -500 bps
-    let mut upper = 0.10; // +1000 bps
-    let tolerance = 1e-8;
-    let max_iterations = 100;
+    // Initial guess at zero spread
+    let result = solver.solve(objective, 0.0);
 
-    // Initial bracket check
-    let f_lower = objective(lower)?;
-    let f_upper = objective(upper)?;
-
-    // If no sign change, try to find better bounds
-    if f_lower * f_upper > 0.0 {
-        // Try wider bounds
-        lower = -0.10;
-        upper = 0.20;
-        let f_lower_wide = objective(lower)?;
-        let f_upper_wide = objective(upper)?;
-
-        if f_lower_wide * f_upper_wide > 0.0 {
-            // Return best guess
-            let mid_spread = 0.0;
-            let model_price_mid = price_with_spread(mbs, market, as_of, mid_spread)?;
-            return Ok(OasResult {
-                oas: mid_spread,
-                model_price: model_price_mid,
-                market_price,
-                price_error: model_price_mid - market_price,
-                iterations: 0,
-                converged: false,
-            });
-        }
+    // Propagate any pricing error that occurred during objective evaluation
+    if let Some(err) = pricing_error.into_inner() {
+        return Err(err);
     }
 
-    // Brent's method implementation
-    let mut a = lower;
-    let mut b = upper;
-    let mut fa = objective(a)?;
-    let mut fb = objective(b)?;
-
-    if fa.abs() < fb.abs() {
-        std::mem::swap(&mut a, &mut b);
-        std::mem::swap(&mut fa, &mut fb);
-    }
-
-    let mut c = a;
-    let mut fc = fa;
-    let mut mflag = true;
-    let mut d = 0.0;
-
-    let mut iterations = 0;
-
-    while iterations < max_iterations {
-        iterations += 1;
-
-        let s = if (fa - fc).abs() > 1e-15 && (fb - fc).abs() > 1e-15 {
-            // Inverse quadratic interpolation
-            let l0 = a * fb * fc / ((fa - fb) * (fa - fc));
-            let l1 = b * fa * fc / ((fb - fa) * (fb - fc));
-            let l2 = c * fa * fb / ((fc - fa) * (fc - fb));
-            l0 + l1 + l2
-        } else {
-            // Secant method
-            b - fb * (b - a) / (fb - fa)
-        };
-
-        // Conditions for bisection
-        let cond1 = !(s > (3.0 * a + b) / 4.0 && s < b || s > b && s < (3.0 * a + b) / 4.0);
-        let cond2 = mflag && (s - b).abs() >= (b - c).abs() / 2.0;
-        let cond3 = !mflag && (s - b).abs() >= (c - d).abs() / 2.0;
-        let cond4 = mflag && (b - c).abs() < tolerance;
-        let cond5 = !mflag && (c - d).abs() < tolerance;
-
-        let s = if cond1 || cond2 || cond3 || cond4 || cond5 {
-            mflag = true;
-            (a + b) / 2.0
-        } else {
-            mflag = false;
-            s
-        };
-
-        let fs = objective(s)?;
-        d = c;
-        c = b;
-        fc = fb;
-
-        if fa * fs < 0.0 {
-            b = s;
-            fb = fs;
-        } else {
-            a = s;
-            fa = fs;
-        }
-
-        if fa.abs() < fb.abs() {
-            std::mem::swap(&mut a, &mut b);
-            std::mem::swap(&mut fa, &mut fb);
-        }
-
-        if fb.abs() < tolerance * market_price || (b - a).abs() < tolerance {
-            let final_price = price_with_spread(mbs, market, as_of, b)?;
-            return Ok(OasResult {
-                oas: b,
+    match result {
+        Ok(oas) => {
+            let final_price = price_with_spread(mbs, market, as_of, oas)?;
+            Ok(OasResult {
+                oas,
                 model_price: final_price,
                 market_price,
                 price_error: final_price - market_price,
-                iterations,
+                iterations: solver.max_iterations as u32,
                 converged: true,
-            });
+            })
+        }
+        Err(_) => {
+            // Solver did not converge — return best-effort result at zero spread
+            let model_price_zero = price_with_spread(mbs, market, as_of, 0.0)?;
+            Ok(OasResult {
+                oas: 0.0,
+                model_price: model_price_zero,
+                market_price,
+                price_error: model_price_zero - market_price,
+                iterations: solver.max_iterations as u32,
+                converged: false,
+            })
         }
     }
-
-    // Return best result even if not fully converged
-    let final_price = price_with_spread(mbs, market, as_of, b)?;
-    Ok(OasResult {
-        oas: b,
-        model_price: final_price,
-        market_price,
-        price_error: final_price - market_price,
-        iterations,
-        converged: false,
-    })
 }
 
 /// Calculate static spread (Z-spread) using simplified discounting.

@@ -398,8 +398,8 @@ impl MetricContext {
     }
 
     /// Retrieves a previously stored 1D bucketed series.
-    pub fn get_series(&self, id: &MetricId) -> Option<&Vec<(String, f64)>> {
-        self.computed_series.get(id)
+    pub fn get_series(&self, id: &MetricId) -> Option<&[(String, f64)]> {
+        self.computed_series.get(id).map(|v| v.as_slice())
     }
 
     /// Retrieves a previously stored 2D structured metric.

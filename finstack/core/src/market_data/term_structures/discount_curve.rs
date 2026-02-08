@@ -259,9 +259,24 @@ impl DiscountCurve {
         self.extrapolation
     }
 
+    /// Number of knot points in the curve.
+    #[inline]
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.knots.len()
+    }
+
+    /// Returns `true` if the curve has no knot points.
+    #[inline]
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.knots.is_empty()
+    }
+
     /// Continuously-compounded zero rate.
     ///
     /// Formula: `r_cc = -ln(DF) / t`
+    #[must_use]
     #[inline]
     pub fn zero(&self, t: f64) -> f64 {
         if t == 0.0 {
@@ -822,6 +837,7 @@ impl DiscountCurve {
     }
 
     /// Discount factor at time `t` (helper calling the underlying interpolator).
+    #[must_use]
     #[inline]
     pub fn df(&self, t: f64) -> f64 {
         self.interp.interp(t)

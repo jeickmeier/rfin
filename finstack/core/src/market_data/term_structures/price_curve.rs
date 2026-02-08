@@ -202,6 +202,7 @@ impl PriceCurve {
     ///
     /// # Returns
     /// The interpolated forward price at time `t`.
+    #[must_use]
     #[inline]
     pub fn price(&self, t: f64) -> f64 {
         if t <= 0.0 {
@@ -231,6 +232,7 @@ impl PriceCurve {
     }
 
     /// Current spot price.
+    #[must_use]
     #[inline]
     pub fn spot_price(&self) -> f64 {
         self.spot_price
@@ -264,6 +266,32 @@ impl PriceCurve {
     #[inline]
     pub fn base_date(&self) -> Date {
         self.base
+    }
+
+    /// Interpolation style used by this curve.
+    #[inline]
+    pub fn interp_style(&self) -> InterpStyle {
+        self.interp.style()
+    }
+
+    /// Extrapolation policy used by this curve.
+    #[inline]
+    pub fn extrapolation_policy(&self) -> ExtrapolationPolicy {
+        self.interp.extrapolation()
+    }
+
+    /// Number of knot points in the curve.
+    #[inline]
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.knots.len()
+    }
+
+    /// Returns `true` if the curve has no knot points.
+    #[inline]
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.knots.is_empty()
     }
 
     /// Create a new curve with a parallel bump applied (additive, in price units).

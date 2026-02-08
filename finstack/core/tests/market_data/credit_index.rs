@@ -39,7 +39,7 @@ fn credit_index_builder_supports_issuer_curves() {
         .recovery_rate(0.35)
         .index_credit_curve(hazard.clone())
         .base_correlation_curve(base_corr.clone())
-        .with_issuer_curves(issuers.clone())
+        .issuer_curves(issuers.clone())
         .build()
         .expect("builder with issuer curves");
 
@@ -254,7 +254,7 @@ fn test_credit_index_issuer_recovery_rates() {
         .recovery_rate(0.40) // Default recovery
         .index_credit_curve(hazard)
         .base_correlation_curve(base_corr)
-        .with_issuer_recovery_rates(recovery_rates)
+        .issuer_recovery_rates(recovery_rates)
         .build()
         .expect("issuer recovery rates should work");
 
@@ -281,7 +281,7 @@ fn test_credit_index_issuer_weights() {
         .recovery_rate(0.40)
         .index_credit_curve(hazard)
         .base_correlation_curve(base_corr)
-        .with_issuer_weights(weights)
+        .issuer_weights(weights)
         .build()
         .expect("issuer weights should work");
 

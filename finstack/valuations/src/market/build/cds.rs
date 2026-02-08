@@ -199,13 +199,13 @@ pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<dyn 
 
     let discount_id = ctx
         .curve_id("discount")
-        .cloned()
+        .map(String::from)
         .ok_or_else(|| missing_role("discount"))?;
 
     // Credit curve ID: usually defaulted to entity name if not mapped
     let credit_id = ctx
         .curve_id("credit")
-        .cloned()
+        .map(String::from)
         .ok_or_else(|| missing_role("credit"))?;
 
     // Calculate upfront amount if present

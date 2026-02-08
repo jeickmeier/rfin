@@ -200,6 +200,7 @@ impl VolatilityIndexCurve {
     ///
     /// # Returns
     /// The interpolated forward index level at time `t`.
+    #[must_use]
     #[inline]
     pub fn forward_level(&self, t: f64) -> f64 {
         if t <= 0.0 {
@@ -229,6 +230,7 @@ impl VolatilityIndexCurve {
     }
 
     /// Current spot level of the volatility index.
+    #[must_use]
     #[inline]
     pub fn spot_level(&self) -> f64 {
         self.spot_level
@@ -262,6 +264,32 @@ impl VolatilityIndexCurve {
     #[inline]
     pub fn base_date(&self) -> Date {
         self.base
+    }
+
+    /// Interpolation style used by this curve.
+    #[inline]
+    pub fn interp_style(&self) -> InterpStyle {
+        self.interp.style()
+    }
+
+    /// Extrapolation policy used by this curve.
+    #[inline]
+    pub fn extrapolation_policy(&self) -> ExtrapolationPolicy {
+        self.interp.extrapolation()
+    }
+
+    /// Number of knot points in the curve.
+    #[inline]
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.knots.len()
+    }
+
+    /// Returns `true` if the curve has no knot points.
+    #[inline]
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.knots.is_empty()
     }
 
     /// Create a new curve with a parallel bump applied (additive, in index points).

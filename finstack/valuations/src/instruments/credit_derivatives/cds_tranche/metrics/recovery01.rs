@@ -42,7 +42,7 @@ impl MetricCalculator for Recovery01Calculator {
             .recovery_rate(bumped_recovery_up)
             .index_credit_curve(original_index.index_credit_curve.clone())
             .base_correlation_curve(original_index.base_correlation_curve.clone())
-            .with_issuer_curves(
+            .issuer_curves(
                 original_index
                     .issuer_credit_curves
                     .clone()
@@ -64,7 +64,7 @@ impl MetricCalculator for Recovery01Calculator {
             .recovery_rate(bumped_recovery_down)
             .index_credit_curve(original_index.index_credit_curve.clone())
             .base_correlation_curve(original_index.base_correlation_curve.clone())
-            .with_issuer_curves(
+            .issuer_curves(
                 original_index
                     .issuer_credit_curves
                     .clone()

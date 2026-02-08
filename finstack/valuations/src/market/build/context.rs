@@ -29,7 +29,7 @@ use finstack_core::HashMap;
 /// curve_ids.insert("forward".to_string(), "USD-SOFR".to_string());
 ///
 /// let ctx = BuildCtx::new(as_of, 1_000_000.0, curve_ids);
-/// assert_eq!(ctx.curve_id("discount"), Some(&"USD-OIS".to_string()));
+/// assert_eq!(ctx.curve_id("discount"), Some("USD-OIS"));
 /// ```
 ///
 /// With default curve fallback:
@@ -138,10 +138,10 @@ impl BuildCtx {
     ///     curve_ids,
     /// );
     ///
-    /// assert_eq!(ctx.curve_id("discount"), Some(&"USD-OIS".to_string()));
+    /// assert_eq!(ctx.curve_id("discount"), Some("USD-OIS"));
     /// assert_eq!(ctx.curve_id("forward"), None);
     /// ```
-    pub fn curve_id(&self, role: &str) -> Option<&String> {
-        self.curve_ids.get(role)
+    pub fn curve_id(&self, role: &str) -> Option<&str> {
+        self.curve_ids.get(role).map(|s| s.as_str())
     }
 }

@@ -180,7 +180,7 @@ impl PyBuildCtx {
 
     #[pyo3(text_signature = "(self, role)")]
     fn curve_id(&self, role: &str) -> Option<String> {
-        self.inner.curve_id(role).cloned()
+        self.inner.curve_id(role).map(String::from)
     }
 
     fn __repr__(&self) -> String {
