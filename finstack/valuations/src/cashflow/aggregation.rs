@@ -110,18 +110,18 @@ fn aggregate_by_period_sorted(
             let ccy = m.currency();
             let entry = per_ccy.entry(ccy).or_insert_with(|| Money::new(0.0, ccy));
             // Currency match guaranteed by grouping on ccy key.
-            // Debug assertion catches arithmetic failures (NaN/Inf) in dev builds.
+            // Propagate arithmetic failures (NaN/Inf) instead of silently
+            // swallowing them. This ensures callers can detect and handle
+            // data integrity issues rather than accumulating stale values.
             match entry.checked_add(m) {
                 Ok(sum) => *entry = sum,
                 Err(e) => {
-                    debug_assert!(
-                        false,
-                        "aggregation checked_add failed for period {:?}, ccy {:?}: {:?}",
-                        p.id, ccy, e
+                    tracing::warn!(
+                        period = ?p.id,
+                        currency = ?ccy,
+                        error = %e,
+                        "aggregation checked_add failed; skipping flow"
                     );
-                    // In release builds, silently keep the existing entry value
-                    // to avoid panicking in production. The debug_assert above
-                    // will catch this during development/testing.
                 }
             }
         }

@@ -45,8 +45,20 @@ pub fn cpr_to_smm(cpr: f64) -> f64 {
     if cpr == 0.0 {
         return 0.0;
     }
-    // Clamp CPR to avoid NaN from negative base with fractional exponent
-    let cpr_clamped = cpr.min(MAX_CPR);
+    // Clamp CPR to avoid NaN from negative base with fractional exponent.
+    // Log a warning when clamping occurs, as this typically indicates a
+    // speed_multiplier that produces unreasonably high CPR/CDR values.
+    let cpr_clamped = if cpr > MAX_CPR {
+        tracing::warn!(
+            cpr = cpr,
+            clamped_to = MAX_CPR,
+            "CPR/CDR exceeds maximum allowed value and was clamped; \
+             check speed_multiplier or input rate"
+        );
+        MAX_CPR
+    } else {
+        cpr
+    };
     1.0 - (1.0 - cpr_clamped).powf(1.0 / 12.0)
 }
 

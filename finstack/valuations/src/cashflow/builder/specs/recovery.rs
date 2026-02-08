@@ -25,4 +25,21 @@ impl RecoveryModelSpec {
             recovery_lag,
         }
     }
+
+    /// Validate the recovery model parameters.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Validation` error if:
+    /// - `rate` is not in `[0.0, 1.0]`
+    /// - `rate` is NaN or infinite
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        if !self.rate.is_finite() || !(0.0..=1.0).contains(&self.rate) {
+            return Err(finstack_core::Error::Validation(format!(
+                "RecoveryModelSpec rate ({}) must be in [0.0, 1.0] and finite",
+                self.rate
+            )));
+        }
+        Ok(())
+    }
 }

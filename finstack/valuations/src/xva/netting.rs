@@ -65,11 +65,12 @@ pub fn apply_netting(instrument_values: &[f64]) -> f64 {
 /// ```text
 /// over_threshold = max(exposure - threshold, 0)
 /// collateral_call = max(over_threshold - MTA, 0)
-/// net_exposure = max(exposure - collateral_call + IA, 0)
+/// net_exposure = max(exposure - collateral_call - IA, 0)
 /// ```
 ///
-/// The independent amount (IA) acts as an additional buffer that
-/// increases the effective collateral requirement.
+/// The independent amount (IA) is additional collateral posted by the
+/// counterparty that further reduces credit exposure beyond the
+/// variation margin collateral call.
 ///
 /// # Arguments
 ///
@@ -103,7 +104,7 @@ pub fn apply_netting(instrument_values: &[f64]) -> f64 {
 pub fn apply_collateral(gross_exposure: f64, csa: &CsaTerms) -> f64 {
     let over_threshold = (gross_exposure - csa.threshold).max(0.0);
     let collateral = (over_threshold - csa.mta).max(0.0);
-    (gross_exposure - collateral + csa.independent_amount).max(0.0)
+    (gross_exposure - collateral - csa.independent_amount).max(0.0)
 }
 
 #[cfg(test)]
@@ -189,11 +190,11 @@ mod tests {
 
     #[test]
     fn collateral_with_independent_amount() {
-        // IA adds to the net exposure (represents additional margin held)
+        // IA reduces the net exposure (additional collateral posted by counterparty)
         let csa = make_csa(10.0, 1.0, 5.0);
         // Exposure = 20, over_threshold = 10, collateral = 9
-        // net = 20 - 9 + 5 = 16
-        assert!((apply_collateral(20.0, &csa) - 16.0).abs() < 1e-12);
+        // net = max(20 - 9 - 5, 0) = 6
+        assert!((apply_collateral(20.0, &csa) - 6.0).abs() < 1e-12);
     }
 
     #[test]
@@ -213,12 +214,23 @@ mod tests {
 
     #[test]
     fn collateral_never_negative() {
-        // Even with large IA on zero exposure, result is non-negative
+        // Even with large IA on zero exposure, result is floored at zero
         let csa = make_csa(0.0, 0.0, 100.0);
         let result = apply_collateral(0.0, &csa);
         assert!(
-            result >= 0.0,
-            "Collateralized exposure must be non-negative"
+            result.abs() < 1e-12,
+            "Collateralized exposure should be zero when IA exceeds exposure, got {result}"
+        );
+    }
+
+    #[test]
+    fn collateral_ia_reduces_to_zero() {
+        // Large IA should reduce exposure to zero (floored)
+        let csa = make_csa(0.0, 0.0, 1000.0);
+        let result = apply_collateral(50.0, &csa);
+        assert!(
+            result.abs() < 1e-12,
+            "Large IA should reduce exposure to zero, got {result}"
         );
     }
 }

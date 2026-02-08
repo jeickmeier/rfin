@@ -77,6 +77,7 @@ pub fn generate_margin_cashflows(
 /// * `spec` - Repo margin specification
 /// * `margin_balances` - Time series of (date, cash_margin_balance) pairs
 /// * `currency` - Currency for cashflows
+/// * `day_count` - Day count convention for interest calculations (from the repo instrument)
 ///
 /// # Returns
 ///
@@ -85,6 +86,7 @@ pub fn generate_margin_interest_cashflows(
     spec: &RepoMarginSpec,
     margin_balances: &[(Date, f64)],
     currency: finstack_core::currency::Currency,
+    day_count: finstack_core::dates::DayCount,
 ) -> Vec<CashFlow> {
     if !spec.pays_margin_interest || spec.margin_interest_rate.is_none() {
         return vec![];
@@ -93,11 +95,17 @@ pub fn generate_margin_interest_cashflows(
     let rate = spec.margin_interest_rate.unwrap_or(0.0);
     let mut cashflows = Vec::new();
 
-    // Calculate interest between consecutive dates
+    // Calculate interest between consecutive dates using the repo's day count convention.
+    // Previously this was hardcoded to Act/360; now it correctly uses the instrument's
+    // configured day count (e.g., Act/365F for GBP repos).
     for window in margin_balances.windows(2) {
         if let [prev, curr] = window {
-            let days = (curr.0 - prev.0).whole_days() as f64;
-            let year_fraction = days / 360.0; // Act/360 convention
+            let year_fraction = day_count
+                .year_fraction(prev.0, curr.0, finstack_core::dates::DayCountCtx::default())
+                .unwrap_or_else(|_| {
+                    // Fallback: use calendar days / 360 if day count calculation fails
+                    (curr.0 - prev.0).whole_days() as f64 / 360.0
+                });
             let interest = prev.1 * rate * year_fraction;
 
             if interest.abs() > 0.01 {
@@ -210,6 +218,8 @@ mod tests {
 
     #[test]
     fn margin_interest_generation() {
+        use finstack_core::dates::DayCount;
+
         let mut spec = RepoMarginSpec::mark_to_market(1.02, 0.01);
         spec.margin_interest_rate = Some(0.05); // 5% annual
 
@@ -218,11 +228,47 @@ mod tests {
             (test_date(2025, 1, 22), 2_000_000.0), // Day 8 (7 days later)
         ];
 
-        let cashflows = generate_margin_interest_cashflows(&spec, &margin_balances, Currency::USD);
+        let cashflows = generate_margin_interest_cashflows(
+            &spec,
+            &margin_balances,
+            Currency::USD,
+            DayCount::Act360,
+        );
 
         // Interest = 2M * 5% * (7/360) ≈ 1944.44
         assert_eq!(cashflows.len(), 1);
         assert_eq!(cashflows[0].kind, CFKind::MarginInterest);
         assert!((cashflows[0].amount.amount() - 1944.44).abs() < 1.0);
+    }
+
+    #[test]
+    fn margin_interest_respects_day_count() {
+        use finstack_core::dates::DayCount;
+
+        let mut spec = RepoMarginSpec::mark_to_market(1.02, 0.01);
+        spec.margin_interest_rate = Some(0.05); // 5% annual
+
+        let margin_balances = vec![
+            (test_date(2025, 1, 15), 2_000_000.0),
+            (test_date(2025, 1, 22), 2_000_000.0), // 7 days later
+        ];
+
+        let cf_360 = generate_margin_interest_cashflows(
+            &spec,
+            &margin_balances,
+            Currency::USD,
+            DayCount::Act360,
+        );
+        let cf_365 = generate_margin_interest_cashflows(
+            &spec,
+            &margin_balances,
+            Currency::USD,
+            DayCount::Act365F,
+        );
+
+        // Act/360 gives higher interest than Act/365F for same period
+        assert!(cf_360[0].amount.amount() > cf_365[0].amount.amount());
+        // Act/365F: 2M * 5% * (7/365) ≈ 1917.81
+        assert!((cf_365[0].amount.amount() - 1917.81).abs() < 1.0);
     }
 }

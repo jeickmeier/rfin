@@ -98,6 +98,8 @@ pub(crate) type FloatSchedule = (
 /// - `base` (`FeeBase`): Notional/cash‑based fee base.
 /// - `bps` (`Decimal`): Annualized basis points applied to the base. Uses Decimal for exact representation.
 /// - `dc` (`DayCount`): Day‑count convention for accrual.
+/// - `freq` (`Tenor`): Payment frequency (needed for Act/Act ISMA day count context).
+/// - `calendar_id` (`String`): Calendar identifier (needed for Bus/252 day count context).
 /// - `dates` (`Vec<Date>`): Inclusive/exclusive boundary dates for accrual periods.
 /// - `prev` (`HashMap<Date, SchedulePeriod>`): Period details keyed by payment date.
 #[derive(Debug, Clone)]
@@ -105,6 +107,8 @@ pub(super) struct PeriodicFee {
     pub(super) base: FeeBase,
     pub(super) bps: Decimal,
     pub(super) dc: DayCount,
+    pub(super) freq: Tenor,
+    pub(super) calendar_id: String,
     pub(super) dates: Vec<Date>,
     pub(super) prev: finstack_core::HashMap<Date, SchedulePeriod>,
 }
@@ -190,6 +194,8 @@ pub(super) fn build_fee_schedules(
                     base: base.clone(),
                     bps: *bps,
                     dc: *dc,
+                    freq: *freq,
+                    calendar_id: calendar_id.clone(),
                     dates,
                     prev,
                 });

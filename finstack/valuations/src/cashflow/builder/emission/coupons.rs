@@ -237,10 +237,34 @@ pub(crate) fn emit_float_coupons_on(
                 spread_bp,
                 gearing,
                 gearing_includes_spread: spec.rate_spec.gearing_includes_spread,
-                index_floor_bp: spec.rate_spec.floor_bp.and_then(|d| d.to_f64()),
-                index_cap_bp: spec.rate_spec.index_cap_bp.and_then(|d| d.to_f64()),
-                all_in_floor_bp: spec.rate_spec.all_in_floor_bp.and_then(|d| d.to_f64()),
-                all_in_cap_bp: spec.rate_spec.cap_bp.and_then(|d| d.to_f64()),
+                index_floor_bp: spec.rate_spec.floor_bp.and_then(|d| {
+                    let v = d.to_f64();
+                    if v.is_none() {
+                        warn!(value = %d, "floor_bp Decimal-to-f64 conversion failed; floor will be ignored");
+                    }
+                    v
+                }),
+                index_cap_bp: spec.rate_spec.index_cap_bp.and_then(|d| {
+                    let v = d.to_f64();
+                    if v.is_none() {
+                        warn!(value = %d, "index_cap_bp Decimal-to-f64 conversion failed; cap will be ignored");
+                    }
+                    v
+                }),
+                all_in_floor_bp: spec.rate_spec.all_in_floor_bp.and_then(|d| {
+                    let v = d.to_f64();
+                    if v.is_none() {
+                        warn!(value = %d, "all_in_floor_bp Decimal-to-f64 conversion failed; floor will be ignored");
+                    }
+                    v
+                }),
+                all_in_cap_bp: spec.rate_spec.cap_bp.and_then(|d| {
+                    let v = d.to_f64();
+                    if v.is_none() {
+                        warn!(value = %d, "cap_bp Decimal-to-f64 conversion failed; cap will be ignored");
+                    }
+                    v
+                }),
             };
 
             // Compute total rate using centralized projection with floor/cap support

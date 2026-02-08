@@ -103,6 +103,12 @@ impl Notional {
                         currency
                     )));
                 }
+                if final_notional.amount() < 0.0 {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "LinearTo final_notional ({}) must be non-negative",
+                        final_notional.amount()
+                    )));
+                }
                 if final_notional.amount() > self.initial.amount() {
                     return Err(finstack_core::Error::Validation(format!(
                         "LinearTo final_notional ({}) cannot exceed initial notional ({})",

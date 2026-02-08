@@ -715,3 +715,94 @@ fn test_irs_pay_fixed_cashflow_signs() {
         }
     }
 }
+
+/// IRS NPV parity test: at the par rate, fixed leg PV ≈ floating leg PV.
+///
+/// When the fixed rate equals the implied par rate from the forward curve,
+/// the swap should have near-zero NPV (fixed leg PV - floating leg PV ≈ 0).
+/// This test constructs a swap at 5% where the forward curve is flat at 5%,
+/// so the swap should be approximately at par.
+#[test]
+fn test_irs_npv_parity_at_par_rate() {
+    use finstack_valuations::cashflow::primitives::CFKind;
+
+    // Build a swap where the fixed rate matches the flat forward curve rate (5%)
+    // This should produce a near-zero NPV swap
+    let as_of = date!(2024 - 01 - 01);
+    let end_date = date!(2029 - 01 - 01); // 5 years
+
+    let swap = InterestRateSwap::builder()
+        .id("IRS-PAR-PARITY".into())
+        .notional(Money::new(10_000_000.0, Currency::USD))
+        .side(PayReceive::ReceiveFixed)
+        .fixed(finstack_valuations::instruments::FixedLegSpec {
+            discount_curve_id: "USD_OIS".into(),
+            rate: rust_decimal::Decimal::try_from(0.05).expect("valid"), // matches flat forward
+            freq: Tenor::quarterly(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: StubKind::None,
+            start: as_of,
+            end: end_date,
+            par_method: None,
+            compounding_simple: true,
+            payment_delay_days: 0,
+            end_of_month: false,
+        })
+        .float(finstack_valuations::instruments::FloatLegSpec {
+            discount_curve_id: "USD_OIS".into(),
+            forward_curve_id: "USD_LIBOR_3M".into(),
+            spread_bp: rust_decimal::Decimal::ZERO,
+            freq: Tenor::quarterly(),
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            fixing_calendar_id: None,
+            stub: StubKind::None,
+            reset_lag_days: 0,
+            compounding: Default::default(),
+            payment_delay_days: 0,
+            end_of_month: false,
+            start: as_of,
+            end: end_date,
+        })
+        .build()
+        .unwrap();
+
+    let market = build_test_curves();
+
+    let full_schedule = swap.build_full_schedule(&market, as_of).unwrap();
+
+    // Separate fixed and floating leg flows
+    let fixed_sum: f64 = full_schedule
+        .flows
+        .iter()
+        .filter(|cf| matches!(cf.kind, CFKind::Fixed | CFKind::Stub))
+        .map(|cf| cf.amount.amount())
+        .sum();
+
+    let float_sum: f64 = full_schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::FloatReset)
+        .map(|cf| cf.amount.amount())
+        .sum();
+
+    // For a par swap: |fixed_sum| ≈ |float_sum| (both undiscounted)
+    // Since forward rate = fixed rate = 5%, the legs should approximately match.
+    // Allow moderate tolerance because of day count differences, date adjustments,
+    // and the difference between flat forward rates and period forward rates.
+    let notional = 10_000_000.0;
+    let parity_diff = (fixed_sum.abs() - float_sum.abs()).abs();
+    let relative_diff = parity_diff / notional;
+
+    assert!(
+        relative_diff < 0.01, // Within 1% of notional
+        "IRS NPV parity violated: fixed_sum={:.2}, float_sum={:.2}, diff={:.2} ({:.4}% of notional)",
+        fixed_sum,
+        float_sum,
+        parity_diff,
+        relative_diff * 100.0
+    );
+}

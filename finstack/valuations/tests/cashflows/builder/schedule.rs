@@ -691,6 +691,148 @@ fn coupon_amount_golden_values() {
     );
 }
 
+// =============================================================================
+// Conservation Invariant Tests
+// =============================================================================
+
+/// Invariant test: cashflow conservation for a par bullet bond.
+///
+/// For a fixed-rate bullet bond, the undiscounted sum of all principal
+/// flows (initial funding + final redemption) should net to zero.
+///
+/// This test verifies that the schedule builder doesn't "leak" or
+/// "manufacture" principal.
+#[test]
+fn cashflow_conservation_bond_principal() {
+    let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
+    let notional_amt = 1_000_000.0;
+
+    let fixed = FixedCouponSpec {
+        coupon_type: CouponType::Cash,
+        rate: Decimal::try_from(0.05).expect("valid"),
+        freq: Tenor::quarterly(),
+        dc: DayCount::Act365F,
+        bdc: BusinessDayConvention::Following,
+        calendar_id: "weekends_only".to_string(),
+        stub: StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
+    };
+
+    let init = Money::new(notional_amt, Currency::USD);
+
+    let mut b = CashFlowSchedule::builder();
+    let _ = b.principal(init, issue, maturity).fixed_cf(fixed);
+    let schedule = b.build_with_curves(None).unwrap();
+
+    // Sum principal-related flows (Notional + Amortization)
+    let principal_sum: f64 = schedule
+        .flows
+        .iter()
+        .filter(|cf| matches!(cf.kind, CFKind::Notional | CFKind::Amortization))
+        .map(|cf| cf.amount.amount())
+        .sum();
+
+    // For a bullet bond: initial funding (-notional) + final principal (+notional) = 0
+    assert!(
+        principal_sum.abs() < financial_tolerance(notional_amt),
+        "Principal conservation violated: sum of principal flows = {} (should be ~0 for bullet)",
+        principal_sum
+    );
+}
+
+/// Invariant test: cashflow conservation for an amortizing bond.
+///
+/// For a linear amortizing bond, the sum of all amortization and notional
+/// flows should net to zero (funding in = principal returned out).
+#[test]
+fn cashflow_conservation_amortizing_bond_principal() {
+    let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2027, Month::January, 15).unwrap();
+    let notional_amt = 1_000_000.0;
+
+    let fixed = FixedCouponSpec {
+        coupon_type: CouponType::Cash,
+        rate: Decimal::try_from(0.04).expect("valid"),
+        freq: Tenor::quarterly(),
+        dc: DayCount::Act365F,
+        bdc: BusinessDayConvention::Following,
+        calendar_id: "weekends_only".to_string(),
+        stub: StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
+    };
+
+    let init = Money::new(notional_amt, Currency::USD);
+    let final_notional = Money::new(0.0, Currency::USD);
+
+    let mut b = CashFlowSchedule::builder();
+    let _ = b
+        .principal(init, issue, maturity)
+        .fixed_cf(fixed)
+        .amortization(AmortizationSpec::LinearTo { final_notional });
+    let schedule = b.build_with_curves(None).unwrap();
+
+    // Sum principal-related flows
+    let principal_sum: f64 = schedule
+        .flows
+        .iter()
+        .filter(|cf| matches!(cf.kind, CFKind::Notional | CFKind::Amortization))
+        .map(|cf| cf.amount.amount())
+        .sum();
+
+    // For amortizing to zero: initial funding + sum(amortization) + final = 0
+    assert!(
+        principal_sum.abs() < financial_tolerance(notional_amt),
+        "Amortizing conservation violated: sum of principal flows = {} (should be ~0)",
+        principal_sum
+    );
+}
+
+/// Invariant test: outstanding balance never goes negative.
+#[test]
+fn outstanding_never_negative() {
+    let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2027, Month::January, 15).unwrap();
+    let notional_amt = 1_000_000.0;
+
+    let fixed = FixedCouponSpec {
+        coupon_type: CouponType::Cash,
+        rate: Decimal::try_from(0.04).expect("valid"),
+        freq: Tenor::quarterly(),
+        dc: DayCount::Act365F,
+        bdc: BusinessDayConvention::Following,
+        calendar_id: "weekends_only".to_string(),
+        stub: StubKind::None,
+        end_of_month: false,
+        payment_lag_days: 0,
+    };
+
+    let init = Money::new(notional_amt, Currency::USD);
+    let final_notional = Money::new(0.0, Currency::USD);
+
+    let mut b = CashFlowSchedule::builder();
+    let _ = b
+        .principal(init, issue, maturity)
+        .fixed_cf(fixed)
+        .amortization(AmortizationSpec::LinearTo { final_notional });
+    let schedule = b.build_with_curves(None).unwrap();
+
+    // Get outstanding path (returns Vec<(Date, Money)>)
+    let outstanding_path = schedule
+        .outstanding_path_per_flow()
+        .expect("outstanding path should succeed");
+    for (i, (_date, balance)) in outstanding_path.iter().enumerate() {
+        assert!(
+            balance.amount() >= -financial_tolerance(notional_amt),
+            "Outstanding balance went negative at flow {}: {}",
+            i,
+            balance.amount()
+        );
+    }
+}
+
 /// Invariant test: PV01 relationship (higher rates = lower NPV)
 #[test]
 fn npv_decreases_with_higher_discount_rate() {

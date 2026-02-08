@@ -133,10 +133,26 @@ pub struct XvaResult {
     /// max_t PFE(t) — used for credit limit monitoring.
     pub max_pfe: f64,
 
-    /// Effective EPE (regulatory metric).
+    /// Effective EPE profile: `(time, Effective_EPE(t))`.
     ///
     /// Non-decreasing version of EPE, per Basel III SA-CCR:
-    /// Effective_EPE(t_k) = max(Effective_EPE(t_{k-1}), EPE(t_k))
+    /// `Effective_EPE(t_k) = max(Effective_EPE(t_{k-1}), EPE(t_k))`
+    ///
+    /// # References
+    ///
+    /// - BCBS 279 (2014). "The standardised approach for measuring
+    ///   counterparty credit risk exposures."
+    pub effective_epe_profile: Vec<(f64, f64)>,
+
+    /// Time-weighted average of Effective EPE (regulatory scalar metric).
+    ///
+    /// Computed as:
+    /// ```text
+    /// Effective_EPE_avg = (1 / min(1, M)) × Σₖ Effective_EPE(tₖ) × Δtₖ
+    /// ```
+    ///
+    /// where `M` is the portfolio maturity and `Δtₖ = tₖ - tₖ₋₁`.
+    /// This is the key input for EAD under SA-CCR.
     ///
     /// # References
     ///
@@ -162,6 +178,68 @@ pub struct ExposureProfile {
 
     /// Expected Negative Exposure at each time point: max(-V(t), 0).
     pub ene: Vec<f64>,
+}
+
+impl ExposureProfile {
+    /// Validate that the exposure profile is internally consistent.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - Any vector lengths are inconsistent
+    /// - Times are not strictly increasing
+    /// - EPE or ENE contain negative or non-finite values
+    /// - MtM values are non-finite
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        let n = self.times.len();
+
+        if self.mtm_values.len() != n || self.epe.len() != n || self.ene.len() != n {
+            return Err(finstack_core::Error::Validation(format!(
+                "ExposureProfile: vector lengths must be equal \
+                 (times={}, mtm={}, epe={}, ene={})",
+                n,
+                self.mtm_values.len(),
+                self.epe.len(),
+                self.ene.len()
+            )));
+        }
+
+        for (i, &t) in self.times.iter().enumerate() {
+            if !t.is_finite() || t <= 0.0 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "ExposureProfile: times[{i}] = {t} must be positive and finite"
+                )));
+            }
+            if i > 0 && t <= self.times[i - 1] {
+                return Err(finstack_core::Error::Validation(format!(
+                    "ExposureProfile: times must be strictly increasing at index {i}"
+                )));
+            }
+        }
+
+        for (i, (&epe_v, &ene_v)) in self.epe.iter().zip(self.ene.iter()).enumerate() {
+            if !epe_v.is_finite() || epe_v < 0.0 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "ExposureProfile: epe[{i}] = {epe_v} must be non-negative and finite"
+                )));
+            }
+            if !ene_v.is_finite() || ene_v < 0.0 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "ExposureProfile: ene[{i}] = {ene_v} must be non-negative and finite"
+                )));
+            }
+        }
+
+        for (i, &mtm) in self.mtm_values.iter().enumerate() {
+            if !mtm.is_finite() {
+                return Err(finstack_core::Error::Validation(format!(
+                    "ExposureProfile: mtm_values[{i}] = {mtm} must be finite"
+                )));
+            }
+        }
+
+        Ok(())
+    }
 }
 
 /// A netting set: collection of trades under a single ISDA master agreement.
@@ -198,8 +276,12 @@ pub struct NettingSet {
 /// ```text
 /// Net exposure = Portfolio MtM - Collateral held
 /// Collateral call = max(MtM - Threshold - MTA, 0)
-/// Effective exposure = max(MtM - Collateral + IA, 0)
+/// Effective exposure = max(MtM - Collateral - IA, 0)
 /// ```
+///
+/// The independent amount (IA) is additional collateral posted by the
+/// counterparty that further reduces the credit exposure beyond
+/// the variation margin collateral call.
 ///
 /// # References
 ///
@@ -223,6 +305,10 @@ pub struct CsaTerms {
     ///
     /// The time needed to close out the portfolio after default.
     /// Regulatory standard: 10 days for bilateral, 5 days for cleared.
+    ///
+    /// **Note**: This field is stored for future MPOR-aware exposure modeling.
+    /// The current deterministic exposure engine does not yet incorporate MPOR
+    /// into collateral dynamics (the gap risk during the close-out period).
     pub mpor_days: u32,
 
     /// Independent amount (initial margin).
@@ -291,5 +377,62 @@ mod tests {
             include_wrong_way_risk: false,
         };
         assert!(config.validate().is_err());
+    }
+
+    // ── ExposureProfile validation tests ─────────────────────────
+
+    #[test]
+    fn profile_validate_valid() {
+        let profile = ExposureProfile {
+            times: vec![0.25, 0.5, 1.0],
+            mtm_values: vec![100.0, -50.0, 25.0],
+            epe: vec![100.0, 0.0, 25.0],
+            ene: vec![0.0, 50.0, 0.0],
+        };
+        profile.validate().expect("Valid profile should pass");
+    }
+
+    #[test]
+    fn profile_validate_rejects_mismatched_lengths() {
+        let profile = ExposureProfile {
+            times: vec![0.25, 0.5],
+            mtm_values: vec![100.0],
+            epe: vec![100.0, 0.0],
+            ene: vec![0.0, 50.0],
+        };
+        assert!(profile.validate().is_err());
+    }
+
+    #[test]
+    fn profile_validate_rejects_negative_epe() {
+        let profile = ExposureProfile {
+            times: vec![0.25],
+            mtm_values: vec![100.0],
+            epe: vec![-1.0],
+            ene: vec![0.0],
+        };
+        assert!(profile.validate().is_err());
+    }
+
+    #[test]
+    fn profile_validate_rejects_nan_mtm() {
+        let profile = ExposureProfile {
+            times: vec![0.25],
+            mtm_values: vec![f64::NAN],
+            epe: vec![0.0],
+            ene: vec![0.0],
+        };
+        assert!(profile.validate().is_err());
+    }
+
+    #[test]
+    fn profile_validate_rejects_non_increasing_times() {
+        let profile = ExposureProfile {
+            times: vec![1.0, 0.5],
+            mtm_values: vec![100.0, 50.0],
+            epe: vec![100.0, 50.0],
+            ene: vec![0.0, 0.0],
+        };
+        assert!(profile.validate().is_err());
     }
 }

@@ -158,7 +158,7 @@ impl Instrument for DiscountedCashFlow {
         MarketDependencies::from_curve_dependencies(self)
     }
 
-    fn value(&self, _market: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
+    fn value(&self, market: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
         // Validate terminal value configuration (Gordon Growth requires WACC > g)
         if let TerminalValueSpec::GordonGrowth { growth_rate } = &self.terminal_value {
             if self.wacc <= *growth_rate {
@@ -169,17 +169,49 @@ impl Instrument for DiscountedCashFlow {
             }
         }
 
-        // For now, use the internal WACC-based calculation with WACC as the discount rate.
-        let pv_explicit = self.calculate_pv_explicit_flows();
-        let terminal_value = self.calculate_terminal_value();
-        let pv_terminal = self.discount_terminal_value(terminal_value);
-        let enterprise_value = pv_explicit + pv_terminal;
-        let equity_value = enterprise_value - self.net_debt;
+        // Try to use the market discount curve for discounting if available.
+        // This allows proper term-structure discounting instead of a flat WACC.
+        // Falls back to WACC-based discounting when the curve is not in the market context.
+        if let Ok(discount_curve) = market.get_discount(&self.discount_curve_id) {
+            let pv_explicit: f64 = self
+                .flows
+                .iter()
+                .map(|(date, amount)| {
+                    let years = self.year_fraction(self.valuation_date, *date);
+                    let df = discount_curve.df(years);
+                    amount * df
+                })
+                .sum();
 
-        Ok(finstack_core::money::Money::new(
-            equity_value,
-            self.currency,
-        ))
+            let terminal_value = self.calculate_terminal_value();
+            let pv_terminal = if let Some((terminal_date, _)) = self.flows.last() {
+                let years = self.year_fraction(self.valuation_date, *terminal_date);
+                let df = discount_curve.df(years);
+                terminal_value * df
+            } else {
+                0.0
+            };
+
+            let enterprise_value = pv_explicit + pv_terminal;
+            let equity_value = enterprise_value - self.net_debt;
+
+            Ok(finstack_core::money::Money::new(
+                equity_value,
+                self.currency,
+            ))
+        } else {
+            // Fallback to WACC-based discounting (flat rate)
+            let pv_explicit = self.calculate_pv_explicit_flows();
+            let terminal_value = self.calculate_terminal_value();
+            let pv_terminal = self.discount_terminal_value(terminal_value);
+            let enterprise_value = pv_explicit + pv_terminal;
+            let equity_value = enterprise_value - self.net_debt;
+
+            Ok(finstack_core::money::Money::new(
+                equity_value,
+                self.currency,
+            ))
+        }
     }
 
     fn price_with_metrics(

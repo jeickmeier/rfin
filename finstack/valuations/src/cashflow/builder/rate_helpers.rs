@@ -551,6 +551,14 @@ pub fn compute_overnight_rate(
             compute_compounded_rate(&locked, total_days, day_count_basis)
         }
         OvernightCompoundingMethod::CompoundedWithObservationShift { shift_days } => {
+            // ISDA 2021 Observation Shift: shifts BOTH rates AND accrual weights.
+            // The observation window is shifted earlier by `shift_days`, so each
+            // compounding factor uses the rate AND the day-weight from the shifted
+            // observation date. This differs from Lookback which only shifts rates.
+            //
+            // The annualization denominator must use the sum of shifted weights
+            // (not the original total_days) to correctly annualize the compounded
+            // product over the actual observation period.
             let shift = shift_days as usize;
             if shift >= daily_rates.len() {
                 if let Some(&(rate, _)) = daily_rates.first() {
@@ -567,7 +575,10 @@ pub fn compute_overnight_rate(
                         daily_rates[source]
                     })
                     .collect();
-                compute_compounded_rate(&shifted, total_days, day_count_basis)
+                // Use the sum of shifted weights as the annualization denominator
+                // to correctly reflect the observation period duration.
+                let shifted_total: u32 = shifted.iter().map(|&(_, d)| d).sum();
+                compute_compounded_rate(&shifted, shifted_total, day_count_basis)
             }
         }
     }

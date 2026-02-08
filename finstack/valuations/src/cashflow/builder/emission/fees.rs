@@ -11,10 +11,16 @@ use rust_decimal::Decimal;
 use super::super::compiler::PeriodicFee;
 use super::super::specs::FeeBase;
 
+/// Conversion factor from basis points to rate (1 bp = 0.0001).
+const BP_TO_RATE: Decimal = Decimal::from_parts(1, 0, 0, false, 4); // 0.0001
+
 /// Internal generic helper for fee emission.
 ///
 /// Creates a single fee cashflow with the specified kind if the computed fee amount
 /// is positive, otherwise returns an empty vector.
+///
+/// Uses `Decimal` arithmetic throughout for consistency with the periodic fee
+/// emission path, avoiding f64 precision differences for large notionals.
 fn emit_fee_generic(
     d: Date,
     base_amount: f64,
@@ -23,7 +29,15 @@ fn emit_fee_generic(
     ccy: Currency,
     kind: CFKind,
 ) -> Vec<CashFlow> {
-    let fee_amt = base_amount * (fee_bp * 1e-4 * year_fraction);
+    // Use Decimal for consistent precision with emit_fees_on
+    let base_dec = Decimal::try_from(base_amount).unwrap_or(Decimal::ZERO);
+    let fee_bp_dec = Decimal::try_from(fee_bp).unwrap_or(Decimal::ZERO);
+    let yf_dec = Decimal::try_from(year_fraction).unwrap_or(Decimal::ZERO);
+
+    let fee_amt_dec = base_dec * fee_bp_dec * BP_TO_RATE * yf_dec;
+    let fee_amt = fee_amt_dec.to_f64().unwrap_or(0.0);
+    let rate = (fee_bp_dec * BP_TO_RATE).to_f64().unwrap_or(0.0);
+
     if fee_amt > 0.0 {
         vec![CashFlow {
             date: d,
@@ -31,7 +45,7 @@ fn emit_fee_generic(
             amount: Money::new(fee_amt, ccy),
             kind,
             accrual_factor: year_fraction,
-            rate: Some(fee_bp * 1e-4),
+            rate: Some(rate),
         }]
     } else {
         vec![]
@@ -157,10 +171,18 @@ pub(in crate::cashflow::builder) fn emit_fees_on(
 
     for pf in periodic_fees {
         if let Some(period) = pf.prev.get(&d) {
+            // Use proper DayCountCtx with calendar and frequency so that
+            // conventions like Bus/252 and Act/Act ISMA compute correctly.
+            let calendar =
+                crate::cashflow::builder::calendar::resolve_calendar_strict(&pf.calendar_id)?;
             let yf = pf.dc.year_fraction(
                 period.accrual_start,
                 period.accrual_end,
-                finstack_core::dates::DayCountCtx::default(),
+                finstack_core::dates::DayCountCtx {
+                    calendar: Some(calendar),
+                    frequency: Some(pf.freq),
+                    bus_basis: None,
+                },
             )?;
             let base_amt = match &pf.base {
                 FeeBase::Drawn => outstanding,

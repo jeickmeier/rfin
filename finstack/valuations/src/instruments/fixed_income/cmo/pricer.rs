@@ -74,8 +74,10 @@ pub fn generate_tranche_cashflows(
         let total_interest = cf.interest;
 
         if is_io {
-            // IO gets interest based on collateral factor
-            let factor = cf.ending_balance / original_collateral;
+            // IO gets interest based on collateral factor.
+            // Use beginning_balance (not ending_balance) because interest accrues
+            // on the balance at the start of the period, before principal payments.
+            let factor = cf.beginning_balance / original_collateral;
             // We validated ref_id exists at function start, so this should always succeed
             if let Some(io_tranche) = waterfall.get_tranche(ref_id) {
                 let io_payment = allocate_io_cashflow(io_tranche, factor);
